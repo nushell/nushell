@@ -34,14 +34,9 @@ impl NuCompleter {
 
         // See if we're a flag
         if pos > 0 && replace_pos < line_chars.len() && line_chars[replace_pos] == '-' {
-            if let Ok(lite_pipeline) = nu_parser::lite_parse(line, 0) {
-                completions = self.get_matching_arguments(
-                    &lite_pipeline,
-                    &line_chars,
-                    line,
-                    replace_pos,
-                    pos,
-                );
+            if let Ok(lite_block) = nu_parser::lite_parse(line, 0) {
+                completions =
+                    self.get_matching_arguments(&lite_block, &line_chars, line, replace_pos, pos);
             } else {
                 completions = self.file_completer.complete(line, pos, context)?.1;
             }
@@ -96,7 +91,7 @@ impl NuCompleter {
 
     fn get_matching_arguments(
         &self,
-        lite_parse: &nu_parser::LitePipeline,
+        lite_block: &nu_parser::LiteBlock,
         line_chars: &[char],
         line: &str,
         replace_pos: usize,
@@ -109,23 +104,25 @@ impl NuCompleter {
         let replace_string = (replace_pos..pos).map(|_| " ").collect::<String>();
         line_copy.replace_range(replace_pos..pos, &replace_string);
 
-        let result = nu_parser::classify_pipeline(&lite_parse, &self.commands);
+        let result = nu_parser::classify_block(&lite_block, &self.commands);
 
-        for command in result.commands.list {
-            if let nu_protocol::hir::ClassifiedCommand::Internal(
-                nu_protocol::hir::InternalCommand { args, .. },
-            ) = command
-            {
-                if replace_pos >= args.span.start() && replace_pos <= args.span.end() {
-                    if let Some(named) = args.named {
-                        for (name, _) in named.iter() {
-                            let full_flag = format!("--{}", name);
+        for pipeline in &result.block.block {
+            for command in &pipeline.list {
+                if let nu_protocol::hir::ClassifiedCommand::Internal(
+                    nu_protocol::hir::InternalCommand { args, .. },
+                ) = command
+                {
+                    if replace_pos >= args.span.start() && replace_pos <= args.span.end() {
+                        if let Some(named) = &args.named {
+                            for (name, _) in named.iter() {
+                                let full_flag = format!("--{}", name);
 
-                            if full_flag.starts_with(&substring) {
-                                matching_arguments.push(rustyline::completion::Pair {
-                                    display: full_flag.clone(),
-                                    replacement: full_flag,
-                                });
+                                if full_flag.starts_with(&substring) {
+                                    matching_arguments.push(rustyline::completion::Pair {
+                                        display: full_flag.clone(),
+                                        replacement: full_flag,
+                                    });
+                                }
                             }
                         }
                     }

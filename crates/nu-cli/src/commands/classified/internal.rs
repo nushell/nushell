@@ -125,12 +125,12 @@ pub(crate) fn run_internal_command(
                             FilesystemShell::with_location(location, context.registry().clone()),
                         ));
                     }
-                    CommandAction::AddAlias(name, args, commands) => {
+                    CommandAction::AddAlias(name, args, block) => {
                         context.add_commands(vec![
                             per_item_command(AliasCommand::new(
                                 name,
                                 args,
-                                commands,
+                                block,
                             ))
                         ]);
                     }

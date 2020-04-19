@@ -44,16 +44,27 @@ impl InternalCommand {
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
-pub struct ClassifiedPipeline {
-    pub commands: Commands,
+pub struct ClassifiedBlock {
+    pub block: Block,
     // this is not a Result to make it crystal clear that these shapes
     // aren't intended to be used directly with `?`
     pub failed: Option<ParseError>,
 }
 
+impl ClassifiedBlock {
+    pub fn new(block: Block, failed: Option<ParseError>) -> ClassifiedBlock {
+        ClassifiedBlock { block, failed }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
+pub struct ClassifiedPipeline {
+    pub commands: Commands,
+}
+
 impl ClassifiedPipeline {
-    pub fn new(commands: Commands, failed: Option<ParseError>) -> ClassifiedPipeline {
-        ClassifiedPipeline { commands, failed }
+    pub fn new(commands: Commands) -> ClassifiedPipeline {
+        ClassifiedPipeline { commands }
     }
 }
 
@@ -80,6 +91,25 @@ impl Commands {
 
     pub fn push(&mut self, command: ClassifiedCommand) {
         self.list.push(command);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
+pub struct Block {
+    pub block: Vec<Commands>,
+    pub span: Span,
+}
+
+impl Block {
+    pub fn new(span: Span) -> Block {
+        Block {
+            block: vec![],
+            span,
+        }
+    }
+
+    pub fn push(&mut self, commands: Commands) {
+        self.block.push(commands);
     }
 }
 
@@ -766,7 +796,7 @@ pub enum Expression {
     Variable(Variable),
     Binary(Box<Binary>),
     Range(Box<Range>),
-    Block(hir::Commands),
+    Block(hir::Block),
     List(Vec<SpannedExpression>),
     Path(Box<Path>),
 

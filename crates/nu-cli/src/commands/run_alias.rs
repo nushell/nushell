@@ -1,18 +1,15 @@
-use crate::commands::classified::pipeline::run_pipeline;
+use crate::commands::classified::block::run_block;
 use crate::prelude::*;
 
 use derive_new::new;
 use nu_errors::ShellError;
-use nu_protocol::{
-    hir::ClassifiedPipeline, hir::Commands, CallInfo, ReturnSuccess, Scope, Signature, SyntaxShape,
-    Value,
-};
+use nu_protocol::{hir::Block, CallInfo, ReturnSuccess, Scope, Signature, SyntaxShape, Value};
 
 #[derive(new)]
 pub struct AliasCommand {
     name: String,
     args: Vec<String>,
-    block: Commands,
+    block: Block,
 }
 
 impl PerItemCommand for AliasCommand {
@@ -60,8 +57,8 @@ impl PerItemCommand for AliasCommand {
                 yield Ok(input.clone())
             }.to_input_stream();
 
-            let result = run_pipeline(
-                ClassifiedPipeline::new(block.clone(), None),
+            let result = run_block(
+                &block,
                 &mut context,
                 Some(input_stream),
                 &scope

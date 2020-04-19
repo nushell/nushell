@@ -29,9 +29,14 @@ impl LiteCommand {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LitePipeline {
     pub commands: Vec<LiteCommand>,
+}
+
+#[derive(Debug, Clone)]
+pub struct LiteBlock {
+    pub block: Vec<LitePipeline>,
 }
 
 fn skip_whitespace(src: &mut Input) {
@@ -148,7 +153,8 @@ fn command(src: &mut Input, span_offset: usize) -> Result<LiteCommand, ParseErro
     }
 }
 
-fn pipeline(src: &mut Input, span_offset: usize) -> Result<LitePipeline, ParseError> {
+fn pipeline(src: &mut Input, span_offset: usize) -> Result<LiteBlock, ParseError> {
+    let mut block = vec![];
     let mut commands = vec![];
 
     skip_whitespace(src);
@@ -167,6 +173,10 @@ fn pipeline(src: &mut Input, span_offset: usize) -> Result<LitePipeline, ParseEr
             if let Some((_, c)) = src.peek() {
                 // The first character tells us a lot about each argument
                 match c {
+                    ';' => {
+                        // this is the end of the command and the end of the pipeline
+                        break;
+                    }
                     '|' => {
                         let _ = src.next();
                         if let Some((pos, next_c)) = src.peek() {
@@ -202,21 +212,35 @@ fn pipeline(src: &mut Input, span_offset: usize) -> Result<LitePipeline, ParseEr
         }
         commands.push(cmd);
         skip_whitespace(src);
+
+        if let Some((_, ';')) = src.peek() {
+            let _ = src.next();
+
+            if !commands.is_empty() {
+                block.push(LitePipeline { commands });
+                commands = vec![];
+            }
+        }
     }
 
-    Ok(LitePipeline { commands })
+    if !commands.is_empty() {
+        block.push(LitePipeline { commands });
+    }
+
+    Ok(LiteBlock { block })
 }
 
-pub fn lite_parse(src: &str, span_offset: usize) -> Result<LitePipeline, ParseError> {
+pub fn lite_parse(src: &str, span_offset: usize) -> Result<LiteBlock, ParseError> {
     pipeline(&mut src.char_indices().peekable(), span_offset)
 }
 
 #[test]
 fn lite_simple_1() -> Result<(), ParseError> {
     let result = lite_parse("foo", 0)?;
-    assert_eq!(result.commands.len(), 1);
-    assert_eq!(result.commands[0].name.span.start(), 0);
-    assert_eq!(result.commands[0].name.span.end(), 3);
+    assert_eq!(result.block.len(), 1);
+    assert_eq!(result.block[0].commands.len(), 1);
+    assert_eq!(result.block[0].commands[0].name.span.start(), 0);
+    assert_eq!(result.block[0].commands[0].name.span.end(), 3);
 
     Ok(())
 }
@@ -224,9 +248,10 @@ fn lite_simple_1() -> Result<(), ParseError> {
 #[test]
 fn lite_simple_offset() -> Result<(), ParseError> {
     let result = lite_parse("foo", 10)?;
-    assert_eq!(result.commands.len(), 1);
-    assert_eq!(result.commands[0].name.span.start(), 10);
-    assert_eq!(result.commands[0].name.span.end(), 13);
+    assert_eq!(result.block.len(), 1);
+    assert_eq!(result.block[0].commands.len(), 1);
+    assert_eq!(result.block[0].commands[0].name.span.start(), 10);
+    assert_eq!(result.block[0].commands[0].name.span.end(), 13);
 
     Ok(())
 }

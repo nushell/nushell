@@ -228,7 +228,7 @@ pub fn insert_data_at_path(value: &Value, path: &str, new_value: Value) -> Optio
                         if let UntaggedValue::Row(o) = &mut next.value {
                             o.entries.insert(
                                 split_path[idx + 1].to_string(),
-                                new_value.value.clone().into_value(&value.tag),
+                                new_value.value.into_value(&value.tag),
                             );
                         }
                         return Some(new_obj.clone());

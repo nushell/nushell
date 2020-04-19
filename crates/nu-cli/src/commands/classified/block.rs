@@ -4,16 +4,34 @@ use crate::commands::classified::internal::run_internal_command;
 use crate::context::Context;
 use crate::stream::InputStream;
 use nu_errors::ShellError;
-use nu_protocol::hir::{ClassifiedCommand, ClassifiedPipeline};
+use nu_protocol::hir::{Block, ClassifiedCommand, Commands};
 use nu_protocol::Scope;
 
-pub(crate) async fn run_pipeline(
-    pipeline: ClassifiedPipeline,
+pub(crate) async fn run_block(
+    block: &Block,
     ctx: &mut Context,
     mut input: Option<InputStream>,
     scope: &Scope,
 ) -> Result<Option<InputStream>, ShellError> {
-    let mut iter = pipeline.commands.list.into_iter().peekable();
+    let mut output = Ok(None);
+    for pipeline in &block.block {
+        output = Ok(run_pipeline(pipeline, ctx, input, scope).await?);
+        if !ctx.get_errors().is_empty() {
+            break;
+        }
+        input = None;
+    }
+
+    output
+}
+
+async fn run_pipeline(
+    commands: &Commands,
+    ctx: &mut Context,
+    mut input: Option<InputStream>,
+    scope: &Scope,
+) -> Result<Option<InputStream>, ShellError> {
+    let mut iter = commands.list.clone().into_iter().peekable();
 
     loop {
         let item: Option<ClassifiedCommand> = iter.next();

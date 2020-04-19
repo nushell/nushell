@@ -1,13 +1,10 @@
-use crate::commands::classified::pipeline::run_pipeline;
+use crate::commands::classified::block::run_block;
 
 use crate::commands::PerItemCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{
-    hir::ClassifiedPipeline, CallInfo, ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue,
-    Value,
-};
+use nu_protocol::{CallInfo, ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue, Value};
 
 pub struct Each;
 
@@ -50,8 +47,8 @@ impl PerItemCommand for Each {
                         yield Ok(input.clone())
                     }.to_input_stream();
 
-                    let result = run_pipeline(
-                        ClassifiedPipeline::new(block.clone(), None),
+                    let result = run_block(
+                        block,
                         &mut context,
                         Some(input_stream),
                         &Scope::new(input_clone),

@@ -61,15 +61,15 @@ impl Highlighter for Helper {
     }
 
     fn highlight<'l>(&self, line: &'l str, _pos: usize) -> Cow<'l, str> {
-        let lite_pipeline = nu_parser::lite_parse(line, 0);
+        let lite_block = nu_parser::lite_parse(line, 0);
 
-        match lite_pipeline {
+        match lite_block {
             Err(_) => Cow::Borrowed(line),
-            Ok(lp) => {
+            Ok(lb) => {
                 let classified =
-                    nu_parser::classify_pipeline(&lp, &self.context.registry().clone_box());
+                    nu_parser::classify_block(&lb, &self.context.registry().clone_box());
 
-                let shapes = nu_parser::shapes(&classified.commands);
+                let shapes = nu_parser::shapes(&classified.block);
                 let mut painter = Painter::new(line);
 
                 for shape in shapes {
