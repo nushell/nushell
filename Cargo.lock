@@ -1459,9 +1459,9 @@ dependencies = [
 
 [[package]]
 name = "ichwh"
-version = "0.3.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "710eee656faf1879c4af26a1b281147586b6f3327191e2b1e54e2dc10bf1142b"
+checksum = "ada08ff7272ae34697d0463565b7ad6831bff3a99329fc6c04839666ef5cd328"
 dependencies = [
  "async-std",
  "cfg-if",
