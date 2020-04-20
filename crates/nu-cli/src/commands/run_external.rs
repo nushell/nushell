@@ -91,11 +91,11 @@ impl WholeStreamCommand for RunExternalCommand {
                 current_errors: Arc::new(Mutex::new(vec![])),
             };
         }
+        let scope = args.call_info.scope.clone();
 
         let is_last = args.call_info.args.is_last;
         let input = args.input;
         let stream = async_stream! {
-            let scope = Scope::empty();
             let result = external::run_external_command(
                 command,
                 &mut external_context,

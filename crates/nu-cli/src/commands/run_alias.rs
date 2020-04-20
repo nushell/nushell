@@ -84,7 +84,11 @@ impl PerItemCommand for AliasCommand {
                     }
                 }
                 Err(e) => {
-                    yield Err(e);
+                    yield Err(ShellError::labeled_error(
+                        "Alias did not run successfully",
+                        "alias failed to run",
+                        tag,
+                    ));
                 }
             }
         };

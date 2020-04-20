@@ -143,7 +143,7 @@ fn run_with_iterator_arg(
             let scope = scope.clone().set_it(value);
             for arg in command.args.iter() {
                 let value = evaluate_baseline_expr(arg, &context.registry, &scope)?;
-                command_args.push(value.as_string()?);
+                command_args.push(nu_value_to_string(&name_tag, &value)?);
             }
 
             let process_args = command_args
