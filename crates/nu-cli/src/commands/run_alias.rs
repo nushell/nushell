@@ -24,7 +24,7 @@ impl PerItemCommand for AliasCommand {
         let mut alias = Signature::build(&self.name);
 
         for arg in &self.args {
-            alias = alias.required(arg, SyntaxShape::Any, "");
+            alias = alias.optional(arg, SyntaxShape::Any, "");
         }
 
         alias
