@@ -249,6 +249,9 @@ impl Value {
         match &self.value {
             UntaggedValue::Primitive(Primitive::String(string)) => Ok(string.clone()),
             UntaggedValue::Primitive(Primitive::Line(line)) => Ok(line.clone() + "\n"),
+            UntaggedValue::Primitive(Primitive::Path(path)) => {
+                Ok(path.to_string_lossy().to_string())
+            }
             _ => Err(ShellError::type_error("string", self.spanned_type_name())),
         }
     }

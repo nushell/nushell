@@ -21,7 +21,7 @@ fn spanned_expression_to_string(expr: SpannedExpression) -> String {
         ..
     } = expr
     {
-        s.clone()
+        s
     } else {
         "notacommand!!!".to_string()
     }
@@ -49,7 +49,7 @@ impl WholeStreamCommand for RunExternalCommand {
             ShellError::untagged_runtime_error("positional arguments unexpectedly empty")
         })?;
 
-        let positionals = positionals.into_iter();
+        let mut positionals = positionals.into_iter();
 
         let name = positionals
             .next()

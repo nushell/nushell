@@ -1,3 +1,4 @@
+use crate::evaluate::evaluate_baseline_expr;
 use crate::futures::ThreadedReceiver;
 use crate::prelude::*;
 
@@ -99,7 +100,7 @@ pub(crate) async fn run_external_command(
     command: ExternalCommand,
     context: &mut Context,
     input: InputStream,
-    _scope: &Scope,
+    scope: &Scope,
     is_last: bool,
 ) -> Result<InputStream, ShellError> {
     trace!(target: "nu::run::external", "-> {}", command.name);
@@ -113,62 +114,17 @@ pub(crate) async fn run_external_command(
     }
 
     if command.has_it_argument() {
-        run_with_iterator_arg(command, context, input, is_last)
+        run_with_iterator_arg(command, context, input, scope, is_last)
     } else {
-        run_with_stdin(command, context, input, is_last)
+        run_with_stdin(command, context, input, scope, is_last)
     }
 }
-
-// fn prepare_column_path_for_fetching_it_variable(
-//     argument: &ExternalArg,
-// ) -> Result<Tagged<ColumnPath>, ShellError> {
-//     // We have "$it.[contents of interest]"
-//     // and start slicing from "$it.[member+]"
-//     //                             ^ here.
-//     let key = nu_source::Text::from(argument.deref()).slice(4..argument.len());
-
-//     to_column_path(&key, &argument.tag)
-// }
-
-// fn prepare_column_path_for_fetching_nu_variable(
-//     argument: &ExternalArg,
-// ) -> Result<Tagged<ColumnPath>, ShellError> {
-//     // We have "$nu.[contents of interest]"
-//     // and start slicing from "$nu.[member+]"
-//     //                             ^ here.
-//     let key = nu_source::Text::from(argument.deref()).slice(4..argument.len());
-
-//     to_column_path(&key, &argument.tag)
-// }
-
-// fn to_column_path(
-//     path_members: &str,
-//     tag: impl Into<Tag>,
-// ) -> Result<Tagged<ColumnPath>, ShellError> {
-//     let tag = tag.into();
-
-//     as_column_path(
-//         &UntaggedValue::Table(
-//             path_members
-//                 .split('.')
-//                 .map(|x| {
-//                     let member = match x.parse::<u64>() {
-//                         Ok(v) => UntaggedValue::int(v),
-//                         Err(_) => UntaggedValue::string(x),
-//                     };
-
-//                     member.into_value(&tag)
-//                 })
-//                 .collect(),
-//         )
-//         .into_value(&tag),
-//     )
-// }
 
 fn run_with_iterator_arg(
     command: ExternalCommand,
     context: &mut Context,
     input: InputStream,
+    scope: &Scope,
     is_last: bool,
 ) -> Result<InputStream, ShellError> {
     let path = context.shell_manager.path();
@@ -176,8 +132,48 @@ fn run_with_iterator_arg(
     let mut inputs: InputStream =
         trace_stream!(target: "nu::trace_stream::external::it", "input" = input);
 
+    let name_tag = command.name_tag.clone();
+    let scope = scope.clone();
+    let context = context.clone();
+
     let stream = async_stream! {
         while let Some(value) = inputs.next().await {
+            // Evaluate the expressions into values, and from values into strings for each iteration
+            let mut command_args = vec![];
+            let scope = scope.clone().set_it(value);
+            for arg in command.args.iter() {
+                let value = evaluate_baseline_expr(arg, &context.registry, &scope)?;
+                command_args.push(value.as_string()?);
+            }
+
+            let process_args = command_args
+            .iter()
+            .map(|arg| {
+                let arg = expand_tilde(arg.deref(), dirs::home_dir);
+
+                #[cfg(not(windows))]
+                {
+                    if argument_contains_whitespace(&arg) && argument_is_quoted(&arg) {
+                        if let Some(unquoted) = remove_quotes(&arg) {
+                            format!(r#""{}""#, unquoted)
+                        } else {
+                            arg.as_ref().to_string()
+                        }
+                    } else {
+                        arg.as_ref().to_string()
+                    }
+                }
+                #[cfg(windows)]
+                {
+                    if let Some(unquoted) = remove_quotes(&arg) {
+                        unquoted.to_string()
+                    } else {
+                        arg.as_ref().to_string()
+                    }
+                }
+            })
+            .collect::<Vec<String>>();
+
             match spawn(&command, &path, &process_args[..], InputStream::empty(), is_last) {
                 Ok(mut res) => {
                     while let Some(item) = res.next().await {
@@ -202,14 +198,20 @@ fn run_with_stdin(
     command: ExternalCommand,
     context: &mut Context,
     input: InputStream,
+    scope: &Scope,
     is_last: bool,
 ) -> Result<InputStream, ShellError> {
     let path = context.shell_manager.path();
 
     let input = trace_stream!(target: "nu::trace_stream::external::stdin", "input" = input);
 
-    let process_args = command
-        .args
+    let mut command_args = vec![];
+    for arg in command.args.iter() {
+        let value = evaluate_baseline_expr(arg, &context.registry, scope)?;
+        command_args.push(value.as_string()?);
+    }
+
+    let process_args = command_args
         .iter()
         .map(|arg| {
             let arg = expand_tilde(arg.deref(), dirs::home_dir);
