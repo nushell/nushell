@@ -37,7 +37,7 @@ pub fn count(
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
-        let rows: Vec<Value> = input.values.collect().await;
+        let rows: Vec<Value> = input.collect().await;
 
         yield ReturnSuccess::value(UntaggedValue::int(rows.len()).into_value(name))
     };

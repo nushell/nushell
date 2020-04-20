@@ -197,7 +197,6 @@ pub fn get(
         let member = fields.remove(0);
         trace!("get {:?} {:?}", member, fields);
         let stream = input
-            .values
             .map(move |item| {
                 let mut result = VecDeque::new();
 

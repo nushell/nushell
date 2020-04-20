@@ -30,7 +30,6 @@ impl WholeStreamCommand for Tags {
 fn tags(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     Ok(args
         .input
-        .values
         .map(move |v| {
             let mut tags = TaggedDictBuilder::new(v.tag());
             {

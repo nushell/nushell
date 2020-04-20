@@ -10,7 +10,7 @@ use crate::prelude::*;
 use futures_codec::FramedRead;
 
 use nu_errors::ShellError;
-use nu_protocol::hir::{ClassifiedCommand, ExternalCommand};
+use nu_protocol::hir::{ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments};
 use nu_protocol::{Primitive, ReturnSuccess, Scope, Signature, UntaggedValue, Value};
 
 use log::{debug, trace};
@@ -344,6 +344,8 @@ pub fn create_default_context(
             whole_stream_command(FromYML),
             whole_stream_command(FromIcs),
             whole_stream_command(FromVcf),
+            // "Private" commands (not intended to be accessed directly)
+            whole_stream_command(RunExternalCommand),
         ]);
 
         cfg_if::cfg_if! {
@@ -724,14 +726,39 @@ async fn process_line(
             // ...and we're in the CLI
             // ...then change to this directory
             if cli_mode && pipeline.commands.list.len() == 1 {
-                if let ClassifiedCommand::External(ExternalCommand {
+                if let ClassifiedCommand::Internal(InternalCommand {
                     ref name, ref args, ..
                 }) = pipeline.commands.list[0]
                 {
-                    if dunce::canonicalize(&name).is_ok()
+                    let internal_name = name;
+                    let name = args
+                        .positional
+                        .as_ref()
+                        .and_then(|potionals| {
+                            potionals.get(0).map(|e| {
+                                if let Expression::Literal(Literal::String(ref s)) = e.expr {
+                                    &s
+                                } else {
+                                    ""
+                                }
+                            })
+                        })
+                        .unwrap_or("");
+
+                    if internal_name == "run_external"
+                        && args
+                            .positional
+                            .as_ref()
+                            .map(|ref v| v.len() == 1)
+                            .unwrap_or(true)
+                        && args
+                            .named
+                            .as_ref()
+                            .map(NamedArguments::is_empty)
+                            .unwrap_or(true)
+                        && dunce::canonicalize(&name).is_ok()
                         && PathBuf::from(&name).is_dir()
                         && ichwh::which(&name).await.unwrap_or(None).is_none()
-                        && args.list.is_empty()
                     {
                         // Here we work differently if we're in Windows because of the expected Windows behavior
                         #[cfg(windows)]
@@ -773,6 +800,7 @@ async fn process_line(
                     }
                 }
             }
+
             let input_stream = if redirect_stdin {
                 let file = futures::io::AllowStdIo::new(std::io::stdin());
                 let stream = FramedRead::new(file, MaybeTextCodec).map(|line| {
@@ -793,13 +821,13 @@ async fn process_line(
                         panic!("Internal error: could not read lines of text from stdin")
                     }
                 });
-                Some(stream.to_input_stream())
+                stream.to_input_stream()
             } else {
-                None
+                InputStream::empty()
             };
 
             match run_pipeline(pipeline, ctx, input_stream, &Scope::empty()).await {
-                Ok(Some(input)) => {
+                Ok(input) => {
                     // Running a pipeline gives us back a stream that we can then
                     // work through. At the top level, we just want to pull on the
                     // values to compute them.
@@ -810,7 +838,7 @@ async fn process_line(
                         shell_manager: ctx.shell_manager.clone(),
                         host: ctx.host.clone(),
                         ctrl_c: ctx.ctrl_c.clone(),
-                        commands: ctx.registry.clone(),
+                        registry: ctx.registry.clone(),
                         name: Tag::unknown(),
                     };
 
@@ -834,7 +862,6 @@ async fn process_line(
 
                     LineResult::Success(line.to_string())
                 }
-                Ok(None) => LineResult::Success(line.to_string()),
                 Err(err) => LineResult::Error(line.to_string(), err),
             }
         }

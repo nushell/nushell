@@ -1,8 +1,10 @@
 use crate::commands::classified::pipeline::run_pipeline;
-
 use crate::commands::PerItemCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
+
+use futures::stream::once;
+
 use nu_errors::ShellError;
 use nu_protocol::{
     hir::ClassifiedPipeline, CallInfo, ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue,
@@ -46,36 +48,33 @@ impl PerItemCommand for Each {
                 } => {
                     let mut context = Context::from_raw(&raw_args, &registry);
                     let input_clone = input.clone();
-                    let input_stream = async_stream! {
-                        yield Ok(input.clone())
-                    }.to_input_stream();
+                    let input_stream = once(async { Ok(input) }).to_input_stream();
 
                     let result = run_pipeline(
                         ClassifiedPipeline::new(block.clone(), None),
                         &mut context,
-                        Some(input_stream),
+                        input_stream,
                         &Scope::new(input_clone),
                     ).await;
 
                     match result {
-                        Ok(Some(v)) => {
-                            let results: Vec<Value> = v.collect().await;
+                        Ok(stream) if stream.is_empty() => {
+                            yield Err(ShellError::labeled_error(
+                                "Expected a block",
+                                "each needs a block",
+                                tag,
+                            ));
+                        }
+                        Ok(mut stream) => {
                             let errors = context.get_errors();
                             if let Some(error) = errors.first() {
                                 yield Err(error.clone());
                                 return;
                             }
 
-                            for result in results {
+                            while let Some(result) = stream.next().await {
                                 yield Ok(ReturnSuccess::Value(result));
                             }
-                        }
-                        Ok(None) => {
-                            yield Err(ShellError::labeled_error(
-                                "Expected a block",
-                                "each needs a block",
-                                tag,
-                            ));
                         }
                         Err(e) => {
                             yield Err(e);

@@ -136,7 +136,7 @@ fn to_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
     let name_tag = args.name_tag();
     let name_span = name_tag.span;
     let stream = async_stream! {
-        let input: Vec<Value> = args.input.values.collect().await;
+        let input: Vec<Value> = args.input.collect().await;
 
         let to_process_input = if input.len() > 1 {
             let tag = input[0].tag.clone();

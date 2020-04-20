@@ -101,7 +101,8 @@ impl PerItemCommand for Enter {
                                                     head: raw_args.call_info.args.head,
                                                     positional: None,
                                                     named: None,
-                                                    span: Span::unknown()
+                                                    span: Span::unknown(),
+                                                    is_last: false,
                                                 },
                                                 name_tag: raw_args.call_info.name_tag,
                                                 scope: raw_args.call_info.scope.clone()

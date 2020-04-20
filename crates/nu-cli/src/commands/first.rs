@@ -48,7 +48,5 @@ fn first(
         1
     };
 
-    Ok(OutputStream::from_input(
-        context.input.values.take(rows_desired),
-    ))
+    Ok(OutputStream::from_input(context.input.take(rows_desired)))
 }

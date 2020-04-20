@@ -37,7 +37,6 @@ fn debug_value(
     RunnableContext { input, .. }: RunnableContext,
 ) -> Result<impl ToOutputStream, ShellError> {
     Ok(input
-        .values
         .map(move |v| {
             if raw {
                 ReturnSuccess::value(

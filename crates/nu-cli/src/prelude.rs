@@ -27,7 +27,7 @@ macro_rules! trace_stream {
         if log::log_enabled!(target: $target, log::Level::Trace) {
             use futures::stream::StreamExt;
 
-            let objects = $expr.values.inspect(move |o| {
+            let objects = $expr.inspect(move |o| {
                 trace!(
                     target: $target,
                     "{} = {}",
@@ -49,7 +49,7 @@ macro_rules! trace_out_stream {
         if log::log_enabled!(target: $target, log::Level::Trace) {
             use futures::stream::StreamExt;
 
-            let objects = $expr.values.inspect(move |o| {
+            let objects = $expr.inspect(move |o| {
                 trace!(
                     target: $target,
                     "{} = {}",
@@ -132,17 +132,13 @@ where
     U: Into<Result<nu_protocol::Value, nu_errors::ShellError>>,
 {
     fn to_input_stream(self) -> InputStream {
-        InputStream {
-            values: self
-                .map(|item| match item.into() {
-                    Ok(result) => result,
-                    Err(err) => match HasFallibleSpan::maybe_span(&err) {
-                        Some(span) => nu_protocol::UntaggedValue::Error(err).into_value(span),
-                        None => nu_protocol::UntaggedValue::Error(err).into_untagged_value(),
-                    },
-                })
-                .boxed(),
-        }
+        InputStream::from_stream(self.map(|item| match item.into() {
+            Ok(result) => result,
+            Err(err) => match HasFallibleSpan::maybe_span(&err) {
+                Some(span) => nu_protocol::UntaggedValue::Error(err).into_value(span),
+                None => nu_protocol::UntaggedValue::Error(err).into_untagged_value(),
+            },
+        }))
     }
 }
 

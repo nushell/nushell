@@ -10,20 +10,15 @@ use nu_protocol::{CommandAction, Primitive, ReturnSuccess, Scope, UntaggedValue,
 pub(crate) fn run_internal_command(
     command: InternalCommand,
     context: &mut Context,
-    input: Option<InputStream>,
+    input: InputStream,
     scope: &Scope,
-) -> Result<Option<InputStream>, ShellError> {
+) -> Result<InputStream, ShellError> {
     if log_enabled!(log::Level::Trace) {
         trace!(target: "nu::run::internal", "->");
         trace!(target: "nu::run::internal", "{}", command.name);
     }
 
-    let objects: InputStream = if let Some(input) = input {
-        trace_stream!(target: "nu::trace_stream::internal", "input" = input)
-    } else {
-        InputStream::empty()
-    };
-
+    let objects: InputStream = trace_stream!(target: "nu::trace_stream::internal", "input" = input);
     let internal_command = context.expect_command(&command.name);
 
     let result = {
@@ -36,8 +31,7 @@ pub(crate) fn run_internal_command(
         )
     };
 
-    let result = trace_out_stream!(target: "nu::trace_stream::internal", "output" = result);
-    let mut result = result.values;
+    let mut result = trace_out_stream!(target: "nu::trace_stream::internal", "output" = result);
     let mut context = context.clone();
 
     let stream = async_stream! {
@@ -69,7 +63,8 @@ pub(crate) fn run_internal_command(
                                         head: command.args.head,
                                         positional: None,
                                         named: None,
-                                        span: Span::unknown()
+                                        span: Span::unknown(),
+                                        is_last: false,
                                     },
                                     name_tag: Tag::unknown_anchor(command.name_span),
                                     scope: Scope::empty(),
@@ -186,5 +181,5 @@ pub(crate) fn run_internal_command(
         }
     };
 
-    Ok(Some(stream.to_input_stream()))
+    Ok(stream.to_input_stream())
 }

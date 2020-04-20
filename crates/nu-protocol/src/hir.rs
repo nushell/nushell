@@ -909,6 +909,7 @@ pub struct Call {
     pub positional: Option<Vec<SpannedExpression>>,
     pub named: Option<NamedArguments>,
     pub span: Span,
+    pub is_last: bool,
 }
 
 impl Call {
@@ -981,6 +982,7 @@ impl Call {
             positional: None,
             named: None,
             span,
+            is_last: false,
         }
     }
 }

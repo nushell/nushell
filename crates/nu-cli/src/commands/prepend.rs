@@ -43,5 +43,5 @@ fn prepend(
 ) -> Result<OutputStream, ShellError> {
     let prepend = futures::stream::iter(vec![row]);
 
-    Ok(OutputStream::from_input(prepend.chain(input.values)))
+    Ok(prepend.chain(input).to_output_stream())
 }

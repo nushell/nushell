@@ -32,7 +32,7 @@ fn reverse(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
     let args = args.evaluate_once(registry)?;
     let (input, _args) = args.parts();
 
-    let input = input.values.collect::<Vec<_>>();
+    let input = input.collect::<Vec<_>>();
 
     let output = input.map(move |mut vec| {
         vec.reverse();

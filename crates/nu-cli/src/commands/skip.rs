@@ -41,7 +41,5 @@ fn skip(SkipArgs { rows }: SkipArgs, context: RunnableContext) -> Result<OutputS
         1
     };
 
-    Ok(OutputStream::from_input(
-        context.input.values.skip(rows_desired),
-    ))
+    Ok(OutputStream::from_input(context.input.skip(rows_desired)))
 }

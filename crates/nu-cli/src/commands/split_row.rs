@@ -43,7 +43,6 @@ fn split_row(
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = input
-        .values
         .map(move |v| {
             if let Ok(s) = v.as_string() {
                 let splitter = separator.item.replace("\\n", "\n");

@@ -6,12 +6,11 @@ use crate::signature::SignatureRegistry;
 use log::trace;
 use nu_errors::{ArgumentError, ParseError};
 use nu_protocol::hir::{
-    self, Binary, ClassifiedCommand, ClassifiedPipeline, Commands, Expression, ExternalArg,
-    ExternalArgs, ExternalCommand, Flag, FlagKind, InternalCommand, Member, NamedArguments,
-    Operator, SpannedExpression, Unit,
+    self, Binary, ClassifiedCommand, ClassifiedPipeline, Commands, Expression, Flag, FlagKind,
+    InternalCommand, Member, NamedArguments, Operator, SpannedExpression, Unit,
 };
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPathMember};
-use nu_source::{Span, Spanned, SpannedItem, Tag};
+use nu_source::{Span, Spanned, SpannedItem};
 use num_bigint::BigInt;
 
 /// Parses a simple column path, one without a variable (implied or explicit) at the head
@@ -980,72 +979,96 @@ pub fn classify_pipeline(
     let mut commands = Commands::new(Span::new(0, 0));
     let mut error = None;
 
-    for lite_cmd in lite_pipeline.commands.iter() {
+    let mut iter = lite_pipeline.commands.iter().peekable();
+    while let Some(lite_cmd) = iter.next() {
         if lite_cmd.name.item.starts_with('^') {
-            let cmd_name: String = lite_cmd.name.item.chars().skip(1).collect();
-            // This is an external command we should allow arguments to pass through with minimal parsing
-            commands.push(ClassifiedCommand::External(ExternalCommand {
-                name: cmd_name,
-                name_tag: Tag::unknown_anchor(lite_cmd.name.span),
-                args: ExternalArgs {
-                    list: lite_cmd
-                        .args
-                        .iter()
-                        .map(|x| ExternalArg {
-                            arg: x.item.clone(),
-                            tag: Tag::unknown_anchor(x.span),
-                        })
-                        .collect(),
-                    span: Span::new(0, 0),
+            let name = lite_cmd
+                .name
+                .clone()
+                .map(|v| v.chars().skip(1).collect::<String>());
+
+            // TODO this is the same as the `else` branch below, only the name differs. Find a way
+            //      to share this functionality.
+            let name_iter = std::iter::once(name);
+            let args = name_iter.chain(lite_cmd.args.clone().into_iter());
+            let args = arguments_from_string_iter(args);
+
+            commands.push(ClassifiedCommand::Internal(InternalCommand {
+                name: "run_external".to_string(),
+                name_span: Span::unknown(),
+                args: hir::Call {
+                    head: Box::new(SpannedExpression {
+                        expr: Expression::string("run_external".to_string()),
+                        span: Span::unknown(),
+                    }),
+                    positional: Some(args),
+                    named: None,
+                    span: Span::unknown(),
+                    is_last: iter.peek().is_none(),
                 },
             }))
         } else if lite_cmd.name.item == "=" {
             let expr = if !lite_cmd.args.is_empty() {
                 let (_, expr, err) = parse_math_expression(0, &lite_cmd.args[0..], registry, false);
-                if error.is_none() {
-                    error = err;
-                }
+                error = error.or(err);
                 expr
             } else {
-                if error.is_none() {
-                    error = Some(ParseError::argument_error(
+                error = error.or_else(|| {
+                    Some(ParseError::argument_error(
                         lite_cmd.name.clone(),
                         ArgumentError::MissingMandatoryPositional("an expression".into()),
                     ))
-                }
+                });
                 garbage(lite_cmd.span())
             };
             commands.push(ClassifiedCommand::Expr(Box::new(expr)))
         } else if let Some(signature) = registry.get(&lite_cmd.name.item) {
             let (internal_command, err) = parse_internal_command(&lite_cmd, registry, &signature);
 
-            if error.is_none() {
-                error = err;
-            }
+            error = error.or(err);
             commands.push(ClassifiedCommand::Internal(internal_command))
         } else {
-            let trimmed = trim_quotes(&lite_cmd.name.item);
-            let name = expand_path(&trimmed);
-            // This is an external command we should allow arguments to pass through with minimal parsing
-            commands.push(ClassifiedCommand::External(ExternalCommand {
-                name,
-                name_tag: Tag::unknown_anchor(lite_cmd.name.span),
-                args: ExternalArgs {
-                    list: lite_cmd
-                        .args
-                        .iter()
-                        .map(|x| ExternalArg {
-                            arg: x.item.clone(),
-                            tag: Tag::unknown_anchor(x.span),
-                        })
-                        .collect(),
-                    span: Span::new(0, 0),
+            let name = lite_cmd.name.clone().map(|v| {
+                let trimmed = trim_quotes(&v);
+                expand_path(&trimmed)
+            });
+
+            let name_iter = std::iter::once(name);
+            let args = name_iter.chain(lite_cmd.args.clone().into_iter());
+            let args = arguments_from_string_iter(args);
+
+            commands.push(ClassifiedCommand::Internal(InternalCommand {
+                name: "run_external".to_string(),
+                name_span: Span::unknown(),
+                args: hir::Call {
+                    head: Box::new(SpannedExpression {
+                        expr: Expression::string("run_external".to_string()),
+                        span: Span::unknown(),
+                    }),
+                    positional: Some(args),
+                    named: None,
+                    span: Span::unknown(),
+                    is_last: iter.peek().is_none(),
                 },
             }))
         }
     }
 
     ClassifiedPipeline::new(commands, error)
+}
+
+/// Parse out arguments from spanned expressions
+pub fn arguments_from_string_iter(
+    iter: impl Iterator<Item = Spanned<String>>,
+) -> Vec<SpannedExpression> {
+    iter.map(|v| {
+        // TODO parse_full_column_path
+        SpannedExpression {
+            expr: Expression::string(v.to_string()),
+            span: v.span,
+        }
+    })
+    .collect::<Vec<_>>()
 }
 
 /// Easy shorthand function to create a garbage expression at the given span
