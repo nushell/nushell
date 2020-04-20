@@ -13,10 +13,9 @@ use futures_codec::FramedRead;
 use log::trace;
 
 use nu_errors::ShellError;
-use nu_protocol::hir::{ExternalArg, ExternalCommand};
-use nu_protocol::{ColumnPath, Primitive, Scope, ShellTypeName, UntaggedValue, Value};
-use nu_source::{Tag, Tagged};
-use nu_value_ext::as_column_path;
+use nu_protocol::hir::ExternalCommand;
+use nu_protocol::{Primitive, Scope, ShellTypeName, UntaggedValue, Value};
+use nu_source::Tag;
 
 pub enum StringOrBinary {
     String(String),
@@ -82,7 +81,7 @@ impl futures_codec::Decoder for MaybeTextCodec {
     }
 }
 
-pub fn nu_value_to_string(command: &ExternalCommand, from: &Value) -> Result<String, ShellError> {
+pub fn nu_value_to_string(name_tag: &Tag, from: &Value) -> Result<String, ShellError> {
     match &from.value {
         UntaggedValue::Primitive(Primitive::Int(i)) => Ok(i.to_string()),
         UntaggedValue::Primitive(Primitive::String(s))
@@ -91,7 +90,7 @@ pub fn nu_value_to_string(command: &ExternalCommand, from: &Value) -> Result<Str
         unsupported => Err(ShellError::labeled_error(
             format!("needs string data (given: {})", unsupported.type_name()),
             "expected a string",
-            &command.name_tag,
+            name_tag,
         )),
     }
 }
@@ -120,51 +119,51 @@ pub(crate) async fn run_external_command(
     }
 }
 
-fn prepare_column_path_for_fetching_it_variable(
-    argument: &ExternalArg,
-) -> Result<Tagged<ColumnPath>, ShellError> {
-    // We have "$it.[contents of interest]"
-    // and start slicing from "$it.[member+]"
-    //                             ^ here.
-    let key = nu_source::Text::from(argument.deref()).slice(4..argument.len());
+// fn prepare_column_path_for_fetching_it_variable(
+//     argument: &ExternalArg,
+// ) -> Result<Tagged<ColumnPath>, ShellError> {
+//     // We have "$it.[contents of interest]"
+//     // and start slicing from "$it.[member+]"
+//     //                             ^ here.
+//     let key = nu_source::Text::from(argument.deref()).slice(4..argument.len());
 
-    to_column_path(&key, &argument.tag)
-}
+//     to_column_path(&key, &argument.tag)
+// }
 
-fn prepare_column_path_for_fetching_nu_variable(
-    argument: &ExternalArg,
-) -> Result<Tagged<ColumnPath>, ShellError> {
-    // We have "$nu.[contents of interest]"
-    // and start slicing from "$nu.[member+]"
-    //                             ^ here.
-    let key = nu_source::Text::from(argument.deref()).slice(4..argument.len());
+// fn prepare_column_path_for_fetching_nu_variable(
+//     argument: &ExternalArg,
+// ) -> Result<Tagged<ColumnPath>, ShellError> {
+//     // We have "$nu.[contents of interest]"
+//     // and start slicing from "$nu.[member+]"
+//     //                             ^ here.
+//     let key = nu_source::Text::from(argument.deref()).slice(4..argument.len());
 
-    to_column_path(&key, &argument.tag)
-}
+//     to_column_path(&key, &argument.tag)
+// }
 
-fn to_column_path(
-    path_members: &str,
-    tag: impl Into<Tag>,
-) -> Result<Tagged<ColumnPath>, ShellError> {
-    let tag = tag.into();
+// fn to_column_path(
+//     path_members: &str,
+//     tag: impl Into<Tag>,
+// ) -> Result<Tagged<ColumnPath>, ShellError> {
+//     let tag = tag.into();
 
-    as_column_path(
-        &UntaggedValue::Table(
-            path_members
-                .split('.')
-                .map(|x| {
-                    let member = match x.parse::<u64>() {
-                        Ok(v) => UntaggedValue::int(v),
-                        Err(_) => UntaggedValue::string(x),
-                    };
+//     as_column_path(
+//         &UntaggedValue::Table(
+//             path_members
+//                 .split('.')
+//                 .map(|x| {
+//                     let member = match x.parse::<u64>() {
+//                         Ok(v) => UntaggedValue::int(v),
+//                         Err(_) => UntaggedValue::string(x),
+//                     };
 
-                    member.into_value(&tag)
-                })
-                .collect(),
-        )
-        .into_value(&tag),
-    )
-}
+//                     member.into_value(&tag)
+//                 })
+//                 .collect(),
+//         )
+//         .into_value(&tag),
+//     )
+// }
 
 fn run_with_iterator_arg(
     command: ExternalCommand,
@@ -179,190 +178,6 @@ fn run_with_iterator_arg(
 
     let stream = async_stream! {
         while let Some(value) = inputs.next().await {
-            let name = command.name.clone();
-            let name_tag = command.name_tag.clone();
-            let home_dir = dirs::home_dir();
-            let path = &path;
-            let args = command.args.clone();
-
-            let it_replacement = {
-                if command.has_it_argument() {
-                    let empty_arg = ExternalArg {
-                        arg: "".to_string(),
-                        tag: name_tag.clone()
-                    };
-
-                    let key = args.iter()
-                        .find(|arg| arg.looks_like_it())
-                        .unwrap_or_else(|| &empty_arg);
-
-                    if args.iter().all(|arg| !arg.is_it()) {
-                        let key = match prepare_column_path_for_fetching_it_variable(&key) {
-                            Ok(keypath) => keypath,
-                            Err(reason) => {
-                                yield Ok(Value {
-                                    value: UntaggedValue::Error(reason),
-                                    tag: name_tag
-                                });
-                                return;
-                            }
-                        };
-
-                        match crate::commands::get::get_column_path(&key, &value) {
-                            Ok(field) => {
-                                match nu_value_to_string(&command, &field) {
-                                    Ok(val) => Some(val),
-                                    Err(reason) => {
-                                        yield Ok(Value {
-                                            value: UntaggedValue::Error(reason),
-                                            tag: name_tag
-                                        });
-                                        return;
-                                    },
-                                }
-                            },
-                            Err(reason) => {
-                                yield Ok(Value {
-                                    value: UntaggedValue::Error(reason),
-                                    tag: name_tag
-                                });
-                                return;
-                            }
-                        }
-                    } else {
-                        match nu_value_to_string(&command, &value) {
-                            Ok(val) => Some(val),
-                            Err(reason) => {
-                                yield Ok(Value {
-                                    value: UntaggedValue::Error(reason),
-                                    tag: name_tag
-                                });
-                                return;
-                            },
-                        }
-                    }
-                } else {
-                    None
-                }
-            };
-
-            let nu_replacement = {
-                if command.has_nu_argument() {
-                    let empty_arg = ExternalArg {
-                        arg: "".to_string(),
-                        tag: name_tag.clone()
-                    };
-
-                    let key = args.iter()
-                        .find(|arg| arg.looks_like_nu())
-                        .unwrap_or_else(|| &empty_arg);
-
-                    let nu_var = match crate::evaluate::variables::nu(&name_tag) {
-                        Ok(variables) => variables,
-                        Err(reason) => {
-                            yield Ok(Value {
-                                value: UntaggedValue::Error(reason),
-                                tag: name_tag
-                            });
-                            return;
-                        }
-                    };
-
-                    if args.iter().all(|arg| !arg.is_nu()) {
-                        let key = match prepare_column_path_for_fetching_nu_variable(&key) {
-                            Ok(keypath) => keypath,
-                            Err(reason) => {
-                                yield Ok(Value {
-                                    value: UntaggedValue::Error(reason),
-                                    tag: name_tag
-                                });
-                                return;
-                            }
-                        };
-
-                        match crate::commands::get::get_column_path(&key, &nu_var) {
-                            Ok(field) => {
-                                match nu_value_to_string(&command, &field) {
-                                    Ok(val) => Some(val),
-                                    Err(reason) => {
-                                        yield Ok(Value {
-                                            value: UntaggedValue::Error(reason),
-                                            tag: name_tag
-                                        });
-                                        return;
-                                    },
-                                }
-                            },
-                            Err(reason) => {
-                                yield Ok(Value {
-                                    value: UntaggedValue::Error(reason),
-                                    tag: name_tag
-                                });
-                                return;
-                            }
-                        }
-                    } else {
-                        match nu_value_to_string(&command, &nu_var) {
-                            Ok(val) => Some(val),
-                            Err(reason) => {
-                                yield Ok(Value {
-                                    value: UntaggedValue::Error(reason),
-                                    tag: name_tag
-                                });
-                                return;
-                            },
-                        }
-                    }
-                } else {
-                    None
-                }
-            };
-
-            let process_args = args.iter().filter_map(|arg| {
-                if arg.chars().all(|c| c.is_whitespace()) {
-                    None
-                } else {
-                    let arg = if arg.looks_like_it() {
-                        if let Some(mut value) = it_replacement.to_owned() {
-                            let mut value = expand_tilde(&value, || home_dir.as_ref()).as_ref().to_string();
-                            #[cfg(not(windows))]
-                            {
-                                value = {
-                                    if argument_contains_whitespace(&value) && !argument_is_quoted(&value) {
-                                        add_quotes(&value)
-                                    } else {
-                                        value
-                                    }
-                                };
-                            }
-                            Some(value)
-                        } else {
-                            None
-                        }
-                    } else if arg.looks_like_nu() {
-                        if let Some(mut value) = nu_replacement.to_owned() {
-                            #[cfg(not(windows))]
-                            {
-                                value = {
-                                    if argument_contains_whitespace(&value) && !argument_is_quoted(&value) {
-                                        add_quotes(&value)
-                                    } else {
-                                        value
-                                    }
-                                };
-                            }
-                            Some(value)
-                        } else {
-                            None
-                        }
-                    } else {
-                        Some(arg.to_string())
-                    };
-
-                    arg
-                }
-            }).collect::<Vec<String>>();
-
             match spawn(&command, &path, &process_args[..], InputStream::empty(), is_last) {
                 Ok(mut res) => {
                     while let Some(item) = res.next().await {
