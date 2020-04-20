@@ -81,6 +81,8 @@ impl WholeStreamCommand for RunExternalCommand {
             shell_manager: args.shell_manager.clone(),
             ctrl_c: args.ctrl_c.clone(),
             current_errors: Arc::new(Mutex::new(vec![])),
+            #[cfg(windows)]
+            windows_drives_previous_cwd: args.windows_drives_previous_cwd.clone(),
         };
 
         let is_last = args.call_info.args.is_last;
