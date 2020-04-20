@@ -1012,12 +1012,22 @@ fn classify_pipeline(
                 .name
                 .clone()
                 .map(|v| v.chars().skip(1).collect::<String>());
+            let mut args = vec![];
+
+            let (name, err) = parse_arg(SyntaxShape::String, registry, &name);
             let name_span = name.span;
-            // TODO this is the same as the `else` branch below, only the name differs. Find a way
-            //      to share this functionality.
-            let name_iter = std::iter::once(name);
-            let args = name_iter.chain(lite_cmd.args.clone().into_iter());
-            let args = arguments_from_string_iter(args);
+            if error.is_none() {
+                error = err;
+            }
+            args.push(name);
+
+            for lite_arg in &lite_cmd.args {
+                let (expr, err) = parse_arg(SyntaxShape::String, registry, lite_arg);
+                if error.is_none() {
+                    error = err;
+                }
+                args.push(expr);
+            }
 
             commands.push(ClassifiedCommand::Internal(InternalCommand {
                 name: "run_external".to_string(),
@@ -1058,11 +1068,23 @@ fn classify_pipeline(
                 let trimmed = trim_quotes(&v);
                 expand_path(&trimmed)
             });
-            let name_span = name.span;
 
-            let name_iter = std::iter::once(name);
-            let args = name_iter.chain(lite_cmd.args.clone().into_iter());
-            let args = arguments_from_string_iter(args);
+            let mut args = vec![];
+
+            let (name, err) = parse_arg(SyntaxShape::String, registry, &name);
+            let name_span = name.span;
+            if error.is_none() {
+                error = err;
+            }
+            args.push(name);
+
+            for lite_arg in &lite_cmd.args {
+                let (expr, err) = parse_arg(SyntaxShape::String, registry, lite_arg);
+                if error.is_none() {
+                    error = err;
+                }
+                args.push(expr);
+            }
 
             commands.push(ClassifiedCommand::Internal(InternalCommand {
                 name: "run_external".to_string(),
@@ -1098,20 +1120,6 @@ pub fn classify_block(lite_block: &LiteBlock, registry: &dyn SignatureRegistry) 
     }
 
     ClassifiedBlock::new(block, error)
-}
-
-/// Parse out arguments from spanned expressions
-pub fn arguments_from_string_iter(
-    iter: impl Iterator<Item = Spanned<String>>,
-) -> Vec<SpannedExpression> {
-    iter.map(|v| {
-        // TODO parse_full_column_path
-        SpannedExpression {
-            expr: Expression::string(v.to_string()),
-            span: v.span,
-        }
-    })
-    .collect::<Vec<_>>()
 }
 
 /// Easy shorthand function to create a garbage expression at the given span
