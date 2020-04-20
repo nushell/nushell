@@ -63,7 +63,8 @@ fn bare(src: &mut Input, span_offset: usize) -> Result<Spanned<String>, ParseErr
     let mut inside_quote = false;
     let mut block_level = vec![];
 
-    for (_, c) in src {
+    while let Some((_, c)) = src.peek() {
+        let c = *c;
         if inside_quote {
             if c == delimiter {
                 inside_quote = false;
@@ -89,10 +90,11 @@ fn bare(src: &mut Input, span_offset: usize) -> Result<Spanned<String>, ParseErr
             if let Some('(') = block_level.last() {
                 let _ = block_level.pop();
             }
-        } else if block_level.is_empty() && c.is_whitespace() {
+        } else if block_level.is_empty() && (c.is_whitespace() || c == '|' || c == ';') {
             break;
         }
         bare.push(c);
+        let _ = src.next();
     }
 
     let span = Span::new(
@@ -144,10 +146,7 @@ fn quoted(
 fn command(src: &mut Input, span_offset: usize) -> Result<LiteCommand, ParseError> {
     let command = bare(src, span_offset)?;
     if command.item.is_empty() {
-        Err(ParseError::unexpected_eof(
-            "unexpected end of input",
-            command.span,
-        ))
+        Err(ParseError::unexpected_eof("command", command.span))
     } else {
         Ok(LiteCommand::new(command))
     }

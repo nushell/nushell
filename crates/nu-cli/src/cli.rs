@@ -902,9 +902,7 @@ mod tests {
         if let Ok(lite_block) = nu_parser::lite_parse(&data, 0) {
             let context = crate::context::Context::basic().unwrap();
             let _ = nu_parser::classify_block(&lite_block, context.registry());
-            true
-        } else {
-            false
         }
+        true
     }
 }
