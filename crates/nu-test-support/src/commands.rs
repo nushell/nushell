@@ -1,5 +1,5 @@
-use nu_protocol::hir::{ExternalArg, ExternalArgs, ExternalCommand};
-use nu_source::{Span, SpannedItem, Tag, TaggedItem};
+use nu_protocol::hir::{Expression, ExternalArgs, ExternalCommand, SpannedExpression};
+use nu_source::{Span, SpannedItem, Tag};
 
 pub struct ExternalBuilder {
     name: String,
@@ -28,13 +28,9 @@ impl ExternalBuilder {
         let args = self
             .args
             .iter()
-            .map(|arg| {
-                let arg = arg.tagged(Tag::unknown());
-
-                ExternalArg {
-                    arg: arg.to_string(),
-                    tag: arg.tag,
-                }
+            .map(|arg| SpannedExpression {
+                expr: Expression::string(arg.to_string()),
+                span: Span::unknown(),
             })
             .collect::<Vec<_>>();
 

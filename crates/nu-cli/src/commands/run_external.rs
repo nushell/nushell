@@ -6,10 +6,8 @@ use derive_new::new;
 use parking_lot::Mutex;
 
 use nu_errors::ShellError;
-use nu_protocol::hir::{
-    Expression, ExternalArg, ExternalArgs, ExternalCommand, Literal, SpannedExpression,
-};
-use nu_protocol::{ReturnSuccess, Scope, Signature, SyntaxShape};
+use nu_protocol::hir::{Expression, ExternalArgs, ExternalCommand, Literal, SpannedExpression};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape};
 
 #[derive(Deserialize)]
 pub struct RunExternalArgs {}
@@ -17,13 +15,13 @@ pub struct RunExternalArgs {}
 #[derive(new)]
 pub struct RunExternalCommand;
 
-fn spanned_expression_to_string(expr: &SpannedExpression) -> String {
+fn spanned_expression_to_string(expr: SpannedExpression) -> String {
     if let SpannedExpression {
         expr: Expression::Literal(Literal::String(s)),
         ..
     } = expr
     {
-        s.clone()
+        s
     } else {
         "notacommand!!!".to_string()
     }
@@ -51,8 +49,9 @@ impl WholeStreamCommand for RunExternalCommand {
             ShellError::untagged_runtime_error("positional arguments unexpectedly empty")
         })?;
 
-        let mut command_args = positionals.iter();
-        let name = command_args
+        let mut positionals = positionals.into_iter();
+
+        let name = positionals
             .next()
             .map(spanned_expression_to_string)
             .ok_or_else(|| {
@@ -65,12 +64,7 @@ impl WholeStreamCommand for RunExternalCommand {
             name,
             name_tag: args.call_info.name_tag.clone(),
             args: ExternalArgs {
-                list: command_args
-                    .map(|arg| ExternalArg {
-                        arg: spanned_expression_to_string(arg),
-                        tag: Tag::unknown_anchor(arg.span),
-                    })
-                    .collect(),
+                list: positionals.collect(),
                 span: args.call_info.args.span,
             },
         };
@@ -97,11 +91,11 @@ impl WholeStreamCommand for RunExternalCommand {
                 current_errors: Arc::new(Mutex::new(vec![])),
             };
         }
+        let scope = args.call_info.scope.clone();
 
         let is_last = args.call_info.args.is_last;
         let input = args.input;
         let stream = async_stream! {
-            let scope = Scope::empty();
             let result = external::run_external_command(
                 command,
                 &mut external_context,

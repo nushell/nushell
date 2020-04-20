@@ -118,60 +118,24 @@ pub struct ExternalStringCommand {
     pub args: Vec<Spanned<String>>,
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
-pub struct ExternalArg {
-    pub arg: String,
-    pub tag: Tag,
-}
-
-impl ExternalArg {
-    pub fn has(&self, name: &str) -> bool {
-        self.arg == name
-    }
-
-    pub fn is_it(&self) -> bool {
-        self.has("$it")
-    }
-
-    pub fn is_nu(&self) -> bool {
-        self.has("$nu")
-    }
-
-    pub fn looks_like_it(&self) -> bool {
-        self.arg.starts_with("$it") && (self.arg.starts_with("$it.") || self.is_it())
-    }
-
-    pub fn looks_like_nu(&self) -> bool {
-        self.arg.starts_with("$nu") && (self.arg.starts_with("$nu.") || self.is_nu())
-    }
-}
-
-impl std::ops::Deref for ExternalArg {
-    type Target = str;
-
-    fn deref(&self) -> &str {
-        &self.arg
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
-pub struct ExternalArgs {
-    pub list: Vec<ExternalArg>,
-    pub span: Span,
-}
-
 impl ExternalArgs {
-    pub fn iter(&self) -> impl Iterator<Item = &ExternalArg> {
+    pub fn iter(&self) -> impl Iterator<Item = &SpannedExpression> {
         self.list.iter()
     }
 }
 
 impl std::ops::Deref for ExternalArgs {
-    type Target = [ExternalArg];
+    type Target = [SpannedExpression];
 
-    fn deref(&self) -> &[ExternalArg] {
+    fn deref(&self) -> &[SpannedExpression] {
         &self.list
     }
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
+pub struct ExternalArgs {
+    pub list: Vec<SpannedExpression>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
@@ -184,27 +148,21 @@ pub struct ExternalCommand {
 
 impl ExternalCommand {
     pub fn has_it_argument(&self) -> bool {
-        self.args.iter().any(|arg| arg.looks_like_it())
-    }
-
-    pub fn has_nu_argument(&self) -> bool {
-        self.args.iter().any(|arg| arg.looks_like_nu())
-    }
-}
-
-impl PrettyDebug for ExternalCommand {
-    fn pretty(&self) -> DebugDocBuilder {
-        b::typed(
-            "external command",
-            b::description(&self.name)
-                + b::preceded(
-                    b::space(),
-                    b::intersperse(
-                        self.args.iter().map(|a| b::primitive(a.arg.to_string())),
-                        b::space(),
-                    ),
-                ),
-        )
+        self.args.iter().any(|arg| match arg {
+            SpannedExpression {
+                expr: Expression::Path(path),
+                ..
+            } => match &**path {
+                Path { head, .. } => match head {
+                    SpannedExpression {
+                        expr: Expression::Variable(Variable::It(_)),
+                        ..
+                    } => true,
+                    _ => false,
+                },
+            },
+            _ => false,
+        })
     }
 }
 
