@@ -30,6 +30,7 @@ mod rename;
 mod reverse;
 mod rm;
 mod save;
+mod semicolon;
 mod sort_by;
 mod split_by;
 mod split_column;

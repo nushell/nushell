@@ -1,5 +1,5 @@
+use crate::commands::classified::block::run_block;
 use crate::commands::classified::external::{MaybeTextCodec, StringOrBinary};
-use crate::commands::classified::pipeline::run_pipeline;
 use crate::commands::plugin::JsonRpc;
 use crate::commands::plugin::{PluginCommand, PluginSink};
 use crate::commands::whole_stream_command;
@@ -710,12 +710,12 @@ async fn process_line(
             debug!("=== Parsed ===");
             debug!("{:#?}", result);
 
-            let pipeline = nu_parser::classify_pipeline(&result, ctx.registry());
+            let classified_block = nu_parser::classify_block(&result, ctx.registry());
 
-            debug!("{:#?}", pipeline);
+            debug!("{:#?}", classified_block);
             //println!("{:#?}", pipeline);
 
-            if let Some(failure) = pipeline.failed {
+            if let Some(failure) = classified_block.failed {
                 return LineResult::Error(line.to_string(), failure.into());
             }
 
@@ -725,10 +725,13 @@ async fn process_line(
             // ...and it doesn't have any arguments
             // ...and we're in the CLI
             // ...then change to this directory
-            if cli_mode && pipeline.commands.list.len() == 1 {
+            if cli_mode
+                && classified_block.block.block.len() == 1
+                && classified_block.block.block[0].list.len() == 1
+            {
                 if let ClassifiedCommand::Internal(InternalCommand {
                     ref name, ref args, ..
-                }) = pipeline.commands.list[0]
+                }) = classified_block.block.block[0].list[0]
                 {
                     let internal_name = name;
                     let name = args
@@ -826,7 +829,7 @@ async fn process_line(
                 InputStream::empty()
             };
 
-            match run_pipeline(pipeline, ctx, input_stream, &Scope::empty()).await {
+            match run_block(&classified_block.block, ctx, input_stream, &Scope::empty()).await {
                 Ok(input) => {
                     // Running a pipeline gives us back a stream that we can then
                     // work through. At the top level, we just want to pull on the
@@ -896,12 +899,10 @@ mod tests {
 
     #[quickcheck]
     fn quickcheck_parse(data: String) -> bool {
-        if let Ok(lite_pipeline) = nu_parser::lite_parse(&data, 0) {
+        if let Ok(lite_block) = nu_parser::lite_parse(&data, 0) {
             let context = crate::context::Context::basic().unwrap();
-            let _ = nu_parser::classify_pipeline(&lite_pipeline, context.registry());
-            true
-        } else {
-            false
+            let _ = nu_parser::classify_block(&lite_block, context.registry());
         }
+        true
     }
 }

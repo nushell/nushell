@@ -40,25 +40,34 @@ impl PerItemCommand for Where {
             Value {
                 value: UntaggedValue::Block(block),
                 tag,
-            } => match block.list.get(0) {
-                Some(item) => match item {
-                    ClassifiedCommand::Expr(expr) => expr.clone(),
-                    _ => {
-                        return Err(ShellError::labeled_error(
-                            "Expected a condition",
-                            "expected a condition",
-                            tag,
-                        ))
-                    }
-                },
-                None => {
+            } => {
+                if block.block.len() != 1 {
                     return Err(ShellError::labeled_error(
                         "Expected a condition",
                         "expected a condition",
                         tag,
                     ));
                 }
-            },
+                match block.block[0].list.get(0) {
+                    Some(item) => match item {
+                        ClassifiedCommand::Expr(expr) => expr.clone(),
+                        _ => {
+                            return Err(ShellError::labeled_error(
+                                "Expected a condition",
+                                "expected a condition",
+                                tag,
+                            ))
+                        }
+                    },
+                    None => {
+                        return Err(ShellError::labeled_error(
+                            "Expected a condition",
+                            "expected a condition",
+                            tag,
+                        ));
+                    }
+                }
+            }
             Value { tag, .. } => {
                 return Err(ShellError::labeled_error(
                     "Expected a condition",

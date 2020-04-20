@@ -1,7 +1,7 @@
 use log::trace;
 use nu_errors::{CoerceInto, ShellError};
 use nu_protocol::{
-    hir::Commands, CallInfo, ColumnPath, Primitive, RangeInclusion, ShellTypeName, UntaggedValue,
+    hir::Block, CallInfo, ColumnPath, Primitive, RangeInclusion, ShellTypeName, UntaggedValue,
     Value,
 };
 use nu_source::{HasSpan, Spanned, SpannedItem, Tagged, TaggedItem};
@@ -369,7 +369,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
                     ))
                 }
             };
-            return visit::<Commands, _>(block, name, fields, visitor);
+            return visit::<Block, _>(block, name, fields, visitor);
         }
 
         if name == "ColumnPath" {

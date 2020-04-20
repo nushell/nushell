@@ -1,4 +1,4 @@
-use crate::hir::Commands;
+use crate::hir::Block;
 use crate::value::Value;
 use nu_errors::ShellError;
 use nu_source::{b, DebugDocBuilder, PrettyDebug};
@@ -22,7 +22,7 @@ pub enum CommandAction {
     /// Enter the help shell, which allows exploring the help system
     EnterHelpShell(Value),
     /// Enter the help shell, which allows exploring the help system
-    AddAlias(String, Vec<String>, Commands),
+    AddAlias(String, Vec<String>, Block),
     /// Go to the previous shell in the shell ring buffer
     PreviousShell,
     /// Go to the next shell in the shell ring buffer

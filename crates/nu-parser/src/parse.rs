@@ -1,13 +1,14 @@
 use std::path::Path;
 
-use crate::lite_parse::{lite_parse, LiteCommand, LitePipeline};
+use crate::lite_parse::{lite_parse, LiteBlock, LiteCommand, LitePipeline};
 use crate::path::expand_path;
 use crate::signature::SignatureRegistry;
 use log::trace;
 use nu_errors::{ArgumentError, ParseError};
 use nu_protocol::hir::{
-    self, Binary, ClassifiedCommand, ClassifiedPipeline, Commands, Expression, Flag, FlagKind,
-    InternalCommand, Member, NamedArguments, Operator, SpannedExpression, Unit,
+    self, Binary, Block, ClassifiedBlock, ClassifiedCommand, ClassifiedPipeline, Commands,
+    Expression, Flag, FlagKind, InternalCommand, Member, NamedArguments, Operator,
+    SpannedExpression, Unit,
 };
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPathMember};
 use nu_source::{Span, Spanned, SpannedItem};
@@ -416,11 +417,19 @@ fn parse_arg(
                     let mut error = None;
 
                     // We haven't done much with the inner string, so let's go ahead and work with it
-                    let lite_pipeline = match lite_parse(&string, lite_arg.span.start() + 1) {
-                        Ok(lp) => lp,
+                    let lite_block = match lite_parse(&string, lite_arg.span.start() + 1) {
+                        Ok(lb) => lb,
                         Err(e) => return (garbage(lite_arg.span), Some(e)),
                     };
 
+                    if lite_block.block.len() != 1 {
+                        return (
+                            garbage(lite_arg.span),
+                            Some(ParseError::mismatch("table", lite_arg.clone())),
+                        );
+                    }
+
+                    let lite_pipeline = lite_block.block[0].clone();
                     let mut output = vec![];
                     for lite_inner in &lite_pipeline.commands {
                         let (arg, err) = parse_arg(SyntaxShape::Any, registry, &lite_inner.name);
@@ -462,17 +471,17 @@ fn parse_arg(
                     let string: String = chars.collect();
 
                     // We haven't done much with the inner string, so let's go ahead and work with it
-                    let lite_pipeline = match lite_parse(&string, lite_arg.span.start() + 1) {
+                    let lite_block = match lite_parse(&string, lite_arg.span.start() + 1) {
                         Ok(lp) => lp,
                         Err(e) => return (garbage(lite_arg.span), Some(e)),
                     };
 
-                    let classified_block = classify_pipeline(&lite_pipeline, registry);
+                    let classified_block = classify_block(&lite_block, registry);
                     let error = classified_block.failed;
 
                     (
                         SpannedExpression::new(
-                            Expression::Block(classified_block.commands),
+                            Expression::Block(classified_block.block),
                             lite_arg.span,
                         ),
                         error,
@@ -586,10 +595,19 @@ fn parse_parenthesized_expression(
             let string: String = chars.collect();
 
             // We haven't done much with the inner string, so let's go ahead and work with it
-            let mut lite_pipeline = match lite_parse(&string, lite_arg.span.start() + 1) {
-                Ok(lp) => lp,
+            let lite_block = match lite_parse(&string, lite_arg.span.start() + 1) {
+                Ok(lb) => lb,
                 Err(e) => return (garbage(lite_arg.span), Some(e)),
             };
+
+            if lite_block.block.len() != 1 {
+                return (
+                    garbage(lite_arg.span),
+                    Some(ParseError::mismatch("math expression", lite_arg.clone())),
+                );
+            }
+
+            let mut lite_pipeline = lite_block.block[0].clone();
 
             let mut collection = vec![];
             for lite_cmd in lite_pipeline.commands.iter_mut() {
@@ -796,8 +814,10 @@ fn parse_positional_argument(
                     let span = arg.span;
                     let mut commands = hir::Commands::new(span);
                     commands.push(ClassifiedCommand::Expr(Box::new(arg)));
+                    let mut block = hir::Block::new(span);
+                    block.push(commands);
 
-                    let arg = SpannedExpression::new(Expression::Block(commands), span);
+                    let arg = SpannedExpression::new(Expression::Block(block), span);
 
                     idx = new_idx;
                     if error.is_none() {
@@ -971,10 +991,10 @@ fn parse_internal_command(
 /// Convert a lite-ly parsed pipeline into a fully classified pipeline, ready to be evaluated.
 /// This conversion does error-recovery, so the result is allowed to be lossy. A lossy unit is designated as garbage.
 /// Errors are returned as part of a side-car error rather than a Result to allow both error and lossy result simultaneously.
-pub fn classify_pipeline(
+fn classify_pipeline(
     lite_pipeline: &LitePipeline,
     registry: &dyn SignatureRegistry,
-) -> ClassifiedPipeline {
+) -> (ClassifiedPipeline, Option<ParseError>) {
     // FIXME: fake span
     let mut commands = Commands::new(Span::new(0, 0));
     let mut error = None;
@@ -1054,7 +1074,23 @@ pub fn classify_pipeline(
         }
     }
 
-    ClassifiedPipeline::new(commands, error)
+    (ClassifiedPipeline::new(commands), error)
+}
+
+pub fn classify_block(lite_block: &LiteBlock, registry: &dyn SignatureRegistry) -> ClassifiedBlock {
+    // FIXME: fake span
+    let mut block = Block::new(Span::new(0, 0));
+
+    let mut error = None;
+    for lite_pipeline in &lite_block.block {
+        let (pipeline, err) = classify_pipeline(lite_pipeline, registry);
+        block.push(pipeline.commands);
+        if error.is_none() {
+            error = err;
+        }
+    }
+
+    ClassifiedBlock::new(block, error)
 }
 
 /// Parse out arguments from spanned expressions

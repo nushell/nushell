@@ -62,43 +62,45 @@ pub fn expression_to_flat_shape(e: &SpannedExpression) -> Vec<Spanned<FlatShape>
 }
 
 /// Converts a series of commands into a vec of spanned shapes ready for color-highlighting
-pub fn shapes(commands: &Commands) -> Vec<Spanned<FlatShape>> {
+pub fn shapes(commands: &Block) -> Vec<Spanned<FlatShape>> {
     let mut output = vec![];
 
-    for command in &commands.list {
-        match command {
-            ClassifiedCommand::Internal(internal) => {
-                output.append(&mut expression_to_flat_shape(&internal.args.head));
+    for pipeline in &commands.block {
+        for command in &pipeline.list {
+            match command {
+                ClassifiedCommand::Internal(internal) => {
+                    output.append(&mut expression_to_flat_shape(&internal.args.head));
 
-                if let Some(positionals) = &internal.args.positional {
-                    for positional_arg in positionals {
-                        output.append(&mut expression_to_flat_shape(positional_arg));
+                    if let Some(positionals) = &internal.args.positional {
+                        for positional_arg in positionals {
+                            output.append(&mut expression_to_flat_shape(positional_arg));
+                        }
                     }
-                }
 
-                if let Some(named) = &internal.args.named {
-                    for (_, named_arg) in named.iter() {
-                        match named_arg {
-                            NamedValue::PresentSwitch(span) => {
-                                output.push(FlatShape::Flag.spanned(*span));
+                    if let Some(named) = &internal.args.named {
+                        for (_, named_arg) in named.iter() {
+                            match named_arg {
+                                NamedValue::PresentSwitch(span) => {
+                                    output.push(FlatShape::Flag.spanned(*span));
+                                }
+                                NamedValue::Value(span, expr) => {
+                                    output.push(FlatShape::Flag.spanned(*span));
+                                    output.append(&mut expression_to_flat_shape(expr));
+                                }
+                                _ => {}
                             }
-                            NamedValue::Value(span, expr) => {
-                                output.push(FlatShape::Flag.spanned(*span));
-                                output.append(&mut expression_to_flat_shape(expr));
-                            }
-                            _ => {}
                         }
                     }
                 }
-            }
-            ClassifiedCommand::External(external) => {
-                output.push(FlatShape::ExternalCommand.spanned(external.name_tag.span));
-                for arg in external.args.iter() {
-                    output.push(FlatShape::ExternalWord.spanned(arg.tag.span));
+                ClassifiedCommand::External(external) => {
+                    output.push(FlatShape::ExternalCommand.spanned(external.name_tag.span));
+                    for arg in external.args.iter() {
+                        output.push(FlatShape::ExternalWord.spanned(arg.tag.span));
+                    }
                 }
+                ClassifiedCommand::Expr(expr) => output.append(&mut expression_to_flat_shape(expr)),
+                _ => {}
             }
-            ClassifiedCommand::Expr(expr) => output.append(&mut expression_to_flat_shape(expr)),
-            _ => {}
         }
     }
 
