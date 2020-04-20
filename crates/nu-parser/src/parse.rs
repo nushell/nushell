@@ -1012,6 +1012,8 @@ fn classify_pipeline(
                 .name
                 .clone()
                 .map(|v| v.chars().skip(1).collect::<String>());
+            // TODO this is the same as the `else` branch below, only the name differs. Find a way
+            //      to share this functionality.
             let mut args = vec![];
 
             let (name, err) = parse_arg(SyntaxShape::String, registry, &name);
