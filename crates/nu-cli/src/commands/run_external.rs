@@ -78,8 +78,6 @@ impl WholeStreamCommand for RunExternalCommand {
         let mut external_context;
         #[cfg(windows)]
         {
-            use std::sync::Arc;
-
             external_context = Context {
                 registry: registry.clone(),
                 host: args.host.clone(),
