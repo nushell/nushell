@@ -422,7 +422,13 @@ fn parse_arg(
                         Err(e) => return (garbage(lite_arg.span), Some(e)),
                     };
 
-                    if lite_block.block.len() != 1 {
+                    if lite_block.block.is_empty() {
+                        return (
+                            SpannedExpression::new(Expression::List(vec![]), lite_arg.span),
+                            error,
+                        );
+                    }
+                    if lite_block.block.len() > 1 {
                         return (
                             garbage(lite_arg.span),
                             Some(ParseError::mismatch("table", lite_arg.clone())),
@@ -1006,7 +1012,7 @@ fn classify_pipeline(
                 .name
                 .clone()
                 .map(|v| v.chars().skip(1).collect::<String>());
-
+            let name_span = name.span;
             // TODO this is the same as the `else` branch below, only the name differs. Find a way
             //      to share this functionality.
             let name_iter = std::iter::once(name);
@@ -1015,11 +1021,11 @@ fn classify_pipeline(
 
             commands.push(ClassifiedCommand::Internal(InternalCommand {
                 name: "run_external".to_string(),
-                name_span: Span::unknown(),
+                name_span,
                 args: hir::Call {
                     head: Box::new(SpannedExpression {
                         expr: Expression::string("run_external".to_string()),
-                        span: Span::unknown(),
+                        span: name_span,
                     }),
                     positional: Some(args),
                     named: None,
@@ -1052,6 +1058,7 @@ fn classify_pipeline(
                 let trimmed = trim_quotes(&v);
                 expand_path(&trimmed)
             });
+            let name_span = name.span;
 
             let name_iter = std::iter::once(name);
             let args = name_iter.chain(lite_cmd.args.clone().into_iter());
@@ -1059,11 +1066,11 @@ fn classify_pipeline(
 
             commands.push(ClassifiedCommand::Internal(InternalCommand {
                 name: "run_external".to_string(),
-                name_span: Span::unknown(),
+                name_span,
                 args: hir::Call {
                     head: Box::new(SpannedExpression {
                         expr: Expression::string("run_external".to_string()),
-                        span: Span::unknown(),
+                        span: name_span,
                     }),
                     positional: Some(args),
                     named: None,

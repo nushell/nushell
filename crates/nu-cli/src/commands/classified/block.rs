@@ -1,5 +1,5 @@
 use crate::commands::classified::expr::run_expression_block;
-use crate::commands::classified::external::run_external_command;
+//use crate::commands::classified::external::run_external_command;
 use crate::commands::classified::internal::run_internal_command;
 use crate::context::Context;
 use crate::prelude::*;
@@ -79,14 +79,6 @@ async fn run_pipeline(
 
             (Some(ClassifiedCommand::Internal(left)), _) => {
                 run_internal_command(left, ctx, input, scope)?
-            }
-
-            (Some(ClassifiedCommand::External(left)), None) => {
-                run_external_command(left, ctx, input, scope, true).await?
-            }
-
-            (Some(ClassifiedCommand::External(left)), _) => {
-                run_external_command(left, ctx, input, scope, false).await?
             }
 
             (None, _) => break,
