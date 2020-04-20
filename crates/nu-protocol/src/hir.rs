@@ -74,7 +74,6 @@ pub enum ClassifiedCommand {
     #[allow(unused)]
     Dynamic(crate::hir::Call),
     Internal(InternalCommand),
-    External(crate::hir::ExternalCommand),
     Error(ParseError),
 }
 

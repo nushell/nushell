@@ -92,12 +92,6 @@ pub fn shapes(commands: &Block) -> Vec<Spanned<FlatShape>> {
                         }
                     }
                 }
-                ClassifiedCommand::External(external) => {
-                    output.push(FlatShape::ExternalCommand.spanned(external.name_tag.span));
-                    for arg in external.args.iter() {
-                        output.push(FlatShape::ExternalWord.spanned(arg.tag.span));
-                    }
-                }
                 ClassifiedCommand::Expr(expr) => output.append(&mut expression_to_flat_shape(expr)),
                 _ => {}
             }

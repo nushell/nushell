@@ -55,13 +55,6 @@ impl PerItemCommand for Each {
                     ).await;
 
                     match result {
-                        Ok(stream) if stream.is_empty() => {
-                            yield Err(ShellError::labeled_error(
-                                "Expected a block",
-                                "each needs a block",
-                                tag,
-                            ));
-                        }
                         Ok(mut stream) => {
                             let errors = context.get_errors();
                             if let Some(error) = errors.first() {

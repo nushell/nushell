@@ -63,15 +63,15 @@ impl WholeStreamCommand for RunExternalCommand {
 
         let command = ExternalCommand {
             name,
-            name_tag: Tag::unknown(),
+            name_tag: args.call_info.name_tag.clone(),
             args: ExternalArgs {
                 list: command_args
                     .map(|arg| ExternalArg {
                         arg: spanned_expression_to_string(arg),
-                        tag: Tag::unknown(),
+                        tag: Tag::unknown_anchor(arg.span),
                     })
                     .collect(),
-                span: Default::default(),
+                span: args.call_info.args.span,
             },
         };
 
