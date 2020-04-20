@@ -78,13 +78,15 @@ impl WholeStreamCommand for RunExternalCommand {
         let mut external_context;
         #[cfg(windows)]
         {
+            use std::sync::Arc;
+
             external_context = Context {
                 registry: registry.clone(),
                 host: args.host.clone(),
                 shell_manager: args.shell_manager.clone(),
                 ctrl_c: args.ctrl_c.clone(),
                 current_errors: Arc::new(Mutex::new(vec![])),
-                windows_drives_previous_cwd: args.windows_drives_previous_cwd.clone(),
+                windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
             };
         }
         #[cfg(not(windows))]
