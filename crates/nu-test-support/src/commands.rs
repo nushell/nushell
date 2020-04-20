@@ -28,13 +28,9 @@ impl ExternalBuilder {
         let args = self
             .args
             .iter()
-            .map(|arg| {
-                //let arg = arg.tagged(Tag::unknown());
-
-                SpannedExpression {
-                    expr: Expression::string(arg.to_string()),
-                    span: Span::unknown(),
-                }
+            .map(|arg| SpannedExpression {
+                expr: Expression::string(arg.to_string()),
+                span: Span::unknown(),
             })
             .collect::<Vec<_>>();
 

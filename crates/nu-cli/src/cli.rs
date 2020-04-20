@@ -885,7 +885,6 @@ pub fn print_err(err: ShellError, host: &dyn Host, source: &Text) {
     source.push_str(" ");
     let files = nu_parser::Files::new(source);
     let _ = std::panic::catch_unwind(move || {
-        println!("{:#?}", diag);
         let _ = language_reporting::emit(
             &mut writer.lock(),
             &files,

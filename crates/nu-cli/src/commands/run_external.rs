@@ -7,7 +7,7 @@ use parking_lot::Mutex;
 
 use nu_errors::ShellError;
 use nu_protocol::hir::{Expression, ExternalArgs, ExternalCommand, Literal, SpannedExpression};
-use nu_protocol::{ReturnSuccess, Scope, Signature, SyntaxShape};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape};
 
 #[derive(Deserialize)]
 pub struct RunExternalArgs {}
