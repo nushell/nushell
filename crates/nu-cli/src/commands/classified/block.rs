@@ -2,10 +2,13 @@ use crate::commands::classified::expr::run_expression_block;
 use crate::commands::classified::external::run_external_command;
 use crate::commands::classified::internal::run_internal_command;
 use crate::context::Context;
+use crate::prelude::*;
 use crate::stream::InputStream;
+use futures::stream::TryStreamExt;
 use nu_errors::ShellError;
 use nu_protocol::hir::{Block, ClassifiedCommand, Commands};
-use nu_protocol::Scope;
+use nu_protocol::{ReturnSuccess, Scope, UntaggedValue, Value};
+use std::sync::atomic::Ordering;
 
 pub(crate) async fn run_block(
     block: &Block,
@@ -13,12 +16,38 @@ pub(crate) async fn run_block(
     mut input: Option<InputStream>,
     scope: &Scope,
 ) -> Result<Option<InputStream>, ShellError> {
-    let mut output = Ok(None);
+    let mut output: Result<Option<InputStream>, ShellError> = Ok(None);
     for pipeline in &block.block {
-        output = Ok(run_pipeline(pipeline, ctx, input, scope).await?);
-        if !ctx.get_errors().is_empty() {
-            break;
+        match output {
+            Ok(Some(inp)) => {
+                let mut output_stream = inp.to_output_stream();
+
+                loop {
+                    match output_stream.try_next().await {
+                        Ok(Some(ReturnSuccess::Value(Value {
+                            value: UntaggedValue::Error(e),
+                            ..
+                        }))) => return Err(e),
+                        Ok(Some(_item)) => {
+                            if ctx.ctrl_c.load(Ordering::SeqCst) {
+                                break;
+                            }
+                        }
+                        Ok(None) => break,
+                        Err(e) => return Err(e),
+                    }
+                }
+                if !ctx.get_errors().is_empty() {
+                    return Ok(None);
+                }
+            }
+            Ok(None) => {}
+            Err(e) => {
+                return Err(e);
+            }
         }
+        output = run_pipeline(pipeline, ctx, input, scope).await;
+
         input = None;
     }
 
