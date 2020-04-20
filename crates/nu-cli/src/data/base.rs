@@ -88,6 +88,7 @@ pub(crate) enum CompareValues {
     String(String, String),
     Date(DateTime<Utc>, DateTime<Utc>),
     DateDuration(DateTime<Utc>, i64),
+    Booleans(bool, bool),
 }
 
 impl CompareValues {
@@ -108,6 +109,7 @@ impl CompareValues {
                 };
                 right.cmp(left)
             }
+            CompareValues::Booleans(left, right) => left.cmp(right),
         }
     }
 }
@@ -164,6 +166,7 @@ fn coerce_compare_primitive(
         (Line(left), Line(right)) => CompareValues::String(left.clone(), right.clone()),
         (Date(left), Date(right)) => CompareValues::Date(*left, *right),
         (Date(left), Duration(right)) => CompareValues::DateDuration(*left, *right),
+        (Boolean(left), Boolean(right)) => CompareValues::Booleans(*left, *right),
         _ => return Err((left.type_name(), right.type_name())),
     })
 }

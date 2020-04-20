@@ -30,16 +30,23 @@ pub(crate) async fn run_block(
                             ..
                         }))) => return Err(e),
                         Ok(Some(_item)) => {
+                            if let Some(err) = ctx.get_errors().get(0) {
+                                ctx.clear_errors();
+                                return Err(err.clone());
+                            }
                             if ctx.ctrl_c.load(Ordering::SeqCst) {
                                 break;
                             }
                         }
-                        Ok(None) => break,
+                        Ok(None) => {
+                            if let Some(err) = ctx.get_errors().get(0) {
+                                ctx.clear_errors();
+                                return Err(err.clone());
+                            }
+                            break;
+                        }
                         Err(e) => return Err(e),
                     }
-                }
-                if !ctx.get_errors().is_empty() {
-                    return Ok(InputStream::empty());
                 }
             }
             Err(e) => {
