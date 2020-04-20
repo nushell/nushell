@@ -54,7 +54,6 @@ pub fn rename(
     let new_column_names = new_column_names.into_iter().flatten().collect::<Vec<_>>();
 
     let stream = input
-        .values
         .map(move |item| {
             let mut result = VecDeque::new();
 

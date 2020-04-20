@@ -175,7 +175,7 @@ pub fn to_delimited_data(
     let name_span = name_tag.span;
 
     let stream = async_stream! {
-         let input: Vec<Value> = input.values.collect().await;
+         let input: Vec<Value> = input.collect().await;
 
          let to_process_input = if input.len() > 1 {
              let tag = input[0].tag.clone();

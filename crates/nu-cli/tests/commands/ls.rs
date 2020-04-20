@@ -128,7 +128,7 @@ fn fails_when_glob_doesnt_match() {
             "ls root3*"
         );
 
-        assert!(actual.contains("invalid file or pattern"));
+        assert!(actual.contains("no matches found"));
     })
 }
 

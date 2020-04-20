@@ -168,7 +168,7 @@ fn save(
         shell_manager,
         host,
         ctrl_c,
-        commands: registry,
+        registry,
         ..
     }: RunnableContext,
     raw_args: RawCommandArgs,
@@ -177,7 +177,7 @@ fn save(
     let name_tag = name.clone();
 
     let stream = async_stream! {
-        let input: Vec<Value> = input.values.collect().await;
+        let input: Vec<Value> = input.collect().await;
         if path.is_none() {
             // If there is no filename, check the metadata for the anchor filename
             if input.len() > 0 {
@@ -232,7 +232,8 @@ fn save(
                                     head: raw_args.call_info.args.head,
                                     positional: None,
                                     named: None,
-                                    span: Span::unknown()
+                                    span: Span::unknown(),
+                                    is_last: false,
                                 },
                                 name_tag: raw_args.call_info.name_tag,
                                 scope: Scope::empty(), // FIXME?

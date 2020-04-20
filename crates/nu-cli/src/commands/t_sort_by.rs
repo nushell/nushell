@@ -69,7 +69,7 @@ fn t_sort_by(
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     Ok(OutputStream::new(async_stream! {
-        let values: Vec<Value> = input.values.collect().await;
+        let values: Vec<Value> = input.collect().await;
 
         let column_grouped_by_name = if let Some(grouped_by) = group_by {
             Some(grouped_by.item().clone())

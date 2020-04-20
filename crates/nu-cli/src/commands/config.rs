@@ -124,7 +124,7 @@ pub fn config(
             yield ReturnSuccess::value(UntaggedValue::Row(result.into()).into_value(&value.tag));
         }
         else if let Some(v) = set_into {
-            let rows: Vec<Value> = input.values.collect().await;
+            let rows: Vec<Value> = input.collect().await;
             let key = v.to_string();
 
             if rows.len() == 0 {

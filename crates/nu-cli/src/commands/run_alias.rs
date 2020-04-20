@@ -53,36 +53,35 @@ impl PerItemCommand for AliasCommand {
 
         let stream = async_stream! {
             let mut context = Context::from_raw(&raw_args, &registry);
-            let input_stream = async_stream! {
-                yield Ok(input.clone())
-            }.to_input_stream();
+
+            let input_clone = Ok(input.clone());
+            let input_stream = futures::stream::once(async { input_clone }).boxed().to_input_stream();
 
             let result = run_block(
                 &block,
                 &mut context,
-                Some(input_stream),
+                input_stream,
                 &scope
             ).await;
 
             match result {
-                Ok(Some(v)) => {
-                    let results: Vec<Value> = v.collect().await;
-                    let errors = context.get_errors();
-                    if let Some(error) = errors.first() {
-                        yield Err(error.clone());
-                        return;
-                    }
-
-                    for result in results {
-                        yield Ok(ReturnSuccess::Value(result));
-                    }
-                }
-                Ok(None) => {
+                Ok(stream) if stream.is_empty() => {
                     yield Err(ShellError::labeled_error(
                         "Expected a block",
                         "each needs a block",
                         tag,
                     ));
+                }
+                Ok(mut stream) => {
+                    // We collect first to ensure errors are put into the context
+                    while let Some(result) = stream.next().await {
+                        yield Ok(ReturnSuccess::Value(result));
+                    }
+
+                    let errors = context.get_errors();
+                    if let Some(error) = errors.first() {
+                        yield Err(error.clone());
+                    }
                 }
                 Err(e) => {
                     yield Err(e);

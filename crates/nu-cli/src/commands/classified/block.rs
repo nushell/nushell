@@ -13,13 +13,14 @@ use std::sync::atomic::Ordering;
 pub(crate) async fn run_block(
     block: &Block,
     ctx: &mut Context,
-    mut input: Option<InputStream>,
+    mut input: InputStream,
     scope: &Scope,
-) -> Result<Option<InputStream>, ShellError> {
-    let mut output: Result<Option<InputStream>, ShellError> = Ok(None);
+) -> Result<InputStream, ShellError> {
+    let mut output: Result<InputStream, ShellError> = Ok(InputStream::empty());
     for pipeline in &block.block {
         match output {
-            Ok(Some(inp)) => {
+            Ok(inp) if inp.is_empty() => {}
+            Ok(inp) => {
                 let mut output_stream = inp.to_output_stream();
 
                 loop {
@@ -38,17 +39,16 @@ pub(crate) async fn run_block(
                     }
                 }
                 if !ctx.get_errors().is_empty() {
-                    return Ok(None);
+                    return Ok(InputStream::empty());
                 }
             }
-            Ok(None) => {}
             Err(e) => {
                 return Err(e);
             }
         }
         output = run_pipeline(pipeline, ctx, input, scope).await;
 
-        input = None;
+        input = InputStream::empty();
     }
 
     output
@@ -57,9 +57,9 @@ pub(crate) async fn run_block(
 async fn run_pipeline(
     commands: &Commands,
     ctx: &mut Context,
-    mut input: Option<InputStream>,
+    mut input: InputStream,
     scope: &Scope,
-) -> Result<Option<InputStream>, ShellError> {
+) -> Result<InputStream, ShellError> {
     let mut iter = commands.list.clone().into_iter().peekable();
 
     loop {

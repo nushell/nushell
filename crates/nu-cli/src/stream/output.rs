@@ -52,7 +52,7 @@ impl Stream for OutputStream {
 impl From<InputStream> for OutputStream {
     fn from(input: InputStream) -> OutputStream {
         OutputStream {
-            values: input.values.map(ReturnSuccess::value).boxed(),
+            values: input.map(ReturnSuccess::value).boxed(),
         }
     }
 }

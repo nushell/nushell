@@ -1,7 +1,6 @@
 use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
-use futures_util::pin_mut;
 use nu_errors::ShellError;
 use nu_protocol::{
     ColumnPath, PathMember, Primitive, ReturnSuccess, ReturnValue, Signature, SyntaxShape,
@@ -44,7 +43,9 @@ impl WholeStreamCommand for Pick {
 
 fn pick(
     PickArgs { rest: mut fields }: PickArgs,
-    RunnableContext { input, name, .. }: RunnableContext,
+    RunnableContext {
+        mut input, name, ..
+    }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     if fields.is_empty() {
         return Err(ShellError::labeled_error(
@@ -64,13 +65,10 @@ fn pick(
         .collect::<Vec<ColumnPath>>();
 
     let stream = async_stream! {
-        let values = input.values;
-        pin_mut!(values);
-
         let mut empty = true;
         let mut bring_back: indexmap::IndexMap<String, Vec<Value>> = indexmap::IndexMap::new();
 
-        while let Some(value) = values.next().await {
+        while let Some(value) = input.next().await {
             for path in &column_paths {
                 let path_members_span = span_for_spanned_list(path.members().iter().map(|p| p.span));
 

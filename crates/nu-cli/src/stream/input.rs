@@ -1,20 +1,30 @@
 use crate::prelude::*;
-use futures::stream::iter;
+use futures::stream::{iter, once};
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, UntaggedValue, Value};
 use nu_source::{Tagged, TaggedItem};
 
 pub struct InputStream {
-    pub(crate) values: BoxStream<'static, Value>,
+    values: BoxStream<'static, Value>,
+
+    // Whether or not an empty stream was explicitly requeted via InputStream::empty
+    empty: bool,
 }
 
 impl InputStream {
     pub fn empty() -> InputStream {
-        vec![UntaggedValue::nothing().into_value(Tag::unknown())].into()
+        InputStream {
+            values: once(async { UntaggedValue::nothing().into_untagged_value() }).boxed(),
+            empty: true,
+        }
     }
 
     pub fn into_vec(self) -> impl Future<Output = Vec<Value>> {
         self.values.collect()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.empty
     }
 
     pub fn drain_vec(&mut self) -> impl Future<Output = Vec<Value>> {
@@ -27,6 +37,7 @@ impl InputStream {
     pub fn from_stream(input: impl Stream<Item = Value> + Send + 'static) -> InputStream {
         InputStream {
             values: input.boxed(),
+            empty: false,
         }
     }
 
@@ -129,7 +140,10 @@ impl Stream for InputStream {
 
 impl From<BoxStream<'static, Value>> for InputStream {
     fn from(input: BoxStream<'static, Value>) -> InputStream {
-        InputStream { values: input }
+        InputStream {
+            values: input,
+            empty: false,
+        }
     }
 }
 
@@ -137,6 +151,7 @@ impl From<VecDeque<Value>> for InputStream {
     fn from(input: VecDeque<Value>) -> InputStream {
         InputStream {
             values: futures::stream::iter(input).boxed(),
+            empty: false,
         }
     }
 }
@@ -145,6 +160,7 @@ impl From<Vec<Value>> for InputStream {
     fn from(input: Vec<Value>) -> InputStream {
         InputStream {
             values: futures::stream::iter(input).boxed(),
+            empty: false,
         }
     }
 }

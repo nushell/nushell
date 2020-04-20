@@ -35,7 +35,7 @@ fn to_html(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
     let name_tag = args.name_tag();
     //let name_span = name_tag.span;
     let stream = async_stream! {
-        let input: Vec<Value> = args.input.values.collect().await;
+        let input: Vec<Value> = args.input.collect().await;
         let headers = nu_protocol::merge_descriptors(&input);
         let mut output_string = "<html><body>".to_string();
 

@@ -45,5 +45,5 @@ fn append(
     after.push_back(row);
     let after = futures::stream::iter(after);
 
-    Ok(OutputStream::from_input(input.values.chain(after)))
+    Ok(OutputStream::from_input(input.chain(after)))
 }

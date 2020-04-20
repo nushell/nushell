@@ -98,7 +98,7 @@ pub fn filter_plugin(
     trace!("filtering :: {:?}", call_info);
 
     let stream = bos
-        .chain(args.input.values)
+        .chain(args.input)
         .chain(eos)
         .map(move |v| match v {
             Value {
@@ -343,7 +343,7 @@ pub fn sink_plugin(
     let call_info = args.call_info.clone();
 
     let stream = async_stream! {
-        let input: Vec<Value> = args.input.values.collect().await;
+        let input: Vec<Value> = args.input.collect().await;
 
         let request = JsonRpc::new("sink", (call_info.clone(), input));
         let request_raw = serde_json::to_string(&request);

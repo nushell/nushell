@@ -179,7 +179,7 @@ impl CommandArgs {
             args: T::deserialize(&mut deserializer)?,
             context: RunnableContext {
                 input,
-                commands: registry.clone(),
+                registry: registry.clone(),
                 shell_manager,
                 name: name_tag,
                 host,
@@ -215,7 +215,7 @@ impl CommandArgs {
             args: T::deserialize(&mut deserializer)?,
             context: RunnableContext {
                 input,
-                commands: registry.clone(),
+                registry: registry.clone(),
                 shell_manager,
                 name: name_tag,
                 host,
@@ -238,13 +238,13 @@ pub struct RunnableContext {
     pub shell_manager: ShellManager,
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub ctrl_c: Arc<AtomicBool>,
-    pub commands: CommandRegistry,
+    pub registry: CommandRegistry,
     pub name: Tag,
 }
 
 impl RunnableContext {
     pub fn get_command(&self, name: &str) -> Option<Arc<Command>> {
-        self.commands.get_command(name)
+        self.registry.get_command(name)
     }
 }
 
@@ -530,7 +530,6 @@ impl Command {
 
         let out = args
             .input
-            .values
             .map(move |x| {
                 let call_info = UnevaluatedCallInfo {
                     args: raw_args.call_info.args.clone(),
@@ -597,7 +596,7 @@ impl WholeStreamCommand for FnFilterCommand {
         let registry: CommandRegistry = registry.clone();
         let func = self.func;
 
-        let result = input.values.map(move |it| {
+        let result = input.map(move |it| {
             let registry = registry.clone();
             let call_info = match call_info.clone().evaluate_with_new_it(&registry, &it) {
                 Err(err) => return OutputStream::from(vec![Err(err)]).values,

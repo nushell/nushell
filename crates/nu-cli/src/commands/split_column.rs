@@ -57,7 +57,6 @@ fn split_column(
     let name_span = name.span;
 
     Ok(input
-        .values
         .map(move |v| {
             if let Ok(s) = v.as_string() {
                 let splitter = separator.replace("\\n", "\n");
