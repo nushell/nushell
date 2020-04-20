@@ -146,35 +146,35 @@ fn run_with_iterator_arg(
                 command_args.push(nu_value_to_string(&name_tag, &value)?);
             }
 
-            // let process_args = command_args
-            // .iter()
-            // .map(|arg| {
-            //     let arg = expand_tilde(arg.deref(), dirs::home_dir);
+            let process_args = command_args
+            .iter()
+            .map(|arg| {
+                let arg = expand_tilde(arg.deref(), dirs::home_dir);
 
-            //     #[cfg(not(windows))]
-            //     {
-            //         if argument_contains_whitespace(&arg) && argument_is_quoted(&arg) {
-            //             if let Some(unquoted) = remove_quotes(&arg) {
-            //                 format!(r#""{}""#, unquoted)
-            //             } else {
-            //                 arg.as_ref().to_string()
-            //             }
-            //         } else {
-            //             arg.as_ref().to_string()
-            //         }
-            //     }
-            //     #[cfg(windows)]
-            //     {
-            //         if let Some(unquoted) = remove_quotes(&arg) {
-            //             unquoted.to_string()
-            //         } else {
-            //             arg.as_ref().to_string()
-            //         }
-            //     }
-            // })
-            // .collect::<Vec<String>>();
+                #[cfg(not(windows))]
+                {
+                    if argument_contains_whitespace(&arg) && argument_is_quoted(&arg) {
+                        if let Some(unquoted) = remove_quotes(&arg) {
+                            format!(r#""{}""#, unquoted)
+                        } else {
+                            arg.as_ref().to_string()
+                        }
+                    } else {
+                        arg.as_ref().to_string()
+                    }
+                }
+                #[cfg(windows)]
+                {
+                    if let Some(unquoted) = remove_quotes(&arg) {
+                        unquoted.to_string()
+                    } else {
+                        arg.as_ref().to_string()
+                    }
+                }
+            })
+            .collect::<Vec<String>>();
 
-            match spawn(&command, &path, &command_args[..], InputStream::empty(), is_last) {
+            match spawn(&command, &path, &process_args[..], InputStream::empty(), is_last) {
                 Ok(mut res) => {
                     while let Some(item) = res.next().await {
                         yield Ok(item)
@@ -218,12 +218,8 @@ fn run_with_stdin(
 
             #[cfg(not(windows))]
             {
-                if argument_contains_whitespace(&arg) && argument_is_quoted(&arg) {
-                    if let Some(unquoted) = remove_quotes(&arg) {
-                        format!(r#""{}""#, unquoted)
-                    } else {
-                        arg.as_ref().to_string()
-                    }
+                if argument_contains_whitespace(&arg) && !argument_is_quoted(&arg) {
+                    add_quotes(&arg)
                 } else {
                     arg.as_ref().to_string()
                 }
@@ -250,10 +246,6 @@ fn spawn(
     is_last: bool,
 ) -> Result<InputStream, ShellError> {
     let command = command.clone();
-    println!("{:#?}", command);
-    for arg in args {
-        println!("{}", arg);
-    }
 
     let mut process = {
         #[cfg(windows)]
