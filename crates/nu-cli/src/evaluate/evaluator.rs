@@ -152,6 +152,14 @@ fn evaluate_reference(name: &hir::Variable, scope: &Scope, tag: Tag) -> Result<V
         hir::Variable::It(_) => Ok(scope.it.value.clone().into_value(tag)),
         hir::Variable::Other(name, _) => match name {
             x if x == "$nu" => crate::evaluate::variables::nu(tag),
+            x if x == "$true" => Ok(Value {
+                value: UntaggedValue::boolean(true),
+                tag,
+            }),
+            x if x == "$false" => Ok(Value {
+                value: UntaggedValue::boolean(false),
+                tag,
+            }),
             x => Ok(scope
                 .vars
                 .get(x)
