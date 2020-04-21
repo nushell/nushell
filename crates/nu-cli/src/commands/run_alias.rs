@@ -68,7 +68,7 @@ impl PerItemCommand for AliasCommand {
                 Ok(stream) if stream.is_empty() => {
                     yield Err(ShellError::labeled_error(
                         "Expected a block",
-                        "each needs a block",
+                        "alias needs a block",
                         tag,
                     ));
                 }
@@ -79,12 +79,26 @@ impl PerItemCommand for AliasCommand {
                     }
 
                     let errors = context.get_errors();
-                    if let Some(error) = errors.first() {
-                        yield Err(error.clone());
+                    if let Some(x) = errors.first() {
+                        //yield Err(error.clone());
+                        yield Err(ShellError::labeled_error_with_secondary(
+                            "Alias failed to run",
+                            "alias failed to run",
+                            tag.clone(),
+                            x.to_string(),
+                            tag
+                        ));
                     }
                 }
                 Err(e) => {
-                    yield Err(e);
+                    //yield Err(e);
+                    yield Err(ShellError::labeled_error_with_secondary(
+                        "Alias failed to run",
+                        "alias failed to run",
+                        tag.clone(),
+                        e.to_string(),
+                        tag
+                    ));
                 }
             }
         };
