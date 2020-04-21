@@ -303,6 +303,9 @@ impl PrettyDebug for ShellError {
             ProximateShellError::UntaggedRuntimeError { reason } => {
                 b::error("Unknown Error") + b::delimit("(", b::description(reason), ")")
             }
+            ProximateShellError::ExternalPlaceholderError => {
+                b::error("non-zero external exit code")
+            }
         }
     }
 }
@@ -415,7 +418,11 @@ impl ShellError {
         ProximateShellError::Diagnostic(ShellDiagnostic { diagnostic }).start()
     }
 
-    pub fn into_diagnostic(self) -> Diagnostic<Span> {
+    pub fn external_non_zero() -> ShellError {
+        ProximateShellError::ExternalPlaceholderError.start()
+    }
+
+    pub fn into_diagnostic(self) -> Option<Diagnostic<Span>> {
         match self.error {
             ProximateShellError::MissingValue { span, reason } => {
                 let mut d = Diagnostic::new(
@@ -427,12 +434,12 @@ impl ShellError {
                     d = d.with_label(Label::new_primary(span));
                 }
 
-                d
+                Some(d)
             }
             ProximateShellError::ArgumentError {
                 command,
                 error,
-            } => match error {
+            } => Some(match error {
                 ArgumentError::InvalidExternalWord => Diagnostic::new(
                     Severity::Error,
                     "Invalid bare word for Nu command (did you intend to invoke an external command?)".to_string())
@@ -492,7 +499,7 @@ impl ShellError {
                     ),
                 )
                 .with_label(Label::new_primary(command.span)),
-            },
+            }),
             ProximateShellError::TypeError {
                 expected,
                 actual:
@@ -500,9 +507,9 @@ impl ShellError {
                         item: Some(actual),
                         span,
                     },
-            } => Diagnostic::new(Severity::Error, "Type Error").with_label(
+            } => Some(Diagnostic::new(Severity::Error, "Type Error").with_label(
                 Label::new_primary(span)
-                    .with_message(format!("Expected {}, found {}", expected, actual)),
+                    .with_message(format!("Expected {}, found {}", expected, actual))),
             ),
             ProximateShellError::TypeError {
                 expected,
@@ -511,13 +518,13 @@ impl ShellError {
                         item: None,
                         span
                     },
-            } => Diagnostic::new(Severity::Error, "Type Error")
-                .with_label(Label::new_primary(span).with_message(expected)),
+            } => Some(Diagnostic::new(Severity::Error, "Type Error")
+                .with_label(Label::new_primary(span).with_message(expected))),
 
             ProximateShellError::UnexpectedEof {
                 expected, span
-            } => Diagnostic::new(Severity::Error, "Unexpected end of input".to_string())
-                .with_label(Label::new_primary(span).with_message(format!("Expected {}", expected))),
+            } => Some(Diagnostic::new(Severity::Error, "Unexpected end of input".to_string())
+                .with_label(Label::new_primary(span).with_message(format!("Expected {}", expected)))),
 
             ProximateShellError::RangeError {
                 kind,
@@ -527,13 +534,13 @@ impl ShellError {
                         item,
                         span
                     },
-            } => Diagnostic::new(Severity::Error, "Range Error").with_label(
+            } => Some(Diagnostic::new(Severity::Error, "Range Error").with_label(
                 Label::new_primary(span).with_message(format!(
                     "Expected to convert {} to {} while {}, but it was out of range",
                     item,
                     kind.display(),
                     operation
-                )),
+                ))),
             ),
 
             ProximateShellError::SyntaxError {
@@ -542,8 +549,8 @@ impl ShellError {
                         span,
                         item
                     },
-            } => Diagnostic::new(Severity::Error, "Syntax Error")
-                .with_label(Label::new_primary(span).with_message(item)),
+            } => Some(Diagnostic::new(Severity::Error, "Syntax Error")
+                .with_label(Label::new_primary(span).with_message(item))),
 
             ProximateShellError::MissingProperty { subpath, expr, .. } => {
 
@@ -562,7 +569,7 @@ impl ShellError {
 
                 }
 
-                diag
+                Some(diag)
             }
 
             ProximateShellError::InvalidIntegerIndex { subpath,integer } => {
@@ -577,17 +584,18 @@ impl ShellError {
 
                 diag = diag.with_label(Label::new_secondary(integer).with_message("integer"));
 
-                diag
+                Some(diag)
             }
 
-            ProximateShellError::Diagnostic(diag) => diag.diagnostic,
+            ProximateShellError::Diagnostic(diag) => Some(diag.diagnostic),
             ProximateShellError::CoerceError { left, right } => {
-                Diagnostic::new(Severity::Error, "Coercion error")
+                Some(Diagnostic::new(Severity::Error, "Coercion error")
                     .with_label(Label::new_primary(left.span).with_message(left.item))
-                    .with_label(Label::new_secondary(right.span).with_message(right.item))
+                    .with_label(Label::new_secondary(right.span).with_message(right.item)))
             }
 
-            ProximateShellError::UntaggedRuntimeError { reason } => Diagnostic::new(Severity::Error, format!("Error: {}", reason))
+            ProximateShellError::UntaggedRuntimeError { reason } => Some(Diagnostic::new(Severity::Error, format!("Error: {}", reason))),
+            ProximateShellError::ExternalPlaceholderError => None,
         }
     }
 
@@ -733,6 +741,7 @@ pub enum ProximateShellError {
     UntaggedRuntimeError {
         reason: String,
     },
+    ExternalPlaceholderError,
 }
 
 impl ProximateShellError {
@@ -764,6 +773,7 @@ impl HasFallibleSpan for ProximateShellError {
             ProximateShellError::Diagnostic(_) => return None,
             ProximateShellError::CoerceError { left, right } => left.span.until(right.span),
             ProximateShellError::UntaggedRuntimeError { .. } => return None,
+            ProximateShellError::ExternalPlaceholderError => return None,
         })
     }
 }

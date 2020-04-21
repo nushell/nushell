@@ -422,7 +422,15 @@ fn spawn(
 
             // We can give an error when we see a non-zero exit code, but this is different
             // than what other shells will do.
-            if child.wait().is_err() {
+            let external_failed = match child.wait() {
+                Err(_) => true,
+                Ok(exit_status) => match exit_status.code() {
+                    Some(e) if e != 0 => true,
+                    _ => false,
+                },
+            };
+
+            if external_failed {
                 let cfg = crate::data::config::config(Tag::unknown());
                 if let Ok(cfg) = cfg {
                     if cfg.contains_key("nonzero_exit_errors") {
@@ -432,10 +440,14 @@ fn spawn(
                                 "command failed",
                                 &stdout_name_tag,
                             )),
-                            tag: stdout_name_tag,
+                            tag: stdout_name_tag.clone(),
                         }));
                     }
                 }
+                let _ = stdout_read_tx.send(Ok(Value {
+                    value: UntaggedValue::Error(ShellError::external_non_zero()),
+                    tag: stdout_name_tag,
+                }));
             }
 
             Ok(())

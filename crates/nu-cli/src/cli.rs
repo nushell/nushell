@@ -878,20 +878,20 @@ async fn process_line(
 }
 
 pub fn print_err(err: ShellError, host: &dyn Host, source: &Text) {
-    let diag = err.into_diagnostic();
-
-    let writer = host.err_termcolor();
-    let mut source = source.to_string();
-    source.push_str(" ");
-    let files = nu_parser::Files::new(source);
-    let _ = std::panic::catch_unwind(move || {
-        let _ = language_reporting::emit(
-            &mut writer.lock(),
-            &files,
-            &diag,
-            &language_reporting::DefaultConfig,
-        );
-    });
+    if let Some(diag) = err.into_diagnostic() {
+        let writer = host.err_termcolor();
+        let mut source = source.to_string();
+        source.push_str(" ");
+        let files = nu_parser::Files::new(source);
+        let _ = std::panic::catch_unwind(move || {
+            let _ = language_reporting::emit(
+                &mut writer.lock(),
+                &files,
+                &diag,
+                &language_reporting::DefaultConfig,
+            );
+        });
+    }
 }
 
 #[cfg(test)]
