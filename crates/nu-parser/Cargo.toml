@@ -1,6 +1,6 @@
 [package]
 name = "nu-parser"
-version = "0.12.0"
+version = "0.13.0"
 authors = ["The Nu Project Contributors"]
 edition = "2018"
 
@@ -18,9 +18,9 @@ language-reporting = "0.4.0"
 log = "0.4.8"
 shellexpand = "2.0.0"
 
-nu-source = { version = "0.12.0", path = "../nu-source" }
-nu-protocol = { version = "0.12.0", path = "../nu-protocol" }
-nu-errors = { version = "0.12.0", path = "../nu-errors" }
+nu-source = { version = "0.13.0", path = "../nu-source" }
+nu-protocol = { version = "0.13.0", path = "../nu-protocol" }
+nu-errors = { version = "0.13.0", path = "../nu-errors" }
 
 [features]
 stable = []
