@@ -73,7 +73,19 @@ impl TableView {
     }
 }
 
+fn are_table_indexes_disabled() -> bool {
+    let config = crate::data::config::config(Tag::unknown());
+    match config {
+        Ok(config) => {
+            let disable_indexes = config.get("disable_table_indexes");
+            disable_indexes.map_or(false, |x| x.as_bool().unwrap_or(false))
+        }
+        _ => false,
+    }
+}
+
 fn values_to_entries(values: &[Value], headers: &mut Vec<String>, starting_idx: usize) -> Entries {
+    let disable_indexes = are_table_indexes_disabled();
     let mut entries = vec![];
 
     if headers.is_empty() {
@@ -117,12 +129,16 @@ fn values_to_entries(values: &[Value], headers: &mut Vec<String>, starting_idx: 
             .collect();
 
         // Indices are green, bold, right-aligned:
-        row.insert(0, ((starting_idx + idx).to_string(), "Fgbr"));
+        if !disable_indexes {
+            row.insert(0, ((starting_idx + idx).to_string(), "Fgbr"));
+        }
 
         entries.push(row);
     }
 
-    headers.insert(0, "#".to_owned());
+    if !disable_indexes {
+        headers.insert(0, "#".to_owned());
+    }
 
     entries
 }
