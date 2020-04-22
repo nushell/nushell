@@ -2,7 +2,7 @@ use crate::commands::to_delimited_data::to_delimited_data;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, Signature, UntaggedValue, Value};
+use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 
 pub struct ToCSV;
 
@@ -18,11 +18,18 @@ impl WholeStreamCommand for ToCSV {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to-csv").switch(
-            "headerless",
-            "do not output the columns names as the first row",
-            None,
-        )
+        Signature::build("to-csv")
+            .named(
+                "separator",
+                SyntaxShape::String,
+                "a character to separate columns, defaults to ','",
+                Some('s'),
+            )
+            .switch(
+                "headerless",
+                "do not output the columns names as the first row",
+                None,
+            )
     }
 
     fn usage(&self) -> &str {
