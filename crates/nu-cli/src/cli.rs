@@ -469,6 +469,11 @@ pub async fn run_pipeline_standalone(
 
 /// The entry point for the CLI. Will register all known internal commands, load experimental commands, load plugins, then prepare the prompt and line reader for input.
 pub async fn cli() -> Result<(), Box<dyn Error>> {
+    #[cfg(windows)]
+    const DEFAULT_COMPLETION_MODE: CompletionType = CompletionType::Circular;
+    #[cfg(not(windows))]
+    const DEFAULT_COMPLETION_MODE: CompletionType = CompletionType::List;
+
     let mut syncer = crate::env::environment_syncer::EnvironmentSyncer::new();
     let mut context = create_default_context(&mut syncer)?;
 
@@ -555,9 +560,9 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             .map(|s| match s.value.expect_string() {
                 "list" => CompletionType::List,
                 "circular" => CompletionType::Circular,
-                _ => CompletionType::Circular,
+                _ => DEFAULT_COMPLETION_MODE,
             })
-            .unwrap_or(CompletionType::Circular);
+            .unwrap_or(DEFAULT_COMPLETION_MODE);
 
         rl.set_completion_type(completion_mode);
 
