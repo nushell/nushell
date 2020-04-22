@@ -188,13 +188,14 @@ pub fn to_delimited_data(
 
          for value in to_process_input {
              match from_value_to_delimited_string(&clone_tagged_value(&value), sep) {
-                 Ok(x) => {
-                     let converted = if headerless {
-                         x.lines().skip(1).collect()
-                     } else {
-                         x
-                     };
-                     yield ReturnSuccess::value(UntaggedValue::Primitive(Primitive::String(converted)).into_value(&name_tag))
+                 Ok(mut x) => {
+                     if headerless {
+                         x.find('\n').map(|second_line|{
+                             let start = second_line + 1;
+                             x.replace_range(0..start, "");
+                         });
+                     }
+                     yield ReturnSuccess::value(UntaggedValue::Primitive(Primitive::String(x)).into_value(&name_tag))
                  }
                  Err(x) => {
                      let expected = format!("Expected a table with {}-compatible structure from pipeline", format_name);
