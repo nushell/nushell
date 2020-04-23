@@ -445,7 +445,7 @@ pub async fn run_pipeline_standalone(
             };
 
             context.maybe_print_errors(Text::from(line));
-            if error_code != 0 {
+            if error_code != 0 && exit_on_error {
                 std::process::exit(error_code);
             }
         }
