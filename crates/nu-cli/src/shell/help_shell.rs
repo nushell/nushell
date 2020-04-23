@@ -204,12 +204,9 @@ impl Shell for HelpShell {
         let mut possible_completion = vec![];
         let commands = self.commands();
         for cmd in commands {
-            match cmd {
-                Value { value, .. } => {
-                    for desc in value.data_descriptors() {
-                        possible_completion.push(desc);
-                    }
-                }
+            let Value { value, .. } = cmd;
+            for desc in value.data_descriptors() {
+                possible_completion.push(desc);
             }
         }
 

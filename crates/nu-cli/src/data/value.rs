@@ -110,30 +110,24 @@ pub fn compare_values(
     left: &UntaggedValue,
     right: &UntaggedValue,
 ) -> Result<bool, (&'static str, &'static str)> {
-    match operator {
-        _ => {
-            let coerced = coerce_compare(left, right)?;
-            let ordering = coerced.compare();
+    let coerced = coerce_compare(left, right)?;
+    let ordering = coerced.compare();
 
-            use std::cmp::Ordering;
+    use std::cmp::Ordering;
 
-            let result = match (operator, ordering) {
-                (Operator::Equal, Ordering::Equal) => true,
-                (Operator::NotEqual, Ordering::Less) | (Operator::NotEqual, Ordering::Greater) => {
-                    true
-                }
-                (Operator::LessThan, Ordering::Less) => true,
-                (Operator::GreaterThan, Ordering::Greater) => true,
-                (Operator::GreaterThanOrEqual, Ordering::Greater)
-                | (Operator::GreaterThanOrEqual, Ordering::Equal) => true,
-                (Operator::LessThanOrEqual, Ordering::Less)
-                | (Operator::LessThanOrEqual, Ordering::Equal) => true,
-                _ => false,
-            };
+    let result = match (operator, ordering) {
+        (Operator::Equal, Ordering::Equal) => true,
+        (Operator::NotEqual, Ordering::Less) | (Operator::NotEqual, Ordering::Greater) => true,
+        (Operator::LessThan, Ordering::Less) => true,
+        (Operator::GreaterThan, Ordering::Greater) => true,
+        (Operator::GreaterThanOrEqual, Ordering::Greater)
+        | (Operator::GreaterThanOrEqual, Ordering::Equal) => true,
+        (Operator::LessThanOrEqual, Ordering::Less)
+        | (Operator::LessThanOrEqual, Ordering::Equal) => true,
+        _ => false,
+    };
 
-            Ok(result)
-        }
-    }
+    Ok(result)
 }
 
 pub fn format_type<'a>(value: impl Into<&'a UntaggedValue>, width: usize) -> String {

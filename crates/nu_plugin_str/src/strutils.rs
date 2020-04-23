@@ -68,12 +68,13 @@ impl Str {
                     }
                 }
             },
-            Some(Action::ToInteger) => match input.trim() {
-                other => match other.parse::<i64>() {
+            Some(Action::ToInteger) => {
+                let other = input.trim();
+                match other.parse::<i64>() {
                     Ok(v) => UntaggedValue::int(v),
                     Err(_) => UntaggedValue::string(input),
-                },
-            },
+                }
+            }
             Some(Action::ToDateTime(dt)) => match DateTime::parse_from_str(input, dt) {
                 Ok(d) => UntaggedValue::date(d),
                 Err(_) => UntaggedValue::string(input),

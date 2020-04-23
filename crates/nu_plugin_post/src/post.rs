@@ -42,24 +42,24 @@ impl Post {
     }
 
     pub fn setup(&mut self, call_info: CallInfo) -> ReturnValue {
-        self.path = Some(
-            match call_info.args.nth(0).ok_or_else(|| {
+        self.path = Some({
+            let file = call_info.args.nth(0).ok_or_else(|| {
                 ShellError::labeled_error(
                     "No file or directory specified",
                     "for command",
                     &call_info.name_tag,
                 )
-            })? {
-                file => file.clone(),
-            },
-        );
+            })?;
+            file.clone()
+        });
 
         self.has_raw = call_info.args.has("raw");
 
-        self.body = match call_info.args.nth(1).ok_or_else(|| {
-            ShellError::labeled_error("No body specified", "for command", &call_info.name_tag)
-        })? {
-            file => Some(file.clone()),
+        self.body = {
+            let file = call_info.args.nth(1).ok_or_else(|| {
+                ShellError::labeled_error("No body specified", "for command", &call_info.name_tag)
+            })?;
+            Some(file.clone())
         };
 
         self.user = match call_info.args.get("user") {
