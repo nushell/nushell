@@ -366,7 +366,7 @@ fn parse_arg(
         }
         SyntaxShape::Pattern => {
             let trimmed = trim_quotes(&lite_arg.item);
-            let expanded = expand_path(&trimmed);
+            let expanded = expand_path(&trimmed).to_string();
             (
                 SpannedExpression::new(Expression::pattern(expanded), lite_arg.span),
                 None,
@@ -378,7 +378,7 @@ fn parse_arg(
         SyntaxShape::Unit => parse_unit(&lite_arg),
         SyntaxShape::Path => {
             let trimmed = trim_quotes(&lite_arg.item);
-            let expanded = expand_path(&trimmed);
+            let expanded = expand_path(&trimmed).to_string();
             let path = Path::new(&expanded);
             (
                 SpannedExpression::new(Expression::FilePath(path.to_path_buf()), lite_arg.span),
@@ -1068,7 +1068,7 @@ fn classify_pipeline(
         } else {
             let name = lite_cmd.name.clone().map(|v| {
                 let trimmed = trim_quotes(&v);
-                expand_path(&trimmed)
+                expand_path(&trimmed).to_string()
             });
 
             let mut args = vec![];
