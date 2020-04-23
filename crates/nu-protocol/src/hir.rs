@@ -152,15 +152,16 @@ impl ExternalCommand {
             SpannedExpression {
                 expr: Expression::Path(path),
                 ..
-            } => match &**path {
-                Path { head, .. } => match head {
+            } => {
+                let Path { head, .. } = &**path;
+                match head {
                     SpannedExpression {
                         expr: Expression::Variable(Variable::It(_)),
                         ..
                     } => true,
                     _ => false,
-                },
-            },
+                }
+            }
             _ => false,
         })
     }

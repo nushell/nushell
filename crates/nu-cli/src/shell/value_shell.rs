@@ -238,12 +238,9 @@ impl Shell for ValueShell {
         let mut possible_completion = vec![];
         let members = self.members();
         for member in members {
-            match member {
-                Value { value, .. } => {
-                    for desc in value.data_descriptors() {
-                        possible_completion.push(desc);
-                    }
-                }
+            let Value { value, .. } = member;
+            for desc in value.data_descriptors() {
+                possible_completion.push(desc);
             }
         }
 
