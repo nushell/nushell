@@ -276,6 +276,10 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 
 You can find a list of Nu commands, complete with documentation, in [quick command references](https://www.nushell.sh/documentation.html#quick-command-references).
 
+# Contributing
+
+See [Contributing](CONTRIBUTING.md) for details.
+
 # License
 
 The project is made available under the MIT license. See the `LICENSE` file for more information.
