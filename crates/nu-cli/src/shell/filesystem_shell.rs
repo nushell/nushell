@@ -11,6 +11,7 @@ use crate::shell::completer::NuCompleter;
 use crate::shell::shell::Shell;
 use crate::utils::FileStructure;
 use nu_errors::ShellError;
+use nu_parser::expand_ndots;
 use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue};
 use rustyline::completion::FilenameCompleter;
 use rustyline::hint::{Hinter, HistoryHinter};
@@ -994,7 +995,27 @@ impl Shell for FilesystemShell {
         pos: usize,
         ctx: &rustyline::Context<'_>,
     ) -> Result<(usize, Vec<rustyline::completion::Pair>), rustyline::error::ReadlineError> {
-        self.completer.complete(line, pos, ctx)
+        let expanded = expand_ndots(&line);
+
+        // Find the first not-matching char position, if there is one
+        let differ_pos = line
+            .chars()
+            .zip(expanded.chars())
+            .enumerate()
+            .find(|(_index, (a, b))| a != b)
+            .map(|(differ_pos, _)| differ_pos);
+
+        let pos = if let Some(differ_pos) = differ_pos {
+            if differ_pos < pos {
+                pos + (expanded.len() - line.len())
+            } else {
+                pos
+            }
+        } else {
+            pos
+        };
+
+        self.completer.complete(&expanded, pos, ctx)
     }
 
     fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
