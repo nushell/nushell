@@ -71,16 +71,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn expand_in_relative_path() {
-        let expected = Path::new("../..");
-        let expanded = PathBuf::from(expand_path("..."));
-        assert_eq!(expected, &expanded);
+    fn string_without_ndots() {
+        assert_eq!("../hola", &expand_ndots("../hola").to_string());
     }
 
     #[test]
-    fn expand_in_absolute_path() {
-        let expected = Path::new("/foo/../..");
-        let expanded = PathBuf::from(expand_path("/foo/..."));
-        assert_eq!(expected, &expanded);
+    fn string_with_three_ndots() {
+        assert_eq!("../..", &expand_ndots("...").to_string());
+    }
+
+    #[test]
+    fn string_with_three_ndots_and_final_slash() {
+        assert_eq!("../../", &expand_ndots(".../").to_string());
+    }
+
+    #[test]
+    fn string_with_three_ndots_and_garbage() {
+        assert_eq!(
+            "ls ../../ garbage.*[",
+            &expand_ndots("ls .../ garbage.*[").to_string(),
+        );
     }
 }
