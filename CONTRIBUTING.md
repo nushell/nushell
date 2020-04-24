@@ -9,3 +9,20 @@ For speedy contributions open it in Gitpod, nu will be pre-installed with the la
 To get live support from the community see our [Discord](https://discordapp.com/invite/NtAbbGn), [Twitter](https://twitter.com/nu_shell) or file an issue or feature request here on [GitHub](https://github.com/nushell/nushell/issues/new/choose)!
 <!--WIP-->
 
+# Developing
+## Set up
+This is no different than other Rust projects.
+
+```shell
+git clone https://github.com/nushell/nushell
+cd nushell
+cargo build
+```
+
+## Tests
+
+Run tests with:
+
+```shell
+cargo test --all --features=stable,test-bins
+```
