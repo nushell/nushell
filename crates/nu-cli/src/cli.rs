@@ -555,6 +555,13 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
         rl.set_edit_mode(edit_mode);
 
+        let key_timeout = config::config(Tag::unknown())?
+            .get("key_timeout")
+            .map(|s| s.value.expect_int())
+            .unwrap_or(1);
+
+        rl.set_keyseq_timeout(key_timeout as i32);
+
         let completion_mode = config::config(Tag::unknown())?
             .get("completion_mode")
             .map(|s| match s.value.expect_string() {
