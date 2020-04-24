@@ -9,7 +9,7 @@ fn can_only_apply_one() {
         "open caco3_plastics.csv | first 1 | str origin --downcase --upcase"
     );
 
-    assert!(actual.contains(r#"--downcase|--upcase|--to-int|--substring "start,end"|--replace|--find-replace [pattern replacement]]"#));
+    assert!(actual.contains(r#"--capitalize|--downcase|--upcase|--to-int|--substring "start,end"|--replace|--find-replace [pattern replacement]|to-date-time|--trim]"#));
 }
 
 #[test]
@@ -34,8 +34,48 @@ fn acts_without_passing_field() {
 }
 
 #[test]
-fn downcases() {
+fn trims() {
     Playground::setup("plugin_str_test_2", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
+                    [dependency]
+                    name = "nu "
+                "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "open sample.toml | str dependency.name --trim | get dependency.name | echo $it"
+        );
+
+        assert_eq!(actual, "nu");
+    })
+}
+
+#[test]
+fn capitalizes() {
+    Playground::setup("plugin_str_test_3", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
+                    [dependency]
+                    name = "nu"
+                "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "open sample.toml | str dependency.name --capitalize | get dependency.name | echo $it"
+        );
+
+        assert_eq!(actual, "Nu");
+    })
+}
+
+#[test]
+fn downcases() {
+    Playground::setup("plugin_str_test_4", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
             "sample.toml",
             r#"
@@ -55,7 +95,7 @@ fn downcases() {
 
 #[test]
 fn upcases() {
-    Playground::setup("plugin_str_test_3", |dirs, sandbox| {
+    Playground::setup("plugin_str_test_5", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
             "sample.toml",
             r#"
@@ -93,7 +133,7 @@ fn converts_to_int() {
 
 #[test]
 fn replaces() {
-    Playground::setup("plugin_str_test_4", |dirs, sandbox| {
+    Playground::setup("plugin_str_test_5", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
             "sample.toml",
             r#"
@@ -118,7 +158,7 @@ fn replaces() {
 
 #[test]
 fn find_and_replaces() {
-    Playground::setup("plugin_str_test_5", |dirs, sandbox| {
+    Playground::setup("plugin_str_test_6", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
             "sample.toml",
             r#"
@@ -143,7 +183,7 @@ fn find_and_replaces() {
 
 #[test]
 fn find_and_replaces_without_passing_field() {
-    Playground::setup("plugin_str_test_6", |dirs, sandbox| {
+    Playground::setup("plugin_str_test_7", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
             "sample.toml",
             r#"

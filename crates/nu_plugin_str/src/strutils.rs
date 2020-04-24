@@ -10,12 +10,14 @@ use std::cmp;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Action {
+    Capitalize,
     Downcase,
     Upcase,
     ToInteger,
     Substring(usize, usize),
     Replace(ReplaceAction),
     ToDateTime(String),
+    Trim,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -38,6 +40,22 @@ impl Str {
 
     fn apply(&self, input: &str) -> Result<UntaggedValue, ShellError> {
         let applied = match self.action.as_ref() {
+            Some(Action::Trim) => UntaggedValue::string(input.trim()),
+            Some(Action::Capitalize) => {
+                let mut capitalized = String::new();
+
+                for (idx, character) in input.chars().enumerate() {
+                    let out = if idx == 0 {
+                        character.to_uppercase().to_string()
+                    } else {
+                        character.to_lowercase().to_string()
+                    };
+
+                    capitalized.push_str(&out);
+                }
+
+                UntaggedValue::string(capitalized)
+            }
             Some(Action::Downcase) => UntaggedValue::string(input.to_ascii_lowercase()),
             Some(Action::Upcase) => UntaggedValue::string(input.to_ascii_uppercase()),
             Some(Action::Substring(s, e)) => {
@@ -101,6 +119,14 @@ impl Str {
         self.add_action(Action::ToInteger);
     }
 
+    pub fn for_capitalize(&mut self) {
+        self.add_action(Action::Capitalize);
+    }
+
+    pub fn for_trim(&mut self) {
+        self.add_action(Action::Trim);
+    }
+
     pub fn for_downcase(&mut self) {
         self.add_action(Action::Downcase);
     }
@@ -151,7 +177,7 @@ impl Str {
     }
 
     pub fn usage() -> &'static str {
-        "Usage: str field [--downcase|--upcase|--to-int|--substring \"start,end\"|--replace|--find-replace [pattern replacement]]]"
+        "Usage: str field [--capitalize|--downcase|--upcase|--to-int|--substring \"start,end\"|--replace|--find-replace [pattern replacement]|to-date-time|--trim]"
     }
 
     pub fn strutils(&self, value: Value) -> Result<Value, ShellError> {
@@ -215,6 +241,22 @@ pub mod tests {
     use super::ReplaceAction;
     use super::Str;
     use nu_plugin::test_helpers::value::{int, string};
+
+    #[test]
+    fn trim() -> Result<(), Box<dyn std::error::Error>> {
+        let mut strutils = Str::new();
+        strutils.for_trim();
+        assert_eq!(strutils.apply("andres ")?, string("andres").value);
+        Ok(())
+    }
+
+    #[test]
+    fn capitalize() -> Result<(), Box<dyn std::error::Error>> {
+        let mut strutils = Str::new();
+        strutils.for_capitalize();
+        assert_eq!(strutils.apply("andres")?, string("Andres").value);
+        Ok(())
+    }
 
     #[test]
     fn downcases() -> Result<(), Box<dyn std::error::Error>> {

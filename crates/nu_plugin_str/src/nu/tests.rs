@@ -57,6 +57,20 @@ mod integration {
     }
 
     #[test]
+    fn picks_up_trim_flag() {
+        plugin(&mut Str::new())
+            .args(CallStub::new().with_long_flag("trim").create())
+            .setup(|plugin, _| plugin.expect_action(Action::Trim));
+    }
+
+    #[test]
+    fn picks_up_capitalize_flag() {
+        plugin(&mut Str::new())
+            .args(CallStub::new().with_long_flag("capitalize").create())
+            .setup(|plugin, _| plugin.expect_action(Action::Capitalize));
+    }
+
+    #[test]
     fn picks_up_downcase_flag() {
         plugin(&mut Str::new())
             .args(CallStub::new().with_long_flag("downcase").create())
@@ -170,6 +184,44 @@ mod integration {
     }
 
     #[test]
+    fn trims_the_input_using_the_field_passed_as_parameter() -> Result<(), ShellError> {
+        let run = plugin(&mut Str::new())
+            .args(
+                CallStub::new()
+                    .with_long_flag("trim")
+                    .with_parameter("name")?
+                    .create(),
+            )
+            .input(structured_sample_record("name", "andres   "))
+            .setup(|_, _| {})
+            .test();
+
+        let actual = expect_return_value_at(run, 0);
+
+        assert_eq!(get_data(actual, "name"), string("andres"));
+        Ok(())
+    }
+
+    #[test]
+    fn capitalizes_the_input_using_the_field_passed_as_parameter() -> Result<(), ShellError> {
+        let run = plugin(&mut Str::new())
+            .args(
+                CallStub::new()
+                    .with_long_flag("capitalize")
+                    .with_parameter("name")?
+                    .create(),
+            )
+            .input(structured_sample_record("name", "andres"))
+            .setup(|_, _| {})
+            .test();
+
+        let actual = expect_return_value_at(run, 0);
+
+        assert_eq!(get_data(actual, "name"), string("Andres"));
+        Ok(())
+    }
+
+    #[test]
     fn downcases_the_input_using_the_field_passed_as_parameter() -> Result<(), ShellError> {
         let run = plugin(&mut Str::new())
             .args(
@@ -259,6 +311,30 @@ mod integration {
 
         let actual = expect_return_value_at(run, 0);
         assert_eq!(actual, string("JOANDREHUDA"));
+    }
+
+    #[test]
+    fn trims_the_input() {
+        let run = plugin(&mut Str::new())
+            .args(CallStub::new().with_long_flag("trim").create())
+            .input(unstructured_sample_record("andres   "))
+            .setup(|_, _| {})
+            .test();
+
+        let actual = expect_return_value_at(run, 0);
+        assert_eq!(actual, string("andres"));
+    }
+
+    #[test]
+    fn capitalizes_the_input() {
+        let run = plugin(&mut Str::new())
+            .args(CallStub::new().with_long_flag("capitalize").create())
+            .input(unstructured_sample_record("andres"))
+            .setup(|_, _| {})
+            .test();
+
+        let actual = expect_return_value_at(run, 0);
+        assert_eq!(actual, string("Andres"));
     }
 
     #[test]
