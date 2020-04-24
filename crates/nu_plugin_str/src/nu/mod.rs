@@ -19,6 +19,7 @@ impl Plugin for Str {
             .switch("downcase", "convert string to lowercase", Some('d'))
             .switch("upcase", "convert string to uppercase", Some('U'))
             .switch("to-int", "convert string to integer", Some('i'))
+            .switch("trim", "trims the string", Some('t'))
             .named(
                 "replace",
                 SyntaxShape::String,
@@ -50,6 +51,9 @@ impl Plugin for Str {
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         let args = call_info.args;
 
+        if args.has("trim") {
+            self.for_trim();
+        }
         if args.has("capitalize") {
             self.for_capitalize();
         }

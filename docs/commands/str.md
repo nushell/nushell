@@ -54,4 +54,11 @@ Consumes either a single value or a table and converts the provided data to a st
 ─────────
       Nu
 ━━━━━━━━━
+
+> echo "Nu    " | str --trim
+━━━━━━━━━
+ <value>
+─────────
+      Nu
+━━━━━━━━━
 ```
