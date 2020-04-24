@@ -176,21 +176,25 @@ fn filesystem_not_a_directory() {
 
 #[test]
 fn filesystem_directory_not_found() {
-    let actual = nu_error!(
-        cwd: "tests/fixtures",
-        "cd dir_that_does_not_exist"
-    );
+    Playground::setup("cd_test_11", |dirs, _| {
+        let actual = nu_error!(
+            cwd: dirs.test(),
+            "cd dir_that_does_not_exist"
 
-    assert!(
-        actual.contains("dir_that_does_not_exist"),
-        "actual={:?}",
-        actual
-    );
-    assert!(
-        actual.contains("directory not found"),
-        "actual={:?}",
-        actual
-    );
+        );
+
+        assert!(
+            actual.contains("dir_that_does_not_exist"),
+            "actual={:?}",
+            actual
+        );
+        assert!(
+            actual.contains("directory not found"),
+            "actual={:?}",
+            actual
+        );
+    })
+}
 }
 
 #[test]
@@ -382,15 +386,17 @@ fn valuesystem_change_to_a_path_containing_spaces() {
 
 #[test]
 fn valuesystem_path_not_found() {
-    let actual = nu_error!(
-        cwd: "tests/fixtures/formats",
-        r#"
+    Playground::setup("cd_test_19", |dirs, _| {
+        let actual = nu_error!(
+            cwd: dirs.formats(),
+            r#"
             enter cargo_sample.toml
             cd im_a_path_that_does_not_exist
             exit
         "#
-    );
+        );
 
-    assert!(actual.contains("Can not change to path inside"));
-    assert!(actual.contains("No such path exists"));
+        assert!(actual.contains("Can not change to path inside"));
+        assert!(actual.contains("No such path exists"));
+    })
 }
