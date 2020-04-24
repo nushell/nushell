@@ -61,4 +61,12 @@ Consumes either a single value or a table and converts the provided data to a st
 ─────────
       Nu
 ━━━━━━━━━
+> shells | str path --find-replace ["TUX" "skipper"]
+━━━┯━━━┯━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ # │   │ name       │ path
+───┼───┼────────────┼────────────────────────────────
+ 0 │ X │ filesystem │ /home/skipper/stuff/expr/stuff
+ 1 │   │ filesystem │ /
+━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 ```
