@@ -20,6 +20,7 @@ use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_source::{AnchorLocation, HasSpan, Span, Spanned, Tag};
 use num_bigint::BigInt;
+use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::SystemTime;
@@ -119,6 +120,19 @@ impl UntaggedValue {
         match self {
             UntaggedValue::Primitive(Primitive::String(string)) => &string[..],
             _ => panic!("expect_string assumes that the value must be a string"),
+        }
+    }
+
+    /// Expect this value to be an integer and return it
+    pub fn expect_int(&self) -> i64 {
+        let big_int = match self {
+            UntaggedValue::Primitive(Primitive::Int(int)) => Some(int),
+            _ => None,
+        };
+
+        match big_int.and_then(|i| i.to_i64()) {
+            Some(i) => i,
+            _ => panic!("expect_int assumes that the value must be a integer"),
         }
     }
 

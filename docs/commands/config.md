@@ -29,14 +29,15 @@ Syntax: `config {flags}`
 
 ### Variables
 
-| Variable        | Type                 | Description                                                    |
-| --------------- | -------------------- | -------------------------------------------------------------- |
-| path            | table of strings     | PATH to use to find binaries                                   |
-| env             | row                  | the environment variables to pass to external commands         |
-| ctrlc_exit      | boolean              | whether or not to exit Nu after multiple ctrl-c presses        |
-| table_mode      | "light" or other     | enable lightweight or normal tables                            |
-| edit_mode       | "vi" or "emacs"      | changes line editing to "vi" or "emacs" mode                   |
-| completion_mode | "circular" or "list" | changes completion type to "circular" (default) or "list" mode |
+| Variable        | Type                   | Description                                                    |
+| --------------- | ---------------------- | -------------------------------------------------------------- |
+| path            | table of strings       | PATH to use to find binaries                                   |
+| env             | row                    | the environment variables to pass to external commands         |
+| ctrlc_exit      | boolean                | whether or not to exit Nu after multiple ctrl-c presses        |
+| table_mode      | "light" or other       | enable lightweight or normal tables                            |
+| edit_mode       | "vi" or "emacs"        | changes line editing to "vi" or "emacs" mode                   |
+| key_timeout     | integer (milliseconds) | vi: the delay to wait for a longer key sequence after ESC      |
+| completion_mode | "circular" or "list"   | changes completion type to "circular" (default) or "list" mode |
 
 ## Examples
 
