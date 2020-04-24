@@ -3,7 +3,7 @@ use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::Tagged;
-use nu_value_ext::get_data_by_key;
+use nu_value_ext::{as_string, get_data_by_key};
 
 pub struct GroupBy;
 
@@ -75,7 +75,7 @@ pub fn group(
         let group_key = get_data_by_key(&value, column_name.borrow_spanned());
 
         if let Some(group_key) = group_key {
-            let group_key = group_key.as_string()?.to_string();
+            let group_key = as_string(&group_key)?;
             let group = groups.entry(group_key).or_insert(vec![]);
             group.push(value);
         } else {
