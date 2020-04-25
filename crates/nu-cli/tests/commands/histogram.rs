@@ -30,3 +30,32 @@ fn summarizes() {
         // 50%
     })
 }
+
+#[test]
+fn help() {
+    Playground::setup("histogram_test_help", |dirs, _sandbox| {
+        let help_command = nu!(
+        cwd: dirs.test(), pipeline(
+        r#"
+                help histogram
+            "#
+        ));
+
+        let help_short = nu!(
+        cwd: dirs.test(), pipeline(
+        r#"
+                histogram -h
+            "#
+        ));
+
+        let help_long = nu!(
+        cwd: dirs.test(), pipeline(
+        r#"
+                histogram --help
+            "#
+        ));
+
+        assert_eq!(help_short, help_command);
+        assert_eq!(help_long, help_command);
+    })
+}
