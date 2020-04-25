@@ -328,6 +328,7 @@ pub fn create_default_context(
             whole_stream_command(ToYAML),
             // File format input
             whole_stream_command(FromCSV),
+            whole_stream_command(FromEML),
             whole_stream_command(FromTSV),
             whole_stream_command(FromSSV),
             whole_stream_command(FromINI),
