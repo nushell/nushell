@@ -176,26 +176,48 @@ fn filesystem_not_a_directory() {
 
 #[test]
 fn filesystem_directory_not_found() {
-    let actual = nu_error!(
-        cwd: "tests/fixtures",
-        "cd dir_that_does_not_exist"
-    );
+    Playground::setup("cd_test_11", |dirs, _| {
+        let actual = nu_error!(
+            cwd: dirs.test(),
+            "cd dir_that_does_not_exist"
 
-    assert!(
-        actual.contains("dir_that_does_not_exist"),
-        "actual={:?}",
-        actual
-    );
-    assert!(
-        actual.contains("directory not found"),
-        "actual={:?}",
-        actual
-    );
+        );
+
+        assert!(
+            actual.contains("dir_that_does_not_exist"),
+            "actual={:?}",
+            actual
+        );
+        assert!(
+            actual.contains("directory not found"),
+            "actual={:?}",
+            actual
+        );
+    })
+}
+
+#[test]
+fn filesystem_change_directory_to_symlink_relative() {
+    Playground::setup("cd_test_12", |dirs, sandbox| {
+        sandbox.mkdir("foo");
+        sandbox.mkdir("boo");
+        sandbox.symlink("foo", "foo_link");
+
+        let actual = nu!(
+            cwd: dirs.test().join("boo"),
+            r#"
+                cd ../foo_link
+                pwd | echo $it
+            "#
+        );
+
+        assert_eq!(PathBuf::from(actual), dirs.test().join("foo"));
+    })
 }
 
 #[test]
 fn valuesystem_change_from_current_path_using_relative_path() {
-    Playground::setup("cd_test_11", |dirs, sandbox| {
+    Playground::setup("cd_test_13", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
             "sample.toml",
             r#"
@@ -226,7 +248,7 @@ fn valuesystem_change_from_current_path_using_relative_path() {
 
 #[test]
 fn valuesystem_change_from_current_path_using_absolute_path() {
-    Playground::setup("cd_test_12", |dirs, sandbox| {
+    Playground::setup("cd_test_14", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
             "sample.toml",
             r#"
@@ -260,7 +282,7 @@ fn valuesystem_change_from_current_path_using_absolute_path() {
 
 #[test]
 fn valuesystem_switch_back_to_previous_working_path() {
-    Playground::setup("cd_test_13", |dirs, sandbox| {
+    Playground::setup("cd_test_15", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
             "sample.toml",
             r#"
@@ -296,7 +318,7 @@ fn valuesystem_switch_back_to_previous_working_path() {
 
 #[test]
 fn valuesystem_change_from_current_path_using_relative_path_and_dash() {
-    Playground::setup("cd_test_14", |dirs, sandbox| {
+    Playground::setup("cd_test_16", |dirs, sandbox| {
         sandbox
             .with_files(vec![FileWithContent(
                 "sample.toml",
@@ -330,7 +352,7 @@ fn valuesystem_change_from_current_path_using_relative_path_and_dash() {
 
 #[test]
 fn valuesystem_change_current_path_to_parent_path() {
-    Playground::setup("cd_test_15", |dirs, sandbox| {
+    Playground::setup("cd_test_17", |dirs, sandbox| {
         sandbox
             .with_files(vec![FileWithContent(
                 "sample.toml",
@@ -357,7 +379,7 @@ fn valuesystem_change_current_path_to_parent_path() {
 
 #[test]
 fn valuesystem_change_to_a_path_containing_spaces() {
-    Playground::setup("cd_test_17", |dirs, sandbox| {
+    Playground::setup("cd_test_18", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
             "sample.toml",
             r#"
@@ -382,15 +404,17 @@ fn valuesystem_change_to_a_path_containing_spaces() {
 
 #[test]
 fn valuesystem_path_not_found() {
-    let actual = nu_error!(
-        cwd: "tests/fixtures/formats",
-        r#"
+    Playground::setup("cd_test_19", |dirs, _| {
+        let actual = nu_error!(
+            cwd: dirs.formats(),
+            r#"
             enter cargo_sample.toml
             cd im_a_path_that_does_not_exist
             exit
         "#
-    );
+        );
 
-    assert!(actual.contains("Can not change to path inside"));
-    assert!(actual.contains("No such path exists"));
+        assert!(actual.contains("Can not change to path inside"));
+        assert!(actual.contains("No such path exists"));
+    })
 }

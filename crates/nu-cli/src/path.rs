@@ -49,12 +49,16 @@ where
     P: AsRef<Path>,
     Q: AsRef<Path>,
 {
-    let canonicalized = absolutize(relative_to, path);
-    let path = match std::fs::read_link(&canonicalized) {
-        Ok(resolved) => resolved,
+    let absolutized = absolutize(&relative_to, path);
+    let path = match std::fs::read_link(&absolutized) {
+        Ok(resolved) => {
+            let parent = absolutized.parent().unwrap_or(&absolutized);
+            absolutize(parent, resolved)
+        }
+
         Err(e) => {
-            if canonicalized.exists() {
-                canonicalized
+            if absolutized.exists() {
+                absolutized
             } else {
                 return Err(e);
             }
