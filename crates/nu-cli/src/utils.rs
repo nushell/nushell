@@ -298,11 +298,11 @@ mod tests {
                     at: 0
                 },
                 Res {
-                    loc: fixtures().join("sample.eml"),
+                    loc: fixtures().join("sample.db"),
                     at: 0
                 },
                 Res {
-                    loc: fixtures().join("sample.db"),
+                    loc: fixtures().join("sample.eml"),
                     at: 0
                 },
                 Res {
