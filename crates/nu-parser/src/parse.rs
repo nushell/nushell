@@ -976,11 +976,14 @@ fn parse_internal_command(
         }
     }
     if positional.len() < required_arg_count && error.is_none() {
-        let (_, name) = &signature.positional[positional.len()];
-        error = Some(ParseError::argument_error(
-            lite_cmd.name.clone(),
-            ArgumentError::MissingMandatoryPositional(name.to_owned()),
-        ));
+        // to make "command -h" work even if required arguments are missing
+        if !named.named.contains_key("help") {
+            let (_, name) = &signature.positional[positional.len()];
+            error = Some(ParseError::argument_error(
+                lite_cmd.name.clone(),
+                ArgumentError::MissingMandatoryPositional(name.to_owned()),
+            ));
+        }
     }
 
     if !named.is_empty() {
