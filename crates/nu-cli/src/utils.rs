@@ -302,6 +302,10 @@ mod tests {
                     at: 0
                 },
                 Res {
+                    loc: fixtures().join("sample.eml"),
+                    at: 0
+                },
+                Res {
                     loc: fixtures().join("sample.ini"),
                     at: 0
                 },

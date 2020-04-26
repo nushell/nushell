@@ -18,6 +18,7 @@ nu-parser = { version = "0.13.0", path = "../nu-parser" }
 nu-value-ext = { version = "0.13.0", path = "../nu-value-ext" }
 nu-test-support = { version = "0.13.0", path = "../nu-test-support" }
 
+
 ansi_term = "0.12.1"
 app_dirs = "1.2.1"
 async-stream = "0.2"
@@ -35,6 +36,7 @@ ctrlc = "3.1.4"
 derive-new = "0.5.8"
 dirs = "2.0.2"
 dunce = "1.0.0"
+eml-parser = "0.1.0"
 filesize = "0.2.0"
 futures = { version = "0.3", features = ["compat", "io-compat"] }
 futures-util = "0.3.4"
