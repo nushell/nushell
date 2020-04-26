@@ -3,6 +3,7 @@ mod convert;
 mod debug;
 pub mod dict;
 pub mod evaluate;
+pub mod iter;
 pub mod primitive;
 pub mod range;
 mod serde_bigdecimal;
@@ -11,6 +12,7 @@ mod serde_bigint;
 use crate::hir;
 use crate::type_name::{ShellTypeName, SpannedTypeName};
 use crate::value::dict::Dictionary;
+use crate::value::iter::{RowValueIter, TableValueIter};
 use crate::value::primitive::Primitive;
 use crate::value::range::{Range, RangeInclusion};
 use crate::{ColumnPath, PathMember};
@@ -311,6 +313,39 @@ impl Value {
         match &self.value {
             UntaggedValue::Primitive(Primitive::Boolean(p)) => Ok(*p),
             _ => Err(ShellError::type_error("boolean", self.spanned_type_name())),
+        }
+    }
+
+    /// Returns an iterator of the values rows
+    pub fn table_entries(&self) -> TableValueIter<'_> {
+        crate::value::iter::table_entries(&self)
+    }
+
+    /// Returns an iterator of the value's cells
+    pub fn row_entries(&self) -> RowValueIter<'_> {
+        crate::value::iter::row_entries(&self)
+    }
+
+    /// Returns true if the value is empty
+    pub fn is_empty(&self) -> bool {
+        match &self {
+            Value {
+                value: UntaggedValue::Primitive(p),
+                ..
+            } => p.is_empty(),
+            t
+            @
+            Value {
+                value: UntaggedValue::Table(_),
+                ..
+            } => t.table_entries().all(|row| row.is_empty()),
+            r
+            @
+            Value {
+                value: UntaggedValue::Row(_),
+                ..
+            } => r.row_entries().all(|(_, value)| value.is_empty()),
+            _ => false,
         }
     }
 }
