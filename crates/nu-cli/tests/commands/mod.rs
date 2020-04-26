@@ -37,6 +37,7 @@ mod split_by;
 mod split_column;
 mod sum;
 mod touch;
+mod trim;
 mod uniq;
 mod where_;
 mod wrap;
