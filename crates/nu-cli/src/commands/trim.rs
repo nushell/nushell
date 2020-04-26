@@ -66,7 +66,7 @@ fn trim(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, 
     Ok(args
         .input
         .map(|v| {
-            let mut trimmed = v.clone();
+            let mut trimmed = v;
             trim_value(&mut trimmed);
             ReturnSuccess::value(trimmed)
         })
