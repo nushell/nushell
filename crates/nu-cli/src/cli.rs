@@ -297,6 +297,7 @@ pub fn create_default_context(
             whole_stream_command(Last),
             whole_stream_command(Skip),
             whole_stream_command(Nth),
+            whole_stream_command(Drop),
             per_item_command(Format),
             per_item_command(Where),
             whole_stream_command(Compact),
