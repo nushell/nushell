@@ -104,45 +104,6 @@ fn bare(src: &mut Input, span_offset: usize) -> Result<Spanned<String>, ParseErr
     Ok(bare.spanned(span))
 }
 
-fn quoted(
-    src: &mut Input,
-    delimiter: char,
-    span_offset: usize,
-) -> Result<Spanned<String>, ParseError> {
-    skip_whitespace(src);
-
-    let mut quoted_string = String::new();
-    let start_offset = if let Some((pos, _)) = src.peek() {
-        *pos
-    } else {
-        0
-    };
-
-    let _ = src.next();
-
-    let mut found_end = false;
-
-    for (_, c) in src {
-        if c != delimiter {
-            quoted_string.push(c);
-        } else {
-            found_end = true;
-            break;
-        }
-    }
-
-    quoted_string.insert(0, delimiter);
-    if found_end {
-        quoted_string.push(delimiter);
-    }
-
-    let span = Span::new(
-        start_offset + span_offset,
-        start_offset + span_offset + quoted_string.len(),
-    );
-    Ok(quoted_string.spanned(span))
-}
-
 fn command(src: &mut Input, span_offset: usize) -> Result<LiteCommand, ParseError> {
     let command = bare(src, span_offset)?;
     if command.item.is_empty() {
@@ -193,12 +154,12 @@ fn pipeline(src: &mut Input, span_offset: usize) -> Result<LiteBlock, ParseError
                             break;
                         }
                     }
-                    '"' | '\'' => {
-                        let c = *c;
-                        // quoted string
-                        let arg = quoted(src, c, span_offset)?;
-                        cmd.args.push(arg);
-                    }
+                    // '"' | '\'' => {
+                    //     let c = *c;
+                    //     // quoted string
+                    //     let arg = quoted(src, c, span_offset)?;
+                    //     cmd.args.push(arg);
+                    // }
                     _ => {
                         // basic argument
                         let arg = bare(src, span_offset)?;
