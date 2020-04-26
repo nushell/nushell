@@ -69,7 +69,7 @@ impl ValueStructure {
     }
 
     fn build(&mut self, src: &Value, lvl: usize) -> Result<(), ShellError> {
-        for entry in nu_value_ext::row_entries(src) {
+        for entry in src.row_entries() {
             let value = entry.1;
             let path = entry.0;
 

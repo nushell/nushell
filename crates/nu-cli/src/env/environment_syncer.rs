@@ -58,7 +58,7 @@ impl EnvironmentSyncer {
             }
 
             if let Some(variables) = environment.env() {
-                for var in nu_value_ext::row_entries(&variables) {
+                for var in variables.row_entries() {
                     if let Ok(string) = var.1.as_string() {
                         ctx.with_host(|host| {
                             host.env_set(
@@ -88,7 +88,8 @@ impl EnvironmentSyncer {
 
             if let Some(new_paths) = environment.path() {
                 let prepared = std::env::join_paths(
-                    nu_value_ext::table_entries(&new_paths)
+                    new_paths
+                        .table_entries()
                         .map(|p| p.as_string())
                         .filter_map(Result::ok),
                 );
@@ -212,16 +213,17 @@ mod tests {
             // including the newer one accounted for.
             let environment = actual.env.lock();
 
-            let vars = nu_value_ext::row_entries(
-                &environment.env().expect("No variables in the environment."),
-            )
-            .map(|(name, value)| {
-                (
-                    name.to_string(),
-                    value.as_string().expect("Couldn't convert to string"),
-                )
-            })
-            .collect::<Vec<_>>();
+            let vars = environment
+                .env()
+                .expect("No variables in the environment.")
+                .row_entries()
+                .map(|(name, value)| {
+                    (
+                        name.to_string(),
+                        value.as_string().expect("Couldn't convert to string"),
+                    )
+                })
+                .collect::<Vec<_>>();
 
             assert_eq!(vars, expected);
         });
@@ -281,16 +283,17 @@ mod tests {
 
             let environment = actual.env.lock();
 
-            let vars = nu_value_ext::row_entries(
-                &environment.env().expect("No variables in the environment."),
-            )
-            .map(|(name, value)| {
-                (
-                    name.to_string(),
-                    value.as_string().expect("Couldn't convert to string"),
-                )
-            })
-            .collect::<Vec<_>>();
+            let vars = environment
+                .env()
+                .expect("No variables in the environment.")
+                .row_entries()
+                .map(|(name, value)| {
+                    (
+                        name.to_string(),
+                        value.as_string().expect("Couldn't convert to string"),
+                    )
+                })
+                .collect::<Vec<_>>();
 
             assert_eq!(vars, expected);
         });
@@ -367,14 +370,13 @@ mod tests {
             let environment = actual.env.lock();
 
             let paths = std::env::join_paths(
-                &nu_value_ext::table_entries(
-                    &environment
-                        .path()
-                        .expect("No path variable in the environment."),
-                )
-                .map(|value| value.as_string().expect("Couldn't convert to string"))
-                .map(PathBuf::from)
-                .collect::<Vec<_>>(),
+                &environment
+                    .path()
+                    .expect("No path variable in the environment.")
+                    .table_entries()
+                    .map(|value| value.as_string().expect("Couldn't convert to string"))
+                    .map(PathBuf::from)
+                    .collect::<Vec<_>>(),
             )
             .expect("Couldn't join paths.")
             .into_string()
@@ -442,14 +444,13 @@ mod tests {
             let environment = actual.env.lock();
 
             let paths = std::env::join_paths(
-                &nu_value_ext::table_entries(
-                    &environment
-                        .path()
-                        .expect("No path variable in the environment."),
-                )
-                .map(|value| value.as_string().expect("Couldn't convert to string"))
-                .map(PathBuf::from)
-                .collect::<Vec<_>>(),
+                &environment
+                    .path()
+                    .expect("No path variable in the environment.")
+                    .table_entries()
+                    .map(|value| value.as_string().expect("Couldn't convert to string"))
+                    .map(PathBuf::from)
+                    .collect::<Vec<_>>(),
             )
             .expect("Couldn't join paths.")
             .into_string()

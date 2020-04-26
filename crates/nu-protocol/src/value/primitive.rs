@@ -84,6 +84,15 @@ impl Primitive {
             )),
         }
     }
+
+    /// Returns true if the value is empty
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Primitive::Nothing => true,
+            Primitive::String(s) => s.is_empty(),
+            _ => false,
+        }
+    }
 }
 
 impl num_traits::Zero for Primitive {

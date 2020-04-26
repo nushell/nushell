@@ -16,6 +16,7 @@ mod group_by;
 mod headers;
 mod histogram;
 mod insert;
+mod is_empty;
 mod last;
 mod lines;
 mod ls;
