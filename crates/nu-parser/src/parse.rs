@@ -247,6 +247,8 @@ fn parse_operator(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<Pars
         Operator::Divide
     } else if lite_arg.item == "in:" {
         Operator::In
+    } else if lite_arg.item == "not-in:" {
+        Operator::NotIn
     } else if lite_arg.item == "&&" {
         Operator::And
     } else if lite_arg.item == "||" {

@@ -450,7 +450,8 @@ impl SpannedExpression {
                     | Operator::GreaterThanOrEqual
                     | Operator::Equal
                     | Operator::NotEqual
-                    | Operator::In => 80,
+                    | Operator::In
+                    | Operator::NotIn => 80,
                     Operator::And => 50,
                     Operator::Or => 40, // TODO: should we have And and Or be different precedence?
                 }
@@ -589,6 +590,7 @@ pub enum Operator {
     Multiply,
     Divide,
     In,
+    NotIn,
     And,
     Or,
 }

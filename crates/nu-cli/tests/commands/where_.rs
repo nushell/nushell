@@ -21,6 +21,26 @@ fn filters_with_nothing_comparison() {
 }
 
 #[test]
+fn where_in_table() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        r#"echo '[{"name": "foo", "size": 3}, {"name": "foo", "size": 2}, {"name": "bar", "size": 4}]' | from-json | where name in: ["foo"] | get size | sum | echo $it"#
+    );
+
+    assert_eq!(actual, "5");
+}
+
+#[test]
+fn where_not_in_table() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        r#"echo '[{"name": "foo", "size": 3}, {"name": "foo", "size": 2}, {"name": "bar", "size": 4}]' | from-json | where name not-in: ["foo"] | get size | sum | echo $it"#
+    );
+
+    assert_eq!(actual, "4");
+}
+
+#[test]
 fn explicit_block_condition() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
