@@ -724,7 +724,7 @@ async fn process_line(
             debug!("=== Parsed ===");
             debug!("{:#?}", result);
 
-            let classified_block = nu_parser::classify_block(&result, ctx.registry());
+            let mut classified_block = nu_parser::classify_block(&result, ctx.registry());
 
             debug!("{:#?}", classified_block);
             //println!("{:#?}", pipeline);
@@ -842,6 +842,8 @@ async fn process_line(
             } else {
                 InputStream::empty()
             };
+
+            classified_block.block.expand_it_usage();
 
             match run_block(&classified_block.block, ctx, input_stream, &Scope::empty()).await {
                 Ok(input) => {

@@ -77,6 +77,26 @@ pub enum ClassifiedCommand {
     Error(ParseError),
 }
 
+impl ClassifiedCommand {
+    pub fn has_it_iteration(&self) -> bool {
+        match self {
+            ClassifiedCommand::Internal(command) => {
+                let mut result = command.args.head.has_shallow_it_usage();
+
+                if let Some(positionals) = &command.args.positional {
+                    for arg in positionals {
+                        result = result || arg.has_shallow_it_usage();
+                    }
+                }
+
+                result
+            }
+            ClassifiedCommand::Expr(expr) => expr.has_shallow_it_usage(),
+            _ => false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct Commands {
     pub list: Vec<ClassifiedCommand>,
@@ -90,6 +110,13 @@ impl Commands {
 
     pub fn push(&mut self, command: ClassifiedCommand) {
         self.list.push(command);
+    }
+
+    /// Convert all shallow uses of $it to `each { use of $it }`, converting each to a per-row command
+    pub fn expand_it_usage(&mut self) {
+        for command in &self.list {
+            println!("{:?} {}", command, command.has_it_iteration());
+        }
     }
 }
 
@@ -109,6 +136,13 @@ impl Block {
 
     pub fn push(&mut self, commands: Commands) {
         self.block.push(commands);
+    }
+
+    /// Convert all shallow uses of $it to `each { use of $it }`, converting each to a per-row command
+    pub fn expand_it_usage(&mut self) {
+        for commands in &mut self.block {
+            commands.expand_it_usage();
+        }
     }
 }
 
@@ -201,14 +235,6 @@ pub enum Member {
 }
 
 impl Member {
-    // pub fn int(span: Span, source: &Text) -> Member {
-    //     if let Ok(big_int) = BigInt::from_str(span.slice(source)) {
-    //         Member::Int(big_int, span)
-    //     } else {
-    //         unreachable!("Internal error: could not convert text to BigInt as expected")
-    //     }
-    // }
-
     pub fn to_path_member(&self) -> PathMember {
         match self {
             //Member::String(outer, inner) => PathMember::string(inner.slice(source), *outer),
@@ -457,6 +483,17 @@ impl SpannedExpression {
                 }
             }
             _ => 0,
+        }
+    }
+
+    pub fn has_shallow_it_usage(&self) -> bool {
+        match &self.expr {
+            Expression::Binary(binary) => {
+                binary.left.has_shallow_it_usage() || binary.right.has_shallow_it_usage()
+            }
+            Expression::Variable(Variable::It(_)) => true,
+            Expression::Path(path) => path.head.has_shallow_it_usage(),
+            _ => false,
         }
     }
 }
