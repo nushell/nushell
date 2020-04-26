@@ -1,12 +1,10 @@
-extern crate filesize;
-
-use crate::commands::command::RunnablePerItemContext;
+use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use filesize::file_real_size_fast;
 use glob::*;
 use indexmap::map::IndexMap;
 use nu_errors::ShellError;
-use nu_protocol::{CallInfo, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use std::path::PathBuf;
 
@@ -31,7 +29,7 @@ pub struct DuArgs {
     min_size: Option<Tagged<u64>>,
 }
 
-impl PerItemCommand for Du {
+impl WholeStreamCommand for Du {
     fn name(&self) -> &str {
         NAME
     }
@@ -75,18 +73,14 @@ impl PerItemCommand for Du {
 
     fn run(
         &self,
-        call_info: &CallInfo,
-        _registry: &CommandRegistry,
-        raw_args: &RawCommandArgs,
-        _input: Value,
+        args: CommandArgs,
+        registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        call_info
-            .process(&raw_args.shell_manager, raw_args.ctrl_c.clone(), du)?
-            .run()
+        args.process(registry, du)?.run()
     }
 }
 
-fn du(args: DuArgs, ctx: &RunnablePerItemContext) -> Result<OutputStream, ShellError> {
+fn du(args: DuArgs, ctx: RunnableContext) -> Result<OutputStream, ShellError> {
     let tag = ctx.name.clone();
 
     let exclude = args.exclude.map_or(Ok(None), move |x| {

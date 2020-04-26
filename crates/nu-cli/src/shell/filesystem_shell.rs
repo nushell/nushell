@@ -98,7 +98,7 @@ impl Shell for FilesystemShell {
             short_names,
             with_symlink_targets,
         }: LsArgs,
-        context: &RunnablePerItemContext,
+        context: &RunnableContext,
     ) -> Result<OutputStream, ShellError> {
         let ctrl_c = context.ctrl_c.clone();
         let name_tag = context.name.clone();

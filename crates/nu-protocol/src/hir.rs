@@ -81,6 +81,16 @@ impl ClassifiedCommand {
     pub fn has_it_iteration(&self) -> bool {
         match self {
             ClassifiedCommand::Internal(command) => {
+                if let SpannedExpression {
+                    expr: Expression::Literal(Literal::String(s)),
+                    ..
+                } = &*command.args.head
+                {
+                    if s == "run_external" {
+                        // For now, don't it-expand externals
+                        return false;
+                    }
+                }
                 let mut result = command.args.head.has_shallow_it_usage();
 
                 if let Some(positionals) = &command.args.positional {
@@ -114,8 +124,32 @@ impl Commands {
 
     /// Convert all shallow uses of $it to `each { use of $it }`, converting each to a per-row command
     pub fn expand_it_usage(&mut self) {
-        for command in &self.list {
-            println!("{:?} {}", command, command.has_it_iteration());
+        for idx in 0..self.list.len() {
+            if self.list[idx].has_it_iteration() {
+                self.list[idx] = ClassifiedCommand::Internal(InternalCommand {
+                    name: "each".to_string(),
+                    name_span: self.span,
+                    args: hir::Call {
+                        head: Box::new(SpannedExpression {
+                            expr: Expression::Synthetic(Synthetic::String("each".to_string())),
+                            span: self.span,
+                        }),
+                        named: None,
+                        span: self.span,
+                        positional: Some(vec![SpannedExpression {
+                            expr: Expression::Block(Block {
+                                block: vec![Commands {
+                                    list: vec![self.list[idx].clone()],
+                                    span: self.span,
+                                }],
+                                span: self.span,
+                            }),
+                            span: self.span,
+                        }]),
+                        is_last: false, // FIXME
+                    },
+                })
+            }
         }
     }
 }

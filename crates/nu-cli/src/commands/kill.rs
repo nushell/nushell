@@ -1,8 +1,8 @@
-use crate::commands::command::RunnablePerItemContext;
+use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{CallInfo, Signature, SyntaxShape, Value};
+use nu_protocol::{Signature, SyntaxShape};
 use nu_source::Tagged;
 use std::process::{Command, Stdio};
 
@@ -16,7 +16,7 @@ pub struct KillArgs {
     pub quiet: Tagged<bool>,
 }
 
-impl PerItemCommand for Kill {
+impl WholeStreamCommand for Kill {
     fn name(&self) -> &str {
         "kill"
     }
@@ -39,14 +39,10 @@ impl PerItemCommand for Kill {
 
     fn run(
         &self,
-        call_info: &CallInfo,
-        _registry: &CommandRegistry,
-        raw_args: &RawCommandArgs,
-        _input: Value,
+        args: CommandArgs,
+        registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        call_info
-            .process(&raw_args.shell_manager, raw_args.ctrl_c.clone(), kill)?
-            .run()
+        args.process(registry, kill)?.run()
     }
 }
 
@@ -57,7 +53,7 @@ fn kill(
         force,
         quiet,
     }: KillArgs,
-    _context: &RunnablePerItemContext,
+    _context: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let mut cmd = if cfg!(windows) {
         let mut cmd = Command::new("taskkill");

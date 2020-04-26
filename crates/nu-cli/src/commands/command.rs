@@ -49,36 +49,6 @@ impl UnevaluatedCallInfo {
     }
 }
 
-pub trait CallInfoExt {
-    fn process<'de, T: Deserialize<'de>>(
-        &self,
-        shell_manager: &ShellManager,
-        ctrl_c: Arc<AtomicBool>,
-        callback: fn(T, &RunnablePerItemContext) -> Result<OutputStream, ShellError>,
-    ) -> Result<RunnablePerItemArgs<T>, ShellError>;
-}
-
-impl CallInfoExt for CallInfo {
-    fn process<'de, T: Deserialize<'de>>(
-        &self,
-        shell_manager: &ShellManager,
-        ctrl_c: Arc<AtomicBool>,
-        callback: fn(T, &RunnablePerItemContext) -> Result<OutputStream, ShellError>,
-    ) -> Result<RunnablePerItemArgs<T>, ShellError> {
-        let mut deserializer = ConfigDeserializer::from_call_info(self.clone());
-
-        Ok(RunnablePerItemArgs {
-            args: T::deserialize(&mut deserializer)?,
-            context: RunnablePerItemContext {
-                shell_manager: shell_manager.clone(),
-                name: self.name_tag.clone(),
-                ctrl_c,
-            },
-            callback,
-        })
-    }
-}
-
 #[derive(Getters)]
 #[get = "pub(crate)"]
 pub struct CommandArgs {
@@ -227,12 +197,6 @@ impl CommandArgs {
     }
 }
 
-pub struct RunnablePerItemContext {
-    pub shell_manager: ShellManager,
-    pub name: Tag,
-    pub ctrl_c: Arc<AtomicBool>,
-}
-
 pub struct RunnableContext {
     pub input: InputStream,
     pub shell_manager: ShellManager,
@@ -245,18 +209,6 @@ pub struct RunnableContext {
 impl RunnableContext {
     pub fn get_command(&self, name: &str) -> Option<Arc<Command>> {
         self.registry.get_command(name)
-    }
-}
-
-pub struct RunnablePerItemArgs<T> {
-    args: T,
-    context: RunnablePerItemContext,
-    callback: fn(T, &RunnablePerItemContext) -> Result<OutputStream, ShellError>,
-}
-
-impl<T> RunnablePerItemArgs<T> {
-    pub fn run(self) -> Result<OutputStream, ShellError> {
-        (self.callback)(self.args, &self.context)
     }
 }
 
@@ -625,8 +577,4 @@ impl WholeStreamCommand for FnFilterCommand {
 
 pub fn whole_stream_command(command: impl WholeStreamCommand + 'static) -> Arc<Command> {
     Arc::new(Command::WholeStream(Arc::new(command)))
-}
-
-pub fn per_item_command(command: impl PerItemCommand + 'static) -> Arc<Command> {
-    Arc::new(Command::PerItem(Arc::new(command)))
 }

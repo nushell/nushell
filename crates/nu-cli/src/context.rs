@@ -112,6 +112,30 @@ impl Context {
         }
     }
 
+    pub(crate) fn from_args(args: &CommandArgs, registry: &CommandRegistry) -> Context {
+        #[cfg(windows)]
+        {
+            Context {
+                registry: registry.clone(),
+                host: args.host.clone(),
+                current_errors: Arc::new(Mutex::new(vec![])),
+                ctrl_c: args.ctrl_c.clone(),
+                shell_manager: args.shell_manager.clone(),
+                windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
+            }
+        }
+        #[cfg(not(windows))]
+        {
+            Context {
+                registry: registry.clone(),
+                host: args.host.clone(),
+                current_errors: Arc::new(Mutex::new(vec![])),
+                ctrl_c: args.ctrl_c.clone(),
+                shell_manager: args.shell_manager.clone(),
+            }
+        }
+    }
+
     pub(crate) fn basic() -> Result<Context, Box<dyn Error>> {
         let registry = CommandRegistry::new();
 

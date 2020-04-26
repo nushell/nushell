@@ -1,8 +1,8 @@
-use crate::commands::command::RunnablePerItemContext;
+use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{CallInfo, Signature, SyntaxShape, Value};
+use nu_protocol::{Signature, SyntaxShape};
 use nu_source::Tagged;
 use std::path::PathBuf;
 
@@ -16,7 +16,7 @@ pub struct RemoveArgs {
     pub trash: Tagged<bool>,
 }
 
-impl PerItemCommand for Remove {
+impl WholeStreamCommand for Remove {
     fn name(&self) -> &str {
         "rm"
     }
@@ -38,18 +38,14 @@ impl PerItemCommand for Remove {
 
     fn run(
         &self,
-        call_info: &CallInfo,
-        _registry: &CommandRegistry,
-        raw_args: &RawCommandArgs,
-        _input: Value,
+        args: CommandArgs,
+        registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        call_info
-            .process(&raw_args.shell_manager, raw_args.ctrl_c.clone(), rm)?
-            .run()
+        args.process(registry, rm)?.run()
     }
 }
 
-fn rm(args: RemoveArgs, context: &RunnablePerItemContext) -> Result<OutputStream, ShellError> {
+fn rm(args: RemoveArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
     let shell_manager = context.shell_manager.clone();
-    shell_manager.rm(args, context)
+    shell_manager.rm(args, &context)
 }

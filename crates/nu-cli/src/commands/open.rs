@@ -1,14 +1,19 @@
+use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{
-    CallInfo, CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
-};
-use nu_source::{AnchorLocation, Span};
+use nu_protocol::{CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
+use nu_source::{AnchorLocation, Span, Tagged};
 use std::path::{Path, PathBuf};
 
 pub struct Open;
 
-impl PerItemCommand for Open {
+#[derive(Deserialize)]
+pub struct OpenArgs {
+    path: Tagged<PathBuf>,
+    raw: Tagged<bool>,
+}
+
+impl WholeStreamCommand for Open {
     fn name(&self) -> &str {
         "open"
     }
@@ -33,36 +38,23 @@ impl PerItemCommand for Open {
 
     fn run(
         &self,
-        call_info: &CallInfo,
-        _registry: &CommandRegistry,
-        raw_args: &RawCommandArgs,
-        _input: Value,
+        args: CommandArgs,
+        registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        run(call_info, raw_args)
+        args.process(registry, open)?.run()
     }
 }
 
-fn run(call_info: &CallInfo, raw_args: &RawCommandArgs) -> Result<OutputStream, ShellError> {
-    let shell_manager = &raw_args.shell_manager;
+fn open(
+    OpenArgs { path, raw }: OpenArgs,
+    RunnableContext { shell_manager, .. }: RunnableContext,
+) -> Result<OutputStream, ShellError> {
     let cwd = PathBuf::from(shell_manager.path());
     let full_path = cwd;
 
-    let path = call_info.args.nth(0).ok_or_else(|| {
-        ShellError::labeled_error(
-            "No file or directory specified",
-            "for command",
-            &call_info.name_tag,
-        )
-    })?;
-
-    let path_buf = path.as_path()?;
-    let path_str = path_buf.display().to_string();
-    let path_span = path.tag.span;
-    let has_raw = call_info.args.has("raw");
-
     let stream = async_stream! {
 
-        let result = fetch(&full_path, &path_str, path_span).await;
+        let result = fetch(&full_path, &path.item, path.tag.span).await;
 
         if let Err(e) = result {
             yield Err(e);
@@ -70,12 +62,12 @@ fn run(call_info: &CallInfo, raw_args: &RawCommandArgs) -> Result<OutputStream, 
         }
         let (file_extension, contents, contents_tag) = result?;
 
-        let file_extension = if has_raw {
+        let file_extension = if raw.item {
             None
         } else {
             // If the extension could not be determined via mimetype, try to use the path
             // extension. Some file types do not declare their mimetypes (such as bson files).
-            file_extension.or(path_str.split('.').last().map(String::from))
+            file_extension.or(path.extension().map(|x| x.to_string_lossy().to_string()))
         };
 
         let tagged_contents = contents.into_value(&contents_tag);
@@ -92,7 +84,7 @@ fn run(call_info: &CallInfo, raw_args: &RawCommandArgs) -> Result<OutputStream, 
 
 pub async fn fetch(
     cwd: &PathBuf,
-    location: &str,
+    location: &PathBuf,
     span: Span,
 ) -> Result<(Option<String>, UntaggedValue, Tag), ShellError> {
     let mut cwd = cwd.clone();

@@ -1,13 +1,19 @@
-use crate::commands::PerItemCommand;
+use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{CallInfo, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{ColumnPath, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_value_ext::ValueExt;
 
 pub struct Edit;
 
-impl PerItemCommand for Edit {
+#[derive(Deserialize)]
+pub struct EditArgs {
+    field: ColumnPath,
+    replacement: Value,
+}
+
+impl WholeStreamCommand for Edit {
     fn name(&self) -> &str {
         "edit"
     }
@@ -15,13 +21,13 @@ impl PerItemCommand for Edit {
     fn signature(&self) -> Signature {
         Signature::build("edit")
             .required(
-                "Field",
+                "field",
                 SyntaxShape::ColumnPath,
                 "the name of the column to edit",
             )
             .required(
-                "Value",
-                SyntaxShape::String,
+                "replacement value",
+                SyntaxShape::Any,
                 "the new value to give the cell(s)",
             )
     }
@@ -32,41 +38,45 @@ impl PerItemCommand for Edit {
 
     fn run(
         &self,
-        call_info: &CallInfo,
-        _registry: &CommandRegistry,
-        _raw_args: &RawCommandArgs,
-        value: Value,
+        args: CommandArgs,
+        registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        let value_tag = value.tag();
-        let field = call_info.args.expect_nth(0)?.as_column_path()?;
-        let replacement = call_info.args.expect_nth(1)?.tagged_unknown();
+        args.process(registry, edit)?.run()
+    }
+}
 
-        let stream = match value {
-            obj
-            @
-            Value {
+fn edit(
+    EditArgs { field, replacement }: EditArgs,
+    RunnableContext { input, .. }: RunnableContext,
+) -> Result<OutputStream, ShellError> {
+    let mut input = input;
+
+    let stream = async_stream! {
+        match input.next().await {
+            Some(obj @ Value {
                 value: UntaggedValue::Row(_),
                 ..
-            } => match obj.replace_data_at_column_path(&field, replacement.item.clone()) {
-                Some(v) => futures::stream::iter(vec![Ok(ReturnSuccess::Value(v))]),
+            }) => match obj.replace_data_at_column_path(&field, replacement.clone()) {
+                Some(v) => yield Ok(ReturnSuccess::Value(v)),
                 None => {
-                    return Err(ShellError::labeled_error(
+                    yield Err(ShellError::labeled_error(
                         "edit could not find place to insert column",
                         "column name",
-                        &field.tag,
+                        obj.tag,
                     ))
                 }
             },
 
-            _ => {
-                return Err(ShellError::labeled_error(
+            Some(Value { tag, ..}) => {
+                yield Err(ShellError::labeled_error(
                     "Unrecognized type in stream",
                     "original value",
-                    value_tag,
+                    tag,
                 ))
             }
-        };
+            _ => {}
+        }
+    };
 
-        Ok(stream.to_output_stream())
-    }
+    Ok(stream.to_output_stream())
 }

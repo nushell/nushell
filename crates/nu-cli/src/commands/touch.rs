@@ -1,6 +1,7 @@
+use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{CallInfo, Signature, SyntaxShape, Value};
+use nu_protocol::{Signature, SyntaxShape};
 use nu_source::Tagged;
 use std::fs::OpenOptions;
 use std::path::PathBuf;
@@ -12,7 +13,7 @@ pub struct TouchArgs {
     pub target: Tagged<PathBuf>,
 }
 
-impl PerItemCommand for Touch {
+impl WholeStreamCommand for Touch {
     fn name(&self) -> &str {
         "touch"
     }
@@ -28,27 +29,19 @@ impl PerItemCommand for Touch {
     }
     fn run(
         &self,
-        call_info: &CallInfo,
-        _registry: &CommandRegistry,
-        raw_args: &RawCommandArgs,
-        _input: Value,
+        args: CommandArgs,
+        registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        call_info
-            .process(&raw_args.shell_manager, raw_args.ctrl_c.clone(), touch)?
-            .run()
+        args.process(registry, touch)?.run()
     }
 }
-fn touch(args: TouchArgs, _context: &RunnablePerItemContext) -> Result<OutputStream, ShellError> {
-    match OpenOptions::new()
-        .write(true)
-        .create(true)
-        .open(&args.target)
-    {
+fn touch(TouchArgs { target }: TouchArgs, _: RunnableContext) -> Result<OutputStream, ShellError> {
+    match OpenOptions::new().write(true).create(true).open(&target) {
         Ok(_) => Ok(OutputStream::empty()),
         Err(err) => Err(ShellError::labeled_error(
             "File Error",
             err.to_string(),
-            &args.target.tag,
+            &target.tag,
         )),
     }
 }

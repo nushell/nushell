@@ -1,4 +1,4 @@
-use crate::commands::command::per_item_command;
+use crate::commands::command::whole_stream_command;
 use crate::commands::run_alias::AliasCommand;
 use crate::commands::UnevaluatedCallInfo;
 use crate::prelude::*;
@@ -122,7 +122,7 @@ pub(crate) fn run_internal_command(
                     }
                     CommandAction::AddAlias(name, args, block) => {
                         context.add_commands(vec![
-                            per_item_command(AliasCommand::new(
+                            whole_stream_command(AliasCommand::new(
                                 name,
                                 args,
                                 block,

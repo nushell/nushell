@@ -1,4 +1,4 @@
-use crate::commands::command::{EvaluatedWholeStreamCommandArgs, RunnablePerItemContext};
+use crate::commands::command::EvaluatedWholeStreamCommandArgs;
 use crate::commands::cp::CopyArgs;
 use crate::commands::ls::LsArgs;
 use crate::commands::mkdir::MkdirArgs;
@@ -131,11 +131,7 @@ impl ShellManager {
         env[self.current_shell()].homedir()
     }
 
-    pub fn ls(
-        &self,
-        args: LsArgs,
-        context: &RunnablePerItemContext,
-    ) -> Result<OutputStream, ShellError> {
+    pub fn ls(&self, args: LsArgs, context: &RunnableContext) -> Result<OutputStream, ShellError> {
         let env = self.shells.lock();
 
         env[self.current_shell()].ls(args, context)
@@ -150,7 +146,7 @@ impl ShellManager {
     pub fn cp(
         &self,
         args: CopyArgs,
-        context: &RunnablePerItemContext,
+        context: &RunnableContext,
     ) -> Result<OutputStream, ShellError> {
         let shells = self.shells.lock();
 
@@ -161,7 +157,7 @@ impl ShellManager {
     pub fn rm(
         &self,
         args: RemoveArgs,
-        context: &RunnablePerItemContext,
+        context: &RunnableContext,
     ) -> Result<OutputStream, ShellError> {
         let shells = self.shells.lock();
 
@@ -172,7 +168,7 @@ impl ShellManager {
     pub fn mkdir(
         &self,
         args: MkdirArgs,
-        context: &RunnablePerItemContext,
+        context: &RunnableContext,
     ) -> Result<OutputStream, ShellError> {
         let shells = self.shells.lock();
 
@@ -183,7 +179,7 @@ impl ShellManager {
     pub fn mv(
         &self,
         args: MoveArgs,
-        context: &RunnablePerItemContext,
+        context: &RunnableContext,
     ) -> Result<OutputStream, ShellError> {
         let shells = self.shells.lock();
 

@@ -1,17 +1,20 @@
-use crate::commands::PerItemCommand;
+use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{
-    CallInfo, ColumnPath, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{ColumnPath, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use nu_value_ext::{as_column_path, get_data_by_column_path};
 use std::borrow::Borrow;
 
 pub struct Format;
 
-impl PerItemCommand for Format {
+#[derive(Deserialize)]
+pub struct FormatArgs {
+    pattern: Tagged<String>,
+}
+
+impl WholeStreamCommand for Format {
     fn name(&self) -> &str {
         "format"
     }
@@ -19,7 +22,7 @@ impl PerItemCommand for Format {
     fn signature(&self) -> Signature {
         Signature::build("format").required(
             "pattern",
-            SyntaxShape::Any,
+            SyntaxShape::String,
             "the pattern to output. Eg) \"{foo}: {bar}\"",
         )
     }
@@ -30,61 +33,67 @@ impl PerItemCommand for Format {
 
     fn run(
         &self,
-        call_info: &CallInfo,
-        _registry: &CommandRegistry,
-        _raw_args: &RawCommandArgs,
-        value: Value,
+        args: CommandArgs,
+        registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        //let value_tag = value.tag();
-        let pattern = call_info.args.expect_nth(0)?;
-        let pattern_tag = pattern.tag.clone();
-        let pattern = pattern.as_string()?;
+        args.process(registry, format_command)?.run()
+    }
+}
 
-        let format_pattern = format(&pattern);
-        let commands = format_pattern;
+fn format_command(
+    FormatArgs { pattern }: FormatArgs,
+    RunnableContext { input, .. }: RunnableContext,
+) -> Result<OutputStream, ShellError> {
+    let pattern_tag = pattern.tag.clone();
 
-        let output = match value {
-            value
-            @
-            Value {
-                value: UntaggedValue::Row(_),
-                ..
-            } => {
-                let mut output = String::new();
+    let format_pattern = format(&pattern);
+    let commands = format_pattern;
+    let mut input = input;
 
-                for command in &commands {
-                    match command {
-                        FormatCommand::Text(s) => {
-                            output.push_str(&s);
-                        }
-                        FormatCommand::Column(c) => {
-                            let key = to_column_path(&c, &pattern_tag)?;
+    let stream = async_stream! {
+        while let Some(value) = input.next().await {
+            match value {
+                value
+                @
+                Value {
+                    value: UntaggedValue::Row(_),
+                    ..
+                } => {
+                    let mut output = String::new();
 
-                            let fetcher = get_data_by_column_path(
-                                &value,
-                                &key,
-                                Box::new(move |(_, _, error)| error),
-                            );
-
-                            if let Ok(c) = fetcher {
-                                output
-                                    .push_str(&value::format_leaf(c.borrow()).plain_string(100_000))
+                    for command in &commands {
+                        match command {
+                            FormatCommand::Text(s) => {
+                                output.push_str(&s);
                             }
-                            // That column doesn't match, so don't emit anything
+                            FormatCommand::Column(c) => {
+                                let key = to_column_path(&c, &pattern_tag)?;
+
+                                let fetcher = get_data_by_column_path(
+                                    &value,
+                                    &key,
+                                    Box::new(move |(_, _, error)| error),
+                                );
+
+                                if let Ok(c) = fetcher {
+                                    output
+                                        .push_str(&value::format_leaf(c.borrow()).plain_string(100_000))
+                                }
+                                // That column doesn't match, so don't emit anything
+                            }
                         }
                     }
+
+                    yield ReturnSuccess::value(
+                        UntaggedValue::string(output).into_untagged_value())
                 }
+                _ => yield ReturnSuccess::value(
+                    UntaggedValue::string(String::new()).into_untagged_value()),
+            };
+        }
+    };
 
-                output
-            }
-            _ => String::new(),
-        };
-
-        Ok(futures::stream::iter(vec![ReturnSuccess::value(
-            UntaggedValue::string(output).into_untagged_value(),
-        )])
-        .to_output_stream())
-    }
+    Ok(stream.to_output_stream())
 }
 
 #[derive(Debug)]
