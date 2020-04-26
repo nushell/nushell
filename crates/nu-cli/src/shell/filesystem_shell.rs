@@ -1,3 +1,4 @@
+use crate::commands::cd::CdArgs;
 use crate::commands::command::EvaluatedWholeStreamCommandArgs;
 use crate::commands::cp::CopyArgs;
 use crate::commands::ls::LsArgs;
@@ -10,9 +11,7 @@ use crate::prelude::*;
 use crate::shell::completer::NuCompleter;
 use crate::shell::shell::Shell;
 use crate::utils::FileStructure;
-use nu_errors::ShellError;
-use nu_parser::expand_ndots;
-use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue};
+
 use rustyline::completion::FilenameCompleter;
 use rustyline::hint::{Hinter, HistoryHinter};
 use std::collections::HashMap;
@@ -20,6 +19,11 @@ use std::path::{Component, Path, PathBuf};
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
+
+use nu_errors::ShellError;
+use nu_parser::expand_ndots;
+use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue};
+use nu_source::Tagged;
 
 pub struct FilesystemShell {
     pub(crate) path: String,
@@ -171,21 +175,20 @@ impl Shell for FilesystemShell {
         Ok(stream.interruptible(ctrl_c).to_output_stream())
     }
 
-    fn cd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
-        let path = match args.nth(0) {
+    fn cd(&self, args: CdArgs, name: Tag) -> Result<OutputStream, ShellError> {
+        let path = match args.path {
             None => match dirs::home_dir() {
                 Some(o) => o,
                 _ => {
                     return Err(ShellError::labeled_error(
                         "Cannot change to home directory",
                         "cannot go to home",
-                        &args.call_info.name_tag,
+                        &name,
                     ))
                 }
             },
             Some(v) => {
-                let target = v.as_path()?;
-
+                let Tagged { item: target, tag } = v;
                 if target == Path::new("-") {
                     PathBuf::from(&self.last_path)
                 } else {
@@ -193,7 +196,7 @@ impl Shell for FilesystemShell {
                         ShellError::labeled_error(
                             "Cannot change to directory",
                             "directory not found",
-                            &v.tag,
+                            &tag,
                         )
                     })?;
 
@@ -201,7 +204,7 @@ impl Shell for FilesystemShell {
                         return Err(ShellError::labeled_error(
                             "Cannot change to directory",
                             "is not a directory",
-                            &v.tag,
+                            &tag,
                         ));
                     }
 
@@ -216,7 +219,7 @@ impl Shell for FilesystemShell {
                                 ShellError::labeled_error(
                                     "Cannot change to directory",
                                     format!("cannot stat ({})", e),
-                                    &v.tag,
+                                    &tag,
                                 )
                             })?;
 
@@ -224,7 +227,7 @@ impl Shell for FilesystemShell {
                             return Err(ShellError::labeled_error(
                                 "Cannot change to directory",
                                 "permission denied",
-                                &v.tag,
+                                &tag,
                             ));
                         }
                     }

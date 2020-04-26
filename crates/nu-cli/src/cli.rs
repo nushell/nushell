@@ -223,7 +223,8 @@ fn create_default_starship_config() -> Option<toml::Value> {
 }
 
 pub fn create_default_context(
-    syncer: &mut crate::env::environment_syncer::EnvironmentSyncer,
+    syncer: &mut crate::EnvironmentSyncer,
+    interactive: bool,
 ) -> Result<Context, Box<dyn Error>> {
     syncer.load_environment();
 
@@ -345,7 +346,7 @@ pub fn create_default_context(
             whole_stream_command(FromIcs),
             whole_stream_command(FromVcf),
             // "Private" commands (not intended to be accessed directly)
-            whole_stream_command(RunExternalCommand),
+            whole_stream_command(RunExternalCommand { interactive }),
         ]);
 
         cfg_if::cfg_if! {
@@ -375,7 +376,7 @@ pub async fn run_vec_of_pipelines(
     redirect_stdin: bool,
 ) -> Result<(), Box<dyn Error>> {
     let mut syncer = crate::EnvironmentSyncer::new();
-    let mut context = crate::create_default_context(&mut syncer)?;
+    let mut context = create_default_context(&mut syncer, false)?;
 
     let _ = crate::load_plugins(&mut context);
 
@@ -474,8 +475,8 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
     #[cfg(not(windows))]
     const DEFAULT_COMPLETION_MODE: CompletionType = CompletionType::List;
 
-    let mut syncer = crate::env::environment_syncer::EnvironmentSyncer::new();
-    let mut context = create_default_context(&mut syncer)?;
+    let mut syncer = crate::EnvironmentSyncer::new();
+    let mut context = create_default_context(&mut syncer, true)?;
 
     let _ = load_plugins(&mut context);
 
@@ -908,7 +909,6 @@ pub fn print_err(err: ShellError, host: &dyn Host, source: &Text) {
 
 #[cfg(test)]
 mod tests {
-
     #[quickcheck]
     fn quickcheck_parse(data: String) -> bool {
         if let Ok(lite_block) = nu_parser::lite_parse(&data, 0) {

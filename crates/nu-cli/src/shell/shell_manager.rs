@@ -1,3 +1,4 @@
+use crate::commands::cd::CdArgs;
 use crate::commands::command::{EvaluatedWholeStreamCommandArgs, RunnablePerItemContext};
 use crate::commands::cp::CopyArgs;
 use crate::commands::ls::LsArgs;
@@ -141,10 +142,10 @@ impl ShellManager {
         env[self.current_shell()].ls(args, context)
     }
 
-    pub fn cd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
+    pub fn cd(&self, args: CdArgs, context: &RunnableContext) -> Result<OutputStream, ShellError> {
         let env = self.shells.lock();
 
-        env[self.current_shell()].cd(args)
+        env[self.current_shell()].cd(args, context.name.clone())
     }
 
     pub fn cp(
