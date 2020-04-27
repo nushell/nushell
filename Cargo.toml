@@ -1,6 +1,6 @@
 [package]
 name = "nu"
-version = "0.13.0"
+version = "0.13.1"
 authors = ["The Nu Project Contributors"]
 description = "A new type of shell"
 license = "MIT"

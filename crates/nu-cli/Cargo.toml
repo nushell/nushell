@@ -1,6 +1,6 @@
 [package]
 name = "nu-cli"
-version = "0.13.0"
+version = "0.13.1"
 authors = ["The Nu Project Contributors"]
 description = "CLI for nushell"
 edition = "2018"

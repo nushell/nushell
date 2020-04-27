@@ -2069,7 +2069,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.13.0"
+version = "0.13.1"
 dependencies = [
  "clap",
  "crossterm",
@@ -2117,7 +2117,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cli"
-version = "0.13.0"
+version = "0.13.1"
 dependencies = [
  "ansi_term 0.12.1",
  "app_dirs",
