@@ -6,6 +6,7 @@ use crate::commands::whole_stream_command;
 use crate::context::Context;
 #[cfg(not(feature = "starship-prompt"))]
 use crate::git::current_branch;
+use crate::path::canonicalize;
 use crate::prelude::*;
 use futures_codec::FramedRead;
 
@@ -22,7 +23,7 @@ use rustyline::{
 use std::error::Error;
 use std::io::{BufRead, BufReader, Write};
 use std::iter::Iterator;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 
 fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), ShellError> {
@@ -775,9 +776,9 @@ async fn process_line(
                             .as_ref()
                             .map(NamedArguments::is_empty)
                             .unwrap_or(true)
-                        && dunce::canonicalize(&name).is_ok()
-                        && PathBuf::from(&name).is_dir()
-                        && ichwh::which(&name).await.unwrap_or(None).is_none()
+                        && canonicalize(ctx.shell_manager.path(), name).is_ok()
+                        && Path::new(&name).is_dir()
+                        && which::which(&name).is_err()
                     {
                         // Here we work differently if we're in Windows because of the expected Windows behavior
                         #[cfg(windows)]
