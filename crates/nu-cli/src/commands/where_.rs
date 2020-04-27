@@ -3,9 +3,7 @@ use crate::context::CommandRegistry;
 use crate::evaluate::evaluate_baseline_expr;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{
-    hir::Block, hir::ClassifiedCommand, ReturnSuccess, Scope, Signature, SyntaxShape,
-};
+use nu_protocol::{hir::Block, hir::ClassifiedCommand, ReturnSuccess, Signature, SyntaxShape};
 
 pub struct Where;
 
@@ -36,7 +34,7 @@ impl WholeStreamCommand for Where {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, where_command)?.run()
+        Ok(args.process_raw(registry, where_command)?.run())
     }
 }
 fn where_command(
@@ -47,6 +45,7 @@ fn where_command(
         input,
         ..
     }: RunnableContext,
+    raw_args: RawCommandArgs,
 ) -> Result<OutputStream, ShellError> {
     let condition = {
         if block.block.len() != 1 {
@@ -78,12 +77,12 @@ fn where_command(
     };
 
     let mut input = input;
-
+    let scope = raw_args.call_info.scope;
     let stream = async_stream! {
         while let Some(input) = input.next().await {
 
             //FIXME: should we use the scope that's brought in as well?
-            let condition = evaluate_baseline_expr(&condition, &registry, &Scope::new(input.clone()))?;
+            let condition = evaluate_baseline_expr(&condition, &registry, &scope.clone().set_it(input.clone()))?;
 
             match condition.as_bool() {
                 Ok(b) => {

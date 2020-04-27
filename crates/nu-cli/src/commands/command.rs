@@ -489,10 +489,6 @@ impl Command {
                     scope: raw_args.call_info.scope.clone().set_it(x.clone()),
                 }
                 .evaluate(&registry);
-                // let call_info = raw_args
-                //     .clone()
-                //     .call_info
-                //     .evaluate(&registry, &Scope::it_value(x.clone()));
 
                 match call_info {
                     Ok(call_info) => match command.run(&call_info, &registry, &raw_args, x) {
