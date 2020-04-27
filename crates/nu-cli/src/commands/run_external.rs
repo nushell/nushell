@@ -181,7 +181,7 @@ async fn maybe_autocd_dir<'a>(cmd: &ExternalCommand, ctx: &mut Context) -> Optio
         || (cmd.args.is_empty()
             && PathBuf::from(name).is_dir()
             && dunce::canonicalize(name).is_ok()
-            && ichwh::which(&name).await.unwrap_or(None).is_none())
+            && which::which(&name).is_err())
     {
         Some(name)
     } else {

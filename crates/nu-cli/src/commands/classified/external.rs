@@ -467,12 +467,12 @@ fn spawn(
 async fn did_find_command(name: &str) -> bool {
     #[cfg(not(windows))]
     {
-        ichwh::which(name).await.unwrap_or(None).is_some()
+        which::which(name).is_ok()
     }
 
     #[cfg(windows)]
     {
-        if ichwh::which(name).await.unwrap_or(None).is_some() {
+        if which::which(name).is_ok() {
             true
         } else {
             let cmd_builtins = [

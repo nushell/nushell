@@ -84,6 +84,7 @@ toml = "0.5.6"
 typetag = "0.1.4"
 umask = "0.1"
 unicode-xid = "0.2.0"
+which = "3"
 
 trash = { version = "1.0.0", optional = true }
 clipboard = { version = "0.5", optional = true }

@@ -117,7 +117,7 @@ pub(crate) fn run_internal_command(
                     }
                     CommandAction::EnterShell(location) => {
                         context.shell_manager.insert_at_current(Box::new(
-                            FilesystemShell::with_location(location, context.registry().clone()),
+                            FilesystemShell::with_location(location, context.registry().clone())?,
                         ));
                     }
                     CommandAction::AddAlias(name, args, block) => {
