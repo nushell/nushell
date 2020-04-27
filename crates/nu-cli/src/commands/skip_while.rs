@@ -3,7 +3,7 @@ use crate::evaluate::evaluate_baseline_expr;
 use crate::prelude::*;
 use log::trace;
 use nu_errors::ShellError;
-use nu_protocol::{hir::ClassifiedCommand, Scope, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{hir::ClassifiedCommand, Signature, SyntaxShape, UntaggedValue, Value};
 
 pub struct SkipWhile;
 
@@ -32,6 +32,7 @@ impl WholeStreamCommand for SkipWhile {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         let registry = registry.clone();
+        let scope = args.call_info.scope.clone();
         let call_info = args.evaluate_once(&registry)?;
 
         let block = call_info.args.expect_nth(0)?.clone();
@@ -80,7 +81,8 @@ impl WholeStreamCommand for SkipWhile {
         let objects = call_info.input.skip_while(move |item| {
             let condition = condition.clone();
             trace!("ITEM = {:?}", item);
-            let result = evaluate_baseline_expr(&*condition, &registry, &Scope::new(item.clone()));
+            let result =
+                evaluate_baseline_expr(&*condition, &registry, &scope.clone().set_it(item.clone()));
             trace!("RESULT = {:?}", result);
 
             let return_value = match result {

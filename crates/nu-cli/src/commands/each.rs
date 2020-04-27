@@ -6,7 +6,7 @@ use crate::prelude::*;
 use futures::stream::once;
 
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, ReturnSuccess, Scope, Signature, SyntaxShape};
+use nu_protocol::{hir::Block, ReturnSuccess, Signature, SyntaxShape};
 
 pub struct Each;
 
@@ -47,6 +47,7 @@ fn each(
     raw_args: RawCommandArgs,
 ) -> Result<OutputStream, ShellError> {
     let block = each_args.block;
+    let scope = raw_args.call_info.scope.clone();
     let registry = context.registry.clone();
     let mut input_stream = context.input;
     let stream = async_stream! {
@@ -59,7 +60,7 @@ fn each(
                 &block,
                 &mut context,
                 input_stream,
-                &Scope::new(input_clone),
+                &scope.clone().set_it(input_clone),
             ).await;
 
             match result {
