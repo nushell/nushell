@@ -69,9 +69,15 @@ impl FilesystemShell {
         })
     }
 
-    pub fn with_location(path: String, commands: CommandRegistry) -> FilesystemShell {
+    pub fn with_location(
+        path: String,
+        commands: CommandRegistry,
+    ) -> Result<FilesystemShell, std::io::Error> {
+        let path = canonicalize(std::env::current_dir()?, &path)?;
+        let path = path.display().to_string();
         let last_path = path.clone();
-        FilesystemShell {
+
+        Ok(FilesystemShell {
             path,
             last_path,
             completer: NuCompleter {
@@ -80,7 +86,7 @@ impl FilesystemShell {
                 homedir: dirs::home_dir(),
             },
             hinter: HistoryHinter {},
-        }
+        })
     }
 }
 
@@ -978,7 +984,7 @@ impl Shell for FilesystemShell {
 
     fn set_path(&mut self, path: String) {
         let pathbuf = PathBuf::from(&path);
-        let path = match dunce::canonicalize(pathbuf.as_path()) {
+        let path = match canonicalize(self.path(), pathbuf.as_path()) {
             Ok(path) => {
                 let _ = std::env::set_current_dir(&path);
                 path
