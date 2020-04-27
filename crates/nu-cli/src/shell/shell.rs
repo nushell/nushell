@@ -1,3 +1,4 @@
+use crate::commands::cd::CdArgs;
 use crate::commands::command::EvaluatedWholeStreamCommandArgs;
 use crate::commands::cp::CopyArgs;
 use crate::commands::ls::LsArgs;
@@ -18,7 +19,7 @@ pub trait Shell: std::fmt::Debug {
         args: LsArgs,
         context: &RunnablePerItemContext,
     ) -> Result<OutputStream, ShellError>;
-    fn cd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError>;
+    fn cd(&self, args: CdArgs, name: Tag) -> Result<OutputStream, ShellError>;
     fn cp(&self, args: CopyArgs, name: Tag, path: &str) -> Result<OutputStream, ShellError>;
     fn mkdir(&self, args: MkdirArgs, name: Tag, path: &str) -> Result<OutputStream, ShellError>;
     fn mv(&self, args: MoveArgs, name: Tag, path: &str) -> Result<OutputStream, ShellError>;
