@@ -35,10 +35,8 @@ impl WholeStreamCommand for History {
 
 fn history(
     _: HistoryArgs,
-    RunnableContext { name, .. }: RunnableContext,
+    RunnableContext { name: tag, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    let tag = name.clone();
-
     let stream = async_stream! {
         let history_path = HistoryFile::path();
         let file = File::open(history_path);

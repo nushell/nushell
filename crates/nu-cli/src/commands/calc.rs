@@ -30,7 +30,6 @@ pub fn calc(
     _: CalcArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    let name = name.clone();
     Ok(input
         .map(move |input| {
             if let Ok(string) = input.as_string() {

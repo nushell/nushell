@@ -111,7 +111,7 @@ fn du(args: DuArgs, ctx: RunnableContext) -> Result<OutputStream, ShellError> {
     })
     .map(|v| v.map_err(glob_err_into));
 
-    let ctrl_c = ctx.ctrl_c.clone();
+    let ctrl_c = ctx.ctrl_c;
     let all = args.all;
     let deref = args.deref;
     let max_depth = args.max_depth.map(|f| f.item);

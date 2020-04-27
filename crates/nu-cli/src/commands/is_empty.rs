@@ -49,7 +49,6 @@ fn is_empty(
     IsEmptyArgs { rest }: IsEmptyArgs,
     RunnableContext { input, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    let rest = rest.clone();
     Ok(input
         .map(move |value| {
             let value_tag = value.tag();
@@ -145,25 +144,21 @@ fn is_empty(
                                     UntaggedValue::boolean(true).into_value(&value_tag),
                                 ) {
                                     Some(v) => Ok(ReturnSuccess::Value(v)),
-                                    None => {
-                                        return Err(ShellError::labeled_error(
-                                            "empty? could not find place to check emptiness",
-                                            "column name",
-                                            &field.tag,
-                                        ))
-                                    }
+                                    None => Err(ShellError::labeled_error(
+                                        "empty? could not find place to check emptiness",
+                                        "column name",
+                                        &field.tag,
+                                    )),
                                 }
                             } else {
                                 Ok(ReturnSuccess::Value(value))
                             }
                         }
-                        _ => {
-                            return Err(ShellError::labeled_error(
-                                "Unrecognized type in stream",
-                                "original value",
-                                &value_tag,
-                            ))
-                        }
+                        _ => Err(ShellError::labeled_error(
+                            "Unrecognized type in stream",
+                            "original value",
+                            &value_tag,
+                        )),
                     }
                 }
                 IsEmptyFor::RowWithFieldAndFallback(field, default) => {
@@ -180,25 +175,21 @@ fn is_empty(
                             if val.is_empty() {
                                 match obj.replace_data_at_column_path(&field, default) {
                                     Some(v) => Ok(ReturnSuccess::Value(v)),
-                                    None => {
-                                        return Err(ShellError::labeled_error(
-                                            "empty? could not find place to check emptiness",
-                                            "column name",
-                                            &field.tag,
-                                        ))
-                                    }
+                                    None => Err(ShellError::labeled_error(
+                                        "empty? could not find place to check emptiness",
+                                        "column name",
+                                        &field.tag,
+                                    )),
                                 }
                             } else {
                                 Ok(ReturnSuccess::Value(value))
                             }
                         }
-                        _ => {
-                            return Err(ShellError::labeled_error(
-                                "Unrecognized type in stream",
-                                "original value",
-                                &value_tag,
-                            ))
-                        }
+                        _ => Err(ShellError::labeled_error(
+                            "Unrecognized type in stream",
+                            "original value",
+                            &value_tag,
+                        )),
                     }
                 }
             }

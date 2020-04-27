@@ -48,7 +48,6 @@ fn each(
 ) -> Result<OutputStream, ShellError> {
     let block = each_args.block;
     let registry = context.registry.clone();
-    let raw_args = raw_args.clone();
     let mut input_stream = context.input;
     let stream = async_stream! {
         while let Some(input) = input_stream.next().await {

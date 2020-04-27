@@ -51,11 +51,8 @@ fn enter(
     }: RunnableContext,
     raw_args: RawCommandArgs,
 ) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let raw_args = raw_args.clone();
     let location_string = location.display().to_string();
     let location_clone = location_string.clone();
-    let tag_clone = tag.clone();
 
     if location_string.starts_with("help") {
         let spec = location_string.split(':').collect::<Vec<&str>>();
@@ -90,7 +87,7 @@ fn enter(
                 crate::commands::open::fetch(
                     &full_path,
                     &PathBuf::from(location_clone),
-                    tag_clone.span,
+                    tag.span,
                 ).await?;
 
             match contents {

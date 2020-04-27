@@ -120,7 +120,7 @@ fn parse_command(
     let parse_pattern = parse(&pattern.item);
     let parse_regex = build_regex(&parse_pattern);
     let column_names = column_names(&parse_pattern);
-    let name = name.span.clone();
+    let name = name.span;
     let regex = Regex::new(&parse_regex).map_err(|_| {
         ShellError::labeled_error(
             "Could not parse regex",
