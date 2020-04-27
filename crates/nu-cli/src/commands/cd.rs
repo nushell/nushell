@@ -1,7 +1,16 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
+
+use std::path::PathBuf;
+
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape};
+use nu_source::Tagged;
+
+#[derive(Deserialize)]
+pub struct CdArgs {
+    pub(crate) path: Option<Tagged<PathBuf>>,
+}
 
 pub struct Cd;
 
@@ -27,12 +36,10 @@ impl WholeStreamCommand for Cd {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        cd(args, registry)
+        args.process(registry, cd)?.run()
     }
 }
 
-fn cd(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let shell_manager = args.shell_manager.clone();
-    let args = args.evaluate_once(registry)?;
-    shell_manager.cd(args)
+fn cd(args: CdArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
+    context.shell_manager.cd(args, &context)
 }

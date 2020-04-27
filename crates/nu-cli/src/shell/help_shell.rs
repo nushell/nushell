@@ -1,3 +1,4 @@
+use crate::commands::cd::CdArgs;
 use crate::commands::command::EvaluatedWholeStreamCommandArgs;
 use crate::commands::cp::CopyArgs;
 use crate::commands::ls::LsArgs;
@@ -7,12 +8,15 @@ use crate::commands::rm::RemoveArgs;
 use crate::data::command_dict;
 use crate::prelude::*;
 use crate::shell::shell::Shell;
+
+use std::ffi::OsStr;
+use std::path::PathBuf;
+
 use nu_errors::ShellError;
 use nu_protocol::{
     Primitive, ReturnSuccess, ShellTypeName, TaggedDictBuilder, UntaggedValue, Value,
 };
-use std::ffi::OsStr;
-use std::path::PathBuf;
+use nu_source::Tagged;
 
 #[derive(Clone, Debug)]
 pub struct HelpShell {
@@ -145,12 +149,11 @@ impl Shell for HelpShell {
         Ok(output.into())
     }
 
-    fn cd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
-        let path = match args.nth(0) {
+    fn cd(&self, args: CdArgs, _name: Tag) -> Result<OutputStream, ShellError> {
+        let path = match args.path {
             None => "/".to_string(),
             Some(v) => {
-                let target = v.as_path()?;
-
+                let Tagged { item: target, .. } = v;
                 let mut cwd = PathBuf::from(&self.path);
 
                 if target == PathBuf::from("..") {

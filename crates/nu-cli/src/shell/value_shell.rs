@@ -1,3 +1,4 @@
+use crate::commands::cd::CdArgs;
 use crate::commands::command::EvaluatedWholeStreamCommandArgs;
 use crate::commands::cp::CopyArgs;
 use crate::commands::ls::LsArgs;
@@ -7,10 +8,13 @@ use crate::commands::rm::RemoveArgs;
 use crate::prelude::*;
 use crate::shell::shell::Shell;
 use crate::utils::ValueStructure;
-use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, ShellTypeName, UntaggedValue, Value};
+
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
+
+use nu_errors::ShellError;
+use nu_protocol::{ReturnSuccess, ShellTypeName, UntaggedValue, Value};
+use nu_source::Tagged;
 
 #[derive(Clone)]
 pub struct ValueShell {
@@ -127,19 +131,18 @@ impl Shell for ValueShell {
         Ok(output.into())
     }
 
-    fn cd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
-        let destination = args.nth(0);
+    fn cd(&self, args: CdArgs, name: Tag) -> Result<OutputStream, ShellError> {
+        let destination = args.path;
 
         let path = match destination {
             None => "/".to_string(),
-            Some(v) => {
-                let target = v.as_path()?;
-
+            Some(ref v) => {
+                let Tagged { item: target, .. } = v;
                 let mut cwd = PathBuf::from(&self.path);
 
-                if target == PathBuf::from("..") {
+                if target == &PathBuf::from("..") {
                     cwd.pop();
-                } else if target == PathBuf::from("-") {
+                } else if target == &PathBuf::from("-") {
                     cwd = PathBuf::from(&self.last_path);
                 } else {
                     match target.to_str() {
@@ -169,7 +172,7 @@ impl Shell for ValueShell {
             return Err(ShellError::labeled_error(
                 "Can not change to path inside",
                 "No such path exists",
-                &args.call_info.name_tag,
+                &name,
             ));
         }
 

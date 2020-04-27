@@ -25,7 +25,7 @@ fn automatically_change_directory() {
     use nu_test_support::playground::Playground;
 
     Playground::setup("cd_test_5_1", |dirs, sandbox| {
-        sandbox.within("autodir").mkdir("bar");
+        sandbox.mkdir("autodir");
 
         let actual = nu!(
             cwd: dirs.test(),
@@ -36,6 +36,25 @@ fn automatically_change_directory() {
         );
 
         assert!(actual.ends_with("autodir"));
+    })
+}
+
+#[test]
+fn automatically_change_directory_with_trailing_slash_and_same_name_as_command() {
+    use nu_test_support::playground::Playground;
+
+    Playground::setup("cd_test_5_1", |dirs, sandbox| {
+        sandbox.mkdir("cd");
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                cd/
+                pwd | echo $it
+            "#
+        );
+
+        assert!(actual.ends_with("cd"));
     })
 }
 
