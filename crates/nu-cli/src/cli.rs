@@ -238,28 +238,28 @@ pub fn create_default_context(
         context.add_commands(vec![
             // System/file operations
             whole_stream_command(Pwd),
-            per_item_command(Ls),
-            per_item_command(Du),
+            whole_stream_command(Ls),
+            whole_stream_command(Du),
             whole_stream_command(Cd),
-            per_item_command(Remove),
-            per_item_command(Open),
+            whole_stream_command(Remove),
+            whole_stream_command(Open),
             whole_stream_command(Config),
-            per_item_command(Help),
-            per_item_command(History),
+            whole_stream_command(Help),
+            whole_stream_command(History),
             whole_stream_command(Save),
-            per_item_command(Touch),
-            per_item_command(Cpy),
+            whole_stream_command(Touch),
+            whole_stream_command(Cpy),
             whole_stream_command(Date),
-            per_item_command(Calc),
-            per_item_command(Mkdir),
-            per_item_command(Move),
-            per_item_command(Kill),
+            whole_stream_command(Calc),
+            whole_stream_command(Mkdir),
+            whole_stream_command(Move),
+            whole_stream_command(Kill),
             whole_stream_command(Version),
             whole_stream_command(Clear),
             whole_stream_command(What),
             whole_stream_command(Which),
             whole_stream_command(Debug),
-            per_item_command(Alias),
+            whole_stream_command(Alias),
             // Statistics
             whole_stream_command(Size),
             whole_stream_command(Count),
@@ -269,7 +269,7 @@ pub fn create_default_context(
             whole_stream_command(Next),
             whole_stream_command(Previous),
             whole_stream_command(Shells),
-            per_item_command(Enter),
+            whole_stream_command(Enter),
             whole_stream_command(Exit),
             // Viewers
             whole_stream_command(Autoview),
@@ -279,14 +279,14 @@ pub fn create_default_context(
             whole_stream_command(SplitRow),
             whole_stream_command(Lines),
             whole_stream_command(Trim),
-            per_item_command(Echo),
-            per_item_command(Parse),
+            whole_stream_command(Echo),
+            whole_stream_command(Parse),
             // Column manipulation
             whole_stream_command(Reject),
             whole_stream_command(Pick),
             whole_stream_command(Get),
-            per_item_command(Edit),
-            per_item_command(Insert),
+            whole_stream_command(Edit),
+            whole_stream_command(Insert),
             whole_stream_command(SplitBy),
             // Row manipulation
             whole_stream_command(Reverse),
@@ -299,16 +299,16 @@ pub fn create_default_context(
             whole_stream_command(Skip),
             whole_stream_command(Nth),
             whole_stream_command(Drop),
-            per_item_command(Format),
-            per_item_command(Where),
+            whole_stream_command(Format),
+            whole_stream_command(Where),
             whole_stream_command(Compact),
             whole_stream_command(Default),
             whole_stream_command(SkipWhile),
             whole_stream_command(Range),
             whole_stream_command(Rename),
             whole_stream_command(Uniq),
-            per_item_command(Each),
-            per_item_command(IsEmpty),
+            whole_stream_command(Each),
+            whole_stream_command(IsEmpty),
             // Table manipulation
             whole_stream_command(Shuffle),
             whole_stream_command(Wrap),
@@ -726,7 +726,7 @@ async fn process_line(
             debug!("=== Parsed ===");
             debug!("{:#?}", result);
 
-            let classified_block = nu_parser::classify_block(&result, ctx.registry());
+            let mut classified_block = nu_parser::classify_block(&result, ctx.registry());
 
             debug!("{:#?}", classified_block);
             //println!("{:#?}", pipeline);
@@ -844,6 +844,8 @@ async fn process_line(
             } else {
                 InputStream::empty()
             };
+
+            classified_block.block.expand_it_usage();
 
             match run_block(&classified_block.block, ctx, input_stream, &Scope::empty()).await {
                 Ok(input) => {

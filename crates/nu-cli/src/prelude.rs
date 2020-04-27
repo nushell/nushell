@@ -71,10 +71,7 @@ macro_rules! trace_out_stream {
 pub(crate) use nu_protocol::{errln, out, outln};
 use nu_source::HasFallibleSpan;
 
-pub(crate) use crate::commands::command::{
-    CallInfoExt, CommandArgs, PerItemCommand, RawCommandArgs, RunnableContext,
-    RunnablePerItemContext,
-};
+pub(crate) use crate::commands::command::{CommandArgs, RawCommandArgs, RunnableContext};
 pub(crate) use crate::context::CommandRegistry;
 pub(crate) use crate::context::Context;
 pub(crate) use crate::data::config;

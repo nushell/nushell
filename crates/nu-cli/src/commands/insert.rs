@@ -1,13 +1,19 @@
-use crate::commands::PerItemCommand;
+use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{CallInfo, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{ColumnPath, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_value_ext::ValueExt;
 
 pub struct Insert;
 
-impl PerItemCommand for Insert {
+#[derive(Deserialize)]
+pub struct InsertArgs {
+    column: ColumnPath,
+    value: Value,
+}
+
+impl WholeStreamCommand for Insert {
     fn name(&self) -> &str {
         "insert"
     }
@@ -27,40 +33,45 @@ impl PerItemCommand for Insert {
     }
 
     fn usage(&self) -> &str {
-        "Edit an existing column to have a new value."
+        "Insert a new column with a given value."
     }
 
     fn run(
         &self,
-        call_info: &CallInfo,
-        _registry: &CommandRegistry,
-        _raw_args: &RawCommandArgs,
-        value: Value,
+        args: CommandArgs,
+        registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        let value_tag = value.tag();
-        let field = call_info.args.expect_nth(0)?.as_column_path()?;
-        let replacement = call_info.args.expect_nth(1)?.tagged_unknown();
+        args.process(registry, insert)?.run()
+    }
+}
 
-        let stream = match value {
-            obj
-            @
-            Value {
+fn insert(
+    InsertArgs { column, value }: InsertArgs,
+    RunnableContext { input, .. }: RunnableContext,
+) -> Result<OutputStream, ShellError> {
+    let mut input = input;
+
+    let stream = async_stream! {
+        match input.next().await {
+            Some(obj @ Value {
                 value: UntaggedValue::Row(_),
                 ..
-            } => match obj.insert_data_at_column_path(&field, replacement.item.clone()) {
-                Ok(v) => futures::stream::iter(vec![Ok(ReturnSuccess::Value(v))]),
-                Err(err) => return Err(err),
+            }) => match obj.insert_data_at_column_path(&column, value.clone()) {
+                Ok(v) => yield Ok(ReturnSuccess::Value(v)),
+                Err(err) => yield Err(err),
             },
 
-            _ => {
-                return Err(ShellError::labeled_error(
+            Some(Value { tag, ..}) => {
+                yield Err(ShellError::labeled_error(
                     "Unrecognized type in stream",
                     "original value",
-                    value_tag,
-                ))
+                    tag,
+                ));
             }
+
+            None => {}
         };
 
-        Ok(stream.to_output_stream())
-    }
+    };
+    Ok(stream.to_output_stream())
 }

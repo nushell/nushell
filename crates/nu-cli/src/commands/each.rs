@@ -1,16 +1,21 @@
 use crate::commands::classified::block::run_block;
-use crate::commands::PerItemCommand;
+use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 
 use futures::stream::once;
 
 use nu_errors::ShellError;
-use nu_protocol::{CallInfo, ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{hir::Block, ReturnSuccess, Scope, Signature, SyntaxShape};
 
 pub struct Each;
 
-impl PerItemCommand for Each {
+#[derive(Deserialize)]
+pub struct EachArgs {
+    block: Block,
+}
+
+impl WholeStreamCommand for Each {
     fn name(&self) -> &str {
         "each"
     }
@@ -29,58 +34,51 @@ impl PerItemCommand for Each {
 
     fn run(
         &self,
-        call_info: &CallInfo,
+        args: CommandArgs,
         registry: &CommandRegistry,
-        raw_args: &RawCommandArgs,
-        input: Value,
     ) -> Result<OutputStream, ShellError> {
-        let call_info = call_info.clone();
-        let registry = registry.clone();
-        let raw_args = raw_args.clone();
-        let stream = async_stream! {
-            match call_info.args.expect_nth(0)? {
-                Value {
-                    value: UntaggedValue::Block(block),
-                    tag
-                } => {
-                    let mut context = Context::from_raw(&raw_args, &registry);
-                    let input_clone = input.clone();
-                    let input_stream = once(async { Ok(input) }).to_input_stream();
+        Ok(args.process_raw(registry, each)?.run())
+    }
+}
 
-                    let result = run_block(
-                        block,
-                        &mut context,
-                        input_stream,
-                        &Scope::new(input_clone),
-                    ).await;
+fn each(
+    each_args: EachArgs,
+    context: RunnableContext,
+    raw_args: RawCommandArgs,
+) -> Result<OutputStream, ShellError> {
+    let block = each_args.block;
+    let registry = context.registry.clone();
+    let mut input_stream = context.input;
+    let stream = async_stream! {
+        while let Some(input) = input_stream.next().await {
+            let mut context = Context::from_raw(&raw_args, &registry);
+            let input_clone = input.clone();
+            let input_stream = once(async { Ok(input) }).to_input_stream();
 
-                    match result {
-                        Ok(mut stream) => {
-                            let errors = context.get_errors();
-                            if let Some(error) = errors.first() {
-                                yield Err(error.clone());
-                                return;
-                            }
+            let result = run_block(
+                &block,
+                &mut context,
+                input_stream,
+                &Scope::new(input_clone),
+            ).await;
 
-                            while let Some(result) = stream.next().await {
-                                yield Ok(ReturnSuccess::Value(result));
-                            }
-                        }
-                        Err(e) => {
-                            yield Err(e);
-                        }
+            match result {
+                Ok(mut stream) => {
+                    let errors = context.get_errors();
+                    if let Some(error) = errors.first() {
+                        yield Err(error.clone());
+                    }
+
+                    while let Some(result) = stream.next().await {
+                        yield Ok(ReturnSuccess::Value(result));
                     }
                 }
-                Value { tag, .. } => {
-                    yield Err(ShellError::labeled_error(
-                        "Expected a block",
-                        "each needs a block",
-                        tag,
-                    ))
+                Err(e) => {
+                    yield Err(e);
                 }
-            };
-        };
+            }
+        }
+    };
 
-        Ok(stream.to_output_stream())
-    }
+    Ok(stream.to_output_stream())
 }

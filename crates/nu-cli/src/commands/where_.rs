@@ -1,16 +1,20 @@
-use crate::commands::PerItemCommand;
+use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::evaluate::evaluate_baseline_expr;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::ClassifiedCommand, CallInfo, ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue,
-    Value,
+    hir::Block, hir::ClassifiedCommand, ReturnSuccess, Scope, Signature, SyntaxShape,
 };
 
 pub struct Where;
 
-impl PerItemCommand for Where {
+#[derive(Deserialize)]
+pub struct WhereArgs {
+    block: Block,
+}
+
+impl WholeStreamCommand for Where {
     fn name(&self) -> &str {
         "where"
     }
@@ -29,68 +33,68 @@ impl PerItemCommand for Where {
 
     fn run(
         &self,
-        call_info: &CallInfo,
+        args: CommandArgs,
         registry: &CommandRegistry,
-        _raw_args: &RawCommandArgs,
-        input: Value,
     ) -> Result<OutputStream, ShellError> {
-        let block = call_info.args.expect_nth(0)?.clone();
-
-        let condition = match block {
-            Value {
-                value: UntaggedValue::Block(block),
+        args.process(registry, where_command)?.run()
+    }
+}
+fn where_command(
+    WhereArgs { block }: WhereArgs,
+    RunnableContext {
+        name: tag,
+        registry,
+        input,
+        ..
+    }: RunnableContext,
+) -> Result<OutputStream, ShellError> {
+    let condition = {
+        if block.block.len() != 1 {
+            return Err(ShellError::labeled_error(
+                "Expected a condition",
+                "expected a condition",
                 tag,
-            } => {
-                if block.block.len() != 1 {
+            ));
+        }
+        match block.block[0].list.get(0) {
+            Some(item) => match item {
+                ClassifiedCommand::Expr(expr) => expr.clone(),
+                _ => {
                     return Err(ShellError::labeled_error(
                         "Expected a condition",
                         "expected a condition",
                         tag,
-                    ));
+                    ))
                 }
-                match block.block[0].list.get(0) {
-                    Some(item) => match item {
-                        ClassifiedCommand::Expr(expr) => expr.clone(),
-                        _ => {
-                            return Err(ShellError::labeled_error(
-                                "Expected a condition",
-                                "expected a condition",
-                                tag,
-                            ))
-                        }
-                    },
-                    None => {
-                        return Err(ShellError::labeled_error(
-                            "Expected a condition",
-                            "expected a condition",
-                            tag,
-                        ));
-                    }
-                }
-            }
-            Value { tag, .. } => {
+            },
+            None => {
                 return Err(ShellError::labeled_error(
                     "Expected a condition",
                     "expected a condition",
                     tag,
                 ));
             }
-        };
+        }
+    };
 
-        //FIXME: should we use the scope that's brought in as well?
-        let condition = evaluate_baseline_expr(&condition, registry, &Scope::new(input.clone()))?;
+    let mut input = input;
 
-        let stream = match condition.as_bool() {
-            Ok(b) => {
-                if b {
-                    VecDeque::from(vec![Ok(ReturnSuccess::Value(input))])
-                } else {
-                    VecDeque::new()
+    let stream = async_stream! {
+        while let Some(input) = input.next().await {
+
+            //FIXME: should we use the scope that's brought in as well?
+            let condition = evaluate_baseline_expr(&condition, &registry, &Scope::new(input.clone()))?;
+
+            match condition.as_bool() {
+                Ok(b) => {
+                    if b {
+                        yield Ok(ReturnSuccess::Value(input));
+                    }
                 }
-            }
-            Err(e) => return Err(e),
-        };
+                Err(e) => yield Err(e),
+            };
+        }
+    };
 
-        Ok(stream.into())
-    }
+    Ok(stream.to_output_stream())
 }

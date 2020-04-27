@@ -1,11 +1,9 @@
-use crate::commands::PerItemCommand;
+use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{
-    CallInfo, ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
-};
-
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue};
+use nu_source::Tagged;
 use regex::Regex;
 
 #[derive(Debug)]
@@ -84,7 +82,12 @@ fn build_regex(commands: &[ParseCommand]) -> String {
 }
 pub struct Parse;
 
-impl PerItemCommand for Parse {
+#[derive(Deserialize)]
+pub struct ParseArgs {
+    pattern: Tagged<String>,
+}
+
+impl WholeStreamCommand for Parse {
     fn name(&self) -> &str {
         "parse"
     }
@@ -92,7 +95,7 @@ impl PerItemCommand for Parse {
     fn signature(&self) -> Signature {
         Signature::build("parse").required(
             "pattern",
-            SyntaxShape::Any,
+            SyntaxShape::String,
             "the pattern to match. Eg) \"{foo}: {bar}\"",
         )
     }
@@ -103,41 +106,55 @@ impl PerItemCommand for Parse {
 
     fn run(
         &self,
-        call_info: &CallInfo,
-        _registry: &CommandRegistry,
-        _raw_args: &RawCommandArgs,
-        value: Value,
+        args: CommandArgs,
+        registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        //let value_tag = value.tag();
-        let pattern = call_info.args.expect_nth(0)?.as_string()?;
-
-        let parse_pattern = parse(&pattern);
-        let parse_regex = build_regex(&parse_pattern);
-
-        let column_names = column_names(&parse_pattern);
-        let regex = Regex::new(&parse_regex).map_err(|_| {
-            ShellError::labeled_error("Could not parse regex", "could not parse regex", &value.tag)
-        })?;
-
-        let output = if let Ok(s) = value.as_string() {
-            let mut results = vec![];
-            for cap in regex.captures_iter(&s) {
-                let mut dict = TaggedDictBuilder::new(value.tag());
-
-                for (idx, column_name) in column_names.iter().enumerate() {
-                    dict.insert_untagged(
-                        column_name,
-                        UntaggedValue::string(&cap[idx + 1].to_string()),
-                    );
-                }
-
-                results.push(ReturnSuccess::value(dict.into_value()));
-            }
-
-            VecDeque::from(results)
-        } else {
-            VecDeque::new()
-        };
-        Ok(output.into())
+        args.process(registry, parse_command)?.run()
     }
+}
+
+fn parse_command(
+    ParseArgs { pattern }: ParseArgs,
+    RunnableContext { name, input, .. }: RunnableContext,
+) -> Result<OutputStream, ShellError> {
+    let parse_pattern = parse(&pattern.item);
+    let parse_regex = build_regex(&parse_pattern);
+    let column_names = column_names(&parse_pattern);
+    let name = name.span;
+    let regex = Regex::new(&parse_regex).map_err(|_| {
+        ShellError::labeled_error(
+            "Could not parse regex",
+            "could not parse regex",
+            &pattern.tag,
+        )
+    })?;
+
+    Ok(input
+        .map(move |value| {
+            if let Ok(s) = value.as_string() {
+                let mut output = vec![];
+                for cap in regex.captures_iter(&s) {
+                    let mut dict = TaggedDictBuilder::new(value.tag());
+                    for (idx, column_name) in column_names.iter().enumerate() {
+                        dict.insert_untagged(
+                            column_name,
+                            UntaggedValue::string(cap[idx + 1].to_string()),
+                        );
+                    }
+                    output.push(Ok(ReturnSuccess::Value(dict.into_value())));
+                }
+                output
+            } else {
+                vec![Err(ShellError::labeled_error_with_secondary(
+                    "Expected string input",
+                    "expected string input",
+                    name,
+                    "value originated here",
+                    value.tag,
+                ))]
+            }
+        })
+        .map(futures::stream::iter)
+        .flatten()
+        .to_output_stream())
 }

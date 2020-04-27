@@ -1,15 +1,22 @@
-use crate::commands::PerItemCommand;
 use crate::commands::UnevaluatedCallInfo;
+use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{
-    CallInfo, CommandAction, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+    CommandAction, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
 };
+use nu_source::Tagged;
+use std::path::PathBuf;
 
 pub struct Enter;
 
-impl PerItemCommand for Enter {
+#[derive(Deserialize)]
+pub struct EnterArgs {
+    location: Tagged<PathBuf>,
+}
+
+impl WholeStreamCommand for Enter {
     fn name(&self) -> &str {
         "enter"
     }
@@ -28,130 +35,121 @@ impl PerItemCommand for Enter {
 
     fn run(
         &self,
-        call_info: &CallInfo,
+        args: CommandArgs,
         registry: &CommandRegistry,
-        raw_args: &RawCommandArgs,
-        _input: Value,
     ) -> Result<OutputStream, ShellError> {
-        let registry = registry.clone();
-        let raw_args = raw_args.clone();
-        match call_info.args.expect_nth(0)? {
-            Value {
-                value: UntaggedValue::Primitive(Primitive::Path(location)),
-                tag,
-                ..
-            } => {
-                let location_string = location.display().to_string();
-                let location_clone = location_string.clone();
-                let tag_clone = tag.clone();
+        Ok(args.process_raw(registry, enter)?.run())
+    }
+}
 
-                if location_string.starts_with("help") {
-                    let spec = location_string.split(':').collect::<Vec<&str>>();
+fn enter(
+    EnterArgs { location }: EnterArgs,
+    RunnableContext {
+        registry,
+        name: tag,
+        ..
+    }: RunnableContext,
+    raw_args: RawCommandArgs,
+) -> Result<OutputStream, ShellError> {
+    let location_string = location.display().to_string();
+    let location_clone = location_string.clone();
 
-                    if spec.len() == 2 {
-                        let (_, command) = (spec[0], spec[1]);
+    if location_string.starts_with("help") {
+        let spec = location_string.split(':').collect::<Vec<&str>>();
 
-                        if registry.has(command) {
-                            return Ok(vec![Ok(ReturnSuccess::Action(
-                                CommandAction::EnterHelpShell(
-                                    UntaggedValue::string(command).into_value(Tag::unknown()),
-                                ),
-                            ))]
-                            .into());
-                        }
-                    }
-                    Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterHelpShell(
-                        UntaggedValue::nothing().into_value(Tag::unknown()),
-                    )))]
-                    .into())
-                } else if location.is_dir() {
-                    Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterShell(
-                        location_clone,
-                    )))]
-                    .into())
-                } else {
-                    let stream = async_stream! {
-                        // If it's a file, attempt to open the file as a value and enter it
-                        let cwd = raw_args.shell_manager.path();
+        if spec.len() == 2 {
+            let (_, command) = (spec[0], spec[1]);
 
-                        let full_path = std::path::PathBuf::from(cwd);
+            if registry.has(command) {
+                return Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterHelpShell(
+                    UntaggedValue::string(command).into_value(Tag::unknown()),
+                )))]
+                .into());
+            }
+        }
+        Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterHelpShell(
+            UntaggedValue::nothing().into_value(Tag::unknown()),
+        )))]
+        .into())
+    } else if location.is_dir() {
+        Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterShell(
+            location_clone,
+        )))]
+        .into())
+    } else {
+        let stream = async_stream! {
+            // If it's a file, attempt to open the file as a value and enter it
+            let cwd = raw_args.shell_manager.path();
 
-                        let (file_extension, contents, contents_tag) =
-                            crate::commands::open::fetch(
-                                &full_path,
-                                &location_clone,
-                                tag_clone.span,
-                            ).await?;
+            let full_path = std::path::PathBuf::from(cwd);
 
-                        match contents {
-                            UntaggedValue::Primitive(Primitive::String(_)) => {
-                                let tagged_contents = contents.into_value(&contents_tag);
+            let (file_extension, contents, contents_tag) =
+                crate::commands::open::fetch(
+                    &full_path,
+                    &PathBuf::from(location_clone),
+                    tag.span,
+                ).await?;
 
-                                if let Some(extension) = file_extension {
-                                    let command_name = format!("from-{}", extension);
-                                    if let Some(converter) =
-                                        registry.get_command(&command_name)
-                                    {
-                                        let new_args = RawCommandArgs {
-                                            host: raw_args.host,
-                                            ctrl_c: raw_args.ctrl_c,
-                                            shell_manager: raw_args.shell_manager,
-                                            call_info: UnevaluatedCallInfo {
-                                                args: nu_protocol::hir::Call {
-                                                    head: raw_args.call_info.args.head,
-                                                    positional: None,
-                                                    named: None,
-                                                    span: Span::unknown(),
-                                                    is_last: false,
-                                                },
-                                                name_tag: raw_args.call_info.name_tag,
-                                                scope: raw_args.call_info.scope.clone()
-                                            },
-                                        };
-                                        let mut result = converter.run(
-                                            new_args.with_input(vec![tagged_contents]),
-                                            &registry,
-                                        );
-                                        let result_vec: Vec<Result<ReturnSuccess, ShellError>> =
-                                            result.drain_vec().await;
-                                        for res in result_vec {
-                                            match res {
-                                                Ok(ReturnSuccess::Value(Value {
-                                                    value,
-                                                    ..
-                                                })) => {
-                                                    yield Ok(ReturnSuccess::Action(CommandAction::EnterValueShell(
-                                                        Value {
-                                                            value,
-                                                            tag: contents_tag.clone(),
-                                                        })));
-                                                }
-                                                x => yield x,
-                                            }
-                                        }
-                                    } else {
-                                        yield Ok(ReturnSuccess::Action(CommandAction::EnterValueShell(tagged_contents)));
+            match contents {
+                UntaggedValue::Primitive(Primitive::String(_)) => {
+                    let tagged_contents = contents.into_value(&contents_tag);
+
+                    if let Some(extension) = file_extension {
+                        let command_name = format!("from-{}", extension);
+                        if let Some(converter) =
+                            registry.get_command(&command_name)
+                        {
+                            let new_args = RawCommandArgs {
+                                host: raw_args.host,
+                                ctrl_c: raw_args.ctrl_c,
+                                shell_manager: raw_args.shell_manager,
+                                call_info: UnevaluatedCallInfo {
+                                    args: nu_protocol::hir::Call {
+                                        head: raw_args.call_info.args.head,
+                                        positional: None,
+                                        named: None,
+                                        span: Span::unknown(),
+                                        is_last: false,
+                                    },
+                                    name_tag: raw_args.call_info.name_tag,
+                                    scope: raw_args.call_info.scope.clone()
+                                },
+                            };
+                            let mut result = converter.run(
+                                new_args.with_input(vec![tagged_contents]),
+                                &registry,
+                            );
+                            let result_vec: Vec<Result<ReturnSuccess, ShellError>> =
+                                result.drain_vec().await;
+                            for res in result_vec {
+                                match res {
+                                    Ok(ReturnSuccess::Value(Value {
+                                        value,
+                                        ..
+                                    })) => {
+                                        yield Ok(ReturnSuccess::Action(CommandAction::EnterValueShell(
+                                            Value {
+                                                value,
+                                                tag: contents_tag.clone(),
+                                            })));
                                     }
-                                } else {
-                                    yield Ok(ReturnSuccess::Action(CommandAction::EnterValueShell(tagged_contents)));
+                                    x => yield x,
                                 }
                             }
-                            _ => {
-                                let tagged_contents = contents.into_value(contents_tag);
-
-                                yield Ok(ReturnSuccess::Action(CommandAction::EnterValueShell(tagged_contents)));
-                            }
+                        } else {
+                            yield Ok(ReturnSuccess::Action(CommandAction::EnterValueShell(tagged_contents)));
                         }
-                    };
-                    Ok(stream.to_output_stream())
+                    } else {
+                        yield Ok(ReturnSuccess::Action(CommandAction::EnterValueShell(tagged_contents)));
+                    }
+                }
+                _ => {
+                    let tagged_contents = contents.into_value(contents_tag);
+
+                    yield Ok(ReturnSuccess::Action(CommandAction::EnterValueShell(tagged_contents)));
                 }
             }
-            x => Ok(
-                vec![Ok(ReturnSuccess::Action(CommandAction::EnterValueShell(
-                    x.clone(),
-                )))]
-                .into(),
-            ),
-        }
+        };
+        Ok(stream.to_output_stream())
     }
 }

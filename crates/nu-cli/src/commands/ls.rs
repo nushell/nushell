@@ -1,7 +1,7 @@
-use crate::commands::command::RunnablePerItemContext;
+use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{CallInfo, Signature, SyntaxShape, Value};
+use nu_protocol::{Signature, SyntaxShape};
 use nu_source::Tagged;
 use std::path::PathBuf;
 
@@ -18,7 +18,7 @@ pub struct LsArgs {
     pub with_symlink_targets: bool,
 }
 
-impl PerItemCommand for Ls {
+impl WholeStreamCommand for Ls {
     fn name(&self) -> &str {
         "ls"
     }
@@ -54,17 +54,13 @@ impl PerItemCommand for Ls {
 
     fn run(
         &self,
-        call_info: &CallInfo,
-        _registry: &CommandRegistry,
-        raw_args: &RawCommandArgs,
-        _input: Value,
+        args: CommandArgs,
+        registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        call_info
-            .process(&raw_args.shell_manager, raw_args.ctrl_c.clone(), ls)?
-            .run()
+        args.process(registry, ls)?.run()
     }
 }
 
-fn ls(args: LsArgs, context: &RunnablePerItemContext) -> Result<OutputStream, ShellError> {
-    context.shell_manager.ls(args, context)
+fn ls(args: LsArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
+    context.shell_manager.ls(args, &context)
 }

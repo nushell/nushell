@@ -1,10 +1,8 @@
-use crate::commands::PerItemCommand;
+use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{
-    CallInfo, ColumnPath, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{ColumnPath, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use nu_value_ext::ValueExt;
 
@@ -17,7 +15,12 @@ enum IsEmptyFor {
 
 pub struct IsEmpty;
 
-impl PerItemCommand for IsEmpty {
+#[derive(Deserialize)]
+pub struct IsEmptyArgs {
+    rest: Vec<Value>,
+}
+
+impl WholeStreamCommand for IsEmpty {
     fn name(&self) -> &str {
         "empty?"
     }
@@ -35,61 +38,100 @@ impl PerItemCommand for IsEmpty {
 
     fn run(
         &self,
-        call_info: &CallInfo,
-        _registry: &CommandRegistry,
-        _raw_args: &RawCommandArgs,
-        value: Value,
+        args: CommandArgs,
+        registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        let value_tag = value.tag();
+        args.process(registry, is_empty)?.run()
+    }
+}
 
-        let action = if call_info.args.len() <= 2 {
-            let field = call_info.args.expect_nth(0);
-            let replacement_if_true = call_info.args.expect_nth(1);
+fn is_empty(
+    IsEmptyArgs { rest }: IsEmptyArgs,
+    RunnableContext { input, .. }: RunnableContext,
+) -> Result<OutputStream, ShellError> {
+    Ok(input
+        .map(move |value| {
+            let value_tag = value.tag();
 
-            match (field, replacement_if_true) {
-                (Ok(field), Ok(replacement_if_true)) => IsEmptyFor::RowWithFieldAndFallback(
-                    Box::new(field.as_column_path()?),
-                    replacement_if_true.clone(),
-                ),
-                (Ok(field), Err(_)) => IsEmptyFor::RowWithField(field.as_column_path()?),
-                (_, _) => IsEmptyFor::Value,
-            }
-        } else {
-            let no_args = vec![];
-            let mut arguments = call_info
-                .args
-                .positional
-                .as_ref()
-                .unwrap_or_else(|| &no_args)
-                .iter()
-                .rev();
-            let replacement_if_true = match arguments.next() {
-                Some(arg) => arg.clone(),
-                None => UntaggedValue::boolean(value.is_empty()).into_value(&value_tag),
+            let action = if rest.len() <= 2 {
+                let field = rest.get(0);
+                let replacement_if_true = rest.get(1);
+
+                match (field, replacement_if_true) {
+                    (Some(field), Some(replacement_if_true)) => {
+                        IsEmptyFor::RowWithFieldAndFallback(
+                            Box::new(field.as_column_path()?),
+                            replacement_if_true.clone(),
+                        )
+                    }
+                    (Some(field), None) => IsEmptyFor::RowWithField(field.as_column_path()?),
+                    (_, _) => IsEmptyFor::Value,
+                }
+            } else {
+                // let no_args = vec![];
+                let mut arguments = rest.iter().rev();
+                let replacement_if_true = match arguments.next() {
+                    Some(arg) => arg.clone(),
+                    None => UntaggedValue::boolean(value.is_empty()).into_value(&value_tag),
+                };
+
+                IsEmptyFor::RowWithFieldsAndFallback(
+                    arguments
+                        .map(|a| a.as_column_path())
+                        .filter_map(Result::ok)
+                        .collect(),
+                    replacement_if_true,
+                )
             };
 
-            IsEmptyFor::RowWithFieldsAndFallback(
-                arguments
-                    .map(|a| a.as_column_path())
-                    .filter_map(Result::ok)
-                    .collect(),
-                replacement_if_true,
-            )
-        };
+            match action {
+                IsEmptyFor::Value => Ok(ReturnSuccess::Value(
+                    UntaggedValue::boolean(value.is_empty()).into_value(value_tag),
+                )),
+                IsEmptyFor::RowWithFieldsAndFallback(fields, default) => {
+                    let mut out = value;
 
-        match action {
-            IsEmptyFor::Value => Ok(futures::stream::iter(vec![Ok(ReturnSuccess::Value(
-                UntaggedValue::boolean(value.is_empty()).into_value(value_tag),
-            ))])
-            .to_output_stream()),
-            IsEmptyFor::RowWithFieldsAndFallback(fields, default) => {
-                let mut out = value;
+                    for field in fields.iter() {
+                        let val =
+                            out.get_data_by_column_path(&field, Box::new(move |(_, _, err)| err))?;
 
-                for field in fields.iter() {
+                        let emptiness_value = match out {
+                            obj
+                            @
+                            Value {
+                                value: UntaggedValue::Row(_),
+                                ..
+                            } => {
+                                if val.is_empty() {
+                                    match obj.replace_data_at_column_path(&field, default.clone()) {
+                                        Some(v) => Ok(v),
+                                        None => Err(ShellError::labeled_error(
+                                            "empty? could not find place to check emptiness",
+                                            "column name",
+                                            &field.tag,
+                                        )),
+                                    }
+                                } else {
+                                    Ok(obj)
+                                }
+                            }
+                            _ => Err(ShellError::labeled_error(
+                                "Unrecognized type in stream",
+                                "original value",
+                                &value_tag,
+                            )),
+                        };
+
+                        out = emptiness_value?;
+                    }
+
+                    Ok(ReturnSuccess::Value(out))
+                }
+                IsEmptyFor::RowWithField(field) => {
                     let val =
-                        out.get_data_by_column_path(&field, Box::new(move |(_, _, err)| err))?;
+                        value.get_data_by_column_path(&field, Box::new(move |(_, _, err)| err))?;
 
-                    let emptiness_value = match out {
+                    match &value {
                         obj
                         @
                         Value {
@@ -97,8 +139,11 @@ impl PerItemCommand for IsEmpty {
                             ..
                         } => {
                             if val.is_empty() {
-                                match obj.replace_data_at_column_path(&field, default.clone()) {
-                                    Some(v) => Ok(v),
+                                match obj.replace_data_at_column_path(
+                                    &field,
+                                    UntaggedValue::boolean(true).into_value(&value_tag),
+                                ) {
+                                    Some(v) => Ok(ReturnSuccess::Value(v)),
                                     None => Err(ShellError::labeled_error(
                                         "empty? could not find place to check emptiness",
                                         "column name",
@@ -106,7 +151,7 @@ impl PerItemCommand for IsEmpty {
                                     )),
                                 }
                             } else {
-                                Ok(obj)
+                                Ok(ReturnSuccess::Value(value))
                             }
                         }
                         _ => Err(ShellError::labeled_error(
@@ -114,90 +159,40 @@ impl PerItemCommand for IsEmpty {
                             "original value",
                             &value_tag,
                         )),
-                    };
-
-                    out = emptiness_value?;
+                    }
                 }
+                IsEmptyFor::RowWithFieldAndFallback(field, default) => {
+                    let val =
+                        value.get_data_by_column_path(&field, Box::new(move |(_, _, err)| err))?;
 
-                Ok(futures::stream::iter(vec![Ok(ReturnSuccess::Value(out))]).to_output_stream())
-            }
-            IsEmptyFor::RowWithField(field) => {
-                let val =
-                    value.get_data_by_column_path(&field, Box::new(move |(_, _, err)| err))?;
-
-                let stream = match &value {
-                    obj
-                    @
-                    Value {
-                        value: UntaggedValue::Row(_),
-                        ..
-                    } => {
-                        if val.is_empty() {
-                            match obj.replace_data_at_column_path(
-                                &field,
-                                UntaggedValue::boolean(true).into_value(&value_tag),
-                            ) {
-                                Some(v) => futures::stream::iter(vec![Ok(ReturnSuccess::Value(v))]),
-                                None => {
-                                    return Err(ShellError::labeled_error(
+                    match &value {
+                        obj
+                        @
+                        Value {
+                            value: UntaggedValue::Row(_),
+                            ..
+                        } => {
+                            if val.is_empty() {
+                                match obj.replace_data_at_column_path(&field, default) {
+                                    Some(v) => Ok(ReturnSuccess::Value(v)),
+                                    None => Err(ShellError::labeled_error(
                                         "empty? could not find place to check emptiness",
                                         "column name",
                                         &field.tag,
-                                    ))
+                                    )),
                                 }
+                            } else {
+                                Ok(ReturnSuccess::Value(value))
                             }
-                        } else {
-                            futures::stream::iter(vec![Ok(ReturnSuccess::Value(value))])
                         }
-                    }
-                    _ => {
-                        return Err(ShellError::labeled_error(
+                        _ => Err(ShellError::labeled_error(
                             "Unrecognized type in stream",
                             "original value",
                             &value_tag,
-                        ))
+                        )),
                     }
-                };
-
-                Ok(stream.to_output_stream())
+                }
             }
-            IsEmptyFor::RowWithFieldAndFallback(field, default) => {
-                let val =
-                    value.get_data_by_column_path(&field, Box::new(move |(_, _, err)| err))?;
-
-                let stream = match &value {
-                    obj
-                    @
-                    Value {
-                        value: UntaggedValue::Row(_),
-                        ..
-                    } => {
-                        if val.is_empty() {
-                            match obj.replace_data_at_column_path(&field, default) {
-                                Some(v) => futures::stream::iter(vec![Ok(ReturnSuccess::Value(v))]),
-                                None => {
-                                    return Err(ShellError::labeled_error(
-                                        "empty? could not find place to check emptiness",
-                                        "column name",
-                                        &field.tag,
-                                    ))
-                                }
-                            }
-                        } else {
-                            futures::stream::iter(vec![Ok(ReturnSuccess::Value(value))])
-                        }
-                    }
-                    _ => {
-                        return Err(ShellError::labeled_error(
-                            "Unrecognized type in stream",
-                            "original value",
-                            &value_tag,
-                        ))
-                    }
-                };
-
-                Ok(stream.to_output_stream())
-            }
-        }
-    }
+        })
+        .to_output_stream())
 }
