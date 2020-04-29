@@ -1,15 +1,5 @@
 use nu_test_support::{nu, nu_error};
 
-// #[test]
-// fn shows_error_for_command_that_fails() {
-//     let actual = nu_error!(
-//         cwd: ".",
-//         "fail"
-//     );
-
-//     assert!(actual.contains("External command failed"));
-// }
-
 #[test]
 fn shows_error_for_command_not_found() {
     let actual = nu_error!(

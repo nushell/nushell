@@ -81,16 +81,6 @@ impl ClassifiedCommand {
     pub fn has_it_iteration(&self) -> bool {
         match self {
             ClassifiedCommand::Internal(command) => {
-                if let SpannedExpression {
-                    expr: Expression::Literal(Literal::String(s)),
-                    ..
-                } = &*command.args.head
-                {
-                    if s == "run_external" {
-                        // For now, don't it-expand externals
-                        return false;
-                    }
-                }
                 let mut result = command.args.head.has_shallow_it_usage();
 
                 if let Some(positionals) = &command.args.positional {
@@ -109,17 +99,6 @@ impl ClassifiedCommand {
     pub fn expand_it_usage(&mut self) {
         match self {
             ClassifiedCommand::Internal(command) => {
-                if let SpannedExpression {
-                    expr: Expression::Literal(Literal::String(s)),
-                    ..
-                } = &*command.args.head
-                {
-                    if s == "run_external" {
-                        // For now, don't it-expand externals
-                        return;
-                    }
-                }
-
                 if let Some(positionals) = &mut command.args.positional {
                     for arg in positionals {
                         if let SpannedExpression {
@@ -179,7 +158,9 @@ impl Commands {
                     name_span: self.span,
                     args: hir::Call {
                         head: Box::new(SpannedExpression {
-                            expr: Expression::Synthetic(Synthetic::String("each".to_string())),
+                            expr: Expression::Synthetic(Synthetic::String(
+                                "expanded-each".to_string(),
+                            )),
                             span: self.span,
                         }),
                         named: None,

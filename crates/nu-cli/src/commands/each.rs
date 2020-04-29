@@ -4,9 +4,11 @@ use crate::context::CommandRegistry;
 use crate::prelude::*;
 
 use futures::stream::once;
-
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, ReturnSuccess, Signature, SyntaxShape};
+use nu_protocol::{
+    hir::Block, hir::Expression, hir::SpannedExpression, hir::Synthetic, ReturnSuccess, Signature,
+    SyntaxShape,
+};
 
 pub struct Each;
 
@@ -41,6 +43,16 @@ impl WholeStreamCommand for Each {
     }
 }
 
+fn is_expanded_it_usage(head: &SpannedExpression) -> bool {
+    match &*head {
+        SpannedExpression {
+            expr: Expression::Synthetic(Synthetic::String(s)),
+            ..
+        } if s == "expanded-each" => true,
+        _ => false,
+    }
+}
+
 fn each(
     each_args: EachArgs,
     context: RunnableContext,
@@ -53,8 +65,13 @@ fn each(
     let stream = async_stream! {
         while let Some(input) = input_stream.next().await {
             let mut context = Context::from_raw(&raw_args, &registry);
+
             let input_clone = input.clone();
-            let input_stream = once(async { Ok(input) }).to_input_stream();
+            let input_stream = if is_expanded_it_usage(&raw_args.call_info.args.head) {
+                InputStream::empty()
+            } else {
+                once(async { Ok(input) }).to_input_stream()
+            };
 
             let result = run_block(
                 &block,
