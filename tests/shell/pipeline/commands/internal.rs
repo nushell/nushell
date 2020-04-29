@@ -107,7 +107,9 @@ mod parse {
 }
 
 mod tilde_expansion {
-    use super::nu;
+    use nu_test_support::fs::Stub::EmptyFile;
+    use nu_test_support::playground::Playground;
+    use nu_test_support::{nu, pipeline};
 
     #[test]
     #[should_panic]
@@ -135,5 +137,29 @@ mod tilde_expansion {
         );
 
         assert_eq!(actual, "1~1");
+    }
+
+    #[test]
+    fn proper_it_expansion() {
+        Playground::setup("ls_test_1", |dirs, sandbox| {
+            sandbox.with_files(vec![
+                EmptyFile("andres.txt"),
+                EmptyFile("gedge.txt"),
+                EmptyFile("jonathan.txt"),
+                EmptyFile("yehuda.txt"),
+            ]);
+
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                    ls | sort-by name | group-by type | each { get File.name | echo $it } | to-json
+                "#
+            ));
+
+            assert_eq!(
+                actual,
+                r#"["andres.txt","gedge.txt","jonathan.txt","yehuda.txt"]"#
+            );
+        })
     }
 }

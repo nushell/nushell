@@ -105,6 +105,51 @@ impl ClassifiedCommand {
             _ => false,
         }
     }
+
+    pub fn expand_it_usage(&mut self) {
+        match self {
+            ClassifiedCommand::Internal(command) => {
+                if let SpannedExpression {
+                    expr: Expression::Literal(Literal::String(s)),
+                    ..
+                } = &*command.args.head
+                {
+                    if s == "run_external" {
+                        // For now, don't it-expand externals
+                        return;
+                    }
+                }
+
+                if let Some(positionals) = &mut command.args.positional {
+                    for arg in positionals {
+                        if let SpannedExpression {
+                            expr: Expression::Block(block),
+                            ..
+                        } = arg
+                        {
+                            block.expand_it_usage();
+                        }
+                    }
+                }
+            }
+            ClassifiedCommand::Expr(expr) => {
+                if let SpannedExpression {
+                    expr: Expression::Block(ref block),
+                    span,
+                } = **expr
+                {
+                    let mut block = block.clone();
+                    block.expand_it_usage();
+                    *expr = Box::new(SpannedExpression {
+                        expr: Expression::Block(block),
+                        span,
+                    });
+                }
+            }
+
+            _ => {}
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
@@ -125,6 +170,9 @@ impl Commands {
     /// Convert all shallow uses of $it to `each { use of $it }`, converting each to a per-row command
     pub fn expand_it_usage(&mut self) {
         for idx in 0..self.list.len() {
+            self.list[idx].expand_it_usage();
+        }
+        for idx in 1..self.list.len() {
             if self.list[idx].has_it_iteration() {
                 self.list[idx] = ClassifiedCommand::Internal(InternalCommand {
                     name: "each".to_string(),

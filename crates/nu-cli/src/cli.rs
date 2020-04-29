@@ -848,6 +848,8 @@ async fn process_line(
 
             classified_block.block.expand_it_usage();
 
+            trace!("{:#?}", classified_block);
+
             match run_block(&classified_block.block, ctx, input_stream, &Scope::empty()).await {
                 Ok(input) => {
                     // Running a pipeline gives us back a stream that we can then
