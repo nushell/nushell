@@ -127,15 +127,19 @@ pub(crate) fn dir_entry_dict(
         }
     }
 
+    let mut size_untagged_value: UntaggedValue = UntaggedValue::nothing();
+
     if let Some(md) = metadata {
         if md.is_file() {
-            dict.insert_untagged("size", UntaggedValue::bytes(md.len() as u64));
-        } else {
-            dict.insert_untagged("size", UntaggedValue::nothing());
+            size_untagged_value = UntaggedValue::bytes(md.len() as u64);
+        } else if md.file_type().is_symlink() {
+            if let Ok(symlink_md) = filename.symlink_metadata() {
+                size_untagged_value = UntaggedValue::bytes(symlink_md.len() as u64);
+            }
         }
-    } else {
-        dict.insert_untagged("size", UntaggedValue::nothing());
     }
+
+    dict.insert_untagged("size", size_untagged_value);
 
     if let Some(md) = metadata {
         if full {
