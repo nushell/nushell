@@ -9,7 +9,7 @@ use std::sync::mpsc;
 
 use bytes::{BufMut, Bytes, BytesMut};
 use futures::executor::block_on_stream;
-use futures::stream::StreamExt;
+// use futures::stream::StreamExt;
 use futures_codec::FramedRead;
 use log::trace;
 
@@ -82,20 +82,6 @@ impl futures_codec::Decoder for MaybeTextCodec {
     }
 }
 
-pub fn nu_value_to_string(name_tag: &Tag, from: &Value) -> Result<String, ShellError> {
-    match &from.value {
-        UntaggedValue::Primitive(Primitive::Int(i)) => Ok(i.to_string()),
-        UntaggedValue::Primitive(Primitive::String(s))
-        | UntaggedValue::Primitive(Primitive::Line(s)) => Ok(s.clone()),
-        UntaggedValue::Primitive(Primitive::Path(p)) => Ok(p.to_string_lossy().to_string()),
-        unsupported => Err(ShellError::labeled_error(
-            format!("needs string data (given: {})", unsupported.type_name()),
-            "expected a string",
-            name_tag,
-        )),
-    }
-}
-
 pub(crate) async fn run_external_command(
     command: ExternalCommand,
     context: &mut Context,
@@ -113,85 +99,7 @@ pub(crate) async fn run_external_command(
         ));
     }
 
-    if command.has_it_argument() {
-        run_with_iterator_arg(command, context, input, scope, is_last)
-    } else {
-        run_with_stdin(command, context, input, scope, is_last)
-    }
-}
-
-fn run_with_iterator_arg(
-    command: ExternalCommand,
-    context: &mut Context,
-    input: InputStream,
-    scope: &Scope,
-    is_last: bool,
-) -> Result<InputStream, ShellError> {
-    let path = context.shell_manager.path();
-
-    let mut inputs: InputStream =
-        trace_stream!(target: "nu::trace_stream::external::it", "input" = input);
-
-    let name_tag = command.name_tag.clone();
-    let scope = scope.clone();
-    let context = context.clone();
-
-    let stream = async_stream! {
-        while let Some(value) = inputs.next().await {
-            // Evaluate the expressions into values, and from values into strings for each iteration
-            let mut command_args = vec![];
-            let scope = scope.clone().set_it(value);
-            for arg in command.args.iter() {
-                let value = evaluate_baseline_expr(arg, &context.registry, &scope)?;
-                command_args.push(nu_value_to_string(&name_tag, &value)?);
-            }
-
-            let process_args = command_args
-            .iter()
-            .map(|arg| {
-                let arg = expand_tilde(arg.deref(), dirs::home_dir);
-
-                #[cfg(not(windows))]
-                {
-                    if argument_contains_whitespace(&arg) && argument_is_quoted(&arg) {
-                        if let Some(unquoted) = remove_quotes(&arg) {
-                            format!(r#""{}""#, unquoted)
-                        } else {
-                            arg.as_ref().to_string()
-                        }
-                    } else {
-                        arg.as_ref().to_string()
-                    }
-                }
-                #[cfg(windows)]
-                {
-                    if let Some(unquoted) = remove_quotes(&arg) {
-                        unquoted.to_string()
-                    } else {
-                        arg.as_ref().to_string()
-                    }
-                }
-            })
-            .collect::<Vec<String>>();
-
-            match spawn(&command, &path, &process_args[..], InputStream::empty(), is_last) {
-                Ok(mut res) => {
-                    while let Some(item) = res.next().await {
-                        yield Ok(item)
-                    }
-                }
-                Err(reason) => {
-                    yield Ok(Value {
-                        value: UntaggedValue::Error(reason),
-                        tag: name_tag
-                    });
-                    return;
-                }
-            }
-        }
-    };
-
-    Ok(stream.to_input_stream())
+    run_with_stdin(command, context, input, scope, is_last)
 }
 
 fn run_with_stdin(
@@ -514,6 +422,7 @@ fn add_quotes(argument: &str) -> String {
     format!("\"{}\"", argument)
 }
 
+#[allow(unused)]
 fn remove_quotes(argument: &str) -> Option<&str> {
     if !argument_is_quoted(argument) {
         return None;
