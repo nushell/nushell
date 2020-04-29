@@ -130,6 +130,12 @@ pub(crate) fn dir_entry_dict(
     if let Some(md) = metadata {
         if md.is_file() {
             dict.insert_untagged("size", UntaggedValue::bytes(md.len() as u64));
+        } else if md.file_type().is_symlink() {
+            if let Ok(symlink_md) = filename.symlink_metadata() {
+                dict.insert_untagged("size", UntaggedValue::bytes(symlink_md.len() as u64));
+            } else {
+                dict.insert_untagged("size", UntaggedValue::nothing());
+            }
         } else {
             dict.insert_untagged("size", UntaggedValue::nothing());
         }
