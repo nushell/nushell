@@ -101,7 +101,7 @@ mod it_evaluation {
                 "#
             ));
 
-            assert_eq!(actual, "AndrásWithKitKatz");
+            assert_eq!(actual, "AndrásWithKitKat");
         })
     }
 

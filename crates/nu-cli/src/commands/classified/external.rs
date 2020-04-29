@@ -116,7 +116,7 @@ fn run_with_stdin(
     let mut command_args = vec![];
     for arg in command.args.iter() {
         let value = evaluate_baseline_expr(arg, &context.registry, scope)?;
-        command_args.push(value.as_string()?);
+        command_args.push(value.as_string()?.trim_end_matches('\n').to_string());
     }
 
     let process_args = command_args
