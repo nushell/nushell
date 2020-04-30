@@ -1,16 +1,31 @@
 use nu_test_support::{nu, pipeline};
 
 #[test]
-fn creates_a_new_table_with_the_new_row_given() {
+fn sets_the_column() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             open cargo_sample.toml
-            | edit dev-dependencies.pretty_assertions "7"
+            | edit dev-dependencies.pretty_assertions "0.7.0"
             | get dev-dependencies.pretty_assertions
             | echo $it
         "#
     ));
 
-    assert_eq!(actual, "7");
+    assert_eq!(actual, "0.7.0");
+}
+
+#[test]
+fn sets_the_column_from_a_block_run_output() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            open cargo_sample.toml
+            | edit dev-dependencies.pretty_assertions { open cargo_sample.toml | get dev-dependencies.pretty_assertions | inc --minor }
+            | get dev-dependencies.pretty_assertions
+            | echo $it
+        "#
+    ));
+
+    assert_eq!(actual, "0.7.0");
 }
