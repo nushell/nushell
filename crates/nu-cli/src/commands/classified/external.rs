@@ -116,7 +116,23 @@ fn run_with_stdin(
     let mut command_args = vec![];
     for arg in command.args.iter() {
         let value = evaluate_baseline_expr(arg, &context.registry, scope)?;
-        command_args.push(value.as_string()?.trim_end_matches('\n').to_string());
+        // Do the cleanup that we need to do on any argument going out:
+        let trimmed_value_string = value.as_string()?.trim_end_matches('\n').to_string();
+
+        let value_string;
+        #[cfg(not(windows))]
+        {
+            value_string = trimmed_value_string
+                .replace('$', "\\$")
+                .replace('"', "\\\"")
+                .to_string()
+        }
+        #[cfg(windows)]
+        {
+            value_string = trimmed_value_string
+        }
+
+        command_args.push(value_string);
     }
 
     let process_args = command_args
