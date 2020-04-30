@@ -22,6 +22,7 @@ fn row() {
                 name,country,luck
                 Andrés Robalino,Guayaquil Ecuador,1
                 Jonathan Turner,New Zealand,1
+                Yehuda Katz,USA,1
             "#,
             ),
         ]);
@@ -31,13 +32,13 @@ fn row() {
             r#"
                 open caballeros.csv
                 | merge { open new_caballeros.csv }
-                | where country in: ["Guayaquil Ecuador" "New Zealand"]
+                | where country in: ["Guayaquil Ecuador" "New Zealand"] || name == "Yehuda Katz"
                 | get luck
                 | sum
                 | echo $it
                 "#
         ));
 
-        assert_eq!(actual, "2");
+        assert_eq!(actual, "3");
     })
 }
