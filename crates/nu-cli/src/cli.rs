@@ -136,10 +136,6 @@ pub fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
             Err(_) => {}
             Ok(binaries) => {
                 for bin in binaries.filter_map(Result::ok) {
-                    if !bin.is_file() {
-                        continue;
-                    }
-
                     let bin_name = {
                         if let Some(name) = bin.file_name() {
                             match name.to_str() {
