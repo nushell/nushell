@@ -129,7 +129,7 @@ fn run_with_stdin(
         }
         #[cfg(windows)]
         {
-            trimmed_value_string
+            value_string = trimmed_value_string
         }
 
         command_args.push(value_string);
