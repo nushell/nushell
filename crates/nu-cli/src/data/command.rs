@@ -2,22 +2,15 @@ use crate::commands::command::Command;
 use crate::data::TaggedListBuilder;
 use crate::prelude::*;
 use nu_protocol::{NamedType, PositionalType, Signature, TaggedDictBuilder, UntaggedValue, Value};
-use std::ops::Deref;
 
-pub(crate) fn command_dict(command: Arc<Command>, tag: impl Into<Tag>) -> Value {
+pub(crate) fn command_dict(command: Command, tag: impl Into<Tag>) -> Value {
     let tag = tag.into();
 
     let mut cmd_dict = TaggedDictBuilder::new(&tag);
 
     cmd_dict.insert_untagged("name", UntaggedValue::string(command.name()));
 
-    cmd_dict.insert_untagged(
-        "type",
-        UntaggedValue::string(match command.deref() {
-            Command::WholeStream(_) => "Command",
-            Command::PerItem(_) => "Filter",
-        }),
-    );
+    cmd_dict.insert_untagged("type", UntaggedValue::string("Command"));
 
     cmd_dict.insert_value("signature", signature_dict(command.signature(), tag));
     cmd_dict.insert_untagged("usage", UntaggedValue::string(command.usage()));
