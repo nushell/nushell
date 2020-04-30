@@ -16,7 +16,7 @@ use std::sync::Arc;
 
 #[derive(Debug, Clone, Default)]
 pub struct CommandRegistry {
-    registry: Arc<Mutex<IndexMap<String, Arc<Command>>>>,
+    registry: Arc<Mutex<IndexMap<String, Command>>>,
 }
 
 impl SignatureRegistry for CommandRegistry {
@@ -42,13 +42,13 @@ impl CommandRegistry {
 }
 
 impl CommandRegistry {
-    pub(crate) fn get_command(&self, name: &str) -> Option<Arc<Command>> {
+    pub(crate) fn get_command(&self, name: &str) -> Option<Command> {
         let registry = self.registry.lock();
 
         registry.get(name).cloned()
     }
 
-    pub(crate) fn expect_command(&self, name: &str) -> Result<Arc<Command>, ShellError> {
+    pub(crate) fn expect_command(&self, name: &str) -> Result<Command, ShellError> {
         self.get_command(name).ok_or_else(|| {
             ShellError::untagged_runtime_error(format!("Could not load command: {}", name))
         })
@@ -60,7 +60,7 @@ impl CommandRegistry {
         registry.contains_key(name)
     }
 
-    pub(crate) fn insert(&mut self, name: impl Into<String>, command: Arc<Command>) {
+    pub(crate) fn insert(&mut self, name: impl Into<String>, command: Command) {
         let mut registry = self.registry.lock();
         registry.insert(name.into(), command);
     }
@@ -209,23 +209,23 @@ impl Context {
         block(&mut *errors)
     }
 
-    pub fn add_commands(&mut self, commands: Vec<Arc<Command>>) {
+    pub fn add_commands(&mut self, commands: Vec<Command>) {
         for command in commands {
             self.registry.insert(command.name().to_string(), command);
         }
     }
 
-    pub(crate) fn get_command(&self, name: &str) -> Option<Arc<Command>> {
+    pub(crate) fn get_command(&self, name: &str) -> Option<Command> {
         self.registry.get_command(name)
     }
 
-    pub(crate) fn expect_command(&self, name: &str) -> Result<Arc<Command>, ShellError> {
+    pub(crate) fn expect_command(&self, name: &str) -> Result<Command, ShellError> {
         self.registry.expect_command(name)
     }
 
     pub(crate) fn run_command(
         &mut self,
-        command: Arc<Command>,
+        command: Command,
         name_tag: Tag,
         args: hir::Call,
         scope: &Scope,

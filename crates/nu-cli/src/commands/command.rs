@@ -207,7 +207,7 @@ pub struct RunnableContext {
 }
 
 impl RunnableContext {
-    pub fn get_command(&self, name: &str) -> Option<Arc<Command>> {
+    pub fn get_command(&self, name: &str) -> Option<Command> {
         self.registry.get_command(name)
     }
 }
@@ -370,146 +370,54 @@ pub trait WholeStreamCommand: Send + Sync {
     }
 }
 
-pub trait PerItemCommand: Send + Sync {
-    fn name(&self) -> &str;
-
-    fn signature(&self) -> Signature {
-        Signature::new(self.name()).desc(self.usage()).filter()
-    }
-
-    fn usage(&self) -> &str;
-
-    fn run(
-        &self,
-        call_info: &CallInfo,
-        registry: &CommandRegistry,
-        raw_args: &RawCommandArgs,
-        input: Value,
-    ) -> Result<OutputStream, ShellError>;
-
-    fn is_binary(&self) -> bool {
-        false
-    }
-}
-
-pub enum Command {
-    WholeStream(Arc<dyn WholeStreamCommand>),
-    PerItem(Arc<dyn PerItemCommand>),
-}
+#[derive(Clone)]
+pub struct Command(Arc<dyn WholeStreamCommand>);
 
 impl PrettyDebugWithSource for Command {
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
-        match self {
-            Command::WholeStream(command) => b::typed(
-                "whole stream command",
-                b::description(command.name())
-                    + b::space()
-                    + b::equals()
-                    + b::space()
-                    + command.signature().pretty_debug(source),
-            ),
-            Command::PerItem(command) => b::typed(
-                "per item command",
-                b::description(command.name())
-                    + b::space()
-                    + b::equals()
-                    + b::space()
-                    + command.signature().pretty_debug(source),
-            ),
-        }
+        b::typed(
+            "whole stream command",
+            b::description(self.name())
+                + b::space()
+                + b::equals()
+                + b::space()
+                + self.signature().pretty_debug(source),
+        )
     }
 }
 
 impl std::fmt::Debug for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Command::WholeStream(command) => write!(f, "WholeStream({})", command.name()),
-            Command::PerItem(command) => write!(f, "PerItem({})", command.name()),
-        }
+        write!(f, "Command({})", self.name())
     }
 }
 
 impl Command {
     pub fn name(&self) -> &str {
-        match self {
-            Command::WholeStream(command) => command.name(),
-            Command::PerItem(command) => command.name(),
-        }
+        self.0.name()
     }
 
     pub fn signature(&self) -> Signature {
-        match self {
-            Command::WholeStream(command) => command.signature(),
-            Command::PerItem(command) => command.signature(),
-        }
+        self.0.signature()
     }
 
     pub fn usage(&self) -> &str {
-        match self {
-            Command::WholeStream(command) => command.usage(),
-            Command::PerItem(command) => command.usage(),
-        }
+        self.0.usage()
     }
 
     pub fn run(&self, args: CommandArgs, registry: &CommandRegistry) -> OutputStream {
         if args.call_info.switch_present("help") {
             get_help(self.name(), self.usage(), self.signature()).into()
         } else {
-            match self {
-                Command::WholeStream(command) => match command.run(args, registry) {
-                    Ok(stream) => stream,
-                    Err(err) => OutputStream::one(Err(err)),
-                },
-                Command::PerItem(command) => {
-                    self.run_helper(command.clone(), args, registry.clone())
-                }
+            match self.0.run(args, registry) {
+                Ok(stream) => stream,
+                Err(err) => OutputStream::one(Err(err)),
             }
         }
     }
 
-    fn run_helper(
-        &self,
-        command: Arc<dyn PerItemCommand>,
-        args: CommandArgs,
-        registry: CommandRegistry,
-    ) -> OutputStream {
-        let raw_args = RawCommandArgs {
-            host: args.host,
-            ctrl_c: args.ctrl_c,
-            shell_manager: args.shell_manager,
-            call_info: args.call_info,
-        };
-
-        let out = args
-            .input
-            .map(move |x| {
-                let call_info = UnevaluatedCallInfo {
-                    args: raw_args.call_info.args.clone(),
-                    name_tag: raw_args.call_info.name_tag.clone(),
-                    scope: raw_args.call_info.scope.clone().set_it(x.clone()),
-                }
-                .evaluate(&registry);
-
-                match call_info {
-                    Ok(call_info) => match command.run(&call_info, &registry, &raw_args, x) {
-                        Ok(o) => o,
-                        Err(e) => {
-                            futures::stream::iter(vec![ReturnValue::Err(e)]).to_output_stream()
-                        }
-                    },
-                    Err(e) => futures::stream::iter(vec![ReturnValue::Err(e)]).to_output_stream(),
-                }
-            })
-            .flatten();
-
-        out.to_output_stream()
-    }
-
     pub fn is_binary(&self) -> bool {
-        match self {
-            Command::WholeStream(command) => command.is_binary(),
-            Command::PerItem(command) => command.is_binary(),
-        }
+        self.0.is_binary()
     }
 }
 
@@ -571,6 +479,6 @@ impl WholeStreamCommand for FnFilterCommand {
     }
 }
 
-pub fn whole_stream_command(command: impl WholeStreamCommand + 'static) -> Arc<Command> {
-    Arc::new(Command::WholeStream(Arc::new(command)))
+pub fn whole_stream_command(command: impl WholeStreamCommand + 'static) -> Command {
+    Command(Arc::new(command))
 }
