@@ -11,3 +11,6 @@ debian/debhelper-build-stamp
 debian/files
 debian/nu.substvars
 debian/nu/
+
+# macOS junk
+.DS_Store
