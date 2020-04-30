@@ -22,6 +22,18 @@ pub fn date_from_str(s: Tagged<&str>) -> Result<UntaggedValue, ShellError> {
     Ok(UntaggedValue::Primitive(Primitive::Date(date)))
 }
 
+pub fn merge_values(
+    left: &UntaggedValue,
+    right: &UntaggedValue,
+) -> Result<UntaggedValue, (&'static str, &'static str)> {
+    match (left, right) {
+        (UntaggedValue::Row(columns), UntaggedValue::Row(columns_b)) => {
+            Ok(UntaggedValue::Row(columns.merge_from(columns_b)))
+        }
+        (left, right) => Err((left.type_name(), right.type_name())),
+    }
+}
+
 pub fn compute_values(
     operator: Operator,
     left: &UntaggedValue,
@@ -152,4 +164,32 @@ pub fn format_for_column<'a>(
     InlineShape::from_value(value.into())
         .format_for_column(column)
         .pretty()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::UntaggedValue as v;
+    use indexmap::indexmap;
+
+    use super::merge_values;
+
+    #[test]
+    fn merges_tables() {
+        let table_author_row = v::row(indexmap! {
+            "name".into() => v::string("Andrés").into_untagged_value(),
+            "country".into() => v::string("EC").into_untagged_value(),
+            "date".into() => v::string("April 29-2020").into_untagged_value()
+        });
+
+        let other_table_author_row = v::row(indexmap! {
+            "name".into() => v::string("YK").into_untagged_value(),
+            "country".into() => v::string("US").into_untagged_value(),
+            "date".into() => v::string("October 10-2019").into_untagged_value()
+        });
+
+        assert_eq!(
+            other_table_author_row,
+            merge_values(&table_author_row, &other_table_author_row).unwrap()
+        );
+    }
 }

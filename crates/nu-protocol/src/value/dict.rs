@@ -4,7 +4,7 @@ use crate::value::{UntaggedValue, Value};
 use derive_new::new;
 use getset::Getters;
 use indexmap::IndexMap;
-use nu_source::{b, DebugDocBuilder, PrettyDebug, Spanned, Tag};
+use nu_source::{b, DebugDocBuilder, PrettyDebug, Spanned, SpannedItem, Tag};
 use serde::{Deserialize, Serialize};
 use std::cmp::{Ord, Ordering, PartialOrd};
 use std::hash::{Hash, Hasher};
@@ -123,6 +123,25 @@ impl Dictionary {
                 UntaggedValue::Primitive(Primitive::Nothing).into_untagged_value(),
             ),
         }
+    }
+
+    pub fn merge_from(&self, other: &Dictionary) -> Dictionary {
+        let mut obj = self.clone();
+
+        for column in other.keys() {
+            let key = column.clone();
+            let value_key = key.as_str();
+            let value_spanned_key = value_key.spanned_unknown();
+
+            let other_column = match other.get_data_by_key(value_spanned_key) {
+                Some(value) => value,
+                None => UntaggedValue::Primitive(Primitive::Nothing).into_untagged_value(),
+            };
+
+            obj.entries.insert(key, other_column);
+        }
+
+        obj
     }
 
     /// Iterate the keys in the Dictionary
