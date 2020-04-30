@@ -117,12 +117,20 @@ fn run_with_stdin(
     for arg in command.args.iter() {
         let value = evaluate_baseline_expr(arg, &context.registry, scope)?;
         // Do the cleanup that we need to do on any argument going out:
-        let value_string = value
-            .as_string()?
-            .trim_end_matches('\n')
-            .replace('$', "\\$")
-            .replace('"', "\\\"")
-            .to_string();
+        let trimmed_value_string = value.as_string()?.trim_end_matches('\n').to_string();
+
+        let value_string;
+        #[cfg(not(windows))]
+        {
+            value_string = trimmed_value_string
+                .replace('$', "\\$")
+                .replace('"', "\\\"")
+                .to_string()
+        }
+        #[cfg(windows)]
+        {
+            trimmed_value_string
+        }
 
         command_args.push(value_string);
     }

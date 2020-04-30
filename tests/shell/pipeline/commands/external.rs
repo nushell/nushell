@@ -48,15 +48,15 @@ fn automatically_change_directory_with_trailing_slash_and_same_name_as_command()
     })
 }
 
+// #[test]
+// fn correctly_escape_external_arguments() {
+//     let actual = nu!(cwd: ".", r#"^echo '[{"foo": "bar"}]' | from-json | to-json"#);
+
+//     assert_eq!(actual, "{\"foo\":\"bar\"}");
+// }
+
 #[test]
 fn correctly_escape_external_arguments() {
-    let actual = nu!(cwd: ".", r#"^echo '[{"foo": "bar"}]' | from-json | to-json"#);
-
-    assert_eq!(actual, "{\"foo\":\"bar\"}");
-}
-
-#[test]
-fn correctly_escape_external_arguments2() {
     let actual = nu!(cwd: ".", r#"^echo '$0'"#);
 
     assert_eq!(actual, "$0");
