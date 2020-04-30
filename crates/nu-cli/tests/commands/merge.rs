@@ -22,8 +22,6 @@ fn row() {
                 name,country,luck
                 Andrés Robalino,Guayaquil Ecuador,1
                 Jonathan Turner,New Zealand,1
-                Jason Gedge,Canada,0
-                Yehuda Katz,USA,0
             "#,
             ),
         ]);
