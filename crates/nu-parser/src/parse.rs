@@ -221,43 +221,29 @@ fn parse_range(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseEr
 
 /// Parse any allowed operator, including word-based operators
 fn parse_operator(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
-    let operator = if lite_arg.item == "==" {
-        Operator::Equal
-    } else if lite_arg.item == "!=" {
-        Operator::NotEqual
-    } else if lite_arg.item == "<" {
-        Operator::LessThan
-    } else if lite_arg.item == "<=" {
-        Operator::LessThanOrEqual
-    } else if lite_arg.item == ">" {
-        Operator::GreaterThan
-    } else if lite_arg.item == ">=" {
-        Operator::GreaterThanOrEqual
-    } else if lite_arg.item == "=~" {
-        Operator::Contains
-    } else if lite_arg.item == "!~" {
-        Operator::NotContains
-    } else if lite_arg.item == "+" {
-        Operator::Plus
-    } else if lite_arg.item == "-" {
-        Operator::Minus
-    } else if lite_arg.item == "*" {
-        Operator::Multiply
-    } else if lite_arg.item == "/" {
-        Operator::Divide
-    } else if lite_arg.item == "in:" {
-        Operator::In
-    } else if lite_arg.item == "not-in:" {
-        Operator::NotIn
-    } else if lite_arg.item == "&&" {
-        Operator::And
-    } else if lite_arg.item == "||" {
-        Operator::Or
-    } else {
-        return (
-            garbage(lite_arg.span),
-            Some(ParseError::mismatch("operator", lite_arg.clone())),
-        );
+    let operator = match &lite_arg.item[..] {
+        "==" => Operator::Equal,
+        "!=" => Operator::NotEqual,
+        "<" => Operator::LessThan,
+        "<=" => Operator::LessThanOrEqual,
+        ">" => Operator::GreaterThan,
+        ">=" => Operator::GreaterThanOrEqual,
+        "=~" => Operator::Contains,
+        "!~" => Operator::NotContains,
+        "+" => Operator::Plus,
+        "-" => Operator::Minus,
+        "*" => Operator::Multiply,
+        "/" => Operator::Divide,
+        "in:" => Operator::In,
+        "not-in:" => Operator::NotIn,
+        "&&" => Operator::And,
+        "||" => Operator::Or,
+        _ => {
+            return (
+                garbage(lite_arg.span),
+                Some(ParseError::mismatch("operator", lite_arg.clone())),
+            );
+        }
     };
 
     (
