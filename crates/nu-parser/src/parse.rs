@@ -5,6 +5,7 @@ use crate::path::expand_path;
 use crate::signature::SignatureRegistry;
 use log::trace;
 use nu_errors::{ArgumentError, ParseError};
+use nu_protocol::hir::Unit::{Gigabyte, Kilobyte, Megabyte, Petabyte, Terabyte};
 use nu_protocol::hir::{
     self, Binary, Block, ClassifiedBlock, ClassifiedCommand, ClassifiedPipeline, Commands,
     Expression, Flag, FlagKind, InternalCommand, Member, NamedArguments, Operator,
@@ -13,7 +14,6 @@ use nu_protocol::hir::{
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPathMember};
 use nu_source::{Span, Spanned, SpannedItem};
 use num_bigint::BigInt;
-use nu_protocol::hir::Unit::{Kilobyte, Megabyte, Gigabyte, Terabyte, Petabyte};
 
 /// Parses a simple column path, one without a variable (implied or explicit) at the head
 fn parse_simple_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
@@ -1123,34 +1123,92 @@ pub fn garbage(span: Span) -> SpannedExpression {
 
 #[test]
 fn unit_parse_byte_units() -> Result<(), ParseError> {
-
-    struct TestCase { string: String, value: i64, unit: Unit};
+    struct TestCase {
+        string: String,
+        value: i64,
+        unit: Unit,
+    };
 
     let cases = [
-        TestCase{string: String::from("10kb"), value: 10i64, unit: Kilobyte},
-        TestCase{string: String::from("16KB"), value: 16i64, unit: Kilobyte},
-        TestCase{string: String::from("99kB"), value: 99i64, unit: Kilobyte},
-        TestCase{string: String::from("27Kb"), value: 27i64, unit: Kilobyte},
-
-        TestCase{string: String::from("11Mb"), value: 11i64, unit: Megabyte},
-        TestCase{string: String::from("27mB"), value: 27i64, unit: Megabyte},
-
-        TestCase{string: String::from("11Gb"), value: 11i64, unit: Gigabyte},
-        TestCase{string: String::from("27gB"), value: 27i64, unit: Gigabyte},
-
-        TestCase{string: String::from("11Tb"), value: 11i64, unit: Terabyte},
-        TestCase{string: String::from("27tB"), value: 27i64, unit: Terabyte},
-
-        TestCase{string: String::from("11Pb"), value: 11i64, unit: Petabyte},
-        TestCase{string: String::from("27pB"), value: 27i64, unit: Petabyte},
-
+        TestCase {
+            string: String::from("10kb"),
+            value: 10i64,
+            unit: Kilobyte,
+        },
+        TestCase {
+            string: String::from("16KB"),
+            value: 16i64,
+            unit: Kilobyte,
+        },
+        TestCase {
+            string: String::from("99kB"),
+            value: 99i64,
+            unit: Kilobyte,
+        },
+        TestCase {
+            string: String::from("27Kb"),
+            value: 27i64,
+            unit: Kilobyte,
+        },
+        TestCase {
+            string: String::from("11Mb"),
+            value: 11i64,
+            unit: Megabyte,
+        },
+        TestCase {
+            string: String::from("27mB"),
+            value: 27i64,
+            unit: Megabyte,
+        },
+        TestCase {
+            string: String::from("11Gb"),
+            value: 11i64,
+            unit: Gigabyte,
+        },
+        TestCase {
+            string: String::from("27gB"),
+            value: 27i64,
+            unit: Gigabyte,
+        },
+        TestCase {
+            string: String::from("11Tb"),
+            value: 11i64,
+            unit: Terabyte,
+        },
+        TestCase {
+            string: String::from("27tB"),
+            value: 27i64,
+            unit: Terabyte,
+        },
+        TestCase {
+            string: String::from("11Pb"),
+            value: 11i64,
+            unit: Petabyte,
+        },
+        TestCase {
+            string: String::from("27pB"),
+            value: 27i64,
+            unit: Petabyte,
+        },
     ];
 
     for case in cases.iter() {
         let input = case.string.clone().spanned(Span::new(0, 3));
         let result = parse_unit(&input);
         assert_eq!(result.1, None);
-        assert_eq!(result.0.expr, Expression::unit(Spanned { span: Span::new(0, 2), item: case.value }, Spanned { span: Span::new(2, 3), item: case.unit }));
+        assert_eq!(
+            result.0.expr,
+            Expression::unit(
+                Spanned {
+                    span: Span::new(0, 2),
+                    item: case.value
+                },
+                Spanned {
+                    span: Span::new(2, 3),
+                    item: case.unit
+                }
+            )
+        );
     }
     Ok(())
 }
