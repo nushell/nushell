@@ -256,7 +256,7 @@ fn parse_operator(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<Pars
 fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
     let unit_groups = [
         (Unit::Byte, vec!["b", "B"]),
-        (Unit::Kilobyte, vec!["kb", "KB", "Kb"]),
+        (Unit::Kilobyte, vec!["kb", "KB", "Kb", "kB"]),
         (Unit::Megabyte, vec!["mb", "MB", "Mb"]),
         (Unit::Gigabyte, vec!["gb", "GB", "Gb"]),
         (Unit::Terabyte, vec!["tb", "TB", "Tb"]),
@@ -1118,4 +1118,15 @@ pub fn classify_block(lite_block: &LiteBlock, registry: &dyn SignatureRegistry) 
 /// Easy shorthand function to create a garbage expression at the given span
 pub fn garbage(span: Span) -> SpannedExpression {
     SpannedExpression::new(Expression::Garbage, span)
+}
+
+#[test]
+fn unit_parse_kb() -> Result<(), ParseError> {
+    for string in ["10kb", "10KB", "10Kb", "10kB"].iter() {
+        let input = String::from(*string).spanned(Span::new(0, 3));
+        let result = parse_unit(&input);
+        assert_eq!(result.1, None);
+        assert_eq!(result.0.expr, Expression::unit(Spanned { span: Span::new(0, 2), item: 10i64 }, Spanned { span: Span::new(2, 3), item: Unit::Kilobyte }));
+    }
+    Ok(())
 }
