@@ -26,6 +26,9 @@ use std::iter::Iterator;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 
+use rayon::prelude::*;
+use std::sync::{Arc, Mutex};
+
 fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), ShellError> {
     let mut child = std::process::Command::new(path)
         .stdin(std::process::Stdio::piped())
@@ -127,23 +130,32 @@ pub fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
         require_literal_leading_dot: false,
     };
 
+    let ctx = Arc::new(Mutex::new(context));
+    
     for path in search_paths() {
         let mut pattern = path.to_path_buf();
 
         pattern.push(std::path::Path::new("nu_plugin_[a-z0-9][a-z0-9]*"));
 
-        match glob::glob_with(&pattern.to_string_lossy(), opts) {
-            Err(_) => {}
-            Ok(binaries) => {
-                for bin in binaries.filter_map(Result::ok) {
+        let plugs: Vec<_> =glob::glob_with(&pattern.to_string_lossy(), opts)?
+                .filter_map(|x| x.ok())
+                .collect();
+
+        if plugs.len() == 0 {
+            println!("We couldn't find any plugins");
+        }                
+
+        let _failures: Vec<_> = plugs
+            .par_iter()
+            .map(|path| {
                     let bin_name = {
-                        if let Some(name) = bin.file_name() {
+                    if let Some(name) = path.file_name() {
                             match name.to_str() {
                                 Some(raw) => raw,
-                                None => continue,
+                            None => "",
                             }
                         } else {
-                            continue;
+                        ""
                         }
                     };
 
@@ -176,14 +188,14 @@ pub fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
                     };
 
                     if is_valid_name && is_executable {
-                        trace!("Trying {:?}", bin.display());
+                    trace!("Trying {:?}", path.display());
 
                         // we are ok if this plugin load fails
-                        let _ = load_plugin(&bin, context);
+                    let _ = load_plugin(&path, &mut ctx.lock().unwrap());
                     }
-                }
-            }
-        }
+
+            })
+            .collect();
     }
 
     Ok(())
