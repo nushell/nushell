@@ -5,7 +5,6 @@ use crate::path::expand_path;
 use crate::signature::SignatureRegistry;
 use log::trace;
 use nu_errors::{ArgumentError, ParseError};
-use nu_protocol::hir::Unit::{Gigabyte, Kilobyte, Megabyte, Petabyte, Terabyte};
 use nu_protocol::hir::{
     self, Binary, Block, ClassifiedBlock, ClassifiedCommand, ClassifiedPipeline, Commands,
     Expression, Flag, FlagKind, InternalCommand, Member, NamedArguments, Operator,
@@ -1133,62 +1132,62 @@ fn unit_parse_byte_units() -> Result<(), ParseError> {
         TestCase {
             string: String::from("10kb"),
             value: 10i64,
-            unit: Kilobyte,
+            unit: Unit::Kilobyte,
         },
         TestCase {
             string: String::from("16KB"),
             value: 16i64,
-            unit: Kilobyte,
+            unit: Unit::Kilobyte,
         },
         TestCase {
             string: String::from("99kB"),
             value: 99i64,
-            unit: Kilobyte,
+            unit: Unit::Kilobyte,
         },
         TestCase {
             string: String::from("27Kb"),
             value: 27i64,
-            unit: Kilobyte,
+            unit: Unit::Kilobyte,
         },
         TestCase {
             string: String::from("11Mb"),
             value: 11i64,
-            unit: Megabyte,
+            unit: Unit::Megabyte,
         },
         TestCase {
             string: String::from("27mB"),
             value: 27i64,
-            unit: Megabyte,
+            unit: Unit::Megabyte,
         },
         TestCase {
             string: String::from("11Gb"),
             value: 11i64,
-            unit: Gigabyte,
+            unit: Unit::Gigabyte,
         },
         TestCase {
             string: String::from("27gB"),
             value: 27i64,
-            unit: Gigabyte,
+            unit: Unit::Gigabyte,
         },
         TestCase {
             string: String::from("11Tb"),
             value: 11i64,
-            unit: Terabyte,
+            unit: Unit::Terabyte,
         },
         TestCase {
             string: String::from("27tB"),
             value: 27i64,
-            unit: Terabyte,
+            unit: Unit::Terabyte,
         },
         TestCase {
             string: String::from("11Pb"),
             value: 11i64,
-            unit: Petabyte,
+            unit: Unit::Petabyte,
         },
         TestCase {
             string: String::from("27pB"),
             value: 27i64,
-            unit: Petabyte,
+            unit: Unit::Petabyte,
         },
     ];
 
