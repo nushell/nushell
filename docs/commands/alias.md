@@ -1,5 +1,5 @@
 # alias
-This command allows you to define shortcuts for common commands, equivalent to the same bash command.
+This command allows you to define shortcuts for other common commands.
 
 The command expects three parameters:
 * the name of alias
