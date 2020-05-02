@@ -1130,80 +1130,92 @@ fn unit_parse_byte_units() -> Result<(), ParseError> {
 
     let cases = [
         TestCase {
+            string: String::from("108b"),
+            value: 108,
+            unit: Unit::Byte,
+        },
+        TestCase {
+            string: String::from("0B"),
+            value: 0,
+            unit: Unit::Byte,
+        },
+        TestCase {
             string: String::from("10kb"),
-            value: 10i64,
+            value: 10,
             unit: Unit::Kilobyte,
         },
         TestCase {
             string: String::from("16KB"),
-            value: 16i64,
+            value: 16,
             unit: Unit::Kilobyte,
         },
         TestCase {
             string: String::from("99kB"),
-            value: 99i64,
+            value: 99,
             unit: Unit::Kilobyte,
         },
         TestCase {
             string: String::from("27Kb"),
-            value: 27i64,
+            value: 27,
             unit: Unit::Kilobyte,
         },
         TestCase {
             string: String::from("11Mb"),
-            value: 11i64,
+            value: 11,
             unit: Unit::Megabyte,
         },
         TestCase {
             string: String::from("27mB"),
-            value: 27i64,
+            value: 27,
             unit: Unit::Megabyte,
         },
         TestCase {
-            string: String::from("11Gb"),
-            value: 11i64,
+            string: String::from("811Gb"),
+            value: 811,
             unit: Unit::Gigabyte,
         },
         TestCase {
             string: String::from("27gB"),
-            value: 27i64,
+            value: 27,
             unit: Unit::Gigabyte,
         },
         TestCase {
             string: String::from("11Tb"),
-            value: 11i64,
+            value: 11,
             unit: Unit::Terabyte,
         },
         TestCase {
-            string: String::from("27tB"),
-            value: 27i64,
+            string: String::from("1027tB"),
+            value: 1027,
             unit: Unit::Terabyte,
         },
         TestCase {
             string: String::from("11Pb"),
-            value: 11i64,
+            value: 11,
             unit: Unit::Petabyte,
         },
         TestCase {
             string: String::from("27pB"),
-            value: 27i64,
+            value: 27,
             unit: Unit::Petabyte,
         },
     ];
 
     for case in cases.iter() {
-        let input = case.string.clone().spanned(Span::new(0, 3));
+        let input_len = case.string.len();
+        let value_len = case.value.to_string().len();
+        let input = case.string.clone().spanned(Span::new(0, input_len));
         let result = parse_unit(&input);
         assert_eq!(result.1, None);
         assert_eq!(
             result.0.expr,
             Expression::unit(
                 Spanned {
-                    span: Span::new(0, 2),
+                    span: Span::new(0, value_len),
                     item: case.value
                 },
                 Spanned {
-                    span: Span::new(2, 3),
+                    span: Span::new(value_len, input_len),
                     item: case.unit
                 }
             )
