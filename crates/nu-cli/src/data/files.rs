@@ -63,28 +63,23 @@ pub(crate) fn dir_entry_dict(
         dict.insert_untagged("type", UntaggedValue::nothing());
     }
 
+    let mut symlink_target_untagged_value: UntaggedValue = UntaggedValue::nothing();
+
     if full || with_symlink_targets {
         if let Some(md) = metadata {
-            let ft = md.file_type();
-            if ft.is_symlink() {
+            if md.file_type().is_symlink() {
                 if let Ok(path_to_link) = filename.read_link() {
-                    dict.insert_untagged(
-                        "target",
-                        UntaggedValue::string(path_to_link.to_string_lossy()),
-                    );
+                    symlink_target_untagged_value =
+                        UntaggedValue::string(path_to_link.to_string_lossy());
                 } else {
-                    dict.insert_untagged(
-                        "target",
-                        UntaggedValue::string("Could not obtain target file's path"),
-                    );
+                    symlink_target_untagged_value =
+                        UntaggedValue::string("Could not obtain target file's path");
                 }
-            } else {
-                dict.insert_untagged("target", UntaggedValue::nothing());
             }
-        } else {
-            dict.insert_untagged("target", UntaggedValue::nothing());
         }
     }
+
+    dict.insert_untagged("target", symlink_target_untagged_value);
 
     if full {
         if let Some(md) = metadata {
