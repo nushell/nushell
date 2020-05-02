@@ -256,11 +256,11 @@ fn parse_operator(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<Pars
 fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
     let unit_groups = [
         (Unit::Byte, vec!["b", "B"]),
-        (Unit::Kilobyte, vec!["kb", "KB", "Kb"]),
-        (Unit::Megabyte, vec!["mb", "MB", "Mb"]),
-        (Unit::Gigabyte, vec!["gb", "GB", "Gb"]),
-        (Unit::Terabyte, vec!["tb", "TB", "Tb"]),
-        (Unit::Petabyte, vec!["pb", "PB", "Pb"]),
+        (Unit::Kilobyte, vec!["kb", "KB", "Kb", "kB"]),
+        (Unit::Megabyte, vec!["mb", "MB", "Mb", "mB"]),
+        (Unit::Gigabyte, vec!["gb", "GB", "Gb", "gB"]),
+        (Unit::Terabyte, vec!["tb", "TB", "Tb", "tB"]),
+        (Unit::Petabyte, vec!["pb", "PB", "Pb", "pB"]),
         (Unit::Second, vec!["s"]),
         (Unit::Minute, vec!["m"]),
         (Unit::Hour, vec!["h"]),
@@ -1118,4 +1118,108 @@ pub fn classify_block(lite_block: &LiteBlock, registry: &dyn SignatureRegistry) 
 /// Easy shorthand function to create a garbage expression at the given span
 pub fn garbage(span: Span) -> SpannedExpression {
     SpannedExpression::new(Expression::Garbage, span)
+}
+
+#[test]
+fn unit_parse_byte_units() -> Result<(), ParseError> {
+    struct TestCase {
+        string: String,
+        value: i64,
+        unit: Unit,
+    };
+
+    let cases = [
+        TestCase {
+            string: String::from("108b"),
+            value: 108,
+            unit: Unit::Byte,
+        },
+        TestCase {
+            string: String::from("0B"),
+            value: 0,
+            unit: Unit::Byte,
+        },
+        TestCase {
+            string: String::from("10kb"),
+            value: 10,
+            unit: Unit::Kilobyte,
+        },
+        TestCase {
+            string: String::from("16KB"),
+            value: 16,
+            unit: Unit::Kilobyte,
+        },
+        TestCase {
+            string: String::from("99kB"),
+            value: 99,
+            unit: Unit::Kilobyte,
+        },
+        TestCase {
+            string: String::from("27Kb"),
+            value: 27,
+            unit: Unit::Kilobyte,
+        },
+        TestCase {
+            string: String::from("11Mb"),
+            value: 11,
+            unit: Unit::Megabyte,
+        },
+        TestCase {
+            string: String::from("27mB"),
+            value: 27,
+            unit: Unit::Megabyte,
+        },
+        TestCase {
+            string: String::from("811Gb"),
+            value: 811,
+            unit: Unit::Gigabyte,
+        },
+        TestCase {
+            string: String::from("27gB"),
+            value: 27,
+            unit: Unit::Gigabyte,
+        },
+        TestCase {
+            string: String::from("11Tb"),
+            value: 11,
+            unit: Unit::Terabyte,
+        },
+        TestCase {
+            string: String::from("1027tB"),
+            value: 1027,
+            unit: Unit::Terabyte,
+        },
+        TestCase {
+            string: String::from("11Pb"),
+            value: 11,
+            unit: Unit::Petabyte,
+        },
+        TestCase {
+            string: String::from("27pB"),
+            value: 27,
+            unit: Unit::Petabyte,
+        },
+    ];
+
+    for case in cases.iter() {
+        let input_len = case.string.len();
+        let value_len = case.value.to_string().len();
+        let input = case.string.clone().spanned(Span::new(0, input_len));
+        let result = parse_unit(&input);
+        assert_eq!(result.1, None);
+        assert_eq!(
+            result.0.expr,
+            Expression::unit(
+                Spanned {
+                    span: Span::new(0, value_len),
+                    item: case.value
+                },
+                Spanned {
+                    span: Span::new(value_len, input_len),
+                    item: case.unit
+                }
+            )
+        );
+    }
+    Ok(())
 }
