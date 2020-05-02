@@ -130,7 +130,7 @@ pub(crate) fn dir_entry_dict(
     let mut size_untagged_value: UntaggedValue = UntaggedValue::nothing();
 
     if let Some(md) = metadata {
-        if md.is_file() {
+        if md.is_dir() || md.is_file() {
             size_untagged_value = UntaggedValue::bytes(md.len() as u64);
         } else if md.file_type().is_symlink() {
             if let Ok(symlink_md) = filename.symlink_metadata() {
