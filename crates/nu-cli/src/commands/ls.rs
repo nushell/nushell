@@ -16,6 +16,8 @@ pub struct LsArgs {
     pub short_names: bool,
     #[serde(rename = "with-symlink-targets")]
     pub with_symlink_targets: bool,
+    #[serde(rename = "du")]
+    pub du: bool,
 }
 
 impl WholeStreamCommand for Ls {
@@ -45,6 +47,11 @@ impl WholeStreamCommand for Ls {
                 "with-symlink-targets",
                 "display the paths to the target files that symlinks point to",
                 Some('w'),
+            )
+            .switch(
+                "du",
+                "display the apparent directory size in place of the directory metadata size",
+                Some('d'),
             )
     }
 

@@ -1,3 +1,4 @@
+use crate::commands::du::{DirBuilder, DirInfo};
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
@@ -38,6 +39,7 @@ pub(crate) fn dir_entry_dict(
     full: bool,
     short_name: bool,
     with_symlink_targets: bool,
+    du: bool,
 ) -> Result<Value, ShellError> {
     let tag = tag.into();
     let mut dict = TaggedDictBuilder::new(&tag);
@@ -130,8 +132,27 @@ pub(crate) fn dir_entry_dict(
     let mut size_untagged_value: UntaggedValue = UntaggedValue::nothing();
 
     if let Some(md) = metadata {
-        if md.is_dir() || md.is_file() {
-            size_untagged_value = UntaggedValue::bytes(md.len() as u64);
+        if md.is_dir() {
+            let dir_size: u64 = if du {
+                let params = DirBuilder::new(
+                    Tag {
+                        anchor: None,
+                        span: Span::new(0, 2),
+                    },
+                    None,
+                    false,
+                    None,
+                    false,
+                );
+
+                DirInfo::new(filename, &params, None).get_size()
+            } else {
+                md.len()
+            };
+
+            size_untagged_value = UntaggedValue::bytes(dir_size);
+        } else if md.is_file() {
+            size_untagged_value = UntaggedValue::bytes(md.len());
         } else if md.file_type().is_symlink() {
             if let Ok(symlink_md) = filename.symlink_metadata() {
                 size_untagged_value = UntaggedValue::bytes(symlink_md.len() as u64);
