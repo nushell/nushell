@@ -65,9 +65,9 @@ pub(crate) fn dir_entry_dict(
         dict.insert_untagged("type", UntaggedValue::nothing());
     }
 
-    let mut symlink_target_untagged_value: UntaggedValue = UntaggedValue::nothing();
-
     if full || with_symlink_targets {
+        let mut symlink_target_untagged_value: UntaggedValue = UntaggedValue::nothing();
+
         if let Some(md) = metadata {
             if md.file_type().is_symlink() {
                 if let Ok(path_to_link) = filename.read_link() {
@@ -79,9 +79,9 @@ pub(crate) fn dir_entry_dict(
                 }
             }
         }
-    }
 
-    dict.insert_untagged("target", symlink_target_untagged_value);
+        dict.insert_untagged("target", symlink_target_untagged_value);
+    }
 
     if full {
         if let Some(md) = metadata {
