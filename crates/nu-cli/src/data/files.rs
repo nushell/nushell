@@ -124,9 +124,9 @@ pub(crate) fn dir_entry_dict(
         }
     }
 
-    let mut size_untagged_value: UntaggedValue = UntaggedValue::nothing();
-
     if let Some(md) = metadata {
+        let mut size_untagged_value: UntaggedValue = UntaggedValue::nothing();
+
         if md.is_dir() {
             let dir_size: u64 = if du {
                 let params = DirBuilder::new(
@@ -153,9 +153,9 @@ pub(crate) fn dir_entry_dict(
                 size_untagged_value = UntaggedValue::bytes(symlink_md.len() as u64);
             }
         }
-    }
 
-    dict.insert_untagged("size", size_untagged_value);
+        dict.insert_untagged("size", size_untagged_value);
+    }
 
     if let Some(md) = metadata {
         if full {
