@@ -143,7 +143,7 @@ fn du(args: DuArgs, ctx: RunnableContext) -> Result<OutputStream, ShellError> {
     Ok(stream.to_output_stream())
 }
 
-struct DirBuilder {
+pub struct DirBuilder {
     tag: Tag,
     min: Option<u64>,
     deref: bool,
@@ -151,7 +151,25 @@ struct DirBuilder {
     all: bool,
 }
 
-struct DirInfo {
+impl DirBuilder {
+    pub fn new(
+        tag: Tag,
+        min: Option<u64>,
+        deref: bool,
+        exclude: Option<Pattern>,
+        all: bool,
+    ) -> DirBuilder {
+        DirBuilder {
+            tag,
+            min,
+            deref,
+            exclude,
+            all,
+        }
+    }
+}
+
+pub struct DirInfo {
     dirs: Vec<DirInfo>,
     files: Vec<FileInfo>,
     errors: Vec<ShellError>,
@@ -194,7 +212,7 @@ impl FileInfo {
 }
 
 impl DirInfo {
-    fn new(path: impl Into<PathBuf>, params: &DirBuilder, depth: Option<u64>) -> Self {
+    pub fn new(path: impl Into<PathBuf>, params: &DirBuilder, depth: Option<u64>) -> Self {
         let path = path.into();
 
         let mut s = Self {
@@ -273,6 +291,10 @@ impl DirInfo {
     fn add_error(mut self, e: ShellError) -> Self {
         self.errors.push(e);
         self
+    }
+
+    pub fn get_size(&self) -> u64 {
+        self.size
     }
 }
 
