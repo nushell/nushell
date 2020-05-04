@@ -320,6 +320,7 @@ pub fn create_default_context(
             whole_stream_command(Histogram),
             whole_stream_command(Sum),
             // File format output
+            whole_stream_command(To),
             whole_stream_command(ToBSON),
             whole_stream_command(ToCSV),
             whole_stream_command(ToHTML),
@@ -332,6 +333,7 @@ pub fn create_default_context(
             whole_stream_command(ToURL),
             whole_stream_command(ToYAML),
             // File format input
+            whole_stream_command(From),
             whole_stream_command(FromCSV),
             whole_stream_command(FromEML),
             whole_stream_command(FromTSV),

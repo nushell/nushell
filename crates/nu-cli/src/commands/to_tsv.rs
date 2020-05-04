@@ -13,11 +13,11 @@ pub struct ToTSVArgs {
 
 impl WholeStreamCommand for ToTSV {
     fn name(&self) -> &str {
-        "to-tsv"
+        "to tsv"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to-tsv").switch(
+        Signature::build("to tsv").switch(
             "headerless",
             "do not output the column names as the first row",
             None,

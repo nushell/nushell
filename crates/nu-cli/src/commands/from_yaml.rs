@@ -7,11 +7,11 @@ pub struct FromYAML;
 
 impl WholeStreamCommand for FromYAML {
     fn name(&self) -> &str {
-        "from-yaml"
+        "from yaml"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-yaml")
+        Signature::build("from yaml")
     }
 
     fn usage(&self) -> &str {
@@ -31,11 +31,11 @@ pub struct FromYML;
 
 impl WholeStreamCommand for FromYML {
     fn name(&self) -> &str {
-        "from-yml"
+        "from yml"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-yml")
+        Signature::build("from yml")
     }
 
     fn usage(&self) -> &str {

@@ -15,11 +15,11 @@ pub struct FromXLSXArgs {
 
 impl WholeStreamCommand for FromXLSX {
     fn name(&self) -> &str {
-        "from-xlsx"
+        "from xlsx"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-xlsx").switch(
+        Signature::build("from xlsx").switch(
             "headerless",
             "don't treat the first row as column names",
             None,

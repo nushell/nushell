@@ -152,7 +152,7 @@ mod tilde_expansion {
             let actual = nu!(
                 cwd: dirs.test(), pipeline(
                 r#"
-                    ls | sort-by name | group-by type | each { get File.name | echo $it } | to-json
+                    ls | sort-by name | group-by type | each { get File.name | echo $it } | to json
                 "#
             ));
 

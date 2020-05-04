@@ -40,7 +40,7 @@ fn discards_empty_rows_by_default() {
             cwd: dirs.test(), pipeline(
             r#"
                 echo "[1,2,3,14,null]"
-                | from-json
+                | from json
                 | compact
                 | count
                 | echo $it

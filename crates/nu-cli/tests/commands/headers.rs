@@ -9,7 +9,7 @@ fn headers_uses_first_row_as_header() {
             | get Sheet1
             | headers
             | get header0
-            | from-json"#
+            | from json"#
     ));
 
     assert_eq!(actual, "r1c0r2c0")
@@ -24,7 +24,7 @@ fn headers_adds_missing_column_name() {
             | get Sheet1
             | headers
             | get Column1
-            | from-json"#
+            | from json"#
     ));
 
     assert_eq!(actual, "r1c1r2c1")

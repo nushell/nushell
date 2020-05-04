@@ -848,16 +848,22 @@ fn parse_internal_command(
     lite_cmd: &LiteCommand,
     registry: &dyn SignatureRegistry,
     signature: &Signature,
+    mut idx: usize,
 ) -> (InternalCommand, Option<ParseError>) {
     // This is a known internal command, so we need to work with the arguments and parse them according to the expected types
-    let mut internal_command = InternalCommand::new(
-        lite_cmd.name.item.clone(),
-        lite_cmd.name.span,
-        lite_cmd.span(),
-    );
+
+    let (name, name_span) = if idx == 0 {
+        (lite_cmd.name.item.clone(), lite_cmd.name.span)
+    } else {
+        (
+            format!("{} {}", lite_cmd.name.item, lite_cmd.args[0].item),
+            Span::new(lite_cmd.name.span.start(), lite_cmd.args[0].span.end()),
+        )
+    };
+
+    let mut internal_command = InternalCommand::new(name, name_span, lite_cmd.span());
     internal_command.args.set_initial_flags(&signature);
 
-    let mut idx = 0;
     let mut current_positional = 0;
     let mut named = NamedArguments::new();
     let mut positional = vec![];
@@ -1051,12 +1057,31 @@ fn classify_pipeline(
                 garbage(lite_cmd.span())
             };
             commands.push(ClassifiedCommand::Expr(Box::new(expr)))
-        } else if let Some(signature) = registry.get(&lite_cmd.name.item) {
-            let (internal_command, err) = parse_internal_command(&lite_cmd, registry, &signature);
-
-            error = error.or(err);
-            commands.push(ClassifiedCommand::Internal(internal_command))
         } else {
+            if !lite_cmd.args.is_empty() {
+                // Check if it's a sub-command
+                if let Some(signature) =
+                    registry.get(&format!("{} {}", lite_cmd.name.item, lite_cmd.args[0].item))
+                {
+                    let (internal_command, err) =
+                        parse_internal_command(&lite_cmd, registry, &signature, 1);
+
+                    error = error.or(err);
+                    commands.push(ClassifiedCommand::Internal(internal_command));
+                    continue;
+                }
+            }
+
+            // Check if it's an internal command
+            if let Some(signature) = registry.get(&lite_cmd.name.item) {
+                let (internal_command, err) =
+                    parse_internal_command(&lite_cmd, registry, &signature, 0);
+
+                error = error.or(err);
+                commands.push(ClassifiedCommand::Internal(internal_command));
+                continue;
+            }
+
             let name = lite_cmd.name.clone().map(|v| {
                 let trimmed = trim_quotes(&v);
                 expand_path(&trimmed).to_string()

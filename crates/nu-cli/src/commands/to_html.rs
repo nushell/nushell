@@ -10,11 +10,11 @@ pub struct ToHTML;
 
 impl WholeStreamCommand for ToHTML {
     fn name(&self) -> &str {
-        "to-html"
+        "to html"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to-html")
+        Signature::build("to html")
     }
 
     fn usage(&self) -> &str {

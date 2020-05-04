@@ -7,11 +7,11 @@ pub struct ToJSON;
 
 impl WholeStreamCommand for ToJSON {
     fn name(&self) -> &str {
-        "to-json"
+        "to json"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to-json")
+        Signature::build("to json")
     }
 
     fn usage(&self) -> &str {

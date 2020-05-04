@@ -125,7 +125,7 @@ fn compound_where() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from-json | where a == 2 && b == 1 | to-json
+            echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from json | where a == 2 && b == 1 | to json
         "#
     ));
 
@@ -137,7 +137,7 @@ fn compound_where_paren() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from-json | where (a == 2 && b == 1) || b == 2 | to-json
+            echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from json | where (a == 2 && b == 1) || b == 2 | to json
         "#
     ));
 

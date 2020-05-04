@@ -7,11 +7,11 @@ pub struct FromTOML;
 
 impl WholeStreamCommand for FromTOML {
     fn name(&self) -> &str {
-        "from-toml"
+        "from toml"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-toml")
+        Signature::build("from toml")
     }
 
     fn usage(&self) -> &str {

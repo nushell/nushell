@@ -86,7 +86,7 @@ fn from_ics_text_to_table() {
             cwd: dirs.test(), pipeline(
             r#"
                 open calendar.txt
-                | from-ics
+                | from ics
                 | get events
                 | get properties
                 | where name == "SUMMARY"

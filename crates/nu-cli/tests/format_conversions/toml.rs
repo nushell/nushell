@@ -6,8 +6,8 @@ fn table_to_toml_text_and_from_toml_text_back_into_table() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             open cargo_sample.toml
-            | to-toml
-            | from-toml
+            | to toml
+            | from toml
             | get package.name
             | echo $it
         "#

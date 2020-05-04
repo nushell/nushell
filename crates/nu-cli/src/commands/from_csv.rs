@@ -14,11 +14,11 @@ pub struct FromCSVArgs {
 
 impl WholeStreamCommand for FromCSV {
     fn name(&self) -> &str {
-        "from-csv"
+        "from csv"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-csv")
+        Signature::build("from csv")
             .named(
                 "separator",
                 SyntaxShape::String,

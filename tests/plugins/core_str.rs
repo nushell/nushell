@@ -119,7 +119,7 @@ fn converts_to_int() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             echo '{number_as_string: "1"}'
-            | from-json
+            | from json
             | str number_as_string --to-int
             | rename number
             | where number == 1

@@ -11,11 +11,11 @@ pub struct FromIcs;
 
 impl WholeStreamCommand for FromIcs {
     fn name(&self) -> &str {
-        "from-ics"
+        "from ics"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-ics")
+        Signature::build("from ics")
     }
 
     fn usage(&self) -> &str {

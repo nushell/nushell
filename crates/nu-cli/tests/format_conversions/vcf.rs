@@ -70,7 +70,7 @@ fn from_vcf_text_to_table() {
             cwd: dirs.test(), pipeline(
             r#"
                 open contacts.txt
-                | from-vcf
+                | from vcf
                 | get properties
                 | where name == "EMAIL"
                 | first

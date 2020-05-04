@@ -5,7 +5,7 @@ fn out_md_simple() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-            echo 3 | to-md
+            echo 3 | to md
         "#
     ));
 
@@ -17,7 +17,7 @@ fn out_md_table() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-            echo '{"name": "jason"}' | from-json | to-md
+            echo '{"name": "jason"}' | from json | to md
         "#
     ));
 
