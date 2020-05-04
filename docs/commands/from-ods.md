@@ -1,6 +1,6 @@
-# from-ods
+# from ods
 
-Parses OpenDocument Spreadsheet binary data into a table. `open` calls `from-ods` automatically when the file extension  is `ods`. Use this command when `open` is unable to guess the file type from the extension.
+Parses OpenDocument Spreadsheet binary data into a table. `open` calls `from ods` automatically when the file extension  is `ods`. Use this command when `open` is unable to guess the file type from the extension.
 
 ## Examples
 
@@ -20,7 +20,7 @@ Length: 4816 (0x12d0) bytes
 12a0:   00 61 10 00  00 4d 45 54  41 2d 49 4e  46 2f 6d 61   .a...META-INF/ma
 12b0:   6e 69 66 65  73 74 2e 78  6d 6c 50 4b  05 06 00 00   nifest.xmlPK....
 12c0:   00 00 06 00  06 00 5a 01  00 00 60 11  00 00 00 00   ......Z...`.....
-> open abc.ods --raw | from-ods
+> open abc.ods --raw | from ods
 ─────────────────
  Sheet1
 ─────────────────

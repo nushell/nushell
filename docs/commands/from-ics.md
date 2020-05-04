@@ -1,8 +1,8 @@
-# from-ics
+# from ics
 
 Parse text as `.ics` and create table.
 
-Syntax: `from-ics`
+Syntax: `from ics`
 
 ## Examples
 
@@ -20,21 +20,21 @@ UID:4l80f6dcovnriq38g57g07btid@google.com
 ...
 ```
 
-Pass the output of the `open` command to `from-ics` to get a correctly formatted table:
+Pass the output of the `open` command to `from ics` to get a correctly formatted table:
 
 ```shell
-> open calendar.txt | from-ics
+> open calendar.txt | from ics
 ───┬────────────────┬──────────────────┬────────────────┬────────────────┬────────────────┬────────────────┬────────────────
- # │ properties     │ events           │ alarms         │ to-Dos         │ journals       │ free-busys     │ timezones 
+ # │ properties     │ events           │ alarms         │ to-Dos         │ journals       │ free-busys     │ timezones
 ───┼────────────────┼──────────────────┼────────────────┼────────────────┼────────────────┼────────────────┼────────────────
  0 │ [table 0 rows] │ [table 1 row]    │ [table 0 rows] │ [table 0 rows] │ [table 0 rows] │ [table 0 rows] │ [table 0 rows]
 ───┴────────────────┴──────────────────┴────────────────┴────────────────┴────────────────┴────────────────┴────────────────
 ```
 
 ```shell
-> open calendar.txt | from-ics | get events | get properties | where name == "SUMMARY"
+> open calendar.txt | from ics | get events | get properties | where name == "SUMMARY"
 ─────┬─────────┬───────────────────────────────────────┬────────
- #   │ name    │ value                                 │ params 
+ #   │ name    │ value                                 │ params
 ─────┼─────────┼───────────────────────────────────────┼────────
    0 │ SUMMARY │ Basketball Game                       │
 ```
