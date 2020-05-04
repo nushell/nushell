@@ -25,6 +25,7 @@ getset = "0.1.0"
 serde_yaml = "0.8"
 toml = "0.5.6"
 serde_json = "1.0.51"
+glob = "0.3.0"
 
 [build-dependencies]
 nu-build = { version = "0.13.0", path = "../nu-build" }

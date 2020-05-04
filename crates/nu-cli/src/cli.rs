@@ -26,6 +26,8 @@ use std::iter::Iterator;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 
+use rayon::prelude::*;
+
 fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), ShellError> {
     let mut child = std::process::Command::new(path)
         .stdin(std::process::Stdio::piped())
@@ -132,58 +134,60 @@ pub fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
 
         pattern.push(std::path::Path::new("nu_plugin_[a-z0-9][a-z0-9]*"));
 
-        match glob::glob_with(&pattern.to_string_lossy(), opts) {
-            Err(_) => {}
-            Ok(binaries) => {
-                for bin in binaries.filter_map(Result::ok) {
-                    let bin_name = {
-                        if let Some(name) = bin.file_name() {
-                            match name.to_str() {
-                                Some(raw) => raw,
-                                None => continue,
-                            }
-                        } else {
-                            continue;
+        let plugs: Vec<_> = glob::glob_with(&pattern.to_string_lossy(), opts)?
+            .filter_map(|x| x.ok())
+            .collect();
+
+        let _failures: Vec<_> = plugs
+            .par_iter()
+            .map(|path| {
+                let bin_name = {
+                    if let Some(name) = path.file_name() {
+                        match name.to_str() {
+                            Some(raw) => raw,
+                            None => "",
                         }
-                    };
-
-                    let is_valid_name = {
-                        #[cfg(windows)]
-                        {
-                            bin_name
-                                .chars()
-                                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
-                        }
-
-                        #[cfg(not(windows))]
-                        {
-                            bin_name
-                                .chars()
-                                .all(|c| c.is_ascii_alphanumeric() || c == '_')
-                        }
-                    };
-
-                    let is_executable = {
-                        #[cfg(windows)]
-                        {
-                            bin_name.ends_with(".exe") || bin_name.ends_with(".bat")
-                        }
-
-                        #[cfg(not(windows))]
-                        {
-                            true
-                        }
-                    };
-
-                    if is_valid_name && is_executable {
-                        trace!("Trying {:?}", bin.display());
-
-                        // we are ok if this plugin load fails
-                        let _ = load_plugin(&bin, context);
+                    } else {
+                        ""
                     }
+                };
+
+                let is_valid_name = {
+                    #[cfg(windows)]
+                    {
+                        bin_name
+                            .chars()
+                            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
+                    }
+
+                    #[cfg(not(windows))]
+                    {
+                        bin_name
+                            .chars()
+                            .all(|c| c.is_ascii_alphanumeric() || c == '_')
+                    }
+                };
+
+                let is_executable = {
+                    #[cfg(windows)]
+                    {
+                        bin_name.ends_with(".exe") || bin_name.ends_with(".bat")
+                    }
+
+                    #[cfg(not(windows))]
+                    {
+                        true
+                    }
+                };
+
+                if is_valid_name && is_executable {
+                    trace!("Trying {:?}", path.display());
+
+                    // we are ok if this plugin load fails
+                    let _ = load_plugin(&path, &mut context.clone());
                 }
-            }
-        }
+            })
+            .collect();
     }
 
     Ok(())
