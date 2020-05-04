@@ -5,20 +5,21 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "(Windows) Launch",
+            "name": "(Windows) Debug",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/target/debug/nu.exe",
+            "program": "${workspaceFolder}/target/debug/nu",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}",
+            "cwd": "${workspaceFolder}/target/debug",
             "environment": [],
-            "externalConsole": false
+            "externalConsole": false,
+            "preLaunchTask": "build"
         },
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Cargo launch",
+            "name": "Cargo Debug",
             "cargo": {
                 "args": [
                     "build"
@@ -29,7 +30,8 @@
                 }
                 },
             "program": "${cargo:program}",
-            "args": []
+            "args": [],
+            "cwd": "${workspaceFolder}/target/debug"
         }
     ]
 }

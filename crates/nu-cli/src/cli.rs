@@ -131,69 +131,68 @@ pub fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
     };
 
     let ctx = Arc::new(Mutex::new(context));
-    
+
     for path in search_paths() {
         let mut pattern = path.to_path_buf();
 
         pattern.push(std::path::Path::new("nu_plugin_[a-z0-9][a-z0-9]*"));
 
-        let plugs: Vec<_> =glob::glob_with(&pattern.to_string_lossy(), opts)?
-                .filter_map(|x| x.ok())
-                .collect();
+        let plugs: Vec<_> = glob::glob_with(&pattern.to_string_lossy(), opts)?
+            .filter_map(|x| x.ok())
+            .collect();
 
-        if plugs.len() == 0 {
+        if plugs.is_empty() {
             println!("We couldn't find any plugins");
-        }                
+        }
 
         let _failures: Vec<_> = plugs
             .par_iter()
             .map(|path| {
-                    let bin_name = {
+                let bin_name = {
                     if let Some(name) = path.file_name() {
-                            match name.to_str() {
-                                Some(raw) => raw,
+                        match name.to_str() {
+                            Some(raw) => raw,
                             None => "",
-                            }
-                        } else {
+                        }
+                    } else {
                         ""
-                        }
-                    };
+                    }
+                };
 
-                    let is_valid_name = {
-                        #[cfg(windows)]
-                        {
-                            bin_name
-                                .chars()
-                                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
-                        }
-
-                        #[cfg(not(windows))]
-                        {
-                            bin_name
-                                .chars()
-                                .all(|c| c.is_ascii_alphanumeric() || c == '_')
-                        }
-                    };
-
-                    let is_executable = {
-                        #[cfg(windows)]
-                        {
-                            bin_name.ends_with(".exe") || bin_name.ends_with(".bat")
-                        }
-
-                        #[cfg(not(windows))]
-                        {
-                            true
-                        }
-                    };
-
-                    if is_valid_name && is_executable {
-                    trace!("Trying {:?}", path.display());
-
-                        // we are ok if this plugin load fails
-                    let _ = load_plugin(&path, &mut ctx.lock().unwrap());
+                let is_valid_name = {
+                    #[cfg(windows)]
+                    {
+                        bin_name
+                            .chars()
+                            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
                     }
 
+                    #[cfg(not(windows))]
+                    {
+                        bin_name
+                            .chars()
+                            .all(|c| c.is_ascii_alphanumeric() || c == '_')
+                    }
+                };
+
+                let is_executable = {
+                    #[cfg(windows)]
+                    {
+                        bin_name.ends_with(".exe") || bin_name.ends_with(".bat")
+                    }
+
+                    #[cfg(not(windows))]
+                    {
+                        true
+                    }
+                };
+
+                if is_valid_name && is_executable {
+                    trace!("Trying {:?}", path.display());
+
+                    // we are ok if this plugin load fails
+                    let _ = load_plugin(&path, &mut ctx.lock().expect("Failed to get lock on Context."));
+                }
             })
             .collect();
     }
