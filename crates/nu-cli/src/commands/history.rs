@@ -9,7 +9,7 @@ use std::io::{BufRead, BufReader};
 pub struct History;
 
 #[derive(Deserialize)]
-pub struct HistoryArgs;
+pub struct HistoryArgs {}
 
 impl WholeStreamCommand for History {
     fn name(&self) -> &str {
