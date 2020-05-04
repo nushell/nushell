@@ -15,7 +15,7 @@ impl WholeStreamCommand for To {
     }
 
     fn usage(&self) -> &str {
-        "Convert table into an output format."
+        "Convert table into an output format (based on subcommand, like csv, html, json, yaml)."
     }
 
     fn run(
