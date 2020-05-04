@@ -27,7 +27,6 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 
 use rayon::prelude::*;
-use std::sync::{Arc, Mutex};
 
 fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), ShellError> {
     let mut child = std::process::Command::new(path)
@@ -130,8 +129,6 @@ pub fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
         require_literal_leading_dot: false,
     };
 
-    let ctx = Arc::new(Mutex::new(context));
-
     for path in search_paths() {
         let mut pattern = path.to_path_buf();
 
@@ -140,10 +137,6 @@ pub fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
         let plugs: Vec<_> = glob::glob_with(&pattern.to_string_lossy(), opts)?
             .filter_map(|x| x.ok())
             .collect();
-
-        if plugs.is_empty() {
-            println!("We couldn't find any plugins");
-        }
 
         let _failures: Vec<_> = plugs
             .par_iter()
@@ -191,10 +184,7 @@ pub fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
                     trace!("Trying {:?}", path.display());
 
                     // we are ok if this plugin load fails
-                    let _ = load_plugin(
-                        &path,
-                        &mut ctx.lock().expect("Failed to get lock on Context."),
-                    );
+                    let _ = load_plugin(&path, &mut context.clone());
                 }
             })
             .collect();
