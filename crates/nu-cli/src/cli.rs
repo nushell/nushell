@@ -191,7 +191,10 @@ pub fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
                     trace!("Trying {:?}", path.display());
 
                     // we are ok if this plugin load fails
-                    let _ = load_plugin(&path, &mut ctx.lock().expect("Failed to get lock on Context."));
+                    let _ = load_plugin(
+                        &path,
+                        &mut ctx.lock().expect("Failed to get lock on Context."),
+                    );
                 }
             })
             .collect();
