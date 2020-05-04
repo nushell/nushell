@@ -19,7 +19,7 @@ fn from_ssv_text_to_table() {
             cwd: dirs.test(), pipeline(
             r#"
                 open oc_get_svc.txt
-                | from-ssv
+                | from ssv
                 | nth 0
                 | get IP
                 | echo $it
@@ -47,7 +47,7 @@ fn from_ssv_text_to_table_with_separator_specified() {
             cwd: dirs.test(), pipeline(
             r#"
                 open oc_get_svc.txt
-                | from-ssv --minimum-spaces 3
+                | from ssv --minimum-spaces 3
                 | nth 0
                 | get IP
                 | echo $it
@@ -74,7 +74,7 @@ fn from_ssv_text_treating_first_line_as_data_with_flag() {
         cwd: dirs.test(), pipeline(
             r#"
                 open oc_get_svc.txt
-                | from-ssv --headerless -a
+                | from ssv --headerless -a
                 | first
                 | get Column1
                 | echo $it
@@ -85,7 +85,7 @@ fn from_ssv_text_treating_first_line_as_data_with_flag() {
             cwd: dirs.test(), pipeline(
             r#"
                 open oc_get_svc.txt
-                | from-ssv --headerless
+                | from ssv --headerless
                 | first
                 | get Column1
                 | echo $it

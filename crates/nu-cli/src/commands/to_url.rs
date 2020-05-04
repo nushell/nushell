@@ -7,11 +7,11 @@ pub struct ToURL;
 
 impl WholeStreamCommand for ToURL {
     fn name(&self) -> &str {
-        "to-url"
+        "to url"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to-url")
+        Signature::build("to url")
     }
 
     fn usage(&self) -> &str {

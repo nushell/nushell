@@ -5,7 +5,7 @@ fn out_html_simple() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-            echo 3 | to-html
+            echo 3 | to html
         "#
     ));
 
@@ -17,7 +17,7 @@ fn out_html_table() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-            echo '{"name": "jason"}' | from-json | to-html
+            echo '{"name": "jason"}' | from json | to html
         "#
     ));
 

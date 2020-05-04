@@ -21,10 +21,10 @@ You can save the name of files in a directory like this:
 > ls | where type == File | pick name | save filenames.csv
 ```
 
-Or you can format it in supported formats using one of the `to-*` commands:
+Or you can format it in supported formats using one of the `to` commands:
 
 ```shell
-> ls | where type == File | pick name | to-csv | save filenames
+> ls | where type == File | pick name | to csv | save filenames
 ```
 
 `filename.csv` and `filenames` are both `csv` formatted files. Nu auto-converts the format if a supported file extension is given.

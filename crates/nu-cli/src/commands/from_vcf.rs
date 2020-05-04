@@ -11,11 +11,11 @@ pub struct FromVcf;
 
 impl WholeStreamCommand for FromVcf {
     fn name(&self) -> &str {
-        "from-vcf"
+        "from vcf"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-vcf")
+        Signature::build("from vcf")
     }
 
     fn usage(&self) -> &str {

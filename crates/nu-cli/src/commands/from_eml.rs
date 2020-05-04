@@ -18,11 +18,11 @@ pub struct FromEMLArgs {
 
 impl WholeStreamCommand for FromEML {
     fn name(&self) -> &str {
-        "from-eml"
+        "from eml"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-eml").named(
+        Signature::build("from eml").named(
             "preview-body",
             SyntaxShape::Int,
             "How many bytes of the body to preview",

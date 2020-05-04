@@ -14,7 +14,7 @@ pub struct Help;
 
 #[derive(Deserialize)]
 pub struct HelpArgs {
-    command: Option<Tagged<String>>,
+    rest: Vec<Tagged<String>>,
 }
 
 impl WholeStreamCommand for Help {
@@ -23,11 +23,7 @@ impl WholeStreamCommand for Help {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("help").optional(
-            "command",
-            SyntaxShape::String,
-            "the name of command(s) to get help on",
-        )
+        Signature::build("help").rest(SyntaxShape::String, "the name of command to get help on")
     }
 
     fn usage(&self) -> &str {
@@ -44,15 +40,19 @@ impl WholeStreamCommand for Help {
 }
 
 fn help(
-    HelpArgs { command }: HelpArgs,
+    HelpArgs { rest }: HelpArgs,
     RunnableContext { registry, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    if let Some(document) = command {
+    if let Some(document) = rest.get(0) {
         let mut help = VecDeque::new();
         if document.item == "commands" {
             let mut sorted_names = registry.names();
             sorted_names.sort();
             for cmd in sorted_names {
+                // If it's a subcommand, don't list it during the commands list
+                if cmd.contains(' ') {
+                    continue;
+                }
                 let mut short_desc = TaggedDictBuilder::new(name.clone());
                 let document_tag = document.tag.clone();
                 let value = command_dict(
@@ -82,13 +82,31 @@ fn help(
 
                 help.push_back(ReturnSuccess::value(short_desc.into_value()));
             }
+        } else if rest.len() == 2 {
+            // Check for a subcommand
+            let command_name = format!("{} {}", rest[0].item, rest[1].item);
+            if let Some(command) = registry.get_command(&command_name) {
+                return Ok(get_help(
+                    &command.name(),
+                    &command.usage(),
+                    command.signature(),
+                    &registry,
+                )
+                .into());
+            }
         } else if let Some(command) = registry.get_command(&document.item) {
-            return Ok(get_help(&command.name(), &command.usage(), command.signature()).into());
+            return Ok(get_help(
+                &command.name(),
+                &command.usage(),
+                command.signature(),
+                &registry,
+            )
+            .into());
         } else {
             return Err(ShellError::labeled_error(
                 "Can't find command (use 'help commands' for full list)",
                 "can't find command",
-                document.tag,
+                document.tag.span,
             ));
         }
         let help = futures::stream::iter(help);
@@ -128,6 +146,7 @@ pub(crate) fn get_help(
     cmd_name: &str,
     cmd_usage: &str,
     cmd_sig: Signature,
+    registry: &CommandRegistry,
 ) -> impl Into<OutputStream> {
     let mut help = VecDeque::new();
     let mut long_desc = String::new();
@@ -136,6 +155,15 @@ pub(crate) fn get_help(
     long_desc.push_str("\n");
 
     let signature = cmd_sig;
+
+    let mut subcommands = String::new();
+    for name in registry.names() {
+        if name.starts_with(&format!("{} ", cmd_name)) {
+            let subcommand = registry.get_command(&name).expect("This shouldn't happen");
+
+            subcommands.push_str(&format!("  {} - {}\n", name, subcommand.usage()));
+        }
+    }
 
     let mut one_liner = String::new();
     one_liner.push_str(&signature.name);
@@ -156,14 +184,23 @@ pub(crate) fn get_help(
         one_liner.push_str(" ...args");
     }
 
+    if !subcommands.is_empty() {
+        one_liner.push_str("<subcommand> ");
+    }
+
     if !signature.named.is_empty() {
         one_liner.push_str("{flags} ");
     }
 
     long_desc.push_str(&format!("\nUsage:\n  > {}\n", one_liner));
 
+    if !subcommands.is_empty() {
+        long_desc.push_str("\nSubcommands:\n");
+        long_desc.push_str(&subcommands);
+    }
+
     if !signature.positional.is_empty() || signature.rest_positional.is_some() {
-        long_desc.push_str("\nparameters:\n");
+        long_desc.push_str("\nParameters:\n");
         for positional in signature.positional {
             match positional.0 {
                 PositionalType::Mandatory(name, _m) => {
@@ -180,7 +217,7 @@ pub(crate) fn get_help(
         }
     }
     if !signature.named.is_empty() {
-        long_desc.push_str("\nflags:\n");
+        long_desc.push_str("\nFlags:\n");
         for (flag, ty) in signature.named {
             let msg = match ty.0 {
                 NamedType::Switch(s) => {

@@ -7,11 +7,11 @@ pub struct ToYAML;
 
 impl WholeStreamCommand for ToYAML {
     fn name(&self) -> &str {
-        "to-yaml"
+        "to yaml"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to-yaml")
+        Signature::build("to yaml")
     }
 
     fn usage(&self) -> &str {

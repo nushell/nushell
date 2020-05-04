@@ -12,11 +12,11 @@ pub struct ToBSON;
 
 impl WholeStreamCommand for ToBSON {
     fn name(&self) -> &str {
-        "to-bson"
+        "to bson"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to-bson")
+        Signature::build("to bson")
     }
 
     fn usage(&self) -> &str {

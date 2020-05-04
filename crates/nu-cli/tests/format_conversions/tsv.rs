@@ -6,7 +6,7 @@ use nu_test_support::{nu, pipeline};
 fn table_to_tsv_text_and_from_tsv_text_back_into_table() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "open caco3_plastics.tsv | to-tsv | from-tsv | first 1 | get origin | echo $it"
+        "open caco3_plastics.tsv | to tsv | from tsv | first 1 | get origin | echo $it"
     );
 
     assert_eq!(actual, "SPAIN");
@@ -16,7 +16,7 @@ fn table_to_tsv_text_and_from_tsv_text_back_into_table() {
 fn table_to_tsv_text_and_from_tsv_text_back_into_table_using_csv_separator() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        r"open caco3_plastics.tsv | to-tsv | from-csv --separator '\t' | first 1 | get origin | echo $it"
+        r"open caco3_plastics.tsv | to tsv | from csv --separator '\t' | first 1 | get origin | echo $it"
     );
 
     assert_eq!(actual, "SPAIN");
@@ -41,7 +41,7 @@ fn table_to_tsv_text() {
                 | lines
                 | split-column "\t" a b c d origin
                 | last 1
-                | to-tsv
+                | to tsv
                 | lines
                 | nth 1
                 | echo $it
@@ -71,7 +71,7 @@ fn table_to_tsv_text_skipping_headers_after_conversion() {
                 | lines
                 | split-column "\t" a b c d origin
                 | last 1
-                | to-tsv --headerless
+                | to tsv --headerless
                 | echo $it
             "#
         ));
@@ -97,7 +97,7 @@ fn from_tsv_text_to_table() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_amigos.txt
-                | from-tsv
+                | from tsv
                 | get rusty_luck
                 | count
                 | echo $it
@@ -124,7 +124,7 @@ fn from_tsv_text_skipping_headers_to_table() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_amigos.txt
-                | from-tsv --headerless
+                | from tsv --headerless
                 | get Column3
                 | count
                 | echo $it

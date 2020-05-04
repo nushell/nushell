@@ -6,7 +6,7 @@ use nu_test_support::{nu, pipeline};
 fn table_to_csv_text_and_from_csv_text_back_into_table() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "open caco3_plastics.csv | to-csv | from-csv | first 1 | get origin | echo $it"
+        "open caco3_plastics.csv | to csv | from csv | first 1 | get origin | echo $it"
     );
 
     assert_eq!(actual, "SPAIN");
@@ -32,7 +32,7 @@ fn table_to_csv_text() {
                 | trim
                 | split-column "," a b c d origin
                 | last 1
-                | to-csv
+                | to csv
                 | lines
                 | nth 1
                 | echo $it
@@ -63,7 +63,7 @@ fn table_to_csv_text_skipping_headers_after_conversion() {
                 | trim
                 | split-column "," a b c d origin
                 | last 1
-                | to-csv --headerless
+                | to csv --headerless
                 | echo $it
             "#
         ));
@@ -117,7 +117,7 @@ fn from_csv_text_to_table() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_caballeros.txt
-                | from-csv
+                | from csv
                 | get rusty_luck
                 | count
                 | echo $it
@@ -145,7 +145,7 @@ fn from_csv_text_with_separator_to_table() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_caballeros.txt
-                | from-csv --separator ';'
+                | from csv --separator ';'
                 | get rusty_luck
                 | count
                 | echo $it
@@ -173,7 +173,7 @@ fn from_csv_text_with_tab_separator_to_table() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_caballeros.txt
-                | from-csv --separator '\t'
+                | from csv --separator '\t'
                 | get rusty_luck
                 | count
                 | echo $it
@@ -200,7 +200,7 @@ fn from_csv_text_skipping_headers_to_table() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_amigos.txt
-                | from-csv --headerless
+                | from csv --headerless
                 | get Column3
                 | count
                 | echo $it

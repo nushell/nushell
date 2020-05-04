@@ -9,11 +9,11 @@ pub struct ToMarkdown;
 
 impl WholeStreamCommand for ToMarkdown {
     fn name(&self) -> &str {
-        "to-md"
+        "to md"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to-md")
+        Signature::build("to md")
     }
 
     fn usage(&self) -> &str {

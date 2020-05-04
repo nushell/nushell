@@ -95,7 +95,7 @@ fn enter(
                     let tagged_contents = contents.into_value(&contents_tag);
 
                     if let Some(extension) = file_extension {
-                        let command_name = format!("from-{}", extension);
+                        let command_name = format!("from {}", extension);
                         if let Some(converter) =
                             registry.get_command(&command_name)
                         {

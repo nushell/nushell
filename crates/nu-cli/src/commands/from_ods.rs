@@ -15,11 +15,11 @@ pub struct FromODSArgs {
 
 impl WholeStreamCommand for FromODS {
     fn name(&self) -> &str {
-        "from-ods"
+        "from ods"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-ods").switch(
+        Signature::build("from ods").switch(
             "headerless",
             "don't treat the first row as column names",
             None,

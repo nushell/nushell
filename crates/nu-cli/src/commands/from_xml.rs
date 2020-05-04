@@ -7,11 +7,11 @@ pub struct FromXML;
 
 impl WholeStreamCommand for FromXML {
     fn name(&self) -> &str {
-        "from-xml"
+        "from xml"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-xml")
+        Signature::build("from xml")
     }
 
     fn usage(&self) -> &str {

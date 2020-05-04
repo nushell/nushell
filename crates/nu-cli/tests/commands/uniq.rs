@@ -131,7 +131,7 @@ fn uniq_when_keys_out_of_order() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             echo '[{"a": "a", "b": [1,2,3]},{"b": [1,2,3], "a": "a"}]'
-            | from-json
+            | from json
             | uniq
             | count
             | echo $it

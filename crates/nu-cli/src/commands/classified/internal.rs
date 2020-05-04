@@ -51,7 +51,7 @@ pub(crate) fn run_internal_command(
                     }
                     CommandAction::AutoConvert(tagged_contents, extension) => {
                         let contents_tag = tagged_contents.tag.clone();
-                        let command_name = format!("from-{}", extension);
+                        let command_name = format!("from {}", extension);
                         let command = command.clone();
                         if let Some(converter) = context.registry.get_command(&command_name) {
                             let new_args = RawCommandArgs {

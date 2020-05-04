@@ -12,11 +12,11 @@ pub struct FromJSONArgs {
 
 impl WholeStreamCommand for FromJSON {
     fn name(&self) -> &str {
-        "from-json"
+        "from json"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-json").switch(
+        Signature::build("from json").switch(
             "objects",
             "treat each line as a separate value",
             Some('o'),
