@@ -1,4 +1,4 @@
-# from-toml
+# from toml
 Converts toml data into table. Use this when nushell cannot dertermine the input file extension.
 
 ## Example
@@ -10,11 +10,11 @@ Let's say we have the following Rust .lock file :
 ...
 ```
 
-The "Cargo.lock" file is actually a .toml file, but the file extension isn't .toml. That's okay, we can use the `from-toml` command :
+The "Cargo.lock" file is actually a .toml file, but the file extension isn't .toml. That's okay, we can use the `from toml` command :
 
 
 ```shell
-> open Cargo.lock | from-toml
+> open Cargo.lock | from toml
 ━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━
  metadata       │ package
 ────────────────┼───────────────────

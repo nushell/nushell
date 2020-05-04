@@ -1,8 +1,8 @@
-# from-vcf
+# from vcf
 
 Parse text as `.vcf` and create table.
 
-Syntax: `from-vcf`
+Syntax: `from vcf`
 
 ## Examples
 
@@ -18,20 +18,20 @@ EMAIL;TYPE=INTERNET:john.doe99@gmail.com
 ...
 ```
 
-Pass the output of the `open` command to `from-vcf` to get a correctly formatted table:
+Pass the output of the `open` command to `from vcf` to get a correctly formatted table:
 
 ```shell
-> open contacts.txt | from-vcf
+> open contacts.txt | from vcf
 ─────┬─────────────────
- #   │ properties 
+ #   │ properties
 ─────┼─────────────────
    0 │ [table 8 rows]
 ```
 
 ```shell
-> open contacts.txt | from-vcf | get properties | where $it.name == "FN" | pick value
+> open contacts.txt | from vcf | get properties | where $it.name == "FN" | pick value
 ─────┬──────────────────────
- #   │ value 
+ #   │ value
 ─────┼──────────────────────
    0 │ John Doe
 ```
