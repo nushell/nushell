@@ -65,10 +65,10 @@ pub(crate) fn dir_entry_dict(
         dict.insert_untagged("type", UntaggedValue::nothing());
     }
 
-    let mut symlink_target_untagged_value: UntaggedValue = UntaggedValue::nothing();
-
     if full || with_symlink_targets {
         if let Some(md) = metadata {
+            let mut symlink_target_untagged_value: UntaggedValue = UntaggedValue::nothing();
+
             if md.file_type().is_symlink() {
                 if let Ok(path_to_link) = filename.read_link() {
                     symlink_target_untagged_value =
@@ -78,10 +78,10 @@ pub(crate) fn dir_entry_dict(
                         UntaggedValue::string("Could not obtain target file's path");
                 }
             }
+
+            dict.insert_untagged("target", symlink_target_untagged_value);
         }
     }
-
-    dict.insert_untagged("target", symlink_target_untagged_value);
 
     if full {
         if let Some(md) = metadata {
@@ -124,9 +124,9 @@ pub(crate) fn dir_entry_dict(
         }
     }
 
-    let mut size_untagged_value: UntaggedValue = UntaggedValue::nothing();
-
     if let Some(md) = metadata {
+        let mut size_untagged_value: UntaggedValue = UntaggedValue::nothing();
+
         if md.is_dir() {
             let dir_size: u64 = if du {
                 let params = DirBuilder::new(
@@ -153,9 +153,9 @@ pub(crate) fn dir_entry_dict(
                 size_untagged_value = UntaggedValue::bytes(symlink_md.len() as u64);
             }
         }
-    }
 
-    dict.insert_untagged("size", size_untagged_value);
+        dict.insert_untagged("size", size_untagged_value);
+    }
 
     if let Some(md) = metadata {
         if full {
