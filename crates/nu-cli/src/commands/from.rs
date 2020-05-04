@@ -15,7 +15,7 @@ impl WholeStreamCommand for From {
     }
 
     fn usage(&self) -> &str {
-        "Parse content (string or binary) as a table."
+        "Parse content (string or binary) as a table (input format based on subcommand, like csv, ini, json, toml)"
     }
 
     fn run(
