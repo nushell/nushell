@@ -1,6 +1,7 @@
 use nu_errors::ShellError;
 use nu_plugin::Plugin;
 use nu_protocol::{CallInfo, Signature, SyntaxShape, Value};
+use std::process::{Command, Stdio};
 
 use crate::start::Start;
 
@@ -28,6 +29,20 @@ impl Plugin for Start {
     }
 
     fn sink(&mut self, call_info: CallInfo, _input: Vec<Value>) {
-        println!("{:#?}", call_info);
+        let filenames = match call_info.args.positional {
+            Some(values) => values
+                .iter()
+                .map(|val| val.as_string())
+                .collect::<Result<Vec<String>, ShellError>>()
+                .unwrap_or(vec![]),
+            None => vec![],
+        };
+
+        Command::new("open")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .args(&filenames)
+            .spawn()
+            .unwrap();
     }
 }
