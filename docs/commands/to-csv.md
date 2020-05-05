@@ -1,4 +1,4 @@
-# to-csv
+# to csv
 
 Converts table data into csv text.
 
@@ -13,7 +13,7 @@ Converts table data into csv text.
  1 │   │ filesystem │ /home/shaurya/Pictures
  2 │   │ filesystem │ /home/shaurya/Desktop
 ━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━
-> shells | to-csv
+> shells | to csv
  ,name,path
 X,filesystem,/home/shaurya
  ,filesystem,/home/shaurya/Pictures
@@ -66,7 +66,7 @@ X,filesystem,/home/shaurya
    │              │              │             │ OMYACARB 1T  │          │            │            │            │           │           │
    │              │              │             │ CG BPA 25 NO │          │            │            │            │           │           │
 ━━━┷━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━┷━━━━━━━━━━━━━┷━━━━━━━━━━━━━━┷━━━━━━━━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━┷━━━━━━━━━━━┷━━━━━━━━━━━━━━
-> open caco3_plastics.csv | to-csv
+> open caco3_plastics.csv | to csv
 importer,shipper,tariff_item,name,origin,shipped_at,arrived_at,net_weight,fob_price,cif_price,cif_per_net_weight
 PLASTICOS RIVAL CIA LTDA,S A REVERTE,2509000000,CARBONATO DE CALCIO TIPO CALCIPORE 160 T AL,SPAIN,18/03/2016,17/04/2016,"81,000.00","14,417.58","18,252.34",0.23
 MEXICHEM ECUADOR S.A.,OMYA ANDINA S A,2836500000,CARBONATO,COLOMBIA,07/07/2016,10/07/2016,"26,000.00","7,072.00","8,127.18",0.31
@@ -90,7 +90,7 @@ To use a character other than ',' to separate records, use `--separator` :
  1 │   │ filesystem │ /home/shaurya/Pictures
  2 │   │ filesystem │ /home/shaurya/Desktop
 ━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━
-> shells | to-csv --separator ';'
+> shells | to csv --separator ';'
  ;name,path
 X;filesystem;/home/shaurya
  ;filesystem;/home/shaurya/Pictures
