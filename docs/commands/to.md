@@ -1,6 +1,21 @@
-# to url
+# to
 
-Converts table data into url-formatted text.
+Converts table data into a string or binary. The target format is specified as a subcommand, like `to csv` or `to json`.
+
+## Available Subcommands
+
+* to bson
+* [to csv](to-csv.md)
+* to html
+* [to json](to-json.md)
+* to md
+* to sqlite
+* [to toml](to-toml.md)
+* [to tsv](to-tsv.md)
+* [to url](to-url.md)
+* [to yaml](to-yaml.md)
+
+*Subcommands without links are currently missing their documentation.*
 
 ## Example
 
@@ -13,14 +28,11 @@ Converts table data into url-formatted text.
  1 │   │ filesystem │ /home/shaurya/Pictures
  2 │   │ filesystem │ /home/shaurya/Desktop
 ━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━
-> shells | to url
-━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- # │ value
-───┼───────────────────────────────────────────────────────
- 0 │ +=X&name=filesystem&path=%2Fhome%2Fshaurya
- 1 │ +=+&name=filesystem&path=%2Fhome%2Fshaurya%2FPictures
- 2 │ +=+&name=filesystem&path=%2Fhome%2Fshaurya%2FDesktop
-━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+> shells | to csv
+ ,name,path
+X,filesystem,/home/shaurya
+ ,filesystem,/home/shaurya/Pictures
+ ,filesystem,/home/shaurya/Desktop
 ```
 
 ```shell

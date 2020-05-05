@@ -1,20 +1,29 @@
 # from-csv
 
-Converts content (string or binary) into a table. The format is specified as a subcommand, like `from csv` or `from json`.
+Converts content (string or binary) into a table. The source format is specified as a subcommand, like `from csv` or `from json`.
 
 Use this when nushell cannot determine the input file extension.
 
 ## Available Subcommands
 
+* from bson
 * [from csv](from-csv.md)
+* from eml
 * [from ics](from-ics.md)
+* from ini
 * [from json](from-json.md)
 * [from ods](from-ods.md)
+* from sqlite
+* from ssv
 * [from toml](from-toml.md)
 * [from tsv](from-tsv.md)
+* from url
 * [from vcf](from-vcf.md)
-* [from xlsx](from-csv.md)
+* [from xlsx](from-xlsx.md)
+* from xml
 * [from yaml](from-yaml.md)
+
+*Subcommands without links are currently missing their documentation.*
 
 ## Example for `from csv`
 
