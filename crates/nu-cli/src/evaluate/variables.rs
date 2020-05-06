@@ -1,15 +1,15 @@
 use crate::cli::History;
 use nu_errors::ShellError;
-use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
+use nu_protocol::{Scope, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::Tag;
 
-pub fn nu(tag: impl Into<Tag>) -> Result<Value, ShellError> {
+pub fn nu(scope: &Scope, tag: impl Into<Tag>) -> Result<Value, ShellError> {
     let tag = tag.into();
 
     let mut nu_dict = TaggedDictBuilder::new(&tag);
 
     let mut dict = TaggedDictBuilder::new(&tag);
-    for v in std::env::vars() {
+    for v in scope.env.iter() {
         if v.0 != "PATH" && v.0 != "Path" {
             dict.insert_untagged(v.0, UntaggedValue::string(v.1));
         }

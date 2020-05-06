@@ -258,4 +258,12 @@ impl Context {
             input,
         }
     }
+
+    pub fn get_env(&self) -> IndexMap<String, String> {
+        let mut output = IndexMap::new();
+        for (var, value) in self.host.lock().vars() {
+            output.insert(var, value);
+        }
+        output
+    }
 }

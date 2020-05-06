@@ -46,4 +46,5 @@ mod touch;
 mod trim;
 mod uniq;
 mod where_;
+mod with_env;
 mod wrap;
