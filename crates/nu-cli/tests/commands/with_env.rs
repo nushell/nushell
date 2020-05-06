@@ -9,3 +9,13 @@ fn with_env_extends_environment() {
 
     assert_eq!(actual, "BARRRR");
 }
+
+#[test]
+fn with_env_shorthand() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        "FOO=BARRRR echo $nu.env | get FOO"
+    );
+
+    assert_eq!(actual, "BARRRR");
+}

@@ -1124,13 +1124,125 @@ fn classify_pipeline(
     (ClassifiedPipeline::new(commands), error)
 }
 
+type SpannedKeyValue = (Spanned<String>, Spanned<String>);
+
+fn expand_shorthand_forms(
+    lite_pipeline: &LitePipeline,
+) -> (LitePipeline, Option<SpannedKeyValue>, Option<ParseError>) {
+    if !lite_pipeline.commands.is_empty() {
+        if lite_pipeline.commands[0].name.item == "=" {
+            (lite_pipeline.clone(), None, None)
+        } else if lite_pipeline.commands[0].name.contains('=') {
+            let assignment: Vec<_> = lite_pipeline.commands[0].name.split('=').collect();
+            if assignment.len() != 2 {
+                (
+                    lite_pipeline.clone(),
+                    None,
+                    Some(ParseError::mismatch(
+                        "environment variable assignment",
+                        lite_pipeline.commands[0].name.clone(),
+                    )),
+                )
+            } else {
+                let original_span = lite_pipeline.commands[0].name.span;
+                let (variable_name, value) = (assignment[0], assignment[1]);
+                let mut lite_pipeline = lite_pipeline.clone();
+
+                if !lite_pipeline.commands[0].args.is_empty() {
+                    let new_lite_command_name = lite_pipeline.commands[0].args[0].clone();
+                    let mut new_lite_command_args = lite_pipeline.commands[0].args.clone();
+                    new_lite_command_args.swap_remove(0);
+
+                    lite_pipeline.commands[0].name = new_lite_command_name;
+                    lite_pipeline.commands[0].args = new_lite_command_args;
+
+                    (
+                        lite_pipeline,
+                        Some((
+                            variable_name.to_string().spanned(original_span),
+                            value.to_string().spanned(original_span),
+                        )),
+                        None,
+                    )
+                } else {
+                    (
+                        lite_pipeline.clone(),
+                        None,
+                        Some(ParseError::mismatch(
+                            "a command following variable",
+                            lite_pipeline.commands[0].name.clone(),
+                        )),
+                    )
+                }
+            }
+        } else {
+            (lite_pipeline.clone(), None, None)
+        }
+    } else {
+        (lite_pipeline.clone(), None, None)
+    }
+}
+
 pub fn classify_block(lite_block: &LiteBlock, registry: &dyn SignatureRegistry) -> ClassifiedBlock {
     // FIXME: fake span
     let mut block = Block::new(Span::new(0, 0));
 
     let mut error = None;
     for lite_pipeline in &lite_block.block {
-        let (pipeline, err) = classify_pipeline(lite_pipeline, registry);
+        let (lite_pipeline, vars, err) = expand_shorthand_forms(lite_pipeline);
+        if error.is_none() {
+            error = err;
+        }
+
+        let (pipeline, err) = classify_pipeline(&lite_pipeline, registry);
+
+        let pipeline = if let Some(vars) = vars {
+            let span = pipeline.commands.span;
+            let block = hir::Block {
+                block: vec![pipeline.commands.clone()],
+                span,
+            };
+            let mut call = hir::Call::new(
+                Box::new(SpannedExpression {
+                    expr: Expression::string("with-env".to_string()),
+                    span,
+                }),
+                span,
+            );
+            call.positional = Some(vec![
+                SpannedExpression {
+                    expr: Expression::List(vec![
+                        SpannedExpression {
+                            expr: Expression::string(vars.0.item),
+                            span: vars.0.span,
+                        },
+                        SpannedExpression {
+                            expr: Expression::string(vars.1.item),
+                            span: vars.1.span,
+                        },
+                    ]),
+                    span: Span::new(vars.0.span.start(), vars.1.span.end()),
+                },
+                SpannedExpression {
+                    expr: Expression::Block(block),
+                    span,
+                },
+            ]);
+            let classified_with_env = ClassifiedCommand::Internal(InternalCommand {
+                name: "with-env".to_string(),
+                name_span: Span::unknown(),
+                args: call,
+            });
+            ClassifiedPipeline {
+                commands: Commands {
+                    list: vec![classified_with_env],
+                    span,
+                },
+            }
+        } else {
+            pipeline
+        };
+
         block.push(pipeline.commands);
         if error.is_none() {
             error = err;
