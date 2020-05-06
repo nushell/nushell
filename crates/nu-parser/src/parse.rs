@@ -1124,13 +1124,11 @@ fn classify_pipeline(
     (ClassifiedPipeline::new(commands), error)
 }
 
+type SpannedKeyValue = (Spanned<String>, Spanned<String>);
+
 fn expand_shorthand_forms(
     lite_pipeline: &LitePipeline,
-) -> (
-    LitePipeline,
-    Option<(Spanned<String>, Spanned<String>)>,
-    Option<ParseError>,
-) {
+) -> (LitePipeline, Option<SpannedKeyValue>, Option<ParseError>) {
     if !lite_pipeline.commands.is_empty() {
         if lite_pipeline.commands[0].name.item == "=" {
             (lite_pipeline.clone(), None, None)
