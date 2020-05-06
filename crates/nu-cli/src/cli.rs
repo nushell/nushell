@@ -812,7 +812,7 @@ async fn process_line(
                                     ctx.shell_manager.set_path(val.to_string());
                                     return LineResult::Success(line.to_string());
                                 } else {
-                                    ctx.shell_manager.set_path(name.to_string());
+                                    ctx.shell_manager.set_path(format!("{}\\", name.to_string()));
                                     return LineResult::Success(line.to_string());
                                 }
                             } else {
