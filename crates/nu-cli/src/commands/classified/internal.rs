@@ -33,6 +33,7 @@ pub(crate) fn run_internal_command(
 
     let mut result = trace_out_stream!(target: "nu::trace_stream::internal", "output" = result);
     let mut context = context.clone();
+    let scope = scope.clone();
 
     let stream = async_stream! {
         let mut soft_errs: Vec<ShellError> = vec![];
@@ -67,7 +68,7 @@ pub(crate) fn run_internal_command(
                                         is_last: false,
                                     },
                                     name_tag: Tag::unknown_anchor(command.name_span),
-                                    scope: Scope::empty(),
+                                    scope: scope.clone(),
                                 }
                             };
                             let mut result = converter.run(new_args.with_input(vec![tagged_contents]), &context.registry);

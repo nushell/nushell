@@ -159,7 +159,7 @@ fn run_with_stdin(
         })
         .collect::<Vec<String>>();
 
-    spawn(&command, &path, &process_args[..], input, is_last)
+    spawn(&command, &path, &process_args[..], input, is_last, scope)
 }
 
 fn spawn(
@@ -168,6 +168,7 @@ fn spawn(
     args: &[String],
     input: InputStream,
     is_last: bool,
+    scope: &Scope,
 ) -> Result<InputStream, ShellError> {
     let command = command.clone();
 
@@ -196,6 +197,9 @@ fn spawn(
 
     process.current_dir(path);
     trace!(target: "nu::run::external", "cwd = {:?}", &path);
+
+    process.env_clear();
+    process.envs(scope.env.iter());
 
     // We want stdout regardless of what
     // we are doing ($it case or pipe stdin)

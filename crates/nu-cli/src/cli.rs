@@ -261,6 +261,7 @@ pub fn create_default_context(
             whole_stream_command(Which),
             whole_stream_command(Debug),
             whole_stream_command(Alias),
+            whole_stream_command(WithEnv),
             // Statistics
             whole_stream_command(Size),
             whole_stream_command(Count),
@@ -856,8 +857,8 @@ async fn process_line(
             classified_block.block.expand_it_usage();
 
             trace!("{:#?}", classified_block);
-
-            match run_block(&classified_block.block, ctx, input_stream, &Scope::empty()).await {
+            let env = ctx.get_env();
+            match run_block(&classified_block.block, ctx, input_stream, &Scope::env(env)).await {
                 Ok(input) => {
                     // Running a pipeline gives us back a stream that we can then
                     // work through. At the top level, we just want to pull on the
