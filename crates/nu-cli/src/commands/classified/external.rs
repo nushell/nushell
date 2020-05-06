@@ -116,6 +116,12 @@ fn run_with_stdin(
     let mut command_args = vec![];
     for arg in command.args.iter() {
         let value = evaluate_baseline_expr(arg, &context.registry, scope)?;
+        // Skip any arguments that don't really exist, treating them as optional
+        // FIXME: we may want to preserve the gap in the future, though it's hard to say
+        // what value we would put in its place.
+        if value.value.is_none() {
+            continue;
+        }
         // Do the cleanup that we need to do on any argument going out:
         let trimmed_value_string = value.as_string()?.trim_end_matches('\n').to_string();
 
