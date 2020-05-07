@@ -1,6 +1,6 @@
 use nu_errors::ShellError;
 use nu_plugin::Plugin;
-use nu_protocol::{CallInfo, Signature, SyntaxShape, Value};
+use nu_protocol::{CallInfo, ReturnValue, Signature, SyntaxShape, Value};
 
 use crate::start::Start;
 
@@ -16,11 +16,11 @@ impl Plugin for Start {
                 Some('a'),
             ))
     }
-
-    fn sink(&mut self, call_info: CallInfo, _input: Vec<Value>) {
-        match Start::exec(&call_info) {
-            Err(msg) => println!("{}", msg),
-            _ => {}
-        };
+    fn sink(&mut self, call_info: CallInfo, input: Vec<Value>) {
+        self.parse(call_info);
+        println!("{:?}", input);
+        input.iter().for_each(|val| {
+            self.add_filename(val);
+        });
     }
 }
