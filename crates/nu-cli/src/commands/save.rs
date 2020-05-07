@@ -1,7 +1,7 @@
 use crate::commands::{UnevaluatedCallInfo, WholeStreamCommand};
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use std::path::{Path, PathBuf};
 
@@ -175,6 +175,7 @@ fn save(
 ) -> Result<OutputStream, ShellError> {
     let mut full_path = PathBuf::from(shell_manager.path());
     let name_tag = name.clone();
+    let scope = raw_args.call_info.scope.clone();
 
     let stream = async_stream! {
         let input: Vec<Value> = input.collect().await;
@@ -221,7 +222,7 @@ fn save(
         let content : Result<Vec<u8>, ShellError> = 'scope: loop {
             break if !save_raw {
                 if let Some(extension) = full_path.extension() {
-                    let command_name = format!("to-{}", extension.to_string_lossy());
+                    let command_name = format!("to {}", extension.to_string_lossy());
                     if let Some(converter) = registry.get_command(&command_name) {
                         let new_args = RawCommandArgs {
                             host,
@@ -236,7 +237,7 @@ fn save(
                                     is_last: false,
                                 },
                                 name_tag: raw_args.call_info.name_tag,
-                                scope: Scope::empty(), // FIXME?
+                                scope,
                             }
                         };
                         let mut result = converter.run(new_args.with_input(input), &registry);

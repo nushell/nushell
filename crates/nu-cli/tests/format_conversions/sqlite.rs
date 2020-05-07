@@ -6,8 +6,8 @@ fn table_to_sqlite_and_back_into_table() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             open sample.db
-            | to-sqlite
-            | from-sqlite
+            | to sqlite
+            | from sqlite
             | get table_values
             | nth 2
             | get x
@@ -15,5 +15,5 @@ fn table_to_sqlite_and_back_into_table() {
         "#
     ));
 
-    assert_eq!(actual, "hello");
+    assert_eq!(actual.out, "hello");
 }

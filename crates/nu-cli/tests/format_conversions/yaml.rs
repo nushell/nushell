@@ -6,12 +6,12 @@ fn table_to_yaml_text_and_from_yaml_text_back_into_table() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             open appveyor.yml
-            | to-yaml
-            | from-yaml
+            | to yaml
+            | from yaml
             | get environment.global.PROJECT_NAME
             | echo $it
         "#
     ));
 
-    assert_eq!(actual, "nushell");
+    assert_eq!(actual.out, "nushell");
 }

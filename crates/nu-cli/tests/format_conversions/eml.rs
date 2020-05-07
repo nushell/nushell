@@ -17,7 +17,7 @@ fn from_eml_get_to_field() {
         )
     );
 
-    assert_eq!(actual, "username@domain.com");
+    assert_eq!(actual.out, "username@domain.com");
 
     let actual = nu!(
         cwd: TEST_CWD,
@@ -31,7 +31,7 @@ fn from_eml_get_to_field() {
         )
     );
 
-    assert_eq!(actual, "");
+    assert_eq!(actual.out, "");
 }
 
 // The Reply-To field in this email is "aw-confirm@ebay.com" <aw-confirm@ebay.com>, meaning both the Name and Address values are identical.
@@ -49,7 +49,7 @@ fn from_eml_get_replyto_field() {
         )
     );
 
-    assert_eq!(actual, "aw-confirm@ebay.com");
+    assert_eq!(actual.out, "aw-confirm@ebay.com");
 
     let actual = nu!(
         cwd: TEST_CWD,
@@ -63,7 +63,7 @@ fn from_eml_get_replyto_field() {
         )
     );
 
-    assert_eq!(actual, "aw-confirm@ebay.com");
+    assert_eq!(actual.out, "aw-confirm@ebay.com");
 }
 
 // The Reply-To field in this email is "aw-confirm@ebay.com" <aw-confirm@ebay.com>, meaning both the Name and Address values are identical.
@@ -80,5 +80,5 @@ fn from_eml_get_subject_field() {
         )
     );
 
-    assert_eq!(actual, "Billing Issues");
+    assert_eq!(actual.out, "Billing Issues");
 }

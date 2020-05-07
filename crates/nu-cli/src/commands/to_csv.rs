@@ -14,11 +14,11 @@ pub struct ToCSVArgs {
 
 impl WholeStreamCommand for ToCSV {
     fn name(&self) -> &str {
-        "to-csv"
+        "to csv"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to-csv")
+        Signature::build("to csv")
             .named(
                 "separator",
                 SyntaxShape::String,

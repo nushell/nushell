@@ -27,7 +27,7 @@ fn removes_duplicate_rows() {
             "#
         ));
 
-        assert_eq!(actual, "3");
+        assert_eq!(actual.out, "3");
     })
 }
 
@@ -50,14 +50,14 @@ fn uniq_values() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_caballeros.csv
-                | pick type
+                | select type
                 | uniq
                 | count
                 | echo $it
             "#
         ));
 
-        assert_eq!(actual, "2");
+        assert_eq!(actual.out, "2");
     })
 }
 
@@ -121,7 +121,7 @@ fn nested_json_structures() {
                 | echo $it
             "#
         ));
-        assert_eq!(actual, "3");
+        assert_eq!(actual.out, "3");
     })
 }
 
@@ -131,12 +131,12 @@ fn uniq_when_keys_out_of_order() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             echo '[{"a": "a", "b": [1,2,3]},{"b": [1,2,3], "a": "a"}]'
-            | from-json
+            | from json
             | uniq
             | count
             | echo $it
         "#
     ));
 
-    assert_eq!(actual, "1");
+    assert_eq!(actual.out, "1");
 }

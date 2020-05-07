@@ -17,7 +17,7 @@ pub struct FromSSVArgs {
     minimum_spaces: Option<Tagged<usize>>,
 }
 
-const STRING_REPRESENTATION: &str = "from-ssv";
+const STRING_REPRESENTATION: &str = "from ssv";
 const DEFAULT_MINIMUM_SPACES: usize = 2;
 
 impl WholeStreamCommand for FromSSV {

@@ -6,12 +6,12 @@ fn can_encode_and_decode_urlencoding() {
         cwd: "tests/fixtures/formats", pipeline(
             r#"
                 open sample.url
-                | to-url
-                | from-url
+                | to url
+                | from url
                 | get cheese
                 | echo $it
             "#
     ));
 
-    assert_eq!(actual, "comté");
+    assert_eq!(actual.out, "comté");
 }

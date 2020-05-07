@@ -6,7 +6,7 @@ use crate::prelude::*;
 
 use indexmap::IndexMap;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{hir::Block, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 pub struct Merge;
 
 #[derive(Deserialize)]
@@ -48,6 +48,7 @@ fn merge(
     let block = merge_args.block;
     let registry = context.registry.clone();
     let mut input = context.input;
+    let scope = raw_args.call_info.scope.clone();
 
     let mut context = Context::from_raw(&raw_args, &registry);
 
@@ -55,7 +56,7 @@ fn merge(
         let table: Option<Vec<Value>> = match run_block(&block,
                 &mut context,
                 InputStream::empty(),
-                &Scope::empty()).await {
+                &scope).await {
             Ok(mut stream) => Some(stream.drain_vec().await),
             Err(err) => {
                 yield Err(err);

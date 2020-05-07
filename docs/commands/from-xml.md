@@ -1,8 +1,8 @@
-# from-xml
+# from xml
 
 Parse text as `.xml` and create table. Use this when nushell cannot dertermine the input file extension.
 
-Syntax: `from-xml`
+Syntax: `from xml`
 
 ## Examples
 
@@ -22,10 +22,10 @@ Let's say we've got a file in `xml` format but the file extension is different s
 </world>
 ```
 
-We can use `from-xml` to read the input like a `xml` file:
+We can use `from xml` to read the input like a `xml` file:
 
 ```shell
-> open world.txt | from-xml
+> open world.txt | from xml
 ━━━━━━━━━━━━━━━━
  world
 ────────────────

@@ -26,6 +26,8 @@ use std::iter::Iterator;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 
+use rayon::prelude::*;
+
 fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), ShellError> {
     let mut child = std::process::Command::new(path)
         .stdin(std::process::Stdio::piped())
@@ -132,58 +134,60 @@ pub fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
 
         pattern.push(std::path::Path::new("nu_plugin_[a-z0-9][a-z0-9]*"));
 
-        match glob::glob_with(&pattern.to_string_lossy(), opts) {
-            Err(_) => {}
-            Ok(binaries) => {
-                for bin in binaries.filter_map(Result::ok) {
-                    let bin_name = {
-                        if let Some(name) = bin.file_name() {
-                            match name.to_str() {
-                                Some(raw) => raw,
-                                None => continue,
-                            }
-                        } else {
-                            continue;
+        let plugs: Vec<_> = glob::glob_with(&pattern.to_string_lossy(), opts)?
+            .filter_map(|x| x.ok())
+            .collect();
+
+        let _failures: Vec<_> = plugs
+            .par_iter()
+            .map(|path| {
+                let bin_name = {
+                    if let Some(name) = path.file_name() {
+                        match name.to_str() {
+                            Some(raw) => raw,
+                            None => "",
                         }
-                    };
-
-                    let is_valid_name = {
-                        #[cfg(windows)]
-                        {
-                            bin_name
-                                .chars()
-                                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
-                        }
-
-                        #[cfg(not(windows))]
-                        {
-                            bin_name
-                                .chars()
-                                .all(|c| c.is_ascii_alphanumeric() || c == '_')
-                        }
-                    };
-
-                    let is_executable = {
-                        #[cfg(windows)]
-                        {
-                            bin_name.ends_with(".exe") || bin_name.ends_with(".bat")
-                        }
-
-                        #[cfg(not(windows))]
-                        {
-                            true
-                        }
-                    };
-
-                    if is_valid_name && is_executable {
-                        trace!("Trying {:?}", bin.display());
-
-                        // we are ok if this plugin load fails
-                        let _ = load_plugin(&bin, context);
+                    } else {
+                        ""
                     }
+                };
+
+                let is_valid_name = {
+                    #[cfg(windows)]
+                    {
+                        bin_name
+                            .chars()
+                            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
+                    }
+
+                    #[cfg(not(windows))]
+                    {
+                        bin_name
+                            .chars()
+                            .all(|c| c.is_ascii_alphanumeric() || c == '_')
+                    }
+                };
+
+                let is_executable = {
+                    #[cfg(windows)]
+                    {
+                        bin_name.ends_with(".exe") || bin_name.ends_with(".bat")
+                    }
+
+                    #[cfg(not(windows))]
+                    {
+                        true
+                    }
+                };
+
+                if is_valid_name && is_executable {
+                    trace!("Trying {:?}", path.display());
+
+                    // we are ok if this plugin load fails
+                    let _ = load_plugin(&path, &mut context.clone());
                 }
-            }
-        }
+            })
+            .collect();
     }
 
     Ok(())
@@ -257,6 +261,7 @@ pub fn create_default_context(
             whole_stream_command(Which),
             whole_stream_command(Debug),
             whole_stream_command(Alias),
+            whole_stream_command(WithEnv),
             // Statistics
             whole_stream_command(Size),
             whole_stream_command(Count),
@@ -280,9 +285,9 @@ pub fn create_default_context(
             whole_stream_command(Parse),
             // Column manipulation
             whole_stream_command(Reject),
-            whole_stream_command(Pick),
+            whole_stream_command(Select),
             whole_stream_command(Get),
-            whole_stream_command(Edit),
+            whole_stream_command(Update),
             whole_stream_command(Insert),
             whole_stream_command(SplitBy),
             // Row manipulation
@@ -320,6 +325,7 @@ pub fn create_default_context(
             whole_stream_command(Histogram),
             whole_stream_command(Sum),
             // File format output
+            whole_stream_command(To),
             whole_stream_command(ToBSON),
             whole_stream_command(ToCSV),
             whole_stream_command(ToHTML),
@@ -332,6 +338,7 @@ pub fn create_default_context(
             whole_stream_command(ToURL),
             whole_stream_command(ToYAML),
             // File format input
+            whole_stream_command(From),
             whole_stream_command(FromCSV),
             whole_stream_command(FromEML),
             whole_stream_command(FromTSV),
@@ -805,7 +812,8 @@ async fn process_line(
                                     ctx.shell_manager.set_path(val.to_string());
                                     return LineResult::Success(line.to_string());
                                 } else {
-                                    ctx.shell_manager.set_path(name.to_string());
+                                    ctx.shell_manager
+                                        .set_path(format!("{}\\", name.to_string()));
                                     return LineResult::Success(line.to_string());
                                 }
                             } else {
@@ -850,8 +858,8 @@ async fn process_line(
             classified_block.block.expand_it_usage();
 
             trace!("{:#?}", classified_block);
-
-            match run_block(&classified_block.block, ctx, input_stream, &Scope::empty()).await {
+            let env = ctx.get_env();
+            match run_block(&classified_block.block, ctx, input_stream, &Scope::env(env)).await {
                 Ok(input) => {
                     // Running a pipeline gives us back a stream that we can then
                     // work through. At the top level, we just want to pull on the

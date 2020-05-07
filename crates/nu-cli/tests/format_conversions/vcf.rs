@@ -40,7 +40,7 @@ fn infers_types() {
             "#
         ));
 
-        assert_eq!(actual, "2");
+        assert_eq!(actual.out, "2");
     })
 }
 
@@ -70,7 +70,7 @@ fn from_vcf_text_to_table() {
             cwd: dirs.test(), pipeline(
             r#"
                 open contacts.txt
-                | from-vcf
+                | from vcf
                 | get properties
                 | where name == "EMAIL"
                 | first
@@ -79,6 +79,6 @@ fn from_vcf_text_to_table() {
             "#
         ));
 
-        assert_eq!(actual, "john.doe99@gmail.com");
+        assert_eq!(actual.out, "john.doe99@gmail.com");
     })
 }

@@ -12,7 +12,7 @@ fn semicolon_allows_lhs_to_complete() {
         let path = dirs.test().join("i_will_be_created_semi.txt");
 
         assert!(path.exists());
-        assert_eq!(actual, "done");
+        assert_eq!(actual.out, "done");
     })
 }
 
@@ -25,5 +25,5 @@ fn semicolon_lhs_error_stops_processing() {
     "#
     ));
 
-    assert!(!actual.contains("done"));
+    assert!(!actual.out.contains("done"));
 }

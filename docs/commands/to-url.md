@@ -1,4 +1,4 @@
-# to-url
+# to url
 
 Converts table data into url-formatted text.
 
@@ -13,7 +13,7 @@ Converts table data into url-formatted text.
  1 │   │ filesystem │ /home/shaurya/Pictures
  2 │   │ filesystem │ /home/shaurya/Desktop
 ━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━
-> shells | to-url
+> shells | to url
 ━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  # │ value
 ───┼───────────────────────────────────────────────────────
@@ -30,6 +30,6 @@ Converts table data into url-formatted text.
 ──────────┼────────┼──────┼────────
  baguette │ comté  │ ham  │ butter
 ━━━━━━━━━━┷━━━━━━━━┷━━━━━━┷━━━━━━━━
-> open sample.url  | to-url
+> open sample.url  | to url
 bread=baguette&cheese=comt%C3%A9&meat=ham&fat=butter
 ```

@@ -7,11 +7,11 @@ pub struct FromURL;
 
 impl WholeStreamCommand for FromURL {
     fn name(&self) -> &str {
-        "from-url"
+        "from url"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-url")
+        Signature::build("from url")
     }
 
     fn usage(&self) -> &str {

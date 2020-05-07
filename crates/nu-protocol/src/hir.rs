@@ -33,10 +33,13 @@ pub struct InternalCommand {
 impl InternalCommand {
     pub fn new(name: String, name_span: Span, full_span: Span) -> InternalCommand {
         InternalCommand {
-            name: name.clone(),
+            name,
             name_span,
             args: crate::hir::Call::new(
-                Box::new(SpannedExpression::new(Expression::string(name), name_span)),
+                Box::new(SpannedExpression::new(
+                    Expression::Command(name_span),
+                    name_span,
+                )),
                 full_span,
             ),
         }

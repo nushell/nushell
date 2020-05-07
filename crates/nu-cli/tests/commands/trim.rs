@@ -19,7 +19,7 @@ fn string() {
             let actual = nu!(
                 cwd: dirs.test(), pipeline(&commandline
             ));
-            assert_eq!(actual, test_string.trim())
+            assert_eq!(actual.out, test_string.trim())
         }
     })
 }
@@ -47,7 +47,7 @@ fn row() {
             "#
         ));
 
-        assert_eq!(actual, expected)
+        assert_eq!(actual.out, expected.out)
     })
 }
 
@@ -80,6 +80,6 @@ fn nested() {
             "#
         ));
 
-        assert_eq!(actual, expected)
+        assert_eq!(actual.out, expected.out)
     })
 }

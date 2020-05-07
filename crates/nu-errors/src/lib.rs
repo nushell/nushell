@@ -864,6 +864,12 @@ impl std::convert::From<Box<dyn std::error::Error + Send + Sync>> for ShellError
     }
 }
 
+impl std::convert::From<glob::PatternError> for ShellError {
+    fn from(input: glob::PatternError) -> ShellError {
+        ShellError::untagged_runtime_error(format!("{:?}", input))
+    }
+}
+
 pub trait CoerceInto<U> {
     fn coerce_into(self, operation: impl Into<String>) -> Result<U, ShellError>;
 }

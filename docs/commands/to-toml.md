@@ -1,4 +1,4 @@
-# to-toml
+# to toml
 
 Converts table data into toml text.
 
@@ -13,7 +13,7 @@ Converts table data into toml text.
  1 │   │ filesystem │ /home/shaurya/Pictures
  2 │   │ filesystem │ /home/shaurya/Desktop
 ━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━
-> shells | to-toml
+> shells | to toml
 [[]]
 " " = "X"
 name = "filesystem"
@@ -38,7 +38,7 @@ path = "/home/shaurya/Desktop"
 ────────────────┼──────────────────┼────────────────
  [table: 1 row] │ [table: 1 row]   │ [table: 1 row]
 ━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━
-> open cargo_sample.toml | to-toml
+> open cargo_sample.toml | to toml
 [dependencies]
 ansi_term = "0.11.0"
 app_dirs = "1.2.1"

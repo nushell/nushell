@@ -6,13 +6,13 @@ fn sets_the_column() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             open cargo_sample.toml
-            | edit dev-dependencies.pretty_assertions "0.7.0"
+            | update dev-dependencies.pretty_assertions "0.7.0"
             | get dev-dependencies.pretty_assertions
             | echo $it
         "#
     ));
 
-    assert_eq!(actual, "0.7.0");
+    assert_eq!(actual.out, "0.7.0");
 }
 
 #[test]
@@ -21,11 +21,11 @@ fn sets_the_column_from_a_block_run_output() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             open cargo_sample.toml
-            | edit dev-dependencies.pretty_assertions { open cargo_sample.toml | get dev-dependencies.pretty_assertions | inc --minor }
+            | update dev-dependencies.pretty_assertions { open cargo_sample.toml | get dev-dependencies.pretty_assertions | inc --minor }
             | get dev-dependencies.pretty_assertions
             | echo $it
         "#
     ));
 
-    assert_eq!(actual, "0.7.0");
+    assert_eq!(actual.out, "0.7.0");
 }

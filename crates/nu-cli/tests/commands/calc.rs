@@ -9,7 +9,7 @@ fn calculates_two_plus_two() {
         "#
     ));
 
-    assert!(actual.contains("4.0"));
+    assert!(actual.out.contains("4.0"));
 }
 
 #[test]
@@ -21,7 +21,7 @@ fn calculates_two_to_the_power_six() {
         "#
     ));
 
-    assert!(actual.contains("64.0"));
+    assert!(actual.out.contains("64.0"));
 }
 
 #[test]
@@ -33,7 +33,7 @@ fn calculates_three_multiplied_by_five() {
         "#
     ));
 
-    assert!(actual.contains("15.0"));
+    assert!(actual.out.contains("15.0"));
 }
 
 #[test]
@@ -45,5 +45,5 @@ fn calculates_twenty_four_divided_by_two() {
         "#
     ));
 
-    assert!(actual.contains("12.0"));
+    assert!(actual.out.contains("12.0"));
 }

@@ -22,7 +22,7 @@ fn gets_first_rows_by_amount() {
             "#
         ));
 
-        assert_eq!(actual, "3");
+        assert_eq!(actual.out, "3");
     })
 }
 
@@ -46,7 +46,7 @@ fn gets_all_rows_if_amount_higher_than_all_rows() {
             "#
         ));
 
-        assert_eq!(actual, "4");
+        assert_eq!(actual.out, "4");
     })
 }
 
@@ -65,6 +65,6 @@ fn gets_first_row_when_no_amount_given() {
             "#
         ));
 
-        assert_eq!(actual, "1");
+        assert_eq!(actual.out, "1");
     })
 }

@@ -10,6 +10,7 @@ use std::fmt::Debug;
 pub struct Scope {
     pub it: Value,
     pub vars: IndexMap<String, Value>,
+    pub env: IndexMap<String, String>,
 }
 
 impl Scope {
@@ -18,6 +19,7 @@ impl Scope {
         Scope {
             it,
             vars: IndexMap::new(),
+            env: IndexMap::new(),
         }
     }
 }
@@ -28,6 +30,7 @@ impl Scope {
         Scope {
             it: UntaggedValue::Primitive(Primitive::Nothing).into_untagged_value(),
             vars: IndexMap::new(),
+            env: IndexMap::new(),
         }
     }
 
@@ -36,6 +39,15 @@ impl Scope {
         Scope {
             it: value,
             vars: IndexMap::new(),
+            env: IndexMap::new(),
+        }
+    }
+
+    pub fn env(env: IndexMap<String, String>) -> Scope {
+        Scope {
+            it: UntaggedValue::Primitive(Primitive::Nothing).into_untagged_value(),
+            vars: IndexMap::new(),
+            env,
         }
     }
 
@@ -43,6 +55,7 @@ impl Scope {
         Scope {
             it: value,
             vars: self.vars,
+            env: self.env,
         }
     }
 
@@ -52,6 +65,17 @@ impl Scope {
         Scope {
             it: self.it,
             vars: new_vars,
+            env: self.env,
+        }
+    }
+
+    pub fn set_env_var(self, variable: String, value: String) -> Scope {
+        let mut new_env_vars = self.env.clone();
+        new_env_vars.insert(variable, value);
+        Scope {
+            it: self.it,
+            vars: self.vars,
+            env: new_env_vars,
         }
     }
 }

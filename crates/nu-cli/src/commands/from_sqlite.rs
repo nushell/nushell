@@ -10,11 +10,11 @@ pub struct FromSQLite;
 
 impl WholeStreamCommand for FromSQLite {
     fn name(&self) -> &str {
-        "from-sqlite"
+        "from sqlite"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-sqlite")
+        Signature::build("from sqlite")
     }
 
     fn usage(&self) -> &str {
@@ -34,11 +34,11 @@ pub struct FromDB;
 
 impl WholeStreamCommand for FromDB {
     fn name(&self) -> &str {
-        "from-db"
+        "from db"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-db")
+        Signature::build("from db")
     }
 
     fn usage(&self) -> &str {

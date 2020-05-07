@@ -37,7 +37,7 @@ fn condition_is_met() {
                 | skip 2
                 | split-column ','
                 | headers
-                | skip-until "Chicken Collection" != "Red Chickens"
+                | skip-until "Chicken Collection" == "Red Chickens"
                 | str "31/04/2020" --to-int
                 | get "31/04/2020"
                 | sum
@@ -45,6 +45,6 @@ fn condition_is_met() {
                 "#
         ));
 
-        assert_eq!(actual, "12");
+        assert_eq!(actual.out, "12");
     })
 }

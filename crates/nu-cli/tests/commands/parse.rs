@@ -25,6 +25,6 @@ fn extracts_fields_from_the_given_the_pattern() {
             "#
         ));
 
-        assert_eq!(actual, "JonathanParsed");
+        assert_eq!(actual.out, "JonathanParsed");
     })
 }

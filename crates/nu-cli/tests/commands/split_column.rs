@@ -16,5 +16,5 @@ fn by_column() {
         "#
     ));
 
-    assert_eq!(actual, "name");
+    assert_eq!(actual.out, "name");
 }

@@ -107,6 +107,7 @@ impl Shell for FilesystemShell {
             full,
             short_names,
             with_symlink_targets,
+            du,
         }: LsArgs,
         context: &RunnableContext,
     ) -> Result<OutputStream, ShellError> {
@@ -170,7 +171,8 @@ impl Shell for FilesystemShell {
                     name_tag.clone(),
                     full,
                     short_names,
-                    with_symlink_targets
+                    with_symlink_targets,
+                    du,
                 )
                 .map(|entry| ReturnSuccess::Value(entry.into()))?;
 

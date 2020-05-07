@@ -8,11 +8,11 @@ pub struct FromINI;
 
 impl WholeStreamCommand for FromINI {
     fn name(&self) -> &str {
-        "from-ini"
+        "from ini"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-ini")
+        Signature::build("from ini")
     }
 
     fn usage(&self) -> &str {

@@ -82,13 +82,13 @@ fn each(
 
             match result {
                 Ok(mut stream) => {
+                    while let Some(result) = stream.next().await {
+                        yield Ok(ReturnSuccess::Value(result));
+                    }
+
                     let errors = context.get_errors();
                     if let Some(error) = errors.first() {
                         yield Err(error.clone());
-                    }
-
-                    while let Some(result) = stream.next().await {
-                        yield Ok(ReturnSuccess::Value(result));
                     }
                 }
                 Err(e) => {

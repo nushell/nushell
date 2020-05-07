@@ -19,7 +19,7 @@ fn wrap_rows_into_a_row() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_caballeros.txt
-                | from-csv
+                | from csv
                 | wrap caballeros
                 | get caballeros
                 | nth 0
@@ -28,7 +28,7 @@ fn wrap_rows_into_a_row() {
             "#
         ));
 
-        assert_eq!(actual, "Robalino");
+        assert_eq!(actual.out, "Robalino");
     })
 }
 
@@ -49,7 +49,7 @@ fn wrap_rows_into_a_table() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_caballeros.txt
-                | from-csv
+                | from csv
                 | get last_name
                 | wrap caballero
                 | nth 2
@@ -58,6 +58,6 @@ fn wrap_rows_into_a_table() {
             "#
         ));
 
-        assert_eq!(actual, "Katz");
+        assert_eq!(actual.out, "Katz");
     })
 }

@@ -17,3 +17,6 @@ debian/nu/
 
 # JetBrains' IDE items
 .idea/*
+
+# VSCode's IDE items
+.vscode/*

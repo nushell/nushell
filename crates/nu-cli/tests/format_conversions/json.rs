@@ -8,14 +8,14 @@ fn table_to_json_text_and_from_json_text_back_into_table() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             open sgml_description.json
-            | to-json
-            | from-json
+            | to json
+            | from json
             | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee
             | echo $it
         "#
     ));
 
-    assert_eq!(actual, "markup");
+    assert_eq!(actual.out, "markup");
 }
 
 #[test]
@@ -37,10 +37,10 @@ fn from_json_text_to_table() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "open katz.txt | from-json | get katz | get rusty_luck | count | echo $it"
+            "open katz.txt | from json | get katz | get rusty_luck | count | echo $it"
         );
 
-        assert_eq!(actual, "4");
+        assert_eq!(actual.out, "4");
     })
 }
 
@@ -61,14 +61,14 @@ fn from_json_text_recognizing_objects_independently_to_table() {
             cwd: dirs.test(), pipeline(
             r#"
                 open katz.txt
-                | from-json -o
+                | from json -o
                 | where name == "GorbyPuff"
                 | get rusty_luck
                 | echo $it
             "#
         ));
 
-        assert_eq!(actual, "3");
+        assert_eq!(actual.out, "3");
     })
 }
 
@@ -89,15 +89,15 @@ fn table_to_json_text() {
                 open sample.txt
                 | lines
                 | split-column "," name luck
-                | pick name
-                | to-json
-                | from-json
+                | select name
+                | to json
+                | from json
                 | nth 0
                 | get name
                 | echo $it
             "#
         ));
 
-        assert_eq!(actual, "JonAndrehudaTZ");
+        assert_eq!(actual.out, "JonAndrehudaTZ");
     })
 }

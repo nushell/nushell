@@ -407,7 +407,7 @@ impl Command {
 
     pub fn run(&self, args: CommandArgs, registry: &CommandRegistry) -> OutputStream {
         if args.call_info.switch_present("help") {
-            get_help(self.name(), self.usage(), self.signature()).into()
+            get_help(self.name(), self.usage(), self.signature(), registry).into()
         } else {
             match self.0.run(args, registry) {
                 Ok(stream) => stream,

@@ -5,9 +5,9 @@ fn each_works_separately() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-        echo [1 2 3] | each { echo $it 10 | sum } | to-json | echo $it
+        echo [1 2 3] | each { echo $it 10 | sum } | to json | echo $it
         "#
     ));
 
-    assert_eq!(actual, "[11,12,13]");
+    assert_eq!(actual.out, "[11,12,13]");
 }

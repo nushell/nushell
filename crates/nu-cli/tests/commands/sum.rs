@@ -29,7 +29,7 @@ fn all() {
             "#
         ));
 
-        assert_eq!(actual, "448");
+        assert_eq!(actual.out, "448");
     })
 }
 
@@ -57,6 +57,6 @@ fn outputs_zero_with_no_input() {
             "#
         ));
 
-        assert_eq!(actual, "0");
+        assert_eq!(actual.out, "0");
     })
 }

@@ -1,6 +1,6 @@
 use nu_test_support::fs::{files_exist_at, AbsoluteFile, Stub::EmptyFile};
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, nu_error};
 use std::path::Path;
 
 #[test]
@@ -34,13 +34,13 @@ fn copies_the_file_inside_directory_if_path_to_copy_is_directory() {
 #[test]
 fn error_if_attempting_to_copy_a_directory_to_another_directory() {
     Playground::setup("cp_test_3", |dirs, _| {
-        let actual = nu_error!(
+        let actual = nu!(
             cwd: dirs.formats(),
             "cp ../formats {}", dirs.test()
         );
 
-        assert!(actual.contains("../formats"));
-        assert!(actual.contains("resolves to a directory (not copied)"));
+        assert!(actual.err.contains("../formats"));
+        assert!(actual.err.contains("resolves to a directory (not copied)"));
     });
 }
 

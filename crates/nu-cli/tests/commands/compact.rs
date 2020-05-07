@@ -30,7 +30,7 @@ fn discards_rows_where_given_column_is_empty() {
             "#
         ));
 
-        assert_eq!(actual, "3");
+        assert_eq!(actual.out, "3");
     });
 }
 #[test]
@@ -40,13 +40,13 @@ fn discards_empty_rows_by_default() {
             cwd: dirs.test(), pipeline(
             r#"
                 echo "[1,2,3,14,null]"
-                | from-json
+                | from json
                 | compact
                 | count
                 | echo $it
             "#
         ));
 
-        assert_eq!(actual, "4");
+        assert_eq!(actual.out, "4");
     });
 }

@@ -10,15 +10,15 @@ pub struct FromBSON;
 
 impl WholeStreamCommand for FromBSON {
     fn name(&self) -> &str {
-        "from-bson"
+        "from bson"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-bson")
+        Signature::build("from bson")
     }
 
     fn usage(&self) -> &str {
-        "Parse text as .bson and create table."
+        "Parse binary as .bson and create table."
     }
 
     fn run(

@@ -1,6 +1,6 @@
-# from-xlsx
+# from xlsx
 
-Parses MS Excel binary data into a table. `open` calls `from-xlsx` automatically when the file extension  is `xlsx`. Use this command when `open` is unable to guess the file type from the extension.
+Parses MS Excel binary data into a table. `open` calls `from xlsx` automatically when the file extension  is `xlsx`. Use this command when `open` is unable to guess the file type from the extension.
 
 ## Examples
 
@@ -20,7 +20,7 @@ Length: 6344 (0x18c8) bytes
 18a0:   6b 73 68 65  65 74 73 2f  73 68 65 65  74 31 2e 78   ksheets/sheet1.x
 18b0:   6d 6c 50 4b  05 06 00 00  00 00 0a 00  0a 00 7f 02   mlPK............
 18c0:   00 00 33 16  00 00 00 00                             ..3.....
-> open abc.xlsx --raw | from-xlsx
+> open abc.xlsx --raw | from xlsx
 ─────────────────
  Sheet1
 ─────────────────

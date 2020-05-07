@@ -6,10 +6,10 @@ use nu_test_support::{nu, pipeline};
 fn table_to_csv_text_and_from_csv_text_back_into_table() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "open caco3_plastics.csv | to-csv | from-csv | first 1 | get origin | echo $it"
+        "open caco3_plastics.csv | to csv | from csv | first 1 | get origin | echo $it"
     );
 
-    assert_eq!(actual, "SPAIN");
+    assert_eq!(actual.out, "SPAIN");
 }
 
 #[test]
@@ -32,14 +32,16 @@ fn table_to_csv_text() {
                 | trim
                 | split-column "," a b c d origin
                 | last 1
-                | to-csv
+                | to csv
                 | lines
                 | nth 1
                 | echo $it
             "#
         ));
 
-        assert!(actual.contains("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia"));
+        assert!(actual
+            .out
+            .contains("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia"));
     })
 }
 
@@ -63,12 +65,14 @@ fn table_to_csv_text_skipping_headers_after_conversion() {
                 | trim
                 | split-column "," a b c d origin
                 | last 1
-                | to-csv --headerless
+                | to csv --headerless
                 | echo $it
             "#
         ));
 
-        assert!(actual.contains("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia"));
+        assert!(actual
+            .out
+            .contains("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia"));
     })
 }
 
@@ -96,7 +100,7 @@ fn infers_types() {
             "#
         ));
 
-        assert_eq!(actual, "4");
+        assert_eq!(actual.out, "4");
     })
 }
 
@@ -117,14 +121,14 @@ fn from_csv_text_to_table() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_caballeros.txt
-                | from-csv
+                | from csv
                 | get rusty_luck
                 | count
                 | echo $it
             "#
         ));
 
-        assert_eq!(actual, "3");
+        assert_eq!(actual.out, "3");
     })
 }
 
@@ -145,14 +149,14 @@ fn from_csv_text_with_separator_to_table() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_caballeros.txt
-                | from-csv --separator ';'
+                | from csv --separator ';'
                 | get rusty_luck
                 | count
                 | echo $it
             "#
         ));
 
-        assert_eq!(actual, "3");
+        assert_eq!(actual.out, "3");
     })
 }
 
@@ -173,14 +177,14 @@ fn from_csv_text_with_tab_separator_to_table() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_caballeros.txt
-                | from-csv --separator '\t'
+                | from csv --separator '\t'
                 | get rusty_luck
                 | count
                 | echo $it
             "#
         ));
 
-        assert_eq!(actual, "3");
+        assert_eq!(actual.out, "3");
     })
 }
 
@@ -200,13 +204,13 @@ fn from_csv_text_skipping_headers_to_table() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_amigos.txt
-                | from-csv --headerless
+                | from csv --headerless
                 | get Column3
                 | count
                 | echo $it
             "#
         ));
 
-        assert_eq!(actual, "3");
+        assert_eq!(actual.out, "3");
     })
 }
