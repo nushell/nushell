@@ -339,16 +339,27 @@ fn spawn(
                                 }
                             }
                         },
-                        Err(_) => {
-                            let _ = stdout_read_tx.send(Ok(Value {
-                                value: UntaggedValue::Error(ShellError::labeled_error(
-                                    "Unable to read from stdout.",
-                                    "unable to read from stdout",
-                                    &stdout_name_tag,
-                                )),
-                                tag: stdout_name_tag.clone(),
-                            }));
-                            break;
+                        Err(e) => {
+                            // If there's an exit status, it makes sense that we may error when
+                            // trying to read from its stdout pipe (likely been closed). In that
+                            // case, don't emit an error.
+                            let should_error = match child.wait() {
+                                Ok(exit_status) => !exit_status.success(),
+                                Err(_) => true,
+                            };
+
+                            if should_error {
+                                let _ = stdout_read_tx.send(Ok(Value {
+                                    value: UntaggedValue::Error(ShellError::labeled_error(
+                                        format!("Unable to read from stdout ({})", e),
+                                        "unable to read from stdout",
+                                        &stdout_name_tag,
+                                    )),
+                                    tag: stdout_name_tag.clone(),
+                                }));
+                            }
+
+                            return Ok(());
                         }
                     }
                 }
@@ -358,10 +369,7 @@ fn spawn(
             // than what other shells will do.
             let external_failed = match child.wait() {
                 Err(_) => true,
-                Ok(exit_status) => match exit_status.code() {
-                    Some(e) if e != 0 => true,
-                    _ => false,
-                },
+                Ok(exit_status) => !exit_status.success(),
             };
 
             if external_failed {
