@@ -13,5 +13,5 @@ fn from_excel_file_to_table() {
         "#
     ));
 
-    assert_eq!(actual, "Gill");
+    assert_eq!(actual.out, "Gill");
 }

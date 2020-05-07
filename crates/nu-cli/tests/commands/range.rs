@@ -18,7 +18,7 @@ fn selects_a_row() {
             "#
         ));
 
-        assert_eq!(actual, "notes.txt");
+        assert_eq!(actual.out, "notes.txt");
     });
 }
 
@@ -42,6 +42,6 @@ fn selects_some_rows() {
             "#
         ));
 
-        assert_eq!(actual, "2");
+        assert_eq!(actual.out, "2");
     });
 }

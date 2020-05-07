@@ -12,5 +12,5 @@ fn insert_plugin() {
         "#
     ));
 
-    assert_eq!(actual, "1");
+    assert_eq!(actual.out, "1");
 }

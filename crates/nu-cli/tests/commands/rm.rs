@@ -1,6 +1,6 @@
 use nu_test_support::fs::{files_exist_at, Stub::EmptyFile};
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, nu_error};
 
 #[test]
 fn removes_a_file() {
@@ -126,37 +126,37 @@ fn errors_if_attempting_to_delete_a_directory_with_content_without_recursive_fla
     Playground::setup("rm_test_6", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("some_empty_file.txt")]);
 
-        let actual = nu_error!(
+        let actual = nu!(
             cwd: dirs.root(),
             "rm rm_test_6"
         );
 
         assert!(dirs.test().exists());
-        assert!(actual.contains("cannot remove non-empty directory"));
+        assert!(actual.err.contains("cannot remove non-empty directory"));
     })
 }
 
 #[test]
 fn errors_if_attempting_to_delete_single_dot_as_argument() {
     Playground::setup("rm_test_7", |dirs, _| {
-        let actual = nu_error!(
+        let actual = nu!(
             cwd: dirs.root(),
             "rm ."
         );
 
-        assert!(actual.contains("cannot remove any parent directory"));
+        assert!(actual.err.contains("cannot remove any parent directory"));
     })
 }
 
 #[test]
 fn errors_if_attempting_to_delete_two_dot_as_argument() {
     Playground::setup("rm_test_8", |dirs, _| {
-        let actual = nu_error!(
+        let actual = nu!(
             cwd: dirs.root(),
             "rm .."
         );
 
-        assert!(actual.contains("cannot remove any parent directory"));
+        assert!(actual.err.contains("cannot remove any parent directory"));
     })
 }
 
@@ -239,7 +239,7 @@ fn allows_doubly_specified_file() {
             Playground::glob_vec(&format!("{}/*", dirs.test().display())),
             Vec::<std::path::PathBuf>::new()
         );
-        assert!(!actual.contains("error"))
+        assert!(!actual.out.contains("error"))
     })
 }
 

@@ -26,7 +26,10 @@ fn summarizes() {
             "#
         ));
 
-        assert_eq!(actual, "**************************************************");
+        assert_eq!(
+            actual.out,
+            "**************************************************"
+        );
         // 50%
     })
 }
@@ -55,7 +58,7 @@ fn help() {
             "#
         ));
 
-        assert_eq!(help_short, help_command);
-        assert_eq!(help_long, help_command);
+        assert_eq!(help_short.out, help_command.out);
+        assert_eq!(help_long.out, help_command.out);
     })
 }

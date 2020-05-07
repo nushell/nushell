@@ -12,7 +12,7 @@ fn headers_uses_first_row_as_header() {
             | from json"#
     ));
 
-    assert_eq!(actual, "r1c0r2c0")
+    assert_eq!(actual.out, "r1c0r2c0")
 }
 
 #[test]
@@ -27,5 +27,5 @@ fn headers_adds_missing_column_name() {
             | from json"#
     ));
 
-    assert_eq!(actual, "r1c1r2c1")
+    assert_eq!(actual.out, "r1c1r2c1")
 }

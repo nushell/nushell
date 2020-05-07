@@ -10,19 +10,19 @@ use nu_source::span_for_spanned_list;
 use nu_value_ext::{as_string, get_data_by_column_path};
 
 #[derive(Deserialize)]
-struct PickArgs {
+struct SelectArgs {
     rest: Vec<ColumnPath>,
 }
 
-pub struct Pick;
+pub struct Select;
 
-impl WholeStreamCommand for Pick {
+impl WholeStreamCommand for Select {
     fn name(&self) -> &str {
-        "pick"
+        "select"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pick").rest(
+        Signature::build("select").rest(
             SyntaxShape::ColumnPath,
             "the columns to select from the table",
         )
@@ -37,19 +37,19 @@ impl WholeStreamCommand for Pick {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, pick)?.run()
+        args.process(registry, select)?.run()
     }
 }
 
-fn pick(
-    PickArgs { rest: mut fields }: PickArgs,
+fn select(
+    SelectArgs { rest: mut fields }: SelectArgs,
     RunnableContext {
         mut input, name, ..
     }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     if fields.is_empty() {
         return Err(ShellError::labeled_error(
-            "Pick requires columns to pick",
+            "Select requires columns to select",
             "needs parameter",
             name,
         ));
@@ -76,7 +76,7 @@ fn pick(
                     if let PathMember { unspanned: UnspannedPathMember::String(column), .. } = path_member_tried {
                         return ShellError::labeled_error_with_secondary(
                         "No data to fetch.",
-                        format!("Couldn't pick column \"{}\"", column),
+                        format!("Couldn't select column \"{}\"", column),
                         path_member_tried.span,
                         format!("How about exploring it with \"get\"? Check the input is appropriate originating from here"),
                         obj_source.tag.span)

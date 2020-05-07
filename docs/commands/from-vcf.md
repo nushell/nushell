@@ -29,7 +29,7 @@ Pass the output of the `open` command to `from vcf` to get a correctly formatted
 ```
 
 ```shell
-> open contacts.txt | from vcf | get properties | where $it.name == "FN" | pick value
+> open contacts.txt | from vcf | get properties | where $it.name == "FN" | select value
 ─────┬──────────────────────
  #   │ value
 ─────┼──────────────────────

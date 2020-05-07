@@ -19,7 +19,7 @@ fn by_column() {
         "#
     ));
 
-    assert_eq!(actual, "description");
+    assert_eq!(actual.out, "description");
 }
 
 #[test]
@@ -37,5 +37,5 @@ fn sort_primitive_values() {
         "#
     ));
 
-    assert_eq!(actual, "authors = [\"The Nu Project Contributors\"]");
+    assert_eq!(actual.out, "authors = [\"The Nu Project Contributors\"]");
 }

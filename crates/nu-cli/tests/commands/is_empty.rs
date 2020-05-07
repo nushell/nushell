@@ -27,7 +27,7 @@ fn adds_value_provided_if_column_is_empty() {
             "#
         ));
 
-        assert_eq!(actual, "4");
+        assert_eq!(actual.out, "4");
     })
 }
 
@@ -58,7 +58,7 @@ fn adds_value_provided_for_columns_that_are_empty() {
             "#
         ));
 
-        assert_eq!(actual, "8");
+        assert_eq!(actual.out, "8");
     })
 }
 
@@ -91,6 +91,6 @@ fn value_emptiness_check() {
             "#
         ));
 
-        assert_eq!(actual, "4");
+        assert_eq!(actual.out, "4");
     })
 }

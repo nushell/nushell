@@ -1,15 +1,15 @@
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, nu_error, pipeline};
+use nu_test_support::{nu, pipeline};
 
 #[test]
 fn can_only_apply_one() {
-    let actual = nu_error!(
+    let actual = nu!(
         cwd: "tests/fixtures/formats",
         "open caco3_plastics.csv | first 1 | str origin --downcase --upcase"
     );
 
-    assert!(actual.contains(r#"--capitalize|--downcase|--upcase|--to-int|--substring "start,end"|--replace|--find-replace [pattern replacement]|to-date-time|--trim]"#));
+    assert!(actual.err.contains(r#"--capitalize|--downcase|--upcase|--to-int|--substring "start,end"|--replace|--find-replace [pattern replacement]|to-date-time|--trim]"#));
 }
 
 #[test]
@@ -29,7 +29,7 @@ fn acts_without_passing_field() {
             "open sample.yml | get environment.global.PROJECT_NAME | str --upcase | echo $it"
         );
 
-        assert_eq!(actual, "NUSHELL");
+        assert_eq!(actual.out, "NUSHELL");
     })
 }
 
@@ -49,7 +49,7 @@ fn trims() {
             "open sample.toml | str dependency.name --trim | get dependency.name | echo $it"
         );
 
-        assert_eq!(actual, "nu");
+        assert_eq!(actual.out, "nu");
     })
 }
 
@@ -69,7 +69,7 @@ fn capitalizes() {
             "open sample.toml | str dependency.name --capitalize | get dependency.name | echo $it"
         );
 
-        assert_eq!(actual, "Nu");
+        assert_eq!(actual.out, "Nu");
     })
 }
 
@@ -89,7 +89,7 @@ fn downcases() {
             "open sample.toml | str dependency.name -d | get dependency.name | echo $it"
         );
 
-        assert_eq!(actual, "light");
+        assert_eq!(actual.out, "light");
     })
 }
 
@@ -109,7 +109,7 @@ fn upcases() {
             "open sample.toml | str package.name --upcase | get package.name | echo $it"
         );
 
-        assert_eq!(actual, "NUSHELL");
+        assert_eq!(actual.out, "NUSHELL");
     })
 }
 
@@ -128,7 +128,7 @@ fn converts_to_int() {
         "#
     ));
 
-    assert_eq!(actual, "1");
+    assert_eq!(actual.out, "1");
 }
 
 #[test]
@@ -152,7 +152,7 @@ fn replaces() {
              "#
         ));
 
-        assert_eq!(actual, "wykittenshell");
+        assert_eq!(actual.out, "wykittenshell");
     })
 }
 
@@ -177,7 +177,7 @@ fn find_and_replaces() {
              "#
         ));
 
-        assert_eq!(actual, "1-800-5289");
+        assert_eq!(actual.out, "1-800-5289");
     })
 }
 
@@ -202,6 +202,6 @@ fn find_and_replaces_without_passing_field() {
              "#
         ));
 
-        assert_eq!(actual, "1-800-5289");
+        assert_eq!(actual.out, "1-800-5289");
     })
 }

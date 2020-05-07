@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, nu_error, pipeline};
+use nu_test_support::{nu, pipeline};
 
 #[test]
 fn fetches_a_row() {
@@ -21,7 +21,7 @@ fn fetches_a_row() {
             "#
         ));
 
-        assert_eq!(actual, "zion");
+        assert_eq!(actual.out, "zion");
     })
 }
 
@@ -48,7 +48,7 @@ fn fetches_by_index() {
             "#
         ));
 
-        assert_eq!(actual, "Andrés N. Robalino <andres@androbtech.com>");
+        assert_eq!(actual.out, "Andrés N. Robalino <andres@androbtech.com>");
     })
 }
 #[test]
@@ -71,7 +71,7 @@ fn fetches_by_column_path() {
             "#
         ));
 
-        assert_eq!(actual, "nu");
+        assert_eq!(actual.out, "nu");
     })
 }
 
@@ -97,7 +97,7 @@ fn column_paths_are_either_double_quoted_or_regular_unquoted_words_separated_by_
             "#
         ));
 
-        assert_eq!(actual, "3");
+        assert_eq!(actual.out, "3");
     })
 }
 
@@ -131,7 +131,7 @@ fn fetches_more_than_one_column_path() {
             "#
         ));
 
-        assert_eq!(actual, "Jonathan Turner");
+        assert_eq!(actual.out, "Jonathan Turner");
     })
 }
 
@@ -146,7 +146,7 @@ fn errors_fetching_by_column_not_present() {
             "#,
         )]);
 
-        let actual = nu_error!(
+        let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
                 open sample.toml
@@ -155,16 +155,16 @@ fn errors_fetching_by_column_not_present() {
         ));
 
         assert!(
-            actual.contains("Unknown column"),
-            format!("actual: {:?}", actual)
+            actual.err.contains("Unknown column"),
+            format!("actual: {:?}", actual.err)
         );
         assert!(
-            actual.contains("There isn't a column named 'taco'"),
-            format!("actual: {:?}", actual)
+            actual.err.contains("There isn't a column named 'taco'"),
+            format!("actual: {:?}", actual.err)
         );
         assert!(
-            actual.contains("Perhaps you meant 'taconushell'?"),
-            format!("actual: {:?}", actual)
+            actual.err.contains("Perhaps you meant 'taconushell'?"),
+            format!("actual: {:?}", actual.err)
         )
     })
 }
@@ -180,7 +180,7 @@ fn errors_fetching_by_column_using_a_number() {
             "#,
         )]);
 
-        let actual = nu_error!(
+        let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
                 open sample.toml
@@ -189,16 +189,18 @@ fn errors_fetching_by_column_using_a_number() {
         ));
 
         assert!(
-            actual.contains("No rows available"),
-            format!("actual: {:?}", actual)
+            actual.err.contains("No rows available"),
+            format!("actual: {:?}", actual.err)
         );
         assert!(
-            actual.contains("A row at '0' can't be indexed."),
-            format!("actual: {:?}", actual)
+            actual.err.contains("A row at '0' can't be indexed."),
+            format!("actual: {:?}", actual.err)
         );
         assert!(
-            actual.contains("Appears to contain columns. Columns available: 0"),
-            format!("actual: {:?}", actual)
+            actual
+                .err
+                .contains("Appears to contain columns. Columns available: 0"),
+            format!("actual: {:?}", actual.err)
         )
     })
 }
@@ -213,7 +215,7 @@ fn errors_fetching_by_index_out_of_bounds() {
             "#,
         )]);
 
-        let actual = nu_error!(
+        let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
                 open sample.toml
@@ -222,16 +224,16 @@ fn errors_fetching_by_index_out_of_bounds() {
         ));
 
         assert!(
-            actual.contains("Row not found"),
-            format!("actual: {:?}", actual)
+            actual.err.contains("Row not found"),
+            format!("actual: {:?}", actual.err)
         );
         assert!(
-            actual.contains("There isn't a row indexed at 3"),
-            format!("actual: {:?}", actual)
+            actual.err.contains("There isn't a row indexed at 3"),
+            format!("actual: {:?}", actual.err)
         );
         assert!(
-            actual.contains("The table only has 3 rows (0 to 2)"),
-            format!("actual: {:?}", actual)
+            actual.err.contains("The table only has 3 rows (0 to 2)"),
+            format!("actual: {:?}", actual.err)
         )
     })
 }
@@ -243,5 +245,5 @@ fn quoted_column_access() {
         r#"echo '[{"foo bar": {"baz": 4}}]' | from json | get "foo bar".baz | echo $it"#
     );
 
-    assert_eq!(actual, "4");
+    assert_eq!(actual.out, "4");
 }

@@ -9,7 +9,7 @@ fn table_to_tsv_text_and_from_tsv_text_back_into_table() {
         "open caco3_plastics.tsv | to tsv | from tsv | first 1 | get origin | echo $it"
     );
 
-    assert_eq!(actual, "SPAIN");
+    assert_eq!(actual.out, "SPAIN");
 }
 
 #[test]
@@ -19,7 +19,7 @@ fn table_to_tsv_text_and_from_tsv_text_back_into_table_using_csv_separator() {
         r"open caco3_plastics.tsv | to tsv | from csv --separator '\t' | first 1 | get origin | echo $it"
     );
 
-    assert_eq!(actual, "SPAIN");
+    assert_eq!(actual.out, "SPAIN");
 }
 
 #[test]
@@ -48,7 +48,7 @@ fn table_to_tsv_text() {
             "#
         ));
 
-        assert!(actual.contains("Colombia"));
+        assert!(actual.out.contains("Colombia"));
     })
 }
 
@@ -76,7 +76,7 @@ fn table_to_tsv_text_skipping_headers_after_conversion() {
             "#
         ));
 
-        assert!(actual.contains("Colombia"));
+        assert!(actual.out.contains("Colombia"));
     })
 }
 
@@ -104,7 +104,7 @@ fn from_tsv_text_to_table() {
             "#
         ));
 
-        assert_eq!(actual, "3");
+        assert_eq!(actual.out, "3");
     })
 }
 
@@ -131,6 +131,6 @@ fn from_tsv_text_skipping_headers_to_table() {
             "#
         ));
 
-        assert_eq!(actual, "3");
+        assert_eq!(actual.out, "3");
     })
 }

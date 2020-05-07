@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, nu_error, pipeline};
+use nu_test_support::{nu, pipeline};
 
 #[test]
 fn groups() {
@@ -26,7 +26,7 @@ fn groups() {
             "#
         ));
 
-        assert_eq!(actual, "2");
+        assert_eq!(actual.out, "2");
     })
 }
 
@@ -43,7 +43,7 @@ fn errors_if_given_unknown_column_name_is_missing() {
             "#,
         )]);
 
-        let actual = nu_error!(
+        let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_caballeros.csv
@@ -51,6 +51,6 @@ fn errors_if_given_unknown_column_name_is_missing() {
             "#
         ));
 
-        assert!(actual.contains("Unknown column"));
+        assert!(actual.err.contains("Unknown column"));
     })
 }

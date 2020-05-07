@@ -12,6 +12,6 @@ fn alias_args_work() {
             "#
         );
 
-        assert_eq!(actual, "[1,2]");
+        assert_eq!(actual.out, "[1,2]");
     })
 }

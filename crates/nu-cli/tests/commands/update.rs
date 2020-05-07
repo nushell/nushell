@@ -12,7 +12,7 @@ fn sets_the_column() {
         "#
     ));
 
-    assert_eq!(actual, "0.7.0");
+    assert_eq!(actual.out, "0.7.0");
 }
 
 #[test]
@@ -27,5 +27,5 @@ fn sets_the_column_from_a_block_run_output() {
         "#
     ));
 
-    assert_eq!(actual, "0.7.0");
+    assert_eq!(actual.out, "0.7.0");
 }

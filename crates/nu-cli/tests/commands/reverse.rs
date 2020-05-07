@@ -7,5 +7,5 @@ fn can_get_reverse_first() {
         "ls | sort-by name | reverse | first 1 | get name | trim | echo $it"
     );
 
-    assert_eq!(actual, "utf16.ini");
+    assert_eq!(actual.out, "utf16.ini");
 }

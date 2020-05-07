@@ -33,7 +33,7 @@ Syntax: `wrap <column>`
 `wrap` will encapsulate rows as embedded tables :
 
 ```shell
-/home/chris> ls | pick name type size
+/home/chris> ls | select name type size
 ───┬──────────────┬──────┬─────────
  # │ name         │ type │ size
 ───┼──────────────┼──────┼─────────
@@ -41,7 +41,7 @@ Syntax: `wrap <column>`
  1 │ iso.csv      │ File │ 20.8 KB
 ───┴──────────────┴──────┴─────────
 
-/home/chris> ls | pick name type size | each {wrap details}
+/home/chris> ls | select name type size | each {wrap details}
 ───┬────────────────
  # │ details
 ───┼────────────────

@@ -9,7 +9,7 @@ fn out_md_simple() {
         "#
     ));
 
-    assert_eq!(actual, "3");
+    assert_eq!(actual.out, "3");
 }
 
 #[test]
@@ -21,5 +21,5 @@ fn out_md_table() {
         "#
     ));
 
-    assert_eq!(actual, "|name||-||jason|");
+    assert_eq!(actual.out, "|name||-||jason|");
 }

@@ -17,5 +17,5 @@ fn lines() {
         "#
     ));
 
-    assert_eq!(actual, "rustyline");
+    assert_eq!(actual.out, "rustyline");
 }

@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::{EmptyFile, FileWithContentToBeTrimmed};
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, nu_error, pipeline};
+use nu_test_support::{nu, pipeline};
 
 #[test]
 fn splits() {
@@ -27,7 +27,7 @@ fn splits() {
             "#
         ));
 
-        assert_eq!(actual, "2");
+        assert_eq!(actual.out, "2");
     })
 }
 
@@ -41,7 +41,7 @@ fn errors_if_no_table_given_as_input() {
             EmptyFile("arepas.clu"),
         ]);
 
-        let actual = nu_error!(
+        let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
                 ls
@@ -50,6 +50,6 @@ fn errors_if_no_table_given_as_input() {
             "#
         ));
 
-        assert!(actual.contains("Expected table from pipeline"));
+        assert!(actual.err.contains("Expected table from pipeline"));
     })
 }

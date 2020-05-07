@@ -7,7 +7,7 @@ fn with_env_extends_environment() {
         "with-env [FOO BARRRR] {echo $nu.env} | get FOO"
     );
 
-    assert_eq!(actual, "BARRRR");
+    assert_eq!(actual.out, "BARRRR");
 }
 
 #[test]
@@ -17,5 +17,5 @@ fn with_env_shorthand() {
         "FOO=BARRRR echo $nu.env | get FOO"
     );
 
-    assert_eq!(actual, "BARRRR");
+    assert_eq!(actual.out, "BARRRR");
 }

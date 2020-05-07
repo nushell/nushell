@@ -9,5 +9,5 @@ fn each_works_separately() {
         "#
     ));
 
-    assert_eq!(actual, "[11,12,13]");
+    assert_eq!(actual.out, "[11,12,13]");
 }

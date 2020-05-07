@@ -285,7 +285,7 @@ pub fn create_default_context(
             whole_stream_command(Parse),
             // Column manipulation
             whole_stream_command(Reject),
-            whole_stream_command(Pick),
+            whole_stream_command(Select),
             whole_stream_command(Get),
             whole_stream_command(Update),
             whole_stream_command(Insert),
