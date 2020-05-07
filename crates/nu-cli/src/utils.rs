@@ -171,13 +171,8 @@ mod tests {
     use super::{FileStructure, Res, ValueResource, ValueStructure};
     use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
     use nu_source::Tag;
-    use nu_test_support::fs;
+    use nu_test_support::{fs::Stub::EmptyFile, playground::Playground};
     use std::path::PathBuf;
-
-    fn fixtures() -> PathBuf {
-        let fixtures = fs::fixtures().join("formats");
-        dunce::canonicalize(fixtures).expect("Wrong path")
-    }
 
     fn structured_sample_record(key: &str, value: &str) -> Value {
         let mut record = TaggedDictBuilder::new(Tag::unknown());
@@ -265,83 +260,35 @@ mod tests {
 
     #[test]
     fn prepares_and_decorates_filesystem_source_files() {
-        let mut res = FileStructure::new();
+        Playground::setup("file_structure_test", |dirs, sandbox| {
+            sandbox.with_files(vec![
+                EmptyFile("sample.ini"),
+                EmptyFile("sample.eml"),
+                EmptyFile("cargo_sample.toml"),
+            ]);
 
-        res.walk_decorate(&fixtures())
-            .expect("Can not decorate files traversal.");
+            let mut res = FileStructure::new();
 
-        assert_eq!(
-            res.resources,
-            vec![
-                Res {
-                    loc: fixtures().join("appveyor.yml"),
-                    at: 0
-                },
-                Res {
-                    loc: fixtures().join("caco3_plastics.csv"),
-                    at: 0
-                },
-                Res {
-                    loc: fixtures().join("caco3_plastics.tsv"),
-                    at: 0
-                },
-                Res {
-                    loc: fixtures().join("cargo_sample.toml"),
-                    at: 0
-                },
-                Res {
-                    loc: fixtures().join("jonathan.xml"),
-                    at: 0
-                },
-                Res {
-                    loc: fixtures().join("sample.bson"),
-                    at: 0
-                },
-                Res {
-                    loc: fixtures().join("sample.db"),
-                    at: 0
-                },
-                Res {
-                    loc: fixtures().join("sample.eml"),
-                    at: 0
-                },
-                Res {
-                    loc: fixtures().join("sample.ini"),
-                    at: 0
-                },
-                Res {
-                    loc: fixtures().join("sample.url"),
-                    at: 0
-                },
-                Res {
-                    loc: fixtures().join("sample_data.ods"),
-                    at: 0
-                },
-                Res {
-                    loc: fixtures().join("sample_data.xlsx"),
-                    at: 0
-                },
-                Res {
-                    loc: fixtures().join("sample_headers.xlsx"),
-                    at: 0
-                },
-                Res {
-                    loc: fixtures().join("script.nu"),
-                    at: 0
-                },
-                Res {
-                    loc: fixtures().join("script_multiline.nu"),
-                    at: 0
-                },
-                Res {
-                    loc: fixtures().join("sgml_description.json"),
-                    at: 0
-                },
-                Res {
-                    loc: fixtures().join("utf16.ini"),
-                    at: 0
-                }
-            ]
-        );
+            res.walk_decorate(&dirs.test())
+                .expect("Can not decorate files traversal.");
+
+            assert_eq!(
+                res.resources,
+                vec![
+                    Res {
+                        loc: dirs.test().join("cargo_sample.toml"),
+                        at: 0
+                    },
+                    Res {
+                        loc: dirs.test().join("sample.eml"),
+                        at: 0
+                    },
+                    Res {
+                        loc: dirs.test().join("sample.ini"),
+                        at: 0
+                    }
+                ]
+            );
+        })
     }
 }
