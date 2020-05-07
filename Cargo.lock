@@ -2429,12 +2429,13 @@ dependencies = [
 name = "nu_plugin_start"
 version = "0.1.0"
 dependencies = [
+ "ansi_term 0.12.1",
  "nu-build",
  "nu-errors",
  "nu-plugin",
  "nu-protocol",
  "nu-source",
- "open",
+ "url",
 ]
 
 [[package]]

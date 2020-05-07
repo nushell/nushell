@@ -1,5 +1,5 @@
-use nu_protocol::CallInfo;
-use nu_protocol::Value;
+use ansi_term::Color;
+use nu_protocol::{CallInfo, Value};
 use std::path::Path;
 use std::process::{Command, Stdio};
 
@@ -9,9 +9,25 @@ pub struct Start {
 }
 
 impl Start {
-    pub fn parse(&mut self, call_info: CallInfo) {
+    pub fn parse(&mut self, call_info: CallInfo, input: Vec<Value>) {
+        input.iter().for_each(|val| {
+            if val.is_some() {
+                self.parse_value(val);
+            }
+        });
         self.parse_filenames(&call_info);
         self.parse_application(&call_info);
+    }
+
+    fn add_filename(&mut self, filename: String) {
+        if Path::new(&filename).exists() || url::Url::parse(&filename).is_ok() {
+            self.filenames.push(filename);
+        } else {
+            print_warning(format!(
+                "The file '{}' does not exist",
+                Color::White.bold().paint(filename)
+            ));
+        }
     }
 
     fn parse_filenames(&mut self, call_info: &CallInfo) {
@@ -23,7 +39,10 @@ impl Start {
                 .unwrap_or(vec![]),
             None => vec![],
         };
-        println!("{:?}", candidates);
+
+        for candidate in candidates {
+            self.add_filename(candidate);
+        }
     }
 
     fn parse_application(&mut self, call_info: &CallInfo) {
@@ -37,50 +56,39 @@ impl Start {
         };
     }
 
-    pub fn add_filename(&mut self, input: &Value) {
+    pub fn parse_value(&mut self, input: &Value) {
         if let Ok(filename) = input.as_string() {
-            if Path::new(&filename).exists() {
-                self.filenames.push(filename);
-            }
+            self.add_filename(filename);
         } else {
-            // print warning that filename doesn't exist
-            println!("doesn't exist");
+            print_warning(format!("Could not convert '{:?}' to string", input));
         }
     }
 
-    // pub fn exec(call_info: &CallInfo) -> Result<(), String> {
-    //     let application = if let Some(app) = call_info.args.get("application") {
-    //         match app.as_string() {
-    //             Ok(name) => Some(name),
-    //             Err(_) => return Err(String::from("Application name not found")),
-    //         }
-    //     } else {
-    //         None
-    //     };
-    //     // let filenames = Self::filenames(&call_info);
-    //     // check if the files exist
-    //     for file in filenames.iter() {
-    //         if !Path::new(file.as_str()).exists() && url::Url::parse(file).is_err() {
-    //             return Err(format!("The file '{}' could not be found", file));
-    //         }
-    //     }
-    //     Self::run(filenames, application)
-    // }
+    #[cfg(target_os = "macos")]
+    pub fn exec(&mut self) {
+        let mut args = vec![];
+        args.append(&mut self.filenames);
 
-    // #[cfg(target_os = "macos")]
-    // fn run(mut filenames: Vec<String>, application: Option<String>) -> Result<(), String> {
-    //     let mut args = vec![];
-    //     args.append(&mut filenames);
-    //     if let Some(name) = application {
-    //         args.append(&mut vec![String::from("-a"), name]);
-    //     }
+        if let Some(app_name) = &self.application {
+            args.append(&mut vec![String::from("-a"), app_name.to_string()]);
+        }
 
-    //     Command::new("open")
-    //         .stdout(Stdio::null())
-    //         .stderr(Stdio::null())
-    //         .args(&args)
-    //         .status();
+        Command::new("open")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .args(&args)
+            .spawn()
+            .unwrap();
+    }
+    #[cfg(target_os = "windows")]
+    pub fn exec(&mut self) {}
 
-    //     Ok(())
-    // }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    pub fn exec(&mut self) {
+        // executing on linux
+    }
+}
+
+fn print_warning(msg: String) {
+    println!("{}: {}", Color::Yellow.bold().paint("warning"), msg);
 }

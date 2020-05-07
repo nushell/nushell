@@ -11,6 +11,7 @@ nu-plugin = { path = "../nu-plugin", version = "0.13.0" }
 nu-protocol = { path = "../nu-protocol", version = "0.13.0" }
 nu-source = { path = "../nu-source", version = "0.13.0" }
 nu-errors = { path = "../nu-errors", version = "0.13.0" }
+ansi_term = "0.12.1"
 url = "2.1.1"
 # open = "1.4.0"
 
