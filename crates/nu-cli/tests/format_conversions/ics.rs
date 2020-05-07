@@ -53,7 +53,7 @@ fn infers_types() {
             "#
         ));
 
-        assert_eq!(actual, "2");
+        assert_eq!(actual.out, "2");
     })
 }
 
@@ -96,6 +96,6 @@ fn from_ics_text_to_table() {
             "#
         ));
 
-        assert_eq!(actual, "Maryland Game");
+        assert_eq!(actual.out, "Maryland Game");
     })
 }

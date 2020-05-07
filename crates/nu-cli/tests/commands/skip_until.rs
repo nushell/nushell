@@ -45,6 +45,6 @@ fn condition_is_met() {
                 "#
         ));
 
-        assert_eq!(actual, "12");
+        assert_eq!(actual.out, "12");
     })
 }

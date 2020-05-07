@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, nu_error, pipeline};
+use nu_test_support::{nu, pipeline};
 
 #[test]
 fn parses_csv() {
@@ -25,7 +25,7 @@ fn parses_csv() {
             "#
         ));
 
-        assert_eq!(actual, "Ecuador");
+        assert_eq!(actual.out, "Ecuador");
     })
 }
 
@@ -61,7 +61,7 @@ fn parses_bson() {
         "open sample.bson | get root | nth 0 | get b | echo $it"
     );
 
-    assert_eq!(actual, "hello");
+    assert_eq!(actual.out, "hello");
 }
 
 #[test]
@@ -78,7 +78,7 @@ fn parses_more_bson_complexity() {
         "#
     ));
 
-    assert_eq!(actual, "function");
+    assert_eq!(actual.out, "function");
 }
 
 // sample.db has the following format:
@@ -143,7 +143,7 @@ fn parses_sqlite() {
         "#
     ));
 
-    assert_eq!(actual, "hello");
+    assert_eq!(actual.out, "hello");
 }
 
 #[test]
@@ -153,7 +153,7 @@ fn parses_toml() {
         "open cargo_sample.toml | get package.edition | echo $it"
     );
 
-    assert_eq!(actual, "2018");
+    assert_eq!(actual.out, "2018");
 }
 
 #[test]
@@ -168,7 +168,7 @@ fn parses_tsv() {
         "#
     ));
 
-    assert_eq!(actual, "SPAIN")
+    assert_eq!(actual.out, "SPAIN")
 }
 
 #[test]
@@ -182,7 +182,7 @@ fn parses_json() {
         "#
     ));
 
-    assert_eq!(actual, "markup")
+    assert_eq!(actual.out, "markup")
 }
 
 #[test]
@@ -193,7 +193,7 @@ fn parses_xml() {
     );
 
     assert_eq!(
-        actual,
+        actual.out,
         "http://www.jonathanturner.org/2015/10/off-to-new-adventures.html"
     )
 }
@@ -205,7 +205,7 @@ fn parses_ini() {
         "open sample.ini | get SectionOne.integer | echo $it"
     );
 
-    assert_eq!(actual, "1234")
+    assert_eq!(actual.out, "1234")
 }
 
 #[test]
@@ -215,12 +215,12 @@ fn parses_utf16_ini() {
         "open utf16.ini | get '.ShellClassInfo' | get IconIndex | echo $it"
     );
 
-    assert_eq!(actual, "-236")
+    assert_eq!(actual.out, "-236")
 }
 
 #[test]
 fn errors_if_file_not_found() {
-    let actual = nu_error!(
+    let actual = nu!(
         cwd: "tests/fixtures/formats",
         "open i_dont_exist.txt"
     );

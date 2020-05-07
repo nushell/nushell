@@ -15,5 +15,5 @@ fn table_to_sqlite_and_back_into_table() {
         "#
     ));
 
-    assert_eq!(actual, "hello");
+    assert_eq!(actual.out, "hello");
 }

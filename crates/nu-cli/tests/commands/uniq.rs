@@ -27,7 +27,7 @@ fn removes_duplicate_rows() {
             "#
         ));
 
-        assert_eq!(actual, "3");
+        assert_eq!(actual.out, "3");
     })
 }
 
@@ -57,7 +57,7 @@ fn uniq_values() {
             "#
         ));
 
-        assert_eq!(actual, "2");
+        assert_eq!(actual.out, "2");
     })
 }
 
@@ -121,7 +121,7 @@ fn nested_json_structures() {
                 | echo $it
             "#
         ));
-        assert_eq!(actual, "3");
+        assert_eq!(actual.out, "3");
     })
 }
 
@@ -138,5 +138,5 @@ fn uniq_when_keys_out_of_order() {
         "#
     ));
 
-    assert_eq!(actual, "1");
+    assert_eq!(actual.out, "1");
 }

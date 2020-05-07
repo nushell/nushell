@@ -26,7 +26,7 @@ fn regular_columns() {
             "#
         ));
 
-        assert_eq!(actual, "Robalino");
+        assert_eq!(actual.out, "Robalino");
     })
 }
 
@@ -69,7 +69,7 @@ fn complex_nested_columns() {
             "#
         ));
 
-        assert_eq!(actual, "0.9999999");
+        assert_eq!(actual.out, "0.9999999");
     })
 }
 
@@ -96,6 +96,6 @@ fn allows_if_given_unknown_column_name_is_missing() {
             "#
         ));
 
-        assert_eq!(actual, "3");
+        assert_eq!(actual.out, "3");
     })
 }

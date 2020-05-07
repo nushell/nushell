@@ -27,6 +27,6 @@ fn rows() {
                 "#
         ));
 
-        assert_eq!(actual, "4");
+        assert_eq!(actual.out, "4");
     })
 }

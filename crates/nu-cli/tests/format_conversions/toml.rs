@@ -13,5 +13,5 @@ fn table_to_toml_text_and_from_toml_text_back_into_table() {
         "#
     ));
 
-    assert_eq!(actual, "nu");
+    assert_eq!(actual.out, "nu");
 }

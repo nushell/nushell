@@ -28,7 +28,7 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
             "#
         ));
 
-        assert_eq!(actual, "AndKitKat");
+        assert_eq!(actual.out, "AndKitKat");
     })
 }
 
@@ -39,11 +39,11 @@ fn can_process_one_row_from_internal_and_pipes_it_to_stdin_of_external() {
         r#"echo "nushelll" | chop"#
     );
 
-    assert_eq!(actual, "nushell");
+    assert_eq!(actual.out, "nushell");
 }
 
 mod parse {
-    use nu_test_support::nu_error;
+    use nu_test_support::nu;
 
     /*
         The debug command's signature is:
@@ -58,7 +58,7 @@ mod parse {
 
     #[test]
     fn errors_if_flag_passed_is_not_exact() {
-        let actual = nu_error!(cwd: ".", "debug -ra");
+        let actual = nu!(cwd: ".", "debug -ra");
 
         assert!(
             actual.err.contains("unexpected flag"),
@@ -68,7 +68,7 @@ mod parse {
             )
         );
 
-        let actual = nu_error!(cwd: ".", "debug --rawx");
+        let actual = nu!(cwd: ".", "debug --rawx");
 
         assert!(
             actual.err.contains("unexpected flag"),
@@ -81,7 +81,7 @@ mod parse {
 
     #[test]
     fn errors_if_flag_is_not_supported() {
-        let actual = nu_error!(cwd: ".", "debug --ferris");
+        let actual = nu!(cwd: ".", "debug --ferris");
 
         assert!(
             actual.err.contains("unexpected flag"),
@@ -94,7 +94,7 @@ mod parse {
 
     #[test]
     fn errors_if_passed_an_unexpected_argument() {
-        let actual = nu_error!(cwd: ".", "debug ferris");
+        let actual = nu!(cwd: ".", "debug ferris");
 
         assert!(
             actual.err.contains("unexpected argument"),
@@ -122,8 +122,8 @@ mod tilde_expansion {
         );
 
         assert!(
-            !actual.contains('~'),
-            format!("'{}' should not contain ~", actual)
+            !actual.out.contains('~'),
+            format!("'{}' should not contain ~", actual.out)
         );
     }
 
@@ -136,7 +136,7 @@ mod tilde_expansion {
                 "#
         );
 
-        assert_eq!(actual, "1~1");
+        assert_eq!(actual.out, "1~1");
     }
 
     #[test]
@@ -157,7 +157,7 @@ mod tilde_expansion {
             ));
 
             assert_eq!(
-                actual,
+                actual.out,
                 r#"["andres.txt","gedge.txt","jonathan.txt","yehuda.txt"]"#
             );
         })

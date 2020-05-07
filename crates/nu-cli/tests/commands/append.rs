@@ -25,6 +25,6 @@ fn adds_a_row_to_the_end() {
             "#
         ));
 
-        assert_eq!(actual, "pollo loco");
+        assert_eq!(actual.out, "pollo loco");
     })
 }

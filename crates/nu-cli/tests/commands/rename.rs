@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, nu_error, pipeline};
+use nu_test_support::{nu, pipeline};
 
 #[test]
 fn changes_the_column_name() {
@@ -28,7 +28,7 @@ fn changes_the_column_name() {
                 "#
         ));
 
-        assert_eq!(actual, "4");
+        assert_eq!(actual.out, "4");
     })
 }
 
@@ -59,7 +59,7 @@ fn keeps_remaining_original_names_given_less_new_names_than_total_original_names
                 "#
         ));
 
-        assert_eq!(actual, "4");
+        assert_eq!(actual.out, "4");
     })
 }
 
@@ -76,7 +76,7 @@ fn errors_if_no_columns_present() {
             "#,
         )]);
 
-        let actual = nu_error!(
+        let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
                 open los_cuatro_mosqueteros.txt

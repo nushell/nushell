@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, nu_error, pipeline};
+use nu_test_support::{nu, pipeline};
 
 #[test]
 fn lists_regular_files() {
@@ -20,7 +20,7 @@ fn lists_regular_files() {
             "#
         ));
 
-        assert_eq!(actual, "3");
+        assert_eq!(actual.out, "3");
     })
 }
 
@@ -43,7 +43,7 @@ fn lists_regular_files_using_asterisk_wildcard() {
             "#
         ));
 
-        assert_eq!(actual, "3");
+        assert_eq!(actual.out, "3");
     })
 }
 
@@ -66,7 +66,7 @@ fn lists_regular_files_using_question_mark_wildcard() {
             "#
         ));
 
-        assert_eq!(actual, "3");
+        assert_eq!(actual.out, "3");
     })
 }
 
@@ -96,7 +96,7 @@ fn lists_all_files_in_directories_from_stream() {
             "#
         ));
 
-        assert_eq!(actual, "4");
+        assert_eq!(actual.out, "4");
     })
 }
 
@@ -114,7 +114,7 @@ fn does_not_fail_if_glob_matches_empty_directory() {
             "#
         ));
 
-        assert_eq!(actual, "0");
+        assert_eq!(actual.out, "0");
     })
 }
 
@@ -123,7 +123,7 @@ fn fails_when_glob_doesnt_match() {
     Playground::setup("ls_test_5", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("root1.txt"), EmptyFile("root2.txt")]);
 
-        let actual = nu_error!(
+        let actual = nu!(
             cwd: dirs.test(),
             "ls root3*"
         );
@@ -151,6 +151,6 @@ fn list_files_from_two_parents_up_using_multiple_dots() {
             "#
         );
 
-        assert_eq!(actual, "5");
+        assert_eq!(actual.out, "5");
     })
 }

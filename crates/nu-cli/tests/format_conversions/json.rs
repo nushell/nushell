@@ -15,7 +15,7 @@ fn table_to_json_text_and_from_json_text_back_into_table() {
         "#
     ));
 
-    assert_eq!(actual, "markup");
+    assert_eq!(actual.out, "markup");
 }
 
 #[test]
@@ -40,7 +40,7 @@ fn from_json_text_to_table() {
             "open katz.txt | from json | get katz | get rusty_luck | count | echo $it"
         );
 
-        assert_eq!(actual, "4");
+        assert_eq!(actual.out, "4");
     })
 }
 
@@ -68,7 +68,7 @@ fn from_json_text_recognizing_objects_independently_to_table() {
             "#
         ));
 
-        assert_eq!(actual, "3");
+        assert_eq!(actual.out, "3");
     })
 }
 
@@ -98,6 +98,6 @@ fn table_to_json_text() {
             "#
         ));
 
-        assert_eq!(actual, "JonAndrehudaTZ");
+        assert_eq!(actual.out, "JonAndrehudaTZ");
     })
 }

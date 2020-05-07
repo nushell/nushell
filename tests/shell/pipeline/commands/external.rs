@@ -1,8 +1,8 @@
-use nu_test_support::{nu, nu_error};
+use nu_test_support::nu;
 
 #[test]
 fn shows_error_for_command_not_found() {
-    let actual = nu_error!(
+    let actual = nu!(
         cwd: ".",
         "ferris_is_not_here.exe"
     );
@@ -25,7 +25,7 @@ fn automatically_change_directory() {
             "#
         );
 
-        assert!(actual.ends_with("autodir"));
+        assert!(actual.out.ends_with("autodir"));
     })
 }
 
@@ -44,7 +44,7 @@ fn automatically_change_directory_with_trailing_slash_and_same_name_as_command()
             "#
         );
 
-        assert!(actual.ends_with("cd"));
+        assert!(actual.out.ends_with("cd"));
     })
 }
 
@@ -52,7 +52,7 @@ fn automatically_change_directory_with_trailing_slash_and_same_name_as_command()
 fn correctly_escape_external_arguments() {
     let actual = nu!(cwd: ".", r#"^echo '$0'"#);
 
-    assert_eq!(actual, "$0");
+    assert_eq!(actual.out, "$0");
 }
 
 mod it_evaluation {
@@ -81,7 +81,7 @@ mod it_evaluation {
                 "#
             ));
 
-            assert_eq!(actual, "jonathan_likes_cake.txt");
+            assert_eq!(actual.out, "jonathan_likes_cake.txt");
         })
     }
 
@@ -108,7 +108,7 @@ mod it_evaluation {
                 "#
             ));
 
-            assert_eq!(actual, "AndrásWithKitKat");
+            assert_eq!(actual.out, "AndrásWithKitKat");
         })
     }
 
@@ -131,18 +131,18 @@ mod it_evaluation {
                 "#
             ));
 
-            assert_eq!(actual, "zion");
+            assert_eq!(actual.out, "zion");
         })
     }
 }
 
 mod stdin_evaluation {
-    use super::{nu, nu_error};
+    use super::nu;
     use nu_test_support::pipeline;
 
     #[test]
     fn does_not_panic_with_no_newline_in_stream() {
-        let actual = nu_error!(
+        let actual = nu!(
             cwd: ".",
             pipeline(r#"
                 nonu "where's the nuline?"
@@ -164,7 +164,8 @@ mod stdin_evaluation {
                 | lines
                 | first 1
             "#
-        ));
+        ))
+        .out;
 
         assert_eq!(stdout, "y");
     }
@@ -179,7 +180,7 @@ mod external_words {
         cococo joturner@foo.bar.baz
         "#);
 
-        assert_eq!(actual, "joturner@foo.bar.baz");
+        assert_eq!(actual.out, "joturner@foo.bar.baz");
     }
 }
 
@@ -192,7 +193,7 @@ mod nu_commands {
         nu -c "echo 'foo'"
         "#);
 
-        assert_eq!(actual, "foo");
+        assert_eq!(actual.out, "foo");
     }
 }
 
@@ -205,7 +206,7 @@ mod nu_script {
         nu script.nu
         "#);
 
-        assert_eq!(actual, "done");
+        assert_eq!(actual.out, "done");
     }
 
     #[test]
@@ -214,7 +215,7 @@ mod nu_script {
         nu script_multiline.nu
         "#);
 
-        assert_eq!(actual, "23");
+        assert_eq!(actual.out, "23");
     }
 }
 
@@ -231,8 +232,8 @@ mod tilde_expansion {
         );
 
         assert!(
-            !actual.contains('~'),
-            format!("'{}' should not contain ~", actual)
+            !actual.out.contains('~'),
+            format!("'{}' should not contain ~", actual.out)
         );
     }
 
@@ -245,6 +246,6 @@ mod tilde_expansion {
                 "#
         );
 
-        assert_eq!(actual, "1~1");
+        assert_eq!(actual.out, "1~1");
     }
 }

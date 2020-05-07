@@ -9,7 +9,7 @@ fn one_arg() {
         "#
     ));
 
-    assert_eq!(actual, "1");
+    assert_eq!(actual.out, "1");
 }
 
 #[test]
@@ -21,7 +21,7 @@ fn add() {
         "#
     ));
 
-    assert_eq!(actual, "2");
+    assert_eq!(actual.out, "2");
 }
 
 #[test]
@@ -33,7 +33,7 @@ fn add_compount() {
         "#
     ));
 
-    assert_eq!(actual, "5");
+    assert_eq!(actual.out, "5");
 }
 
 #[test]
@@ -45,7 +45,7 @@ fn precedence_of_operators() {
         "#
     ));
 
-    assert_eq!(actual, "5");
+    assert_eq!(actual.out, "5");
 }
 
 #[test]
@@ -57,7 +57,7 @@ fn precedence_of_operators2() {
         "#
     ));
 
-    assert_eq!(actual, "6");
+    assert_eq!(actual.out, "6");
 }
 
 #[test]
@@ -69,7 +69,7 @@ fn division_of_ints() {
         "#
     ));
 
-    assert_eq!(actual, "2");
+    assert_eq!(actual.out, "2");
 }
 
 #[test]
@@ -81,7 +81,7 @@ fn division_of_ints2() {
         "#
     ));
 
-    assert_eq!(actual, "0.25");
+    assert_eq!(actual.out, "0.25");
 }
 
 #[test]
@@ -93,7 +93,7 @@ fn parens_precedence() {
         "#
     ));
 
-    assert_eq!(actual, "12");
+    assert_eq!(actual.out, "12");
 }
 
 #[test]
@@ -105,7 +105,7 @@ fn compound_comparison() {
         "#
     ));
 
-    assert_eq!(actual, "true");
+    assert_eq!(actual.out, "true");
 }
 
 #[test]
@@ -117,7 +117,7 @@ fn compound_comparison2() {
         "#
     ));
 
-    assert_eq!(actual, "true");
+    assert_eq!(actual.out, "true");
 }
 
 #[test]
@@ -129,7 +129,7 @@ fn compound_where() {
         "#
     ));
 
-    assert_eq!(actual, r#"{"a":2,"b":1}"#);
+    assert_eq!(actual.out, r#"{"a":2,"b":1}"#);
 }
 
 #[test]
@@ -141,5 +141,5 @@ fn compound_where_paren() {
         "#
     ));
 
-    assert_eq!(actual, r#"[{"a":2,"b":1},{"a":2,"b":2}]"#);
+    assert_eq!(actual.out, r#"[{"a":2,"b":1},{"a":2,"b":2}]"#);
 }

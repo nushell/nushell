@@ -1,6 +1,6 @@
 use nu_test_support::fs::{files_exist_at, Stub::EmptyFile};
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, nu_error};
 use std::path::Path;
 
 #[test]
@@ -75,7 +75,7 @@ fn knows_the_filesystems_entered() {
 #[test]
 fn errors_if_file_not_found() {
     Playground::setup("enter_test_2", |dirs, _| {
-        let actual = nu_error!(
+        let actual = nu!(
             cwd: dirs.test(),
             "enter i_dont_exist.csv"
         );
