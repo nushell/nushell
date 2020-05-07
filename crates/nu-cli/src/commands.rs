@@ -24,7 +24,7 @@ pub(crate) mod drop;
 pub(crate) mod du;
 pub(crate) mod each;
 pub(crate) mod echo;
-pub(crate) mod edit;
+pub(crate) mod update;
 pub(crate) mod enter;
 #[allow(unused)]
 pub(crate) mod evaluate_by;
@@ -140,7 +140,7 @@ pub(crate) use drop::Drop;
 pub(crate) use du::Du;
 pub(crate) use each::Each;
 pub(crate) use echo::Echo;
-pub(crate) use edit::Edit;
+pub(crate) use update::Update;
 pub(crate) use is_empty::IsEmpty;
 pub(crate) mod kill;
 pub(crate) use kill::Kill;

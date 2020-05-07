@@ -7,25 +7,25 @@ use nu_protocol::{ColumnPath, ReturnSuccess, Signature, SyntaxShape, UntaggedVal
 use nu_value_ext::ValueExt;
 
 use futures::stream::once;
-pub struct Edit;
+pub struct Update;
 
 #[derive(Deserialize)]
-pub struct EditArgs {
+pub struct UpdateArgs {
     field: ColumnPath,
     replacement: Value,
 }
 
-impl WholeStreamCommand for Edit {
+impl WholeStreamCommand for Update {
     fn name(&self) -> &str {
-        "edit"
+        "update"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("edit")
+        Signature::build("update")
             .required(
                 "field",
                 SyntaxShape::ColumnPath,
-                "the name of the column to edit",
+                "the name of the column to update",
             )
             .required(
                 "replacement value",
@@ -35,7 +35,7 @@ impl WholeStreamCommand for Edit {
     }
 
     fn usage(&self) -> &str {
-        "Edit an existing column to have a new value."
+        "Update an existing column to have a new value."
     }
 
     fn run(
@@ -43,12 +43,12 @@ impl WholeStreamCommand for Edit {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        Ok(args.process_raw(registry, edit)?.run())
+        Ok(args.process_raw(registry, update)?.run())
     }
 }
 
-fn edit(
-    EditArgs { field, replacement }: EditArgs,
+fn update(
+    UpdateArgs { field, replacement }: UpdateArgs,
     context: RunnableContext,
     raw_args: RawCommandArgs,
 ) -> Result<OutputStream, ShellError> {
@@ -93,7 +93,7 @@ fn edit(
                                         Some(v) => yield Ok(ReturnSuccess::Value(v)),
                                         None => {
                                             yield Err(ShellError::labeled_error(
-                                                "edit could not find place to insert column",
+                                                "update could not find place to insert column",
                                                 "column name",
                                                 obj.tag,
                                             ))
@@ -124,7 +124,7 @@ fn edit(
                         Some(v) => yield Ok(ReturnSuccess::Value(v)),
                         None => {
                             yield Err(ShellError::labeled_error(
-                                "edit could not find place to insert column",
+                                "update could not find place to insert column",
                                 "column name",
                                 obj.tag,
                             ))

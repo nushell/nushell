@@ -7,7 +7,7 @@ mod cp;
 mod default;
 mod drop;
 mod each;
-mod edit;
+mod update;
 mod enter;
 mod first;
 mod format;
