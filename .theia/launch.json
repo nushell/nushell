@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+      {
+          "type": "gdb",
+          "request": "launch",
+          "name": "Debug Rust Code",
+          "preLaunchTask": "cargo",
+          "target": "${workspaceFolder}/target/debug/nu",
+          "cwd": "${workspaceFolder}",
+          "valuesFormatting": "parseText"
+      }
+  ]
+}

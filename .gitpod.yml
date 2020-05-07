@@ -1,23 +1,19 @@
 image:
   file: .gitpod.Dockerfile
 tasks:
-  - init: cargo install --path . --force --features=stable
+  - name: Clippy
+    init: cargo clippy --all --features=stable -- -D clippy::result_unwrap_used -D clippy::option_unwrap_used
+  - name: Testing
+    init: cargo test --all --features=stable,test-bins
+  - name: Build
+    init: cargo build --features=stable
+  - name: Nu
+    init: cargo install --path . --features=stable
     command: nu
 github:
   prebuilds:
-    # enable for the master/default branch (defaults to true)
-    master: true
-    # enable for all branches in this repo (defaults to false)
     branches: true
-    # enable for pull requests coming from this repo (defaults to true)
-    pullRequests: true
-    # enable for pull requests coming from forks (defaults to false)
     pullRequestsFromForks: true
-    # add a "Review in Gitpod" button as a comment to pull requests (defaults to true)
-    addComment: true
-    # add a "Review in Gitpod" button to pull requests (defaults to false)
-    addBadge: false
-    # add a label once the prebuild is ready to pull requests (defaults to false)
     addLabel: prebuilt-in-gitpod
 vscode:
   extensions:
@@ -25,5 +21,5 @@ vscode:
     - Swellaby.vscode-rust-test-adapter@0.11.0:Xg+YeZZQiVpVUsIkH+uiiw==
     - serayuzgur.crates@0.4.7:HMkoguLcXp9M3ud7ac3eIw==
     - belfz.search-crates-io@1.2.1:kSLnyrOhXtYPjQpKnMr4eQ==
-    - vadimcn.vscode-lldb@1.4.5:lwHCNwtm0kmOBXeQUIPGMQ==
     - bungcip.better-toml@0.3.2:3QfgGxxYtGHfJKQU7H0nEw==
+    - webfreak.debug@0.24.0:1zVcRsAhewYEX3/A9xjMNw==
