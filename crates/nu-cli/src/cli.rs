@@ -287,7 +287,7 @@ pub fn create_default_context(
             whole_stream_command(Reject),
             whole_stream_command(Pick),
             whole_stream_command(Get),
-            whole_stream_command(Edit),
+            whole_stream_command(Update),
             whole_stream_command(Insert),
             whole_stream_command(SplitBy),
             // Row manipulation
