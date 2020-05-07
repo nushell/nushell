@@ -18,6 +18,8 @@ impl Plugin for Start {
     }
     fn sink(&mut self, call_info: CallInfo, input: Vec<Value>) {
         self.parse(call_info, input);
-        self.exec();
+        if let Err(e) = self.exec() {
+            println!("{}", e);
+        }
     }
 }
