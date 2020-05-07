@@ -9,7 +9,9 @@ fn can_only_apply_one() {
         "open cargo_sample.toml | first 1 | inc package.version --major --minor"
     );
 
-    assert!(actual.contains("Usage: inc field [--major|--minor|--patch]"));
+    assert!(actual
+        .err
+        .contains("Usage: inc field [--major|--minor|--patch]"));
 }
 
 #[test]

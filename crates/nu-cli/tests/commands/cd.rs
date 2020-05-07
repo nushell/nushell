@@ -169,8 +169,16 @@ fn filesystem_not_a_directory() {
             "cd ferris_did_it.txt"
         );
 
-        assert!(actual.contains("ferris_did_it.txt"), "actual={:?}", actual);
-        assert!(actual.contains("is not a directory"), "actual={:?}", actual);
+        assert!(
+            actual.err.contains("ferris_did_it.txt"),
+            "actual={:?}",
+            actual.err
+        );
+        assert!(
+            actual.err.contains("is not a directory"),
+            "actual={:?}",
+            actual.err
+        );
     })
 }
 
@@ -184,14 +192,14 @@ fn filesystem_directory_not_found() {
         );
 
         assert!(
-            actual.contains("dir_that_does_not_exist"),
+            actual.err.contains("dir_that_does_not_exist"),
             "actual={:?}",
-            actual
+            actual.err
         );
         assert!(
-            actual.contains("directory not found"),
+            actual.err.contains("directory not found"),
             "actual={:?}",
-            actual
+            actual.err
         );
     })
 }
@@ -414,7 +422,7 @@ fn valuesystem_path_not_found() {
         "#
         );
 
-        assert!(actual.contains("Can not change to path inside"));
-        assert!(actual.contains("No such path exists"));
+        assert!(actual.err.contains("Can not change to path inside"));
+        assert!(actual.err.contains("No such path exists"));
     })
 }

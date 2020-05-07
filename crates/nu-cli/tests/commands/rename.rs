@@ -86,12 +86,12 @@ fn errors_if_no_columns_present() {
         ));
 
         assert!(
-            actual.contains("no column names available"),
-            format!("actual: {:?}", actual)
+            actual.err.contains("no column names available"),
+            format!("actual: {:?}", actual.err)
         );
         assert!(
-            actual.contains("can't rename"),
-            format!("actual: {:?}", actual)
+            actual.err.contains("can't rename"),
+            format!("actual: {:?}", actual.err)
         );
     })
 }

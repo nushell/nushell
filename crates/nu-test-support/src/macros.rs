@@ -73,6 +73,17 @@ macro_rules! nu {
     }};
 }
 
+pub struct Outcome {
+    pub out: String,
+    pub err: String,
+}
+
+impl Outcome {
+    pub fn new(out: String, err: String) -> Outcome {
+        Outcome { out: out, err: err }
+    }
+}
+
 pub fn read_std(std: &[u8]) -> String {
     let out = String::from_utf8_lossy(std);
     let out = out.lines().skip(1).collect::<Vec<_>>().join("\n");
@@ -144,7 +155,9 @@ macro_rules! nu_error {
             .wait_with_output()
             .expect("couldn't read from stdout/stderr");
 
-        let out = String::from_utf8_lossy(&output.stderr);
-        out.into_owned()
+            let out = $crate::macros::read_std(&output.stdout);
+            let err = String::from_utf8_lossy(&output.stderr);
+
+        $crate::macros::Outcome::new(out,err.into_owned())
     }};
 }

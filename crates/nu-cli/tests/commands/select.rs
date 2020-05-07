@@ -4,7 +4,7 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn regular_columns() {
-    Playground::setup("pick_test_1", |dirs, sandbox| {
+    Playground::setup("select_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_caballeros.csv",
             r#"
@@ -19,7 +19,7 @@ fn regular_columns() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_caballeros.csv
-                | pick rusty_at last_name
+                | select rusty_at last_name
                 | nth 0
                 | get last_name
                 | echo $it
@@ -32,7 +32,7 @@ fn regular_columns() {
 
 #[test]
 fn complex_nested_columns() {
-    Playground::setup("pick_test_2", |dirs, sandbox| {
+    Playground::setup("select_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_caballeros.json",
             r#"
@@ -62,7 +62,7 @@ fn complex_nested_columns() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_caballeros.json
-                | pick nu."0xATYKARNU" nu.committers.name nu.releases.version
+                | select nu."0xATYKARNU" nu.committers.name nu.releases.version
                 | where "nu.releases.version" > "0.8"
                 | get "nu.releases.version"
                 | echo $it
@@ -75,7 +75,7 @@ fn complex_nested_columns() {
 
 #[test]
 fn allows_if_given_unknown_column_name_is_missing() {
-    Playground::setup("pick_test_3", |dirs, sandbox| {
+    Playground::setup("select_test_3", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_caballeros.csv",
             r#"
@@ -90,7 +90,7 @@ fn allows_if_given_unknown_column_name_is_missing() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_caballeros.csv
-                | pick rrusty_at first_name
+                | select rrusty_at first_name
                 | count
                 | echo $it
             "#

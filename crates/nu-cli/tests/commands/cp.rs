@@ -39,8 +39,8 @@ fn error_if_attempting_to_copy_a_directory_to_another_directory() {
             "cp ../formats {}", dirs.test()
         );
 
-        assert!(actual.contains("../formats"));
-        assert!(actual.contains("resolves to a directory (not copied)"));
+        assert!(actual.err.contains("../formats"));
+        assert!(actual.err.contains("resolves to a directory (not copied)"));
     });
 }
 

@@ -61,20 +61,20 @@ mod parse {
         let actual = nu_error!(cwd: ".", "debug -ra");
 
         assert!(
-            actual.contains("unexpected flag"),
+            actual.err.contains("unexpected flag"),
             format!(
                 "error message '{}' should contain 'unexpected flag'",
-                actual
+                actual.err
             )
         );
 
         let actual = nu_error!(cwd: ".", "debug --rawx");
 
         assert!(
-            actual.contains("unexpected flag"),
+            actual.err.contains("unexpected flag"),
             format!(
                 "error message '{}' should contain 'unexpected flag'",
-                actual
+                actual.err
             )
         );
     }
@@ -84,10 +84,10 @@ mod parse {
         let actual = nu_error!(cwd: ".", "debug --ferris");
 
         assert!(
-            actual.contains("unexpected flag"),
+            actual.err.contains("unexpected flag"),
             format!(
                 "error message '{}' should contain 'unexpected flag'",
-                actual
+                actual.err
             )
         );
     }
@@ -97,10 +97,10 @@ mod parse {
         let actual = nu_error!(cwd: ".", "debug ferris");
 
         assert!(
-            actual.contains("unexpected argument"),
+            actual.err.contains("unexpected argument"),
             format!(
                 "error message '{}' should contain 'unexpected argument'",
-                actual
+                actual.err
             )
         );
     }

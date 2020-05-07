@@ -80,7 +80,7 @@ fn errors_if_file_not_found() {
             "enter i_dont_exist.csv"
         );
 
-        assert!(actual.contains("File could not be opened"));
-        assert!(actual.contains("file not found"));
+        assert!(actual.err.contains("File could not be opened"));
+        assert!(actual.err.contains("file not found"));
     })
 }

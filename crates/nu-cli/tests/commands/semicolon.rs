@@ -1,5 +1,5 @@
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
+use nu_test_support::{nu, nu_error, pipeline};
 
 #[test]
 fn semicolon_allows_lhs_to_complete() {
@@ -18,12 +18,12 @@ fn semicolon_allows_lhs_to_complete() {
 
 #[test]
 fn semicolon_lhs_error_stops_processing() {
-    let actual = nu!(
+    let actual = nu_error!(
     cwd: "tests/fixtures/formats", pipeline(
     r#"
         where 1 1; echo done
     "#
     ));
 
-    assert!(!actual.contains("done"));
+    assert!(!actual.out.contains("done"));
 }

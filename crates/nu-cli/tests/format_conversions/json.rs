@@ -89,7 +89,7 @@ fn table_to_json_text() {
                 open sample.txt
                 | lines
                 | split-column "," name luck
-                | pick name
+                | select name
                 | to json
                 | from json
                 | nth 0

@@ -7,7 +7,7 @@ fn shows_error_for_command_not_found() {
         "ferris_is_not_here.exe"
     );
 
-    assert!(actual.contains("Command not found"));
+    assert!(actual.err.contains("Command not found"));
 }
 
 #[test]
@@ -142,7 +142,7 @@ mod stdin_evaluation {
 
     #[test]
     fn does_not_panic_with_no_newline_in_stream() {
-        let stderr = nu_error!(
+        let actual = nu_error!(
             cwd: ".",
             pipeline(r#"
                 nonu "where's the nuline?"
@@ -150,7 +150,7 @@ mod stdin_evaluation {
             "#
         ));
 
-        assert_eq!(stderr, "");
+        assert_eq!(actual.err, "");
     }
 
     #[test]

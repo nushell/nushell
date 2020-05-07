@@ -50,6 +50,6 @@ fn errors_if_no_table_given_as_input() {
             "#
         ));
 
-        assert!(actual.contains("Expected table from pipeline"));
+        assert!(actual.err.contains("Expected table from pipeline"));
     })
 }

@@ -51,6 +51,6 @@ fn errors_if_given_unknown_column_name_is_missing() {
             "#
         ));
 
-        assert!(actual.contains("Unknown column"));
+        assert!(actual.err.contains("Unknown column"));
     })
 }

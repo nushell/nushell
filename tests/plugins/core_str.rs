@@ -9,7 +9,7 @@ fn can_only_apply_one() {
         "open caco3_plastics.csv | first 1 | str origin --downcase --upcase"
     );
 
-    assert!(actual.contains(r#"--capitalize|--downcase|--upcase|--to-int|--substring "start,end"|--replace|--find-replace [pattern replacement]|to-date-time|--trim]"#));
+    assert!(actual.err.contains(r#"--capitalize|--downcase|--upcase|--to-int|--substring "start,end"|--replace|--find-replace [pattern replacement]|to-date-time|--trim]"#));
 }
 
 #[test]
