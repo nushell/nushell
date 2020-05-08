@@ -3,6 +3,8 @@ use nu_protocol::{CallInfo, Value};
 use std::error::Error;
 use std::fmt;
 use std::path::Path;
+
+#[cfg(not(target_os = "windows"))]
 use std::process::{Command, Stdio};
 
 pub struct Start {
