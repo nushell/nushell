@@ -64,7 +64,7 @@ impl Start {
                 .iter()
                 .map(|val| val.as_string())
                 .collect::<Result<Vec<String>, _>>()
-                .unwrap_or(vec![]),
+                .unwrap_or_else(|_| vec![]),
             None => vec![],
         };
 
@@ -155,8 +155,8 @@ fn print_warning(msg: String) {
     println!("{}: {}", Color::Yellow.bold().paint("warning"), msg);
 }
 
-fn exec_cmd(cmd: &str, args: &Vec<String>) -> Result<(), StartError> {
-    if args.len() <= 0 {
+fn exec_cmd(cmd: &str, args: &[String]) -> Result<(), StartError> {
+    if args.is_empty() {
         return Err(StartError::new("No file(s) or application provided"));
     }
     let status = match Command::new(cmd)

@@ -1,10 +1,13 @@
 [package]
 name = "nu_plugin_start"
 version = "0.1.0"
-authors = ["Elton <eltonp3103@gmail.com>"]
+authors = ["The Nu Project Contributors"]
 edition = "2018"
+description = "A plugin to open files/URLs directly from Nushell"
+license = "MIT"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+doctest = false
 
 [dependencies]
 nu-plugin = { path = "../nu-plugin", version = "0.13.0" }
