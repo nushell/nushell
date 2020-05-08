@@ -1,0 +1,12 @@
+{
+    "tasks": [
+        {
+            "command": "cargo",
+            "args": [
+                "build"
+            ],
+            "type": "process",
+            "label": "cargo",
+        }
+    ],
+}
