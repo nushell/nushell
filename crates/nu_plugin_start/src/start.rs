@@ -140,7 +140,7 @@ impl Start {
             exec_cmd(&app_name, &args)
         } else {
             for cmd in &["xdg-open", "gnome-open", "kde-open", "wslview"] {
-                if let Err(_) = exec_cmd(cmd, &args) {
+                if exec_cmd(cmd, &args).is_err() {
                     continue;
                 }
             }
