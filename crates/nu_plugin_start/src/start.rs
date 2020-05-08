@@ -155,6 +155,7 @@ fn print_warning(msg: String) {
     println!("{}: {}", Color::Yellow.bold().paint("warning"), msg);
 }
 
+#[cfg(not(target_os = "windows"))]
 fn exec_cmd(cmd: &str, args: &[String]) -> Result<(), StartError> {
     if args.is_empty() {
         return Err(StartError::new("No file(s) or application provided"));
