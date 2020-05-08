@@ -1,0 +1,22 @@
+[package]
+name = "nu_plugin_start"
+version = "0.1.0"
+authors = ["The Nu Project Contributors"]
+edition = "2018"
+description = "A plugin to open files/URLs directly from Nushell"
+license = "MIT"
+
+[lib]
+doctest = false
+
+[dependencies]
+nu-plugin = { path = "../nu-plugin", version = "0.13.0" }
+nu-protocol = { path = "../nu-protocol", version = "0.13.0" }
+nu-source = { path = "../nu-source", version = "0.13.0" }
+nu-errors = { path = "../nu-errors", version = "0.13.0" }
+ansi_term = "0.12.1"
+url = "2.1.1"
+open = "1.4.0"
+
+[build-dependencies]
+nu-build = { version = "0.13.0", path = "../nu-build" }
