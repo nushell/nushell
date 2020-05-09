@@ -2093,6 +2093,7 @@ dependencies = [
  "nu_plugin_match",
  "nu_plugin_post",
  "nu_plugin_ps",
+ "nu_plugin_start",
  "nu_plugin_str",
  "nu_plugin_sys",
  "nu_plugin_textview",
