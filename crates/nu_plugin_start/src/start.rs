@@ -8,7 +8,7 @@ use std::process::{Command, Stdio};
 
 pub struct Start {
     pub tag: Tag,
-    pub filenames: Vec<Tagged<String>>,
+    pub filenames: Vec<String>,
     pub application: Option<String>,
 }
 
@@ -30,7 +30,7 @@ impl Start {
 
     fn add_filename(&mut self, filename: Tagged<String>) -> Result<(), ShellError> {
         if Path::new(&filename.item).exists() || url::Url::parse(&filename.item).is_ok() {
-            self.filenames.push(filename);
+            self.filenames.push(filename.item);
             Ok(())
         } else {
             Err(ShellError::labeled_error(
@@ -101,7 +101,7 @@ impl Start {
     pub fn exec(&mut self) -> Result<(), ShellError> {
         if let Some(app_name) = &self.application {
             for file in &self.filenames {
-                match open::with(file.item, app_name) {
+                match open::with(file, app_name) {
                     Ok(_) => continue,
                     Err(_) => {
                         return Err(ShellError::labeled_error(
@@ -114,7 +114,7 @@ impl Start {
             }
         } else {
             for file in &self.filenames {
-                match open::that(file.item) {
+                match open::that(file) {
                     Ok(_) => continue,
                     Err(_) => {
                         return Err(ShellError::labeled_error(
@@ -154,7 +154,7 @@ impl Start {
 }
 
 #[cfg(not(target_os = "windows"))]
-fn exec_cmd(cmd: &str, args: &[Tagged<String>], tag: Tag) -> Result<(), ShellError> {
+fn exec_cmd(cmd: &str, args: &[String], tag: Tag) -> Result<(), ShellError> {
     if args.is_empty() {
         return Err(ShellError::labeled_error(
             "No file(s) or application provided",
@@ -165,7 +165,7 @@ fn exec_cmd(cmd: &str, args: &[Tagged<String>], tag: Tag) -> Result<(), ShellErr
     let status = match Command::new(cmd)
         .stdout(Stdio::null())
         .stderr(Stdio::null())
-        .args(args.iter().map(|x| x.item.clone()).collect::<Vec<_>>())
+        .args(args)
         .status()
     {
         Ok(exit_code) => exit_code,
