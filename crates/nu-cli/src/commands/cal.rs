@@ -141,6 +141,7 @@ fn add_year_to_table(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn add_month_to_table(
     calendar_vec_deque: &mut VecDeque<Value>,
     tag: &Tag,
