@@ -184,7 +184,7 @@ fn add_month_to_table(
                 UntaggedValue::nothing().into_value(tag)
             };
 
-            indexmap.insert(day.to_string(), value);
+            indexmap.insert((*day).to_string(), value);
 
             day_count += 1;
         }
