@@ -1,15 +1,16 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, Value};
 use nu_source::Tagged;
-use nu_value_ext::{as_string, get_data_by_key};
 
 pub struct GroupBy;
 
 #[derive(Deserialize)]
 pub struct GroupByArgs {
     column_name: Tagged<String>,
+    date: Tagged<bool>,
+    format: Option<Tagged<String>>,
 }
 
 impl WholeStreamCommand for GroupBy {
@@ -18,11 +19,19 @@ impl WholeStreamCommand for GroupBy {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("group-by").required(
-            "column_name",
-            SyntaxShape::String,
-            "the name of the column to group by",
-        )
+        Signature::build("group-by")
+            .required(
+                "column_name",
+                SyntaxShape::String,
+                "the name of the column to group by",
+            )
+            .named(
+                "format",
+                SyntaxShape::String,
+                "Specify date and time formatting",
+                Some('f'),
+            )
+            .switch("date", "by date", Some('d'))
     }
 
     fn usage(&self) -> &str {
@@ -38,8 +47,17 @@ impl WholeStreamCommand for GroupBy {
     }
 }
 
+enum Grouper {
+    Default,
+    ByDate(Option<String>),
+}
+
 pub fn group_by(
-    GroupByArgs { column_name }: GroupByArgs,
+    GroupByArgs {
+        column_name,
+        date,
+        format,
+    }: GroupByArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
@@ -52,9 +70,38 @@ pub fn group_by(
                     column_name.span()
                 ))
         } else {
-            match group(&column_name, values, name) {
-                Ok(grouped) => yield ReturnSuccess::value(grouped),
-                Err(err) => yield Err(err)
+
+            let grouper = if let Tagged { item: true, tag } = date {
+                if let Some(Tagged { item: fmt, tag }) = format {
+                    Grouper::ByDate(Some(fmt))
+                } else {
+                    Grouper::ByDate(None)
+                }
+            } else {
+                Grouper::Default
+            };
+
+            match grouper {
+                Grouper::Default => {
+                    match crate::utils::data::group(column_name, &values, None, &name) {
+                        Ok(grouped) => yield ReturnSuccess::value(grouped),
+                        Err(err) => yield Err(err),
+                    }
+                }
+                Grouper::ByDate(None) => {
+                    match crate::utils::data::group(column_name, &values, Some(Box::new(|row: &Value| row.format("%Y-%b-%d"))), &name) {
+                        Ok(grouped) => yield ReturnSuccess::value(grouped),
+                        Err(err) => yield Err(err),
+                    }
+                }
+                Grouper::ByDate(Some(fmt)) => {
+                    match crate::utils::data::group(column_name, &values, Some(Box::new(move |row: &Value| {
+                        row.format(&fmt)
+                    })), &name) {
+                        Ok(grouped) => yield ReturnSuccess::value(grouped),
+                        Err(err) => yield Err(err),
+                    }
+                }
             }
         }
     };
@@ -67,50 +114,7 @@ pub fn group(
     values: Vec<Value>,
     tag: impl Into<Tag>,
 ) -> Result<Value, ShellError> {
-    let tag = tag.into();
-
-    let mut groups: indexmap::IndexMap<String, Vec<Value>> = indexmap::IndexMap::new();
-
-    for value in values {
-        let group_key = get_data_by_key(&value, column_name.borrow_spanned());
-
-        if let Some(group_key) = group_key {
-            let group_key = as_string(&group_key)?;
-            let group = groups.entry(group_key).or_insert(vec![]);
-            group.push(value);
-        } else {
-            let possibilities = value.data_descriptors();
-
-            let mut possible_matches: Vec<_> = possibilities
-                .iter()
-                .map(|x| (natural::distance::levenshtein_distance(x, column_name), x))
-                .collect();
-
-            possible_matches.sort();
-
-            if !possible_matches.is_empty() {
-                return Err(ShellError::labeled_error(
-                    "Unknown column",
-                    format!("did you mean '{}'?", possible_matches[0].1),
-                    column_name.tag(),
-                ));
-            } else {
-                return Err(ShellError::labeled_error(
-                    "Unknown column",
-                    "row does not contain this column",
-                    column_name.tag(),
-                ));
-            }
-        }
-    }
-
-    let mut out = TaggedDictBuilder::new(&tag);
-
-    for (k, v) in groups.iter() {
-        out.insert_untagged(k, UntaggedValue::table(v));
-    }
-
-    Ok(out.into_value())
+    crate::utils::data::group(column_name.clone(), &values, None, tag)
 }
 
 #[cfg(test)]
