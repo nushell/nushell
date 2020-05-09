@@ -272,6 +272,13 @@ impl Value {
         }
     }
 
+    pub fn format(&self, fmt: &str) -> Result<String, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(Primitive::Date(dt)) => Ok(dt.format(fmt).to_string()),
+            _ => Err(ShellError::type_error("date", self.spanned_type_name())),
+        }
+    }
+
     /// View into the borrowed string contents of a Value, if possible
     pub fn as_forgiving_string(&self) -> Result<&str, ShellError> {
         match &self.value {

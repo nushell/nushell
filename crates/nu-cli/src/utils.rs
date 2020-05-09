@@ -1,3 +1,4 @@
+pub mod data;
 pub mod data_processing;
 
 use crate::path::canonicalize;
