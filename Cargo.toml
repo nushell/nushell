@@ -170,7 +170,7 @@ path = "src/plugins/nu_plugin_stable_tree.rs"
 required-features = ["tree"]
 
 [[bin]]
-name = "nu_plugin_core_start"
+name = "nu_plugin_stable_start"
 path = "src/plugins/nu_plugin_stable_start.rs"
 required-features = ["start"]
 
