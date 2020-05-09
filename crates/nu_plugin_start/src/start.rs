@@ -6,6 +6,7 @@ use std::path::Path;
 #[cfg(not(target_os = "windows"))]
 use std::process::{Command, Stdio};
 
+#[derive(Default)]
 pub struct Start {
     pub tag: Tag,
     pub filenames: Vec<String>,
