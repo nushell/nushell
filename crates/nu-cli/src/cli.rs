@@ -251,6 +251,7 @@ pub fn create_default_context(
             whole_stream_command(Touch),
             whole_stream_command(Cpy),
             whole_stream_command(Date),
+            whole_stream_command(Cal),
             whole_stream_command(Calc),
             whole_stream_command(Mkdir),
             whole_stream_command(Move),
