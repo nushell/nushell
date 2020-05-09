@@ -63,7 +63,7 @@ nu-build = { version = "0.13.0", path = "./crates/nu-build" }
 test-bins = []
 
 default = ["sys", "ps", "textview", "inc", "str"]
-stable = ["default", "starship-prompt", "binaryview", "match", "tree", "average", "post", "fetch", "clipboard-cli", "trash-support"]
+stable = ["default", "starship-prompt", "binaryview", "match", "tree", "average", "post", "fetch", "clipboard-cli", "trash-support", "start"]
 
 # Default
 textview = ["crossterm", "syntect", "url", "nu_plugin_textview"]
@@ -80,6 +80,7 @@ match = ["nu_plugin_match"]
 post = ["nu_plugin_post"]
 trace = ["nu-parser/trace"]
 tree = ["nu_plugin_tree"]
+start = ["nu_plugin_start"]
 
 clipboard-cli = ["nu-cli/clipboard-cli"]
 starship-prompt = ["nu-cli/starship-prompt"]
@@ -173,7 +174,6 @@ required-features = ["tree"]
 name = "nu_plugin_stable_start"
 path = "src/plugins/nu_plugin_stable_start.rs"
 required-features = ["start"]
-
 
 # Main nu binary
 [[bin]]
