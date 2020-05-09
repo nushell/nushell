@@ -32,6 +32,7 @@ nu_plugin_inc = { version = "0.13.0", path = "./crates/nu_plugin_inc", optional=
 nu_plugin_match = { version = "0.13.0", path = "./crates/nu_plugin_match", optional=true }
 nu_plugin_post = { version = "0.13.0", path = "./crates/nu_plugin_post", optional=true }
 nu_plugin_ps = { version = "0.13.0", path = "./crates/nu_plugin_ps", optional=true }
+nu_plugin_start = { version = "0.1.0", path = "./crates/nu_plugin_start", optional=true }
 nu_plugin_str = { version = "0.13.0", path = "./crates/nu_plugin_str", optional=true }
 nu_plugin_sys = { version = "0.13.0", path = "./crates/nu_plugin_sys", optional=true }
 nu_plugin_textview = { version = "0.13.0", path = "./crates/nu_plugin_textview", optional=true }
@@ -62,7 +63,7 @@ nu-build = { version = "0.13.0", path = "./crates/nu-build" }
 test-bins = []
 
 default = ["sys", "ps", "textview", "inc", "str"]
-stable = ["default", "starship-prompt", "binaryview", "match", "tree", "average", "post", "fetch", "clipboard-cli", "trash-support"]
+stable = ["default", "starship-prompt", "binaryview", "match", "tree", "average", "post", "fetch", "clipboard-cli", "trash-support", "start"]
 
 # Default
 textview = ["crossterm", "syntect", "url", "nu_plugin_textview"]
@@ -79,6 +80,7 @@ match = ["nu_plugin_match"]
 post = ["nu_plugin_post"]
 trace = ["nu-parser/trace"]
 tree = ["nu_plugin_tree"]
+start = ["nu_plugin_start"]
 
 clipboard-cli = ["nu-cli/clipboard-cli"]
 starship-prompt = ["nu-cli/starship-prompt"]
@@ -167,6 +169,11 @@ required-features = ["post"]
 name = "nu_plugin_stable_tree"
 path = "src/plugins/nu_plugin_stable_tree.rs"
 required-features = ["tree"]
+
+[[bin]]
+name = "nu_plugin_stable_start"
+path = "src/plugins/nu_plugin_stable_start.rs"
+required-features = ["start"]
 
 # Main nu binary
 [[bin]]
