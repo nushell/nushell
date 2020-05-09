@@ -108,26 +108,26 @@ impl Start {
     pub fn exec(&mut self) -> Result<(), ShellError> {
         if let Some(app_name) = &self.application {
             for file in &self.filenames {
-                match open::with(file.item, app_name) {
+                match open::with(&file.item, app_name) {
                     Ok(_) => continue,
                     Err(_) => {
                         return Err(ShellError::labeled_error(
                             "Failed to open file with specified application",
                             "can't open with specified application",
-                            file.tag,
+                            file.tag.span,
                         ))
                     }
                 }
             }
         } else {
             for file in &self.filenames {
-                match open::that(file.item) {
+                match open::that(&file.item) {
                     Ok(_) => continue,
                     Err(_) => {
                         return Err(ShellError::labeled_error(
                             "Failed to open file with default application",
                             "can't open with default application",
-                            file.tag,
+                            file.tag.span,
                         ))
                     }
                 }
