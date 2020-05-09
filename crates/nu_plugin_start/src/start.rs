@@ -144,6 +144,8 @@ impl Start {
             for cmd in &["xdg-open", "gnome-open", "kde-open", "wslview"] {
                 if exec_cmd(cmd, &args).is_err() {
                     continue;
+                } else {
+                    return Ok(());
                 }
             }
             Err(StartError::new(
