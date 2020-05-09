@@ -1,6 +1,6 @@
 use nu_errors::ShellError;
 use nu_plugin::Plugin;
-use nu_protocol::{CallInfo, Signature, SyntaxShape, Value};
+use nu_protocol::{CallInfo, ReturnValue, Signature, SyntaxShape};
 
 use crate::start::Start;
 
@@ -14,12 +14,11 @@ impl Plugin for Start {
                 SyntaxShape::String,
                 "Specifies the application used for opening the files/directories/urls",
                 Some('a'),
-            ))
+            )
+            .filter())
     }
-    fn sink(&mut self, call_info: CallInfo, input: Vec<Value>) {
-        self.parse(call_info, input);
-        if let Err(e) = self.exec() {
-            println!("{}", e);
-        }
+    fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
+        self.parse(call_info)?;
+        self.exec().map(|_| vec![])
     }
 }
