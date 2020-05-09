@@ -4,8 +4,8 @@ Use `cal` to display a calendar of the current month
 
 ## Flags
 
--m, --month-names: Display the month names instead of integers
--y, --year: Display the entire calendar for the current year
+`-m`, `--month-names`: Display the month names instead of integers \
+`-y`, `--year`: Display the entire calendar for the current year
 
 ## Examples
 
