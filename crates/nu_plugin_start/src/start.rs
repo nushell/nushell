@@ -94,7 +94,7 @@ impl Start {
         if let Some(app_name) = &self.application {
             args.append(&mut vec![String::from("-a"), app_name.to_string()]);
         }
-        exec_cmd("open", &args)
+        exec_cmd("open", &args, self.tag.clone())
     }
 
     #[cfg(target_os = "windows")]
