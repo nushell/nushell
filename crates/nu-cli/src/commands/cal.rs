@@ -24,13 +24,13 @@ impl WholeStreamCommand for Cal {
             .named(
                 "year",
                 SyntaxShape::Int,
-                "Display the entire calendar for the current year",
+                "Display a year-long calendar for the specified year",
                 Some('y'),
             )
     }
 
     fn usage(&self) -> &str {
-        "Display a calendar of the current month."
+        "Display a calendar."
     }
 
     fn run(

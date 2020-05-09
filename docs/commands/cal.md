@@ -1,11 +1,11 @@
 # cal
 
-Use `cal` to display a calendar of the current month
+Use `cal` to display a calendar.
 
 ## Flags
 
 * `-m`, `--month-names`: Display the month names instead of integers
-* `-y`, `--year`: Display the entire calendar for the current year
+* `-y`, `--year`: Display a year-long calendar for the specified year
 
 ## Examples
 
