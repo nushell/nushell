@@ -9,7 +9,7 @@ use std::process::{Command, Stdio};
 #[derive(Default)]
 pub struct Start {
     pub tag: Tag,
-    pub filenames: Vec<String>,
+    pub filenames: Vec<Tagged<String>>,
     pub application: Option<String>,
 }
 
@@ -31,7 +31,7 @@ impl Start {
 
     fn add_filename(&mut self, filename: Tagged<String>) -> Result<(), ShellError> {
         if Path::new(&filename.item).exists() || url::Url::parse(&filename.item).is_ok() {
-            self.filenames.push(filename.item);
+            self.filenames.push(filename);
             Ok(())
         } else {
             Err(ShellError::labeled_error(
@@ -90,7 +90,13 @@ impl Start {
     #[cfg(target_os = "macos")]
     pub fn exec(&mut self) -> Result<(), ShellError> {
         let mut args = vec![];
-        args.append(&mut self.filenames);
+        args.append(
+            &mut self
+                .filenames
+                .iter()
+                .map(|x| x.item.clone())
+                .collect::<Vec<_>>(),
+        );
 
         if let Some(app_name) = &self.application {
             args.append(&mut vec![String::from("-a"), app_name.to_string()]);
@@ -102,7 +108,7 @@ impl Start {
     pub fn exec(&mut self) -> Result<(), ShellError> {
         if let Some(app_name) = &self.application {
             for file in &self.filenames {
-                match open::with(file, app_name) {
+                match open::with(file.item, app_name) {
                     Ok(_) => continue,
                     Err(_) => {
                         return Err(ShellError::labeled_error(
@@ -115,7 +121,7 @@ impl Start {
             }
         } else {
             for file in &self.filenames {
-                match open::that(file) {
+                match open::that(file.item) {
                     Ok(_) => continue,
                     Err(_) => {
                         return Err(ShellError::labeled_error(
@@ -133,7 +139,13 @@ impl Start {
     #[cfg(not(any(target_os = "windows", target_os = "macos")))]
     pub fn exec(&mut self) -> Result<(), ShellError> {
         let mut args = vec![];
-        args.append(&mut self.filenames);
+        args.append(
+            &mut self
+                .filenames
+                .iter()
+                .map(|x| x.item.clone())
+                .collect::<Vec<_>>(),
+        );
 
         if let Some(app_name) = &self.application {
             exec_cmd(&app_name, &args, self.tag.clone())
