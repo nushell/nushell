@@ -23,11 +23,15 @@ impl WholeStreamCommand for Alias {
         Signature::build("alias")
             .required("name", SyntaxShape::String, "the name of the alias")
             .required("args", SyntaxShape::Table, "the arguments to the alias")
-            .required("block", SyntaxShape::Block, "the block to run on each row")
+            .required(
+                "block",
+                SyntaxShape::Block,
+                "the block to run as the body of the alias",
+            )
     }
 
     fn usage(&self) -> &str {
-        "Run a block on each row of the table."
+        "Define a shortcut for another command."
     }
 
     fn run(
