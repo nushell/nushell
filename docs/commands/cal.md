@@ -4,8 +4,11 @@ Use `cal` to display a calendar.
 
 ## Flags
 
-* `-m`, `--month-names`: Display the month names instead of integers
-* `-y`, `--year`: Display a year-long calendar for the specified year
+* `-y`, `--year`: Display the year column
+* `-q`, `--quarter`: Display the quarter column
+* `-m`, `--month`: Display the month column
+* `--full-year` \<integer>: Display a year-long calendar for the specified year
+* `--month-names`: Display the month names instead of integers
 
 ## Examples
 
