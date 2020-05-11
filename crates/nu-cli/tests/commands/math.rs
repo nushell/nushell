@@ -101,11 +101,11 @@ fn duration_math() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            = 1m + 1d
+            = 1w + 1d
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual.out, "8:00:00:00");
 }
 
 #[test]
