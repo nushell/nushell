@@ -130,18 +130,17 @@ You can also learn more at https://www.nushell.sh/book/"#;
     }
 }
 
+#[allow(clippy::cognitive_complexity)]
 pub(crate) fn get_help(
     cmd: &dyn WholeStreamCommand,
     registry: &CommandRegistry,
 ) -> impl Into<OutputStream> {
     let cmd_name = cmd.name();
-    let cmd_usage = cmd.usage();
-    let cmd_example = cmd.example();
     let signature = cmd.signature();
     let mut help = VecDeque::new();
     let mut long_desc = String::new();
 
-    long_desc.push_str(&cmd_usage);
+    long_desc.push_str(&cmd.usage());
     long_desc.push_str("\n");
 
     let mut subcommands = String::new();
@@ -271,8 +270,14 @@ pub(crate) fn get_help(
         }
     }
 
-    if let Some(example) = cmd_example {
-        long_desc.push_str(&format!("\nExample:\n  > {}\n", example));
+    let examples = cmd.examples();
+    if !examples.is_empty() {
+        long_desc.push_str("\nExamples:\n");
+    }
+    for example in examples {
+        long_desc.push_str("  ");
+        long_desc.push_str(example.description);
+        long_desc.push_str(&format!("\n  > {}\n", example.example));
     }
 
     help.push_back(ReturnSuccess::value(

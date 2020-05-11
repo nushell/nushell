@@ -350,6 +350,11 @@ impl EvaluatedCommandArgs {
     }
 }
 
+pub struct Example {
+    pub example: &'static str,
+    pub description: &'static str,
+}
+
 pub trait WholeStreamCommand: Send + Sync {
     fn name(&self) -> &str;
 
@@ -369,8 +374,8 @@ pub trait WholeStreamCommand: Send + Sync {
         false
     }
 
-    fn example(&self) -> Option<&str> {
-        None
+    fn examples(&self) -> &[Example] {
+        &[]
     }
 }
 
