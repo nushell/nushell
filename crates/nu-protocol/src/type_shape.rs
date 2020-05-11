@@ -239,7 +239,7 @@ impl PrettyDebug for Type {
                     row.map.iter().map(|(key, ty)| {
                         (b::key(match key {
                             Column::String(string) => string.clone(),
-                            Column::Value => "<value>".to_string(),
+                            Column::Value => "".to_string(),
                         }) + b::delimit("(", ty.pretty(), ")").into_kind())
                         .nest()
                     }),
@@ -303,7 +303,7 @@ impl<'a> PrettyDebug for DebugEntry<'a> {
     fn pretty(&self) -> DebugDocBuilder {
         b::key(match self.key {
             Column::String(string) => string.clone(),
-            Column::Value => "<value>".to_string(),
+            Column::Value => "".to_string(),
         }) + b::delimit("(", self.value.pretty(), ")").into_kind()
     }
 }
