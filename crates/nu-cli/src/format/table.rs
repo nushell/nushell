@@ -89,14 +89,14 @@ fn values_to_entries(values: &[Value], headers: &mut Vec<String>, starting_idx: 
     let mut entries = vec![];
 
     if headers.is_empty() {
-        headers.push("<value>".to_string());
+        headers.push("".to_string());
     }
 
     for (idx, value) in values.iter().enumerate() {
         let mut row: Vec<(String, &'static str)> = headers
             .iter()
             .map(|d: &String| {
-                if d == "<value>" {
+                if d == "" {
                     match value {
                         Value {
                             value: UntaggedValue::Row(..),
@@ -374,6 +374,8 @@ impl RenderView for TableView {
             }
         }
 
+        let skip_headers = self.headers.len() == 2 && self.headers[1] == "";
+
         let header: Vec<Cell> = self
             .headers
             .iter()
@@ -387,7 +389,9 @@ impl RenderView for TableView {
             })
             .collect();
 
-        table.set_titles(Row::new(header));
+        if !skip_headers {
+            table.set_titles(Row::new(header));
+        }
 
         for row in &self.entries {
             table.add_row(Row::new(

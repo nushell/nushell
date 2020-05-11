@@ -32,8 +32,10 @@ use std::time::SystemTime;
 pub enum UntaggedValue {
     /// A primitive (or fundamental) type of values
     Primitive(Primitive),
+
     /// A table row
     Row(Dictionary),
+
     /// A full inner (or embedded) table
     Table(Vec<Value>),
 
@@ -494,13 +496,13 @@ impl std::ops::Add for Value {
 
 pub fn merge_descriptors(values: &[Value]) -> Vec<String> {
     let mut ret: Vec<String> = vec![];
-    let value_column = "<value>".to_string();
+    let value_column = "".to_string();
     for value in values {
         let descs = value.data_descriptors();
 
         if descs.is_empty() {
             if !ret.contains(&value_column) {
-                ret.push("<value>".to_string());
+                ret.push("".to_string());
             }
         } else {
             for desc in value.data_descriptors() {
