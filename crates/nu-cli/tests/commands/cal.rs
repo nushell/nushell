@@ -14,7 +14,6 @@ fn cal_full_year() {
     assert_eq!(actual.out, first_week_2010_json);
 }
 
-
 #[test]
 fn cal_february_2020_leap_year() {
     let actual = nu!(
