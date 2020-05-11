@@ -111,6 +111,15 @@ pub fn compute_values(
                 }?;
                 Ok(UntaggedValue::Primitive(Primitive::Date(result)))
             }
+            (Primitive::Duration(x), Primitive::Duration(y)) => {
+                let result = match operator {
+                    Operator::Plus => Ok(x + y),
+                    Operator::Minus => Ok(x - y),
+                    _ => Err((left.type_name(), right.type_name())),
+                }?;
+
+                Ok(UntaggedValue::Primitive(Primitive::Duration(result)))
+            }
             _ => Err((left.type_name(), right.type_name())),
         },
         _ => Err((left.type_name(), right.type_name())),

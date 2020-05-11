@@ -97,6 +97,18 @@ fn parens_precedence() {
 }
 
 #[test]
+fn duration_math() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            = 1w + 1d
+        "#
+    ));
+
+    assert_eq!(actual.out, "8:00:00:00");
+}
+
+#[test]
 fn compound_comparison() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
