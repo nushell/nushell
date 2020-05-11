@@ -1,4 +1,4 @@
-use crate::commands::WholeStreamCommand;
+use crate::commands::{Example, WholeStreamCommand};
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -40,6 +40,13 @@ impl WholeStreamCommand for Alias {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, alias)?.run()
+    }
+
+    fn examples(&self) -> &[Example] {
+        &[Example {
+            description: "Some people prefer to write one letter instead of two",
+            example: "alias l [x] { ls $x }",
+        }]
     }
 }
 

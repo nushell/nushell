@@ -86,22 +86,10 @@ fn help(
             // Check for a subcommand
             let command_name = format!("{} {}", rest[0].item, rest[1].item);
             if let Some(command) = registry.get_command(&command_name) {
-                return Ok(get_help(
-                    &command.name(),
-                    &command.usage(),
-                    command.signature(),
-                    &registry,
-                )
-                .into());
+                return Ok(get_help(command.stream_command(), &registry).into());
             }
         } else if let Some(command) = registry.get_command(&document.item) {
-            return Ok(get_help(
-                &command.name(),
-                &command.usage(),
-                command.signature(),
-                &registry,
-            )
-            .into());
+            return Ok(get_help(command.stream_command(), &registry).into());
         } else {
             return Err(ShellError::labeled_error(
                 "Can't find command (use 'help commands' for full list)",
@@ -142,19 +130,18 @@ You can also learn more at https://www.nushell.sh/book/"#;
     }
 }
 
+#[allow(clippy::cognitive_complexity)]
 pub(crate) fn get_help(
-    cmd_name: &str,
-    cmd_usage: &str,
-    cmd_sig: Signature,
+    cmd: &dyn WholeStreamCommand,
     registry: &CommandRegistry,
 ) -> impl Into<OutputStream> {
+    let cmd_name = cmd.name();
+    let signature = cmd.signature();
     let mut help = VecDeque::new();
     let mut long_desc = String::new();
 
-    long_desc.push_str(&cmd_usage);
+    long_desc.push_str(&cmd.usage());
     long_desc.push_str("\n");
-
-    let signature = cmd_sig;
 
     let mut subcommands = String::new();
     for name in registry.names() {
@@ -281,6 +268,16 @@ pub(crate) fn get_help(
             };
             long_desc.push_str(&msg);
         }
+    }
+
+    let examples = cmd.examples();
+    if !examples.is_empty() {
+        long_desc.push_str("\nExamples:\n");
+    }
+    for example in examples {
+        long_desc.push_str("  ");
+        long_desc.push_str(example.description);
+        long_desc.push_str(&format!("\n  > {}\n", example.example));
     }
 
     help.push_back(ReturnSuccess::value(
