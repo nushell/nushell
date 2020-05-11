@@ -136,6 +136,7 @@ pub(crate) fn get_help(
 ) -> impl Into<OutputStream> {
     let cmd_name = cmd.name();
     let cmd_usage = cmd.usage();
+    let cmd_example = cmd.example();
     let signature = cmd.signature();
     let mut help = VecDeque::new();
     let mut long_desc = String::new();
@@ -268,6 +269,10 @@ pub(crate) fn get_help(
             };
             long_desc.push_str(&msg);
         }
+    }
+
+    if let Some(example) = cmd_example {
+        long_desc.push_str(&format!("\nExample:\n  > {}\n", example));
     }
 
     help.push_back(ReturnSuccess::value(

@@ -368,6 +368,10 @@ pub trait WholeStreamCommand: Send + Sync {
     fn is_binary(&self) -> bool {
         false
     }
+
+    fn example(&self) -> Option<&str> {
+        None
+    }
 }
 
 #[derive(Clone)]
