@@ -181,7 +181,7 @@ fn add_month_to_table(
         if should_show_quarter_column {
             indexmap.insert(
                 "quarter".to_string(),
-                UntaggedValue::int(get_quarter_number(month)).into_value(tag),
+                UntaggedValue::int(((month - 1) / 3) + 1).into_value(tag),
             );
         }
 
@@ -209,15 +209,6 @@ fn add_month_to_table(
 
         calendar_vec_deque
             .push_back(UntaggedValue::Row(Dictionary::from(indexmap)).into_value(tag));
-    }
-}
-
-fn get_quarter_number(month_number: u32) -> u8 {
-    match month_number {
-        1..=3 => 1,
-        4..=6 => 2,
-        7..=9 => 3,
-        _ => 4,
     }
 }
 
