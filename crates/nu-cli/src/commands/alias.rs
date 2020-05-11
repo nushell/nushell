@@ -43,10 +43,16 @@ impl WholeStreamCommand for Alias {
     }
 
     fn examples(&self) -> &[Example] {
-        &[Example {
-            description: "Some people prefer to write one letter instead of two",
-            example: "alias l [x] { ls $x }",
-        }]
+        &[
+            Example {
+                description: "An alias without parameters",
+                example: "alias say-hi [] { echo 'Hello!' }",
+            },
+            Example {
+                description: "An alias with a single parameter",
+                example: "alias l [x] { ls $x }",
+            },
+        ]
     }
 }
 

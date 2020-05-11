@@ -272,13 +272,18 @@ pub(crate) fn get_help(
 
     let examples = cmd.examples();
     if !examples.is_empty() {
-        long_desc.push_str("\nExamples:\n");
+        long_desc.push_str("\nExamples:");
     }
     for example in examples {
+        long_desc.push_str("\n");
         long_desc.push_str("  ");
         long_desc.push_str(example.description);
-        long_desc.push_str(&format!("\n  > {}\n", example.example));
+        let colored_example =
+            crate::shell::helper::Painter::paint_string(example.example, registry);
+        long_desc.push_str(&format!("\n  > {}\n", colored_example));
     }
+
+    long_desc.push_str("\n");
 
     help.push_back(ReturnSuccess::value(
         UntaggedValue::string(long_desc).into_value(Tag::from((0, cmd_name.len(), None))),
