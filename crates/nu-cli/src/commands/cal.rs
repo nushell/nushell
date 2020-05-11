@@ -9,6 +9,11 @@ use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 
 pub struct Cal;
 
+struct MonthDefinition {
+    day_number_month_starts_on: usize,
+    number_of_days_in_month: usize,
+}
+
 impl WholeStreamCommand for Cal {
     fn name(&self) -> &str {
         "cal"
@@ -76,7 +81,7 @@ pub fn cal(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
             &args,
         );
     } else {
-        let (day_start_offset, number_of_days_in_month, _) =
+        let (month_definition, _) =
             get_month_information(current_year, current_month, current_year);
 
         add_month_to_table(
@@ -85,8 +90,7 @@ pub fn cal(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
             current_year,
             current_month,
             Some(current_day),
-            day_start_offset,
-            number_of_days_in_month as usize,
+            &month_definition,
             &args,
         );
     }
@@ -114,7 +118,7 @@ fn add_year_to_table(
     args: &EvaluatedWholeStreamCommandArgs,
 ) {
     for month_number in 1..=12 {
-        let (day_start_offset, number_of_days_in_month, chosen_date_is_valid) =
+        let (month_definition, chosen_date_is_valid) =
             get_month_information(selected_year, month_number, current_year);
 
         if !chosen_date_is_valid {
@@ -135,25 +139,23 @@ fn add_year_to_table(
             selected_year,
             month_number,
             new_current_day_option,
-            day_start_offset,
-            number_of_days_in_month,
+            &month_definition,
             &args,
         );
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn add_month_to_table(
     calendar_vec_deque: &mut VecDeque<Value>,
     tag: &Tag,
     year: i32,
     month: u32,
     _current_day_option: Option<u32>, // Can be used in the future to display current day
-    day_start_offset: usize,
-    number_of_days_in_month: usize,
+    month_definition: &MonthDefinition,
     args: &EvaluatedWholeStreamCommandArgs,
 ) {
-    let day_limit = number_of_days_in_month + day_start_offset;
+    let day_limit =
+        month_definition.number_of_days_in_month + month_definition.day_number_month_starts_on;
     let mut day_count: usize = 1;
 
     let days_of_the_week = [
@@ -196,8 +198,11 @@ fn add_month_to_table(
         }
 
         for day in &days_of_the_week {
-            let value = if (day_count <= day_limit) && (day_count > day_start_offset) {
-                UntaggedValue::int(day_count - day_start_offset).into_value(tag)
+            let value = if (day_count <= day_limit)
+                && (day_count > month_definition.day_number_month_starts_on)
+            {
+                UntaggedValue::int(day_count - month_definition.day_number_month_starts_on)
+                    .into_value(tag)
             } else {
                 UntaggedValue::nothing().into_value(tag)
             };
@@ -235,7 +240,7 @@ fn get_month_information(
     selected_year: i32,
     month: u32,
     current_year: i32,
-) -> (usize, usize, bool) {
+) -> (MonthDefinition, bool) {
     let (naive_date, chosen_date_is_valid_one) =
         get_safe_naive_date(selected_year, month, current_year);
     let weekday = naive_date.weekday();
@@ -243,8 +248,10 @@ fn get_month_information(
         get_days_in_month(selected_year, month, current_year);
 
     (
-        weekday.num_days_from_sunday() as usize,
-        days_in_month,
+        MonthDefinition {
+            day_number_month_starts_on: weekday.num_days_from_sunday() as usize,
+            number_of_days_in_month: days_in_month,
+        },
         chosen_date_is_valid_one && chosen_date_is_valid_two,
     )
 }
