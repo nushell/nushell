@@ -1,5 +1,6 @@
 use crate::commands::UnevaluatedCallInfo;
 use crate::commands::WholeStreamCommand;
+use crate::data::value::format_leaf;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{hir, hir::Expression, hir::Literal, hir::SpannedExpression};
@@ -161,6 +162,19 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                                 ..
                             } => {
                                 out!("{}", b);
+                            }
+                            Value {
+                                value: UntaggedValue::Primitive(Primitive::Duration(d)),
+                                ..
+                            } => {
+                                let output = format_leaf(&x).plain_string(100_000);
+                                out!("{}", output);
+                            }
+                            Value {
+                                value: UntaggedValue::Primitive(Primitive::Date(d)),
+                                ..
+                            } => {
+                                out!("{}", d);
                             }
 
                             Value { value: UntaggedValue::Primitive(Primitive::Binary(ref b)), .. } => {
