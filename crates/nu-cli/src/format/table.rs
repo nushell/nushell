@@ -374,7 +374,8 @@ impl RenderView for TableView {
             }
         }
 
-        let skip_headers = self.headers.len() == 2 && self.headers[1] == "";
+        let skip_headers = (self.headers.len() == 2 && self.headers[1] == "")
+            || (self.headers.len() == 1 && self.headers[0] == "");
 
         let header: Vec<Cell> = self
             .headers
