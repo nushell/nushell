@@ -176,6 +176,13 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                             } => {
                                 out!("{}", d);
                             }
+                            Value {
+                                value: UntaggedValue::Primitive(Primitive::Range(_)),
+                                ..
+                            } => {
+                                let output = format_leaf(&x).plain_string(100_000);
+                                out!("{}", output);
+                            }
 
                             Value { value: UntaggedValue::Primitive(Primitive::Binary(ref b)), .. } => {
                                 if let Some(binary) = binary {
