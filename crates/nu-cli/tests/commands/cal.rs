@@ -1,11 +1,25 @@
 use nu_test_support::{nu, pipeline};
 
 #[test]
+fn cal_full_year() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        cal -y --full-year 2010 | first | to json
+        "#
+    ));
+
+    let first_week_2010_json = r#"{"year":2010,"sunday":null,"monday":null,"tuesday":null,"wednesday":null,"thurday":null,"friday":1,"saturday":2}"#;
+
+    assert_eq!(actual.out, first_week_2010_json);
+}
+
+#[test]
 fn cal_february_2020_leap_year() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        cal -my 2020 | where month == "february" | to json
+        cal -ym --full-year 2020 --month-names | where month == "february" | to json
         "#
     ));
 
@@ -19,7 +33,7 @@ fn cal_friday_the_thirteenths_in_2015() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        cal -ym 2015 | where friday == 13 | count
+        cal --full-year 2015 | where friday == 13 | count
         "#
     ));
 
@@ -31,7 +45,7 @@ fn cal_rows_in_2020() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        cal -y 2020 | count
+        cal --full-year 2020 | count
         "#
     ));
 

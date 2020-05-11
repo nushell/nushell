@@ -3,7 +3,7 @@ use chrono::{DateTime, Datelike, Local, NaiveDate};
 use nu_errors::ShellError;
 use nu_protocol::Dictionary;
 
-use crate::commands::WholeStreamCommand;
+use crate::commands::{command::EvaluatedWholeStreamCommandArgs, WholeStreamCommand};
 use indexmap::IndexMap;
 use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 
@@ -16,16 +16,19 @@ impl WholeStreamCommand for Cal {
 
     fn signature(&self) -> Signature {
         Signature::build("cal")
+            .switch("year", "Display the year column", Some('y'))
+            .switch("quarter", "Display the quarter column", Some('q'))
+            .switch("month", "Display the month column", Some('m'))
+            .named(
+                "full-year",
+                SyntaxShape::Int,
+                "Display a year-long calendar for the specified year",
+                None,
+            )
             .switch(
                 "month-names",
                 "Display the month names instead of integers",
-                Some('m'),
-            )
-            .named(
-                "year",
-                SyntaxShape::Int,
-                "Display a year-long calendar for the specified year",
-                Some('y'),
+                None,
             )
     }
 
@@ -48,14 +51,12 @@ pub fn cal(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
     let tag = args.call_info.name_tag.clone();
 
     let (current_year, current_month, current_day) = get_current_date();
-    let should_show_month_names = args.has("month-names");
 
-    if args.has("year") {
+    if args.has("full-year") {
         let mut day_value: Option<u32> = Some(current_day);
-        let year_option = args.get("year");
         let mut year_value = current_year as u64;
 
-        if let Some(year) = year_option {
+        if let Some(year) = args.get("full-year") {
             if let Ok(year_u64) = year.as_u64() {
                 year_value = year_u64;
             }
@@ -72,7 +73,7 @@ pub fn cal(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
             current_year,
             current_month,
             day_value,
-            should_show_month_names,
+            &args,
         );
     } else {
         let (day_start_offset, number_of_days_in_month, _) =
@@ -86,7 +87,7 @@ pub fn cal(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
             Some(current_day),
             day_start_offset,
             number_of_days_in_month as usize,
-            should_show_month_names,
+            &args,
         );
     }
 
@@ -110,7 +111,7 @@ fn add_year_to_table(
     current_year: i32,
     current_month: u32,
     current_day_option: Option<u32>,
-    should_show_month_names: bool,
+    args: &EvaluatedWholeStreamCommandArgs,
 ) {
     for month_number in 1..=12 {
         let (day_start_offset, number_of_days_in_month, chosen_date_is_valid) =
@@ -136,7 +137,7 @@ fn add_year_to_table(
             new_current_day_option,
             day_start_offset,
             number_of_days_in_month,
-            should_show_month_names,
+            &args,
         );
     }
 }
@@ -150,7 +151,7 @@ fn add_month_to_table(
     _current_day_option: Option<u32>, // Can be used in the future to display current day
     day_start_offset: usize,
     number_of_days_in_month: usize,
-    should_show_month_names: bool,
+    args: &EvaluatedWholeStreamCommandArgs,
 ) {
     let day_limit = number_of_days_in_month + day_start_offset;
     let mut day_count: usize = 1;
@@ -165,18 +166,34 @@ fn add_month_to_table(
         "saturday",
     ];
 
+    let should_show_year_column = args.has("year");
+    let should_show_month_column = args.has("month");
+    let should_show_quarter_column = args.has("quarter");
+    let should_show_month_names = args.has("month-names");
+
     while day_count <= day_limit {
         let mut indexmap = IndexMap::new();
 
-        indexmap.insert("year".to_string(), UntaggedValue::int(year).into_value(tag));
+        if should_show_year_column {
+            indexmap.insert("year".to_string(), UntaggedValue::int(year).into_value(tag));
+        }
 
-        let month_value = if should_show_month_names {
-            UntaggedValue::string(get_month_name(month)).into_value(tag)
-        } else {
-            UntaggedValue::int(month).into_value(tag)
-        };
+        if should_show_quarter_column {
+            indexmap.insert(
+                "quarter".to_string(),
+                UntaggedValue::int(get_quarter_number(month)).into_value(tag),
+            );
+        }
 
-        indexmap.insert("month".to_string(), month_value);
+        if should_show_month_column {
+            let month_value = if should_show_month_names {
+                UntaggedValue::string(get_month_name(month)).into_value(tag)
+            } else {
+                UntaggedValue::int(month).into_value(tag)
+            };
+
+            indexmap.insert("month".to_string(), month_value);
+        }
 
         for day in &days_of_the_week {
             let value = if (day_count <= day_limit) && (day_count > day_start_offset) {
@@ -192,6 +209,15 @@ fn add_month_to_table(
 
         calendar_vec_deque
             .push_back(UntaggedValue::Row(Dictionary::from(indexmap)).into_value(tag));
+    }
+}
+
+fn get_quarter_number(month_number: u32) -> u8 {
+    match month_number {
+        1..=3 => 1,
+        4..=6 => 2,
+        7..=9 => 3,
+        _ => 4,
     }
 }
 
