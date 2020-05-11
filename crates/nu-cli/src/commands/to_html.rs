@@ -39,16 +39,22 @@ fn to_html(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
         let headers = nu_protocol::merge_descriptors(&input);
         let mut output_string = "<html><body>".to_string();
 
-        if !headers.is_empty() && (headers.len() > 1 || headers[0] != "") {
+        if !headers.is_empty() {
             output_string.push_str("<table>");
 
-            output_string.push_str("<tr>");
-            for header in &headers {
-                output_string.push_str("<th>");
-                output_string.push_str(&htmlescape::encode_minimal(&header));
-                output_string.push_str("</th>");
+            if headers.len() > 1 || headers[0] != "" {
+                output_string.push_str("<tr>");
             }
-            output_string.push_str("</tr>");
+            for header in &headers {
+                if header != "" {
+                    output_string.push_str("<th>");
+                    output_string.push_str(&htmlescape::encode_minimal(&header));
+                    output_string.push_str("</th>");
+                }
+            }
+            if headers.len() > 1 || headers[0] != "" {
+                output_string.push_str("</tr>");
+            }
         }
 
         for row in input {
@@ -103,13 +109,20 @@ fn to_html(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                     }
                     output_string.push_str("</tr>");
                 }
+                p if !headers.is_empty() => {
+                    output_string.push_str("<tr>");
+                    output_string.push_str("<td>");
+                    output_string.push_str(&(htmlescape::encode_minimal(&format_leaf(&p).plain_string(100_000)).replace("\n", "<br>")));
+                    output_string.push_str("</td>");
+                    output_string.push_str("</tr>");
+                }
                 p => {
                     output_string.push_str(&(htmlescape::encode_minimal(&format_leaf(&p).plain_string(100_000)).replace("\n", "<br>")));
                 }
             }
         }
 
-        if !headers.is_empty() && (headers.len() > 1 || headers[0] != "") {
+        if !headers.is_empty() {
             output_string.push_str("</table>");
         }
         output_string.push_str("</body></html>");
