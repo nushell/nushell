@@ -407,7 +407,7 @@ impl Command {
 
     pub fn run(&self, args: CommandArgs, registry: &CommandRegistry) -> OutputStream {
         if args.call_info.switch_present("help") {
-            get_help(self.name(), self.usage(), self.signature(), registry).into()
+            get_help(&*self.0, registry).into()
         } else {
             match self.0.run(args, registry) {
                 Ok(stream) => stream,
@@ -418,6 +418,10 @@ impl Command {
 
     pub fn is_binary(&self) -> bool {
         self.0.is_binary()
+    }
+
+    pub fn stream_command(&self) -> &dyn WholeStreamCommand {
+        &*self.0
     }
 }
 
