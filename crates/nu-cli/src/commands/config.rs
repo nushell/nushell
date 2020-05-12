@@ -72,6 +72,39 @@ impl WholeStreamCommand for Config {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, config)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "See all config values",
+                example: "config",
+            },
+            Example {
+                description: "Set completion_mode to circular",
+                example: "config --set [completion_mode circular]",
+            },
+            Example {
+                description: "Store the contents of the pipeline as a path",
+                example: "echo ['/usr/bin' '/bin'] | config --set_into path",
+            },
+            Example {
+                description: "Get the current startup commands",
+                example: "config --get startup",
+            },
+            Example {
+                description: "Remove the startup commands",
+                example: "config --remove startup",
+            },
+            Example {
+                description: "Clear the config (be careful!)",
+                example: "config --clear",
+            },
+            Example {
+                description: "Get the path to the current config file",
+                example: "config --path",
+            },
+        ]
+    }
 }
 
 pub fn config(

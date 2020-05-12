@@ -92,6 +92,14 @@ impl ClassifiedCommand {
                     }
                 }
 
+                if let Some(named) = &command.args.named {
+                    for arg in named.iter() {
+                        if let NamedValue::Value(_, value) = arg.1 {
+                            result = result || value.has_shallow_it_usage();
+                        }
+                    }
+                }
+
                 result
             }
             ClassifiedCommand::Expr(expr) => expr.has_shallow_it_usage(),

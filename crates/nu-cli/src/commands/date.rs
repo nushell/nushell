@@ -33,6 +33,19 @@ impl WholeStreamCommand for Date {
     ) -> Result<OutputStream, ShellError> {
         date(args, registry)
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "Get the current local time and date",
+                example: "date",
+            },
+            Example {
+                description: "Get the current UTC time and date",
+                example: "date --utc",
+            },
+        ]
+    }
 }
 
 pub fn date_to_value<T: TimeZone>(dt: DateTime<T>, tag: Tag) -> Value

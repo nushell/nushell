@@ -42,6 +42,19 @@ impl WholeStreamCommand for Cpy {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, cp)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "Copy myfile to dir_b",
+                example: "cp myfile dir_b",
+            },
+            Example {
+                description: "Recursively copy dir_a to dir_b",
+                example: "cp -r dir_a dir_b",
+            },
+        ]
+    }
 }
 
 pub fn cp(args: CopyArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {

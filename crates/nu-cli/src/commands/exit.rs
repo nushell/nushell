@@ -26,6 +26,19 @@ impl WholeStreamCommand for Exit {
     ) -> Result<OutputStream, ShellError> {
         exit(args, registry)
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "Exit the current shell",
+                example: "exit",
+            },
+            Example {
+                description: "Exit all shells (exiting Nu)",
+                example: "exit --now",
+            },
+        ]
+    }
 }
 
 pub fn exit(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {

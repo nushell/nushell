@@ -38,6 +38,13 @@ impl WholeStreamCommand for Format {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, format_command)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[Example {
+            description: "Print filenames with their sizes",
+            example: "ls | format '{name}: {size}'",
+        }]
+    }
 }
 
 fn format_command(
