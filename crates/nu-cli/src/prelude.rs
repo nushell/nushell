@@ -72,6 +72,7 @@ pub(crate) use nu_protocol::{errln, out, outln};
 use nu_source::HasFallibleSpan;
 
 pub(crate) use crate::commands::command::{CommandArgs, RawCommandArgs, RunnableContext};
+pub(crate) use crate::commands::Example;
 pub(crate) use crate::context::CommandRegistry;
 pub(crate) use crate::context::Context;
 pub(crate) use crate::data::config;

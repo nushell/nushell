@@ -43,6 +43,19 @@ impl WholeStreamCommand for Cal {
     ) -> Result<OutputStream, ShellError> {
         cal(args, registry)
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "This month's calendar",
+                example: "cal",
+            },
+            Example {
+                description: "The calendar for all of 2012",
+                example: "cal --full-year 2012",
+            },
+        ]
+    }
 }
 
 pub fn cal(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {

@@ -1,4 +1,4 @@
-use crate::commands::{Example, WholeStreamCommand};
+use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
