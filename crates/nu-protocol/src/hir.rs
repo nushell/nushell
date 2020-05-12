@@ -94,11 +94,8 @@ impl ClassifiedCommand {
 
                 if let Some(named) = &command.args.named {
                     for arg in named.iter() {
-                        match arg.1 {
-                            NamedValue::Value(_, value) => {
-                                result = result || value.has_shallow_it_usage();
-                            }
-                            _ => {}
+                        if let NamedValue::Value(_, value) = arg.1 {
+                            result = result || value.has_shallow_it_usage();
                         }
                     }
                 }
