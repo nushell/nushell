@@ -36,6 +36,19 @@ impl WholeStreamCommand for First {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, first)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "Return the first item of a list/table",
+                example: "echo [1 2 3] | first",
+            },
+            Example {
+                description: "Return the first 2 items of a list/table",
+                example: "echo [1 2 3] | first 2",
+            },
+        ]
+    }
 }
 
 fn first(

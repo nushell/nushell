@@ -40,6 +40,13 @@ impl WholeStreamCommand for Default {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, default)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[Example {
+            description: "Give a default 'target' to all file entries",
+            example: "ls -af | default target 'nothing'",
+        }]
+    }
 }
 
 fn default(

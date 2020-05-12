@@ -40,6 +40,19 @@ impl WholeStreamCommand for Enter {
     ) -> Result<OutputStream, ShellError> {
         Ok(args.process_raw(registry, enter)?.run())
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "Enter a path as a new shell",
+                example: "enter ../projectB",
+            },
+            Example {
+                description: "Enter a file as a new shell",
+                example: "enter package.json",
+            },
+        ]
+    }
 }
 
 fn enter(
