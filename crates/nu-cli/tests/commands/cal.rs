@@ -51,3 +51,15 @@ fn cal_rows_in_2020() {
 
     assert!(actual.out.contains("62"));
 }
+
+#[test]
+fn cal_sees_pipeline_year() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        echo 1020 | cal --full-year $it | get monday | first 3 | to json
+        "#
+    ));
+
+    assert_eq!(actual.out, "[3,10,17]");
+}
