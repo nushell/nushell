@@ -606,6 +606,7 @@ impl PrettyDebugWithSource for SpannedExpression {
                 Expression::Binary(binary) => binary.pretty_debug(source),
                 Expression::Range(range) => range.pretty_debug(source),
                 Expression::Block(_) => b::opaque("block"),
+                Expression::Invocation(_) => b::opaque("invocation"),
                 Expression::Garbage => b::opaque("garbage"),
                 Expression::List(list) => b::delimit(
                     "[",
@@ -646,6 +647,7 @@ impl PrettyDebugWithSource for SpannedExpression {
             Expression::Binary(binary) => binary.pretty_debug(source),
             Expression::Range(range) => range.pretty_debug(source),
             Expression::Block(_) => b::opaque("block"),
+            Expression::Invocation(_) => b::opaque("invocation"),
             Expression::Garbage => b::opaque("garbage"),
             Expression::List(list) => b::delimit(
                 "[",
@@ -866,6 +868,7 @@ pub enum Expression {
     FilePath(PathBuf),
     ExternalCommand(ExternalStringCommand),
     Command(Span),
+    Invocation(hir::Block),
 
     Boolean(bool),
 
@@ -888,6 +891,7 @@ impl ShellTypeName for Expression {
             Expression::Binary(..) => "binary",
             Expression::Range(..) => "range",
             Expression::Block(..) => "block",
+            Expression::Invocation(..) => "command invocation",
             Expression::Path(..) => "variable path",
             Expression::Boolean(..) => "boolean",
             Expression::ExternalCommand(..) => "external",

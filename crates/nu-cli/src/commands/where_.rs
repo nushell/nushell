@@ -82,7 +82,7 @@ fn where_command(
         while let Some(input) = input.next().await {
 
             //FIXME: should we use the scope that's brought in as well?
-            let condition = evaluate_baseline_expr(&condition, &registry, &scope.clone().set_it(input.clone()))?;
+            let condition = evaluate_baseline_expr(&condition, &registry, &scope.clone().set_it(input.clone())).await?;
 
             match condition.as_bool() {
                 Ok(b) => {
