@@ -20,7 +20,7 @@ impl WholeStreamCommand for Count {
     }
 
     fn usage(&self) -> &str {
-        "Show the total number of rows."
+        "Show the total number of rows or items."
     }
 
     fn run(
@@ -29,6 +29,13 @@ impl WholeStreamCommand for Count {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, count)?.run()
+    }
+
+    fn examples(&self) -> &[Example] {
+        &[Example {
+            description: "Count the number of files/directories in the current directory",
+            example: "ls | count",
+        }]
     }
 }
 

@@ -41,6 +41,19 @@ impl WholeStreamCommand for Alias {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, alias)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "An alias without parameters",
+                example: "alias say-hi [] { echo 'Hello!' }",
+            },
+            Example {
+                description: "An alias with a single parameter",
+                example: "alias l [x] { ls $x }",
+            },
+        ]
+    }
 }
 
 pub fn alias(

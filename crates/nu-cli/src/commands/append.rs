@@ -35,6 +35,13 @@ impl WholeStreamCommand for Append {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, append)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[Example {
+            description: "Add something to the end of a list or table",
+            example: "echo [1 2 3] | append 4",
+        }]
+    }
 }
 
 fn append(

@@ -23,9 +23,6 @@ impl WholeStreamCommand for To {
         _args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        Ok(
-            crate::commands::help::get_help(self.name(), self.usage(), self.signature(), registry)
-                .into(),
-        )
+        Ok(crate::commands::help::get_help(self, registry).into())
     }
 }

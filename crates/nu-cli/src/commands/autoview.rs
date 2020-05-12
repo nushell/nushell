@@ -37,6 +37,19 @@ impl WholeStreamCommand for Autoview {
             name: args.call_info.name_tag,
         })
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "Automatically view the results",
+                example: "ls | autoview",
+            },
+            Example {
+                description: "Autoview is also implied. The above can be written as",
+                example: "ls",
+            },
+        ]
+    }
 }
 
 pub struct RunnableContextWithoutInput {
@@ -175,6 +188,13 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                                 ..
                             } => {
                                 out!("{}", d);
+                            }
+                            Value {
+                                value: UntaggedValue::Primitive(Primitive::Range(_)),
+                                ..
+                            } => {
+                                let output = format_leaf(&x).plain_string(100_000);
+                                out!("{}", output);
                             }
 
                             Value { value: UntaggedValue::Primitive(Primitive::Binary(ref b)), .. } => {

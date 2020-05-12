@@ -38,7 +38,7 @@ fn to_html(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
         let headers = nu_protocol::merge_descriptors(&input);
         let mut output_string = String::new();
 
-        if !headers.is_empty() && (headers.len() > 1 || headers[0] != "<value>") {
+        if !headers.is_empty() && (headers.len() > 1 || headers[0] != "") {
             output_string.push_str("|");
             for header in &headers {
                 output_string.push_str(&htmlescape::encode_minimal(&header));

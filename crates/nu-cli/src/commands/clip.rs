@@ -34,6 +34,13 @@ pub mod clipboard {
         ) -> Result<OutputStream, ShellError> {
             args.process(registry, clip)?.run()
         }
+
+        fn examples(&self) -> &[Example] {
+            &[Example {
+                description: "Save text to the clipboard",
+                example: "echo 'secret value' | clip",
+            }]
+        }
     }
 
     pub fn clip(
