@@ -36,6 +36,19 @@ impl WholeStreamCommand for Last {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, last)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "Get the last row",
+                example: "ls | last",
+            },
+            Example {
+                description: "Get the last three rows",
+                example: "ls | last 3",
+            },
+        ]
+    }
 }
 
 fn last(LastArgs { rows }: LastArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {

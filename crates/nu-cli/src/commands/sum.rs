@@ -34,6 +34,19 @@ impl WholeStreamCommand for Sum {
             name: args.call_info.name_tag,
         })
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "Sum a list of numbers",
+                example: "echo [1 2 3] | sum",
+            },
+            Example {
+                description: "Get the disk usage for the current directory",
+                example: "ls --all --du | get size | sum",
+            },
+        ]
+    }
 }
 
 fn sum(RunnableContext { mut input, .. }: RunnableContext) -> Result<OutputStream, ShellError> {

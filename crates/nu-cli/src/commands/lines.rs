@@ -25,6 +25,13 @@ impl WholeStreamCommand for Lines {
     ) -> Result<OutputStream, ShellError> {
         lines(args, registry)
     }
+
+    fn examples(&self) -> &[Example] {
+        &[Example {
+            description: "Split output from an external command into lines",
+            example: "^ls -l | lines",
+        }]
+    }
 }
 
 fn ends_with_line_ending(st: &str) -> bool {

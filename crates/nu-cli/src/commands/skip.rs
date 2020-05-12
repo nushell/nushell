@@ -32,6 +32,13 @@ impl WholeStreamCommand for Skip {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, skip)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[Example {
+            description: "Skip the first 5 rows",
+            example: "ls | skip 5",
+        }]
+    }
 }
 
 fn skip(SkipArgs { rows }: SkipArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {

@@ -36,6 +36,19 @@ impl WholeStreamCommand for Keep {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, keep)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "Keep the first row",
+                example: "ls | keep",
+            },
+            Example {
+                description: "Keep the first four rows",
+                example: "ls | keep 4",
+            },
+        ]
+    }
 }
 
 fn keep(KeepArgs { rows }: KeepArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
