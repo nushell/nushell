@@ -33,6 +33,13 @@ impl WholeStreamCommand for Compact {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, compact)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[Example {
+            description: "Remove all directory entries, except those with a 'target'",
+            example: "ls -af | compact target",
+        }]
+    }
 }
 
 pub fn compact(

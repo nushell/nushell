@@ -37,6 +37,19 @@ impl WholeStreamCommand for Autoview {
             name: args.call_info.name_tag,
         })
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "Automatically view the results",
+                example: "ls | autoview",
+            },
+            Example {
+                description: "Autoview is also implied. The above can be written as",
+                example: "ls",
+            },
+        ]
+    }
 }
 
 pub struct RunnableContextWithoutInput {

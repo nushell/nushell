@@ -38,6 +38,27 @@ impl WholeStreamCommand for Cd {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, cd)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "Change to a new directory called 'dirname'",
+                example: "cd dirname",
+            },
+            Example {
+                description: "Change to your home directory",
+                example: "cd",
+            },
+            Example {
+                description: "Change to your home directory (alternate version)",
+                example: "cd ~",
+            },
+            Example {
+                description: "Change to the previous directory",
+                example: "cd -",
+            },
+        ]
+    }
 }
 
 fn cd(args: CdArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {

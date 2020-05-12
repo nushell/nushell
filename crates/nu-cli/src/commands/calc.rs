@@ -24,6 +24,13 @@ impl WholeStreamCommand for Calc {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, calc)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[Example {
+            description: "Calculate math in the pipeline",
+            example: "echo '10 / 4' | calc",
+        }]
+    }
 }
 
 pub fn calc(

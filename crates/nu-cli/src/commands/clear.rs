@@ -23,6 +23,12 @@ impl WholeStreamCommand for Clear {
     ) -> Result<OutputStream, ShellError> {
         clear(args, registry)
     }
+    fn examples(&self) -> &[Example] {
+        &[Example {
+            description: "Clear the screen",
+            example: "clear",
+        }]
+    }
 }
 fn clear(_args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     if cfg!(windows) {
