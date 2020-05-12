@@ -38,8 +38,8 @@ impl WholeStreamCommand for Prepend {
 
     fn examples(&self) -> &[Example] {
         &[Example {
-            description: "Add something to the end of a list or table",
-            example: "echo [2 3 4] | prepend 4",
+            description: "Add something to the beginning of a list or table",
+            example: "echo [2 3 4] | prepend 1",
         }]
     }
 }
