@@ -20,8 +20,8 @@ pub struct UnevaluatedCallInfo {
 }
 
 impl UnevaluatedCallInfo {
-    pub fn evaluate(self, registry: &CommandRegistry) -> Result<CallInfo, ShellError> {
-        let args = evaluate_args(&self.args, registry, &self.scope)?;
+    pub async fn evaluate(self, registry: &CommandRegistry) -> Result<CallInfo, ShellError> {
+        let args = evaluate_args(&self.args, registry, &self.scope).await?;
 
         Ok(CallInfo {
             args,
@@ -29,14 +29,14 @@ impl UnevaluatedCallInfo {
         })
     }
 
-    pub fn evaluate_with_new_it(
+    pub async fn evaluate_with_new_it(
         self,
         registry: &CommandRegistry,
         it: &Value,
     ) -> Result<CallInfo, ShellError> {
         let mut scope = self.scope.clone();
         scope = scope.set_it(it.clone());
-        let args = evaluate_args(&self.args, registry, &scope)?;
+        let args = evaluate_args(&self.args, registry, &scope).await?;
 
         Ok(CallInfo {
             args,
@@ -87,7 +87,7 @@ impl std::fmt::Debug for CommandArgs {
 }
 
 impl CommandArgs {
-    pub fn evaluate_once(
+    pub async fn evaluate_once(
         self,
         registry: &CommandRegistry,
     ) -> Result<EvaluatedWholeStreamCommandArgs, ShellError> {
@@ -95,7 +95,7 @@ impl CommandArgs {
         let ctrl_c = self.ctrl_c.clone();
         let shell_manager = self.shell_manager.clone();
         let input = self.input;
-        let call_info = self.call_info.evaluate(registry)?;
+        let call_info = self.call_info.evaluate(registry).await?;
 
         Ok(EvaluatedWholeStreamCommandArgs::new(
             host,
@@ -131,7 +131,7 @@ impl CommandArgs {
         ))
     }
 
-    pub fn process<'de, T: Deserialize<'de>, O: ToOutputStream>(
+    pub async fn process<'de, T: Deserialize<'de>, O: ToOutputStream>(
         self,
         registry: &CommandRegistry,
         callback: fn(T, RunnableContext) -> Result<O, ShellError>,
@@ -139,7 +139,7 @@ impl CommandArgs {
         let shell_manager = self.shell_manager.clone();
         let host = self.host.clone();
         let ctrl_c = self.ctrl_c.clone();
-        let args = self.evaluate_once(registry)?;
+        let args = self.evaluate_once(registry).await?;
         let call_info = args.call_info.clone();
         let (input, args) = args.split();
         let name_tag = args.call_info.name_tag;

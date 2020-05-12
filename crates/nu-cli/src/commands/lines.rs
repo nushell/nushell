@@ -38,14 +38,14 @@ fn ends_with_line_ending(st: &str) -> bool {
 }
 
 fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let tag = args.name_tag();
-    let name_span = tag.span;
-    let mut input = args.input;
-
     let mut leftover = vec![];
     let mut leftover_string = String::new();
+    let registry = registry.clone();
     let stream = async_stream! {
+        let args = args.evaluate_once(&registry).await.unwrap();
+        let tag = args.name_tag();
+        let name_span = tag.span;
+        let mut input = args.input;
         loop {
             match input.next().await {
                 Some(Value { value: UntaggedValue::Primitive(Primitive::String(st)), ..}) => {

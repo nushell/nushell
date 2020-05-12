@@ -339,10 +339,11 @@ pub fn sink_plugin(
     args: CommandArgs,
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let call_info = args.call_info.clone();
-
+    let registry = registry.clone();
     let stream = async_stream! {
+        let args = args.evaluate_once(&registry).await?;
+        let call_info = args.call_info.clone();
+
         let input: Vec<Value> = args.input.collect().await;
 
         let request = JsonRpc::new("sink", (call_info.clone(), input));
