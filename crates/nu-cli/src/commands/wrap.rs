@@ -37,6 +37,19 @@ impl WholeStreamCommand for Wrap {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, wrap)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "Wrap a list into a table with the default column name",
+                example: "echo [1 2 3] | wrap",
+            },
+            Example {
+                description: "Wrap a list into a table with a given column name",
+                example: "echo [1 2 3] | wrap MyColumn",
+            },
+        ]
+    }
 }
 
 fn wrap(

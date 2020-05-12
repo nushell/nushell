@@ -46,6 +46,24 @@ impl WholeStreamCommand for Histogram {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, histogram)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "Get a histogram for the types of files",
+                example: "ls | histogram type",
+            },
+            Example {
+                description:
+                    "Get a histogram for the types of files, with frequency column named count",
+                example: "ls | histogram type count",
+            },
+            Example {
+                description: "Get a histogram for a list of numbers",
+                example: "echo [1 2 3 1 2 3 1 1 1 1 3 2 1 1 3] | wrap | histogram Column",
+            },
+        ]
+    }
 }
 
 pub fn histogram(

@@ -25,6 +25,13 @@ impl WholeStreamCommand for Size {
     ) -> Result<OutputStream, ShellError> {
         size(args, registry)
     }
+
+    fn examples(&self) -> &[Example] {
+        &[Example {
+            description: "Count the number of words in a string",
+            example: r#"echo "There are seven words in this sentence" | size"#,
+        }]
+    }
 }
 
 fn size(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {

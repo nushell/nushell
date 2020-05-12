@@ -25,6 +25,13 @@ impl WholeStreamCommand for Pwd {
     ) -> Result<OutputStream, ShellError> {
         pwd(args, registry)
     }
+
+    fn examples(&self) -> &[Example] {
+        &[Example {
+            description: "Print the current working directory",
+            example: "pwd",
+        }]
+    }
 }
 
 pub fn pwd(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {

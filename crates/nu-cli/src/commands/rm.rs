@@ -43,6 +43,19 @@ impl WholeStreamCommand for Remove {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, rm)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "Delete a file",
+                example: "rm file.txt",
+            },
+            Example {
+                description: "Move a file to the system trash",
+                example: "rm --trash file.txt",
+            },
+        ]
+    }
 }
 
 fn rm(args: RemoveArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
