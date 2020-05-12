@@ -78,6 +78,13 @@ impl WholeStreamCommand for Du {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, du)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[Example {
+            description: "Disk usage of the current directory",
+            example: "du *",
+        }]
+    }
 }
 
 fn du(args: DuArgs, ctx: RunnableContext) -> Result<OutputStream, ShellError> {

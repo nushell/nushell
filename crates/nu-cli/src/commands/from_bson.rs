@@ -28,6 +28,13 @@ impl WholeStreamCommand for FromBSON {
     ) -> Result<OutputStream, ShellError> {
         from_bson(args, registry)
     }
+
+    fn examples(&self) -> &[Example] {
+        &[Example {
+            description: "Convert bson data to a table",
+            example: "open file.bin | from bson",
+        }]
+    }
 }
 
 fn bson_array(input: &[Bson], tag: Tag) -> Result<Vec<Value>, ShellError> {
