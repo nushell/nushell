@@ -10,6 +10,8 @@ pub struct SortBy;
 #[derive(Deserialize)]
 pub struct SortByArgs {
     rest: Vec<Tagged<String>>,
+    #[serde(rename = "insensitive")]
+    pub insensitive: bool,
 }
 
 impl WholeStreamCommand for SortBy {
@@ -18,7 +20,9 @@ impl WholeStreamCommand for SortBy {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("sort-by").rest(SyntaxShape::String, "the column(s) to sort by")
+        Signature::build("sort-by")
+            .rest(SyntaxShape::String, "the column(s) to sort by")
+            .switch("insensitive", "performs a case-insensitive sort", Some('i'))
     }
 
     fn usage(&self) -> &str {
@@ -48,7 +52,7 @@ impl WholeStreamCommand for SortBy {
 }
 
 fn sort_by(
-    SortByArgs { rest }: SortByArgs,
+    SortByArgs { rest, insensitive }: SortByArgs,
     mut context: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     Ok(OutputStream::new(async_stream! {
@@ -66,12 +70,23 @@ fn sort_by(
                 vec.sort();
             },
             _ => {
-                let calc_key = |item: &Value| {
-                    rest.iter()
-                        .map(|f| get_data_by_key(item, f.borrow_spanned()))
-                        .collect::<Vec<Option<Value>>>()
-                };
-                vec.sort_by_cached_key(calc_key);
+                if insensitive {
+                    let case_insensitive_string_key = |item: &Value| {
+                        rest.iter()
+                            .map(|f| get_data_by_key(item, f.borrow_spanned()).unwrap().as_string().unwrap().to_lowercase())
+                            .collect::<Vec<String>>()
+                    };
+
+                    vec.sort_by_cached_key(case_insensitive_string_key);
+                } else {
+                    let calc_key = |item: &Value| {
+                        rest.iter()
+                            .map(|f| get_data_by_key(item, f.borrow_spanned()))
+                            .collect::<Vec<Option<Value>>>()
+                    };
+
+                    vec.sort_by_cached_key(calc_key);
+                }
             },
         };
 
