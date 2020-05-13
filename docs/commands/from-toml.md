@@ -1,5 +1,5 @@
 # from toml
-Converts toml data into table. Use this when nushell cannot dertermine the input file extension.
+Converts toml data into table. Use this when nushell cannot determine the input file extension.
 
 ## Example
 Let's say we have the following Rust .lock file :

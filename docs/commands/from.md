@@ -10,17 +10,17 @@ Use this when nushell cannot determine the input file extension.
 * [from csv](from-csv.md)
 * from eml
 * [from ics](from-ics.md)
-* from ini
+* [from ini](from-ini.md)
 * [from json](from-json.md)
 * [from ods](from-ods.md)
 * from sqlite
 * from ssv
 * [from toml](from-toml.md)
 * [from tsv](from-tsv.md)
-* from url
+* [from url](from-url.md)
 * [from vcf](from-vcf.md)
 * [from xlsx](from-xlsx.md)
-* from xml
+* [from xml](from-xml.md)
 * [from yaml](from-yaml.md)
 
 *Subcommands without links are currently missing their documentation.*
