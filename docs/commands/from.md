@@ -20,7 +20,7 @@ Use this when nushell cannot determine the input file extension.
 * [from url](from-url.md)
 * [from vcf](from-vcf.md)
 * [from xlsx](from-xlsx.md)
-* from xml
+* [from xml](from-xml.md)
 * [from yaml](from-yaml.md)
 
 *Subcommands without links are currently missing their documentation.*
