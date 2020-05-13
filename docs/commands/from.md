@@ -17,7 +17,7 @@ Use this when nushell cannot determine the input file extension.
 * from ssv
 * [from toml](from-toml.md)
 * [from tsv](from-tsv.md)
-* from url
+* [from url](from-url.md)
 * [from vcf](from-vcf.md)
 * [from xlsx](from-xlsx.md)
 * from xml
