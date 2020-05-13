@@ -174,7 +174,7 @@ fn add_month_to_table(
         "monday",
         "tuesday",
         "wednesday",
-        "thurday",
+        "thursday",
         "friday",
         "saturday",
     ];
