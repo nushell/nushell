@@ -10,7 +10,7 @@ Use this when nushell cannot determine the input file extension.
 * [from csv](from-csv.md)
 * from eml
 * [from ics](from-ics.md)
-* from ini
+* [from ini](from-ini.md)
 * [from json](from-json.md)
 * [from ods](from-ods.md)
 * from sqlite
