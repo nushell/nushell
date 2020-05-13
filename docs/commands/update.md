@@ -1,6 +1,6 @@
-# edit
+# update
 
-Edits an existing column on a table. First parameter is the column to edit and the second parameter is the value to put.
+Updates an existing column on a table. First parameter is the column to update and the second parameter is the value to put.
 
 ## Examples
 
@@ -15,7 +15,7 @@ Edits an existing column on a table. First parameter is the column to edit and t
  3 │ abaracadabra.txt           │ File │          │ 401 B  │ a day ago │ a day ago
  4 │ youshouldeatmorecereal.txt │ File │          │ 768 B  │ a day ago │ a day ago
 ━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━┷━━━━━━━━━━┷━━━━━━━━┷━━━━━━━━━━━┷━━━━━━━━━━━
-> ls | edit modified neverrrr
+> ls | update modified neverrrr
 ━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━┯━━━━━━━━━━┯━━━━━━━━┯━━━━━━━━━━━┯━━━━━━━━━━
  # │ name                       │ type │ readonly │ size   │ accessed  │ modified
 ───┼────────────────────────────┼──────┼──────────┼────────┼───────────┼──────────
@@ -35,7 +35,7 @@ Edits an existing column on a table. First parameter is the column to edit and t
  0 │ X │ filesystem │ /home/username/stuff/expr/stuff
  1 │   │ filesystem │ /
 ━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-> shells | edit " " X | edit path /
+> shells | update " " X | update path /
 ━━━┯━━━┯━━━━━━━━━━━━┯━━━━━━
  # │   │ name       │ path
 ───┼───┼────────────┼──────
