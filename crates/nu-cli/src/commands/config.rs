@@ -30,7 +30,7 @@ impl WholeStreamCommand for Config {
             .named(
                 "load",
                 SyntaxShape::Path,
-                "load the config from the path give",
+                "load the config from the path given",
                 Some('l'),
             )
             .named(
