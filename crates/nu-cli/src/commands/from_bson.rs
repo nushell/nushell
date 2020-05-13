@@ -29,10 +29,11 @@ impl WholeStreamCommand for FromBSON {
         from_bson(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
             description: "Convert bson data to a table",
             example: "open file.bin | from bson",
+            result: None,
         }]
     }
 }
@@ -230,4 +231,16 @@ fn from_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::FromBSON;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(FromBSON {})
+    }
 }

@@ -73,35 +73,42 @@ impl WholeStreamCommand for Config {
         config(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "See all config values",
                 example: "config",
+                result: None,
             },
             Example {
                 description: "Set completion_mode to circular",
                 example: "config --set [completion_mode circular]",
+                result: None,
             },
             Example {
                 description: "Store the contents of the pipeline as a path",
                 example: "echo ['/usr/bin' '/bin'] | config --set_into path",
+                result: None,
             },
             Example {
                 description: "Get the current startup commands",
                 example: "config --get startup",
+                result: None,
             },
             Example {
                 description: "Remove the startup commands",
                 example: "config --remove startup",
+                result: None,
             },
             Example {
                 description: "Clear the config (be careful!)",
                 example: "config --clear",
+                result: None,
             },
             Example {
                 description: "Get the path to the current config file",
                 example: "config --path",
+                result: None,
             },
         ]
     }
@@ -219,4 +226,16 @@ pub fn config(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Config;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Config {})
+    }
 }

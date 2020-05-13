@@ -48,3 +48,15 @@ fn history(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStrea
     };
     Ok(stream.to_output_stream())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::History;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(History {})
+    }
+}

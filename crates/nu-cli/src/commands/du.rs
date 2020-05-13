@@ -79,10 +79,11 @@ impl WholeStreamCommand for Du {
         du(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
             description: "Disk usage of the current directory",
-            example: "du *",
+            example: "du",
+            result: None,
         }]
     }
 }
@@ -402,5 +403,17 @@ impl From<FileInfo> for Value {
         r.insert("files".to_string(), UntaggedValue::nothing().retag(&f.tag));
 
         UntaggedValue::row(r).retag(&f.tag)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Du;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Du {})
     }
 }

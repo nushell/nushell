@@ -41,10 +41,11 @@ impl WholeStreamCommand for Default {
         default(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
             description: "Give a default 'target' to all file entries",
             example: "ls -af | default target 'nothing'",
+            result: None,
         }]
     }
 }
@@ -75,4 +76,16 @@ fn default(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Default;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Default {})
+    }
 }

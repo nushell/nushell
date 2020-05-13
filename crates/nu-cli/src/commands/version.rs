@@ -40,3 +40,15 @@ pub fn version(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputS
     let value = UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag);
     Ok(OutputStream::one(value))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Version;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Version {})
+    }
+}

@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, Value};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 
 #[derive(Deserialize)]
 struct PrependArgs {
@@ -36,10 +36,16 @@ impl WholeStreamCommand for Prepend {
         prepend(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
             description: "Add something to the beginning of a list or table",
             example: "echo [2 3 4] | prepend 1",
+            result: Some(vec![
+                UntaggedValue::int(1).into(),
+                UntaggedValue::int(2).into(),
+                UntaggedValue::int(3).into(),
+                UntaggedValue::int(4).into(),
+            ]),
         }]
     }
 }
@@ -57,4 +63,16 @@ fn prepend(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Prepend;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Prepend {})
+    }
 }

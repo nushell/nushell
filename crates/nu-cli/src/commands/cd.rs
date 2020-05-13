@@ -39,23 +39,27 @@ impl WholeStreamCommand for Cd {
         cd(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Change to a new directory called 'dirname'",
                 example: "cd dirname",
+                result: None,
             },
             Example {
                 description: "Change to your home directory",
                 example: "cd",
+                result: None,
             },
             Example {
                 description: "Change to your home directory (alternate version)",
                 example: "cd ~",
+                result: None,
             },
             Example {
                 description: "Change to the previous directory",
                 example: "cd -",
+                result: None,
             },
         ]
     }
@@ -75,4 +79,16 @@ fn cd(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, She
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Cd;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Cd {})
+    }
 }

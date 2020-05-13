@@ -142,3 +142,15 @@ fn update(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
 
     Ok(stream.to_output_stream())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Update;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Update {})
+    }
+}

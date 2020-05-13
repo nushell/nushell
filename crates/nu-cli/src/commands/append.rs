@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, Value};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 
 #[derive(Deserialize)]
 struct AppendArgs {
@@ -36,10 +36,16 @@ impl WholeStreamCommand for Append {
         append(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
             description: "Add something to the end of a list or table",
             example: "echo [1 2 3] | append 4",
+            result: Some(vec![
+                UntaggedValue::int(1).into(),
+                UntaggedValue::int(2).into(),
+                UntaggedValue::int(3).into(),
+                UntaggedValue::int(4).into(),
+            ]),
         }]
     }
 }
@@ -57,4 +63,16 @@ fn append(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Append;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Append {})
+    }
 }

@@ -34,11 +34,23 @@ impl WholeStreamCommand for Compact {
         compact(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
-            description: "Remove all directory entries, except those with a 'target'",
-            example: "ls -af | compact target",
-        }]
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Filter out all null entries in a list",
+                example: "echo [1 2 $null 3 $null $null] | compact target",
+                result: Some(vec![
+                    UntaggedValue::int(1).into(),
+                    UntaggedValue::int(2).into(),
+                    UntaggedValue::int(3).into(),
+                ]),
+            },
+            Example {
+                description: "Filter out all directory entries having no 'target'",
+                example: "ls -af | compact target",
+                result: None,
+            },
+        ]
     }
 }
 
@@ -67,4 +79,16 @@ pub fn compact(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
         }
     };
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Compact;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Compact {})
+    }
 }

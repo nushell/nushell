@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 
 pub struct Skip;
@@ -33,10 +33,14 @@ impl WholeStreamCommand for Skip {
         skip(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
             description: "Skip the first 5 rows",
-            example: "ls | skip 5",
+            example: "echo [1 2 3 4 5 6 7] | skip 5",
+            result: Some(vec![
+                UntaggedValue::int(6).into(),
+                UntaggedValue::int(7).into(),
+            ]),
         }]
     }
 }
@@ -62,4 +66,16 @@ fn skip(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, S
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Skip;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Skip {})
+    }
 }

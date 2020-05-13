@@ -34,10 +34,11 @@ impl WholeStreamCommand for Mkdir {
         mkdir(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
             description: "Make a directory named foo",
             example: "mkdir foo",
+            result: None,
         }]
     }
 }
@@ -56,4 +57,16 @@ fn mkdir(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Mkdir;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Mkdir {})
+    }
 }

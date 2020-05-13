@@ -26,10 +26,11 @@ impl WholeStreamCommand for Pwd {
         pwd(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
             description: "Print the current working directory",
             example: "pwd",
+            result: None,
         }]
     }
 }
@@ -48,4 +49,16 @@ pub fn pwd(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Pwd;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Pwd {})
+    }
 }

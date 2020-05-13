@@ -33,15 +33,27 @@ impl WholeStreamCommand for SortBy {
         sort_by(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Sort list by increasing value",
+                example: "echo [4 2 3 1] | sort-by",
+                result: Some(vec![
+                    UntaggedValue::int(1).into(),
+                    UntaggedValue::int(2).into(),
+                    UntaggedValue::int(3).into(),
+                    UntaggedValue::int(4).into(),
+                ]),
+            },
             Example {
                 description: "Sort output by increasing file size",
                 example: "ls | sort-by size",
+                result: None,
             },
             Example {
                 description: "Sort output by type, and then by file size for each type",
                 example: "ls | sort-by type size",
+                result: None,
             },
         ]
     }
@@ -80,4 +92,16 @@ fn sort_by(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SortBy;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(SortBy {})
+    }
 }

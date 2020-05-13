@@ -28,10 +28,11 @@ impl WholeStreamCommand for Count {
         count(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
-            description: "Count the number of files/directories in the current directory",
-            example: "ls | count",
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Count the number of entries in a list",
+            example: "echo [1 2 3 4 5] | count",
+            result: Some(vec![UntaggedValue::int(5).into()]),
         }]
     }
 }
@@ -45,4 +46,16 @@ pub fn count(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStr
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Count;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Count {})
+    }
 }

@@ -40,17 +40,19 @@ impl WholeStreamCommand for ToJSON {
         to_json(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description:
                     "Outputs an unformatted JSON string representing the contents of this table",
-                example: "to json",
+                example: "echo [1 2 3] | to json",
+                result: Some(vec![Value::from("[1,2,3]")]),
             },
             Example {
                 description:
-                    "Outputs a formatted JSON string representing the contents of this table with an indentation setting of 4 spaces",
-                example: "to json --pretty 4",
+                    "Outputs a formatted JSON string representing the contents of this table with an indentation setting of 2 spaces",
+                example: "echo [1 2 3] | to json --pretty 2",
+                result: Some(vec![Value::from("[\n  1,\n  2,\n  3\n]")]),
             },
         ]
     }
@@ -232,4 +234,16 @@ fn to_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ToJSON;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(ToJSON {})
+    }
 }

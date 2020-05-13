@@ -57,3 +57,15 @@ fn reject(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
 
     Ok(stream.to_output_stream())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Reject;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Reject {})
+    }
+}

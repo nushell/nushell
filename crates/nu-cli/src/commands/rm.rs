@@ -44,15 +44,17 @@ impl WholeStreamCommand for Remove {
         rm(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Delete a file",
                 example: "rm file.txt",
+                result: None,
             },
             Example {
                 description: "Move a file to the system trash",
                 example: "rm --trash file.txt",
+                result: None,
             },
         ]
     }
@@ -71,4 +73,16 @@ fn rm(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, She
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Remove;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Remove {})
+    }
 }
