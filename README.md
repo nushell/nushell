@@ -144,7 +144,7 @@ Commands that work in the pipeline fit into one of three categories:
 Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing left to right.
 
 ```
-/home/jonathan/Source/nushell(master)ls | where type == "Dir" | autoview
+/home/jonathan/Source/nushell(master)> ls | where type == "Dir" | autoview
 ───┬────────┬──────┬────────┬──────────────
  # │ name   │ type │ size   │ modified
 ───┼────────┼──────┼────────┼──────────────
@@ -171,7 +171,7 @@ Being able to use the same commands and compose them differently is an important
 For example, we could use the built-in `ps` command as well to get a list of the running processes, using the same `where` as above.
 
 ```text
-/home/jonathan/Source/nushell(master)ps | where cpu > 0
+/home/jonathan/Source/nushell(master)> ps | where cpu > 0
 ───┬────────┬───────────────────┬──────────┬─────────┬──────────┬──────────
  # │ pid    │ name              │ status   │ cpu     │ mem      │ virtual
 ───┼────────┼───────────────────┼──────────┼─────────┼──────────┼──────────
