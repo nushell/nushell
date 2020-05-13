@@ -1,5 +1,6 @@
 use clap::{App, Arg};
 use log::LevelFilter;
+use nu_cli::{create_default_context, EnvironmentSyncer};
 use std::error::Error;
 use std::fs::File;
 use std::io::{prelude::*, BufReader};
@@ -128,7 +129,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                 "Welcome to Nushell {} (type 'help' for more info)",
                 clap::crate_version!()
             );
-            futures::executor::block_on(nu_cli::cli())?;
+
+            let mut syncer = EnvironmentSyncer::new();
+            let context = create_default_context(&mut syncer, true)?;
+            futures::executor::block_on(nu_cli::cli(syncer, context))?;
         }
     }
 
