@@ -66,6 +66,23 @@ impl WholeStreamCommand for Ls {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, ls)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "List all files in the current directory",
+                example: "ls",
+            },
+            Example {
+                description: "List all files in a subdirectory",
+                example: "ls subdir",
+            },
+            Example {
+                description: "List all rust files",
+                example: "ls *.rs",
+            },
+        ]
+    }
 }
 
 fn ls(args: LsArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {

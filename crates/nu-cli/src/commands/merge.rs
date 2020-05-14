@@ -38,6 +38,13 @@ impl WholeStreamCommand for Merge {
     ) -> Result<OutputStream, ShellError> {
         Ok(args.process_raw(registry, merge)?.run())
     }
+
+    fn examples(&self) -> &[Example] {
+        &[Example {
+            description: "Merge a 1-based index column with some ls output",
+            example: "ls | select name | keep 3 | merge { echo [1 2 3] | wrap index }",
+        }]
+    }
 }
 
 fn merge(

@@ -1,6 +1,6 @@
 # to url
 
-Converts table data into url-formatted text.
+Converts table data into [url-encoded text](https://url.spec.whatwg.org/#application/x-www-form-urlencoded).
 
 ## Example
 

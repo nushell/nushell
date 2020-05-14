@@ -9,7 +9,7 @@ fn cal_full_year() {
         "#
     ));
 
-    let first_week_2010_json = r#"{"year":2010,"sunday":null,"monday":null,"tuesday":null,"wednesday":null,"thurday":null,"friday":1,"saturday":2}"#;
+    let first_week_2010_json = r#"{"year":2010,"sunday":null,"monday":null,"tuesday":null,"wednesday":null,"thursday":null,"friday":1,"saturday":2}"#;
 
     assert_eq!(actual.out, first_week_2010_json);
 }
@@ -23,7 +23,7 @@ fn cal_february_2020_leap_year() {
         "#
     ));
 
-    let cal_february_json = r#"[{"year":2020,"month":"february","sunday":null,"monday":null,"tuesday":null,"wednesday":null,"thurday":null,"friday":null,"saturday":1},{"year":2020,"month":"february","sunday":2,"monday":3,"tuesday":4,"wednesday":5,"thurday":6,"friday":7,"saturday":8},{"year":2020,"month":"february","sunday":9,"monday":10,"tuesday":11,"wednesday":12,"thurday":13,"friday":14,"saturday":15},{"year":2020,"month":"february","sunday":16,"monday":17,"tuesday":18,"wednesday":19,"thurday":20,"friday":21,"saturday":22},{"year":2020,"month":"february","sunday":23,"monday":24,"tuesday":25,"wednesday":26,"thurday":27,"friday":28,"saturday":29}]"#;
+    let cal_february_json = r#"[{"year":2020,"month":"february","sunday":null,"monday":null,"tuesday":null,"wednesday":null,"thursday":null,"friday":null,"saturday":1},{"year":2020,"month":"february","sunday":2,"monday":3,"tuesday":4,"wednesday":5,"thursday":6,"friday":7,"saturday":8},{"year":2020,"month":"february","sunday":9,"monday":10,"tuesday":11,"wednesday":12,"thursday":13,"friday":14,"saturday":15},{"year":2020,"month":"february","sunday":16,"monday":17,"tuesday":18,"wednesday":19,"thursday":20,"friday":21,"saturday":22},{"year":2020,"month":"february","sunday":23,"monday":24,"tuesday":25,"wednesday":26,"thursday":27,"friday":28,"saturday":29}]"#;
 
     assert_eq!(actual.out, cal_february_json);
 }

@@ -101,30 +101,6 @@ fn moves_the_directory_inside_directory_if_path_to_move_is_existing_directory() 
 }
 
 #[test]
-fn moves_the_directory_inside_directory_if_path_to_move_is_nonexistent_directory() {
-    Playground::setup("mv_test_6", |dirs, sandbox| {
-        sandbox
-            .within("contributors")
-            .with_files(vec![EmptyFile("jonathan.txt")])
-            .mkdir("expected");
-
-        let original_dir = dirs.test().join("contributors");
-
-        nu!(
-            cwd: dirs.test(),
-            "mv contributors expected/this_dir_exists_now/los_tres_amigos"
-        );
-
-        let expected = dirs
-            .test()
-            .join("expected/this_dir_exists_now/los_tres_amigos");
-
-        assert!(!original_dir.exists());
-        assert!(expected.exists());
-    })
-}
-
-#[test]
 fn moves_using_path_with_wildcard() {
     Playground::setup("mv_test_7", |dirs, sandbox| {
         sandbox
@@ -224,10 +200,60 @@ fn errors_if_source_doesnt_exist() {
     Playground::setup("mv_test_10", |dirs, sandbox| {
         sandbox.mkdir("test_folder");
         let actual = nu!(
-            cwd: dirs.root(),
+            cwd: dirs.test(),
             "mv non-existing-file test_folder/"
         );
         assert!(actual.err.contains("Invalid file or pattern"));
+    })
+}
+
+#[test]
+fn errors_if_destination_doesnt_exist() {
+    Playground::setup("mv_test_10_1", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("empty.txt")]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "mv empty.txt does/not/exist"
+        );
+
+        assert!(actual.err.contains("Destination directory does not exist"));
+    })
+}
+
+#[test]
+fn errors_if_multiple_sources_but_destination_not_a_directory() {
+    Playground::setup("mv_test_10_2", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("file1.txt"),
+            EmptyFile("file2.txt"),
+            EmptyFile("file3.txt"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "mv file?.txt not_a_dir"
+        );
+
+        assert!(actual
+            .err
+            .contains("Can only move multiple sources if destination is a directory"));
+    })
+}
+
+#[test]
+fn errors_if_renaming_directory_to_an_existing_file() {
+    Playground::setup("mv_test_10_3", |dirs, sandbox| {
+        sandbox
+            .mkdir("mydir")
+            .with_files(vec![EmptyFile("empty.txt")]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "mv mydir empty.txt"
+        );
+
+        assert!(actual.err.contains("Cannot rename a directory to a file"));
     })
 }
 
@@ -252,10 +278,9 @@ fn does_not_error_on_relative_parent_path() {
 }
 
 #[test]
-#[ignore] // Temporarily failling, see https://github.com/nushell/nushell/issues/1523
 fn move_files_using_glob_two_parents_up_using_multiple_dots() {
     Playground::setup("mv_test_12", |dirs, sandbox| {
-        sandbox.within("foo").mkdir("bar").with_files(vec![
+        sandbox.within("foo").within("bar").with_files(vec![
             EmptyFile("jonathan.json"),
             EmptyFile("andres.xml"),
             EmptyFile("yehuda.yaml"),

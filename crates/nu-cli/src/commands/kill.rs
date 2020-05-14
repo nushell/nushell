@@ -44,6 +44,19 @@ impl WholeStreamCommand for Kill {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, kill)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "Kill the pid using the most memory",
+                example: "ps | sort-by mem | last | kill $it.pid",
+            },
+            Example {
+                description: "Force kill a given pid",
+                example: "kill --force 12345",
+            },
+        ]
+    }
 }
 
 fn kill(

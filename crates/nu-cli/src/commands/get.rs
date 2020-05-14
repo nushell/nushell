@@ -40,6 +40,19 @@ impl WholeStreamCommand for Get {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, get)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "Extract the name of files as a list",
+                example: "ls | get name",
+            },
+            Example {
+                description: "Extract the cpu list from the sys information",
+                example: "sys | get cpu",
+            },
+        ]
+    }
 }
 
 pub fn get_column_path(path: &ColumnPath, obj: &Value) -> Result<Value, ShellError> {

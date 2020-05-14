@@ -39,6 +39,19 @@ impl WholeStreamCommand for Select {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, select)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "Select just the name column",
+                example: "ls | select name",
+            },
+            Example {
+                description: "Select the name and size columns",
+                example: "ls | select name size",
+            },
+        ]
+    }
 }
 
 fn select(

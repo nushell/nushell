@@ -31,11 +31,17 @@ mod utils;
 pub use crate::cli::{
     cli, create_default_context, load_plugins, run_pipeline_standalone, run_vec_of_pipelines,
 };
+pub use crate::commands::command::{
+    whole_stream_command, CommandArgs, EvaluatedWholeStreamCommandArgs, WholeStreamCommand,
+};
+pub use crate::commands::help::get_help;
+pub use crate::context::CommandRegistry;
 pub use crate::data::dict::TaggedListBuilder;
 pub use crate::data::primitive;
 pub use crate::data::value;
 pub use crate::env::environment_syncer::EnvironmentSyncer;
 pub use crate::env::host::BasicHost;
+pub use crate::stream::OutputStream;
 pub use nu_value_ext::ValueExt;
 pub use num_traits::cast::ToPrimitive;
 

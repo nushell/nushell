@@ -15,18 +15,28 @@ impl WholeStreamCommand for Headers {
     fn name(&self) -> &str {
         "headers"
     }
+
     fn signature(&self) -> Signature {
         Signature::build("headers")
     }
+
     fn usage(&self) -> &str {
         "Use the first row of the table as column names"
     }
+
     fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, headers)?.run()
+    }
+
+    fn examples(&self) -> &[Example] {
+        &[Example {
+            description: "Create headers for a raw string",
+            example: "echo \"a b c|1 2 3\" | split-row \"|\" | split-column \" \" | headers",
+        }]
     }
 }
 

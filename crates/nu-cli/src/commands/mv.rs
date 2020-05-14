@@ -44,6 +44,23 @@ impl WholeStreamCommand for Move {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, mv)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "Rename a file",
+                example: "mv before.txt after.txt",
+            },
+            Example {
+                description: "Move a file into a directory",
+                example: "mv test.txt my/subdirectory",
+            },
+            Example {
+                description: "Move many files into a directory",
+                example: "mv *.txt my/subdirectory",
+            },
+        ]
+    }
 }
 
 fn mv(args: MoveArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {

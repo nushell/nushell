@@ -26,6 +26,13 @@ impl WholeStreamCommand for Reverse {
     ) -> Result<OutputStream, ShellError> {
         reverse(args, registry)
     }
+
+    fn examples(&self) -> &[Example] {
+        &[Example {
+            description: "Sort files in descending file size",
+            example: "ls | sort-by size | reverse",
+        }]
+    }
 }
 
 fn reverse(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
