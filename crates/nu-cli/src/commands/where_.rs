@@ -54,7 +54,7 @@ fn where_command(
     let stream = async_stream! {
         let tag = raw_args.call_info.name_tag.clone();
         let input = raw_args.input;
-        let WhereArgs { block } = raw_args.process_raw(&registry);
+        let WhereArgs { block } = raw_args.process_raw(&registry).await?;
         let condition = {
             if block.block.len() != 1 {
                 yield Err(ShellError::labeled_error(
