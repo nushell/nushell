@@ -10,14 +10,14 @@ license = "MIT"
 doctest = false
 
 [dependencies]
-nu-plugin = { path = "../nu-plugin", version = "0.13.0" }
-nu-protocol = { path = "../nu-protocol", version = "0.13.0" }
-nu-source = { path = "../nu-source", version = "0.13.0" }
-nu-errors = { path = "../nu-errors", version = "0.13.0" }
+nu-plugin = { path = "../nu-plugin", version = "0.14.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.14.1" }
+nu-source = { path = "../nu-source", version = "0.14.1" }
+nu-errors = { path = "../nu-errors", version = "0.14.1" }
 url = "2.1.1"
 open = "1.4.0"
 
 [build-dependencies]
-nu-build = { version = "0.13.0", path = "../nu-build" }
-nu-errors = { version = "0.13.0", path = "../nu-errors" }
-nu-source = { version = "0.13.0", path = "../nu-source" }
+nu-build = { version = "0.14.1", path = "../nu-build" }
+nu-errors = { version = "0.14.1", path = "../nu-errors" }
+nu-source = { version = "0.14.1", path = "../nu-source" }

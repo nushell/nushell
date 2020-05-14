@@ -41,6 +41,13 @@ impl WholeStreamCommand for Each {
     ) -> Result<OutputStream, ShellError> {
         Ok(args.process_raw(registry, each)?.run())
     }
+
+    fn examples(&self) -> &[Example] {
+        &[Example {
+            description: "Print the name of each file",
+            example: "ls | each { echo $it.name }",
+        }]
+    }
 }
 
 fn is_expanded_it_usage(head: &SpannedExpression) -> bool {

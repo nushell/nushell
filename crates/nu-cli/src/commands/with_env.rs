@@ -42,6 +42,13 @@ impl WholeStreamCommand for WithEnv {
     ) -> Result<OutputStream, ShellError> {
         Ok(args.process_raw(registry, with_env)?.run())
     }
+
+    fn examples(&self) -> &[Example] {
+        &[Example {
+            description: "Set the MYENV environment variable",
+            example: r#"with-env [MYENV "my env value"] { echo $nu.env.MYENV }"#,
+        }]
+    }
 }
 
 fn with_env(

@@ -111,6 +111,13 @@ impl WholeStreamCommand for Parse {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, parse_command)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[Example {
+            description: "Parse values from a string into a table",
+            example: r#"echo "data: 123" | parse "{key}: {value}""#,
+        }]
+    }
 }
 
 fn parse_command(

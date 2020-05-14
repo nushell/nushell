@@ -33,6 +33,13 @@ impl WholeStreamCommand for Mkdir {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, mkdir)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[Example {
+            description: "Make a directory named foo",
+            example: "mkdir foo",
+        }]
+    }
 }
 
 fn mkdir(args: MkdirArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {

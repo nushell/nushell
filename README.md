@@ -144,19 +144,20 @@ Commands that work in the pipeline fit into one of three categories:
 Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing left to right.
 
 ```
-/home/jonathan/Source/nushell(master)> ls | where type == "Directory" | autoview
-────┬───────────┬───────────┬──────────┬────────┬──────────────┬────────────────
- #  │ name      │ type      │ readonly │ size   │ accessed     │ modified
-────┼───────────┼───────────┼──────────┼────────┼──────────────┼────────────────
-  0 │ .azure    │ Directory │          │ 4.1 KB │ 2 months ago │ a day ago
-  1 │ target    │ Directory │          │ 4.1 KB │ 3 days ago   │ 3 days ago
-  2 │ images    │ Directory │          │ 4.1 KB │ 2 months ago │ 2 weeks ago
-  3 │ tests     │ Directory │          │ 4.1 KB │ 2 months ago │ 37 minutes ago
-  4 │ tmp       │ Directory │          │ 4.1 KB │ 2 weeks ago  │ 2 weeks ago
-  5 │ src       │ Directory │          │ 4.1 KB │ 2 months ago │ 37 minutes ago
-  6 │ assets    │ Directory │          │ 4.1 KB │ a month ago  │ a month ago
-  7 │ docs      │ Directory │          │ 4.1 KB │ 2 months ago │ 2 months ago
-────┴───────────┴───────────┴──────────┴────────┴──────────────┴────────────────
+/home/jonathan/Source/nushell(master)> ls | where type == "Dir" | autoview
+───┬────────┬──────┬────────┬──────────────
+ # │ name   │ type │ size   │ modified
+───┼────────┼──────┼────────┼──────────────
+ 0 │ assets │ Dir  │ 4.1 KB │ 1 week ago
+ 1 │ crates │ Dir  │ 4.1 KB │ 4 days ago
+ 2 │ debian │ Dir  │ 4.1 KB │ 1 week ago
+ 3 │ docker │ Dir  │ 4.1 KB │ 1 week ago
+ 4 │ docs   │ Dir  │ 4.1 KB │ 1 week ago
+ 5 │ images │ Dir  │ 4.1 KB │ 1 week ago
+ 6 │ src    │ Dir  │ 4.1 KB │ 1 week ago
+ 7 │ target │ Dir  │ 4.1 KB │ 23 hours ago
+ 8 │ tests  │ Dir  │ 4.1 KB │ 1 week ago
+───┴────────┴──────┴────────┴──────────────
 ```
 
 Because most of the time you'll want to see the output of a pipeline, `autoview` is assumed.
@@ -171,14 +172,15 @@ For example, we could use the built-in `ps` command as well to get a list of the
 
 ```text
 /home/jonathan/Source/nushell(master)> ps | where cpu > 0
-───┬───────┬─────────────────┬──────────┬──────────
- # │ pid   │ name            │ status   │ cpu
-───┼───────┼─────────────────┼──────────┼──────────
- 0 │   992 │ chrome          │ Sleeping │ 6.988768
- 1 │  4240 │ chrome          │ Sleeping │ 5.645982
- 2 │ 13973 │ qemu-system-x86 │ Sleeping │ 4.996551
- 3 │ 15746 │ nu              │ Sleeping │ 84.59905
-───┴───────┴─────────────────┴──────────┴──────────
+───┬────────┬───────────────────┬──────────┬─────────┬──────────┬──────────
+ # │ pid    │ name              │ status   │ cpu     │ mem      │ virtual
+───┼────────┼───────────────────┼──────────┼─────────┼──────────┼──────────
+ 0 │    435 │ irq/142-SYNA327   │ Sleeping │  7.5699 │      0 B │      0 B
+ 1 │   1609 │ pulseaudio        │ Sleeping │  6.5605 │  10.6 MB │   2.3 GB
+ 2 │   1625 │ gnome-shell       │ Sleeping │  6.5684 │ 639.6 MB │   7.3 GB
+ 3 │   2202 │ Web Content       │ Sleeping │  6.8157 │ 320.8 MB │   3.0 GB
+ 4 │ 328788 │ nu_plugin_core_ps │ Sleeping │ 92.5750 │   5.9 MB │ 633.2 MB
+───┴────────┴───────────────────┴──────────┴─────────┴──────────┴──────────
 ```
 
 ## Opening files
@@ -188,45 +190,49 @@ For example, you can load a .toml file as structured data and explore it:
 
 ```
 /home/jonathan/Source/nushell(master)> open Cargo.toml
-──────────────────┬────────────────┬──────────────────
- bin              │ dependencies   │ dev-dependencies
-──────────────────┼────────────────┼──────────────────
- [table: 12 rows] │ [table: 1 row] │ [table: 1 row]
-──────────────────┴────────────────┴──────────────────
+────────────────────┬───────────────────────────
+ bin                │ [table 18 rows]
+ build-dependencies │ [row nu-build serde toml]
+ dependencies       │ [row 29 columns]
+ dev-dependencies   │ [row nu-test-support]
+ features           │ [row 19 columns]
+ package            │ [row 12 columns]
+ workspace          │ [row members]
+────────────────────┴───────────────────────────
 ```
 
 We can pipeline this into a command that gets the contents of one of the columns:
 
 ```
 /home/jonathan/Source/nushell(master)> open Cargo.toml | get package
-─────────────────┬────────────────────────────┬─────────┬─────────┬──────┬─────────
- authors         │ description                │ edition │ license │ name │ version
-─────────────────┼────────────────────────────┼─────────┼─────────┼──────┼─────────
- [table: 3 rows] │ A shell for the GitHub era │ 2018    │ MIT     │ nu   │ 0.9.0
-─────────────────┴────────────────────────────┴─────────┴─────────┴──────┴─────────
+───────────────┬────────────────────────────────────
+ authors       │ [table 1 rows]
+ default-run   │ nu
+ description   │ A new type of shell
+ documentation │ https://www.nushell.sh/book/
+ edition       │ 2018
+ exclude       │ [table 1 rows]
+ homepage      │ https://www.nushell.sh
+ license       │ MIT
+ name          │ nu
+ readme        │ README.md
+ repository    │ https://github.com/nushell/nushell
+ version       │ 0.14.1
+───────────────┴────────────────────────────────────
 ```
 
 Finally, we can use commands outside of Nu once we have the data we want:
 
 ```
 /home/jonathan/Source/nushell(master)> open Cargo.toml | get package.version | echo $it
-0.9.0
+0.14.1
 ```
 
 Here we use the variable `$it` to refer to the value being piped to the external command.
 
 ## Configuration
 
-Nu has early support for configuring the shell. It currently supports the following settings:
-
-| Variable        | Type                 | Description                                                    |
-| --------------- | -------------------- | -------------------------------------------------------------- |
-| path            | table of strings     | PATH to use to find binaries                                   |
-| env             | row                  | the environment variables to pass to external commands         |
-| ctrlc_exit      | boolean              | whether or not to exit Nu after multiple ctrl-c presses        |
-| table_mode      | "light" or other     | enable lightweight or normal tables                            |
-| edit_mode       | "vi" or "emacs"      | changes line editing to "vi" or "emacs" mode                   |
-| completion_mode | "circular" or "list" | changes completion type to "circular" (default) or "list" mode |
+Nu has early support for configuring the shell. You can refer to the book for a list of [all supported variables](https://www.nushell.sh/book/en/configuration.html).
 
 To set one of these variables, you can use `config --set`. For example:
 

@@ -30,6 +30,19 @@ impl WholeStreamCommand for Echo {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, echo)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "Put a hello message in the pipeline",
+                example: "echo 'hello'",
+            },
+            Example {
+                description: "Print the value of the special '$nu' variable",
+                example: "echo $nu",
+            },
+        ]
+    }
 }
 
 fn echo(args: EchoArgs, _: RunnableContext) -> Result<OutputStream, ShellError> {

@@ -8,6 +8,7 @@ use crate::context::Context;
 use crate::git::current_branch;
 use crate::path::canonicalize;
 use crate::prelude::*;
+use crate::EnvironmentSyncer;
 use futures_codec::FramedRead;
 
 use nu_errors::ShellError;
@@ -482,14 +483,14 @@ pub async fn run_pipeline_standalone(
 }
 
 /// The entry point for the CLI. Will register all known internal commands, load experimental commands, load plugins, then prepare the prompt and line reader for input.
-pub async fn cli() -> Result<(), Box<dyn Error>> {
+pub async fn cli(
+    mut syncer: EnvironmentSyncer,
+    mut context: Context,
+) -> Result<(), Box<dyn Error>> {
     #[cfg(windows)]
     const DEFAULT_COMPLETION_MODE: CompletionType = CompletionType::Circular;
     #[cfg(not(windows))]
     const DEFAULT_COMPLETION_MODE: CompletionType = CompletionType::List;
-
-    let mut syncer = crate::EnvironmentSyncer::new();
-    let mut context = create_default_context(&mut syncer, true)?;
 
     let _ = load_plugins(&mut context);
 

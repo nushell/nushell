@@ -36,6 +36,19 @@ impl WholeStreamCommand for Drop {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, drop)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "Remove the last item of a list/table",
+                example: "echo [1 2 3] | drop",
+            },
+            Example {
+                description: "Remove the last 2 items of a list/table",
+                example: "echo [1 2 3] | drop 2",
+            },
+        ]
+    }
 }
 
 fn drop(DropArgs { rows }: DropArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {

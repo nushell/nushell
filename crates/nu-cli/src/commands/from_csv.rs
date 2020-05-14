@@ -43,6 +43,23 @@ impl WholeStreamCommand for FromCSV {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, from_csv)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "Convert comma-separated data to a table",
+                example: "open data.txt | from csv",
+            },
+            Example {
+                description: "Convert comma-separated data to a table, ignoring headers",
+                example: "open data.txt | from csv --headerless",
+            },
+            Example {
+                description: "Convert semicolon-separated data to a table",
+                example: "open data.txt | from csv --separator ';'",
+            },
+        ]
+    }
 }
 
 fn from_csv(

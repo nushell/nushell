@@ -45,6 +45,13 @@ impl WholeStreamCommand for GroupBy {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, group_by)?.run()
     }
+
+    fn examples(&self) -> &[Example] {
+        &[Example {
+            description: "Group files by type",
+            example: "ls | group-by type",
+        }]
+    }
 }
 
 enum Grouper {

@@ -23,12 +23,9 @@ impl WholeStreamCommand for Rename {
             .required(
                 "column_name",
                 SyntaxShape::String,
-                "the name of the column to rename for",
+                "the new name for the first column",
             )
-            .rest(
-                SyntaxShape::String,
-                "Additional column name(s) to rename for",
-            )
+            .rest(SyntaxShape::String, "the new name for additional columns")
     }
 
     fn usage(&self) -> &str {
@@ -41,6 +38,19 @@ impl WholeStreamCommand for Rename {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, rename)?.run()
+    }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "Rename a column",
+                example: "ls | rename my_name",
+            },
+            Example {
+                description: "Rename many columns",
+                example: "echo \"{a: 1, b: 2, c: 3}\" | from json | rename spam eggs cars",
+            },
+        ]
     }
 }
 

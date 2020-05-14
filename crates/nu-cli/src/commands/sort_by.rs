@@ -22,7 +22,7 @@ impl WholeStreamCommand for SortBy {
     }
 
     fn usage(&self) -> &str {
-        "Sort by the given columns."
+        "Sort by the given columns, in increasing order."
     }
 
     fn run(
@@ -31,6 +31,19 @@ impl WholeStreamCommand for SortBy {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, sort_by)?.run()
+    }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "Sort output by increasing file size",
+                example: "ls | sort-by size",
+            },
+            Example {
+                description: "Sort output by type, and then by file size for each type",
+                example: "ls | sort-by type size",
+            },
+        ]
     }
 }
 
