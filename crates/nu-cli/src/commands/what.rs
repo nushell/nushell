@@ -27,15 +27,14 @@ impl WholeStreamCommand for What {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, what)?.run()
+        // args.process(registry, what)?.run()
+        what(args, registry)
     }
 }
 
-pub fn what(
-    _: WhatArgs,
-    RunnableContext { mut input, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
+pub fn what(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
+        let mut input = args.input;
         while let Some(row) = input.next().await {
             let name = value::format_type(&row, 100);
             yield ReturnSuccess::value(UntaggedValue::string(name).into_value(Tag::unknown_anchor(row.tag.span)));

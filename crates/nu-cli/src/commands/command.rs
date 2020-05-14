@@ -131,33 +131,33 @@ impl CommandArgs {
         ))
     }
 
-    pub fn process<'de, T: Deserialize<'de>, O: ToOutputStream>(
-        self,
-        registry: &CommandRegistry,
-        callback: fn(T, RunnableContext) -> Result<O, ShellError>,
-    ) -> Result<RunnableArgs<T, O>, ShellError> {
-        let shell_manager = self.shell_manager.clone();
-        let host = self.host.clone();
-        let ctrl_c = self.ctrl_c.clone();
-        let args = self.evaluate_once(registry).await?;
-        let call_info = args.call_info.clone();
-        let (input, args) = args.split();
-        let name_tag = args.call_info.name_tag;
-        let mut deserializer = ConfigDeserializer::from_call_info(call_info);
+    // pub fn process<'de, T: Deserialize<'de>, O: ToOutputStream>(
+    //     self,
+    //     registry: &CommandRegistry,
+    //     callback: fn(T, RunnableContext) -> Result<O, ShellError>,
+    // ) -> Result<RunnableArgs<T, O>, ShellError> {
+    //     let shell_manager = self.shell_manager.clone();
+    //     let host = self.host.clone();
+    //     let ctrl_c = self.ctrl_c.clone();
+    //     let args = self.evaluate_once(registry).await?;
+    //     let call_info = args.call_info.clone();
+    //     let (input, args) = args.split();
+    //     let name_tag = args.call_info.name_tag;
+    //     let mut deserializer = ConfigDeserializer::from_call_info(call_info);
 
-        Ok(RunnableArgs {
-            args: T::deserialize(&mut deserializer)?,
-            context: RunnableContext {
-                input,
-                registry: registry.clone(),
-                shell_manager,
-                name: name_tag,
-                host,
-                ctrl_c,
-            },
-            callback,
-        })
-    }
+    //     Ok(RunnableArgs {
+    //         args: T::deserialize(&mut deserializer)?,
+    //         context: RunnableContext {
+    //             input,
+    //             registry: registry.clone(),
+    //             shell_manager,
+    //             name: name_tag,
+    //             host,
+    //             ctrl_c,
+    //         },
+    //         callback,
+    //     })
+    // }
 
     pub async fn process_raw<'de, T: Deserialize<'de>>(
         self,
