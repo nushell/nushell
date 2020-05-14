@@ -131,7 +131,7 @@ You can also learn more at https://www.nushell.sh/book/"#;
 }
 
 #[allow(clippy::cognitive_complexity)]
-pub(crate) fn get_help(
+pub fn get_help(
     cmd: &dyn WholeStreamCommand,
     registry: &CommandRegistry,
 ) -> impl Into<OutputStream> {
