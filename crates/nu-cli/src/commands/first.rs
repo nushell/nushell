@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape};
 use nu_source::Tagged;
 
 pub struct First;
@@ -34,7 +34,7 @@ impl WholeStreamCommand for First {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, first)?.run()
+        first(args, registry)
     }
 
     fn examples(&self) -> &[Example] {
@@ -51,15 +51,26 @@ impl WholeStreamCommand for First {
     }
 }
 
-fn first(
-    FirstArgs { rows }: FirstArgs,
-    context: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    let rows_desired = if let Some(quantity) = rows {
-        *quantity
-    } else {
-        1
+fn first(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let (FirstArgs { rows }, mut input) = args.process(&registry).await?;
+        let mut rows_desired = if let Some(quantity) = rows {
+            *quantity
+        } else {
+            1
+        };
+
+        for input in input.next().await {
+            if rows_desired > 0{
+                rows_desired -= 1;
+            }
+
+            if rows_desired > 0 {
+                yield ReturnSuccess::value(input);
+            }
+        }
     };
 
-    Ok(OutputStream::from_input(context.input.take(rows_desired)))
+    Ok(stream.to_output_stream())
 }
