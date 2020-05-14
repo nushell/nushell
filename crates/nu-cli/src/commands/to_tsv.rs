@@ -41,5 +41,11 @@ fn to_tsv(
     ToTSVArgs { headerless }: ToTSVArgs,
     runnable_context: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    to_delimited_data(headerless, '\t', "TSV", runnable_context)
+    to_delimited_data(
+        headerless,
+        '\t',
+        "TSV",
+        runnable_context.input,
+        runnable_context.name,
+    )
 }

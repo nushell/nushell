@@ -41,39 +41,46 @@ impl WholeStreamCommand for ToCSV {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, to_csv)?.run()
+        to_csv(args, registry)
     }
 }
 
-fn to_csv(
-    ToCSVArgs {
-        separator,
-        headerless,
-    }: ToCSVArgs,
-    runnable_context: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    let sep = match separator {
-        Some(Value {
-            value: UntaggedValue::Primitive(Primitive::String(s)),
-            tag,
-            ..
-        }) => {
-            if s == r"\t" {
-                '\t'
-            } else {
-                let vec_s: Vec<char> = s.chars().collect();
-                if vec_s.len() != 1 {
-                    return Err(ShellError::labeled_error(
-                        "Expected a single separator char from --separator",
-                        "requires a single character string input",
-                        tag,
-                    ));
-                };
-                vec_s[0]
+fn to_csv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let input = args.input;
+        let name = args.call_info.name_tag.clone();
+        let ToCSVArgs { separator, headerless } = args.process_raw(&registry).await?;
+        let sep = match separator {
+            Some(Value {
+                value: UntaggedValue::Primitive(Primitive::String(s)),
+                tag,
+                ..
+            }) => {
+                if s == r"\t" {
+                    '\t'
+                } else {
+                    let vec_s: Vec<char> = s.chars().collect();
+                    if vec_s.len() != 1 {
+                        yield Err(ShellError::labeled_error(
+                            "Expected a single separator char from --separator",
+                            "requires a single character string input",
+                            tag,
+                        ));
+                        return;
+                    };
+                    vec_s[0]
+                }
             }
+            _ => ',',
+        };
+
+        let result = to_delimited_data(headerless, sep, "CSV", input, name)?;
+
+        for item in result.next().await {
+            yield item;
         }
-        _ => ',',
     };
 
-    to_delimited_data(headerless, sep, "CSV", runnable_context)
+    Ok(stream.to_output_stream())
 }

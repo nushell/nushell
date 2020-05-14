@@ -42,22 +42,16 @@ impl WholeStreamCommand for SplitColumn {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, split_column)?.run()
+        split_column(args, registry)
     }
 }
 
-fn split_column(
-    SplitColumnArgs {
-        separator,
-        rest,
-        collapse_empty,
-    }: SplitColumnArgs,
-    RunnableContext { input, name, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    let name_span = name.span;
-
-    Ok(input
-        .map(move |v| {
+fn split_column(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let name_span = args.call_info.name_tag.span;
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let SplitColumnArgs { separator, rest, collapse_empty } = args.process_raw(&registry).await?;
+        while let Some(v) = args.input.next().await {
             if let Ok(s) = v.as_string() {
                 let splitter = separator.replace("\\n", "\n");
                 trace!("splitting with {:?}", splitter);
@@ -84,7 +78,7 @@ fn split_column(
                         dict.insert_untagged(v.clone(), Primitive::String(k.into()));
                     }
 
-                    ReturnSuccess::value(dict.into_value())
+                    yield ReturnSuccess::value(dict.into_value());
                 } else {
                     let mut dict = TaggedDictBuilder::new(&v.tag);
                     for (&k, v) in split_result.iter().zip(positional.iter()) {
@@ -93,17 +87,19 @@ fn split_column(
                             UntaggedValue::Primitive(Primitive::String(k.into())),
                         );
                     }
-                    ReturnSuccess::value(dict.into_value())
+                    yield ReturnSuccess::value(dict.into_value());
                 }
             } else {
-                Err(ShellError::labeled_error_with_secondary(
+                yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
                     name_span,
                     "value originates from here",
                     v.tag.span,
-                ))
+                ));
             }
-        })
-        .to_output_stream())
+        }
+    };
+
+    Ok(stream.to_output_stream())
 }
