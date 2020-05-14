@@ -465,30 +465,33 @@ impl WholeStreamCommand for FnFilterCommand {
         let registry: CommandRegistry = registry.clone();
         let func = self.func;
 
-        let result = input.map(move |it| {
-            let registry = registry.clone();
-            let call_info = match call_info.clone().evaluate_with_new_it(&registry, &it) {
-                Err(err) => return OutputStream::from(vec![Err(err)]).values,
-                Ok(args) => args,
-            };
+        let stream = async_stream! {
+            for it in input.next().await {
+                let registry = registry.clone();
+                let call_info = match call_info.clone().evaluate_with_new_it(&registry, &it).await {
+                    Err(err) => { yield Err(err); return; },
+                    Ok(args) => args,
+                };
 
-            let args = EvaluatedFilterCommandArgs::new(
-                host.clone(),
-                ctrl_c.clone(),
-                shell_manager.clone(),
-                call_info,
-            );
+                let args = EvaluatedFilterCommandArgs::new(
+                    host.clone(),
+                    ctrl_c.clone(),
+                    shell_manager.clone(),
+                    call_info,
+                );
 
-            match func(args) {
-                Err(err) => OutputStream::from(vec![Err(err)]).values,
-                Ok(stream) => stream.values,
+                match func(args) {
+                    Err(err) => yield Err(err),
+                    Ok(stream) => {
+                        for value in stream.values.next().await {
+                            yield value;
+                        }
+                    }
+                }
             }
-        });
+        };
 
-        let result = result.flatten();
-        let result: BoxStream<ReturnValue> = result.boxed();
-
-        Ok(result.into())
+        Ok(stream.to_output_stream())
     }
 }
 

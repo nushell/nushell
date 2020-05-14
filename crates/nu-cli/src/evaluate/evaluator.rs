@@ -34,7 +34,7 @@ pub(crate) async fn evaluate_baseline_expr(
         }
         Expression::Variable(var) => evaluate_reference(&var, &scope, tag),
         Expression::Command(_) => evaluate_command(tag, &scope),
-        Expression::Invocation(block) => evaluate_invocation(&block, &registry, &scope),
+        Expression::Invocation(block) => unimplemented!(),
         Expression::ExternalCommand(external) => evaluate_external(&external, &scope),
         Expression::Binary(binary) => {
             // TODO: If we want to add short-circuiting, we'll need to move these down
@@ -184,12 +184,12 @@ fn evaluate_external(
     ))
 }
 
-fn evaluate_invocation(
-    block: &hir::Block,
-    registry: &CommandRegistry,
-    scope: &Scope,
-) -> Result<Value, ShellError> {
-}
+// fn evaluate_invocation(
+//     block: &hir::Block,
+//     registry: &CommandRegistry,
+//     scope: &Scope,
+// ) -> Result<Value, ShellError> {
+// }
 
 fn evaluate_command(tag: Tag, _scope: &Scope) -> Result<Value, ShellError> {
     Err(ShellError::syntax_error(
