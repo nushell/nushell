@@ -33,19 +33,28 @@ impl WholeStreamCommand for ToTSV {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, to_tsv)?.run()
+        to_tsv(args, registry)
     }
 }
 
-fn to_tsv(
-    ToTSVArgs { headerless }: ToTSVArgs,
-    runnable_context: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    to_delimited_data(
-        headerless,
-        '\t',
-        "TSV",
-        runnable_context.input,
-        runnable_context.name,
-    )
+fn to_tsv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let ToTSVArgs { headerless } = args.process_raw(&registry).await?;
+        let mut input = args.input;
+        let name = args.call_info.name_tag.clone();
+        let result = to_delimited_data(
+            headerless,
+            '\t',
+            "TSV",
+            input,
+            name,
+        )?;
+
+        for item in result.next().await {
+            yield item;
+        }
+    };
+
+    Ok(stream.to_output_stream())
 }
