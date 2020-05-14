@@ -36,7 +36,8 @@ impl WholeStreamCommand for Merge {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        Ok(args.process_raw(registry, merge)?.run())
+        //Ok(args.process_raw(registry, merge)?.run())
+        merge(args, registry)
     }
 
     fn examples(&self) -> &[Example] {
@@ -47,19 +48,16 @@ impl WholeStreamCommand for Merge {
     }
 }
 
-fn merge(
-    merge_args: MergeArgs,
-    context: RunnableContext,
-    raw_args: RawCommandArgs,
-) -> Result<OutputStream, ShellError> {
-    let block = merge_args.block;
-    let registry = context.registry.clone();
-    let mut input = context.input;
-    let scope = raw_args.call_info.scope.clone();
-
-    let mut context = Context::from_raw(&raw_args, &registry);
-
+fn merge(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
     let stream = async_stream! {
+        let merge_args: MergeArgs = raw_args.process_raw(&register).await?;
+        let block = merge_args.block;
+        let mut input = context.input;
+        let scope = raw_args.call_info.scope.clone();
+
+        let mut context = Context::from_raw(&raw_args, &registry);
+
         let table: Option<Vec<Value>> = match run_block(&block,
                 &mut context,
                 InputStream::empty(),

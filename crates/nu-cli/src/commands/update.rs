@@ -43,20 +43,18 @@ impl WholeStreamCommand for Update {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        Ok(args.process_raw(registry, update)?.run())
+        //Ok(args.process_raw(registry, update)?.run())
+        update(args, registry)
     }
 }
 
-fn update(
-    UpdateArgs { field, replacement }: UpdateArgs,
-    context: RunnableContext,
-    raw_args: RawCommandArgs,
-) -> Result<OutputStream, ShellError> {
+fn update(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
     let scope = raw_args.call_info.scope.clone();
-    let registry = context.registry.clone();
-    let mut input_stream = context.input;
+    let mut input_stream = raw_args.input;
 
     let stream = async_stream! {
+        let UpdateArgs { field, replacement } = raw_args.process_raw(&registry).await?;
         while let Some(input) = input_stream.next().await {
         let replacement = replacement.clone();
         match replacement {
