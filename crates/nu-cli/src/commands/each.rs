@@ -67,7 +67,7 @@ fn each(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
         let each_args: EachArgs = raw_args.process_raw(&registry).await?;
         let block = each_args.block;
         let scope = raw_args.call_info.scope.clone();
-        let mut input_stream = context.input;
+        let mut input_stream = raw_args.input;
         while let Some(input) = input_stream.next().await {
             let mut context = Context::from_raw(&raw_args, &registry);
 
