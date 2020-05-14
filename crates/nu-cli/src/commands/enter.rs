@@ -38,7 +38,8 @@ impl WholeStreamCommand for Enter {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        Ok(args.process_raw(registry, enter)?.run())
+        //Ok(args.process_raw(registry, enter)?.run())
+        enter(args, registry)
     }
 
     fn examples(&self) -> &[Example] {
@@ -56,41 +57,44 @@ impl WholeStreamCommand for Enter {
 }
 
 fn enter(
-    EnterArgs { location }: EnterArgs,
-    RunnableContext {
-        registry,
-        name: tag,
-        ..
-    }: RunnableContext,
-    raw_args: RawCommandArgs,
+    // EnterArgs { location }: EnterArgs,
+    // RunnableContext {
+    //     registry,
+    //     name: tag,
+    //     ..
+    // }: RunnableContext,
+    // raw_args: RawCommandArgs,
+    raw_args: CommandArgs,
+    registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
-    let location_string = location.display().to_string();
-    let location_clone = location_string.clone();
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let EnterArgs { location } = raw_args.process_raw(&registry).await?;
+        let location_string = location.display().to_string();
+        let location_clone = location_string.clone();
+        let tag = raw_args.call_info.name_tag.clone();
 
-    if location_string.starts_with("help") {
-        let spec = location_string.split(':').collect::<Vec<&str>>();
+        if location_string.starts_with("help") {
+            let spec = location_string.split(':').collect::<Vec<&str>>();
 
-        if spec.len() == 2 {
-            let (_, command) = (spec[0], spec[1]);
+            if spec.len() == 2 {
+                let (_, command) = (spec[0], spec[1]);
 
-            if registry.has(command) {
-                return Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterHelpShell(
-                    UntaggedValue::string(command).into_value(Tag::unknown()),
-                )))]
-                .into());
+                if registry.has(command) {
+                    yield Ok(ReturnSuccess::Action(CommandAction::EnterHelpShell(
+                        UntaggedValue::string(command).into_value(Tag::unknown()),
+                    )));
+                    return;
+                }
             }
-        }
-        Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterHelpShell(
-            UntaggedValue::nothing().into_value(Tag::unknown()),
-        )))]
-        .into())
-    } else if location.is_dir() {
-        Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterShell(
-            location_clone,
-        )))]
-        .into())
-    } else {
-        let stream = async_stream! {
+            yield Ok(ReturnSuccess::Action(CommandAction::EnterHelpShell(
+                UntaggedValue::nothing().into_value(Tag::unknown()),
+            )));
+        } else if location.is_dir() {
+            yield Ok(ReturnSuccess::Action(CommandAction::EnterShell(
+                location_clone,
+            )));
+        } else {
             // If it's a file, attempt to open the file as a value and enter it
             let cwd = raw_args.shell_manager.path();
 
@@ -162,7 +166,8 @@ fn enter(
                     yield Ok(ReturnSuccess::Action(CommandAction::EnterValueShell(tagged_contents)));
                 }
             }
-        };
-        Ok(stream.to_output_stream())
-    }
+        }
+    };
+
+    Ok(stream.to_output_stream())
 }

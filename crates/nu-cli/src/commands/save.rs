@@ -178,11 +178,16 @@ fn save(
 ) -> Result<OutputStream, ShellError> {
     let mut full_path = PathBuf::from(raw_args.shell_manager.path());
     let name_tag = raw_args.call_info.name_tag.clone();
+    let name = raw_args.call_info.name_tag.clone();
     let scope = raw_args.call_info.scope.clone();
     let registry = registry.clone();
+    let host = raw_args.host.clone();
+    let ctrl_c = raw_args.ctrl_c.clone();
+    let shell_manager = raw_args.shell_manager.clone();
+    let input = raw_args.input;
 
     let stream = async_stream! {
-        let SaveArgs { path, raw: save_raw } = raw_args.process_raw(&registery).await?;
+        let SaveArgs { path, raw: save_raw } = raw_args.process_raw(&registry).await?;
         let input: Vec<Value> = input.collect().await;
         if path.is_none() {
             // If there is no filename, check the metadata for the anchor filename

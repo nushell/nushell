@@ -34,51 +34,61 @@ impl WholeStreamCommand for Where {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        Ok(args.process_raw(registry, where_command)?.run())
+        //Ok(args.process_raw(registry, where_command)?.run())
+        where_command(args, registry)
     }
 }
 fn where_command(
-    WhereArgs { block }: WhereArgs,
-    RunnableContext {
-        name: tag,
-        registry,
-        input,
-        ..
-    }: RunnableContext,
-    raw_args: RawCommandArgs,
+    // WhereArgs { block }: WhereArgs,
+    // RunnableContext {
+    //     name: tag,
+    //     registry,
+    //     input,
+    //     ..
+    // }: RunnableContext,
+    // raw_args: RawCommandArgs,
+    raw_args: CommandArgs,
+    registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
-    let condition = {
-        if block.block.len() != 1 {
-            return Err(ShellError::labeled_error(
-                "Expected a condition",
-                "expected a condition",
-                tag,
-            ));
-        }
-        match block.block[0].list.get(0) {
-            Some(item) => match item {
-                ClassifiedCommand::Expr(expr) => expr.clone(),
-                _ => {
-                    return Err(ShellError::labeled_error(
-                        "Expected a condition",
-                        "expected a condition",
-                        tag,
-                    ))
-                }
-            },
-            None => {
-                return Err(ShellError::labeled_error(
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let tag = raw_args.call_info.name_tag.clone();
+        let input = raw_args.input;
+        let WhereArgs { block } = raw_args.process_raw(&registry);
+        let condition = {
+            if block.block.len() != 1 {
+                yield Err(ShellError::labeled_error(
                     "Expected a condition",
                     "expected a condition",
                     tag,
                 ));
+                return;
             }
-        }
-    };
+            match block.block[0].list.get(0) {
+                Some(item) => match item {
+                    ClassifiedCommand::Expr(expr) => expr.clone(),
+                    _ => {
+                        yield Err(ShellError::labeled_error(
+                            "Expected a condition",
+                            "expected a condition",
+                            tag,
+                        ));
+                        return;
+                    }
+                },
+                None => {
+                    yield Err(ShellError::labeled_error(
+                        "Expected a condition",
+                        "expected a condition",
+                        tag,
+                    ));
+                    return;
+                }
+            }
+        };
 
-    let mut input = input;
-    let scope = raw_args.call_info.scope;
-    let stream = async_stream! {
+        let mut input = input;
+        let scope = raw_args.call_info.scope;
         while let Some(input) = input.next().await {
 
             //FIXME: should we use the scope that's brought in as well?
