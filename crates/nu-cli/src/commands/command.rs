@@ -159,42 +159,78 @@ impl CommandArgs {
         })
     }
 
-    pub fn process_raw<'de, T: Deserialize<'de>>(
+    pub async fn process_raw<'de, T: Deserialize<'de>>(
         self,
         registry: &CommandRegistry,
-        callback: fn(T, RunnableContext, RawCommandArgs) -> Result<OutputStream, ShellError>,
-    ) -> Result<RunnableRawArgs<T>, ShellError> {
-        let raw_args = RawCommandArgs {
-            host: self.host.clone(),
-            ctrl_c: self.ctrl_c.clone(),
-            shell_manager: self.shell_manager.clone(),
-            call_info: self.call_info.clone(),
-        };
+    ) -> Result<T, ShellError> {
+        // let raw_args = RawCommandArgs {
+        //     host: self.host.clone(),
+        //     ctrl_c: self.ctrl_c.clone(),
+        //     shell_manager: self.shell_manager.clone(),
+        //     call_info: self.call_info.clone(),
+        // };
 
-        let shell_manager = self.shell_manager.clone();
-        let host = self.host.clone();
-        let ctrl_c = self.ctrl_c.clone();
-        let args = self.evaluate_once(registry)?;
+        // let shell_manager = self.shell_manager.clone();
+        // let host = self.host.clone();
+        // let ctrl_c = self.ctrl_c.clone();
+        let args = self.evaluate_once(registry).await?;
         let call_info = args.call_info.clone();
 
-        let (input, args) = args.split();
-        let name_tag = args.call_info.name_tag;
+        // let (input, args) = args.split();
+        // let name_tag = args.call_info.name_tag;
         let mut deserializer = ConfigDeserializer::from_call_info(call_info);
 
-        Ok(RunnableRawArgs {
-            args: T::deserialize(&mut deserializer)?,
-            context: RunnableContext {
-                input,
-                registry: registry.clone(),
-                shell_manager,
-                name: name_tag,
-                host,
-                ctrl_c,
-            },
-            raw_args,
-            callback,
-        })
+        Ok(T::deserialize(&mut deserializer)?)
+        // Ok(RunnableRawArgs {
+        //     args: T::deserialize(&mut deserializer)?,
+        //     context: RunnableContext {
+        //         input,
+        //         registry: registry.clone(),
+        //         shell_manager,
+        //         name: name_tag,
+        //         host,
+        //         ctrl_c,
+        //     },
+        //     raw_args,
+        //     callback,
+        // })
     }
+    // pub fn process_raw<'de, T: Deserialize<'de>>(
+    //     self,
+    //     registry: &CommandRegistry,
+    //     callback: fn(T, RunnableContext, RawCommandArgs) -> Result<OutputStream, ShellError>,
+    // ) -> Result<RunnableRawArgs<T>, ShellError> {
+    //     let raw_args = RawCommandArgs {
+    //         host: self.host.clone(),
+    //         ctrl_c: self.ctrl_c.clone(),
+    //         shell_manager: self.shell_manager.clone(),
+    //         call_info: self.call_info.clone(),
+    //     };
+
+    //     let shell_manager = self.shell_manager.clone();
+    //     let host = self.host.clone();
+    //     let ctrl_c = self.ctrl_c.clone();
+    //     let args = self.evaluate_once(registry)?;
+    //     let call_info = args.call_info.clone();
+
+    //     let (input, args) = args.split();
+    //     let name_tag = args.call_info.name_tag;
+    //     let mut deserializer = ConfigDeserializer::from_call_info(call_info);
+
+    //     Ok(RunnableRawArgs {
+    //         args: T::deserialize(&mut deserializer)?,
+    //         context: RunnableContext {
+    //             input,
+    //             registry: registry.clone(),
+    //             shell_manager,
+    //             name: name_tag,
+    //             host,
+    //             ctrl_c,
+    //         },
+    //         raw_args,
+    //         callback,
+    //     })
+    // }
 }
 
 pub struct RunnableContext {

@@ -88,7 +88,7 @@ impl Context {
         &self.registry
     }
 
-    pub(crate) fn from_raw(raw_args: &RawCommandArgs, registry: &CommandRegistry) -> Context {
+    pub(crate) fn from_raw(raw_args: &CommandArgs, registry: &CommandRegistry) -> Context {
         #[cfg(windows)]
         {
             Context {
