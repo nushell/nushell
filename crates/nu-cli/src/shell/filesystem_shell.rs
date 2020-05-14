@@ -109,11 +109,9 @@ impl Shell for FilesystemShell {
             with_symlink_targets,
             du,
         }: LsArgs,
-        context: &RunnableContext,
+        name_tag: Tag,
+        ctrl_c: Arc<AtomicBool>,
     ) -> Result<OutputStream, ShellError> {
-        let ctrl_c = context.ctrl_c.clone();
-        let name_tag = context.name.clone();
-
         let (path, p_tag) = match path {
             Some(p) => {
                 let p_tag = p.tag;
@@ -130,7 +128,7 @@ impl Shell for FilesystemShell {
                 if is_empty_dir(&self.path()) {
                     return Ok(OutputStream::empty());
                 } else {
-                    (PathBuf::from("./*"), context.name.clone())
+                    (PathBuf::from("./*"), name_tag.clone())
                 }
             }
         };
