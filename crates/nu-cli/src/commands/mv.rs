@@ -42,7 +42,7 @@ impl WholeStreamCommand for Move {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, mv)?.run()
+        mv(args, registry)
     }
 
     fn examples(&self) -> &[Example] {
@@ -63,7 +63,18 @@ impl WholeStreamCommand for Move {
     }
 }
 
-fn mv(args: MoveArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
-    let shell_manager = context.shell_manager.clone();
-    shell_manager.mv(args, &context)
+fn mv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let name = args.call_info.name_tag.clone();
+        let shell_manager = args.shell_manager.clone();
+        let args = args.process_raw(&registry).await?;
+        let result = shell_manager.mv(args, name)?;
+
+        for item in result.next().await {
+            yield item;
+        }
+    };
+
+    Ok(stream.to_output_stream())
 }

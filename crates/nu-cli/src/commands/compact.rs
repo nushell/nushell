@@ -3,7 +3,7 @@ use crate::context::CommandRegistry;
 use crate::prelude::*;
 use futures::stream::StreamExt;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct Compact;
@@ -31,7 +31,7 @@ impl WholeStreamCommand for Compact {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, compact)?.run()
+        compact(args, registry)
     }
 
     fn examples(&self) -> &[Example] {
@@ -42,27 +42,28 @@ impl WholeStreamCommand for Compact {
     }
 }
 
-pub fn compact(
-    CompactArgs { rest: columns }: CompactArgs,
-    RunnableContext { input, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    let objects = input.filter(move |item| {
-        let keep = if columns.is_empty() {
-            item.is_some()
-        } else {
-            match item {
-                Value {
-                    value: UntaggedValue::Row(ref r),
-                    ..
-                } => columns
-                    .iter()
-                    .all(|field| r.get_data(field).borrow().is_some()),
-                _ => false,
-            }
-        };
-
-        futures::future::ready(keep)
-    });
-
-    Ok(objects.from_input_stream())
+pub fn compact(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let mut input = args.input;
+        let CompactArgs { rest: columns } = args.process_raw(&registry).await?;
+        for item in input.next().await {
+            if columns.is_empty() {
+                yield ReturnSuccess::value(item);
+            } else {
+                match item {
+                    Value {
+                        value: UntaggedValue::Row(ref r),
+                        ..
+                    } => if columns
+                        .iter()
+                        .all(|field| r.get_data(field).borrow().is_some()) {
+                            yield ReturnSuccess::value(item);
+                        }
+                    _ => {},
+                }
+            };
+        }
+    };
+    Ok(stream.to_output_stream())
 }
