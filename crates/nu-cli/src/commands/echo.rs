@@ -48,7 +48,7 @@ impl WholeStreamCommand for Echo {
 fn echo(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let stream = async_stream! {
-        let args: EchoArgs = args.process_raw(&registry).await?;
+        let (args, _): (EchoArgs, _) = args.process(&registry).await?;
 
         for i in args.rest {
             match i.as_string() {

@@ -159,10 +159,10 @@ impl CommandArgs {
     //     })
     // }
 
-    pub async fn process_raw<'de, T: Deserialize<'de>>(
+    pub async fn process<'de, T: Deserialize<'de>>(
         self,
         registry: &CommandRegistry,
-    ) -> Result<T, ShellError> {
+    ) -> Result<(T, InputStream), ShellError> {
         // let raw_args = RawCommandArgs {
         //     host: self.host.clone(),
         //     ctrl_c: self.ctrl_c.clone(),
@@ -180,7 +180,7 @@ impl CommandArgs {
         // let name_tag = args.call_info.name_tag;
         let mut deserializer = ConfigDeserializer::from_call_info(call_info);
 
-        Ok(T::deserialize(&mut deserializer)?)
+        Ok((T::deserialize(&mut deserializer)?, args.input))
         // Ok(RunnableRawArgs {
         //     args: T::deserialize(&mut deserializer)?,
         //     context: RunnableContext {

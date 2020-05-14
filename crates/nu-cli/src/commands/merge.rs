@@ -36,7 +36,6 @@ impl WholeStreamCommand for Merge {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        //Ok(args.process_raw(registry, merge)?.run())
         merge(args, registry)
     }
 
@@ -51,9 +50,8 @@ impl WholeStreamCommand for Merge {
 fn merge(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let stream = async_stream! {
-        let merge_args: MergeArgs = raw_args.process_raw(&registry).await?;
+        let (merge_args, mut input): (MergeArgs, _) = raw_args.process(&registry).await?;
         let block = merge_args.block;
-        let mut input = raw_args.input;
         let scope = raw_args.call_info.scope.clone();
 
         let mut context = Context::from_raw(&raw_args, &registry);

@@ -50,8 +50,8 @@ fn split_column(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputS
     let name_span = args.call_info.name_tag.span;
     let registry = registry.clone();
     let stream = async_stream! {
-        let SplitColumnArgs { separator, rest, collapse_empty } = args.process_raw(&registry).await?;
-        while let Some(v) = args.input.next().await {
+        let (SplitColumnArgs { separator, rest, collapse_empty }, mut input) = args.process(&registry).await?;
+        while let Some(v) = input.next().await {
             if let Ok(s) = v.as_string() {
                 let splitter = separator.replace("\\n", "\n");
                 trace!("splitting with {:?}", splitter);

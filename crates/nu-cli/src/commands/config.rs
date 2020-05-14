@@ -112,7 +112,7 @@ pub fn config(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
     let registry = registry.clone();
 
     let stream = async_stream! {
-        let ConfigArgs {
+        let (ConfigArgs {
             load,
             set,
             set_into,
@@ -120,7 +120,7 @@ pub fn config(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
             clear,
             remove,
             path,
-        } = args.process_raw(&registry).await?;
+        }, _) = args.process(&registry).await?;
 
         let configuration = if let Some(supplied) = load {
             Some(supplied.item().clone())

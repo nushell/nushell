@@ -41,9 +41,8 @@ impl WholeStreamCommand for SplitRow {
 fn split_row(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let stream = async_stream! {
-        let input = args.input;
         let name = args.call_info.name_tag.clone();
-        let SplitRowArgs { separator } = args.process_raw(&registry).await?;
+        let (SplitRowArgs { separator }, mut input) = args.process(&registry).await?;
         for v in input.next().await {
             if let Ok(s) = v.as_string() {
                 let splitter = separator.item.replace("\\n", "\n");

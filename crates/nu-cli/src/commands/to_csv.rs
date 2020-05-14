@@ -48,9 +48,8 @@ impl WholeStreamCommand for ToCSV {
 fn to_csv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let stream = async_stream! {
-        let input = args.input;
         let name = args.call_info.name_tag.clone();
-        let ToCSVArgs { separator, headerless } = args.process_raw(&registry).await?;
+        let (ToCSVArgs { separator, headerless }, mut input) = args.process(&registry).await?;
         let sep = match separator {
             Some(Value {
                 value: UntaggedValue::Primitive(Primitive::String(s)),

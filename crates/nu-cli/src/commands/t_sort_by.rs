@@ -63,8 +63,7 @@ impl WholeStreamCommand for TSortBy {
 fn t_sort_by(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let stream = async_stream! {
-        let TSortByArgs { show_columns, group_by, ..} = args.process_raw(&registry).await?;
-        let mut input = args.input;
+        let (TSortByArgs { show_columns, group_by, ..}, mut input) = args.process(&registry).await?;
         let name = args.call_info.name_tag.clone();
         let values: Vec<Value> = input.collect().await;
 

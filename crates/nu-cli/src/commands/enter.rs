@@ -38,7 +38,6 @@ impl WholeStreamCommand for Enter {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        //Ok(args.process_raw(registry, enter)?.run())
         enter(args, registry)
     }
 
@@ -69,7 +68,7 @@ fn enter(
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let stream = async_stream! {
-        let EnterArgs { location } = raw_args.process_raw(&registry).await?;
+        let (EnterArgs { location }, _) = raw_args.process(&registry).await?;
         let location_string = location.display().to_string();
         let location_clone = location_string.clone();
         let tag = raw_args.call_info.name_tag.clone();

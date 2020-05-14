@@ -153,29 +153,11 @@ impl WholeStreamCommand for Save {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        //Ok(args.process_raw(registry, save)?.run())
         save(args, registry)
     }
 }
 
-fn save(
-    // SaveArgs {
-    //     path,
-    //     raw: save_raw,
-    // }: SaveArgs,
-    // RunnableContext {
-    //     input,
-    //     name,
-    //     shell_manager,
-    //     host,
-    //     ctrl_c,
-    //     registry,
-    //     ..
-    // }: RunnableContext,
-    // raw_args: RawCommandArgs,
-    raw_args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+fn save(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let mut full_path = PathBuf::from(raw_args.shell_manager.path());
     let name_tag = raw_args.call_info.name_tag.clone();
     let name = raw_args.call_info.name_tag.clone();
@@ -187,7 +169,7 @@ fn save(
     let input = raw_args.input;
 
     let stream = async_stream! {
-        let SaveArgs { path, raw: save_raw } = raw_args.process_raw(&registry).await?;
+        let (SaveArgs { path, raw: save_raw }, mut input) = raw_args.process(&registry).await?;
         let input: Vec<Value> = input.collect().await;
         if path.is_none() {
             // If there is no filename, check the metadata for the anchor filename

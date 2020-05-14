@@ -39,7 +39,6 @@ impl WholeStreamCommand for Each {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        //Ok(args.process_raw(registry, each)?.run())
         each(args, registry)
     }
 
@@ -64,11 +63,10 @@ fn is_expanded_it_usage(head: &SpannedExpression) -> bool {
 fn each(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let stream = async_stream! {
-        let each_args: EachArgs = raw_args.process_raw(&registry).await?;
+        let (each_args, mut input): (EachArgs, _) = raw_args.process(&registry).await?;
         let block = each_args.block;
         let scope = raw_args.call_info.scope.clone();
-        let mut input_stream = raw_args.input;
-        while let Some(input) = input_stream.next().await {
+        while let Some(input) = input.next().await {
             let mut context = Context::from_raw(&raw_args, &registry);
 
             let input_clone = input.clone();

@@ -46,8 +46,7 @@ impl WholeStreamCommand for Shuffle {
 fn shuffle(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let stream = async_stream! {
-        let mut input = args.input;
-        let Arguments { limit } = args.process_raw(&registry).await?;
+        let (Arguments { limit }, mut input) = args.process(&registry).await?;
         let mut values: Vec<Value> = input.collect().await;
 
         let out = if let Some(n) = limit {

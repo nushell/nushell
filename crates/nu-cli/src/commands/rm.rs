@@ -63,7 +63,7 @@ fn rm(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, She
     let stream = async_stream! {
         let name = args.call_info.name_tag.clone();
         let shell_manager = args.shell_manager.clone();
-        let args: RemoveArgs = args.process_raw(&registry).await?;
+        let (args, _): (RemoveArgs, _) = args.process(&registry).await?;
         let result = shell_manager.rm(args, name)?;
         for item in result.next().await {
             yield item;

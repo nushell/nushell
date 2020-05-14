@@ -50,8 +50,8 @@ impl WholeStreamCommand for SortBy {
 fn sort_by(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let stream = async_stream! {
-        let SortByArgs { rest } = args.process_raw(&registry).await?;
-        let mut vec = args.input.drain_vec().await;
+        let (SortByArgs { rest }, mut input) = args.process(&registry).await?;
+        let mut vec = input.drain_vec().await;
 
         if vec.is_empty() {
             return;

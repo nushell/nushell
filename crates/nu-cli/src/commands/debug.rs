@@ -28,23 +28,24 @@ impl WholeStreamCommand for Debug {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, debug_value)?.run()
+        debug_value(args, registry)
     }
 }
 
-fn debug_value(
-    DebugArgs { raw }: DebugArgs,
-    RunnableContext { input, .. }: RunnableContext,
-) -> Result<impl ToOutputStream, ShellError> {
-    Ok(input
-        .map(move |v| {
+fn debug_value(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let (DebugArgs { raw }, mut input) = args.process(&registry).await?;
+        for v in input.next().await {
             if raw {
-                ReturnSuccess::value(
+                yield ReturnSuccess::value(
                     UntaggedValue::string(format!("{:#?}", v)).into_untagged_value(),
-                )
+                );
             } else {
-                ReturnSuccess::debug_value(v)
+                yield ReturnSuccess::debug_value(v);
             }
-        })
-        .to_output_stream())
+        }
+    };
+
+    Ok(stream.to_output_stream())
 }

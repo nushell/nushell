@@ -45,8 +45,7 @@ impl WholeStreamCommand for Compact {
 pub fn compact(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let stream = async_stream! {
-        let mut input = args.input;
-        let CompactArgs { rest: columns } = args.process_raw(&registry).await?;
+        let (CompactArgs { rest: columns }, mut input) = args.process(&registry).await?;
         for item in input.next().await {
             if columns.is_empty() {
                 yield ReturnSuccess::value(item);

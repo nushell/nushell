@@ -40,7 +40,6 @@ impl WholeStreamCommand for WithEnv {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        //Ok(args.process_raw(registry, with_env)?.run())
         with_env(args, registry)
     }
 
@@ -56,13 +55,12 @@ fn with_env(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputS
     let registry = registry.clone();
 
     let stream = async_stream! {
-        let WithEnvArgs { variable, block } = raw_args.process_raw(&registry).await?;
+        let (WithEnvArgs { variable, block }, mut input) = raw_args.process(&registry).await?;
         let scope = raw_args
             .call_info
             .scope
             .clone()
             .set_env_var(variable.0.item, variable.1.item);
-        let input = raw_args.input;
         let mut context = Context::from_raw(&raw_args, &registry);
         let result = run_block(
             &block,

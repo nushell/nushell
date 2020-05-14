@@ -47,7 +47,7 @@ fn mkdir(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
     let stream = async_stream! {
         let name = args.call_info.name_tag.clone();
         let shell_manager = args.shell_manager.clone();
-        let args = args.process_raw(&registry).await?;
+        let (args, _) = args.process(&registry).await?;
         let result = shell_manager.mkdir(args, name)?;
 
         for item in result.next().await {

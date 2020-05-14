@@ -54,11 +54,10 @@ impl WholeStreamCommand for Wrap {
 }
 
 fn wrap(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let mut input = args.input;
     let registry = registry.clone();
 
     let stream = async_stream! {
-        let WrapArgs { column } = args.process_raw(&registry).await?;
+        let (WrapArgs { column }, mut input) = args.process(&registry).await?;
         let mut result_table = vec![];
         let mut are_all_rows = true;
 

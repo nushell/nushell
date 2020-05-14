@@ -60,7 +60,7 @@ impl WholeStreamCommand for Alias {
 pub fn alias(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let stream = async_stream! {
-        let AliasArgs { name, args: list, block } = args.process_raw(&registry).await?;
+        let (AliasArgs { name, args: list, block }, _) = args.process(&registry).await?;
         let mut args: Vec<String> = vec![];
         for item in list.iter() {
             if let Ok(string) = item.as_string() {

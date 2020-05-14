@@ -91,7 +91,7 @@ fn ls(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, She
         let name = args.call_info.name_tag.clone();
         let ctrl_c = args.ctrl_c.clone();
         let shell_manager = args.shell_manager.clone();
-        let args = args.process_raw(&registry).await?;
+        let (args, _) = args.process(&registry).await?;
         let result = shell_manager.ls(args, name, ctrl_c)?;
 
         for item in result.next().await {

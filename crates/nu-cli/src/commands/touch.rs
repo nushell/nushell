@@ -38,7 +38,7 @@ impl WholeStreamCommand for Touch {
 fn touch(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let stream = async_stream! {
-        let TouchArgs { target } = args.process_raw(&registry).await?;
+        let (TouchArgs { target }, _) = args.process(&registry).await?;
         match OpenOptions::new().write(true).create(true).open(&target) {
             Ok(_) => {},
             Err(err) => yield Err(ShellError::labeled_error(

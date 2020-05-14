@@ -67,7 +67,7 @@ fn cd(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, She
         let name = args.call_info.name_tag.clone();
         let shell_manager = args.shell_manager.clone();
 
-        let args: CdArgs = args.process_raw(&registry).await?;
+        let (args, _): (CdArgs, _) = args.process(&registry).await?;
         let result = shell_manager.cd(args, name)?;
         for item in result.next().await {
             yield item;

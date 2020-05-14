@@ -34,27 +34,17 @@ impl WholeStreamCommand for Where {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        //Ok(args.process_raw(registry, where_command)?.run())
         where_command(args, registry)
     }
 }
 fn where_command(
-    // WhereArgs { block }: WhereArgs,
-    // RunnableContext {
-    //     name: tag,
-    //     registry,
-    //     input,
-    //     ..
-    // }: RunnableContext,
-    // raw_args: RawCommandArgs,
     raw_args: CommandArgs,
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let stream = async_stream! {
         let tag = raw_args.call_info.name_tag.clone();
-        let input = raw_args.input;
-        let WhereArgs { block } = raw_args.process_raw(&registry).await?;
+        let (WhereArgs { block }, mut input) = raw_args.process(&registry).await?;
         let condition = {
             if block.block.len() != 1 {
                 yield Err(ShellError::labeled_error(

@@ -81,7 +81,7 @@ fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
     let registry = registry.clone();
     let mut all = true;
     let stream = async_stream! {
-        let WhichArgs { application, all: all_items } = args.process_raw(&registry).await?;
+        let (WhichArgs { application, all: all_items }, _) = args.process(&registry).await?;
         all = all_items;
         let external = application.starts_with('^');
         let item = if external {

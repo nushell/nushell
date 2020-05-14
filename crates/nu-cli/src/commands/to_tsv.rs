@@ -40,8 +40,7 @@ impl WholeStreamCommand for ToTSV {
 fn to_tsv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let stream = async_stream! {
-        let ToTSVArgs { headerless } = args.process_raw(&registry).await?;
-        let mut input = args.input;
+        let (ToTSVArgs { headerless }, mut input) = args.process(&registry).await?;
         let name = args.call_info.name_tag.clone();
         let result = to_delimited_data(
             headerless,
