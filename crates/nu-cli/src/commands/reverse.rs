@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::Signature;
+use nu_protocol::{ReturnSuccess, Signature};
 
 pub struct Reverse;
 
@@ -36,15 +36,16 @@ impl WholeStreamCommand for Reverse {
 }
 
 fn reverse(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let (input, _args) = args.parts();
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let args = args.evaluate_once(&registry).await?;
+        let (input, _args) = args.parts();
 
-    let input = input.collect::<Vec<_>>();
+        let input = input.collect::<Vec<_>>().await;
+        for output in input.into_iter().rev() {
+            yield ReturnSuccess::value(output);
+        }
+    };
 
-    let output = input.map(move |mut vec| {
-        vec.reverse();
-        futures::stream::iter(vec)
-    });
-
-    Ok(output.flatten_stream().from_input_stream())
+    Ok(stream.to_output_stream())
 }

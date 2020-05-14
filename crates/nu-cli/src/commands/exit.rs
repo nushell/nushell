@@ -42,11 +42,16 @@ impl WholeStreamCommand for Exit {
 }
 
 pub fn exit(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let args = args.evaluate_once(&registry).await?;
 
-    if args.call_info.args.has("now") {
-        Ok(vec![Ok(ReturnSuccess::Action(CommandAction::Exit))].into())
-    } else {
-        Ok(vec![Ok(ReturnSuccess::Action(CommandAction::LeaveShell))].into())
-    }
+        if args.call_info.args.has("now") {
+            yield Ok(ReturnSuccess::Action(CommandAction::Exit));
+        } else {
+            yield Ok(ReturnSuccess::Action(CommandAction::LeaveShell));
+        }
+    };
+
+    Ok(stream.to_output_stream())
 }

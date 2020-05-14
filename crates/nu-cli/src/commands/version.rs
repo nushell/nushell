@@ -29,8 +29,7 @@ impl WholeStreamCommand for Version {
 }
 
 pub fn version(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let tag = args.call_info.name_tag.clone();
+    let tag = args.call_info.args.span.clone();
 
     let mut indexmap = IndexMap::new();
     indexmap.insert(

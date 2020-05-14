@@ -106,7 +106,7 @@ impl CommandArgs {
         ))
     }
 
-    pub fn evaluate_once_with_scope(
+    pub async fn evaluate_once_with_scope(
         self,
         registry: &CommandRegistry,
         scope: &Scope,
@@ -120,7 +120,7 @@ impl CommandArgs {
             args: self.call_info.args,
             scope: scope.clone(),
         };
-        let call_info = call_info.evaluate(registry)?;
+        let call_info = call_info.evaluate(registry).await?;
 
         Ok(EvaluatedWholeStreamCommandArgs::new(
             host,
@@ -131,7 +131,7 @@ impl CommandArgs {
         ))
     }
 
-    pub async fn process<'de, T: Deserialize<'de>, O: ToOutputStream>(
+    pub fn process<'de, T: Deserialize<'de>, O: ToOutputStream>(
         self,
         registry: &CommandRegistry,
         callback: fn(T, RunnableContext) -> Result<O, ShellError>,
