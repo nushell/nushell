@@ -10,7 +10,7 @@ pub(crate) use nuconfig::NuConfig;
 use crate::commands::from_toml::convert_toml_value_to_nu_value;
 use crate::commands::to_toml::value_to_toml_value;
 use crate::prelude::*;
-use app_dirs::*;
+use directories::ProjectDirs;
 use indexmap::IndexMap;
 use log::trace;
 use nu_errors::ShellError;
@@ -20,13 +20,8 @@ use std::fs::{self, OpenOptions};
 use std::io;
 use std::path::{Path, PathBuf};
 
-pub const APP_INFO: AppInfo = AppInfo {
-    name: "nu",
-    author: "nu shell developers",
-};
-
 pub fn config_path() -> Result<PathBuf, ShellError> {
-    app_path(AppDataType::UserConfig, "config")
+    app_path("config", ProjectDirs::config_dir)
 }
 
 pub fn default_path() -> Result<PathBuf, ShellError> {
@@ -34,28 +29,26 @@ pub fn default_path() -> Result<PathBuf, ShellError> {
 }
 
 pub fn default_path_for(file: &Option<PathBuf>) -> Result<PathBuf, ShellError> {
-    let filename = &mut config_path()?;
-    let filename = match file {
-        None => {
-            filename.push("config.toml");
-            filename
-        }
-        Some(file) => {
-            filename.push(file);
-            filename
-        }
-    };
+    let mut filename = config_path()?;
+    let file: &Path = file
+        .as_ref()
+        .map(AsRef::as_ref)
+        .unwrap_or_else(|| "config.toml".as_ref());
+    filename.push(file);
 
-    Ok(filename.clone())
+    Ok(filename)
 }
 
 pub fn user_data() -> Result<PathBuf, ShellError> {
-    app_path(AppDataType::UserData, "user data")
+    app_path("user data", ProjectDirs::data_local_dir)
 }
 
-pub fn app_path(app_data_type: AppDataType, display: &str) -> Result<PathBuf, ShellError> {
-    let path = app_root(app_data_type, &APP_INFO).map_err(|err| {
-        ShellError::untagged_runtime_error(&format!("Couldn't open {} path:\n{}", display, err))
+fn app_path<F: FnOnce(&ProjectDirs) -> &Path>(display: &str, f: F) -> Result<PathBuf, ShellError> {
+    let dir = ProjectDirs::from("org", "nushell", "nu")
+        .ok_or_else(|| ShellError::untagged_runtime_error("Couldn't find project directory"))?;
+    let path = f(&dir).to_owned();
+    std::fs::create_dir_all(&path).map_err(|err| {
+        ShellError::untagged_runtime_error(&format!("Couldn't create {} path:\n{}", display, err))
     })?;
 
     Ok(path)

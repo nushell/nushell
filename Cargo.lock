@@ -34,18 +34,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "app_dirs"
-version = "1.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e73a24bad9bd6a94d6395382a6c69fe071708ae4409f763c5475e14ee896313d"
-dependencies = [
- "ole32-sys",
- "shell32-sys",
- "winapi 0.2.8",
- "xdg",
-]
-
-[[package]]
 name = "arc-swap"
 version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -750,6 +738,16 @@ checksum = "72d337a64190607d4fcca2cb78982c5dd57f4916e19696b48a575fa746b6cb0f"
 dependencies = [
  "libc",
  "winapi 0.3.8",
+]
+
+[[package]]
+name = "directories"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "551a778172a450d7fc12e629ca3b0428d00f6afa9a43da1b630d54604e97371c"
+dependencies = [
+ "cfg-if",
+ "dirs-sys",
 ]
 
 [[package]]
@@ -2121,7 +2119,6 @@ name = "nu-cli"
 version = "0.14.1"
 dependencies = [
  "ansi_term 0.12.1",
- "app_dirs",
  "async-stream",
  "base64 0.12.0",
  "bigdecimal",
@@ -2136,6 +2133,7 @@ dependencies = [
  "csv",
  "ctrlc",
  "derive-new",
+ "directories 2.0.2",
  "dirs 2.0.2",
  "dunce",
  "eml-parser",
@@ -2303,7 +2301,7 @@ dependencies = [
 name = "nu-test-support"
 version = "0.14.1"
 dependencies = [
- "app_dirs",
+ "directories 2.0.2",
  "dunce",
  "getset",
  "glob",
@@ -2598,16 +2596,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c92d4ddb4bd7b50d730c215ff871754d0da6b2178849f8a2a2ab69712d0c073b"
 dependencies = [
  "objc",
-]
-
-[[package]]
-name = "ole32-sys"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d2c49021782e5233cd243168edfa8037574afed4eba4bbaf538b3d8d1789d8c"
-dependencies = [
- "winapi 0.2.8",
- "winapi-build",
 ]
 
 [[package]]
@@ -2906,7 +2894,7 @@ checksum = "6b0a3be00b19ee7bd33238c1c523a7ab4df697345f6b36f90827a7860ea938d4"
 dependencies = [
  "ansi_term 0.11.0",
  "config",
- "directories",
+ "directories 1.0.2",
  "isatty",
  "petgraph",
  "serde 1.0.106",
@@ -3419,16 +3407,6 @@ dependencies = [
  "linked-hash-map 0.5.2",
  "serde 1.0.106",
  "yaml-rust",
-]
-
-[[package]]
-name = "shell32-sys"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ee04b46101f57121c9da2b151988283b6beb79b34f5bb29a58ee48cb695122c"
-dependencies = [
- "winapi 0.2.8",
- "winapi-build",
 ]
 
 [[package]]
@@ -4198,12 +4176,6 @@ dependencies = [
  "libc",
  "log",
 ]
-
-[[package]]
-name = "xdg"
-version = "2.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d089681aa106a86fade1b0128fb5daf07d5867a509ab036d99988dec80429a57"
 
 [[package]]
 name = "xml-rs"

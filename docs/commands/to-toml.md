@@ -41,7 +41,7 @@ path = "/home/shaurya/Desktop"
 > open cargo_sample.toml | to toml
 [dependencies]
 ansi_term = "0.11.0"
-app_dirs = "1.2.1"
+directories = "2.0.2"
 byte-unit = "2.1.0"
 bytes = "0.4.12"
 chrono-humanize = "0.0.11"
