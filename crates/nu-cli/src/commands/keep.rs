@@ -62,12 +62,14 @@ fn keep(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, S
         };
 
         for input in input.next().await {
-            if rows_desired > 0{
-                rows_desired -= 1;
-            }
-
             if rows_desired > 0 {
                 yield ReturnSuccess::value(input);
+            } else {
+                break;
+            }
+
+            if rows_desired > 0{
+                rows_desired -= 1;
             }
         }
     };
