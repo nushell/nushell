@@ -77,6 +77,13 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
     let binary = context.get_command("binaryview");
     let text = context.get_command("textview");
     let table = context.get_command("table");
+    let no_auto_pivot = config::config(Tag::unknown())?
+        .get("no_auto_pivot")
+        .map(|s| match s.value.expect_string() {
+            "true" => true,
+            _ => false,
+        })
+        .unwrap_or(false); //current behavior is to auto-pivot, this will maintain that behavior
 
     Ok(OutputStream::new(async_stream! {
         let (mut input_stream, context) = RunnableContextWithoutInput::convert(context);
@@ -214,7 +221,7 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                                 yield Err(e);
                             }
 
-                            Value { value: UntaggedValue::Row(row), ..} => {
+                            Value { value: UntaggedValue::Row(row), ..} if !no_auto_pivot => {
                                 use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
                                 use prettytable::{color, Attr, Cell, Row, Table};
                                 use crate::data::value::{format_leaf, style_leaf};
