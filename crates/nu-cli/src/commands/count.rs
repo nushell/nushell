@@ -36,7 +36,7 @@ impl WholeStreamCommand for Count {
     }
 }
 
-pub fn count(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+pub fn count(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
         let name = args.call_info.name_tag.clone();
         let rows: Vec<Value> = args.input.collect().await;

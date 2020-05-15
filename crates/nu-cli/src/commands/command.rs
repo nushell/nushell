@@ -248,34 +248,6 @@ impl RunnableContext {
     }
 }
 
-pub struct RunnableArgs<T, O: ToOutputStream> {
-    args: T,
-    context: RunnableContext,
-    callback: fn(T, RunnableContext) -> Result<O, ShellError>,
-}
-
-impl<T, O: ToOutputStream> RunnableArgs<T, O> {
-    pub fn run(self) -> Result<OutputStream, ShellError> {
-        (self.callback)(self.args, self.context).map(|v| v.to_output_stream())
-    }
-}
-
-pub struct RunnableRawArgs<T> {
-    args: T,
-    raw_args: RawCommandArgs,
-    context: RunnableContext,
-    callback: fn(T, RunnableContext, RawCommandArgs) -> Result<OutputStream, ShellError>,
-}
-
-impl<T> RunnableRawArgs<T> {
-    pub fn run(self) -> OutputStream {
-        match (self.callback)(self.args, self.context, self.raw_args) {
-            Ok(stream) => stream,
-            Err(err) => OutputStream::one(Err(err)),
-        }
-    }
-}
-
 pub struct EvaluatedWholeStreamCommandArgs {
     pub args: EvaluatedCommandArgs,
     pub input: InputStream,

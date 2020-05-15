@@ -49,7 +49,7 @@ fn is_empty(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
     let registry = registry.clone();
     let stream = async_stream! {
         let (IsEmptyArgs { rest }, mut input) = args.process(&registry).await?;
-        while let Some(item) = input.next().await {
+        while let Some(value) = input.next().await {
             let value_tag = value.tag();
 
             let action = if rest.len() <= 2 {
@@ -92,7 +92,7 @@ fn is_empty(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
 
                     for field in fields.iter() {
                         let val =
-                            out.get_data_by_column_path(&field, Box::new(move |(_, _, err)| err))?;
+                            crate::commands::get::get_column_path(&field, &out)?;
 
                         let emptiness_value = match out {
                             obj
@@ -128,7 +128,7 @@ fn is_empty(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
                 }
                 IsEmptyFor::RowWithField(field) => {
                     let val =
-                        value.get_data_by_column_path(&field, Box::new(move |(_, _, err)| err))?;
+                        crate::commands::get::get_column_path(&field, &value)?;
 
                     match &value {
                         obj
@@ -162,7 +162,7 @@ fn is_empty(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
                 }
                 IsEmptyFor::RowWithFieldAndFallback(field, default) => {
                     let val =
-                        value.get_data_by_column_path(&field, Box::new(move |(_, _, err)| err))?;
+                        crate::commands::get::get_column_path(&field, &value)?;
 
                     match &value {
                         obj

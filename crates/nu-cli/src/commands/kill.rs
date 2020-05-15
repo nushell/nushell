@@ -115,5 +115,5 @@ fn kill(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, S
         }
     };
 
-    Ok(OutputStream::empty())
+    Ok(stream.to_output_stream())
 }

@@ -30,7 +30,7 @@ impl WholeStreamCommand for History {
     }
 }
 
-fn history(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+fn history(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let stream = async_stream! {
         let history_path = HistoryFile::path();

@@ -48,7 +48,9 @@ pub fn compact(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
         let (CompactArgs { rest: columns }, mut input) = args.process(&registry).await?;
         while let Some(item) = input.next().await {
             if columns.is_empty() {
-                yield ReturnSuccess::value(item);
+                if !item.is_empty() {
+                    yield ReturnSuccess::value(item);
+                }
             } else {
                 match item {
                     Value {

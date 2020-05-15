@@ -120,6 +120,12 @@ impl WholeStreamCommand for Parse {
     }
 }
 
+fn create_regex(parse_regex: String, tag: Tag) -> Result<Regex, ShellError> {
+    let regex = Regex::new(&parse_regex).map_err(|_| {
+        ShellError::labeled_error("Could not parse regex", "could not parse regex", tag.span)
+    });
+}
+
 fn parse_command(
     args: CommandArgs,
     registry: &CommandRegistry,
@@ -132,13 +138,8 @@ fn parse_command(
         let parse_regex = build_regex(&parse_pattern);
         let column_names = column_names(&parse_pattern);
         let name = name.span;
-        let regex = Regex::new(&parse_regex).map_err(|_| {
-            ShellError::labeled_error(
-                "Could not parse regex",
-                "could not parse regex",
-                &pattern.tag,
-            )
-        })?;
+
+        let regex = create_regex(parse_regex.clone(), pattern.tag.clone())?;
 
         while let Some(value) = input.next().await {
             if let Ok(s) = value.as_string() {

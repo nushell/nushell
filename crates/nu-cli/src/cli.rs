@@ -302,6 +302,7 @@ pub fn create_default_context(
             whole_stream_command(Nth),
             whole_stream_command(Drop),
             whole_stream_command(Format),
+            whole_stream_command(Parse),
             whole_stream_command(Where),
             whole_stream_command(Compact),
             whole_stream_command(Default),
@@ -315,7 +316,7 @@ pub fn create_default_context(
             whole_stream_command(Rename),
             whole_stream_command(Uniq),
             whole_stream_command(Each),
-            //whole_stream_command(IsEmpty),
+            whole_stream_command(IsEmpty),
             // Table manipulation
             whole_stream_command(Merge),
             whole_stream_command(Shuffle),

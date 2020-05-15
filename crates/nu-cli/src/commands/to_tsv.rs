@@ -50,7 +50,7 @@ fn to_tsv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
             name,
         )?;
 
-        for item in result.next().await {
+        while let Some(item) = result.next().await {
             yield item;
         }
     };

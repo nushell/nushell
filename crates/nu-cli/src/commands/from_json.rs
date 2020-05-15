@@ -72,7 +72,6 @@ pub fn from_json_string_to_value(s: String, tag: impl Into<Tag>) -> serde_hjson:
 
 fn from_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
-    let name = args.call_info.name_tag.clone();
     let registry = registry.clone();
 
     let stream = async_stream! {

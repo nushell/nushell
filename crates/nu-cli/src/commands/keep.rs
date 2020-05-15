@@ -61,15 +61,12 @@ fn keep(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, S
             1
         };
 
-        for input in input.next().await {
+        while let Some(input) = input.next().await {
             if rows_desired > 0 {
                 yield ReturnSuccess::value(input);
+                rows_desired -= 1;
             } else {
                 break;
-            }
-
-            if rows_desired > 0{
-                rows_desired -= 1;
             }
         }
     };

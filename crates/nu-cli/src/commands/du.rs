@@ -90,7 +90,6 @@ impl WholeStreamCommand for Du {
 fn du(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let tag = args.call_info.name_tag.clone();
-    let name = args.call_info.name_tag.clone();
     let ctrl_c = args.ctrl_c.clone();
 
     let stream = async_stream! {

@@ -96,7 +96,7 @@ impl Shell for ValueShell {
         &self,
         LsArgs { path, .. }: LsArgs,
         name_tag: Tag,
-        ctrl_c: Arc<AtomicBool>,
+        _ctrl_c: Arc<AtomicBool>,
     ) -> Result<OutputStream, ShellError> {
         let mut full_path = PathBuf::from(self.path());
 

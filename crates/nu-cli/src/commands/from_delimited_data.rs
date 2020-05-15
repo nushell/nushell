@@ -45,7 +45,7 @@ pub fn from_delimited_data(
     headerless: bool,
     sep: char,
     format_name: &'static str,
-    mut input: InputStream,
+    input: InputStream,
     name: Tag,
 ) -> Result<OutputStream, ShellError> {
     let name_tag = name;
