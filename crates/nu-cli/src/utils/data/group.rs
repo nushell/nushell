@@ -1,12 +1,12 @@
 use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
-use nu_source::{Tag, Tagged};
+use nu_source::{Tag, Tagged, TaggedItem};
 use nu_value_ext::{as_string, get_data_by_key};
 
 #[allow(clippy::type_complexity)]
 pub fn group(
-    column_name: Tagged<String>,
+    column_name: Option<Tagged<String>>,
     values: &[Value],
     grouper: Option<Box<dyn Fn(&Value) -> Result<String, ShellError> + Send>>,
     tag: impl Into<Tag>,
@@ -16,7 +16,11 @@ pub fn group(
     let mut groups: IndexMap<String, Vec<Value>> = IndexMap::new();
 
     for value in values {
-        let group_key = get_data_by_key(&value, column_name.borrow_spanned());
+        let group_key = if let Some(ref column_name) = column_name {
+            get_data_by_key(&value, column_name.borrow_spanned())
+        } else {
+            Some(value.clone())
+        };
 
         if let Some(group_key) = group_key {
             let group_key = if let Some(ref grouper) = grouper {
@@ -27,6 +31,8 @@ pub fn group(
             let group = groups.entry(group_key?).or_insert(vec![]);
             group.push((*value).clone());
         } else {
+            let column_name = column_name.unwrap_or_else(|| String::from("").tagged(&tag));
+
             let possibilities = value.data_descriptors();
 
             let mut possible_matches: Vec<_> = possibilities

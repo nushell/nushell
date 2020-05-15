@@ -298,6 +298,7 @@ pub fn create_default_context(
             whole_stream_command(Prepend),
             whole_stream_command(SortBy),
             whole_stream_command(GroupBy),
+            whole_stream_command(GroupByDate),
             whole_stream_command(First),
             whole_stream_command(Last),
             whole_stream_command(Nth),
