@@ -8,9 +8,7 @@ pub struct GroupBy;
 
 #[derive(Deserialize)]
 pub struct GroupByArgs {
-    column_name: Tagged<String>,
-    date: Tagged<bool>,
-    format: Option<Tagged<String>>,
+    column_name: Option<Tagged<String>>,
 }
 
 impl WholeStreamCommand for GroupBy {
@@ -19,19 +17,11 @@ impl WholeStreamCommand for GroupBy {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("group-by")
-            .required(
-                "column_name",
-                SyntaxShape::String,
-                "the name of the column to group by",
-            )
-            .named(
-                "format",
-                SyntaxShape::String,
-                "Specify date and time formatting",
-                Some('f'),
-            )
-            .switch("date", "by date", Some('d'))
+        Signature::build("group-by").optional(
+            "column_name",
+            SyntaxShape::String,
+            "the name of the column to group by",
+        )
     }
 
     fn usage(&self) -> &str {
@@ -54,17 +44,8 @@ impl WholeStreamCommand for GroupBy {
     }
 }
 
-enum Grouper {
-    Default,
-    ByDate(Option<String>),
-}
-
 pub fn group_by(
-    GroupByArgs {
-        column_name,
-        date,
-        format,
-    }: GroupByArgs,
+    GroupByArgs { column_name }: GroupByArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
@@ -74,42 +55,15 @@ pub fn group_by(
             yield Err(ShellError::labeled_error(
                     "Expected table from pipeline",
                     "requires a table input",
-                    column_name.span()
+                    name
                 ))
         } else {
 
-            let grouper = if let Tagged { item: true, tag } = date {
-                if let Some(Tagged { item: fmt, tag }) = format {
-                    Grouper::ByDate(Some(fmt))
-                } else {
-                    Grouper::ByDate(None)
-                }
-            } else {
-                Grouper::Default
-            };
-
-            match grouper {
-                Grouper::Default => {
-                    match crate::utils::data::group(column_name, &values, None, &name) {
-                        Ok(grouped) => yield ReturnSuccess::value(grouped),
-                        Err(err) => yield Err(err),
-                    }
-                }
-                Grouper::ByDate(None) => {
-                    match crate::utils::data::group(column_name, &values, Some(Box::new(|row: &Value| row.format("%Y-%b-%d"))), &name) {
-                        Ok(grouped) => yield ReturnSuccess::value(grouped),
-                        Err(err) => yield Err(err),
-                    }
-                }
-                Grouper::ByDate(Some(fmt)) => {
-                    match crate::utils::data::group(column_name, &values, Some(Box::new(move |row: &Value| {
-                        row.format(&fmt)
-                    })), &name) {
-                        Ok(grouped) => yield ReturnSuccess::value(grouped),
-                        Err(err) => yield Err(err),
-                    }
-                }
+            match crate::utils::data::group(column_name, &values, None, &name) {
+                Ok(grouped) => yield ReturnSuccess::value(grouped),
+                Err(err) => yield Err(err),
             }
+
         }
     };
 
@@ -121,7 +75,7 @@ pub fn group(
     values: Vec<Value>,
     tag: impl Into<Tag>,
 ) -> Result<Value, ShellError> {
-    crate::utils::data::group(column_name.clone(), &values, None, tag)
+    crate::utils::data::group(Some(column_name.clone()), &values, None, tag)
 }
 
 #[cfg(test)]
