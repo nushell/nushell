@@ -36,7 +36,7 @@ impl WholeStreamCommand for KeepWhile {
         let registry = registry.clone();
         let scope = args.call_info.scope.clone();
         let stream = async_stream! {
-            let call_info = args.evaluate_once(&registry).await?;
+            let mut call_info = args.evaluate_once(&registry).await?;
 
             let block = call_info.args.expect_nth(0)?.clone();
 
@@ -85,7 +85,7 @@ impl WholeStreamCommand for KeepWhile {
                 }
             };
 
-            for item in call_info.input.next().await {
+            while let Some(item) = call_info.input.next().await {
                 let condition = condition.clone();
                 trace!("ITEM = {:?}", item);
                 let result =

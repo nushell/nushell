@@ -166,9 +166,9 @@ fn save(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
     let host = raw_args.host.clone();
     let ctrl_c = raw_args.ctrl_c.clone();
     let shell_manager = raw_args.shell_manager.clone();
-    let input = raw_args.input;
 
     let stream = async_stream! {
+        let head = raw_args.call_info.args.head.clone();
         let (SaveArgs { path, raw: save_raw }, mut input) = raw_args.process(&registry).await?;
         let input: Vec<Value> = input.collect().await;
         if path.is_none() {
@@ -222,13 +222,13 @@ fn save(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
                             shell_manager,
                             call_info: UnevaluatedCallInfo {
                                 args: nu_protocol::hir::Call {
-                                    head: raw_args.call_info.args.head,
+                                    head,
                                     positional: None,
                                     named: None,
                                     span: Span::unknown(),
                                     is_last: false,
                                 },
-                                name_tag: raw_args.call_info.name_tag,
+                                name_tag: name_tag.clone(),
                                 scope,
                             }
                         };

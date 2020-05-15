@@ -72,14 +72,14 @@ pub fn filter_plugin(
     trace!("filter_plugin :: {}", path);
     let registry = registry.clone();
 
-    let scope = &args
+    let scope = args
         .call_info
         .scope
         .clone()
         .set_it(UntaggedValue::string("$it").into_untagged_value());
 
     let stream = async_stream! {
-        let args = args.evaluate_once_with_scope(&registry, &scope).await?;
+        let mut args = args.evaluate_once_with_scope(&registry, &scope).await?;
 
         let mut child = std::process::Command::new(path)
             .stdin(std::process::Stdio::piped())
@@ -147,7 +147,7 @@ pub fn filter_plugin(
 
         // Stream contents
         {
-            for v in args.input.next().await {
+            while let Some(v) = args.input.next().await {
                 let stdin = child.stdin.as_mut().expect("Failed to open stdin");
                 let stdout = child.stdout.as_mut().expect("Failed to open stdout");
 

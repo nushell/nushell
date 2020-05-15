@@ -46,7 +46,7 @@ pub fn compact(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
     let registry = registry.clone();
     let stream = async_stream! {
         let (CompactArgs { rest: columns }, mut input) = args.process(&registry).await?;
-        for item in input.next().await {
+        while let Some(item) = input.next().await {
             if columns.is_empty() {
                 yield ReturnSuccess::value(item);
             } else {

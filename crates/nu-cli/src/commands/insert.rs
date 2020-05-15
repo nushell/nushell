@@ -41,17 +41,15 @@ impl WholeStreamCommand for Insert {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, insert)?.run()
+        insert(args, registry)
     }
 }
 
-fn insert(
-    InsertArgs { column, value }: InsertArgs,
-    RunnableContext { input, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    let mut input = input;
+fn insert(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
 
     let stream = async_stream! {
+        let (InsertArgs { column, value }, mut input) = args.process(&registry).await?;
         match input.next().await {
             Some(obj @ Value {
                 value: UntaggedValue::Row(_),

@@ -76,7 +76,7 @@ impl WholeStreamCommand for Du {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, du)?.run()
+        du(args, registry)
     }
 
     fn examples(&self) -> &[Example] {
@@ -87,65 +87,73 @@ impl WholeStreamCommand for Du {
     }
 }
 
-fn du(args: DuArgs, ctx: RunnableContext) -> Result<OutputStream, ShellError> {
-    let tag = ctx.name.clone();
+fn du(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let tag = args.call_info.name_tag.clone();
+    let name = args.call_info.name_tag.clone();
+    let ctrl_c = args.ctrl_c.clone();
 
-    let exclude = args.exclude.map_or(Ok(None), move |x| {
-        Pattern::new(&x.item)
-            .map(Option::Some)
-            .map_err(|e| ShellError::labeled_error(e.msg, "glob error", x.tag.clone()))
-    })?;
+    let stream = async_stream! {
+        let (args, mut input): (DuArgs, _) = args.process(&registry).await?;
+        let exclude = args.exclude.map_or(Ok(None), move |x| {
+            Pattern::new(&x.item)
+                .map(Option::Some)
+                .map_err(|e| ShellError::labeled_error(e.msg, "glob error", x.tag.clone()))
+        })?;
 
-    let include_files = args.all;
-    let paths = match args.path {
-        Some(p) => {
-            let p = p.item.to_str().expect("Why isn't this encoded properly?");
-            glob::glob_with(p, GLOB_PARAMS)
-        }
-        None => glob::glob_with("*", GLOB_PARAMS),
-    }
-    .map_err(|e| ShellError::labeled_error(e.msg, "glob error", tag.clone()))?
-    .filter(move |p| {
-        if include_files {
-            true
-        } else {
-            match p {
-                Ok(f) if f.is_dir() => true,
-                Err(e) if e.path().is_dir() => true,
-                _ => false,
+        let include_files = args.all;
+        let paths = match args.path {
+            Some(p) => {
+                let p = p.item.to_str().expect("Why isn't this encoded properly?");
+                glob::glob_with(p, GLOB_PARAMS)
             }
+            None => glob::glob_with("*", GLOB_PARAMS),
         }
-    })
-    .map(|v| v.map_err(glob_err_into));
-
-    let ctrl_c = ctx.ctrl_c;
-    let all = args.all;
-    let deref = args.deref;
-    let max_depth = args.max_depth.map(|f| f.item);
-    let min_size = args.min_size.map(|f| f.item);
-
-    let params = DirBuilder {
-        tag: tag.clone(),
-        min: min_size,
-        deref,
-        exclude,
-        all,
-    };
-
-    let stream = futures::stream::iter(paths)
-        .interruptible(ctrl_c)
-        .map(move |path| match path {
-            Ok(p) => {
-                if p.is_dir() {
-                    Ok(ReturnSuccess::Value(
-                        DirInfo::new(p, &params, max_depth).into(),
-                    ))
-                } else {
-                    FileInfo::new(p, deref, tag.clone()).map(|v| ReturnSuccess::Value(v.into()))
+        .map_err(|e| ShellError::labeled_error(e.msg, "glob error", tag.clone()))?
+        .filter(move |p| {
+            if include_files {
+                true
+            } else {
+                match p {
+                    Ok(f) if f.is_dir() => true,
+                    Err(e) if e.path().is_dir() => true,
+                    _ => false,
                 }
             }
-            Err(e) => Err(e),
-        });
+        })
+        .map(|v| v.map_err(glob_err_into));
+
+        let all = args.all;
+        let deref = args.deref;
+        let max_depth = args.max_depth.map(|f| f.item);
+        let min_size = args.min_size.map(|f| f.item);
+
+        let params = DirBuilder {
+            tag: tag.clone(),
+            min: min_size,
+            deref,
+            exclude,
+            all,
+        };
+
+        let mut inp = futures::stream::iter(paths).interruptible(ctrl_c);
+        while let Some(path) = inp.next().await {
+            match path {
+                Ok(p) => {
+                    if p.is_dir() {
+                        yield Ok(ReturnSuccess::Value(
+                            DirInfo::new(p, &params, max_depth).into(),
+                        ))
+                    } else {
+                        for v in FileInfo::new(p, deref, tag.clone()).into_iter() {
+                            yield Ok(ReturnSuccess::Value(v.into()));
+                        }
+                    }
+                }
+                Err(e) => yield Err(e),
+            }
+        }
+    };
 
     Ok(stream.to_output_stream())
 }

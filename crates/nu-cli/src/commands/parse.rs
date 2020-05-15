@@ -109,7 +109,7 @@ impl WholeStreamCommand for Parse {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, parse_command)?.run()
+        parse_command(args, registry)
     }
 
     fn examples(&self) -> &[Example] {
@@ -121,25 +121,27 @@ impl WholeStreamCommand for Parse {
 }
 
 fn parse_command(
-    ParseArgs { pattern }: ParseArgs,
-    RunnableContext { name, input, .. }: RunnableContext,
+    args: CommandArgs,
+    registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
-    let parse_pattern = parse(&pattern.item);
-    let parse_regex = build_regex(&parse_pattern);
-    let column_names = column_names(&parse_pattern);
-    let name = name.span;
-    let regex = Regex::new(&parse_regex).map_err(|_| {
-        ShellError::labeled_error(
-            "Could not parse regex",
-            "could not parse regex",
-            &pattern.tag,
-        )
-    })?;
+    let registry = registry.clone();
+    let name = args.call_info.name_tag.clone();
+    let stream = async_stream! {
+        let (ParseArgs { pattern }, mut input) = args.process(&registry).await?;
+        let parse_pattern = parse(&pattern.item);
+        let parse_regex = build_regex(&parse_pattern);
+        let column_names = column_names(&parse_pattern);
+        let name = name.span;
+        let regex = Regex::new(&parse_regex).map_err(|_| {
+            ShellError::labeled_error(
+                "Could not parse regex",
+                "could not parse regex",
+                &pattern.tag,
+            )
+        })?;
 
-    Ok(input
-        .map(move |value| {
+        while let Some(value) = input.next().await {
             if let Ok(s) = value.as_string() {
-                let mut output = vec![];
                 for cap in regex.captures_iter(&s) {
                     let mut dict = TaggedDictBuilder::new(value.tag());
                     for (idx, column_name) in column_names.iter().enumerate() {
@@ -148,20 +150,19 @@ fn parse_command(
                             UntaggedValue::string(cap[idx + 1].to_string()),
                         );
                     }
-                    output.push(Ok(ReturnSuccess::Value(dict.into_value())));
+                    yield Ok(ReturnSuccess::Value(dict.into_value()));
                 }
-                output
             } else {
-                vec![Err(ShellError::labeled_error_with_secondary(
+                yield Err(ShellError::labeled_error_with_secondary(
                     "Expected string input",
                     "expected string input",
                     name,
                     "value originated here",
                     value.tag,
-                ))]
+                ));
             }
-        })
-        .map(futures::stream::iter)
-        .flatten()
-        .to_output_stream())
+        }
+    };
+
+    Ok(stream.to_output_stream())
 }

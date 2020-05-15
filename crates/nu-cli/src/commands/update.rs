@@ -52,6 +52,7 @@ fn update(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
     let scope = raw_args.call_info.scope.clone();
 
     let stream = async_stream! {
+        let mut context = Context::from_raw(&raw_args, &registry);
         let (UpdateArgs { field, replacement }, mut input) = raw_args.process(&registry).await?;
         while let Some(input) = input.next().await {
             let replacement = replacement.clone();
@@ -60,7 +61,6 @@ fn update(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
                     value: UntaggedValue::Block(block),
                     tag,
                 } =>  {
-                    let mut context = Context::from_raw(&raw_args, &registry);
                     let for_block = input.clone();
                     let input_clone = input.clone();
                     let input_stream = once(async { Ok(for_block) }).to_input_stream();

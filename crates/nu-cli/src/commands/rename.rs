@@ -56,6 +56,7 @@ impl WholeStreamCommand for Rename {
 
 pub fn rename(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
+    let name = args.call_info.name_tag.clone();
     let stream = async_stream! {
         let (Arguments { column_name, rest }, mut input) = args.process(&registry).await?;
         let mut new_column_names = vec![vec![column_name]];
@@ -63,9 +64,7 @@ pub fn rename(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
 
         let new_column_names = new_column_names.into_iter().flatten().collect::<Vec<_>>();
 
-        for item in input.next().await {
-            let mut result = VecDeque::new();
-
+        while let Some(item) = input.next().await {
             if let Value {
                 value: UntaggedValue::Row(row),
                 tag,

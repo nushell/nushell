@@ -3,7 +3,7 @@ use crate::context::CommandRegistry;
 use crate::deserializer::NumericRange;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape};
 use nu_source::Tagged;
 
 #[derive(Deserialize)]
@@ -35,20 +35,26 @@ impl WholeStreamCommand for Range {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, range)?.run()
+        range(args, registry)
     }
 }
 
-fn range(
-    RangeArgs { area }: RangeArgs,
-    RunnableContext { input, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    let range = area.item;
-    let (from, _) = range.from;
-    let (to, _) = range.to;
+fn range(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let (RangeArgs { area }, mut input) = args.process(&registry).await?;
+        let range = area.item;
+        let (from, _) = range.from;
+        let (to, _) = range.to;
 
-    let from = *from as usize;
-    let to = *to as usize;
+        let from = *from as usize;
+        let to = *to as usize;
 
-    Ok(input.skip(from).take(to - from + 1).to_output_stream())
+        let mut inp = input.skip(from).take(to - from + 1);
+        while let Some(item) = inp.next().await {
+            yield ReturnSuccess::value(item);
+        }
+    };
+
+    Ok(stream.to_output_stream())
 }

@@ -1,6 +1,4 @@
-use crate::commands::{
-    command::CommandArgs, command::RawCommandArgs, Command, UnevaluatedCallInfo,
-};
+use crate::commands::{command::CommandArgs, Command, UnevaluatedCallInfo};
 use crate::env::host::Host;
 use crate::shell::shell_manager::ShellManager;
 use crate::stream::{InputStream, OutputStream};

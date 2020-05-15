@@ -41,16 +41,15 @@ impl WholeStreamCommand for IsEmpty {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, is_empty)?.run()
+        is_empty(args, registry)
     }
 }
 
-fn is_empty(
-    IsEmptyArgs { rest }: IsEmptyArgs,
-    RunnableContext { input, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    Ok(input
-        .map(move |value| {
+fn is_empty(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let (IsEmptyArgs { rest }, mut input) = args.process(&registry).await?;
+        while let Some(item) = input.next().await {
             let value_tag = value.tag();
 
             let action = if rest.len() <= 2 {
@@ -85,7 +84,7 @@ fn is_empty(
             };
 
             match action {
-                IsEmptyFor::Value => Ok(ReturnSuccess::Value(
+                IsEmptyFor::Value => yield Ok(ReturnSuccess::Value(
                     UntaggedValue::boolean(value.is_empty()).into_value(value_tag),
                 )),
                 IsEmptyFor::RowWithFieldsAndFallback(fields, default) => {
@@ -125,7 +124,7 @@ fn is_empty(
                         out = emptiness_value?;
                     }
 
-                    Ok(ReturnSuccess::Value(out))
+                    yield Ok(ReturnSuccess::Value(out))
                 }
                 IsEmptyFor::RowWithField(field) => {
                     let val =
@@ -143,18 +142,18 @@ fn is_empty(
                                     &field,
                                     UntaggedValue::boolean(true).into_value(&value_tag),
                                 ) {
-                                    Some(v) => Ok(ReturnSuccess::Value(v)),
-                                    None => Err(ShellError::labeled_error(
+                                    Some(v) => yield Ok(ReturnSuccess::Value(v)),
+                                    None => yield Err(ShellError::labeled_error(
                                         "empty? could not find place to check emptiness",
                                         "column name",
                                         &field.tag,
                                     )),
                                 }
                             } else {
-                                Ok(ReturnSuccess::Value(value))
+                                yield Ok(ReturnSuccess::Value(value))
                             }
                         }
-                        _ => Err(ShellError::labeled_error(
+                        _ => yield Err(ShellError::labeled_error(
                             "Unrecognized type in stream",
                             "original value",
                             &value_tag,
@@ -174,18 +173,18 @@ fn is_empty(
                         } => {
                             if val.is_empty() {
                                 match obj.replace_data_at_column_path(&field, default) {
-                                    Some(v) => Ok(ReturnSuccess::Value(v)),
-                                    None => Err(ShellError::labeled_error(
+                                    Some(v) => yield Ok(ReturnSuccess::Value(v)),
+                                    None => yield Err(ShellError::labeled_error(
                                         "empty? could not find place to check emptiness",
                                         "column name",
                                         &field.tag,
                                     )),
                                 }
                             } else {
-                                Ok(ReturnSuccess::Value(value))
+                                yield Ok(ReturnSuccess::Value(value))
                             }
                         }
-                        _ => Err(ShellError::labeled_error(
+                        _ => yield Err(ShellError::labeled_error(
                             "Unrecognized type in stream",
                             "original value",
                             &value_tag,
@@ -193,6 +192,7 @@ fn is_empty(
                     }
                 }
             }
-        })
-        .to_output_stream())
+        }
+    };
+    Ok(stream.to_output_stream())
 }

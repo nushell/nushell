@@ -63,9 +63,9 @@ pub fn cp(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
         let shell_manager = args.shell_manager.clone();
         let name = args.call_info.name_tag.clone();
         let (args, _) = args.process(&registry).await?;
-        let result = shell_manager.cp(args, name)?;
+        let mut result = shell_manager.cp(args, name)?;
 
-        for item in result.next().await {
+        while let Some(item) = result.next().await {
             yield item;
         }
     };

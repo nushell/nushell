@@ -1,7 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::Signature;
+use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 
 pub struct From;
 
@@ -23,6 +23,14 @@ impl WholeStreamCommand for From {
         _args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        Ok(crate::commands::help::get_help(&*self, registry).into())
+        let registry = registry.clone();
+        let stream = async_stream! {
+            yield Ok(ReturnSuccess::Value(
+                UntaggedValue::string(crate::commands::help::get_help(&From, &registry))
+                    .into_value(Tag::unknown()),
+            ));
+        };
+
+        Ok(stream.to_output_stream())
     }
 }

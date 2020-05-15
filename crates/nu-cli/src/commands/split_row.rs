@@ -43,7 +43,7 @@ fn split_row(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
     let stream = async_stream! {
         let name = args.call_info.name_tag.clone();
         let (SplitRowArgs { separator }, mut input) = args.process(&registry).await?;
-        for v in input.next().await {
+        while let Some(v) = input.next().await {
             if let Ok(s) = v.as_string() {
                 let splitter = separator.item.replace("\\n", "\n");
                 trace!("splitting with {:?}", splitter);

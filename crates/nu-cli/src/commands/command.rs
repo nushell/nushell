@@ -7,7 +7,7 @@ use derive_new::new;
 use getset::Getters;
 use nu_errors::ShellError;
 use nu_protocol::hir;
-use nu_protocol::{CallInfo, EvaluatedArgs, ReturnValue, Scope, Signature, Value};
+use nu_protocol::{CallInfo, EvaluatedArgs, ReturnSuccess, Scope, Signature, UntaggedValue, Value};
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 use std::sync::atomic::AtomicBool;
@@ -452,7 +452,12 @@ impl Command {
 
     pub fn run(&self, args: CommandArgs, registry: &CommandRegistry) -> OutputStream {
         if args.call_info.switch_present("help") {
-            get_help(&*self.0, registry).into()
+            let cl = self.0.clone();
+            let registry = registry.clone();
+            let stream = async_stream! {
+                yield Ok(ReturnSuccess::Value(UntaggedValue::string(get_help(&*cl, &registry)).into_value(Tag::unknown())));
+            };
+            stream.to_output_stream()
         } else {
             match self.0.run(args, registry) {
                 Ok(stream) => stream,
@@ -494,7 +499,7 @@ impl WholeStreamCommand for FnFilterCommand {
             ctrl_c,
             shell_manager,
             call_info,
-            input,
+            mut input,
         } = args;
 
         let host: Arc<parking_lot::Mutex<dyn Host>> = host.clone();
@@ -502,7 +507,7 @@ impl WholeStreamCommand for FnFilterCommand {
         let func = self.func;
 
         let stream = async_stream! {
-            for it in input.next().await {
+            while let Some(it) = input.next().await {
                 let registry = registry.clone();
                 let call_info = match call_info.clone().evaluate_with_new_it(&registry, &it).await {
                     Err(err) => { yield Err(err); return; },
@@ -518,8 +523,8 @@ impl WholeStreamCommand for FnFilterCommand {
 
                 match func(args) {
                     Err(err) => yield Err(err),
-                    Ok(stream) => {
-                        for value in stream.values.next().await {
+                    Ok(mut stream) => {
+                        while let Some(value) = stream.values.next().await {
                             yield value;
                         }
                     }

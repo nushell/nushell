@@ -4,6 +4,7 @@ use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{hir::Block, ReturnSuccess, Signature, SyntaxShape};
 use nu_source::Tagged;
+use parking_lot::Mutex;
 
 pub struct WithEnv;
 
@@ -55,13 +56,36 @@ fn with_env(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputS
     let registry = registry.clone();
 
     let stream = async_stream! {
-        let (WithEnvArgs { variable, block }, mut input) = raw_args.process(&registry).await?;
+        let mut context;
+        #[cfg(windows)]
+        {
+            context = Context {
+                registry: registry.clone(),
+                host: raw_args.host.clone(),
+                current_errors: Arc::new(Mutex::new(vec![])),
+                ctrl_c: raw_args.ctrl_c.clone(),
+                shell_manager: raw_args.shell_manager.clone(),
+                windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
+            };
+        }
+        #[cfg(not(windows))]
+        {
+            context = Context {
+                registry: registry.clone(),
+                host: raw_args.host.clone(),
+                current_errors: Arc::new(Mutex::new(vec![])),
+                ctrl_c: raw_args.ctrl_c.clone(),
+                shell_manager: raw_args.shell_manager.clone(),
+            };
+        }
+
         let scope = raw_args
             .call_info
             .scope
-            .clone()
-            .set_env_var(variable.0.item, variable.1.item);
-        let mut context = Context::from_raw(&raw_args, &registry);
+            .clone();
+        let (WithEnvArgs { variable, block }, mut input) = raw_args.process(&registry).await?;
+        let scope = scope.set_env_var(variable.0.item, variable.1.item);
+
         let result = run_block(
             &block,
             &mut context,

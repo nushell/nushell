@@ -50,11 +50,11 @@ impl WholeStreamCommand for Merge {
 fn merge(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let stream = async_stream! {
+        let mut context = Context::from_raw(&raw_args, &registry);
+        let name_tag = raw_args.call_info.name_tag.clone();
+        let scope = raw_args.call_info.scope.clone();
         let (merge_args, mut input): (MergeArgs, _) = raw_args.process(&registry).await?;
         let block = merge_args.block;
-        let scope = raw_args.call_info.scope.clone();
-
-        let mut context = Context::from_raw(&raw_args, &registry);
 
         let table: Option<Vec<Value>> = match run_block(&block,
                 &mut context,
@@ -70,7 +70,7 @@ fn merge(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
 
         let table = table.unwrap_or_else(|| vec![Value {
             value: UntaggedValue::row(IndexMap::default()),
-            tag: raw_args.call_info.name_tag,
+            tag: name_tag,
         }]);
 
         let mut idx = 0;

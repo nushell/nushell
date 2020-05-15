@@ -1,4 +1,3 @@
-use crate::commands::classified::block::run_block;
 use crate::context::CommandRegistry;
 use crate::evaluate::operator::apply_operator;
 use crate::prelude::*;
@@ -21,8 +20,7 @@ pub(crate) async fn evaluate_baseline_expr(
         anchor: None,
     };
     let span = expr.span;
-    let expr = expr.expr;
-    match expr {
+    match &expr.expr {
         Expression::Literal(literal) => Ok(evaluate_literal(&literal, span)),
         Expression::ExternalWord => Err(ShellError::argument_error(
             "Invalid external word".spanned(tag.span),

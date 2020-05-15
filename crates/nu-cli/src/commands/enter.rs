@@ -68,10 +68,15 @@ fn enter(
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let stream = async_stream! {
+        let scope = raw_args.call_info.scope.clone();
+        let shell_manager = raw_args.shell_manager.clone();
+        let head = raw_args.call_info.args.head.clone();
+        let ctrl_c = raw_args.ctrl_c.clone();
+        let host = raw_args.host.clone();
+        let tag = raw_args.call_info.name_tag.clone();
         let (EnterArgs { location }, _) = raw_args.process(&registry).await?;
         let location_string = location.display().to_string();
         let location_clone = location_string.clone();
-        let tag = raw_args.call_info.name_tag.clone();
 
         if location_string.starts_with("help") {
             let spec = location_string.split(':').collect::<Vec<&str>>();
@@ -95,7 +100,7 @@ fn enter(
             )));
         } else {
             // If it's a file, attempt to open the file as a value and enter it
-            let cwd = raw_args.shell_manager.path();
+            let cwd = shell_manager.path();
 
             let full_path = std::path::PathBuf::from(cwd);
 
@@ -116,19 +121,19 @@ fn enter(
                             registry.get_command(&command_name)
                         {
                             let new_args = RawCommandArgs {
-                                host: raw_args.host,
-                                ctrl_c: raw_args.ctrl_c,
-                                shell_manager: raw_args.shell_manager,
+                                host,
+                                ctrl_c,
+                                shell_manager,
                                 call_info: UnevaluatedCallInfo {
                                     args: nu_protocol::hir::Call {
-                                        head: raw_args.call_info.args.head,
+                                        head,
                                         positional: None,
                                         named: None,
                                         span: Span::unknown(),
                                         is_last: false,
                                     },
-                                    name_tag: raw_args.call_info.name_tag,
-                                    scope: raw_args.call_info.scope.clone()
+                                    name_tag: tag.clone(),
+                                    scope: scope.clone()
                                 },
                             };
                             let mut result = converter.run(

@@ -30,11 +30,11 @@ impl WholeStreamCommand for Calc {
     }
 }
 
-pub fn calc(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+pub fn calc(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
         let mut input = args.input;
         let name = args.call_info.name_tag.clone();
-        for input in input.next().await {
+        while let Some(input) = input.next().await {
             if let Ok(string) = input.as_string() {
                 match parse(&string, &input.tag) {
                     Ok(value) => yield ReturnSuccess::value(value),

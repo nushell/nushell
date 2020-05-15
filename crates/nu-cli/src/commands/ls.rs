@@ -92,9 +92,9 @@ fn ls(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, She
         let ctrl_c = args.ctrl_c.clone();
         let shell_manager = args.shell_manager.clone();
         let (args, _) = args.process(&registry).await?;
-        let result = shell_manager.ls(args, name, ctrl_c)?;
+        let mut result = shell_manager.ls(args, name, ctrl_c)?;
 
-        for item in result.next().await {
+        while let Some(item) = result.next().await {
             yield item;
         }
     };

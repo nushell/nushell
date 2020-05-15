@@ -42,8 +42,8 @@ impl WholeStreamCommand for SplitBy {
 pub fn split_by(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let stream = async_stream! {
-        let (SplitByArgs { column_name }, mut input) = args.process(&registry).await?;
         let name = args.call_info.name_tag.clone();
+        let (SplitByArgs { column_name }, mut input) = args.process(&registry).await?;
         let values: Vec<Value> = input.collect().await;
 
         if values.len() > 1 || values.is_empty() {

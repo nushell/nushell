@@ -109,6 +109,7 @@ impl WholeStreamCommand for Config {
 
 pub fn config(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let name_span = args.call_info.name_tag.clone();
+    let name = args.call_info.name_tag.clone();
     let registry = registry.clone();
 
     let stream = async_stream! {
@@ -120,7 +121,7 @@ pub fn config(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
             clear,
             remove,
             path,
-        }, _) = args.process(&registry).await?;
+        }, mut input) = args.process(&registry).await?;
 
         let configuration = if let Some(supplied) = load {
             Some(supplied.item().clone())

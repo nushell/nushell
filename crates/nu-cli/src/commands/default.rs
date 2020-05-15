@@ -53,7 +53,7 @@ fn default(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
     let registry = registry.clone();
     let stream = async_stream! {
         let (DefaultArgs { column, value }, mut input) = args.process(&registry).await?;
-        for item in input.next().await {
+        while let Some(item) = input.next().await {
             let should_add = match item {
                 Value {
                     value: UntaggedValue::Row(ref r),

@@ -51,7 +51,7 @@ fn prepend(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
         let (PrependArgs { row }, mut input) = args.process(&registry).await?;
 
         yield ReturnSuccess::value(row);
-        for item in input.next().await {
+        while let Some(item) = input.next().await {
             yield ReturnSuccess::value(item);
         }
     };

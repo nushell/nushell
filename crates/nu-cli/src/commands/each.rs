@@ -63,14 +63,15 @@ fn is_expanded_it_usage(head: &SpannedExpression) -> bool {
 fn each(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let stream = async_stream! {
+        let head = raw_args.call_info.args.head.clone();
+        let scope = raw_args.call_info.scope.clone();
+        let mut context = Context::from_raw(&raw_args, &registry);
         let (each_args, mut input): (EachArgs, _) = raw_args.process(&registry).await?;
         let block = each_args.block;
-        let scope = raw_args.call_info.scope.clone();
         while let Some(input) = input.next().await {
-            let mut context = Context::from_raw(&raw_args, &registry);
 
             let input_clone = input.clone();
-            let input_stream = if is_expanded_it_usage(&raw_args.call_info.args.head) {
+            let input_stream = if is_expanded_it_usage(&head) {
                 InputStream::empty()
             } else {
                 once(async { Ok(input) }).to_input_stream()

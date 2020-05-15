@@ -36,7 +36,7 @@ fn debug_value(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
     let registry = registry.clone();
     let stream = async_stream! {
         let (DebugArgs { raw }, mut input) = args.process(&registry).await?;
-        for v in input.next().await {
+        while let Some(v) = input.next().await {
             if raw {
                 yield ReturnSuccess::value(
                     UntaggedValue::string(format!("{:#?}", v)).into_untagged_value(),

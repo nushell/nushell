@@ -44,7 +44,7 @@ impl WholeStreamCommand for Histogram {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, histogram)?.run()
+        histogram(args, registry)
     }
 
     fn examples(&self) -> &[Example] {
@@ -67,10 +67,13 @@ impl WholeStreamCommand for Histogram {
 }
 
 pub fn histogram(
-    HistogramArgs { column_name, rest }: HistogramArgs,
-    RunnableContext { input, name, .. }: RunnableContext,
+    args: CommandArgs,
+    registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let name = args.call_info.name_tag.clone();
     let stream = async_stream! {
+        let (HistogramArgs { column_name, rest}, mut input) = args.process(&registry).await?;
         let values: Vec<Value> = input.collect().await;
 
         let Tagged { item: group_by, .. } = column_name.clone();

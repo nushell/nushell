@@ -74,9 +74,9 @@ fn to_csv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
             _ => ',',
         };
 
-        let result = to_delimited_data(headerless, sep, "CSV", input, name)?;
+        let mut result = to_delimited_data(headerless, sep, "CSV", input, name)?;
 
-        for item in result.next().await {
+        while let Some(item) = result.next().await {
             yield item;
         }
     };

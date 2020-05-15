@@ -40,7 +40,7 @@ pub fn pwd(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
     let stream = async_stream! {
         let shell_manager = args.shell_manager.clone();
         let args = args.evaluate_once(&registry).await?;
-        let out = shell_manager.pwd(args)?;
+        let mut out = shell_manager.pwd(args)?;
 
         while let Some(l) = out.next().await {
             yield l;
