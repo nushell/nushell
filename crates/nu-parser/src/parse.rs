@@ -93,6 +93,9 @@ fn parse_full_column_path(
             if c == delimiter {
                 inside_delimiter = false;
             }
+        } else if c == '(' {
+            inside_delimiter = true;
+            delimiter = ')';
         } else if c == '\'' || c == '"' {
             inside_delimiter = true;
             delimiter = c;
