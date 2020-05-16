@@ -36,7 +36,7 @@ impl WholeStreamCommand for Format {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, format_command)?.run()
+        format_command(args, registry)
     }
 
     fn examples(&self) -> &[Example] {
@@ -48,16 +48,17 @@ impl WholeStreamCommand for Format {
 }
 
 fn format_command(
-    FormatArgs { pattern }: FormatArgs,
-    RunnableContext { input, .. }: RunnableContext,
+    args: CommandArgs,
+    registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
-    let pattern_tag = pattern.tag.clone();
-
-    let format_pattern = format(&pattern);
-    let commands = format_pattern;
-    let mut input = input;
-
+    let registry = registry.clone();
     let stream = async_stream! {
+        let (FormatArgs { pattern }, mut input) = args.process(&registry).await?;
+        let pattern_tag = pattern.tag.clone();
+
+        let format_pattern = format(&pattern);
+        let commands = format_pattern;
+
         while let Some(value) = input.next().await {
             match value {
                 value

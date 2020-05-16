@@ -7,7 +7,7 @@ use crate::commands::WholeStreamCommand;
 use chrono::{Datelike, TimeZone, Timelike};
 use core::fmt::Display;
 use indexmap::IndexMap;
-use nu_protocol::{Signature, UntaggedValue};
+use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 
 pub struct Date;
 
@@ -89,20 +89,22 @@ where
 }
 
 pub fn date(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let args = args.evaluate_once(&registry).await?;
 
-    let mut date_out = VecDeque::new();
-    let tag = args.call_info.name_tag.clone();
+        let tag = args.call_info.name_tag.clone();
 
-    let value = if args.has("utc") {
-        let utc: DateTime<Utc> = Utc::now();
-        date_to_value(utc, tag)
-    } else {
-        let local: DateTime<Local> = Local::now();
-        date_to_value(local, tag)
+        let value = if args.has("utc") {
+            let utc: DateTime<Utc> = Utc::now();
+            date_to_value(utc, tag)
+        } else {
+            let local: DateTime<Local> = Local::now();
+            date_to_value(local, tag)
+        };
+
+        yield ReturnSuccess::value(value);
     };
 
-    date_out.push_back(value);
-
-    Ok(futures::stream::iter(date_out).to_output_stream())
+    Ok(stream.to_output_stream())
 }

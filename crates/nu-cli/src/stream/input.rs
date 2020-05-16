@@ -19,6 +19,12 @@ impl InputStream {
         }
     }
 
+    pub fn one(item: impl Into<Value>) -> InputStream {
+        let mut v: VecDeque<Value> = VecDeque::new();
+        v.push_back(item.into());
+        v.into()
+    }
+
     pub fn into_vec(self) -> impl Future<Output = Vec<Value>> {
         self.values.collect()
     }

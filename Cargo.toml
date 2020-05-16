@@ -30,6 +30,7 @@ nu_plugin_binaryview = { version = "0.14.1", path = "./crates/nu_plugin_binaryvi
 nu_plugin_fetch = { version = "0.14.1", path = "./crates/nu_plugin_fetch", optional=true }
 nu_plugin_inc = { version = "0.14.1", path = "./crates/nu_plugin_inc", optional=true }
 nu_plugin_match = { version = "0.14.1", path = "./crates/nu_plugin_match", optional=true }
+nu_plugin_parse = { version = "0.14.1", path = "./crates/nu_plugin_parse", optional=true }
 nu_plugin_post = { version = "0.14.1", path = "./crates/nu_plugin_post", optional=true }
 nu_plugin_ps = { version = "0.14.1", path = "./crates/nu_plugin_ps", optional=true }
 nu_plugin_start = { version = "0.1.0", path = "./crates/nu_plugin_start", optional=true }
@@ -63,7 +64,7 @@ nu-build = { version = "0.14.1", path = "./crates/nu-build" }
 test-bins = []
 
 default = ["sys", "ps", "textview", "inc", "str"]
-stable = ["default", "starship-prompt", "binaryview", "match", "tree", "average", "post", "fetch", "clipboard-cli", "trash-support", "start"]
+stable = ["default", "starship-prompt", "binaryview", "match", "tree", "average", "parse", "post", "fetch", "clipboard-cli", "trash-support", "start"]
 
 # Default
 textview = ["crossterm", "syntect", "url", "nu_plugin_textview"]
@@ -77,6 +78,7 @@ average = ["nu_plugin_average"]
 binaryview = ["nu_plugin_binaryview"]
 fetch = ["nu_plugin_fetch"]
 match = ["nu_plugin_match"]
+parse = ["nu_plugin_parse"]
 post = ["nu_plugin_post"]
 trace = ["nu-parser/trace"]
 tree = ["nu_plugin_tree"]
@@ -159,6 +161,11 @@ required-features = ["binaryview"]
 name = "nu_plugin_stable_match"
 path = "src/plugins/nu_plugin_stable_match.rs"
 required-features = ["match"]
+
+[[bin]]
+name = "nu_plugin_stable_parse"
+path = "src/plugins/nu_plugin_stable_parse.rs"
+required-features = ["parse"]
 
 [[bin]]
 name = "nu_plugin_stable_post"

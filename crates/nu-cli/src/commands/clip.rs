@@ -11,9 +11,6 @@ pub mod clipboard {
 
     pub struct Clip;
 
-    #[derive(Deserialize)]
-    pub struct ClipArgs {}
-
     impl WholeStreamCommand for Clip {
         fn name(&self) -> &str {
             "clip"
@@ -32,7 +29,7 @@ pub mod clipboard {
             args: CommandArgs,
             registry: &CommandRegistry,
         ) -> Result<OutputStream, ShellError> {
-            args.process(registry, clip)?.run()
+            clip(args, registry)
         }
 
         fn examples(&self) -> &[Example] {
@@ -44,10 +41,12 @@ pub mod clipboard {
     }
 
     pub fn clip(
-        ClipArgs {}: ClipArgs,
-        RunnableContext { input, name, .. }: RunnableContext,
+        args: CommandArgs,
+        _registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         let stream = async_stream! {
+            let mut input = args.input;
+            let name = args.call_info.name_tag.clone();
             let values: Vec<Value> = input.collect().await;
 
             let mut clip_stream = inner_clip(values, name).await;

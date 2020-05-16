@@ -35,15 +35,15 @@ impl WholeStreamCommand for SplitBy {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, split_by)?.run()
+        split_by(args, registry)
     }
 }
 
-pub fn split_by(
-    SplitByArgs { column_name }: SplitByArgs,
-    RunnableContext { input, name, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
+pub fn split_by(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
     let stream = async_stream! {
+        let name = args.call_info.name_tag.clone();
+        let (SplitByArgs { column_name }, mut input) = args.process(&registry).await?;
         let values: Vec<Value> = input.collect().await;
 
         if values.len() > 1 || values.is_empty() {

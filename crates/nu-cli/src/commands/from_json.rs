@@ -32,7 +32,7 @@ impl WholeStreamCommand for FromJSON {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, from_json)?.run()
+        from_json(args, registry)
     }
 }
 
@@ -70,13 +70,12 @@ pub fn from_json_string_to_value(s: String, tag: impl Into<Tag>) -> serde_hjson:
     Ok(convert_json_value_to_nu_value(&v, tag))
 }
 
-fn from_json(
-    FromJSONArgs { objects }: FromJSONArgs,
-    RunnableContext { input, name, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    let name_tag = name;
+fn from_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let name_tag = args.call_info.name_tag.clone();
+    let registry = registry.clone();
 
     let stream = async_stream! {
+        let (FromJSONArgs { objects }, mut input) = args.process(&registry).await?;
         let concat_string = input.collect_string(name_tag.clone()).await?;
 
         if objects {

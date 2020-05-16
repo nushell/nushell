@@ -14,7 +14,12 @@ pub trait Shell: std::fmt::Debug {
     fn name(&self) -> String;
     fn homedir(&self) -> Option<PathBuf>;
 
-    fn ls(&self, args: LsArgs, context: &RunnableContext) -> Result<OutputStream, ShellError>;
+    fn ls(
+        &self,
+        args: LsArgs,
+        name: Tag,
+        ctrl_c: Arc<AtomicBool>,
+    ) -> Result<OutputStream, ShellError>;
     fn cd(&self, args: CdArgs, name: Tag) -> Result<OutputStream, ShellError>;
     fn cp(&self, args: CopyArgs, name: Tag, path: &str) -> Result<OutputStream, ShellError>;
     fn mkdir(&self, args: MkdirArgs, name: Tag, path: &str) -> Result<OutputStream, ShellError>;

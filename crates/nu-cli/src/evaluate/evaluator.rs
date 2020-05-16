@@ -1,6 +1,8 @@
+use crate::commands::classified::block::run_block;
 use crate::context::CommandRegistry;
 use crate::evaluate::operator::apply_operator;
 use crate::prelude::*;
+use async_recursion::async_recursion;
 use log::trace;
 use nu_errors::{ArgumentError, ShellError};
 use nu_protocol::hir::{self, Expression, SpannedExpression};
@@ -8,7 +10,8 @@ use nu_protocol::{
     ColumnPath, Primitive, RangeInclusion, Scope, UnspannedPathMember, UntaggedValue, Value,
 };
 
-pub(crate) fn evaluate_baseline_expr(
+#[async_recursion]
+pub(crate) async fn evaluate_baseline_expr(
     expr: &SpannedExpression,
     registry: &CommandRegistry,
     scope: &Scope,
@@ -17,8 +20,9 @@ pub(crate) fn evaluate_baseline_expr(
         span: expr.span,
         anchor: None,
     };
+    let span = expr.span;
     match &expr.expr {
-        Expression::Literal(literal) => Ok(evaluate_literal(literal, expr.span)),
+        Expression::Literal(literal) => Ok(evaluate_literal(&literal, span)),
         Expression::ExternalWord => Err(ShellError::argument_error(
             "Invalid external word".spanned(tag.span),
             ArgumentError::InvalidExternalWord,
@@ -27,13 +31,14 @@ pub(crate) fn evaluate_baseline_expr(
         Expression::Synthetic(hir::Synthetic::String(s)) => {
             Ok(UntaggedValue::string(s).into_untagged_value())
         }
-        Expression::Variable(var) => evaluate_reference(var, scope, tag),
-        Expression::Command(_) => evaluate_command(tag, scope),
-        Expression::ExternalCommand(external) => evaluate_external(external, scope),
+        Expression::Variable(var) => evaluate_reference(&var, &scope, tag),
+        Expression::Command(_) => evaluate_command(tag, &scope),
+        Expression::Invocation(block) => evaluate_invocation(block, registry, scope).await,
+        Expression::ExternalCommand(external) => evaluate_external(&external, &scope),
         Expression::Binary(binary) => {
             // TODO: If we want to add short-circuiting, we'll need to move these down
-            let left = evaluate_baseline_expr(&binary.left, registry, scope)?;
-            let right = evaluate_baseline_expr(&binary.right, registry, scope)?;
+            let left = evaluate_baseline_expr(&binary.left, registry, scope).await?;
+            let right = evaluate_baseline_expr(&binary.right, registry, scope).await?;
 
             trace!("left={:?} right={:?}", left.value, right.value);
 
@@ -54,8 +59,8 @@ pub(crate) fn evaluate_baseline_expr(
             let left = &range.left;
             let right = &range.right;
 
-            let left = evaluate_baseline_expr(left, registry, scope)?;
-            let right = evaluate_baseline_expr(right, registry, scope)?;
+            let left = evaluate_baseline_expr(&left, registry, scope).await?;
+            let right = evaluate_baseline_expr(&right, registry, scope).await?;
             let left_span = left.tag.span;
             let right_span = right.tag.span;
 
@@ -74,7 +79,7 @@ pub(crate) fn evaluate_baseline_expr(
             let mut exprs = vec![];
 
             for expr in list {
-                let expr = evaluate_baseline_expr(expr, registry, scope)?;
+                let expr = evaluate_baseline_expr(&expr, registry, scope).await?;
                 exprs.push(expr);
             }
 
@@ -82,7 +87,7 @@ pub(crate) fn evaluate_baseline_expr(
         }
         Expression::Block(block) => Ok(UntaggedValue::Block(block.clone()).into_value(&tag)),
         Expression::Path(path) => {
-            let value = evaluate_baseline_expr(&path.head, registry, scope)?;
+            let value = evaluate_baseline_expr(&path.head, registry, scope).await?;
             let mut item = value;
 
             for member in &path.tail {
@@ -176,6 +181,28 @@ fn evaluate_external(
     Err(ShellError::syntax_error(
         "Unexpected external command".spanned(external.name.span),
     ))
+}
+
+async fn evaluate_invocation(
+    block: &hir::Block,
+    registry: &CommandRegistry,
+    scope: &Scope,
+) -> Result<Value, ShellError> {
+    // FIXME: we should use a real context here
+    let mut context = Context::basic()?;
+    context.registry = registry.clone();
+
+    let input = InputStream::one(scope.it.clone());
+
+    let result = run_block(&block, &mut context, input, &scope.clone()).await?;
+
+    let output = result.into_vec().await;
+
+    match output.len() {
+        x if x > 1 => Ok(UntaggedValue::Table(output).into_value(Tag::unknown())),
+        1 => Ok(output[0].clone()),
+        _ => Ok(UntaggedValue::nothing().into_value(Tag::unknown())),
+    }
 }
 
 fn evaluate_command(tag: Tag, _scope: &Scope) -> Result<Value, ShellError> {

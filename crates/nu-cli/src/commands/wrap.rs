@@ -35,7 +35,8 @@ impl WholeStreamCommand for Wrap {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, wrap)?.run()
+        // args.process(registry, wrap)?.run()
+        wrap(args, registry)
     }
 
     fn examples(&self) -> &[Example] {
@@ -52,13 +53,11 @@ impl WholeStreamCommand for Wrap {
     }
 }
 
-fn wrap(
-    WrapArgs { column }: WrapArgs,
-    context: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    let mut input = context.input;
+fn wrap(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
 
     let stream = async_stream! {
+        let (WrapArgs { column }, mut input) = args.process(&registry).await?;
         let mut result_table = vec![];
         let mut are_all_rows = true;
 

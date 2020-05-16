@@ -5,48 +5,51 @@ use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_protocol::{hir, EvaluatedArgs, Scope, UntaggedValue, Value};
 
-pub(crate) fn evaluate_args(
+pub(crate) async fn evaluate_args(
     call: &hir::Call,
     registry: &CommandRegistry,
     scope: &Scope,
 ) -> Result<EvaluatedArgs, ShellError> {
-    let positional: Result<Option<Vec<_>>, _> = call
-        .positional
-        .as_ref()
-        .map(|p| {
-            p.iter()
-                .map(|e| evaluate_baseline_expr(e, registry, scope))
-                .collect()
-        })
-        .transpose();
+    let mut positional_args: Vec<Value> = vec![];
 
-    let positional = positional?;
+    if let Some(positional) = &call.positional {
+        for pos in positional {
+            let result = evaluate_baseline_expr(pos, registry, scope).await?;
+            positional_args.push(result);
+        }
+    }
 
-    let named: Result<Option<IndexMap<String, Value>>, ShellError> = call
-        .named
-        .as_ref()
-        .map(|n| {
-            let mut results = IndexMap::new();
+    let positional = if !positional_args.is_empty() {
+        Some(positional_args)
+    } else {
+        None
+    };
 
-            for (name, value) in n.named.iter() {
-                match value {
-                    hir::NamedValue::PresentSwitch(tag) => {
-                        results.insert(name.clone(), UntaggedValue::boolean(true).into_value(tag));
-                    }
-                    hir::NamedValue::Value(_, expr) => {
-                        results
-                            .insert(name.clone(), evaluate_baseline_expr(expr, registry, scope)?);
-                    }
+    let mut named_args = IndexMap::new();
 
-                    _ => {}
-                };
-            }
+    if let Some(named) = &call.named {
+        for (name, value) in named.iter() {
+            match value {
+                hir::NamedValue::PresentSwitch(tag) => {
+                    named_args.insert(name.clone(), UntaggedValue::boolean(true).into_value(tag));
+                }
+                hir::NamedValue::Value(_, expr) => {
+                    named_args.insert(
+                        name.clone(),
+                        evaluate_baseline_expr(expr, registry, scope).await?,
+                    );
+                }
 
-            Ok(results)
-        })
-        .transpose();
+                _ => {}
+            };
+        }
+    }
 
-    let named = named?;
+    let named = if !named_args.is_empty() {
+        Some(named_args)
+    } else {
+        None
+    };
 
     Ok(EvaluatedArgs::new(positional, named))
 }

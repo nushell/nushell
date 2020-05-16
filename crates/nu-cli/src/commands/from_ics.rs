@@ -32,11 +32,12 @@ impl WholeStreamCommand for FromIcs {
 }
 
 fn from_ics(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let tag = args.name_tag();
-    let input = args.input;
-
+    let registry = registry.clone();
     let stream = async_stream! {
+        let args = args.evaluate_once(&registry).await?;
+        let tag = args.name_tag();
+        let input = args.input;
+
         let input_string = input.collect_string(tag.clone()).await?.item;
         let input_bytes = input_string.as_bytes();
         let buf_reader = BufReader::new(input_bytes);

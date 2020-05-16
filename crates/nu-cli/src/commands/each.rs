@@ -39,7 +39,7 @@ impl WholeStreamCommand for Each {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        Ok(args.process_raw(registry, each)?.run())
+        each(args, registry)
     }
 
     fn examples(&self) -> &[Example] {
@@ -60,21 +60,18 @@ fn is_expanded_it_usage(head: &SpannedExpression) -> bool {
     }
 }
 
-fn each(
-    each_args: EachArgs,
-    context: RunnableContext,
-    raw_args: RawCommandArgs,
-) -> Result<OutputStream, ShellError> {
-    let block = each_args.block;
-    let scope = raw_args.call_info.scope.clone();
-    let registry = context.registry.clone();
-    let mut input_stream = context.input;
+fn each(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
     let stream = async_stream! {
-        while let Some(input) = input_stream.next().await {
-            let mut context = Context::from_raw(&raw_args, &registry);
+        let head = raw_args.call_info.args.head.clone();
+        let scope = raw_args.call_info.scope.clone();
+        let mut context = Context::from_raw(&raw_args, &registry);
+        let (each_args, mut input): (EachArgs, _) = raw_args.process(&registry).await?;
+        let block = each_args.block;
+        while let Some(input) = input.next().await {
 
             let input_clone = input.clone();
-            let input_stream = if is_expanded_it_usage(&raw_args.call_info.args.head) {
+            let input_stream = if is_expanded_it_usage(&head) {
                 InputStream::empty()
             } else {
                 once(async { Ok(input) }).to_input_stream()

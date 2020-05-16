@@ -28,11 +28,12 @@ impl WholeStreamCommand for ToURL {
 }
 
 fn to_url(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let tag = args.name_tag();
-    let input = args.input;
-
+    let registry = registry.clone();
     let stream = async_stream! {
+        let args = args.evaluate_once(&registry).await?;
+        let tag = args.name_tag();
+        let input = args.input;
+
         let input: Vec<Value> = input.collect().await;
 
         for value in input {

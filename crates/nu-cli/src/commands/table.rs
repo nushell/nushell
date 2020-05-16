@@ -38,10 +38,11 @@ impl WholeStreamCommand for Table {
 }
 
 fn table(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let mut args = args.evaluate_once(registry)?;
-    let mut finished = false;
-
+    let registry = registry.clone();
     let stream = async_stream! {
+        let mut args = args.evaluate_once(&registry).await?;
+        let mut finished = false;
+
         let host = args.host.clone();
         let mut start_number = match args.get("start_number") {
             Some(Value { value: UntaggedValue::Primitive(Primitive::Int(i)), .. }) => {

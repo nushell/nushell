@@ -162,4 +162,16 @@ mod tilde_expansion {
             );
         })
     }
+
+    #[test]
+    fn argument_invocation() {
+        let actual = nu!(
+            cwd: ".",
+            r#"
+                    echo "foo" | echo $(echo $it)
+            "#
+        );
+
+        assert_eq!(actual.out, "foo");
+    }
 }

@@ -36,15 +36,18 @@ impl WholeStreamCommand for EvaluateBy {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, evaluate_by)?.run()
+        evaluate_by(args, registry)
     }
 }
 
 pub fn evaluate_by(
-    EvaluateByArgs { evaluate_with }: EvaluateByArgs,
-    RunnableContext { input, name, .. }: RunnableContext,
+    args: CommandArgs,
+    registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
     let stream = async_stream! {
+        let name = args.call_info.name_tag.clone();
+        let (EvaluateByArgs { evaluate_with }, mut input) = args.process(&registry).await?;
         let values: Vec<Value> = input.collect().await;
 
         if values.is_empty() {

@@ -47,7 +47,7 @@ impl WholeStreamCommand for AliasCommand {
 
         let stream = async_stream! {
             let mut scope = call_info.scope.clone();
-            let evaluated = call_info.evaluate(&registry)?;
+            let evaluated = call_info.evaluate(&registry).await?;
             if let Some(positional) = &evaluated.args.positional {
                 for (pos, arg) in positional.iter().enumerate() {
                     scope = scope.set_var(alias_command.args[pos].to_string(), arg.clone());

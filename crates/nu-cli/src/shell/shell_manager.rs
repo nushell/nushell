@@ -132,59 +132,48 @@ impl ShellManager {
         env[self.current_shell()].homedir()
     }
 
-    pub fn ls(&self, args: LsArgs, context: &RunnableContext) -> Result<OutputStream, ShellError> {
+    pub fn ls(
+        &self,
+        args: LsArgs,
+        name: Tag,
+        ctrl_c: Arc<AtomicBool>,
+    ) -> Result<OutputStream, ShellError> {
         let env = self.shells.lock();
 
-        env[self.current_shell()].ls(args, context)
+        env[self.current_shell()].ls(args, name, ctrl_c)
     }
 
-    pub fn cd(&self, args: CdArgs, context: &RunnableContext) -> Result<OutputStream, ShellError> {
+    pub fn cd(&self, args: CdArgs, name: Tag) -> Result<OutputStream, ShellError> {
         let env = self.shells.lock();
 
-        env[self.current_shell()].cd(args, context.name.clone())
+        env[self.current_shell()].cd(args, name)
     }
 
-    pub fn cp(
-        &self,
-        args: CopyArgs,
-        context: &RunnableContext,
-    ) -> Result<OutputStream, ShellError> {
+    pub fn cp(&self, args: CopyArgs, name: Tag) -> Result<OutputStream, ShellError> {
         let shells = self.shells.lock();
 
         let path = shells[self.current_shell()].path();
-        shells[self.current_shell()].cp(args, context.name.clone(), &path)
+        shells[self.current_shell()].cp(args, name, &path)
     }
 
-    pub fn rm(
-        &self,
-        args: RemoveArgs,
-        context: &RunnableContext,
-    ) -> Result<OutputStream, ShellError> {
+    pub fn rm(&self, args: RemoveArgs, name: Tag) -> Result<OutputStream, ShellError> {
         let shells = self.shells.lock();
 
         let path = shells[self.current_shell()].path();
-        shells[self.current_shell()].rm(args, context.name.clone(), &path)
+        shells[self.current_shell()].rm(args, name, &path)
     }
 
-    pub fn mkdir(
-        &self,
-        args: MkdirArgs,
-        context: &RunnableContext,
-    ) -> Result<OutputStream, ShellError> {
+    pub fn mkdir(&self, args: MkdirArgs, name: Tag) -> Result<OutputStream, ShellError> {
         let shells = self.shells.lock();
 
         let path = shells[self.current_shell()].path();
-        shells[self.current_shell()].mkdir(args, context.name.clone(), &path)
+        shells[self.current_shell()].mkdir(args, name, &path)
     }
 
-    pub fn mv(
-        &self,
-        args: MoveArgs,
-        context: &RunnableContext,
-    ) -> Result<OutputStream, ShellError> {
+    pub fn mv(&self, args: MoveArgs, name: Tag) -> Result<OutputStream, ShellError> {
         let shells = self.shells.lock();
 
         let path = shells[self.current_shell()].path();
-        shells[self.current_shell()].mv(args, context.name.clone(), &path)
+        shells[self.current_shell()].mv(args, name, &path)
     }
 }

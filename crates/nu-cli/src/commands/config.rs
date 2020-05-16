@@ -70,7 +70,7 @@ impl WholeStreamCommand for Config {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, config)?.run()
+        config(args, registry)
     }
 
     fn examples(&self) -> &[Example] {
@@ -107,21 +107,22 @@ impl WholeStreamCommand for Config {
     }
 }
 
-pub fn config(
-    ConfigArgs {
-        load,
-        set,
-        set_into,
-        get,
-        clear,
-        remove,
-        path,
-    }: ConfigArgs,
-    RunnableContext { name, input, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    let name_span = name.clone();
+pub fn config(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let name_span = args.call_info.name_tag.clone();
+    let name = args.call_info.name_tag.clone();
+    let registry = registry.clone();
 
     let stream = async_stream! {
+        let (ConfigArgs {
+            load,
+            set,
+            set_into,
+            get,
+            clear,
+            remove,
+            path,
+        }, mut input) = args.process(&registry).await?;
+
         let configuration = if let Some(supplied) = load {
             Some(supplied.item().clone())
         } else {

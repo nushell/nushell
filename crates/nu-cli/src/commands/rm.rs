@@ -41,7 +41,7 @@ impl WholeStreamCommand for Remove {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, rm)?.run()
+        rm(args, registry)
     }
 
     fn examples(&self) -> &[Example] {
@@ -58,7 +58,17 @@ impl WholeStreamCommand for Remove {
     }
 }
 
-fn rm(args: RemoveArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
-    let shell_manager = context.shell_manager.clone();
-    shell_manager.rm(args, &context)
+fn rm(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let name = args.call_info.name_tag.clone();
+        let shell_manager = args.shell_manager.clone();
+        let (args, _): (RemoveArgs, _) = args.process(&registry).await?;
+        let mut result = shell_manager.rm(args, name)?;
+        while let Some(item) = result.next().await {
+            yield item;
+        }
+    };
+
+    Ok(stream.to_output_stream())
 }

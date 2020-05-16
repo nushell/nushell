@@ -21,6 +21,8 @@ nu-test-support = { version = "0.14.1", path = "../nu-test-support" }
 
 ansi_term = "0.12.1"
 app_dirs = "1.2.1"
+async-recursion = "0.3.1"
+directories = "2.0.2"
 async-stream = "0.2"
 base64 = "0.12.0"
 bigdecimal = { version = "0.1.0", features = ["serde"] }

@@ -155,6 +155,8 @@ pub(crate) fn dir_entry_dict(
         }
 
         dict.insert_untagged("size", size_untagged_value);
+    } else {
+        dict.insert_untagged("size", UntaggedValue::nothing());
     }
 
     if let Some(md) = metadata {

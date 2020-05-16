@@ -1,6 +1,4 @@
-use crate::commands::{
-    command::CommandArgs, command::RawCommandArgs, Command, UnevaluatedCallInfo,
-};
+use crate::commands::{command::CommandArgs, Command, UnevaluatedCallInfo};
 use crate::env::host::Host;
 use crate::shell::shell_manager::ShellManager;
 use crate::stream::{InputStream, OutputStream};
@@ -88,7 +86,7 @@ impl Context {
         &self.registry
     }
 
-    pub(crate) fn from_raw(raw_args: &RawCommandArgs, registry: &CommandRegistry) -> Context {
+    pub(crate) fn from_raw(raw_args: &CommandArgs, registry: &CommandRegistry) -> Context {
         #[cfg(windows)]
         {
             Context {

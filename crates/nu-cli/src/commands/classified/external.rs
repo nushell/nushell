@@ -99,10 +99,10 @@ pub(crate) async fn run_external_command(
         ));
     }
 
-    run_with_stdin(command, context, input, scope, is_last)
+    run_with_stdin(command, context, input, scope, is_last).await
 }
 
-fn run_with_stdin(
+async fn run_with_stdin(
     command: ExternalCommand,
     context: &mut Context,
     input: InputStream,
@@ -115,7 +115,7 @@ fn run_with_stdin(
 
     let mut command_args = vec![];
     for arg in command.args.iter() {
-        let value = evaluate_baseline_expr(arg, &context.registry, scope)?;
+        let value = evaluate_baseline_expr(arg, &context.registry, scope).await?;
         // Skip any arguments that don't really exist, treating them as optional
         // FIXME: we may want to preserve the gap in the future, though it's hard to say
         // what value we would put in its place.

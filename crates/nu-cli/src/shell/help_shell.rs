@@ -140,7 +140,12 @@ impl Shell for HelpShell {
         self.path = path;
     }
 
-    fn ls(&self, _args: LsArgs, _context: &RunnableContext) -> Result<OutputStream, ShellError> {
+    fn ls(
+        &self,
+        _args: LsArgs,
+        _name: Tag,
+        _ctrl_c: Arc<AtomicBool>,
+    ) -> Result<OutputStream, ShellError> {
         let output = self
             .commands()
             .into_iter()

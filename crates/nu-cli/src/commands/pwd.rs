@@ -35,7 +35,17 @@ impl WholeStreamCommand for Pwd {
 }
 
 pub fn pwd(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let shell_manager = args.shell_manager.clone();
-    let args = args.evaluate_once(registry)?;
-    shell_manager.pwd(args)
+    let registry = registry.clone();
+
+    let stream = async_stream! {
+        let shell_manager = args.shell_manager.clone();
+        let args = args.evaluate_once(&registry).await?;
+        let mut out = shell_manager.pwd(args)?;
+
+        while let Some(l) = out.next().await {
+            yield l;
+        }
+    };
+
+    Ok(stream.to_output_stream())
 }

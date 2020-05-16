@@ -7,9 +7,6 @@ use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
 
 pub struct Count;
 
-#[derive(Deserialize)]
-pub struct CountArgs {}
-
 impl WholeStreamCommand for Count {
     fn name(&self) -> &str {
         "count"
@@ -28,7 +25,7 @@ impl WholeStreamCommand for Count {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, count)?.run()
+        count(args, registry)
     }
 
     fn examples(&self) -> &[Example] {
@@ -39,12 +36,10 @@ impl WholeStreamCommand for Count {
     }
 }
 
-pub fn count(
-    CountArgs {}: CountArgs,
-    RunnableContext { input, name, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
+pub fn count(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
-        let rows: Vec<Value> = input.collect().await;
+        let name = args.call_info.name_tag.clone();
+        let rows: Vec<Value> = args.input.collect().await;
 
         yield ReturnSuccess::value(UntaggedValue::int(rows.len()).into_value(name))
     };

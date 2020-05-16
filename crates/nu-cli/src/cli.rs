@@ -284,7 +284,6 @@ pub fn create_default_context(
             whole_stream_command(Lines),
             whole_stream_command(Trim),
             whole_stream_command(Echo),
-            whole_stream_command(Parse),
             // Column manipulation
             whole_stream_command(Reject),
             whole_stream_command(Select),
@@ -298,6 +297,7 @@ pub fn create_default_context(
             whole_stream_command(Prepend),
             whole_stream_command(SortBy),
             whole_stream_command(GroupBy),
+            whole_stream_command(GroupByDate),
             whole_stream_command(First),
             whole_stream_command(Last),
             whole_stream_command(Nth),

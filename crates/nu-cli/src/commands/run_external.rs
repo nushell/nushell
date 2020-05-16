@@ -117,16 +117,7 @@ impl WholeStreamCommand for RunExternalCommand {
                         })
                     };
 
-                    let context = RunnableContext {
-                        input: InputStream::empty(),
-                        shell_manager: external_context.shell_manager.clone(),
-                        host: external_context.host.clone(),
-                        ctrl_c: external_context.ctrl_c.clone(),
-                        registry: external_context.registry.clone(),
-                        name: args.call_info.name_tag.clone(),
-                    };
-
-                    let result = external_context.shell_manager.cd(cd_args, &context);
+                    let result = external_context.shell_manager.cd(cd_args, args.call_info.name_tag.clone());
                     match result {
                         Ok(mut stream) => {
                             while let Some(value) = stream.next().await {

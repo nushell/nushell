@@ -35,20 +35,15 @@ impl WholeStreamCommand for FromXLSX {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, from_xlsx)?.run()
+        from_xlsx(args, registry)
     }
 }
 
-fn from_xlsx(
-    FromXLSXArgs {
-        headerless: _headerless,
-    }: FromXLSXArgs,
-    runnable_context: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    let input = runnable_context.input;
-    let tag = runnable_context.name;
-
+fn from_xlsx(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let tag = args.call_info.name_tag.clone();
+    let registry = registry.clone();
     let stream = async_stream! {
+        let (FromXLSXArgs { headerless: _headerless }, mut input) = args.process(&registry).await?;
         let value = input.collect_binary(tag.clone()).await?;
 
         let mut buf: Cursor<Vec<u8>> = Cursor::new(value.item);

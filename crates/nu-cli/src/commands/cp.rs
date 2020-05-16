@@ -40,7 +40,7 @@ impl WholeStreamCommand for Cpy {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, cp)?.run()
+        cp(args, registry)
     }
 
     fn examples(&self) -> &[Example] {
@@ -57,7 +57,18 @@ impl WholeStreamCommand for Cpy {
     }
 }
 
-pub fn cp(args: CopyArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
-    let shell_manager = context.shell_manager.clone();
-    shell_manager.cp(args, &context)
+pub fn cp(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let shell_manager = args.shell_manager.clone();
+        let name = args.call_info.name_tag.clone();
+        let (args, _) = args.process(&registry).await?;
+        let mut result = shell_manager.cp(args, name)?;
+
+        while let Some(item) = result.next().await {
+            yield item;
+        }
+    };
+
+    Ok(stream.to_output_stream())
 }

@@ -8,9 +8,6 @@ use std::io::{BufRead, BufReader};
 
 pub struct History;
 
-#[derive(Deserialize)]
-pub struct HistoryArgs {}
-
 impl WholeStreamCommand for History {
     fn name(&self) -> &str {
         "history"
@@ -29,14 +26,12 @@ impl WholeStreamCommand for History {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, history)?.run()
+        history(args, registry)
     }
 }
 
-fn history(
-    _: HistoryArgs,
-    RunnableContext { name: tag, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
+fn history(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let tag = args.call_info.name_tag;
     let stream = async_stream! {
         let history_path = HistoryFile::path();
         let file = File::open(history_path);

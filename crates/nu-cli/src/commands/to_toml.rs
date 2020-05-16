@@ -94,10 +94,11 @@ fn collect_values(input: &[Value]) -> Result<Vec<toml::Value>, ShellError> {
 }
 
 fn to_toml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let name_tag = args.name_tag();
-    let name_span = name_tag.span;
+    let registry = registry.clone();
     let stream = async_stream! {
+        let args = args.evaluate_once(&registry).await?;
+        let name_tag = args.name_tag();
+        let name_span = name_tag.span;
         let input: Vec<Value> = args.input.collect().await;
 
         let to_process_input = if input.len() > 1 {
