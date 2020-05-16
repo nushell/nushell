@@ -55,17 +55,7 @@ impl WholeStreamCommand for Enter {
     }
 }
 
-fn enter(
-    // EnterArgs { location }: EnterArgs,
-    // RunnableContext {
-    //     registry,
-    //     name: tag,
-    //     ..
-    // }: RunnableContext,
-    // raw_args: RawCommandArgs,
-    raw_args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+fn enter(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let stream = async_stream! {
         let scope = raw_args.call_info.scope.clone();

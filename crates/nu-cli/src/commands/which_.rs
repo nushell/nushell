@@ -27,7 +27,6 @@ impl WholeStreamCommand for Which {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        // args.process(registry, which)?.run()
         which(args, registry)
     }
 }

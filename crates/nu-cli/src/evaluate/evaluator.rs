@@ -1,3 +1,4 @@
+use crate::commands::classified::block::run_block;
 use crate::context::CommandRegistry;
 use crate::evaluate::operator::apply_operator;
 use crate::prelude::*;
@@ -32,7 +33,7 @@ pub(crate) async fn evaluate_baseline_expr(
         }
         Expression::Variable(var) => evaluate_reference(&var, &scope, tag),
         Expression::Command(_) => evaluate_command(tag, &scope),
-        Expression::Invocation(_block) => unimplemented!(),
+        Expression::Invocation(block) => evaluate_invocation(block, registry, scope).await,
         Expression::ExternalCommand(external) => evaluate_external(&external, &scope),
         Expression::Binary(binary) => {
             // TODO: If we want to add short-circuiting, we'll need to move these down
@@ -182,12 +183,27 @@ fn evaluate_external(
     ))
 }
 
-// fn evaluate_invocation(
-//     block: &hir::Block,
-//     registry: &CommandRegistry,
-//     scope: &Scope,
-// ) -> Result<Value, ShellError> {
-// }
+async fn evaluate_invocation(
+    block: &hir::Block,
+    registry: &CommandRegistry,
+    scope: &Scope,
+) -> Result<Value, ShellError> {
+    // FIXME: we should use a real context here
+    let mut context = Context::basic()?;
+    context.registry = registry.clone();
+
+    let input = InputStream::one(scope.it.clone());
+
+    let result = run_block(&block, &mut context, input, &scope.clone()).await?;
+
+    let output = result.into_vec().await;
+
+    match output.len() {
+        x if x > 1 => Ok(UntaggedValue::Table(output).into_value(Tag::unknown())),
+        1 => Ok(output[0].clone()),
+        _ => Ok(UntaggedValue::nothing().into_value(Tag::unknown())),
+    }
+}
 
 fn evaluate_command(tag: Tag, _scope: &Scope) -> Result<Value, ShellError> {
     Err(ShellError::syntax_error(

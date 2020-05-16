@@ -111,7 +111,7 @@ fn parse_full_column_path(
                     .collect();
 
                 // We haven't done much with the inner string, so let's go ahead and work with it
-                let lite_block = match lite_parse(&string, lite_arg.span.start() + 1) {
+                let lite_block = match lite_parse(&string, lite_arg.span.start() + 2) {
                     Ok(lp) => lp,
                     Err(e) => return (garbage(lite_arg.span), Some(e)),
                 };
@@ -152,7 +152,28 @@ fn parse_full_column_path(
         );
 
         if head.is_none() {
-            if current_part.starts_with('$') {
+            if current_part.starts_with("$(") && current_part.ends_with(')') {
+                // We have a command invocation
+                let string: String = current_part
+                    .chars()
+                    .skip(2)
+                    .take(current_part.len() - 3)
+                    .collect();
+
+                // We haven't done much with the inner string, so let's go ahead and work with it
+                let lite_block = match lite_parse(&string, lite_arg.span.start() + 2) {
+                    Ok(lp) => lp,
+                    Err(e) => return (garbage(lite_arg.span), Some(e)),
+                };
+
+                let classified_block = classify_block(&lite_block, registry);
+                let err = classified_block.failed;
+
+                if error.is_none() {
+                    error = err;
+                }
+                head = Some(Expression::Invocation(classified_block.block));
+            } else if current_part.starts_with('$') {
                 // We have the variable head
                 head = Some(Expression::variable(current_part, lite_arg.span));
             } else if let Ok(row_number) = current_part.parse::<u64>() {
