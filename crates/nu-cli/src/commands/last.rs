@@ -34,7 +34,7 @@ impl WholeStreamCommand for Last {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, last)?.run()
+        last(args, registry)
     }
 
     fn examples(&self) -> &[Example] {
@@ -51,9 +51,11 @@ impl WholeStreamCommand for Last {
     }
 }
 
-fn last(LastArgs { rows }: LastArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
+fn last(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
     let stream = async_stream! {
-        let v: Vec<_> = context.input.into_vec().await;
+        let (LastArgs { rows }, mut input) = args.process(&registry).await?;
+        let v: Vec<_> = input.into_vec().await;
 
         let rows_desired = if let Some(quantity) = rows {
             *quantity

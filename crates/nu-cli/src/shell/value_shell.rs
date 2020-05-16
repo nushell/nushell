@@ -95,10 +95,10 @@ impl Shell for ValueShell {
     fn ls(
         &self,
         LsArgs { path, .. }: LsArgs,
-        context: &RunnableContext,
+        name_tag: Tag,
+        _ctrl_c: Arc<AtomicBool>,
     ) -> Result<OutputStream, ShellError> {
         let mut full_path = PathBuf::from(self.path());
-        let name_tag = context.name.clone();
 
         if let Some(value) = &path {
             full_path.push(value.as_ref());

@@ -45,7 +45,8 @@ pub fn from_delimited_data(
     headerless: bool,
     sep: char,
     format_name: &'static str,
-    RunnableContext { input, name, .. }: RunnableContext,
+    input: InputStream,
+    name: Tag,
 ) -> Result<OutputStream, ShellError> {
     let name_tag = name;
 

@@ -33,7 +33,7 @@ impl WholeStreamCommand for GroupBy {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, group_by)?.run()
+        group_by(args, registry)
     }
 
     fn examples(&self) -> &[Example] {
@@ -44,11 +44,11 @@ impl WholeStreamCommand for GroupBy {
     }
 }
 
-pub fn group_by(
-    GroupByArgs { column_name }: GroupByArgs,
-    RunnableContext { input, name, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
+pub fn group_by(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let name = args.call_info.name_tag.clone();
     let stream = async_stream! {
+        let (GroupByArgs { column_name }, mut input) = args.process(&registry).await?;
         let values: Vec<Value> = input.collect().await;
 
         if values.is_empty() {

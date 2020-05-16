@@ -37,7 +37,7 @@ impl WholeStreamCommand for Nth {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, nth)?.run()
+        nth(args, registry)
     }
 
     fn examples(&self) -> &[Example] {
@@ -54,16 +54,13 @@ impl WholeStreamCommand for Nth {
     }
 }
 
-fn nth(
-    NthArgs {
-        row_number,
-        rest: and_rows,
-    }: NthArgs,
-    RunnableContext { input, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    let stream = input
-        .enumerate()
-        .map(move |(idx, item)| {
+fn nth(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let (NthArgs { row_number, rest: and_rows}, input) = args.process(&registry).await?;
+
+        let mut inp = input.enumerate();
+        while let Some((idx, item)) = inp.next().await {
             let row_number = vec![row_number.clone()];
 
             let row_numbers = vec![&row_number, &and_rows]
@@ -71,18 +68,14 @@ fn nth(
                 .flatten()
                 .collect::<Vec<&Tagged<u64>>>();
 
-            let mut result = VecDeque::new();
-
             if row_numbers
                 .iter()
                 .any(|requested| requested.item == idx as u64)
             {
-                result.push_back(ReturnSuccess::value(item));
+                yield ReturnSuccess::value(item);
             }
-
-            futures::stream::iter(result)
-        })
-        .flatten();
+        }
+    };
 
     Ok(stream.to_output_stream())
 }

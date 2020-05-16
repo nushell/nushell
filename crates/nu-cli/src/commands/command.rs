@@ -7,7 +7,7 @@ use derive_new::new;
 use getset::Getters;
 use nu_errors::ShellError;
 use nu_protocol::hir;
-use nu_protocol::{CallInfo, EvaluatedArgs, ReturnValue, Scope, Signature, Value};
+use nu_protocol::{CallInfo, EvaluatedArgs, ReturnSuccess, Scope, Signature, UntaggedValue, Value};
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 use std::sync::atomic::AtomicBool;
@@ -20,8 +20,8 @@ pub struct UnevaluatedCallInfo {
 }
 
 impl UnevaluatedCallInfo {
-    pub fn evaluate(self, registry: &CommandRegistry) -> Result<CallInfo, ShellError> {
-        let args = evaluate_args(&self.args, registry, &self.scope)?;
+    pub async fn evaluate(self, registry: &CommandRegistry) -> Result<CallInfo, ShellError> {
+        let args = evaluate_args(&self.args, registry, &self.scope).await?;
 
         Ok(CallInfo {
             args,
@@ -29,14 +29,14 @@ impl UnevaluatedCallInfo {
         })
     }
 
-    pub fn evaluate_with_new_it(
+    pub async fn evaluate_with_new_it(
         self,
         registry: &CommandRegistry,
         it: &Value,
     ) -> Result<CallInfo, ShellError> {
         let mut scope = self.scope.clone();
         scope = scope.set_it(it.clone());
-        let args = evaluate_args(&self.args, registry, &scope)?;
+        let args = evaluate_args(&self.args, registry, &scope).await?;
 
         Ok(CallInfo {
             args,
@@ -87,7 +87,7 @@ impl std::fmt::Debug for CommandArgs {
 }
 
 impl CommandArgs {
-    pub fn evaluate_once(
+    pub async fn evaluate_once(
         self,
         registry: &CommandRegistry,
     ) -> Result<EvaluatedWholeStreamCommandArgs, ShellError> {
@@ -95,7 +95,7 @@ impl CommandArgs {
         let ctrl_c = self.ctrl_c.clone();
         let shell_manager = self.shell_manager.clone();
         let input = self.input;
-        let call_info = self.call_info.evaluate(registry)?;
+        let call_info = self.call_info.evaluate(registry).await?;
 
         Ok(EvaluatedWholeStreamCommandArgs::new(
             host,
@@ -106,7 +106,7 @@ impl CommandArgs {
         ))
     }
 
-    pub fn evaluate_once_with_scope(
+    pub async fn evaluate_once_with_scope(
         self,
         registry: &CommandRegistry,
         scope: &Scope,
@@ -120,7 +120,7 @@ impl CommandArgs {
             args: self.call_info.args,
             scope: scope.clone(),
         };
-        let call_info = call_info.evaluate(registry)?;
+        let call_info = call_info.evaluate(registry).await?;
 
         Ok(EvaluatedWholeStreamCommandArgs::new(
             host,
@@ -131,69 +131,16 @@ impl CommandArgs {
         ))
     }
 
-    pub fn process<'de, T: Deserialize<'de>, O: ToOutputStream>(
+    pub async fn process<'de, T: Deserialize<'de>>(
         self,
         registry: &CommandRegistry,
-        callback: fn(T, RunnableContext) -> Result<O, ShellError>,
-    ) -> Result<RunnableArgs<T, O>, ShellError> {
-        let shell_manager = self.shell_manager.clone();
-        let host = self.host.clone();
-        let ctrl_c = self.ctrl_c.clone();
-        let args = self.evaluate_once(registry)?;
-        let call_info = args.call_info.clone();
-        let (input, args) = args.split();
-        let name_tag = args.call_info.name_tag;
-        let mut deserializer = ConfigDeserializer::from_call_info(call_info);
-
-        Ok(RunnableArgs {
-            args: T::deserialize(&mut deserializer)?,
-            context: RunnableContext {
-                input,
-                registry: registry.clone(),
-                shell_manager,
-                name: name_tag,
-                host,
-                ctrl_c,
-            },
-            callback,
-        })
-    }
-
-    pub fn process_raw<'de, T: Deserialize<'de>>(
-        self,
-        registry: &CommandRegistry,
-        callback: fn(T, RunnableContext, RawCommandArgs) -> Result<OutputStream, ShellError>,
-    ) -> Result<RunnableRawArgs<T>, ShellError> {
-        let raw_args = RawCommandArgs {
-            host: self.host.clone(),
-            ctrl_c: self.ctrl_c.clone(),
-            shell_manager: self.shell_manager.clone(),
-            call_info: self.call_info.clone(),
-        };
-
-        let shell_manager = self.shell_manager.clone();
-        let host = self.host.clone();
-        let ctrl_c = self.ctrl_c.clone();
-        let args = self.evaluate_once(registry)?;
+    ) -> Result<(T, InputStream), ShellError> {
+        let args = self.evaluate_once(registry).await?;
         let call_info = args.call_info.clone();
 
-        let (input, args) = args.split();
-        let name_tag = args.call_info.name_tag;
         let mut deserializer = ConfigDeserializer::from_call_info(call_info);
 
-        Ok(RunnableRawArgs {
-            args: T::deserialize(&mut deserializer)?,
-            context: RunnableContext {
-                input,
-                registry: registry.clone(),
-                shell_manager,
-                name: name_tag,
-                host,
-                ctrl_c,
-            },
-            raw_args,
-            callback,
-        })
+        Ok((T::deserialize(&mut deserializer)?, args.input))
     }
 }
 
@@ -209,34 +156,6 @@ pub struct RunnableContext {
 impl RunnableContext {
     pub fn get_command(&self, name: &str) -> Option<Command> {
         self.registry.get_command(name)
-    }
-}
-
-pub struct RunnableArgs<T, O: ToOutputStream> {
-    args: T,
-    context: RunnableContext,
-    callback: fn(T, RunnableContext) -> Result<O, ShellError>,
-}
-
-impl<T, O: ToOutputStream> RunnableArgs<T, O> {
-    pub fn run(self) -> Result<OutputStream, ShellError> {
-        (self.callback)(self.args, self.context).map(|v| v.to_output_stream())
-    }
-}
-
-pub struct RunnableRawArgs<T> {
-    args: T,
-    raw_args: RawCommandArgs,
-    context: RunnableContext,
-    callback: fn(T, RunnableContext, RawCommandArgs) -> Result<OutputStream, ShellError>,
-}
-
-impl<T> RunnableRawArgs<T> {
-    pub fn run(self) -> OutputStream {
-        match (self.callback)(self.args, self.context, self.raw_args) {
-            Ok(stream) => stream,
-            Err(err) => OutputStream::one(Err(err)),
-        }
     }
 }
 
@@ -416,7 +335,12 @@ impl Command {
 
     pub fn run(&self, args: CommandArgs, registry: &CommandRegistry) -> OutputStream {
         if args.call_info.switch_present("help") {
-            get_help(&*self.0, registry).into()
+            let cl = self.0.clone();
+            let registry = registry.clone();
+            let stream = async_stream! {
+                yield Ok(ReturnSuccess::Value(UntaggedValue::string(get_help(&*cl, &registry)).into_value(Tag::unknown())));
+            };
+            stream.to_output_stream()
         } else {
             match self.0.run(args, registry) {
                 Ok(stream) => stream,
@@ -458,37 +382,40 @@ impl WholeStreamCommand for FnFilterCommand {
             ctrl_c,
             shell_manager,
             call_info,
-            input,
+            mut input,
         } = args;
 
         let host: Arc<parking_lot::Mutex<dyn Host>> = host.clone();
         let registry: CommandRegistry = registry.clone();
         let func = self.func;
 
-        let result = input.map(move |it| {
-            let registry = registry.clone();
-            let call_info = match call_info.clone().evaluate_with_new_it(&registry, &it) {
-                Err(err) => return OutputStream::from(vec![Err(err)]).values,
-                Ok(args) => args,
-            };
+        let stream = async_stream! {
+            while let Some(it) = input.next().await {
+                let registry = registry.clone();
+                let call_info = match call_info.clone().evaluate_with_new_it(&registry, &it).await {
+                    Err(err) => { yield Err(err); return; },
+                    Ok(args) => args,
+                };
 
-            let args = EvaluatedFilterCommandArgs::new(
-                host.clone(),
-                ctrl_c.clone(),
-                shell_manager.clone(),
-                call_info,
-            );
+                let args = EvaluatedFilterCommandArgs::new(
+                    host.clone(),
+                    ctrl_c.clone(),
+                    shell_manager.clone(),
+                    call_info,
+                );
 
-            match func(args) {
-                Err(err) => OutputStream::from(vec![Err(err)]).values,
-                Ok(stream) => stream.values,
+                match func(args) {
+                    Err(err) => yield Err(err),
+                    Ok(mut stream) => {
+                        while let Some(value) = stream.values.next().await {
+                            yield value;
+                        }
+                    }
+                }
             }
-        });
+        };
 
-        let result = result.flatten();
-        let result: BoxStream<ReturnValue> = result.boxed();
-
-        Ok(result.into())
+        Ok(stream.to_output_stream())
     }
 }
 

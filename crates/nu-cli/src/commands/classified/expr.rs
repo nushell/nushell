@@ -8,7 +8,7 @@ use nu_errors::ShellError;
 use nu_protocol::hir::SpannedExpression;
 use nu_protocol::Scope;
 
-pub(crate) fn run_expression_block(
+pub(crate) async fn run_expression_block(
     expr: SpannedExpression,
     context: &mut Context,
     _input: InputStream,
@@ -21,7 +21,7 @@ pub(crate) fn run_expression_block(
 
     let scope = scope.clone();
     let registry = context.registry().clone();
-    let output = evaluate_baseline_expr(&expr, &registry, &scope)?;
+    let output = evaluate_baseline_expr(&expr, &registry, &scope).await?;
 
     Ok(once(async { Ok(output) }).to_input_stream())
 }

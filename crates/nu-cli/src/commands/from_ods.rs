@@ -35,20 +35,16 @@ impl WholeStreamCommand for FromODS {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, from_ods)?.run()
+        from_ods(args, registry)
     }
 }
 
-fn from_ods(
-    FromODSArgs {
-        headerless: _headerless,
-    }: FromODSArgs,
-    runnable_context: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    let input = runnable_context.input;
-    let tag = runnable_context.name;
+fn from_ods(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let tag = args.call_info.name_tag.clone();
+    let registry = registry.clone();
 
     let stream = async_stream! {
+        let (FromODSArgs { headerless: _headerless }, mut input) = args.process(&registry).await?;
         let bytes = input.collect_binary(tag.clone()).await?;
         let mut buf: Cursor<Vec<u8>> = Cursor::new(bytes.item);
         let mut ods = Ods::<_>::new(buf).map_err(|_| ShellError::labeled_error(

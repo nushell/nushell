@@ -36,15 +36,18 @@ impl WholeStreamCommand for ReduceBy {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, reduce_by)?.run()
+        reduce_by(args, registry)
     }
 }
 
 pub fn reduce_by(
-    ReduceByArgs { reduce_with }: ReduceByArgs,
-    RunnableContext { input, name, .. }: RunnableContext,
+    args: CommandArgs,
+    registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let name = args.call_info.name_tag.clone();
     let stream = async_stream! {
+        let (ReduceByArgs { reduce_with }, mut input) = args.process(&registry).await?;
         let values: Vec<Value> = input.collect().await;
 
         if values.is_empty() {

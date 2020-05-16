@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape, Value};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, Value};
 
 #[derive(Deserialize)]
 struct AppendArgs {
@@ -33,7 +33,7 @@ impl WholeStreamCommand for Append {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, append)?.run()
+        append(args, registry)
     }
 
     fn examples(&self) -> &[Example] {
@@ -44,13 +44,17 @@ impl WholeStreamCommand for Append {
     }
 }
 
-fn append(
-    AppendArgs { row }: AppendArgs,
-    RunnableContext { input, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    let mut after: VecDeque<Value> = VecDeque::new();
-    after.push_back(row);
-    let after = futures::stream::iter(after);
+fn append(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
 
-    Ok(OutputStream::from_input(input.chain(after)))
+    let stream = async_stream! {
+        let (AppendArgs { row }, mut input) = args.process(&registry).await?;
+
+        while let Some(item) = input.next().await {
+            yield ReturnSuccess::value(item);
+        }
+        yield ReturnSuccess::value(row);
+    };
+
+    Ok(stream.to_output_stream())
 }

@@ -30,7 +30,7 @@ impl WholeStreamCommand for SortBy {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, sort_by)?.run()
+        sort_by(args, registry)
     }
 
     fn examples(&self) -> &[Example] {
@@ -47,12 +47,11 @@ impl WholeStreamCommand for SortBy {
     }
 }
 
-fn sort_by(
-    SortByArgs { rest }: SortByArgs,
-    mut context: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    Ok(OutputStream::new(async_stream! {
-        let mut vec = context.input.drain_vec().await;
+fn sort_by(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let (SortByArgs { rest }, mut input) = args.process(&registry).await?;
+        let mut vec = input.drain_vec().await;
 
         if vec.is_empty() {
             return;
@@ -78,5 +77,7 @@ fn sort_by(
         for item in vec {
             yield item.into();
         }
-    }))
+    };
+
+    Ok(stream.to_output_stream())
 }

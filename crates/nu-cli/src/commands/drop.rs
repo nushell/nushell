@@ -34,7 +34,7 @@ impl WholeStreamCommand for Drop {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, drop)?.run()
+        drop(args, registry)
     }
 
     fn examples(&self) -> &[Example] {
@@ -51,9 +51,11 @@ impl WholeStreamCommand for Drop {
     }
 }
 
-fn drop(DropArgs { rows }: DropArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
+fn drop(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
     let stream = async_stream! {
-        let v: Vec<_> = context.input.into_vec().await;
+        let (DropArgs { rows }, mut input) = args.process(&registry).await?;
+        let v: Vec<_> = input.into_vec().await;
 
         let rows_to_drop = if let Some(quantity) = rows {
             *quantity as usize

@@ -153,31 +153,23 @@ impl WholeStreamCommand for Save {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        Ok(args.process_raw(registry, save)?.run())
+        save(args, registry)
     }
 }
 
-fn save(
-    SaveArgs {
-        path,
-        raw: save_raw,
-    }: SaveArgs,
-    RunnableContext {
-        input,
-        name,
-        shell_manager,
-        host,
-        ctrl_c,
-        registry,
-        ..
-    }: RunnableContext,
-    raw_args: RawCommandArgs,
-) -> Result<OutputStream, ShellError> {
-    let mut full_path = PathBuf::from(shell_manager.path());
-    let name_tag = name.clone();
+fn save(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let mut full_path = PathBuf::from(raw_args.shell_manager.path());
+    let name_tag = raw_args.call_info.name_tag.clone();
+    let name = raw_args.call_info.name_tag.clone();
     let scope = raw_args.call_info.scope.clone();
+    let registry = registry.clone();
+    let host = raw_args.host.clone();
+    let ctrl_c = raw_args.ctrl_c.clone();
+    let shell_manager = raw_args.shell_manager.clone();
 
     let stream = async_stream! {
+        let head = raw_args.call_info.args.head.clone();
+        let (SaveArgs { path, raw: save_raw }, mut input) = raw_args.process(&registry).await?;
         let input: Vec<Value> = input.collect().await;
         if path.is_none() {
             // If there is no filename, check the metadata for the anchor filename
@@ -230,13 +222,13 @@ fn save(
                             shell_manager,
                             call_info: UnevaluatedCallInfo {
                                 args: nu_protocol::hir::Call {
-                                    head: raw_args.call_info.args.head,
+                                    head,
                                     positional: None,
                                     named: None,
                                     span: Span::unknown(),
                                     is_last: false,
                                 },
-                                name_tag: raw_args.call_info.name_tag,
+                                name_tag: name_tag.clone(),
                                 scope,
                             }
                         };

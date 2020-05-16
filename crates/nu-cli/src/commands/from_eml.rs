@@ -39,7 +39,7 @@ impl WholeStreamCommand for FromEML {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, from_eml)?.run()
+        from_eml(args, registry)
     }
 }
 
@@ -76,14 +76,11 @@ fn headerfieldvalue_to_value(tag: &Tag, value: &HeaderFieldValue) -> UntaggedVal
     }
 }
 
-fn from_eml(
-    eml_args: FromEMLArgs,
-    runnable_context: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    let input = runnable_context.input;
-    let tag = runnable_context.name;
-
+fn from_eml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let tag = args.call_info.name_tag.clone();
+    let registry = registry.clone();
     let stream = async_stream! {
+        let (eml_args, mut input): (FromEMLArgs, _) = args.process(&registry).await?;
         let value = input.collect_string(tag.clone()).await?;
 
         let body_preview = eml_args.preview_body.map(|b| b.item).unwrap_or(DEFAULT_BODY_PREVIEW);

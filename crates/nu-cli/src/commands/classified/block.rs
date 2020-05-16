@@ -78,7 +78,7 @@ async fn run_pipeline(
             }
 
             (Some(ClassifiedCommand::Expr(expr)), _) => {
-                run_expression_block(*expr, ctx, input, scope)?
+                run_expression_block(*expr, ctx, input, scope).await?
             }
             (Some(ClassifiedCommand::Error(err)), _) => return Err(err.into()),
             (_, Some(ClassifiedCommand::Error(err))) => return Err(err.clone().into()),

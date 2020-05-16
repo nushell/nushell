@@ -37,7 +37,7 @@ fn cal_friday_the_thirteenths_in_2015() {
         "#
     ));
 
-    assert!(actual.out.contains("3"));
+    assert!(actual.out.contains('3'));
 }
 
 #[test]

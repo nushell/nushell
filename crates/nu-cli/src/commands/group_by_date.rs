@@ -41,7 +41,7 @@ impl WholeStreamCommand for GroupByDate {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, group_by_date)?.run()
+        group_by_date(args, registry)
     }
 
     fn examples(&self) -> &[Example] {
@@ -57,13 +57,13 @@ enum Grouper {
 }
 
 pub fn group_by_date(
-    GroupByDateArgs {
-        column_name,
-        format,
-    }: GroupByDateArgs,
-    RunnableContext { input, name, .. }: RunnableContext,
+    args: CommandArgs,
+    registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let name = args.call_info.name_tag.clone();
     let stream = async_stream! {
+        let (GroupByDateArgs { column_name, format }, mut input) = args.process(&registry).await?;
         let values: Vec<Value> = input.collect().await;
 
         if values.is_empty() {

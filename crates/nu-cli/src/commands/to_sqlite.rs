@@ -202,9 +202,10 @@ fn sqlite_input_stream_to_bytes(values: Vec<Value>) -> Result<Value, std::io::Er
 }
 
 fn to_sqlite(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let name_tag = args.name_tag();
+    let registry = registry.clone();
     let stream = async_stream! {
+        let args = args.evaluate_once(&registry).await?;
+        let name_tag = args.name_tag();
         let input: Vec<Value> = args.input.collect().await;
 
         match sqlite_input_stream_to_bytes(input) {
