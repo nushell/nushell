@@ -1,6 +1,8 @@
+use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::nu;
-use nu_test_support::{pipeline, playground::Playground};
+use nu_test_support::pipeline;
+use nu_test_support::playground::Playground;
 
 #[test]
 fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
@@ -20,6 +22,72 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
         cwd: dirs.test(), pipeline(
         r#"
             open nu_times.csv
+            | get name
+            | ^echo $it
+            | chop
+            | nth 3
+            | echo $it
+            "#
+        ));
+
+        assert_eq!(actual.out, "AndKitKat");
+    })
+}
+
+#[test]
+fn proper_it_expansion() {
+    Playground::setup("ls_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("andres.txt"),
+            EmptyFile("gedge.txt"),
+            EmptyFile("jonathan.txt"),
+            EmptyFile("yehuda.txt"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                    ls | sort-by name | group-by type | each { get File.name | echo $it } | to json
+                "#
+        ));
+
+        assert_eq!(
+            actual.out,
+            r#"["andres.txt","gedge.txt","jonathan.txt","yehuda.txt"]"#
+        );
+    })
+}
+
+#[test]
+fn argument_invocation() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+                    echo "foo" | echo $(echo $it)
+            "#
+    );
+
+    assert_eq!(actual.out, "foo");
+}
+
+#[test]
+fn invocation_handles_dot() {
+    Playground::setup("invocation_handles_dot", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "nu_times.csv",
+            r#"
+                name,rusty_luck,origin
+                Jason,1,Canada
+                Jonathan,1,New Zealand
+                Andrés,1,Ecuador
+                AndKitKatz,1,Estados Unidos
+            "#,
+        )]);
+
+        let actual = nu!(
+        cwd: dirs.test(), pipeline(
+        r#"
+            echo $(open nu_times.csv)
             | get name
             | ^echo $it
             | chop
@@ -107,9 +175,7 @@ mod parse {
 }
 
 mod tilde_expansion {
-    use nu_test_support::fs::Stub::EmptyFile;
-    use nu_test_support::playground::Playground;
-    use nu_test_support::{nu, pipeline};
+    use nu_test_support::nu;
 
     #[test]
     #[should_panic]
@@ -137,41 +203,5 @@ mod tilde_expansion {
         );
 
         assert_eq!(actual.out, "1~1");
-    }
-
-    #[test]
-    fn proper_it_expansion() {
-        Playground::setup("ls_test_1", |dirs, sandbox| {
-            sandbox.with_files(vec![
-                EmptyFile("andres.txt"),
-                EmptyFile("gedge.txt"),
-                EmptyFile("jonathan.txt"),
-                EmptyFile("yehuda.txt"),
-            ]);
-
-            let actual = nu!(
-                cwd: dirs.test(), pipeline(
-                r#"
-                    ls | sort-by name | group-by type | each { get File.name | echo $it } | to json
-                "#
-            ));
-
-            assert_eq!(
-                actual.out,
-                r#"["andres.txt","gedge.txt","jonathan.txt","yehuda.txt"]"#
-            );
-        })
-    }
-
-    #[test]
-    fn argument_invocation() {
-        let actual = nu!(
-            cwd: ".",
-            r#"
-                    echo "foo" | echo $(echo $it)
-            "#
-        );
-
-        assert_eq!(actual.out, "foo");
     }
 }
