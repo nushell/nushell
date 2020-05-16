@@ -1,7 +1,7 @@
 use futures::executor::block_on;
 use nu_errors::ShellError;
 use nu_plugin::Plugin;
-use nu_protocol::{CallInfo, ReturnValue, Signature, SyntaxShape, Value};
+use nu_protocol::{CallInfo, ReturnValue, Signature, SyntaxShape};
 
 use crate::post::post_helper;
 use crate::Post;
@@ -46,10 +46,6 @@ impl Plugin for Post {
 
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         self.setup(call_info)?;
-        Ok(vec![])
-    }
-
-    fn filter(&mut self, row: Value) -> Result<Vec<ReturnValue>, ShellError> {
         Ok(vec![block_on(post_helper(
             &self.path.clone().ok_or_else(|| {
                 ShellError::labeled_error("expected a 'path'", "expected a 'path'", &self.tag)
@@ -61,7 +57,6 @@ impl Plugin for Post {
             self.user.clone(),
             self.password.clone(),
             &self.headers.clone(),
-            row,
         ))])
     }
 }
