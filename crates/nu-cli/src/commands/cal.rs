@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use chrono::{DateTime, Datelike, Local, NaiveDate};
+use chrono::{Datelike, Local, NaiveDate};
 use nu_errors::ShellError;
 use nu_protocol::Dictionary;
 
@@ -67,80 +67,164 @@ pub fn cal(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
 
         let (current_year, current_month, current_day) = get_current_date();
 
-        if args.has("full-year") {
-            let mut day_value: Option<u32> = Some(current_day);
-            let mut year_value = current_year as u64;
+        let mut selected_year: i32 = current_year;
+        let mut current_day_option: Option<u32> = Some(current_day);
 
-            if let Some(year) = args.get("full-year") {
-                if let Ok(year_u64) = year.as_u64() {
-                    year_value = year_u64;
-                }
+        let month_range = if args.has("full-year") {
+            if let Some(full_year_value) = args.get("full-year") {
+                if let Ok(year_u64) = full_year_value.as_u64() {
+                    selected_year = year_u64 as i32;
 
-                if year_value != current_year as u64 {
-                    day_value = None
+                    if selected_year != current_year {
+                        current_day_option = None
+                    }
+                } else {
+                    yield Err(get_invalid_year_shell_error(&full_year_value.tag()));
+                    return;
                 }
             }
 
-            add_year_to_table(
-                &mut calendar_vec_deque,
-                &tag,
-                year_value as i32,
-                current_year,
-                current_month,
-                day_value,
-                &args,
-            );
+            (1, 12)
         } else {
-            let (day_start_offset, number_of_days_in_month, _) =
-                get_month_information(current_year, current_month, current_year);
+            (current_month, current_month)
+        };
 
-            add_month_to_table(
-                &mut calendar_vec_deque,
-                &tag,
-                current_year,
-                current_month,
-                Some(current_day),
-                day_start_offset,
-                number_of_days_in_month as usize,
-                &args,
-            );
-        }
+        let add_months_of_year_to_table_result = add_months_of_year_to_table(
+            &args,
+            &mut calendar_vec_deque,
+            &tag,
+            selected_year,
+            month_range,
+            current_month,
+            current_day_option,
+        );
 
-        for item in calendar_vec_deque {
-            yield ReturnSuccess::value(item);
+        match add_months_of_year_to_table_result {
+            Ok(()) => {
+                for item in calendar_vec_deque {
+                    yield ReturnSuccess::value(item);
+                }
+            }
+            Err(error) => yield Err(error),
         }
     };
 
     Ok(stream.to_output_stream())
 }
 
-fn get_current_date() -> (i32, u32, u32) {
-    let local_now: DateTime<Local> = Local::now();
+fn get_invalid_year_shell_error(year_tag: &Tag) -> ShellError {
+    ShellError::labeled_error("The year is invalid", "invalid year", year_tag)
+}
 
-    let current_year: i32 = local_now.date().year();
-    let current_month: u32 = local_now.date().month();
-    let current_day: u32 = local_now.date().day();
+struct MonthHelper {
+    day_number_month_starts_on: usize,
+    number_of_days_in_month: usize,
+    selected_year: i32,
+    selected_month: u32,
+}
+
+impl MonthHelper {
+    pub fn new(selected_year: i32, selected_month: u32) -> Result<MonthHelper, ()> {
+        let mut month_helper = MonthHelper {
+            day_number_month_starts_on: 0,
+            number_of_days_in_month: 0,
+            selected_year,
+            selected_month,
+        };
+
+        let chosen_date_result_one = month_helper.update_day_number_month_starts_on();
+        let chosen_date_result_two = month_helper.update_number_of_days_in_month();
+
+        if chosen_date_result_one.is_ok() && chosen_date_result_two.is_ok() {
+            return Ok(month_helper);
+        }
+
+        Err(())
+    }
+
+    pub fn get_month_name(&self) -> String {
+        let month_name = match self.selected_month {
+            1 => "january",
+            2 => "february",
+            3 => "march",
+            4 => "april",
+            5 => "may",
+            6 => "june",
+            7 => "july",
+            8 => "august",
+            9 => "september",
+            10 => "october",
+            11 => "november",
+            _ => "december",
+        };
+
+        month_name.to_string()
+    }
+
+    fn update_day_number_month_starts_on(&mut self) -> Result<(), ()> {
+        let naive_date_result =
+            MonthHelper::get_naive_date(self.selected_year, self.selected_month);
+
+        match naive_date_result {
+            Ok(naive_date) => {
+                self.day_number_month_starts_on =
+                    naive_date.weekday().num_days_from_sunday() as usize;
+                Ok(())
+            }
+            _ => Err(()),
+        }
+    }
+
+    fn update_number_of_days_in_month(&mut self) -> Result<(), ()> {
+        // Chrono does not provide a method to output the amount of days in a month
+        // This is a workaround taken from the example code from the Chrono docs here:
+        // https://docs.rs/chrono/0.3.0/chrono/naive/date/struct.NaiveDate.html#example-30
+        let (adjusted_year, adjusted_month) = if self.selected_month == 12 {
+            (self.selected_year + 1, 1)
+        } else {
+            (self.selected_year, self.selected_month + 1)
+        };
+
+        let naive_date_result = MonthHelper::get_naive_date(adjusted_year, adjusted_month);
+
+        match naive_date_result {
+            Ok(naive_date) => {
+                self.number_of_days_in_month = naive_date.pred().day() as usize;
+                Ok(())
+            }
+            _ => Err(()),
+        }
+    }
+
+    fn get_naive_date(selected_year: i32, selected_month: u32) -> Result<NaiveDate, ()> {
+        if let Some(naive_date) = NaiveDate::from_ymd_opt(selected_year, selected_month, 1) {
+            return Ok(naive_date);
+        }
+
+        Err(())
+    }
+}
+
+fn get_current_date() -> (i32, u32, u32) {
+    let local_now_date = Local::now().date();
+
+    let current_year: i32 = local_now_date.year();
+    let current_month: u32 = local_now_date.month();
+    let current_day: u32 = local_now_date.day();
 
     (current_year, current_month, current_day)
 }
 
-fn add_year_to_table(
+fn add_months_of_year_to_table(
+    args: &EvaluatedWholeStreamCommandArgs,
     mut calendar_vec_deque: &mut VecDeque<Value>,
     tag: &Tag,
-    mut selected_year: i32,
-    current_year: i32,
+    selected_year: i32,
+    (start_month, end_month): (u32, u32),
     current_month: u32,
     current_day_option: Option<u32>,
-    args: &EvaluatedWholeStreamCommandArgs,
-) {
-    for month_number in 1..=12 {
-        let (day_start_offset, number_of_days_in_month, chosen_date_is_valid) =
-            get_month_information(selected_year, month_number, current_year);
-
-        if !chosen_date_is_valid {
-            selected_year = current_year;
-        }
-
+) -> Result<(), ShellError> {
+    for month_number in start_month..=end_month {
         let mut new_current_day_option: Option<u32> = None;
 
         if let Some(current_day) = current_day_option {
@@ -149,31 +233,48 @@ fn add_year_to_table(
             }
         }
 
-        add_month_to_table(
+        let add_month_to_table_result = add_month_to_table(
+            &args,
             &mut calendar_vec_deque,
             &tag,
             selected_year,
             month_number,
             new_current_day_option,
-            day_start_offset,
-            number_of_days_in_month,
-            &args,
         );
+
+        add_month_to_table_result?
     }
+
+    Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
 fn add_month_to_table(
+    args: &EvaluatedWholeStreamCommandArgs,
     calendar_vec_deque: &mut VecDeque<Value>,
     tag: &Tag,
-    year: i32,
-    month: u32,
+    selected_year: i32,
+    current_month: u32,
     _current_day_option: Option<u32>, // Can be used in the future to display current day
-    day_start_offset: usize,
-    number_of_days_in_month: usize,
-    args: &EvaluatedWholeStreamCommandArgs,
-) {
-    let day_limit = number_of_days_in_month + day_start_offset;
+) -> Result<(), ShellError> {
+    let month_helper_result = MonthHelper::new(selected_year, current_month);
+
+    let month_helper = match month_helper_result {
+        Ok(month_helper) => month_helper,
+        Err(()) => match args.get("full-year") {
+            Some(full_year_value) => {
+                return Err(get_invalid_year_shell_error(&full_year_value.tag()))
+            }
+            None => {
+                return Err(ShellError::labeled_error(
+                    "Issue parsing command",
+                    "invalid command",
+                    tag,
+                ))
+            }
+        },
+    };
+
+    let day_limit = month_helper.number_of_days_in_month + month_helper.day_number_month_starts_on;
     let mut day_count: usize = 1;
 
     let days_of_the_week = [
@@ -195,29 +296,35 @@ fn add_month_to_table(
         let mut indexmap = IndexMap::new();
 
         if should_show_year_column {
-            indexmap.insert("year".to_string(), UntaggedValue::int(year).into_value(tag));
+            indexmap.insert(
+                "year".to_string(),
+                UntaggedValue::int(month_helper.selected_year).into_value(tag),
+            );
         }
 
         if should_show_quarter_column {
             indexmap.insert(
                 "quarter".to_string(),
-                UntaggedValue::int(get_quarter_number(month)).into_value(tag),
+                UntaggedValue::int(((month_helper.selected_month - 1) / 3) + 1).into_value(tag),
             );
         }
 
         if should_show_month_column {
             let month_value = if should_show_month_names {
-                UntaggedValue::string(get_month_name(month)).into_value(tag)
+                UntaggedValue::string(month_helper.get_month_name()).into_value(tag)
             } else {
-                UntaggedValue::int(month).into_value(tag)
+                UntaggedValue::int(month_helper.selected_month).into_value(tag)
             };
 
             indexmap.insert("month".to_string(), month_value);
         }
 
         for day in &days_of_the_week {
-            let value = if (day_count <= day_limit) && (day_count > day_start_offset) {
-                UntaggedValue::int(day_count - day_start_offset).into_value(tag)
+            let value = if (day_count <= day_limit)
+                && (day_count > month_helper.day_number_month_starts_on)
+            {
+                UntaggedValue::int(day_count - month_helper.day_number_month_starts_on)
+                    .into_value(tag)
             } else {
                 UntaggedValue::nothing().into_value(tag)
             };
@@ -230,78 +337,6 @@ fn add_month_to_table(
         calendar_vec_deque
             .push_back(UntaggedValue::Row(Dictionary::from(indexmap)).into_value(tag));
     }
-}
 
-fn get_quarter_number(month_number: u32) -> u8 {
-    match month_number {
-        1..=3 => 1,
-        4..=6 => 2,
-        7..=9 => 3,
-        _ => 4,
-    }
-}
-
-fn get_month_name(month_number: u32) -> String {
-    let month_name = match month_number {
-        1 => "january",
-        2 => "february",
-        3 => "march",
-        4 => "april",
-        5 => "may",
-        6 => "june",
-        7 => "july",
-        8 => "august",
-        9 => "september",
-        10 => "october",
-        11 => "november",
-        _ => "december",
-    };
-
-    month_name.to_string()
-}
-
-fn get_month_information(
-    selected_year: i32,
-    month: u32,
-    current_year: i32,
-) -> (usize, usize, bool) {
-    let (naive_date, chosen_date_is_valid_one) =
-        get_safe_naive_date(selected_year, month, current_year);
-    let weekday = naive_date.weekday();
-    let (days_in_month, chosen_date_is_valid_two) =
-        get_days_in_month(selected_year, month, current_year);
-
-    (
-        weekday.num_days_from_sunday() as usize,
-        days_in_month,
-        chosen_date_is_valid_one && chosen_date_is_valid_two,
-    )
-}
-
-fn get_days_in_month(selected_year: i32, month: u32, current_year: i32) -> (usize, bool) {
-    // Chrono does not provide a method to output the amount of days in a month
-    // This is a workaround taken from the example code from the Chrono docs here:
-    // https://docs.rs/chrono/0.3.0/chrono/naive/date/struct.NaiveDate.html#example-30
-    let (adjusted_year, adjusted_month) = if month == 12 {
-        (selected_year + 1, 1)
-    } else {
-        (selected_year, month + 1)
-    };
-
-    let (naive_date, chosen_date_is_valid) =
-        get_safe_naive_date(adjusted_year, adjusted_month, current_year);
-
-    (naive_date.pred().day() as usize, chosen_date_is_valid)
-}
-
-fn get_safe_naive_date(
-    selected_year: i32,
-    selected_month: u32,
-    current_year: i32,
-) -> (NaiveDate, bool) {
-    if let Some(naive_date) = NaiveDate::from_ymd_opt(selected_year, selected_month, 1) {
-        return (naive_date, true);
-    }
-
-    (NaiveDate::from_ymd(current_year, selected_month, 1), false)
+    Ok(())
 }
