@@ -109,7 +109,6 @@ pub fn cal(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
     };
 
     Ok(stream.to_output_stream())
-
 }
 
 fn get_invalid_year_shell_error(year_tag: &Tag) -> ShellError {
