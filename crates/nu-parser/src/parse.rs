@@ -102,7 +102,7 @@ fn parse_full_column_path(
                 lite_arg.span.start() + idx,
             );
 
-            if head.is_none() && current_part.starts_with("$(") && current_part.ends_with(")") {
+            if head.is_none() && current_part.starts_with("$(") && current_part.ends_with(')') {
                 // We have a command invocation
                 let string: String = current_part
                     .chars()
