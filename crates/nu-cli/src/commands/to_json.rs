@@ -33,8 +33,12 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
         UntaggedValue::Primitive(Primitive::Bytes(b)) => serde_json::Value::Number(
             serde_json::Number::from(b.to_u64().expect("What about really big numbers")),
         ),
-        UntaggedValue::Primitive(Primitive::Duration(secs)) => {
-            serde_json::Value::Number(serde_json::Number::from(*secs))
+        //FIXME: This is the same code as Int, but i64 is probably too small!
+        UntaggedValue::Primitive(Primitive::Duration(i)) => {
+            serde_json::Value::Number(serde_json::Number::from(CoerceInto::<i64>::coerce_into(
+                i.tagged(&v.tag),
+                "converting to JSON number",
+            )?))
         }
         UntaggedValue::Primitive(Primitive::Date(d)) => serde_json::Value::String(d.to_string()),
         UntaggedValue::Primitive(Primitive::EndOfStream) => serde_json::Value::Null,

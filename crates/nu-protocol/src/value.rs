@@ -209,8 +209,8 @@ impl UntaggedValue {
     }
 
     /// Helper for creating date duration values
-    pub fn duration(secs: i64) -> UntaggedValue {
-        UntaggedValue::Primitive(Primitive::Duration(secs))
+    pub fn duration(nanos: BigInt) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Duration(nanos))
     }
 
     /// Helper for creating datatime values

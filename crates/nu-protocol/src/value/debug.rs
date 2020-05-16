@@ -81,7 +81,7 @@ impl PrettyDebug for Primitive {
                 false => b::primitive("$no"),
             },
             Primitive::Date(date) => primitive_doc(date, "date"),
-            Primitive::Duration(duration) => primitive_doc(duration, "seconds"),
+            Primitive::Duration(duration) => primitive_doc(duration, "nanoseconds"),
             Primitive::Path(path) => primitive_doc(path, "path"),
             Primitive::Binary(_) => b::opaque("binary"),
             Primitive::BeginningOfStream => b::keyword("beginning-of-stream"),

@@ -7,8 +7,10 @@ use chrono::{DateTime, Utc};
 use nu_errors::{ExpectedRange, ShellError};
 use nu_source::{PrettyDebug, Span, SpannedItem};
 use num_bigint::BigInt;
+use num_integer::Integer;
 use num_traits::cast::{FromPrimitive, ToPrimitive};
 use num_traits::identities::Zero;
+use num_traits::sign::Signed;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -40,8 +42,9 @@ pub enum Primitive {
     Boolean(bool),
     /// A date value, in UTC
     Date(DateTime<Utc>),
-    /// A count in the number of seconds
-    Duration(i64),
+    /// A count in the number of nanoseconds
+    #[serde(with = "serde_bigint")]
+    Duration(BigInt),
     /// A range of values
     Range(Box<Range>),
     /// A file path
@@ -70,6 +73,28 @@ impl Primitive {
             },
             other => Err(ShellError::type_error(
                 "integer",
+                other.type_name().spanned(span),
+            )),
+        }
+    }
+
+    // FIXME: This is a bad name, but no other way to differentiate with our own Duration.
+    pub fn into_chrono_duration(self, span: Span) -> Result<chrono::Duration, ShellError> {
+        match self {
+            Primitive::Duration(duration) => {
+                // FIXME: Define const for the NANOS_PER_SEC?
+                let (secs, nanos) = duration.div_rem(&BigInt::from(1000 * 1000 * 1000));
+                // FIXME: I would have prefered to return a ShellError, but there is not one for
+                // overflow.
+                let secs = secs.to_i64().expect("Overflowing duration");
+                // This should never fail since nanos < 10^9.
+                let nanos = nanos.to_i64().unwrap();
+                let nanos = chrono::Duration::nanoseconds(nanos);
+                // This should also never fail since we are adding less than NANOS_PER_SEC.
+                Ok(chrono::Duration::seconds(secs).checked_add(&nanos).unwrap())
+            }
+            other => Err(ShellError::type_error(
+                "duration",
                 other.type_name().spanned(span),
             )),
         }
@@ -196,6 +221,20 @@ impl From<f64> for Primitive {
     }
 }
 
+impl From<chrono::Duration> for Primitive {
+    fn from(duration: chrono::Duration) -> Primitive {
+        // FIXME: This is a hack since chrono::Duration does not give access to its 'nanos' field.
+        let secs: i64 = duration.num_seconds();
+        // This will never fail.
+        let nanos: u32 = duration
+            .checked_sub(&chrono::Duration::seconds(secs))
+            .unwrap()
+            .num_nanoseconds()
+            .unwrap() as u32;
+        Primitive::Duration(BigInt::from(secs) * 1000 * 1000 * 1000 + nanos)
+    }
+}
+
 impl ShellTypeName for Primitive {
     /// Get the name of the type of a Primitive value
     fn type_name(&self) -> &'static str {
@@ -241,7 +280,7 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
                 _ => byte.format(1),
             }
         }
-        Primitive::Duration(sec) => format_duration(*sec),
+        Primitive::Duration(duration) => format_duration(duration),
         Primitive::Int(i) => i.to_string(),
         Primitive::Decimal(decimal) => format!("{:.4}", decimal),
         Primitive::Range(range) => format!(
@@ -284,18 +323,59 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
     }
 }
 
-/// Format a duration in seconds into a string
-pub fn format_duration(sec: i64) -> String {
-    let (minutes, seconds) = (sec / 60, sec % 60);
-    let (hours, minutes) = (minutes / 60, minutes % 60);
-    let (days, hours) = (hours / 24, hours % 24);
+/// Format a duration in nanoseconds into a string
+pub fn format_duration(duration: &BigInt) -> String {
+    // FIXME: This involves a lot of allocation, but it seems inevitable with BigInt.
+    let big_int_1000 = BigInt::from(1000);
+    let big_int_60 = BigInt::from(60);
+    let big_int_24 = BigInt::from(24);
+    // We only want the biggest subvidision to have the negative sign.
+    let (sign, duration) = if duration.is_positive() {
+        (1, duration.clone())
+    } else {
+        (-1, -duration)
+    };
+    let (microseconds, nanoseconds): (BigInt, BigInt) = duration.div_rem(&big_int_1000);
+    let (milliseconds, microseconds): (BigInt, BigInt) = microseconds.div_rem(&big_int_1000);
+    let (seconds, milliseconds): (BigInt, BigInt) = milliseconds.div_rem(&big_int_1000);
+    let (minutes, seconds): (BigInt, BigInt) = seconds.div_rem(&big_int_60);
+    let (hours, minutes): (BigInt, BigInt) = minutes.div_rem(&big_int_60);
+    let (days, hours): (BigInt, BigInt) = hours.div_rem(&big_int_24);
 
-    match (days, hours, minutes, seconds) {
-        (0, 0, 0, 1) => "1 sec".to_owned(),
-        (0, 0, 0, s) => format!("{} secs", s),
-        (0, 0, m, s) => format!("{}:{:02}", m, s),
-        (0, h, m, s) => format!("{}:{:02}:{:02}", h, m, s),
-        (d, h, m, s) => format!("{}:{:02}:{:02}:{:02}", d, h, m, s),
+    match (
+        days.to_i64()
+            .expect("Overflowing while formatting duration."),
+        hours.to_i64().unwrap(),
+        minutes.to_i64().unwrap(),
+        seconds.to_i64().unwrap(),
+        milliseconds.to_i64().unwrap(),
+        microseconds.to_i64().unwrap(),
+        nanoseconds.to_i64().unwrap(),
+    ) {
+        (0, 0, 0, 0, 0, 0, ns) => format!("{}", sign * ns),
+        (0, 0, 0, 0, 0, us, ns) => format!("{}:{:03}", sign * us, ns),
+        (0, 0, 0, 0, ms, us, ns) => format!("{}:{:03}:{:03}", sign * ms, us, ns),
+        (0, 0, 0, s, ms, us, ns) => format!("{}:{:03}:{:03}:{:03}", sign * s, ms, us, ns),
+        (0, 0, m, s, ms, us, ns) => format!("{}:{:02}:{:03}:{:03}:{:03}", sign * m, s, ms, us, ns),
+        (0, h, m, s, ms, us, ns) => format!(
+            "{}:{:02}:{:02}:{:03}:{:03}:{:03}",
+            sign * h,
+            m,
+            s,
+            ms,
+            us,
+            ns
+        ),
+        (d, h, m, s, ms, us, ns) => format!(
+            "{}:{:02}:{:02}:{:02}:{:03}:{:03}:{:03}",
+            sign * d,
+            h,
+            m,
+            s,
+            ms,
+            us,
+            ns
+        ),
     }
 }
 
