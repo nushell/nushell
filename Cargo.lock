@@ -2116,6 +2116,7 @@ dependencies = [
  "nu_plugin_fetch",
  "nu_plugin_inc",
  "nu_plugin_match",
+ "nu_plugin_parse",
  "nu_plugin_post",
  "nu_plugin_ps",
  "nu_plugin_start",
