@@ -79,7 +79,8 @@ pub fn cal(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                         current_day_option = None
                     }
                 } else {
-                    return Err(get_invalid_year_shell_error(&full_year_value.tag()));
+                    yield Err(get_invalid_year_shell_error(&full_year_value.tag()));
+                    return;
                 }
             }
 
