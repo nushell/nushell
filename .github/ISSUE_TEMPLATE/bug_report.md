@@ -23,8 +23,8 @@ A clear and concise description of what you expected to happen.
 If applicable, add screenshots to help explain your problem.
 
 **Configuration (please complete the following information):**
- - OS: [e.g. Windows]
- - Version [e.g. 0.4.0]
- - Optional features (if any)
+ - OS [e.g. Windows]:
+ - Nu Version [e.g. 0.4.0]: 
+ - Optional features (if any):
 
 Add any other context about the problem here.
