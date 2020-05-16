@@ -6,7 +6,7 @@ use nu_errors::ShellError;
 use nu_protocol::hir::Operator;
 use nu_protocol::ShellTypeName;
 use nu_protocol::{Primitive, Type, UntaggedValue};
-use nu_source::{DebugDocBuilder, PrettyDebug, Tagged};
+use nu_source::{DebugDocBuilder, PrettyDebug, Span, Tagged};
 use nu_table::TextStyle;
 use num_traits::Zero;
 
@@ -118,18 +118,26 @@ pub fn compute_values(
                 }?;
                 Ok(UntaggedValue::Primitive(Primitive::Decimal(result)))
             }
-            (Primitive::Date(x), Primitive::Date(y)) => {
+            (Primitive::Date(x), Primitive::Date(y)) => match operator {
+                Operator::Minus => Ok(UntaggedValue::Primitive(Primitive::from(
+                    x.signed_duration_since(*y),
+                ))),
+                _ => Err((left.type_name(), right.type_name())),
+            },
+            (Primitive::Date(x), Primitive::Duration(_)) => {
                 let result = match operator {
-                    Operator::Minus => Ok(x.signed_duration_since(*y).num_seconds()),
-                    _ => Err((left.type_name(), right.type_name())),
-                }?;
-                Ok(UntaggedValue::Primitive(Primitive::Duration(result)))
-            }
-            (Primitive::Date(x), Primitive::Duration(y)) => {
-                let result = match operator {
-                    Operator::Plus => Ok(x
-                        .checked_add_signed(chrono::Duration::seconds(*y as i64))
-                        .expect("Overflowing add of duration")),
+                    Operator::Plus => {
+                        // FIXME: I'm not sure if this is the way the overflows should be handled.
+                        // The previous version used except().
+                        // FIXME: Not sure if I could do something better with the Span.
+                        match Primitive::into_chrono_duration(rhs.clone(), Span::unknown()) {
+                            Ok(y) => match x.checked_add_signed(y) {
+                                Some(result) => Ok(result),
+                                None => Err((left.type_name(), right.type_name())),
+                            },
+                            Err(_) => Err((left.type_name(), right.type_name())),
+                        }
+                    }
                     _ => Err((left.type_name(), right.type_name())),
                 }?;
                 Ok(UntaggedValue::Primitive(Primitive::Date(result)))

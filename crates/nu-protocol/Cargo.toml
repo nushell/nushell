@@ -15,6 +15,7 @@ nu-errors = { path = "../nu-errors", version = "0.15.1" }
 
 serde = { version = "1.0.114", features = ["derive"] }
 indexmap = { version = "1.4.0", features = ["serde-1"] }
+num-integer = "0.1.42"
 num-bigint = { version = "0.2.6", features = ["serde"] }
 bigdecimal = { version = "0.1.2", features = ["serde"] }
 chrono = { version = "0.4.11", features = ["serde"] }

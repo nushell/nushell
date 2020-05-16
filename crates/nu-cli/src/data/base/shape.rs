@@ -27,7 +27,7 @@ pub enum InlineShape {
     Pattern(String),
     Boolean(bool),
     Date(DateTime<Utc>),
-    Duration(i64),
+    Duration(BigInt),
     Path(PathBuf),
     Binary,
 
@@ -71,7 +71,7 @@ impl InlineShape {
             Primitive::Pattern(pattern) => InlineShape::Pattern(pattern.clone()),
             Primitive::Boolean(boolean) => InlineShape::Boolean(*boolean),
             Primitive::Date(date) => InlineShape::Date(*date),
-            Primitive::Duration(duration) => InlineShape::Duration(*duration),
+            Primitive::Duration(duration) => InlineShape::Duration(duration.clone()),
             Primitive::Path(path) => InlineShape::Path(path.clone()),
             Primitive::Binary(_) => InlineShape::Binary,
             Primitive::BeginningOfStream => InlineShape::BeginningOfStream,
@@ -178,9 +178,10 @@ impl PrettyDebug for FormatInlineShape {
                 .to_owned(),
             ),
             InlineShape::Date(date) => b::primitive(nu_protocol::format_date(date)),
-            InlineShape::Duration(duration) => {
-                b::description(format_primitive(&Primitive::Duration(*duration), None))
-            }
+            InlineShape::Duration(duration) => b::description(format_primitive(
+                &Primitive::Duration(duration.clone()),
+                None,
+            )),
             InlineShape::Path(path) => b::primitive(path.display()),
             InlineShape::Binary => b::opaque("<binary>"),
             InlineShape::Row(row) => b::delimit(
