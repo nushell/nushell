@@ -26,6 +26,7 @@ impl Plugin for Parse {
                     value: UntaggedValue::Primitive(Primitive::String(s)),
                     tag,
                 } => {
+                    self.pattern_tag = tag.clone();
                     let parse_pattern = parse(&s);
                     let parse_regex = build_regex(&parse_pattern);
                     self.column_names = column_names(&parse_pattern);
@@ -54,12 +55,33 @@ impl Plugin for Parse {
         match &input.as_string() {
             Ok(s) => {
                 let mut output = vec![];
-                for cap in self.regex.captures_iter(&s) {
+                for caps in self.regex.captures_iter(&s) {
+                    let group_count = caps.len() - 1;
+
+                    if self.column_names.len() != group_count {
+                        return Err(ShellError::labeled_error(
+                            format!(
+                                "Found {} {} [{}], but expected {} for columns [{}]",
+                                group_count,
+                                if group_count == 1 { "match" } else { "matches" },
+                                caps.iter()
+                                    .skip(1)
+                                    .map(|g| g.map_or("<none>", |g| g.as_str()).to_string())
+                                    .collect::<Vec<String>>()
+                                    .join(", "),
+                                self.column_names.len(),
+                                self.column_names.join(", ")
+                            ),
+                            "expected columns",
+                            &self.pattern_tag,
+                        ));
+                    }
+
                     let mut dict = TaggedDictBuilder::new(&input.tag);
                     for (idx, column_name) in self.column_names.iter().enumerate() {
                         dict.insert_untagged(
                             column_name,
-                            UntaggedValue::string(cap[idx + 1].to_string()),
+                            UntaggedValue::string(caps[idx + 1].to_string()),
                         );
                     }
                     output.push(Ok(ReturnSuccess::Value(dict.into_value())));
