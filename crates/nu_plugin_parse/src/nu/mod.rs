@@ -26,6 +26,7 @@ impl Plugin for Parse {
                     value: UntaggedValue::Primitive(Primitive::String(s)),
                     tag,
                 } => {
+                    self.pattern_tag = tag.clone();
                     let parse_pattern = parse(&s);
                     let parse_regex = build_regex(&parse_pattern);
                     self.column_names = column_names(&parse_pattern);
@@ -54,12 +55,44 @@ impl Plugin for Parse {
         match &input.as_string() {
             Ok(s) => {
                 let mut output = vec![];
-                for cap in self.regex.captures_iter(&s) {
+                for caps in self.regex.captures_iter(&s) {
+                    let group_count = caps.len() - 1;
+
+                    if self.column_names.len() != group_count {
+                        return Err(ShellError::labeled_error(
+                            format!(
+                                "There are {} column(s) specified in the pattern, but could only match the first {}: [{}]",
+                                self.column_names.len(),
+                                group_count,
+                                caps.iter()
+                                    .skip(1)
+                                    .map(|m| {
+                                        if let Some(m) = m {
+                                            let m = m.as_str();
+                                            let mut m = m.replace(",","\\,");
+                                            if m.len() > 20 {
+                                                m.truncate(17);
+                                                format!("{}...", m)
+                                            } else {
+                                                m
+                                            }
+                                        } else {
+                                            "<none>".to_string()
+                                        }
+                                    })
+                                    .collect::<Vec<String>>()
+                                    .join(", ")
+                            ),
+                            "could not match all columns in pattern",
+                            &self.pattern_tag,
+                        ));
+                    }
+
                     let mut dict = TaggedDictBuilder::new(&input.tag);
                     for (idx, column_name) in self.column_names.iter().enumerate() {
                         dict.insert_untagged(
                             column_name,
-                            UntaggedValue::string(cap[idx + 1].to_string()),
+                            UntaggedValue::string(caps[idx + 1].to_string()),
                         );
                     }
                     output.push(Ok(ReturnSuccess::Value(dict.into_value())));
