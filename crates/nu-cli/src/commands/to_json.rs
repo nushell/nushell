@@ -23,13 +23,13 @@ impl WholeStreamCommand for ToJSON {
         Signature::build("to json").named(
             "pretty",
             SyntaxShape::Int,
-            "Formats the json text with the provided indentation setting",
+            "Formats the JSON text with the provided indentation setting",
             Some('p'),
         )
     }
 
     fn usage(&self) -> &str {
-        "Converts table data into json text."
+        "Converts table data into JSON text."
     }
 
     fn run(
@@ -44,12 +44,12 @@ impl WholeStreamCommand for ToJSON {
         &[
             Example {
                 description:
-                    "Outputs an unformatted json string representing the contents of this table",
+                    "Outputs an unformatted JSON string representing the contents of this table",
                 example: "to json",
             },
             Example {
                 description:
-                    "Outputs a formatted json string representing the contents of this table with an indentation setting of 4 spaces",
+                    "Outputs a formatted JSON string representing the contents of this table with an indentation setting of 4 spaces",
                 example: "to json --pretty 4",
             },
         ]
