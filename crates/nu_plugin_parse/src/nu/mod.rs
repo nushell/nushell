@@ -61,18 +61,29 @@ impl Plugin for Parse {
                     if self.column_names.len() != group_count {
                         return Err(ShellError::labeled_error(
                             format!(
-                                "Found {} {} [{}], but expected {} for columns [{}]",
+                                "The are {} column(s) specified: [{}], but there are only {} regex match(es): [{}]",
+                                self.column_names.len(),
+                                self.column_names.join(", "),
                                 group_count,
-                                if group_count == 1 { "match" } else { "matches" },
                                 caps.iter()
                                     .skip(1)
-                                    .map(|g| g.map_or("<none>", |g| g.as_str()).to_string())
+                                    .map(|m| 
+                                        if let Some(m) = m {
+                                            let m = m.as_str();
+                                            let mut m = m.replace(",","\\,");
+                                            if m.len() > 20 {
+                                                m.truncate(17);
+                                                format!("{}...", m)
+                                            } else {
+                                                m
+                                            }
+                                        } else {
+                                            "<none>".to_string()
+                                        })
                                     .collect::<Vec<String>>()
-                                    .join(", "),
-                                self.column_names.len(),
-                                self.column_names.join(", ")
+                                    .join(", ")
                             ),
-                            "expected columns",
+                            "the number of regex matches does not equal the number of columns specified here",
                             &self.pattern_tag,
                         ));
                     }
