@@ -2,8 +2,15 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::{CoerceInto, ShellError};
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UnspannedPathMember, UntaggedValue, Value};
+use serde::Serialize;
+use serde_json::json;
 
 pub struct ToJSON;
+
+#[derive(Deserialize)]
+pub struct ToJSONArgs {
+    pretty: Option<Value>,
+}
 
 impl WholeStreamCommand for ToJSON {
     fn name(&self) -> &str {
@@ -11,11 +18,11 @@ impl WholeStreamCommand for ToJSON {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to json")
+        Signature::build("to json").switch("pretty", "Formats the json text", Some('p'))
     }
 
     fn usage(&self) -> &str {
-        "Convert table into .json text"
+        "Converts table data into json text."
     }
 
     fn run(
@@ -24,6 +31,21 @@ impl WholeStreamCommand for ToJSON {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         to_json(args, registry)
+    }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description:
+                    "Outputs an unformatted JSON string representing the contents of this table",
+                example: "to json",
+            },
+            Example {
+                description:
+                    "Outputs a formatted JSON string representing the contents of this table",
+                example: "to json --pretty",
+            },
+        ]
     }
 }
 
@@ -134,10 +156,10 @@ fn json_list(input: &[Value]) -> Result<Vec<serde_json::Value>, ShellError> {
 fn to_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let stream = async_stream! {
-        let args = args.evaluate_once(&registry).await?;
-        let name_tag = args.name_tag();
+        let name_tag = args.call_info.name_tag.clone();
+        let (ToJSONArgs { pretty }, mut input) = args.process(&registry).await?;
         let name_span = name_tag.span;
-        let input: Vec<Value> = args.input.collect().await;
+        let input: Vec<Value> = input.collect().await;
 
         let to_process_input = if input.len() > 1 {
             let tag = input[0].tag.clone();
@@ -154,9 +176,35 @@ fn to_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                     let value_span = value.tag.span;
 
                     match serde_json::to_string(&json_value) {
-                        Ok(x) => yield ReturnSuccess::value(
-                            UntaggedValue::Primitive(Primitive::String(x)).into_value(&name_tag),
-                        ),
+                        Ok(mut serde_json_string) => {
+                            if let Some(pretty_value) = &pretty {
+                                let mut pretty_format_failed = true;
+
+                                if let Ok(serde_json_value) = serde_json::from_str::<serde_json::Value>(serde_json_string.as_str()) {
+                                    let indentation_string = std::iter::repeat(" ").take(4).collect::<String>();
+                                    let serde_formatter = serde_json::ser::PrettyFormatter::with_indent(indentation_string.as_bytes());
+                                    let serde_buffer = Vec::new();
+                                    let mut serde_serializer = serde_json::Serializer::with_formatter(serde_buffer, serde_formatter);
+                                    let serde_json_object = json!(serde_json_value);
+
+                                    if let Ok(()) = serde_json_object.serialize(&mut serde_serializer) {
+                                        if let Ok(ser_json_string) = String::from_utf8(serde_serializer.into_inner()) {
+                                            pretty_format_failed = false;
+                                            serde_json_string = ser_json_string
+                                        }
+                                    }
+                                }
+
+                                if pretty_format_failed {
+                                    yield Err(ShellError::labeled_error("Pretty formatting failed", "failed", pretty_value.tag()));
+                                    return;
+                                }
+                            }
+
+                            yield ReturnSuccess::value(
+                                UntaggedValue::Primitive(Primitive::String(serde_json_string)).into_value(&name_tag),
+                            )
+                        },
                         _ => yield Err(ShellError::labeled_error_with_secondary(
                             "Expected a table with JSON-compatible structure.tag() from pipeline",
                             "requires JSON-compatible input",
