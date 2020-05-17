@@ -61,9 +61,8 @@ impl Plugin for Parse {
                     if self.column_names.len() != group_count {
                         return Err(ShellError::labeled_error(
                             format!(
-                                "The are {} column(s) specified: [{}], but there are only {} regex match(es): [{}]",
+                                "There are {} column(s) specified in the pattern, but could only match the first {}: [{}]",
                                 self.column_names.len(),
-                                self.column_names.join(", "),
                                 group_count,
                                 caps.iter()
                                     .skip(1)
@@ -84,7 +83,7 @@ impl Plugin for Parse {
                                     .collect::<Vec<String>>()
                                     .join(", ")
                             ),
-                            "the number of regex matches does not equal the number of columns specified here",
+                            "could not match all columns in pattern",
                             &self.pattern_tag,
                         ));
                     }
