@@ -225,13 +225,3 @@ fn to_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
 
     Ok(stream.to_output_stream())
 }
-
-// Error handle failures
-
-// Release:
-// rustfmt (through editor and try manually)
-// clippy
-// Check diff and make sure strings for docs all look good / match
-
-// Later:
-// Add range for tabs (1 - 8)
