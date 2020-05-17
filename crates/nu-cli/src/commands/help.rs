@@ -263,7 +263,7 @@ pub fn get_help(cmd: &dyn WholeStreamCommand, registry: &CommandRegistry) -> Str
         }
     }
 
-    let palette = crate::shell::helper::DefaultPalette {};
+    let palette = crate::shell::palette::DefaultPalette {};
     let examples = cmd.examples();
     if !examples.is_empty() {
         long_desc.push_str("\nExamples:");
