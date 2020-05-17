@@ -156,9 +156,8 @@ fn json_list(input: &[Value]) -> Result<Vec<serde_json::Value>, ShellError> {
 fn to_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let stream = async_stream! {
+        let name_tag = args.call_info.name_tag.clone();
         let (ToJSONArgs { pretty }, mut input) = args.process(&registry).await?;
-        let args = args.evaluate_once(&registry).await?;
-        let name_tag = args.name_tag();
         let name_span = name_tag.span;
         let input: Vec<Value> = input.collect().await;
 
@@ -178,7 +177,7 @@ fn to_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
 
                     match serde_json::to_string(&json_value) {
                         Ok(mut serde_json_string) => {
-                            if let Some(pretty_value) = pretty {
+                            if let Some(pretty_value) = &pretty {
                                 let mut pretty_format_failed = true;
 
                                 if let Ok(serde_json_value) = serde_json::from_str::<serde_json::Value>(serde_json_string.as_str()) {
