@@ -1,7 +1,9 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::{CoerceInto, ShellError};
-use nu_protocol::{Primitive, ReturnSuccess, Signature, UnspannedPathMember, UntaggedValue, Value};
+use nu_protocol::{
+    Primitive, ReturnSuccess, Signature, SyntaxShape, UnspannedPathMember, UntaggedValue, Value,
+};
 use serde::Serialize;
 use serde_json::json;
 
@@ -18,11 +20,16 @@ impl WholeStreamCommand for ToJSON {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to json").switch("pretty", "Formats the json text", Some('p'))
+        Signature::build("to json").named(
+            "pretty",
+            SyntaxShape::Int,
+            "Formats the JSON text with the provided indentation setting",
+            Some('p'),
+        )
     }
 
     fn usage(&self) -> &str {
-        "Converts table data into json text."
+        "Converts table data into JSON text."
     }
 
     fn run(
@@ -42,8 +49,8 @@ impl WholeStreamCommand for ToJSON {
             },
             Example {
                 description:
-                    "Outputs a formatted JSON string representing the contents of this table",
-                example: "to json --pretty",
+                    "Outputs a formatted JSON string representing the contents of this table with an indentation setting of 4 spaces",
+                example: "to json --pretty 4",
             },
         ]
     }
@@ -180,17 +187,19 @@ fn to_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                             if let Some(pretty_value) = &pretty {
                                 let mut pretty_format_failed = true;
 
-                                if let Ok(serde_json_value) = serde_json::from_str::<serde_json::Value>(serde_json_string.as_str()) {
-                                    let indentation_string = std::iter::repeat(" ").take(4).collect::<String>();
-                                    let serde_formatter = serde_json::ser::PrettyFormatter::with_indent(indentation_string.as_bytes());
-                                    let serde_buffer = Vec::new();
-                                    let mut serde_serializer = serde_json::Serializer::with_formatter(serde_buffer, serde_formatter);
-                                    let serde_json_object = json!(serde_json_value);
+                                if let Ok(pretty_u64) = pretty_value.as_u64() {
+                                    if let Ok(serde_json_value) = serde_json::from_str::<serde_json::Value>(serde_json_string.as_str()) {
+                                        let indentation_string = std::iter::repeat(" ").take(pretty_u64 as usize).collect::<String>();
+                                        let serde_formatter = serde_json::ser::PrettyFormatter::with_indent(indentation_string.as_bytes());
+                                        let serde_buffer = Vec::new();
+                                        let mut serde_serializer = serde_json::Serializer::with_formatter(serde_buffer, serde_formatter);
+                                        let serde_json_object = json!(serde_json_value);
 
-                                    if let Ok(()) = serde_json_object.serialize(&mut serde_serializer) {
-                                        if let Ok(ser_json_string) = String::from_utf8(serde_serializer.into_inner()) {
-                                            pretty_format_failed = false;
-                                            serde_json_string = ser_json_string
+                                        if let Ok(()) = serde_json_object.serialize(&mut serde_serializer) {
+                                            if let Ok(ser_json_string) = String::from_utf8(serde_serializer.into_inner()) {
+                                                pretty_format_failed = false;
+                                                serde_json_string = ser_json_string
+                                            }
                                         }
                                     }
                                 }

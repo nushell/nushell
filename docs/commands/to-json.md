@@ -1,10 +1,10 @@
 # to json
 
-Converts table data into json text.
+Converts table data into JSON text.
 
 ## Flags
 
-* `-p`, `--pretty`: Formats the json text
+* `-p`, `--pretty` \<integer>: Formats the JSON text with the provided indentation setting
 
 ## Example
 
