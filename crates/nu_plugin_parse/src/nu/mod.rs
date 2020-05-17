@@ -67,7 +67,7 @@ impl Plugin for Parse {
                                 group_count,
                                 caps.iter()
                                     .skip(1)
-                                    .map(|m| 
+                                    .map(|m| {
                                         if let Some(m) = m {
                                             let m = m.as_str();
                                             let mut m = m.replace(",","\\,");
@@ -79,7 +79,8 @@ impl Plugin for Parse {
                                             }
                                         } else {
                                             "<none>".to_string()
-                                        })
+                                        }
+                                    })
                                     .collect::<Vec<String>>()
                                     .join(", ")
                             ),
