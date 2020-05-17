@@ -64,7 +64,7 @@ impl Highlighter for Helper {
         Painter::paint_string(
             line,
             &self.context.registry().clone_box(),
-            &DefaultPallet {},
+            &DefaultPalette {},
         )
     }
 
@@ -100,10 +100,10 @@ impl Painter {
         }
     }
 
-    pub fn paint_string<'l, P: Pallet>(
+    pub fn paint_string<'l, P: Palette>(
         line: &'l str,
         registry: &dyn SignatureRegistry,
-        pallet: &P,
+        palette: &P,
     ) -> Cow<'l, str> {
         let lite_block = nu_parser::lite_parse(line, 0);
 
@@ -116,7 +116,7 @@ impl Painter {
                 let mut painter = Painter::new(line);
 
                 for shape in shapes {
-                    painter.paint_shape(&shape, pallet);
+                    painter.paint_shape(&shape, palette);
                 }
 
                 Cow::Owned(painter.into_string())
@@ -124,8 +124,8 @@ impl Painter {
         }
     }
 
-    fn paint_shape<P: Pallet>(&mut self, shape: &Spanned<FlatShape>, pallet: &P) {
-        pallet
+    fn paint_shape<P: Palette>(&mut self, shape: &Spanned<FlatShape>, palette: &P) {
+        palette
             .styles_for_shape(shape)
             .iter()
             .for_each(|x| self.paint(x));
@@ -177,13 +177,13 @@ impl rustyline::Helper for Helper {}
 // In the future we can implement this for custom multi-line support
 impl rustyline::validate::Validator for Helper {}
 
-pub trait Pallet {
+pub trait Palette {
     fn styles_for_shape(&self, shape: &Spanned<FlatShape>) -> Vec<Spanned<Style>>;
 }
 
-pub struct DefaultPallet {}
+pub struct DefaultPalette {}
 
-impl Pallet for DefaultPallet {
+impl Palette for DefaultPalette {
     fn styles_for_shape(&self, shape: &Spanned<FlatShape>) -> Vec<Spanned<Style>> {
         match &shape.item {
             FlatShape::OpenDelimiter(_) => single_style_span(Color::White.normal(), shape.span),
