@@ -50,12 +50,12 @@ fn insert(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
 
     let stream = async_stream! {
         let (InsertArgs { column, value }, mut input) = args.process(&registry).await?;
-        while let Some(value) = input.next().await {
-            match value {
-                value @ Value {
+        while let Some(row) = input.next().await {
+            match row {
+                Value {
                     value: UntaggedValue::Row(_),
                     ..
-                } => match value.insert_data_at_column_path(&column, value.clone()) {
+                } => match row.insert_data_at_column_path(&column, value.clone()) {
                     Ok(v) => yield Ok(ReturnSuccess::Value(v)),
                     Err(err) => yield Err(err),
                 },
@@ -68,8 +68,8 @@ fn insert(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
                     ));
                 }
 
-            };
-        }
+            }
+        };
 
     };
     Ok(stream.to_output_stream())
