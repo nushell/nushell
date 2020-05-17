@@ -2,6 +2,10 @@
 
 Converts table data into json text.
 
+## Flags
+
+* `-p`, `--pretty`: Formats the json text
+
 ## Example
 
 ```shell
