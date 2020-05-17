@@ -4,7 +4,7 @@ Converts table data into json text.
 
 ## Flags
 
-* `-p`, `--pretty`: Formats the json text
+* `-p`, `--pretty` \<integer>: Formats the json text with the provided indentation setting
 
 ## Example
 
