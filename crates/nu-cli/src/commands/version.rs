@@ -26,6 +26,15 @@ impl WholeStreamCommand for Version {
     ) -> Result<OutputStream, ShellError> {
         version(args, registry)
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "Display Nu version",
+                example: "version",
+            },
+        ]
+    }
 }
 
 pub fn version(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {

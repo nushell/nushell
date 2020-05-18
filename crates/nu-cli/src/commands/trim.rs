@@ -26,6 +26,15 @@ impl WholeStreamCommand for Trim {
     ) -> Result<OutputStream, ShellError> {
         trim(args, registry)
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "Trims surrounding whitespace and outputs \"Hello world\"",
+                example: "echo \"    Hello world\" | trim",
+            },
+        ]
+    }
 }
 
 fn trim_primitive(p: &mut Primitive) {

@@ -32,6 +32,15 @@ impl WholeStreamCommand for Reject {
     ) -> Result<OutputStream, ShellError> {
         reject(args, registry)
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "Lists the files in a directory without showing the modified column",
+                example: "ls | reject modified",
+            },
+        ]
+    }
 }
 
 fn reject(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
