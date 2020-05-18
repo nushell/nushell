@@ -16,7 +16,7 @@ parking_lot = "0.10.2"
 num-traits = "0.2.11"
 derive-new = "0.5.8"
 serde = "1.0.110"
-language-reporting = "0.4.0"
+codespan-reporting = "0.9.4"
 log = "0.4.8"
 shellexpand = "2.0.0"
 

@@ -472,6 +472,15 @@ impl From<Option<Span>> for Span {
     }
 }
 
+impl From<Span> for std::ops::Range<usize> {
+    fn from(input: Span) -> std::ops::Range<usize> {
+        std::ops::Range {
+            start: input.start,
+            end: input.end,
+        }
+    }
+}
+
 impl Span {
     /// Creates a default new `Span` that has 0 start and 0 end.
     pub fn default() -> Self {
@@ -654,32 +663,6 @@ impl PartialOrd<usize> for Span {
 impl PartialEq<usize> for Span {
     fn eq(&self, other: &usize) -> bool {
         (self.end - self.start) == *other
-    }
-}
-
-impl language_reporting::ReportingSpan for Span {
-    fn with_start(&self, start: usize) -> Self {
-        if self.end < start {
-            Span::new(start, start)
-        } else {
-            Span::new(start, self.end)
-        }
-    }
-
-    fn with_end(&self, end: usize) -> Self {
-        if end < self.start {
-            Span::new(end, end)
-        } else {
-            Span::new(self.start, end)
-        }
-    }
-
-    fn start(&self) -> usize {
-        self.start
-    }
-
-    fn end(&self) -> usize {
-        self.end
     }
 }
 

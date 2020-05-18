@@ -492,6 +492,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "codespan-reporting"
+version = "0.9.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ceface2475f2f57a7ece9ba239b96e06bda8323ee68aa6df539752f13a74f60"
+dependencies = [
+ "serde 1.0.110",
+ "termcolor",
+ "unicode-width",
+]
+
+[[package]]
 name = "config"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1663,15 +1674,6 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.7.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d47946d458e94a1b7bcabbf6521ea7c037062c81f534615abcad76e84d4970d"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "284f18f85651fe11e8a991b2adb42cb078325c996ed026d994719efcfca1d54b"
@@ -1729,21 +1731,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a2d3beed37e5483887d81eb39de6de03a8346531410e1306ca48a9a89bd3a51"
 dependencies = [
  "log",
-]
-
-[[package]]
-name = "language-reporting"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e6a84e1e6cccd818617d299427ad1519f127af2738b1d3a581835ef56ae298b"
-dependencies = [
- "derive-new",
- "itertools 0.7.11",
- "log",
- "render-tree",
- "serde 1.0.110",
- "serde_derive",
- "termcolor",
 ]
 
 [[package]]
@@ -2217,6 +2204,7 @@ dependencies = [
  "chrono",
  "clap",
  "clipboard",
+ "codespan-reporting",
  "csv",
  "ctrlc",
  "derive-new",
@@ -2236,8 +2224,7 @@ dependencies = [
  "ical",
  "ichwh",
  "indexmap",
- "itertools 0.9.0",
- "language-reporting",
+ "itertools",
  "log",
  "meval",
  "natural",
@@ -2295,10 +2282,10 @@ version = "0.14.1"
 dependencies = [
  "ansi_term 0.12.1",
  "bigdecimal",
+ "codespan-reporting",
  "derive-new",
  "getset",
  "glob",
- "language-reporting",
  "nu-build",
  "nu-source",
  "num-bigint",
@@ -2314,9 +2301,9 @@ name = "nu-parser"
 version = "0.14.1"
 dependencies = [
  "bigdecimal",
+ "codespan-reporting",
  "derive-new",
  "indexmap",
- "language-reporting",
  "log",
  "nu-errors",
  "nu-protocol",
@@ -2351,10 +2338,10 @@ dependencies = [
  "bigdecimal",
  "byte-unit",
  "chrono",
+ "codespan-reporting",
  "derive-new",
  "getset",
  "indexmap",
- "language-reporting",
  "log",
  "natural",
  "nu-build",
@@ -2375,9 +2362,9 @@ dependencies = [
 name = "nu-source"
 version = "0.14.1"
 dependencies = [
+ "codespan-reporting",
  "derive-new",
  "getset",
- "language-reporting",
  "nu-build",
  "pretty",
  "serde 1.0.110",
@@ -2405,7 +2392,7 @@ name = "nu-value-ext"
 version = "0.14.1"
 dependencies = [
  "indexmap",
- "itertools 0.9.0",
+ "itertools",
  "nu-build",
  "nu-errors",
  "nu-parser",
@@ -3267,17 +3254,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a83fa3702a688b9359eccba92d153ac33fd2e8462f9e0e3fdf155239ea7792e"
 dependencies = [
  "winapi 0.3.8",
-]
-
-[[package]]
-name = "render-tree"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68ed587df09cfb7ce1bc6fe8f77e24db219f222c049326ccbfb948ec67e31664"
-dependencies = [
- "itertools 0.7.11",
- "log",
- "termcolor",
 ]
 
 [[package]]
