@@ -126,7 +126,7 @@ mod it_evaluation {
                 cwd: dirs.test(), pipeline(
                 r#"
                     open sample.toml
-                    | cococo $it.nu_party_venue
+                    | nu --testbin cococo $it.nu_party_venue
                     | echo $it
                 "#
             ));
