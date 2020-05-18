@@ -67,7 +67,7 @@ fn sum(RunnableContext { mut input, .. }: RunnableContext) -> Result<OutputStrea
                     UntaggedValue::Row(row_dict) => {
                         Ok(row_dict.entries.into_iter().map(|kvp| kvp.1).collect())
                     },
-                    table => Err(ShellError::unimplemented("Can't sum tables.")),
+                    _ => Err(ShellError::unimplemented("Can't compute the sum.")),
                 };
 
                 match row_values {
