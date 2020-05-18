@@ -376,9 +376,7 @@ pub fn create_default_context(
 
         #[cfg(feature = "clipboard")]
         {
-            context.add_commands(vec![whole_stream_command(
-                crate::commands::clip::clipboard::Clip,
-            )]);
+            context.add_commands(vec![whole_stream_command(crate::commands::clip::Clip)]);
         }
     }
 

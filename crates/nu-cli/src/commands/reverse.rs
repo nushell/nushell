@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature};
+use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 
 pub struct Reverse;
 
@@ -27,10 +27,17 @@ impl WholeStreamCommand for Reverse {
         reverse(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
-            description: "Sort files in descending file size",
-            example: "ls | sort-by size | reverse",
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Sort list of numbers in descending file size",
+            example: "echo [3 1 2 19 0] | reverse",
+            result: Some(vec![
+                UntaggedValue::int(0).into(),
+                UntaggedValue::int(19).into(),
+                UntaggedValue::int(2).into(),
+                UntaggedValue::int(1).into(),
+                UntaggedValue::int(3).into(),
+            ]),
         }]
     }
 }
@@ -48,4 +55,16 @@ fn reverse(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Reverse;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Reverse {})
+    }
 }

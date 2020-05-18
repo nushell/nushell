@@ -48,3 +48,15 @@ fn shells(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream
 
     Ok(shells_out.into())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Shells;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Shells {})
+    }
+}

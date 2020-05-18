@@ -282,3 +282,15 @@ fn string_from(input: &[Value]) -> String {
 
     save_data
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Save;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Save {})
+    }
+}

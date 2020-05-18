@@ -44,10 +44,11 @@ impl WholeStreamCommand for GroupByDate {
         group_by_date(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
             description: "Group files by type",
-            example: "ls | group-by date --fmt '%d/%m/%Y'",
+            example: "ls | group-by date --format '%d/%m/%Y'",
+            result: None,
         }]
     }
 }
@@ -100,4 +101,16 @@ pub fn group_by_date(
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::GroupByDate;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(GroupByDate {})
+    }
 }

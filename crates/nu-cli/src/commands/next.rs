@@ -30,3 +30,15 @@ impl WholeStreamCommand for Next {
 fn next(_args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     Ok(vec![Ok(ReturnSuccess::Action(CommandAction::NextShell))].into())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Next;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Next {})
+    }
+}

@@ -45,3 +45,15 @@ pub fn what(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStre
 
     Ok(OutputStream::from(stream))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::What;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(What {})
+    }
+}

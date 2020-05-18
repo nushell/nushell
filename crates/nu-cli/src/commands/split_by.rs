@@ -273,4 +273,12 @@ mod tests {
 
         assert!(split(&for_key, &nu_releases, Tag::from(Span::new(5, 10))).is_err());
     }
+
+    #[test]
+    fn examples_work_as_expected() {
+        use super::SplitBy;
+        use crate::examples::test as test_examples;
+
+        test_examples(SplitBy {})
+    }
 }

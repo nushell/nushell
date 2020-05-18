@@ -44,19 +44,22 @@ impl WholeStreamCommand for FromCSV {
         from_csv(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Convert comma-separated data to a table",
                 example: "open data.txt | from csv",
+                result: None,
             },
             Example {
                 description: "Convert comma-separated data to a table, ignoring headers",
                 example: "open data.txt | from csv --headerless",
+                result: None,
             },
             Example {
                 description: "Convert semicolon-separated data to a table",
                 example: "open data.txt | from csv --separator ';'",
+                result: None,
             },
         ]
     }
@@ -99,4 +102,16 @@ fn from_csv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::FromCSV;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(FromCSV {})
+    }
 }

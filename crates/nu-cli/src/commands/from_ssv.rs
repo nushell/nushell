@@ -485,4 +485,12 @@ mod tests {
         assert_eq!(aligned_columns_headerless, separator_headerless);
         assert_eq!(aligned_columns_with_headers, separator_with_headers);
     }
+
+    #[test]
+    fn examples_work_as_expected() {
+        use super::FromSSV;
+        use crate::examples::test as test_examples;
+
+        test_examples(FromSSV {})
+    }
 }

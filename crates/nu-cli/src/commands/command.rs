@@ -272,6 +272,7 @@ impl EvaluatedCommandArgs {
 pub struct Example {
     pub example: &'static str,
     pub description: &'static str,
+    pub result: Option<Vec<Value>>,
 }
 
 pub trait WholeStreamCommand: Send + Sync {
@@ -293,8 +294,8 @@ pub trait WholeStreamCommand: Send + Sync {
         false
     }
 
-    fn examples(&self) -> &[Example] {
-        &[]
+    fn examples(&self) -> Vec<Example> {
+        Vec::new()
     }
 }
 

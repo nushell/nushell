@@ -47,20 +47,23 @@ impl WholeStreamCommand for Histogram {
         histogram(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Get a histogram for the types of files",
                 example: "ls | histogram type",
+                result: None,
             },
             Example {
                 description:
                     "Get a histogram for the types of files, with frequency column named count",
                 example: "ls | histogram type count",
+                result: None,
             },
             Example {
                 description: "Get a histogram for a list of numbers",
-                example: "echo [1 2 3 1 2 3 1 1 1 1 3 2 1 1 3] | wrap | histogram Column",
+                example: "echo [1 2 3 1 1 1 2 2 1 1] | histogram",
+                result: None,
             },
         ]
     }
@@ -178,4 +181,16 @@ fn percentages(values: &Value, max: Value, tag: impl Into<Tag>) -> Result<Value,
     };
 
     Ok(results)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Histogram;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Histogram {})
+    }
 }

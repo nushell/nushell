@@ -249,3 +249,15 @@ fn read_be_u16(input: &[u8]) -> Option<Vec<u16>> {
         Some(result)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Open;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Open {})
+    }
+}

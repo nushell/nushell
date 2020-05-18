@@ -22,10 +22,11 @@ impl WholeStreamCommand for Calc {
         calc(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
             description: "Calculate math in the pipeline",
             example: "echo '10 / 4' | calc",
+            result: Some(vec![UntaggedValue::decimal(2.5).into()]),
         }]
     }
 }
@@ -68,5 +69,17 @@ pub fn parse(math_expression: &str, tag: impl Into<Tag>) -> Result<Value, String
             Ok(UntaggedValue::from(Primitive::from(num)).into_value(tag))
         }
         Err(error) => Err(error.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Calc;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Calc {})
     }
 }

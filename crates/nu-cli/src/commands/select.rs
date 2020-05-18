@@ -40,15 +40,17 @@ impl WholeStreamCommand for Select {
         select(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Select just the name column",
                 example: "ls | select name",
+                result: None,
             },
             Example {
                 description: "Select the name and size columns",
                 example: "ls | select name size",
+                result: None,
             },
         ]
     }
@@ -171,4 +173,16 @@ fn select(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Select;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Select {})
+    }
 }

@@ -41,15 +41,17 @@ impl WholeStreamCommand for Enter {
         enter(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Enter a path as a new shell",
                 example: "enter ../projectB",
+                result: None,
             },
             Example {
                 description: "Enter a file as a new shell",
                 example: "enter package.json",
+                result: None,
             },
         ]
     }
@@ -164,4 +166,16 @@ fn enter(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Enter;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Enter {})
+    }
 }

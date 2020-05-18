@@ -67,19 +67,22 @@ impl WholeStreamCommand for Ls {
         ls(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "List all files in the current directory",
                 example: "ls",
+                result: None,
             },
             Example {
                 description: "List all files in a subdirectory",
                 example: "ls subdir",
+                result: None,
             },
             Example {
                 description: "List all rust files",
                 example: "ls *.rs",
+                result: None,
             },
         ]
     }
@@ -100,4 +103,16 @@ fn ls(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, She
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Ls;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Ls {})
+    }
 }

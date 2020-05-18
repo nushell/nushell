@@ -101,3 +101,15 @@ fn params_to_value(params: Vec<(String, Vec<String>)>, tag: Tag) -> Value {
 
     row.into_value()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::FromVcf;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(FromVcf {})
+    }
+}

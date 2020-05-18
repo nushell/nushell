@@ -26,10 +26,11 @@ impl WholeStreamCommand for Lines {
         lines(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
-            description: "Split output from an external command into lines",
-            example: "^ls -l | lines",
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Split multi-line string into lines",
+            example: r#"^echo "two\nlines" | lines"#,
+            result: None,
         }]
     }
 }
@@ -120,4 +121,16 @@ fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
     .flatten();
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Lines;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Lines {})
+    }
 }

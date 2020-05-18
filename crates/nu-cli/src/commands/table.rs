@@ -128,3 +128,15 @@ fn table(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
 
     Ok(OutputStream::new(stream))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Table;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Table {})
+    }
+}

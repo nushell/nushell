@@ -281,3 +281,15 @@ pub fn get_help(cmd: &dyn WholeStreamCommand, registry: &CommandRegistry) -> Str
 
     long_desc
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Help;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Help {})
+    }
+}

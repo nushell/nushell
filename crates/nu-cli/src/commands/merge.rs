@@ -39,10 +39,11 @@ impl WholeStreamCommand for Merge {
         merge(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
             description: "Merge a 1-based index column with some ls output",
             example: "ls | select name | keep 3 | merge { echo [1 2 3] | wrap index }",
+            result: None,
         }]
     }
 }
@@ -96,4 +97,16 @@ fn merge(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Merge;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Merge {})
+    }
 }

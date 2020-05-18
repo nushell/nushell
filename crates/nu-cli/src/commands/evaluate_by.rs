@@ -73,3 +73,15 @@ pub fn evaluate_by(
 
     Ok(stream.to_output_stream())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::EvaluateBy;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(EvaluateBy {})
+    }
+}

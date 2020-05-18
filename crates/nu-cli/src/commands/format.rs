@@ -39,10 +39,11 @@ impl WholeStreamCommand for Format {
         format_command(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
             description: "Print filenames with their sizes",
             example: "ls | format '{name}: {size}'",
+            result: None,
         }]
     }
 }
@@ -171,4 +172,16 @@ fn to_column_path(
         )
         .into_value(&tag),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Format;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Format {})
+    }
 }

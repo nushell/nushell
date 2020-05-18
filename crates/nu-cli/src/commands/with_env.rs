@@ -2,7 +2,7 @@ use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, ReturnSuccess, Signature, SyntaxShape};
+use nu_protocol::{hir::Block, ReturnSuccess, Signature, SyntaxShape, Value};
 use nu_source::Tagged;
 
 pub struct WithEnv;
@@ -43,10 +43,11 @@ impl WholeStreamCommand for WithEnv {
         with_env(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
             description: "Set the MYENV environment variable",
             example: r#"with-env [MYENV "my env value"] { echo $nu.env.MYENV }"#,
+            result: Some(vec![Value::from("my env value")]),
         }]
     }
 }
@@ -88,4 +89,16 @@ fn with_env(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputS
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::WithEnv;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(WithEnv {})
+    }
 }

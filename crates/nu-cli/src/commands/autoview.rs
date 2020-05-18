@@ -38,15 +38,17 @@ impl WholeStreamCommand for Autoview {
         })
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Automatically view the results",
                 example: "ls | autoview",
+                result: None,
             },
             Example {
                 description: "Autoview is also implied. The above can be written as",
                 example: "ls",
+                result: None,
             },
         ]
     }
@@ -334,5 +336,17 @@ fn create_default_command_args(context: &RunnableContextWithoutInput) -> RawComm
             name_tag: context.name.clone(),
             scope: Scope::empty(),
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Autoview;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Autoview {})
     }
 }

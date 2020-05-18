@@ -79,3 +79,15 @@ fn trim(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, 
         })
         .to_output_stream())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Trim;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Trim {})
+    }
+}

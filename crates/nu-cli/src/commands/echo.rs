@@ -31,15 +31,17 @@ impl WholeStreamCommand for Echo {
         echo(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Put a hello message in the pipeline",
                 example: "echo 'hello'",
+                result: Some(vec![Value::from("hello")]),
             },
             Example {
                 description: "Print the value of the special '$nu' variable",
                 example: "echo $nu",
+                result: None,
             },
         ]
     }
@@ -75,4 +77,16 @@ fn echo(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, S
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Echo;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Echo {})
+    }
 }

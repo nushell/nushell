@@ -171,6 +171,20 @@ impl std::ops::Mul for Primitive {
     }
 }
 
+impl From<&str> for Primitive {
+    /// Helper to convert from string slices to a primitive
+    fn from(s: &str) -> Primitive {
+        Primitive::String(s.to_string())
+    }
+}
+
+impl From<String> for Primitive {
+    /// Helper to convert from Strings to a primitive
+    fn from(s: String) -> Primitive {
+        Primitive::String(s)
+    }
+}
+
 impl From<BigDecimal> for Primitive {
     /// Helper to convert from decimals to a Primitive value
     fn from(decimal: BigDecimal) -> Primitive {
