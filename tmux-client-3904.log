@@ -1,0 +1,42 @@
+1589828452.057215 client started (3904): version 2.9a, socket /private/tmp/tmux-501/default, protocol 8
+1589828452.057278 on Darwin 19.4.0 Darwin Kernel Version 19.4.0: Wed Mar  4 22:28:40 PST 2020; root:xnu-6153.101.6~15/RELEASE_X86_64; libevent 2.1.11-stable (select)
+1589828452.057323 socket is /private/tmp/tmux-501/default
+1589828452.057348 trying connect
+1589828452.057466 add peer 0x104d06000: 6 (0x0)
+1589828452.059628 sending message 100 to peer 0x104d06000 (4 bytes)
+1589828452.059658 sending message 101 to peer 0x104d06000 (15 bytes)
+1589828452.059668 sending message 102 to peer 0x104d06000 (13 bytes)
+1589828452.059678 sending message 108 to peer 0x104d06000 (37 bytes)
+1589828452.059694 sending message 104 to peer 0x104d06000 (0 bytes)
+1589828452.059701 sending message 107 to peer 0x104d06000 (4 bytes)
+1589828452.059708 sending message 105 to peer 0x104d06000 (81 bytes)
+1589828452.059715 sending message 105 to peer 0x104d06000 (20 bytes)
+1589828452.059722 sending message 105 to peer 0x104d06000 (95 bytes)
+1589828452.059729 sending message 105 to peer 0x104d06000 (75 bytes)
+1589828452.059736 sending message 105 to peer 0x104d06000 (34 bytes)
+1589828452.059743 sending message 105 to peer 0x104d06000 (23 bytes)
+1589828452.059750 sending message 105 to peer 0x104d06000 (17 bytes)
+1589828452.059757 sending message 105 to peer 0x104d06000 (19 bytes)
+1589828452.059763 sending message 105 to peer 0x104d06000 (41 bytes)
+1589828452.059770 sending message 105 to peer 0x104d06000 (44 bytes)
+1589828452.059777 sending message 105 to peer 0x104d06000 (504 bytes)
+1589828452.059784 sending message 105 to peer 0x104d06000 (41 bytes)
+1589828452.059791 sending message 105 to peer 0x104d06000 (26 bytes)
+1589828452.059798 sending message 105 to peer 0x104d06000 (8 bytes)
+1589828452.059805 sending message 105 to peer 0x104d06000 (66 bytes)
+1589828452.059812 sending message 105 to peer 0x104d06000 (20 bytes)
+1589828452.059819 sending message 105 to peer 0x104d06000 (20 bytes)
+1589828452.059825 sending message 105 to peer 0x104d06000 (57 bytes)
+1589828452.059832 sending message 105 to peer 0x104d06000 (42 bytes)
+1589828452.059839 sending message 105 to peer 0x104d06000 (15 bytes)
+1589828452.059846 sending message 105 to peer 0x104d06000 (16 bytes)
+1589828452.059853 sending message 105 to peer 0x104d06000 (14 bytes)
+1589828452.059860 sending message 105 to peer 0x104d06000 (35 bytes)
+1589828452.059867 sending message 105 to peer 0x104d06000 (38 bytes)
+1589828452.059874 sending message 106 to peer 0x104d06000 (0 bytes)
+1589828452.059884 sending message 200 to peer 0x104d06000 (4 bytes)
+1589828452.059893 client loop enter
+1589828452.060205 peer 0x104d06000 message 211
+1589828452.060224 client_write: sessions should be nested with care, unset $TMUX to force\n
+1589828452.060245 peer 0x104d06000 message 203
+1589828452.060254 client loop exit

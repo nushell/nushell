@@ -1,5 +1,6 @@
 use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
+use crate::data::config;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{hir::Block, CommandAction, ReturnSuccess, Signature, SyntaxShape, Value};
@@ -12,6 +13,7 @@ pub struct AliasArgs {
     pub name: Tagged<String>,
     pub args: Vec<Value>,
     pub block: Block,
+    pub save: Option<bool>,
 }
 
 impl WholeStreamCommand for Alias {
@@ -28,6 +30,7 @@ impl WholeStreamCommand for Alias {
                 SyntaxShape::Block,
                 "the block to run as the body of the alias",
             )
+            .switch("save", "save the alias to your config", Some('s'))
     }
 
     fn usage(&self) -> &str {
@@ -56,24 +59,30 @@ impl WholeStreamCommand for Alias {
     }
 }
 
-pub fn alias(
-    AliasArgs {
-        name,
-        args: list,
-        block,
-    }: AliasArgs,
-    _: RunnableContext,
-) -> Result<OutputStream, ShellError> {
+pub fn alias(alias_args: AliasArgs, _: RunnableContext) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
         let mut args: Vec<String> = vec![];
-        for item in list.iter() {
+        // let name_span = args.name.clone();
+        // let mut result = crate::data::config::read(name_span.tag, &None)?;
+
+        // let value = Value {
+        //     value: UntaggedValue::Block(block.clone()),
+        //     tag: Tag::default(),
+        // };
+        // result.insert(String::from("startup"), value);
+
+        // config::write(&result, &None)?;
+        // TODO fix printing of alias_args
+
+        for item in alias_args.args.iter() {
             if let Ok(string) = item.as_string() {
                 args.push(format!("${}", string));
             } else {
                 yield Err(ShellError::labeled_error("Expected a string", "expected a string", item.tag()));
             }
         }
-        yield ReturnSuccess::action(CommandAction::AddAlias(name.to_string(), args, block.clone()))
+        println!("alias {} {:?} {}", alias_args.name.to_string(), args, alias_args.block);
+        yield ReturnSuccess::action(CommandAction::AddAlias(alias_args.name.to_string(), args, alias_args.block.clone()))
     };
 
     Ok(stream.to_output_stream())
