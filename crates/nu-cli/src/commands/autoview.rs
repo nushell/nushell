@@ -77,13 +77,10 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
     let binary = context.get_command("binaryview");
     let text = context.get_command("textview");
     let table = context.get_command("table");
-    let no_auto_pivot = config::config(Tag::unknown())?
-        .get("no_auto_pivot")
-        .map(|s| match s.value.expect_string() {
-            "true" => true,
-            _ => false,
-        })
-        .unwrap_or(false); //current behavior is to auto-pivot, this will maintain that behavior
+    let no_auto_pivot = match config::config(Tag::unknown())?.get("no_auto_pivot") {
+        Some(val) => val.is_true(),
+        _ => false,
+    };
 
     Ok(OutputStream::new(async_stream! {
         let (mut input_stream, context) = RunnableContextWithoutInput::convert(context);
