@@ -25,6 +25,7 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
             | get name
             | ^echo $it
             | nu --testbin chop
+            | lines
             | nth 3
             | echo $it
             "#
@@ -89,8 +90,7 @@ fn invocation_handles_dot() {
         r#"
             echo $(open nu_times.csv)
             | get name
-            | ^echo $it
-            | nu --testbin chop
+            | nu --testbin chop $it
             | nth 3
             | echo $it
             "#

@@ -105,7 +105,6 @@ impl num_traits::Zero for Primitive {
             Primitive::Int(int) => int.is_zero(),
             Primitive::Decimal(decimal) => decimal.is_zero(),
             Primitive::Bytes(size) => size.is_zero(),
-            Primitive::Nothing => true,
             _ => false,
         }
     }
