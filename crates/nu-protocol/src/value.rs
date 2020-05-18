@@ -489,7 +489,7 @@ impl std::ops::Add for Value {
 
                 UntaggedValue::from(left.add(right)).into_value(tag)
             }
-            (_, _) => unimplemented!("Internal error: can't add non-primitives."),
+            (_, _) => UntaggedValue::Error(ShellError::unimplemented("Can't add non-primitives.")).into_value(tag), 
         }
     }
 }

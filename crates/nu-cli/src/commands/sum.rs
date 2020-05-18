@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use crate::utils::data_processing::{reducer_for, Reduce};
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, ReturnValue, Signature, Value};
+use nu_protocol::{ReturnSuccess, ReturnValue, Signature, Value, UntaggedValue};
 use num_traits::identities::Zero;
 
 pub struct Sum;
@@ -51,13 +51,34 @@ impl WholeStreamCommand for Sum {
 
 fn sum(RunnableContext { mut input, .. }: RunnableContext) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
-        let mut values = input.drain_vec().await;
+        let mut values: Vec<Value> = input.drain_vec().await;
 
         let action = reducer_for(Reduce::Sum);
 
-        match action(Value::zero(), values) {
-            Ok(total) => yield ReturnSuccess::value(total),
-            Err(err) => yield Err(err),
+        // We need to check what type of value we have to what we need to do to compute the sum.
+        // It is possible that we can have a vector containing all primitives (a list of scalars)
+        // or a vector containing rows. Could also sum tables (sum each column and output the
+        // result as a row) but I haven't implemented that yet. 
+        if values.iter().all(|v| if let UntaggedValue::Primitive(_) = v.value {true} else {false}) {
+            let total = action(Value::zero(), values)?;
+            yield ReturnSuccess::value(total)
+        } else {
+            for value in values.into_iter() {
+                let row_values = match value.value {
+                    UntaggedValue::Row(row_dict) => {
+                        Ok(row_dict.entries.into_iter().map(|kvp| kvp.1).collect())
+                    },
+                    table => Err(ShellError::unimplemented("Can't sum tables.")),
+                };
+
+                match row_values {
+                    Ok(row_values) => {
+                        let total = action(Value::zero(), row_values)?;
+                        yield ReturnSuccess::value(total)
+                    },
+                    Err(err) => yield Err(err),
+                }
+            }
         }
     };
 
