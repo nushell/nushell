@@ -27,10 +27,11 @@ impl WholeStreamCommand for Version {
         version(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
             description: "Display Nu version",
             example: "version",
+            result: None,
         }]
     }
 }

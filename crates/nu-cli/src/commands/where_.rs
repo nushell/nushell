@@ -37,23 +37,27 @@ impl WholeStreamCommand for Where {
         where_command(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "List all files in the current directory with sizes greater than 2kb",
                 example: "ls | where size > 2kb",
+                result: None,
             },
             Example {
                 description: "List only the files in the current directory",
                 example: "ls | where type == File",
+                result: None,
             },
             Example {
                 description: "List all files with names that contain \"Car\"",
                 example: "ls | where name =~ \"Car\"",
+                result: None,
             },
             Example {
                 description: "List all files that were modified in the last two months",
                 example: "ls | where modified <= 2M",
+                result: None,
             },
         ]
     }

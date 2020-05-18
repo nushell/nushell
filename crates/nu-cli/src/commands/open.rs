@@ -44,10 +44,11 @@ impl WholeStreamCommand for Open {
         open(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
             description: "Opens \"users.csv\" and creates a table from the data",
             example: "open users.csv",
+            result: None,
         }]
     }
 }

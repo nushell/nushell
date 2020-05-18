@@ -35,10 +35,11 @@ impl WholeStreamCommand for Touch {
         touch(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
             description: "Creates \"fixture.json\"",
             example: "touch fixture.json",
+            result: None,
         }]
     }
 }
