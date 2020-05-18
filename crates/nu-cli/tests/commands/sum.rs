@@ -65,8 +65,8 @@ fn outputs_zero_with_no_input() {
 fn computes_sum_of_individual_row() {
     Playground::setup("sum_test_3", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
-                "calendar.json",
-                r#"
+            "calendar.json",
+            r#"
                     [
                         {
                             "sunday": null,
@@ -123,7 +123,7 @@ fn computes_sum_of_individual_row() {
                             "saturday": null
                         }
                     ]
-                "#
+                "#,
         )]);
         let answers_for_rows = ["3", "42", "91", "140", "189", "0"];
         for (row_idx, answer) in answers_for_rows.iter().enumerate() {
@@ -144,8 +144,8 @@ fn computes_sum_of_individual_row() {
 fn compute_sum_of_multiple_rows() {
     Playground::setup("sum_test_4", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
-                "calendar.json",
-                r#"
+            "calendar.json",
+            r#"
                     [
                         {
                             "sunday": null,
@@ -202,9 +202,9 @@ fn compute_sum_of_multiple_rows() {
                             "saturday": null
                         }
                     ]
-                "#
+                "#,
         )]);
-        
+
         let answers_for_rows = ["3", "42", "91", "140", "189", "0"];
         for (row_idx, answer) in answers_for_rows.iter().enumerate() {
             let actual = nu!(

@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use crate::utils::data_processing::{reducer_for, Reduce};
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, ReturnValue, Signature, Value, UntaggedValue};
+use nu_protocol::{ReturnSuccess, ReturnValue, Signature, UntaggedValue, Value};
 use num_traits::identities::Zero;
 
 pub struct Sum;
