@@ -27,10 +27,11 @@ impl WholeStreamCommand for Trim {
         trim(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
             description: "Trims surrounding whitespace and outputs \"Hello world\"",
             example: "echo \"    Hello world\" | trim",
+            result: Some(vec![Value::from("Hello world")]),
         }]
     }
 }

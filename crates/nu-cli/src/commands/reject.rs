@@ -33,10 +33,11 @@ impl WholeStreamCommand for Reject {
         reject(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
             description: "Lists the files in a directory without showing the modified column",
             example: "ls | reject modified",
+            result: None,
         }]
     }
 }
