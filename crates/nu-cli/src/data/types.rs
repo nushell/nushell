@@ -26,10 +26,6 @@ impl ExtractType for bool {
                 value: UntaggedValue::Primitive(Primitive::Boolean(b)),
                 ..
             } => Ok(*b),
-            Value {
-                value: UntaggedValue::Primitive(Primitive::Nothing),
-                ..
-            } => Ok(false),
             other => Err(ShellError::type_error("Boolean", other.spanned_type_name())),
         }
     }
