@@ -24,7 +24,7 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
             open nu_times.csv
             | get name
             | ^echo $it
-            | chop
+            | nu --testbin chop
             | nth 3
             | echo $it
             "#
@@ -90,7 +90,7 @@ fn invocation_handles_dot() {
             echo $(open nu_times.csv)
             | get name
             | ^echo $it
-            | chop
+            | nu --testbin chop
             | nth 3
             | echo $it
             "#
@@ -104,7 +104,7 @@ fn invocation_handles_dot() {
 fn can_process_one_row_from_internal_and_pipes_it_to_stdin_of_external() {
     let actual = nu!(
         cwd: ".",
-        r#"echo "nushelll" | chop"#
+        r#"echo "nushelll" | nu --testbin chop"#
     );
 
     assert_eq!(actual.out, "nushell");
