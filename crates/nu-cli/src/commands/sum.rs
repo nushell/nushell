@@ -54,10 +54,6 @@ fn sum(RunnableContext { mut input, .. }: RunnableContext) -> Result<OutputStrea
         let mut values: Vec<Value> = input.drain_vec().await;
         let action = reducer_for(Reduce::Sum);
 
-        // We need to check what type of value we have to what we need to do to compute the sum.
-        // It is possible that we can have a vector containing all primitives (a list of scalars)
-        // or a vector containing rows. Could also sum tables (sum each column and output the
-        // result as a row) but I haven't implemented that yet. 
         if values.iter().all(|v| if let UntaggedValue::Primitive(_) = v.value {true} else {false}) {
             let total = action(Value::zero(), values)?;
             yield ReturnSuccess::value(total)
