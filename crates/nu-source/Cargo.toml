@@ -13,7 +13,7 @@ doctest = false
 serde = { version = "1.0.106", features = ["derive"] }
 derive-new = "0.5.8"
 getset = "0.1.1"
-language-reporting = "0.4.0"
+codespan-reporting = "0.9.4"
 termcolor = "1.1.0"
 pretty = "0.5.2"
 
