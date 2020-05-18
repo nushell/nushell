@@ -648,6 +648,7 @@ impl Shell for FilesystemShell {
         let path = match canonicalize(self.path(), pathbuf.as_path()) {
             Ok(path) => {
                 let _ = std::env::set_current_dir(&path);
+                std::env::set_var("PWD", &path);
                 path
             }
             _ => {

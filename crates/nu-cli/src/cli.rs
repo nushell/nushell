@@ -592,6 +592,7 @@ pub async fn cli(
             #[cfg(feature = "starship-prompt")]
             {
                 std::env::set_var("STARSHIP_SHELL", "");
+                std::env::set_var("PWD", &cwd);
                 let mut starship_context =
                     starship::context::Context::new_with_dir(clap::ArgMatches::default(), cwd);
 
