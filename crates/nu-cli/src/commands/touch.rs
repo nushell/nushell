@@ -37,7 +37,7 @@ impl WholeStreamCommand for Touch {
 
     fn examples(&self) -> &[Example] {
         &[Example {
-            description: "Creates the file \"fixture.json\"",
+            description: "Creates \"fixture.json\"",
             example: "touch fixture.json",
         }]
     }
