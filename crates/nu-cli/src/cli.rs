@@ -568,6 +568,13 @@ pub async fn cli(
 
         rl.set_edit_mode(edit_mode);
 
+        let max_history_size = config::config(Tag::unknown())?
+            .get("history_size")
+            .map(|i| i.value.expect_int())
+            .unwrap_or(100);
+
+        rl.set_max_history_size(max_history_size as usize);
+
         let key_timeout = config::config(Tag::unknown())?
             .get("key_timeout")
             .map(|s| s.value.expect_int())
