@@ -34,7 +34,15 @@ impl WholeStreamCommand for Touch {
     ) -> Result<OutputStream, ShellError> {
         touch(args, registry)
     }
+
+    fn examples(&self) -> &[Example] {
+        &[Example {
+            description: "Creates \"fixture.json\"",
+            example: "touch fixture.json",
+        }]
+    }
 }
+
 fn touch(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let stream = async_stream! {

@@ -36,6 +36,27 @@ impl WholeStreamCommand for Where {
     ) -> Result<OutputStream, ShellError> {
         where_command(args, registry)
     }
+
+    fn examples(&self) -> &[Example] {
+        &[
+            Example {
+                description: "List all files in the current directory with sizes greater than 2kb",
+                example: "ls | where size > 2kb",
+            },
+            Example {
+                description: "List only the files in the current directory",
+                example: "ls | where type == File",
+            },
+            Example {
+                description: "List all files with names that contain \"Car\"",
+                example: "ls | where name =~ \"Car\"",
+            },
+            Example {
+                description: "List all files that were modified in the last two months",
+                example: "ls | where modified <= 2M",
+            },
+        ]
+    }
 }
 fn where_command(
     raw_args: CommandArgs,

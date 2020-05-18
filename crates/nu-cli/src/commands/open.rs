@@ -43,6 +43,13 @@ impl WholeStreamCommand for Open {
     ) -> Result<OutputStream, ShellError> {
         open(args, registry)
     }
+
+    fn examples(&self) -> &[Example] {
+        &[Example {
+            description: "Opens \"users.csv\" and creates a table from the data",
+            example: "open users.csv",
+        }]
+    }
 }
 
 fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
