@@ -45,12 +45,10 @@ impl WholeStreamCommand for Open {
     }
 
     fn examples(&self) -> &[Example] {
-        &[
-            Example {
-                description: "Opens the users.csv file and creates a table from the data",
-                example: "open users.csv",
-            },
-        ]
+        &[Example {
+            description: "Opens the users.csv file and creates a table from the data",
+            example: "open users.csv",
+        }]
     }
 }
 

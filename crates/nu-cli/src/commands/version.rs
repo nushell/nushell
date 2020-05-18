@@ -28,12 +28,10 @@ impl WholeStreamCommand for Version {
     }
 
     fn examples(&self) -> &[Example] {
-        &[
-            Example {
-                description: "Display Nu version",
-                example: "version",
-            },
-        ]
+        &[Example {
+            description: "Display Nu version",
+            example: "version",
+        }]
     }
 }
 

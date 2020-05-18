@@ -34,12 +34,10 @@ impl WholeStreamCommand for Reject {
     }
 
     fn examples(&self) -> &[Example] {
-        &[
-            Example {
-                description: "Lists the files in a directory without showing the modified column",
-                example: "ls | reject modified",
-            },
-        ]
+        &[Example {
+            description: "Lists the files in a directory without showing the modified column",
+            example: "ls | reject modified",
+        }]
     }
 }
 

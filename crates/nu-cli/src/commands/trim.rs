@@ -28,12 +28,10 @@ impl WholeStreamCommand for Trim {
     }
 
     fn examples(&self) -> &[Example] {
-        &[
-            Example {
-                description: "Trims surrounding whitespace and outputs \"Hello world\"",
-                example: "echo \"    Hello world\" | trim",
-            },
-        ]
+        &[Example {
+            description: "Trims surrounding whitespace and outputs \"Hello world\"",
+            example: "echo \"    Hello world\" | trim",
+        }]
     }
 }
 
