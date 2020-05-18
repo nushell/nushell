@@ -52,7 +52,6 @@ impl WholeStreamCommand for Sum {
 fn sum(RunnableContext { mut input, .. }: RunnableContext) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
         let mut values: Vec<Value> = input.drain_vec().await;
-
         let action = reducer_for(Reduce::Sum);
 
         // We need to check what type of value we have to what we need to do to compute the sum.
