@@ -57,13 +57,13 @@ fn sum(RunnableContext { mut input, .. }: RunnableContext) -> Result<OutputStrea
         if values.iter().all(|v| if let UntaggedValue::Primitive(_) = v.value {true} else {false}) {
             let total = action(Value::zero(), values)?;
             yield ReturnSuccess::value(total)
-        } else {
+        } else if values.iter().all(|v| if let UntaggedValue::Row(_) = v.value {true} else {false}) {
             for value in values.into_iter() {
                 let row_values = match value.value {
                     UntaggedValue::Row(row_dict) => {
                         Ok(row_dict.entries.into_iter().map(|kvp| kvp.1).collect())
                     },
-                    _ => Err(ShellError::unimplemented("Can't compute the sum.")),
+                    _ => Err(ShellError::unexpected("Encountered an unexpected error.")),
                 };
 
                 match row_values {
