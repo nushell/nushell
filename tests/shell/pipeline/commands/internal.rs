@@ -158,6 +158,9 @@ fn string_interpolation_with_it_column_path() {
     );
 
     assert_eq!(actual.out, "sammie");
+}
+
+#[test]
 fn argument_invocation_reports_errors() {
     let actual = nu!(
         cwd: ".",
