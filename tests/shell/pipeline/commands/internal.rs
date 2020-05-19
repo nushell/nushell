@@ -158,6 +158,13 @@ fn string_interpolation_with_it_column_path() {
     );
 
     assert_eq!(actual.out, "sammie");
+fn argument_invocation_reports_errors() {
+    let actual = nu!(
+        cwd: ".",
+        "echo $(ferris_is_not_here.exe)"
+    );
+
+    assert!(actual.err.contains("Command not found"));
 }
 
 #[test]
