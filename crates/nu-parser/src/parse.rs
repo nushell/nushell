@@ -362,11 +362,11 @@ enum FormatCommand {
 fn format(input: &str, start: usize) -> Vec<FormatCommand> {
     let mut output = vec![];
 
+    let mut loop_input = input.chars();
     let mut start = start;
     let mut end = start;
-
-    let mut loop_input = input.chars();
     loop {
+        start = end;
         let mut before = String::new();
 
         while let Some(c) = loop_input.next() {
@@ -379,12 +379,12 @@ fn format(input: &str, start: usize) -> Vec<FormatCommand> {
 
         if !before.is_empty() {
             output.push(FormatCommand::Text(
-                before.to_string().spanned(Span::new(start, end)),
+                before.to_string().spanned(Span::new(start, end - 1)),
             ));
         }
         // Look for column as we're now at one
         let mut column = String::new();
-        start = end - 1;
+        start = end;
 
         while let Some(c) = loop_input.next() {
             end += 1;
