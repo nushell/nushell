@@ -101,6 +101,16 @@ fn invocation_handles_dot() {
 }
 
 #[test]
+fn argument_invocation_reports_errors() {
+    let actual = nu!(
+        cwd: ".",
+        "echo $(ferris_is_not_here.exe)"
+    );
+
+    assert!(actual.err.contains("Command not found"));
+}
+
+#[test]
 fn can_process_one_row_from_internal_and_pipes_it_to_stdin_of_external() {
     let actual = nu!(
         cwd: ".",
