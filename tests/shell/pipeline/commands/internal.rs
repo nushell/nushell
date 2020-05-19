@@ -101,6 +101,66 @@ fn invocation_handles_dot() {
 }
 
 #[test]
+fn string_interpolation_with_it() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+                    echo "foo" | echo `{{$it}}`
+            "#
+    );
+
+    assert_eq!(actual.out, "foo");
+}
+
+#[test]
+fn string_interpolation_with_column() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+                    echo '{"name": "bob"}' | from json | echo `{{name}} is cool`
+            "#
+    );
+
+    assert_eq!(actual.out, "bob is cool");
+}
+
+#[test]
+fn string_interpolation_with_column2() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+                    echo '{"name": "fred"}' | from json | echo `also {{name}} is cool`
+            "#
+    );
+
+    assert_eq!(actual.out, "also fred is cool");
+}
+
+#[test]
+fn string_interpolation_with_column3() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+                    echo '{"name": "sally"}' | from json | echo `also {{name}}`
+            "#
+    );
+
+    assert_eq!(actual.out, "also sally");
+}
+
+#[test]
+fn string_interpolation_with_it_column_path() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+                    echo '{"name": "sammie"}' | from json | echo `{{$it.name}}`
+        "#
+    );
+
+    assert_eq!(actual.out, "sammie");
+}
+
+#[test]
 fn can_process_one_row_from_internal_and_pipes_it_to_stdin_of_external() {
     let actual = nu!(
         cwd: ".",

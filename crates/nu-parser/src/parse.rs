@@ -359,53 +359,94 @@ enum FormatCommand {
     Column(Spanned<String>),
 }
 
-fn format(input: &str, start: usize) -> Vec<FormatCommand> {
+fn format(input: &str, start: usize) -> (Vec<FormatCommand>, Option<ParseError>) {
+    let original_start = start;
     let mut output = vec![];
+    let mut error = None;
 
-    let mut loop_input = input.chars();
+    let mut loop_input = input.chars().peekable();
     let mut start = start;
     let mut end = start;
     loop {
-        start = end;
         let mut before = String::new();
 
+        let mut found_start = false;
         while let Some(c) = loop_input.next() {
             end += 1;
             if c == '{' {
-                break;
+                if let Some(x) = loop_input.peek() {
+                    if *x == '{' {
+                        found_start = true;
+                        end += 1;
+                        let _ = loop_input.next();
+                        break;
+                    }
+                }
             }
             before.push(c);
         }
 
         if !before.is_empty() {
-            output.push(FormatCommand::Text(
-                before.to_string().spanned(Span::new(start, end - 1)),
-            ));
+            if found_start {
+                output.push(FormatCommand::Text(
+                    before.to_string().spanned(Span::new(start, end - 2)),
+                ));
+            } else {
+                output.push(FormatCommand::Text(before.spanned(Span::new(start, end))));
+                break;
+            }
         }
         // Look for column as we're now at one
         let mut column = String::new();
         start = end;
 
+        let mut previous_c = ' ';
+        let mut found_end = false;
         while let Some(c) = loop_input.next() {
             end += 1;
-            if c == '}' {
+            if c == '}' && previous_c == '}' {
+                let _ = column.pop();
+                found_end = true;
                 break;
             }
+            previous_c = c;
             column.push(c);
         }
 
         if !column.is_empty() {
-            output.push(FormatCommand::Column(
-                column.to_string().spanned(Span::new(start, end - 1)),
+            if found_end {
+                output.push(FormatCommand::Column(
+                    column.to_string().spanned(Span::new(start, end - 2)),
+                ));
+            } else {
+                output.push(FormatCommand::Column(
+                    column.to_string().spanned(Span::new(start, end)),
+                ));
+
+                if error.is_none() {
+                    error = Some(ParseError::argument_error(
+                        input.spanned(Span::new(original_start, end)),
+                        ArgumentError::MissingValueForName("unclosed {{ }}".to_string()),
+                    ));
+                }
+            }
+        }
+
+        if found_start && !found_end {
+            error = Some(ParseError::argument_error(
+                input.spanned(Span::new(original_start, end)),
+                ArgumentError::MissingValueForName("unclosed {{ }}".to_string()),
             ));
         }
 
         if before.is_empty() && column.is_empty() {
             break;
         }
+
+        start = end;
     }
 
-    output
+    (output, error)
 }
 
 /// Parses an interpolated string, one that has expressions inside of it
@@ -416,7 +457,11 @@ fn parse_interpolated_string(
     let inner_string = trim_quotes(&lite_arg.item);
     let mut error = None;
 
-    let format_result = format(&inner_string, lite_arg.span.start() + 1);
+    let (format_result, err) = format(&inner_string, lite_arg.span.start() + 1);
+
+    if error.is_none() {
+        error = err;
+    }
 
     let mut output = vec![];
 
