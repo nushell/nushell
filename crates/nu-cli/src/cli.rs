@@ -571,7 +571,7 @@ pub async fn cli(
         let max_history_size = config::config(Tag::unknown())?
             .get("history_size")
             .map(|i| i.value.expect_int())
-            .unwrap_or(100);
+            .unwrap_or(100_000);
 
         rl.set_max_history_size(max_history_size as usize);
 
