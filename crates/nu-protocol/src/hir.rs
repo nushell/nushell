@@ -219,15 +219,6 @@ impl Block {
             commands.expand_it_usage();
         }
     }
-
-    fn to_string(&self) -> String {
-        let mut result = Vec::new();
-        for commands in &self.block {
-            result.push(commands.to_string());
-        }
-        let result = result.join(" ");
-        result
-    }
 }
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
