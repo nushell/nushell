@@ -198,6 +198,10 @@ async fn evaluate_invocation(
 
     let output = result.into_vec().await;
 
+    if let Some(e) = context.get_errors().get(0) {
+        return Err(e.clone());
+    }
+
     match output.len() {
         x if x > 1 => Ok(UntaggedValue::Table(output).into_value(Tag::unknown())),
         1 => Ok(output[0].clone()),
