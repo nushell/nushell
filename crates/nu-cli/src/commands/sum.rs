@@ -2,8 +2,10 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use crate::utils::data_processing::{reducer_for, Reduce};
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, ReturnValue, Signature, UntaggedValue, Value};
+use nu_protocol::{ReturnSuccess, ReturnValue, Signature, UntaggedValue, Value, Dictionary};
 use num_traits::identities::Zero;
+
+use indexmap::map::{IndexMap};
 
 pub struct Sum;
 
@@ -58,19 +60,33 @@ fn sum(RunnableContext { mut input, .. }: RunnableContext) -> Result<OutputStrea
             let total = action(Value::zero(), values)?;
             yield ReturnSuccess::value(total)
         } else {
-            for value in values.into_iter() {
+            let mut column_values = IndexMap::new();
+            for value in values {
                 match value.value {
                     UntaggedValue::Row(row_dict) => {
-                        let row_values = row_dict.entries.into_iter().map(|kvp| kvp.1).collect();
-                        let total = action(Value::zero(), row_values)?;
-                        yield ReturnSuccess::value(total)
+                        for (key, value) in row_dict.entries.iter() {
+                            column_values
+                                .entry(key.clone())
+                                .and_modify(|v: &mut Vec<Value>| v.push(value.clone()))
+                                .or_insert(vec![value.clone()]);
+                        }
                     },
-                    _ => yield Err(ShellError::labeled_error(
-                            "Attempted to compute the sum of a value that cannot be summed.",
-                            "value appears here",
-                            value.tag.span)),
-                }
+                    table => {},
+                };
             }
+
+            let mut column_totals = IndexMap::new();
+            for (col_name, col_vals) in column_values {
+                let sum = action(Value::zero(), col_vals);
+                match sum {
+                    Ok(value) => {
+                        column_totals.insert(col_name, value);
+                    },
+                    Err(err) => yield Err(err),
+                };
+            }
+            yield ReturnSuccess::value(
+                UntaggedValue::Row(Dictionary {entries: column_totals}).into_untagged_value())
         }
     };
 
