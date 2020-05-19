@@ -69,7 +69,7 @@ fn bare(src: &mut Input, span_offset: usize) -> Result<Spanned<String>, ParseErr
             if c == delimiter {
                 inside_quote = false;
             }
-        } else if c == '\'' || c == '"' {
+        } else if c == '\'' || c == '"' || c == '`' {
             inside_quote = true;
             delimiter = c;
         } else if c == '[' {
@@ -154,12 +154,6 @@ fn pipeline(src: &mut Input, span_offset: usize) -> Result<LiteBlock, ParseError
                             break;
                         }
                     }
-                    // '"' | '\'' => {
-                    //     let c = *c;
-                    //     // quoted string
-                    //     let arg = quoted(src, c, span_offset)?;
-                    //     cmd.args.push(arg);
-                    // }
                     _ => {
                         // basic argument
                         let arg = bare(src, span_offset)?;

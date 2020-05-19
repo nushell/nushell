@@ -29,7 +29,7 @@ fn parse_simple_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, O
             if c == delimiter {
                 inside_delimiter = false;
             }
-        } else if c == '\'' || c == '"' {
+        } else if c == '\'' || c == '"' || c == '`' {
             inside_delimiter = true;
             delimiter = c;
         } else if c == '.' {
@@ -228,6 +228,7 @@ fn trim_quotes(input: &str) -> String {
     match (chars.next(), chars.next_back()) {
         (Some('\''), Some('\'')) => chars.collect(),
         (Some('"'), Some('"')) => chars.collect(),
+        (Some('`'), Some('`')) => chars.collect(),
         _ => input.to_string(),
     }
 }
@@ -352,6 +353,120 @@ fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseErr
     )
 }
 
+#[derive(Debug)]
+enum FormatCommand {
+    Text(Spanned<String>),
+    Column(Spanned<String>),
+}
+
+fn format(input: &str, start: usize) -> Vec<FormatCommand> {
+    let mut output = vec![];
+
+    let mut start = start;
+    let mut end = start;
+
+    let mut loop_input = input.chars();
+    loop {
+        let mut before = String::new();
+
+        while let Some(c) = loop_input.next() {
+            end += 1;
+            if c == '{' {
+                break;
+            }
+            before.push(c);
+        }
+
+        if !before.is_empty() {
+            output.push(FormatCommand::Text(
+                before.to_string().spanned(Span::new(start, end)),
+            ));
+        }
+        // Look for column as we're now at one
+        let mut column = String::new();
+        start = end - 1;
+
+        while let Some(c) = loop_input.next() {
+            end += 1;
+            if c == '}' {
+                break;
+            }
+            column.push(c);
+        }
+
+        if !column.is_empty() {
+            output.push(FormatCommand::Column(
+                column.to_string().spanned(Span::new(start, end - 1)),
+            ));
+        }
+
+        if before.is_empty() && column.is_empty() {
+            break;
+        }
+    }
+
+    output
+}
+
+/// Parses an interpolated string, one that has expressions inside of it
+fn parse_interpolated_string(
+    registry: &dyn SignatureRegistry,
+    lite_arg: &Spanned<String>,
+) -> (SpannedExpression, Option<ParseError>) {
+    let inner_string = trim_quotes(&lite_arg.item);
+    let mut error = None;
+
+    let format_result = format(&inner_string, lite_arg.span.start() + 1);
+
+    let mut output = vec![];
+
+    for f in format_result {
+        match f {
+            FormatCommand::Text(t) => {
+                output.push(SpannedExpression {
+                    expr: Expression::Literal(hir::Literal::String(t.item)),
+                    span: t.span,
+                });
+            }
+            FormatCommand::Column(c) => {
+                let (o, err) = parse_full_column_path(&c, registry);
+                if error.is_none() {
+                    error = err;
+                }
+                output.push(o);
+            }
+        }
+    }
+
+    let block = vec![Commands {
+        span: lite_arg.span,
+        list: vec![ClassifiedCommand::Internal(InternalCommand {
+            name: "build-string".to_owned(),
+            name_span: lite_arg.span,
+            args: hir::Call {
+                head: Box::new(SpannedExpression {
+                    expr: Expression::Synthetic(hir::Synthetic::String("build-string".to_owned())),
+                    span: lite_arg.span,
+                }),
+                is_last: false,
+                named: None,
+                positional: Some(output),
+                span: lite_arg.span,
+            },
+        })],
+    }];
+
+    let call = SpannedExpression {
+        expr: Expression::Invocation(Block {
+            block,
+            span: lite_arg.span,
+        }),
+        span: lite_arg.span,
+    };
+
+    (call, error)
+}
+
 /// Parses the given argument using the shape as a guide for how to correctly parse the argument
 fn parse_arg(
     expected_type: SyntaxShape,
@@ -395,11 +510,19 @@ fn parse_arg(
             }
         }
         SyntaxShape::String => {
-            let trimmed = trim_quotes(&lite_arg.item);
-            (
-                SpannedExpression::new(Expression::string(trimmed), lite_arg.span),
-                None,
-            )
+            if lite_arg.item.starts_with('`')
+                && lite_arg.item.len() > 1
+                && lite_arg.item.ends_with('`')
+            {
+                // This is an interpolated string
+                parse_interpolated_string(registry, &lite_arg)
+            } else {
+                let trimmed = trim_quotes(&lite_arg.item);
+                (
+                    SpannedExpression::new(Expression::string(trimmed), lite_arg.span),
+                    None,
+                )
+            }
         }
         SyntaxShape::Pattern => {
             let trimmed = trim_quotes(&lite_arg.item);
