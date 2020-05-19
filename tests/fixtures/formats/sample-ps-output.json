@@ -1,0 +1,1786 @@
+[
+    {
+        "pid": 1,
+        "name": "systemd",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 10616832,
+        "virtual": 174735360
+    },
+    {
+        "pid": 2,
+        "name": "kthreadd",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 3,
+        "name": "rcu_gp",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 4,
+        "name": "rcu_par_gp",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 6,
+        "name": "kworker/0:0H-kblockd",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 8,
+        "name": "mm_percpu_wq",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 9,
+        "name": "ksoftirqd/0",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 10,
+        "name": "rcu_sched",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 11,
+        "name": "migration/0",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 12,
+        "name": "cpuhp/0",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 13,
+        "name": "cpuhp/1",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 14,
+        "name": "migration/1",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 15,
+        "name": "ksoftirqd/1",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 17,
+        "name": "kworker/1:0H-kblockd",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 18,
+        "name": "cpuhp/2",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 20,
+        "name": "ksoftirqd/2",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 19,
+        "name": "migration/2",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 22,
+        "name": "kworker/2:0H",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 23,
+        "name": "cpuhp/3",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 24,
+        "name": "migration/3",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 25,
+        "name": "ksoftirqd/3",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 27,
+        "name": "kworker/3:0H-kblockd",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 28,
+        "name": "cpuhp/4",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 29,
+        "name": "migration/4",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 30,
+        "name": "ksoftirqd/4",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 32,
+        "name": "kworker/4:0H-kblockd",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 33,
+        "name": "cpuhp/5",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 34,
+        "name": "migration/5",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 35,
+        "name": "ksoftirqd/5",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 37,
+        "name": "kworker/5:0H-kblockd",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 38,
+        "name": "cpuhp/6",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 39,
+        "name": "migration/6",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 40,
+        "name": "ksoftirqd/6",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 42,
+        "name": "kworker/6:0H-kblockd",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 44,
+        "name": "migration/7",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 43,
+        "name": "cpuhp/7",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 45,
+        "name": "ksoftirqd/7",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 48,
+        "name": "kdevtmpfs",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 47,
+        "name": "kworker/7:0H-kblockd",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 49,
+        "name": "netns",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 50,
+        "name": "kauditd",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 53,
+        "name": "khungtaskd",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 54,
+        "name": "oom_reaper",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 56,
+        "name": "kcompactd0",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 57,
+        "name": "ksmd",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 55,
+        "name": "writeback",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 58,
+        "name": "khugepaged",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 97,
+        "name": "kintegrityd",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 98,
+        "name": "kblockd",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 99,
+        "name": "blkcg_punt_bio",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 100,
+        "name": "devfreq_wq",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 101,
+        "name": "kswapd0",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 102,
+        "name": "kthrotld",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 103,
+        "name": "irq/122-aerdrv",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 104,
+        "name": "irq/123-aerdrv",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 107,
+        "name": "kstrp",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 114,
+        "name": "kworker/u17:0-rb_allocator",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 185,
+        "name": "ata_sff",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 186,
+        "name": "scsi_eh_0",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 187,
+        "name": "scsi_tmf_0",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 188,
+        "name": "scsi_eh_1",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 189,
+        "name": "scsi_tmf_1",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 190,
+        "name": "scsi_eh_2",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 191,
+        "name": "scsi_tmf_2",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 193,
+        "name": "kworker/7:1H-kblockd",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 208,
+        "name": "kworker/1:1H-kblockd",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 210,
+        "name": "kworker/6:1H-kblockd",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 211,
+        "name": "kworker/2:1H-kblockd",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 217,
+        "name": "kworker/0:1H-kblockd",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 218,
+        "name": "jbd2/sda1-8",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 219,
+        "name": "ext4-rsv-conver",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 220,
+        "name": "kworker/3:1H-kblockd",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 330,
+        "name": "kworker/5:1H-kblockd",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 359,
+        "name": "kworker/4:1H-kblockd",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 498,
+        "name": "ipv6_addrconf",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 514,
+        "name": "systemd-journald",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 15380480,
+        "virtual": 46759936
+    },
+    {
+        "pid": 522,
+        "name": "systemd-udevd",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 7958528,
+        "virtual": 24752128
+    },
+    {
+        "pid": 526,
+        "name": "iprt-VBoxWQueue",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 527,
+        "name": "iprt-VBoxTscThr",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 643,
+        "name": "asus_wireless_w",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 647,
+        "name": "tpm_dev_wq",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 667,
+        "name": "acpi_thermal_pm",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 739,
+        "name": "irq/126-mei_me",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 757,
+        "name": "cfg80211",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 765,
+        "name": "cryptd",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 770,
+        "name": "kworker/u17:1-rb_allocator",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 779,
+        "name": "rngd",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 4341760,
+        "virtual": 309346304
+    },
+    {
+        "pid": 780,
+        "name": "systemd-timesyncd",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 4407296,
+        "virtual": 87756800
+    },
+    {
+        "pid": 815,
+        "name": "irq/127-iwlwifi",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 822,
+        "name": "led_workqueue",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 827,
+        "name": "irq/109-ELAN130",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 830,
+        "name": "watchdogd",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 863,
+        "name": "nvkm-disp",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 868,
+        "name": "ttm_swap",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 890,
+        "name": "dbus-daemon",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 5390336,
+        "virtual": 8237056
+    },
+    {
+        "pid": 965,
+        "name": "NetworkManager",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 19984384,
+        "virtual": 552673280
+    },
+    {
+        "pid": 1031,
+        "name": "systemd-logind",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 6299648,
+        "virtual": 11378688
+    },
+    {
+        "pid": 1037,
+        "name": "wpa_supplicant",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 8302592,
+        "virtual": 12263424
+    },
+    {
+        "pid": 1180,
+        "name": "dhcpcd",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 1957888,
+        "virtual": 3198976
+    },
+    {
+        "pid": 1249,
+        "name": "nscd",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 2293760,
+        "virtual": 1152487424
+    },
+    {
+        "pid": 1407,
+        "name": "agetty",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 221184,
+        "virtual": 222273536
+    },
+    {
+        "pid": 1409,
+        "name": "lightdm",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 7491584,
+        "virtual": 312446976
+    },
+    {
+        "pid": 1415,
+        "name": "X",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 87629824,
+        "virtual": 1616560128
+    },
+    {
+        "pid": 1497,
+        "name": "lightdm",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 7274496,
+        "virtual": 162611200
+    },
+    {
+        "pid": 1526,
+        "name": "systemd",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 7962624,
+        "virtual": 13176832
+    },
+    {
+        "pid": 1527,
+        "name": "(sd-pam)",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 3731456,
+        "virtual": 175276032
+    },
+    {
+        "pid": 1531,
+        "name": "armwayxzis1jx77",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 3022848,
+        "virtual": 223092736
+    },
+    {
+        "pid": 1534,
+        "name": "dbus-launch",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 2228224,
+        "virtual": 7409664
+    },
+    {
+        "pid": 1535,
+        "name": "dbus-daemon",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 2822144,
+        "virtual": 6688768
+    },
+    {
+        "pid": 1539,
+        "name": "pulseaudio",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 15331328,
+        "virtual": 1534558208
+    },
+    {
+        "pid": 1540,
+        "name": "rtkit-daemon",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 2723840,
+        "virtual": 156647424
+    },
+    {
+        "pid": 1545,
+        "name": ".gsettings-help",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 8531968,
+        "virtual": 171036672
+    },
+    {
+        "pid": 1558,
+        "name": "i3",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 19075072,
+        "virtual": 264077312
+    },
+    {
+        "pid": 1559,
+        "name": ".xfce4-session-",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 29261824,
+        "virtual": 530526208
+    },
+    {
+        "pid": 1570,
+        "name": ".nm-applet-wrap",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 41328640,
+        "virtual": 620875776
+    },
+    {
+        "pid": 1576,
+        "name": "i3bar",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 12038144,
+        "virtual": 18014208
+    },
+    {
+        "pid": 1577,
+        "name": "i3status",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 5181440,
+        "virtual": 231391232
+    },
+    {
+        "pid": 1581,
+        "name": "xfconfd",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 5861376,
+        "virtual": 234913792
+    },
+    {
+        "pid": 1590,
+        "name": "ssh-agent",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 380928,
+        "virtual": 6377472
+    },
+    {
+        "pid": 1594,
+        "name": ".gvfsd-wrapped",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 6418432,
+        "virtual": 454643712
+    },
+    {
+        "pid": 1599,
+        "name": ".gvfsd-fuse-wra",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 12038144,
+        "virtual": 435945472
+    },
+    {
+        "pid": 1617,
+        "name": ".xfsettingsd-wr",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 25616384,
+        "virtual": 457232384
+    },
+    {
+        "pid": 1619,
+        "name": ".thunar-wrapped",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 29958144,
+        "virtual": 606511104
+    },
+    {
+        "pid": 1626,
+        "name": "upowerd",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 9957376,
+        "virtual": 254062592
+    },
+    {
+        "pid": 1654,
+        "name": "fish",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 7073792,
+        "virtual": 229429248
+    },
+    {
+        "pid": 1665,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 461332480,
+        "virtual": 1926905856
+    },
+    {
+        "pid": 1670,
+        "name": "cat",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 1540096,
+        "virtual": 227213312
+    },
+    {
+        "pid": 1671,
+        "name": "cat",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 1511424,
+        "virtual": 227213312
+    },
+    {
+        "pid": 1674,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 70266880,
+        "virtual": 486019072
+    },
+    {
+        "pid": 1675,
+        "name": "nacl_helper",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 4157440,
+        "virtual": 10788864
+    },
+    {
+        "pid": 1678,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 17477632,
+        "virtual": 486019072
+    },
+    {
+        "pid": 1696,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 293830656,
+        "virtual": 926834688
+    },
+    {
+        "pid": 1701,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 115322880,
+        "virtual": 590606336
+    },
+    {
+        "pid": 1758,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 249634816,
+        "virtual": 5121122304
+    },
+    {
+        "pid": 1881,
+        "name": "polkit-gnome-authentication-agent-1",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 18038784,
+        "virtual": 403795968
+    },
+    {
+        "pid": 1884,
+        "name": ".xfce4-power-ma",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 25329664,
+        "virtual": 454615040
+    },
+    {
+        "pid": 1885,
+        "name": ".xfce4-volumed-",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 14376960,
+        "virtual": 675713024
+    },
+    {
+        "pid": 3677,
+        "name": "kworker/2:2-events",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 3865,
+        "name": "fish",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 12230656,
+        "virtual": 384520192
+    },
+    {
+        "pid": 4208,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 183226368,
+        "virtual": 5102624768
+    },
+    {
+        "pid": 4408,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 267849728,
+        "virtual": 5350809600
+    },
+    {
+        "pid": 4432,
+        "name": "polkitd",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 22704128,
+        "virtual": 1994059776
+    },
+    {
+        "pid": 4449,
+        "name": "accounts-daemon",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 7618560,
+        "virtual": 457916416
+    },
+    {
+        "pid": 4455,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 69201920,
+        "virtual": 1071013888
+    },
+    {
+        "pid": 4487,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 8.062308,
+        "mem": 120737792,
+        "virtual": 4977467392
+    },
+    {
+        "pid": 4497,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 177631232,
+        "virtual": 5275254784
+    },
+    {
+        "pid": 4524,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 118702080,
+        "virtual": 4969496576
+    },
+    {
+        "pid": 4537,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 92397568,
+        "virtual": 4945494016
+    },
+    {
+        "pid": 4544,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 89784320,
+        "virtual": 4944437248
+    },
+    {
+        "pid": 4623,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 284606464,
+        "virtual": 5545750528
+    },
+    {
+        "pid": 4708,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 412540928,
+        "virtual": 5484331008
+    },
+    {
+        "pid": 5646,
+        "name": "fish",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 6983680,
+        "virtual": 229429248
+    },
+    {
+        "pid": 5657,
+        "name": ".Discord-wrapped",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 143474688,
+        "virtual": 875560960
+    },
+    {
+        "pid": 5660,
+        "name": ".Discord-wrapped --type=zygote",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 44158976,
+        "virtual": 405753856
+    },
+    {
+        "pid": 5662,
+        "name": ".Discord-wrapped --type=zygote",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 7409664,
+        "virtual": 405753856
+    },
+    {
+        "pid": 5686,
+        "name": ".Discord-wrapped --type=gpu-process --field-trial-handle=13111859432531727301,160941119031916903,131072 --disable-features=SpareRendererForSitePerProcess --gpu-preferences=KAAAAAAAAAAgAAAgAAAAAAAAYAAAAAAAEAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAA --service-request-channel-token=13839097201101376882",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 91947008,
+        "virtual": 526618624
+    },
+    {
+        "pid": 5691,
+        "name": ".Discord-wrapped --type=utility --field-trial-handle=13111859432531727301,160941119031916903,131072 --disable-features=SpareRendererForSitePerProcess --lang=en-US --service-sandbox-type=network --service-request-channel-token=7155737024612151699 --shared-files=v8_context_snapshot_data:100,v8_natives_data:101",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 65347584,
+        "virtual": 482299904
+    },
+    {
+        "pid": 5732,
+        "name": ".Discord-wrappe",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 305225728,
+        "virtual": 1512386560
+    },
+    {
+        "pid": 6200,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 7.930307999999999,
+        "mem": 1109229568,
+        "virtual": 10720272384
+    },
+    {
+        "pid": 6302,
+        "name": ".termite-wrappe",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 35561472,
+        "virtual": 602578944
+    },
+    {
+        "pid": 6241,
+        "name": "kworker/4:0-events",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 6307,
+        "name": "fish",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 8228864,
+        "virtual": 381083648
+    },
+    {
+        "pid": 6327,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 117084160,
+        "virtual": 4964155392
+    },
+    {
+        "pid": 6409,
+        "name": "bash",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 6402048,
+        "virtual": 226508800
+    },
+    {
+        "pid": 6418,
+        "name": "nix-daemon",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 15568896,
+        "virtual": 501235712
+    },
+    {
+        "pid": 6451,
+        "name": "tmux: client",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 3293184,
+        "virtual": 224026624
+    },
+    {
+        "pid": 6453,
+        "name": "tmux: server",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 5361664,
+        "virtual": 226492416
+    },
+    {
+        "pid": 6454,
+        "name": "fish",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 9019392,
+        "virtual": 381624320
+    },
+    {
+        "pid": 6604,
+        "name": "vim",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 16900096,
+        "virtual": 238338048
+    },
+    {
+        "pid": 6769,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 128008192,
+        "virtual": 4986404864
+    },
+    {
+        "pid": 7975,
+        "name": "fish",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 13053952,
+        "virtual": 460312576
+    },
+    {
+        "pid": 8177,
+        "name": "kworker/u16:3-events_unbound",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 10186,
+        "name": "kworker/0:0",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 10390,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 132112384,
+        "virtual": 4989624320
+    },
+    {
+        "pid": 10461,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 126992384,
+        "virtual": 4995346432
+    },
+    {
+        "pid": 10530,
+        "name": "kworker/6:1-events",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 10593,
+        "name": "kworker/1:1-mm_percpu_wq",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 10650,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 8.026974,
+        "mem": 262434816,
+        "virtual": 5217419264
+    },
+    {
+        "pid": 10803,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 48173056,
+        "virtual": 542531584
+    },
+    {
+        "pid": 11191,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 124092416,
+        "virtual": 4975763456
+    },
+    {
+        "pid": 11210,
+        "name": "kworker/7:0-events",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 11254,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 113070080,
+        "virtual": 4971659264
+    },
+    {
+        "pid": 11279,
+        "name": "kworker/u16:0-events_unbound",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 11476,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 88993792,
+        "virtual": 4937097216
+    },
+    {
+        "pid": 12755,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 163397632,
+        "virtual": 5034328064
+    },
+    {
+        "pid": 12772,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 113561600,
+        "virtual": 4985073664
+    },
+    {
+        "pid": 14351,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 111861760,
+        "virtual": 4962754560
+    },
+    {
+        "pid": 17818,
+        "name": "udisksd",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 14409728,
+        "virtual": 402935808
+    },
+    {
+        "pid": 17815,
+        "name": ".gvfs-udisks2-v",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 16199680,
+        "virtual": 585306112
+    },
+    {
+        "pid": 17831,
+        "name": ".gvfs-mtp-volum",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 6393856,
+        "virtual": 454680576
+    },
+    {
+        "pid": 17836,
+        "name": ".gvfs-gphoto2-v",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 7110656,
+        "virtual": 456966144
+    },
+    {
+        "pid": 17841,
+        "name": ".gvfs-afc-volum",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 8585216,
+        "virtual": 537448448
+    },
+    {
+        "pid": 17846,
+        "name": ".gvfsd-trash-wr",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 12767232,
+        "virtual": 577998848
+    },
+    {
+        "pid": 17856,
+        "name": ".gvfsd-network-",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 13295616,
+        "virtual": 654110720
+    },
+    {
+        "pid": 17862,
+        "name": ".gvfsd-dnssd-wr",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 7639040,
+        "virtual": 533233664
+    },
+    {
+        "pid": 17869,
+        "name": "dconf-service",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 5365760,
+        "virtual": 158957568
+    },
+    {
+        "pid": 18153,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 183738368,
+        "virtual": 5128962048
+    },
+    {
+        "pid": 23033,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 166035456,
+        "virtual": 5074878464
+    },
+    {
+        "pid": 24101,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 101224448,
+        "virtual": 4956262400
+    },
+    {
+        "pid": 24832,
+        "name": "kworker/7:2-events",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 24912,
+        "name": "kworker/5:2-events_power_efficient",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 25228,
+        "name": "kworker/4:3-events",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 25678,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 117522432,
+        "virtual": 4970983424
+    },
+    {
+        "pid": 25706,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 30760960,
+        "virtual": 528375808
+    },
+    {
+        "pid": 26080,
+        "name": "kworker/1:0-events",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 26818,
+        "name": "kworker/2:0-events",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 26827,
+        "name": "kworker/6:2-mm_percpu_wq",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 26832,
+        "name": "kworker/0:2-mm_percpu_wq",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 26843,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 116621312,
+        "virtual": 4982403072
+    },
+    {
+        "pid": 27163,
+        "name": "kworker/3:2-events",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 27800,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 128200704,
+        "virtual": 4965363712
+    },
+    {
+        "pid": 27820,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 54960128,
+        "virtual": 4895596544
+    },
+    {
+        "pid": 27898,
+        "name": "kworker/3:0-mm_percpu_wq",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 27977,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 141930496,
+        "virtual": 4982546432
+    },
+    {
+        "pid": 28035,
+        "name": "kworker/u16:1-events_unbound",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 28104,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 126853120,
+        "virtual": 5003902976
+    },
+    {
+        "pid": 28158,
+        "name": "nu",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 27344896,
+        "virtual": 870764544
+    },
+    {
+        "pid": 28236,
+        "name": "chrome",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 450560000,
+        "virtual": 5389582336
+    },
+    {
+        "pid": 29186,
+        "name": "kworker/5:0-events",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 30140,
+        "name": "kworker/u16:2-events_unbound",
+        "status": "Idle",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 30142,
+        "name": "nu_plugin_core_",
+        "status": "Zombie",
+        "cpu": 0.0,
+        "mem": 0,
+        "virtual": 0
+    },
+    {
+        "pid": 30356,
+        "name": "sh",
+        "status": "Sleeping",
+        "cpu": 0.0,
+        "mem": 3743744,
+        "virtual": 224092160
+    },
+    {
+        "pid": 30360,
+        "name": "nu_plugin_core_ps",
+        "status": "Sleeping",
+        "cpu": 80.23046000000001,
+        "mem": 6422528,
+        "virtual": 633016320
+    }
+]
