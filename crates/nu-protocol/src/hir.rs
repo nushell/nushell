@@ -47,17 +47,6 @@ impl InternalCommand {
     }
 }
 
-impl fmt::Display for InternalCommand {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let name = match self.name.as_str() {
-            "run_external" => String::new(),
-            _ => self.name.clone(),
-        };
-        let res = format!("{} {}", name, self.args.to_string());
-        write!(f, "{}", res)
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct ClassifiedBlock {
     pub block: Block,
@@ -90,18 +79,6 @@ pub enum ClassifiedCommand {
     Dynamic(crate::hir::Call),
     Internal(InternalCommand),
     Error(ParseError),
-}
-
-impl fmt::Display for ClassifiedCommand {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            ClassifiedCommand::Dynamic(call) => call.to_string(),
-            ClassifiedCommand::Expr(expr) => expr.to_string(),
-            ClassifiedCommand::Internal(cmd) => cmd.to_string(),
-            _ => String::from("[TODO]"),
-        };
-        write!(f, "{}", s)
-    }
 }
 
 impl ClassifiedCommand {
@@ -170,19 +147,6 @@ impl ClassifiedCommand {
 pub struct Commands {
     pub list: Vec<ClassifiedCommand>,
     pub span: Span,
-}
-
-impl fmt::Display for Commands {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut s: Vec<String> = vec![];
-
-        for command in &self.list {
-            s.push(command.to_string());
-        }
-
-        let s = s.join(" | ");
-        write!(f, "{}", s)
-    }
 }
 
 impl Commands {
@@ -263,12 +227,6 @@ impl Block {
         }
         let result = result.join(" ");
         result
-    }
-}
-
-impl fmt::Display for Block {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{{ {} }}", self.to_string())
     }
 }
 
@@ -360,17 +318,6 @@ pub enum Member {
     Bare(Spanned<String>),
 }
 
-impl fmt::Display for Member {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            Member::Int(i, _) => i.to_string(),
-            Member::Bare(s) => s.to_string(),
-            _ => String::from("[TODO]"),
-        };
-        write!(f, "{}", s)
-    }
-}
-
 impl Member {
     pub fn to_path_member(&self) -> PathMember {
         match self {
@@ -408,16 +355,6 @@ impl HasSpan for Member {
 pub enum Number {
     Int(BigInt),
     Decimal(BigDecimal),
-}
-
-impl fmt::Display for Number {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            Number::Int(i) => i.to_string(),
-            Number::Decimal(i) => i.to_string(),
-        };
-        write!(f, "{}", s)
-    }
 }
 
 impl PrettyDebug for Number {
@@ -602,12 +539,6 @@ pub struct SpannedExpression {
     pub span: Span,
 }
 
-impl fmt::Display for SpannedExpression {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.expr.to_string())
-    }
-}
-
 impl SpannedExpression {
     pub fn new(expr: Expression, span: Span) -> SpannedExpression {
         SpannedExpression { expr, span }
@@ -765,16 +696,6 @@ pub enum Variable {
     Other(String, Span),
 }
 
-impl fmt::Display for Variable {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            Variable::It(_) => String::from("$it"),
-            Variable::Other(s, _) => s.clone(),
-        };
-        write!(f, "{}", s)
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub enum Operator {
     Equal,
@@ -863,26 +784,6 @@ pub enum Literal {
     Bare(String),
 }
 
-impl fmt::Display for Literal {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            Literal::Number(n) => n.to_string(),
-            Literal::String(s) | Literal::GlobPattern(s) | Literal::Bare(s) => s.to_string(),
-            Literal::ColumnPath(v) => {
-                let mut s = Vec::new();
-                for mem in v {
-                    s.push(mem.to_string());
-                }
-                let s = s.join(" ");
-                s
-            }
-            _ => String::from("[TODO]"),
-        };
-
-        write!(f, "{}", s)
-    }
-}
-
 impl Literal {
     pub fn into_spanned(self, span: impl Into<Span>) -> SpannedLiteral {
         SpannedLiteral {
@@ -960,13 +861,6 @@ pub struct Path {
     pub tail: Vec<PathMember>,
 }
 
-impl fmt::Display for Path {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // TODO accound for tail
-        write!(f, "{}", self.head.to_string())
-    }
-}
-
 impl PrettyDebugWithSource for Path {
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         self.head.pretty_debug(source)
@@ -997,20 +891,6 @@ pub enum Expression {
     // we can use the same parse and just place bad token markers in the output
     // We can later throw an error if we try to process them further.
     Garbage,
-}
-
-impl fmt::Display for Expression {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            Expression::Literal(l) => l.to_string(),
-            Expression::Block(b) => format!("{{ {} }}", b.to_string()),
-            Expression::Boolean(b) => b.to_string(),
-            Expression::Variable(v) => v.to_string(),
-            Expression::Path(p) => p.to_string(),
-            _ => String::from("[TODO]"),
-        };
-        write!(f, "{}", s)
-    }
 }
 
 impl ShellTypeName for Expression {
@@ -1143,51 +1023,6 @@ pub struct Call {
     pub is_last: bool,
 }
 
-impl fmt::Display for Call {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // TODO add handling for external commands
-        let is_ext = match &self.head.expr {
-            Expression::Literal(Literal::String(s)) => s.as_str() == "run_external",
-            _ => false,
-        };
-        if is_ext {
-            let mut s = Vec::new();
-            if let Some(p) = self.positional.as_ref() {
-                let mut it = p.iter();
-                s.push(format!("^{}", it.next().unwrap().to_string()));
-
-                for p_args in it {
-                    let val = p_args.to_string();
-
-                    if val.starts_with('-') {
-                        s.push(val);
-                    } else {
-                        s.push(format!("'{}'", val));
-                    }
-                }
-            }
-
-            let s = s.join(" ");
-            write!(f, "{}", s)
-        } else {
-            let mut s = Vec::new();
-            if let Some(p) = self.positional.as_ref() {
-                for p_arg in p {
-                    s.push(format!("'{}'", p_arg.to_string()));
-                }
-            }
-
-            if let Some(n) = self.named.as_ref() {
-                if n.to_string().len() > 0 {
-                    s.push(n.to_string());
-                }
-            }
-            let s = s.join(" ");
-            write!(f, "{}", s)
-        }
-    }
-}
-
 impl Call {
     pub fn switch_preset(&self, switch: &str) -> bool {
         self.named
@@ -1306,20 +1141,6 @@ pub enum FlatShape {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NamedArguments {
     pub named: IndexMap<String, NamedValue>,
-}
-
-impl fmt::Display for NamedArguments {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut s = Vec::new();
-        for (key, value) in self.named.iter() {
-            match value {
-                NamedValue::PresentSwitch(_) => s.push(format!("--{}", key)),
-                NamedValue::Value(_, exp) => s.push(format!("--{} {}", key, exp.to_string())),
-                _ => {}
-            };
-        }
-        write!(f, "{}", s.join(" "))
-    }
 }
 
 #[allow(clippy::derive_hash_xor_eq)]

@@ -80,6 +80,7 @@ impl WholeStreamCommand for RunExternalCommand {
                     windows_drives_previous_cwd: Arc::new(Mutex::new(
                         std::collections::HashMap::new(),
                     )),
+                    raw_input: String::default(),
                 }
             }
             #[cfg(not(windows))]
@@ -90,6 +91,7 @@ impl WholeStreamCommand for RunExternalCommand {
                     shell_manager: args.shell_manager.clone(),
                     ctrl_c: args.ctrl_c.clone(),
                     current_errors: Arc::new(Mutex::new(vec![])),
+                    raw_input: String::default(),
                 }
             }
         };
@@ -124,6 +126,7 @@ impl WholeStreamCommand for RunExternalCommand {
                         ctrl_c: external_context.ctrl_c.clone(),
                         registry: external_context.registry.clone(),
                         name: args.call_info.name_tag.clone(),
+                        raw_input: String::default(),
                     };
 
                     let result = external_context.shell_manager.cd(cd_args, &context);

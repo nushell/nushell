@@ -59,8 +59,9 @@ impl WholeStreamCommand for Alias {
     }
 }
 
-pub fn alias(alias_args: AliasArgs, _: RunnableContext) -> Result<OutputStream, ShellError> {
+pub fn alias(alias_args: AliasArgs, ctx: RunnableContext) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
+        println!("{}", ctx.raw_input);
         let mut args: Vec<String> = vec![];
         // let name_span = args.name.clone();
         // let mut result = crate::data::config::read(name_span.tag, &None)?;
@@ -73,7 +74,6 @@ pub fn alias(alias_args: AliasArgs, _: RunnableContext) -> Result<OutputStream, 
 
         // config::write(&result, &None)?;
         // TODO fix printing of alias_args
-        // println!("{:#?}", alias_args.block);
         for item in alias_args.args.iter() {
             if let Ok(string) = item.as_string() {
                 args.push(format!("${}", string));
@@ -81,7 +81,6 @@ pub fn alias(alias_args: AliasArgs, _: RunnableContext) -> Result<OutputStream, 
                 yield Err(ShellError::labeled_error("Expected a string", "expected a string", item.tag()));
             }
         }
-        println!("alias {} {:?} {}", alias_args.name.to_string(), args, alias_args.block);
         yield ReturnSuccess::action(CommandAction::AddAlias(alias_args.name.to_string(), args, alias_args.block.clone()))
     };
 

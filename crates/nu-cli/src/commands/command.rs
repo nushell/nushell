@@ -57,6 +57,7 @@ pub struct CommandArgs {
     pub shell_manager: ShellManager,
     pub call_info: UnevaluatedCallInfo,
     pub input: InputStream,
+    pub raw_input: String,
 }
 
 #[derive(Getters, Clone)]
@@ -76,6 +77,7 @@ impl RawCommandArgs {
             shell_manager: self.shell_manager,
             call_info: self.call_info,
             input: input.into(),
+            raw_input: String::default(),
         }
     }
 }
@@ -139,6 +141,7 @@ impl CommandArgs {
         let shell_manager = self.shell_manager.clone();
         let host = self.host.clone();
         let ctrl_c = self.ctrl_c.clone();
+        let raw_input = self.raw_input.clone();
         let args = self.evaluate_once(registry)?;
         let call_info = args.call_info.clone();
         let (input, args) = args.split();
@@ -154,6 +157,7 @@ impl CommandArgs {
                 name: name_tag,
                 host,
                 ctrl_c,
+                raw_input,
             },
             callback,
         })
@@ -174,6 +178,7 @@ impl CommandArgs {
         let shell_manager = self.shell_manager.clone();
         let host = self.host.clone();
         let ctrl_c = self.ctrl_c.clone();
+        let raw_input = self.raw_input.clone();
         let args = self.evaluate_once(registry)?;
         let call_info = args.call_info.clone();
 
@@ -190,6 +195,7 @@ impl CommandArgs {
                 name: name_tag,
                 host,
                 ctrl_c,
+                raw_input,
             },
             raw_args,
             callback,
@@ -204,6 +210,7 @@ pub struct RunnableContext {
     pub ctrl_c: Arc<AtomicBool>,
     pub registry: CommandRegistry,
     pub name: Tag,
+    pub raw_input: String,
 }
 
 impl RunnableContext {
@@ -459,6 +466,7 @@ impl WholeStreamCommand for FnFilterCommand {
             shell_manager,
             call_info,
             input,
+            raw_input,
         } = args;
 
         let host: Arc<parking_lot::Mutex<dyn Host>> = host.clone();
