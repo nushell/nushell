@@ -2,10 +2,10 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use crate::utils::data_processing::{reducer_for, Reduce};
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, ReturnValue, Signature, UntaggedValue, Value, Dictionary};
+use nu_protocol::{Dictionary, ReturnSuccess, ReturnValue, Signature, UntaggedValue, Value};
 use num_traits::identities::Zero;
 
-use indexmap::map::{IndexMap};
+use indexmap::map::IndexMap;
 
 pub struct Sum;
 

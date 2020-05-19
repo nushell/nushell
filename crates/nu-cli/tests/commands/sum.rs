@@ -63,7 +63,11 @@ fn outputs_zero_with_no_input() {
 
 #[test]
 fn compute_sum_of_individual_row() {
-    let answers_for_columns = [("cpu", "104.250050000000008"), ("mem", "8736780288"), ("virtual", "204300193792")];
+    let answers_for_columns = [
+        ("cpu", "104.250050000000008"),
+        ("mem", "8736780288"),
+        ("virtual", "204300193792"),
+    ];
     for (column_name, expected_value) in answers_for_columns.iter() {
         let actual = nu!(
             cwd: "tests/fixtures/formats/",
@@ -75,7 +79,11 @@ fn compute_sum_of_individual_row() {
 
 #[test]
 fn compute_sum_of_table() {
-    let answers_for_columns = [("cpu", "104.250050000000008"), ("mem", "8736780288"), ("virtual", "204300193792")];
+    let answers_for_columns = [
+        ("cpu", "104.250050000000008"),
+        ("mem", "8736780288"),
+        ("virtual", "204300193792"),
+    ];
     for (column_name, expected_value) in answers_for_columns.iter() {
         let actual = nu!(
             cwd: "tests/fixtures/formats/",
@@ -91,5 +99,7 @@ fn sum_of_a_row_containing_a_table_is_an_error() {
         cwd: "tests/fixtures/formats/",
         "open sample-sys-output.json | sum"
     );
-    assert!(actual.err.contains("Attempted to compute the sum of a value that cannot be summed."));
+    assert!(actual
+        .err
+        .contains("Attempted to compute the sum of a value that cannot be summed."));
 }
