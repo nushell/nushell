@@ -73,7 +73,7 @@ pub fn alias(alias_args: AliasArgs, _: RunnableContext) -> Result<OutputStream, 
 
         // config::write(&result, &None)?;
         // TODO fix printing of alias_args
-
+        println!("{:#?}", alias_args.block);
         for item in alias_args.args.iter() {
             if let Ok(string) = item.as_string() {
                 args.push(format!("${}", string));

@@ -269,7 +269,6 @@ impl Block {
 impl fmt::Display for Block {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{{ {} }}", self.to_string())
-        // unimplemented!()
     }
 }
 
@@ -1145,19 +1144,41 @@ impl fmt::Display for Call {
             Expression::Literal(Literal::String(s)) => s.as_str() == "run_external",
             _ => false,
         };
-        let surr = if is_ext { "" } else { "'" };
-        let mut s = Vec::new();
-        if let Some(p) = self.positional.as_ref() {
-            for p_arg in p {
-                s.push(format!("{}{}{}", surr, p_arg.to_string(), surr));
-            }
-        }
+        if is_ext {
+            let mut s = Vec::new();
+            if let Some(p) = self.positional.as_ref() {
+                let mut it = p.iter();
+                s.push(format!("^{}", it.next().unwrap().to_string()));
 
-        if let Some(n) = self.named.as_ref() {
-            s.push(n.to_string());
+                for p_args in it {
+                    let val = p_args.to_string();
+
+                    if val.starts_with('-') {
+                        s.push(val);
+                    } else {
+                        s.push(format!("'{}'", val));
+                    }
+                }
+            }
+
+            let s = s.join(" ");
+            write!(f, "{}", s)
+        } else {
+            let mut s = Vec::new();
+            if let Some(p) = self.positional.as_ref() {
+                for p_arg in p {
+                    s.push(format!("'{}'", p_arg.to_string()));
+                }
+            }
+
+            if let Some(n) = self.named.as_ref() {
+                if n.to_string().len() > 0 {
+                    s.push(n.to_string());
+                }
+            }
+            let s = s.join(" ");
+            write!(f, "{}", s)
         }
-        let s = s.join(" ");
-        write!(f, "{}", s)
     }
 }
 
@@ -1291,8 +1312,7 @@ impl fmt::Display for NamedArguments {
                 _ => {}
             };
         }
-        let s = s.join(" ");
-        write!(f, "{}", s)
+        write!(f, "{}", s.join(" "))
     }
 }
 
