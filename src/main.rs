@@ -55,6 +55,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .help("the nu script to run")
                 .index(1),
         )
+        .arg(
+            Arg::with_name("args")
+                .help("positional args (used by --testbin)")
+                .index(2)
+                .multiple(true),
+        )
         .get_matches();
 
     if let Some(bin) = matches.value_of("testbin") {
