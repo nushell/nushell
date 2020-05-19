@@ -24,5 +24,5 @@ cargo build
 Run tests with:
 
 ```shell
-cargo test --all --features=stable,test-bins
+cargo test --all --features=stable
 ```
