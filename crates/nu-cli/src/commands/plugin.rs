@@ -72,11 +72,7 @@ pub fn filter_plugin(
     trace!("filter_plugin :: {}", path);
     let registry = registry.clone();
 
-    let scope = args
-        .call_info
-        .scope
-        .clone()
-        .set_it(UntaggedValue::string("$it").into_untagged_value());
+    let scope = args.call_info.scope.clone();
 
     let stream = async_stream! {
         let mut args = args.evaluate_once_with_scope(&registry, &scope).await?;

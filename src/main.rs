@@ -1,5 +1,6 @@
 use clap::{App, Arg};
 use log::LevelFilter;
+use nu_cli::utils::test_bins as binaries;
 use nu_cli::{create_default_context, EnvironmentSyncer};
 use std::error::Error;
 use std::fs::File;
@@ -14,6 +15,14 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .long("loglevel")
                 .value_name("LEVEL")
                 .possible_values(&["error", "warn", "info", "debug", "trace"])
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("testbin")
+                .hidden(true)
+                .long("testbin")
+                .value_name("TESTBIN")
+                .possible_values(&["cococo", "iecho", "fail", "nonu", "chop"])
                 .takes_value(true),
         )
         .arg(
@@ -47,6 +56,19 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .index(1),
         )
         .get_matches();
+
+    if let Some(bin) = matches.value_of("testbin") {
+        match bin {
+            "cococo" => binaries::cococo(),
+            "iecho" => binaries::iecho(),
+            "fail" => binaries::fail(),
+            "nonu" => binaries::nonu(),
+            "chop" => binaries::chop(),
+            _ => unreachable!(),
+        }
+
+        return Ok(());
+    }
 
     let loglevel = match matches.value_of("loglevel") {
         None => LevelFilter::Warn,

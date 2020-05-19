@@ -1,8 +1,9 @@
 use crate::context::Context;
+use crate::shell::palette::{DefaultPalette, Palette};
 use ansi_term::{Color, Style};
 use nu_parser::SignatureRegistry;
 use nu_protocol::hir::FlatShape;
-use nu_source::{Span, Spanned, Tag, Tagged};
+use nu_source::{Spanned, Tag, Tagged};
 use rustyline::completion::Completer;
 use rustyline::error::ReadlineError;
 use rustyline::highlight::Highlighter;
@@ -61,7 +62,11 @@ impl Highlighter for Helper {
     }
 
     fn highlight<'l>(&self, line: &'l str, _pos: usize) -> Cow<'l, str> {
-        Painter::paint_string(line, &self.context.registry().clone_box())
+        Painter::paint_string(
+            line,
+            &self.context.registry().clone_box(),
+            &DefaultPalette {},
+        )
     }
 
     fn highlight_char(&self, _line: &str, _pos: usize) -> bool {
@@ -96,7 +101,11 @@ impl Painter {
         }
     }
 
-    pub fn paint_string<'l>(line: &'l str, registry: &dyn SignatureRegistry) -> Cow<'l, str> {
+    pub fn paint_string<'l, P: Palette>(
+        line: &'l str,
+        registry: &dyn SignatureRegistry,
+        palette: &P,
+    ) -> Cow<'l, str> {
         let lite_block = nu_parser::lite_parse(line, 0);
 
         match lite_block {
@@ -108,7 +117,7 @@ impl Painter {
                 let mut painter = Painter::new(line);
 
                 for shape in shapes {
-                    painter.paint_shape(&shape);
+                    painter.paint_shape(&shape, palette);
                 }
 
                 Cow::Owned(painter.into_string())
@@ -116,46 +125,16 @@ impl Painter {
         }
     }
 
-    fn paint_shape(&mut self, shape: &Spanned<FlatShape>) {
-        let style = match &shape.item {
-            FlatShape::OpenDelimiter(_) => Color::White.normal(),
-            FlatShape::CloseDelimiter(_) => Color::White.normal(),
-            FlatShape::ItVariable | FlatShape::Keyword => Color::Purple.bold(),
-            FlatShape::Variable | FlatShape::Identifier => Color::Purple.normal(),
-            FlatShape::Type => Color::Blue.bold(),
-            FlatShape::Operator => Color::Yellow.normal(),
-            FlatShape::DotDot => Color::Yellow.bold(),
-            FlatShape::Dot => Style::new().fg(Color::White),
-            FlatShape::InternalCommand => Color::Cyan.bold(),
-            FlatShape::ExternalCommand => Color::Cyan.normal(),
-            FlatShape::ExternalWord => Color::Green.bold(),
-            FlatShape::BareMember => Color::Yellow.bold(),
-            FlatShape::StringMember => Color::Yellow.bold(),
-            FlatShape::String => Color::Green.normal(),
-            FlatShape::Path => Color::Cyan.normal(),
-            FlatShape::GlobPattern => Color::Cyan.bold(),
-            FlatShape::Word => Color::Green.normal(),
-            FlatShape::Pipe => Color::Purple.bold(),
-            FlatShape::Flag => Color::Blue.bold(),
-            FlatShape::ShorthandFlag => Color::Blue.bold(),
-            FlatShape::Int => Color::Purple.bold(),
-            FlatShape::Decimal => Color::Purple.bold(),
-            FlatShape::Whitespace | FlatShape::Separator => Color::White.normal(),
-            FlatShape::Comment => Color::Green.bold(),
-            FlatShape::Garbage => Style::new().fg(Color::White).on(Color::Red),
-            FlatShape::Size { number, unit } => {
-                self.paint(Color::Purple.bold(), number);
-                self.paint(Color::Cyan.bold(), unit);
-                return;
-            }
-        };
-
-        self.paint(style, &shape.span);
+    fn paint_shape<P: Palette>(&mut self, shape: &Spanned<FlatShape>, palette: &P) {
+        palette
+            .styles_for_shape(shape)
+            .iter()
+            .for_each(|x| self.paint(x));
     }
 
-    fn paint(&mut self, style: Style, span: &Span) {
-        for pos in span.start()..span.end() {
-            self.styles[pos] = style;
+    fn paint(&mut self, styled_span: &Spanned<Style>) {
+        for pos in styled_span.span.start()..styled_span.span.end() {
+            self.styles[pos] = styled_span.item;
         }
     }
 

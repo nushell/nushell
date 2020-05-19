@@ -27,15 +27,17 @@ impl WholeStreamCommand for Exit {
         exit(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Exit the current shell",
                 example: "exit",
+                result: None,
             },
             Example {
                 description: "Exit all shells (exiting Nu)",
                 example: "exit --now",
+                result: None,
             },
         ]
     }
@@ -54,4 +56,16 @@ pub fn exit(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Exit;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Exit {})
+    }
 }

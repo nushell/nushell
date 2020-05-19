@@ -1,5 +1,6 @@
 pub mod data;
 pub mod data_processing;
+pub mod test_bins;
 
 use crate::path::canonicalize;
 use nu_errors::ShellError;
@@ -21,6 +22,7 @@ pub struct ValueResource {
 
 impl ValueResource {}
 
+#[derive(Default)]
 pub struct ValueStructure {
     pub resources: Vec<ValueResource>,
 }
@@ -96,6 +98,7 @@ pub struct Res {
 
 impl Res {}
 
+#[derive(Default)]
 pub struct FileStructure {
     pub resources: Vec<Res>,
 }

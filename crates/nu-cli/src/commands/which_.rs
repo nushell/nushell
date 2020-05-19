@@ -108,3 +108,15 @@ fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
         Ok(stream.take(1).to_output_stream())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Which;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Which {})
+    }
+}

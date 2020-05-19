@@ -87,29 +87,9 @@ pub async fn post_helper(
     user: Option<String>,
     password: Option<String>,
     headers: &[HeaderKind],
-    row: Value,
 ) -> ReturnValue {
     let path_tag = path.tag.clone();
-    let path_str = path.as_string()?.to_string();
-
-    //FIXME: this is a workaround because plugins don't yet support per-item iteration
-    let path_str = if path_str == "$it" {
-        let path_buf = row.as_path()?;
-        path_buf.display().to_string()
-    } else {
-        path_str
-    };
-
-    //FIXME: this is a workaround because plugins don't yet support per-item iteration
-    let body = if let Ok(x) = body.as_string() {
-        if x == "$it" {
-            &row
-        } else {
-            body
-        }
-    } else {
-        body
-    };
+    let path_str = path.as_string()?;
 
     let (file_extension, contents, contents_tag) =
         post(&path_str, &body, user, password, &headers, path_tag.clone()).await?;

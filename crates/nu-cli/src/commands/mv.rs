@@ -45,19 +45,22 @@ impl WholeStreamCommand for Move {
         mv(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Rename a file",
                 example: "mv before.txt after.txt",
+                result: None,
             },
             Example {
                 description: "Move a file into a directory",
                 example: "mv test.txt my/subdirectory",
+                result: None,
             },
             Example {
                 description: "Move many files into a directory",
                 example: "mv *.txt my/subdirectory",
+                result: None,
             },
         ]
     }
@@ -77,4 +80,16 @@ fn mv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, She
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Move;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Move {})
+    }
 }

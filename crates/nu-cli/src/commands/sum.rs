@@ -37,15 +37,17 @@ impl WholeStreamCommand for Sum {
         })
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Sum a list of numbers",
                 example: "echo [1 2 3] | sum",
+                result: Some(vec![UntaggedValue::int(6).into()]),
             },
             Example {
                 description: "Get the disk usage for the current directory",
                 example: "ls --all --du | get size | sum",
+                result: None,
             },
         ]
     }
@@ -93,4 +95,16 @@ fn sum(RunnableContext { mut input, .. }: RunnableContext) -> Result<OutputStrea
     let stream: BoxStream<'static, ReturnValue> = stream.boxed();
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Sum;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Sum {})
+    }
 }

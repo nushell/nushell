@@ -36,6 +36,31 @@ impl WholeStreamCommand for Where {
     ) -> Result<OutputStream, ShellError> {
         where_command(args, registry)
     }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "List all files in the current directory with sizes greater than 2kb",
+                example: "ls | where size > 2kb",
+                result: None,
+            },
+            Example {
+                description: "List only the files in the current directory",
+                example: "ls | where type == File",
+                result: None,
+            },
+            Example {
+                description: "List all files with names that contain \"Car\"",
+                example: "ls | where name =~ \"Car\"",
+                result: None,
+            },
+            Example {
+                description: "List all files that were modified in the last two months",
+                example: "ls | where modified <= 2M",
+                result: None,
+            },
+        ]
+    }
 }
 fn where_command(
     raw_args: CommandArgs,
@@ -97,4 +122,16 @@ fn where_command(
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Where;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Where {})
+    }
 }

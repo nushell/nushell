@@ -192,7 +192,7 @@ async fn evaluate_invocation(
     let mut context = Context::basic()?;
     context.registry = registry.clone();
 
-    let input = InputStream::one(scope.it.clone());
+    let input = InputStream::empty();
 
     let result = run_block(&block, &mut context, input, &scope.clone()).await?;
 

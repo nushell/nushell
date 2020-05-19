@@ -44,15 +44,17 @@ impl WholeStreamCommand for Cal {
         cal(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "This month's calendar",
                 example: "cal",
+                result: None,
             },
             Example {
                 description: "The calendar for all of 2012",
                 example: "cal --full-year 2012",
+                result: None,
             },
         ]
     }
@@ -339,4 +341,16 @@ fn add_month_to_table(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Cal;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Cal {})
+    }
 }

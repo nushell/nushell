@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 
 pub struct Keep;
@@ -37,15 +37,22 @@ impl WholeStreamCommand for Keep {
         keep(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Keep the first row",
-                example: "ls | keep",
+                example: "echo [1 2 3] | keep",
+                result: Some(vec![UntaggedValue::int(1).into()]),
             },
             Example {
                 description: "Keep the first four rows",
-                example: "ls | keep 4",
+                example: "echo [1 2 3 4 5] | keep 4",
+                result: Some(vec![
+                    UntaggedValue::int(1).into(),
+                    UntaggedValue::int(2).into(),
+                    UntaggedValue::int(3).into(),
+                    UntaggedValue::int(4).into(),
+                ]),
             },
         ]
     }
@@ -72,4 +79,16 @@ fn keep(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, S
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Keep;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Keep {})
+    }
 }

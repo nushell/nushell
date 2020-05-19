@@ -32,6 +32,14 @@ impl WholeStreamCommand for Reject {
     ) -> Result<OutputStream, ShellError> {
         reject(args, registry)
     }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Lists the files in a directory without showing the modified column",
+            example: "ls | reject modified",
+            result: None,
+        }]
+    }
 }
 
 fn reject(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
@@ -56,4 +64,16 @@ fn reject(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Reject;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Reject {})
+    }
 }

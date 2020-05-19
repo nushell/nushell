@@ -50,26 +50,39 @@ fn insert(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
 
     let stream = async_stream! {
         let (InsertArgs { column, value }, mut input) = args.process(&registry).await?;
-        match input.next().await {
-            Some(obj @ Value {
-                value: UntaggedValue::Row(_),
-                ..
-            }) => match obj.insert_data_at_column_path(&column, value.clone()) {
-                Ok(v) => yield Ok(ReturnSuccess::Value(v)),
-                Err(err) => yield Err(err),
-            },
+        while let Some(row) = input.next().await {
+            match row {
+                Value {
+                    value: UntaggedValue::Row(_),
+                    ..
+                } => match row.insert_data_at_column_path(&column, value.clone()) {
+                    Ok(v) => yield Ok(ReturnSuccess::Value(v)),
+                    Err(err) => yield Err(err),
+                },
 
-            Some(Value { tag, ..}) => {
-                yield Err(ShellError::labeled_error(
-                    "Unrecognized type in stream",
-                    "original value",
-                    tag,
-                ));
+                Value { tag, ..} => {
+                    yield Err(ShellError::labeled_error(
+                        "Unrecognized type in stream",
+                        "original value",
+                        tag,
+                    ));
+                }
+
             }
-
-            None => {}
         };
 
     };
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Insert;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Insert {})
+    }
 }

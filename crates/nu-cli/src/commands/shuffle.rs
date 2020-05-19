@@ -2,32 +2,16 @@ use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, ReturnValue, Signature, SyntaxShape, Value};
-use nu_source::Tagged;
+use nu_protocol::{ReturnSuccess, ReturnValue, Value};
 
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 
 pub struct Shuffle;
 
-#[derive(Deserialize)]
-pub struct Arguments {
-    #[serde(rename = "num")]
-    limit: Option<Tagged<u64>>,
-}
-
 impl WholeStreamCommand for Shuffle {
     fn name(&self) -> &str {
         "shuffle"
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build("shuffle").named(
-            "num",
-            SyntaxShape::Int,
-            "Limit `num` number of rows",
-            Some('n'),
-        )
     }
 
     fn usage(&self) -> &str {
@@ -43,16 +27,12 @@ impl WholeStreamCommand for Shuffle {
     }
 }
 
-fn shuffle(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+fn shuffle(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
-        let (Arguments { limit }, mut input) = args.process(&registry).await?;
+        let mut input = args.input;
         let mut values: Vec<Value> = input.collect().await;
 
-        let out = if let Some(n) = limit {
-            let (shuffled, _) = values.partial_shuffle(&mut thread_rng(), *n as usize);
-            shuffled.to_vec()
-        } else {
+        let out = {
             values.shuffle(&mut thread_rng());
             values.clone()
         };
@@ -65,4 +45,16 @@ fn shuffle(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
     let stream: BoxStream<'static, ReturnValue> = stream.boxed();
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Shuffle;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Shuffle {})
+    }
 }

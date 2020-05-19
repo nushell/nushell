@@ -301,4 +301,12 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn examples_work_as_expected() {
+        use super::FromXML;
+        use crate::examples::test as test_examples;
+
+        test_examples(FromXML {})
+    }
 }

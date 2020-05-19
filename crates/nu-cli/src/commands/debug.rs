@@ -49,3 +49,15 @@ fn debug_value(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
 
     Ok(stream.to_output_stream())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Debug;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Debug {})
+    }
+}

@@ -40,15 +40,17 @@ impl WholeStreamCommand for Rename {
         rename(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Rename a column",
-                example: "ls | rename my_name",
+                example: r#"echo "{a: 1, b: 2, c: 3}" | from json | rename my_column"#,
+                result: None,
             },
             Example {
                 description: "Rename many columns",
-                example: "echo \"{a: 1, b: 2, c: 3}\" | from json | rename spam eggs cars",
+                example: r#"echo "{a: 1, b: 2, c: 3}" | from json | rename spam eggs cars"#,
+                result: None,
             },
         ]
     }
@@ -99,4 +101,16 @@ pub fn rename(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Rename;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Rename {})
+    }
 }

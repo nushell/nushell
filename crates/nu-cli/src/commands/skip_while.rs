@@ -112,3 +112,15 @@ impl WholeStreamCommand for SkipWhile {
         Ok(stream.to_output_stream())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::SkipWhile;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(SkipWhile {})
+    }
+}

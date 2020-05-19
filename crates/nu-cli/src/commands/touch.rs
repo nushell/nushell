@@ -34,7 +34,16 @@ impl WholeStreamCommand for Touch {
     ) -> Result<OutputStream, ShellError> {
         touch(args, registry)
     }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Creates \"fixture.json\"",
+            example: "touch fixture.json",
+            result: None,
+        }]
+    }
 }
+
 fn touch(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let stream = async_stream! {
@@ -50,4 +59,16 @@ fn touch(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Touch;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Touch {})
+    }
 }

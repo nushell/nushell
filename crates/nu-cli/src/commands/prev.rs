@@ -31,3 +31,15 @@ impl WholeStreamCommand for Previous {
 fn previous(_args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     Ok(vec![Ok(ReturnSuccess::Action(CommandAction::PreviousShell))].into())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Previous;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Previous {})
+    }
+}

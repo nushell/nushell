@@ -73,7 +73,7 @@ fn parse_simple_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, O
 }
 
 /// Parses a column path, adding in the preceding reference to $it if it's elided
-fn parse_full_column_path(
+pub fn parse_full_column_path(
     lite_arg: &Spanned<String>,
     registry: &dyn SignatureRegistry,
 ) -> (SpannedExpression, Option<ParseError>) {

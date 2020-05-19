@@ -263,6 +263,7 @@ pub fn get_help(cmd: &dyn WholeStreamCommand, registry: &CommandRegistry) -> Str
         }
     }
 
+    let palette = crate::shell::palette::DefaultPalette {};
     let examples = cmd.examples();
     if !examples.is_empty() {
         long_desc.push_str("\nExamples:");
@@ -272,11 +273,23 @@ pub fn get_help(cmd: &dyn WholeStreamCommand, registry: &CommandRegistry) -> Str
         long_desc.push_str("  ");
         long_desc.push_str(example.description);
         let colored_example =
-            crate::shell::helper::Painter::paint_string(example.example, registry);
+            crate::shell::helper::Painter::paint_string(example.example, registry, &palette);
         long_desc.push_str(&format!("\n  > {}\n", colored_example));
     }
 
     long_desc.push_str("\n");
 
     long_desc
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Help;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Help {})
+    }
 }

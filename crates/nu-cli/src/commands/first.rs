@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 
 pub struct First;
@@ -37,15 +37,20 @@ impl WholeStreamCommand for First {
         first(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Return the first item of a list/table",
                 example: "echo [1 2 3] | first",
+                result: Some(vec![UntaggedValue::int(1).into()]),
             },
             Example {
                 description: "Return the first 2 items of a list/table",
                 example: "echo [1 2 3] | first 2",
+                result: Some(vec![
+                    UntaggedValue::int(1).into(),
+                    UntaggedValue::int(2).into(),
+                ]),
             },
         ]
     }
@@ -72,4 +77,16 @@ fn first(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::First;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(First {})
+    }
 }

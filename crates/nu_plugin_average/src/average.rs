@@ -17,7 +17,6 @@ impl Average {
 
     pub fn average(&mut self, value: Value) -> Result<(), ShellError> {
         match &value.value {
-            UntaggedValue::Primitive(Primitive::Nothing) => Ok(()),
             UntaggedValue::Primitive(Primitive::Int(i)) => match &self.total {
                 Some(Value {
                     value: UntaggedValue::Primitive(Primitive::Int(j)),

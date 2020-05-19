@@ -15,7 +15,7 @@ nu-protocol = { path = "../nu-protocol", version = "0.14.1" }
 nu-source = { path = "../nu-source", version = "0.14.1" }
 nu-errors = { path = "../nu-errors", version = "0.14.1" }
 
-crossterm = "0.17.2"
+crossterm = "0.17.4"
 syntect = { version = "4.1", default-features = false, features = ["default-fancy"]}
 ansi_term = "0.12.1"
 url = "2.1.1"

@@ -26,6 +26,14 @@ impl WholeStreamCommand for Version {
     ) -> Result<OutputStream, ShellError> {
         version(args, registry)
     }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Display Nu version",
+            example: "version",
+            result: None,
+        }]
+    }
 }
 
 pub fn version(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
@@ -39,4 +47,16 @@ pub fn version(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputS
 
     let value = UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag);
     Ok(OutputStream::one(value))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Version;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Version {})
+    }
 }

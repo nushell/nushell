@@ -34,15 +34,17 @@ impl WholeStreamCommand for Date {
         date(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Get the current local time and date",
                 example: "date",
+                result: None,
             },
             Example {
                 description: "Get the current UTC time and date",
                 example: "date --utc",
+                result: None,
             },
         ]
     }
@@ -107,4 +109,16 @@ pub fn date(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Date;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Date {})
+    }
 }

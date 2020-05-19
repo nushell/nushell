@@ -359,11 +359,11 @@ impl Value {
     }
 }
 
-impl Into<Value> for String {
-    fn into(self) -> Value {
-        let end = self.len();
+impl From<String> for Value {
+    fn from(s: String) -> Value {
+        let end = s.len();
         Value {
-            value: self.into(),
+            value: s.into(),
             tag: Tag {
                 anchor: None,
                 span: Span::new(0, end),
@@ -372,17 +372,49 @@ impl Into<Value> for String {
     }
 }
 
-impl Into<UntaggedValue> for &str {
-    /// Convert a string slice into an UntaggedValue
-    fn into(self) -> UntaggedValue {
-        UntaggedValue::Primitive(Primitive::String(self.to_string()))
+impl From<&str> for Value {
+    fn from(s: &str) -> Value {
+        let end = s.len();
+        Value {
+            value: s.into(),
+            tag: Tag {
+                anchor: None,
+                span: Span::new(0, end),
+            },
+        }
     }
 }
 
-impl Into<UntaggedValue> for Value {
+impl<T> From<T> for UntaggedValue
+where
+    T: Into<Primitive>,
+{
+    /// Convert a Primitive to an UntaggedValue
+    fn from(input: T) -> UntaggedValue {
+        UntaggedValue::Primitive(input.into())
+    }
+}
+
+impl From<ShellError> for UntaggedValue {
+    fn from(e: ShellError) -> Self {
+        UntaggedValue::Error(e)
+    }
+}
+
+impl From<UntaggedValue> for Value {
+    /// Convert an UntaggedValue into a Value with a default tag
+    fn from(value: UntaggedValue) -> Value {
+        Value {
+            value,
+            tag: Tag::default(),
+        }
+    }
+}
+
+impl From<Value> for UntaggedValue {
     /// Convert a Value into an UntaggedValue
-    fn into(self) -> UntaggedValue {
-        self.value
+    fn from(v: Value) -> UntaggedValue {
+        v.value
     }
 }
 
@@ -417,26 +449,6 @@ impl ShellTypeName for UntaggedValue {
             UntaggedValue::Error(_) => "error",
             UntaggedValue::Block(_) => "block",
         }
-    }
-}
-
-impl From<Primitive> for UntaggedValue {
-    /// Convert a Primitive to an UntaggedValue
-    fn from(input: Primitive) -> UntaggedValue {
-        UntaggedValue::Primitive(input)
-    }
-}
-
-impl From<String> for UntaggedValue {
-    /// Convert a String to an UntaggedValue
-    fn from(input: String) -> UntaggedValue {
-        UntaggedValue::Primitive(Primitive::String(input))
-    }
-}
-
-impl From<ShellError> for UntaggedValue {
-    fn from(e: ShellError) -> Self {
-        UntaggedValue::Error(e)
     }
 }
 

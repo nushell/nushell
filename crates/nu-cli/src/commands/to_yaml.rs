@@ -170,3 +170,15 @@ fn to_yaml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
 
     Ok(stream.to_output_stream())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ToYAML;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(ToYAML {})
+    }
+}

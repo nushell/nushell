@@ -43,6 +43,14 @@ impl WholeStreamCommand for Open {
     ) -> Result<OutputStream, ShellError> {
         open(args, registry)
     }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Opens \"users.csv\" and creates a table from the data",
+            example: "open users.csv",
+            result: None,
+        }]
+    }
 }
 
 fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
@@ -240,5 +248,17 @@ fn read_be_u16(input: &[u8]) -> Option<Vec<u16>> {
         }
 
         Some(result)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Open;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Open {})
     }
 }

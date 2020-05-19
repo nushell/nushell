@@ -41,15 +41,17 @@ impl WholeStreamCommand for Get {
         get(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Extract the name of files as a list",
                 example: "ls | get name",
+                result: None,
             },
             Example {
                 description: "Extract the cpu list from the sys information",
                 example: "sys | get cpu",
+                result: None,
             },
         ]
     }
@@ -239,4 +241,16 @@ pub fn get(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
         }
     };
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Get;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Get {})
+    }
 }

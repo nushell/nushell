@@ -376,9 +376,7 @@ pub fn create_default_context(
 
         #[cfg(feature = "clipboard")]
         {
-            context.add_commands(vec![whole_stream_command(
-                crate::commands::clip::clipboard::Clip,
-            )]);
+            context.add_commands(vec![whole_stream_command(crate::commands::clip::Clip)]);
         }
     }
 
@@ -466,8 +464,8 @@ pub async fn run_pipeline_standalone(
         }
 
         LineResult::Error(line, err) => {
-            context.with_host(|host| {
-                print_err(err, host, &Text::from(line.clone()));
+            context.with_host(|_host| {
+                print_err(err, &Text::from(line.clone()));
             });
 
             context.maybe_print_errors(Text::from(line));
@@ -570,6 +568,13 @@ pub async fn cli(
 
         rl.set_edit_mode(edit_mode);
 
+        let max_history_size = config::config(Tag::unknown())?
+            .get("history_size")
+            .map(|i| i.value.expect_int())
+            .unwrap_or(100);
+
+        rl.set_max_history_size(max_history_size as usize);
+
         let key_timeout = config::config(Tag::unknown())?
             .get("key_timeout")
             .map(|s| s.value.expect_int())
@@ -592,6 +597,7 @@ pub async fn cli(
             #[cfg(feature = "starship-prompt")]
             {
                 std::env::set_var("STARSHIP_SHELL", "");
+                std::env::set_var("PWD", &cwd);
                 let mut starship_context =
                     starship::context::Context::new_with_dir(clap::ArgMatches::default(), cwd);
 
@@ -655,8 +661,8 @@ pub async fn cli(
                 rl.add_history_entry(line.clone());
                 let _ = rl.save_history(&History::path());
 
-                context.with_host(|host| {
-                    print_err(err, host, &Text::from(line.clone()));
+                context.with_host(|_host| {
+                    print_err(err, &Text::from(line.clone()));
                 });
 
                 context.maybe_print_errors(Text::from(line.clone()));
@@ -909,19 +915,19 @@ async fn process_line(
     }
 }
 
-pub fn print_err(err: ShellError, host: &dyn Host, source: &Text) {
+pub fn print_err(err: ShellError, source: &Text) {
     if let Some(diag) = err.into_diagnostic() {
-        let writer = host.err_termcolor();
-        let mut source = source.to_string();
-        source.push_str(" ");
-        let files = nu_parser::Files::new(source);
+        let source = source.to_string();
+        let mut files = codespan_reporting::files::SimpleFiles::new();
+        files.add("shell", source);
+
+        let writer = codespan_reporting::term::termcolor::StandardStream::stderr(
+            codespan_reporting::term::termcolor::ColorChoice::Always,
+        );
+        let config = codespan_reporting::term::Config::default();
+
         let _ = std::panic::catch_unwind(move || {
-            let _ = language_reporting::emit(
-                &mut writer.lock(),
-                &files,
-                &diag,
-                &language_reporting::DefaultConfig,
-            );
+            let _ = codespan_reporting::term::emit(&mut writer.lock(), &config, &files, &diag);
         });
     }
 }

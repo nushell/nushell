@@ -38,7 +38,7 @@ macro_rules! nu {
         });
 
         let mut paths = $crate::shell_os_paths();
-        paths.push(test_bins);
+        paths.insert(0, test_bins);
 
         let paths_joined = match std::env::join_paths(paths.iter()) {
             Ok(all) => all,

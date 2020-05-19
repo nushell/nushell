@@ -42,6 +42,6 @@ fn writes_out_csv() {
         );
 
         let actual = file_contents(expected_file);
-        assert!(actual.contains("[Table],a new type of shell,2018,ISC,nu,0.1.1"));
+        assert!(actual.contains("nu,0.1.1,[Table],a new type of shell,ISC,2018"));
     })
 }

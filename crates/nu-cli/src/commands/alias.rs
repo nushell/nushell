@@ -43,15 +43,17 @@ impl WholeStreamCommand for Alias {
         alias(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "An alias without parameters",
                 example: "alias say-hi [] { echo 'Hello!' }",
+                result: None,
             },
             Example {
                 description: "An alias with a single parameter",
                 example: "alias l [x] { ls $x }",
+                result: None,
             },
         ]
     }
@@ -73,4 +75,16 @@ pub fn alias(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Alias;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Alias {})
+    }
 }

@@ -4,6 +4,7 @@ use regex::Regex;
 pub struct Parse {
     pub regex: Regex,
     pub name: Tag,
+    pub pattern_tag: Tag,
     pub column_names: Vec<String>,
 }
 
@@ -13,6 +14,7 @@ impl Parse {
         Ok(Parse {
             regex: Regex::new("")?,
             name: Tag::unknown(),
+            pattern_tag: Tag::unknown(),
             column_names: vec![],
         })
     }

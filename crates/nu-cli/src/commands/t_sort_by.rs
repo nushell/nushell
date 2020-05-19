@@ -87,3 +87,15 @@ fn t_sort_by(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
 
     Ok(stream.to_output_stream())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::TSortBy;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(TSortBy {})
+    }
+}

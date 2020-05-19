@@ -74,7 +74,7 @@ mod it_evaluation {
                 ls
                 | sort-by name
                 | get name
-                | cococo $it
+                | nu --testbin cococo $it
                 | lines
                 | nth 1
                 | echo $it
@@ -101,7 +101,7 @@ mod it_evaluation {
             r#"
                 open nu_candies.txt
                 | lines
-                | chop $it
+                | nu --testbin chop $it
                 | lines
                 | nth 1
                 | echo $it
@@ -126,7 +126,7 @@ mod it_evaluation {
                 cwd: dirs.test(), pipeline(
                 r#"
                     open sample.toml
-                    | cococo $it.nu_party_venue
+                    | nu --testbin cococo $it.nu_party_venue
                     | echo $it
                 "#
             ));
@@ -145,7 +145,7 @@ mod stdin_evaluation {
         let actual = nu!(
             cwd: ".",
             pipeline(r#"
-                nonu "where's the nuline?"
+                nu --testbin nonu "where's the nuline?"
                 | count
             "#
         ));
@@ -158,9 +158,9 @@ mod stdin_evaluation {
         let stdout = nu!(
             cwd: ".",
             pipeline(r#"
-                iecho yes
-                | chop
-                | chop
+                nu --testbin iecho yes
+                | nu --testbin chop
+                | nu --testbin chop
                 | lines
                 | first 1
             "#
@@ -177,7 +177,7 @@ mod external_words {
     #[test]
     fn relaxed_external_words() {
         let actual = nu!(cwd: ".", r#"
-        cococo joturner@foo.bar.baz
+        nu --testbin cococo joturner@foo.bar.baz
         "#);
 
         assert_eq!(actual.out, "joturner@foo.bar.baz");
@@ -227,7 +227,7 @@ mod tilde_expansion {
         let actual = nu!(
             cwd: ".",
             r#"
-            cococo ~
+            nu --testbin cococo  ~
         "#
         );
 
@@ -242,7 +242,7 @@ mod tilde_expansion {
         let actual = nu!(
             cwd: ".",
             r#"
-                    cococo "1~1"
+                nu --testbin cococo  "1~1"
                 "#
         );
 
