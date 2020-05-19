@@ -602,6 +602,12 @@ pub struct SpannedExpression {
     pub span: Span,
 }
 
+impl fmt::Display for SpannedExpression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.expr.to_string())
+    }
+}
+
 impl SpannedExpression {
     pub fn new(expr: Expression, span: Span) -> SpannedExpression {
         SpannedExpression { expr, span }
@@ -997,7 +1003,7 @@ impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
             Expression::Literal(l) => l.to_string(),
-            Expression::Block(b) => b.to_string(),
+            Expression::Block(b) => format!("{{ {} }}", b.to_string()),
             Expression::Boolean(b) => b.to_string(),
             Expression::Variable(v) => v.to_string(),
             Expression::Path(p) => p.to_string(),
