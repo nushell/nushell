@@ -300,7 +300,8 @@ Nu is in heavy development, and will naturally change as it matures and people u
 | Paging   |             |     X     |     |         |        | Textview has paging, but we'd like paging for tables
 | Functions|      X      |           |     |         |        | No functions, yet, only aliases
 | Variables|      X      |           |     |         |        | Nu doesn't yet support variables 
-
+| Completions |          |     X     |     |         |        | Completions are currently barebones, at best
+| Type-checking |        |     X     |     |         |        | Commands check basic types, but input/output isn't checked
 
 # Contributing
 
