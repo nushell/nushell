@@ -107,12 +107,40 @@ pub fn histogram(
 
                 let column = (*column_name).clone();
 
+                let count_column_name = "count".to_string();
+                let count_shell_error = ShellError::labeled_error("Unable to load group count", "unabled to load group count", &name);
+                let mut count_values: Vec<u64> = Vec::new();
+
+                for table_entry in reduced.table_entries() {
+                    match table_entry {
+                        Value {
+                            value: UntaggedValue::Table(list),
+                            ..
+                        } => {
+                            for i in list {
+                                if let Ok(count) = i.value.clone().into_value(&name).as_u64() {
+                                    count_values.push(count);
+                                } else {
+                                    yield Err(count_shell_error);
+                                    return;
+                                }
+                            }
+                        }
+                        _ => {
+                            yield Err(count_shell_error);
+                            return;
+                        }
+                    }
+                }
+
                 if let Value { value: UntaggedValue::Table(start), .. } = datasets.get(0).ok_or_else(|| ShellError::labeled_error("Unable to load dataset", "unabled to load dataset", &name))? {
                     for percentage in start.iter() {
 
                         let mut fact = TaggedDictBuilder::new(&name);
                         let value: Tagged<String> = group_labels.get(idx).ok_or_else(|| ShellError::labeled_error("Unable to load group labels", "unabled to load group labels", &name))?.clone();
                         fact.insert_value(&column, UntaggedValue::string(value.item).into_value(value.tag));
+
+                        fact.insert_untagged(&count_column_name, UntaggedValue::int(count_values[idx]));
 
                         if let Value { value: UntaggedValue::Primitive(Primitive::Int(ref num)), ref tag } = percentage.clone() {
                             let string = std::iter::repeat("*").take(num.to_i32().ok_or_else(|| ShellError::labeled_error("Expected a number", "expected a number", tag))? as usize).collect::<String>();
