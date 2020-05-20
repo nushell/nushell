@@ -7,9 +7,6 @@ use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
 
 pub struct Count;
 
-#[derive(Deserialize)]
-pub struct CountArgs {}
-
 impl WholeStreamCommand for Count {
     fn name(&self) -> &str {
         "count"
@@ -28,26 +25,37 @@ impl WholeStreamCommand for Count {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, count)?.run()
+        count(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
-            description: "Count the number of files/directories in the current directory",
-            example: "ls | count",
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Count the number of entries in a list",
+            example: "echo [1 2 3 4 5] | count",
+            result: Some(vec![UntaggedValue::int(5).into()]),
         }]
     }
 }
 
-pub fn count(
-    CountArgs {}: CountArgs,
-    RunnableContext { input, name, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
+pub fn count(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
-        let rows: Vec<Value> = input.collect().await;
+        let name = args.call_info.name_tag.clone();
+        let rows: Vec<Value> = args.input.collect().await;
 
         yield ReturnSuccess::value(UntaggedValue::int(rows.len()).into_value(name))
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Count;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Count {})
+    }
 }

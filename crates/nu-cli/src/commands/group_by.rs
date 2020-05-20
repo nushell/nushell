@@ -1,7 +1,8 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
+use indexmap::indexmap;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, Value};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct GroupBy;
@@ -33,22 +34,47 @@ impl WholeStreamCommand for GroupBy {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, group_by)?.run()
+        group_by(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
-            description: "Group files by type",
-            example: "ls | group-by type",
-        }]
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Group items by type",
+                example: r#"ls | group-by type"#,
+                result: None,
+            },
+            Example {
+                description: "Group items by their value",
+                example: "echo [1 3 1 3 2 1 1] | group-by",
+                result: Some(vec![UntaggedValue::row(indexmap! {
+                    "1".to_string() => UntaggedValue::Table(vec![
+                        UntaggedValue::int(1).into(),
+                        UntaggedValue::int(1).into(),
+                        UntaggedValue::int(1).into(),
+                        UntaggedValue::int(1).into(),
+                    ]).into(),
+
+                    "3".to_string() => UntaggedValue::Table(vec![
+                        UntaggedValue::int(3).into(),
+                        UntaggedValue::int(3).into(),
+                    ]).into(),
+
+                    "2".to_string() => UntaggedValue::Table(vec![
+                        UntaggedValue::int(2).into(),
+                    ]).into(),
+                })
+                .into()]),
+            },
+        ]
     }
 }
 
-pub fn group_by(
-    GroupByArgs { column_name }: GroupByArgs,
-    RunnableContext { input, name, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
+pub fn group_by(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let name = args.call_info.name_tag.clone();
     let stream = async_stream! {
+        let (GroupByArgs { column_name }, mut input) = args.process(&registry).await?;
         let values: Vec<Value> = input.collect().await;
 
         if values.is_empty() {
@@ -184,5 +210,13 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn examples_work_as_expected() {
+        use super::GroupBy;
+        use crate::examples::test as test_examples;
+
+        test_examples(GroupBy {})
     }
 }

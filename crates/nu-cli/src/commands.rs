@@ -8,10 +8,12 @@ pub(crate) mod alias;
 pub(crate) mod append;
 pub(crate) mod args;
 pub(crate) mod autoview;
+pub(crate) mod build_string;
 pub(crate) mod cal;
 pub(crate) mod calc;
 pub(crate) mod cd;
 pub(crate) mod classified;
+#[cfg(feature = "clipboard")]
 pub(crate) mod clip;
 pub(crate) mod command;
 pub(crate) mod compact;
@@ -71,7 +73,6 @@ pub(crate) mod mv;
 pub(crate) mod next;
 pub(crate) mod nth;
 pub(crate) mod open;
-pub(crate) mod parse;
 pub(crate) mod pivot;
 pub(crate) mod plugin;
 pub(crate) mod prepend;
@@ -132,6 +133,7 @@ pub(crate) use command::{
 
 pub(crate) use alias::Alias;
 pub(crate) use append::Append;
+pub(crate) use build_string::BuildString;
 pub(crate) use cal::Cal;
 pub(crate) use calc::Calc;
 pub(crate) use compact::Compact;
@@ -199,7 +201,6 @@ pub(crate) use mv::Move;
 pub(crate) use next::Next;
 pub(crate) use nth::Nth;
 pub(crate) use open::Open;
-pub(crate) use parse::Parse;
 pub(crate) use pivot::Pivot;
 pub(crate) use prepend::Prepend;
 pub(crate) use prev::Previous;

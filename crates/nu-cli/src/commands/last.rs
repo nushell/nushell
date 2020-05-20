@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, Value};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct Last;
@@ -34,26 +34,34 @@ impl WholeStreamCommand for Last {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, last)?.run()
+        last(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Get the last row",
-                example: "ls | last",
+                example: "echo [1 2 3] | last",
+                result: Some(vec![Value::from(UntaggedValue::from(BigInt::from(3)))]),
             },
             Example {
                 description: "Get the last three rows",
-                example: "ls | last 3",
+                example: "echo [1 2 3 4 5] | last 3",
+                result: Some(vec![
+                    UntaggedValue::int(3).into(),
+                    UntaggedValue::int(4).into(),
+                    UntaggedValue::int(5).into(),
+                ]),
             },
         ]
     }
 }
 
-fn last(LastArgs { rows }: LastArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
+fn last(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
     let stream = async_stream! {
-        let v: Vec<_> = context.input.into_vec().await;
+        let (LastArgs { rows }, mut input) = args.process(&registry).await?;
+        let v: Vec<_> = input.into_vec().await;
 
         let rows_desired = if let Some(quantity) = rows {
             *quantity
@@ -71,4 +79,16 @@ fn last(LastArgs { rows }: LastArgs, context: RunnableContext) -> Result<OutputS
         }
     };
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Last;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Last {})
+    }
 }

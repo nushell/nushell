@@ -28,11 +28,12 @@ impl WholeStreamCommand for FromURL {
 }
 
 fn from_url(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let tag = args.name_tag();
-    let input = args.input;
-
+    let registry = registry.clone();
     let stream = async_stream! {
+        let args = args.evaluate_once(&registry).await?;
+        let tag = args.name_tag();
+        let input = args.input;
+
         let concat_string = input.collect_string(tag.clone()).await?;
 
         let result = serde_urlencoded::from_str::<Vec<(String, String)>>(&concat_string.item);
@@ -60,4 +61,16 @@ fn from_url(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::FromURL;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(FromURL {})
+    }
 }

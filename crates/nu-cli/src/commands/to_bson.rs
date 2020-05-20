@@ -261,11 +261,12 @@ fn bson_value_to_bytes(bson: Bson, tag: Tag) -> Result<Vec<u8>, ShellError> {
 }
 
 fn to_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let name_tag = args.name_tag();
-    let name_span = name_tag.span;
-
+    let registry = registry.clone();
     let stream = async_stream! {
+        let args = args.evaluate_once(&registry).await?;
+        let name_tag = args.name_tag();
+        let name_span = name_tag.span;
+
         let input: Vec<Value> = args.input.collect().await;
 
         let to_process_input = if input.len() > 1 {
@@ -304,4 +305,16 @@ fn to_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ToBSON;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(ToBSON {})
+    }
 }

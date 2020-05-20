@@ -1,5 +1,6 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
+use indexmap::indexmap;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
 
@@ -26,10 +27,17 @@ impl WholeStreamCommand for Size {
         size(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
             description: "Count the number of words in a string",
             example: r#"echo "There are seven words in this sentence" | size"#,
+            result: Some(vec![UntaggedValue::row(indexmap! {
+                "lines".to_string() => UntaggedValue::int(0).into(),
+                "words".to_string() => UntaggedValue::int(7).into(),
+                "chars".to_string() => UntaggedValue::int(38).into(),
+                "max length".to_string() => UntaggedValue::int(38).into(),
+            })
+            .into()]),
         }]
     }
 }
@@ -90,4 +98,16 @@ fn count(contents: &str, tag: impl Into<Tag>) -> Value {
     dict.insert_untagged("max length", UntaggedValue::int(bytes));
 
     dict.into_value()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Size;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Size {})
+    }
 }

@@ -3,8 +3,8 @@ use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{
-    ColumnPath, PathMember, Primitive, ReturnSuccess, ReturnValue, Signature, SyntaxShape,
-    TaggedDictBuilder, UnspannedPathMember, UntaggedValue, Value,
+    ColumnPath, PathMember, Primitive, ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder,
+    UnspannedPathMember, UntaggedValue, Value,
 };
 use nu_source::span_for_spanned_list;
 use nu_value_ext::{as_string, get_data_by_column_path};
@@ -37,47 +37,47 @@ impl WholeStreamCommand for Select {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, select)?.run()
+        select(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Select just the name column",
                 example: "ls | select name",
+                result: None,
             },
             Example {
                 description: "Select the name and size columns",
                 example: "ls | select name size",
+                result: None,
             },
         ]
     }
 }
 
-fn select(
-    SelectArgs { rest: mut fields }: SelectArgs,
-    RunnableContext {
-        mut input, name, ..
-    }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    if fields.is_empty() {
-        return Err(ShellError::labeled_error(
-            "Select requires columns to select",
-            "needs parameter",
-            name,
-        ));
-    }
-
-    let member = fields.remove(0);
-    let member = vec![member];
-
-    let column_paths = vec![&member, &fields]
-        .into_iter()
-        .flatten()
-        .cloned()
-        .collect::<Vec<ColumnPath>>();
-
+fn select(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let name = args.call_info.name_tag.clone();
     let stream = async_stream! {
+        let (SelectArgs { rest: mut fields }, mut input) = args.process(&registry).await?;
+        if fields.is_empty() {
+            yield Err(ShellError::labeled_error(
+                "Select requires columns to select",
+                "needs parameter",
+                name,
+            ));
+            return;
+        }
+
+        let member = fields.remove(0);
+        let member = vec![member];
+
+        let column_paths = vec![&member, &fields]
+            .into_iter()
+            .flatten()
+            .cloned()
+            .collect::<Vec<ColumnPath>>();
         let mut empty = true;
         let mut bring_back: indexmap::IndexMap<String, Vec<Value>> = indexmap::IndexMap::new();
 
@@ -172,7 +172,17 @@ fn select(
         }
     };
 
-    let stream: BoxStream<'static, ReturnValue> = stream.boxed();
-
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Select;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Select {})
+    }
 }

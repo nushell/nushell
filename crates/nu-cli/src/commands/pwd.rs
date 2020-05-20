@@ -26,16 +26,39 @@ impl WholeStreamCommand for Pwd {
         pwd(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
             description: "Print the current working directory",
             example: "pwd",
+            result: None,
         }]
     }
 }
 
 pub fn pwd(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let shell_manager = args.shell_manager.clone();
-    let args = args.evaluate_once(registry)?;
-    shell_manager.pwd(args)
+    let registry = registry.clone();
+
+    let stream = async_stream! {
+        let shell_manager = args.shell_manager.clone();
+        let args = args.evaluate_once(&registry).await?;
+        let mut out = shell_manager.pwd(args)?;
+
+        while let Some(l) = out.next().await {
+            yield l;
+        }
+    };
+
+    Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Pwd;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Pwd {})
+    }
 }

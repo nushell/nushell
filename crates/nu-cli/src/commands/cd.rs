@@ -36,31 +36,59 @@ impl WholeStreamCommand for Cd {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, cd)?.run()
+        cd(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Change to a new directory called 'dirname'",
                 example: "cd dirname",
+                result: None,
             },
             Example {
                 description: "Change to your home directory",
                 example: "cd",
+                result: None,
             },
             Example {
                 description: "Change to your home directory (alternate version)",
                 example: "cd ~",
+                result: None,
             },
             Example {
                 description: "Change to the previous directory",
                 example: "cd -",
+                result: None,
             },
         ]
     }
 }
 
-fn cd(args: CdArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
-    context.shell_manager.cd(args, &context)
+fn cd(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let name = args.call_info.name_tag.clone();
+        let shell_manager = args.shell_manager.clone();
+
+        let (args, _): (CdArgs, _) = args.process(&registry).await?;
+        let mut result = shell_manager.cd(args, name)?;
+        while let Some(item) = result.next().await {
+            yield item;
+        }
+    };
+
+    Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Cd;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Cd {})
+    }
 }

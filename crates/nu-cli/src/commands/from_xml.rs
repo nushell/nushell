@@ -99,11 +99,12 @@ pub fn from_xml_string_to_value(s: String, tag: impl Into<Tag>) -> Result<Value,
 }
 
 fn from_xml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let tag = args.name_tag();
-    let input = args.input;
-
+    let registry = registry.clone();
     let stream = async_stream! {
+        let args = args.evaluate_once(&registry).await?;
+        let tag = args.name_tag();
+        let input = args.input;
+
         let concat_string = input.collect_string(tag.clone()).await?;
 
         match from_xml_string_to_value(concat_string.item, tag.clone()) {
@@ -299,5 +300,13 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn examples_work_as_expected() {
+        use super::FromXML;
+        use crate::examples::test as test_examples;
+
+        test_examples(FromXML {})
     }
 }

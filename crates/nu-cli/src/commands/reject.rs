@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::data::base::reject_fields;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape};
 use nu_source::Tagged;
 
 #[derive(Deserialize)]
@@ -30,25 +30,50 @@ impl WholeStreamCommand for Reject {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, reject)?.run()
+        reject(args, registry)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Lists the files in a directory without showing the modified column",
+            example: "ls | reject modified",
+            result: None,
+        }]
     }
 }
 
-fn reject(
-    RejectArgs { rest: fields }: RejectArgs,
-    RunnableContext { input, name, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    if fields.is_empty() {
-        return Err(ShellError::labeled_error(
-            "Reject requires fields",
-            "needs parameter",
-            name,
-        ));
+fn reject(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let name = args.call_info.name_tag.clone();
+        let (RejectArgs { rest: fields }, mut input) = args.process(&registry).await?;
+        if fields.is_empty() {
+            yield Err(ShellError::labeled_error(
+                "Reject requires fields",
+                "needs parameter",
+                name,
+            ));
+            return;
+        }
+
+        let fields: Vec<_> = fields.iter().map(|f| f.item.clone()).collect();
+
+        while let Some(item) = input.next().await {
+            yield ReturnSuccess::value(reject_fields(&item, &fields, &item.tag));
+        }
+    };
+
+    Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Reject;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Reject {})
     }
-
-    let fields: Vec<_> = fields.iter().map(|f| f.item.clone()).collect();
-
-    let stream = input.map(move |item| reject_fields(&item, &fields, &item.tag));
-
-    Ok(stream.from_input_stream())
 }

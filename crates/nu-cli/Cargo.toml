@@ -20,17 +20,19 @@ nu-test-support = { version = "0.14.1", path = "../nu-test-support" }
 
 
 ansi_term = "0.12.1"
+app_dirs = "1.2.1"
+async-recursion = "0.3.1"
 directories = "2.0.2"
 async-stream = "0.2"
-base64 = "0.12.0"
-bigdecimal = { version = "0.1.0", features = ["serde"] }
+base64 = "0.12.1"
+bigdecimal = { version = "0.1.2", features = ["serde"] }
 bson = { version = "0.14.1", features = ["decimal128"] }
 byte-unit = "3.0.3"
 bytes = "0.5.4"
 calamine = "0.16"
 cfg-if = "0.1"
 chrono = { version = "0.4.11", features = ["serde"] }
-clap = "2.33.0"
+clap = "2.33.1"
 csv = "1.1"
 ctrlc = "3.1.4"
 derive-new = "0.5.8"
@@ -39,10 +41,10 @@ dunce = "1.0.0"
 eml-parser = "0.1.0"
 filesize = "0.2.0"
 futures = { version = "0.3", features = ["compat", "io-compat"] }
-futures-util = "0.3.4"
+futures-util = "0.3.5"
 futures_codec = "0.4"
-getset = "0.1.0"
-git2 = { version = "0.13.1", default_features = false }
+getset = "0.1.1"
+git2 = { version = "0.13.5", default_features = false }
 glob = "0.3.0"
 hex = "0.4"
 htmlescape = "0.3.1"
@@ -50,14 +52,14 @@ ical = "0.6.*"
 ichwh = "0.3.4"
 indexmap = { version = "1.3.2", features = ["serde-1"] }
 itertools = "0.9.0"
-language-reporting = "0.4.0"
+codespan-reporting = "0.9.4"
 log = "0.4.8"
 meval = "0.2"
 natural = "0.5.0"
 num-bigint = { version = "0.2.6", features = ["serde"] }
 num-traits = "0.2.11"
-parking_lot = "0.10.0"
-pin-utils = "0.1.0-alpha.4"
+parking_lot = "0.10.2"
+pin-utils = "0.1.0"
 pretty-hex = "0.1.1"
 pretty_env_logger = "0.4.0"
 prettytable-rs = "0.8.0"
@@ -65,13 +67,13 @@ ptree = {version = "0.2" }
 query_interface = "0.3.5"
 rand = "0.7"
 regex = "1"
-roxmltree = "0.10.1"
+roxmltree = "0.11.0"
 rustyline = "6.1.2"
-serde = { version = "1.0.106", features = ["derive"] }
+serde = { version = "1.0.110", features = ["derive"] }
 serde-hjson = "0.9.1"
-serde_bytes = "0.11.3"
+serde_bytes = "0.11.4"
 serde_ini = "0.2.0"
-serde_json = "1.0.51"
+serde_json = "1.0.53"
 serde_urlencoded = "0.6.1"
 serde_yaml = "0.8"
 shellexpand = "2.0.0"
@@ -86,16 +88,16 @@ umask = "0.1"
 unicode-xid = "0.2.0"
 which = "3"
 
-trash = { version = "1.0.0", optional = true }
+trash = { version = "1.0.1", optional = true }
 clipboard = { version = "0.5", optional = true }
-starship = { version = "0.39.0", optional = true }
+starship = { version = "0.41.3", optional = true }
 rayon = "1.3.0"
 
 [target.'cfg(unix)'.dependencies]
 users = "0.10.0"
 
 [dependencies.rusqlite]
-version = "0.22.0"
+version = "0.23.1"
 features = ["bundled", "blob"]
 
 [build-dependencies]

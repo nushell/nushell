@@ -28,51 +28,65 @@ impl WholeStreamCommand for Echo {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, echo)?.run()
+        echo(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Put a hello message in the pipeline",
                 example: "echo 'hello'",
+                result: Some(vec![Value::from("hello")]),
             },
             Example {
                 description: "Print the value of the special '$nu' variable",
                 example: "echo $nu",
+                result: None,
             },
         ]
     }
 }
 
-fn echo(args: EchoArgs, _: RunnableContext) -> Result<OutputStream, ShellError> {
-    let mut output = vec![];
+fn echo(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let (args, _): (EchoArgs, _) = args.process(&registry).await?;
 
-    for i in args.rest {
-        match i.as_string() {
-            Ok(s) => {
-                output.push(Ok(ReturnSuccess::Value(
-                    UntaggedValue::string(s).into_value(i.tag.clone()),
-                )));
-            }
-            _ => match i {
-                Value {
-                    value: UntaggedValue::Table(table),
-                    ..
-                } => {
-                    for value in table {
-                        output.push(Ok(ReturnSuccess::Value(value.clone())));
+        for i in args.rest {
+            match i.as_string() {
+                Ok(s) => {
+                    yield Ok(ReturnSuccess::Value(
+                        UntaggedValue::string(s).into_value(i.tag.clone()),
+                    ));
+                }
+                _ => match i {
+                    Value {
+                        value: UntaggedValue::Table(table),
+                        ..
+                    } => {
+                        for value in table {
+                            yield Ok(ReturnSuccess::Value(value.clone()));
+                        }
                     }
-                }
-                _ => {
-                    output.push(Ok(ReturnSuccess::Value(i.clone())));
-                }
-            },
+                    _ => {
+                        yield Ok(ReturnSuccess::Value(i.clone()));
+                    }
+                },
+            }
         }
-    }
-
-    // TODO: This whole block can probably be replaced with `.map()`
-    let stream = futures::stream::iter(output);
+    };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Echo;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Echo {})
+    }
 }

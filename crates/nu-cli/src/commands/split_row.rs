@@ -34,16 +34,16 @@ impl WholeStreamCommand for SplitRow {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, split_row)?.run()
+        split_row(args, registry)
     }
 }
 
-fn split_row(
-    SplitRowArgs { separator }: SplitRowArgs,
-    RunnableContext { input, name, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    let stream = input
-        .map(move |v| {
+fn split_row(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let name = args.call_info.name_tag.clone();
+        let (SplitRowArgs { separator }, mut input) = args.process(&registry).await?;
+        while let Some(v) = input.next().await {
             if let Ok(s) = v.as_string() {
                 let splitter = separator.item.replace("\\n", "\n");
                 trace!("splitting with {:?}", splitter);
@@ -51,26 +51,34 @@ fn split_row(
 
                 trace!("split result = {:?}", split_result);
 
-                let mut result = VecDeque::new();
                 for s in split_result {
-                    result.push_back(ReturnSuccess::value(
+                    yield ReturnSuccess::value(
                         UntaggedValue::Primitive(Primitive::String(s.into())).into_value(&v.tag),
-                    ));
+                    );
                 }
-                futures::stream::iter(result)
             } else {
-                let mut result = VecDeque::new();
-                result.push_back(Err(ShellError::labeled_error_with_secondary(
+                yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
                     name.span,
                     "value originates from here",
                     v.tag.span,
-                )));
-                futures::stream::iter(result)
+                ));
             }
-        })
-        .flatten();
+        }
+    };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SplitRow;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(SplitRow {})
+    }
 }

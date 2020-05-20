@@ -30,6 +30,7 @@ nu_plugin_binaryview = { version = "0.14.1", path = "./crates/nu_plugin_binaryvi
 nu_plugin_fetch = { version = "0.14.1", path = "./crates/nu_plugin_fetch", optional=true }
 nu_plugin_inc = { version = "0.14.1", path = "./crates/nu_plugin_inc", optional=true }
 nu_plugin_match = { version = "0.14.1", path = "./crates/nu_plugin_match", optional=true }
+nu_plugin_parse = { version = "0.14.1", path = "./crates/nu_plugin_parse", optional=true }
 nu_plugin_post = { version = "0.14.1", path = "./crates/nu_plugin_post", optional=true }
 nu_plugin_ps = { version = "0.14.1", path = "./crates/nu_plugin_ps", optional=true }
 nu_plugin_start = { version = "0.1.0", path = "./crates/nu_plugin_start", optional=true }
@@ -38,12 +39,12 @@ nu_plugin_sys = { version = "0.14.1", path = "./crates/nu_plugin_sys", optional=
 nu_plugin_textview = { version = "0.14.1", path = "./crates/nu_plugin_textview", optional=true }
 nu_plugin_tree = { version = "0.14.1", path = "./crates/nu_plugin_tree", optional=true }
 
-crossterm = { version = "0.17.2", optional = true }
+crossterm = { version = "0.17.4", optional = true }
 semver = { version = "0.9.0", optional = true }
 syntect = { version = "4.1", default-features = false, features = ["default-fancy"], optional = true}
 url = { version = "2.1.1", optional = true }
 
-clap = "2.33.0"
+clap = "2.33.1"
 ctrlc = "3.1.4"
 dunce = "1.0.0"
 futures = { version = "0.3", features = ["compat", "io-compat"] }
@@ -55,15 +56,12 @@ nu-test-support = { version = "0.14.1", path = "./crates/nu-test-support" }
 
 [build-dependencies]
 toml = "0.5.6"
-serde = { version = "1.0.106", features = ["derive"] }
+serde = { version = "1.0.110", features = ["derive"] }
 nu-build = { version = "0.14.1", path = "./crates/nu-build" }
 
 [features]
-# Test executables
-test-bins = []
-
 default = ["sys", "ps", "textview", "inc", "str"]
-stable = ["default", "starship-prompt", "binaryview", "match", "tree", "average", "post", "fetch", "clipboard-cli", "trash-support", "start"]
+stable = ["default", "starship-prompt", "binaryview", "match", "tree", "average", "parse", "post", "fetch", "clipboard-cli", "trash-support", "start"]
 
 # Default
 textview = ["crossterm", "syntect", "url", "nu_plugin_textview"]
@@ -77,6 +75,7 @@ average = ["nu_plugin_average"]
 binaryview = ["nu_plugin_binaryview"]
 fetch = ["nu_plugin_fetch"]
 match = ["nu_plugin_match"]
+parse = ["nu_plugin_parse"]
 post = ["nu_plugin_post"]
 trace = ["nu-parser/trace"]
 tree = ["nu_plugin_tree"]
@@ -85,31 +84,6 @@ start = ["nu_plugin_start"]
 clipboard-cli = ["nu-cli/clipboard-cli"]
 starship-prompt = ["nu-cli/starship-prompt"]
 trash-support = ["nu-cli/trash-support"]
-
-[[bin]]
-name = "fail"
-path = "crates/nu-test-support/src/bins/fail.rs"
-required-features = ["test-bins"]
-
-[[bin]]
-name = "chop"
-path = "crates/nu-test-support/src/bins/chop.rs"
-required-features = ["test-bins"]
-
-[[bin]]
-name = "cococo"
-path = "crates/nu-test-support/src/bins/cococo.rs"
-required-features = ["test-bins"]
-
-[[bin]]
-name = "nonu"
-path = "crates/nu-test-support/src/bins/nonu.rs"
-required-features = ["test-bins"]
-
-[[bin]]
-name = "iecho"
-path = "crates/nu-test-support/src/bins/iecho.rs"
-required-features = ["test-bins"]
 
 # Core plugins that ship with `cargo install nu` by default
 # Currently, Cargo limits us to installing only one binary
@@ -159,6 +133,11 @@ required-features = ["binaryview"]
 name = "nu_plugin_stable_match"
 path = "src/plugins/nu_plugin_stable_match.rs"
 required-features = ["match"]
+
+[[bin]]
+name = "nu_plugin_stable_parse"
+path = "src/plugins/nu_plugin_stable_parse.rs"
+required-features = ["parse"]
 
 [[bin]]
 name = "nu_plugin_stable_post"

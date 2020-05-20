@@ -39,15 +39,17 @@ impl WholeStreamCommand for Autoview {
         })
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Automatically view the results",
                 example: "ls | autoview",
+                result: None,
             },
             Example {
                 description: "Autoview is also implied. The above can be written as",
                 example: "ls",
+                result: None,
             },
         ]
     }
@@ -78,6 +80,10 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
     let binary = context.get_command("binaryview");
     let text = context.get_command("textview");
     let table = context.get_command("table");
+    let no_auto_pivot = match config::config(Tag::unknown())?.get("no_auto_pivot") {
+        Some(val) => val.is_true(),
+        _ => false,
+    };
 
     Ok(OutputStream::new(async_stream! {
         let (mut input_stream, context) = RunnableContextWithoutInput::convert(context);
@@ -215,7 +221,7 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                                 yield Err(e);
                             }
 
-                            Value { value: UntaggedValue::Row(row), ..} => {
+                            Value { value: UntaggedValue::Row(row), ..} if !no_auto_pivot => {
                                 use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
                                 use prettytable::{color, Attr, Cell, Row, Table};
                                 use crate::data::value::{format_leaf, style_leaf};
@@ -331,5 +337,17 @@ fn create_default_command_args(context: &RunnableContextWithoutInput) -> RawComm
             name_tag: context.name.clone(),
             scope: Scope::empty(),
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Autoview;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Autoview {})
     }
 }

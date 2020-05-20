@@ -38,10 +38,11 @@ impl WholeStreamCommand for Table {
 }
 
 fn table(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let mut args = args.evaluate_once(registry)?;
-    let mut finished = false;
-
+    let registry = registry.clone();
     let stream = async_stream! {
+        let mut args = args.evaluate_once(&registry).await?;
+        let mut finished = false;
+
         let host = args.host.clone();
         let mut start_number = match args.get("start_number") {
             Some(Value { value: UntaggedValue::Primitive(Primitive::Int(i)), .. }) => {
@@ -126,4 +127,16 @@ fn table(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
     };
 
     Ok(OutputStream::new(stream))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Table;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Table {})
+    }
 }

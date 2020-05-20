@@ -8,8 +8,6 @@ use nu_protocol::Dictionary;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
 
 pub struct Headers;
-#[derive(Deserialize)]
-pub struct HeadersArgs {}
 
 impl WholeStreamCommand for Headers {
     fn name(&self) -> &str {
@@ -29,22 +27,21 @@ impl WholeStreamCommand for Headers {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, headers)?.run()
+        headers(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
             description: "Create headers for a raw string",
-            example: "echo \"a b c|1 2 3\" | split-row \"|\" | split-column \" \" | headers",
+            example: r#"echo "a b c|1 2 3" | split-row "|" | split-column " " | headers"#,
+            result: None,
         }]
     }
 }
 
-pub fn headers(
-    HeadersArgs {}: HeadersArgs,
-    RunnableContext { input, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
+pub fn headers(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
+        let mut input = args.input;
         let rows: Vec<Value> = input.collect().await;
 
         if rows.len() < 1 {
@@ -87,4 +84,16 @@ pub fn headers(
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Headers;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Headers {})
+    }
 }

@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 use std::process::{Command, Stdio};
 
@@ -42,72 +42,92 @@ impl WholeStreamCommand for Kill {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, kill)?.run()
+        kill(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Kill the pid using the most memory",
                 example: "ps | sort-by mem | last | kill $it.pid",
+                result: None,
             },
             Example {
                 description: "Force kill a given pid",
                 example: "kill --force 12345",
+                result: None,
             },
         ]
     }
 }
 
-fn kill(
-    KillArgs {
-        pid,
-        rest,
-        force,
-        quiet,
-    }: KillArgs,
-    _context: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    let mut cmd = if cfg!(windows) {
-        let mut cmd = Command::new("taskkill");
+fn kill(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
 
-        if *force {
-            cmd.arg("/F");
-        }
+    let stream = async_stream! {
+        let (KillArgs {
+            pid,
+            rest,
+            force,
+            quiet,
+        }, mut input) = args.process(&registry).await?;
+        let mut cmd = if cfg!(windows) {
+            let mut cmd = Command::new("taskkill");
 
-        cmd.arg("/PID");
-        cmd.arg(pid.item().to_string());
+            if *force {
+                cmd.arg("/F");
+            }
 
-        // each pid must written as `/PID 0` otherwise
-        // taskkill will act as `killall` unix command
-        for id in &rest {
             cmd.arg("/PID");
-            cmd.arg(id.item().to_string());
+            cmd.arg(pid.item().to_string());
+
+            // each pid must written as `/PID 0` otherwise
+            // taskkill will act as `killall` unix command
+            for id in &rest {
+                cmd.arg("/PID");
+                cmd.arg(id.item().to_string());
+            }
+
+            cmd
+        } else {
+            let mut cmd = Command::new("kill");
+
+            if *force {
+                cmd.arg("-9");
+            }
+
+            cmd.arg(pid.item().to_string());
+
+            cmd.args(rest.iter().map(move |id| id.item().to_string()));
+
+            cmd
+        };
+
+        // pipe everything to null
+        if *quiet {
+            cmd.stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null());
         }
 
-        cmd
-    } else {
-        let mut cmd = Command::new("kill");
+        cmd.status().expect("failed to execute shell command");
 
-        if *force {
-            cmd.arg("-9");
+        if false {
+            yield ReturnSuccess::value(UntaggedValue::nothing().into_value(Tag::unknown()));
         }
-
-        cmd.arg(pid.item().to_string());
-
-        cmd.args(rest.iter().map(move |id| id.item().to_string()));
-
-        cmd
     };
 
-    // pipe everything to null
-    if *quiet {
-        cmd.stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null());
+    Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Kill;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Kill {})
     }
-
-    cmd.status().expect("failed to execute shell command");
-
-    Ok(OutputStream::empty())
 }

@@ -32,16 +32,43 @@ impl WholeStreamCommand for Touch {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, touch)?.run()
+        touch(args, registry)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Creates \"fixture.json\"",
+            example: "touch fixture.json",
+            result: None,
+        }]
     }
 }
-fn touch(TouchArgs { target }: TouchArgs, _: RunnableContext) -> Result<OutputStream, ShellError> {
-    match OpenOptions::new().write(true).create(true).open(&target) {
-        Ok(_) => Ok(OutputStream::empty()),
-        Err(err) => Err(ShellError::labeled_error(
-            "File Error",
-            err.to_string(),
-            &target.tag,
-        )),
+
+fn touch(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let (TouchArgs { target }, _) = args.process(&registry).await?;
+        match OpenOptions::new().write(true).create(true).open(&target) {
+            Ok(_) => {},
+            Err(err) => yield Err(ShellError::labeled_error(
+                "File Error",
+                err.to_string(),
+                &target.tag,
+            )),
+        }
+    };
+
+    Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Touch;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Touch {})
     }
 }

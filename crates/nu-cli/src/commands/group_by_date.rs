@@ -41,13 +41,14 @@ impl WholeStreamCommand for GroupByDate {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, group_by_date)?.run()
+        group_by_date(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
             description: "Group files by type",
-            example: "ls | group-by date --fmt '%d/%m/%Y'",
+            example: "ls | group-by date --format '%d/%m/%Y'",
+            result: None,
         }]
     }
 }
@@ -57,13 +58,13 @@ enum Grouper {
 }
 
 pub fn group_by_date(
-    GroupByDateArgs {
-        column_name,
-        format,
-    }: GroupByDateArgs,
-    RunnableContext { input, name, .. }: RunnableContext,
+    args: CommandArgs,
+    registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let name = args.call_info.name_tag.clone();
     let stream = async_stream! {
+        let (GroupByDateArgs { column_name, format }, mut input) = args.process(&registry).await?;
         let values: Vec<Value> = input.collect().await;
 
         if values.is_empty() {
@@ -100,4 +101,16 @@ pub fn group_by_date(
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::GroupByDate;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(GroupByDate {})
+    }
 }

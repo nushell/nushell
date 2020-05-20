@@ -28,11 +28,12 @@ impl WholeStreamCommand for ToURL {
 }
 
 fn to_url(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let tag = args.name_tag();
-    let input = args.input;
-
+    let registry = registry.clone();
     let stream = async_stream! {
+        let args = args.evaluate_once(&registry).await?;
+        let tag = args.name_tag();
+        let input = args.input;
+
         let input: Vec<Value> = input.collect().await;
 
         for value in input {
@@ -83,4 +84,16 @@ fn to_url(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ToURL;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(ToURL {})
+    }
 }

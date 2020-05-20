@@ -31,18 +31,42 @@ impl WholeStreamCommand for Mkdir {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, mkdir)?.run()
+        mkdir(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
             description: "Make a directory named foo",
             example: "mkdir foo",
+            result: None,
         }]
     }
 }
 
-fn mkdir(args: MkdirArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
-    let shell_manager = context.shell_manager.clone();
-    shell_manager.mkdir(args, &context)
+fn mkdir(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let name = args.call_info.name_tag.clone();
+        let shell_manager = args.shell_manager.clone();
+        let (args, _) = args.process(&registry).await?;
+        let mut result = shell_manager.mkdir(args, name)?;
+
+        while let Some(item) = result.next().await {
+            yield item;
+        }
+    };
+
+    Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Mkdir;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Mkdir {})
+    }
 }

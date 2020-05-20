@@ -7,7 +7,7 @@ use futures::stream::once;
 use nu_errors::ShellError;
 use nu_protocol::{
     hir::Block, hir::Expression, hir::SpannedExpression, hir::Synthetic, ReturnSuccess, Signature,
-    SyntaxShape,
+    SyntaxShape, UntaggedValue,
 };
 
 pub struct Each;
@@ -39,14 +39,29 @@ impl WholeStreamCommand for Each {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        Ok(args.process_raw(registry, each)?.run())
+        each(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
-            description: "Print the name of each file",
-            example: "ls | each { echo $it.name }",
-        }]
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Echo the square of each integer",
+                example: "echo [1 2 3] | each { echo $(= $it * $it) }",
+                result: Some(vec![
+                    UntaggedValue::int(1).into(),
+                    UntaggedValue::int(4).into(),
+                    UntaggedValue::int(9).into(),
+                ]),
+            },
+            Example {
+                description: "Echo the sum of each row",
+                example: "echo [[1 2] [3 4]] | each { echo $it | sum }",
+                result: Some(vec![
+                    UntaggedValue::int(3).into(),
+                    UntaggedValue::int(7).into(),
+                ]),
+            },
+        ]
     }
 }
 
@@ -60,21 +75,18 @@ fn is_expanded_it_usage(head: &SpannedExpression) -> bool {
     }
 }
 
-fn each(
-    each_args: EachArgs,
-    context: RunnableContext,
-    raw_args: RawCommandArgs,
-) -> Result<OutputStream, ShellError> {
-    let block = each_args.block;
-    let scope = raw_args.call_info.scope.clone();
-    let registry = context.registry.clone();
-    let mut input_stream = context.input;
+fn each(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
     let stream = async_stream! {
-        while let Some(input) = input_stream.next().await {
-            let mut context = Context::from_raw(&raw_args, &registry);
+        let head = raw_args.call_info.args.head.clone();
+        let scope = raw_args.call_info.scope.clone();
+        let mut context = Context::from_raw(&raw_args, &registry);
+        let (each_args, mut input): (EachArgs, _) = raw_args.process(&registry).await?;
+        let block = each_args.block;
+        while let Some(input) = input.next().await {
 
             let input_clone = input.clone();
-            let input_stream = if is_expanded_it_usage(&raw_args.call_info.args.head) {
+            let input_stream = if is_expanded_it_usage(&head) {
                 InputStream::empty()
             } else {
                 once(async { Ok(input) }).to_input_stream()
@@ -106,4 +118,16 @@ fn each(
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Each;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Each {})
+    }
 }

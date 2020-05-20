@@ -38,25 +38,23 @@ impl WholeStreamCommand for Default {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, default)?.run()
+        default(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
             description: "Give a default 'target' to all file entries",
             example: "ls -af | default target 'nothing'",
+            result: None,
         }]
     }
 }
 
-fn default(
-    DefaultArgs { column, value }: DefaultArgs,
-    RunnableContext { input, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    let stream = input
-        .map(move |item| {
-            let mut result = VecDeque::new();
-
+fn default(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let (DefaultArgs { column, value }, mut input) = args.process(&registry).await?;
+        while let Some(item) = input.next().await {
             let should_add = match item {
                 Value {
                     value: UntaggedValue::Row(ref r),
@@ -67,16 +65,27 @@ fn default(
 
             if should_add {
                 match item.insert_data_at_path(&column.item, value.clone()) {
-                    Some(new_value) => result.push_back(ReturnSuccess::value(new_value)),
-                    None => result.push_back(ReturnSuccess::value(item)),
+                    Some(new_value) => yield ReturnSuccess::value(new_value),
+                    None => yield ReturnSuccess::value(item),
                 }
             } else {
-                result.push_back(ReturnSuccess::value(item));
+                yield ReturnSuccess::value(item);
             }
 
-            futures::stream::iter(result)
-        })
-        .flatten();
+        }
+    };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Default;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Default {})
+    }
 }

@@ -3,7 +3,7 @@ use crate::context::CommandRegistry;
 use crate::prelude::*;
 use futures::stream::StreamExt;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct Compact;
@@ -31,38 +31,64 @@ impl WholeStreamCommand for Compact {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, compact)?.run()
+        compact(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
-            description: "Remove all directory entries, except those with a 'target'",
-            example: "ls -af | compact target",
-        }]
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Filter out all null entries in a list",
+                example: "echo [1 2 $null 3 $null $null] | compact target",
+                result: Some(vec![
+                    UntaggedValue::int(1).into(),
+                    UntaggedValue::int(2).into(),
+                    UntaggedValue::int(3).into(),
+                ]),
+            },
+            Example {
+                description: "Filter out all directory entries having no 'target'",
+                example: "ls -af | compact target",
+                result: None,
+            },
+        ]
     }
 }
 
-pub fn compact(
-    CompactArgs { rest: columns }: CompactArgs,
-    RunnableContext { input, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    let objects = input.filter(move |item| {
-        let keep = if columns.is_empty() {
-            item.is_some()
-        } else {
-            match item {
-                Value {
-                    value: UntaggedValue::Row(ref r),
-                    ..
-                } => columns
-                    .iter()
-                    .all(|field| r.get_data(field).borrow().is_some()),
-                _ => false,
-            }
-        };
+pub fn compact(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let (CompactArgs { rest: columns }, mut input) = args.process(&registry).await?;
+        while let Some(item) = input.next().await {
+            if columns.is_empty() {
+                if !item.is_empty() {
+                    yield ReturnSuccess::value(item);
+                }
+            } else {
+                match item {
+                    Value {
+                        value: UntaggedValue::Row(ref r),
+                        ..
+                    } => if columns
+                        .iter()
+                        .all(|field| r.get_data(field).borrow().is_some()) {
+                            yield ReturnSuccess::value(item);
+                        }
+                    _ => {},
+                }
+            };
+        }
+    };
+    Ok(stream.to_output_stream())
+}
 
-        futures::future::ready(keep)
-    });
+#[cfg(test)]
+mod tests {
+    use super::Compact;
 
-    Ok(objects.from_input_stream())
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Compact {})
+    }
 }

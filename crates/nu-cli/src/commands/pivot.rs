@@ -50,20 +50,23 @@ impl WholeStreamCommand for Pivot {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, pivot)?.run()
+        pivot(args, registry)
     }
 }
 
-pub fn pivot(args: PivotArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
+pub fn pivot(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let name = args.call_info.name_tag.clone();
     let stream = async_stream! {
-        let input = context.input.into_vec().await;
+        let (args, mut input): (PivotArgs, _) = args.process(&registry).await?;
+        let input = input.into_vec().await;
 
         let descs = merge_descriptors(&input);
 
         let mut headers: Vec<String> = vec![];
 
         if args.rest.len() > 0 && args.header_row {
-            yield Err(ShellError::labeled_error("Can not provide header names and use header row", "using header row", context.name));
+            yield Err(ShellError::labeled_error("Can not provide header names and use header row", "using header row", name));
             return;
         }
 
@@ -75,17 +78,17 @@ pub fn pivot(args: PivotArgs, context: RunnableContext) -> Result<OutputStream, 
                             if let Ok(s) = x.as_string() {
                                 headers.push(s.to_string());
                             } else {
-                                yield Err(ShellError::labeled_error("Header row needs string headers", "used non-string headers", context.name));
+                                yield Err(ShellError::labeled_error("Header row needs string headers", "used non-string headers", name));
                                 return;
                             }
                         }
                         _ => {
-                            yield Err(ShellError::labeled_error("Header row is incomplete and can't be used", "using incomplete header row", context.name));
+                            yield Err(ShellError::labeled_error("Header row is incomplete and can't be used", "using incomplete header row", name));
                             return;
                         }
                     }
                 } else {
-                    yield Err(ShellError::labeled_error("Header row is incomplete and can't be used", "using incomplete header row", context.name));
+                    yield Err(ShellError::labeled_error("Header row is incomplete and can't be used", "using incomplete header row", name));
                     return;
                 }
             }
@@ -107,7 +110,7 @@ pub fn pivot(args: PivotArgs, context: RunnableContext) -> Result<OutputStream, 
 
         for desc in descs {
             let mut column_num: usize = 0;
-            let mut dict = TaggedDictBuilder::new(&context.name);
+            let mut dict = TaggedDictBuilder::new(&name);
 
             if !args.ignore_titles && !args.header_row {
                 dict.insert_untagged(headers[column_num].clone(), UntaggedValue::string(desc.clone()));
@@ -133,4 +136,16 @@ pub fn pivot(args: PivotArgs, context: RunnableContext) -> Result<OutputStream, 
     };
 
     Ok(OutputStream::new(stream))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Pivot;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Pivot {})
+    }
 }

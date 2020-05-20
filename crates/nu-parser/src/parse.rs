@@ -29,7 +29,7 @@ fn parse_simple_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, O
             if c == delimiter {
                 inside_delimiter = false;
             }
-        } else if c == '\'' || c == '"' {
+        } else if c == '\'' || c == '"' || c == '`' {
             inside_delimiter = true;
             delimiter = c;
         } else if c == '.' {
@@ -73,13 +73,17 @@ fn parse_simple_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, O
 }
 
 /// Parses a column path, adding in the preceding reference to $it if it's elided
-fn parse_full_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
+pub fn parse_full_column_path(
+    lite_arg: &Spanned<String>,
+    registry: &dyn SignatureRegistry,
+) -> (SpannedExpression, Option<ParseError>) {
     let mut delimiter = '.';
     let mut inside_delimiter = false;
     let mut output = vec![];
     let mut current_part = String::new();
     let mut start_index = 0;
     let mut last_index = 0;
+    let mut error = None;
 
     let mut head = None;
 
@@ -89,6 +93,9 @@ fn parse_full_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Opt
             if c == delimiter {
                 inside_delimiter = false;
             }
+        } else if c == '(' {
+            inside_delimiter = true;
+            delimiter = ')';
         } else if c == '\'' || c == '"' {
             inside_delimiter = true;
             delimiter = c;
@@ -98,7 +105,28 @@ fn parse_full_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Opt
                 lite_arg.span.start() + idx,
             );
 
-            if head.is_none() && current_part.clone().starts_with('$') {
+            if head.is_none() && current_part.starts_with("$(") && current_part.ends_with(')') {
+                // We have a command invocation
+                let string: String = current_part
+                    .chars()
+                    .skip(2)
+                    .take(current_part.len() - 3)
+                    .collect();
+
+                // We haven't done much with the inner string, so let's go ahead and work with it
+                let lite_block = match lite_parse(&string, lite_arg.span.start() + 2) {
+                    Ok(lp) => lp,
+                    Err(e) => return (garbage(lite_arg.span), Some(e)),
+                };
+
+                let classified_block = classify_block(&lite_block, registry);
+                let err = classified_block.failed;
+
+                if error.is_none() {
+                    error = err;
+                }
+                head = Some(Expression::Invocation(classified_block.block))
+            } else if head.is_none() && current_part.starts_with('$') {
                 // We have the variable head
                 head = Some(Expression::variable(current_part.clone(), part_span))
             } else if let Ok(row_number) = current_part.parse::<u64>() {
@@ -127,7 +155,28 @@ fn parse_full_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Opt
         );
 
         if head.is_none() {
-            if current_part.starts_with('$') {
+            if current_part.starts_with("$(") && current_part.ends_with(')') {
+                // We have a command invocation
+                let string: String = current_part
+                    .chars()
+                    .skip(2)
+                    .take(current_part.len() - 3)
+                    .collect();
+
+                // We haven't done much with the inner string, so let's go ahead and work with it
+                let lite_block = match lite_parse(&string, lite_arg.span.start() + 2) {
+                    Ok(lp) => lp,
+                    Err(e) => return (garbage(lite_arg.span), Some(e)),
+                };
+
+                let classified_block = classify_block(&lite_block, registry);
+                let err = classified_block.failed;
+
+                if error.is_none() {
+                    error = err;
+                }
+                head = Some(Expression::Invocation(classified_block.block));
+            } else if current_part.starts_with('$') {
                 // We have the variable head
                 head = Some(Expression::variable(current_part, lite_arg.span));
             } else if let Ok(row_number) = current_part.parse::<u64>() {
@@ -154,7 +203,7 @@ fn parse_full_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Opt
                 Expression::path(SpannedExpression::new(head, lite_arg.span), output),
                 lite_arg.span,
             ),
-            None,
+            error,
         )
     } else {
         (
@@ -168,7 +217,7 @@ fn parse_full_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Opt
                 ),
                 lite_arg.span,
             ),
-            None,
+            error,
         )
     }
 }
@@ -179,6 +228,7 @@ fn trim_quotes(input: &str) -> String {
     match (chars.next(), chars.next_back()) {
         (Some('\''), Some('\'')) => chars.collect(),
         (Some('"'), Some('"')) => chars.collect(),
+        (Some('`'), Some('`')) => chars.collect(),
         _ => input.to_string(),
     }
 }
@@ -303,6 +353,165 @@ fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseErr
     )
 }
 
+#[derive(Debug)]
+enum FormatCommand {
+    Text(Spanned<String>),
+    Column(Spanned<String>),
+}
+
+fn format(input: &str, start: usize) -> (Vec<FormatCommand>, Option<ParseError>) {
+    let original_start = start;
+    let mut output = vec![];
+    let mut error = None;
+
+    let mut loop_input = input.chars().peekable();
+    let mut start = start;
+    let mut end = start;
+    loop {
+        let mut before = String::new();
+
+        let mut found_start = false;
+        while let Some(c) = loop_input.next() {
+            end += 1;
+            if c == '{' {
+                if let Some(x) = loop_input.peek() {
+                    if *x == '{' {
+                        found_start = true;
+                        end += 1;
+                        let _ = loop_input.next();
+                        break;
+                    }
+                }
+            }
+            before.push(c);
+        }
+
+        if !before.is_empty() {
+            if found_start {
+                output.push(FormatCommand::Text(
+                    before.to_string().spanned(Span::new(start, end - 2)),
+                ));
+            } else {
+                output.push(FormatCommand::Text(before.spanned(Span::new(start, end))));
+                break;
+            }
+        }
+        // Look for column as we're now at one
+        let mut column = String::new();
+        start = end;
+
+        let mut previous_c = ' ';
+        let mut found_end = false;
+        while let Some(c) = loop_input.next() {
+            end += 1;
+            if c == '}' && previous_c == '}' {
+                let _ = column.pop();
+                found_end = true;
+                break;
+            }
+            previous_c = c;
+            column.push(c);
+        }
+
+        if !column.is_empty() {
+            if found_end {
+                output.push(FormatCommand::Column(
+                    column.to_string().spanned(Span::new(start, end - 2)),
+                ));
+            } else {
+                output.push(FormatCommand::Column(
+                    column.to_string().spanned(Span::new(start, end)),
+                ));
+
+                if error.is_none() {
+                    error = Some(ParseError::argument_error(
+                        input.spanned(Span::new(original_start, end)),
+                        ArgumentError::MissingValueForName("unclosed {{ }}".to_string()),
+                    ));
+                }
+            }
+        }
+
+        if found_start && !found_end {
+            error = Some(ParseError::argument_error(
+                input.spanned(Span::new(original_start, end)),
+                ArgumentError::MissingValueForName("unclosed {{ }}".to_string()),
+            ));
+        }
+
+        if before.is_empty() && column.is_empty() {
+            break;
+        }
+
+        start = end;
+    }
+
+    (output, error)
+}
+
+/// Parses an interpolated string, one that has expressions inside of it
+fn parse_interpolated_string(
+    registry: &dyn SignatureRegistry,
+    lite_arg: &Spanned<String>,
+) -> (SpannedExpression, Option<ParseError>) {
+    let inner_string = trim_quotes(&lite_arg.item);
+    let mut error = None;
+
+    let (format_result, err) = format(&inner_string, lite_arg.span.start() + 1);
+
+    if error.is_none() {
+        error = err;
+    }
+
+    let mut output = vec![];
+
+    for f in format_result {
+        match f {
+            FormatCommand::Text(t) => {
+                output.push(SpannedExpression {
+                    expr: Expression::Literal(hir::Literal::String(t.item)),
+                    span: t.span,
+                });
+            }
+            FormatCommand::Column(c) => {
+                let (o, err) = parse_full_column_path(&c, registry);
+                if error.is_none() {
+                    error = err;
+                }
+                output.push(o);
+            }
+        }
+    }
+
+    let block = vec![Commands {
+        span: lite_arg.span,
+        list: vec![ClassifiedCommand::Internal(InternalCommand {
+            name: "build-string".to_owned(),
+            name_span: lite_arg.span,
+            args: hir::Call {
+                head: Box::new(SpannedExpression {
+                    expr: Expression::Synthetic(hir::Synthetic::String("build-string".to_owned())),
+                    span: lite_arg.span,
+                }),
+                is_last: false,
+                named: None,
+                positional: Some(output),
+                span: lite_arg.span,
+            },
+        })],
+    }];
+
+    let call = SpannedExpression {
+        expr: Expression::Invocation(Block {
+            block,
+            span: lite_arg.span,
+        }),
+        span: lite_arg.span,
+    };
+
+    (call, error)
+}
+
 /// Parses the given argument using the shape as a guide for how to correctly parse the argument
 fn parse_arg(
     expected_type: SyntaxShape,
@@ -310,7 +519,7 @@ fn parse_arg(
     lite_arg: &Spanned<String>,
 ) -> (SpannedExpression, Option<ParseError>) {
     if lite_arg.item.starts_with('$') {
-        return parse_full_column_path(&lite_arg);
+        return parse_full_column_path(&lite_arg, registry);
     }
 
     match expected_type {
@@ -346,11 +555,19 @@ fn parse_arg(
             }
         }
         SyntaxShape::String => {
-            let trimmed = trim_quotes(&lite_arg.item);
-            (
-                SpannedExpression::new(Expression::string(trimmed), lite_arg.span),
-                None,
-            )
+            if lite_arg.item.starts_with('`')
+                && lite_arg.item.len() > 1
+                && lite_arg.item.ends_with('`')
+            {
+                // This is an interpolated string
+                parse_interpolated_string(registry, &lite_arg)
+            } else {
+                let trimmed = trim_quotes(&lite_arg.item);
+                (
+                    SpannedExpression::new(Expression::string(trimmed), lite_arg.span),
+                    None,
+                )
+            }
         }
         SyntaxShape::Pattern => {
             let trimmed = trim_quotes(&lite_arg.item);
@@ -374,7 +591,7 @@ fn parse_arg(
             )
         }
         SyntaxShape::ColumnPath => parse_simple_column_path(lite_arg),
-        SyntaxShape::FullColumnPath => parse_full_column_path(lite_arg),
+        SyntaxShape::FullColumnPath => parse_full_column_path(lite_arg, registry),
         SyntaxShape::Any => {
             let shapes = vec![
                 SyntaxShape::Int,

@@ -5,9 +5,6 @@ use indexmap::set::IndexSet;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature};
 
-#[derive(Deserialize)]
-struct UniqArgs {}
-
 pub struct Uniq;
 
 impl WholeStreamCommand for Uniq {
@@ -28,15 +25,13 @@ impl WholeStreamCommand for Uniq {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, uniq)?.run()
+        uniq(args, registry)
     }
 }
 
-fn uniq(
-    UniqArgs {}: UniqArgs,
-    RunnableContext { input, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
+fn uniq(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
+        let mut input = args.input;
         let uniq_values: IndexSet<_> = input.collect().await;
 
         for item in uniq_values.iter().map(|row| ReturnSuccess::value(row.clone())) {
@@ -45,4 +40,16 @@ fn uniq(
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Uniq;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Uniq {})
+    }
 }

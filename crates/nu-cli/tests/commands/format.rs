@@ -28,3 +28,17 @@ fn given_fields_can_be_column_paths() {
 
     assert_eq!(actual.out, "nu is a new type of shell");
 }
+
+#[test]
+fn can_use_variables() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+        open cargo_sample.toml
+            | format "{$it.package.name} is {$it.package.description}"
+            | echo $it
+        "#
+    ));
+
+    assert_eq!(actual.out, "nu is a new type of shell");
+}

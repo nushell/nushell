@@ -41,19 +41,25 @@ impl WholeStreamCommand for Open {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, open)?.run()
+        open(args, registry)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Opens \"users.csv\" and creates a table from the data",
+            example: "open users.csv",
+            result: None,
+        }]
     }
 }
 
-fn open(
-    OpenArgs { path, raw }: OpenArgs,
-    RunnableContext { shell_manager, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    let cwd = PathBuf::from(shell_manager.path());
+fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let cwd = PathBuf::from(args.shell_manager.path());
     let full_path = cwd;
+    let registry = registry.clone();
 
     let stream = async_stream! {
-
+        let (OpenArgs { path, raw }, _) = args.process(&registry).await?;
         let result = fetch(&full_path, &path.item, path.tag.span).await;
 
         if let Err(e) = result {
@@ -242,5 +248,17 @@ fn read_be_u16(input: &[u8]) -> Option<Vec<u16>> {
         }
 
         Some(result)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Open;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Open {})
     }
 }

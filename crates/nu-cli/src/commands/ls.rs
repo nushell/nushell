@@ -64,27 +64,55 @@ impl WholeStreamCommand for Ls {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, ls)?.run()
+        ls(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "List all files in the current directory",
                 example: "ls",
+                result: None,
             },
             Example {
                 description: "List all files in a subdirectory",
                 example: "ls subdir",
+                result: None,
             },
             Example {
                 description: "List all rust files",
                 example: "ls *.rs",
+                result: None,
             },
         ]
     }
 }
 
-fn ls(args: LsArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
-    context.shell_manager.ls(args, &context)
+fn ls(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let name = args.call_info.name_tag.clone();
+        let ctrl_c = args.ctrl_c.clone();
+        let shell_manager = args.shell_manager.clone();
+        let (args, _) = args.process(&registry).await?;
+        let mut result = shell_manager.ls(args, name, ctrl_c)?;
+
+        while let Some(item) = result.next().await {
+            yield item;
+        }
+    };
+
+    Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Ls;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Ls {})
+    }
 }

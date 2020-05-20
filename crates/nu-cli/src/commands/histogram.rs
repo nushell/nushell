@@ -44,33 +44,39 @@ impl WholeStreamCommand for Histogram {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, histogram)?.run()
+        histogram(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Get a histogram for the types of files",
                 example: "ls | histogram type",
+                result: None,
             },
             Example {
                 description:
                     "Get a histogram for the types of files, with frequency column named count",
                 example: "ls | histogram type count",
+                result: None,
             },
             Example {
                 description: "Get a histogram for a list of numbers",
-                example: "echo [1 2 3 1 2 3 1 1 1 1 3 2 1 1 3] | wrap | histogram Column",
+                example: "echo [1 2 3 1 1 1 2 2 1 1] | histogram",
+                result: None,
             },
         ]
     }
 }
 
 pub fn histogram(
-    HistogramArgs { column_name, rest }: HistogramArgs,
-    RunnableContext { input, name, .. }: RunnableContext,
+    args: CommandArgs,
+    registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let name = args.call_info.name_tag.clone();
     let stream = async_stream! {
+        let (HistogramArgs { column_name, rest}, mut input) = args.process(&registry).await?;
         let values: Vec<Value> = input.collect().await;
 
         let Tagged { item: group_by, .. } = column_name.clone();
@@ -175,4 +181,16 @@ fn percentages(values: &Value, max: Value, tag: impl Into<Tag>) -> Result<Value,
     };
 
     Ok(results)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Histogram;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Histogram {})
+    }
 }

@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, Value};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct Drop;
@@ -34,26 +34,33 @@ impl WholeStreamCommand for Drop {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, drop)?.run()
+        drop(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Remove the last item of a list/table",
                 example: "echo [1 2 3] | drop",
+                result: Some(vec![
+                    UntaggedValue::int(1).into(),
+                    UntaggedValue::int(2).into(),
+                ]),
             },
             Example {
                 description: "Remove the last 2 items of a list/table",
                 example: "echo [1 2 3] | drop 2",
+                result: Some(vec![UntaggedValue::int(1).into()]),
             },
         ]
     }
 }
 
-fn drop(DropArgs { rows }: DropArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
+fn drop(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
     let stream = async_stream! {
-        let v: Vec<_> = context.input.into_vec().await;
+        let (DropArgs { rows }, mut input) = args.process(&registry).await?;
+        let v: Vec<_> = input.into_vec().await;
 
         let rows_to_drop = if let Some(quantity) = rows {
             *quantity as usize
@@ -70,4 +77,16 @@ fn drop(DropArgs { rows }: DropArgs, context: RunnableContext) -> Result<OutputS
         }
     };
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Drop;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Drop {})
+    }
 }

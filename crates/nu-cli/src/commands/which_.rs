@@ -27,7 +27,7 @@ impl WholeStreamCommand for Which {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, which)?.run()
+        which(args, registry)
     }
 }
 
@@ -76,18 +76,18 @@ struct WhichArgs {
     all: bool,
 }
 
-fn which(
-    WhichArgs { application, all }: WhichArgs,
-    RunnableContext { registry, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    let external = application.starts_with('^');
-    let item = if external {
-        application.item[1..].to_string()
-    } else {
-        application.item.clone()
-    };
-
+fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let mut all = true;
     let stream = async_stream! {
+        let (WhichArgs { application, all: all_items }, _) = args.process(&registry).await?;
+        all = all_items;
+        let external = application.starts_with('^');
+        let item = if external {
+            application.item[1..].to_string()
+        } else {
+            application.item.clone()
+        };
         if !external {
             let builtin = registry.has(&item);
             if builtin {
@@ -106,5 +106,17 @@ fn which(
         Ok(stream.to_output_stream())
     } else {
         Ok(stream.take(1).to_output_stream())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Which;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Which {})
     }
 }

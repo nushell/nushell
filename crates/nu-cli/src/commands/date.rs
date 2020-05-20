@@ -7,7 +7,7 @@ use crate::commands::WholeStreamCommand;
 use chrono::{Datelike, TimeZone, Timelike};
 use core::fmt::Display;
 use indexmap::IndexMap;
-use nu_protocol::{Signature, UntaggedValue};
+use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 
 pub struct Date;
 
@@ -34,15 +34,17 @@ impl WholeStreamCommand for Date {
         date(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Get the current local time and date",
                 example: "date",
+                result: None,
             },
             Example {
                 description: "Get the current UTC time and date",
                 example: "date --utc",
+                result: None,
             },
         ]
     }
@@ -89,20 +91,34 @@ where
 }
 
 pub fn date(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let args = args.evaluate_once(&registry).await?;
 
-    let mut date_out = VecDeque::new();
-    let tag = args.call_info.name_tag.clone();
+        let tag = args.call_info.name_tag.clone();
 
-    let value = if args.has("utc") {
-        let utc: DateTime<Utc> = Utc::now();
-        date_to_value(utc, tag)
-    } else {
-        let local: DateTime<Local> = Local::now();
-        date_to_value(local, tag)
+        let value = if args.has("utc") {
+            let utc: DateTime<Utc> = Utc::now();
+            date_to_value(utc, tag)
+        } else {
+            let local: DateTime<Local> = Local::now();
+            date_to_value(local, tag)
+        };
+
+        yield ReturnSuccess::value(value);
     };
 
-    date_out.push_back(value);
+    Ok(stream.to_output_stream())
+}
 
-    Ok(futures::stream::iter(date_out).to_output_stream())
+#[cfg(test)]
+mod tests {
+    use super::Date;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Date {})
+    }
 }

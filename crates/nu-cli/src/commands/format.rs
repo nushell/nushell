@@ -1,10 +1,10 @@
 use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
+use crate::evaluate::evaluate_baseline_expr;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ColumnPath, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
-use nu_value_ext::{as_column_path, get_data_by_column_path};
 use std::borrow::Borrow;
 
 pub struct Format;
@@ -36,67 +36,58 @@ impl WholeStreamCommand for Format {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, format_command)?.run()
+        format_command(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
             description: "Print filenames with their sizes",
             example: "ls | format '{name}: {size}'",
+            result: None,
         }]
     }
 }
 
 fn format_command(
-    FormatArgs { pattern }: FormatArgs,
-    RunnableContext { input, .. }: RunnableContext,
+    args: CommandArgs,
+    registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
-    let pattern_tag = pattern.tag.clone();
-
-    let format_pattern = format(&pattern);
-    let commands = format_pattern;
-    let mut input = input;
-
+    let registry = registry.clone();
     let stream = async_stream! {
+        let scope = args.call_info.scope.clone();
+        let (FormatArgs { pattern }, mut input) = args.process(&registry).await?;
+        let pattern_tag = pattern.tag.clone();
+
+        let format_pattern = format(&pattern);
+        let commands = format_pattern;
+
         while let Some(value) = input.next().await {
-            match value {
-                value
-                @
-                Value {
-                    value: UntaggedValue::Row(_),
-                    ..
-                } => {
-                    let mut output = String::new();
+            let scope = scope.clone().set_it(value);
+            let mut output = String::new();
 
-                    for command in &commands {
-                        match command {
-                            FormatCommand::Text(s) => {
-                                output.push_str(&s);
-                            }
-                            FormatCommand::Column(c) => {
-                                let key = to_column_path(&c, &pattern_tag)?;
+            for command in &commands {
+                match command {
+                    FormatCommand::Text(s) => {
+                        output.push_str(&s);
+                    }
+                    FormatCommand::Column(c) => {
+                        // FIXME: use the correct spans
+                        let full_column_path = nu_parser::parse_full_column_path(&(c.to_string()).spanned(Span::unknown()), &registry);
 
-                                let fetcher = get_data_by_column_path(
-                                    &value,
-                                    &key,
-                                    Box::new(move |(_, _, error)| error),
-                                );
+                        let result = evaluate_baseline_expr(&full_column_path.0, &registry, &scope).await;
 
-                                if let Ok(c) = fetcher {
-                                    output
-                                        .push_str(&value::format_leaf(c.borrow()).plain_string(100_000))
-                                }
-                                // That column doesn't match, so don't emit anything
-                            }
+                        if let Ok(c) = result {
+                            output
+                                .push_str(&value::format_leaf(c.borrow()).plain_string(100_000))
+                        } else {
+                            // That column doesn't match, so don't emit anything
                         }
                     }
-
-                    yield ReturnSuccess::value(
-                        UntaggedValue::string(output).into_untagged_value())
                 }
-                _ => yield ReturnSuccess::value(
-                    UntaggedValue::string(String::new()).into_untagged_value()),
-            };
+            }
+
+            yield ReturnSuccess::value(
+                UntaggedValue::string(output).into_untagged_value())
         }
     };
 
@@ -148,26 +139,14 @@ fn format(input: &str) -> Vec<FormatCommand> {
     output
 }
 
-fn to_column_path(
-    path_members: &str,
-    tag: impl Into<Tag>,
-) -> Result<Tagged<ColumnPath>, ShellError> {
-    let tag = tag.into();
+#[cfg(test)]
+mod tests {
+    use super::Format;
 
-    as_column_path(
-        &UntaggedValue::Table(
-            path_members
-                .split('.')
-                .map(|x| {
-                    let member = match x.parse::<u64>() {
-                        Ok(v) => UntaggedValue::int(v),
-                        Err(_) => UntaggedValue::string(x),
-                    };
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
 
-                    member.into_value(&tag)
-                })
-                .collect(),
-        )
-        .into_value(&tag),
-    )
+        test_examples(Format {})
+    }
 }

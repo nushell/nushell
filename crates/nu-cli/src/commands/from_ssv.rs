@@ -50,7 +50,7 @@ impl WholeStreamCommand for FromSSV {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, from_ssv)?.run()
+        from_ssv(args, registry)
     }
 }
 
@@ -250,15 +250,11 @@ fn from_ssv_string_to_value(
     Some(UntaggedValue::Table(rows).into_value(&tag))
 }
 
-fn from_ssv(
-    FromSSVArgs {
-        headerless,
-        aligned_columns,
-        minimum_spaces,
-    }: FromSSVArgs,
-    RunnableContext { input, name, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
+fn from_ssv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let name = args.call_info.name_tag.clone();
+    let registry = registry.clone();
     let stream = async_stream! {
+        let (FromSSVArgs { headerless, aligned_columns, minimum_spaces }, mut input) = args.process(&registry).await?;
         let concat_string = input.collect_string(name.clone()).await?;
         let split_at = match minimum_spaces {
             Some(number) => number.item,
@@ -488,5 +484,13 @@ mod tests {
         let separator_with_headers = string_to_table(input, false, false, 2);
         assert_eq!(aligned_columns_headerless, separator_headerless);
         assert_eq!(aligned_columns_with_headers, separator_with_headers);
+    }
+
+    #[test]
+    fn examples_work_as_expected() {
+        use super::FromSSV;
+        use crate::examples::test as test_examples;
+
+        test_examples(FromSSV {})
     }
 }

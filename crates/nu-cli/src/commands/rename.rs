@@ -37,36 +37,36 @@ impl WholeStreamCommand for Rename {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, rename)?.run()
+        rename(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Rename a column",
-                example: "ls | rename my_name",
+                example: r#"echo "{a: 1, b: 2, c: 3}" | from json | rename my_column"#,
+                result: None,
             },
             Example {
                 description: "Rename many columns",
-                example: "echo \"{a: 1, b: 2, c: 3}\" | from json | rename spam eggs cars",
+                example: r#"echo "{a: 1, b: 2, c: 3}" | from json | rename spam eggs cars"#,
+                result: None,
             },
         ]
     }
 }
 
-pub fn rename(
-    Arguments { column_name, rest }: Arguments,
-    RunnableContext { input, name, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    let mut new_column_names = vec![vec![column_name]];
-    new_column_names.push(rest);
+pub fn rename(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let name = args.call_info.name_tag.clone();
+    let stream = async_stream! {
+        let (Arguments { column_name, rest }, mut input) = args.process(&registry).await?;
+        let mut new_column_names = vec![vec![column_name]];
+        new_column_names.push(rest);
 
-    let new_column_names = new_column_names.into_iter().flatten().collect::<Vec<_>>();
+        let new_column_names = new_column_names.into_iter().flatten().collect::<Vec<_>>();
 
-    let stream = input
-        .map(move |item| {
-            let mut result = VecDeque::new();
-
+        while let Some(item) = input.next().await {
             if let Value {
                 value: UntaggedValue::Row(row),
                 tag,
@@ -86,21 +86,31 @@ pub fn rename(
 
                 let out = UntaggedValue::Row(renamed_row.into()).into_value(tag);
 
-                result.push_back(ReturnSuccess::value(out));
+                yield ReturnSuccess::value(out);
             } else {
-                result.push_back(ReturnSuccess::value(
+                yield ReturnSuccess::value(
                     UntaggedValue::Error(ShellError::labeled_error(
                         "no column names available",
                         "can't rename",
                         &name,
                     ))
                     .into_untagged_value(),
-                ));
+                );
             }
-
-            futures::stream::iter(result)
-        })
-        .flatten();
+        }
+    };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Rename;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Rename {})
+    }
 }

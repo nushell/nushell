@@ -56,19 +56,15 @@ impl WholeStreamCommand for TSortBy {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, t_sort_by)?.run()
+        t_sort_by(args, registry)
     }
 }
 
-fn t_sort_by(
-    TSortByArgs {
-        show_columns,
-        group_by,
-        ..
-    }: TSortByArgs,
-    RunnableContext { input, name, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    Ok(OutputStream::new(async_stream! {
+fn t_sort_by(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let name = args.call_info.name_tag.clone();
+        let (TSortByArgs { show_columns, group_by, ..}, mut input) = args.process(&registry).await?;
         let values: Vec<Value> = input.collect().await;
 
         let column_grouped_by_name = if let Some(grouped_by) = group_by {
@@ -87,5 +83,19 @@ fn t_sort_by(
                 Err(err) => yield Err(err)
             }
         }
-    }))
+    };
+
+    Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::TSortBy;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(TSortBy {})
+    }
 }

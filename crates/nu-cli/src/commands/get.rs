@@ -4,8 +4,8 @@ use indexmap::set::IndexSet;
 use log::trace;
 use nu_errors::ShellError;
 use nu_protocol::{
-    did_you_mean, ColumnPath, PathMember, Primitive, ReturnSuccess, ReturnValue, Signature,
-    SyntaxShape, UnspannedPathMember, UntaggedValue, Value,
+    did_you_mean, ColumnPath, PathMember, Primitive, ReturnSuccess, Signature, SyntaxShape,
+    UnspannedPathMember, UntaggedValue, Value,
 };
 use nu_source::span_for_spanned_list;
 use nu_value_ext::get_data_by_column_path;
@@ -38,18 +38,20 @@ impl WholeStreamCommand for Get {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, get)?.run()
+        get(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Extract the name of files as a list",
                 example: "ls | get name",
+                result: None,
             },
             Example {
                 description: "Extract the cpu list from the sys information",
                 example: "sys | get cpu",
+                result: None,
             },
         ]
     }
@@ -189,30 +191,21 @@ pub fn get_column_path(path: &ColumnPath, obj: &Value) -> Result<Value, ShellErr
     )
 }
 
-pub fn get(
-    GetArgs { rest: mut fields }: GetArgs,
-    RunnableContext { mut input, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    if fields.is_empty() {
-        let stream = async_stream! {
+pub fn get(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let stream = async_stream! {
+        let (GetArgs { rest: mut fields }, mut input) = args.process(&registry).await?;
+        if fields.is_empty() {
             let mut vec = input.drain_vec().await;
 
             let descs = nu_protocol::merge_descriptors(&vec);
             for desc in descs {
                 yield ReturnSuccess::value(desc);
             }
-        };
-
-        let stream: BoxStream<'static, ReturnValue> = stream.boxed();
-
-        Ok(stream.to_output_stream())
-    } else {
-        let member = fields.remove(0);
-        trace!("get {:?} {:?}", member, fields);
-        let stream = input
-            .map(move |item| {
-                let mut result = VecDeque::new();
-
+        } else {
+            let member = fields.remove(0);
+            trace!("get {:?} {:?}", member, fields);
+            while let Some(item) = input.next().await {
                 let member = vec![member.clone()];
 
                 let column_paths = vec![&member, &fields]
@@ -230,25 +223,34 @@ pub fn get(
                                 ..
                             } => {
                                 for item in rows {
-                                    result.push_back(ReturnSuccess::value(item.clone()));
+                                    yield ReturnSuccess::value(item.clone());
                                 }
                             }
                             Value {
                                 value: UntaggedValue::Primitive(Primitive::Nothing),
                                 ..
                             } => {}
-                            other => result.push_back(ReturnSuccess::value(other.clone())),
+                            other => yield ReturnSuccess::value(other.clone()),
                         },
-                        Err(reason) => result.push_back(ReturnSuccess::value(
+                        Err(reason) => yield ReturnSuccess::value(
                             UntaggedValue::Error(reason).into_untagged_value(),
-                        )),
+                        ),
                     }
                 }
+            }
+        }
+    };
+    Ok(stream.to_output_stream())
+}
 
-                futures::stream::iter(result)
-            })
-            .flatten();
+#[cfg(test)]
+mod tests {
+    use super::Get;
 
-        Ok(stream.to_output_stream())
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Get {})
     }
 }

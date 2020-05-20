@@ -26,6 +26,14 @@ impl WholeStreamCommand for Trim {
     ) -> Result<OutputStream, ShellError> {
         trim(args, registry)
     }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Trims surrounding whitespace and outputs \"Hello world\"",
+            example: "echo \"    Hello world\" | trim",
+            result: Some(vec![Value::from("Hello world")]),
+        }]
+    }
 }
 
 fn trim_primitive(p: &mut Primitive) {
@@ -71,4 +79,16 @@ fn trim(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, 
             ReturnSuccess::value(trimmed)
         })
         .to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Trim;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Trim {})
+    }
 }

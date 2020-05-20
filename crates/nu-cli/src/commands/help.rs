@@ -35,72 +35,70 @@ impl WholeStreamCommand for Help {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, help)?.run()
+        help(args, registry)
     }
 }
 
-fn help(
-    HelpArgs { rest }: HelpArgs,
-    RunnableContext { registry, name, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    if let Some(document) = rest.get(0) {
-        let mut help = VecDeque::new();
-        if document.item == "commands" {
-            let mut sorted_names = registry.names();
-            sorted_names.sort();
-            for cmd in sorted_names {
-                // If it's a subcommand, don't list it during the commands list
-                if cmd.contains(' ') {
-                    continue;
-                }
-                let mut short_desc = TaggedDictBuilder::new(name.clone());
-                let document_tag = document.tag.clone();
-                let value = command_dict(
-                    registry.get_command(&cmd).ok_or_else(|| {
-                        ShellError::labeled_error(
-                            format!("Could not load {}", cmd),
-                            "could not load command",
-                            document_tag,
-                        )
-                    })?,
-                    name.clone(),
-                );
-
-                short_desc.insert_untagged("name", cmd);
-                short_desc.insert_untagged(
-                    "description",
-                    get_data_by_key(&value, "usage".spanned_unknown())
-                        .ok_or_else(|| {
+fn help(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let name = args.call_info.name_tag.clone();
+    let stream = async_stream! {
+        let (HelpArgs { rest }, mut input) = args.process(&registry).await?;
+        if let Some(document) = rest.get(0) {
+            if document.item == "commands" {
+                let mut sorted_names = registry.names();
+                sorted_names.sort();
+                for cmd in sorted_names {
+                    // If it's a subcommand, don't list it during the commands list
+                    if cmd.contains(' ') {
+                        continue;
+                    }
+                    let mut short_desc = TaggedDictBuilder::new(name.clone());
+                    let document_tag = document.tag.clone();
+                    let value = command_dict(
+                        registry.get_command(&cmd).ok_or_else(|| {
                             ShellError::labeled_error(
-                                "Expected a usage key",
-                                "expected a 'usage' key",
-                                &value.tag,
+                                format!("Could not load {}", cmd),
+                                "could not load command",
+                                document_tag,
                             )
-                        })?
-                        .as_string()?,
-                );
+                        })?,
+                        name.clone(),
+                    );
 
-                help.push_back(ReturnSuccess::value(short_desc.into_value()));
+                    short_desc.insert_untagged("name", cmd);
+                    short_desc.insert_untagged(
+                        "description",
+                        get_data_by_key(&value, "usage".spanned_unknown())
+                            .ok_or_else(|| {
+                                ShellError::labeled_error(
+                                    "Expected a usage key",
+                                    "expected a 'usage' key",
+                                    &value.tag,
+                                )
+                            })?
+                            .as_string()?,
+                    );
+
+                    yield ReturnSuccess::value(short_desc.into_value());
+                }
+            } else if rest.len() == 2 {
+                // Check for a subcommand
+                let command_name = format!("{} {}", rest[0].item, rest[1].item);
+                if let Some(command) = registry.get_command(&command_name) {
+                    yield Ok(ReturnSuccess::Value(UntaggedValue::string(get_help(command.stream_command(), &registry)).into_value(Tag::unknown())));
+                }
+            } else if let Some(command) = registry.get_command(&document.item) {
+                yield Ok(ReturnSuccess::Value(UntaggedValue::string(get_help(command.stream_command(), &registry)).into_value(Tag::unknown())));
+            } else {
+                yield Err(ShellError::labeled_error(
+                    "Can't find command (use 'help commands' for full list)",
+                    "can't find command",
+                    document.tag.span,
+                ));
             }
-        } else if rest.len() == 2 {
-            // Check for a subcommand
-            let command_name = format!("{} {}", rest[0].item, rest[1].item);
-            if let Some(command) = registry.get_command(&command_name) {
-                return Ok(get_help(command.stream_command(), &registry).into());
-            }
-        } else if let Some(command) = registry.get_command(&document.item) {
-            return Ok(get_help(command.stream_command(), &registry).into());
         } else {
-            return Err(ShellError::labeled_error(
-                "Can't find command (use 'help commands' for full list)",
-                "can't find command",
-                document.tag.span,
-            ));
-        }
-        let help = futures::stream::iter(help);
-        Ok(help.to_output_stream())
-    } else {
-        let msg = r#"Welcome to Nushell.
+            let msg = r#"Welcome to Nushell.
 
 Here are some tips to help you get started.
   * help commands - list all available commands
@@ -122,22 +120,17 @@ Get the processes on your system actively using CPU:
 
 You can also learn more at https://www.nushell.sh/book/"#;
 
-        let output_stream = futures::stream::iter(vec![ReturnSuccess::value(
-            UntaggedValue::string(msg).into_value(name),
-        )]);
+            yield Ok(ReturnSuccess::Value(UntaggedValue::string(msg).into_value(Tag::unknown())));
+        }
+    };
 
-        Ok(output_stream.to_output_stream())
-    }
+    Ok(stream.to_output_stream())
 }
 
 #[allow(clippy::cognitive_complexity)]
-pub fn get_help(
-    cmd: &dyn WholeStreamCommand,
-    registry: &CommandRegistry,
-) -> impl Into<OutputStream> {
+pub fn get_help(cmd: &dyn WholeStreamCommand, registry: &CommandRegistry) -> String {
     let cmd_name = cmd.name();
     let signature = cmd.signature();
-    let mut help = VecDeque::new();
     let mut long_desc = String::new();
 
     long_desc.push_str(&cmd.usage());
@@ -270,6 +263,7 @@ pub fn get_help(
         }
     }
 
+    let palette = crate::shell::palette::DefaultPalette {};
     let examples = cmd.examples();
     if !examples.is_empty() {
         long_desc.push_str("\nExamples:");
@@ -279,14 +273,23 @@ pub fn get_help(
         long_desc.push_str("  ");
         long_desc.push_str(example.description);
         let colored_example =
-            crate::shell::helper::Painter::paint_string(example.example, registry);
+            crate::shell::helper::Painter::paint_string(example.example, registry, &palette);
         long_desc.push_str(&format!("\n  > {}\n", colored_example));
     }
 
     long_desc.push_str("\n");
 
-    help.push_back(ReturnSuccess::value(
-        UntaggedValue::string(long_desc).into_value(Tag::from((0, cmd_name.len(), None))),
-    ));
-    help
+    long_desc
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Help;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Help {})
+    }
 }

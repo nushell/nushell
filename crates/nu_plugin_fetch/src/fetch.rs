@@ -9,6 +9,7 @@ use surf::mime;
 #[derive(Default)]
 pub struct Fetch {
     pub path: Option<Value>,
+    pub tag: Tag,
     pub has_raw: bool,
 }
 
@@ -16,6 +17,7 @@ impl Fetch {
     pub fn new() -> Fetch {
         Fetch {
             path: None,
+            tag: Tag::unknown(),
             has_raw: false,
         }
     }
@@ -31,6 +33,7 @@ impl Fetch {
             })?;
             file.clone()
         });
+        self.tag = call_info.name_tag.clone();
 
         self.has_raw = call_info.args.has("raw");
 
@@ -38,18 +41,8 @@ impl Fetch {
     }
 }
 
-pub async fn fetch_helper(path: &Value, has_raw: bool, row: Value) -> ReturnValue {
-    let path_buf = path.as_path()?;
-    let path_str = path_buf.display().to_string();
-
-    //FIXME: this is a workaround because plugins don't yet support per-item iteration
-    let path_str = if path_str == "$it" {
-        let path_buf = row.as_path()?;
-        path_buf.display().to_string()
-    } else {
-        path_str
-    };
-
+pub async fn fetch_helper(path: &Value, has_raw: bool) -> ReturnValue {
+    let path_str = path.as_string()?;
     let path_span = path.tag.span;
 
     let result = fetch(&path_str, path_span, has_raw).await;

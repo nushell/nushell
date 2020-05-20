@@ -26,10 +26,11 @@ impl WholeStreamCommand for Lines {
         lines(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[Example {
-            description: "Split output from an external command into lines",
-            example: "^ls -l | lines",
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Split multi-line string into lines",
+            example: r#"^echo "two\nlines" | lines"#,
+            result: None,
         }]
     }
 }
@@ -45,15 +46,14 @@ fn ends_with_line_ending(st: &str) -> bool {
 }
 
 fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let tag = args.name_tag();
-    let name_span = tag.span;
-    let mut input = args.input;
-
     let mut leftover = vec![];
     let mut leftover_string = String::new();
-
+    let registry = registry.clone();
     let stream = async_stream! {
+        let args = args.evaluate_once(&registry).await.unwrap();
+        let tag = args.name_tag();
+        let name_span = tag.span;
+        let mut input = args.input;
         loop {
             match input.next().await {
                 Some(Value { value: UntaggedValue::Primitive(Primitive::String(st)), ..}) => {
@@ -121,4 +121,16 @@ fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
     }
     .flatten();
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Lines;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Lines {})
+    }
 }

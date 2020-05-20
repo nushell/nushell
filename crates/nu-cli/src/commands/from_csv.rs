@@ -41,56 +41,77 @@ impl WholeStreamCommand for FromCSV {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, from_csv)?.run()
+        from_csv(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "Convert comma-separated data to a table",
                 example: "open data.txt | from csv",
+                result: None,
             },
             Example {
                 description: "Convert comma-separated data to a table, ignoring headers",
                 example: "open data.txt | from csv --headerless",
+                result: None,
             },
             Example {
                 description: "Convert semicolon-separated data to a table",
                 example: "open data.txt | from csv --separator ';'",
+                result: None,
             },
         ]
     }
 }
 
-fn from_csv(
-    FromCSVArgs {
-        headerless,
-        separator,
-    }: FromCSVArgs,
-    runnable_context: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    let sep = match separator {
-        Some(Value {
-            value: UntaggedValue::Primitive(Primitive::String(s)),
-            tag,
-            ..
-        }) => {
-            if s == r"\t" {
-                '\t'
-            } else {
-                let vec_s: Vec<char> = s.chars().collect();
-                if vec_s.len() != 1 {
-                    return Err(ShellError::labeled_error(
-                        "Expected a single separator char from --separator",
-                        "requires a single character string input",
-                        tag,
-                    ));
-                };
-                vec_s[0]
+fn from_csv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let name = args.call_info.name_tag.clone();
+    let stream = async_stream! {
+        let (FromCSVArgs { headerless, separator }, mut input) = args.process(&registry).await?;
+        let sep = match separator {
+            Some(Value {
+                value: UntaggedValue::Primitive(Primitive::String(s)),
+                tag,
+                ..
+            }) => {
+                if s == r"\t" {
+                    '\t'
+                } else {
+                    let vec_s: Vec<char> = s.chars().collect();
+                    if vec_s.len() != 1 {
+                        yield Err(ShellError::labeled_error(
+                            "Expected a single separator char from --separator",
+                            "requires a single character string input",
+                            tag,
+                        ));
+                        return;
+                    };
+                    vec_s[0]
+                }
             }
+            _ => ',',
+        };
+
+        let mut result = from_delimited_data(headerless, sep, "CSV", input, name)?;
+        while let Some(item) = result.next().await {
+            yield item;
         }
-        _ => ',',
+
     };
 
-    from_delimited_data(headerless, sep, "CSV", runnable_context)
+    Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::FromCSV;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(FromCSV {})
+    }
 }

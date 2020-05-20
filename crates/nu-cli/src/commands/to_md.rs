@@ -30,10 +30,10 @@ impl WholeStreamCommand for ToMarkdown {
 }
 
 fn to_html(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let name_tag = args.name_tag();
-    //let name_span = name_tag.span;
+    let registry = registry.clone();
     let stream = async_stream! {
+        let args = args.evaluate_once(&registry).await?;
+        let name_tag = args.name_tag();
         let input: Vec<Value> = args.input.collect().await;
         let headers = nu_protocol::merge_descriptors(&input);
         let mut output_string = String::new();
@@ -74,4 +74,16 @@ fn to_html(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ToMarkdown;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(ToMarkdown {})
+    }
 }

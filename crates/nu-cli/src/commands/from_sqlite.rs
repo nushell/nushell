@@ -133,11 +133,12 @@ pub fn from_sqlite_bytes_to_value(
 }
 
 fn from_sqlite(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let tag = args.name_tag();
-    let input = args.input;
-
+    let registry = registry.clone();
     let stream = async_stream! {
+        let args = args.evaluate_once(&registry).await?;
+        let tag = args.name_tag();
+        let input = args.input;
+
         let bytes = input.collect_binary(tag.clone()).await?;
         match from_sqlite_bytes_to_value(bytes.item, tag.clone()) {
             Ok(x) => match x {
@@ -162,4 +163,16 @@ fn from_sqlite(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::FromSQLite;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(FromSQLite {})
+    }
 }

@@ -44,31 +44,40 @@ impl WholeStreamCommand for Alias {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, alias)?.run()
+        // args.process(registry, alias)?.run()
+        alias(args, registry)
     }
 
-    fn examples(&self) -> &[Example] {
-        &[
+    fn examples(&self) -> Vec<Example> {
+        vec![
             Example {
                 description: "An alias without parameters",
                 example: "alias say-hi [] { echo 'Hello!' }",
+                result: None,
             },
             Example {
                 description: "An alias with a single parameter",
                 example: "alias l [x] { ls $x }",
+                result: None,
             },
         ]
     }
 }
 
-pub fn alias(alias_args: AliasArgs, ctx: RunnableContext) -> Result<OutputStream, ShellError> {
+// <<<<<<< HEAD
+// pub fn alias(alias_args: AliasArgs, ctx: RunnableContext) -> Result<OutputStream, ShellError> {
+// =======
+pub fn alias(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
     let stream = async_stream! {
-        let mut args: Vec<String> = vec![];
+        let mut raw_input = args.raw_input.clone();
+        let (AliasArgs { name, args: list, block, save}, ctx) = args.process(&registry).await?;
+        let mut processed_args: Vec<String> = vec![];
 
-        if let Some(true) = alias_args.save {
-            let mut result = crate::data::config::read(alias_args.name.clone().tag, &None)?;
+        if let Some(true) = save {
+            let mut result = crate::data::config::read(name.clone().tag, &None)?;
 
-            let mut raw_input = ctx.raw_input.clone();
+            // process the alias to remove the --save flag
             let left_brace = raw_input.find('{').unwrap();
             let right_brace = raw_input.rfind('}').unwrap();
 
@@ -80,10 +89,7 @@ pub fn alias(alias_args: AliasArgs, ctx: RunnableContext) -> Result<OutputStream
 
             raw_input = format!("{}{}{}", left, &raw_input[left_brace..right_brace], right);
             let alias: Value = raw_input.trim().to_string().into();
-            // process the alias to remove the --save flag
 
-            // TODO remove the --save from the command
-            // TODO fix partialeq impl for value
             match result.get_mut("startup") {
                 Some(startup) => {
                     if let UntaggedValue::Table(ref mut commands) = startup.value {
@@ -102,15 +108,27 @@ pub fn alias(alias_args: AliasArgs, ctx: RunnableContext) -> Result<OutputStream
             config::write(&result, &None)?;
         }
 
-        for item in alias_args.args.iter() {
+        for item in list.iter() {
             if let Ok(string) = item.as_string() {
-                args.push(format!("${}", string));
+                processed_args.push(format!("${}", string));
             } else {
                 yield Err(ShellError::labeled_error("Expected a string", "expected a string", item.tag()));
             }
         }
-        yield ReturnSuccess::action(CommandAction::AddAlias(alias_args.name.to_string(), args, alias_args.block.clone()))
+        yield ReturnSuccess::action(CommandAction::AddAlias(name.to_string(), processed_args, block.clone()))
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Alias;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(Alias {})
+    }
 }

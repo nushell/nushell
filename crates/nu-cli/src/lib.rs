@@ -26,7 +26,10 @@ mod git;
 mod path;
 mod shell;
 mod stream;
-mod utils;
+pub mod utils;
+
+#[cfg(test)]
+mod examples;
 
 pub use crate::cli::{
     cli, create_default_context, load_plugins, run_pipeline_standalone, run_vec_of_pipelines,
