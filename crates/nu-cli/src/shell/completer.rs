@@ -83,7 +83,8 @@ impl NuCompleter {
         for completion in &mut completions {
             // If the cursor is at a double-quote, remove the double-quote in the replacement
             // This prevents duplicate quotes
-            if line.chars().nth(pos).unwrap_or(' ') == '"' && completion.replacement.ends_with('"') {
+            let cursor_char = line.chars().nth(pos);
+            if cursor_char.unwrap_or(' ') == '"' && completion.replacement.ends_with('"') {
                 completion.replacement.pop();
             }
         }
