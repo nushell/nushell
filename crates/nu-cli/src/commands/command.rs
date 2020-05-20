@@ -466,7 +466,7 @@ impl WholeStreamCommand for FnFilterCommand {
             shell_manager,
             call_info,
             input,
-            raw_input,
+            ..
         } = args;
 
         let host: Arc<parking_lot::Mutex<dyn Host>> = host.clone();

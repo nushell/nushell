@@ -1,6 +1,5 @@
 use std::cmp::{Ord, Ordering, PartialOrd};
 use std::convert::From;
-use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 
