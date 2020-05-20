@@ -22,39 +22,7 @@ impl NuCompleter {
 
         let line_chars: Vec<_> = line[..pos].chars().collect();
 
-        let mut replace_pos = line_chars.len();
-
-        let mut parsed_pos = false;
-        if let Ok(lite_block) = nu_parser::lite_parse(line, 0) {
-            'outer: for pipeline in lite_block.block.iter() {
-                for command in pipeline.commands.iter() {
-                    let name_span = command.name.span;
-                    if name_span.start() <= pos && name_span.end() >= pos {
-                        replace_pos = name_span.start();
-                        parsed_pos = true;
-                        break 'outer;
-                    }
-
-                    for arg in command.args.iter() {
-                        if arg.span.start() <= pos && arg.span.end() >= pos {
-                            replace_pos = arg.span.start();
-                            parsed_pos = true;
-                            break 'outer;
-                        }
-                    }
-                }
-            }
-        }
-
-        if !parsed_pos {
-            // If the command won't parse, naively detect the completion start point
-            while replace_pos > 0 {
-                if line_chars[replace_pos - 1] == ' ' {
-                    break;
-                }
-                replace_pos -= 1;
-            }
-        }
+        let replace_pos = self.get_replace_pos(line, pos);
 
         let mut completions;
 
@@ -121,6 +89,44 @@ impl NuCompleter {
         }
 
         Ok((replace_pos, completions))
+    }
+
+    fn get_replace_pos(&self, line: &str, pos: usize) -> usize {
+        let line_chars: Vec<_> = line[..pos].chars().collect();
+        let mut replace_pos = line_chars.len();
+        let mut parsed_pos = false;
+        if let Ok(lite_block) = nu_parser::lite_parse(line, 0) {
+            'outer: for pipeline in lite_block.block.iter() {
+                for command in pipeline.commands.iter() {
+                    let name_span = command.name.span;
+                    if name_span.start() <= pos && name_span.end() >= pos {
+                        replace_pos = name_span.start();
+                        parsed_pos = true;
+                        break 'outer;
+                    }
+
+                    for arg in command.args.iter() {
+                        if arg.span.start() <= pos && arg.span.end() >= pos {
+                            replace_pos = arg.span.start();
+                            parsed_pos = true;
+                            break 'outer;
+                        }
+                    }
+                }
+            }
+        }
+
+        if !parsed_pos {
+            // If the command won't parse, naively detect the completion start point
+            while replace_pos > 0 {
+                if line_chars[replace_pos - 1] == ' ' {
+                    break;
+                }
+                replace_pos -= 1;
+            }
+        }
+
+        replace_pos
     }
 
     fn get_matching_arguments(
