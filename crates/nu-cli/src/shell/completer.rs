@@ -23,11 +23,37 @@ impl NuCompleter {
         let line_chars: Vec<_> = line[..pos].chars().collect();
 
         let mut replace_pos = line_chars.len();
-        while replace_pos > 0 {
-            if line_chars[replace_pos - 1] == ' ' {
-                break;
+
+        let mut parsed_pos = false;
+        if let Ok(lite_block) = nu_parser::lite_parse(line, 0) {
+            'outer: for pipeline in lite_block.block.iter() {
+                for command in pipeline.commands.iter() {
+                    let name_span = command.name.span;
+                    if name_span.start() <= pos && name_span.end() >= pos {
+                        replace_pos = name_span.start();
+                        parsed_pos = true;
+                        break 'outer;
+                    }
+
+                    for arg in command.args.iter() {
+                        if arg.span.start() <= pos && arg.span.end() >= pos {
+                            replace_pos = arg.span.start();
+                            parsed_pos = true;
+                            break 'outer;
+                        }
+                    }
+                }
             }
-            replace_pos -= 1;
+        }
+
+        if !parsed_pos {
+            // If the command won't parse, naively detect the completion start point
+            while replace_pos > 0 {
+                if line_chars[replace_pos - 1] == ' ' {
+                    break;
+                }
+                replace_pos -= 1;
+            }
         }
 
         let mut completions;
@@ -83,6 +109,14 @@ impl NuCompleter {
                     display: command.clone(),
                     replacement: command.clone(),
                 });
+            }
+        }
+
+        for completion in &mut completions {
+            // If the cursor is at a double-quote, remove the double-quote in the replacement
+            // This prevents duplicate quotes
+            if line.chars().nth(pos).unwrap_or(' ') == '"' && completion.replacement.ends_with('"') {
+                completion.replacement.pop();
             }
         }
 
