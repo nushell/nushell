@@ -274,6 +274,20 @@ impl Value {
         }
     }
 
+    pub fn convert_to_string(&self) -> String {
+        match &self.value {
+            UntaggedValue::Primitive(Primitive::String(s)) => s.clone(),
+            UntaggedValue::Primitive(Primitive::Date(dt)) => dt.format("%Y-%b-%d").to_string(),
+            UntaggedValue::Primitive(Primitive::Boolean(x)) => format!("{}", x),
+            UntaggedValue::Primitive(Primitive::Decimal(x)) => format!("{}", x),
+            UntaggedValue::Primitive(Primitive::Int(x)) => format!("{}", x),
+            UntaggedValue::Primitive(Primitive::Bytes(x)) => format!("{}", x),
+            UntaggedValue::Primitive(Primitive::Path(x)) => format!("{}", x.display()),
+
+            _ => String::from(""),
+        }
+    }
+
     pub fn format(&self, fmt: &str) -> Result<String, ShellError> {
         match &self.value {
             UntaggedValue::Primitive(Primitive::Date(dt)) => Ok(dt.format(fmt).to_string()),

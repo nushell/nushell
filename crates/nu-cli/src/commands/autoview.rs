@@ -220,7 +220,14 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                                 yield Err(e);
                             }
 
-                            Value { value: UntaggedValue::Row(row), ..} if !no_auto_pivot => {
+                            Value { value: UntaggedValue::Row(row), ..} if !no_auto_pivot
+                                || // Or if the row character count + number of headers * 2 (for padding) > terminal width
+                                (row.entries.iter().map(|(k,v)| v.convert_to_string())
+                                .collect::<Vec<_>>().iter()
+                                .fold(0, |acc, len| acc + len.len())
+                                +
+                                (row.entries.iter().map(|(k,_)| k.chars()).count() * 2))
+                                > textwrap::termwidth() => {
                                 use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
                                 use prettytable::{color, Attr, Cell, Row, Table};
                                 use crate::data::value::{format_leaf, style_leaf};
