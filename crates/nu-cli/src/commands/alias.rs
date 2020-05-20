@@ -3,7 +3,9 @@ use crate::context::CommandRegistry;
 use crate::data::config;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, CommandAction, ReturnSuccess, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    hir::Block, CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+};
 use nu_source::Tagged;
 
 pub struct Alias;
@@ -61,19 +63,45 @@ impl WholeStreamCommand for Alias {
 
 pub fn alias(alias_args: AliasArgs, ctx: RunnableContext) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
-        println!("{}", ctx.raw_input);
         let mut args: Vec<String> = vec![];
-        // let name_span = args.name.clone();
-        // let mut result = crate::data::config::read(name_span.tag, &None)?;
 
-        // let value = Value {
-        //     value: UntaggedValue::Block(block.clone()),
-        //     tag: Tag::default(),
-        // };
-        // result.insert(String::from("startup"), value);
+        if let Some(true) = alias_args.save {
+            let mut result = crate::data::config::read(alias_args.name.clone().tag, &None)?;
 
-        // config::write(&result, &None)?;
-        // TODO fix printing of alias_args
+            let mut raw_input = ctx.raw_input.clone();
+            let left_brace = raw_input.find('{').unwrap();
+            let right_brace = raw_input.rfind('}').unwrap();
+
+            let mut left = raw_input[..left_brace].replace("--save", "");
+            left = left.replace("-s", "");
+
+            let mut right = raw_input[right_brace..].replace("--save", "");
+            right = right.replace("-s", "");
+
+            raw_input = format!("{}{}{}", left, &raw_input[left_brace..right_brace], right);
+            let alias: Value = raw_input.trim().to_string().into();
+            // process the alias to remove the --save flag
+
+            // TODO remove the --save from the command
+            // TODO fix partialeq impl for value
+            match result.get_mut("startup") {
+                Some(startup) => {
+                    if let UntaggedValue::Table(ref mut commands) = startup.value {
+                        if commands.iter().find(|val| {
+                            val.value == alias.value
+                        }).is_none() {
+                            commands.push(alias);
+                        }
+                    }
+                }
+                None => {
+                    let mut table = UntaggedValue::table(&[alias]);
+                    result.insert("startup".to_string(), table.into_value(Tag::default()));
+                }
+            }
+            config::write(&result, &None)?;
+        }
+
         for item in alias_args.args.iter() {
             if let Ok(string) = item.as_string() {
                 args.push(format!("${}", string));
