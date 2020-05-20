@@ -78,8 +78,8 @@ pub fn alias(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
             let mut result = crate::data::config::read(name.clone().tag, &None)?;
 
             // process the alias to remove the --save flag
-            let left_brace = raw_input.find('{').unwrap();
-            let right_brace = raw_input.rfind('}').unwrap();
+            let left_brace = raw_input.find('{').unwrap_or(0);
+            let right_brace = raw_input.rfind('}').unwrap_or(raw_input.len());
 
             let mut left = raw_input[..left_brace].replace("--save", "");
             left = left.replace("-s", "");
@@ -94,6 +94,7 @@ pub fn alias(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
                 Some(startup) => {
                     if let UntaggedValue::Table(ref mut commands) = startup.value {
                         if commands.iter().find(|val| {
+                            println!("{:#?}", val);
                             val.value == alias.value
                         }).is_none() {
                             commands.push(alias);
