@@ -62,3 +62,22 @@ fn help() {
         assert_eq!(help_long.out, help_command.out);
     })
 }
+
+#[test]
+fn count() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            echo "[{"bit":1},{"bit":0},{"bit":0},{"bit":0},{"bit":0},{"bit":0},{"bit":0},{"bit":1}]"
+            | from json
+            | histogram bit
+            | sort-by count
+            | reject frequency
+            | to json
+        "#
+    ));
+
+    let bit_json = r#"[{"bit":"1","count":2},{"bit":"0","count":6}]"#;
+
+    assert_eq!(actual.out, bit_json);
+}
