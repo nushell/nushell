@@ -80,23 +80,24 @@ pub fn alias(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
             // process the alias to remove the --save flag
             let left_brace = raw_input.find('{').unwrap_or(0);
             let right_brace = raw_input.rfind('}').unwrap_or(raw_input.len());
-
-            let mut left = raw_input[..left_brace].replace("--save", "");
-            left = left.replace("-s", "");
-
-            let mut right = raw_input[right_brace..].replace("--save", "");
-            right = right.replace("-s", "");
-
+            let mut left = raw_input[..left_brace].replace("--save", "").replace("-s", "");
+            let mut right = raw_input[right_brace..].replace("--save", "").replace("-s", "");
             raw_input = format!("{}{}{}", left, &raw_input[left_brace..right_brace], right);
-            let alias: Value = raw_input.trim().to_string().into();
 
+            // create a value from raw_input alias
+            let alias: Value = raw_input.trim().to_string().into();
+            let alias_start = raw_input.find("[").unwrap_or(0); // used to check if the same alias already exists
+
+            // add to startup if alias doesn't exist and replce if it does
             match result.get_mut("startup") {
                 Some(startup) => {
                     if let UntaggedValue::Table(ref mut commands) = startup.value {
-                        if commands.iter().find(|val| {
-                            println!("{:#?}", val);
-                            val.value == alias.value
-                        }).is_none() {
+                        if let Some(command) = commands.iter_mut().find(|command| {
+                            let cmd_str = command.as_string().unwrap_or_default();
+                            cmd_str.starts_with(&raw_input[..alias_start])
+                        }) {
+                            *command = alias;
+                        } else {
                             commands.push(alias);
                         }
                     }
