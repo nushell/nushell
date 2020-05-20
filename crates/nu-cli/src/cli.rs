@@ -732,6 +732,7 @@ async fn process_line(
 
         Ok(line) => {
             let line = chomp_newline(line);
+            ctx.raw_input = line.to_string();
 
             let result = match nu_parser::lite_parse(&line, 0) {
                 Err(err) => {
@@ -882,6 +883,7 @@ async fn process_line(
                         ctrl_c: ctx.ctrl_c.clone(),
                         registry: ctx.registry.clone(),
                         name: Tag::unknown(),
+                        raw_input: line.to_string(),
                     };
 
                     if let Ok(mut output_stream) = crate::commands::autoview::autoview(context) {

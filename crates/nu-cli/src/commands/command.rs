@@ -57,6 +57,7 @@ pub struct CommandArgs {
     pub shell_manager: ShellManager,
     pub call_info: UnevaluatedCallInfo,
     pub input: InputStream,
+    pub raw_input: String,
 }
 
 #[derive(Getters, Clone)]
@@ -76,6 +77,7 @@ impl RawCommandArgs {
             shell_manager: self.shell_manager,
             call_info: self.call_info,
             input: input.into(),
+            raw_input: String::default(),
         }
     }
 }
@@ -151,6 +153,7 @@ pub struct RunnableContext {
     pub ctrl_c: Arc<AtomicBool>,
     pub registry: CommandRegistry,
     pub name: Tag,
+    pub raw_input: String,
 }
 
 impl RunnableContext {
@@ -384,6 +387,7 @@ impl WholeStreamCommand for FnFilterCommand {
             shell_manager,
             call_info,
             mut input,
+            ..
         } = args;
 
         let host: Arc<parking_lot::Mutex<dyn Host>> = host.clone();

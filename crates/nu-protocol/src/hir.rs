@@ -1,6 +1,6 @@
 use std::cmp::{Ord, Ordering, PartialOrd};
+use std::convert::From;
 use std::hash::{Hash, Hasher};
-
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};

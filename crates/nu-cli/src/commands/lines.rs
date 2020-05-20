@@ -73,6 +73,7 @@ fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
                     }
 
                     let success_lines: Vec<_> = lines.iter().map(|x| ReturnSuccess::value(UntaggedValue::line(x).into_untagged_value())).collect();
+
                     yield futures::stream::iter(success_lines)
                 }
                 Some(Value { value: UntaggedValue::Primitive(Primitive::Line(st)), ..}) => {
@@ -119,7 +120,6 @@ fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
         }
     }
     .flatten();
-
     Ok(stream.to_output_stream())
 }
 

@@ -35,6 +35,7 @@ impl WholeStreamCommand for Autoview {
             host: args.host,
             ctrl_c: args.ctrl_c,
             name: args.call_info.name_tag,
+            raw_input: args.raw_input,
         })
     }
 

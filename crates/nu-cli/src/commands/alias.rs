@@ -1,8 +1,11 @@
 use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
+use crate::data::config;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, CommandAction, ReturnSuccess, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    hir::Block, CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+};
 use nu_source::Tagged;
 
 pub struct Alias;
@@ -12,6 +15,7 @@ pub struct AliasArgs {
     pub name: Tagged<String>,
     pub args: Vec<Value>,
     pub block: Block,
+    pub save: Option<bool>,
 }
 
 impl WholeStreamCommand for Alias {
@@ -28,6 +32,7 @@ impl WholeStreamCommand for Alias {
                 SyntaxShape::Block,
                 "the block to run as the body of the alias",
             )
+            .switch("save", "save the alias to your config", Some('s'))
     }
 
     fn usage(&self) -> &str {
@@ -39,7 +44,7 @@ impl WholeStreamCommand for Alias {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        //args.process(registry, alias)?.run()
+        // args.process(registry, alias)?.run()
         alias(args, registry)
     }
 
@@ -59,19 +64,60 @@ impl WholeStreamCommand for Alias {
     }
 }
 
+// <<<<<<< HEAD
+// pub fn alias(alias_args: AliasArgs, ctx: RunnableContext) -> Result<OutputStream, ShellError> {
+// =======
 pub fn alias(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let stream = async_stream! {
-        let (AliasArgs { name, args: list, block }, _) = args.process(&registry).await?;
-        let mut args: Vec<String> = vec![];
+        let mut raw_input = args.raw_input.clone();
+        let (AliasArgs { name, args: list, block, save}, ctx) = args.process(&registry).await?;
+        let mut processed_args: Vec<String> = vec![];
+
+        if let Some(true) = save {
+            let mut result = crate::data::config::read(name.clone().tag, &None)?;
+
+            // process the alias to remove the --save flag
+            let left_brace = raw_input.find('{').unwrap_or(0);
+            let right_brace = raw_input.rfind('}').unwrap_or(raw_input.len());
+            let mut left = raw_input[..left_brace].replace("--save", "").replace("-s", "");
+            let mut right = raw_input[right_brace..].replace("--save", "").replace("-s", "");
+            raw_input = format!("{}{}{}", left, &raw_input[left_brace..right_brace], right);
+
+            // create a value from raw_input alias
+            let alias: Value = raw_input.trim().to_string().into();
+            let alias_start = raw_input.find("[").unwrap_or(0); // used to check if the same alias already exists
+
+            // add to startup if alias doesn't exist and replce if it does
+            match result.get_mut("startup") {
+                Some(startup) => {
+                    if let UntaggedValue::Table(ref mut commands) = startup.value {
+                        if let Some(command) = commands.iter_mut().find(|command| {
+                            let cmd_str = command.as_string().unwrap_or_default();
+                            cmd_str.starts_with(&raw_input[..alias_start])
+                        }) {
+                            *command = alias;
+                        } else {
+                            commands.push(alias);
+                        }
+                    }
+                }
+                None => {
+                    let mut table = UntaggedValue::table(&[alias]);
+                    result.insert("startup".to_string(), table.into_value(Tag::default()));
+                }
+            }
+            config::write(&result, &None)?;
+        }
+
         for item in list.iter() {
             if let Ok(string) = item.as_string() {
-                args.push(format!("${}", string));
+                processed_args.push(format!("${}", string));
             } else {
                 yield Err(ShellError::labeled_error("Expected a string", "expected a string", item.tag()));
             }
         }
-        yield ReturnSuccess::action(CommandAction::AddAlias(name.to_string(), args, block.clone()))
+        yield ReturnSuccess::action(CommandAction::AddAlias(name.to_string(), processed_args, block.clone()))
     };
 
     Ok(stream.to_output_stream())

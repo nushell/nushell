@@ -75,6 +75,7 @@ pub struct Context {
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub ctrl_c: Arc<AtomicBool>,
+    pub raw_input: String,
     pub(crate) shell_manager: ShellManager,
 
     #[cfg(windows)]
@@ -96,6 +97,7 @@ impl Context {
                 ctrl_c: raw_args.ctrl_c.clone(),
                 shell_manager: raw_args.shell_manager.clone(),
                 windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
+                raw_input: String::default(),
             }
         }
         #[cfg(not(windows))]
@@ -106,6 +108,7 @@ impl Context {
                 current_errors: Arc::new(Mutex::new(vec![])),
                 ctrl_c: raw_args.ctrl_c.clone(),
                 shell_manager: raw_args.shell_manager.clone(),
+                raw_input: String::default(),
             }
         }
     }
@@ -120,6 +123,7 @@ impl Context {
                 ctrl_c: args.ctrl_c.clone(),
                 shell_manager: args.shell_manager.clone(),
                 windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
+                raw_input: String::default(),
             }
         }
         #[cfg(not(windows))]
@@ -130,6 +134,7 @@ impl Context {
                 current_errors: Arc::new(Mutex::new(vec![])),
                 ctrl_c: args.ctrl_c.clone(),
                 shell_manager: args.shell_manager.clone(),
+                raw_input: String::default(),
             }
         }
     }
@@ -148,6 +153,7 @@ impl Context {
                 ctrl_c: Arc::new(AtomicBool::new(false)),
                 shell_manager: ShellManager::basic(registry)?,
                 windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
+                raw_input: String::default(),
             })
         }
 
@@ -161,6 +167,7 @@ impl Context {
                 current_errors: Arc::new(Mutex::new(vec![])),
                 ctrl_c: Arc::new(AtomicBool::new(false)),
                 shell_manager: ShellManager::basic(registry)?,
+                raw_input: String::default(),
             })
         }
     }
@@ -251,6 +258,7 @@ impl Context {
             shell_manager: self.shell_manager.clone(),
             call_info: self.call_info(args, name_tag, scope),
             input,
+            raw_input: self.raw_input.clone(),
         }
     }
 
