@@ -78,7 +78,7 @@ We can also set the name of the second column or sort the table:
 
 ```
 
-Of course, histogram operations are not restricted to just analyzing files in numbers, you can also analyze your directories
+Of course, histogram operations are not restricted to just analyzing numbers in files, you can also analyze your directories
 
 ```shell
 > ls -fa | histogram type | sort-by count
