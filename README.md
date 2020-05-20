@@ -282,6 +282,26 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 
 You can find a list of Nu commands, complete with documentation, in [quick command references](https://www.nushell.sh/documentation.html#quick-command-references).
 
+# Progress
+
+Nu is in heavy development, and will naturally change as it matures and people use it.  The chart below isn't meant to be exhaustive, but rather helps give an idea for some of the areas of development and their relative completion:
+
+| Features | Not started | Prototype | MVP | Preview | Mature | Notes
+| -------- |:-----------:|:---------:|:---:|:-------:|:------:| -----
+| Aliases  |             |     X     |     |         |        | Initial implementation but lacks necessary features
+| Notebook |             |     X     |     |         |        | Initial jupyter support, but it loses state and lacks features
+| File ops |             |           |  X  |         |        | cp, mv, rm, mkdir have some support, but lacking others 
+| Environment |          |     X     |     |         |        | Temporary environment, but no session-wide env variables 
+| Shells   |             |     X     |     |         |        | Basic value and file shells, but no opt-in/opt-out for commands
+| Protocol |             |           |  X  |         |        | Streaming protocol is serviceable
+| Plugins  |             |     X     |     |         |        | Plugins work on one row at a time, lack batching and expression eval 
+| Errors   |             |           |  X  |         |        | Error reporting works, but could use usability polish
+| Documentation |        |     X     |     |         |        | Book and related are barebones and lack task-based lessons
+| Paging   |             |     X     |     |         |        | Textview has paging, but we'd like paging for tables
+| Functions|      X      |           |     |         |        | No functions, yet, only aliases
+| Variables|      X      |           |     |         |        | Nu doesn't yet support variables 
+
+
 # Contributing
 
 See [Contributing](CONTRIBUTING.md) for details.
