@@ -83,6 +83,10 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
         Some(val) => val.is_true(),
         _ => false,
     };
+    let pivot_to_fit = match config::config(Tag::unknown())?.get("pivot_to_fit") {
+        Some(val) => val.is_true(),
+        _ => false,
+    };
 
     Ok(OutputStream::new(async_stream! {
         let (mut input_stream, context) = RunnableContextWithoutInput::convert(context);
@@ -221,13 +225,13 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                             }
 
                             Value { value: UntaggedValue::Row(row), ..} if !no_auto_pivot
-                                || // Or if the row character count + number of headers * 2 (for padding) > terminal width
+                                || (pivot_to_fit && // Or if the row character count + number of headers * 2 (for padding) > terminal width
                                 (row.entries.iter().map(|(k,v)| v.convert_to_string())
                                 .collect::<Vec<_>>().iter()
                                 .fold(0, |acc, len| acc + len.len())
                                 +
                                 (row.entries.iter().map(|(k,_)| k.chars()).count() * 2))
-                                > textwrap::termwidth() => {
+                                > textwrap::termwidth()) => {
                                 use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
                                 use prettytable::{color, Attr, Cell, Row, Table};
                                 use crate::data::value::{format_leaf, style_leaf};
