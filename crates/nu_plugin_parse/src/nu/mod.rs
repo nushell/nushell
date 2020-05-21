@@ -5,12 +5,13 @@ use nu_protocol::{
     UntaggedValue, Value,
 };
 
-use crate::Parse;
+use crate::{ColumnNames, Parse};
 use regex::Regex;
 
 impl Plugin for Parse {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("parse")
+            .switch("regex", "use full regex syntax for patterns", Some('r'))
             .required(
                 "pattern",
                 SyntaxShape::String,
@@ -20,24 +21,34 @@ impl Plugin for Parse {
     }
 
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
-        if let Some(args) = call_info.args.positional {
+        if let Some(ref args) = &call_info.args.positional {
             match &args[0] {
                 Value {
                     value: UntaggedValue::Primitive(Primitive::String(s)),
                     tag,
                 } => {
                     self.pattern_tag = tag.clone();
-                    let parse_pattern = parse(&s);
-                    let parse_regex = build_regex(&parse_pattern);
-                    self.column_names = column_names(&parse_pattern);
-
-                    self.regex = Regex::new(&parse_regex).map_err(|_| {
-                        ShellError::labeled_error(
-                            "Could not parse regex",
-                            "could not parse regex",
-                            tag.span,
-                        )
-                    })?;
+                    if call_info.args.has("regex") {
+                        self.regex = Regex::new(&s).map_err(|_| {
+                            ShellError::labeled_error(
+                                "Could not parse regex",
+                                "could not parse regex",
+                                tag.span,
+                            )
+                        })?;
+                        self.column_names = ColumnNames::from(&self.regex);
+                    } else {
+                        let parse_pattern = parse(&s);
+                        let parse_regex = build_regex(&parse_pattern);
+                        self.column_names = ColumnNames::from(parse_pattern.as_slice());
+                        self.regex = Regex::new(&parse_regex).map_err(|_| {
+                            ShellError::labeled_error(
+                                "Could not parse regex",
+                                "could not parse regex",
+                                tag.span,
+                            )
+                        })?;
+                    };
                 }
                 Value { tag, .. } => {
                     return Err(ShellError::labeled_error(
@@ -58,11 +69,11 @@ impl Plugin for Parse {
                 for caps in self.regex.captures_iter(&s) {
                     let group_count = caps.len() - 1;
 
-                    if self.column_names.len() != group_count {
+                    if self.column_names.0.len() != group_count {
                         return Err(ShellError::labeled_error(
                             format!(
                                 "There are {} column(s) specified in the pattern, but could only match the first {}: [{}]",
-                                self.column_names.len(),
+                                self.column_names.0.len(),
                                 group_count,
                                 caps.iter()
                                     .skip(1)
@@ -89,7 +100,7 @@ impl Plugin for Parse {
                     }
 
                     let mut dict = TaggedDictBuilder::new(&input.tag);
-                    for (idx, column_name) in self.column_names.iter().enumerate() {
+                    for (idx, column_name) in self.column_names.0.iter().enumerate() {
                         dict.insert_untagged(
                             column_name,
                             UntaggedValue::string(caps[idx + 1].to_string()),
@@ -150,16 +161,30 @@ fn parse(input: &str) -> Vec<ParseCommand> {
     output
 }
 
-fn column_names(commands: &[ParseCommand]) -> Vec<String> {
-    let mut output = vec![];
+impl From<&[ParseCommand]> for ColumnNames {
+    fn from(commands: &[ParseCommand]) -> ColumnNames {
+        let mut output = vec![];
 
-    for command in commands {
-        if let ParseCommand::Column(c) = command {
-            output.push(c.clone());
+        for command in commands {
+            if let ParseCommand::Column(c) = command {
+                output.push(c.clone());
+            }
         }
-    }
 
-    output
+        ColumnNames(output)
+    }
+}
+
+impl From<&Regex> for ColumnNames {
+    fn from(regex: &Regex) -> ColumnNames {
+        let output = regex
+            .capture_names()
+            .enumerate()
+            .skip(1)
+            .map(|(i, name)| name.map(String::from).unwrap_or(format!("Capture{}", i)))
+            .collect::<Vec<_>>();
+        ColumnNames(output)
+    }
 }
 
 fn build_regex(commands: &[ParseCommand]) -> String {

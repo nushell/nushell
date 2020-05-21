@@ -5,8 +5,10 @@ pub struct Parse {
     pub regex: Regex,
     pub name: Tag,
     pub pattern_tag: Tag,
-    pub column_names: Vec<String>,
+    pub column_names: ColumnNames,
 }
+
+pub struct ColumnNames(pub Vec<String>);
 
 impl Parse {
     #[allow(clippy::trivial_regex)]
@@ -15,7 +17,7 @@ impl Parse {
             regex: Regex::new("")?,
             name: Tag::unknown(),
             pattern_tag: Tag::unknown(),
-            column_names: vec![],
+            column_names: ColumnNames(vec![]),
         })
     }
 }
