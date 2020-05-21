@@ -40,6 +40,7 @@ Syntax: `config {flags}`
 | history_size    | integer                | maximum entries that will be stored in history (100,000 default)   |
 | completion_mode | "circular" or "list"   | changes completion type to "circular" (default) or "list" mode |
 | no_auto_pivot   | boolean                | whether or not to automatically pivot single-row results       |
+| no_bin_complete | boolean                | whether or not to complete names of binaries on PATH           |
 
 ## Examples
 

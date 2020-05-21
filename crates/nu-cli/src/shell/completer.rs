@@ -1,7 +1,13 @@
 use crate::context::CommandRegistry;
 
+use crate::data::config;
+use crate::prelude::*;
 use derive_new::new;
+use ichwh::IchwhResult;
 use rustyline::completion::{Completer, FilenameCompleter};
+use std::collections::HashSet;
+use std::fs::{read_dir, DirEntry};
+use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 
 #[derive(new)]
@@ -56,11 +62,26 @@ impl NuCompleter {
             }
         };
 
-        for command in commands.iter() {
+        let no_bin_complete = match config::config(Tag::unknown()) {
+            Ok(conf) => match conf.get("no_bin_complete") {
+                Some(val) => val.is_true(),
+                _ => false,
+            },
+            _ => false,
+        };
+
+        let mut all_executables: HashSet<_> = commands.iter().map(|x| x.to_string()).collect();
+        if !no_bin_complete {
+            let path_executables = self.get_path_executables().unwrap_or_default();
+            for path_exe in path_executables {
+                all_executables.insert(path_exe);
+            }
+        };
+        for exe in all_executables.iter() {
             let mut pos = replace_pos;
             let mut matched = false;
             if pos < line_chars.len() {
-                for chr in command.chars() {
+                for chr in exe.chars() {
                     if line_chars[pos] != chr {
                         break;
                     }
@@ -74,8 +95,8 @@ impl NuCompleter {
 
             if matched {
                 completions.push(rustyline::completion::Pair {
-                    display: command.clone(),
-                    replacement: command.clone(),
+                    display: exe.to_string(),
+                    replacement: exe.to_string(),
                 });
             }
         }
@@ -172,5 +193,62 @@ impl NuCompleter {
         }
 
         matching_arguments
+    }
+
+    // These is_executable implementations are copied from ichwh and modified
+    // to not be async
+
+    #[cfg(windows)]
+    fn is_executable(&self, file: &DirEntry) -> IchwhResult<bool> {
+        let file_type = file.metadata()?.file_type();
+
+        // If the entry isn't a file, it cannot be executable
+        if !(file_type.is_file() || file_type.is_symlink()) {
+            return Ok(false);
+        }
+
+        if let Some(extension) = file.path().extension() {
+            let exts = pathext()?;
+
+            Ok(exts
+                .iter()
+                .any(|ext| extension.to_string_lossy().eq_ignore_ascii_case(ext)))
+        } else {
+            Ok(false)
+        }
+    }
+
+    #[cfg(unix)]
+    fn is_executable(&self, file: &DirEntry) -> IchwhResult<bool> {
+        let metadata = file.metadata()?;
+
+        let filetype = metadata.file_type();
+        let permissions = metadata.permissions();
+
+        // The file is executable if it is a directory or a symlink and the permissions are set for
+        // owner, group, or other
+        Ok((filetype.is_file() || filetype.is_symlink()) && (permissions.mode() & 0o111 != 0))
+    }
+
+    fn get_path_executables(&self) -> Option<HashSet<String>> {
+        let path_var = std::env::var_os("PATH")?;
+        let paths: Vec<_> = std::env::split_paths(&path_var).collect();
+
+        let mut executables: HashSet<String> = HashSet::new();
+        for path in paths {
+            if let Ok(mut contents) = read_dir(path) {
+                while let Some(Ok(item)) = contents.next() {
+                    if let Ok(is_ex) = self.is_executable(&item) {
+                        if is_ex {
+                            if let Ok(name) = item.file_name().into_string() {
+                                executables.insert(name);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Some(executables)
     }
 }
