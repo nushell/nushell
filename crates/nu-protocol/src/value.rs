@@ -15,7 +15,7 @@ use crate::value::dict::Dictionary;
 use crate::value::iter::{RowValueIter, TableValueIter};
 use crate::value::primitive::Primitive;
 use crate::value::range::{Range, RangeInclusion};
-use crate::{ColumnPath, PathMember};
+use crate::{ColumnPath, PathMember, UnspannedPathMember};
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use indexmap::IndexMap;
@@ -26,6 +26,7 @@ use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::SystemTime;
+use itertools::Itertools;
 
 /// The core structured values that flow through a pipeline
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
@@ -283,6 +284,21 @@ impl Value {
             UntaggedValue::Primitive(Primitive::Int(x)) => format!("{}", x),
             UntaggedValue::Primitive(Primitive::Bytes(x)) => format!("{}", x),
             UntaggedValue::Primitive(Primitive::Path(x)) => format!("{}", x.display()),
+            UntaggedValue::Primitive(Primitive::ColumnPath(path)) => {
+                let joined = path
+                    .iter()
+                    .map(|member| match &member.unspanned {
+                        UnspannedPathMember::String(name) => name.to_string(),
+                        UnspannedPathMember::Int(n) => format!("{}", n),
+                    })
+                    .join(".");
+
+                if joined.contains(' ') {
+                    format!("\"{}\"", joined)
+                } else {
+                    joined
+                }
+            }
 
             _ => String::from(""),
         }
