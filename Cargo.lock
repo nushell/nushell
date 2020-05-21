@@ -2342,6 +2342,7 @@ dependencies = [
  "derive-new",
  "getset",
  "indexmap",
+ "itertools",
  "log",
  "natural",
  "nu-build",

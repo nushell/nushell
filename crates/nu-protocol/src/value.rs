@@ -15,10 +15,11 @@ use crate::value::dict::Dictionary;
 use crate::value::iter::{RowValueIter, TableValueIter};
 use crate::value::primitive::Primitive;
 use crate::value::range::{Range, RangeInclusion};
-use crate::{ColumnPath, PathMember};
+use crate::{ColumnPath, PathMember, UnspannedPathMember};
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use indexmap::IndexMap;
+use itertools::Itertools;
 use nu_errors::ShellError;
 use nu_source::{AnchorLocation, HasSpan, Span, Spanned, Tag};
 use num_bigint::BigInt;
@@ -271,6 +272,35 @@ impl Value {
                 Ok(path.to_string_lossy().to_string())
             }
             _ => Err(ShellError::type_error("string", self.spanned_type_name())),
+        }
+    }
+
+    pub fn convert_to_string(&self) -> String {
+        match &self.value {
+            UntaggedValue::Primitive(Primitive::String(s)) => s.clone(),
+            UntaggedValue::Primitive(Primitive::Date(dt)) => dt.format("%Y-%b-%d").to_string(),
+            UntaggedValue::Primitive(Primitive::Boolean(x)) => format!("{}", x),
+            UntaggedValue::Primitive(Primitive::Decimal(x)) => format!("{}", x),
+            UntaggedValue::Primitive(Primitive::Int(x)) => format!("{}", x),
+            UntaggedValue::Primitive(Primitive::Bytes(x)) => format!("{}", x),
+            UntaggedValue::Primitive(Primitive::Path(x)) => format!("{}", x.display()),
+            UntaggedValue::Primitive(Primitive::ColumnPath(path)) => {
+                let joined = path
+                    .iter()
+                    .map(|member| match &member.unspanned {
+                        UnspannedPathMember::String(name) => name.to_string(),
+                        UnspannedPathMember::Int(n) => format!("{}", n),
+                    })
+                    .join(".");
+
+                if joined.contains(' ') {
+                    format!("\"{}\"", joined)
+                } else {
+                    joined
+                }
+            }
+
+            _ => String::from(""),
         }
     }
 

@@ -29,6 +29,7 @@ query_interface = "0.3.5"
 byte-unit = "3.0.3"
 natural = "0.5.0"
 log = "0.4.8"
+itertools = "0.9.0"
 
 # implement conversions
 serde_yaml = "0.8"
