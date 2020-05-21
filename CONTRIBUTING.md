@@ -44,3 +44,15 @@ Run all tests for a specific command
 ```shell
 cargo test --package nu-cli --test main -- commands::<command_name_here>
 ```
+
+Check to see if there are code formatting issues
+
+```shell
+cargo fmt --all -- --check
+```
+
+Format the code in the project
+
+```shell
+cargo fmt --all
+```
