@@ -19,6 +19,7 @@ use crate::{ColumnPath, PathMember, UnspannedPathMember};
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use indexmap::IndexMap;
+use itertools::Itertools;
 use nu_errors::ShellError;
 use nu_source::{AnchorLocation, HasSpan, Span, Spanned, Tag};
 use num_bigint::BigInt;
@@ -26,7 +27,6 @@ use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::SystemTime;
-use itertools::Itertools;
 
 /// The core structured values that flow through a pipeline
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
