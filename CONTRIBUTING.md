@@ -19,10 +19,28 @@ cd nushell
 cargo build
 ```
 
-## Tests
+## Useful Commands
 
-Run tests with:
+Build and run Nushell:
+
+```shell
+cargo build --release && cargo run --release
+```
+
+Run Clippy on Nushell:
+
+```shell
+cargo clippy --all --features=stable
+```
+
+Run all tests:
 
 ```shell
 cargo test --all --features=stable
+```
+
+Run all tests for a specific command
+
+```shell
+cargo test --package nu-cli --test main -- commands::<command_name_here>
 ```
