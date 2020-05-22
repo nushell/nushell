@@ -3,10 +3,13 @@ use crate::context::CommandRegistry;
 use crate::data::config;
 use crate::prelude::*;
 use derive_new::new;
+#[cfg(windows)]
+use ichwh::utils::pathext;
 use ichwh::IchwhResult;
 use rustyline::completion::{Completer, FilenameCompleter};
 use std::collections::HashSet;
 use std::fs::{read_dir, DirEntry};
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 
