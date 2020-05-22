@@ -4,7 +4,7 @@ use crate::data::config;
 use crate::prelude::*;
 use derive_new::new;
 #[cfg(windows)]
-use ichwh::utils::pathext;
+use ichwh::IchwhError;
 use ichwh::IchwhResult;
 use rustyline::completion::{Completer, FilenameCompleter};
 use std::collections::HashSet;
@@ -210,8 +210,19 @@ impl NuCompleter {
         matching_arguments
     }
 
-    // These is_executable implementations are copied from ichwh and modified
+    // These is_executable/pathext implementations are copied from ichwh and modified
     // to not be async
+
+    #[cfg(windows)]
+    fn pathext(&self) -> IchwhResult<Vec<String>> {
+        Ok(std::env::var_os("PATHEXT")
+            .ok_or(IchwhError::PathextNotDefined)?
+            .to_string_lossy()
+            .split(';')
+            // Cut off the leading '.' character
+            .map(|ext| ext[1..].to_string())
+            .collect::<Vec<_>>())
+    }
 
     #[cfg(windows)]
     fn is_executable(&self, file: &DirEntry) -> IchwhResult<bool> {
@@ -223,7 +234,7 @@ impl NuCompleter {
         }
 
         if let Some(extension) = file.path().extension() {
-            let exts = pathext()?;
+            let exts = self.pathext()?;
 
             Ok(exts
                 .iter()
