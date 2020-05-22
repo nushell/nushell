@@ -1,5 +1,6 @@
 extern crate chrono;
 
+use bigdecimal::BigDecimal;
 use chrono::DateTime;
 use nu_errors::ShellError;
 use nu_protocol::{did_you_mean, ColumnPath, Primitive, ShellTypeName, UntaggedValue, Value};
@@ -7,7 +8,6 @@ use nu_source::{span_for_spanned_list, Tagged};
 use nu_value_ext::ValueExt;
 use regex::Regex;
 use std::cmp;
-use bigdecimal::BigDecimal;
 use std::str::FromStr;
 
 #[derive(Debug, Eq, PartialEq)]
@@ -95,12 +95,10 @@ impl Str {
                     Ok(v) => UntaggedValue::int(v),
                     Err(_) => UntaggedValue::string(input),
                 }
-            },
-            Some(Action::ToFloat) => {
-                match BigDecimal::from_str(input.trim()) {
-                    Ok(v) => UntaggedValue::decimal(v),
-                    Err(_) => UntaggedValue::string(input),
-                }
+            }
+            Some(Action::ToFloat) => match BigDecimal::from_str(input.trim()) {
+                Ok(v) => UntaggedValue::decimal(v),
+                Err(_) => UntaggedValue::string(input),
             },
             Some(Action::ToDateTime(dt)) => match DateTime::parse_from_str(input, dt) {
                 Ok(d) => UntaggedValue::date(d),
@@ -253,7 +251,7 @@ impl Str {
 pub mod tests {
     use super::ReplaceAction;
     use super::Str;
-    use nu_plugin::test_helpers::value::{int, decimal, string};
+    use nu_plugin::test_helpers::value::{decimal, int, string};
 
     #[test]
     fn trim() -> Result<(), Box<dyn std::error::Error>> {

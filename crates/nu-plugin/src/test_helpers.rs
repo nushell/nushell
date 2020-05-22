@@ -172,12 +172,12 @@ pub fn expect_return_value_at(
 }
 
 pub mod value {
+    use bigdecimal::BigDecimal;
     use nu_errors::ShellError;
     use nu_protocol::{Primitive, TaggedDictBuilder, UntaggedValue, Value};
     use nu_source::Tag;
     use nu_value_ext::ValueExt;
     use num_bigint::BigInt;
-    use bigdecimal::BigDecimal;
 
     pub fn get_data(for_value: Value, key: &str) -> Value {
         for_value.get_data(&key.to_string()).borrow().clone()
@@ -187,7 +187,7 @@ pub mod value {
         UntaggedValue::Primitive(Primitive::Int(i.into())).into_untagged_value()
     }
 
-    pub fn decimal(f: impl Into<BigDecimal>) -> Value  {
+    pub fn decimal(f: impl Into<BigDecimal>) -> Value {
         UntaggedValue::Primitive(Primitive::Decimal(f.into())).into_untagged_value()
     }
 
