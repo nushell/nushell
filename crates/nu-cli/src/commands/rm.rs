@@ -14,6 +14,8 @@ pub struct RemoveArgs {
     pub recursive: Tagged<bool>,
     #[allow(unused)]
     pub trash: Tagged<bool>,
+    #[allow(unused)]
+    pub permanent: Tagged<bool>,
 }
 
 impl WholeStreamCommand for Remove {
@@ -27,6 +29,11 @@ impl WholeStreamCommand for Remove {
                 "trash",
                 "use the platform's recycle bin instead of permanently deleting",
                 Some('t'),
+            )
+            .switch(
+                "permanent",
+                "don't use recycle bin, delete permanently",
+                Some('p'),
             )
             .switch("recursive", "delete subdirectories recursively", Some('r'))
             .rest(SyntaxShape::Pattern, "the file path(s) to remove")
@@ -54,6 +61,11 @@ impl WholeStreamCommand for Remove {
             Example {
                 description: "Move a file to the system trash",
                 example: "rm --trash file.txt",
+                result: None,
+            },
+            Example {
+                description: "Delete a file permanently",
+                example: "rm --permanent file.txt",
                 result: None,
             },
         ]

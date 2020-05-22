@@ -483,6 +483,7 @@ impl Shell for FilesystemShell {
             rest: targets,
             recursive,
             trash: _trash,
+            permanent: _permanent,
         }: RemoveArgs,
         name: Tag,
         path: &str,
@@ -564,7 +565,7 @@ impl Shell for FilesystemShell {
                         #[cfg(feature = "trash-support")]
                         {
                             let rm_always_trash = config::config(Tag::unknown())?.get("rm_always_trash").map(|val| val.is_true()).unwrap_or(false);
-                            result = if _trash.item || rm_always_trash {
+                            result = if _trash.item || (rm_always_trash && !_permanent.item) {
                                 trash::remove(f)
                                    .map_err(|e| f.to_string_lossy())
                             } else if metadata.is_file() {
