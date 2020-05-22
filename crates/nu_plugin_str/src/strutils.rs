@@ -7,6 +7,8 @@ use nu_source::{span_for_spanned_list, Tagged};
 use nu_value_ext::ValueExt;
 use regex::Regex;
 use std::cmp;
+use bigdecimal::BigDecimal;
+use std::str::FromStr;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Action {
@@ -14,6 +16,7 @@ pub enum Action {
     Downcase,
     Upcase,
     ToInteger,
+    ToFloat,
     Substring(usize, usize),
     Replace(ReplaceAction),
     ToDateTime(String),
@@ -92,7 +95,13 @@ impl Str {
                     Ok(v) => UntaggedValue::int(v),
                     Err(_) => UntaggedValue::string(input),
                 }
-            }
+            },
+            Some(Action::ToFloat) => {
+                match BigDecimal::from_str(input.trim()) {
+                    Ok(v) => UntaggedValue::decimal(v),
+                    Err(_) => UntaggedValue::string(input),
+                }
+            },
             Some(Action::ToDateTime(dt)) => match DateTime::parse_from_str(input, dt) {
                 Ok(d) => UntaggedValue::date(d),
                 Err(_) => UntaggedValue::string(input),
@@ -117,6 +126,10 @@ impl Str {
 
     pub fn for_to_int(&mut self) {
         self.add_action(Action::ToInteger);
+    }
+
+    pub fn for_to_float(&mut self) {
+        self.add_action(Action::ToFloat);
     }
 
     pub fn for_capitalize(&mut self) {
@@ -177,7 +190,7 @@ impl Str {
     }
 
     pub fn usage() -> &'static str {
-        "Usage: str field [--capitalize|--downcase|--upcase|--to-int|--substring \"start,end\"|--replace|--find-replace [pattern replacement]|to-date-time|--trim]"
+        "Usage: str field [--capitalize|--downcase|--upcase|--to-int|--to-float|--substring \"start,end\"|--replace|--find-replace [pattern replacement]|to-date-time|--trim]"
     }
 
     pub fn strutils(&self, value: Value) -> Result<Value, ShellError> {
@@ -240,7 +253,7 @@ impl Str {
 pub mod tests {
     use super::ReplaceAction;
     use super::Str;
-    use nu_plugin::test_helpers::value::{int, string};
+    use nu_plugin::test_helpers::value::{int, decimal, string};
 
     #[test]
     fn trim() -> Result<(), Box<dyn std::error::Error>> {
@@ -279,6 +292,14 @@ pub mod tests {
         let mut strutils = Str::new();
         strutils.for_to_int();
         assert_eq!(strutils.apply("9999")?, int(9999 as i64).value);
+        Ok(())
+    }
+
+    #[test]
+    fn converts_to_float() -> Result<(), Box<dyn std::error::Error>> {
+        let mut strutils = Str::new();
+        strutils.for_to_float();
+        assert_eq!(strutils.apply("3.1415")?, decimal(3.1415).value);
         Ok(())
     }
 

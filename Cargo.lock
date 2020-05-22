@@ -2319,6 +2319,7 @@ dependencies = [
 name = "nu-plugin"
 version = "0.14.1"
 dependencies = [
+ "bigdecimal",
  "indexmap",
  "nu-build",
  "nu-errors",
@@ -2531,6 +2532,7 @@ dependencies = [
 name = "nu_plugin_str"
 version = "0.14.1"
 dependencies = [
+ "bigdecimal",
  "chrono",
  "nu-build",
  "nu-errors",

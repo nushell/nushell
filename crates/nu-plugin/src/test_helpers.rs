@@ -177,6 +177,7 @@ pub mod value {
     use nu_source::Tag;
     use nu_value_ext::ValueExt;
     use num_bigint::BigInt;
+    use bigdecimal::BigDecimal;
 
     pub fn get_data(for_value: Value, key: &str) -> Value {
         for_value.get_data(&key.to_string()).borrow().clone()
@@ -184,6 +185,10 @@ pub mod value {
 
     pub fn int(i: impl Into<BigInt>) -> Value {
         UntaggedValue::Primitive(Primitive::Int(i.into())).into_untagged_value()
+    }
+
+    pub fn decimal(f: impl Into<BigDecimal>) -> Value  {
+        UntaggedValue::Primitive(Primitive::Decimal(f.into())).into_untagged_value()
     }
 
     pub fn string(input: impl Into<String>) -> Value {
