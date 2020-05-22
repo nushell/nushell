@@ -17,6 +17,12 @@ pub(crate) struct NuCompleter {
     pub homedir: Option<PathBuf>,
 }
 
+#[derive(PartialEq, Eq, Debug)]
+enum ReplacementLocation {
+    Command,
+    Other,
+}
+
 impl NuCompleter {
     pub fn complete(
         &self,
@@ -28,7 +34,7 @@ impl NuCompleter {
 
         let line_chars: Vec<_> = line[..pos].chars().collect();
 
-        let replace_pos = self.get_replace_pos(line, pos);
+        let (replace_pos, replace_loc) = self.get_replace_pos(line, pos);
 
         let mut completions;
 
@@ -70,34 +76,38 @@ impl NuCompleter {
             _ => false,
         };
 
-        let mut all_executables: HashSet<_> = commands.iter().map(|x| x.to_string()).collect();
-        if !no_bin_complete {
-            let path_executables = self.get_path_executables().unwrap_or_default();
-            for path_exe in path_executables {
-                all_executables.insert(path_exe);
-            }
-        };
-        for exe in all_executables.iter() {
-            let mut pos = replace_pos;
-            let mut matched = false;
-            if pos < line_chars.len() {
-                for chr in exe.chars() {
-                    if line_chars[pos] != chr {
-                        break;
-                    }
-                    pos += 1;
-                    if pos == line_chars.len() {
-                        matched = true;
-                        break;
+        // Only complete executables or commands if the thing we're completing
+        // is syntactically a command
+        if replace_loc == ReplacementLocation::Command {
+            let mut all_executables: HashSet<_> = commands.iter().map(|x| x.to_string()).collect();
+            if !no_bin_complete {
+                let path_executables = self.get_path_executables().unwrap_or_default();
+                for path_exe in path_executables {
+                    all_executables.insert(path_exe);
+                }
+            };
+            for exe in all_executables.iter() {
+                let mut pos = replace_pos;
+                let mut matched = false;
+                if pos < line_chars.len() {
+                    for chr in exe.chars() {
+                        if line_chars[pos] != chr {
+                            break;
+                        }
+                        pos += 1;
+                        if pos == line_chars.len() {
+                            matched = true;
+                            break;
+                        }
                     }
                 }
-            }
 
-            if matched {
-                completions.push(rustyline::completion::Pair {
-                    display: exe.to_string(),
-                    replacement: exe.to_string(),
-                });
+                if matched {
+                    completions.push(rustyline::completion::Pair {
+                        display: exe.to_string(),
+                        replacement: exe.to_string(),
+                    });
+                }
             }
         }
 
@@ -113,10 +123,11 @@ impl NuCompleter {
         Ok((replace_pos, completions))
     }
 
-    fn get_replace_pos(&self, line: &str, pos: usize) -> usize {
+    fn get_replace_pos(&self, line: &str, pos: usize) -> (usize, ReplacementLocation) {
         let line_chars: Vec<_> = line[..pos].chars().collect();
         let mut replace_pos = line_chars.len();
         let mut parsed_pos = false;
+        let mut loc = ReplacementLocation::Other;
         if let Ok(lite_block) = nu_parser::lite_parse(line, 0) {
             'outer: for pipeline in lite_block.block.iter() {
                 for command in pipeline.commands.iter() {
@@ -124,6 +135,7 @@ impl NuCompleter {
                     if name_span.start() <= pos && name_span.end() >= pos {
                         replace_pos = name_span.start();
                         parsed_pos = true;
+                        loc = ReplacementLocation::Command;
                         break 'outer;
                     }
 
@@ -148,7 +160,7 @@ impl NuCompleter {
             }
         }
 
-        replace_pos
+        (replace_pos, loc)
     }
 
     fn get_matching_arguments(
