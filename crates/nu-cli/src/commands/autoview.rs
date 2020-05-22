@@ -262,6 +262,7 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                                         table.set_format(
                                             FormatBuilder::new()
                                                 .separator(LinePosition::Title, LineSeparator::new('─', '─', ' ', ' '))
+                                                .separator(LinePosition::Bottom, LineSeparator::new(' ', ' ', ' ', ' '))
                                                 .padding(1, 1)
                                                 .build(),
                                         );
