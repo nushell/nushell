@@ -47,7 +47,7 @@ impl WholeStreamCommand for Remove {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Delete a file",
+                description: "Delete or move a file to the system trash (depending on 'rm_always_trash' config option)",
                 example: "rm file.txt",
                 result: None,
             },
