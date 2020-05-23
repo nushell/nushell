@@ -2,31 +2,67 @@ use nu_test_support::fs::Stub;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 
-#[test]
-fn extracts_fields_from_the_given_the_pattern() {
-    Playground::setup("parse_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![Stub::FileWithContentToBeTrimmed(
-            "key_value_separated_arepa_ingredients.txt",
-            r#"
-                VAR1=Cheese
-                VAR2=JonathanParsed
-                VAR3=NushellSecretIngredient
-            "#,
-        )]);
+mod simple {
+    use super::*;
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open key_value_separated_arepa_ingredients.txt
-                | parse "{Name}={Value}"
-                | nth 1
-                | get Value
-                | echo $it
+    #[test]
+    fn extracts_fields_from_the_given_the_pattern() {
+        Playground::setup("parse_test_1", |dirs, sandbox| {
+            sandbox.with_files(vec![Stub::FileWithContentToBeTrimmed(
+                "key_value_separated_arepa_ingredients.txt",
+                r#"
+                    VAR1=Cheese
+                    VAR2=JonathanParsed
+                    VAR3=NushellSecretIngredient
+                "#,
+            )]);
+
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                    open key_value_separated_arepa_ingredients.txt
+                    | lines
+                    | each { echo $it | parse "{Name}={Value}" }
+                    | nth 1
+                    | echo $it.Value
+                "#
+            ));
+
+            assert_eq!(actual.out, "JonathanParsed");
+        })
+    }
+
+    #[test]
+    fn double_open_curly_evalutes_to_a_single_curly() {
+        Playground::setup("parse_test_regex_2", |dirs, _sandbox| {
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                echo "{abc}123"
+                | parse "{{abc}{name}"
+                | echo $it.name
             "#
-        ));
+            ));
 
-        assert_eq!(actual.out, "JonathanParsed");
-    })
+            assert_eq!(actual.out, "123");
+        })
+    }
+
+    #[test]
+    fn properly_escapes_text() {
+        Playground::setup("parse_test_regex_3", |dirs, _sandbox| {
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                echo "(abc)123"
+                | parse "(abc){name}"
+                | echo $it.name
+            "#
+            ));
+
+            assert_eq!(actual.out, "123");
+        })
+    }
 }
 
 mod regex {

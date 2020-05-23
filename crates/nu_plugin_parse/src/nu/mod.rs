@@ -6,7 +6,7 @@ use nu_protocol::{
 };
 
 use crate::{ColumnNames, Parse};
-use regex::Regex;
+use regex::{self, Regex};
 
 impl Plugin for Parse {
     fn config(&mut self) -> Result<Signature, ShellError> {
@@ -125,13 +125,18 @@ fn parse(input: &str) -> Vec<ParseCommand> {
     let mut output = vec![];
 
     //let mut loop_input = input;
-    let mut loop_input = input.chars();
+    let mut loop_input = input.chars().peekable();
     loop {
         let mut before = String::new();
 
         while let Some(c) = loop_input.next() {
             if c == '{' {
-                break;
+                // If '{{', still creating a plaintext parse command, but just for a single '{' char
+                if loop_input.peek() == Some(&'{') {
+                    let _ = loop_input.next();
+                } else {
+                    break;
+                }
             }
             before.push(c);
         }
@@ -188,18 +193,20 @@ impl From<&Regex> for ColumnNames {
 }
 
 fn build_regex(commands: &[ParseCommand]) -> String {
-    let mut output = String::new();
+    let mut output = "(?s)\\A".to_string();
 
     for command in commands {
         match command {
             ParseCommand::Text(s) => {
-                output.push_str(&s.replace("(", "\\("));
+                output.push_str(&regex::escape(&s));
             }
             ParseCommand::Column(_) => {
-                output.push_str("(.*)");
+                output.push_str("(.*?)");
             }
         }
     }
+
+    output.push_str("\\z");
 
     output
 }
