@@ -6,8 +6,8 @@ use derive_new::new;
 #[cfg(windows)]
 use ichwh::IchwhError;
 use ichwh::IchwhResult;
+use indexmap::set::IndexSet;
 use rustyline::completion::{Completer, FilenameCompleter};
-use std::collections::HashSet;
 use std::fs::{read_dir, DirEntry};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -71,20 +71,20 @@ impl NuCompleter {
             }
         };
 
-        let no_bin_complete = match config::config(Tag::unknown()) {
-            Ok(conf) => match conf.get("no_bin_complete") {
+        let complete_from_path = match config::config(Tag::unknown()) {
+            Ok(conf) => match conf.get("complete_from_path") {
                 Some(val) => val.is_true(),
-                _ => false,
+                _ => true,
             },
-            _ => false,
+            _ => true,
         };
 
         // Only complete executables or commands if the thing we're completing
         // is syntactically a command
         if replace_loc == ReplacementLocation::Command {
-            let mut all_executables: HashSet<_> = commands.iter().map(|x| x.to_string()).collect();
-            if !no_bin_complete {
-                let path_executables = self.get_path_executables().unwrap_or_default();
+            let mut all_executables: IndexSet<_> = commands.iter().map(|x| x.to_string()).collect();
+            if complete_from_path {
+                let path_executables = self.find_path_executables().unwrap_or_default();
                 for path_exe in path_executables {
                     all_executables.insert(path_exe);
                 }
@@ -256,19 +256,17 @@ impl NuCompleter {
         Ok((filetype.is_file() || filetype.is_symlink()) && (permissions.mode() & 0o111 != 0))
     }
 
-    fn get_path_executables(&self) -> Option<HashSet<String>> {
+    fn find_path_executables(&self) -> Option<IndexSet<String>> {
         let path_var = std::env::var_os("PATH")?;
         let paths: Vec<_> = std::env::split_paths(&path_var).collect();
 
-        let mut executables: HashSet<String> = HashSet::new();
+        let mut executables: IndexSet<String> = IndexSet::new();
         for path in paths {
             if let Ok(mut contents) = read_dir(path) {
                 while let Some(Ok(item)) = contents.next() {
-                    if let Ok(is_ex) = self.is_executable(&item) {
-                        if is_ex {
-                            if let Ok(name) = item.file_name().into_string() {
-                                executables.insert(name);
-                            }
+                    if let Ok(true) = self.is_executable(&item) {
+                        if let Ok(name) = item.file_name().into_string() {
+                            executables.insert(name);
                         }
                     }
                 }

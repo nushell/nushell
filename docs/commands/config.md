@@ -29,18 +29,18 @@ Syntax: `config {flags}`
 
 ### Variables
 
-| Variable        | Type                   | Description                                                    |
-| --------------- | ---------------------- | -------------------------------------------------------------- |
-| path            | table of strings       | PATH to use to find binaries                                   |
-| env             | row                    | the environment variables to pass to external commands         |
-| ctrlc_exit      | boolean                | whether or not to exit Nu after multiple ctrl-c presses        |
-| table_mode      | "light" or other       | enable lightweight or normal tables                            |
-| edit_mode       | "vi" or "emacs"        | changes line editing to "vi" or "emacs" mode                   |
-| key_timeout     | integer (milliseconds) | vi: the delay to wait for a longer key sequence after ESC      |
-| history_size    | integer                | maximum entries that will be stored in history (100,000 default)   |
-| completion_mode | "circular" or "list"   | changes completion type to "circular" (default) or "list" mode |
-| no_auto_pivot   | boolean                | whether or not to automatically pivot single-row results       |
-| no_bin_complete | boolean                | whether or not to complete names of binaries on PATH           |
+| Variable           | Type                   | Description                                                         |
+| ------------------ | ---------------------- | ------------------------------------------------------------------- |
+| path               | table of strings       | PATH to use to find binaries                                        |
+| env                | row                    | the environment variables to pass to external commands              |
+| ctrlc_exit         | boolean                | whether or not to exit Nu after multiple ctrl-c presses             |
+| table_mode         | "light" or other       | enable lightweight or normal tables                                 |
+| edit_mode          | "vi" or "emacs"        | changes line editing to "vi" or "emacs" mode                        |
+| key_timeout        | integer (milliseconds) | vi: the delay to wait for a longer key sequence after ESC           |
+| history_size       | integer                | maximum entries that will be stored in history (100,000 default)    |
+| completion_mode    | "circular" or "list"   | changes completion type to "circular" (default) or "list" mode      |
+| no_auto_pivot      | boolean                | whether or not to automatically pivot single-row results            |
+| complete_from_path | boolean                | whether or not to complete names of binaries on PATH (default true) |
 
 ## Examples
 
