@@ -1,6 +1,7 @@
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
+use std::str::FromStr;
 
 #[test]
 fn all() {
@@ -62,35 +63,39 @@ fn outputs_zero_with_no_input() {
 }
 
 #[test]
-fn compute_sum_of_individual_row() {
+fn compute_sum_of_individual_row() -> Result<(), String> {
     let answers_for_columns = [
-        ("cpu", "104.250050000000008"),
-        ("mem", "8736780288"),
-        ("virtual", "204300193792"),
+        ("cpu", 88.257434),
+        ("mem", 3032375296.),
+        ("virtual", 102579965952.),
     ];
     for (column_name, expected_value) in answers_for_columns.iter() {
         let actual = nu!(
             cwd: "tests/fixtures/formats/",
             format!("open sample-ps-output.json | select {} | sum | get {}", column_name, column_name)
         );
-        assert_eq!(actual.out, *expected_value);
+        let result = f64::from_str(&actual.out).map_err(|_| String::from("Failed to parse float."))?;
+        assert_eq!(result, *expected_value);
     }
+    Ok(())
 }
 
 #[test]
-fn compute_sum_of_table() {
+fn compute_sum_of_table() -> Result<(), String> {
     let answers_for_columns = [
-        ("cpu", "104.250050000000008"),
-        ("mem", "8736780288"),
-        ("virtual", "204300193792"),
+        ("cpu", 88.257434),
+        ("mem", 3032375296.),
+        ("virtual", 102579965952.),
     ];
     for (column_name, expected_value) in answers_for_columns.iter() {
         let actual = nu!(
             cwd: "tests/fixtures/formats/",
             format!("open sample-ps-output.json | select cpu mem virtual | sum | get {}", column_name)
         );
-        assert_eq!(actual.out, *expected_value);
+        let result = f64::from_str(&actual.out).map_err(|_| String::from("Failed to parse float."))?;
+        assert_eq!(result, *expected_value);
     }
+    Ok(())
 }
 
 #[test]
