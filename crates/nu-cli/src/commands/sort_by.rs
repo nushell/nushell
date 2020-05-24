@@ -69,6 +69,18 @@ fn sort_by(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
             return;
         }
 
+        for sort_arg in rest.iter() {
+            let match_test = get_data_by_key(&vec[0], sort_arg.borrow_spanned());
+            if match_test == None {
+                yield Err(ShellError::labeled_error(
+                    "Can not find column to sort by",
+                    "invalid column",
+                    sort_arg.borrow_spanned().span,
+                ));
+                return;
+            }
+        }
+
         match &vec[0] {
             Value {
                 value: UntaggedValue::Primitive(_),

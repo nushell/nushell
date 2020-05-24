@@ -23,6 +23,29 @@ fn by_column() {
 }
 
 #[test]
+fn by_invalid_column() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            open cargo_sample.toml --raw
+            | lines
+            | skip 1
+            | first 4
+            | split column "="
+            | sort-by ColumnThatDoesNotExist
+            | skip 1
+            | first 1
+            | get Column1
+            | trim
+            | echo $it
+        "#
+    ));
+
+    assert!(actual.err.contains("Can not find column to sort by"));
+    assert!(actual.err.contains("invalid column"));
+}
+
+#[test]
 fn sort_primitive_values() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
