@@ -1368,7 +1368,7 @@ fn expand_shorthand_forms(
                 if !lite_pipeline.commands[0].args.is_empty() {
                     let new_lite_command_name = lite_pipeline.commands[0].args[0].clone();
                     let mut new_lite_command_args = lite_pipeline.commands[0].args.clone();
-                    new_lite_command_args.swap_remove(0);
+                    new_lite_command_args.remove(0);
 
                     lite_pipeline.commands[0].name = new_lite_command_name;
                     lite_pipeline.commands[0].args = new_lite_command_args;

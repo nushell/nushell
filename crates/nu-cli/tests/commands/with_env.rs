@@ -19,3 +19,13 @@ fn with_env_shorthand() {
 
     assert_eq!(actual.out, "BARRRR");
 }
+
+#[test]
+fn shorthand_doesnt_reorder_arguments() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        "FOO=BARRRR nu --testbin cococo first second"
+    );
+
+    assert_eq!(actual.out, "firstsecond");
+}
