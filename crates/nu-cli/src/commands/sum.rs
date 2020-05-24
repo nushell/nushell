@@ -2,8 +2,10 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use crate::utils::data_processing::{reducer_for, Reduce};
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, ReturnValue, Signature, UntaggedValue, Value};
+use nu_protocol::{Dictionary, ReturnSuccess, ReturnValue, Signature, UntaggedValue, Value};
 use num_traits::identities::Zero;
+
+use indexmap::map::IndexMap;
 
 pub struct Sum;
 
@@ -54,13 +56,40 @@ impl WholeStreamCommand for Sum {
 
 fn sum(RunnableContext { mut input, .. }: RunnableContext) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
-        let mut values = input.drain_vec().await;
-
+        let mut values: Vec<Value> = input.drain_vec().await;
         let action = reducer_for(Reduce::Sum);
 
-        match action(Value::zero(), values) {
-            Ok(total) => yield ReturnSuccess::value(total),
-            Err(err) => yield Err(err),
+        if values.iter().all(|v| if let UntaggedValue::Primitive(_) = v.value {true} else {false}) {
+            let total = action(Value::zero(), values)?;
+            yield ReturnSuccess::value(total)
+        } else {
+            let mut column_values = IndexMap::new();
+            for value in values {
+                match value.value {
+                    UntaggedValue::Row(row_dict) => {
+                        for (key, value) in row_dict.entries.iter() {
+                            column_values
+                                .entry(key.clone())
+                                .and_modify(|v: &mut Vec<Value>| v.push(value.clone()))
+                                .or_insert(vec![value.clone()]);
+                        }
+                    },
+                    table => {},
+                };
+            }
+
+            let mut column_totals = IndexMap::new();
+            for (col_name, col_vals) in column_values {
+                let sum = action(Value::zero(), col_vals);
+                match sum {
+                    Ok(value) => {
+                        column_totals.insert(col_name, value);
+                    },
+                    Err(err) => yield Err(err),
+                };
+            }
+            yield ReturnSuccess::value(
+                UntaggedValue::Row(Dictionary {entries: column_totals}).into_untagged_value())
         }
     };
 

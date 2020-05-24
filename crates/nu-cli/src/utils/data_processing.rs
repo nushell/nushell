@@ -198,9 +198,20 @@ pub fn evaluate(
 }
 
 pub fn sum(data: Vec<Value>) -> Result<Value, ShellError> {
-    Ok(data
-        .into_iter()
-        .fold(Value::zero(), |acc: Value, value| acc + value))
+    let mut acc = Value::zero();
+    for value in data {
+        match value.value {
+            UntaggedValue::Primitive(_) => acc = acc + value,
+            _ => {
+                return Err(ShellError::labeled_error(
+                    "Attempted to compute the sum of a value that cannot be summed.",
+                    "value appears here",
+                    value.tag.span,
+                ))
+            }
+        }
+    }
+    Ok(acc)
 }
 
 fn formula(
