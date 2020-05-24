@@ -14,9 +14,9 @@ Hello world
 Trim can also be passed a list or table of text, for which it will trim each item individually.
 It will fail if any element in the list or table is not of type String.
 ```shell
-> open greetings.json | to-json
+> open greetings.json | to json
 ["  hi  ", "  hello  ", "  wassup  "]
-> open greetings.json | trim | to-json
+> open greetings.json | trim | to json
 ["hi", "hello", "wassup"]
 ```
 ```shell
