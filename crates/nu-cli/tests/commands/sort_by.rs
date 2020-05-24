@@ -41,8 +41,8 @@ fn by_invalid_column() {
         "#
     ));
 
-    assert!(actual.err.contains("Invalid column"));
     assert!(actual.err.contains("Can not find column to sort by"));
+    assert!(actual.err.contains("invalid column"));
 }
 
 #[test]

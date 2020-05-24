@@ -65,20 +65,20 @@ fn sort_by(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
         let (SortByArgs { rest }, mut input) = args.process(&registry).await?;
         let mut vec = input.drain_vec().await;
 
+        if vec.is_empty() {
+            return;
+        }
+
         for sort_arg in rest.iter() {
             let mut match_test = get_data_by_key(&vec[0], sort_arg.borrow_spanned());
             if match_test == None {
                 yield Err(ShellError::labeled_error(
-                    "Invalid column",
                     "Can not find column to sort by",
+                    "invalid column",
                     sort_arg.borrow_spanned().span,
                 ));
                 return;
             }
-        }
-
-        if vec.is_empty() {
-            return;
         }
 
         match &vec[0] {
