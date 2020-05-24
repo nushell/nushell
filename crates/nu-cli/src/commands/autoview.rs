@@ -181,8 +181,11 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                             } => {
                                 // TODO: normalize decimal to remove trailing zeros.
                                 // normalization will be available in next release of bigdecimal crate
-                                let mut output = n.to_string().trim_end_matches('0').to_owned();
-                                if(output.ends_with('.')) {
+                                let mut output = n.to_string();
+                                if output.contains('.') {
+                                    output = output.trim_end_matches('0').to_owned();
+                                }
+                                if output.ends_with('.') {
                                     output.push('0');
                                 }
                                 out!("{}", output);
