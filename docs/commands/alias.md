@@ -1,7 +1,7 @@
 # alias
 This command allows you to define shortcuts for other common commands. By default, they only apply to the current session. To persist them, add `--save`.
 
-Syntax: `alias {flags} <name> [<parameters] {<body>}`
+Syntax: `alias {flags} <name> [<parameters>] {<body>}`
 
 The command expects three parameters:
 * the name of alias
