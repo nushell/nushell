@@ -137,7 +137,7 @@ fn converts_to_float() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             echo "3.1, 0.0415"
-            | split-row ","
+            | split row ","
             | str --to-float
             | sum
         "#
