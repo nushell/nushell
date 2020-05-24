@@ -31,7 +31,7 @@ fn by_invalid_column() {
             | lines
             | skip 1
             | first 4
-            | split-column "="
+            | split column "="
             | sort-by ColumnThatDoesNotExist
             | skip 1
             | first 1
