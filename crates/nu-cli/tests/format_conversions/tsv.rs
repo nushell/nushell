@@ -39,7 +39,7 @@ fn table_to_tsv_text() {
             r#"
                 open tsv_text_sample.txt
                 | lines
-                | split-column "\t" a b c d origin
+                | split column "\t" a b c d origin
                 | last 1
                 | to tsv
                 | lines
@@ -69,7 +69,7 @@ fn table_to_tsv_text_skipping_headers_after_conversion() {
             r#"
                 open tsv_text_sample.txt
                 | lines
-                | split-column "\t" a b c d origin
+                | split column "\t" a b c d origin
                 | last 1
                 | to tsv --headerless
                 | echo $it

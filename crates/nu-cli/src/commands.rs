@@ -96,9 +96,8 @@ pub(crate) mod skip;
 pub(crate) mod skip_until;
 pub(crate) mod skip_while;
 pub(crate) mod sort_by;
+pub(crate) mod split;
 pub(crate) mod split_by;
-pub(crate) mod split_column;
-pub(crate) mod split_row;
 pub(crate) mod sum;
 #[allow(unused)]
 pub(crate) mod t_sort_by;
@@ -222,9 +221,10 @@ pub(crate) use skip::Skip;
 pub(crate) use skip_until::SkipUntil;
 pub(crate) use skip_while::SkipWhile;
 pub(crate) use sort_by::SortBy;
+pub(crate) use split::Split;
+pub(crate) use split::SplitColumn;
+pub(crate) use split::SplitRow;
 pub(crate) use split_by::SplitBy;
-pub(crate) use split_column::SplitColumn;
-pub(crate) use split_row::SplitRow;
 pub(crate) use sum::Sum;
 #[allow(unused_imports)]
 pub(crate) use t_sort_by::TSortBy;

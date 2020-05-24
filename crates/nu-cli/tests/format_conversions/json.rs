@@ -88,7 +88,7 @@ fn table_to_json_text() {
             r#"
                 open sample.txt
                 | lines
-                | split-column "," name luck
+                | split column "," name luck
                 | select name
                 | to json
                 | from json
