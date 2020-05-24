@@ -9,7 +9,7 @@ fn by_column() {
             | lines
             | skip 1
             | first 4
-            | split-column "="
+            | split column "="
             | sort-by Column1
             | skip 1
             | first 1

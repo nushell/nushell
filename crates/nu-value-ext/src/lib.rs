@@ -312,7 +312,7 @@ pub fn insert_data_at_column_path(
         Ok(original)
     } else {
         Err(ShellError::untagged_runtime_error(
-            "Internal error: could not split column-path correctly",
+            "Internal error: could not split column path correctly",
         ))
     }
 }

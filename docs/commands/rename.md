@@ -5,7 +5,7 @@ Use `rename` to give columns more appropriate names.
 ## Examples
 
 ```shell
-> open /etc/passwd | lines | split-column ":" | rename user password uid gid gecos home shell
+> open /etc/passwd | lines | split column ":" | rename user password uid gid gecos home shell
 ────┬────────┬──────────┬──────┬──────┬────────┬─────────────────┬──────────────────
  #  │ user   │ password │ uid  │ gid  │ gecos  │ home            │ shell
 ────┼────────┼──────────┼──────┼──────┼────────┼─────────────────┼──────────────────

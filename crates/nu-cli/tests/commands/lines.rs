@@ -10,7 +10,7 @@ fn lines() {
             | skip-while $it != "[dependencies]"
             | skip 1
             | first 1
-            | split-column "="
+            | split column "="
             | get Column1
             | trim
             | echo $it

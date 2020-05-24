@@ -1,8 +1,8 @@
-# split-column
+# split column
 
-Split row contents across multiple columns via the separator.
+splits contents across multiple columns via the separator.
 
-Syntax: `split-column <separator>  ...args{flags}`
+Syntax: `split column <separator>  ...args{flags}`
 
 ### Parameters
 
@@ -31,10 +31,10 @@ If we have file structured like this:
 1.0459770114942528 | 1.0925925925925926 | 0.6164383561643836
 ```
 
-We can build a table from it using the `split-column` command
+We can build a table from it using the `split column` command
 
 ```shell
-> open coordinates.txt | lines | split-column " | "
+> open coordinates.txt | lines | split column " | "
 ━━━┯━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━
  # │ Column1             │ Column2              │ Column3
 ───┼─────────────────────┼──────────────────────┼────────────────────
@@ -54,7 +54,7 @@ We can build a table from it using the `split-column` command
 And give names to the columns
 
 ```shell
-> open coordinates.txt | lines | split-column " | " x y z
+> open coordinates.txt | lines | split column " | " x y z
 ━━━┯━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━
  # │ x                   │ y                    │ z
 ───┼─────────────────────┼──────────────────────┼────────────────────

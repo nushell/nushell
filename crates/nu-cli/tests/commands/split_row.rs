@@ -3,8 +3,8 @@ use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 
 #[test]
-fn to_column() {
-    Playground::setup("split_column_test_1", |dirs, sandbox| {
+fn to_row() {
+    Playground::setup("split_row_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "sample.txt",
             r#"
@@ -18,13 +18,12 @@ fn to_column() {
                 open sample.txt
                 | lines
                 | trim
-                | split column ","
-                | pivot
-                | nth 1
+                | split row ","
+                | count
                 | echo $it
             "#
         ));
 
-        assert!(actual.out.contains("shipper"));
+        assert!(actual.out.contains("5"));
     })
 }

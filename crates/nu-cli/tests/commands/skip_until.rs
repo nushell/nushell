@@ -35,7 +35,7 @@ fn condition_is_met() {
                 open --raw caballeros.txt
                 | lines
                 | skip 2
-                | split-column ','
+                | split column ','
                 | headers
                 | skip-until "Chicken Collection" == "Red Chickens"
                 | str "31/04/2020" --to-int

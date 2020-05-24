@@ -10,15 +10,15 @@ struct SplitRowArgs {
     separator: Tagged<String>,
 }
 
-pub struct SplitRow;
+pub struct SubCommand;
 
-impl WholeStreamCommand for SplitRow {
+impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
-        "split-row"
+        "split row"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("split-row").required(
+        Signature::build("split row").required(
             "separator",
             SyntaxShape::Any,
             "the character that denotes what separates rows",
@@ -26,7 +26,7 @@ impl WholeStreamCommand for SplitRow {
     }
 
     fn usage(&self) -> &str {
-        "Split row contents over multiple rows via the separator."
+        "splits contents over multiple rows via the separator."
     }
 
     fn run(
@@ -73,12 +73,12 @@ fn split_row(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
 
 #[cfg(test)]
 mod tests {
-    use super::SplitRow;
+    use super::SubCommand;
 
     #[test]
     fn examples_work_as_expected() {
         use crate::examples::test as test_examples;
 
-        test_examples(SplitRow {})
+        test_examples(SubCommand {})
     }
 }

@@ -33,7 +33,7 @@ impl WholeStreamCommand for Headers {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Create headers for a raw string",
-            example: r#"echo "a b c|1 2 3" | split-row "|" | split-column " " | headers"#,
+            example: r#"echo "a b c|1 2 3" | split row "|" | split column " " | headers"#,
             result: None,
         }]
     }

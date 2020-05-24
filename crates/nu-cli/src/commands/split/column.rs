@@ -15,15 +15,15 @@ struct SplitColumnArgs {
     collapse_empty: bool,
 }
 
-pub struct SplitColumn;
+pub struct SubCommand;
 
-impl WholeStreamCommand for SplitColumn {
+impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
-        "split-column"
+        "split column"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("split-column")
+        Signature::build("split column")
             .required(
                 "separator",
                 SyntaxShape::Any,
@@ -34,7 +34,7 @@ impl WholeStreamCommand for SplitColumn {
     }
 
     fn usage(&self) -> &str {
-        "Split row contents across multiple columns via the separator."
+        "splits contents across multiple columns via the separator."
     }
 
     fn run(
@@ -106,12 +106,12 @@ fn split_column(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputS
 
 #[cfg(test)]
 mod tests {
-    use super::SplitColumn;
+    use super::SubCommand;
 
     #[test]
     fn examples_work_as_expected() {
         use crate::examples::test as test_examples;
 
-        test_examples(SplitColumn {})
+        test_examples(SubCommand {})
     }
 }
