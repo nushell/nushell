@@ -70,7 +70,7 @@ fn sort_by(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
         }
 
         for sort_arg in rest.iter() {
-            let mut match_test = get_data_by_key(&vec[0], sort_arg.borrow_spanned());
+            let match_test = get_data_by_key(&vec[0], sort_arg.borrow_spanned());
             if match_test == None {
                 yield Err(ShellError::labeled_error(
                     "Can not find column to sort by",
