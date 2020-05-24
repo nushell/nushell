@@ -1,7 +1,10 @@
-use crate::theme::Theme;
 use ansi_term::{Color, Style};
 use nu_protocol::hir::FlatShape;
 use nu_source::{Span, Spanned};
+use serde::{Deserialize, Serialize};
+use serde_json;
+use std::error::Error;
+use std::{fmt, io};
 
 pub trait Palette {
     fn styles_for_shape(&self, shape: &Spanned<FlatShape>) -> Vec<Spanned<Style>>;
@@ -61,6 +64,13 @@ impl Palette for DefaultPalette {
 
 pub struct ThemedPallet {
     theme: Theme,
+}
+
+impl ThemedPallet {
+    pub fn new<R: io::Read>(reader: &mut R) -> Result<ThemedPallet, ThemeError> {
+        let theme = serde_json::from_reader(reader)?;
+        Ok(ThemedPallet { theme })
+    }
 }
 
 impl Palette for ThemedPallet {
@@ -125,6 +135,194 @@ impl Palette for ThemedPallet {
     }
 }
 
+#[derive(Debug)]
+pub struct ThemeError {
+    serde_err: serde_json::error::Error,
+}
+
+impl fmt::Display for ThemeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "failure to load theme")
+    }
+}
+
+impl Error for ThemeError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        Some(&self.serde_err)
+    }
+}
+
+impl From<serde_json::error::Error> for ThemeError {
+    fn from(serde_err: serde_json::error::Error) -> Self {
+        ThemeError { serde_err }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Theme {
+    #[serde(with = "string_and_color")]
+    open_delimiter: Color,
+    #[serde(with = "string_and_color")]
+    close_delimiter: Color,
+    #[serde(with = "string_and_color")]
+    r#type: Color,
+    #[serde(with = "string_and_color")]
+    identifier: Color,
+    #[serde(with = "string_and_color")]
+    it_variable: Color,
+    #[serde(with = "string_and_color")]
+    variable: Color,
+    #[serde(with = "string_and_color")]
+    operator: Color,
+    #[serde(with = "string_and_color")]
+    dot: Color,
+    #[serde(with = "string_and_color")]
+    dot_dot: Color,
+    #[serde(with = "string_and_color")]
+    internal_command: Color,
+    #[serde(with = "string_and_color")]
+    external_command: Color,
+    #[serde(with = "string_and_color")]
+    external_word: Color,
+    #[serde(with = "string_and_color")]
+    bare_member: Color,
+    #[serde(with = "string_and_color")]
+    string_member: Color,
+    #[serde(with = "string_and_color")]
+    string: Color,
+    #[serde(with = "string_and_color")]
+    path: Color,
+    #[serde(with = "string_and_color")]
+    word: Color,
+    #[serde(with = "string_and_color")]
+    keyword: Color,
+    #[serde(with = "string_and_color")]
+    pipe: Color,
+    #[serde(with = "string_and_color")]
+    glob_pattern: Color,
+    #[serde(with = "string_and_color")]
+    flag: Color,
+    #[serde(with = "string_and_color")]
+    shorthand_flag: Color,
+    #[serde(with = "string_and_color")]
+    int: Color,
+    #[serde(with = "string_and_color")]
+    decimal: Color,
+    #[serde(with = "string_and_color")]
+    garbage: Color,
+    #[serde(with = "string_and_color")]
+    whitespace: Color,
+    #[serde(with = "string_and_color")]
+    separator: Color,
+    #[serde(with = "string_and_color")]
+    comment: Color,
+    #[serde(with = "string_and_color")]
+    size_number: Color,
+    #[serde(with = "string_and_color")]
+    size_unit: Color,
+}
+
+mod string_and_color {
+    use ansi_term::Color;
+    use serde::{self, Deserialize, Deserializer, Serializer};
+    use std::str::Bytes;
+
+    pub fn serialize<S>(color: &Color, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str("TODO: IMPLEMENT SERIALIZATION")
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Color, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        to_color(&s)
+    }
+
+    fn to_color<E>(s: &str) -> Result<Color, E>
+    where
+        E: serde::de::Error,
+    {
+        let mut bytes = s.bytes();
+        let r = xtoi(&mut bytes)?;
+        let g = xtoi(&mut bytes)?;
+        let b = xtoi(&mut bytes)?;
+        Ok(Color::RGB(r, g, b))
+    }
+
+    fn xtoi<E>(b: &mut Bytes) -> Result<u8, E>
+    where
+        E: serde::de::Error,
+    {
+        let upper = b.next().ok_or(E::custom("color string too short"))?;
+        let lower = b.next().ok_or(E::custom("color string too short"))?;
+        let mut val = numerical_value(upper)?;
+        val = (val << 4) | numerical_value(lower)?;
+        Ok(val)
+    }
+
+    fn numerical_value<E>(character: u8) -> Result<u8, E>
+    where
+        E: serde::de::Error,
+    {
+        match character {
+            b'0'..=b'9' => Ok(character - b'0'),
+            b'a'..=b'z' => Ok(character - (b'a' - 10)),
+            _ => return Err(E::custom(format!("invalid charater {}", character))),
+        }
+    }
+}
+
 fn single_style_span(style: Style, span: Span) -> Vec<Spanned<Style>> {
     vec![Spanned::<Style> { span, item: style }]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ThemedPallet;
+    use ansi_term::Color;
+    use std::io::Cursor;
+
+    #[test]
+    fn parse_json() {
+        let json = r#"
+{
+    "open_delimiter": "a359cc",
+    "close_delimiter": "a359cc",
+    "type": "a359cc",
+    "identifier": "a359cc",
+    "it_variable": "a359cc",
+    "variable": "a359cc",
+    "operator": "a359cc",
+    "dot": "a359cc",
+    "dot_dot": "a359cc",
+    "internal_command": "a359cc",
+    "external_command": "a359cc",
+    "external_word": "a359cc",
+    "bare_member": "a359cc",
+    "string_member": "a359cc",
+    "string": "a359cc",
+    "path": "a359cc",
+    "word": "a359cc",
+    "keyword": "a359cc",
+    "pipe": "a359cc",
+    "glob_pattern": "a359cc",
+    "flag": "a359cc",
+    "shorthand_flag": "a359cc",
+    "int": "a359cc",
+    "decimal": "a359cc",
+    "garbage": "a359cc",
+    "whitespace": "a359cc",
+    "separator": "a359cc",
+    "comment": "a359cc",
+    "size_number": "a359cc",
+    "size_unit": "a359cc"
+}"#;
+        let mut json_reader = Cursor::new(json);
+        let themed_pallet = ThemedPallet::new(&mut json_reader).unwrap();
+        assert_eq!(themed_pallet.theme.open_delimiter, Color::RGB(163, 89, 204));
+    }
 }

@@ -26,7 +26,6 @@ mod git;
 mod path;
 mod shell;
 mod stream;
-mod theme;
 pub mod utils;
 
 #[cfg(test)]
