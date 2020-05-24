@@ -282,12 +282,14 @@ fn single_style_span(style: Style, span: Span) -> Vec<Spanned<Style>> {
 
 #[cfg(test)]
 mod tests {
-    use super::ThemedPallet;
+    use super::{Palette, ThemedPallet};
     use ansi_term::Color;
+    use nu_protocol::hir::FlatShape;
+    use nu_source::{Span, Spanned};
     use std::io::Cursor;
 
     #[test]
-    fn parse_json() {
+    fn create_themed_palette() {
         let json = r#"
 {
     "open_delimiter": "a359cc",
@@ -322,7 +324,19 @@ mod tests {
     "size_unit": "a359cc"
 }"#;
         let mut json_reader = Cursor::new(json);
-        let themed_pallet = ThemedPallet::new(&mut json_reader).unwrap();
-        assert_eq!(themed_pallet.theme.open_delimiter, Color::RGB(163, 89, 204));
+        let themed_palette = ThemedPallet::new(&mut json_reader).unwrap();
+        let test_shape = Spanned {
+            item: FlatShape::Type,
+            span: Span::new(4, 9),
+        };
+        let styled = themed_palette.styles_for_shape(&test_shape);
+        assert_eq!(styled.len(), 1);
+        assert_eq!(
+            styled[0],
+            Spanned {
+                item: Color::RGB(163, 89, 204).bold(),
+                span: Span::new(4, 9),
+            },
+        );
     }
 }
