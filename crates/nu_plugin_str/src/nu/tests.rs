@@ -3,7 +3,7 @@ mod integration {
     use crate::Str;
     use nu_errors::ShellError;
     use nu_plugin::test_helpers::value::{
-        column_path, get_data, int, string, structured_sample_record, table,
+        column_path, decimal, get_data, int, string, structured_sample_record, table,
         unstructured_sample_record,
     };
     use nu_plugin::test_helpers::{expect_return_value_at, plugin, CallStub};
@@ -89,6 +89,13 @@ mod integration {
         plugin(&mut Str::new())
             .args(CallStub::new().with_long_flag("to-int").create())
             .setup(|plugin, _| plugin.expect_action(Action::ToInteger));
+    }
+
+    #[test]
+    fn picks_up_to_float_flag() {
+        plugin(&mut Str::new())
+            .args(CallStub::new().with_long_flag("to-float").create())
+            .setup(|plugin, _| plugin.expect_action(Action::ToFloat));
     }
 
     #[test]
@@ -257,6 +264,24 @@ mod integration {
         let actual = expect_return_value_at(run, 0);
 
         assert_eq!(get_data(actual, "Nu_birthday"), int(10));
+        Ok(())
+    }
+    #[test]
+    fn converts_the_input_to_float_using_the_field_passed_as_parameter() -> Result<(), ShellError> {
+        let run = plugin(&mut Str::new())
+            .args(
+                CallStub::new()
+                    .with_long_flag("to-float")
+                    .with_parameter("PI")?
+                    .create(),
+            )
+            .input(structured_sample_record("PI", "3.1415"))
+            .setup(|_, _| {})
+            .test();
+
+        let actual = expect_return_value_at(run, 0);
+
+        assert_eq!(get_data(actual, "PI"), decimal(3.1415));
         Ok(())
     }
 

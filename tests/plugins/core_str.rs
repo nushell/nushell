@@ -9,7 +9,7 @@ fn can_only_apply_one() {
         "open caco3_plastics.csv | first 1 | str origin --downcase --upcase"
     );
 
-    assert!(actual.err.contains(r#"--capitalize|--downcase|--upcase|--to-int|--substring "start,end"|--replace|--find-replace [pattern replacement]|to-date-time|--trim]"#));
+    assert!(actual.err.contains(r#"--capitalize|--downcase|--upcase|--to-int|--to-float|--substring "start,end"|--replace|--find-replace [pattern replacement]|to-date-time|--trim]"#));
 }
 
 #[test]
@@ -129,6 +129,21 @@ fn converts_to_int() {
     ));
 
     assert_eq!(actual.out, "1");
+}
+
+#[test]
+fn converts_to_float() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            echo "3.1, 0.0415"
+            | split row ","
+            | str --to-float
+            | sum
+        "#
+    ));
+
+    assert_eq!(actual.out, "3.1415");
 }
 
 #[test]

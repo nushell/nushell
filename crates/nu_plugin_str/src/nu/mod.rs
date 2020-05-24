@@ -19,6 +19,7 @@ impl Plugin for Str {
             .switch("downcase", "convert string to lowercase", Some('d'))
             .switch("upcase", "convert string to uppercase", Some('U'))
             .switch("to-int", "convert string to integer", Some('i'))
+            .switch("to-float", "convert string to float", Some('F'))
             .switch("trim", "trims the string", Some('t'))
             .named(
                 "replace",
@@ -65,6 +66,9 @@ impl Plugin for Str {
         }
         if args.has("to-int") {
             self.for_to_int();
+        }
+        if args.has("to-float") {
+            self.for_to_float();
         }
         if args.has("substring") {
             if let Some(start_end) = args.get("substring") {

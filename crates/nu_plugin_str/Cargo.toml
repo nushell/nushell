@@ -19,6 +19,7 @@ chrono = { version = "0.4.11", features = ["serde"] }
 
 regex = "1"
 num-bigint = "0.2.6"
+bigdecimal = { version = "0.1.2", features = ["serde"] }
 
 [build-dependencies]
 nu-build = { version = "0.14.1", path = "../nu-build" }
