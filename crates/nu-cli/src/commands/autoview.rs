@@ -86,16 +86,14 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
         Auto,
         Always,
         Never,
-        ToFit,
     }
 
     let pivot_mode = crate::data::config::config(Tag::unknown());
     let pivot_mode = if let Some(v) = pivot_mode?.get("pivot_mode") {
         match v.as_string() {
-            Ok(m) if m.to_lowercase() == "auto" => AutoPivotMode::ToFit,
+            Ok(m) if m.to_lowercase() == "auto" => AutoPivotMode::Auto,
             Ok(m) if m.to_lowercase() == "always" => AutoPivotMode::Always,
             Ok(m) if m.to_lowercase() == "never" => AutoPivotMode::Never,
-            Ok(m) if m.to_lowercase() == "tofit" => AutoPivotMode::ToFit,
             _ => AutoPivotMode::Always,
         }
     } else {
@@ -249,8 +247,7 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
 
                             Value { value: UntaggedValue::Row(row), ..} 
                                 if pivot_mode == AutoPivotMode::Always || 
-                                ((pivot_mode == AutoPivotMode::ToFit || 
-                                    pivot_mode == AutoPivotMode::Auto) &&
+                                (pivot_mode == AutoPivotMode::Auto &&
                                 (row.entries.iter().map(|(k,v)| v.convert_to_string())
                                 .collect::<Vec<_>>().iter()
                                 .fold(0, |acc, len| acc + len.len())
