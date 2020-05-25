@@ -26,13 +26,13 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
             | ^echo $it
             | nu --testbin chop
             | lines
-            | nth 3
+            | nth 2
             | echo $it
             "#
         ));
 
         // chop will remove the last escaped double quote from \"Estados Unidos\"
-        assert_eq!(actual.out, "\"Estados Unidos");
+        assert_eq!(actual.out, "Ecuado");
     })
 }
 
