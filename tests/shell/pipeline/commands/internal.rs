@@ -22,16 +22,17 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
         cwd: dirs.test(), pipeline(
         r#"
             open nu_times.csv
-            | get name
+            | get origin
             | ^echo $it
             | nu --testbin chop
             | lines
-            | nth 3
+            | nth 2
             | echo $it
             "#
         ));
 
-        assert_eq!(actual.out, "AndKitKat");
+        // chop will remove the last escaped double quote from \"Estados Unidos\"
+        assert_eq!(actual.out, "Ecuado");
     })
 }
 
