@@ -119,8 +119,8 @@ fn get_invalid_year_shell_error(year_tag: &Tag) -> ShellError {
 }
 
 struct MonthHelper {
-    day_number_month_starts_on: usize,
-    number_of_days_in_month: usize,
+    day_number_month_starts_on: u32,
+    number_of_days_in_month: u32,
     selected_year: i32,
     selected_month: u32,
 }
@@ -169,8 +169,7 @@ impl MonthHelper {
 
         match naive_date_result {
             Ok(naive_date) => {
-                self.day_number_month_starts_on =
-                    naive_date.weekday().num_days_from_sunday() as usize;
+                self.day_number_month_starts_on = naive_date.weekday().num_days_from_sunday();
                 Ok(())
             }
             _ => Err(()),
@@ -191,7 +190,7 @@ impl MonthHelper {
 
         match naive_date_result {
             Ok(naive_date) => {
-                self.number_of_days_in_month = naive_date.pred().day() as usize;
+                self.number_of_days_in_month = naive_date.pred().day();
                 Ok(())
             }
             _ => Err(()),
@@ -277,7 +276,7 @@ fn add_month_to_table(
     };
 
     let day_limit = month_helper.number_of_days_in_month + month_helper.day_number_month_starts_on;
-    let mut day_count: usize = 1;
+    let mut day_count: u32 = 1;
 
     let days_of_the_week = [
         "sunday",
