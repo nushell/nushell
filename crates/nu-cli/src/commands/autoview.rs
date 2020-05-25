@@ -245,8 +245,8 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                                 yield Err(e);
                             }
 
-                            Value { value: UntaggedValue::Row(row), ..} 
-                                if pivot_mode == AutoPivotMode::Always || 
+                            Value { value: UntaggedValue::Row(row), ..}
+                                if pivot_mode == AutoPivotMode::Always ||
                                 (pivot_mode == AutoPivotMode::Auto &&
                                 (row.entries.iter().map(|(k,v)| v.convert_to_string())
                                 .collect::<Vec<_>>().iter()
