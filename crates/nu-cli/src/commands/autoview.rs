@@ -80,13 +80,26 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
     let binary = context.get_command("binaryview");
     let text = context.get_command("textview");
     let table = context.get_command("table");
-    let no_auto_pivot = match config::config(Tag::unknown())?.get("no_auto_pivot") {
-        Some(val) => val.is_true(),
-        _ => false,
-    };
-    let pivot_to_fit = match config::config(Tag::unknown())?.get("pivot_to_fit") {
-        Some(val) => val.is_true(),
-        _ => false,
+
+    #[derive(PartialEq)]
+    enum AutoPivotMode {
+        Auto,
+        Always,
+        Never,
+        ToFit,
+    }
+
+    let pivot_mode = crate::data::config::config(Tag::unknown());
+    let pivot_mode = if let Some(v) = pivot_mode?.get("pivot_mode") {
+        match v.as_string() {
+            Ok(m) if m.to_lowercase() == "auto" => AutoPivotMode::ToFit,
+            Ok(m) if m.to_lowercase() == "always" => AutoPivotMode::Always,
+            Ok(m) if m.to_lowercase() == "never" => AutoPivotMode::Never,
+            Ok(m) if m.to_lowercase() == "tofit" => AutoPivotMode::ToFit,
+            _ => AutoPivotMode::Always,
+        }
+    } else {
+        AutoPivotMode::Always
     };
 
     Ok(OutputStream::new(async_stream! {
@@ -234,8 +247,10 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                                 yield Err(e);
                             }
 
-                            Value { value: UntaggedValue::Row(row), ..} if !no_auto_pivot
-                                || (pivot_to_fit && // Or if the row character count + number of headers * 2 (for padding) > terminal width
+                            Value { value: UntaggedValue::Row(row), ..} 
+                                if pivot_mode == AutoPivotMode::Always || 
+                                ((pivot_mode == AutoPivotMode::ToFit || 
+                                    pivot_mode == AutoPivotMode::Auto) &&
                                 (row.entries.iter().map(|(k,v)| v.convert_to_string())
                                 .collect::<Vec<_>>().iter()
                                 .fold(0, |acc, len| acc + len.len())
