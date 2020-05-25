@@ -169,8 +169,7 @@ impl MonthHelper {
 
         match naive_date_result {
             Ok(naive_date) => {
-                self.day_number_month_starts_on =
-                    naive_date.weekday().num_days_from_sunday();
+                self.day_number_month_starts_on = naive_date.weekday().num_days_from_sunday();
                 Ok(())
             }
             _ => Err(()),
