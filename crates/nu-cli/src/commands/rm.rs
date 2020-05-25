@@ -78,7 +78,15 @@ fn rm(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, She
         let name = args.call_info.name_tag.clone();
         let shell_manager = args.shell_manager.clone();
         let (args, _): (RemoveArgs, _) = args.process(&registry).await?;
-        let mut result = shell_manager.rm(args, name)?;
+        let mut result = if args.trash.item && args.permanent.item {
+            OutputStream::one(Err(ShellError::labeled_error(
+                "only one of --permanent and --trash can be used",
+                "conflicting flags",
+                name
+            )))
+        } else {
+            shell_manager.rm(args, name)?
+        };
         while let Some(item) = result.next().await {
             yield item;
         }
