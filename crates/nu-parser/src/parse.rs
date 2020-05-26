@@ -1362,7 +1362,9 @@ fn expand_shorthand_forms(
                 )
             } else {
                 let original_span = lite_pipeline.commands[0].name.span;
-                let (variable_name, value) = (assignment[0], assignment[1]);
+                let env_value = trim_quotes(assignment[1]);
+
+                let (variable_name, value) = (assignment[0], env_value);
                 let mut lite_pipeline = lite_pipeline.clone();
 
                 if !lite_pipeline.commands[0].args.is_empty() {
@@ -1377,7 +1379,7 @@ fn expand_shorthand_forms(
                         lite_pipeline,
                         Some((
                             variable_name.to_string().spanned(original_span),
-                            value.to_string().spanned(original_span),
+                            value.spanned(original_span),
                         )),
                         None,
                     )
