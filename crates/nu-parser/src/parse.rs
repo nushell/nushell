@@ -1379,7 +1379,7 @@ fn expand_shorthand_forms(
                         lite_pipeline,
                         Some((
                             variable_name.to_string().spanned(original_span),
-                            value.to_string().spanned(original_span),
+                            value.spanned(original_span),
                         )),
                         None,
                     )
