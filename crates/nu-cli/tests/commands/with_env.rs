@@ -30,7 +30,6 @@ fn shorthand_doesnt_reorder_arguments() {
     assert_eq!(actual.out, "firstsecond");
 }
 
-
 #[test]
 fn with_env_shorthand_trimes_quotes() {
     let actual = nu!(
