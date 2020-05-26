@@ -8,7 +8,6 @@ use crate::commands::rm::RemoveArgs;
 use crate::data::dir_entry_dict;
 use crate::path::canonicalize;
 use crate::prelude::*;
-use crate::shell::completer::NuCompleter;
 use crate::shell::shell::Shell;
 use crate::utils::FileStructure;
 
@@ -20,6 +19,7 @@ use std::path::{Path, PathBuf};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
+use nu_completions::NuCompleter;
 use nu_errors::ShellError;
 use nu_parser::expand_ndots;
 use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue};
@@ -28,7 +28,7 @@ use nu_source::Tagged;
 pub struct FilesystemShell {
     pub(crate) path: String,
     pub(crate) last_path: String,
-    completer: NuCompleter,
+    completer: NuCompleter<CommandRegistry>,
     hinter: HistoryHinter,
 }
 

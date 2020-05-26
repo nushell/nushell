@@ -2229,6 +2229,7 @@ dependencies = [
  "meval",
  "natural",
  "nu-build",
+ "nu-completions",
  "nu-errors",
  "nu-parser",
  "nu-plugin",
@@ -2274,6 +2275,20 @@ dependencies = [
  "unicode-xid",
  "users",
  "which",
+]
+
+[[package]]
+name = "nu-completions"
+version = "0.14.1"
+dependencies = [
+ "derive-new",
+ "ichwh",
+ "indexmap",
+ "nu-build",
+ "nu-parser",
+ "nu-protocol",
+ "nu-source",
+ "rustyline",
 ]
 
 [[package]]

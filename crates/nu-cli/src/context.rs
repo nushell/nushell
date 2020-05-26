@@ -22,10 +22,17 @@ impl SignatureRegistry for CommandRegistry {
         let registry = self.registry.lock();
         registry.contains_key(name)
     }
+
     fn get(&self, name: &str) -> Option<Signature> {
         let registry = self.registry.lock();
         registry.get(name).map(|command| command.signature())
     }
+
+    fn names(&self) -> Vec<String> {
+        let registry = self.registry.lock();
+        registry.keys().cloned().collect()
+    }
+
     fn clone_box(&self) -> Box<dyn SignatureRegistry> {
         Box::new(self.clone())
     }
@@ -62,7 +69,6 @@ impl CommandRegistry {
         let mut registry = self.registry.lock();
         registry.insert(name.into(), command);
     }
-
     pub(crate) fn names(&self) -> Vec<String> {
         let registry = self.registry.lock();
         registry.keys().cloned().collect()

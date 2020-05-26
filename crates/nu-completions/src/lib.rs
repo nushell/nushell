@@ -1,7 +1,3 @@
-use crate::context::CommandRegistry;
-
-use crate::data::config;
-use crate::prelude::*;
 use derive_new::new;
 #[cfg(windows)]
 use ichwh::IchwhError;
@@ -13,10 +9,12 @@ use std::fs::{read_dir, DirEntry};
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 
+use nu_parser::SignatureRegistry;
+
 #[derive(new)]
-pub(crate) struct NuCompleter {
+pub struct NuCompleter<R: SignatureRegistry + Send> {
     pub file_completer: FilenameCompleter,
-    pub commands: CommandRegistry,
+    pub commands: R,
     pub homedir: Option<PathBuf>,
 }
 
@@ -26,15 +24,13 @@ enum ReplacementLocation {
     Other,
 }
 
-impl NuCompleter {
+impl<R: SignatureRegistry + Send> NuCompleter<R> {
     pub fn complete(
         &self,
         line: &str,
         pos: usize,
         context: &rustyline::Context,
     ) -> rustyline::Result<(usize, Vec<rustyline::completion::Pair>)> {
-        let commands: Vec<String> = self.commands.names();
-
         let line_chars: Vec<_> = line[..pos].chars().collect();
 
         let (replace_pos, replace_loc) = self.get_replace_pos(line, pos);
@@ -71,25 +67,16 @@ impl NuCompleter {
             }
         };
 
-        let complete_from_path = match config::config(Tag::unknown()) {
-            Ok(conf) => match conf.get("complete_from_path") {
-                Some(val) => val.is_true(),
-                _ => true,
-            },
-            _ => true,
-        };
-
         // Only complete executables or commands if the thing we're completing
         // is syntactically a command
         if replace_loc == ReplacementLocation::Command {
-            let mut all_executables: IndexSet<_> = commands.iter().map(|x| x.to_string()).collect();
-            if complete_from_path {
-                let path_executables = self.find_path_executables().unwrap_or_default();
-                for path_exe in path_executables {
-                    all_executables.insert(path_exe);
-                }
-            };
-            for exe in all_executables.iter() {
+            let all_executables = self
+                .commands
+                .names()
+                .into_iter()
+                .chain(self.find_path_executables().into_iter());
+
+            for exe in all_executables {
                 let mut pos = replace_pos;
                 let mut matched = false;
                 if pos < line_chars.len() {
@@ -256,23 +243,26 @@ impl NuCompleter {
         Ok((filetype.is_file() || filetype.is_symlink()) && (permissions.mode() & 0o111 != 0))
     }
 
-    fn find_path_executables(&self) -> Option<IndexSet<String>> {
-        let path_var = std::env::var_os("PATH")?;
-        let paths: Vec<_> = std::env::split_paths(&path_var).collect();
+    fn find_path_executables(&self) -> IndexSet<String> {
+        if let Some(path_var) = std::env::var_os("PATH") {
+            let paths: Vec<_> = std::env::split_paths(&path_var).collect();
 
-        let mut executables: IndexSet<String> = IndexSet::new();
-        for path in paths {
-            if let Ok(mut contents) = read_dir(path) {
-                while let Some(Ok(item)) = contents.next() {
-                    if let Ok(true) = self.is_executable(&item) {
-                        if let Ok(name) = item.file_name().into_string() {
-                            executables.insert(name);
+            let mut executables = IndexSet::new();
+            for path in paths {
+                if let Ok(mut contents) = read_dir(path) {
+                    while let Some(Ok(item)) = contents.next() {
+                        if let Ok(true) = self.is_executable(&item) {
+                            if let Ok(name) = item.file_name().into_string() {
+                                executables.insert(name);
+                            }
                         }
                     }
                 }
             }
-        }
 
-        Some(executables)
+            executables
+        } else {
+            IndexSet::new()
+        }
     }
 }

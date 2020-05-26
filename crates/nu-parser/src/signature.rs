@@ -5,6 +5,7 @@ use nu_source::{DebugDocBuilder, HasSpan, PrettyDebugWithSource, Span};
 pub trait SignatureRegistry: Debug {
     fn has(&self, name: &str) -> bool;
     fn get(&self, name: &str) -> Option<nu_protocol::Signature>;
+    fn names(&self) -> Vec<String>;
     fn clone_box(&self) -> Box<dyn SignatureRegistry>;
 }
 
@@ -12,9 +13,15 @@ impl SignatureRegistry for Box<dyn SignatureRegistry> {
     fn has(&self, name: &str) -> bool {
         (&**self).has(name)
     }
+
     fn get(&self, name: &str) -> Option<nu_protocol::Signature> {
         (&**self).get(name)
     }
+
+    fn names(&self) -> Vec<String> {
+        (&**self).names()
+    }
+
     fn clone_box(&self) -> Box<dyn SignatureRegistry> {
         (&**self).clone_box()
     }

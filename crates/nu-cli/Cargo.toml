@@ -10,14 +10,14 @@ license = "MIT"
 doctest = false
 
 [dependencies]
-nu-source = { version = "0.14.1", path = "../nu-source" }
-nu-plugin = { version = "0.14.1", path = "../nu-plugin" }
-nu-protocol = { version = "0.14.1", path = "../nu-protocol" }
+nu-completions = { version = "0.14.1", path = "../nu-completions" }
 nu-errors = { version = "0.14.1", path = "../nu-errors" }
 nu-parser = { version = "0.14.1", path = "../nu-parser" }
-nu-value-ext = { version = "0.14.1", path = "../nu-value-ext" }
+nu-plugin = { version = "0.14.1", path = "../nu-plugin" }
+nu-protocol = { version = "0.14.1", path = "../nu-protocol" }
+nu-source = { version = "0.14.1", path = "../nu-source" }
 nu-test-support = { version = "0.14.1", path = "../nu-test-support" }
-
+nu-value-ext = { version = "0.14.1", path = "../nu-value-ext" }
 
 ansi_term = "0.12.1"
 app_dirs = "1.2.1"
