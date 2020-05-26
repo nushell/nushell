@@ -1,12 +1,12 @@
 use crate::commands::{command::CommandArgs, Command, UnevaluatedCallInfo};
 use crate::env::host::Host;
 use crate::shell::shell_manager::ShellManager;
-use crate::stream::{InputStream, OutputStream};
 use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_parser::SignatureRegistry;
 use nu_protocol::{hir, Scope, Signature};
 use nu_source::{Tag, Text};
+use nu_streams::{InputStream, OutputStream};
 use parking_lot::Mutex;
 use std::error::Error;
 use std::sync::atomic::AtomicBool;

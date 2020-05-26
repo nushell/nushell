@@ -25,7 +25,6 @@ mod futures;
 mod git;
 mod path;
 mod shell;
-mod stream;
 pub mod utils;
 
 #[cfg(test)]
@@ -44,7 +43,7 @@ pub use crate::data::primitive;
 pub use crate::data::value;
 pub use crate::env::environment_syncer::EnvironmentSyncer;
 pub use crate::env::host::BasicHost;
-pub use crate::stream::OutputStream;
+pub use nu_streams::OutputStream;
 pub use nu_value_ext::ValueExt;
 pub use num_traits::cast::ToPrimitive;
 

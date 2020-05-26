@@ -2,7 +2,6 @@ use crate::commands::classified::expr::run_expression_block;
 use crate::commands::classified::internal::run_internal_command;
 use crate::context::Context;
 use crate::prelude::*;
-use crate::stream::InputStream;
 use futures::stream::TryStreamExt;
 use nu_errors::ShellError;
 use nu_protocol::hir::{Block, ClassifiedCommand, Commands};

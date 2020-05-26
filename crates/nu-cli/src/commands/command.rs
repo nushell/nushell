@@ -412,7 +412,7 @@ impl WholeStreamCommand for FnFilterCommand {
                 match func(args) {
                     Err(err) => yield Err(err),
                     Ok(mut stream) => {
-                        while let Some(value) = stream.values.next().await {
+                        while let Some(value) = stream.next().await {
                             yield value;
                         }
                     }

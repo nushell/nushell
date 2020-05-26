@@ -1,6 +1,10 @@
-use crate::prelude::*;
-use futures::stream::iter;
+use futures::stream::{iter, BoxStream, Stream, StreamExt};
+use std::collections::VecDeque;
+use std::future::Future;
+
 use nu_protocol::{ReturnSuccess, ReturnValue, Value};
+
+use crate::InputStream;
 
 pub struct OutputStream {
     pub(crate) values: BoxStream<'static, ReturnValue>,

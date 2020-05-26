@@ -10,14 +10,14 @@ license = "MIT"
 doctest = false
 
 [dependencies]
-nu-source = { version = "0.14.1", path = "../nu-source" }
-nu-plugin = { version = "0.14.1", path = "../nu-plugin" }
-nu-protocol = { version = "0.14.1", path = "../nu-protocol" }
 nu-errors = { version = "0.14.1", path = "../nu-errors" }
 nu-parser = { version = "0.14.1", path = "../nu-parser" }
-nu-value-ext = { version = "0.14.1", path = "../nu-value-ext" }
+nu-plugin = { version = "0.14.1", path = "../nu-plugin" }
+nu-protocol = { version = "0.14.1", path = "../nu-protocol" }
+nu-source = { version = "0.14.1", path = "../nu-source" }
+nu-streams = { version = "0.14.1", path = "../nu-streams" }
 nu-test-support = { version = "0.14.1", path = "../nu-test-support" }
-
+nu-value-ext = { version = "0.14.1", path = "../nu-value-ext" }
 
 ansi_term = "0.12.1"
 app_dirs = "1.2.1"
@@ -41,7 +41,6 @@ dunce = "1.0.0"
 eml-parser = "0.1.0"
 filesize = "0.2.0"
 futures = { version = "0.3", features = ["compat", "io-compat"] }
-futures-util = "0.3.5"
 futures_codec = "0.4"
 getset = "0.1.1"
 git2 = { version = "0.13.5", default_features = false }

@@ -6,7 +6,6 @@ use crate::commands::mkdir::MkdirArgs;
 use crate::commands::mv::MoveArgs;
 use crate::commands::rm::RemoveArgs;
 use crate::prelude::*;
-use crate::stream::OutputStream;
 use nu_errors::ShellError;
 use std::path::PathBuf;
 

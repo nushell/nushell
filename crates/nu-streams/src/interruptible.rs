@@ -1,6 +1,7 @@
-use crate::prelude::*;
+use futures::stream::{BoxStream, Stream, StreamExt};
 use futures::task::Poll;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 pub struct InterruptibleStream<V> {
     inner: BoxStream<'static, V>,

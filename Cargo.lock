@@ -2214,7 +2214,6 @@ dependencies = [
  "eml-parser",
  "filesize",
  "futures 0.3.5",
- "futures-util",
  "futures_codec",
  "getset",
  "git2",
@@ -2234,6 +2233,7 @@ dependencies = [
  "nu-plugin",
  "nu-protocol",
  "nu-source",
+ "nu-streams",
  "nu-test-support",
  "nu-value-ext",
  "num-bigint",
@@ -2371,6 +2371,17 @@ dependencies = [
  "pretty",
  "serde 1.0.110",
  "termcolor",
+]
+
+[[package]]
+name = "nu-streams"
+version = "0.14.1"
+dependencies = [
+ "futures 0.3.5",
+ "nu-build",
+ "nu-errors",
+ "nu-protocol",
+ "nu-source",
 ]
 
 [[package]]

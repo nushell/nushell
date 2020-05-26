@@ -1,0 +1,23 @@
+[package]
+name = "nu-streams"
+version = "0.14.1"
+authors = ["The Nu Project Contributors"]
+description = "I/O streams for internal communication"
+edition = "2018"
+license = "MIT"
+
+[lib]
+doctest = false
+
+[dependencies]
+nu-errors = { version = "0.14.1", path = "../nu-errors" }
+nu-source = { version = "0.14.1", path = "../nu-source" }
+nu-protocol = { version = "0.14.1", path = "../nu-protocol" }
+
+futures = { version = "0.3", features = ["compat", "io-compat"] }
+
+[build-dependencies]
+nu-build = { version = "0.14.1", path = "../nu-build" }
+
+[features]
+stable = []

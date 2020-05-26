@@ -1,8 +1,10 @@
-use crate::prelude::*;
-use futures::stream::{iter, once};
+use futures::stream::{iter, once, BoxStream, Stream, StreamExt};
+use std::collections::VecDeque;
+use std::future::Future;
+
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, UntaggedValue, Value};
-use nu_source::{Tagged, TaggedItem};
+use nu_source::{Tag, Tagged, TaggedItem};
 
 pub struct InputStream {
     values: BoxStream<'static, Value>,

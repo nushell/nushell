@@ -3,11 +3,11 @@ use futures::executor::block_on;
 use nu_errors::ShellError;
 use nu_protocol::hir::ClassifiedBlock;
 use nu_protocol::{Scope, ShellTypeName, Value};
+use nu_streams::InputStream;
 
 use crate::commands::classified::block::run_block;
 use crate::commands::{whole_stream_command, Echo};
 use crate::context::Context;
-use crate::stream::InputStream;
 use crate::WholeStreamCommand;
 
 pub fn test(cmd: impl WholeStreamCommand + 'static) {
