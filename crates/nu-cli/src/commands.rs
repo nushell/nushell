@@ -98,6 +98,7 @@ pub(crate) mod skip_while;
 pub(crate) mod sort_by;
 pub(crate) mod split;
 pub(crate) mod split_by;
+pub(crate) mod str_;
 pub(crate) mod sum;
 #[allow(unused)]
 pub(crate) mod t_sort_by;
@@ -225,6 +226,10 @@ pub(crate) use split::Split;
 pub(crate) use split::SplitColumn;
 pub(crate) use split::SplitRow;
 pub(crate) use split_by::SplitBy;
+pub(crate) use str_::{
+    Str, StrCapitalize, StrDowncase, StrFindReplace, StrSet, StrSubstring, StrToDatetime,
+    StrToFloat, StrToInteger, StrTrim, StrUpcase,
+};
 pub(crate) use sum::Sum;
 #[allow(unused_imports)]
 pub(crate) use t_sort_by::TSortBy;

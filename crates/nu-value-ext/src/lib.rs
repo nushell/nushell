@@ -1,3 +1,4 @@
+use indexmap::set::IndexSet;
 use itertools::Itertools;
 use nu_errors::{ExpectedRange, ShellError};
 use nu_protocol::{
@@ -16,6 +17,11 @@ pub trait ValueExt {
         &self,
         path: &ColumnPath,
         callback: Box<dyn FnOnce((&Value, &PathMember, ShellError)) -> ShellError>,
+    ) -> Result<Value, ShellError>;
+    fn swap_data_by_column_path(
+        &self,
+        path: &ColumnPath,
+        callback: Box<dyn FnOnce(&Value) -> Result<Value, ShellError>>,
     ) -> Result<Value, ShellError>;
     fn insert_data_at_path(&self, path: &str, new_value: Value) -> Option<Value>;
     fn insert_data_at_member(
@@ -61,6 +67,14 @@ impl ValueExt for Value {
         callback: Box<dyn FnOnce((&Value, &PathMember, ShellError)) -> ShellError>,
     ) -> Result<Value, ShellError> {
         get_data_by_column_path(self, path, callback)
+    }
+
+    fn swap_data_by_column_path(
+        &self,
+        path: &ColumnPath,
+        callback: Box<dyn FnOnce(&Value) -> Result<Value, ShellError>>,
+    ) -> Result<Value, ShellError> {
+        swap_data_by_column_path(self, path, callback)
     }
 
     fn insert_data_at_path(&self, path: &str, new_value: Value) -> Option<Value> {
@@ -193,6 +207,159 @@ pub fn get_data_by_column_path(
     }
 
     Ok(current)
+}
+
+pub fn swap_data_by_column_path(
+    value: &Value,
+    path: &ColumnPath,
+    callback: Box<dyn FnOnce(&Value) -> Result<Value, ShellError>>,
+) -> Result<Value, ShellError> {
+    let fields = path.clone();
+
+    let to_replace = get_data_by_column_path(
+        &value,
+        path,
+        Box::new(move |(obj_source, column_path_tried, error)| {
+            let path_members_span =
+                nu_source::span_for_spanned_list(fields.members().iter().map(|p| p.span));
+
+            match &obj_source.value {
+                UntaggedValue::Table(rows) => match column_path_tried {
+                    PathMember {
+                        unspanned: UnspannedPathMember::String(column),
+                        ..
+                    } => {
+                        let primary_label = format!("There isn't a column named '{}'", &column);
+
+                        let suggestions: IndexSet<_> = rows
+                            .iter()
+                            .filter_map(|r| nu_protocol::did_you_mean(&r, &column_path_tried))
+                            .map(|s| s[0].1.to_owned())
+                            .collect();
+                        let mut existing_columns: IndexSet<_> = IndexSet::default();
+                        let mut names: Vec<String> = vec![];
+
+                        for row in rows {
+                            for field in row.data_descriptors() {
+                                if !existing_columns.contains(&field[..]) {
+                                    existing_columns.insert(field.clone());
+                                    names.push(field);
+                                }
+                            }
+                        }
+
+                        if names.is_empty() {
+                            return ShellError::labeled_error_with_secondary(
+                                "Unknown column",
+                                primary_label,
+                                column_path_tried.span,
+                                "Appears to contain rows. Try indexing instead.",
+                                column_path_tried.span.since(path_members_span),
+                            );
+                        } else {
+                            return ShellError::labeled_error_with_secondary(
+                                "Unknown column",
+                                primary_label,
+                                column_path_tried.span,
+                                format!(
+                                    "Perhaps you meant '{}'? Columns available: {}",
+                                    suggestions
+                                        .iter()
+                                        .map(|x| x.to_owned())
+                                        .collect::<Vec<String>>()
+                                        .join(","),
+                                    names.join(",")
+                                ),
+                                column_path_tried.span.since(path_members_span),
+                            );
+                        };
+                    }
+                    PathMember {
+                        unspanned: UnspannedPathMember::Int(idx),
+                        ..
+                    } => {
+                        let total = rows.len();
+
+                        let secondary_label = if total == 1 {
+                            "The table only has 1 row".to_owned()
+                        } else {
+                            format!("The table only has {} rows (0 to {})", total, total - 1)
+                        };
+
+                        return ShellError::labeled_error_with_secondary(
+                            "Row not found",
+                            format!("There isn't a row indexed at {}", idx),
+                            column_path_tried.span,
+                            secondary_label,
+                            column_path_tried.span.since(path_members_span),
+                        );
+                    }
+                },
+                UntaggedValue::Row(columns) => match column_path_tried {
+                    PathMember {
+                        unspanned: UnspannedPathMember::String(column),
+                        ..
+                    } => {
+                        let primary_label = format!("There isn't a column named '{}'", &column);
+
+                        if let Some(suggestions) =
+                            nu_protocol::did_you_mean(&obj_source, column_path_tried)
+                        {
+                            return ShellError::labeled_error_with_secondary(
+                                "Unknown column",
+                                primary_label,
+                                column_path_tried.span,
+                                format!(
+                                    "Perhaps you meant '{}'? Columns available: {}",
+                                    suggestions[0].1,
+                                    &obj_source.data_descriptors().join(",")
+                                ),
+                                column_path_tried.span.since(path_members_span),
+                            );
+                        }
+                    }
+                    PathMember {
+                        unspanned: UnspannedPathMember::Int(idx),
+                        ..
+                    } => {
+                        return ShellError::labeled_error_with_secondary(
+                            "No rows available",
+                            format!("A row at '{}' can't be indexed.", &idx),
+                            column_path_tried.span,
+                            format!(
+                                "Appears to contain columns. Columns available: {}",
+                                columns.keys().join(",")
+                            ),
+                            column_path_tried.span.since(path_members_span),
+                        )
+                    }
+                },
+                _ => {}
+            }
+
+            if let Some(suggestions) = nu_protocol::did_you_mean(&obj_source, column_path_tried) {
+                return ShellError::labeled_error(
+                    "Unknown column",
+                    format!("did you mean '{}'?", suggestions[0].1),
+                    column_path_tried.span.since(path_members_span),
+                );
+            }
+
+            error
+        }),
+    );
+
+    let to_replace = to_replace?;
+    let replacement = callback(&to_replace)?;
+
+    match value.replace_data_at_column_path(&path, replacement) {
+        Some(replaced) => Ok(replaced),
+        None => Err(ShellError::labeled_error(
+            "missing column-path",
+            "missing column-path",
+            value.tag.span,
+        )),
+    }
 }
 
 pub fn insert_data_at_path(value: &Value, path: &str, new_value: Value) -> Option<Value> {

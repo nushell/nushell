@@ -42,6 +42,7 @@ mod sort_by;
 mod split_by;
 mod split_column;
 mod split_row;
+mod str_;
 mod sum;
 mod touch;
 mod trim;
