@@ -2164,7 +2164,6 @@ dependencies = [
  "nu_plugin_post",
  "nu_plugin_ps",
  "nu_plugin_start",
- "nu_plugin_str",
  "nu_plugin_sys",
  "nu_plugin_textview",
  "nu_plugin_tree",
@@ -2526,22 +2525,6 @@ dependencies = [
  "nu-source",
  "open",
  "url",
-]
-
-[[package]]
-name = "nu_plugin_str"
-version = "0.14.1"
-dependencies = [
- "bigdecimal",
- "chrono",
- "nu-build",
- "nu-errors",
- "nu-plugin",
- "nu-protocol",
- "nu-source",
- "nu-value-ext",
- "num-bigint",
- "regex",
 ]
 
 [[package]]

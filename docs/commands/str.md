@@ -1,6 +1,6 @@
 # str
 
-Consumes either a single value or a table and converts the provided data to a string and optionally applies a change.
+Applies the subcommand to a value or a table.
 
 ## Examples
 
@@ -12,28 +12,28 @@ Consumes either a single value or a table and converts the provided data to a st
  0 │ X │ filesystem │ /home/TUX/stuff/expr/stuff
  1 │   │ filesystem │ /
 ━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-> shells | str path --upcase
+> shells | str upcase path
 ━━━┯━━━┯━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  # │   │ name       │ path
 ───┼───┼────────────┼────────────────────────────────
  0 │ X │ filesystem │ /HOME/TUX/STUFF/EXPR/STUFF
  1 │   │ filesystem │ /
 ━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-> shells | str path --downcase
+> shells | str downcase path
 ━━━┯━━━┯━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  # │   │ name       │ path
 ───┼───┼────────────┼────────────────────────────────
  0 │ X │ filesystem │ /home/tux/stuff/expr/stuff
  1 │   │ filesystem │ /
 ━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-> shells | str # --substring "21, 99"
+> shells | str substring "21, 99" path
 ━━━┯━━━┯━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  # │   │ name       │ path
 ───┼───┼────────────┼────────────────────────────────
  0 │ X │ filesystem │ stuff
  1 │   │ filesystem │
 ━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-> shells | str # --substring "6,"
+> shells | str substring "6," path
 ━━━┯━━━┯━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  # │   │ name       │ path
 ───┼───┼────────────┼────────────────────────────────
@@ -41,27 +41,27 @@ Consumes either a single value or a table and converts the provided data to a st
  1 │   │ filesystem │
 ━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-> echo "1, 2, 3" | split-row "," | str --to-int | sum
+> echo "1, 2, 3" | split row "," | str to-int | sum
 ━━━━━━━━━
  <value>
 ─────────
        6
 ━━━━━━━━━
 
-> echo "nu" | str --capitalize
+> echo "nu" | str capitalize
 ━━━━━━━━━
  <value>
 ─────────
       Nu
 ━━━━━━━━━
 
-> echo "Nu    " | str --trim
+> echo "Nu    " | str trim
 ━━━━━━━━━
  <value>
 ─────────
       Nu
 ━━━━━━━━━
-> shells | str path --find-replace ["TUX" "skipper"]
+> shells | str find-replace "TUX" "skipper" path
 ━━━┯━━━┯━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  # │   │ name       │ path
 ───┼───┼────────────┼────────────────────────────────
