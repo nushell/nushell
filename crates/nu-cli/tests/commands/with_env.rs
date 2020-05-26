@@ -31,7 +31,7 @@ fn shorthand_doesnt_reorder_arguments() {
 }
 
 #[test]
-fn with_env_shorthand_trimes_quotes() {
+fn with_env_shorthand_trims_quotes() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
         "FOO='BARRRR' echo $nu.env | get FOO"
