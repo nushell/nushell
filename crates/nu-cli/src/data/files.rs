@@ -40,6 +40,7 @@ pub(crate) fn dir_entry_dict(
     short_name: bool,
     with_symlink_targets: bool,
     du: bool,
+    ctrl_c: Arc<AtomicBool>,
 ) -> Result<Value, ShellError> {
     let tag = tag.into();
     let mut dict = TaggedDictBuilder::new(&tag);
@@ -140,7 +141,7 @@ pub(crate) fn dir_entry_dict(
                     false,
                 );
 
-                DirInfo::new(filename, &params, None).get_size()
+                DirInfo::new(filename, &params, None, ctrl_c).get_size()
             } else {
                 md.len()
             };
