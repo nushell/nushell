@@ -32,6 +32,7 @@ fn get_file_type(md: &std::fs::Metadata) -> &str {
     file_type
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn dir_entry_dict(
     filename: &std::path::Path,
     metadata: Option<&std::fs::Metadata>,
