@@ -32,6 +32,7 @@ fn get_file_type(md: &std::fs::Metadata) -> &str {
     file_type
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn dir_entry_dict(
     filename: &std::path::Path,
     metadata: Option<&std::fs::Metadata>,
@@ -40,6 +41,7 @@ pub(crate) fn dir_entry_dict(
     short_name: bool,
     with_symlink_targets: bool,
     du: bool,
+    ctrl_c: Arc<AtomicBool>,
 ) -> Result<Value, ShellError> {
     let tag = tag.into();
     let mut dict = TaggedDictBuilder::new(&tag);
@@ -140,7 +142,7 @@ pub(crate) fn dir_entry_dict(
                     false,
                 );
 
-                DirInfo::new(filename, &params, None).get_size()
+                DirInfo::new(filename, &params, None, ctrl_c).get_size()
             } else {
                 md.len()
             };

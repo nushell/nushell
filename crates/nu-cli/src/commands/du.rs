@@ -7,6 +7,7 @@ use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use std::path::PathBuf;
+use std::sync::atomic::Ordering;
 
 const NAME: &str = "du";
 const GLOB_PARAMS: MatchOptions = MatchOptions {
@@ -92,6 +93,7 @@ fn du(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, She
     let registry = registry.clone();
     let tag = args.call_info.name_tag.clone();
     let ctrl_c = args.ctrl_c.clone();
+    let ctrl_c_copy = ctrl_c.clone();
 
     let stream = async_stream! {
         let (args, mut input): (DuArgs, _) = args.process(&registry).await?;
@@ -136,13 +138,14 @@ fn du(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, She
             all,
         };
 
-        let mut inp = futures::stream::iter(paths).interruptible(ctrl_c);
+        let mut inp = futures::stream::iter(paths).interruptible(ctrl_c.clone());
+
         while let Some(path) = inp.next().await {
             match path {
                 Ok(p) => {
                     if p.is_dir() {
                         yield Ok(ReturnSuccess::Value(
-                            DirInfo::new(p, &params, max_depth).into(),
+                            DirInfo::new(p, &params, max_depth, ctrl_c.clone()).into(),
                         ))
                     } else {
                         for v in FileInfo::new(p, deref, tag.clone()).into_iter() {
@@ -155,7 +158,7 @@ fn du(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, She
         }
     };
 
-    Ok(stream.to_output_stream())
+    Ok(stream.interruptible(ctrl_c_copy).to_output_stream())
 }
 
 pub struct DirBuilder {
@@ -227,7 +230,12 @@ impl FileInfo {
 }
 
 impl DirInfo {
-    pub fn new(path: impl Into<PathBuf>, params: &DirBuilder, depth: Option<u64>) -> Self {
+    pub fn new(
+        path: impl Into<PathBuf>,
+        params: &DirBuilder,
+        depth: Option<u64>,
+        ctrl_c: Arc<AtomicBool>,
+    ) -> Self {
         let path = path.into();
 
         let mut s = Self {
@@ -243,9 +251,15 @@ impl DirInfo {
         match std::fs::read_dir(&s.path) {
             Ok(d) => {
                 for f in d {
+                    if ctrl_c.load(Ordering::SeqCst) {
+                        break;
+                    }
+
                     match f {
                         Ok(i) => match i.file_type() {
-                            Ok(t) if t.is_dir() => s = s.add_dir(i.path(), depth, &params),
+                            Ok(t) if t.is_dir() => {
+                                s = s.add_dir(i.path(), depth, &params, ctrl_c.clone())
+                            }
                             Ok(_t) => s = s.add_file(i.path(), &params),
                             Err(e) => s = s.add_error(e.into()),
                         },
@@ -263,6 +277,7 @@ impl DirInfo {
         path: impl Into<PathBuf>,
         mut depth: Option<u64>,
         params: &DirBuilder,
+        ctrl_c: Arc<AtomicBool>,
     ) -> Self {
         if let Some(current) = depth {
             if let Some(new) = current.checked_sub(1) {
@@ -272,7 +287,7 @@ impl DirInfo {
             }
         }
 
-        let d = DirInfo::new(path, &params, depth);
+        let d = DirInfo::new(path, &params, depth, ctrl_c);
         self.size += d.size;
         self.blocks += d.blocks;
         self.dirs.push(d);
