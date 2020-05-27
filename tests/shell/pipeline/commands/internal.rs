@@ -193,6 +193,18 @@ fn can_process_one_row_from_internal_and_pipes_it_to_stdin_of_external() {
     assert_eq!(actual.out, "nushell");
 }
 
+#[test]
+fn echoing_ranges() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            echo 1..3 | sum
+        "#
+    );
+
+    assert_eq!(actual.out, "6");
+}
+
 mod parse {
     use nu_test_support::nu;
 

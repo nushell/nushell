@@ -72,7 +72,7 @@ pub(crate) async fn evaluate_baseline_expr(
             );
             let right = (
                 right.as_primitive()?.spanned(right_span),
-                RangeInclusion::Exclusive,
+                RangeInclusion::Inclusive,
             );
 
             Ok(UntaggedValue::range(left, right).into_value(tag))
