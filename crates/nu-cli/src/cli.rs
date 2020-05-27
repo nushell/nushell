@@ -13,7 +13,7 @@ use futures_codec::FramedRead;
 
 use nu_errors::ShellError;
 use nu_protocol::hir::{ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments};
-use nu_protocol::{Primitive, ReturnSuccess, Scope, Signature, UntaggedValue, Value};
+use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 
 use log::{debug, trace};
 use rustyline::error::ReadlineError;
@@ -870,7 +870,16 @@ async fn process_line(
 
             trace!("{:#?}", classified_block);
             let env = ctx.get_env();
-            match run_block(&classified_block.block, ctx, input_stream, &Scope::env(env)).await {
+            match run_block(
+                &classified_block.block,
+                ctx,
+                input_stream,
+                &Value::nothing(),
+                &IndexMap::new(),
+                &env,
+            )
+            .await
+            {
                 Ok(input) => {
                     // Running a pipeline gives us back a stream that we can then
                     // work through. At the top level, we just want to pull on the

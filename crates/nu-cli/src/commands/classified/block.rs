@@ -6,14 +6,16 @@ use crate::stream::InputStream;
 use futures::stream::TryStreamExt;
 use nu_errors::ShellError;
 use nu_protocol::hir::{Block, ClassifiedCommand, Commands};
-use nu_protocol::{ReturnSuccess, Scope, UntaggedValue, Value};
+use nu_protocol::{ReturnSuccess, UntaggedValue, Value};
 use std::sync::atomic::Ordering;
 
 pub(crate) async fn run_block(
     block: &Block,
     ctx: &mut Context,
     mut input: InputStream,
-    scope: &Scope,
+    it: &Value,
+    vars: &IndexMap<String, Value>,
+    env: &IndexMap<String, String>,
 ) -> Result<InputStream, ShellError> {
     let mut output: Result<InputStream, ShellError> = Ok(InputStream::empty());
     for pipeline in &block.block {
@@ -52,7 +54,7 @@ pub(crate) async fn run_block(
                 return Err(e);
             }
         }
-        output = run_pipeline(pipeline, ctx, input, scope).await;
+        output = run_pipeline(pipeline, ctx, input, it, vars, env).await;
 
         input = InputStream::empty();
     }
@@ -64,10 +66,11 @@ async fn run_pipeline(
     commands: &Commands,
     ctx: &mut Context,
     mut input: InputStream,
-    scope: &Scope,
+    it: &Value,
+    vars: &IndexMap<String, Value>,
+    env: &IndexMap<String, String>,
 ) -> Result<InputStream, ShellError> {
     let mut iter = commands.list.clone().into_iter().peekable();
-
     loop {
         let item: Option<ClassifiedCommand> = iter.next();
         let next: Option<&ClassifiedCommand> = iter.peek();
@@ -78,13 +81,13 @@ async fn run_pipeline(
             }
 
             (Some(ClassifiedCommand::Expr(expr)), _) => {
-                run_expression_block(*expr, ctx, input, scope).await?
+                run_expression_block(*expr, ctx, it, vars, env).await?
             }
             (Some(ClassifiedCommand::Error(err)), _) => return Err(err.into()),
             (_, Some(ClassifiedCommand::Error(err))) => return Err(err.clone().into()),
 
             (Some(ClassifiedCommand::Internal(left)), _) => {
-                run_internal_command(left, ctx, input, scope)?
+                run_internal_command(left, ctx, input, it, vars, env)?
             }
 
             (None, _) => break,

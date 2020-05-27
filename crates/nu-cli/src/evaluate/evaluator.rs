@@ -7,14 +7,16 @@ use log::trace;
 use nu_errors::{ArgumentError, ShellError};
 use nu_protocol::hir::{self, Expression, SpannedExpression};
 use nu_protocol::{
-    ColumnPath, Primitive, RangeInclusion, Scope, UnspannedPathMember, UntaggedValue, Value,
+    ColumnPath, Primitive, RangeInclusion, UnspannedPathMember, UntaggedValue, Value,
 };
 
 #[async_recursion]
 pub(crate) async fn evaluate_baseline_expr(
     expr: &SpannedExpression,
     registry: &CommandRegistry,
-    scope: &Scope,
+    it: &Value,
+    vars: &IndexMap<String, Value>,
+    env: &IndexMap<String, String>,
 ) -> Result<Value, ShellError> {
     let tag = Tag {
         span: expr.span,
@@ -31,14 +33,14 @@ pub(crate) async fn evaluate_baseline_expr(
         Expression::Synthetic(hir::Synthetic::String(s)) => {
             Ok(UntaggedValue::string(s).into_untagged_value())
         }
-        Expression::Variable(var) => evaluate_reference(&var, &scope, tag),
-        Expression::Command(_) => evaluate_command(tag, &scope),
-        Expression::Invocation(block) => evaluate_invocation(block, registry, scope).await,
-        Expression::ExternalCommand(external) => evaluate_external(&external, &scope),
+        Expression::Variable(var) => evaluate_reference(&var, it, vars, env, tag),
+        Expression::Command(_) => unimplemented!(),
+        Expression::Invocation(block) => evaluate_invocation(block, registry, it, vars, env).await,
+        Expression::ExternalCommand(_) => unimplemented!(),
         Expression::Binary(binary) => {
             // TODO: If we want to add short-circuiting, we'll need to move these down
-            let left = evaluate_baseline_expr(&binary.left, registry, scope).await?;
-            let right = evaluate_baseline_expr(&binary.right, registry, scope).await?;
+            let left = evaluate_baseline_expr(&binary.left, registry, it, vars, env).await?;
+            let right = evaluate_baseline_expr(&binary.right, registry, it, vars, env).await?;
 
             trace!("left={:?} right={:?}", left.value, right.value);
 
@@ -59,8 +61,8 @@ pub(crate) async fn evaluate_baseline_expr(
             let left = &range.left;
             let right = &range.right;
 
-            let left = evaluate_baseline_expr(&left, registry, scope).await?;
-            let right = evaluate_baseline_expr(&right, registry, scope).await?;
+            let left = evaluate_baseline_expr(&left, registry, it, vars, env).await?;
+            let right = evaluate_baseline_expr(&right, registry, it, vars, env).await?;
             let left_span = left.tag.span;
             let right_span = right.tag.span;
 
@@ -79,7 +81,7 @@ pub(crate) async fn evaluate_baseline_expr(
             let mut exprs = vec![];
 
             for expr in list {
-                let expr = evaluate_baseline_expr(&expr, registry, scope).await?;
+                let expr = evaluate_baseline_expr(&expr, registry, it, vars, env).await?;
                 exprs.push(expr);
             }
 
@@ -87,7 +89,7 @@ pub(crate) async fn evaluate_baseline_expr(
         }
         Expression::Block(block) => Ok(UntaggedValue::Block(block.clone()).into_value(&tag)),
         Expression::Path(path) => {
-            let value = evaluate_baseline_expr(&path.head, registry, scope).await?;
+            let value = evaluate_baseline_expr(&path.head, registry, it, vars, env).await?;
             let mut item = value;
 
             for member in &path.tail {
@@ -151,12 +153,17 @@ fn evaluate_literal(literal: &hir::Literal, span: Span) -> Value {
     }
 }
 
-fn evaluate_reference(name: &hir::Variable, scope: &Scope, tag: Tag) -> Result<Value, ShellError> {
-    trace!("Evaluating {:?} with Scope {:?}", name, scope);
+fn evaluate_reference(
+    name: &hir::Variable,
+    it: &Value,
+    vars: &IndexMap<String, Value>,
+    env: &IndexMap<String, String>,
+    tag: Tag,
+) -> Result<Value, ShellError> {
     match name {
-        hir::Variable::It(_) => Ok(scope.it.value.clone().into_value(tag)),
+        hir::Variable::It(_) => Ok(it.clone()),
         hir::Variable::Other(name, _) => match name {
-            x if x == "$nu" => crate::evaluate::variables::nu(scope, tag),
+            x if x == "$nu" => crate::evaluate::variables::nu(env, tag),
             x if x == "$true" => Ok(Value {
                 value: UntaggedValue::boolean(true),
                 tag,
@@ -165,8 +172,7 @@ fn evaluate_reference(name: &hir::Variable, scope: &Scope, tag: Tag) -> Result<V
                 value: UntaggedValue::boolean(false),
                 tag,
             }),
-            x => Ok(scope
-                .vars
+            x => Ok(vars
                 .get(x)
                 .cloned()
                 .unwrap_or_else(|| UntaggedValue::nothing().into_value(tag))),
@@ -174,19 +180,12 @@ fn evaluate_reference(name: &hir::Variable, scope: &Scope, tag: Tag) -> Result<V
     }
 }
 
-fn evaluate_external(
-    external: &hir::ExternalStringCommand,
-    _scope: &Scope,
-) -> Result<Value, ShellError> {
-    Err(ShellError::syntax_error(
-        "Unexpected external command".spanned(external.name.span),
-    ))
-}
-
 async fn evaluate_invocation(
     block: &hir::Block,
     registry: &CommandRegistry,
-    scope: &Scope,
+    it: &Value,
+    vars: &IndexMap<String, Value>,
+    env: &IndexMap<String, String>,
 ) -> Result<Value, ShellError> {
     // FIXME: we should use a real context here
     let mut context = Context::basic()?;
@@ -194,7 +193,7 @@ async fn evaluate_invocation(
 
     let input = InputStream::empty();
 
-    let result = run_block(&block, &mut context, input, &scope.clone()).await?;
+    let result = run_block(&block, &mut context, input, it, vars, env).await?;
 
     let output = result.into_vec().await;
 
@@ -207,10 +206,4 @@ async fn evaluate_invocation(
         1 => Ok(output[0].clone()),
         _ => Ok(UntaggedValue::nothing().into_value(Tag::unknown())),
     }
-}
-
-fn evaluate_command(tag: Tag, _scope: &Scope) -> Result<Value, ShellError> {
-    Err(ShellError::syntax_error(
-        "Unexpected command".spanned(tag.span),
-    ))
 }

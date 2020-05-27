@@ -62,14 +62,15 @@ fn update(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
                     tag,
                 } =>  {
                     let for_block = input.clone();
-                    let input_clone = input.clone();
                     let input_stream = once(async { Ok(for_block) }).to_input_stream();
 
                     let result = run_block(
                         &block,
                         &mut context,
                         input_stream,
-                        &scope.clone().set_it(input_clone),
+                        &input,
+                        &scope.vars,
+                        &scope.env
                     ).await;
 
                     match result {

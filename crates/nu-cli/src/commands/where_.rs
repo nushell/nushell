@@ -67,10 +67,9 @@ fn where_command(
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
+    let scope = raw_args.call_info.scope.clone();
+    let tag = raw_args.call_info.name_tag.clone();
     let stream = async_stream! {
-        let tag = raw_args.call_info.name_tag.clone();
-        let scope = raw_args.call_info.scope.clone();
-
         let (WhereArgs { block }, mut input) = raw_args.process(&registry).await?;
         let condition = {
             if block.block.len() != 1 {
@@ -108,7 +107,7 @@ fn where_command(
         while let Some(input) = input.next().await {
 
             //FIXME: should we use the scope that's brought in as well?
-            let condition = evaluate_baseline_expr(&condition, &registry, &scope.clone().set_it(input.clone())).await?;
+            let condition = evaluate_baseline_expr(&condition, &registry, &input, &scope.vars, &scope.env).await?;
 
             match condition.as_bool() {
                 Ok(b) => {

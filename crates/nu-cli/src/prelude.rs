@@ -102,6 +102,7 @@ pub(crate) use std::future::Future;
 pub(crate) use std::sync::atomic::AtomicBool;
 pub(crate) use std::sync::Arc;
 
+pub(crate) use indexmap::IndexMap;
 pub(crate) use itertools::Itertools;
 
 pub trait FromInputStream {

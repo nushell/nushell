@@ -368,7 +368,7 @@ fn create_default_command_args(context: &RunnableContextWithoutInput) -> RawComm
                 is_last: true,
             },
             name_tag: context.name.clone(),
-            scope: Scope::empty(),
+            scope: Scope::new(),
         },
     }
 }

@@ -115,7 +115,9 @@ async fn run_with_stdin(
 
     let mut command_args = vec![];
     for arg in command.args.iter() {
-        let value = evaluate_baseline_expr(arg, &context.registry, scope).await?;
+        let value =
+            evaluate_baseline_expr(arg, &context.registry, &scope.it, &scope.vars, &scope.env)
+                .await?;
         // Skip any arguments that don't really exist, treating them as optional
         // FIXME: we may want to preserve the gap in the future, though it's hard to say
         // what value we would put in its place.
@@ -509,7 +511,7 @@ mod tests {
         let mut ctx = Context::basic().expect("There was a problem creating a basic context.");
 
         assert!(
-            run_external_command(cmd, &mut ctx, input, &Scope::empty(), false)
+            run_external_command(cmd, &mut ctx, input, &Scope::new(), false)
                 .await
                 .is_err()
         );

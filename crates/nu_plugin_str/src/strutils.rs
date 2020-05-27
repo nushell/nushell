@@ -294,6 +294,7 @@ pub mod tests {
     }
 
     #[test]
+    #[allow(clippy::approx_constant)]
     fn converts_to_float() -> Result<(), Box<dyn std::error::Error>> {
         let mut strutils = Str::new();
         strutils.for_to_float();

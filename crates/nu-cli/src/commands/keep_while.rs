@@ -89,7 +89,7 @@ impl WholeStreamCommand for KeepWhile {
                 let condition = condition.clone();
                 trace!("ITEM = {:?}", item);
                 let result =
-                    evaluate_baseline_expr(&*condition, &registry, &scope.clone().set_it(item.clone()))
+                    evaluate_baseline_expr(&*condition, &registry, &item, &scope.vars, &scope.env)
                         .await;
                 trace!("RESULT = {:?}", result);
 
