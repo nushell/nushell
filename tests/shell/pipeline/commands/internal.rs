@@ -61,6 +61,18 @@ fn proper_it_expansion() {
 }
 
 #[test]
+fn it_expansion_of_list() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            echo "foo" | echo [bar $it] | to json
+        "#
+    );
+
+    assert_eq!(actual.out, "[\"bar\",\"foo\"]");
+}
+
+#[test]
 fn argument_invocation() {
     let actual = nu!(
         cwd: ".",

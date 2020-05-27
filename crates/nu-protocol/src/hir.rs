@@ -567,6 +567,14 @@ impl SpannedExpression {
             }
             Expression::Variable(Variable::It(_)) => true,
             Expression::Path(path) => path.head.has_shallow_it_usage(),
+            Expression::List(list) => {
+                for l in list {
+                    if l.has_shallow_it_usage() {
+                        return true;
+                    }
+                }
+                false
+            }
             Expression::Invocation(block) => {
                 for commands in block.block.iter() {
                     for command in commands.list.iter() {
