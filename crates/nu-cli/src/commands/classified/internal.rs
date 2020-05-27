@@ -11,13 +11,20 @@ pub(crate) fn run_internal_command(
     command: InternalCommand,
     context: &mut Context,
     input: InputStream,
-    scope: &Scope,
+    it: &Value,
+    vars: &IndexMap<String, Value>,
+    env: &IndexMap<String, String>,
 ) -> Result<InputStream, ShellError> {
     if log_enabled!(log::Level::Trace) {
         trace!(target: "nu::run::internal", "->");
         trace!(target: "nu::run::internal", "{}", command.name);
     }
 
+    let scope = Scope {
+        it: it.clone(),
+        vars: vars.clone(),
+        env: env.clone(),
+    };
     let objects: InputStream = trace_stream!(target: "nu::trace_stream::internal", "input" = input);
     let internal_command = context.expect_command(&command.name);
 
@@ -26,14 +33,14 @@ pub(crate) fn run_internal_command(
             internal_command?,
             Tag::unknown_anchor(command.name_span),
             command.args.clone(),
-            scope,
+            &scope,
             objects,
         )
     };
 
     let mut result = trace_out_stream!(target: "nu::trace_stream::internal", "output" = result);
     let mut context = context.clone();
-    let scope = scope.clone();
+    // let scope = scope.clone();
 
     let stream = async_stream! {
         let mut soft_errs: Vec<ShellError> = vec![];

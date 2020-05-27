@@ -84,19 +84,20 @@ fn each(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
         let (each_args, mut input): (EachArgs, _) = raw_args.process(&registry).await?;
         let block = each_args.block;
         while let Some(input) = input.next().await {
-
             let input_clone = input.clone();
             let input_stream = if is_expanded_it_usage(&head) {
                 InputStream::empty()
             } else {
-                once(async { Ok(input) }).to_input_stream()
+                once(async { Ok(input_clone) }).to_input_stream()
             };
 
             let result = run_block(
                 &block,
                 &mut context,
                 input_stream,
-                &scope.clone().set_it(input_clone),
+                &input,
+                &scope.vars,
+                &scope.env
             ).await;
 
             match result {

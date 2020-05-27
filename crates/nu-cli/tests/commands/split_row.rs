@@ -24,6 +24,6 @@ fn to_row() {
             "#
         ));
 
-        assert!(actual.out.contains("5"));
+        assert!(actual.out.contains('5'));
     })
 }

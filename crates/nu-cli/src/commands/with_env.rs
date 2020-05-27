@@ -57,18 +57,21 @@ fn with_env(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputS
 
     let stream = async_stream! {
         let mut context = Context::from_raw(&raw_args, &registry);
-        let scope = raw_args
+        let mut scope = raw_args
             .call_info
             .scope
             .clone();
         let (WithEnvArgs { variable, block }, mut input) = raw_args.process(&registry).await?;
-        let scope = scope.set_env_var(variable.0.item, variable.1.item);
+
+        scope.env.insert(variable.0.item, variable.1.item);
 
         let result = run_block(
             &block,
             &mut context,
             input,
-            &scope.clone(),
+            &scope.it,
+            &scope.vars,
+            &scope.env,
         ).await;
 
         match result {

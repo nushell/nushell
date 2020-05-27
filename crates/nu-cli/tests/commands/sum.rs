@@ -63,6 +63,8 @@ fn outputs_zero_with_no_input() {
 }
 
 #[test]
+#[allow(clippy::unreadable_literal)]
+#[allow(clippy::float_cmp)]
 fn compute_sum_of_individual_row() -> Result<(), String> {
     let answers_for_columns = [
         ("cpu", 88.257434),
@@ -82,6 +84,8 @@ fn compute_sum_of_individual_row() -> Result<(), String> {
 }
 
 #[test]
+#[allow(clippy::unreadable_literal)]
+#[allow(clippy::float_cmp)]
 fn compute_sum_of_table() -> Result<(), String> {
     let answers_for_columns = [
         ("cpu", 88.257434),

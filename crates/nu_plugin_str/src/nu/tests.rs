@@ -267,6 +267,7 @@ mod integration {
         Ok(())
     }
     #[test]
+    #[allow(clippy::approx_constant)]
     fn converts_the_input_to_float_using_the_field_passed_as_parameter() -> Result<(), ShellError> {
         let run = plugin(&mut Str::new())
             .args(

@@ -387,6 +387,10 @@ impl Value {
             _ => false,
         }
     }
+
+    pub fn nothing() -> Value {
+        UntaggedValue::nothing().into_untagged_value()
+    }
 }
 
 impl From<String> for Value {

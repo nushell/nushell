@@ -62,7 +62,6 @@ fn format_command(
         let commands = format_pattern;
 
         while let Some(value) = input.next().await {
-            let scope = scope.clone().set_it(value);
             let mut output = String::new();
 
             for command in &commands {
@@ -74,7 +73,7 @@ fn format_command(
                         // FIXME: use the correct spans
                         let full_column_path = nu_parser::parse_full_column_path(&(c.to_string()).spanned(Span::unknown()), &registry);
 
-                        let result = evaluate_baseline_expr(&full_column_path.0, &registry, &scope).await;
+                        let result = evaluate_baseline_expr(&full_column_path.0, &registry, &value, &scope.vars, &scope.env).await;
 
                         if let Ok(c) = result {
                             output

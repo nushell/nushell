@@ -35,7 +35,7 @@ impl UnevaluatedCallInfo {
         it: &Value,
     ) -> Result<CallInfo, ShellError> {
         let mut scope = self.scope.clone();
-        scope = scope.set_it(it.clone());
+        scope.it = it.clone();
         let args = evaluate_args(&self.args, registry, &scope).await?;
 
         Ok(CallInfo {
