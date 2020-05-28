@@ -110,13 +110,19 @@ fn search_paths() -> Vec<std::path::PathBuf> {
         }
     }
 
-    #[cfg(not(debug_assertions))]
-    {
-        match env::var_os("PATH") {
-            Some(paths) => {
-                search_paths.extend(env::split_paths(&paths).collect::<Vec<_>>());
+    if let Ok(config) = crate::data::config::config(Tag::unknown()) {
+        if let Some(plugin_dirs) = config.get("plugin_dirs") {
+            if let Value {
+                value: UntaggedValue::Table(pipelines),
+                ..
+            } = plugin_dirs
+            {
+                for pipeline in pipelines {
+                    if let Ok(plugin_dir) = pipeline.as_string() {
+                        search_paths.push(PathBuf::from(plugin_dir));
+                    }
+                }
             }
-            None => println!("PATH is not defined in the environment."),
         }
     }
 
