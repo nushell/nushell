@@ -39,8 +39,9 @@ Syntax: `config {flags}`
 | key_timeout        | integer (milliseconds) | vi: the delay to wait for a longer key sequence after ESC           |
 | history_size       | integer                | maximum entries that will be stored in history (100,000 default)    |
 | completion_mode    | "circular" or "list"   | changes completion type to "circular" (default) or "list" mode      |
-| pivot_mode      | "auto" or "always" or "never"                | "auto" will only pivot single row tables if the output is greater than the terminal width. "always" will always pivot single row tables. "never" will never pivot single row tables.            |
+| pivot_mode         | "auto" or "always" or "never"                | "auto" will only pivot single row tables if the output is greater than the terminal width. "always" will always pivot single row tables. "never" will never pivot single row tables.            |
 | complete_from_path | boolean                | whether or not to complete names of binaries on PATH (default true) |
+| plugin_dirs        | table of strings       | additional directories to search for plugins during startup         |
 
 ## Examples
 
