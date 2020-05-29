@@ -1,4 +1,3 @@
-use glob;
 use nu_errors::ShellError;
 use nu_protocol::{CallInfo, Value};
 use nu_source::{Tag, Tagged, TaggedItem};
@@ -50,11 +49,8 @@ impl Start {
             Ok(paths) => {
                 for path_result in paths {
                     match path_result {
-                        Ok(path) => result.push(
-                            path.to_string_lossy()
-                                .to_string()
-                                .tagged(value.tag.clone()),
-                        ),
+                        Ok(path) => result
+                            .push(path.to_string_lossy().to_string().tagged(value.tag.clone())),
                         // TODO-arash: Figure out error type
                         Err(glob_error) => {
                             return Err(ShellError::unimplemented(format!("{:?}", glob_error)));
