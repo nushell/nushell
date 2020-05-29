@@ -1,6 +1,7 @@
 use crate::prelude::*;
 use futures::stream::iter;
 use nu_protocol::{ReturnSuccess, ReturnValue, Value};
+use std::iter::IntoIterator;
 
 pub struct OutputStream {
     pub(crate) values: BoxStream<'static, ReturnValue>,
@@ -19,9 +20,8 @@ impl OutputStream {
     }
 
     pub fn one(item: impl Into<ReturnValue>) -> OutputStream {
-        let mut v: VecDeque<ReturnValue> = VecDeque::new();
-        v.push_back(item.into());
-        v.into()
+        let item = item.into();
+        futures::stream::once(async move { item }).to_output_stream()
     }
 
     pub fn from_input(input: impl Stream<Item = Value> + Send + 'static) -> OutputStream {

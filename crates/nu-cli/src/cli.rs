@@ -913,7 +913,9 @@ async fn process_line(
                         raw_input: line.to_string(),
                     };
 
-                    if let Ok(mut output_stream) = crate::commands::autoview::autoview(context) {
+                    if let Ok(mut output_stream) =
+                        crate::commands::autoview::autoview(context).await
+                    {
                         loop {
                             match output_stream.try_next().await {
                                 Ok(Some(ReturnSuccess::Value(Value {

@@ -5,7 +5,7 @@ use nu_protocol::Dictionary;
 
 use crate::commands::{command::EvaluatedWholeStreamCommandArgs, WholeStreamCommand};
 use indexmap::IndexMap;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 
 pub struct Cal;
 
@@ -42,7 +42,7 @@ impl WholeStreamCommand for Cal {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        cal(args, registry)
+        cal(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -61,58 +61,52 @@ impl WholeStreamCommand for Cal {
     }
 }
 
-pub fn cal(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+pub async fn cal(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let args = args.evaluate_once(&registry).await?;
-        let mut calendar_vec_deque = VecDeque::new();
-        let tag = args.call_info.name_tag.clone();
+    let args = args.evaluate_once(&registry).await?;
+    let mut calendar_vec_deque = VecDeque::new();
+    let tag = args.call_info.name_tag.clone();
 
-        let (current_year, current_month, current_day) = get_current_date();
+    let (current_year, current_month, current_day) = get_current_date();
 
-        let mut selected_year: i32 = current_year;
-        let mut current_day_option: Option<u32> = Some(current_day);
+    let mut selected_year: i32 = current_year;
+    let mut current_day_option: Option<u32> = Some(current_day);
 
-        let month_range = if args.has("full-year") {
-            if let Some(full_year_value) = args.get("full-year") {
-                if let Ok(year_u64) = full_year_value.as_u64() {
-                    selected_year = year_u64 as i32;
+    let month_range = if args.has("full-year") {
+        if let Some(full_year_value) = args.get("full-year") {
+            if let Ok(year_u64) = full_year_value.as_u64() {
+                selected_year = year_u64 as i32;
 
-                    if selected_year != current_year {
-                        current_day_option = None
-                    }
-                } else {
-                    yield Err(get_invalid_year_shell_error(&full_year_value.tag()));
-                    return;
+                if selected_year != current_year {
+                    current_day_option = None
                 }
+            } else {
+                return Err(get_invalid_year_shell_error(&full_year_value.tag()));
             }
-
-            (1, 12)
-        } else {
-            (current_month, current_month)
-        };
-
-        let add_months_of_year_to_table_result = add_months_of_year_to_table(
-            &args,
-            &mut calendar_vec_deque,
-            &tag,
-            selected_year,
-            month_range,
-            current_month,
-            current_day_option,
-        );
-
-        match add_months_of_year_to_table_result {
-            Ok(()) => {
-                for item in calendar_vec_deque {
-                    yield ReturnSuccess::value(item);
-                }
-            }
-            Err(error) => yield Err(error),
         }
+
+        (1, 12)
+    } else {
+        (current_month, current_month)
     };
 
-    Ok(stream.to_output_stream())
+    let add_months_of_year_to_table_result = add_months_of_year_to_table(
+        &args,
+        &mut calendar_vec_deque,
+        &tag,
+        selected_year,
+        month_range,
+        current_month,
+        current_day_option,
+    );
+
+    match add_months_of_year_to_table_result {
+        Ok(()) => Ok(futures::stream::iter(calendar_vec_deque).to_output_stream()),
+        Err(error) => Err(error),
+    }
 }
 
 fn get_invalid_year_shell_error(year_tag: &Tag) -> ShellError {

@@ -20,12 +20,19 @@ impl WholeStreamCommand for Clear {
         "clears the terminal"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        clear(args, registry)
+    async fn run(&self, _: CommandArgs, _: &CommandRegistry) -> Result<OutputStream, ShellError> {
+        if cfg!(windows) {
+            Command::new("cmd")
+                .args(&["/C", "cls"])
+                .status()
+                .expect("failed to execute process");
+        } else if cfg!(unix) {
+            Command::new("/bin/sh")
+                .args(&["-c", "clear"])
+                .status()
+                .expect("failed to execute process");
+        }
+        Ok(OutputStream::empty())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -35,21 +42,6 @@ impl WholeStreamCommand for Clear {
             result: None,
         }]
     }
-}
-
-fn clear(_args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    if cfg!(windows) {
-        Command::new("cmd")
-            .args(&["/C", "cls"])
-            .status()
-            .expect("failed to execute process");
-    } else if cfg!(unix) {
-        Command::new("/bin/sh")
-            .args(&["-c", "clear"])
-            .status()
-            .expect("failed to execute process");
-    }
-    Ok(OutputStream::empty())
 }
 
 #[cfg(test)]

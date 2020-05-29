@@ -20,7 +20,7 @@ impl WholeStreamCommand for Calc {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        calc(args, registry)
+        calc(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -32,31 +32,33 @@ impl WholeStreamCommand for Calc {
     }
 }
 
-pub fn calc(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let stream = async_stream! {
-        let mut input = args.input;
-        let name = args.call_info.name_tag.clone();
-        while let Some(input) = input.next().await {
+pub async fn calc(
+    args: CommandArgs,
+    _registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
+    let input = args.input;
+    let name = args.call_info.name_tag.span;
+
+    Ok(input
+        .map(move |input| {
             if let Ok(string) = input.as_string() {
                 match parse(&string, &input.tag) {
-                    Ok(value) => yield ReturnSuccess::value(value),
-                    Err(err) => yield Err(ShellError::labeled_error(
+                    Ok(value) => ReturnSuccess::value(value),
+                    Err(err) => Err(ShellError::labeled_error(
                         "Calculation error",
                         err,
                         &input.tag.span,
                     )),
                 }
             } else {
-                yield Err(ShellError::labeled_error(
+                Err(ShellError::labeled_error(
                     "Expected a string from pipeline",
                     "requires string input",
-                    name.clone(),
+                    name,
                 ))
             }
-        }
-    };
-
-    Ok(stream.to_output_stream())
+        })
+        .to_output_stream())
 }
 
 pub fn parse(math_expression: &str, tag: impl Into<Tag>) -> Result<Value, String> {
