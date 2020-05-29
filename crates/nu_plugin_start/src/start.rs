@@ -1,5 +1,7 @@
+use glob;
+use log::{debug, trace};
 use nu_errors::ShellError;
-use nu_protocol::CallInfo;
+use nu_protocol::{CallInfo, Value};
 use nu_source::{Tag, Tagged, TaggedItem};
 use std::path::Path;
 
@@ -24,9 +26,15 @@ impl Start {
 
     pub fn parse(&mut self, call_info: CallInfo) -> Result<(), ShellError> {
         self.tag = call_info.name_tag.clone();
+        trace!("{:?}", call_info);
         self.parse_filenames(&call_info)?;
         self.parse_application(&call_info);
-        Ok(())
+        Err(ShellError::labeled_error(
+            format!("{:?}", self.filenames),
+            "the filenames",
+            self.tag.clone(),
+        ))
+        // Ok(())
     }
 
     fn add_filename(&mut self, filename: Tagged<String>) -> Result<(), ShellError> {
@@ -42,13 +50,47 @@ impl Start {
         }
     }
 
+    fn glob_to_values(&self, value: &Value) -> Result<Vec<Tagged<String>>, ShellError> {
+        let mut result = vec![];
+        // TODO-arash: Avoid nested callback hell?
+        match glob::glob(&value.as_string()?) {
+            Ok(paths) => {
+                for path_result in paths {
+                    match path_result {
+                        Ok(path) => result.push(
+                            path.into_os_string()
+                                .into_string()
+                                .expect("could not convert to string")
+                                .tagged(value.tag.clone()),
+                        ),
+                        // TODO-arash: Figure out error type
+                        Err(glob_error) => {
+                            return Err(ShellError::unimplemented(format!("{:?}", glob_error)));
+                        }
+                    }
+                }
+            }
+            // TODO-arash: Figure out error type
+            Err(pattern_error) => {
+                return Err(ShellError::unimplemented(format!("{:?}", pattern_error)))
+            }
+        }
+
+        Ok(result)
+    }
+
     fn parse_filenames(&mut self, call_info: &CallInfo) -> Result<(), ShellError> {
         let candidates = match &call_info.args.positional {
             Some(values) => {
                 let mut result = vec![];
 
                 for value in values.iter() {
-                    result.push(value.as_string()?.tagged(value.tag.clone()));
+                    debug!("{:?}", value);
+                    match self.glob_to_values(value) {
+                        Ok(res) => result.extend(res),
+                        // TODO-arash: I think there was a better pattern for this but I forget it
+                        Err(se) => return Err(se),
+                    }
                 }
 
                 if result.is_empty() {
