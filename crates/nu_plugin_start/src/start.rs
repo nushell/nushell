@@ -29,12 +29,7 @@ impl Start {
         trace!("{:?}", call_info);
         self.parse_filenames(&call_info)?;
         self.parse_application(&call_info);
-        Err(ShellError::labeled_error(
-            format!("{:?}", self.filenames),
-            "the filenames",
-            self.tag.clone(),
-        ))
-        // Ok(())
+        Ok(())
     }
 
     fn add_filename(&mut self, filename: Tagged<String>) -> Result<(), ShellError> {
