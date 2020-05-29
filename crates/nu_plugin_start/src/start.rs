@@ -51,16 +51,22 @@ impl Start {
                     match path_result {
                         Ok(path) => result
                             .push(path.to_string_lossy().to_string().tagged(value.tag.clone())),
-                        // TODO-arash: Figure out error type
                         Err(glob_error) => {
-                            return Err(ShellError::unimplemented(format!("{:?}", glob_error)));
+                            return Err(ShellError::labeled_error(
+                                format!("{}", glob_error),
+                                "glob error",
+                                value.tag.clone(),
+                            ));
                         }
                     }
                 }
             }
-            // TODO-arash: Figure out error type
             Err(pattern_error) => {
-                return Err(ShellError::unimplemented(format!("{:?}", pattern_error)))
+                return Err(ShellError::labeled_error(
+                    format!("{}", pattern_error),
+                    "invalid pattern",
+                    value.tag.clone(),
+                ))
             }
         }
 
@@ -73,11 +79,8 @@ impl Start {
                 let mut result = vec![];
 
                 for value in values.iter() {
-                    match self.glob_to_values(value) {
-                        Ok(res) => result.extend(res),
-                        // TODO-arash: I think there was a better pattern for this but I forget it
-                        Err(se) => return Err(se),
-                    }
+                    let res = self.glob_to_values(value)?;
+                    result.extend(res);
                 }
 
                 if result.is_empty() {
