@@ -2446,6 +2446,7 @@ dependencies = [
 name = "nu_plugin_fetch"
 version = "0.14.1"
 dependencies = [
+ "base64 0.12.1",
  "futures 0.3.5",
  "nu-build",
  "nu-errors",
