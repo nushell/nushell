@@ -1,5 +1,4 @@
 use glob;
-use log::{debug, trace};
 use nu_errors::ShellError;
 use nu_protocol::{CallInfo, Value};
 use nu_source::{Tag, Tagged, TaggedItem};
@@ -26,7 +25,6 @@ impl Start {
 
     pub fn parse(&mut self, call_info: CallInfo) -> Result<(), ShellError> {
         self.tag = call_info.name_tag.clone();
-        trace!("{:?}", call_info);
         self.parse_filenames(&call_info)?;
         self.parse_application(&call_info);
         Ok(())
@@ -53,9 +51,8 @@ impl Start {
                 for path_result in paths {
                     match path_result {
                         Ok(path) => result.push(
-                            path.into_os_string()
-                                .into_string()
-                                .expect("could not convert to string")
+                            path.to_string_lossy()
+                                .to_string()
                                 .tagged(value.tag.clone()),
                         ),
                         // TODO-arash: Figure out error type
@@ -80,7 +77,6 @@ impl Start {
                 let mut result = vec![];
 
                 for value in values.iter() {
-                    debug!("{:?}", value);
                     match self.glob_to_values(value) {
                         Ok(res) => result.extend(res),
                         // TODO-arash: I think there was a better pattern for this but I forget it

@@ -2519,7 +2519,6 @@ name = "nu_plugin_start"
 version = "0.1.0"
 dependencies = [
  "glob",
- "log",
  "nu-build",
  "nu-errors",
  "nu-plugin",
