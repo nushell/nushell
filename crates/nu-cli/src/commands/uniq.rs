@@ -7,6 +7,7 @@ use nu_protocol::{ReturnSuccess, Signature};
 
 pub struct Uniq;
 
+#[async_trait]
 impl WholeStreamCommand for Uniq {
     fn name(&self) -> &str {
         "uniq"
@@ -20,7 +21,7 @@ impl WholeStreamCommand for Uniq {
         "Return the unique rows"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

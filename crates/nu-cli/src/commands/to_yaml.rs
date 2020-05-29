@@ -5,6 +5,7 @@ use nu_protocol::{Primitive, ReturnSuccess, Signature, UnspannedPathMember, Unta
 
 pub struct ToYAML;
 
+#[async_trait]
 impl WholeStreamCommand for ToYAML {
     fn name(&self) -> &str {
         "to yaml"
@@ -18,7 +19,7 @@ impl WholeStreamCommand for ToYAML {
         "Convert table into .yaml/.yml text"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

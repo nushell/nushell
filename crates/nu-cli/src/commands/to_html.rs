@@ -8,6 +8,7 @@ use nu_source::AnchorLocation;
 
 pub struct ToHTML;
 
+#[async_trait]
 impl WholeStreamCommand for ToHTML {
     fn name(&self) -> &str {
         "to html"
@@ -21,7 +22,7 @@ impl WholeStreamCommand for ToHTML {
         "Convert table into simple HTML"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

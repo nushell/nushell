@@ -12,6 +12,7 @@ pub struct RejectArgs {
 
 pub struct Reject;
 
+#[async_trait]
 impl WholeStreamCommand for Reject {
     fn name(&self) -> &str {
         "reject"
@@ -25,7 +26,7 @@ impl WholeStreamCommand for Reject {
         "Remove the given columns from the table."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

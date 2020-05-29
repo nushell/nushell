@@ -18,6 +18,7 @@ struct Arguments {
 
 pub struct SubCommand;
 
+#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "str to-float"
@@ -34,7 +35,7 @@ impl WholeStreamCommand for SubCommand {
         "converts text into float"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

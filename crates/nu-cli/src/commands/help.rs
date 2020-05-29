@@ -17,6 +17,7 @@ pub struct HelpArgs {
     rest: Vec<Tagged<String>>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Help {
     fn name(&self) -> &str {
         "help"
@@ -30,7 +31,7 @@ impl WholeStreamCommand for Help {
         "Display help information about commands."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

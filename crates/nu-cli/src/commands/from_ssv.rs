@@ -20,6 +20,7 @@ pub struct FromSSVArgs {
 const STRING_REPRESENTATION: &str = "from ssv";
 const DEFAULT_MINIMUM_SPACES: usize = 2;
 
+#[async_trait]
 impl WholeStreamCommand for FromSSV {
     fn name(&self) -> &str {
         STRING_REPRESENTATION
@@ -45,7 +46,7 @@ impl WholeStreamCommand for FromSSV {
         "Parse text as space-separated values and create a table. The default minimum number of spaces counted as a separator is 2."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

@@ -12,6 +12,7 @@ pub struct KeepArgs {
     rows: Option<Tagged<usize>>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Keep {
     fn name(&self) -> &str {
         "keep"
@@ -29,7 +30,7 @@ impl WholeStreamCommand for Keep {
         "Keep the number of rows only"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

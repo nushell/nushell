@@ -12,6 +12,7 @@ pub struct FirstArgs {
     rows: Option<Tagged<usize>>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for First {
     fn name(&self) -> &str {
         "first"
@@ -29,7 +30,7 @@ impl WholeStreamCommand for First {
         "Show only the first number of rows."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

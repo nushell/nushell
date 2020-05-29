@@ -9,6 +9,7 @@ use rand::thread_rng;
 
 pub struct Shuffle;
 
+#[async_trait]
 impl WholeStreamCommand for Shuffle {
     fn name(&self) -> &str {
         "shuffle"
@@ -18,7 +19,7 @@ impl WholeStreamCommand for Shuffle {
         "Shuffle rows randomly."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

@@ -9,6 +9,7 @@ use nu_protocol::{
 
 pub struct SkipUntil;
 
+#[async_trait]
 impl WholeStreamCommand for SkipUntil {
     fn name(&self) -> &str {
         "skip-until"
@@ -28,7 +29,7 @@ impl WholeStreamCommand for SkipUntil {
         "Skips rows until the condition matches."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

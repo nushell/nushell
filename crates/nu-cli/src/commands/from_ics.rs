@@ -9,6 +9,7 @@ use std::io::BufReader;
 
 pub struct FromIcs;
 
+#[async_trait]
 impl WholeStreamCommand for FromIcs {
     fn name(&self) -> &str {
         "from ics"
@@ -22,7 +23,7 @@ impl WholeStreamCommand for FromIcs {
         "Parse text as .ics and create table."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

@@ -14,6 +14,7 @@ pub struct FormatArgs {
     pattern: Tagged<String>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Format {
     fn name(&self) -> &str {
         "format"
@@ -31,7 +32,7 @@ impl WholeStreamCommand for Format {
         "Format columns into a string using a simple pattern."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

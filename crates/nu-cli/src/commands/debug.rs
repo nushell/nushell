@@ -10,6 +10,7 @@ pub struct DebugArgs {
     raw: bool,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Debug {
     fn name(&self) -> &str {
         "debug"
@@ -23,7 +24,7 @@ impl WholeStreamCommand for Debug {
         "Print the Rust debug representation of the values"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

@@ -12,6 +12,8 @@ struct WithEnvArgs {
     variable: (Tagged<String>, Tagged<String>),
     block: Block,
 }
+
+#[async_trait]
 impl WholeStreamCommand for WithEnv {
     fn name(&self) -> &str {
         "with-env"
@@ -35,7 +37,7 @@ impl WholeStreamCommand for WithEnv {
         "Runs a block with an environment set. Eg) with-env [NAME 'foo'] { echo $nu.env.NAME }"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

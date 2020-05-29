@@ -15,6 +15,7 @@ struct WrapArgs {
     column: Option<Tagged<String>>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Wrap {
     fn name(&self) -> &str {
         "wrap"
@@ -32,7 +33,7 @@ impl WholeStreamCommand for Wrap {
         "Wraps the given data in a table."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

@@ -9,6 +9,7 @@ use indexmap::map::IndexMap;
 
 pub struct Sum;
 
+#[async_trait]
 impl WholeStreamCommand for Sum {
     fn name(&self) -> &str {
         "sum"
@@ -22,7 +23,7 @@ impl WholeStreamCommand for Sum {
         "Sums the values."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

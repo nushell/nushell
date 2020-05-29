@@ -12,6 +12,7 @@ pub struct LastArgs {
     rows: Option<Tagged<u64>>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Last {
     fn name(&self) -> &str {
         "last"
@@ -29,7 +30,7 @@ impl WholeStreamCommand for Last {
         "Show only the last number of rows."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

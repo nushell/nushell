@@ -13,6 +13,7 @@ pub struct FromXLSXArgs {
     headerless: bool,
 }
 
+#[async_trait]
 impl WholeStreamCommand for FromXLSX {
     fn name(&self) -> &str {
         "from xlsx"
@@ -30,7 +31,7 @@ impl WholeStreamCommand for FromXLSX {
         "Parse binary Excel(.xlsx) data and create table."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

@@ -14,6 +14,7 @@ pub struct MapMaxByArgs {
     column_name: Option<Tagged<String>>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for MapMaxBy {
     fn name(&self) -> &str {
         "map-max-by"
@@ -32,7 +33,7 @@ impl WholeStreamCommand for MapMaxBy {
         "Creates a new table with the data from the tables rows maxed by the column given."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

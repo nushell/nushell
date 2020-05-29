@@ -6,6 +6,7 @@ use nu_protocol::{Dictionary, Primitive, ReturnSuccess, Signature, UntaggedValue
 
 pub struct Trim;
 
+#[async_trait]
 impl WholeStreamCommand for Trim {
     fn name(&self) -> &str {
         "trim"
@@ -19,7 +20,7 @@ impl WholeStreamCommand for Trim {
         "Trim leading and following whitespace from text data."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

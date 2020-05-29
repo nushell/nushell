@@ -7,6 +7,7 @@ use nu_source::Tagged;
 
 pub struct Which;
 
+#[async_trait]
 impl WholeStreamCommand for Which {
     fn name(&self) -> &str {
         "which"
@@ -22,7 +23,7 @@ impl WholeStreamCommand for Which {
         "Finds a program file."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

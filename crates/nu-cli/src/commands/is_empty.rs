@@ -20,6 +20,7 @@ pub struct IsEmptyArgs {
     rest: Vec<Value>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for IsEmpty {
     fn name(&self) -> &str {
         "empty?"
@@ -36,7 +37,7 @@ impl WholeStreamCommand for IsEmpty {
         "Checks emptiness. The last value is the replacement value for any empty column(s) given to check against the table."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

@@ -13,6 +13,7 @@ struct RangeArgs {
 
 pub struct Range;
 
+#[async_trait]
 impl WholeStreamCommand for Range {
     fn name(&self) -> &str {
         "range"
@@ -30,7 +31,7 @@ impl WholeStreamCommand for Range {
         "Return only the selected rows"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

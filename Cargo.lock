@@ -160,6 +160,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-trait"
+version = "0.1.31"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26c4f3195085c36ea8d24d32b2f828d23296a9370a28aa39d111f6f16bef9f3b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "attohttpc"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2193,6 +2204,7 @@ dependencies = [
  "app_dirs",
  "async-recursion",
  "async-stream",
+ "async-trait",
  "base64 0.12.1",
  "bigdecimal",
  "bson",

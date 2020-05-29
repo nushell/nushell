@@ -9,6 +9,7 @@ use clipboard::{ClipboardContext, ClipboardProvider};
 
 pub struct Clip;
 
+#[async_trait]
 impl WholeStreamCommand for Clip {
     fn name(&self) -> &str {
         "clip"
@@ -22,7 +23,7 @@ impl WholeStreamCommand for Clip {
         "Copy the contents of the pipeline to the copy/paste buffer"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

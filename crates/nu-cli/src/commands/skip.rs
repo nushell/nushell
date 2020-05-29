@@ -12,6 +12,7 @@ pub struct SkipArgs {
     rows: Option<Tagged<usize>>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Skip {
     fn name(&self) -> &str {
         "skip"
@@ -25,7 +26,7 @@ impl WholeStreamCommand for Skip {
         "Skip some number of rows."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

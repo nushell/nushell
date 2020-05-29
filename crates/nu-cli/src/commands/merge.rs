@@ -14,6 +14,7 @@ pub struct MergeArgs {
     block: Block,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Merge {
     fn name(&self) -> &str {
         "merge"
@@ -31,7 +32,7 @@ impl WholeStreamCommand for Merge {
         "Merge a table."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

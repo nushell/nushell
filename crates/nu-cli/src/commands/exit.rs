@@ -6,6 +6,7 @@ use nu_protocol::{CommandAction, ReturnSuccess, Signature};
 
 pub struct Exit;
 
+#[async_trait]
 impl WholeStreamCommand for Exit {
     fn name(&self) -> &str {
         "exit"
@@ -19,7 +20,7 @@ impl WholeStreamCommand for Exit {
         "Exit the current shell (or all shells)"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

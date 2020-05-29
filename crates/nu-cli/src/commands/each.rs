@@ -17,6 +17,7 @@ pub struct EachArgs {
     block: Block,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Each {
     fn name(&self) -> &str {
         "each"
@@ -34,7 +35,7 @@ impl WholeStreamCommand for Each {
         "Run a block on each row of the table."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

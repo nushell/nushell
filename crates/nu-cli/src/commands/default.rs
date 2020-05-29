@@ -14,6 +14,7 @@ struct DefaultArgs {
 
 pub struct Default;
 
+#[async_trait]
 impl WholeStreamCommand for Default {
     fn name(&self) -> &str {
         "default"
@@ -33,7 +34,7 @@ impl WholeStreamCommand for Default {
         "Sets a default row's column if missing."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

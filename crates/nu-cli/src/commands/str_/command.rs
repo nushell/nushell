@@ -5,6 +5,7 @@ use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
 
 pub struct Command;
 
+#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "str"
@@ -21,7 +22,7 @@ impl WholeStreamCommand for Command {
         "Apply string function."
     }
 
-    fn run(
+    async fn run(
         &self,
         _args: CommandArgs,
         registry: &CommandRegistry,

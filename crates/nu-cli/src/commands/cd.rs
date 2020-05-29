@@ -14,6 +14,7 @@ pub struct CdArgs {
 
 pub struct Cd;
 
+#[async_trait]
 impl WholeStreamCommand for Cd {
     fn name(&self) -> &str {
         "cd"
@@ -31,7 +32,7 @@ impl WholeStreamCommand for Cd {
         "Change to a new path."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

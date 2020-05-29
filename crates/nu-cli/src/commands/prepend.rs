@@ -11,6 +11,7 @@ struct PrependArgs {
 
 pub struct Prepend;
 
+#[async_trait]
 impl WholeStreamCommand for Prepend {
     fn name(&self) -> &str {
         "prepend"
@@ -28,7 +29,7 @@ impl WholeStreamCommand for Prepend {
         "Prepend the given row to the front of the table"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

@@ -129,6 +129,7 @@ pub struct SaveArgs {
     raw: bool,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Save {
     fn name(&self) -> &str {
         "save"
@@ -148,7 +149,7 @@ impl WholeStreamCommand for Save {
         "Save the contents of the pipeline to a file."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
@@ -232,7 +233,7 @@ fn save(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
                                 scope,
                             }
                         };
-                        let mut result = converter.run(new_args.with_input(input), &registry);
+                        let mut result = converter.run(new_args.with_input(input), &registry).await;
                         let result_vec: Vec<Result<ReturnSuccess, ShellError>> = result.drain_vec().await;
                         if converter.is_binary() {
                             process_binary_return_success!('scope, result_vec, name_tag)

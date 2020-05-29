@@ -6,6 +6,7 @@ use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 #[derive(Clone)]
 pub struct To;
 
+#[async_trait]
 impl WholeStreamCommand for To {
     fn name(&self) -> &str {
         "to"
@@ -19,7 +20,7 @@ impl WholeStreamCommand for To {
         "Convert table into an output format (based on subcommand, like csv, html, json, yaml)."
     }
 
-    fn run(
+    async fn run(
         &self,
         _args: CommandArgs,
         registry: &CommandRegistry,

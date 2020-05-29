@@ -5,6 +5,7 @@ use nu_protocol::{Primitive, ReturnSuccess, Signature, TaggedDictBuilder, Untagg
 
 pub struct FromTOML;
 
+#[async_trait]
 impl WholeStreamCommand for FromTOML {
     fn name(&self) -> &str {
         "from toml"
@@ -18,7 +19,7 @@ impl WholeStreamCommand for FromTOML {
         "Parse text as .toml and create table."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

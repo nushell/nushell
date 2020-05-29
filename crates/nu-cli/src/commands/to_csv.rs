@@ -12,6 +12,7 @@ pub struct ToCSVArgs {
     separator: Option<Value>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for ToCSV {
     fn name(&self) -> &str {
         "to csv"
@@ -36,7 +37,7 @@ impl WholeStreamCommand for ToCSV {
         "Convert table into .csv text "
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

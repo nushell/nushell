@@ -30,6 +30,7 @@ pub struct DuArgs {
     min_size: Option<Tagged<u64>>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Du {
     fn name(&self) -> &str {
         NAME
@@ -72,7 +73,7 @@ impl WholeStreamCommand for Du {
         "Find disk usage sizes of specified items"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

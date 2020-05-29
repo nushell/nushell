@@ -10,6 +10,7 @@ use std::sync::atomic::Ordering;
 
 pub struct Autoview;
 
+#[async_trait]
 impl WholeStreamCommand for Autoview {
     fn name(&self) -> &str {
         "autoview"
@@ -23,7 +24,7 @@ impl WholeStreamCommand for Autoview {
         "View the contents of the pipeline as a table or list."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
@@ -128,7 +129,7 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
 
                         if let Some(table) = table {
                             let command_args = create_default_command_args(&context).with_input(stream);
-                            let result = table.run(command_args, &context.registry);
+                            let result = table.run(command_args, &context.registry).await;
                             result.collect::<Vec<_>>().await;
                         }
                     }
@@ -142,7 +143,7 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                                     let mut stream = VecDeque::new();
                                     stream.push_back(UntaggedValue::string(s).into_value(Tag { anchor, span }));
                                     let command_args = create_default_command_args(&context).with_input(stream);
-                                    let result = text.run(command_args, &context.registry);
+                                    let result = text.run(command_args, &context.registry).await;
                                     result.collect::<Vec<_>>().await;
                                 } else {
                                     out!("{}", s);
@@ -162,7 +163,7 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                                     let mut stream = VecDeque::new();
                                     stream.push_back(UntaggedValue::string(s).into_value(Tag { anchor, span }));
                                     let command_args = create_default_command_args(&context).with_input(stream);
-                                    let result = text.run(command_args, &context.registry);
+                                    let result = text.run(command_args, &context.registry).await;
                                     result.collect::<Vec<_>>().await;
                                 } else {
                                     out!("{}\n", s);
@@ -233,7 +234,7 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                                     let mut stream = VecDeque::new();
                                     stream.push_back(x);
                                     let command_args = create_default_command_args(&context).with_input(stream);
-                                    let result = binary.run(command_args, &context.registry);
+                                    let result = binary.run(command_args, &context.registry).await;
                                     result.collect::<Vec<_>>().await;
                                 } else {
                                     use pretty_hex::*;
@@ -328,7 +329,7 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                                     let mut stream = VecDeque::new();
                                     stream.push_back(x);
                                     let command_args = create_default_command_args(&context).with_input(stream);
-                                    let result = table.run(command_args, &context.registry);
+                                    let result = table.run(command_args, &context.registry).await;
                                     result.collect::<Vec<_>>().await;
                                 } else {
                                     out!("{:?}", item);

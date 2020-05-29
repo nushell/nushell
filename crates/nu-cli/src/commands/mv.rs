@@ -14,6 +14,7 @@ pub struct MoveArgs {
     pub dst: Tagged<PathBuf>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Move {
     fn name(&self) -> &str {
         "mv"
@@ -37,7 +38,7 @@ impl WholeStreamCommand for Move {
         "Move files or directories."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

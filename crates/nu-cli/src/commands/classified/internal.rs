@@ -7,7 +7,7 @@ use nu_errors::ShellError;
 use nu_protocol::hir::InternalCommand;
 use nu_protocol::{CommandAction, Primitive, ReturnSuccess, Scope, UntaggedValue, Value};
 
-pub(crate) fn run_internal_command(
+pub(crate) async fn run_internal_command(
     command: InternalCommand,
     context: &mut Context,
     input: InputStream,
@@ -28,17 +28,18 @@ pub(crate) fn run_internal_command(
     let objects: InputStream = trace_stream!(target: "nu::trace_stream::internal", "input" = input);
     let internal_command = context.expect_command(&command.name);
 
-    let result = {
-        context.run_command(
-            internal_command?,
-            Tag::unknown_anchor(command.name_span),
-            command.args.clone(),
-            &scope,
-            objects,
-        )
+    let mut result = {
+        context
+            .run_command(
+                internal_command?,
+                Tag::unknown_anchor(command.name_span),
+                command.args.clone(),
+                &scope,
+                objects,
+            )
+            .await
     };
 
-    let mut result = trace_out_stream!(target: "nu::trace_stream::internal", "output" = result);
     let mut context = context.clone();
     // let scope = scope.clone();
 
@@ -78,7 +79,7 @@ pub(crate) fn run_internal_command(
                                     scope: scope.clone(),
                                 }
                             };
-                            let mut result = converter.run(new_args.with_input(vec![tagged_contents]), &context.registry);
+                            let mut result = converter.run(new_args.with_input(vec![tagged_contents]), &context.registry).await;
                             let result_vec: Vec<Result<ReturnSuccess, ShellError>> = result.drain_vec().await;
                             for res in result_vec {
                                 match res {

@@ -10,6 +10,7 @@ use std::convert::TryInto;
 
 pub struct ToBSON;
 
+#[async_trait]
 impl WholeStreamCommand for ToBSON {
     fn name(&self) -> &str {
         "to bson"
@@ -23,7 +24,7 @@ impl WholeStreamCommand for ToBSON {
         "Convert table into .bson text."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

@@ -5,6 +5,7 @@ use nu_protocol::Signature;
 
 pub struct Pwd;
 
+#[async_trait]
 impl WholeStreamCommand for Pwd {
     fn name(&self) -> &str {
         "pwd"
@@ -18,7 +19,7 @@ impl WholeStreamCommand for Pwd {
         "Output the current working directory."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

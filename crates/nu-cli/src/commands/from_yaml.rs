@@ -5,6 +5,7 @@ use nu_protocol::{Primitive, ReturnSuccess, Signature, TaggedDictBuilder, Untagg
 
 pub struct FromYAML;
 
+#[async_trait]
 impl WholeStreamCommand for FromYAML {
     fn name(&self) -> &str {
         "from yaml"
@@ -18,7 +19,7 @@ impl WholeStreamCommand for FromYAML {
         "Parse text as .yaml/.yml and create table."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
@@ -29,6 +30,7 @@ impl WholeStreamCommand for FromYAML {
 
 pub struct FromYML;
 
+#[async_trait]
 impl WholeStreamCommand for FromYML {
     fn name(&self) -> &str {
         "from yml"
@@ -42,7 +44,7 @@ impl WholeStreamCommand for FromYML {
         "Parse text as .yaml/.yml and create table."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

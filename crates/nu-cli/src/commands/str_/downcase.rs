@@ -15,6 +15,7 @@ struct Arguments {
 
 pub struct SubCommand;
 
+#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "str downcase"
@@ -31,7 +32,7 @@ impl WholeStreamCommand for SubCommand {
         "downcases text"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
