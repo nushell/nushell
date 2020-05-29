@@ -13,6 +13,7 @@ pub struct OpenArgs {
     raw: Tagged<bool>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Open {
     fn name(&self) -> &str {
         "open"
@@ -36,7 +37,7 @@ impl WholeStreamCommand for Open {
         "Load a file into a cell, convert to table if possible (avoid by appending '--raw')"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

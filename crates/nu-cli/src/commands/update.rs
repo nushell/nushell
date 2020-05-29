@@ -15,6 +15,7 @@ pub struct UpdateArgs {
     replacement: Value,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Update {
     fn name(&self) -> &str {
         "update"
@@ -38,7 +39,7 @@ impl WholeStreamCommand for Update {
         "Update an existing column to have a new value."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

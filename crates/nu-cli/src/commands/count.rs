@@ -7,6 +7,7 @@ use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
 
 pub struct Count;
 
+#[async_trait]
 impl WholeStreamCommand for Count {
     fn name(&self) -> &str {
         "count"
@@ -20,7 +21,7 @@ impl WholeStreamCommand for Count {
         "Show the total number of rows or items."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

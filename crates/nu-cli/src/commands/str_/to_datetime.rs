@@ -18,6 +18,7 @@ struct Arguments {
 
 pub struct SubCommand;
 
+#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "str to-datetime"
@@ -41,7 +42,7 @@ impl WholeStreamCommand for SubCommand {
         "converts text into datetime"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

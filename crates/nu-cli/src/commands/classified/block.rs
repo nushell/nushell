@@ -87,7 +87,7 @@ async fn run_pipeline(
             (_, Some(ClassifiedCommand::Error(err))) => return Err(err.clone().into()),
 
             (Some(ClassifiedCommand::Internal(left)), _) => {
-                run_internal_command(left, ctx, input, it, vars, env)?
+                run_internal_command(left, ctx, input, it, vars, env).await?
             }
 
             (None, _) => break,

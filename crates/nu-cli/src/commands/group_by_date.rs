@@ -12,6 +12,7 @@ pub struct GroupByDateArgs {
     format: Option<Tagged<String>>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for GroupByDate {
     fn name(&self) -> &str {
         "group-by date"
@@ -36,7 +37,7 @@ impl WholeStreamCommand for GroupByDate {
         "Creates a new table with the data from the table rows grouped by the column given."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

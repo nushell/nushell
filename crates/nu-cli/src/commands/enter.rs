@@ -16,6 +16,7 @@ pub struct EnterArgs {
     location: Tagged<PathBuf>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Enter {
     fn name(&self) -> &str {
         "enter"
@@ -33,7 +34,7 @@ impl WholeStreamCommand for Enter {
         "Create a new shell and begin at this path."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
@@ -131,7 +132,7 @@ fn enter(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
                             let mut result = converter.run(
                                 new_args.with_input(vec![tagged_contents]),
                                 &registry,
-                            );
+                            ).await;
                             let result_vec: Vec<Result<ReturnSuccess, ShellError>> =
                                 result.drain_vec().await;
                             for res in result_vec {

@@ -18,6 +18,7 @@ pub struct AliasArgs {
     pub save: Option<bool>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Alias {
     fn name(&self) -> &str {
         "alias"
@@ -39,7 +40,7 @@ impl WholeStreamCommand for Alias {
         "Define a shortcut for another command."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

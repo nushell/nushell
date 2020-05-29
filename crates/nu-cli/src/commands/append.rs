@@ -11,6 +11,7 @@ struct AppendArgs {
 
 pub struct Append;
 
+#[async_trait]
 impl WholeStreamCommand for Append {
     fn name(&self) -> &str {
         "append"
@@ -28,7 +29,7 @@ impl WholeStreamCommand for Append {
         "Append the given row to the table"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

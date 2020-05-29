@@ -9,6 +9,7 @@ use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 
 pub struct Cal;
 
+#[async_trait]
 impl WholeStreamCommand for Cal {
     fn name(&self) -> &str {
         "cal"
@@ -36,7 +37,7 @@ impl WholeStreamCommand for Cal {
         "Display a calendar."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

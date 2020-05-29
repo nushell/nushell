@@ -20,6 +20,7 @@ pub struct ConfigArgs {
     path: Tagged<bool>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Config {
     fn name(&self) -> &str {
         "config"
@@ -65,7 +66,7 @@ impl WholeStreamCommand for Config {
         "Configuration management."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

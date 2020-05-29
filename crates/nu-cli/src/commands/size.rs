@@ -6,6 +6,7 @@ use nu_protocol::{ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Va
 
 pub struct Size;
 
+#[async_trait]
 impl WholeStreamCommand for Size {
     fn name(&self) -> &str {
         "size"
@@ -19,7 +20,7 @@ impl WholeStreamCommand for Size {
         "Gather word count statistics on the text."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

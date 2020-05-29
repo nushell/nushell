@@ -42,6 +42,7 @@ pub struct PluginCommand {
     config: Signature,
 }
 
+#[async_trait]
 impl WholeStreamCommand for PluginCommand {
     fn name(&self) -> &str {
         &self.name
@@ -55,7 +56,7 @@ impl WholeStreamCommand for PluginCommand {
         &self.config.usage
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
@@ -271,6 +272,7 @@ pub struct PluginSink {
     config: Signature,
 }
 
+#[async_trait]
 impl WholeStreamCommand for PluginSink {
     fn name(&self) -> &str {
         &self.name
@@ -284,7 +286,7 @@ impl WholeStreamCommand for PluginSink {
         &self.config.usage
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

@@ -13,6 +13,7 @@ struct NthArgs {
 
 pub struct Nth;
 
+#[async_trait]
 impl WholeStreamCommand for Nth {
     fn name(&self) -> &str {
         "nth"
@@ -32,7 +33,7 @@ impl WholeStreamCommand for Nth {
         "Return only the selected rows"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

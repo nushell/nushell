@@ -15,6 +15,7 @@ pub struct CopyArgs {
     pub recursive: Tagged<bool>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Cpy {
     fn name(&self) -> &str {
         "cp"
@@ -35,7 +36,7 @@ impl WholeStreamCommand for Cpy {
         "Copy files."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

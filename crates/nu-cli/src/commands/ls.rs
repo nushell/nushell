@@ -20,6 +20,7 @@ pub struct LsArgs {
     pub du: bool,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Ls {
     fn name(&self) -> &str {
         "ls"
@@ -59,7 +60,7 @@ impl WholeStreamCommand for Ls {
         "View the contents of the current or given path."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

@@ -17,6 +17,7 @@ pub struct HistogramArgs {
     rest: Vec<Tagged<String>>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Histogram {
     fn name(&self) -> &str {
         "histogram"
@@ -39,7 +40,7 @@ impl WholeStreamCommand for Histogram {
         "Creates a new table with a histogram based on the column name passed in."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

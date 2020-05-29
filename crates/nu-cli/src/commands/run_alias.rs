@@ -13,6 +13,7 @@ pub struct AliasCommand {
     block: Block,
 }
 
+#[async_trait]
 impl WholeStreamCommand for AliasCommand {
     fn name(&self) -> &str {
         &self.name
@@ -32,7 +33,7 @@ impl WholeStreamCommand for AliasCommand {
         ""
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

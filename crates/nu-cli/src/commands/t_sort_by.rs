@@ -21,6 +21,7 @@ pub struct TSortByArgs {
     split_by: Option<String>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for TSortBy {
     fn name(&self) -> &str {
         "t-sort-by"
@@ -51,7 +52,7 @@ impl WholeStreamCommand for TSortBy {
         "Sort by the given columns."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

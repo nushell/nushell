@@ -8,6 +8,7 @@ use std::path::Path;
 
 pub struct FromSQLite;
 
+#[async_trait]
 impl WholeStreamCommand for FromSQLite {
     fn name(&self) -> &str {
         "from sqlite"
@@ -21,7 +22,7 @@ impl WholeStreamCommand for FromSQLite {
         "Parse binary data as sqlite .db and create table."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
@@ -32,6 +33,7 @@ impl WholeStreamCommand for FromSQLite {
 
 pub struct FromDB;
 
+#[async_trait]
 impl WholeStreamCommand for FromDB {
     fn name(&self) -> &str {
         "from db"
@@ -45,7 +47,7 @@ impl WholeStreamCommand for FromDB {
         "Parse binary data as db and create table."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

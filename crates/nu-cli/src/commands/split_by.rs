@@ -13,6 +13,7 @@ pub struct SplitByArgs {
     column_name: Tagged<String>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for SplitBy {
     fn name(&self) -> &str {
         "split-by"
@@ -30,7 +31,7 @@ impl WholeStreamCommand for SplitBy {
         "Creates a new table with the data from the inner tables split by the column given."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

@@ -11,6 +11,7 @@ pub struct FromTSVArgs {
     headerless: bool,
 }
 
+#[async_trait]
 impl WholeStreamCommand for FromTSV {
     fn name(&self) -> &str {
         "from tsv"
@@ -28,7 +29,7 @@ impl WholeStreamCommand for FromTSV {
         "Parse text as .tsv and create table."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

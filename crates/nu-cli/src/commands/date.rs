@@ -11,6 +11,7 @@ use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 
 pub struct Date;
 
+#[async_trait]
 impl WholeStreamCommand for Date {
     fn name(&self) -> &str {
         "date"
@@ -26,7 +27,7 @@ impl WholeStreamCommand for Date {
         "Get the current datetime."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

@@ -19,6 +19,7 @@ struct Arguments {
 
 pub struct SubCommand;
 
+#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "str find-replace"
@@ -38,7 +39,7 @@ impl WholeStreamCommand for SubCommand {
         "finds and replaces text"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

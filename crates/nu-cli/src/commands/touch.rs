@@ -13,6 +13,7 @@ pub struct TouchArgs {
     pub target: Tagged<PathBuf>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Touch {
     fn name(&self) -> &str {
         "touch"
@@ -27,7 +28,7 @@ impl WholeStreamCommand for Touch {
     fn usage(&self) -> &str {
         "creates a file"
     }
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

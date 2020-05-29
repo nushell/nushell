@@ -13,6 +13,7 @@ pub struct CompactArgs {
     rest: Vec<Tagged<String>>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Compact {
     fn name(&self) -> &str {
         "compact"
@@ -26,7 +27,7 @@ impl WholeStreamCommand for Compact {
         "Creates a table with non-empty rows"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

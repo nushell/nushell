@@ -13,6 +13,7 @@ pub struct Arguments {
     rest: Vec<Tagged<String>>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Rename {
     fn name(&self) -> &str {
         "rename"
@@ -32,7 +33,7 @@ impl WholeStreamCommand for Rename {
         "Creates a new table with columns renamed."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

@@ -18,6 +18,7 @@ pub struct PivotArgs {
     ignore_titles: bool,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Pivot {
     fn name(&self) -> &str {
         "pivot"
@@ -45,7 +46,7 @@ impl WholeStreamCommand for Pivot {
         "Pivots the table contents so rows become columns and columns become rows."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

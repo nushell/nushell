@@ -5,6 +5,7 @@ use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue, Value};
 
 pub struct Calc;
 
+#[async_trait]
 impl WholeStreamCommand for Calc {
     fn name(&self) -> &str {
         "calc"
@@ -14,7 +15,7 @@ impl WholeStreamCommand for Calc {
         "Parse a math expression into a number"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

@@ -17,6 +17,7 @@ struct SplitColumnArgs {
 
 pub struct SubCommand;
 
+#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "split column"
@@ -37,7 +38,7 @@ impl WholeStreamCommand for SubCommand {
         "splits contents across multiple columns via the separator."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

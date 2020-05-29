@@ -13,6 +13,7 @@ pub struct ReduceByArgs {
     reduce_with: Option<Tagged<String>>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for ReduceBy {
     fn name(&self) -> &str {
         "reduce-by"
@@ -31,7 +32,7 @@ impl WholeStreamCommand for ReduceBy {
         "Creates a new table with the data from the tables rows reduced by the command given."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

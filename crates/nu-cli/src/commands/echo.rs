@@ -13,6 +13,7 @@ pub struct EchoArgs {
     pub rest: Vec<Value>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Echo {
     fn name(&self) -> &str {
         "echo"
@@ -26,7 +27,7 @@ impl WholeStreamCommand for Echo {
         "Echo the arguments back to the user."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

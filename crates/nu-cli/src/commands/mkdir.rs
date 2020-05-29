@@ -13,6 +13,7 @@ pub struct MkdirArgs {
     pub rest: Vec<Tagged<PathBuf>>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Mkdir {
     fn name(&self) -> &str {
         "mkdir"
@@ -26,7 +27,7 @@ impl WholeStreamCommand for Mkdir {
         "Make directories, creates intermediary directories as required."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

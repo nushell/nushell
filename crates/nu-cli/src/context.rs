@@ -225,7 +225,7 @@ impl Context {
         self.registry.expect_command(name)
     }
 
-    pub(crate) fn run_command(
+    pub(crate) async fn run_command(
         &mut self,
         command: Command,
         name_tag: Tag,
@@ -234,7 +234,7 @@ impl Context {
         input: InputStream,
     ) -> OutputStream {
         let command_args = self.command_args(args, input, name_tag, scope);
-        command.run(command_args, self.registry())
+        command.run(command_args, self.registry()).await
     }
 
     fn call_info(&self, args: hir::Call, name_tag: Tag, scope: &Scope) -> UnevaluatedCallInfo {

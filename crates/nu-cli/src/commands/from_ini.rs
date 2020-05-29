@@ -6,6 +6,7 @@ use std::collections::HashMap;
 
 pub struct FromINI;
 
+#[async_trait]
 impl WholeStreamCommand for FromINI {
     fn name(&self) -> &str {
         "from ini"
@@ -19,7 +20,7 @@ impl WholeStreamCommand for FromINI {
         "Parse text as .ini and create table"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

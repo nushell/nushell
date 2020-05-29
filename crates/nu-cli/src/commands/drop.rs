@@ -12,6 +12,7 @@ pub struct DropArgs {
     rows: Option<Tagged<u64>>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Drop {
     fn name(&self) -> &str {
         "drop"
@@ -29,7 +30,7 @@ impl WholeStreamCommand for Drop {
         "Drop the last number of rows."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

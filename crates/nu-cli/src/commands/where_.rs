@@ -12,6 +12,7 @@ pub struct WhereArgs {
     block: Block,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Where {
     fn name(&self) -> &str {
         "where"
@@ -29,7 +30,7 @@ impl WholeStreamCommand for Where {
         "Filter table to match the condition."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

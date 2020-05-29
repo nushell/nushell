@@ -18,6 +18,7 @@ struct Arguments {
 
 pub struct SubCommand;
 
+#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "str substring"
@@ -40,7 +41,7 @@ impl WholeStreamCommand for SubCommand {
         "substrings text"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
