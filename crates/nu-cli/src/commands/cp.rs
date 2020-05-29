@@ -41,7 +41,10 @@ impl WholeStreamCommand for Cpy {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        cp(args, registry)
+        let shell_manager = args.shell_manager.clone();
+        let name = args.call_info.name_tag.clone();
+        let (args, _) = args.process(&registry).await?;
+        shell_manager.cp(args, name)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -58,22 +61,6 @@ impl WholeStreamCommand for Cpy {
             },
         ]
     }
-}
-
-pub fn cp(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let stream = async_stream! {
-        let shell_manager = args.shell_manager.clone();
-        let name = args.call_info.name_tag.clone();
-        let (args, _) = args.process(&registry).await?;
-        let mut result = shell_manager.cp(args, name)?;
-
-        while let Some(item) = result.next().await {
-            yield item;
-        }
-    };
-
-    Ok(stream.to_output_stream())
 }
 
 #[cfg(test)]
