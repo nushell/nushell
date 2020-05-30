@@ -14,6 +14,8 @@ pub struct RemoveArgs {
     pub recursive: Tagged<bool>,
     #[allow(unused)]
     pub trash: Tagged<bool>,
+    #[allow(unused)]
+    pub permanent: Tagged<bool>,
 }
 
 #[async_trait]
@@ -28,6 +30,11 @@ impl WholeStreamCommand for Remove {
                 "trash",
                 "use the platform's recycle bin instead of permanently deleting",
                 Some('t'),
+            )
+            .switch(
+                "permanent",
+                "don't use recycle bin, delete permanently",
+                Some('p'),
             )
             .switch("recursive", "delete subdirectories recursively", Some('r'))
             .rest(SyntaxShape::Pattern, "the file path(s) to remove")
@@ -48,13 +55,18 @@ impl WholeStreamCommand for Remove {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Delete a file",
+                description: "Delete or move a file to the system trash (depending on 'rm_always_trash' config option)",
                 example: "rm file.txt",
                 result: None,
             },
             Example {
                 description: "Move a file to the system trash",
                 example: "rm --trash file.txt",
+                result: None,
+            },
+            Example {
+                description: "Delete a file permanently",
+                example: "rm --permanent file.txt",
                 result: None,
             },
         ]
@@ -67,7 +79,15 @@ fn rm(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, She
         let name = args.call_info.name_tag.clone();
         let shell_manager = args.shell_manager.clone();
         let (args, _): (RemoveArgs, _) = args.process(&registry).await?;
-        let mut result = shell_manager.rm(args, name)?;
+        let mut result = if args.trash.item && args.permanent.item {
+            OutputStream::one(Err(ShellError::labeled_error(
+                "only one of --permanent and --trash can be used",
+                "conflicting flags",
+                name
+            )))
+        } else {
+            shell_manager.rm(args, name)?
+        };
         while let Some(item) = result.next().await {
             yield item;
         }
