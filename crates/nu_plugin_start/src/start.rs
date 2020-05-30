@@ -44,7 +44,6 @@ impl Start {
 
     fn glob_to_values(&self, value: &Value) -> Result<Vec<Tagged<String>>, ShellError> {
         let mut result = vec![];
-        // TODO-arash: Avoid nested callback hell?
         match glob::glob(&value.as_string()?) {
             Ok(paths) => {
                 for path_result in paths {
