@@ -10,7 +10,7 @@ license = "MIT"
 doctest = false
 
 [dependencies]
-serde = { version = "1.0.106", features = ["derive"] }
+serde = { version = "1.0.110", features = ["derive"] }
 derive-new = "0.5.8"
 getset = "0.1.1"
 codespan-reporting = "0.9.4"
