@@ -8,6 +8,7 @@ pub(crate) mod alias;
 pub(crate) mod append;
 pub(crate) mod args;
 pub(crate) mod autoview;
+pub(crate) mod average;
 pub(crate) mod build_string;
 pub(crate) mod cal;
 pub(crate) mod calc;
@@ -133,6 +134,7 @@ pub(crate) use command::{
 
 pub(crate) use alias::Alias;
 pub(crate) use append::Append;
+pub(crate) use average::Average;
 pub(crate) use build_string::BuildString;
 pub(crate) use cal::Cal;
 pub(crate) use calc::Calc;
