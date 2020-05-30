@@ -8,6 +8,7 @@ use getset::Getters;
 use nu_errors::ShellError;
 use nu_protocol::hir;
 use nu_protocol::{CallInfo, EvaluatedArgs, ReturnSuccess, Scope, Signature, UntaggedValue, Value};
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 use std::sync::atomic::AtomicBool;
@@ -54,6 +55,7 @@ impl UnevaluatedCallInfo {
 pub struct CommandArgs {
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub ctrl_c: Arc<AtomicBool>,
+    pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub shell_manager: ShellManager,
     pub call_info: UnevaluatedCallInfo,
     pub input: InputStream,
@@ -65,6 +67,7 @@ pub struct CommandArgs {
 pub struct RawCommandArgs {
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub ctrl_c: Arc<AtomicBool>,
+    pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub shell_manager: ShellManager,
     pub call_info: UnevaluatedCallInfo,
 }
@@ -74,6 +77,7 @@ impl RawCommandArgs {
         CommandArgs {
             host: self.host,
             ctrl_c: self.ctrl_c,
+            current_errors: self.current_errors,
             shell_manager: self.shell_manager,
             call_info: self.call_info,
             input: input.into(),
@@ -151,6 +155,7 @@ pub struct RunnableContext {
     pub shell_manager: ShellManager,
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub ctrl_c: Arc<AtomicBool>,
+    pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub registry: CommandRegistry,
     pub name: Tag,
     pub raw_input: String,
@@ -342,10 +347,9 @@ impl Command {
         if args.call_info.switch_present("help") {
             let cl = self.0.clone();
             let registry = registry.clone();
-            let stream = async_stream! {
-                yield Ok(ReturnSuccess::Value(UntaggedValue::string(get_help(&*cl, &registry)).into_value(Tag::unknown())));
-            };
-            stream.to_output_stream()
+            OutputStream::one(Ok(ReturnSuccess::Value(
+                UntaggedValue::string(get_help(&*cl, &registry)).into_value(Tag::unknown()),
+            )))
         } else {
             match self.0.run(args, registry).await {
                 Ok(stream) => stream,

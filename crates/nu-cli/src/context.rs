@@ -93,7 +93,7 @@ impl Context {
             Context {
                 registry: registry.clone(),
                 host: raw_args.host.clone(),
-                current_errors: Arc::new(Mutex::new(vec![])),
+                current_errors: raw_args.current_errors.clone(),
                 ctrl_c: raw_args.ctrl_c.clone(),
                 shell_manager: raw_args.shell_manager.clone(),
                 windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
@@ -105,7 +105,7 @@ impl Context {
             Context {
                 registry: registry.clone(),
                 host: raw_args.host.clone(),
-                current_errors: Arc::new(Mutex::new(vec![])),
+                current_errors: raw_args.current_errors.clone(),
                 ctrl_c: raw_args.ctrl_c.clone(),
                 shell_manager: raw_args.shell_manager.clone(),
                 raw_input: String::default(),
@@ -119,7 +119,7 @@ impl Context {
             Context {
                 registry: registry.clone(),
                 host: args.host.clone(),
-                current_errors: Arc::new(Mutex::new(vec![])),
+                current_errors: args.current_errors.clone(),
                 ctrl_c: args.ctrl_c.clone(),
                 shell_manager: args.shell_manager.clone(),
                 windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
@@ -131,7 +131,7 @@ impl Context {
             Context {
                 registry: registry.clone(),
                 host: args.host.clone(),
-                current_errors: Arc::new(Mutex::new(vec![])),
+                current_errors: args.current_errors.clone(),
                 ctrl_c: args.ctrl_c.clone(),
                 shell_manager: args.shell_manager.clone(),
                 raw_input: String::default(),
@@ -255,6 +255,7 @@ impl Context {
         CommandArgs {
             host: self.host.clone(),
             ctrl_c: self.ctrl_c.clone(),
+            current_errors: self.current_errors.clone(),
             shell_manager: self.shell_manager.clone(),
             call_info: self.call_info(args, name_tag, scope),
             input,

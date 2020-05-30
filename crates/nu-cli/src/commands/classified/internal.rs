@@ -66,6 +66,7 @@ pub(crate) async fn run_internal_command(
                             let new_args = RawCommandArgs {
                                 host: context.host.clone(),
                                 ctrl_c: context.ctrl_c.clone(),
+                                current_errors: context.current_errors.clone(),
                                 shell_manager: context.shell_manager.clone(),
                                 call_info: UnevaluatedCallInfo {
                                     args: nu_protocol::hir::Call {
