@@ -111,23 +111,6 @@ async fn each(
     let context = Arc::new(Context::from_raw(&raw_args, &registry));
     let (each_args, input): (EachArgs, _) = raw_args.process(&registry).await?;
     let block = Arc::new(each_args.block);
-    // while let Some(input) = input.next().await {
-    //     match result {
-    //         Ok(mut stream) => {
-    //             while let Some(result) = stream.next().await {
-    //                 yield Ok(ReturnSuccess::Value(result));
-    //             }
-
-    //             let errors = context.get_errors();
-    //             if let Some(error) = errors.first() {
-    //                 yield Err(error.clone());
-    //             }
-    //         }
-    //         Err(e) => {
-    //             yield Err(e);
-    //         }
-    //     }
-    // }
     Ok(input
         .then(move |input| {
             let block = block.clone();
