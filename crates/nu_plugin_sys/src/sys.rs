@@ -105,9 +105,12 @@ async fn host(tag: Tag) -> Result<Value, ShellError> {
 
     // Sessions
     // note: the heim host module has nomenclature "users"
-    let mut users = host::users().await.map_err(|_| {
+    let users = host::users().await.map_err(|_| {
         ShellError::labeled_error("Unabled to get users", "could not load users", tag.span)
     })?;
+
+    futures::pin_mut!(users);
+
     let mut user_vec = vec![];
     while let Some(user) = users.next().await {
         if let Ok(user) = user {
