@@ -20,6 +20,7 @@ pub struct LsArgs {
     pub du: bool,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Ls {
     fn name(&self) -> &str {
         "ls"
@@ -59,12 +60,16 @@ impl WholeStreamCommand for Ls {
         "View the contents of the current or given path."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        ls(args, registry)
+        let name = args.call_info.name_tag.clone();
+        let ctrl_c = args.ctrl_c.clone();
+        let shell_manager = args.shell_manager.clone();
+        let (args, _) = args.process(&registry).await?;
+        shell_manager.ls(args, name, ctrl_c)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -86,23 +91,6 @@ impl WholeStreamCommand for Ls {
             },
         ]
     }
-}
-
-fn ls(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let stream = async_stream! {
-        let name = args.call_info.name_tag.clone();
-        let ctrl_c = args.ctrl_c.clone();
-        let shell_manager = args.shell_manager.clone();
-        let (args, _) = args.process(&registry).await?;
-        let mut result = shell_manager.ls(args, name, ctrl_c)?;
-
-        while let Some(item) = result.next().await {
-            yield item;
-        }
-    };
-
-    Ok(stream.to_output_stream())
 }
 
 #[cfg(test)]

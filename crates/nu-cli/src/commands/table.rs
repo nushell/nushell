@@ -10,6 +10,7 @@ const STREAM_TIMEOUT_CHECK_INTERVAL: usize = 100;
 
 pub struct Table;
 
+#[async_trait]
 impl WholeStreamCommand for Table {
     fn name(&self) -> &str {
         "table"
@@ -28,7 +29,7 @@ impl WholeStreamCommand for Table {
         "View the contents of the pipeline as a table."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

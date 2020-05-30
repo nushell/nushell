@@ -12,6 +12,7 @@ pub struct GroupByArgs {
     column_name: Option<Tagged<String>>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for GroupBy {
     fn name(&self) -> &str {
         "group-by"
@@ -29,7 +30,7 @@ impl WholeStreamCommand for GroupBy {
         "Creates a new table with the data from the table rows grouped by the column given."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

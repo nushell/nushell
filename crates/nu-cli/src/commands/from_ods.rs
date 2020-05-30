@@ -13,6 +13,7 @@ pub struct FromODSArgs {
     headerless: bool,
 }
 
+#[async_trait]
 impl WholeStreamCommand for FromODS {
     fn name(&self) -> &str {
         "from ods"
@@ -30,7 +31,7 @@ impl WholeStreamCommand for FromODS {
         "Parse OpenDocument Spreadsheet(.ods) data and create table."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

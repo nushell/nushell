@@ -13,6 +13,7 @@ pub struct InsertArgs {
     value: Value,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Insert {
     fn name(&self) -> &str {
         "insert"
@@ -36,7 +37,7 @@ impl WholeStreamCommand for Insert {
         "Insert a new column with a given value."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

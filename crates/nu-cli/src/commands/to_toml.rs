@@ -5,6 +5,7 @@ use nu_protocol::{Primitive, ReturnSuccess, Signature, UnspannedPathMember, Unta
 
 pub struct ToTOML;
 
+#[async_trait]
 impl WholeStreamCommand for ToTOML {
     fn name(&self) -> &str {
         "to toml"
@@ -18,7 +19,7 @@ impl WholeStreamCommand for ToTOML {
         "Convert table into .toml text"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

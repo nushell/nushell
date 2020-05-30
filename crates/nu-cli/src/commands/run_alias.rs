@@ -13,6 +13,7 @@ pub struct AliasCommand {
     block: Block,
 }
 
+#[async_trait]
 impl WholeStreamCommand for AliasCommand {
     fn name(&self) -> &str {
         &self.name
@@ -32,7 +33,7 @@ impl WholeStreamCommand for AliasCommand {
         ""
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
@@ -50,7 +51,7 @@ impl WholeStreamCommand for AliasCommand {
             let evaluated = call_info.evaluate(&registry).await?;
             if let Some(positional) = &evaluated.args.positional {
                 for (pos, arg) in positional.iter().enumerate() {
-                    scope = scope.set_var(alias_command.args[pos].to_string(), arg.clone());
+                    scope.vars.insert(alias_command.args[pos].to_string(), arg.clone());
                 }
             }
 
@@ -58,7 +59,9 @@ impl WholeStreamCommand for AliasCommand {
                 &block,
                 &mut context,
                 input,
-                &scope,
+                &scope.it,
+                &scope.vars,
+                &scope.env,
             ).await;
 
             match result {

@@ -10,6 +10,7 @@ pub struct DebugArgs {
     raw: bool,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Debug {
     fn name(&self) -> &str {
         "debug"
@@ -23,31 +24,32 @@ impl WholeStreamCommand for Debug {
         "Print the Rust debug representation of the values"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        debug_value(args, registry)
+        debug_value(args, registry).await
     }
 }
 
-fn debug_value(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn debug_value(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let (DebugArgs { raw }, mut input) = args.process(&registry).await?;
-        while let Some(v) = input.next().await {
+    let (DebugArgs { raw }, input) = args.process(&registry).await?;
+    Ok(input
+        .map(move |v| {
             if raw {
-                yield ReturnSuccess::value(
+                ReturnSuccess::value(
                     UntaggedValue::string(format!("{:#?}", v)).into_untagged_value(),
-                );
+                )
             } else {
-                yield ReturnSuccess::debug_value(v);
+                ReturnSuccess::debug_value(v)
             }
-        }
-    };
-
-    Ok(stream.to_output_stream())
+        })
+        .to_output_stream())
 }
 
 #[cfg(test)]

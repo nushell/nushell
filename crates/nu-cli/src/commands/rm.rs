@@ -18,6 +18,7 @@ pub struct RemoveArgs {
     pub permanent: Tagged<bool>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Remove {
     fn name(&self) -> &str {
         "rm"
@@ -43,7 +44,7 @@ impl WholeStreamCommand for Remove {
         "Remove file(s)"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

@@ -13,7 +13,7 @@ use futures_codec::FramedRead;
 
 use nu_errors::ShellError;
 use nu_protocol::hir::{ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments};
-use nu_protocol::{Primitive, ReturnSuccess, Scope, Signature, UntaggedValue, Value};
+use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 
 use log::{debug, trace};
 use rustyline::error::ReadlineError;
@@ -110,13 +110,19 @@ fn search_paths() -> Vec<std::path::PathBuf> {
         }
     }
 
-    #[cfg(not(debug_assertions))]
-    {
-        match env::var_os("PATH") {
-            Some(paths) => {
-                search_paths.extend(env::split_paths(&paths).collect::<Vec<_>>());
+    if let Ok(config) = crate::data::config::config(Tag::unknown()) {
+        if let Some(plugin_dirs) = config.get("plugin_dirs") {
+            if let Value {
+                value: UntaggedValue::Table(pipelines),
+                ..
+            } = plugin_dirs
+            {
+                for pipeline in pipelines {
+                    if let Ok(plugin_dir) = pipeline.as_string() {
+                        search_paths.push(PathBuf::from(plugin_dir));
+                    }
+                }
             }
-            None => println!("PATH is not defined in the environment."),
         }
     }
 
@@ -285,6 +291,17 @@ pub fn create_default_context(
             whole_stream_command(Lines),
             whole_stream_command(Trim),
             whole_stream_command(Echo),
+            whole_stream_command(Str),
+            whole_stream_command(StrToFloat),
+            whole_stream_command(StrToInteger),
+            whole_stream_command(StrDowncase),
+            whole_stream_command(StrUpcase),
+            whole_stream_command(StrCapitalize),
+            whole_stream_command(StrFindReplace),
+            whole_stream_command(StrSubstring),
+            whole_stream_command(StrSet),
+            whole_stream_command(StrToDatetime),
+            whole_stream_command(StrTrim),
             whole_stream_command(BuildString),
             // Column manipulation
             whole_stream_command(Reject),
@@ -327,6 +344,7 @@ pub fn create_default_context(
             whole_stream_command(Headers),
             // Data processing
             whole_stream_command(Histogram),
+            whole_stream_command(Average),
             whole_stream_command(Sum),
             // File format output
             whole_stream_command(To),
@@ -870,7 +888,16 @@ async fn process_line(
 
             trace!("{:#?}", classified_block);
             let env = ctx.get_env();
-            match run_block(&classified_block.block, ctx, input_stream, &Scope::env(env)).await {
+            match run_block(
+                &classified_block.block,
+                ctx,
+                input_stream,
+                &Value::nothing(),
+                &IndexMap::new(),
+                &env,
+            )
+            .await
+            {
                 Ok(input) => {
                     // Running a pipeline gives us back a stream that we can then
                     // work through. At the top level, we just want to pull on the
@@ -887,7 +914,9 @@ async fn process_line(
                         raw_input: line.to_string(),
                     };
 
-                    if let Ok(mut output_stream) = crate::commands::autoview::autoview(context) {
+                    if let Ok(mut output_stream) =
+                        crate::commands::autoview::autoview(context).await
+                    {
                         loop {
                             match output_stream.try_next().await {
                                 Ok(Some(ReturnSuccess::Value(Value {

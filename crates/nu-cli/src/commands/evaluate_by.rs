@@ -13,6 +13,7 @@ pub struct EvaluateByArgs {
     evaluate_with: Option<Tagged<String>>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for EvaluateBy {
     fn name(&self) -> &str {
         "evaluate-by"
@@ -31,7 +32,7 @@ impl WholeStreamCommand for EvaluateBy {
         "Creates a new table with the data from the tables rows evaluated by the column given."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

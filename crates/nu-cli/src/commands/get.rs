@@ -17,6 +17,7 @@ pub struct GetArgs {
     rest: Vec<ColumnPath>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Get {
     fn name(&self) -> &str {
         "get"
@@ -33,7 +34,7 @@ impl WholeStreamCommand for Get {
         "Open given cells as text."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

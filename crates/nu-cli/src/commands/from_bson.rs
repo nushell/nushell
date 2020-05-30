@@ -8,6 +8,7 @@ use std::str::FromStr;
 
 pub struct FromBSON;
 
+#[async_trait]
 impl WholeStreamCommand for FromBSON {
     fn name(&self) -> &str {
         "from bson"
@@ -21,7 +22,7 @@ impl WholeStreamCommand for FromBSON {
         "Parse binary as .bson and create table."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

@@ -14,6 +14,7 @@ pub struct ToJSONArgs {
     pretty: Option<Value>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for ToJSON {
     fn name(&self) -> &str {
         "to json"
@@ -32,7 +33,7 @@ impl WholeStreamCommand for ToJSON {
         "Converts table data into JSON text."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

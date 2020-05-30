@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 
 pub struct Drop;
@@ -12,6 +12,7 @@ pub struct DropArgs {
     rows: Option<Tagged<u64>>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Drop {
     fn name(&self) -> &str {
         "drop"
@@ -29,12 +30,25 @@ impl WholeStreamCommand for Drop {
         "Drop the last number of rows."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        drop(args, registry)
+        let (DropArgs { rows }, input) = args.process(&registry).await?;
+        let mut v: Vec<_> = input.into_vec().await;
+
+        let rows_to_drop = if let Some(quantity) = rows {
+            *quantity as usize
+        } else {
+            1
+        };
+
+        for _ in 0..rows_to_drop {
+            v.pop();
+        }
+
+        Ok(futures::stream::iter(v).to_output_stream())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -54,29 +68,6 @@ impl WholeStreamCommand for Drop {
             },
         ]
     }
-}
-
-fn drop(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let stream = async_stream! {
-        let (DropArgs { rows }, mut input) = args.process(&registry).await?;
-        let v: Vec<_> = input.into_vec().await;
-
-        let rows_to_drop = if let Some(quantity) = rows {
-            *quantity as usize
-        } else {
-            1
-        };
-
-        if rows_to_drop < v.len() {
-            let k = v.len() - rows_to_drop;
-            for x in v[0..k].iter() {
-                let y: Value = x.clone();
-                yield ReturnSuccess::value(y)
-            }
-        }
-    };
-    Ok(stream.to_output_stream())
 }
 
 #[cfg(test)]

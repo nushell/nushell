@@ -3,12 +3,13 @@ use crate::context::CommandRegistry;
 use crate::prelude::*;
 use futures::stream::StreamExt;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnValue, Signature, Value};
+use nu_protocol::{Signature, Value};
 
 use clipboard::{ClipboardContext, ClipboardProvider};
 
 pub struct Clip;
 
+#[async_trait]
 impl WholeStreamCommand for Clip {
     fn name(&self) -> &str {
         "clip"
@@ -22,12 +23,12 @@ impl WholeStreamCommand for Clip {
         "Copy the contents of the pipeline to the copy/paste buffer"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        clip(args, registry)
+        clip(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -39,31 +40,21 @@ impl WholeStreamCommand for Clip {
     }
 }
 
-pub fn clip(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let stream = async_stream! {
-        let mut input = args.input;
-        let name = args.call_info.name_tag.clone();
-        let values: Vec<Value> = input.collect().await;
+pub async fn clip(
+    args: CommandArgs,
+    _registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
+    let input = args.input;
+    let name = args.call_info.name_tag.clone();
+    let values: Vec<Value> = input.collect().await;
 
-        let mut clip_stream = inner_clip(values, name).await;
-        while let Some(value) = clip_stream.next().await {
-            yield value;
-        }
-    };
-
-    let stream: BoxStream<'static, ReturnValue> = stream.boxed();
-
-    Ok(OutputStream::from(stream))
-}
-
-async fn inner_clip(input: Vec<Value>, name: Tag) -> OutputStream {
     if let Ok(clip_context) = ClipboardProvider::new() {
         let mut clip_context: ClipboardContext = clip_context;
         let mut new_copy_data = String::new();
 
-        if !input.is_empty() {
+        if !values.is_empty() {
             let mut first = true;
-            for i in input.iter() {
+            for i in values.iter() {
                 if !first {
                     new_copy_data.push_str("\n");
                 } else {
@@ -73,11 +64,11 @@ async fn inner_clip(input: Vec<Value>, name: Tag) -> OutputStream {
                 let string: String = match i.as_string() {
                     Ok(string) => string.to_string(),
                     Err(_) => {
-                        return OutputStream::one(Err(ShellError::labeled_error(
+                        return Err(ShellError::labeled_error(
                             "Given non-string data",
                             "expected strings from pipeline",
                             name,
-                        )))
+                        ))
                     }
                 };
 
@@ -88,22 +79,21 @@ async fn inner_clip(input: Vec<Value>, name: Tag) -> OutputStream {
         match clip_context.set_contents(new_copy_data) {
             Ok(_) => {}
             Err(_) => {
-                return OutputStream::one(Err(ShellError::labeled_error(
+                return Err(ShellError::labeled_error(
                     "Could not set contents of clipboard",
                     "could not set contents of clipboard",
                     name,
-                )));
+                ));
             }
         }
-
-        OutputStream::empty()
     } else {
-        OutputStream::one(Err(ShellError::labeled_error(
+        return Err(ShellError::labeled_error(
             "Could not open clipboard",
             "could not open clipboard",
             name,
-        )))
+        ));
     }
+    Ok(OutputStream::empty())
 }
 
 #[cfg(test)]

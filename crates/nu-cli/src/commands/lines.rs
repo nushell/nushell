@@ -5,6 +5,7 @@ use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 
 pub struct Lines;
 
+#[async_trait]
 impl WholeStreamCommand for Lines {
     fn name(&self) -> &str {
         "lines"
@@ -18,7 +19,7 @@ impl WholeStreamCommand for Lines {
         "Split single string into rows, one per line."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

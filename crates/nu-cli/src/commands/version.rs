@@ -6,6 +6,7 @@ use nu_protocol::{Dictionary, Signature, UntaggedValue};
 
 pub struct Version;
 
+#[async_trait]
 impl WholeStreamCommand for Version {
     fn name(&self) -> &str {
         "version"
@@ -19,7 +20,7 @@ impl WholeStreamCommand for Version {
         "Display Nu version"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

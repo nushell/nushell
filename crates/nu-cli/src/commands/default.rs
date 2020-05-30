@@ -14,6 +14,7 @@ struct DefaultArgs {
 
 pub struct Default;
 
+#[async_trait]
 impl WholeStreamCommand for Default {
     fn name(&self) -> &str {
         "default"
@@ -33,12 +34,12 @@ impl WholeStreamCommand for Default {
         "Sets a default row's column if missing."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        default(args, registry)
+        default(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -50,11 +51,15 @@ impl WholeStreamCommand for Default {
     }
 }
 
-fn default(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn default(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let (DefaultArgs { column, value }, mut input) = args.process(&registry).await?;
-        while let Some(item) = input.next().await {
+    let (DefaultArgs { column, value }, input) = args.process(&registry).await?;
+
+    Ok(input
+        .map(move |item| {
             let should_add = match item {
                 Value {
                     value: UntaggedValue::Row(ref r),
@@ -65,17 +70,14 @@ fn default(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
 
             if should_add {
                 match item.insert_data_at_path(&column.item, value.clone()) {
-                    Some(new_value) => yield ReturnSuccess::value(new_value),
-                    None => yield ReturnSuccess::value(item),
+                    Some(new_value) => ReturnSuccess::value(new_value),
+                    None => ReturnSuccess::value(item),
                 }
             } else {
-                yield ReturnSuccess::value(item);
+                ReturnSuccess::value(item)
             }
-
-        }
-    };
-
-    Ok(stream.to_output_stream())
+        })
+        .to_output_stream())
 }
 
 #[cfg(test)]

@@ -15,6 +15,18 @@ impl Plugin for Fetch {
                 SyntaxShape::String,
                 "the URL to fetch the contents from",
             )
+            .named(
+                "user",
+                SyntaxShape::Any,
+                "the username when authenticating",
+                Some('u'),
+            )
+            .named(
+                "password",
+                SyntaxShape::Any,
+                "the password when authenticating",
+                Some('p'),
+            )
             .switch("raw", "fetch contents as text rather than a table", Some('r'))
             .filter())
     }
@@ -26,6 +38,8 @@ impl Plugin for Fetch {
                 ShellError::labeled_error("internal error: path not set", "path not set", &self.tag)
             })?,
             self.has_raw,
+            self.user.clone(),
+            self.password.clone(),
         ))])
     }
 }

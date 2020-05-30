@@ -12,6 +12,7 @@ pub struct FromCSVArgs {
     separator: Option<Value>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for FromCSV {
     fn name(&self) -> &str {
         "from csv"
@@ -36,7 +37,7 @@ impl WholeStreamCommand for FromCSV {
         "Parse text as .csv and create table."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

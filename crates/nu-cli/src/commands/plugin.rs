@@ -42,6 +42,7 @@ pub struct PluginCommand {
     config: Signature,
 }
 
+#[async_trait]
 impl WholeStreamCommand for PluginCommand {
     fn name(&self) -> &str {
         &self.name
@@ -55,7 +56,7 @@ impl WholeStreamCommand for PluginCommand {
         &self.config.usage
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
@@ -193,7 +194,7 @@ pub fn filter_plugin(
             }
         }
 
-        // End of the stream
+        // post stream contents
         {
             let stdin = child.stdin.as_mut().expect("Failed to open stdin");
             let stdout = child.stdout.as_mut().expect("Failed to open stdout");
@@ -201,15 +202,23 @@ pub fn filter_plugin(
             let mut reader = BufReader::new(stdout);
 
             let request: JsonRpc<std::vec::Vec<Value>> = JsonRpc::new("end_filter", vec![]);
-            let request_raw = match serde_json::to_string(&request) {
-                Ok(req) => req,
-                Err(err) => {
-                    yield Err(ShellError::unexpected(format!("{}", err)));
-                    return;
-                }
-            };
+            let request_raw = serde_json::to_string(&request);
 
-            let _ = stdin.write(format!("{}\n", request_raw).as_bytes()); // TODO: Handle error
+            match request_raw {
+                Err(_) => {
+                    yield Err(ShellError::labeled_error(
+                        "Could not load json from plugin",
+                        "could not load json from plugin",
+                        &call_info.name_tag,
+                    ));
+                }
+                Ok(request_raw) => match stdin.write(format!("{}\n", request_raw).as_bytes()) {
+                    Ok(_) => {}
+                    Err(err) => {
+                        yield Err(ShellError::unexpected(format!("{}", err)));
+                    }
+                },
+            }
 
             let mut input = String::new();
             match reader.read_line(&mut input) {
@@ -217,26 +226,7 @@ pub fn filter_plugin(
                     let response = serde_json::from_str::<NuResult>(&input);
                     match response {
                         Ok(NuResult::response { params }) => match params {
-                            Ok(params) => {
-                                let request: JsonRpc<std::vec::Vec<Value>> =
-                                    JsonRpc::new("quit", vec![]);
-                                let request_raw = serde_json::to_string(&request);
-                                match request_raw {
-                                    Ok(request_raw) => {
-                                        let _ = stdin.write(format!("{}\n", request_raw).as_bytes()); // TODO: Handle error
-                                    }
-                                    Err(e) => {
-                                        yield Err(ShellError::untagged_runtime_error(format!(
-                                            "Error while processing begin_filter response: {:?} {}",
-                                            e, input
-                                        )));
-                                        return;
-                                    }
-                                }
-
-                                //yield ReturnValue::Ok(params)
-                                //yield ReturnSuccess::value(Value)
-                            }
+                            Ok(params) => for param in params { yield param },
                             Err(e) => {
                                 yield ReturnValue::Err(e);
                             }
@@ -251,14 +241,38 @@ pub fn filter_plugin(
                 }
                 Err(e) => {
                     yield Err(ShellError::untagged_runtime_error(format!(
-                        "Error while reading end_filter: {:?}",
+                        "Error while reading end_filter response: {:?}",
                         e
                     )));
                 }
-            };
-
-            let _ = child.wait();
+            }
         }
+
+        // End of the stream
+        {
+            let stdin = child.stdin.as_mut().expect("Failed to open stdin");
+            let stdout = child.stdout.as_mut().expect("Failed to open stdout");
+
+            let mut reader = BufReader::new(stdout);
+
+            let request: JsonRpc<std::vec::Vec<Value>> = JsonRpc::new("quit", vec![]);
+            let request_raw = serde_json::to_string(&request);
+
+            match request_raw {
+                Ok(request_raw) => {
+                    let _ = stdin.write(format!("{}\n", request_raw).as_bytes()); // TODO: Handle error
+                }
+                Err(e) => {
+                    yield Err(ShellError::untagged_runtime_error(format!(
+                        "Error while processing quit response: {:?}",
+                        e
+                    )));
+                    return;
+                }
+            }
+        }
+
+        let _ = child.wait();
     };
 
     Ok(stream.to_output_stream())
@@ -271,6 +285,7 @@ pub struct PluginSink {
     config: Signature,
 }
 
+#[async_trait]
 impl WholeStreamCommand for PluginSink {
     fn name(&self) -> &str {
         &self.name
@@ -284,7 +299,7 @@ impl WholeStreamCommand for PluginSink {
         &self.config.usage
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

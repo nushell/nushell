@@ -42,6 +42,8 @@ Syntax: `config {flags}`
 | no_auto_pivot      | boolean                | whether or not to automatically pivot single-row results                  |
 | complete_from_path | boolean                | whether or not to complete names of binaries on PATH (default true)       |
 | rm_always_trash    | boolean                | whether or not to always use system trash when no flags are given to `rm` |
+| pivot_mode         | "auto" or "always" or "never"                | "auto" will only pivot single row tables if the output is greater than the terminal width. "always" will always pivot single row tables. "never" will never pivot single row tables.            |
+| plugin_dirs        | table of strings       | additional directories to search for plugins during startup               |
 
 ## Examples
 

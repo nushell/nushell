@@ -12,6 +12,7 @@ pub struct SortByArgs {
     rest: Vec<Tagged<String>>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for SortBy {
     fn name(&self) -> &str {
         "sort-by"
@@ -25,7 +26,7 @@ impl WholeStreamCommand for SortBy {
         "Sort by the given columns, in increasing order."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

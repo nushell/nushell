@@ -11,6 +11,7 @@ pub struct ToTSVArgs {
     headerless: bool,
 }
 
+#[async_trait]
 impl WholeStreamCommand for ToTSV {
     fn name(&self) -> &str {
         "to tsv"
@@ -28,7 +29,7 @@ impl WholeStreamCommand for ToTSV {
         "Convert table into .tsv text"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

@@ -7,6 +7,7 @@ use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
 
 pub struct ToMarkdown;
 
+#[async_trait]
 impl WholeStreamCommand for ToMarkdown {
     fn name(&self) -> &str {
         "to md"
@@ -20,7 +21,7 @@ impl WholeStreamCommand for ToMarkdown {
         "Convert table into simple Markdown"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

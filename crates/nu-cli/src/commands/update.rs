@@ -15,6 +15,7 @@ pub struct UpdateArgs {
     replacement: Value,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Update {
     fn name(&self) -> &str {
         "update"
@@ -38,7 +39,7 @@ impl WholeStreamCommand for Update {
         "Update an existing column to have a new value."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
@@ -62,14 +63,15 @@ fn update(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
                     tag,
                 } =>  {
                     let for_block = input.clone();
-                    let input_clone = input.clone();
                     let input_stream = once(async { Ok(for_block) }).to_input_stream();
 
                     let result = run_block(
                         &block,
                         &mut context,
                         input_stream,
-                        &scope.clone().set_it(input_clone),
+                        &input,
+                        &scope.vars,
+                        &scope.env
                     ).await;
 
                     match result {

@@ -8,6 +8,7 @@ use std::io::{BufRead, BufReader};
 
 pub struct History;
 
+#[async_trait]
 impl WholeStreamCommand for History {
     fn name(&self) -> &str {
         "history"
@@ -21,7 +22,7 @@ impl WholeStreamCommand for History {
         "Display command history."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

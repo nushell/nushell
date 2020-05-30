@@ -12,6 +12,7 @@ pub struct BuildStringArgs {
 
 pub struct BuildString;
 
+#[async_trait]
 impl WholeStreamCommand for BuildString {
     fn name(&self) -> &str {
         "build-string"
@@ -26,12 +27,23 @@ impl WholeStreamCommand for BuildString {
         "Builds a string from the arguments"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        build_string(args, registry)
+        let tag = args.call_info.name_tag.clone();
+        let (BuildStringArgs { rest }, _) = args.process(&registry).await?;
+
+        let mut output_string = String::new();
+
+        for r in rest {
+            output_string.push_str(&format_leaf(&r).plain_string(100_000))
+        }
+
+        Ok(OutputStream::one(ReturnSuccess::value(
+            UntaggedValue::string(output_string).into_value(tag),
+        )))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -41,25 +53,4 @@ impl WholeStreamCommand for BuildString {
             result: None,
         }]
     }
-}
-
-pub fn build_string(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let tag = args.call_info.name_tag.clone();
-    let stream = async_stream! {
-        let (BuildStringArgs { rest }, mut input) = args.process(&registry).await?;
-
-        let mut output_string = String::new();
-
-        for r in rest {
-            output_string.push_str(&format_leaf(&r).plain_string(100_000))
-        }
-
-        yield Ok(ReturnSuccess::Value(UntaggedValue::string(&output_string).into_value(tag)));
-    };
-
-    Ok(stream.to_output_stream())
 }

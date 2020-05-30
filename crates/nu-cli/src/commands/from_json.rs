@@ -10,6 +10,7 @@ pub struct FromJSONArgs {
     objects: bool,
 }
 
+#[async_trait]
 impl WholeStreamCommand for FromJSON {
     fn name(&self) -> &str {
         "from json"
@@ -27,7 +28,7 @@ impl WholeStreamCommand for FromJSON {
         "Parse text as .json and create table."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

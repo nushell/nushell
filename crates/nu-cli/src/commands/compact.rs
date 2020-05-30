@@ -1,6 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
+use futures::future;
 use futures::stream::StreamExt;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
@@ -13,6 +14,7 @@ pub struct CompactArgs {
     rest: Vec<Tagged<String>>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Compact {
     fn name(&self) -> &str {
         "compact"
@@ -26,12 +28,12 @@ impl WholeStreamCommand for Compact {
         "Creates a table with non-empty rows"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        compact(args, registry)
+        compact(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -54,31 +56,40 @@ impl WholeStreamCommand for Compact {
     }
 }
 
-pub fn compact(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+pub async fn compact(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let (CompactArgs { rest: columns }, mut input) = args.process(&registry).await?;
-        while let Some(item) = input.next().await {
-            if columns.is_empty() {
+    let (CompactArgs { rest: columns }, input) = args.process(&registry).await?;
+    Ok(input
+        .filter_map(move |item| {
+            future::ready(if columns.is_empty() {
                 if !item.is_empty() {
-                    yield ReturnSuccess::value(item);
+                    Some(ReturnSuccess::value(item))
+                } else {
+                    None
                 }
             } else {
                 match item {
                     Value {
                         value: UntaggedValue::Row(ref r),
                         ..
-                    } => if columns
-                        .iter()
-                        .all(|field| r.get_data(field).borrow().is_some()) {
-                            yield ReturnSuccess::value(item);
+                    } => {
+                        if columns
+                            .iter()
+                            .all(|field| r.get_data(field).borrow().is_some())
+                        {
+                            Some(ReturnSuccess::value(item))
+                        } else {
+                            None
                         }
-                    _ => {},
+                    }
+                    _ => None,
                 }
-            };
-        }
-    };
-    Ok(stream.to_output_stream())
+            })
+        })
+        .to_output_stream())
 }
 
 #[cfg(test)]

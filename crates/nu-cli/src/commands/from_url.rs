@@ -5,6 +5,7 @@ use nu_protocol::{ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue};
 
 pub struct FromURL;
 
+#[async_trait]
 impl WholeStreamCommand for FromURL {
     fn name(&self) -> &str {
         "from url"
@@ -18,7 +19,7 @@ impl WholeStreamCommand for FromURL {
         "Parse url-encoded string as a table."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

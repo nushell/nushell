@@ -160,6 +160,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-trait"
+version = "0.1.31"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26c4f3195085c36ea8d24d32b2f828d23296a9370a28aa39d111f6f16bef9f3b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "attohttpc"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2155,7 +2166,6 @@ dependencies = [
  "nu-source",
  "nu-test-support",
  "nu-value-ext",
- "nu_plugin_average",
  "nu_plugin_binaryview",
  "nu_plugin_fetch",
  "nu_plugin_inc",
@@ -2164,7 +2174,6 @@ dependencies = [
  "nu_plugin_post",
  "nu_plugin_ps",
  "nu_plugin_start",
- "nu_plugin_str",
  "nu_plugin_sys",
  "nu_plugin_textview",
  "nu_plugin_tree",
@@ -2194,6 +2203,7 @@ dependencies = [
  "app_dirs",
  "async-recursion",
  "async-stream",
+ "async-trait",
  "base64 0.12.1",
  "bigdecimal",
  "bson",
@@ -2404,17 +2414,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nu_plugin_average"
-version = "0.14.1"
-dependencies = [
- "nu-build",
- "nu-errors",
- "nu-plugin",
- "nu-protocol",
- "nu-source",
-]
-
-[[package]]
 name = "nu_plugin_binaryview"
 version = "0.14.1"
 dependencies = [
@@ -2435,6 +2434,7 @@ dependencies = [
 name = "nu_plugin_fetch"
 version = "0.14.1"
 dependencies = [
+ "base64 0.12.1",
  "futures 0.3.5",
  "nu-build",
  "nu-errors",
@@ -2519,6 +2519,7 @@ dependencies = [
 name = "nu_plugin_start"
 version = "0.1.0"
 dependencies = [
+ "glob",
  "nu-build",
  "nu-errors",
  "nu-plugin",
@@ -2526,22 +2527,6 @@ dependencies = [
  "nu-source",
  "open",
  "url",
-]
-
-[[package]]
-name = "nu_plugin_str"
-version = "0.14.1"
-dependencies = [
- "bigdecimal",
- "chrono",
- "nu-build",
- "nu-errors",
- "nu-plugin",
- "nu-protocol",
- "nu-source",
- "nu-value-ext",
- "num-bigint",
- "regex",
 ]
 
 [[package]]

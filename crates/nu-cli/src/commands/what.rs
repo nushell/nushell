@@ -9,6 +9,7 @@ pub struct What;
 #[derive(Deserialize)]
 pub struct WhatArgs {}
 
+#[async_trait]
 impl WholeStreamCommand for What {
     fn name(&self) -> &str {
         "describe"
@@ -22,7 +23,7 @@ impl WholeStreamCommand for What {
         "Describes the objects in the stream."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

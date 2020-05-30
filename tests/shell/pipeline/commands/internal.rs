@@ -22,16 +22,17 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
         cwd: dirs.test(), pipeline(
         r#"
             open nu_times.csv
-            | get name
+            | get origin
             | ^echo $it
             | nu --testbin chop
             | lines
-            | nth 3
+            | nth 2
             | echo $it
             "#
         ));
 
-        assert_eq!(actual.out, "AndKitKat");
+        // chop will remove the last escaped double quote from \"Estados Unidos\"
+        assert_eq!(actual.out, "Ecuado");
     })
 }
 
@@ -57,6 +58,18 @@ fn proper_it_expansion() {
             r#"["andres.txt","gedge.txt","jonathan.txt","yehuda.txt"]"#
         );
     })
+}
+
+#[test]
+fn it_expansion_of_list() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            echo "foo" | echo [bar $it] | to json
+        "#
+    );
+
+    assert_eq!(actual.out, "[\"bar\",\"foo\"]");
 }
 
 #[test]
@@ -178,6 +191,18 @@ fn can_process_one_row_from_internal_and_pipes_it_to_stdin_of_external() {
     );
 
     assert_eq!(actual.out, "nushell");
+}
+
+#[test]
+fn echoing_ranges() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            echo 1..3 | sum
+        "#
+    );
+
+    assert_eq!(actual.out, "6");
 }
 
 mod parse {

@@ -16,6 +16,7 @@ struct SelectArgs {
 
 pub struct Select;
 
+#[async_trait]
 impl WholeStreamCommand for Select {
     fn name(&self) -> &str {
         "select"
@@ -32,7 +33,7 @@ impl WholeStreamCommand for Select {
         "Down-select table to only these columns."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

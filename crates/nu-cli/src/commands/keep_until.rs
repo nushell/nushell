@@ -9,6 +9,7 @@ use nu_protocol::{
 
 pub struct KeepUntil;
 
+#[async_trait]
 impl WholeStreamCommand for KeepUntil {
     fn name(&self) -> &str {
         "keep-until"
@@ -28,7 +29,7 @@ impl WholeStreamCommand for KeepUntil {
         "Keeps rows until the condition matches."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
@@ -89,7 +90,7 @@ impl WholeStreamCommand for KeepUntil {
                 let condition = condition.clone();
                 trace!("ITEM = {:?}", item);
                 let result =
-                    evaluate_baseline_expr(&*condition, &registry, &scope.clone().set_it(item.clone()))
+                    evaluate_baseline_expr(&*condition, &registry, &item, &scope.vars, &scope.env)
                         .await;
                 trace!("RESULT = {:?}", result);
 

@@ -3,10 +3,11 @@ use crate::context::CommandRegistry;
 use crate::prelude::*;
 use futures::stream::StreamExt;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
+use nu_protocol::{Signature, UntaggedValue, Value};
 
 pub struct Count;
 
+#[async_trait]
 impl WholeStreamCommand for Count {
     fn name(&self) -> &str {
         "count"
@@ -20,12 +21,17 @@ impl WholeStreamCommand for Count {
         "Show the total number of rows or items."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
-        registry: &CommandRegistry,
+        _registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        count(args, registry)
+        let name = args.call_info.name_tag.clone();
+        let rows: Vec<Value> = args.input.collect().await;
+
+        Ok(OutputStream::one(
+            UntaggedValue::int(rows.len()).into_value(name),
+        ))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -35,17 +41,6 @@ impl WholeStreamCommand for Count {
             result: Some(vec![UntaggedValue::int(5).into()]),
         }]
     }
-}
-
-pub fn count(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let stream = async_stream! {
-        let name = args.call_info.name_tag.clone();
-        let rows: Vec<Value> = args.input.collect().await;
-
-        yield ReturnSuccess::value(UntaggedValue::int(rows.len()).into_value(name))
-    };
-
-    Ok(stream.to_output_stream())
 }
 
 #[cfg(test)]

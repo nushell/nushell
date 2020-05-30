@@ -14,7 +14,8 @@ pub(crate) async fn evaluate_args(
 
     if let Some(positional) = &call.positional {
         for pos in positional {
-            let result = evaluate_baseline_expr(pos, registry, scope).await?;
+            let result =
+                evaluate_baseline_expr(pos, registry, &scope.it, &scope.vars, &scope.env).await?;
             positional_args.push(result);
         }
     }
@@ -36,7 +37,8 @@ pub(crate) async fn evaluate_args(
                 hir::NamedValue::Value(_, expr) => {
                     named_args.insert(
                         name.clone(),
-                        evaluate_baseline_expr(expr, registry, scope).await?,
+                        evaluate_baseline_expr(expr, registry, &scope.it, &scope.vars, &scope.env)
+                            .await?,
                     );
                 }
 

@@ -16,6 +16,7 @@ pub struct FromEMLArgs {
     preview_body: Option<Tagged<usize>>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for FromEML {
     fn name(&self) -> &str {
         "from eml"
@@ -34,7 +35,7 @@ impl WholeStreamCommand for FromEML {
         "Parse text as .eml and create table."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

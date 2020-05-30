@@ -16,6 +16,7 @@ pub struct KillArgs {
     pub quiet: Tagged<bool>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Kill {
     fn name(&self) -> &str {
         "kill"
@@ -37,7 +38,7 @@ impl WholeStreamCommand for Kill {
         "Kill a process using the process id."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

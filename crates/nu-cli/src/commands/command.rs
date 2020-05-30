@@ -35,7 +35,7 @@ impl UnevaluatedCallInfo {
         it: &Value,
     ) -> Result<CallInfo, ShellError> {
         let mut scope = self.scope.clone();
-        scope = scope.set_it(it.clone());
+        scope.it = it.clone();
         let args = evaluate_args(&self.args, registry, &scope).await?;
 
         Ok(CallInfo {
@@ -278,6 +278,7 @@ pub struct Example {
     pub result: Option<Vec<Value>>,
 }
 
+#[async_trait]
 pub trait WholeStreamCommand: Send + Sync {
     fn name(&self) -> &str;
 
@@ -287,7 +288,7 @@ pub trait WholeStreamCommand: Send + Sync {
 
     fn usage(&self) -> &str;
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
@@ -337,7 +338,7 @@ impl Command {
         self.0.usage()
     }
 
-    pub fn run(&self, args: CommandArgs, registry: &CommandRegistry) -> OutputStream {
+    pub async fn run(&self, args: CommandArgs, registry: &CommandRegistry) -> OutputStream {
         if args.call_info.switch_present("help") {
             let cl = self.0.clone();
             let registry = registry.clone();
@@ -346,7 +347,7 @@ impl Command {
             };
             stream.to_output_stream()
         } else {
-            match self.0.run(args, registry) {
+            match self.0.run(args, registry).await {
                 Ok(stream) => stream,
                 Err(err) => OutputStream::one(Err(err)),
             }
@@ -367,6 +368,7 @@ pub struct FnFilterCommand {
     func: fn(EvaluatedFilterCommandArgs) -> Result<OutputStream, ShellError>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for FnFilterCommand {
     fn name(&self) -> &str {
         &self.name
@@ -376,7 +378,7 @@ impl WholeStreamCommand for FnFilterCommand {
         "usage"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

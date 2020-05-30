@@ -9,6 +9,7 @@ use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
 
 pub struct Headers;
 
+#[async_trait]
 impl WholeStreamCommand for Headers {
     fn name(&self) -> &str {
         "headers"
@@ -22,7 +23,7 @@ impl WholeStreamCommand for Headers {
         "Use the first row of the table as column names"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

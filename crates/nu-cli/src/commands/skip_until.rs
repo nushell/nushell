@@ -9,6 +9,7 @@ use nu_protocol::{
 
 pub struct SkipUntil;
 
+#[async_trait]
 impl WholeStreamCommand for SkipUntil {
     fn name(&self) -> &str {
         "skip-until"
@@ -28,7 +29,7 @@ impl WholeStreamCommand for SkipUntil {
         "Skips rows until the condition matches."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
@@ -90,7 +91,7 @@ impl WholeStreamCommand for SkipUntil {
                 let condition = condition.clone();
                 trace!("ITEM = {:?}", item);
                 let result =
-                    evaluate_baseline_expr(&*condition, &registry, &scope.clone().set_it(item.clone()))
+                    evaluate_baseline_expr(&*condition, &registry, &item, &scope.vars, &scope.env)
                         .await;
                 trace!("RESULT = {:?}", result);
 

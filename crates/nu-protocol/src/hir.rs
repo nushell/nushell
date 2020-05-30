@@ -435,7 +435,7 @@ impl PrettyDebug for Unit {
     }
 }
 
-fn convert_number_to_u64(number: &Number) -> u64 {
+pub fn convert_number_to_u64(number: &Number) -> u64 {
     match number {
         Number::Int(big_int) => {
             if let Some(x) = big_int.to_u64() {
@@ -567,6 +567,14 @@ impl SpannedExpression {
             }
             Expression::Variable(Variable::It(_)) => true,
             Expression::Path(path) => path.head.has_shallow_it_usage(),
+            Expression::List(list) => {
+                for l in list {
+                    if l.has_shallow_it_usage() {
+                        return true;
+                    }
+                }
+                false
+            }
             Expression::Invocation(block) => {
                 for commands in block.block.iter() {
                     for command in commands.list.iter() {

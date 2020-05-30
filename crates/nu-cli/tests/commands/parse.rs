@@ -2,31 +2,100 @@ use nu_test_support::fs::Stub;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 
-#[test]
-fn extracts_fields_from_the_given_the_pattern() {
-    Playground::setup("parse_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![Stub::FileWithContentToBeTrimmed(
-            "key_value_separated_arepa_ingredients.txt",
-            r#"
-                VAR1=Cheese
-                VAR2=JonathanParsed
-                VAR3=NushellSecretIngredient
-            "#,
-        )]);
+mod simple {
+    use super::*;
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open key_value_separated_arepa_ingredients.txt
-                | parse "{Name}={Value}"
-                | nth 1
-                | get Value
-                | echo $it
-            "#
-        ));
+    #[test]
+    fn extracts_fields_from_the_given_the_pattern() {
+        Playground::setup("parse_test_1", |dirs, sandbox| {
+            sandbox.with_files(vec![Stub::FileWithContentToBeTrimmed(
+                "key_value_separated_arepa_ingredients.txt",
+                r#"
+                    VAR1=Cheese
+                    VAR2=JonathanParsed
+                    VAR3=NushellSecretIngredient
+                "#,
+            )]);
 
-        assert_eq!(actual.out, "JonathanParsed");
-    })
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                    open key_value_separated_arepa_ingredients.txt
+                    | lines
+                    | each { echo $it | parse "{Name}={Value}" }
+                    | nth 1
+                    | echo $it.Value
+                "#
+            ));
+
+            assert_eq!(actual.out, "JonathanParsed");
+        })
+    }
+
+    #[test]
+    fn double_open_curly_evalutes_to_a_single_curly() {
+        Playground::setup("parse_test_regex_2", |dirs, _sandbox| {
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                    echo "{abc}123"
+                    | parse "{{abc}{name}"
+                    | echo $it.name
+                "#
+            ));
+
+            assert_eq!(actual.out, "123");
+        })
+    }
+
+    #[test]
+    fn properly_escapes_text() {
+        Playground::setup("parse_test_regex_3", |dirs, _sandbox| {
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                    echo "(abc)123"
+                    | parse "(abc){name}"
+                    | echo $it.name
+                "#
+            ));
+
+            assert_eq!(actual.out, "123");
+        })
+    }
+
+    #[test]
+    fn properly_captures_empty_column() {
+        Playground::setup("parse_test_regex_4", |dirs, _sandbox| {
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                    echo ["1:INFO:component:all is well" "2:ERROR::something bad happened"]
+                    | parse "{timestamp}:{level}:{tag}:{entry}"
+                    | get entry
+                    | nth 1
+                "#
+            ));
+
+            assert_eq!(actual.out, "something bad happened");
+        })
+    }
+
+    #[test]
+    fn errors_when_missing_closing_brace() {
+        Playground::setup("parse_test_regex_5", |dirs, _sandbox| {
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                    echo "(abc)123"
+                    | parse "(abc){name"
+                    | echo $it.name
+                "#
+            ));
+
+            assert!(actual.err.contains("invalid parse pattern"));
+        })
+    }
 }
 
 mod regex {
@@ -50,12 +119,12 @@ mod regex {
             let actual = nu!(
                 cwd: dirs.test(), pipeline(
                 r#"
-                open nushell_git_log_oneline.txt
-                | parse --regex "(?P<Hash>\w+) (?P<Message>.+) \(#(?P<PR>\d+)\)"
-                | nth 1
-                | get PR
-                | echo $it
-            "#
+                    open nushell_git_log_oneline.txt
+                    | parse --regex "(?P<Hash>\w+) (?P<Message>.+) \(#(?P<PR>\d+)\)"
+                    | nth 1
+                    | get PR
+                    | echo $it
+                "#
             ));
 
             assert_eq!(actual.out, "1842");
@@ -70,12 +139,12 @@ mod regex {
             let actual = nu!(
                 cwd: dirs.test(), pipeline(
                 r#"
-                open nushell_git_log_oneline.txt
-                | parse --regex "(\w+) (.+) \(#(\d+)\)"
-                | nth 1
-                | get Capture1
-                | echo $it
-            "#
+                    open nushell_git_log_oneline.txt
+                    | parse --regex "(\w+) (.+) \(#(\d+)\)"
+                    | nth 1
+                    | get Capture1
+                    | echo $it
+                "#
             ));
 
             assert_eq!(actual.out, "b89976da");
@@ -90,15 +159,33 @@ mod regex {
             let actual = nu!(
                 cwd: dirs.test(), pipeline(
                 r#"
-                open nushell_git_log_oneline.txt
-                | parse --regex "(?P<Hash>\w+) (.+) \(#(?P<PR>\d+)\)"
-                | nth 1
-                | get Capture2
-                | echo $it
-            "#
+                    open nushell_git_log_oneline.txt
+                    | parse --regex "(?P<Hash>\w+) (.+) \(#(?P<PR>\d+)\)"
+                    | nth 1
+                    | get Capture2
+                    | echo $it
+                "#
             ));
 
             assert_eq!(actual.out, "let format access variables also");
+        })
+    }
+
+    #[test]
+    fn errors_with_invalid_regex() {
+        Playground::setup("parse_test_regex_1", |dirs, sandbox| {
+            sandbox.with_files(nushell_git_log_oneline());
+
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                    open nushell_git_log_oneline.txt
+                    | parse --regex "(?P<Hash>\w+ unfinished capture group"
+                    | echo $it
+                "#
+            ));
+
+            assert!(actual.err.contains("invalid regex"));
         })
     }
 }

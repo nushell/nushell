@@ -8,6 +8,7 @@ use std::io::Read;
 
 pub struct ToSQLite;
 
+#[async_trait]
 impl WholeStreamCommand for ToSQLite {
     fn name(&self) -> &str {
         "to sqlite"
@@ -21,7 +22,7 @@ impl WholeStreamCommand for ToSQLite {
         "Convert table to sqlite .db binary data"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
@@ -36,6 +37,7 @@ impl WholeStreamCommand for ToSQLite {
 
 pub struct ToDB;
 
+#[async_trait]
 impl WholeStreamCommand for ToDB {
     fn name(&self) -> &str {
         "to db"
@@ -49,7 +51,7 @@ impl WholeStreamCommand for ToDB {
         "Convert table to db data"
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

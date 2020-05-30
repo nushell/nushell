@@ -112,6 +112,7 @@ impl Shell for FilesystemShell {
         name_tag: Tag,
         ctrl_c: Arc<AtomicBool>,
     ) -> Result<OutputStream, ShellError> {
+        let ctrl_c_copy = ctrl_c.clone();
         let (path, p_tag) = match path {
             Some(p) => {
                 let p_tag = p.tag;
@@ -171,6 +172,7 @@ impl Shell for FilesystemShell {
                     short_names,
                     with_symlink_targets,
                     du,
+                    ctrl_c.clone()
                 )
                 .map(|entry| ReturnSuccess::Value(entry.into()))?;
 
@@ -178,7 +180,7 @@ impl Shell for FilesystemShell {
             }
         };
 
-        Ok(stream.interruptible(ctrl_c).to_output_stream())
+        Ok(stream.interruptible(ctrl_c_copy).to_output_stream())
     }
 
     fn cd(&self, args: CdArgs, name: Tag) -> Result<OutputStream, ShellError> {

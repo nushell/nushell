@@ -7,10 +7,11 @@ use crate::commands::WholeStreamCommand;
 use chrono::{Datelike, TimeZone, Timelike};
 use core::fmt::Display;
 use indexmap::IndexMap;
-use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
+use nu_protocol::{Signature, UntaggedValue};
 
 pub struct Date;
 
+#[async_trait]
 impl WholeStreamCommand for Date {
     fn name(&self) -> &str {
         "date"
@@ -26,12 +27,12 @@ impl WholeStreamCommand for Date {
         "Get the current datetime."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        date(args, registry)
+        date(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -90,25 +91,24 @@ where
     UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag)
 }
 
-pub fn date(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+pub async fn date(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let args = args.evaluate_once(&registry).await?;
+    let args = args.evaluate_once(&registry).await?;
 
-        let tag = args.call_info.name_tag.clone();
+    let tag = args.call_info.name_tag.clone();
 
-        let value = if args.has("utc") {
-            let utc: DateTime<Utc> = Utc::now();
-            date_to_value(utc, tag)
-        } else {
-            let local: DateTime<Local> = Local::now();
-            date_to_value(local, tag)
-        };
-
-        yield ReturnSuccess::value(value);
+    let value = if args.has("utc") {
+        let utc: DateTime<Utc> = Utc::now();
+        date_to_value(utc, tag)
+    } else {
+        let local: DateTime<Local> = Local::now();
+        date_to_value(local, tag)
     };
 
-    Ok(stream.to_output_stream())
+    Ok(OutputStream::one(value))
 }
 
 #[cfg(test)]

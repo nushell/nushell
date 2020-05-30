@@ -17,6 +17,7 @@ nu-errors = { path = "../nu-errors", version = "0.14.1" }
 futures = { version = "0.3", features = ["compat", "io-compat"] }
 surf = "1.0.3"
 url = "2.1.1"
+base64 = "0.12.1"
 
 [build-dependencies]
 nu-build = { version = "0.14.1", path = "../nu-build" }

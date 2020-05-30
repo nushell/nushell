@@ -1,4 +1,4 @@
 mod nu;
 mod parse;
 
-pub use parse::{ColumnNames, Parse};
+pub use parse::Parse;

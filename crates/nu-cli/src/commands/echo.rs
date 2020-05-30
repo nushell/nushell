@@ -1,7 +1,10 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::hir::Operator;
+use nu_protocol::{
+    Primitive, RangeInclusion, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+};
 
 pub struct Echo;
 
@@ -10,6 +13,7 @@ pub struct EchoArgs {
     pub rest: Vec<Value>,
 }
 
+#[async_trait]
 impl WholeStreamCommand for Echo {
     fn name(&self) -> &str {
         "echo"
@@ -23,7 +27,7 @@ impl WholeStreamCommand for Echo {
         "Echo the arguments back to the user."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
@@ -66,6 +70,37 @@ fn echo(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, S
                     } => {
                         for value in table {
                             yield Ok(ReturnSuccess::Value(value.clone()));
+                        }
+                    }
+                    Value {
+                        value: UntaggedValue::Primitive(Primitive::Range(range)),
+                        tag
+                    } => {
+                        let mut current = range.from.0.item;
+                        while current != range.to.0.item {
+                            yield Ok(ReturnSuccess::Value(UntaggedValue::Primitive(current.clone()).into_value(&tag)));
+                            current = match crate::data::value::compute_values(Operator::Plus, &UntaggedValue::Primitive(current), &UntaggedValue::int(1)) {
+                                Ok(result) => match result {
+                                    UntaggedValue::Primitive(p) => p,
+                                    _ => {
+                                        yield Err(ShellError::unimplemented("Internal error: expected a primitive result from increment"));
+                                        return;
+                                    }
+                                },
+                                Err((left_type, right_type)) => {
+                                    yield Err(ShellError::coerce_error(
+                                        left_type.spanned(tag.span),
+                                        right_type.spanned(tag.span),
+                                    ));
+                                    return;
+                                }
+                            }
+                        }
+                        match range.to.1 {
+                            RangeInclusion::Inclusive => {
+                                yield Ok(ReturnSuccess::Value(UntaggedValue::Primitive(current.clone()).into_value(&tag)));
+                            }
+                            _ => {}
                         }
                     }
                     _ => {

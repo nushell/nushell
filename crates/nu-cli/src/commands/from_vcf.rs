@@ -9,6 +9,7 @@ use std::io::BufReader;
 
 pub struct FromVcf;
 
+#[async_trait]
 impl WholeStreamCommand for FromVcf {
     fn name(&self) -> &str {
         "from vcf"
@@ -22,7 +23,7 @@ impl WholeStreamCommand for FromVcf {
         "Parse text as .vcf and create table."
     }
 
-    fn run(
+    async fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,

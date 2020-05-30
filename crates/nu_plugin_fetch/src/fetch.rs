@@ -1,3 +1,4 @@
+use base64::encode;
 use mime::Mime;
 use nu_errors::ShellError;
 use nu_protocol::{CallInfo, CommandAction, ReturnSuccess, ReturnValue, UntaggedValue, Value};
@@ -11,6 +12,8 @@ pub struct Fetch {
     pub path: Option<Value>,
     pub tag: Tag,
     pub has_raw: bool,
+    pub user: Option<String>,
+    pub password: Option<String>,
 }
 
 impl Fetch {
@@ -19,6 +22,8 @@ impl Fetch {
             path: None,
             tag: Tag::unknown(),
             has_raw: false,
+            user: None,
+            password: None,
         }
     }
 
@@ -37,15 +42,30 @@ impl Fetch {
 
         self.has_raw = call_info.args.has("raw");
 
+        self.user = match call_info.args.get("user") {
+            Some(user) => Some(user.as_string()?),
+            None => None,
+        };
+
+        self.password = match call_info.args.get("password") {
+            Some(password) => Some(password.as_string()?),
+            None => None,
+        };
+
         ReturnSuccess::value(UntaggedValue::nothing().into_untagged_value())
     }
 }
 
-pub async fn fetch_helper(path: &Value, has_raw: bool) -> ReturnValue {
+pub async fn fetch_helper(
+    path: &Value,
+    has_raw: bool,
+    user: Option<String>,
+    password: Option<String>,
+) -> ReturnValue {
     let path_str = path.as_string()?;
     let path_span = path.tag.span;
 
-    let result = fetch(&path_str, path_span, has_raw).await;
+    let result = fetch(&path_str, path_span, has_raw, user, password).await;
 
     if let Err(e) = result {
         return Err(e);
@@ -76,6 +96,8 @@ pub async fn fetch(
     location: &str,
     span: Span,
     has_raw: bool,
+    user: Option<String>,
+    password: Option<String>,
 ) -> Result<(Option<String>, UntaggedValue, Tag), ShellError> {
     if url::Url::parse(location).is_err() {
         return Err(ShellError::labeled_error(
@@ -84,9 +106,16 @@ pub async fn fetch(
             span,
         ));
     }
-
-    let response = surf::get(location).await;
-    match response {
+    let login = match (user, password) {
+        (Some(user), Some(password)) => Some(encode(&format!("{}:{}", user, password))),
+        (Some(user), _) => Some(encode(&format!("{}:", user))),
+        _ => None,
+    };
+    let mut response = surf::get(location);
+    if let Some(login) = login {
+        response = response.set_header("Authorization", format!("Basic {}", login));
+    }
+    match response.await {
         Ok(mut r) => match r.headers().get("content-type") {
             Some(content_type) => {
                 let content_type = Mime::from_str(content_type).map_err(|_| {

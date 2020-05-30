@@ -25,7 +25,6 @@ nu-protocol = { version = "0.14.1", path = "./crates/nu-protocol" }
 nu-errors = { version = "0.14.1", path = "./crates/nu-errors" }
 nu-parser = { version = "0.14.1", path = "./crates/nu-parser" }
 nu-value-ext = { version = "0.14.1", path = "./crates/nu-value-ext" }
-nu_plugin_average = { version = "0.14.1", path = "./crates/nu_plugin_average", optional=true }
 nu_plugin_binaryview = { version = "0.14.1", path = "./crates/nu_plugin_binaryview", optional=true }
 nu_plugin_fetch = { version = "0.14.1", path = "./crates/nu_plugin_fetch", optional=true }
 nu_plugin_inc = { version = "0.14.1", path = "./crates/nu_plugin_inc", optional=true }
@@ -34,7 +33,6 @@ nu_plugin_parse = { version = "0.14.1", path = "./crates/nu_plugin_parse", optio
 nu_plugin_post = { version = "0.14.1", path = "./crates/nu_plugin_post", optional=true }
 nu_plugin_ps = { version = "0.14.1", path = "./crates/nu_plugin_ps", optional=true }
 nu_plugin_start = { version = "0.1.0", path = "./crates/nu_plugin_start", optional=true }
-nu_plugin_str = { version = "0.14.1", path = "./crates/nu_plugin_str", optional=true }
 nu_plugin_sys = { version = "0.14.1", path = "./crates/nu_plugin_sys", optional=true }
 nu_plugin_textview = { version = "0.14.1", path = "./crates/nu_plugin_textview", optional=true }
 nu_plugin_tree = { version = "0.14.1", path = "./crates/nu_plugin_tree", optional=true }
@@ -60,18 +58,16 @@ serde = { version = "1.0.110", features = ["derive"] }
 nu-build = { version = "0.14.1", path = "./crates/nu-build" }
 
 [features]
-default = ["sys", "ps", "textview", "inc", "str"]
-stable = ["default", "starship-prompt", "binaryview", "match", "tree", "average", "parse", "post", "fetch", "clipboard-cli", "trash-support", "start"]
+default = ["sys", "ps", "textview", "inc"]
+stable = ["default", "starship-prompt", "binaryview", "match", "tree", "parse", "post", "fetch", "clipboard-cli", "trash-support", "start"]
 
 # Default
 textview = ["crossterm", "syntect", "url", "nu_plugin_textview"]
 sys = ["nu_plugin_sys"]
 ps = ["nu_plugin_ps"]
 inc = ["semver", "nu_plugin_inc"]
-str = ["nu_plugin_str"]
 
 # Stable
-average = ["nu_plugin_average"]
 binaryview = ["nu_plugin_binaryview"]
 fetch = ["nu_plugin_fetch"]
 match = ["nu_plugin_match"]
@@ -104,21 +100,11 @@ path = "src/plugins/nu_plugin_core_ps.rs"
 required-features = ["ps"]
 
 [[bin]]
-name = "nu_plugin_core_str"
-path = "src/plugins/nu_plugin_core_str.rs"
-required-features = ["str"]
-
-[[bin]]
 name = "nu_plugin_core_sys"
 path = "src/plugins/nu_plugin_core_sys.rs"
 required-features = ["sys"]
 
 # Stable plugins
-[[bin]]
-name = "nu_plugin_stable_average"
-path = "src/plugins/nu_plugin_stable_average.rs"
-required-features = ["average"]
-
 [[bin]]
 name = "nu_plugin_stable_fetch"
 path = "src/plugins/nu_plugin_stable_fetch.rs"
