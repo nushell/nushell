@@ -435,7 +435,7 @@ impl PrettyDebug for Unit {
     }
 }
 
-fn convert_number_to_u64(number: &Number) -> u64 {
+pub fn convert_number_to_u64(number: &Number) -> u64 {
     match number {
         Number::Int(big_int) => {
             if let Some(x) = big_int.to_u64() {

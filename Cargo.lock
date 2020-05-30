@@ -2166,7 +2166,6 @@ dependencies = [
  "nu-source",
  "nu-test-support",
  "nu-value-ext",
- "nu_plugin_average",
  "nu_plugin_binaryview",
  "nu_plugin_fetch",
  "nu_plugin_inc",
@@ -2412,17 +2411,6 @@ dependencies = [
  "nu-protocol",
  "nu-source",
  "num-traits 0.2.11",
-]
-
-[[package]]
-name = "nu_plugin_average"
-version = "0.14.1"
-dependencies = [
- "nu-build",
- "nu-errors",
- "nu-plugin",
- "nu-protocol",
- "nu-source",
 ]
 
 [[package]]
