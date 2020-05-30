@@ -78,7 +78,7 @@ impl WholeStreamCommand for Du {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        du(args, registry)
+        du(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -90,76 +90,75 @@ impl WholeStreamCommand for Du {
     }
 }
 
-fn du(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn du(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let tag = args.call_info.name_tag.clone();
     let ctrl_c = args.ctrl_c.clone();
     let ctrl_c_copy = ctrl_c.clone();
 
-    let stream = async_stream! {
-        let (args, mut input): (DuArgs, _) = args.process(&registry).await?;
-        let exclude = args.exclude.map_or(Ok(None), move |x| {
-            Pattern::new(&x.item)
-                .map(Option::Some)
-                .map_err(|e| ShellError::labeled_error(e.msg, "glob error", x.tag.clone()))
-        })?;
+    let (args, _): (DuArgs, _) = args.process(&registry).await?;
+    let exclude = args.exclude.map_or(Ok(None), move |x| {
+        Pattern::new(&x.item)
+            .map(Option::Some)
+            .map_err(|e| ShellError::labeled_error(e.msg, "glob error", x.tag.clone()))
+    })?;
 
-        let include_files = args.all;
-        let paths = match args.path {
-            Some(p) => {
-                let p = p.item.to_str().expect("Why isn't this encoded properly?");
-                glob::glob_with(p, GLOB_PARAMS)
-            }
-            None => glob::glob_with("*", GLOB_PARAMS),
+    let include_files = args.all;
+    let paths = match args.path {
+        Some(p) => {
+            let p = p.item.to_str().expect("Why isn't this encoded properly?");
+            glob::glob_with(p, GLOB_PARAMS)
         }
-        .map_err(|e| ShellError::labeled_error(e.msg, "glob error", tag.clone()))?
-        .filter(move |p| {
-            if include_files {
-                true
-            } else {
-                match p {
-                    Ok(f) if f.is_dir() => true,
-                    Err(e) if e.path().is_dir() => true,
-                    _ => false,
-                }
-            }
-        })
-        .map(|v| v.map_err(glob_err_into));
-
-        let all = args.all;
-        let deref = args.deref;
-        let max_depth = args.max_depth.map(|f| f.item);
-        let min_size = args.min_size.map(|f| f.item);
-
-        let params = DirBuilder {
-            tag: tag.clone(),
-            min: min_size,
-            deref,
-            exclude,
-            all,
-        };
-
-        let mut inp = futures::stream::iter(paths).interruptible(ctrl_c.clone());
-
-        while let Some(path) = inp.next().await {
-            match path {
-                Ok(p) => {
-                    if p.is_dir() {
-                        yield Ok(ReturnSuccess::Value(
-                            DirInfo::new(p, &params, max_depth, ctrl_c.clone()).into(),
-                        ))
-                    } else {
-                        for v in FileInfo::new(p, deref, tag.clone()).into_iter() {
-                            yield Ok(ReturnSuccess::Value(v.into()));
-                        }
-                    }
-                }
-                Err(e) => yield Err(e),
+        None => glob::glob_with("*", GLOB_PARAMS),
+    }
+    .map_err(|e| ShellError::labeled_error(e.msg, "glob error", tag.clone()))?
+    .filter(move |p| {
+        if include_files {
+            true
+        } else {
+            match p {
+                Ok(f) if f.is_dir() => true,
+                Err(e) if e.path().is_dir() => true,
+                _ => false,
             }
         }
+    })
+    .map(|v| v.map_err(glob_err_into));
+
+    let all = args.all;
+    let deref = args.deref;
+    let max_depth = args.max_depth.map(|f| f.item);
+    let min_size = args.min_size.map(|f| f.item);
+
+    let params = DirBuilder {
+        tag: tag.clone(),
+        min: min_size,
+        deref,
+        exclude,
+        all,
     };
 
-    Ok(stream.interruptible(ctrl_c_copy).to_output_stream())
+    let inp = futures::stream::iter(paths);
+
+    Ok(inp
+        .flat_map(move |path| match path {
+            Ok(p) => {
+                let mut output = vec![];
+                if p.is_dir() {
+                    output.push(Ok(ReturnSuccess::Value(
+                        DirInfo::new(p, &params, max_depth, ctrl_c.clone()).into(),
+                    )));
+                } else {
+                    for v in FileInfo::new(p, deref, tag.clone()).into_iter() {
+                        output.push(Ok(ReturnSuccess::Value(v.into())));
+                    }
+                }
+                futures::stream::iter(output)
+            }
+            Err(e) => futures::stream::iter(vec![Err(e)]),
+        })
+        .interruptible(ctrl_c_copy)
+        .to_output_stream())
 }
 
 pub struct DirBuilder {

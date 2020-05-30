@@ -1,5 +1,5 @@
 use nu_errors::ShellError;
-use nu_protocol::CallInfo;
+use nu_protocol::{CallInfo, Value};
 use nu_source::{Tag, Tagged, TaggedItem};
 use std::path::Path;
 
@@ -42,13 +42,44 @@ impl Start {
         }
     }
 
+    fn glob_to_values(&self, value: &Value) -> Result<Vec<Tagged<String>>, ShellError> {
+        let mut result = vec![];
+        match glob::glob(&value.as_string()?) {
+            Ok(paths) => {
+                for path_result in paths {
+                    match path_result {
+                        Ok(path) => result
+                            .push(path.to_string_lossy().to_string().tagged(value.tag.clone())),
+                        Err(glob_error) => {
+                            return Err(ShellError::labeled_error(
+                                format!("{}", glob_error),
+                                "glob error",
+                                value.tag.clone(),
+                            ));
+                        }
+                    }
+                }
+            }
+            Err(pattern_error) => {
+                return Err(ShellError::labeled_error(
+                    format!("{}", pattern_error),
+                    "invalid pattern",
+                    value.tag.clone(),
+                ))
+            }
+        }
+
+        Ok(result)
+    }
+
     fn parse_filenames(&mut self, call_info: &CallInfo) -> Result<(), ShellError> {
         let candidates = match &call_info.args.positional {
             Some(values) => {
                 let mut result = vec![];
 
                 for value in values.iter() {
-                    result.push(value.as_string()?.tagged(value.tag.clone()));
+                    let res = self.glob_to_values(value)?;
+                    result.extend(res);
                 }
 
                 if result.is_empty() {
