@@ -908,6 +908,7 @@ async fn process_line(
                         shell_manager: ctx.shell_manager.clone(),
                         host: ctx.host.clone(),
                         ctrl_c: ctx.ctrl_c.clone(),
+                        current_errors: ctx.current_errors.clone(),
                         registry: ctx.registry.clone(),
                         name: Tag::unknown(),
                         raw_input: line.to_string(),

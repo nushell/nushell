@@ -5,6 +5,7 @@ use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{hir, hir::Expression, hir::Literal, hir::SpannedExpression};
 use nu_protocol::{Primitive, Scope, Signature, UntaggedValue, Value};
+use parking_lot::Mutex;
 use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
 use prettytable::{color, Attr, Cell, Row, Table};
 use std::sync::atomic::AtomicBool;
@@ -38,6 +39,7 @@ impl WholeStreamCommand for Autoview {
             shell_manager: args.shell_manager,
             host: args.host,
             ctrl_c: args.ctrl_c,
+            current_errors: args.current_errors,
             name: args.call_info.name_tag,
             raw_input: args.raw_input,
         })
@@ -63,6 +65,7 @@ impl WholeStreamCommand for Autoview {
 pub struct RunnableContextWithoutInput {
     pub shell_manager: ShellManager,
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
+    pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub ctrl_c: Arc<AtomicBool>,
     pub registry: CommandRegistry,
     pub name: Tag,
@@ -74,6 +77,7 @@ impl RunnableContextWithoutInput {
             shell_manager: context.shell_manager,
             host: context.host,
             ctrl_c: context.ctrl_c,
+            current_errors: context.current_errors,
             registry: context.registry,
             name: context.name,
         };
@@ -389,6 +393,7 @@ fn create_default_command_args(context: &RunnableContextWithoutInput) -> RawComm
     RawCommandArgs {
         host: context.host.clone(),
         ctrl_c: context.ctrl_c.clone(),
+        current_errors: context.current_errors.clone(),
         shell_manager: context.shell_manager.clone(),
         call_info: UnevaluatedCallInfo {
             args: hir::Call {

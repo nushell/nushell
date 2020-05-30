@@ -65,6 +65,7 @@ fn enter(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
         let shell_manager = raw_args.shell_manager.clone();
         let head = raw_args.call_info.args.head.clone();
         let ctrl_c = raw_args.ctrl_c.clone();
+        let current_errors = raw_args.current_errors.clone();
         let host = raw_args.host.clone();
         let tag = raw_args.call_info.name_tag.clone();
         let (EnterArgs { location }, _) = raw_args.process(&registry).await?;
@@ -116,6 +117,7 @@ fn enter(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
                             let new_args = RawCommandArgs {
                                 host,
                                 ctrl_c,
+                                current_errors,
                                 shell_manager,
                                 call_info: UnevaluatedCallInfo {
                                     args: nu_protocol::hir::Call {

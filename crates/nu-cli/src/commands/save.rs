@@ -166,6 +166,7 @@ fn save(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
     let registry = registry.clone();
     let host = raw_args.host.clone();
     let ctrl_c = raw_args.ctrl_c.clone();
+    let current_errors = raw_args.current_errors.clone();
     let shell_manager = raw_args.shell_manager.clone();
 
     let stream = async_stream! {
@@ -220,6 +221,7 @@ fn save(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
                         let new_args = RawCommandArgs {
                             host,
                             ctrl_c,
+                            current_errors,
                             shell_manager,
                             call_info: UnevaluatedCallInfo {
                                 args: nu_protocol::hir::Call {
