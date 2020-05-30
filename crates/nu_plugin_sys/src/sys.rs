@@ -1,6 +1,7 @@
 use futures_util::StreamExt;
 use heim::units::{frequency, information, thermodynamic_temperature, time};
 use heim::{disk, host, memory, net, sensors};
+use nu_errors::ShellError;
 use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::Tag;
 use std::ffi::OsStr;
@@ -77,7 +78,7 @@ async fn mem(tag: Tag) -> Value {
     dict.into_value()
 }
 
-async fn host(tag: Tag) -> Value {
+async fn host(tag: Tag) -> Result<Value, ShellError> {
     let mut dict = TaggedDictBuilder::with_capacity(&tag, 6);
 
     let (platform_result, uptime_result) =
@@ -104,7 +105,9 @@ async fn host(tag: Tag) -> Value {
 
     // Sessions
     // note: the heim host module has nomenclature "users"
-    let mut users = host::users();
+    let mut users = host::users().await.map_err(|_| {
+        ShellError::labeled_error("Unabled to get users", "could not load users", tag.span)
+    })?;
     let mut user_vec = vec![];
     while let Some(user) = users.next().await {
         if let Ok(user) = user {
@@ -117,12 +120,20 @@ async fn host(tag: Tag) -> Value {
     let user_list = UntaggedValue::Table(user_vec);
     dict.insert_untagged("sessions", user_list);
 
-    dict.into_value()
+    Ok(dict.into_value())
 }
 
-async fn disks(tag: Tag) -> Option<UntaggedValue> {
+async fn disks(tag: Tag) -> Result<Option<UntaggedValue>, ShellError> {
     let mut output = vec![];
-    let mut partitions = disk::partitions_physical();
+    let partitions = disk::partitions_physical().await.map_err(|_| {
+        ShellError::labeled_error(
+            "Unabled to get disk list",
+            "could not load disk list",
+            tag.span,
+        )
+    })?;
+
+    futures::pin_mut!(partitions);
 
     while let Some(part) = partitions.next().await {
         if let Ok(part) = part {
@@ -162,9 +173,9 @@ async fn disks(tag: Tag) -> Option<UntaggedValue> {
     }
 
     if !output.is_empty() {
-        Some(UntaggedValue::Table(output))
+        Ok(Some(UntaggedValue::Table(output)))
     } else {
-        None
+        Ok(None)
     }
 }
 
@@ -217,7 +228,9 @@ async fn battery(tag: Tag) -> Option<UntaggedValue> {
 async fn temp(tag: Tag) -> Option<UntaggedValue> {
     let mut output = vec![];
 
-    let mut sensors = sensors::temperatures();
+    let sensors = sensors::temperatures();
+
+    futures::pin_mut!(sensors);
 
     while let Some(sensor) = sensors.next().await {
         if let Ok(sensor) = sensor {
@@ -260,9 +273,17 @@ async fn temp(tag: Tag) -> Option<UntaggedValue> {
     }
 }
 
-async fn net(tag: Tag) -> Option<UntaggedValue> {
+async fn net(tag: Tag) -> Result<Option<UntaggedValue>, ShellError> {
     let mut output = vec![];
-    let mut io_counters = net::io_counters();
+    let io_counters = net::io_counters().await.map_err(|_| {
+        ShellError::labeled_error(
+            "Unabled to get network device list",
+            "could not load network device list",
+            tag.span,
+        )
+    })?;
+
+    futures::pin_mut!(io_counters);
 
     while let Some(nic) = io_counters.next().await {
         if let Ok(nic) = nic {
@@ -280,9 +301,9 @@ async fn net(tag: Tag) -> Option<UntaggedValue> {
         }
     }
     if !output.is_empty() {
-        Some(UntaggedValue::Table(output))
+        Ok(Some(UntaggedValue::Table(output)))
     } else {
-        None
+        Ok(None)
     }
 }
 
@@ -299,18 +320,20 @@ pub async fn sysinfo(tag: Tag) -> Vec<Value> {
     .await;
     let (net, battery) = futures::future::join(net(tag.clone()), battery(tag.clone())).await;
 
-    sysinfo.insert_value("host", host);
+    if let Ok(host) = host {
+        sysinfo.insert_value("host", host);
+    }
     if let Some(cpu) = cpu {
         sysinfo.insert_value("cpu", cpu);
     }
-    if let Some(disks) = disks {
+    if let Ok(Some(disks)) = disks {
         sysinfo.insert_untagged("disks", disks);
     }
     sysinfo.insert_value("mem", memory);
     if let Some(temp) = temp {
         sysinfo.insert_untagged("temp", temp);
     }
-    if let Some(net) = net {
+    if let Ok(Some(net)) = net {
         sysinfo.insert_untagged("net", net);
     }
     if let Some(battery) = battery {

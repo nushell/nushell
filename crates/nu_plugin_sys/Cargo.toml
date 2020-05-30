@@ -20,10 +20,10 @@ battery = "0.7.5"
 futures-util = "0.3.5"
 
 [dependencies.heim]
-version = "0.0.10"
+version = "0.1.0-beta.1"
 default-features = false
 
-features = ["host", "cpu", "memory", "disk", "net", "sensors", "runtime-polyfill"]
+features = ["host", "cpu", "memory", "disk", "net", "sensors"]
 
 [build-dependencies]
 nu-build = { version = "0.14.1", path = "../nu-build" }

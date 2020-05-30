@@ -3,6 +3,7 @@ use heim::process::{self as process, Process, ProcessResult};
 use heim::units::{information, ratio, Ratio};
 use std::usize;
 
+use nu_errors::ShellError;
 use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::Tag;
 
@@ -27,8 +28,16 @@ async fn usage(process: Process) -> ProcessResult<(process::Process, Ratio, proc
     Ok((process, usage_2 - usage_1, memory))
 }
 
-pub async fn ps(tag: Tag, full: bool) -> Vec<Value> {
-    let mut processes = process::processes()
+pub async fn ps(tag: Tag, full: bool) -> Result<Vec<Value>, ShellError> {
+    let processes = process::processes()
+        .await
+        .map_err(|_| {
+            ShellError::labeled_error(
+                "Unabled to get process list",
+                "could not load process list",
+                tag.span,
+            )
+        })?
         .map_ok(|process| {
             // Note that there is no `.await` here,
             // as we want to pass the returned future
@@ -36,6 +45,7 @@ pub async fn ps(tag: Tag, full: bool) -> Vec<Value> {
             usage(process)
         })
         .try_buffer_unordered(usize::MAX);
+    futures::pin_mut!(processes);
 
     let mut output = vec![];
     while let Some(res) = processes.next().await {
@@ -80,5 +90,5 @@ pub async fn ps(tag: Tag, full: bool) -> Vec<Value> {
         }
     }
 
-    output
+    Ok(output)
 }

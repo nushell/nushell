@@ -18,7 +18,7 @@ impl Plugin for Ps {
     }
 
     fn begin_filter(&mut self, callinfo: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
-        Ok(block_on(ps(callinfo.name_tag, callinfo.args.has("full")))
+        Ok(block_on(ps(callinfo.name_tag, callinfo.args.has("full")))?
             .into_iter()
             .map(ReturnSuccess::value)
             .collect())
