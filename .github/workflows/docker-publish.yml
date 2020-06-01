@@ -13,7 +13,7 @@ jobs:
         - x86_64-unknown-linux-musl
         - x86_64-unknown-linux-gnu
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
     - name: Install rust-embedded/cross
       env: { VERSION: v0.1.16 }
       run: >-
@@ -62,7 +62,7 @@ jobs:
         - { tag: glibc,            base-image: scratch,                    arch: x86_64-unknown-linux-gnu,  plugin: false, use-patch: false}
         - { tag: musl,             base-image: scratch,                    arch: x86_64-unknown-linux-musl, plugin: false, use-patch: false}
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
     - uses: actions/download-artifact@master
       with: { name: '${{ matrix.arch }}', path: target/release }
     - name: Build and publish exact version
