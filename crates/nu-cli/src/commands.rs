@@ -230,7 +230,7 @@ pub(crate) use split::SplitRow;
 pub(crate) use split_by::SplitBy;
 pub(crate) use str_::{
     Str, StrCapitalize, StrDowncase, StrFindReplace, StrSet, StrSubstring, StrToDatetime,
-    StrToFloat, StrToInteger, StrTrim, StrUpcase,
+    StrToDecimal, StrToInteger, StrTrim, StrUpcase,
 };
 pub(crate) use sum::Sum;
 #[allow(unused_imports)]

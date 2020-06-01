@@ -101,13 +101,13 @@ fn converts_to_int() {
 }
 
 #[test]
-fn converts_to_float() {
+fn converts_to_decimal() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             echo "3.1, 0.0415"
             | split row ","
-            | str to-float
+            | str to-decimal
             | sum
         "#
     ));
