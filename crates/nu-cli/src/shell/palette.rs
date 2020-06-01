@@ -1,9 +1,11 @@
 use ansi_term::{Color, Style};
 use nu_protocol::hir::FlatShape;
 use nu_source::{Span, Spanned};
-use serde::{Deserialize, Serialize};
+use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json;
 use std::error::Error;
+use std::ops::Deref;
+use std::str::Bytes;
 use std::{fmt, io};
 
 pub trait Palette {
@@ -62,18 +64,18 @@ impl Palette for DefaultPalette {
     }
 }
 
-pub struct ThemedPallet {
+pub struct ThemedPalette {
     theme: Theme,
 }
 
-impl ThemedPallet {
-    pub fn new<R: io::Read>(reader: &mut R) -> Result<ThemedPallet, ThemeError> {
+impl ThemedPalette {
+    pub fn new<R: io::Read>(reader: &mut R) -> Result<ThemedPalette, ThemeError> {
         let theme = serde_json::from_reader(reader)?;
-        Ok(ThemedPallet { theme })
+        Ok(ThemedPalette { theme })
     }
 }
 
-impl Palette for ThemedPallet {
+impl Palette for ThemedPalette {
     fn styles_for_shape(&self, shape: &Spanned<FlatShape>) -> Vec<Spanned<Style>> {
         match &shape.item {
             FlatShape::OpenDelimiter(_) => {
@@ -89,7 +91,7 @@ impl Palette for ThemedPallet {
             FlatShape::Type => single_style_span(self.theme.r#type.bold(), shape.span),
             FlatShape::Operator => single_style_span(self.theme.operator.normal(), shape.span),
             FlatShape::DotDot => single_style_span(self.theme.dot_dot.bold(), shape.span),
-            FlatShape::Dot => single_style_span(Style::new().fg(self.theme.dot), shape.span),
+            FlatShape::Dot => single_style_span(Style::new().fg(*self.theme.dot), shape.span),
             FlatShape::InternalCommand => {
                 single_style_span(self.theme.internal_command.bold(), shape.span)
             }
@@ -118,7 +120,7 @@ impl Palette for ThemedPallet {
             FlatShape::Separator => single_style_span(self.theme.separator.normal(), shape.span),
             FlatShape::Comment => single_style_span(self.theme.comment.bold(), shape.span),
             FlatShape::Garbage => single_style_span(
-                Style::new().fg(self.theme.garbage).on(Color::Red),
+                Style::new().fg(*self.theme.garbage).on(Color::Red),
                 shape.span,
             ),
             FlatShape::Size { number, unit } => vec![
@@ -160,97 +162,78 @@ impl From<serde_json::error::Error> for ThemeError {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Theme {
-    #[serde(with = "string_and_color")]
-    open_delimiter: Color,
-    #[serde(with = "string_and_color")]
-    close_delimiter: Color,
-    #[serde(with = "string_and_color")]
-    r#type: Color,
-    #[serde(with = "string_and_color")]
-    identifier: Color,
-    #[serde(with = "string_and_color")]
-    it_variable: Color,
-    #[serde(with = "string_and_color")]
-    variable: Color,
-    #[serde(with = "string_and_color")]
-    operator: Color,
-    #[serde(with = "string_and_color")]
-    dot: Color,
-    #[serde(with = "string_and_color")]
-    dot_dot: Color,
-    #[serde(with = "string_and_color")]
-    internal_command: Color,
-    #[serde(with = "string_and_color")]
-    external_command: Color,
-    #[serde(with = "string_and_color")]
-    external_word: Color,
-    #[serde(with = "string_and_color")]
-    bare_member: Color,
-    #[serde(with = "string_and_color")]
-    string_member: Color,
-    #[serde(with = "string_and_color")]
-    string: Color,
-    #[serde(with = "string_and_color")]
-    path: Color,
-    #[serde(with = "string_and_color")]
-    word: Color,
-    #[serde(with = "string_and_color")]
-    keyword: Color,
-    #[serde(with = "string_and_color")]
-    pipe: Color,
-    #[serde(with = "string_and_color")]
-    glob_pattern: Color,
-    #[serde(with = "string_and_color")]
-    flag: Color,
-    #[serde(with = "string_and_color")]
-    shorthand_flag: Color,
-    #[serde(with = "string_and_color")]
-    int: Color,
-    #[serde(with = "string_and_color")]
-    decimal: Color,
-    #[serde(with = "string_and_color")]
-    garbage: Color,
-    #[serde(with = "string_and_color")]
-    whitespace: Color,
-    #[serde(with = "string_and_color")]
-    separator: Color,
-    #[serde(with = "string_and_color")]
-    comment: Color,
-    #[serde(with = "string_and_color")]
-    size_number: Color,
-    #[serde(with = "string_and_color")]
-    size_unit: Color,
+    open_delimiter: ThemeColor,
+    close_delimiter: ThemeColor,
+    r#type: ThemeColor,
+    identifier: ThemeColor,
+    it_variable: ThemeColor,
+    variable: ThemeColor,
+    operator: ThemeColor,
+    dot: ThemeColor,
+    dot_dot: ThemeColor,
+    internal_command: ThemeColor,
+    external_command: ThemeColor,
+    external_word: ThemeColor,
+    bare_member: ThemeColor,
+    string_member: ThemeColor,
+    string: ThemeColor,
+    path: ThemeColor,
+    word: ThemeColor,
+    keyword: ThemeColor,
+    pipe: ThemeColor,
+    glob_pattern: ThemeColor,
+    flag: ThemeColor,
+    shorthand_flag: ThemeColor,
+    int: ThemeColor,
+    decimal: ThemeColor,
+    garbage: ThemeColor,
+    whitespace: ThemeColor,
+    separator: ThemeColor,
+    comment: ThemeColor,
+    size_number: ThemeColor,
+    size_unit: ThemeColor,
 }
 
-mod string_and_color {
-    use ansi_term::Color;
-    use serde::{self, Deserialize, Deserializer, Serializer};
-    use std::str::Bytes;
+#[derive(Debug)]
+struct ThemeColor(Color);
 
-    pub fn serialize<S>(color: &Color, serializer: S) -> Result<S::Ok, S::Error>
+impl Deref for ThemeColor {
+    type Target = Color;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Serialize for ThemeColor {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         serializer.serialize_str("TODO: IMPLEMENT SERIALIZATION")
     }
+}
 
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Color, D::Error>
+impl<'de> Deserialize<'de> for ThemeColor {
+    fn deserialize<D>(deserializer: D) -> Result<ThemeColor, D::Error>
     where
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        to_color(&s)
+        ThemeColor::from_str(&s)
     }
+}
 
-    fn to_color<E>(s: &str) -> Result<Color, E>
+impl ThemeColor {
+    fn from_str<E>(s: &str) -> Result<ThemeColor, E>
     where
         E: serde::de::Error,
     {
         let mut bytes = s.bytes();
-        let r = xtoi(&mut bytes)?;
-        let g = xtoi(&mut bytes)?;
-        let b = xtoi(&mut bytes)?;
-        Ok(Color::RGB(r, g, b))
+        let r = ThemeColor::xtoi(&mut bytes)?;
+        let g = ThemeColor::xtoi(&mut bytes)?;
+        let b = ThemeColor::xtoi(&mut bytes)?;
+        Ok(ThemeColor(Color::RGB(r, g, b)))
     }
 
     fn xtoi<E>(b: &mut Bytes) -> Result<u8, E>
@@ -259,8 +242,8 @@ mod string_and_color {
     {
         let upper = b.next().ok_or(E::custom("color string too short"))?;
         let lower = b.next().ok_or(E::custom("color string too short"))?;
-        let mut val = numerical_value(upper)?;
-        val = (val << 4) | numerical_value(lower)?;
+        let mut val = ThemeColor::numerical_value(upper)?;
+        val = (val << 4) | ThemeColor::numerical_value(lower)?;
         Ok(val)
     }
 
@@ -282,7 +265,7 @@ fn single_style_span(style: Style, span: Span) -> Vec<Spanned<Style>> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Palette, ThemedPallet};
+    use super::{Palette, ThemedPalette};
     use ansi_term::Color;
     use nu_protocol::hir::FlatShape;
     use nu_source::{Span, Spanned};
@@ -324,7 +307,7 @@ mod tests {
     "size_unit": "a359cc"
 }"#;
         let mut json_reader = Cursor::new(json);
-        let themed_palette = ThemedPallet::new(&mut json_reader).unwrap();
+        let themed_palette = ThemedPalette::new(&mut json_reader).unwrap();
         let test_shape = Spanned {
             item: FlatShape::Type,
             span: Span::new(4, 9),
