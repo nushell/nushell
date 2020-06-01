@@ -27,12 +27,12 @@ impl WholeStreamCommand for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("str to-decimal").rest(
             SyntaxShape::ColumnPath,
-            "optionally convert text into float by column paths",
+            "optionally convert text into decimal by column paths",
         )
     }
 
     fn usage(&self) -> &str {
-        "converts text into float"
+        "converts text into decimal"
     }
 
     async fn run(
@@ -45,7 +45,7 @@ impl WholeStreamCommand for SubCommand {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Convert to float",
+            description: "Convert to decimal",
             example: "echo '3.1415' | str to-decimal",
             result: None,
         }]

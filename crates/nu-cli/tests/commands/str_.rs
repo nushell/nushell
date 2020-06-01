@@ -101,7 +101,7 @@ fn converts_to_int() {
 }
 
 #[test]
-fn converts_to_float() {
+fn converts_to_decimal() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
