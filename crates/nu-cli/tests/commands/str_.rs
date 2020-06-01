@@ -107,7 +107,7 @@ fn converts_to_float() {
         r#"
             echo "3.1, 0.0415"
             | split row ","
-            | str to-float
+            | str to-decimal
             | sum
         "#
     ));

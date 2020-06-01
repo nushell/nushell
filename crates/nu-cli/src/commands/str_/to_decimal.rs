@@ -21,11 +21,11 @@ pub struct SubCommand;
 #[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
-        "str to-float"
+        "str to-decimal"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("str to-float").rest(
+        Signature::build("str to-decimal").rest(
             SyntaxShape::ColumnPath,
             "optionally convert text into float by column paths",
         )
@@ -46,7 +46,7 @@ impl WholeStreamCommand for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Convert to float",
-            example: "echo '3.1415' | str to-float",
+            example: "echo '3.1415' | str to-decimal",
             result: None,
         }]
     }
