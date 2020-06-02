@@ -260,7 +260,7 @@ pub struct Tag {
     pub anchor: Option<AnchorLocation>,
     /// The span in the source text for the command that created this value
     pub span: Span,
-    /// An
+    /// The data_color allows the user to apply a color to their data, if they wish
     pub data_color: Option<Color>,
 }
 
