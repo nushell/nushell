@@ -2366,6 +2366,7 @@ dependencies = [
  "nu-source",
  "num-bigint",
  "num-traits 0.2.11",
+ "prettytable-rs",
  "query_interface",
  "serde 1.0.110",
  "serde_bytes",
@@ -2384,6 +2385,7 @@ dependencies = [
  "getset",
  "nu-build",
  "pretty",
+ "prettytable-rs",
  "serde 1.0.110",
  "termcolor",
 ]
@@ -2416,6 +2418,7 @@ dependencies = [
  "nu-protocol",
  "nu-source",
  "num-traits 0.2.11",
+ "prettytable-rs",
 ]
 
 [[package]]
@@ -3435,7 +3438,7 @@ version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "394cec28fa623e00903caf7ba4fa6fb9a0e260280bb8cdbbba029611108a0190"
 dependencies = [
- "semver-parser",
+ "semver-parser 0.7.0",
 ]
 
 [[package]]

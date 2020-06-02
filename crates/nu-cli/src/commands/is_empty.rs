@@ -6,6 +6,7 @@ use nu_protocol::{ColumnPath, ReturnSuccess, Signature, SyntaxShape, UntaggedVal
 use nu_source::Tagged;
 use nu_value_ext::ValueExt;
 
+#[allow(clippy::large_enum_variant)]
 enum IsEmptyFor {
     Value,
     RowWithFieldsAndFallback(Vec<Tagged<ColumnPath>>, Value),

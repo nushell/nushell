@@ -3,6 +3,7 @@ use crate::text::Text;
 
 use derive_new::new;
 use getset::Getters;
+use prettytable::color::Color;
 use serde::Deserialize;
 use serde::Serialize;
 use std::cmp::Ordering;
@@ -144,6 +145,7 @@ pub trait TaggedItem: Sized {
             tag: Tag {
                 span: Span::unknown(),
                 anchor: None,
+                data_color: None,
             },
         }
     }
@@ -258,11 +260,17 @@ pub struct Tag {
     pub anchor: Option<AnchorLocation>,
     /// The span in the source text for the command that created this value
     pub span: Span,
+    /// An
+    pub data_color: Option<Color>,
 }
 
 impl From<Span> for Tag {
     fn from(span: Span) -> Self {
-        Tag { anchor: None, span }
+        Tag {
+            anchor: None,
+            span,
+            data_color: None,
+        }
     }
 }
 
@@ -271,6 +279,7 @@ impl From<&Span> for Tag {
         Tag {
             anchor: None,
             span: *span,
+            data_color: None,
         }
     }
 }
@@ -280,6 +289,7 @@ impl From<(usize, usize, AnchorLocation)> for Tag {
         Tag {
             anchor: Some(anchor),
             span: Span::new(start, end),
+            data_color: None,
         }
     }
 }
@@ -289,6 +299,7 @@ impl From<(usize, usize, Option<AnchorLocation>)> for Tag {
         Tag {
             anchor,
             span: Span::new(start, end),
+            data_color: None,
         }
     }
 }
@@ -311,12 +322,17 @@ impl Tag {
         Tag {
             anchor: None,
             span: Span::unknown(),
+            data_color: None,
         }
     }
 
     /// Creates a `Tag` from the given `Span` with no `AnchorLocation`
     pub fn unknown_anchor(span: Span) -> Tag {
-        Tag { anchor: None, span }
+        Tag {
+            anchor: None,
+            span,
+            data_color: None,
+        }
     }
 
     /// Creates a `Tag` from the given `AnchorLocation` for a span with a length of 1.
@@ -324,6 +340,7 @@ impl Tag {
         Tag {
             anchor: Some(anchor),
             span: Span::new(pos, pos + 1),
+            data_color: None,
         }
     }
 
@@ -332,6 +349,7 @@ impl Tag {
         Tag {
             anchor: Some(anchor),
             span: Span::unknown(),
+            data_color: None,
         }
     }
 
@@ -340,6 +358,7 @@ impl Tag {
         Tag {
             anchor: None,
             span: Span::unknown(),
+            data_color: None,
         }
     }
 
@@ -362,6 +381,7 @@ impl Tag {
         Tag {
             span: Span::new(self.span.start, other.span.end),
             anchor: self.anchor.clone(),
+            data_color: None,
         }
     }
 
@@ -382,6 +402,7 @@ impl Tag {
                 Tag {
                     span: Span::new(self.span.start, other.span.end),
                     anchor: self.anchor.clone(),
+                    data_color: None,
                 }
             }
             None => self.clone(),
@@ -635,9 +656,9 @@ impl Span {
     /// //  make clean
     /// //  ----
     /// //  (0,4)
-    /// //  
+    /// //
     /// //       ^(5,5)
-    ///    
+    ///
     /// let make_span = Span::new(0,4);
     /// let clean_span = Span::new(5,5);
     ///

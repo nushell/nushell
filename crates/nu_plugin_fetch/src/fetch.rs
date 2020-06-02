@@ -138,6 +138,7 @@ pub async fn fetch(
                         Tag {
                             span,
                             anchor: Some(AnchorLocation::Url(location.to_string())),
+                            data_color: None,
                         },
                     )),
                     (mime::APPLICATION, mime::JSON) => Ok((
@@ -152,6 +153,7 @@ pub async fn fetch(
                         Tag {
                             span,
                             anchor: Some(AnchorLocation::Url(location.to_string())),
+                            data_color: None,
                         },
                     )),
                     (mime::APPLICATION, mime::OCTET_STREAM) => {
@@ -168,6 +170,7 @@ pub async fn fetch(
                             Tag {
                                 span,
                                 anchor: Some(AnchorLocation::Url(location.to_string())),
+                                data_color: None,
                             },
                         ))
                     }
@@ -183,6 +186,7 @@ pub async fn fetch(
                         Tag {
                             span,
                             anchor: Some(AnchorLocation::Url(location.to_string())),
+                            data_color: None,
                         },
                     )),
                     (mime::IMAGE, image_ty) => {
@@ -199,6 +203,7 @@ pub async fn fetch(
                             Tag {
                                 span,
                                 anchor: Some(AnchorLocation::Url(location.to_string())),
+                                data_color: None,
                             },
                         ))
                     }
@@ -214,6 +219,7 @@ pub async fn fetch(
                         Tag {
                             span,
                             anchor: Some(AnchorLocation::Url(location.to_string())),
+                            data_color: None,
                         },
                     )),
                     (mime::TEXT, mime::PLAIN) => {
@@ -246,6 +252,7 @@ pub async fn fetch(
                             Tag {
                                 span,
                                 anchor: Some(AnchorLocation::Url(location.to_string())),
+                                data_color: None,
                             },
                         ))
                     }
@@ -261,6 +268,7 @@ pub async fn fetch(
                                 Tag {
                                     span,
                                     anchor: Some(AnchorLocation::Url(location.to_string())),
+                                    data_color: None,
                                 },
                             )),
                             Err(_) => Ok((
@@ -269,6 +277,7 @@ pub async fn fetch(
                                 Tag {
                                     span,
                                     anchor: Some(AnchorLocation::Url(location.to_string())),
+                                    data_color: None,
                                 },
                             )),
                         }
@@ -282,6 +291,7 @@ pub async fn fetch(
                         Tag {
                             span,
                             anchor: Some(AnchorLocation::Url(location.to_string())),
+                            data_color: None,
                         },
                     )),
                 }
@@ -292,6 +302,7 @@ pub async fn fetch(
                 Tag {
                     span,
                     anchor: Some(AnchorLocation::Url(location.to_string())),
+                    data_color: None,
                 },
             )),
         },

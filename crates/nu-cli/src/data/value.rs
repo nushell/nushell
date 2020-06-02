@@ -3,10 +3,9 @@ use crate::data::base::shape::{Column, InlineShape};
 use crate::data::primitive::style_primitive;
 use chrono::DateTime;
 use nu_errors::ShellError;
-use nu_protocol::hir::Operator;
-use nu_protocol::ShellTypeName;
-use nu_protocol::{Primitive, Type, UntaggedValue};
+use nu_protocol::{hir::Operator, Primitive, ShellTypeName, Type, UntaggedValue, Value};
 use nu_source::{DebugDocBuilder, PrettyDebug, Tagged};
+use prettytable::color;
 
 pub fn date_from_str(s: Tagged<&str>) -> Result<UntaggedValue, ShellError> {
     let date = DateTime::parse_from_rfc3339(s.item).map_err(|err| {
@@ -159,11 +158,48 @@ pub fn format_leaf<'a>(value: impl Into<&'a UntaggedValue>) -> DebugDocBuilder {
     InlineShape::from_value(value.into()).format().pretty()
 }
 
-pub fn style_leaf<'a>(value: impl Into<&'a UntaggedValue>) -> &'static str {
-    match value.into() {
-        UntaggedValue::Primitive(p) => style_primitive(p),
-        _ => "",
+pub fn style_leaf(value: &Value) -> String {
+    match value {
+        Value {
+            value: UntaggedValue::Primitive(p),
+            tag,
+        } => {
+            let mut styled_primitive_string = style_primitive(&p).to_string();
+
+            if let Some(data_color) = tag.data_color {
+                if let Some(data_color_string) = color_to_str(data_color) {
+                    styled_primitive_string =
+                        format!("F{}{}", data_color_string, style_primitive(&p));
+                }
+            }
+
+            styled_primitive_string
+        }
+        _ => "".to_string(),
     }
+}
+
+fn color_to_str(color: color::Color) -> Option<String> {
+    let color_string = match color {
+        color::GREEN => "g",
+        color::RED => "r",
+        color::BLUE => "u",
+        color::BLACK => "b",
+        color::YELLOW => "y",
+        color::MAGENTA => "m",
+        color::CYAN => "c",
+        color::WHITE => "w",
+        color::BRIGHT_GREEN => "bg",
+        color::BRIGHT_RED => "br",
+        color::BRIGHT_BLUE => "bu",
+        color::BRIGHT_YELLOW => "by",
+        color::BRIGHT_MAGENTA => "bm",
+        color::BRIGHT_CYAN => "bc",
+        color::BRIGHT_WHITE => "bw",
+        _ => return None,
+    };
+
+    Some(color_string.to_string())
 }
 
 pub fn format_for_column<'a>(

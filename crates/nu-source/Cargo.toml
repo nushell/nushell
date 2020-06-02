@@ -16,6 +16,7 @@ getset = "0.1.1"
 codespan-reporting = "0.9.4"
 termcolor = "1.1.0"
 pretty = "0.5.2"
+prettytable-rs = "0.8.0"
 
 [build-dependencies]
 nu-build = { version = "0.14.1", path = "../nu-build" }

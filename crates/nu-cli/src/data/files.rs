@@ -135,6 +135,7 @@ pub(crate) fn dir_entry_dict(
                     Tag {
                         anchor: None,
                         span: Span::new(0, 2),
+                        data_color: None,
                     },
                     None,
                     false,

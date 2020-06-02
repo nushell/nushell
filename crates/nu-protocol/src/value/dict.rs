@@ -171,7 +171,7 @@ impl Dictionary {
             result
                 .value
                 .clone()
-                .into_value(Tag::new(result.tag.anchor(), name.span)),
+                .into_value(Tag::new(result.tag.anchor(), name.span, None)),
         )
     }
 

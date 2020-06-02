@@ -21,6 +21,7 @@ pub(crate) async fn evaluate_baseline_expr(
     let tag = Tag {
         span: expr.span,
         anchor: None,
+        data_color: None,
     };
     let span = expr.span;
     match &expr.expr {

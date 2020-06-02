@@ -49,7 +49,7 @@ impl DictionaryExt for Dictionary {
             result
                 .value
                 .clone()
-                .into_value(Tag::new(result.anchor(), name.span)),
+                .into_value(Tag::new(result.anchor(), name.span, None)),
         )
     }
 

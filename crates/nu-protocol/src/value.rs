@@ -401,6 +401,7 @@ impl From<String> for Value {
             tag: Tag {
                 anchor: None,
                 span: Span::new(0, end),
+                data_color: None,
             },
         }
     }
@@ -414,6 +415,7 @@ impl From<&str> for Value {
             tag: Tag {
                 anchor: None,
                 span: Span::new(0, end),
+                data_color: None,
             },
         }
     }

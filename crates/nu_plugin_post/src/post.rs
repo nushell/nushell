@@ -208,6 +208,7 @@ pub async fn post(
                             Tag {
                                 anchor: Some(AnchorLocation::Url(location.to_string())),
                                 span: tag.span,
+                                data_color: None,
                             },
                         )),
                         (mime::APPLICATION, mime::JSON) => Ok((
@@ -222,6 +223,7 @@ pub async fn post(
                             Tag {
                                 anchor: Some(AnchorLocation::Url(location.to_string())),
                                 span: tag.span,
+                                data_color: None,
                             },
                         )),
                         (mime::APPLICATION, mime::OCTET_STREAM) => {
@@ -238,6 +240,7 @@ pub async fn post(
                                 Tag {
                                     anchor: Some(AnchorLocation::Url(location.to_string())),
                                     span: tag.span,
+                                    data_color: None,
                                 },
                             ))
                         }
@@ -255,6 +258,7 @@ pub async fn post(
                                 Tag {
                                     anchor: Some(AnchorLocation::Url(location.to_string())),
                                     span: tag.span,
+                                    data_color: None,
                                 },
                             ))
                         }
@@ -270,6 +274,7 @@ pub async fn post(
                             Tag {
                                 anchor: Some(AnchorLocation::Url(location.to_string())),
                                 span: tag.span,
+                                data_color: None,
                             },
                         )),
                         (mime::TEXT, mime::PLAIN) => {
@@ -302,6 +307,7 @@ pub async fn post(
                                 Tag {
                                     anchor: Some(AnchorLocation::Url(location.to_string())),
                                     span: tag.span,
+                                    data_color: None,
                                 },
                             ))
                         }
@@ -314,6 +320,7 @@ pub async fn post(
                             Tag {
                                 anchor: Some(AnchorLocation::Url(location.to_string())),
                                 span: tag.span,
+                                data_color: None,
                             },
                         )),
                     }
@@ -324,6 +331,7 @@ pub async fn post(
                     Tag {
                         anchor: Some(AnchorLocation::Url(location.to_string())),
                         span: tag.span,
+                        data_color: None,
                     },
                 )),
             },

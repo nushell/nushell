@@ -143,13 +143,20 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                 match x {
                     Value {
                         value: UntaggedValue::Primitive(Primitive::String(ref s)),
-                        tag: Tag { anchor, span },
+                        tag:
+                            Tag {
+                                anchor,
+                                span,
+                                data_color: None,
+                            },
                     } if anchor.is_some() => {
                         if let Some(text) = text {
                             let mut stream = VecDeque::new();
-                            stream.push_back(
-                                UntaggedValue::string(s).into_value(Tag { anchor, span }),
-                            );
+                            stream.push_back(UntaggedValue::string(s).into_value(Tag {
+                                anchor,
+                                span,
+                                data_color: None,
+                            }));
                             let command_args =
                                 create_default_command_args(&context).with_input(stream);
                             let result = text.run(command_args, &context.registry).await;
@@ -166,13 +173,20 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                     }
                     Value {
                         value: UntaggedValue::Primitive(Primitive::Line(ref s)),
-                        tag: Tag { anchor, span },
+                        tag:
+                            Tag {
+                                anchor,
+                                span,
+                                data_color: None,
+                            },
                     } if anchor.is_some() => {
                         if let Some(text) = text {
                             let mut stream = VecDeque::new();
-                            stream.push_back(
-                                UntaggedValue::string(s).into_value(Tag { anchor, span }),
-                            );
+                            stream.push_back(UntaggedValue::string(s).into_value(Tag {
+                                anchor,
+                                span,
+                                data_color: None,
+                            }));
                             let command_args =
                                 create_default_command_args(&context).with_input(stream);
                             let result = text.run(command_args, &context.registry).await;

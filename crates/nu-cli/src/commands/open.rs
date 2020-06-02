@@ -107,6 +107,7 @@ pub async fn fetch(
                     Tag {
                         span,
                         anchor: Some(AnchorLocation::File(cwd.to_string_lossy().to_string())),
+                        data_color: None,
                     },
                 )),
                 Err(_) => {
@@ -127,6 +128,7 @@ pub async fn fetch(
                                             anchor: Some(AnchorLocation::File(
                                                 cwd.to_string_lossy().to_string(),
                                             )),
+                                            data_color: None,
                                         },
                                     )),
                                     Err(_) => Ok((
@@ -137,6 +139,7 @@ pub async fn fetch(
                                             anchor: Some(AnchorLocation::File(
                                                 cwd.to_string_lossy().to_string(),
                                             )),
+                                            data_color: None,
                                         },
                                     )),
                                 }
@@ -149,6 +152,7 @@ pub async fn fetch(
                                         anchor: Some(AnchorLocation::File(
                                             cwd.to_string_lossy().to_string(),
                                         )),
+                                        data_color: None,
                                     },
                                 ))
                             }
@@ -168,6 +172,7 @@ pub async fn fetch(
                                             anchor: Some(AnchorLocation::File(
                                                 cwd.to_string_lossy().to_string(),
                                             )),
+                                            data_color: None,
                                         },
                                     )),
                                     Err(_) => Ok((
@@ -178,6 +183,7 @@ pub async fn fetch(
                                             anchor: Some(AnchorLocation::File(
                                                 cwd.to_string_lossy().to_string(),
                                             )),
+                                            data_color: None,
                                         },
                                     )),
                                 }
@@ -190,6 +196,7 @@ pub async fn fetch(
                                         anchor: Some(AnchorLocation::File(
                                             cwd.to_string_lossy().to_string(),
                                         )),
+                                        data_color: None,
                                     },
                                 ))
                             }
@@ -202,6 +209,7 @@ pub async fn fetch(
                                 anchor: Some(AnchorLocation::File(
                                     cwd.to_string_lossy().to_string(),
                                 )),
+                                data_color: None,
                             },
                         )),
                     }

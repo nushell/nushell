@@ -164,8 +164,11 @@ pub fn get_data_by_member(value: &Value, name: &PathMember) -> Result<Value, She
                             string.spanned(name.span),
                         ))
                     } else {
-                        Ok(UntaggedValue::Table(out)
-                            .into_value(Tag::new(value.anchor(), name.span)))
+                        Ok(UntaggedValue::Table(out).into_value(Tag::new(
+                            value.anchor(),
+                            name.span,
+                            None,
+                        )))
                     }
                 }
                 UnspannedPathMember::Int(int) => {
@@ -625,7 +628,7 @@ pub(crate) fn get_data_by_index(value: &Value, idx: Spanned<usize>) -> Option<Va
                 value
                     .value
                     .clone()
-                    .into_value(Tag::new(value.anchor(), idx.span)),
+                    .into_value(Tag::new(value.anchor(), idx.span, None)),
             )
         }
         _ => None,

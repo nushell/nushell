@@ -9,7 +9,7 @@ use textwrap::fill;
 use prettytable::format::{Alignment, FormatBuilder, LinePosition, LineSeparator};
 use prettytable::{color, Attr, Cell, Row, Table};
 
-type Entries = Vec<Vec<(String, &'static str)>>;
+type Entries = Vec<Vec<(String, String)>>;
 
 #[derive(Debug, new)]
 pub struct TableView {
@@ -93,21 +93,27 @@ fn values_to_entries(values: &[Value], headers: &mut Vec<String>, starting_idx: 
     }
 
     for (idx, value) in values.iter().enumerate() {
-        let mut row: Vec<(String, &'static str)> = headers
+        let mut row: Vec<(String, String)> = headers
             .iter()
             .map(|d: &String| {
                 if d == "" {
                     match value {
                         Value {
                             value: UntaggedValue::Row(..),
-                            ..
+                            tag,
                         } => (
                             format_leaf(&UntaggedValue::nothing()).plain_string(100_000),
-                            style_leaf(&UntaggedValue::nothing()),
+                            style_leaf(&UntaggedValue::nothing().into_value(tag)),
                         ),
                         _ => (format_leaf(value).plain_string(100_000), style_leaf(value)),
                     }
                 } else {
+                    let tag = Tag {
+                        anchor: None,
+                        span: Span::new(0, 0),
+                        data_color: None,
+                    };
+
                     match value {
                         Value {
                             value: UntaggedValue::Row(..),
@@ -121,7 +127,7 @@ fn values_to_entries(values: &[Value], headers: &mut Vec<String>, starting_idx: 
                         }
                         _ => (
                             format_leaf(&UntaggedValue::nothing()).plain_string(100_000),
-                            style_leaf(&UntaggedValue::nothing()),
+                            style_leaf(&UntaggedValue::nothing().into_value(tag)),
                         ),
                     }
                 }
@@ -130,7 +136,7 @@ fn values_to_entries(values: &[Value], headers: &mut Vec<String>, starting_idx: 
 
         // Indices are green, bold, right-aligned:
         if !disable_indexes {
-            row.insert(0, ((starting_idx + idx).to_string(), "Fgbr"));
+            row.insert(0, ((starting_idx + idx).to_string(), "Fgbr".to_string()));
         }
 
         entries.push(row);
@@ -179,7 +185,7 @@ fn maybe_truncate_columns(headers: &mut Vec<String>, entries: &mut Entries, term
         headers.push("...".to_owned());
 
         for entry in entries.iter_mut() {
-            entry.push(("...".to_owned(), "c")); // ellipsis is centred
+            entry.push(("...".to_owned(), "c".to_string())); // ellipsis is centred
         }
     }
 }
