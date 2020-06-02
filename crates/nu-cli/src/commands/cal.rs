@@ -1,11 +1,10 @@
+use crate::commands::{command::EvaluatedWholeStreamCommandArgs, WholeStreamCommand};
 use crate::prelude::*;
 use chrono::{Datelike, Local, NaiveDate};
-use nu_errors::ShellError;
-use nu_protocol::Dictionary;
-
-use crate::commands::{command::EvaluatedWholeStreamCommandArgs, WholeStreamCommand};
 use indexmap::IndexMap;
-use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
+use nu_errors::ShellError;
+use nu_protocol::{Dictionary, Signature, SyntaxShape, UntaggedValue, Value};
+use prettytable::color;
 
 pub struct Cal;
 
@@ -250,7 +249,7 @@ fn add_month_to_table(
     tag: &Tag,
     selected_year: i32,
     current_month: u32,
-    _current_day_option: Option<u32>, // Can be used in the future to display current day
+    current_day_option: Option<u32>,
 ) -> Result<(), ShellError> {
     let month_helper_result = MonthHelper::new(selected_year, current_month);
 
@@ -316,14 +315,29 @@ fn add_month_to_table(
         }
 
         for day in &days_of_the_week {
-            let value = if (day_count <= day_limit)
-                && (day_count > month_helper.day_number_month_starts_on)
-            {
-                UntaggedValue::int(day_count - month_helper.day_number_month_starts_on)
-                    .into_value(tag)
-            } else {
-                UntaggedValue::nothing().into_value(tag)
-            };
+            let should_add_day_number_to_table =
+                (day_count <= day_limit) && (day_count > month_helper.day_number_month_starts_on);
+
+            let mut value = UntaggedValue::nothing().into_value(tag);
+
+            if should_add_day_number_to_table {
+                let day_count_with_offset = day_count - month_helper.day_number_month_starts_on;
+
+                // Non-colored
+                value = UntaggedValue::int(day_count_with_offset).into_value(tag);
+
+                if let Some(current_day) = current_day_option {
+                    if current_day == day_count_with_offset {
+                        let color_tag: Tag = Tag {
+                            anchor: tag.anchor.clone(),
+                            span: tag.span,
+                            data_color: Some(color::BLUE),
+                        };
+
+                        value = UntaggedValue::int(day_count_with_offset).into_value(color_tag)
+                    }
+                }
+            }
 
             indexmap.insert((*day).to_string(), value);
 
