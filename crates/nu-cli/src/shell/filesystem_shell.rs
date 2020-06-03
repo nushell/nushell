@@ -396,11 +396,15 @@ impl Shell for FilesystemShell {
 
     fn mkdir(
         &self,
-        MkdirArgs { rest: directories }: MkdirArgs,
+        MkdirArgs {
+            rest: directories,
+            verbose,
+        }: MkdirArgs,
         name: Tag,
         path: &str,
     ) -> Result<OutputStream, ShellError> {
         let path = Path::new(path);
+        let mut stream = VecDeque::new();
 
         if directories.is_empty() {
             return Err(ShellError::labeled_error(
@@ -421,9 +425,13 @@ impl Shell for FilesystemShell {
                     dir.tag(),
                 ));
             }
+            if verbose {
+                let val = format!("mkdir: created directory {:?}", dir.item).into();
+                stream.push_back(Ok(ReturnSuccess::Value(val)));
+            }
         }
 
-        Ok(OutputStream::empty())
+        Ok(stream.into())
     }
 
     fn mv(

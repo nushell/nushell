@@ -11,6 +11,8 @@ pub struct Mkdir;
 #[derive(Deserialize)]
 pub struct MkdirArgs {
     pub rest: Vec<Tagged<PathBuf>>,
+    #[serde(rename = "verbose")]
+    pub verbose: bool,
 }
 
 #[async_trait]
@@ -20,7 +22,9 @@ impl WholeStreamCommand for Mkdir {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("mkdir").rest(SyntaxShape::Path, "the name(s) of the path(s) to create")
+        Signature::build("mkdir")
+            .rest(SyntaxShape::Path, "the name(s) of the path(s) to create")
+            .switch("verbose", "print the path(s) created.", Some('v'))
     }
 
     fn usage(&self) -> &str {
