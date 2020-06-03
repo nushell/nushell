@@ -40,10 +40,24 @@ pub struct Environment {
 
 impl Environment {
     pub fn new() -> Environment {
-        Environment {
+        let mut e = Environment {
             environment_vars: None,
             path_vars: None,
-        }
+        };
+        e.add_nurc();
+        e
+    }
+
+    pub fn from_config<T: Conf>(configuration: &T) -> Environment {
+        let env = configuration.env();
+        let path = configuration.path();
+
+        let mut e = Environment {
+            environment_vars: env,
+            path_vars: path,
+        };
+        e.add_nurc();
+        e
     }
 
     pub fn add_nurc(&mut self) {
@@ -54,16 +68,6 @@ impl Environment {
         write!(&mut file, "{:?}", "somedata").unwrap();
 
         self.add_env(key, value);
-    }
-
-    pub fn from_config<T: Conf>(configuration: &T) -> Environment {
-        let env = configuration.env();
-        let path = configuration.path();
-
-        Environment {
-            environment_vars: env,
-            path_vars: path,
-        }
     }
 
     pub fn morph<T: Conf>(&mut self, configuration: &T) {
