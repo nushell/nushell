@@ -70,6 +70,8 @@ impl EnvironmentSyncer {
                 }
             }
         }
+
+        environment.add_nurc();
     }
 
     pub fn sync_path_vars(&mut self, ctx: &mut Context) {

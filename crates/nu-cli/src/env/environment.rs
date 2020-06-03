@@ -3,6 +3,8 @@ use indexmap::{indexmap, IndexSet};
 use nu_protocol::{UntaggedValue, Value};
 use std::ffi::OsString;
 use std::fmt::Debug;
+use std::fs::File;
+use std::io::Write;
 
 pub trait Env: Debug + Send {
     fn env(&self) -> Option<Value>;
@@ -42,6 +44,16 @@ impl Environment {
             environment_vars: None,
             path_vars: None,
         }
+    }
+
+    pub fn add_nurc(&mut self) {
+        let key = "envtest";
+        let value = "I am here!";
+
+        let mut file = File::create("env.txt").unwrap();
+        write!(&mut file, "{:?}", "somedata").unwrap();
+
+        self.add_env(key, value);
     }
 
     pub fn from_config<T: Conf>(configuration: &T) -> Environment {
