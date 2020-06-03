@@ -40,26 +40,23 @@ pub struct Environment {
 
 impl Environment {
     pub fn new() -> Environment {
-        let mut e = Environment {
+        Environment {
             environment_vars: None,
             path_vars: None,
-        };
-        e.add_nurc();
-        e
+        }
     }
 
     pub fn from_config<T: Conf>(configuration: &T) -> Environment {
         let env = configuration.env();
         let path = configuration.path();
 
-        let mut e = Environment {
+        Environment {
             environment_vars: env,
             path_vars: path,
-        };
-        e.add_nurc();
-        e
+        }
     }
 
+    //Add env vars specified in the current dirs .nurc, if it exists.
     pub fn add_nurc(&mut self) {
         let key = "envtest";
         let value = "I am here!";
