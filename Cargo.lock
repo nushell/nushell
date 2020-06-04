@@ -2196,7 +2196,6 @@ dependencies = [
  "nu_plugin_fetch",
  "nu_plugin_inc",
  "nu_plugin_match",
- "nu_plugin_parse",
  "nu_plugin_post",
  "nu_plugin_ps",
  "nu_plugin_start",
@@ -2486,19 +2485,6 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_match"
-version = "0.14.1"
-dependencies = [
- "futures 0.3.5",
- "nu-build",
- "nu-errors",
- "nu-plugin",
- "nu-protocol",
- "nu-source",
- "regex",
-]
-
-[[package]]
-name = "nu_plugin_parse"
 version = "0.14.1"
 dependencies = [
  "futures 0.3.5",
