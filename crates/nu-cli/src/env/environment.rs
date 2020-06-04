@@ -133,7 +133,7 @@ impl Environment {
             tag: _,
         }) = &mut self.environment_vars
         {
-            envs.remove_key(key);
+            envs.entries.remove(key);
         }
     }
 
