@@ -32,7 +32,7 @@ impl WholeStreamCommand for Mkdir {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        mkdir(args, registry)
+        mkdir(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -44,20 +44,13 @@ impl WholeStreamCommand for Mkdir {
     }
 }
 
-fn mkdir(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn mkdir(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let name = args.call_info.name_tag.clone();
-        let shell_manager = args.shell_manager.clone();
-        let (args, _) = args.process(&registry).await?;
-        let mut result = shell_manager.mkdir(args, name)?;
+    let name = args.call_info.name_tag.clone();
+    let shell_manager = args.shell_manager.clone();
+    let (args, _) = args.process(&registry).await?;
 
-        while let Some(item) = result.next().await {
-            yield item;
-        }
-    };
-
-    Ok(stream.to_output_stream())
+    shell_manager.mkdir(args, name)
 }
 
 #[cfg(test)]
