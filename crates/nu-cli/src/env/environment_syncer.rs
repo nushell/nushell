@@ -44,7 +44,7 @@ impl EnvironmentSyncer {
     pub fn sync_env_vars(&mut self, ctx: &mut Context) {
         let mut environment = self.env.lock();
 
-        environment.add_nurc();
+        environment.maintain_nurc_environment_vars();
         if environment.env().is_some() {
             for (name, value) in ctx.with_host(|host| host.vars()) {
                 if name != "path" && name != "PATH" {
