@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{
-    ReturnSuccess, Signature, SpannedTypeName, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
+    Signature, SpannedTypeName, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
 };
 use nu_source::Tagged;
 
@@ -36,32 +36,31 @@ impl WholeStreamCommand for SplitBy {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        split_by(args, registry)
+        split_by(args, registry).await
     }
 }
 
-pub fn split_by(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+pub async fn split_by(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let name = args.call_info.name_tag.clone();
-        let (SplitByArgs { column_name }, mut input) = args.process(&registry).await?;
-        let values: Vec<Value> = input.collect().await;
+    let name = args.call_info.name_tag.clone();
+    let (SplitByArgs { column_name }, input) = args.process(&registry).await?;
+    let values: Vec<Value> = input.collect().await;
 
-        if values.len() > 1 || values.is_empty() {
-            yield Err(ShellError::labeled_error(
-                    "Expected table from pipeline",
-                    "requires a table input",
-                    column_name.span()
-                ))
-        } else {
-            match split(&column_name, &values[0], name) {
-                Ok(split) => yield ReturnSuccess::value(split),
-                Err(err) => yield Err(err),
-            }
-        }
-    };
+    if values.len() > 1 || values.is_empty() {
+        return Err(ShellError::labeled_error(
+            "Expected table from pipeline",
+            "requires a table input",
+            column_name.span(),
+        ));
+    }
 
-    Ok(stream.to_output_stream())
+    match split(&column_name, &values[0], name) {
+        Ok(split) => Ok(OutputStream::one(split)),
+        Err(err) => Err(err),
+    }
 }
 
 pub fn split(
