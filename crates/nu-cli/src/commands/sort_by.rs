@@ -31,7 +31,7 @@ impl WholeStreamCommand for SortBy {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        sort_by(args, registry)
+        sort_by(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -60,51 +60,61 @@ impl WholeStreamCommand for SortBy {
     }
 }
 
-fn sort_by(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+pub async fn sort_by(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let (SortByArgs { rest }, mut input) = args.process(&registry).await?;
-        let mut vec = input.drain_vec().await;
+    let tag = args.call_info.name_tag.clone();
 
-        if vec.is_empty() {
-            return;
+    let (SortByArgs { rest }, mut input) = args.process(&registry).await?;
+    let mut vec = input.drain_vec().await;
+
+    if vec.is_empty() {
+        return Err(ShellError::labeled_error(
+            "Error performing sort-by command",
+            "sort-by error",
+            tag,
+        ));
+    }
+
+    dbg!(&vec);
+
+    for sort_arg in rest.iter() {
+        let match_test = get_data_by_key(&vec[0], sort_arg.borrow_spanned());
+        if match_test == None {
+            return Err(ShellError::labeled_error(
+                "Can not find column to sort by",
+                "invalid column",
+                sort_arg.borrow_spanned().span,
+            ));
         }
+    }
 
-        for sort_arg in rest.iter() {
-            let match_test = get_data_by_key(&vec[0], sort_arg.borrow_spanned());
-            if match_test == None {
-                yield Err(ShellError::labeled_error(
-                    "Can not find column to sort by",
-                    "invalid column",
-                    sort_arg.borrow_spanned().span,
-                ));
-                return;
-            }
+    match &vec[0] {
+        Value {
+            value: UntaggedValue::Primitive(_),
+            ..
+        } => {
+            vec.sort();
         }
-
-        match &vec[0] {
-            Value {
-                value: UntaggedValue::Primitive(_),
-                ..
-            } => {
-                vec.sort();
-            },
-            _ => {
-                let calc_key = |item: &Value| {
-                    rest.iter()
-                        .map(|f| get_data_by_key(item, f.borrow_spanned()))
-                        .collect::<Vec<Option<Value>>>()
-                };
-                vec.sort_by_cached_key(calc_key);
-            },
-        };
-
-        for item in vec {
-            yield item.into();
+        _ => {
+            let calc_key = |item: &Value| {
+                rest.iter()
+                    .map(|f| get_data_by_key(item, f.borrow_spanned()))
+                    .collect::<Vec<Option<Value>>>()
+            };
+            vec.sort_by_cached_key(calc_key);
         }
     };
 
-    Ok(stream.to_output_stream())
+    let mut values_vec_deque: VecDeque<Value> = VecDeque::new();
+
+    for item in vec {
+        values_vec_deque.push_back(item.into());
+    }
+
+    Ok(futures::stream::iter(values_vec_deque).to_output_stream())
 }
 
 #[cfg(test)]
