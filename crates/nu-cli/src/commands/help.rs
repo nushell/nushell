@@ -182,8 +182,8 @@ pub fn get_help(cmd: &dyn WholeStreamCommand, registry: &CommandRegistry) -> Str
 
     if !signature.positional.is_empty() || signature.rest_positional.is_some() {
         long_desc.push_str("\nParameters:\n");
-        for positional in signature.positional {
-            match positional.0 {
+        for positional in &signature.positional {
+            match &positional.0 {
                 PositionalType::Mandatory(name, _m) => {
                     long_desc.push_str(&format!("  <{}> {}\n", name, positional.1));
                 }
@@ -193,75 +193,12 @@ pub fn get_help(cmd: &dyn WholeStreamCommand, registry: &CommandRegistry) -> Str
             }
         }
 
-        if let Some(rest_positional) = signature.rest_positional {
+        if let Some(rest_positional) = &signature.rest_positional {
             long_desc.push_str(&format!("  ...args: {}\n", rest_positional.1));
         }
     }
     if !signature.named.is_empty() {
-        long_desc.push_str("\nFlags:\n");
-        for (flag, ty) in signature.named {
-            let msg = match ty.0 {
-                NamedType::Switch(s) => {
-                    if let Some(c) = s {
-                        format!(
-                            "  -{}, --{}{} {}\n",
-                            c,
-                            flag,
-                            if !ty.1.is_empty() { ":" } else { "" },
-                            ty.1
-                        )
-                    } else {
-                        format!(
-                            "  --{}{} {}\n",
-                            flag,
-                            if !ty.1.is_empty() { ":" } else { "" },
-                            ty.1
-                        )
-                    }
-                }
-                NamedType::Mandatory(s, m) => {
-                    if let Some(c) = s {
-                        format!(
-                            "  -{}, --{} <{}> (required parameter){} {}\n",
-                            c,
-                            flag,
-                            m.display(),
-                            if !ty.1.is_empty() { ":" } else { "" },
-                            ty.1
-                        )
-                    } else {
-                        format!(
-                            "  --{} <{}> (required parameter){} {}\n",
-                            flag,
-                            m.display(),
-                            if !ty.1.is_empty() { ":" } else { "" },
-                            ty.1
-                        )
-                    }
-                }
-                NamedType::Optional(s, o) => {
-                    if let Some(c) = s {
-                        format!(
-                            "  -{}, --{} <{}>{} {}\n",
-                            c,
-                            flag,
-                            o.display(),
-                            if !ty.1.is_empty() { ":" } else { "" },
-                            ty.1
-                        )
-                    } else {
-                        format!(
-                            "  --{} <{}>{} {}\n",
-                            flag,
-                            o.display(),
-                            if !ty.1.is_empty() { ":" } else { "" },
-                            ty.1
-                        )
-                    }
-                }
-            };
-            long_desc.push_str(&msg);
-        }
+        long_desc.push_str(&get_flags_section(&signature))
     }
 
     let palette = crate::shell::palette::DefaultPalette {};
@@ -280,6 +217,75 @@ pub fn get_help(cmd: &dyn WholeStreamCommand, registry: &CommandRegistry) -> Str
 
     long_desc.push_str("\n");
 
+    long_desc
+}
+
+fn get_flags_section(signature: &Signature) -> String {
+    let mut long_desc = String::new();
+    long_desc.push_str("\nFlags:\n");
+    for (flag, ty) in &signature.named {
+        let msg = match ty.0 {
+            NamedType::Switch(s) => {
+                if let Some(c) = s {
+                    format!(
+                        "  -{}, --{}{} {}\n",
+                        c,
+                        flag,
+                        if !ty.1.is_empty() { ":" } else { "" },
+                        ty.1
+                    )
+                } else {
+                    format!(
+                        "  --{}{} {}\n",
+                        flag,
+                        if !ty.1.is_empty() { ":" } else { "" },
+                        ty.1
+                    )
+                }
+            }
+            NamedType::Mandatory(s, m) => {
+                if let Some(c) = s {
+                    format!(
+                        "  -{}, --{} <{}> (required parameter){} {}\n",
+                        c,
+                        flag,
+                        m.display(),
+                        if !ty.1.is_empty() { ":" } else { "" },
+                        ty.1
+                    )
+                } else {
+                    format!(
+                        "  --{} <{}> (required parameter){} {}\n",
+                        flag,
+                        m.display(),
+                        if !ty.1.is_empty() { ":" } else { "" },
+                        ty.1
+                    )
+                }
+            }
+            NamedType::Optional(s, o) => {
+                if let Some(c) = s {
+                    format!(
+                        "  -{}, --{} <{}>{} {}\n",
+                        c,
+                        flag,
+                        o.display(),
+                        if !ty.1.is_empty() { ":" } else { "" },
+                        ty.1
+                    )
+                } else {
+                    format!(
+                        "  --{} <{}>{} {}\n",
+                        flag,
+                        o.display(),
+                        if !ty.1.is_empty() { ":" } else { "" },
+                        ty.1
+                    )
+                }
+            }
+        };
+        long_desc.push_str(&msg);
+    }
     long_desc
 }
 
