@@ -49,7 +49,7 @@ impl WholeStreamCommand for Remove {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        rm(args, registry)
+        rm(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -73,27 +73,28 @@ impl WholeStreamCommand for Remove {
     }
 }
 
-fn rm(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+pub async fn rm(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let name = args.call_info.name_tag.clone();
-        let shell_manager = args.shell_manager.clone();
-        let (args, _): (RemoveArgs, _) = args.process(&registry).await?;
-        let mut result = if args.trash.item && args.permanent.item {
-            OutputStream::one(Err(ShellError::labeled_error(
-                "only one of --permanent and --trash can be used",
-                "conflicting flags",
-                name
-            )))
-        } else {
-            shell_manager.rm(args, name)?
-        };
-        while let Some(item) = result.next().await {
-            yield item;
-        }
+    let name = args.call_info.name_tag.clone();
+    let shell_manager = args.shell_manager.clone();
+    let (args, _): (RemoveArgs, _) = args.process(&registry).await?;
+    let mut result = if args.trash.item && args.permanent.item {
+        OutputStream::one(Err(ShellError::labeled_error(
+            "only one of --permanent and --trash can be used",
+            "conflicting flags",
+            name,
+        )))
+    } else {
+        shell_manager.rm(args, name)?
     };
 
-    Ok(stream.to_output_stream())
+    let mut values_vec_deque = VecDeque::new();
+
+    while let Some(item) = result.next().await {
+        values_vec_deque.push_back(item);
+    }
+
+    Ok(futures::stream::iter(values_vec_deque).to_output_stream())
 }
 
 #[cfg(test)]
