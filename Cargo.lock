@@ -864,12 +864,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "dirs-next"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1cbcf9241d9e8d106295bd496bbe2e9cffd5fa098f2a8c9e2bbcbf09773c11a8"
+dependencies = [
+ "cfg-if",
+ "dirs-sys-next",
+]
+
+[[package]]
 name = "dirs-sys"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "afa0b23de8fd801745c471deffa6e12d248f962c9fd4b4c33787b055599bde7b"
 dependencies = [
  "cfg-if",
+ "libc",
+ "redox_users",
+ "winapi 0.3.8",
+]
+
+[[package]]
+name = "dirs-sys-next"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c60f7b8a8953926148223260454befb50c751d3c50e1c178c4fd1ace4083c9a"
+dependencies = [
  "libc",
  "redox_users",
  "winapi 0.3.8",
@@ -2175,7 +2196,6 @@ dependencies = [
  "nu_plugin_fetch",
  "nu_plugin_inc",
  "nu_plugin_match",
- "nu_plugin_parse",
  "nu_plugin_post",
  "nu_plugin_ps",
  "nu_plugin_start",
@@ -2465,19 +2485,6 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_match"
-version = "0.14.1"
-dependencies = [
- "futures 0.3.5",
- "nu-build",
- "nu-errors",
- "nu-plugin",
- "nu-protocol",
- "nu-source",
- "regex",
-]
-
-[[package]]
-name = "nu_plugin_parse"
 version = "0.14.1"
 dependencies = [
  "futures 0.3.5",
@@ -3337,12 +3344,12 @@ dependencies = [
 
 [[package]]
 name = "rustyline"
-version = "6.1.2"
+version = "6.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1cd20b28d972040c627e209eb29f19c24a71a19d661cc5a220089176e20ee202"
+checksum = "3358c21cbbc1a751892528db4e1de4b7a2b6a73f001e215aaba97d712cfa9777"
 dependencies = [
  "cfg-if",
- "dirs 2.0.2",
+ "dirs-next",
  "libc",
  "log",
  "memchr",

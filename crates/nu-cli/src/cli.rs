@@ -291,6 +291,7 @@ pub fn create_default_context(
             whole_stream_command(Lines),
             whole_stream_command(Trim),
             whole_stream_command(Echo),
+            whole_stream_command(Parse),
             whole_stream_command(Str),
             whole_stream_command(StrToDecimal),
             whole_stream_command(StrToInteger),

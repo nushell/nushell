@@ -26,21 +26,24 @@ impl WholeStreamCommand for Uniq {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        uniq(args, registry)
+        uniq(args, registry).await
     }
 }
 
-fn uniq(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let stream = async_stream! {
-        let mut input = args.input;
-        let uniq_values: IndexSet<_> = input.collect().await;
+async fn uniq(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let input = args.input;
+    let uniq_values: IndexSet<_> = input.collect().await;
 
-        for item in uniq_values.iter().map(|row| ReturnSuccess::value(row.clone())) {
-            yield item;
-        }
-    };
+    let mut values_vec_deque = VecDeque::new();
 
-    Ok(stream.to_output_stream())
+    for item in uniq_values
+        .iter()
+        .map(|row| ReturnSuccess::value(row.clone()))
+    {
+        values_vec_deque.push_back(item);
+    }
+
+    Ok(futures::stream::iter(values_vec_deque).to_output_stream())
 }
 
 #[cfg(test)]
