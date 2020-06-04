@@ -22,7 +22,8 @@ use rustyline::{
     KeyPress, Movement, Word,
 };
 use std::error::Error;
-use std::io::{BufRead, BufReader, Write};
+use std::fs::File;
+use std::io::{BufRead, BufReader, Write, Read};
 use std::iter::Iterator;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
@@ -740,6 +741,23 @@ enum LineResult {
     Break,
 }
 
+//TODO: Add authentication by saving the path to the .nurc file in some variable?
+//For directory wd in whitelisted directories
+//if current directory is wd or subdir to wd, add env vars from .nurc in wd
+pub fn add_nurc(env: &mut IndexMap<String, String>) -> std::io::Result<()> {
+    let mut file = File::open(".nurc")?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+
+    let toml_doc = contents.parse::<toml::Value>().unwrap();
+    let nurc_vars = toml_doc.get("env").unwrap().as_table().unwrap();
+
+    nurc_vars.iter().for_each(|(k, v)| {
+        env.insert(k.clone(), v.as_str().unwrap().to_string());
+    });
+
+    Ok(())
+}
 /// Process the line by parsing the text to turn it into commands, classify those commands so that we understand what is being called in the pipeline, and then run this pipeline
 async fn process_line(
     readline: Result<String, ReadlineError>,
@@ -888,7 +906,8 @@ async fn process_line(
             classified_block.block.expand_it_usage();
 
             trace!("{:#?}", classified_block);
-            let env = ctx.get_env();
+            let mut env = ctx.get_env();
+            add_nurc(&mut env);
             match run_block(
                 &classified_block.block,
                 ctx,

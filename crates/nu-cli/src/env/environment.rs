@@ -38,7 +38,6 @@ impl Env for Box<dyn Env> {
 pub struct Environment {
     environment_vars: Option<Value>,
     path_vars: Option<Value>,
-    nurc_env_keys: HashMap<PathBuf, Vec<String>>, //Directory -> Env key. If an environment var has been added from a .nurc in a directory, we track it here so we can remove it when the user leaves the directory.
 }
 
 impl Environment {
@@ -46,7 +45,6 @@ impl Environment {
         Environment {
             environment_vars: None,
             path_vars: None,
-            nurc_env_keys: HashMap::new(),
         }
     }
 
@@ -57,87 +55,6 @@ impl Environment {
         Environment {
             environment_vars: env,
             path_vars: path,
-            nurc_env_keys: HashMap::new(),
-        }
-    }
-
-    //Add env vars specified in the current dirs .nurc, if it exists.
-    //TODO: Remove env vars after leaving the directory. Save added vars in env?
-    //Map directory to vars
-    //TODO: Add authentication by saving the path to the .nurc file in some variable?
-    //TODO: handle errors
-
-    pub fn maintain_nurc_environment_vars(&mut self) {
-        match self.add_nurc() {
-            _ => {}
-        };
-
-        match self.clear_vars_from_unvisited_dirs() {
-            _ => {}
-        };
-    }
-
-    pub fn add_nurc(&mut self) -> std::io::Result<()> {
-        let mut file = File::open(".nurc")?;
-        let mut contents = String::new();
-        file.read_to_string(&mut contents)?;
-
-        let toml_doc = contents.parse::<toml::Value>().unwrap();
-        let nurc_vars = toml_doc.get("env").unwrap().as_table().unwrap();
-
-        nurc_vars.iter().for_each(|(k, v)| {
-            self.add_env(k, v.as_str().unwrap());
-        });
-
-        self.nurc_env_keys.insert(
-            std::env::current_dir()?,
-            nurc_vars.keys().map(|k| k.clone()).collect(),
-        ); //Maybe could do without clone here, but leave for now
-        Ok(())
-    }
-
-    //If the user has left directories which added env vars through .nurc, we clear those vars
-    //For each directory d in nurc_env_vars:
-    //if current_dir does not have d as a parent (possibly recursive), the vars set by d should be removed
-    //TODO: Seems like vars are re-added immediately after being removed
-    pub fn clear_vars_from_unvisited_dirs(&mut self) -> std::io::Result<()> {
-        let current_dir = std::env::current_dir()?;
-
-        let mut new_nurc_env_vars = HashMap::new();
-        for (d, v) in self.nurc_env_keys.iter() {
-            let mut working_dir = Some(current_dir.as_path());
-            while working_dir.is_some() {
-                if working_dir.unwrap() == d {
-                    new_nurc_env_vars.insert(d.clone(), v.clone());
-                    break;
-                } else {
-                    working_dir = working_dir.unwrap().parent();
-                }
-            }
-        }
-
-        let mut vars_to_delete = vec![];
-        for (path, vals) in self.nurc_env_keys.iter() {
-            if !new_nurc_env_vars.contains_key(path) {
-                vars_to_delete.extend(vals.clone());
-            }
-        }
-
-        vars_to_delete.iter().for_each(|env_var| self.remove_env(env_var));
-
-        self.nurc_env_keys = new_nurc_env_vars;
-        Ok(())
-    }
-
-    pub fn remove_env(&mut self, key: &str) {
-        if let Some(Value {
-            value: UntaggedValue::Row(envs),
-            tag: _,
-        }) = &mut self.environment_vars
-        {
-
-            envs.entries.remove(key);
-            std::env::remove_var(key);
         }
     }
 
