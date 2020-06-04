@@ -78,23 +78,16 @@ async fn rm(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
     let name = args.call_info.name_tag.clone();
     let shell_manager = args.shell_manager.clone();
     let (args, _): (RemoveArgs, _) = args.process(&registry).await?;
-    let mut result = if args.trash.item && args.permanent.item {
-        OutputStream::one(Err(ShellError::labeled_error(
+
+    if args.trash.item && args.permanent.item {
+        return Ok(OutputStream::one(Err(ShellError::labeled_error(
             "only one of --permanent and --trash can be used",
             "conflicting flags",
             name,
-        )))
-    } else {
-        shell_manager.rm(args, name)?
-    };
-
-    let mut values_vec_deque = VecDeque::new();
-
-    while let Some(item) = result.next().await {
-        values_vec_deque.push_back(item);
+        ))));
     }
 
-    Ok(futures::stream::iter(values_vec_deque).to_output_stream())
+    shell_manager.rm(args, name)
 }
 
 #[cfg(test)]

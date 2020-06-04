@@ -49,15 +49,8 @@ async fn mkdir(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
     let name = args.call_info.name_tag.clone();
     let shell_manager = args.shell_manager.clone();
     let (args, _) = args.process(&registry).await?;
-    let mut result = shell_manager.mkdir(args, name)?;
 
-    let mut values_vec_deque = VecDeque::new();
-
-    while let Some(item) = result.next().await {
-        values_vec_deque.push_back(item);
-    }
-
-    Ok(futures::stream::iter(values_vec_deque).to_output_stream())
+    shell_manager.mkdir(args, name)
 }
 
 #[cfg(test)]
