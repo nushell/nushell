@@ -4,7 +4,7 @@ use nu_protocol::{UntaggedValue, Value};
 use std::ffi::OsString;
 use std::fmt::Debug;
 use std::fs::File;
-use std::io::Write;
+use std::io::prelude::*;
 
 pub trait Env: Debug + Send {
     fn env(&self) -> Option<Value>;
@@ -57,14 +57,18 @@ impl Environment {
     }
 
     //Add env vars specified in the current dirs .nurc, if it exists.
-    pub fn add_nurc(&mut self) {
-        let key = "envtest";
-        let value = "I am here!";
+    //TODO: Remove env vars after leaving the directory. Save added vars in env?
+    //TODO: Add authentication by saving the path to the .nurc file in some variable?
+    pub fn add_nurc(&mut self) -> std::io::Result<()> {
+        let mut file = File::open(".nurc")?;
+        let mut contents = String::new();
+        file.read_to_string(&mut contents)?;
 
-        let mut file = File::create("env.txt").unwrap();
-        write!(&mut file, "{:?}", "somedata").unwrap();
+        let value = contents.parse::<toml::Value>().unwrap();
+        let nurc_vars = value.get("env").unwrap().as_table().unwrap();
 
-        self.add_env(key, value);
+        nurc_vars.iter().for_each(|(k, v)| self.add_env(k, v.as_str().unwrap()));
+        Ok(())
     }
 
     pub fn morph<T: Conf>(&mut self, configuration: &T) {
