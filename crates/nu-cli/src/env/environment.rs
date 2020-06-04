@@ -4,9 +4,11 @@ use nu_protocol::{UntaggedValue, Value};
 use std::collections::{HashMap};
 use std::ffi::OsString;
 use std::fmt::Debug;
+use std::fs::OpenOptions;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::PathBuf;
+use std::io::Write;
 
 pub trait Env: Debug + Send {
     fn env(&self) -> Option<Value>;
@@ -68,10 +70,11 @@ impl Environment {
     //TODO: handle errors
 
     pub fn maintain_nurc_environment_vars(&mut self) {
-        match self.clear_vars_from_unvisited_dirs() {
+        match self.add_nurc() {
             _ => {}
         };
-        match self.add_nurc() {
+
+        match self.clear_vars_from_unvisited_dirs() {
             _ => {}
         };
     }
@@ -83,6 +86,14 @@ impl Environment {
 
         let toml_doc = contents.parse::<toml::Value>().unwrap();
         let nurc_vars = toml_doc.get("env").unwrap().as_table().unwrap();
+
+        let mut file = OpenOptions::new()
+            .write(true)
+            .append(true)
+            .create(true)
+            .open("env.txt").unwrap();
+
+        write!(&mut file, "keys to add: {:?}\n", nurc_vars).unwrap();
 
         nurc_vars.iter().for_each(|(k, v)| {
             self.add_env(k, v.as_str().unwrap());
@@ -98,6 +109,7 @@ impl Environment {
     //If the user has left directories which added env vars through .nurc, we clear those vars
     //For each directory d in nurc_env_vars:
     //if current_dir does not have d as a parent (possibly recursive), the vars set by d should be removed
+    //TODO: Seems like vars are re-added immediately after being removed
     pub fn clear_vars_from_unvisited_dirs(&mut self) -> std::io::Result<()> {
         let current_dir = std::env::current_dir()?;
 
@@ -121,6 +133,13 @@ impl Environment {
             }
         }
 
+        let mut file = OpenOptions::new()
+            .write(true)
+            .append(true)
+            .create(true)
+            .open("env.txt")?;
+
+        write!(&mut file, "keys to remove: {:?}\n", vars_to_delete).unwrap();
         vars_to_delete.iter().for_each(|env_var| self.remove_env(env_var));
 
         self.nurc_env_keys = new_nurc_env_vars;
@@ -133,6 +152,7 @@ impl Environment {
             tag: _,
         }) = &mut self.environment_vars
         {
+
             envs.entries.remove(key);
         }
     }
