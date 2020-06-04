@@ -78,8 +78,6 @@ pub async fn sort_by(
         ));
     }
 
-    dbg!(&vec);
-
     for sort_arg in rest.iter() {
         let match_test = get_data_by_key(&vec[0], sort_arg.borrow_spanned());
         if match_test == None {
