@@ -1,11 +1,13 @@
 use crate::data::config::Conf;
 use indexmap::{indexmap, IndexSet};
 use nu_protocol::{UntaggedValue, Value};
-use std::collections::HashMap;
+use std::collections::{HashMap};
+use indexmap::IndexMap;
 use std::ffi::OsString;
 use std::fmt::Debug;
 use std::fs::File;
 use std::io::prelude::*;
+use std::io::Write;
 use std::path::PathBuf;
 
 pub trait Env: Debug + Send {
@@ -68,8 +70,12 @@ impl Environment {
     //TODO: handle errors
 
     pub fn maintain_nurc_environment_vars(&mut self) {
-        self.clear_vars_from_unvisited_dirs();
-        self.add_nurc();
+        match self.clear_vars_from_unvisited_dirs() {
+            _ => {}
+        };
+        match self.add_nurc() {
+            _ => {}
+        };
     }
 
     pub fn add_nurc(&mut self) -> std::io::Result<()> {
@@ -125,13 +131,20 @@ impl Environment {
     }
 
     // environment_vars: Option<Value>,
+    //
     pub fn remove_env(&mut self, key: &str) {
         if let Some(Value {
             value: UntaggedValue::Row(envs),
             tag: _,
         }) = &mut self.environment_vars
         {
-            envs.entries.remove(key);
+
+            let mut file = File::create("env.txt").unwrap();
+            write!(&mut file, "env: {:?}", envs.entries).unwrap();
+
+            let mut file = File::create("removenv.txt").unwrap();
+            let removed = envs.remove_key(key);
+            write!(&mut file, "removed {:?}", (key, removed)).unwrap();
         }
     }
 

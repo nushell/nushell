@@ -159,6 +159,10 @@ impl Dictionary {
         self.entries.contains_key(key)
     }
 
+    pub fn remove_key(&mut self, key: &str) -> Option<Value> {
+        self.entries.remove(key)
+    }
+
     /// Find the matching Value for a key, if possible
     pub fn get_data_by_key(&self, name: Spanned<&str>) -> Option<Value> {
         let result = self
