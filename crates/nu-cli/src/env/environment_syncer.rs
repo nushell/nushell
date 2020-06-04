@@ -71,6 +71,7 @@ impl EnvironmentSyncer {
                 }
             }
         }
+
     }
 
     pub fn sync_path_vars(&mut self, ctx: &mut Context) {
