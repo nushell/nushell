@@ -30,10 +30,7 @@ impl WholeStreamCommand for Uniq {
     }
 }
 
-pub async fn uniq(
-    args: CommandArgs,
-    _registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+async fn uniq(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let input = args.input;
     let uniq_values: IndexSet<_> = input.collect().await;
 

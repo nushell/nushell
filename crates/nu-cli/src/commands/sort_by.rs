@@ -60,7 +60,7 @@ impl WholeStreamCommand for SortBy {
     }
 }
 
-pub async fn sort_by(
+async fn sort_by(
     args: CommandArgs,
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {

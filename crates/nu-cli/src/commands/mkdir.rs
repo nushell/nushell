@@ -44,10 +44,7 @@ impl WholeStreamCommand for Mkdir {
     }
 }
 
-pub async fn mkdir(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+async fn mkdir(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let name = args.call_info.name_tag.clone();
     let shell_manager = args.shell_manager.clone();
