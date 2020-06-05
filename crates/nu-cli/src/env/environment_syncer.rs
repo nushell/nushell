@@ -1,13 +1,14 @@
 use crate::context::Context;
 use crate::data::config::{Conf, NuConfig};
 use crate::env::environment::{Env, Environment};
-use nu_protocol::{UntaggedValue, Value, Primitive};
+use nu_protocol::{Primitive, UntaggedValue, Value};
 use parking_lot::Mutex;
 use std::io::Read;
 use std::io::Write;
 use std::{
     fs::{File, OpenOptions},
-    sync::Arc, path::PathBuf,
+    path::{Path, PathBuf},
+    sync::Arc,
 };
 
 pub struct EnvironmentSyncer {
@@ -47,19 +48,20 @@ impl EnvironmentSyncer {
         environment.morph(&*self.config);
     }
 
-    //TODO: Add authentication by saving the path to the .nurc file in some variable?
     //For directory wd in whitelisted directories
     //if current directory is wd or subdir to wd, add env vars from .nurc in wd
+    //vars: envtest, moretest, anothertest
     pub fn add_nurc(&self) -> std::io::Result<()> {
+        let mut environment = self.env.lock();
         let mut file = OpenOptions::new()
             .write(true)
             .append(true)
             .create(true)
-            .open("vars.txt")?;
+            .open("dirs.txt")?;
 
         let conf = Arc::clone(&self.config);
 
-        let mut directories = vec![];
+        let mut directories = vec![]; //TODO: sort the directories to achieve desired functionality about overwrites
         if let Some(Value {
             value: UntaggedValue::Table(ref directories_as_values),
             tag: _,
@@ -69,32 +71,47 @@ impl EnvironmentSyncer {
                 if let Value {
                     value: UntaggedValue::Primitive(Primitive::String(ref dir)),
                     tag: _,
-                } = dirval {
-                    let path = PathBuf::from(dir);
-                    directories.push(path);
+                } = dirval
+                {
+                    directories.push(PathBuf::from(&dir));
                 }
             }
         };
+        directories.sort();
 
-        write!(&mut file, "variables so far: {:?}\n", directories).unwrap();
+        write!(&mut file, "sorted dirs: {:?}\n", directories).unwrap();
 
-        // let mut file = File::open(".nurc")?;
-        // let mut contents = String::new();
-        // file.read_to_string(&mut contents)?;
+        let current_dir = std::env::current_dir()?;
 
-        // let toml_doc = contents.parse::<toml::Value>().unwrap();
-        // let nurc_vars = toml_doc.get("env").unwrap().as_table().unwrap();
+        for mut dir in directories {
+            let mut working_dir = Some(current_dir.as_path());
 
-        // nurc_vars.iter().for_each(|(k, v)| {
-        //     env.insert(k.clone(), v.as_str().unwrap().to_string());
-        // });
+            while working_dir.is_some() {
+                if working_dir.unwrap() == dir.as_path() {
+                    dir.push(".nurc");
+                    let mut file = File::open(dir.as_path())?;
+                    let mut contents = String::new();
+                    file.read_to_string(&mut contents)?;
 
+                    let toml_doc = contents.parse::<toml::Value>().unwrap();
+                    let nurc_vars = toml_doc.get("env").unwrap().as_table().unwrap();
+
+                    nurc_vars.iter().for_each(|(k, v)| {
+                        environment.add_env(&k, &v.as_str().unwrap().to_string());
+                    });
+                    break;
+                } else {
+                    working_dir = working_dir.unwrap().parent();
+                }
+            }
+        }
+        environment.add_env("envtest", "I overwrote successfully");
         Ok(())
     }
 
     pub fn sync_env_vars(&mut self, ctx: &mut Context) {
-        let mut environment = self.env.lock();
         self.add_nurc();
+        let mut environment = self.env.lock();
         if environment.env().is_some() {
             for (name, value) in ctx.with_host(|host| host.vars()) {
                 if name != "path" && name != "PATH" {
