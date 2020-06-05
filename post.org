@@ -1,0 +1,35 @@
+# WIP: Per directory env-variables
+For #86
+
+Environment variables are added if you have created a file called .nu inside a whitelisted directory, formatted as shown below. (I am, of course, open to change everything about this)
+```
+#inside a .nu-file in a whitelisted directory
+[env]
+var = "value"
+anothervar = "anothervalue"
+```
+
+In order for a .nu-file to be read, the directory it is in must be listed in the `nu_env_dirs` variable in nushell's `config.toml`.
+```
+nu_env_dirs = ["/home/sam", "/home/sam/github", "/home/sam/github/test"]
+```
+
+#  The way it works now is that whenever you run the function `maintain_nurc_environment_vars`, the current directory is checked for a `.nu` file and if it exists the variables in it are added. This works.
+# Of course, when you leave a directory the variables should be unset. I track this by having a map between directory and a vector of environment variables. If the user is not in the directory or one of its subdirectories, its environment variables are removed... And then for some reason they are re-added again?
+
+Behavior:
+- If you are in a subdirectory to a directory with a .nu-file, the vars in that .nu-file are applied.
+- If you leave a directory which set some variables, the variables are unset.
+- If a directory contains a .nu with an environment variable already set, the old value will be overwritten with the value from the .nu. This holds even if the old value was set by a .nu in a parent directory.
+  - The overwritten value is restored when you leave the directory.
+  - TODO: What happens if you overwrite twice?
+
+Questions:
+- ´add_env´ does not overwrite variables. Need ´add_env_force´?
+- `ctx.get_env()` in `cli.rs` lacks access to the config, which is required. Is it ok to do it through the sync call instead?
+
+TODO: take care of situation where a directory overwrites an existing .nu conf.
+
+----
+
+#
