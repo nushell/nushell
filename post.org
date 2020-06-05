@@ -3,7 +3,6 @@ For #86
 
 Environment variables are added if you have created a file called .nu inside a whitelisted directory, formatted as shown below. (I am, of course, open to change everything about this)
 ```
-#inside a .nu-file in a whitelisted directory
 [env]
 var = "value"
 anothervar = "anothervalue"

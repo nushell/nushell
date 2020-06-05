@@ -1,14 +1,14 @@
 use crate::data::config::Conf;
 use indexmap::{indexmap, IndexSet};
-use nu_protocol::{UntaggedValue, Value};
+use nu_protocol::{Primitive, UntaggedValue, Value};
 use std::ffi::OsString;
-use std::fmt::Debug;
+use std::{collections::HashMap, fmt::Debug, fs::File, io::Read, path::PathBuf};
 
 pub trait Env: Debug + Send {
     fn env(&self) -> Option<Value>;
     fn path(&self) -> Option<Value>;
 
-    fn add_env(&mut self, key: &str, value: &str);
+    fn add_env(&mut self, key: &str, value: &str, overwrite_existing: bool);
     fn add_path(&mut self, new_path: OsString);
 }
 
@@ -21,8 +21,8 @@ impl Env for Box<dyn Env> {
         (**self).path()
     }
 
-    fn add_env(&mut self, key: &str, value: &str) {
-        (**self).add_env(key, value);
+    fn add_env(&mut self, key: &str, value: &str, overwrite_existing: bool) {
+        (**self).add_env(key, value, overwrite_existing);
     }
 
     fn add_path(&mut self, new_path: OsString) {
@@ -31,9 +31,61 @@ impl Env for Box<dyn Env> {
 }
 
 #[derive(Debug, Default)]
+struct DirectorySpecificEnvironment {
+    pub whitelisted_directories: Vec<PathBuf>,
+    pub added_env_vars: HashMap<PathBuf, Vec<String>>, //Directory -> Env key. If an environment var has been added from a .nu in a directory, we track it here so we can remove it when the user leaves the directory.
+    pub overwritten_env_values: HashMap<PathBuf, Vec<(String, String)>>, //Directory -> (env_key, value). If a .nu overwrites some existing environment variables, they are added here so that they can be restored later.
+}
+
+impl DirectorySpecificEnvironment {
+    pub fn new(whitelisted_directories: Vec<PathBuf>) -> DirectorySpecificEnvironment {
+        DirectorySpecificEnvironment {
+            whitelisted_directories,
+            added_env_vars: HashMap::new(),
+            overwritten_env_values: HashMap::new(),
+        }
+    }
+
+    pub fn env_vars_to_add(&mut self) -> std::io::Result<HashMap<String, String>> {
+        let current_dir = std::env::current_dir()?;
+
+        let mut vars_to_add = HashMap::new();
+        for dir in &self.whitelisted_directories {
+
+            //Start in the current directory, then traverse towards the root directory with working_dir to check for .nu files
+            let mut working_dir = Some(current_dir.as_path());
+
+            while let Some(wdir) = working_dir {
+                if wdir == dir.as_path() {
+                    let mut dir = dir.clone();
+                    dir.push(".nu");
+
+                    //Read the .nu file and parse it into a nice map
+                    let mut file = File::open(dir.as_path())?;
+                    let mut contents = String::new();
+                    file.read_to_string(&mut contents)?;
+                    let toml_doc = contents.parse::<toml::Value>().unwrap();
+                    let vars_in_current_file = toml_doc.get("env").unwrap().as_table().unwrap();
+
+                    for (k, v) in vars_in_current_file {
+                        vars_to_add.insert(k.clone(), v.as_str().unwrap().to_string());
+                    }
+                    break;
+                } else {
+                    working_dir = working_dir.unwrap().parent();
+                }
+            }
+        }
+
+        Ok(vars_to_add)
+    }
+}
+
+#[derive(Debug, Default)]
 pub struct Environment {
     environment_vars: Option<Value>,
     path_vars: Option<Value>,
+    direnv: DirectorySpecificEnvironment,
 }
 
 impl Environment {
@@ -41,43 +93,46 @@ impl Environment {
         Environment {
             environment_vars: None,
             path_vars: None,
+            direnv: DirectorySpecificEnvironment::new(vec![]),
         }
     }
+
 
     pub fn from_config<T: Conf>(configuration: &T) -> Environment {
         let env = configuration.env();
         let path = configuration.path();
 
+        let mut directories = vec![];
+        if let Some(Value {
+            value: UntaggedValue::Table(ref directories_as_values),
+            tag: _,
+        }) = configuration.direnv_whitelist()
+        {
+            for dirval in directories_as_values {
+                if let Value {
+                    value: UntaggedValue::Primitive(Primitive::String(ref dir)),
+                    tag: _,
+                } = dirval
+                {
+                    directories.push(PathBuf::from(&dir));
+                }
+            }
+        };
+        directories.sort();
+
         Environment {
             environment_vars: env,
             path_vars: path,
+            direnv: DirectorySpecificEnvironment::new(directories),
         }
     }
 
-
-    pub fn add_env_force(&mut self, key: &str, value: &str) {
-        let value = UntaggedValue::string(value);
-
-        let new_envs = {
-            if let Some(Value {
-                value: UntaggedValue::Row(ref envs),
-                ref tag,
-            }) = self.environment_vars
-            {
-                let mut new_envs = envs.clone();
-
-                new_envs.insert_data_at_key(key, value.into_value(tag.clone()));
-
-                Value {
-                    value: UntaggedValue::Row(new_envs),
-                    tag: tag.clone(),
-                }
-            } else {
-                UntaggedValue::Row(indexmap! { key.into() => value.into_untagged_value() }.into())
-                    .into_untagged_value()
-            }
-        };
-        self.environment_vars = Some(new_envs);
+    pub fn maintain_directory_environment(&mut self) -> std::io::Result<()> {
+        let vars_to_add = self.direnv.env_vars_to_add()?;
+        vars_to_add.iter().for_each(|(k, v)| {
+            self.add_env(&k, &v, true);
+        });
+        Ok(())
     }
 
     pub fn morph<T: Conf>(&mut self, configuration: &T) {
@@ -103,9 +158,7 @@ impl Env for Environment {
         None
     }
 
-
-
-    fn add_env(&mut self, key: &str, value: &str) {
+    fn add_env(&mut self, key: &str, value: &str, overwrite_existing: bool) {
         let value = UntaggedValue::string(value);
 
         let new_envs = {
@@ -116,7 +169,7 @@ impl Env for Environment {
             {
                 let mut new_envs = envs.clone();
 
-                if !new_envs.contains_key(key) {
+                if !new_envs.contains_key(key) || overwrite_existing {
                     new_envs.insert_data_at_key(key, value.into_value(tag.clone()));
                 }
 

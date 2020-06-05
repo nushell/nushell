@@ -48,75 +48,21 @@ impl EnvironmentSyncer {
         environment.morph(&*self.config);
     }
 
-    //For directory wd in whitelisted directories
-    //if current directory is wd or subdir to wd, add env vars from .nurc in wd
-    //vars: envtest, moretest, anothertest
-    pub fn add_nurc(&self) -> std::io::Result<()> {
-        let mut environment = self.env.lock();
-        let mut file = OpenOptions::new()
-            .write(true)
-            .append(true)
-            .create(true)
-            .open("dirs.txt")?;
-
-        let conf = Arc::clone(&self.config);
-
-        let mut directories = vec![]; //TODO: sort the directories to achieve desired functionality about overwrites
-        if let Some(Value {
-            value: UntaggedValue::Table(ref directories_as_values),
-            tag: _,
-        }) = conf.direnv_whitelist()
-        {
-            for dirval in directories_as_values {
-                if let Value {
-                    value: UntaggedValue::Primitive(Primitive::String(ref dir)),
-                    tag: _,
-                } = dirval
-                {
-                    directories.push(PathBuf::from(&dir));
-                }
-            }
-        };
-        directories.sort();
-
-        write!(&mut file, "sorted dirs: {:?}\n", directories).unwrap();
-
-        let current_dir = std::env::current_dir()?;
-
-        for mut dir in directories {
-            let mut working_dir = Some(current_dir.as_path());
-
-            while working_dir.is_some() {
-                if working_dir.unwrap() == dir.as_path() {
-                    dir.push(".nu");
-                    let mut file = File::open(dir.as_path())?;
-                    let mut contents = String::new();
-                    file.read_to_string(&mut contents)?;
-
-                    let toml_doc = contents.parse::<toml::Value>().unwrap();
-                    let nurc_vars = toml_doc.get("env").unwrap().as_table().unwrap();
-
-                    nurc_vars.iter().for_each(|(k, v)| {
-                        environment.add_env_force(&k, &v.as_str().unwrap().to_string());
-                    });
-                    break;
-                } else {
-                    working_dir = working_dir.unwrap().parent();
-                }
-            }
-        }
-        Ok(())
-    }
 
     pub fn sync_env_vars(&mut self, ctx: &mut Context) {
-        self.add_nurc();
         let mut environment = self.env.lock();
+
+        match environment.maintain_directory_environment() {
+            Ok(_) => {}
+            Err(e) => {panic!(e)}
+        }
+
         if environment.env().is_some() {
             for (name, value) in ctx.with_host(|host| host.vars()) {
                 if name != "path" && name != "PATH" {
                     // account for new env vars present in the current session
                     // that aren't loaded from config.
-                    environment.add_env(&name, &value);
+                    environment.add_env(&name, &value, false);
 
                     // clear the env var from the session
                     // we are about to replace them
