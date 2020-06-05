@@ -54,6 +54,32 @@ impl Environment {
         }
     }
 
+
+    pub fn add_env_force(&mut self, key: &str, value: &str) {
+        let value = UntaggedValue::string(value);
+
+        let new_envs = {
+            if let Some(Value {
+                value: UntaggedValue::Row(ref envs),
+                ref tag,
+            }) = self.environment_vars
+            {
+                let mut new_envs = envs.clone();
+
+                new_envs.insert_data_at_key(key, value.into_value(tag.clone()));
+
+                Value {
+                    value: UntaggedValue::Row(new_envs),
+                    tag: tag.clone(),
+                }
+            } else {
+                UntaggedValue::Row(indexmap! { key.into() => value.into_untagged_value() }.into())
+                    .into_untagged_value()
+            }
+        };
+        self.environment_vars = Some(new_envs);
+    }
+
     pub fn morph<T: Conf>(&mut self, configuration: &T) {
         self.environment_vars = configuration.env();
         self.path_vars = configuration.path();
@@ -76,6 +102,8 @@ impl Env for Environment {
 
         None
     }
+
+
 
     fn add_env(&mut self, key: &str, value: &str) {
         let value = UntaggedValue::string(value);

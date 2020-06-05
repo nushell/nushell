@@ -58,7 +58,7 @@ impl NuConfig {
 
     pub fn direnv_whitelist(&self) -> Option<Value> {
         let vars = self.vars.lock();
-        if let Some(dirs) = vars.get("nurc_dirs") {
+        if let Some(dirs) = vars.get("nu_env_dirs") {
             return Some(dirs.clone());
         }
         None

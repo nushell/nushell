@@ -88,7 +88,7 @@ impl EnvironmentSyncer {
 
             while working_dir.is_some() {
                 if working_dir.unwrap() == dir.as_path() {
-                    dir.push(".nurc");
+                    dir.push(".nu");
                     let mut file = File::open(dir.as_path())?;
                     let mut contents = String::new();
                     file.read_to_string(&mut contents)?;
@@ -97,7 +97,7 @@ impl EnvironmentSyncer {
                     let nurc_vars = toml_doc.get("env").unwrap().as_table().unwrap();
 
                     nurc_vars.iter().for_each(|(k, v)| {
-                        environment.add_env(&k, &v.as_str().unwrap().to_string());
+                        environment.add_env_force(&k, &v.as_str().unwrap().to_string());
                     });
                     break;
                 } else {
@@ -105,7 +105,6 @@ impl EnvironmentSyncer {
                 }
             }
         }
-        environment.add_env("envtest", "I overwrote successfully");
         Ok(())
     }
 
