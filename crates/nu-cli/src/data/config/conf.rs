@@ -4,13 +4,17 @@ use std::fmt::Debug;
 pub trait Conf: Debug + Send {
     fn env(&self) -> Option<Value>;
     fn path(&self) -> Option<Value>;
-
+    fn direnv_whitelist(&self) -> Option<Value>;
     fn reload(&self);
 }
 
 impl Conf for Box<dyn Conf> {
     fn env(&self) -> Option<Value> {
         (**self).env()
+    }
+
+    fn direnv_whitelist(&self) -> Option<Value> {
+        (**self).direnv_whitelist()
     }
 
     fn path(&self) -> Option<Value> {

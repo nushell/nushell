@@ -20,6 +20,10 @@ impl Conf for NuConfig {
         self.path()
     }
 
+    fn direnv_whitelist(&self) -> Option<Value> {
+        self.direnv_whitelist()
+    }
+
     fn reload(&self) {
         let mut vars = self.vars.lock();
 
@@ -49,6 +53,14 @@ impl NuConfig {
             return Some(env_vars.clone());
         }
 
+        None
+    }
+
+    pub fn direnv_whitelist(&self) -> Option<Value> {
+        let vars = self.vars.lock();
+        if let Some(dirs) = vars.get("nurc_dirs") {
+            return Some(dirs.clone());
+        }
         None
     }
 

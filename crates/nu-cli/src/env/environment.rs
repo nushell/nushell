@@ -1,12 +1,8 @@
 use crate::data::config::Conf;
 use indexmap::{indexmap, IndexSet};
 use nu_protocol::{UntaggedValue, Value};
-use std::collections::{HashMap};
 use std::ffi::OsString;
 use std::fmt::Debug;
-use std::fs::File;
-use std::io::prelude::*;
-use std::path::PathBuf;
 
 pub trait Env: Debug + Send {
     fn env(&self) -> Option<Value>;

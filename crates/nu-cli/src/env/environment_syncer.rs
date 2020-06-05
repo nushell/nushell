@@ -1,8 +1,14 @@
 use crate::context::Context;
 use crate::data::config::{Conf, NuConfig};
 use crate::env::environment::{Env, Environment};
+use nu_protocol::{UntaggedValue, Value, Primitive};
 use parking_lot::Mutex;
-use std::sync::Arc;
+use std::io::Read;
+use std::io::Write;
+use std::{
+    fs::{File, OpenOptions},
+    sync::Arc, path::PathBuf,
+};
 
 pub struct EnvironmentSyncer {
     pub env: Arc<Mutex<Box<Environment>>>,
@@ -41,9 +47,54 @@ impl EnvironmentSyncer {
         environment.morph(&*self.config);
     }
 
+    //TODO: Add authentication by saving the path to the .nurc file in some variable?
+    //For directory wd in whitelisted directories
+    //if current directory is wd or subdir to wd, add env vars from .nurc in wd
+    pub fn add_nurc(&self) -> std::io::Result<()> {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .append(true)
+            .create(true)
+            .open("vars.txt")?;
+
+        let conf = Arc::clone(&self.config);
+
+        let mut directories = vec![];
+        if let Some(Value {
+            value: UntaggedValue::Table(ref directories_as_values),
+            tag: _,
+        }) = conf.direnv_whitelist()
+        {
+            for dirval in directories_as_values {
+                if let Value {
+                    value: UntaggedValue::Primitive(Primitive::String(ref dir)),
+                    tag: _,
+                } = dirval {
+                    let path = PathBuf::from(dir);
+                    directories.push(path);
+                }
+            }
+        };
+
+        write!(&mut file, "variables so far: {:?}\n", directories).unwrap();
+
+        // let mut file = File::open(".nurc")?;
+        // let mut contents = String::new();
+        // file.read_to_string(&mut contents)?;
+
+        // let toml_doc = contents.parse::<toml::Value>().unwrap();
+        // let nurc_vars = toml_doc.get("env").unwrap().as_table().unwrap();
+
+        // nurc_vars.iter().for_each(|(k, v)| {
+        //     env.insert(k.clone(), v.as_str().unwrap().to_string());
+        // });
+
+        Ok(())
+    }
+
     pub fn sync_env_vars(&mut self, ctx: &mut Context) {
         let mut environment = self.env.lock();
-
+        self.add_nurc();
         if environment.env().is_some() {
             for (name, value) in ctx.with_host(|host| host.vars()) {
                 if name != "path" && name != "PATH" {
@@ -70,7 +121,6 @@ impl EnvironmentSyncer {
                 }
             }
         }
-
     }
 
     pub fn sync_path_vars(&mut self, ctx: &mut Context) {
