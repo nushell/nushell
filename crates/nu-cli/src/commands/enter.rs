@@ -14,6 +14,7 @@ pub struct Enter;
 #[derive(Deserialize)]
 pub struct EnterArgs {
     location: Tagged<PathBuf>,
+    encoding: Option<String>,
 }
 
 #[async_trait]
@@ -23,11 +24,18 @@ impl WholeStreamCommand for Enter {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("enter").required(
-            "location",
-            SyntaxShape::Path,
-            "the location to create a new shell from",
-        )
+        Signature::build("enter")
+            .required(
+                "location",
+                SyntaxShape::Path,
+                "the location to create a new shell from",
+            )
+            .named(
+                "encoding",
+                SyntaxShape::String,
+                "encoding to use to open file",
+                Some('e'),
+            )
     }
 
     fn usage(&self) -> &str {
@@ -54,6 +62,11 @@ impl WholeStreamCommand for Enter {
                 example: "enter package.json",
                 result: None,
             },
+            Example {
+                description: "Enters file with iso-8859-1 encoding",
+                example: "enter file.csv --encoding iso-8859-1",
+                result: None,
+            },
         ]
     }
 }
@@ -68,7 +81,7 @@ fn enter(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
         let current_errors = raw_args.current_errors.clone();
         let host = raw_args.host.clone();
         let tag = raw_args.call_info.name_tag.clone();
-        let (EnterArgs { location }, _) = raw_args.process(&registry).await?;
+        let (EnterArgs { location, encoding }, _) = raw_args.process(&registry).await?;
         let location_string = location.display().to_string();
         let location_clone = location_string.clone();
 
@@ -103,6 +116,7 @@ fn enter(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
                     &full_path,
                     &PathBuf::from(location_clone),
                     tag.span,
+                    encoding.unwrap()
                 ).await?;
 
             match contents {
