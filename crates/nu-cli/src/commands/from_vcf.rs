@@ -28,35 +28,42 @@ impl WholeStreamCommand for FromVcf {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        from_vcf(args, registry)
+        from_vcf(args, registry).await
     }
 }
 
-fn from_vcf(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn from_vcf(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let args = args.evaluate_once(&registry).await?;
-        let tag = args.name_tag();
-        let input = args.input;
+    let args = args.evaluate_once(&registry).await?;
+    let tag = args.name_tag();
+    let input = args.input;
 
-        let input_string = input.collect_string(tag.clone()).await?.item;
-        let input_bytes = input_string.as_bytes();
-        let buf_reader = BufReader::new(input_bytes);
-        let parser = ical::VcardParser::new(buf_reader);
+    let input_string = input.collect_string(tag.clone()).await?.item;
+    let input_bytes = input_string.as_bytes();
+    let buf_reader = BufReader::new(input_bytes);
+    let parser = ical::VcardParser::new(buf_reader);
 
-        for contact in parser {
-            match contact {
-                Ok(c) => yield ReturnSuccess::value(contact_to_value(c, tag.clone())),
-                Err(_) => yield Err(ShellError::labeled_error(
+    let mut values_vec_deque = VecDeque::new();
+
+    for contact in parser {
+        match contact {
+            Ok(c) => {
+                values_vec_deque.push_back(ReturnSuccess::value(contact_to_value(c, tag.clone())))
+            }
+            Err(_) => {
+                return Err(ShellError::labeled_error(
                     "Could not parse as .vcf",
                     "input cannot be parsed as .vcf",
-                    tag.clone()
-                )),
+                    tag.clone(),
+                ))
             }
         }
-    };
+    }
 
-    Ok(stream.to_output_stream())
+    Ok(futures::stream::iter(values_vec_deque).to_output_stream())
 }
 
 fn contact_to_value(contact: VcardContact, tag: Tag) -> Value {

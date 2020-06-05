@@ -31,7 +31,7 @@ impl WholeStreamCommand for Skip {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        skip(args, registry)
+        skip(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -46,27 +46,27 @@ impl WholeStreamCommand for Skip {
     }
 }
 
-fn skip(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn skip(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let (SkipArgs { rows }, mut input) = args.process(&registry).await?;
-        let mut rows_desired = if let Some(quantity) = rows {
-            *quantity
-        } else {
-            1
-        };
-
-        while let Some(input) = input.next().await {
-            if rows_desired == 0 {
-                yield ReturnSuccess::value(input);
-            }
-            if rows_desired > 0{
-                rows_desired -= 1;
-            }
-        }
+    let (SkipArgs { rows }, mut input) = args.process(&registry).await?;
+    let mut rows_desired = if let Some(quantity) = rows {
+        *quantity
+    } else {
+        1
     };
 
-    Ok(stream.to_output_stream())
+    let mut values_vec_deque = VecDeque::new();
+
+    while let Some(input) = input.next().await {
+        if rows_desired == 0 {
+            values_vec_deque.push_back(ReturnSuccess::value(input));
+        }
+        if rows_desired > 0 {
+            rows_desired -= 1;
+        }
+    }
+
+    Ok(futures::stream::iter(values_vec_deque).to_output_stream())
 }
 
 #[cfg(test)]
