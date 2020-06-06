@@ -40,8 +40,12 @@ impl Env for Box<dyn Env> {
 #[derive(Debug, Default)]
 struct DirectorySpecificEnvironment {
     pub whitelisted_directories: Vec<PathBuf>,
-    pub added_env_vars: HashMap<PathBuf, Vec<String>>, //Directory -> Env key. If an environment var has been added from a .nu in a directory, we track it here so we can remove it when the user leaves the directory.
-    pub overwritten_env_values: HashMap<PathBuf, Vec<(String, String)>>, //Directory -> (env_key, value). If a .nu overwrites some existing environment variables, they are added here so that they can be restored later.
+
+    //Directory -> Env key. If an environment var has been added from a .nu in a directory, we track it here so we can remove it when the user leaves the directory.
+    pub added_env_vars: HashMap<PathBuf, Vec<String>>,
+
+    //Directory -> (env_key, value). If a .nu overwrites some existing environment variables, they are added here so that they can be restored later.
+    pub overwritten_env_values: HashMap<PathBuf, Vec<(String, String)>>,
 }
 
 impl DirectorySpecificEnvironment {
@@ -88,31 +92,27 @@ impl DirectorySpecificEnvironment {
         Ok(vars_to_add)
     }
 
-    //If the user has left directories which added env vars through .nurc, we clear those vars
-    //For each directory d in nurc_env_vars:
-    //if current_dir does not have d as a parent (possibly recursive), the vars set by d should be removed
+    //If the user has left directories which added env vars through .nu, we clear those vars
     pub fn env_vars_to_delete(&mut self) -> std::io::Result<Vec<String>> {
         let current_dir = std::env::current_dir()?;
 
-        let mut new_nurc_env_vars = HashMap::new();
-        for (d, v) in self.added_env_vars.iter() {
-            let mut working_dir = Some(current_dir.as_path());
-            while working_dir.is_some() {
-                if working_dir.unwrap() == d {
-                    new_nurc_env_vars.insert(d.clone(), v.clone());
-                    break;
-                } else {
-                    working_dir = working_dir.unwrap().parent();
-                }
-            }
-        }
+        let vars_to_delete = self.added_env_vars.iter().fold(
+            Vec::new(),
+            |mut vars_to_delete, (directory, env_vars)| {
+                let mut working_dir = Some(current_dir.as_path());
 
-        let mut vars_to_delete = vec![];
-        for (path, vals) in self.added_env_vars.iter() {
-            if !new_nurc_env_vars.contains_key(path) {
-                vars_to_delete.extend(vals.clone());
-            }
-        }
+                while let Some(wdir) = working_dir {
+                    if &wdir == directory {
+                        return vars_to_delete;
+                    } else {
+                        working_dir = working_dir.unwrap().parent();
+                    }
+                }
+                //only delete vars from directories we are not in
+                vars_to_delete.extend(env_vars.clone());
+                vars_to_delete
+            },
+        );
 
         Ok(vars_to_delete)
     }
