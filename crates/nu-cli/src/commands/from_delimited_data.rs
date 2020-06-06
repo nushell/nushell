@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use csv::{ErrorKind, ReaderBuilder};
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, TaggedDictBuilder, UntaggedValue, Value};
+use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
 
 fn from_delimited_string_to_value(
     s: String,
@@ -41,7 +41,7 @@ fn from_delimited_string_to_value(
     Ok(UntaggedValue::Table(rows).into_value(&tag))
 }
 
-pub fn from_delimited_data(
+pub async fn from_delimited_data(
     headerless: bool,
     sep: char,
     format_name: &'static str,
@@ -49,37 +49,32 @@ pub fn from_delimited_data(
     name: Tag,
 ) -> Result<OutputStream, ShellError> {
     let name_tag = name;
+    let concat_string = input.collect_string(name_tag.clone()).await?;
 
-    let stream = async_stream! {
-        let concat_string = input.collect_string(name_tag.clone()).await?;
+    match from_delimited_string_to_value(concat_string.item, headerless, sep, name_tag.clone()) {
+        Ok(x) => match x {
+            Value {
+                value: UntaggedValue::Table(list),
+                ..
+            } => Ok(futures::stream::iter(list).to_output_stream()),
+            x => Ok(OutputStream::one(x)),
+        },
+        Err(err) => {
+            let line_one = match pretty_csv_error(err) {
+                Some(pretty) => format!("Could not parse as {} ({})", format_name, pretty),
+                None => format!("Could not parse as {}", format_name),
+            };
+            let line_two = format!("input cannot be parsed as {}", format_name);
 
-        match from_delimited_string_to_value(concat_string.item, headerless, sep, name_tag.clone()) {
-            Ok(x) => match x {
-                Value { value: UntaggedValue::Table(list), .. } => {
-                    for l in list {
-                        yield ReturnSuccess::value(l);
-                    }
-                }
-                x => yield ReturnSuccess::value(x),
-            },
-            Err(err) => {
-                let line_one = match pretty_csv_error(err) {
-                    Some(pretty) => format!("Could not parse as {} ({})", format_name,pretty),
-                    None => format!("Could not parse as {}", format_name),
-                };
-                let line_two = format!("input cannot be parsed as {}", format_name);
-                yield Err(ShellError::labeled_error_with_secondary(
-                    line_one,
-                    line_two,
-                    name_tag.clone(),
-                    "value originates from here",
-                    concat_string.tag,
-                ))
-            } ,
+            Err(ShellError::labeled_error_with_secondary(
+                line_one,
+                line_two,
+                name_tag.clone(),
+                "value originates from here",
+                concat_string.tag,
+            ))
         }
-    };
-
-    Ok(stream.to_output_stream())
+    }
 }
 
 fn pretty_csv_error(err: csv::Error) -> Option<String> {

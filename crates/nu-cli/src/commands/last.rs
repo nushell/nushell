@@ -35,7 +35,7 @@ impl WholeStreamCommand for Last {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        last(args, registry)
+        last(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -58,28 +58,30 @@ impl WholeStreamCommand for Last {
     }
 }
 
-fn last(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn last(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let (LastArgs { rows }, mut input) = args.process(&registry).await?;
-        let v: Vec<_> = input.into_vec().await;
+    let (LastArgs { rows }, input) = args.process(&registry).await?;
+    let v: Vec<_> = input.into_vec().await;
 
-        let rows_desired = if let Some(quantity) = rows {
-            *quantity
-        } else {
-         1
-        };
-
-        let count = (rows_desired as usize);
-        if count < v.len() {
-            let k = v.len() - count;
-            for x in v[k..].iter() {
-                let y: Value = x.clone();
-                yield ReturnSuccess::value(y)
-            }
-        }
+    let rows_desired = if let Some(quantity) = rows {
+        *quantity
+    } else {
+        1
     };
-    Ok(stream.to_output_stream())
+
+    let mut values_vec_deque = VecDeque::new();
+
+    let count = rows_desired as usize;
+
+    if count < v.len() {
+        let k = v.len() - count;
+
+        for x in v[k..].iter() {
+            values_vec_deque.push_back(ReturnSuccess::value(x.clone()));
+        }
+    }
+
+    Ok(futures::stream::iter(values_vec_deque).to_output_stream())
 }
 
 #[cfg(test)]
