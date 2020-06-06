@@ -1,12 +1,9 @@
 use crate::data::config::Conf;
+use crate::env::directory_specific_environment::*;
 use indexmap::{indexmap, IndexSet};
 use nu_protocol::{Primitive, UntaggedValue, Value};
 use std::ffi::OsString;
-use std::{
-    collections::HashMap,
-    fmt::Debug,
-    path::PathBuf,
-};
+use std::{fmt::Debug, path::PathBuf};
 
 pub trait Env: Debug + Send {
     fn env(&self) -> Option<Value>;
@@ -31,89 +28,6 @@ impl Env for Box<dyn Env> {
 
     fn add_path(&mut self, new_path: OsString) {
         (**self).add_path(new_path);
-    }
-}
-
-#[derive(Debug, Default)]
-struct DirectorySpecificEnvironment {
-    pub whitelisted_directories: Vec<PathBuf>,
-
-    //Directory -> Env key. If an environment var has been added from a .nu in a directory, we track it here so we can remove it when the user leaves the directory.
-    pub added_env_vars: HashMap<PathBuf, Vec<String>>,
-
-    //Directory -> (env_key, value). If a .nu overwrites some existing environment variables, they are added here so that they can be restored later.
-    pub overwritten_env_values: HashMap<PathBuf, Vec<(String, String)>>,
-}
-
-impl DirectorySpecificEnvironment {
-    pub fn new(whitelisted_directories: Vec<PathBuf>) -> DirectorySpecificEnvironment {
-        DirectorySpecificEnvironment {
-            whitelisted_directories,
-            added_env_vars: HashMap::new(),
-            overwritten_env_values: HashMap::new(),
-        }
-    }
-
-    pub fn env_vars_to_add(&mut self) -> std::io::Result<HashMap<String, String>> {
-        let current_dir = std::env::current_dir()?;
-
-        let mut vars_to_add = HashMap::new();
-        for dir in &self.whitelisted_directories {
-            //Start in the current directory, then traverse towards the root with working_dir to see if we are in a subdirectory of a valid directory.
-            let mut working_dir = Some(current_dir.as_path());
-
-            while let Some(wdir) = working_dir {
-                if wdir == dir.as_path() {
-
-                    //Read the .nu file and parse it into a nice map
-                    let toml_doc = std::fs::read_to_string(wdir.join(".nu").as_path())?
-                        .parse::<toml::Value>()
-                        .unwrap();
-                    let vars_in_current_file = toml_doc.get("env").unwrap().as_table().unwrap();
-
-                    let keys_in_file = vars_in_current_file
-                        .iter()
-                        .map(|(k, v)| {
-                            vars_to_add.insert(k.clone(), v.as_str().unwrap().to_string()); //This is to add the keys and values to the environment
-                            k.clone() //We add them all to a list to keep track of which keys we have added
-                        })
-                        .collect();
-
-                    self.added_env_vars.insert(wdir.to_path_buf(), keys_in_file);
-                    break;
-                } else {
-                    working_dir = working_dir.unwrap().parent();
-                }
-            }
-        }
-        Ok(vars_to_add)
-    }
-
-    //If the user has left directories which added env vars through .nu, we clear those vars
-    pub fn env_vars_to_delete(&mut self) -> std::io::Result<Vec<String>> {
-        let current_dir = std::env::current_dir()?;
-
-        //Gather up all environment variables that should be deleted.
-        //If we are not in a directory or one of its subdirectories, mark the env_vals it maps to for removal.
-        let vars_to_delete = self.added_env_vars.iter().fold(
-            Vec::new(),
-            |mut vars_to_delete, (directory, env_vars)| {
-                let mut working_dir = Some(current_dir.as_path());
-
-                while let Some(wdir) = working_dir {
-                    if &wdir == directory {
-                        return vars_to_delete;
-                    } else {
-                        working_dir = working_dir.unwrap().parent();
-                    }
-                }
-                //only delete vars from directories we are not in
-                vars_to_delete.extend(env_vars.clone());
-                vars_to_delete
-            },
-        );
-
-        Ok(vars_to_delete)
     }
 }
 
