@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 
 pub struct First;
@@ -59,25 +59,14 @@ impl WholeStreamCommand for First {
 
 async fn first(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let (FirstArgs { rows }, mut input) = args.process(&registry).await?;
-    let mut rows_desired = if let Some(quantity) = rows {
+    let (FirstArgs { rows }, input) = args.process(&registry).await?;
+    let rows_desired = if let Some(quantity) = rows {
         *quantity
     } else {
         1
     };
 
-    let mut values_vec_deque = VecDeque::new();
-
-    while let Some(input) = input.next().await {
-        if rows_desired > 0 {
-            values_vec_deque.push_back(ReturnSuccess::value(input));
-            rows_desired -= 1;
-        } else {
-            break;
-        }
-    }
-
-    Ok(futures::stream::iter(values_vec_deque).to_output_stream())
+    Ok(input.take(rows_desired).to_output_stream())
 }
 
 #[cfg(test)]

@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 
 pub struct Skip;
@@ -48,25 +48,14 @@ impl WholeStreamCommand for Skip {
 
 async fn skip(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let (SkipArgs { rows }, mut input) = args.process(&registry).await?;
-    let mut rows_desired = if let Some(quantity) = rows {
+    let (SkipArgs { rows }, input) = args.process(&registry).await?;
+    let rows_desired = if let Some(quantity) = rows {
         *quantity
     } else {
         1
     };
 
-    let mut values_vec_deque = VecDeque::new();
-
-    while let Some(input) = input.next().await {
-        if rows_desired == 0 {
-            values_vec_deque.push_back(ReturnSuccess::value(input));
-        }
-        if rows_desired > 0 {
-            rows_desired -= 1;
-        }
-    }
-
-    Ok(futures::stream::iter(values_vec_deque).to_output_stream())
+    Ok(input.skip(rows_desired).to_output_stream())
 }
 
 #[cfg(test)]
