@@ -124,7 +124,7 @@ fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, S
 
 pub async fn fetch(
     cwd: &PathBuf,
-    location: &PathBuf,
+    _location: &PathBuf,
     span: Span,
     encoding: String,
 ) -> Result<(Option<String>, UntaggedValue, Tag), ShellError> {
@@ -134,7 +134,7 @@ pub async fn fetch(
     let mut decoder = input_encoding.new_decoder();
     let mut encoder = output_encoding.new_encoder();
 
-    let mut file: File;
+    let mut _file: File;
     // let stdout;
     // let mut stdout_lock;
     // let mut output = {
@@ -146,9 +146,9 @@ pub async fn fetch(
     let mut bufwriter = BufWriter::new(buf);
 
     match File::open(&Path::new(&cwd)) {
-        Ok(mut file) => {
-            convert_via_utf8(&mut decoder, &mut encoder, &mut file, &mut bufwriter, false);
-            bufwriter.flush();
+        Ok(mut _file) => {
+            convert_via_utf8(&mut decoder, &mut encoder, &mut _file, &mut bufwriter, false);
+            bufwriter.flush()?;
             Ok((
                 cwd.extension()
                     .map(|name| name.to_string_lossy().to_string()),
