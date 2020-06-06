@@ -128,27 +128,20 @@ pub async fn fetch(
     span: Span,
     encoding: String,
 ) -> Result<(Option<String>, UntaggedValue, Tag), ShellError> {
-    let cwd = cwd.clone();
+    let mut cwd = cwd.clone();
     let output_encoding: &Encoding = get_encoding(Some("utf-8".to_string()));
     let input_encoding: &Encoding = get_encoding(Some(encoding));
     let mut decoder = input_encoding.new_decoder();
     let mut encoder = output_encoding.new_encoder();
 
     let mut _file: File;
-    // let stdout;
-    // let mut stdout_lock;
-    // let mut output = {
-    //     stdout = std::io::stdout();
-    //     stdout_lock = stdout.lock();
-    //     &mut stdout_lock as &mut dyn Write
-    // };
     let buf = Vec::new();
     let mut bufwriter = BufWriter::new(buf);
-
+    cwd.push(Path::new(_location));
     match File::open(&Path::new(&cwd)) {
         Ok(mut _file) => {
             convert_via_utf8(&mut decoder, &mut encoder, &mut _file, &mut bufwriter, false);
-            bufwriter.flush()?;
+            //bufwriter.flush()?;
             Ok((
                 cwd.extension()
                     .map(|name| name.to_string_lossy().to_string()),
