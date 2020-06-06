@@ -1,9 +1,9 @@
 use crate::data::config::Conf;
 use crate::env::directory_specific_environment::*;
 use indexmap::{indexmap, IndexSet};
-use nu_protocol::{Primitive, UntaggedValue, Value};
+use nu_protocol::{UntaggedValue, Value};
 use std::ffi::OsString;
-use std::{fmt::Debug, path::PathBuf};
+use std::fmt::Debug;
 
 pub trait Env: Debug + Send {
     fn env(&self) -> Option<Value>;
@@ -43,7 +43,7 @@ impl Environment {
         Environment {
             environment_vars: None,
             path_vars: None,
-            direnv: DirectorySpecificEnvironment::new(vec![]),
+            direnv: DirectorySpecificEnvironment::new(None),
         }
     }
 
@@ -51,28 +51,10 @@ impl Environment {
         let env = configuration.env();
         let path = configuration.path();
 
-        let mut directories = vec![];
-        if let Some(Value {
-            value: UntaggedValue::Table(ref directories_as_values),
-            tag: _,
-        }) = configuration.direnv_whitelist()
-        {
-            for dirval in directories_as_values {
-                if let Value {
-                    value: UntaggedValue::Primitive(Primitive::String(ref dir)),
-                    tag: _,
-                } = dirval
-                {
-                    directories.push(PathBuf::from(&dir));
-                }
-            }
-        };
-        directories.sort();
-
         Environment {
             environment_vars: env,
             path_vars: path,
-            direnv: DirectorySpecificEnvironment::new(directories),
+            direnv: DirectorySpecificEnvironment::new(configuration.direnv_whitelist()),
         }
     }
 

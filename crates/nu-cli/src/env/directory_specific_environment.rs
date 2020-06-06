@@ -1,42 +1,59 @@
-use indexmap::indexmap;
-use std::{
-    collections::HashMap,
-    fmt::Debug,
-    path::PathBuf,
-};
-
+use indexmap::IndexMap;
+use nu_protocol::{Primitive, UntaggedValue, Value};
+use std::{fmt::Debug, path::PathBuf};
 
 #[derive(Debug, Default)]
 pub struct DirectorySpecificEnvironment {
     pub whitelisted_directories: Vec<PathBuf>,
 
     //Directory -> Env key. If an environment var has been added from a .nu in a directory, we track it here so we can remove it when the user leaves the directory.
-    pub added_env_vars: HashMap<PathBuf, Vec<String>>,
+    pub added_env_vars: IndexMap<PathBuf, Vec<String>>,
 
     //Directory -> (env_key, value). If a .nu overwrites some existing environment variables, they are added here so that they can be restored later.
-    pub overwritten_env_values: HashMap<PathBuf, Vec<(String, String)>>,
+    pub overwritten_env_values: IndexMap<PathBuf, Vec<(String, String)>>,
 }
 
 impl DirectorySpecificEnvironment {
-    pub fn new(whitelisted_directories: Vec<PathBuf>) -> DirectorySpecificEnvironment {
+    pub fn new(whitelisted_directories: Option<Value>) -> DirectorySpecificEnvironment {
+        let mut whitelisted_directories = if let Some(Value {
+            value: UntaggedValue::Table(ref wrapped_directories),
+            tag: _,
+        }) = whitelisted_directories
+        {
+            wrapped_directories
+                .iter()
+                .fold(vec![], |mut directories, dirval| {
+                    if let Value {
+                        value: UntaggedValue::Primitive(Primitive::String(ref dir)),
+                        tag: _,
+                    } = dirval
+                    {
+                        directories.push(PathBuf::from(&dir));
+                    }
+                    directories
+                })
+        } else {
+            vec![]
+        };
+        whitelisted_directories.sort();
+
         DirectorySpecificEnvironment {
             whitelisted_directories,
-            added_env_vars: HashMap::new(),
-            overwritten_env_values: HashMap::new(),
+            added_env_vars: IndexMap::new(),
+            overwritten_env_values: IndexMap::new(),
         }
     }
 
-    pub fn env_vars_to_add(&mut self) -> std::io::Result<HashMap<String, String>> {
+    pub fn env_vars_to_add(&mut self) -> std::io::Result<IndexMap<String, String>> {
         let current_dir = std::env::current_dir()?;
 
-        let mut vars_to_add = HashMap::new();
+        let mut vars_to_add = IndexMap::new();
         for dir in &self.whitelisted_directories {
             //Start in the current directory, then traverse towards the root with working_dir to see if we are in a subdirectory of a valid directory.
             let mut working_dir = Some(current_dir.as_path());
 
             while let Some(wdir) = working_dir {
                 if wdir == dir.as_path() {
-
                     //Read the .nu file and parse it into a nice map
                     let toml_doc = std::fs::read_to_string(wdir.join(".nu").as_path())?
                         .parse::<toml::Value>()
