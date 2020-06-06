@@ -96,17 +96,21 @@ impl DirectorySpecificEnvironment {
                         keys_in_current_nufile.push(k.clone()); //this is used to keep track of which directory added which variables
                     }
 
-                    self.overwritten_env_values.insert( //If we are about to overwrite any environment variables, we save them first so they can be restored later.
+                    self.overwritten_env_values.insert(
+                        //If we are about to overwrite any environment variables, we save them first so they can be restored later.
                         wdir.to_path_buf(),
-                        keys_in_current_nufile.iter().fold(vec![], |mut keyvals, key| {
-                            if let Some(val) = std::env::var_os(key) {
-                                keyvals.push((key.clone(), val));
-                            }
-                            keyvals
-                        }),
+                        keys_in_current_nufile
+                            .iter()
+                            .fold(vec![], |mut keyvals, key| {
+                                if let Some(val) = std::env::var_os(key) {
+                                    keyvals.push((key.clone(), val));
+                                }
+                                keyvals
+                            }),
                     );
 
-                    self.added_env_vars.insert(wdir.to_path_buf(), keys_in_current_nufile);
+                    self.added_env_vars
+                        .insert(wdir.to_path_buf(), keys_in_current_nufile);
                     break;
                 } else {
                     working_dir = working_dir.unwrap().parent();
