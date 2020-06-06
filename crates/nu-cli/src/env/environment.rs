@@ -2,12 +2,9 @@ use crate::data::config::Conf;
 use indexmap::{indexmap, IndexSet};
 use nu_protocol::{Primitive, UntaggedValue, Value};
 use std::ffi::OsString;
-use std::io::Write;
 use std::{
     collections::HashMap,
     fmt::Debug,
-    fs::{File, OpenOptions},
-    io::Read,
     path::PathBuf,
 };
 
@@ -62,26 +59,26 @@ impl DirectorySpecificEnvironment {
 
         let mut vars_to_add = HashMap::new();
         for dir in &self.whitelisted_directories {
-            //Start in the current directory, then traverse towards the root directory with working_dir to check for .nu files
+            //Start in the current directory, then traverse towards the root with working_dir to see if we are in a subdirectory of a valid directory.
             let mut working_dir = Some(current_dir.as_path());
 
             while let Some(wdir) = working_dir {
                 if wdir == dir.as_path() {
-                    let mut dir = dir.clone();
-                    dir.push(".nu");
 
                     //Read the .nu file and parse it into a nice map
-                    let mut file = File::open(dir.as_path())?;
-                    let mut contents = String::new();
-                    file.read_to_string(&mut contents)?;
-                    let toml_doc = contents.parse::<toml::Value>().unwrap();
+                    let toml_doc = std::fs::read_to_string(wdir.join(".nu").as_path())?
+                        .parse::<toml::Value>()
+                        .unwrap();
                     let vars_in_current_file = toml_doc.get("env").unwrap().as_table().unwrap();
 
-                    let mut keys_in_file = vec![];
-                    for (k, v) in vars_in_current_file {
-                        vars_to_add.insert(k.clone(), v.as_str().unwrap().to_string());
-                        keys_in_file.push(k.clone());
-                    }
+                    let keys_in_file = vars_in_current_file
+                        .iter()
+                        .map(|(k, v)| {
+                            vars_to_add.insert(k.clone(), v.as_str().unwrap().to_string()); //This is to add the keys and values to the environment
+                            k.clone() //We add them all to a list to keep track of which keys we have added
+                        })
+                        .collect();
+
                     self.added_env_vars.insert(wdir.to_path_buf(), keys_in_file);
                     break;
                 } else {
@@ -96,6 +93,8 @@ impl DirectorySpecificEnvironment {
     pub fn env_vars_to_delete(&mut self) -> std::io::Result<Vec<String>> {
         let current_dir = std::env::current_dir()?;
 
+        //Gather up all environment variables that should be deleted.
+        //If we are not in a directory or one of its subdirectories, mark the env_vals it maps to for removal.
         let vars_to_delete = self.added_env_vars.iter().fold(
             Vec::new(),
             |mut vars_to_delete, (directory, env_vars)| {
