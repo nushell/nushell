@@ -27,7 +27,7 @@ impl WholeStreamCommand for FromBSON {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        from_bson(args, registry)
+        from_bson(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -208,30 +208,27 @@ pub fn from_bson_bytes_to_value(bytes: Vec<u8>, tag: impl Into<Tag>) -> Result<V
     convert_bson_value_to_nu_value(&Bson::Array(docs), tag)
 }
 
-fn from_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn from_bson(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let args = args.evaluate_once(&registry).await?;
-        let tag = args.name_tag();
-        let input = args.input;
+    let args = args.evaluate_once(&registry).await?;
+    let tag = args.name_tag();
+    let input = args.input;
 
-        let bytes = input.collect_binary(tag.clone()).await?;
+    let bytes = input.collect_binary(tag.clone()).await?;
 
-        match from_bson_bytes_to_value(bytes.item, tag.clone()) {
-            Ok(x) => yield ReturnSuccess::value(x),
-            Err(_) => {
-                yield Err(ShellError::labeled_error_with_secondary(
-                    "Could not parse as BSON",
-                    "input cannot be parsed as BSON",
-                    tag.clone(),
-                    "value originates from here",
-                    bytes.tag,
-                ))
-            }
-        }
-    };
-
-    Ok(stream.to_output_stream())
+    match from_bson_bytes_to_value(bytes.item, tag.clone()) {
+        Ok(x) => Ok(OutputStream::one(ReturnSuccess::value(x))),
+        Err(_) => Err(ShellError::labeled_error_with_secondary(
+            "Could not parse as BSON",
+            "input cannot be parsed as BSON",
+            tag.clone(),
+            "value originates from here",
+            bytes.tag,
+        )),
+    }
 }
 
 #[cfg(test)]

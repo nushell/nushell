@@ -37,42 +37,37 @@ impl WholeStreamCommand for ReduceBy {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        reduce_by(args, registry)
+        reduce_by(args, registry).await
     }
 }
 
-pub fn reduce_by(
+pub async fn reduce_by(
     args: CommandArgs,
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let name = args.call_info.name_tag.clone();
-    let stream = async_stream! {
-        let (ReduceByArgs { reduce_with }, mut input) = args.process(&registry).await?;
-        let values: Vec<Value> = input.collect().await;
+    let (ReduceByArgs { reduce_with }, mut input) = args.process(&registry).await?;
+    let values: Vec<Value> = input.collect().await;
 
-        if values.is_empty() {
-            yield Err(ShellError::labeled_error(
-                    "Expected table from pipeline",
-                    "requires a table input",
-                    name
-                ))
-        } else {
+    if values.is_empty() {
+        return Err(ShellError::labeled_error(
+            "Expected table from pipeline",
+            "requires a table input",
+            name,
+        ));
+    }
 
-            let reduce_with = if let Some(reducer) = reduce_with {
-                Some(reducer.item().clone())
-            } else {
-                None
-            };
-
-            match reduce(&values[0], reduce_with, name) {
-                Ok(reduced) => yield ReturnSuccess::value(reduced),
-                Err(err) => yield Err(err)
-            }
-        }
+    let reduce_with = if let Some(reducer) = reduce_with {
+        Some(reducer.item().clone())
+    } else {
+        None
     };
 
-    Ok(stream.to_output_stream())
+    match reduce(&values[0], reduce_with, name) {
+        Ok(reduced) => Ok(OutputStream::one(ReturnSuccess::value(reduced))),
+        Err(err) => Err(err),
+    }
 }
 
 #[cfg(test)]

@@ -24,7 +24,7 @@ impl WholeStreamCommand for Pwd {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        pwd(args, registry)
+        pwd(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -36,20 +36,15 @@ impl WholeStreamCommand for Pwd {
     }
 }
 
-pub fn pwd(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+pub async fn pwd(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
+    let shell_manager = args.shell_manager.clone();
+    let args = args.evaluate_once(&registry).await?;
 
-    let stream = async_stream! {
-        let shell_manager = args.shell_manager.clone();
-        let args = args.evaluate_once(&registry).await?;
-        let mut out = shell_manager.pwd(args)?;
-
-        while let Some(l) = out.next().await {
-            yield l;
-        }
-    };
-
-    Ok(stream.to_output_stream())
+    shell_manager.pwd(args)
 }
 
 #[cfg(test)]

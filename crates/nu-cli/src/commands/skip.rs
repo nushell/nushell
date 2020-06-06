@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 
 pub struct Skip;
@@ -31,7 +31,7 @@ impl WholeStreamCommand for Skip {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        skip(args, registry)
+        skip(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -46,27 +46,16 @@ impl WholeStreamCommand for Skip {
     }
 }
 
-fn skip(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn skip(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let (SkipArgs { rows }, mut input) = args.process(&registry).await?;
-        let mut rows_desired = if let Some(quantity) = rows {
-            *quantity
-        } else {
-            1
-        };
-
-        while let Some(input) = input.next().await {
-            if rows_desired == 0 {
-                yield ReturnSuccess::value(input);
-            }
-            if rows_desired > 0{
-                rows_desired -= 1;
-            }
-        }
+    let (SkipArgs { rows }, input) = args.process(&registry).await?;
+    let rows_desired = if let Some(quantity) = rows {
+        *quantity
+    } else {
+        1
     };
 
-    Ok(stream.to_output_stream())
+    Ok(input.skip(rows_desired).to_output_stream())
 }
 
 #[cfg(test)]

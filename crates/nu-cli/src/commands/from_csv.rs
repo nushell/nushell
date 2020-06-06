@@ -42,7 +42,7 @@ impl WholeStreamCommand for FromCSV {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        from_csv(args, registry)
+        from_csv(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -66,43 +66,44 @@ impl WholeStreamCommand for FromCSV {
     }
 }
 
-fn from_csv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn from_csv(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let name = args.call_info.name_tag.clone();
-    let stream = async_stream! {
-        let (FromCSVArgs { headerless, separator }, mut input) = args.process(&registry).await?;
-        let sep = match separator {
-            Some(Value {
-                value: UntaggedValue::Primitive(Primitive::String(s)),
-                tag,
-                ..
-            }) => {
-                if s == r"\t" {
-                    '\t'
-                } else {
-                    let vec_s: Vec<char> = s.chars().collect();
-                    if vec_s.len() != 1 {
-                        yield Err(ShellError::labeled_error(
-                            "Expected a single separator char from --separator",
-                            "requires a single character string input",
-                            tag,
-                        ));
-                        return;
-                    };
-                    vec_s[0]
-                }
+
+    let (
+        FromCSVArgs {
+            headerless,
+            separator,
+        },
+        input,
+    ) = args.process(&registry).await?;
+    let sep = match separator {
+        Some(Value {
+            value: UntaggedValue::Primitive(Primitive::String(s)),
+            tag,
+            ..
+        }) => {
+            if s == r"\t" {
+                '\t'
+            } else {
+                let vec_s: Vec<char> = s.chars().collect();
+                if vec_s.len() != 1 {
+                    return Err(ShellError::labeled_error(
+                        "Expected a single separator char from --separator",
+                        "requires a single character string input",
+                        tag,
+                    ));
+                };
+                vec_s[0]
             }
-            _ => ',',
-        };
-
-        let mut result = from_delimited_data(headerless, sep, "CSV", input, name)?;
-        while let Some(item) = result.next().await {
-            yield item;
         }
-
+        _ => ',',
     };
 
-    Ok(stream.to_output_stream())
+    from_delimited_data(headerless, sep, "CSV", input, name).await
 }
 
 #[cfg(test)]
