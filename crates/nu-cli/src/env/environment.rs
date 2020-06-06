@@ -54,7 +54,7 @@ impl Environment {
         Environment {
             environment_vars: env,
             path_vars: path,
-            direnv: DirectorySpecificEnvironment::new(configuration.direnv_whitelist()),
+            direnv: DirectorySpecificEnvironment::new(configuration.nu_env_dirs()),
         }
     }
 
