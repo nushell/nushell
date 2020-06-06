@@ -44,11 +44,6 @@ impl EnvironmentSyncer {
     pub fn sync_env_vars(&mut self, ctx: &mut Context) {
         let mut environment = self.env.lock();
 
-        // match environment.maintain_directory_environment() {
-        //     Ok(_) => {}
-        //     Err(e) => {panic!(e)}
-        // }
-
         if environment.env().is_some() {
             for (name, value) in ctx.with_host(|host| host.vars()) {
                 if name != "path" && name != "PATH" {
@@ -57,22 +52,8 @@ impl EnvironmentSyncer {
                     environment.add_env(&name, &value, false);
 
                     environment
-                        .direnv
-                        .env_vars_to_add()
-                        .unwrap()
-                        .iter()
-                        .for_each(|(k, v)| {
-                            environment.add_env(&k, &v, true);
-                        });
-
-                    environment
-                        .direnv
-                        .overwritten_values_to_restore()
-                        .unwrap()
-                        .iter()
-                        .for_each(|(k, v)| {
-                            environment.add_env(&k, &v, true);
-                        });
+                        .maintain_directory_environment()
+                        .expect("Could not set directory-based environment variables");
 
                     // clear the env var from the session
                     // we are about to replace them

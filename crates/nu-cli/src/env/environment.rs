@@ -71,17 +71,6 @@ impl Environment {
         Ok(())
     }
 
-    fn remove_env(&mut self, key: &str) {
-        if let Some(Value {
-            value: UntaggedValue::Row(ref mut envs),
-            tag: _,
-        }) = self.environment_vars
-        {
-            envs.entries.remove(key);
-            std::env::remove_var(key);
-        };
-    }
-
     pub fn morph<T: Conf>(&mut self, configuration: &T) {
         self.environment_vars = configuration.env();
         self.path_vars = configuration.path();

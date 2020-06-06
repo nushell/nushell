@@ -1,7 +1,6 @@
 use indexmap::IndexMap;
 use nu_protocol::{Primitive, UntaggedValue, Value};
-use std::io::Write;
-use std::{ffi::OsString, fmt::Debug, fs::OpenOptions, path::PathBuf};
+use std::{ffi::OsString, fmt::Debug, path::PathBuf};
 
 #[derive(Debug, Default)]
 pub struct DirectorySpecificEnvironment {
