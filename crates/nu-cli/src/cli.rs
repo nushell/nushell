@@ -22,8 +22,7 @@ use rustyline::{
     KeyPress, Movement, Word,
 };
 use std::error::Error;
-use std::fs::{File, OpenOptions};
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{BufRead, BufReader, Write};
 use std::iter::Iterator;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;

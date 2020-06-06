@@ -1,15 +1,8 @@
 use crate::context::Context;
 use crate::data::config::{Conf, NuConfig};
 use crate::env::environment::{Env, Environment};
-use nu_protocol::{Primitive, UntaggedValue, Value};
 use parking_lot::Mutex;
-use std::io::Read;
-use std::io::Write;
-use std::{
-    fs::{File, OpenOptions},
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::sync::Arc;
 
 pub struct EnvironmentSyncer {
     pub env: Arc<Mutex<Box<Environment>>>,

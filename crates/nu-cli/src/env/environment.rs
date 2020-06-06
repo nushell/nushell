@@ -2,7 +2,14 @@ use crate::data::config::Conf;
 use indexmap::{indexmap, IndexSet};
 use nu_protocol::{Primitive, UntaggedValue, Value};
 use std::ffi::OsString;
-use std::{collections::HashMap, fmt::Debug, fs::File, io::Read, path::PathBuf};
+use std::io::Write;
+use std::{
+    collections::HashMap,
+    fmt::Debug,
+    fs::{File, OpenOptions},
+    io::Read,
+    path::PathBuf,
+};
 
 pub trait Env: Debug + Send {
     fn env(&self) -> Option<Value>;
@@ -51,7 +58,6 @@ impl DirectorySpecificEnvironment {
 
         let mut vars_to_add = HashMap::new();
         for dir in &self.whitelisted_directories {
-
             //Start in the current directory, then traverse towards the root directory with working_dir to check for .nu files
             let mut working_dir = Some(current_dir.as_path());
 
@@ -67,9 +73,33 @@ impl DirectorySpecificEnvironment {
                     let toml_doc = contents.parse::<toml::Value>().unwrap();
                     let vars_in_current_file = toml_doc.get("env").unwrap().as_table().unwrap();
 
+                    let mut keys_in_file = vec![];
                     for (k, v) in vars_in_current_file {
                         vars_to_add.insert(k.clone(), v.as_str().unwrap().to_string());
+                        keys_in_file.push(k.clone());
                     }
+                    self.added_env_vars.insert(wdir.to_path_buf(), keys_in_file);
+                    break;
+                } else {
+                    working_dir = working_dir.unwrap().parent();
+                }
+            }
+        }
+        Ok(vars_to_add)
+    }
+
+    //If the user has left directories which added env vars through .nurc, we clear those vars
+    //For each directory d in nurc_env_vars:
+    //if current_dir does not have d as a parent (possibly recursive), the vars set by d should be removed
+    pub fn env_vars_to_delete(&mut self) -> std::io::Result<Vec<String>> {
+        let current_dir = std::env::current_dir()?;
+
+        let mut new_nurc_env_vars = HashMap::new();
+        for (d, v) in self.added_env_vars.iter() {
+            let mut working_dir = Some(current_dir.as_path());
+            while working_dir.is_some() {
+                if working_dir.unwrap() == d {
+                    new_nurc_env_vars.insert(d.clone(), v.clone());
                     break;
                 } else {
                     working_dir = working_dir.unwrap().parent();
@@ -77,7 +107,14 @@ impl DirectorySpecificEnvironment {
             }
         }
 
-        Ok(vars_to_add)
+        let mut vars_to_delete = vec![];
+        for (path, vals) in self.added_env_vars.iter() {
+            if !new_nurc_env_vars.contains_key(path) {
+                vars_to_delete.extend(vals.clone());
+            }
+        }
+
+        Ok(vars_to_delete)
     }
 }
 
@@ -96,7 +133,6 @@ impl Environment {
             direnv: DirectorySpecificEnvironment::new(vec![]),
         }
     }
-
 
     pub fn from_config<T: Conf>(configuration: &T) -> Environment {
         let env = configuration.env();
@@ -128,11 +164,25 @@ impl Environment {
     }
 
     pub fn maintain_directory_environment(&mut self) -> std::io::Result<()> {
-        let vars_to_add = self.direnv.env_vars_to_add()?;
-        vars_to_add.iter().for_each(|(k, v)| {
+        self.direnv.env_vars_to_add()?.iter().for_each(|(k, v)| {
             self.add_env(&k, &v, true);
         });
+
+        self.direnv.env_vars_to_delete()?.iter().for_each(|v| {
+            self.remove_env(v);
+        });
         Ok(())
+    }
+
+    fn remove_env(&mut self, key: &str) {
+        if let Some(Value {
+            value: UntaggedValue::Row(ref mut envs),
+            tag: _,
+        }) = self.environment_vars
+        {
+            envs.entries.remove(key);
+            std::env::remove_var(key);
+        };
     }
 
     pub fn morph<T: Conf>(&mut self, configuration: &T) {
