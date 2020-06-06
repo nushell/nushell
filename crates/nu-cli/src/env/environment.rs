@@ -59,16 +59,31 @@ impl Environment {
     }
 
     pub fn maintain_directory_environment(&mut self) -> std::io::Result<()> {
+        self.direnv.env_vars_to_delete()?.iter().for_each(|k| {
+            self.remove_env(&k);
+        });
         self.direnv.env_vars_to_add()?.iter().for_each(|(k, v)| {
             self.add_env(&k, &v, true);
         });
 
-
-        self.direnv.overwritten_values_to_restore()?.iter().for_each(|(k, v)| {
-            self.add_env(&k, &v, true);
-        });
+        self.direnv
+            .overwritten_values_to_restore()?
+            .iter()
+            .for_each(|(k, v)| {
+                self.add_env(&k, &v, true);
+            });
 
         Ok(())
+    }
+
+    fn remove_env(&mut self, key: &str) {
+        if let Some(Value {
+            value: UntaggedValue::Row(ref mut envs),
+            tag: _,
+        }) = self.environment_vars
+        {
+            envs.entries.remove(key);
+        };
     }
 
     pub fn morph<T: Conf>(&mut self, configuration: &T) {

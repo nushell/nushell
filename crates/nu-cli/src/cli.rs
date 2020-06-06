@@ -889,7 +889,6 @@ async fn process_line(
 
             trace!("{:#?}", classified_block);
             let env = ctx.get_env();
-
             match run_block(
                 &classified_block.block,
                 ctx,

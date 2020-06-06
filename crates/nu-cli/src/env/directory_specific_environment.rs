@@ -120,4 +120,31 @@ impl DirectorySpecificEnvironment {
 
         Ok(vars_to_add)
     }
+
+    //If the user has left directories which added env vars through .nu, we clear those vars
+    pub fn env_vars_to_delete(&mut self) -> std::io::Result<Vec<String>> {
+        let current_dir = std::env::current_dir()?;
+
+        //Gather up all environment variables that should be deleted.
+        //If we are not in a directory or one of its subdirectories, mark the env_vals it maps to for removal.
+        let vars_to_delete = self.added_env_vars.iter().fold(
+            Vec::new(),
+            |mut vars_to_delete, (directory, env_vars)| {
+                let mut working_dir = Some(current_dir.as_path());
+
+                while let Some(wdir) = working_dir {
+                    if &wdir == directory {
+                        return vars_to_delete;
+                    } else {
+                        working_dir = working_dir.unwrap().parent();
+                    }
+                }
+                //only delete vars from directories we are not in
+                vars_to_delete.extend(env_vars.clone());
+                vars_to_delete
+            },
+        );
+
+        Ok(vars_to_delete)
+    }
 }
