@@ -44,9 +44,6 @@ impl DirectorySpecificEnvironment {
         }
     }
 
-    // pub overwritten_env_values: IndexMap<PathBuf, Vec<(String, OsString)>>,
-    //overwritten_env_values maps a directory with a .nu file to some environment variables that it overwrote.
-    //if we are not in that directory, we re-add those variables.
     pub fn overwritten_values_to_restore(&mut self) -> std::io::Result<IndexMap<String, String>> {
         let current_dir = std::env::current_dir()?;
 
@@ -56,17 +53,17 @@ impl DirectorySpecificEnvironment {
         for (directory, keyvals) in &self.overwritten_env_values {
             let mut working_dir = Some(current_dir.as_path());
 
-            let mut readd = true;
+            let mut re_add_keyvals = true;
             while let Some(wdir) = working_dir {
                 if wdir == directory.as_path() {
-                    readd = false;
+                    re_add_keyvals = false;
                     new_overwritten.insert(directory.clone(), keyvals.clone());
                     break;
                 } else {
                     working_dir = working_dir.unwrap().parent();
                 }
             }
-            if readd {
+            if re_add_keyvals {
                 for (k, v) in keyvals {
                     keyvals_to_restore.insert(k.clone(), v.to_str().unwrap().to_string());
                 }
@@ -82,9 +79,9 @@ impl DirectorySpecificEnvironment {
 
         let mut vars_to_add = IndexMap::new();
         for dir in &self.whitelisted_directories {
-            //Start in the current directory, then traverse towards the root with working_dir to see if we are in a subdirectory of a valid directory.
             let mut working_dir = Some(current_dir.as_path());
 
+            //Start in the current directory, then traverse towards the root with working_dir to see if we are in a subdirectory of a valid directory.
             while let Some(wdir) = working_dir {
                 if wdir == dir.as_path() {
                     //Read the .nu file and parse it into a nice map
@@ -93,17 +90,15 @@ impl DirectorySpecificEnvironment {
                         .unwrap();
                     let vars_in_current_file = toml_doc.get("env").unwrap().as_table().unwrap();
 
-                    let keys_in_file: Vec<String> = vars_in_current_file
-                        .iter()
-                        .map(|(k, v)| {
-                            vars_to_add.insert(k.clone(), v.as_str().unwrap().to_string()); //This is to add the keys and values to the environment
-                            k.clone() //We add them all to a list to keep track of which keys we have added
-                        })
-                        .collect();
+                    let mut keys_in_current_nufile = vec![];
+                    for (k, v) in vars_in_current_file {
+                        vars_to_add.insert(k.clone(), v.as_str().unwrap().to_string()); //This is used to add variables to the environment
+                        keys_in_current_nufile.push(k.clone()); //this is used to keep track of which directory added which variables
+                    }
 
-                    self.overwritten_env_values.insert(
+                    self.overwritten_env_values.insert( //If we are about to overwrite any environment variables, we save them first so they can be restored later.
                         wdir.to_path_buf(),
-                        keys_in_file.iter().fold(vec![], |mut keyvals, key| {
+                        keys_in_current_nufile.iter().fold(vec![], |mut keyvals, key| {
                             if let Some(val) = std::env::var_os(key) {
                                 keyvals.push((key.clone(), val));
                             }
@@ -111,7 +106,7 @@ impl DirectorySpecificEnvironment {
                         }),
                     );
 
-                    self.added_env_vars.insert(wdir.to_path_buf(), keys_in_file);
+                    self.added_env_vars.insert(wdir.to_path_buf(), keys_in_current_nufile);
                     break;
                 } else {
                     working_dir = working_dir.unwrap().parent();
