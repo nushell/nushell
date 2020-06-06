@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use nu_protocol::{Primitive, UntaggedValue, Value};
 use std::io::Write;
-use std::{ffi::OsString, fmt::Debug, path::PathBuf, fs::OpenOptions};
+use std::{ffi::OsString, fmt::Debug, fs::OpenOptions, path::PathBuf};
 
 #[derive(Debug, Default)]
 pub struct DirectorySpecificEnvironment {
@@ -52,6 +52,8 @@ impl DirectorySpecificEnvironment {
         let current_dir = std::env::current_dir()?;
 
         let mut keyvals_to_restore = IndexMap::new();
+        let mut new_overwritten = IndexMap::new();
+
         for (directory, keyvals) in &self.overwritten_env_values {
             let mut working_dir = Some(current_dir.as_path());
 
@@ -59,6 +61,7 @@ impl DirectorySpecificEnvironment {
             while let Some(wdir) = working_dir {
                 if wdir == directory.as_path() {
                     readd = false;
+                    new_overwritten.insert(directory.clone(), keyvals.clone());
                     break;
                 } else {
                     working_dir = working_dir.unwrap().parent();
@@ -71,6 +74,7 @@ impl DirectorySpecificEnvironment {
             }
         }
 
+        self.overwritten_env_values = new_overwritten;
         Ok(keyvals_to_restore)
     }
 
@@ -102,58 +106,20 @@ impl DirectorySpecificEnvironment {
                         wdir.to_path_buf(),
                         keys_in_file.iter().fold(vec![], |mut keyvals, key| {
                             if let Some(val) = std::env::var_os(key) {
-
-                                let mut file = OpenOptions::new()
-                                    .write(true)
-                                    .append(true)
-                                    .create(true)
-                                    .open("restore.txt").unwrap();
-
-                                write!(&mut file, "about to overwrite: {:?}\n", val).unwrap();
-
                                 keyvals.push((key.clone(), val));
-                                keyvals
-                            } else {
-                                keyvals
                             }
+                            keyvals
                         }),
                     );
 
                     self.added_env_vars.insert(wdir.to_path_buf(), keys_in_file);
-
                     break;
                 } else {
                     working_dir = working_dir.unwrap().parent();
                 }
             }
         }
+
         Ok(vars_to_add)
-    }
-
-    //If the user has left directories which added env vars through .nu, we clear those vars
-    pub fn env_vars_to_delete(&mut self) -> std::io::Result<Vec<String>> {
-        let current_dir = std::env::current_dir()?;
-
-        //Gather up all environment variables that should be deleted.
-        //If we are not in a directory or one of its subdirectories, mark the env_vals it maps to for removal.
-        let vars_to_delete = self.added_env_vars.iter().fold(
-            Vec::new(),
-            |mut vars_to_delete, (directory, env_vars)| {
-                let mut working_dir = Some(current_dir.as_path());
-
-                while let Some(wdir) = working_dir {
-                    if &wdir == directory {
-                        return vars_to_delete;
-                    } else {
-                        working_dir = working_dir.unwrap().parent();
-                    }
-                }
-                //only delete vars from directories we are not in
-                vars_to_delete.extend(env_vars.clone());
-                vars_to_delete
-            },
-        );
-
-        Ok(vars_to_delete)
     }
 }

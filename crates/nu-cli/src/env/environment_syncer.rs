@@ -41,14 +41,13 @@ impl EnvironmentSyncer {
         environment.morph(&*self.config);
     }
 
-
     pub fn sync_env_vars(&mut self, ctx: &mut Context) {
         let mut environment = self.env.lock();
 
-        match environment.maintain_directory_environment() {
-            Ok(_) => {}
-            Err(e) => {panic!(e)}
-        }
+        // match environment.maintain_directory_environment() {
+        //     Ok(_) => {}
+        //     Err(e) => {panic!(e)}
+        // }
 
         if environment.env().is_some() {
             for (name, value) in ctx.with_host(|host| host.vars()) {
@@ -56,6 +55,24 @@ impl EnvironmentSyncer {
                     // account for new env vars present in the current session
                     // that aren't loaded from config.
                     environment.add_env(&name, &value, false);
+
+                    environment
+                        .direnv
+                        .env_vars_to_add()
+                        .unwrap()
+                        .iter()
+                        .for_each(|(k, v)| {
+                            environment.add_env(&k, &v, true);
+                        });
+
+                    environment
+                        .direnv
+                        .overwritten_values_to_restore()
+                        .unwrap()
+                        .iter()
+                        .for_each(|(k, v)| {
+                            environment.add_env(&k, &v, true);
+                        });
 
                     // clear the env var from the session
                     // we are about to replace them

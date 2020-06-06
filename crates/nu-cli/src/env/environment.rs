@@ -35,7 +35,7 @@ impl Env for Box<dyn Env> {
 pub struct Environment {
     environment_vars: Option<Value>,
     path_vars: Option<Value>,
-    direnv: DirectorySpecificEnvironment,
+    pub direnv: DirectorySpecificEnvironment,
 }
 
 impl Environment {
@@ -63,13 +63,11 @@ impl Environment {
             self.add_env(&k, &v, true);
         });
 
-        self.direnv.env_vars_to_delete()?.iter().for_each(|v| {
-            self.remove_env(v);
-        });
 
         self.direnv.overwritten_values_to_restore()?.iter().for_each(|(k, v)| {
             self.add_env(&k, &v, true);
         });
+
         Ok(())
     }
 
