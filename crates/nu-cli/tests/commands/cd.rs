@@ -24,7 +24,7 @@ fn filesystem_change_from_current_directory_using_absolute_path() {
         let actual = nu!(
             cwd: dirs.test(),
             r#"
-                cd {}
+                cd "{}"
                 pwd | echo $it
             "#,
             dirs.formats()
@@ -113,9 +113,9 @@ fn filesystem_change_current_directory_to_parent_directory_after_delete_cwd() {
         let actual = nu!(
             cwd: dirs.test().join("foo/bar"),
             r#"
-                rm {}/foo/bar 
+                rm {}/foo/bar
                 echo ","
-                cd .. 
+                cd ..
                 pwd | echo $it
             "#,
             dirs.test()
