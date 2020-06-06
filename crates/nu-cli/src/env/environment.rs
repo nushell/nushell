@@ -66,6 +66,10 @@ impl Environment {
         self.direnv.env_vars_to_delete()?.iter().for_each(|v| {
             self.remove_env(v);
         });
+
+        self.direnv.overwritten_values_to_restore()?.iter().for_each(|(k, v)| {
+            self.add_env(&k, &v, true);
+        });
         Ok(())
     }
 

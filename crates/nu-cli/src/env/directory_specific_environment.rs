@@ -1,6 +1,7 @@
 use indexmap::IndexMap;
 use nu_protocol::{Primitive, UntaggedValue, Value};
-use std::{fmt::Debug, path::PathBuf};
+use std::io::Write;
+use std::{ffi::OsString, fmt::Debug, path::PathBuf, fs::OpenOptions};
 
 #[derive(Debug, Default)]
 pub struct DirectorySpecificEnvironment {
@@ -10,7 +11,7 @@ pub struct DirectorySpecificEnvironment {
     pub added_env_vars: IndexMap<PathBuf, Vec<String>>,
 
     //Directory -> (env_key, value). If a .nu overwrites some existing environment variables, they are added here so that they can be restored later.
-    pub overwritten_env_values: IndexMap<PathBuf, Vec<(String, String)>>,
+    pub overwritten_env_values: IndexMap<PathBuf, Vec<(String, OsString)>>,
 }
 
 impl DirectorySpecificEnvironment {
@@ -44,6 +45,35 @@ impl DirectorySpecificEnvironment {
         }
     }
 
+    // pub overwritten_env_values: IndexMap<PathBuf, Vec<(String, OsString)>>,
+    //overwritten_env_values maps a directory with a .nu file to some environment variables that it overwrote.
+    //if we are not in that directory, we re-add those variables.
+    pub fn overwritten_values_to_restore(&mut self) -> std::io::Result<IndexMap<String, String>> {
+        let current_dir = std::env::current_dir()?;
+
+        let mut keyvals_to_restore = IndexMap::new();
+        for (directory, keyvals) in &self.overwritten_env_values {
+            let mut working_dir = Some(current_dir.as_path());
+
+            let mut readd = true;
+            while let Some(wdir) = working_dir {
+                if wdir == directory.as_path() {
+                    readd = false;
+                    break;
+                } else {
+                    working_dir = working_dir.unwrap().parent();
+                }
+            }
+            if readd {
+                for (k, v) in keyvals {
+                    keyvals_to_restore.insert(k.clone(), v.to_str().unwrap().to_string());
+                }
+            }
+        }
+
+        Ok(keyvals_to_restore)
+    }
+
     pub fn env_vars_to_add(&mut self) -> std::io::Result<IndexMap<String, String>> {
         let current_dir = std::env::current_dir()?;
 
@@ -60,7 +90,7 @@ impl DirectorySpecificEnvironment {
                         .unwrap();
                     let vars_in_current_file = toml_doc.get("env").unwrap().as_table().unwrap();
 
-                    let keys_in_file = vars_in_current_file
+                    let keys_in_file: Vec<String> = vars_in_current_file
                         .iter()
                         .map(|(k, v)| {
                             vars_to_add.insert(k.clone(), v.as_str().unwrap().to_string()); //This is to add the keys and values to the environment
@@ -68,7 +98,29 @@ impl DirectorySpecificEnvironment {
                         })
                         .collect();
 
+                    self.overwritten_env_values.insert(
+                        wdir.to_path_buf(),
+                        keys_in_file.iter().fold(vec![], |mut keyvals, key| {
+                            if let Some(val) = std::env::var_os(key) {
+
+                                let mut file = OpenOptions::new()
+                                    .write(true)
+                                    .append(true)
+                                    .create(true)
+                                    .open("restore.txt").unwrap();
+
+                                write!(&mut file, "about to overwrite: {:?}\n", val).unwrap();
+
+                                keyvals.push((key.clone(), val));
+                                keyvals
+                            } else {
+                                keyvals
+                            }
+                        }),
+                    );
+
                     self.added_env_vars.insert(wdir.to_path_buf(), keys_in_file);
+
                     break;
                 } else {
                     working_dir = working_dir.unwrap().parent();
