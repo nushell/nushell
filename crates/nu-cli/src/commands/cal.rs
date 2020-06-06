@@ -1,11 +1,9 @@
+use crate::commands::{command::EvaluatedWholeStreamCommandArgs, WholeStreamCommand};
 use crate::prelude::*;
 use chrono::{Datelike, Local, NaiveDate};
-use nu_errors::ShellError;
-use nu_protocol::Dictionary;
-
-use crate::commands::{command::EvaluatedWholeStreamCommandArgs, WholeStreamCommand};
 use indexmap::IndexMap;
-use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
+use nu_errors::ShellError;
+use nu_protocol::{Dictionary, Signature, SyntaxShape, UntaggedValue, Value};
 
 pub struct Cal;
 
