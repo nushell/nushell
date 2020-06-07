@@ -79,8 +79,9 @@ pub fn get_encoding(opt: Option<String>) -> &'static Encoding {
         None => UTF_8,
         Some(label) => match Encoding::for_label((&label).as_bytes()) {
             None => {
-                print!("{} is not a known encoding label; exiting.", label);
+                print!("{} is not a known encoding label. Trying UTF-8.", label);
                 //std::process::exit(-2);
+                get_encoding(Some("utf-8".to_string()))
             }
             Some(encoding) => encoding,
         },
