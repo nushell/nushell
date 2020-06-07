@@ -31,7 +31,7 @@ impl DirectorySpecificEnvironment {
                     {
                         return Some(PathBuf::from(&dir));
                     }
-                        None
+                    None
                 })
                 .collect()
         } else {
