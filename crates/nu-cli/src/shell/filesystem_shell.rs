@@ -396,11 +396,15 @@ impl Shell for FilesystemShell {
 
     fn mkdir(
         &self,
-        MkdirArgs { rest: directories }: MkdirArgs,
+        MkdirArgs {
+            rest: directories,
+            show_created_paths,
+        }: MkdirArgs,
         name: Tag,
         path: &str,
     ) -> Result<OutputStream, ShellError> {
         let path = Path::new(path);
+        let mut stream = VecDeque::new();
 
         if directories.is_empty() {
             return Err(ShellError::labeled_error(
@@ -413,7 +417,7 @@ impl Shell for FilesystemShell {
         for dir in directories.iter() {
             let create_at = path.join(&dir.item);
 
-            let dir_res = std::fs::create_dir_all(create_at);
+            let dir_res = std::fs::create_dir_all(&create_at);
             if let Err(reason) = dir_res {
                 return Err(ShellError::labeled_error(
                     reason.to_string(),
@@ -421,9 +425,13 @@ impl Shell for FilesystemShell {
                     dir.tag(),
                 ));
             }
+            if show_created_paths {
+                let val = format!("{:}", create_at.to_string_lossy()).into();
+                stream.push_back(Ok(ReturnSuccess::Value(val)));
+            }
         }
 
-        Ok(OutputStream::empty())
+        Ok(stream.into())
     }
 
     fn mv(
