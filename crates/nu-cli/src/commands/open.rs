@@ -80,7 +80,7 @@ pub fn get_encoding(opt: Option<String>) -> &'static Encoding {
         Some(label) => match Encoding::for_label((&label).as_bytes()) {
             None => {
                 print!("{} is not a known encoding label; exiting.", label);
-                std::process::exit(-2);
+                //std::process::exit(-2);
             }
             Some(encoding) => encoding,
         },
