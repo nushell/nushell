@@ -7,9 +7,9 @@ use std::path::{Path, PathBuf};
 extern crate encoding_rs;
 use encoding_rs::*;
 use std::fs::File;
+use std::io::BufWriter;
 use std::io::Read;
 use std::io::Write;
-use std::io::BufWriter;
 
 pub struct Open;
 
@@ -17,7 +17,7 @@ pub struct Open;
 pub struct OpenArgs {
     path: Tagged<PathBuf>,
     raw: Tagged<bool>,
-    encoding: Option<String>,
+    encoding: Option<Tagged<String>>,
 }
 
 #[async_trait]
@@ -94,7 +94,11 @@ fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, S
 
     let stream = async_stream! {
         let (OpenArgs { path, raw, encoding }, _) = args.process(&registry).await?;
-        let result = fetch(&full_path, &path.item, path.tag.span, encoding.unwrap()).await;
+        let enc = match encoding {
+            Some(e) => e.to_string(),
+            _ => "utf-8".to_string()
+        };
+        let result = fetch(&full_path, &path.item, path.tag.span, enc).await;
 
         if let Err(e) = result {
             yield Err(e);
@@ -133,30 +137,44 @@ pub async fn fetch(
     let input_encoding: &Encoding = get_encoding(Some(encoding));
     let mut decoder = input_encoding.new_decoder();
     let mut encoder = output_encoding.new_encoder();
-
     let mut _file: File;
     let buf = Vec::new();
     let mut bufwriter = BufWriter::new(buf);
+
     cwd.push(Path::new(_location));
-    match File::open(&Path::new(&cwd)) {
-        Ok(mut _file) => {
-            convert_via_utf8(&mut decoder, &mut encoder, &mut _file, &mut bufwriter, false);
-            //bufwriter.flush()?;
-            Ok((
-                cwd.extension()
-                    .map(|name| name.to_string_lossy().to_string()),
-                UntaggedValue::string(String::from_utf8_lossy(&bufwriter.buffer())),
-                Tag {
-                    span,
-                    anchor: Some(AnchorLocation::File(cwd.to_string_lossy().to_string())),
-                },
-            ))
+    if let Ok(cwd) = dunce::canonicalize(&cwd) {
+        match File::open(&Path::new(&cwd)) {
+            Ok(mut _file) => {
+                convert_via_utf8(
+                    &mut decoder,
+                    &mut encoder,
+                    &mut _file,
+                    &mut bufwriter,
+                    false,
+                );
+                //bufwriter.flush()?;
+                Ok((
+                    cwd.extension()
+                        .map(|name| name.to_string_lossy().to_string()),
+                    UntaggedValue::string(String::from_utf8_lossy(&bufwriter.buffer())),
+                    Tag {
+                        span,
+                        anchor: Some(AnchorLocation::File(cwd.to_string_lossy().to_string())),
+                    },
+                ))
+            }
+            Err(_) => Err(ShellError::labeled_error(
+                format!("Cannot open {:?} for reading.", &cwd),
+                "file not found",
+                span,
+            )),
         }
-        Err(_) => Err(ShellError::labeled_error(
+    } else {
+        Err(ShellError::labeled_error(
             format!("Cannot open {:?} for reading.", &cwd),
             "file not found",
             span,
-        )),
+        ))
     }
     /*
     cwd.push(Path::new(location));
@@ -297,7 +315,8 @@ fn convert_via_utf8(
     let mut intermediate_buffer_bytes = [0u8; 4096];
     // Is there a safe way to create a stack-allocated &mut str?
     let mut intermediate_buffer: &mut str =
-        unsafe { std::mem::transmute(&mut intermediate_buffer_bytes[..]) };
+        //unsafe { std::mem::transmute(&mut intermediate_buffer_bytes[..]) };
+        std::str::from_utf8_mut(&mut intermediate_buffer_bytes[..]).unwrap();
     let mut output_buffer = [0u8; 4096];
     let mut current_input_ended = false;
     while !current_input_ended {
@@ -333,12 +352,12 @@ fn convert_via_utf8(
 
                     if encoder.encoding() == UTF_8 {
                         // If the target is UTF-8, optimize out the encoder.
-                        match write.write_all(&intermediate_buffer.as_bytes()[..decoder_written]) {
-                            Err(_) => {
-                                print!("Error writing output.");
-                                //std::process::exit(-7);
-                            }
-                            Ok(_) => {}
+                        if write
+                            .write_all(&intermediate_buffer.as_bytes()[..decoder_written])
+                            .is_err()
+                        {
+                            print!("Error writing output.");
+                            //std::process::exit(-7);
                         }
                     } else {
                         let mut encoder_input_start = 0usize;
@@ -350,12 +369,9 @@ fn convert_via_utf8(
                                     last_output,
                                 );
                             encoder_input_start += encoder_read;
-                            match write.write_all(&output_buffer[..encoder_written]) {
-                                Err(_) => {
-                                    print!("Error writing output.");
-                                    //std::process::exit(-6);
-                                }
-                                Ok(_) => {}
+                            if write.write_all(&output_buffer[..encoder_written]).is_err() {
+                                print!("Error writing output.");
+                                //std::process::exit(-6);
                             }
                             match encoder_result {
                                 CoderResult::InputEmpty => {

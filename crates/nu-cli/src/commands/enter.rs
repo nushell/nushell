@@ -14,7 +14,7 @@ pub struct Enter;
 #[derive(Deserialize)]
 pub struct EnterArgs {
     location: Tagged<PathBuf>,
-    encoding: Option<String>,
+    encoding: Option<Tagged<String>>,
 }
 
 #[async_trait]
@@ -116,7 +116,10 @@ fn enter(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
                     &full_path,
                     &PathBuf::from(location_clone),
                     tag.span,
-                    encoding.unwrap()
+                    match encoding {
+                        Some(e) => e.to_string(),
+                        _ => "".to_string()
+                    }
                 ).await?;
 
             match contents {

@@ -190,24 +190,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        //unimplemented!("deserialize_string")
-        let value = self.pop();
-        trace!("Extracting {:?} for string", value.val);
-
-        match &value.val {
-            Value {
-                value: UntaggedValue::Primitive(Primitive::String(s)),
-                ..
-            } => _visitor.visit_string(s.to_string()),
-            Value {
-                value: UntaggedValue::Primitive(Primitive::Nothing),
-                ..
-            } => _visitor.visit_string("".to_string()),
-            other => Err(ShellError::type_error(
-                "String",
-                other.type_name().spanned(other.span()),
-            )),
-        }
+        unimplemented!("deserialize_string")
     }
     fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
