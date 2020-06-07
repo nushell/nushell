@@ -39,7 +39,7 @@ impl WholeStreamCommand for ToTOML {
     // }
 }
 
-/// Converts a nu_protocol::Value into a toml::Value 
+/// Converts a nu_protocol::Value into a toml::Value
 /// Will return a Shell Error, if the Nu Value is not a valid top-level TOML Value
 pub fn value_to_toml_value(v: &Value) -> Result<toml::Value, ShellError> {
     // Helper method to recursively convert nu_protocol::Value -> toml::Value
@@ -217,7 +217,10 @@ mod tests {
             "#,
         ))
         .expect("Expected Ok from valid TOML string");
-        assert_eq!(tv.get("title").unwrap(), &toml::Value::String("TOML Example".to_owned()));
+        assert_eq!(
+            tv.get("title").unwrap(),
+            &toml::Value::String("TOML Example".to_owned())
+        );
         //
         // Negative Tests
         //
