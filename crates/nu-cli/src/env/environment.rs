@@ -238,7 +238,7 @@ mod tests {
             let fake_config = FakeConfig::new(&file);
             let mut actual = Environment::from_config(&fake_config);
 
-            actual.add_env("USER", "NUNO");
+            actual.add_env("USER", "NUNO", false);
 
             assert_eq!(
                 actual.env(),
@@ -271,7 +271,7 @@ mod tests {
             let fake_config = FakeConfig::new(&file);
             let mut actual = Environment::from_config(&fake_config);
 
-            actual.add_env("SHELL", "/usr/bin/sh");
+            actual.add_env("SHELL", "/usr/bin/sh", false);
 
             assert_eq!(
                 actual.env(),

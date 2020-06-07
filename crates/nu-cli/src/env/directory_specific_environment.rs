@@ -60,12 +60,17 @@ impl DirectorySpecificEnvironment {
                     new_overwritten.insert(directory.clone(), keyvals.clone());
                     break;
                 } else {
-                    working_dir = working_dir.unwrap().parent();
+                    working_dir = working_dir.expect("Root directory has no parent").parent();
                 }
             }
             if re_add_keyvals {
                 for (k, v) in keyvals {
-                    keyvals_to_restore.insert(k.clone(), v.to_str().unwrap().to_string());
+                    keyvals_to_restore.insert(
+                        k.clone(),
+                        v.to_str()
+                            .expect("Filepath is not valid unicode")
+                            .to_string(),
+                    );
                 }
             }
         }
@@ -86,9 +91,13 @@ impl DirectorySpecificEnvironment {
                 if wdir == dir.as_path() {
                     //Read the .nu file and parse it into a nice map
                     let toml_doc = std::fs::read_to_string(wdir.join(".nu").as_path())?
-                        .parse::<toml::Value>()
-                        .unwrap();
-                    let vars_in_current_file = toml_doc.get("env").unwrap().as_table().unwrap();
+                        .parse::<toml::Value>()?;
+
+                    let vars_in_current_file = toml_doc
+                        .get("env")
+                        .ok_or(std::io::Error::new(std::io::ErrorKind::InvalidData, "No [env] section in .nu-file"))?
+                        .as_table()
+                        .ok_or(std::io::Error::new(std::io::ErrorKind::InvalidData, "Malformed [env] section in .nu-file"))?;
 
                     let mut keys_in_current_nufile = vec![];
                     for (k, v) in vars_in_current_file {
@@ -113,7 +122,7 @@ impl DirectorySpecificEnvironment {
                         .insert(wdir.to_path_buf(), keys_in_current_nufile);
                     break;
                 } else {
-                    working_dir = working_dir.unwrap().parent();
+                    working_dir = working_dir.expect("Root directory has no parent").parent();
                 }
             }
         }
@@ -136,7 +145,7 @@ impl DirectorySpecificEnvironment {
                     if &wdir == directory {
                         return vars_to_delete;
                     } else {
-                        working_dir = working_dir.unwrap().parent();
+                        working_dir = working_dir.expect("Root directory has no parent").parent();
                     }
                 }
                 //only delete vars from directories we are not in
