@@ -75,7 +75,10 @@ impl DirectorySpecificEnvironment {
                         k.clone(),
                         v.to_str()
                             .ok_or_else(|| {
-                                Error::new(ErrorKind::Other, format!("{:?} is not valid unicode", v))
+                                Error::new(
+                                    ErrorKind::Other,
+                                    format!("{:?} is not valid unicode", v),
+                                )
                             })?
                             .to_string(),
                     );
