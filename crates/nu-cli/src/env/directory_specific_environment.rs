@@ -75,7 +75,7 @@ impl DirectorySpecificEnvironment {
                         k.clone(),
                         v.to_str()
                             .ok_or_else(|| {
-                                Error::new(ErrorKind::Other, "Filepath is not valid unicode")
+                                Error::new(ErrorKind::Other, format!("{:?} is not valid unicode", v))
                             })?
                             .to_string(),
                     );
@@ -118,7 +118,17 @@ impl DirectorySpecificEnvironment {
 
                     let mut keys_in_current_nufile = vec![];
                     for (k, v) in vars_in_current_file {
-                        vars_to_add.insert(k.clone(), v.as_str().unwrap().to_string()); //This is used to add variables to the environment
+                        vars_to_add.insert(
+                            k.clone(),
+                            v.as_str()
+                                .ok_or_else(|| {
+                                    Error::new(
+                                        ErrorKind::InvalidData,
+                                        format!("Could not read environment variable: {}", v),
+                                    )
+                                })?
+                                .to_string(),
+                        ); //This is used to add variables to the environment
                         keys_in_current_nufile.push(k.clone()); //this is used to keep track of which directory added which variables
                     }
 
