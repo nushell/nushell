@@ -384,18 +384,16 @@ impl WholeStreamCommand for FnFilterCommand {
 
     async fn run(
         &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        let CommandArgs {
+        CommandArgs {
             host,
             ctrl_c,
             shell_manager,
             call_info,
             mut input,
             ..
-        } = args;
-
+        }: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
         let host: Arc<parking_lot::Mutex<dyn Host>> = host.clone();
         let registry: CommandRegistry = registry.clone();
         let func = self.func;
