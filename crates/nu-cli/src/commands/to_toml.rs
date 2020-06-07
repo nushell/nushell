@@ -26,9 +26,22 @@ impl WholeStreamCommand for ToTOML {
     ) -> Result<OutputStream, ShellError> {
         to_toml(args, registry)
     }
+    // TODO: add an example here. What commands to run to get a Row(Dictionary)?
+    // fn examples(&self) -> Vec<Example> {
+    //     vec![
+    //         Example {
+    //             description:
+    //                 "Outputs an TOML string representing TOML document",
+    //             example: "echo [1 2 3] | to json",
+    //             result: Some(vec![Value::from("[1,2,3]")]),
+    //         },
+    //     ]
+    // }
 }
 
-pub fn value_to_toml_value(v: &Value) -> Result<toml::Value, ShellError> {
+// Helper method to recursively convert nu_protocol::Value -> toml::Value
+// This shouldn't be called at the top-level
+fn helper(v: &Value) -> Result<toml::Value, ShellError> {
     Ok(match &v.value {
         UntaggedValue::Primitive(Primitive::Boolean(b)) => toml::Value::Boolean(*b),
         UntaggedValue::Primitive(Primitive::Bytes(b)) => toml::Value::Integer(*b as i64),
@@ -66,7 +79,6 @@ pub fn value_to_toml_value(v: &Value) -> Result<toml::Value, ShellError> {
                 })
                 .collect::<Result<Vec<toml::Value>, ShellError>>()?,
         ),
-
         UntaggedValue::Table(l) => toml::Value::Array(collect_values(l)?),
         UntaggedValue::Error(e) => return Err(e.clone()),
         UntaggedValue::Block(_) => toml::Value::String("<Block>".to_string()),
@@ -77,18 +89,47 @@ pub fn value_to_toml_value(v: &Value) -> Result<toml::Value, ShellError> {
         UntaggedValue::Row(o) => {
             let mut m = toml::map::Map::new();
             for (k, v) in o.entries.iter() {
-                m.insert(k.clone(), value_to_toml_value(v)?);
+                m.insert(k.clone(), helper(v)?);
             }
             toml::Value::Table(m)
         }
     })
 }
 
+/// Converts a nu_protocol::Value into a toml::Value
+/// Will return a Shell Error, if the Nu Value is not a valid top-level TOML Value
+pub fn value_to_toml_value(v: &Value) -> Result<toml::Value, ShellError> {
+    match &v.value {
+        UntaggedValue::Row(o) => {
+            let mut m = toml::map::Map::new();
+            for (k, v) in o.entries.iter() {
+                m.insert(k.clone(), helper(v)?);
+            }
+            Ok(toml::Value::Table(m))
+        }
+        UntaggedValue::Primitive(Primitive::String(s)) => {
+            // Attempt to de-serialize the String
+            toml::de::from_str(s).map_err(|_| {
+                ShellError::labeled_error(
+                    format!("{:?} unable to de-serialize string to TOML", s),
+                    "invalid TOML",
+                    v.tag(),
+                )
+            })
+        }
+        _ => Err(ShellError::labeled_error(
+            format!("{:?} is not a valid top-level TOML", v.value),
+            "invalid TOML",
+            v.tag(),
+        )),
+    }
+}
+
 fn collect_values(input: &[Value]) -> Result<Vec<toml::Value>, ShellError> {
     let mut out = vec![];
 
     for value in input {
-        out.push(value_to_toml_value(value)?);
+        out.push(helper(value)?);
     }
 
     Ok(out)
@@ -141,12 +182,69 @@ fn to_toml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
 
 #[cfg(test)]
 mod tests {
-    use super::ToTOML;
+    use super::*;
+    use nu_protocol::Dictionary;
 
     #[test]
     fn examples_work_as_expected() {
         use crate::examples::test as test_examples;
 
         test_examples(ToTOML {})
+    }
+
+    #[test]
+    fn test_value_to_toml_value() {
+        //
+        // Positive Tests
+        //
+
+        // Dictionary -> What we do in "crates/nu-cli/src/data/config.rs" to write the config file
+        let mut m = indexmap::IndexMap::new();
+        m.insert("rust".to_owned(), Value::from("editor"));
+        m.insert("is".to_owned(), Value::nothing());
+        m.insert(
+            "features".to_owned(),
+            UntaggedValue::Table(vec![
+                UntaggedValue::string("hello").into_untagged_value(),
+                UntaggedValue::string("array").into_untagged_value(),
+            ])
+            .into_untagged_value(),
+        );
+        let tv = value_to_toml_value(&UntaggedValue::Row(Dictionary::new(m)).into_untagged_value())
+            .expect("Expected Ok from valid TOML dictionary");
+        assert_eq!(
+            tv.get("features"),
+            Some(&toml::Value::Array(vec![
+                toml::Value::String("hello".to_owned()),
+                toml::Value::String("array".to_owned())
+            ]))
+        );
+        // TOML string
+        let tv = value_to_toml_value(&Value::from(
+            r#"
+            title = "TOML Example"
+
+            [owner]
+            name = "Tom Preston-Werner"
+            dob = 1979-05-27T07:32:00-08:00 # First class dates
+            
+            [dependencies]
+            rustyline = "4.1.0"
+            sysinfo = "0.8.4"
+            chrono = { version = "0.4.6", features = ["serde"] }
+            "#,
+        ))
+        .expect("Expected Ok from valid TOML string");
+        assert_eq!(
+            tv.get("title").unwrap(),
+            &toml::Value::String("TOML Example".to_owned())
+        );
+        //
+        // Negative Tests
+        //
+        value_to_toml_value(&Value::from("not_valid"))
+            .expect_err("Expected non-valid toml (String) to cause error!");
+        value_to_toml_value(&UntaggedValue::Table(vec![Value::from("1")]).into_untagged_value())
+            .expect_err("Expected non-valid toml (Table) to cause error!");
     }
 }
