@@ -52,8 +52,7 @@ impl EnvironmentSyncer {
                     environment.add_env(&name, &value, false);
 
                     environment
-                        .maintain_directory_environment()
-                        .expect("Could not set directory-based environment variables");
+                        .maintain_directory_environment().ok();
 
                     // clear the env var from the session
                     // we are about to replace them
