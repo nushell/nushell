@@ -27,98 +27,106 @@ impl WholeStreamCommand for ToHTML {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        to_html(args, registry)
+        to_html(args, registry).await
     }
 }
 
-fn to_html(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn to_html(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let args = args.evaluate_once(&registry).await?;
-        let name_tag = args.name_tag();
-        let input: Vec<Value> = args.input.collect().await;
-        let headers = nu_protocol::merge_descriptors(&input);
-        let mut output_string = "<html><body>".to_string();
+    let args = args.evaluate_once(&registry).await?;
+    let name_tag = args.name_tag();
+    let input: Vec<Value> = args.input.collect().await;
+    let headers = nu_protocol::merge_descriptors(&input);
+    let mut output_string = "<html><body>".to_string();
 
-        if !headers.is_empty() && (headers.len() > 1 || headers[0] != "") {
-            output_string.push_str("<table>");
+    if !headers.is_empty() && (headers.len() > 1 || headers[0] != "") {
+        output_string.push_str("<table>");
 
-            output_string.push_str("<tr>");
-            for header in &headers {
-                output_string.push_str("<th>");
-                output_string.push_str(&htmlescape::encode_minimal(&header));
-                output_string.push_str("</th>");
-            }
-            output_string.push_str("</tr>");
+        output_string.push_str("<tr>");
+        for header in &headers {
+            output_string.push_str("<th>");
+            output_string.push_str(&htmlescape::encode_minimal(&header));
+            output_string.push_str("</th>");
         }
+        output_string.push_str("</tr>");
+    }
 
-        for row in input {
-            match row.value {
-                UntaggedValue::Primitive(Primitive::Binary(b)) => {
-                    // This might be a bit much, but it's fun :)
-                    match row.tag.anchor {
-                        Some(AnchorLocation::Url(f)) |
-                        Some(AnchorLocation::File(f)) => {
-                            let extension = f.split('.').last().map(String::from);
-                            match extension {
-                                Some(s) if ["png", "jpg", "bmp", "gif", "tiff", "jpeg"].contains(&s.to_lowercase().as_str()) => {
-                                    output_string.push_str("<img src=\"data:image/");
-                                    output_string.push_str(&s);
-                                    output_string.push_str(";base64,");
-                                    output_string.push_str(&base64::encode(&b));
-                                    output_string.push_str("\">");
-                                }
-                                _ => {}
+    for row in input {
+        match row.value {
+            UntaggedValue::Primitive(Primitive::Binary(b)) => {
+                // This might be a bit much, but it's fun :)
+                match row.tag.anchor {
+                    Some(AnchorLocation::Url(f)) | Some(AnchorLocation::File(f)) => {
+                        let extension = f.split('.').last().map(String::from);
+                        match extension {
+                            Some(s)
+                                if ["png", "jpg", "bmp", "gif", "tiff", "jpeg"]
+                                    .contains(&s.to_lowercase().as_str()) =>
+                            {
+                                output_string.push_str("<img src=\"data:image/");
+                                output_string.push_str(&s);
+                                output_string.push_str(";base64,");
+                                output_string.push_str(&base64::encode(&b));
+                                output_string.push_str("\">");
                             }
+                            _ => {}
                         }
-                        _ => {}
                     }
-                }
-                UntaggedValue::Primitive(Primitive::String(ref b)) => {
-                    // This might be a bit much, but it's fun :)
-                    match row.tag.anchor {
-                        Some(AnchorLocation::Url(f)) |
-                        Some(AnchorLocation::File(f)) => {
-                            let extension = f.split('.').last().map(String::from);
-                            match extension {
-                                Some(s) if s.to_lowercase() == "svg" => {
-                                    output_string.push_str("<img src=\"data:image/svg+xml;base64,");
-                                    output_string.push_str(&base64::encode(&b.as_bytes()));
-                                    output_string.push_str("\">");
-                                    continue;
-                                }
-                                _ => {}
-                            }
-                        }
-                        _ => {}
-                    }
-                    output_string.push_str(&(htmlescape::encode_minimal(&format_leaf(&row.value).plain_string(100_000)).replace("\n", "<br>")));
-                }
-                UntaggedValue::Row(row) => {
-                    output_string.push_str("<tr>");
-                    for header in &headers {
-                        let data = row.get_data(header);
-                        output_string.push_str("<td>");
-                        output_string.push_str(&format_leaf(data.borrow()).plain_string(100_000));
-                        output_string.push_str("</td>");
-                    }
-                    output_string.push_str("</tr>");
-                }
-                p => {
-                    output_string.push_str(&(htmlescape::encode_minimal(&format_leaf(&p).plain_string(100_000)).replace("\n", "<br>")));
+                    _ => {}
                 }
             }
+            UntaggedValue::Primitive(Primitive::String(ref b)) => {
+                // This might be a bit much, but it's fun :)
+                match row.tag.anchor {
+                    Some(AnchorLocation::Url(f)) | Some(AnchorLocation::File(f)) => {
+                        let extension = f.split('.').last().map(String::from);
+                        match extension {
+                            Some(s) if s.to_lowercase() == "svg" => {
+                                output_string.push_str("<img src=\"data:image/svg+xml;base64,");
+                                output_string.push_str(&base64::encode(&b.as_bytes()));
+                                output_string.push_str("\">");
+                                continue;
+                            }
+                            _ => {}
+                        }
+                    }
+                    _ => {}
+                }
+                output_string.push_str(
+                    &(htmlescape::encode_minimal(&format_leaf(&row.value).plain_string(100_000))
+                        .replace("\n", "<br>")),
+                );
+            }
+            UntaggedValue::Row(row) => {
+                output_string.push_str("<tr>");
+                for header in &headers {
+                    let data = row.get_data(header);
+                    output_string.push_str("<td>");
+                    output_string.push_str(&format_leaf(data.borrow()).plain_string(100_000));
+                    output_string.push_str("</td>");
+                }
+                output_string.push_str("</tr>");
+            }
+            p => {
+                output_string.push_str(
+                    &(htmlescape::encode_minimal(&format_leaf(&p).plain_string(100_000))
+                        .replace("\n", "<br>")),
+                );
+            }
         }
+    }
 
-        if !headers.is_empty() && (headers.len() > 1 || headers[0] != "") {
-            output_string.push_str("</table>");
-        }
-        output_string.push_str("</body></html>");
+    if !headers.is_empty() && (headers.len() > 1 || headers[0] != "") {
+        output_string.push_str("</table>");
+    }
+    output_string.push_str("</body></html>");
 
-        yield ReturnSuccess::value(UntaggedValue::string(output_string).into_value(name_tag));
-    };
-
-    Ok(stream.to_output_stream())
+    Ok(OutputStream::one(ReturnSuccess::value(
+        UntaggedValue::string(output_string).into_value(name_tag),
+    )))
 }
 
 #[cfg(test)]
