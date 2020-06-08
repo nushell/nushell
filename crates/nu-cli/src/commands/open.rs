@@ -1,9 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{
-    CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue,
-};
+use nu_protocol::{CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
 use nu_source::{AnchorLocation, Span, Tagged};
 use std::path::{Path, PathBuf};
 
@@ -77,7 +75,9 @@ async fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
     let tagged_contents = contents.into_value(&contents_tag);
 
     if let Some(extension) = file_extension {
-        Ok(OutputStream::one(ReturnSuccess::action(CommandAction::AutoConvert(tagged_contents, extension))))
+        Ok(OutputStream::one(ReturnSuccess::action(
+            CommandAction::AutoConvert(tagged_contents, extension),
+        )))
     } else {
         Ok(OutputStream::one(ReturnSuccess::value(tagged_contents)))
     }
