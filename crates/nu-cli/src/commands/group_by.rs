@@ -35,7 +35,7 @@ impl WholeStreamCommand for GroupBy {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        group_by(args, registry)
+        group_by(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -71,30 +71,27 @@ impl WholeStreamCommand for GroupBy {
     }
 }
 
-pub fn group_by(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+pub async fn group_by(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let name = args.call_info.name_tag.clone();
-    let stream = async_stream! {
-        let (GroupByArgs { column_name }, mut input) = args.process(&registry).await?;
-        let values: Vec<Value> = input.collect().await;
+    let (GroupByArgs { column_name }, input) = args.process(&registry).await?;
+    let values: Vec<Value> = input.collect().await;
 
-        if values.is_empty() {
-            yield Err(ShellError::labeled_error(
-                    "Expected table from pipeline",
-                    "requires a table input",
-                    name
-                ))
-        } else {
-
-            match crate::utils::data::group(column_name, &values, None, &name) {
-                Ok(grouped) => yield ReturnSuccess::value(grouped),
-                Err(err) => yield Err(err),
-            }
-
+    if values.is_empty() {
+        Err(ShellError::labeled_error(
+            "Expected table from pipeline",
+            "requires a table input",
+            name,
+        ))
+    } else {
+        match crate::utils::data::group(column_name, &values, None, &name) {
+            Ok(grouped) => Ok(OutputStream::one(ReturnSuccess::value(grouped))),
+            Err(err) => Err(err),
         }
-    };
-
-    Ok(stream.to_output_stream())
+    }
 }
 
 pub fn group(

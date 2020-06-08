@@ -38,42 +38,37 @@ impl WholeStreamCommand for MapMaxBy {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        map_max_by(args, registry)
+        map_max_by(args, registry).await
     }
 }
 
-pub fn map_max_by(
+pub async fn map_max_by(
     args: CommandArgs,
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let name = args.call_info.name_tag.clone();
-    let stream = async_stream! {
-        let (MapMaxByArgs { column_name }, mut input) = args.process(&registry).await?;
-        let values: Vec<Value> = input.collect().await;
+    let (MapMaxByArgs { column_name }, mut input) = args.process(&registry).await?;
+    let values: Vec<Value> = input.collect().await;
 
-        if values.is_empty() {
-            yield Err(ShellError::labeled_error(
-                    "Expected table from pipeline",
-                    "requires a table input",
-                    name
-                ))
+    if values.is_empty() {
+        Err(ShellError::labeled_error(
+            "Expected table from pipeline",
+            "requires a table input",
+            name,
+        ))
+    } else {
+        let map_by_column = if let Some(column_to_map) = column_name {
+            Some(column_to_map.item().clone())
         } else {
+            None
+        };
 
-            let map_by_column = if let Some(column_to_map) = column_name {
-                Some(column_to_map.item().clone())
-            } else {
-                None
-            };
-
-            match map_max(&values[0], map_by_column, name) {
-                Ok(table_maxed) => yield ReturnSuccess::value(table_maxed),
-                Err(err) => yield Err(err)
-            }
+        match map_max(&values[0], map_by_column, name) {
+            Ok(table_maxed) => Ok(OutputStream::one(ReturnSuccess::value(table_maxed))),
+            Err(err) => Err(err),
         }
-    };
-
-    Ok(stream.to_output_stream())
+    }
 }
 
 #[cfg(test)]

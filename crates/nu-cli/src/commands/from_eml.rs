@@ -40,7 +40,7 @@ impl WholeStreamCommand for FromEML {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        from_eml(args, registry)
+        from_eml(args, registry).await
     }
 }
 
@@ -77,46 +77,54 @@ fn headerfieldvalue_to_value(tag: &Tag, value: &HeaderFieldValue) -> UntaggedVal
     }
 }
 
-fn from_eml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn from_eml(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let registry = registry.clone();
-    let stream = async_stream! {
-        let (eml_args, mut input): (FromEMLArgs, _) = args.process(&registry).await?;
-        let value = input.collect_string(tag.clone()).await?;
+    let (eml_args, input): (FromEMLArgs, _) = args.process(&registry).await?;
+    let value = input.collect_string(tag.clone()).await?;
 
-        let body_preview = eml_args.preview_body.map(|b| b.item).unwrap_or(DEFAULT_BODY_PREVIEW);
+    let body_preview = eml_args
+        .preview_body
+        .map(|b| b.item)
+        .unwrap_or(DEFAULT_BODY_PREVIEW);
 
-        let eml = EmlParser::from_string(value.item)
+    let eml = EmlParser::from_string(value.item)
         .with_body_preview(body_preview)
         .parse()
-        .map_err(|_| ShellError::labeled_error("Could not parse .eml file", "could not parse .eml file", &tag))?;
+        .map_err(|_| {
+            ShellError::labeled_error(
+                "Could not parse .eml file",
+                "could not parse .eml file",
+                &tag,
+            )
+        })?;
 
-        let mut dict = TaggedDictBuilder::new(&tag);
+    let mut dict = TaggedDictBuilder::new(&tag);
 
-        if let Some(subj) = eml.subject {
-           dict.insert_untagged("Subject", UntaggedValue::string(subj));
-        }
+    if let Some(subj) = eml.subject {
+        dict.insert_untagged("Subject", UntaggedValue::string(subj));
+    }
 
-        if let Some(from) = eml.from {
-           dict.insert_untagged("From", headerfieldvalue_to_value(&tag, &from));
-        }
+    if let Some(from) = eml.from {
+        dict.insert_untagged("From", headerfieldvalue_to_value(&tag, &from));
+    }
 
-        if let Some(to) = eml.to {
-           dict.insert_untagged("To", headerfieldvalue_to_value(&tag, &to));
-        }
+    if let Some(to) = eml.to {
+        dict.insert_untagged("To", headerfieldvalue_to_value(&tag, &to));
+    }
 
-        for HeaderField{ name, value } in eml.headers.iter() {
-           dict.insert_untagged(name, headerfieldvalue_to_value(&tag, &value));
-        }
+    for HeaderField { name, value } in eml.headers.iter() {
+        dict.insert_untagged(name, headerfieldvalue_to_value(&tag, &value));
+    }
 
-        if let Some(body) = eml.body {
-           dict.insert_untagged("Body", UntaggedValue::string(body));
-        }
+    if let Some(body) = eml.body {
+        dict.insert_untagged("Body", UntaggedValue::string(body));
+    }
 
-        yield ReturnSuccess::value(dict.into_value());
-    };
-
-    Ok(stream.to_output_stream())
+    Ok(OutputStream::one(ReturnSuccess::value(dict.into_value())))
 }
 
 #[cfg(test)]
