@@ -69,7 +69,7 @@ async fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
     } else {
         // If the extension could not be determined via mimetype, try to use the path
         // extension. Some file types do not declare their mimetypes (such as bson files).
-        file_extension.or(path.extension().map(|x| x.to_string_lossy().to_string()))
+        file_extension.or_else(|| path.extension().map(|x| x.to_string_lossy().to_string()))
     };
 
     let tagged_contents = contents.into_value(&contents_tag);
