@@ -5,7 +5,7 @@ use std::{ffi::OsString, fmt::Debug, path::PathBuf};
 
 #[derive(Debug, Default)]
 pub struct DirectorySpecificEnvironment {
-    whitelisted_directories: Vec<PathBuf>,
+    allowed_directories: Vec<PathBuf>,
 
     //Directory -> Env key. If an environment var has been added from a .nu in a directory, we track it here so we can remove it when the user leaves the directory.
     added_env_vars: IndexMap<PathBuf, Vec<String>>,
@@ -15,11 +15,11 @@ pub struct DirectorySpecificEnvironment {
 }
 
 impl DirectorySpecificEnvironment {
-    pub fn new(whitelisted_directories: Option<Value>) -> DirectorySpecificEnvironment {
-        let mut whitelisted_directories = if let Some(Value {
+    pub fn new(allowed_directories: Option<Value>) -> DirectorySpecificEnvironment {
+        let mut allowed_directories = if let Some(Value {
             value: UntaggedValue::Table(ref wrapped_directories),
             tag: _,
-        }) = whitelisted_directories
+        }) = allowed_directories
         {
             wrapped_directories
                 .iter()
@@ -37,10 +37,10 @@ impl DirectorySpecificEnvironment {
         } else {
             vec![]
         };
-        whitelisted_directories.sort();
+        allowed_directories.sort();
 
         DirectorySpecificEnvironment {
-            whitelisted_directories,
+            allowed_directories,
             added_env_vars: IndexMap::new(),
             overwritten_env_values: IndexMap::new(),
         }
@@ -94,7 +94,7 @@ impl DirectorySpecificEnvironment {
         let current_dir = std::env::current_dir()?;
 
         let mut vars_to_add = IndexMap::new();
-        for dir in &self.whitelisted_directories {
+        for dir in &self.allowed_directories {
             let mut working_dir = Some(current_dir.as_path());
 
             //Start in the current directory, then traverse towards the root with working_dir to see if we are in a subdirectory of a valid directory.
