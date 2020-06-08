@@ -27,7 +27,7 @@ impl WholeStreamCommand for ToSQLite {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        to_sqlite(args, registry)
+        to_sqlite(args, registry).await
     }
 
     fn is_binary(&self) -> bool {
@@ -56,7 +56,7 @@ impl WholeStreamCommand for ToDB {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        to_sqlite(args, registry)
+        to_sqlite(args, registry).await
     }
 
     fn is_binary(&self) -> bool {
@@ -203,26 +203,23 @@ fn sqlite_input_stream_to_bytes(values: Vec<Value>) -> Result<Value, std::io::Er
     Ok(UntaggedValue::binary(out).into_value(tag))
 }
 
-fn to_sqlite(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn to_sqlite(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let args = args.evaluate_once(&registry).await?;
-        let name_tag = args.name_tag();
-        let input: Vec<Value> = args.input.collect().await;
+    let args = args.evaluate_once(&registry).await?;
+    let name_tag = args.name_tag();
+    let input: Vec<Value> = args.input.collect().await;
 
-        match sqlite_input_stream_to_bytes(input) {
-            Ok(out) => yield ReturnSuccess::value(out),
-            _ => {
-                yield Err(ShellError::labeled_error(
-                    "Expected a table with SQLite-compatible structure from pipeline",
-                    "requires SQLite-compatible input",
-                    name_tag,
-                ))
-            },
-        }
-    };
-
-    Ok(stream.to_output_stream())
+    match sqlite_input_stream_to_bytes(input) {
+        Ok(out) => Ok(OutputStream::one(ReturnSuccess::value(out))),
+        _ => Err(ShellError::labeled_error(
+            "Expected a table with SQLite-compatible structure from pipeline",
+            "requires SQLite-compatible input",
+            name_tag,
+        )),
+    }
 }
 
 #[cfg(test)]
