@@ -46,6 +46,7 @@ impl DirectorySpecificEnvironment {
         }
     }
 
+    //If we are no longer in a directory, we restore the values it overwrote.
     pub fn overwritten_values_to_restore(&mut self) -> Result<IndexMap<String, String>> {
         let current_dir = std::env::current_dir()?;
 
