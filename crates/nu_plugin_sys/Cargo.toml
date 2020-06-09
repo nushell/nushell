@@ -1,6 +1,6 @@
 [package]
 name = "nu_plugin_sys"
-version = "0.14.1"
+version = "0.15.0"
 authors = ["The Nu Project Contributors"]
 edition = "2018"
 description = "A system info plugin for Nushell"
@@ -10,10 +10,10 @@ license = "MIT"
 doctest = false
 
 [dependencies]
-nu-plugin = { path = "../nu-plugin", version = "0.14.1" }
-nu-protocol = { path = "../nu-protocol", version = "0.14.1" }
-nu-source = { path = "../nu-source", version = "0.14.1" }
-nu-errors = { path = "../nu-errors", version = "0.14.1" }
+nu-plugin = { path = "../nu-plugin", version = "0.15.0" }
+nu-protocol = { path = "../nu-protocol", version = "0.15.0" }
+nu-source = { path = "../nu-source", version = "0.15.0" }
+nu-errors = { path = "../nu-errors", version = "0.15.0" }
 
 futures = { version = "0.3", features = ["compat", "io-compat"] }
 battery = "0.7.5"
@@ -26,4 +26,4 @@ default-features = false
 features = ["host", "cpu", "memory", "disk", "net", "sensors"]
 
 [build-dependencies]
-nu-build = { version = "0.14.1", path = "../nu-build" }
+nu-build = { version = "0.15.0", path = "../nu-build" }
