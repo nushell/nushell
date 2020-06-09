@@ -1,6 +1,6 @@
 [package]
 name = "nu_plugin_start"
-version = "0.1.0"
+version = "0.15.0"
 authors = ["The Nu Project Contributors"]
 edition = "2018"
 description = "A plugin to open files/URLs directly from Nushell"
