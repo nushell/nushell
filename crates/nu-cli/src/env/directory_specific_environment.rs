@@ -101,7 +101,7 @@ impl DirectorySpecificEnvironment {
             //Start in the current directory, then traverse towards the root with working_dir to see if we are in a subdirectory of a valid directory.
             while let Some(wdir) = working_dir {
                 if wdir == dir.as_path() {
-                    let toml_doc = std::fs::read_to_string(wdir.join(".nu").as_path())?
+                    let toml_doc = std::fs::read_to_string(wdir.join(".nu-env").as_path())?
                         .parse::<toml::Value>()?;
 
                     let vars_in_current_file = toml_doc
@@ -109,15 +109,12 @@ impl DirectorySpecificEnvironment {
                         .ok_or_else(|| {
                             std::io::Error::new(
                                 std::io::ErrorKind::InvalidData,
-                                "No [env] section in .nu-file",
+                                "No [env] section in .nu-env",
                             )
                         })?
                         .as_table()
                         .ok_or_else(|| {
-                            Error::new(
-                                ErrorKind::InvalidData,
-                                "Malformed [env] section in .nu-file",
-                            )
+                            Error::new(ErrorKind::InvalidData, "Malformed [env] section in .nu-env")
                         })?;
 
                     let mut keys_in_current_nufile = vec![];
