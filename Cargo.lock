@@ -1357,9 +1357,9 @@ checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 
 [[package]]
 name = "heim"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c39a60e3aee8ada013ddfc5d8447d6f81011dac7ddef61a3f3d34b4be982aa79"
+checksum = "ea9164f267a5f4325020b8a989c4b0ab06acc0685ccdb22551f59257fdf296ab"
 dependencies = [
  "heim-common",
  "heim-cpu",
@@ -1393,9 +1393,9 @@ dependencies = [
 
 [[package]]
 name = "heim-cpu"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "020d170328cadc4d6adcf549c22983a19c35068414609c276c4db607ee295693"
+checksum = "8b088c42ce30cf60b485df484e0aa19c31ad8663bb939180ef64ca340d15eca6"
 dependencies = [
  "cfg-if",
  "futures 0.3.5",
@@ -1462,9 +1462,9 @@ dependencies = [
 
 [[package]]
 name = "heim-net"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3108a5d01cfe88042c349c93d760d2cb8d82c2131183ba6af5fc5b8a6c0a5b5"
+checksum = "59da1108e732afcda77e1429b5d0ce648b9a31d1f8cf385108b83bea4cf91342"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -1477,9 +1477,9 @@ dependencies = [
 
 [[package]]
 name = "heim-process"
-version = "0.1.1-beta.1"
+version = "0.1.1-beta.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac9b230a6f7c9d746c12a300186d6e8cb31495cdbe3cefd7a15f969327b0d323"
+checksum = "190f1085293c8d54060dd77c943da0d5bd1729aa00d2ac68188e26446dc0170d"
 dependencies = [
  "async-trait",
  "cfg-if",
