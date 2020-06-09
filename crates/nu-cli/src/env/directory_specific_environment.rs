@@ -1,11 +1,11 @@
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 use nu_protocol::{Primitive, UntaggedValue, Value};
 use std::io::{Error, ErrorKind, Result};
 use std::{ffi::OsString, fmt::Debug, path::PathBuf};
 
 #[derive(Debug, Default)]
 pub struct DirectorySpecificEnvironment {
-    allowed_directories: Vec<PathBuf>,
+    allowed_directories: IndexSet<PathBuf>,
 
     //Directory -> Env key. If an environment var has been added from a .nu in a directory, we track it here so we can remove it when the user leaves the directory.
     added_env_vars: IndexMap<PathBuf, Vec<String>>,
@@ -38,9 +38,13 @@ impl DirectorySpecificEnvironment {
             vec![]
         };
         allowed_directories.sort();
+        let mut allowed = IndexSet::new();
+        for d in allowed_directories {
+            allowed.insert(d);
+        }
 
         DirectorySpecificEnvironment {
-            allowed_directories,
+            allowed_directories: allowed,
             added_env_vars: IndexMap::new(),
             overwritten_env_values: IndexMap::new(),
         }
@@ -93,74 +97,74 @@ impl DirectorySpecificEnvironment {
 
     pub fn env_vars_to_add(&mut self) -> Result<IndexMap<String, String>> {
         let current_dir = std::env::current_dir()?;
-
         let mut vars_to_add = IndexMap::new();
-        for dir in &self.allowed_directories {
-            let mut working_dir = Some(current_dir.as_path());
+        let mut working_dir = Some(current_dir.as_path());
 
-            //Start in the current directory, then traverse towards the root with working_dir to see if we are in a subdirectory of a valid directory.
-            while let Some(wdir) = working_dir {
-                if wdir == dir.as_path() {
-                    let toml_doc = std::fs::read_to_string(wdir.join(".nu").as_path())?
-                        .parse::<toml::Value>()?;
+        //Start in the current directory, then traverse towards the root with working_dir to see if we are in a subdirectory of a valid directory.
+        while let Some(wdir) = working_dir {
+            if self.allowed_directories.contains(wdir) {
+                let toml_doc = match std::fs::read_to_string(wdir.join(".nu").as_path()) {
+                    Ok(doc) => doc.parse::<toml::Value>()?,
+                    Err(_) => return Ok(vars_to_add),
+                };
 
-                    let vars_in_current_file = toml_doc
-                        .get("env")
-                        .ok_or_else(|| {
-                            std::io::Error::new(
-                                std::io::ErrorKind::InvalidData,
-                                "No [env] section in .nu-file",
-                            )
-                        })?
-                        .as_table()
-                        .ok_or_else(|| {
-                            Error::new(
-                                ErrorKind::InvalidData,
-                                "Malformed [env] section in .nu-file",
-                            )
-                        })?;
+                let vars_in_current_file = toml_doc
+                    .get("env")
+                    .ok_or_else(|| {
+                        std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            "No [env] section in .nu-file",
+                        )
+                    })?
+                    .as_table()
+                    .ok_or_else(|| {
+                        Error::new(
+                            ErrorKind::InvalidData,
+                            "Malformed [env] section in .nu-file",
+                        )
+                    })?;
 
-                    let mut keys_in_current_nufile = vec![];
-                    for (k, v) in vars_in_current_file {
+                let mut keys_in_current_nufile = vec![];
+                for (k, v) in vars_in_current_file {
+                    if !vars_to_add.contains_key(k) {
                         vars_to_add.insert(
                             k.clone(),
                             v.as_str()
                                 .ok_or_else(|| {
                                     Error::new(
                                         ErrorKind::InvalidData,
-                                        format!("Could not read environment variable: {}", v),
+                                        format!("Could not read environment variable: {}\n", v),
                                     )
                                 })?
                                 .to_string(),
                         ); //This is used to add variables to the environment
-                        keys_in_current_nufile.push(k.clone()); //this is used to keep track of which directory added which variables
                     }
+                    keys_in_current_nufile.push(k.clone()); //this is used to keep track of which directory added which variables
+                }
 
-                    //If we are about to overwrite any environment variables, we save them first so they can be restored later.
-                    self.overwritten_env_values.insert(
-                        wdir.to_path_buf(),
-                        keys_in_current_nufile
-                            .iter()
-                            .filter_map(|key| {
-                                if let Some(val) = std::env::var_os(key) {
-                                    return Some((key.clone(), val));
-                                }
-                                None
-                            })
-                            .collect(),
-                    );
+                //If we are about to overwrite any environment variables, we save them first so they can be restored later.
+                self.overwritten_env_values.insert(
+                    wdir.to_path_buf(),
+                    keys_in_current_nufile
+                        .iter()
+                        .filter_map(|key| {
+                            if let Some(val) = std::env::var_os(key) {
+                                return Some((key.clone(), val));
+                            }
+                            None
+                        })
+                        .collect(),
+                );
 
-                    self.added_env_vars
-                        .insert(wdir.to_path_buf(), keys_in_current_nufile);
-                    break;
-                } else {
-                    working_dir = working_dir //Keep going up in the directory structure with .parent()
+                self.added_env_vars
+                    .insert(wdir.to_path_buf(), keys_in_current_nufile);
+            }
+            working_dir =
+                    working_dir //Keep going up in the directory structure with .parent()
                         .ok_or_else(|| {
                             Error::new(ErrorKind::NotFound, "Root directory has no parent")
                         })?
                         .parent();
-                }
-            }
         }
 
         Ok(vars_to_add)
