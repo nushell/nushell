@@ -285,7 +285,7 @@ pub async fn fetch(
                     }
                 },
                 Err(_) => Err(ShellError::labeled_error(
-                    "File could not be opened",
+                    format!("Cannot open {:?} for reading.", &cwd),
                     "file not found",
                     span,
                 )),
