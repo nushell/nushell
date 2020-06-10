@@ -97,7 +97,7 @@ fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, S
         let (OpenArgs { path, raw, encoding }, _) = args.process(&registry).await?;
         let enc = match encoding {
             Some(e) => e.to_string(),
-            _ => "utf-8".to_string()
+            _ => "".to_string()
         };
         let result = fetch(&full_path, &path.item, path.tag.span, enc).await;
 
@@ -135,7 +135,7 @@ pub async fn fetch(
 ) -> Result<(Option<String>, UntaggedValue, Tag), ShellError> {
     let mut cwd = cwd.clone();
     let output_encoding: &Encoding = get_encoding(Some("utf-8".to_string()));
-    let input_encoding: &Encoding = get_encoding(Some(encoding));
+    let input_encoding: &Encoding = get_encoding(Some(encoding.clone()));
     let mut decoder = input_encoding.new_decoder();
     let mut encoder = output_encoding.new_encoder();
     let mut _file: File;
@@ -144,31 +144,151 @@ pub async fn fetch(
 
     cwd.push(Path::new(_location));
     if let Ok(cwd) = dunce::canonicalize(&cwd) {
-        match File::open(&Path::new(&cwd)) {
-            Ok(mut _file) => {
-                convert_via_utf8(
-                    &mut decoder,
-                    &mut encoder,
-                    &mut _file,
-                    &mut bufwriter,
-                    false,
-                );
-                //bufwriter.flush()?;
-                Ok((
-                    cwd.extension()
-                        .map(|name| name.to_string_lossy().to_string()),
-                    UntaggedValue::string(String::from_utf8_lossy(&bufwriter.buffer())),
-                    Tag {
-                        span,
-                        anchor: Some(AnchorLocation::File(cwd.to_string_lossy().to_string())),
-                    },
-                ))
+        if !encoding.is_empty() {
+            // use the encoding string
+            match File::open(&Path::new(&cwd)) {
+                Ok(mut _file) => {
+                    convert_via_utf8(
+                        &mut decoder,
+                        &mut encoder,
+                        &mut _file,
+                        &mut bufwriter,
+                        false,
+                    );
+                    //bufwriter.flush()?;
+                    Ok((
+                        cwd.extension()
+                            .map(|name| name.to_string_lossy().to_string()),
+                        UntaggedValue::string(String::from_utf8_lossy(&bufwriter.buffer())),
+                        Tag {
+                            span,
+                            anchor: Some(AnchorLocation::File(cwd.to_string_lossy().to_string())),
+                        },
+                    ))
+                }
+                Err(_) => Err(ShellError::labeled_error(
+                    format!("Cannot open {:?} for reading.", &cwd),
+                    "file not found",
+                    span,
+                )),
             }
-            Err(_) => Err(ShellError::labeled_error(
-                format!("Cannot open {:?} for reading.", &cwd),
-                "file not found",
-                span,
-            )),
+        } else {
+            // Do the old stuff
+            match std::fs::read(&cwd) {
+                Ok(bytes) => match std::str::from_utf8(&bytes) {
+                    Ok(s) => Ok((
+                        cwd.extension()
+                            .map(|name| name.to_string_lossy().to_string()),
+                        UntaggedValue::string(s),
+                        Tag {
+                            span,
+                            anchor: Some(AnchorLocation::File(cwd.to_string_lossy().to_string())),
+                        },
+                    )),
+                    Err(_) => {
+                        //Non utf8 data.
+                        match (bytes.get(0), bytes.get(1)) {
+                            (Some(x), Some(y)) if *x == 0xff && *y == 0xfe => {
+                                // Possibly UTF-16 little endian
+                                let utf16 = read_le_u16(&bytes[2..]);
+
+                                if let Some(utf16) = utf16 {
+                                    match std::string::String::from_utf16(&utf16) {
+                                        Ok(s) => Ok((
+                                            cwd.extension()
+                                                .map(|name| name.to_string_lossy().to_string()),
+                                            UntaggedValue::string(s),
+                                            Tag {
+                                                span,
+                                                anchor: Some(AnchorLocation::File(
+                                                    cwd.to_string_lossy().to_string(),
+                                                )),
+                                            },
+                                        )),
+                                        Err(_) => Ok((
+                                            None,
+                                            UntaggedValue::binary(bytes),
+                                            Tag {
+                                                span,
+                                                anchor: Some(AnchorLocation::File(
+                                                    cwd.to_string_lossy().to_string(),
+                                                )),
+                                            },
+                                        )),
+                                    }
+                                } else {
+                                    Ok((
+                                        None,
+                                        UntaggedValue::binary(bytes),
+                                        Tag {
+                                            span,
+                                            anchor: Some(AnchorLocation::File(
+                                                cwd.to_string_lossy().to_string(),
+                                            )),
+                                        },
+                                    ))
+                                }
+                            }
+                            (Some(x), Some(y)) if *x == 0xfe && *y == 0xff => {
+                                // Possibly UTF-16 big endian
+                                let utf16 = read_be_u16(&bytes[2..]);
+
+                                if let Some(utf16) = utf16 {
+                                    match std::string::String::from_utf16(&utf16) {
+                                        Ok(s) => Ok((
+                                            cwd.extension()
+                                                .map(|name| name.to_string_lossy().to_string()),
+                                            UntaggedValue::string(s),
+                                            Tag {
+                                                span,
+                                                anchor: Some(AnchorLocation::File(
+                                                    cwd.to_string_lossy().to_string(),
+                                                )),
+                                            },
+                                        )),
+                                        Err(_) => Ok((
+                                            None,
+                                            UntaggedValue::binary(bytes),
+                                            Tag {
+                                                span,
+                                                anchor: Some(AnchorLocation::File(
+                                                    cwd.to_string_lossy().to_string(),
+                                                )),
+                                            },
+                                        )),
+                                    }
+                                } else {
+                                    Ok((
+                                        None,
+                                        UntaggedValue::binary(bytes),
+                                        Tag {
+                                            span,
+                                            anchor: Some(AnchorLocation::File(
+                                                cwd.to_string_lossy().to_string(),
+                                            )),
+                                        },
+                                    ))
+                                }
+                            }
+                            _ => Ok((
+                                None,
+                                UntaggedValue::binary(bytes),
+                                Tag {
+                                    span,
+                                    anchor: Some(AnchorLocation::File(
+                                        cwd.to_string_lossy().to_string(),
+                                    )),
+                                },
+                            )),
+                        }
+                    }
+                },
+                Err(_) => Err(ShellError::labeled_error(
+                    "File could not be opened",
+                    "file not found",
+                    span,
+                )),
+            }
         }
     } else {
         Err(ShellError::labeled_error(
@@ -400,7 +520,7 @@ fn convert_via_utf8(
         }
     }
 }
-/*
+
 fn read_le_u16(input: &[u8]) -> Option<Vec<u16>> {
     if input.len() % 2 != 0 || input.len() < 2 {
         None
@@ -430,7 +550,7 @@ fn read_be_u16(input: &[u8]) -> Option<Vec<u16>> {
         Some(result)
     }
 }
-*/
+
 #[cfg(test)]
 mod tests {
     use super::Open;
