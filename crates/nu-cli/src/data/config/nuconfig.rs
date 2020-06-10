@@ -20,6 +20,10 @@ impl Conf for NuConfig {
         self.path()
     }
 
+    fn nu_env_dirs(&self) -> Option<Value> {
+        self.nu_env_dirs()
+    }
+
     fn reload(&self) {
         let mut vars = self.vars.lock();
 
@@ -49,6 +53,14 @@ impl NuConfig {
             return Some(env_vars.clone());
         }
 
+        None
+    }
+
+    pub fn nu_env_dirs(&self) -> Option<Value> {
+        let vars = self.vars.lock();
+        if let Some(dirs) = vars.get("nu_env_dirs") {
+            return Some(dirs.clone());
+        }
         None
     }
 

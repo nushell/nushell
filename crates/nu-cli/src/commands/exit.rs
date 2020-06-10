@@ -25,7 +25,7 @@ impl WholeStreamCommand for Exit {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        exit(args, registry)
+        exit(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -44,19 +44,20 @@ impl WholeStreamCommand for Exit {
     }
 }
 
-pub fn exit(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+pub async fn exit(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let args = args.evaluate_once(&registry).await?;
+    let args = args.evaluate_once(&registry).await?;
 
-        if args.call_info.args.has("now") {
-            yield Ok(ReturnSuccess::Action(CommandAction::Exit));
-        } else {
-            yield Ok(ReturnSuccess::Action(CommandAction::LeaveShell));
-        }
+    let command_action = if args.call_info.args.has("now") {
+        CommandAction::Exit
+    } else {
+        CommandAction::LeaveShell
     };
 
-    Ok(stream.to_output_stream())
+    Ok(OutputStream::one(ReturnSuccess::action(command_action)))
 }
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
 [package]
 name = "nu_plugin_inc"
-version = "0.14.1"
+version = "0.15.0"
 authors = ["The Nu Project Contributors"]
 edition = "2018"
 description = "A version incrementer plugin for Nushell"
@@ -10,13 +10,13 @@ license = "MIT"
 doctest = false
 
 [dependencies]
-nu-plugin = { path = "../nu-plugin", version = "0.14.1" }
-nu-protocol = { path = "../nu-protocol", version = "0.14.1" }
-nu-source = { path = "../nu-source", version = "0.14.1" }
-nu-errors = { path = "../nu-errors", version = "0.14.1" }
-nu-value-ext = { path = "../nu-value-ext", version = "0.14.1" }
+nu-plugin = { path = "../nu-plugin", version = "0.15.0" }
+nu-protocol = { path = "../nu-protocol", version = "0.15.0" }
+nu-source = { path = "../nu-source", version = "0.15.0" }
+nu-errors = { path = "../nu-errors", version = "0.15.0" }
+nu-value-ext = { path = "../nu-value-ext", version = "0.15.0" }
 
 semver = "0.10.0"
 
 [build-dependencies]
-nu-build = { version = "0.14.1", path = "../nu-build" }
+nu-build = { version = "0.15.0", path = "../nu-build" }

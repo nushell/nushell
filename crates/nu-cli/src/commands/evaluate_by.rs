@@ -37,42 +37,37 @@ impl WholeStreamCommand for EvaluateBy {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        evaluate_by(args, registry)
+        evaluate_by(args, registry).await
     }
 }
 
-pub fn evaluate_by(
+pub async fn evaluate_by(
     args: CommandArgs,
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let name = args.call_info.name_tag.clone();
-        let (EvaluateByArgs { evaluate_with }, mut input) = args.process(&registry).await?;
-        let values: Vec<Value> = input.collect().await;
+    let name = args.call_info.name_tag.clone();
+    let (EvaluateByArgs { evaluate_with }, mut input) = args.process(&registry).await?;
+    let values: Vec<Value> = input.collect().await;
 
-        if values.is_empty() {
-            yield Err(ShellError::labeled_error(
-                    "Expected table from pipeline",
-                    "requires a table input",
-                    name
-                ))
+    if values.is_empty() {
+        Err(ShellError::labeled_error(
+            "Expected table from pipeline",
+            "requires a table input",
+            name,
+        ))
+    } else {
+        let evaluate_with = if let Some(evaluator) = evaluate_with {
+            Some(evaluator.item().clone())
         } else {
+            None
+        };
 
-            let evaluate_with = if let Some(evaluator) = evaluate_with {
-                Some(evaluator.item().clone())
-            } else {
-                None
-            };
-
-            match evaluate(&values[0], evaluate_with, name) {
-                Ok(evaluated) => yield ReturnSuccess::value(evaluated),
-                Err(err) => yield Err(err)
-            }
+        match evaluate(&values[0], evaluate_with, name) {
+            Ok(evaluated) => Ok(OutputStream::one(ReturnSuccess::value(evaluated))),
+            Err(err) => Err(err),
         }
-    };
-
-    Ok(stream.to_output_stream())
+    }
 }
 
 #[cfg(test)]

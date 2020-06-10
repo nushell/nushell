@@ -93,10 +93,17 @@ async fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
     let full_path = cwd;
     let registry = registry.clone();
 
-    let (OpenArgs { path, raw, encoding }, _) = args.process(&registry).await?;
+    let (
+        OpenArgs {
+            path,
+            raw,
+            encoding,
+        },
+        _,
+    ) = args.process(&registry).await?;
     let enc = match encoding {
         Some(e) => e.to_string(),
-        _ => "".to_string()
+        _ => "".to_string(),
     };
     let result = fetch(&full_path, &path.item, path.tag.span, enc).await;
 
