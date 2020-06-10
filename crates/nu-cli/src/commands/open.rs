@@ -130,7 +130,7 @@ async fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
 
 pub async fn fetch(
     cwd: &PathBuf,
-    _location: &PathBuf,
+    location: &PathBuf,
     span: Span,
     encoding: String,
 ) -> Result<(Option<String>, UntaggedValue, Tag), ShellError> {
@@ -143,7 +143,7 @@ pub async fn fetch(
     let buf = Vec::new();
     let mut bufwriter = BufWriter::new(buf);
 
-    cwd.push(Path::new(_location));
+    cwd.push(Path::new(location));
     if let Ok(cwd) = dunce::canonicalize(&cwd) {
         if !encoding.is_empty() {
             // use the encoding string
