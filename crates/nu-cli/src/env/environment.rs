@@ -59,12 +59,9 @@ impl Environment {
     }
 
     pub fn maintain_directory_environment(&mut self) -> std::io::Result<()> {
-        self.direnv.env_vars_to_delete()?.iter().for_each(|k| {
-            self.remove_env(&k);
-        });
-        self.direnv.env_vars_to_add()?.iter().for_each(|(k, v)| {
-            self.add_env(&k, &v, true);
-        });
+        // self.direnv.env_vars_to_delete()?.iter().for_each(|k| {
+        //     self.remove_env(&k);
+        // });
 
         self.direnv
             .overwritten_values_to_restore()?
@@ -72,6 +69,10 @@ impl Environment {
             .for_each(|(k, v)| {
                 self.add_env(&k, &v, true);
             });
+
+        self.direnv.env_vars_to_add()?.iter().for_each(|(k, v)| {
+            self.add_env(&k, &v, true);
+        });
 
         Ok(())
     }

@@ -1,7 +1,8 @@
 use indexmap::{IndexMap, IndexSet};
 use nu_protocol::{Primitive, UntaggedValue, Value};
+use std::io::Write;
 use std::io::{Error, ErrorKind, Result};
-use std::{ffi::OsString, fmt::Debug, path::PathBuf};
+use std::{ffi::OsString, fmt::Debug, fs::OpenOptions, path::PathBuf};
 
 #[derive(Debug, Default)]
 pub struct DirectorySpecificEnvironment {
@@ -48,45 +49,23 @@ impl DirectorySpecificEnvironment {
     //If we are no longer in a directory, we restore the values it overwrote.
     pub fn overwritten_values_to_restore(&mut self) -> Result<IndexMap<String, String>> {
         let current_dir = std::env::current_dir()?;
+        let working_dir = Some(current_dir.as_path());
 
-        let mut keyvals_to_restore = IndexMap::new();
-        let mut new_overwritten = IndexMap::new();
-
-        for (directory, keyvals) in &self.overwritten_env_values {
-            let mut working_dir = Some(current_dir.as_path());
-
-            let mut re_add_keyvals = true;
-            while let Some(wdir) = working_dir {
-                if wdir == directory.as_path() {
-                    re_add_keyvals = false;
-                    new_overwritten.insert(directory.clone(), keyvals.clone());
-                    break;
-                } else {
-                    working_dir = working_dir //Keep going up in the directory structure with .parent()
-                        .ok_or_else(|| {
-                            Error::new(ErrorKind::NotFound, "Root directory has no parent")
-                        })?
-                        .parent();
+        let keyvals_to_restore = self
+            .overwritten_env_values
+            .iter()
+            .filter_map(|(directory, keyvals)| {
+                while let Some(wdir) = working_dir {
+                    if &wdir == directory {
+                        return false;
+                    } else {
+                        working_dir = working_dir.expect("This directory has no parent").parent();
+                    }
                 }
-            }
-            if re_add_keyvals {
-                for (k, v) in keyvals {
-                    keyvals_to_restore.insert(
-                        k.clone(),
-                        v.to_str()
-                            .ok_or_else(|| {
-                                Error::new(
-                                    ErrorKind::Other,
-                                    format!("{:?} is not valid unicode", v),
-                                )
-                            })?
-                            .to_string(),
-                    );
-                }
-            }
-        }
+                true
+            })
+            .collect();
 
-        self.overwritten_env_values = new_overwritten;
         Ok(keyvals_to_restore)
     }
 
@@ -94,25 +73,21 @@ impl DirectorySpecificEnvironment {
         let current_dir = std::env::current_dir()?;
         let mut working_dir = Some(current_dir.as_path());
 
+        let empty = toml::value::Table::new();
         let mut vars_to_add = IndexMap::new();
 
         //Start in the current directory, then traverse towards the root with working_dir to see if we are in a subdirectory of a valid directory.
         while let Some(wdir) = working_dir {
             if self.allowed_directories.contains(wdir) {
                 let toml_doc = std::fs::read_to_string(wdir.join(".nu").as_path())
-                    .unwrap_or_else(|_| "[env]".to_string())
+                    .unwrap_or_else(|_| r#"[env]"#.to_string())
                     .parse::<toml::Value>()?;
 
                 toml_doc
                     .get("env")
-                    .expect("No env section in file")
+                    .unwrap()
                     .as_table()
-                    .ok_or_else(|| {
-                        Error::new(
-                            ErrorKind::InvalidData,
-                            "Malformed [env] section in .nu-file",
-                        )
-                    })?
+                    .unwrap_or_else(|| &empty)
                     .iter()
                     .for_each(|(k, v)| {
                         if !vars_to_add.contains_key(k) {
@@ -120,27 +95,22 @@ impl DirectorySpecificEnvironment {
 
                             //If we are about to overwrite any environment variables, we save them first so they can be restored later.
                             if let Some(val) = std::env::var_os(k) {
-                                let entry = self
-                                    .overwritten_env_values
+                                self.overwritten_env_values
                                     .entry(wdir.to_path_buf())
-                                    .or_insert(vec![]);
-                                entry.push((k.clone(), val));
+                                    .or_insert(vec![])
+                                    .push((k.clone(), val));
+                            } else {
+                                self.added_env_vars
+                                    .entry(wdir.to_path_buf())
+                                    .or_insert(vec![])
+                                    .push(k.clone());
                             }
-
-                            let entry = self
-                                .added_env_vars
-                                .entry(wdir.to_path_buf())
-                                .or_insert(vec![]);
-                            entry.push(k.clone());
                         }
                     });
             }
-            working_dir =
-                    working_dir //Keep going up in the directory structure with .parent()
-                        .ok_or_else(|| {
-                            Error::new(ErrorKind::NotFound, "Root directory has no parent")
-                        })?
-                        .parent();
+            working_dir = working_dir //Keep going up in the directory structure with .parent()
+                .expect("This directory has no parent")
+                .parent();
         }
 
         Ok(vars_to_add)
