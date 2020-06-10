@@ -44,7 +44,7 @@ pub use crate::data::primitive;
 pub use crate::data::value;
 pub use crate::env::environment_syncer::EnvironmentSyncer;
 pub use crate::env::host::BasicHost;
-pub use crate::stream::OutputStream;
+pub use crate::stream::{InputStream, InterruptibleStream, OutputStream};
 pub use nu_value_ext::ValueExt;
 pub use num_traits::cast::ToPrimitive;
 

@@ -42,7 +42,7 @@ impl WholeStreamCommand for Open {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        open(args, registry)
+        open(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -54,39 +54,33 @@ impl WholeStreamCommand for Open {
     }
 }
 
-fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let cwd = PathBuf::from(args.shell_manager.path());
     let full_path = cwd;
     let registry = registry.clone();
 
-    let stream = async_stream! {
-        let (OpenArgs { path, raw }, _) = args.process(&registry).await?;
-        let result = fetch(&full_path, &path.item, path.tag.span).await;
+    let (OpenArgs { path, raw }, _) = args.process(&registry).await?;
+    let result = fetch(&full_path, &path.item, path.tag.span).await;
 
-        if let Err(e) = result {
-            yield Err(e);
-            return;
-        }
-        let (file_extension, contents, contents_tag) = result?;
+    let (file_extension, contents, contents_tag) = result?;
 
-        let file_extension = if raw.item {
-            None
-        } else {
-            // If the extension could not be determined via mimetype, try to use the path
-            // extension. Some file types do not declare their mimetypes (such as bson files).
-            file_extension.or(path.extension().map(|x| x.to_string_lossy().to_string()))
-        };
-
-        let tagged_contents = contents.into_value(&contents_tag);
-
-        if let Some(extension) = file_extension {
-            yield Ok(ReturnSuccess::Action(CommandAction::AutoConvert(tagged_contents, extension)))
-        } else {
-            yield ReturnSuccess::value(tagged_contents);
-        }
+    let file_extension = if raw.item {
+        None
+    } else {
+        // If the extension could not be determined via mimetype, try to use the path
+        // extension. Some file types do not declare their mimetypes (such as bson files).
+        file_extension.or_else(|| path.extension().map(|x| x.to_string_lossy().to_string()))
     };
 
-    Ok(stream.to_output_stream())
+    let tagged_contents = contents.into_value(&contents_tag);
+
+    if let Some(extension) = file_extension {
+        Ok(OutputStream::one(ReturnSuccess::action(
+            CommandAction::AutoConvert(tagged_contents, extension),
+        )))
+    } else {
+        Ok(OutputStream::one(ReturnSuccess::value(tagged_contents)))
+    }
 }
 
 pub async fn fetch(

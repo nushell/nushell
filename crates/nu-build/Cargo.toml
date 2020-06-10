@@ -1,6 +1,6 @@
 [package]
 name = "nu-build"
-version = "0.14.1"
+version = "0.15.0"
 authors = ["The Nu Project Contributors"]
 edition = "2018"
 description = "Core build system for nushell"

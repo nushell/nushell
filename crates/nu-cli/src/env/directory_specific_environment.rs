@@ -51,10 +51,10 @@ impl DirectorySpecificEnvironment {
         let current_dir = std::env::current_dir()?;
         let working_dir = Some(current_dir.as_path());
 
-        let keyvals_to_restore = self
+        self
             .overwritten_env_values
             .iter()
-            .filter_map(|(directory, keyvals)| {
+            .filter(|(directory, keyvals)| {
                 while let Some(wdir) = working_dir {
                     if &wdir == directory {
                         return false;
@@ -66,6 +66,8 @@ impl DirectorySpecificEnvironment {
             })
             .collect();
 
+
+        let mut keyvals_to_restore = IndexMap::new();
         Ok(keyvals_to_restore)
     }
 
