@@ -438,7 +438,7 @@ fn convert_via_utf8(
     // Is there a safe way to create a stack-allocated &mut str?
     let mut intermediate_buffer: &mut str =
         //unsafe { std::mem::transmute(&mut intermediate_buffer_bytes[..]) };
-        std::str::from_utf8_mut(&mut intermediate_buffer_bytes[..]).unwrap();
+        std::str::from_utf8_mut(&mut intermediate_buffer_bytes[..]).expect("error with from_utf8_mut");
     let mut output_buffer = [0u8; 4096];
     let mut current_input_ended = false;
     while !current_input_ended {
