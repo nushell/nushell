@@ -92,7 +92,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
     {
         unimplemented!("deserialize_any")
     }
-    fn deserialize_bool<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
@@ -103,11 +103,11 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
             Value {
                 value: UntaggedValue::Primitive(Primitive::Boolean(b)),
                 ..
-            } => _visitor.visit_bool(*b),
+            } => visitor.visit_bool(*b),
             Value {
                 value: UntaggedValue::Primitive(Primitive::Nothing),
                 ..
-            } => _visitor.visit_bool(false),
+            } => visitor.visit_bool(false),
             other => Err(ShellError::type_error(
                 "Boolean",
                 other.type_name().spanned(other.span()),
@@ -205,7 +205,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         unimplemented!("deserialize_byte_buf")
     }
 
-    fn deserialize_option<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
@@ -213,8 +213,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         let name = std::any::type_name::<V::Value>();
         trace!("<Option> Extracting {:?} for Option<{}>", value, name);
         match &value.val.value {
-            UntaggedValue::Primitive(Primitive::Nothing) => _visitor.visit_none(),
-            _ => _visitor.visit_some(self),
+            UntaggedValue::Primitive(Primitive::Nothing) => visitor.visit_none(),
+            _ => visitor.visit_some(self),
         }
     }
 
@@ -244,7 +244,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
     {
         unimplemented!("deserialize_newtype_struct")
     }
-    fn deserialize_seq<V>(mut self, _visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_seq<V>(mut self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
@@ -254,7 +254,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         match value.val.into_parts() {
             (UntaggedValue::Table(items), _) => {
                 let de = SeqDeserializer::new(&mut self, items.into_iter());
-                _visitor.visit_seq(de)
+                visitor.visit_seq(de)
             }
             (other, tag) => Err(ShellError::type_error(
                 "Vec",
@@ -262,7 +262,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
             )),
         }
     }
-    fn deserialize_tuple<V>(mut self, len: usize, _visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_tuple<V>(mut self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
@@ -276,7 +276,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         match value.val.into_parts() {
             (UntaggedValue::Table(items), _) => {
                 let de = SeqDeserializer::new(&mut self, items.into_iter());
-                _visitor.visit_seq(de)
+                visitor.visit_seq(de)
             }
             (other, tag) => Err(ShellError::type_error(
                 "Tuple",
@@ -305,7 +305,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         mut self,
         name: &'static str,
         fields: &'static [&'static str],
-        _visitor: V,
+        visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
@@ -314,7 +314,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
             val: T,
             name: &'static str,
             fields: &'static [&'static str],
-            _visitor: V,
+            visitor: V,
         ) -> Result<V::Value, ShellError>
         where
             T: serde::Serialize,
@@ -323,7 +323,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
             let json = serde_json::to_string(&val)?;
             let json_cursor = std::io::Cursor::new(json.into_bytes());
             let mut json_de = serde_json::Deserializer::from_reader(json_cursor);
-            let r = json_de.deserialize_struct(name, fields, _visitor)?;
+            let r = json_de.deserialize_struct(name, fields, visitor)?;
             Ok(r)
         }
 
@@ -337,7 +337,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
 
         if !self.saw_root {
             self.saw_root = true;
-            return _visitor.visit_seq(StructDeserializer::new(&mut self, fields));
+            return visitor.visit_seq(StructDeserializer::new(&mut self, fields));
         }
 
         let value = self.pop();
@@ -353,7 +353,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         );
 
         if type_name == tagged_val_name {
-            return visit::<Value, _>(value.val, name, fields, _visitor);
+            return visit::<Value, _>(value.val, name, fields, visitor);
         }
 
         if name == "Block" {
@@ -369,7 +369,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
                     ))
                 }
             };
-            return visit::<Block, _>(block, name, fields, _visitor);
+            return visit::<Block, _>(block, name, fields, visitor);
         }
 
         if name == "ColumnPath" {
@@ -386,7 +386,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
                 }
             };
 
-            return visit::<ColumnPath, _>(path, name, fields, _visitor);
+            return visit::<ColumnPath, _>(path, name, fields, visitor);
         }
 
         trace!("Extracting {:?} for {:?}", value.val, type_name);
@@ -396,26 +396,26 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
             Value {
                 value: UntaggedValue::Primitive(Primitive::Boolean(b)),
                 ..
-            } => visit::<Tagged<bool>, _>(b.tagged(tag), name, fields, _visitor),
+            } => visit::<Tagged<bool>, _>(b.tagged(tag), name, fields, visitor),
             Value {
                 value: UntaggedValue::Primitive(Primitive::Nothing),
                 ..
-            } => visit::<Tagged<bool>, _>(false.tagged(tag), name, fields, _visitor),
+            } => visit::<Tagged<bool>, _>(false.tagged(tag), name, fields, visitor),
             Value {
                 value: UntaggedValue::Primitive(Primitive::Path(p)),
                 ..
-            } => visit::<Tagged<PathBuf>, _>(p.tagged(tag), name, fields, _visitor),
+            } => visit::<Tagged<PathBuf>, _>(p.tagged(tag), name, fields, visitor),
             Value {
                 value: UntaggedValue::Primitive(Primitive::Int(int)),
                 ..
             } => {
                 let i: i64 = int.tagged(value.val.tag).coerce_into("converting to i64")?;
-                visit::<Tagged<i64>, _>(i.tagged(tag), name, fields, _visitor)
+                visit::<Tagged<i64>, _>(i.tagged(tag), name, fields, visitor)
             }
             Value {
                 value: UntaggedValue::Primitive(Primitive::String(string)),
                 ..
-            } => visit::<Tagged<String>, _>(string.tagged(tag), name, fields, _visitor),
+            } => visit::<Tagged<String>, _>(string.tagged(tag), name, fields, visitor),
             Value {
                 value: UntaggedValue::Primitive(Primitive::Range(range)),
                 ..
@@ -433,7 +433,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
                     to: (right.spanned(right_span), right_inclusion),
                 };
 
-                visit::<Tagged<NumericRange>, _>(numeric_range.tagged(tag), name, fields, _visitor)
+                visit::<Tagged<NumericRange>, _>(numeric_range.tagged(tag), name, fields, visitor)
             }
 
             other => Err(ShellError::type_error(
