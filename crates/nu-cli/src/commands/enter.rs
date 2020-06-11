@@ -39,7 +39,14 @@ impl WholeStreamCommand for Enter {
     }
 
     fn usage(&self) -> &str {
-        "Create a new shell and begin at this path."
+        r#"Create a new shell and begin at this path.
+        
+Multiple encodings are supported for reading text files by using
+the '--encoding <encoding>' parameter. Here is an example of a few:
+big5, euc-jp, euc-kr, gbk, iso-8859-1, utf-16, cp1252, latin5
+
+For a more complete list of encodings please refer to the encoding_rs
+documentation link at https://docs.rs/encoding_rs/0.8.23/encoding_rs/#statics"#
     }
 
     async fn run(
