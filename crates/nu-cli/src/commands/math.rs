@@ -102,6 +102,11 @@ fn average(
     Ok(stream.to_output_stream())
 }
 
+fn maximum(values: &[Value], name: impl Into<Tag>) -> Result<Value, ShellError> {
+    let max_func = reducer_for(Reduce::Maximum);
+    max_func(Value::nothing(), values.to_vec())
+}
+
 fn avg(values: &[Value], name: impl Into<Tag>) -> Result<Value, ShellError> {
     let name = name.into();
 

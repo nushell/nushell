@@ -214,6 +214,39 @@ pub fn sum(data: Vec<Value>) -> Result<Value, ShellError> {
     Ok(acc)
 }
 
+pub fn max(data: Vec<Value>) -> Result<Value, ShellError> {
+    if data.is_empty() {
+        return Err(ShellError::unexpected(
+            "Attempted to find maximum in empty data",
+        ));
+    }
+
+    let mut biggest = if let UntaggedValue::Primitive(p) = &data.first().unwrap().value {
+        p.clone()
+    } else {
+        Value::zero().as_primitive().unwrap()
+    };
+
+    for value in data.into_iter() {
+        match value.value {
+            UntaggedValue::Primitive(p) => {
+                biggest = p.max(biggest);
+            }
+            _ => {
+                return Err(ShellError::labeled_error(
+                    "Attempted to compute the max with value that cannot be maximized.",
+                    "value appears here",
+                    value.tag.span,
+                ))
+            }
+        }
+    }
+    Ok(Value {
+        value: UntaggedValue::Primitive(biggest),
+        tag: Tag::unknown(),
+    })
+}
+
 fn formula(
     acc_begin: Value,
     calculator: Box<dyn Fn(Vec<Value>) -> Result<Value, ShellError> + Send + Sync + 'static>,
@@ -233,11 +266,16 @@ pub fn reducer_for(
 ) -> Box<dyn Fn(Value, Vec<Value>) -> Result<Value, ShellError> + Send + Sync + 'static> {
     match command {
         Reduce::Sum | Reduce::Default => Box::new(formula(Value::zero(), Box::new(sum))),
+        Reduce::Maximum => Box::new(|_, values| max(values)),
+        // Reduce::Minimum => Box::new(formula(Value::nothing(), Box::new(minimum))),
+        _ => Box::new(formula(Value::zero(), Box::new(sum))),
     }
 }
 
 pub enum Reduce {
     Sum,
+    Minimum,
+    Maximum,
     Default,
 }
 
@@ -250,6 +288,8 @@ pub fn reduce(
 
     let reduce_with = match reducer {
         Some(cmd) if cmd == "sum" => reducer_for(Reduce::Sum),
+        Some(cmd) if cmd == "min" => reducer_for(Reduce::Minimum),
+        Some(cmd) if cmd == "max" => reducer_for(Reduce::Maximum),
         Some(_) | None => reducer_for(Reduce::Default),
     };
 
