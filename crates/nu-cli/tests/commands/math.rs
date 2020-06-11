@@ -85,6 +85,18 @@ fn division_of_ints2() {
 }
 
 #[test]
+fn proper_precedence_history() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            = 2 / 2 / 2 + 1
+        "#
+    ));
+
+    assert_eq!(actual.out, "1.5");
+}
+
+#[test]
 fn parens_precedence() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
