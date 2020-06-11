@@ -861,10 +861,8 @@ fn parse_math_expression(
     shorthand_mode: bool,
 ) -> (usize, SpannedExpression, Option<ParseError>) {
     // Precedence parsing is included
-    // Some notes:
-    //   * short_hand mode means that the left-hand side of an expression can point to a column-path. To make this possible,
-    //     we parse as normal, but then go back and when we detect a left-hand side, reparse that value if it's a string
-    //   * parens are handled earlier, so they're not handled explicitly here
+    // Short_hand mode means that the left-hand side of an expression can point to a column-path. To make this possible,
+    //   we parse as normal, but then go back and when we detect a left-hand side, reparse that value if it's a string
 
     let mut idx = 0;
     let mut error = None;
@@ -948,6 +946,7 @@ fn parse_math_expression(
                 }
                 working_exprs.push((None, op));
                 working_exprs.push(rhs_working_expr);
+                prec.push(next_prec);
             }
 
             idx += 1;
