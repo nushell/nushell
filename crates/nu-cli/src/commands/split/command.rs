@@ -26,14 +26,10 @@ impl WholeStreamCommand for Command {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         let registry = registry.clone();
-        let stream = async_stream! {
-            yield Ok(ReturnSuccess::Value(
-                UntaggedValue::string(crate::commands::help::get_help(&Command, &registry))
-                    .into_value(Tag::unknown()),
-            ));
-        };
-
-        Ok(stream.to_output_stream())
+        Ok(OutputStream::one(Ok(ReturnSuccess::Value(
+            UntaggedValue::string(crate::commands::help::get_help(&Command, &registry))
+                .into_value(Tag::unknown()),
+        ))))
     }
 }
 

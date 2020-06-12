@@ -38,8 +38,7 @@ impl WholeStreamCommand for Wrap {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        // args.process(registry, wrap)?.run()
-        wrap(args, registry)
+        wrap(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -84,64 +83,57 @@ impl WholeStreamCommand for Wrap {
     }
 }
 
-fn wrap(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn wrap(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
 
-    let stream = async_stream! {
-        let (WrapArgs { column }, mut input) = args.process(&registry).await?;
-        let mut result_table = vec![];
-        let mut are_all_rows = true;
+    let (WrapArgs { column }, mut input) = args.process(&registry).await?;
+    let mut result_table = vec![];
+    let mut are_all_rows = true;
 
-        while let Some(value) = input.next().await {
-            match value {
-                Value {
-                    value: UntaggedValue::Row(_),
-                    ..
-                } => {
-                    result_table.push(value);
-                }
-                _ => {
-                    are_all_rows = false;
+    while let Some(value) = input.next().await {
+        match value {
+            Value {
+                value: UntaggedValue::Row(_),
+                ..
+            } => {
+                result_table.push(value);
+            }
+            _ => {
+                are_all_rows = false;
 
-                    let mut index_map = IndexMap::new();
-                    index_map.insert(
-                        match &column {
-                            Some(key) => key.item.clone(),
-                            None => DEFAULT_COLUMN_NAME.to_string(),
-                        },
-                        value,
-                    );
+                let mut index_map = IndexMap::new();
+                index_map.insert(
+                    match &column {
+                        Some(key) => key.item.clone(),
+                        None => DEFAULT_COLUMN_NAME.to_string(),
+                    },
+                    value,
+                );
 
-                    result_table.push(UntaggedValue::row(index_map).into_value(Tag::unknown()));
-                }
-
+                result_table.push(UntaggedValue::row(index_map).into_value(Tag::unknown()));
             }
         }
+    }
 
-        if are_all_rows {
-            let mut index_map = IndexMap::new();
-            index_map.insert(
-                match &column {
-                    Some(key) => key.item.clone(),
-                    None => DEFAULT_COLUMN_NAME.to_string(),
-                },
-                UntaggedValue::table(&result_table).into_value(Tag::unknown()),
-            );
+    if are_all_rows {
+        let mut index_map = IndexMap::new();
+        index_map.insert(
+            match &column {
+                Some(key) => key.item.clone(),
+                None => DEFAULT_COLUMN_NAME.to_string(),
+            },
+            UntaggedValue::table(&result_table).into_value(Tag::unknown()),
+        );
 
-            let row = UntaggedValue::row(index_map).into_untagged_value();
+        let row = UntaggedValue::row(index_map).into_untagged_value();
 
-            yield ReturnSuccess::value(row);
-        } else {
-            for item in result_table
-                .iter()
-                .map(|row| ReturnSuccess::value(row.clone())) {
-
-                yield item;
-            }
-        }
-    };
-
-    Ok(stream.to_output_stream())
+        Ok(OutputStream::one(ReturnSuccess::value(row)))
+    } else {
+        Ok(
+            futures::stream::iter(result_table.into_iter().map(ReturnSuccess::value))
+                .to_output_stream(),
+        )
+    }
 }
 
 #[cfg(test)]
