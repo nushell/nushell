@@ -103,7 +103,7 @@ fn calculate(
     let stream = async_stream! {
         let mut values: Vec<Value> = input.drain_vec().await;
 
-        // Validate the values vector and decide the approprioate aggretion strategy
+        // Validate the values vector and decide the appropriate aggregation strategy
         if values.iter().all(|v| if let UntaggedValue::Primitive(_) = v.value {true} else {false}) {
             match mf(&values, &name) {
                 Ok(result) => yield ReturnSuccess::value(result),
