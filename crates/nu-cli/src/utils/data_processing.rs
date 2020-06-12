@@ -247,6 +247,39 @@ pub fn max(data: Vec<Value>) -> Result<Value, ShellError> {
     })
 }
 
+pub fn min(data: Vec<Value>) -> Result<Value, ShellError> {
+    if data.is_empty() {
+        return Err(ShellError::unexpected(
+            "Attempted to find minimum in empty data",
+        ));
+    }
+
+    let mut smallest = if let UntaggedValue::Primitive(p) = &data.first().unwrap().value {
+        p.clone()
+    } else {
+        Value::zero().as_primitive().unwrap()
+    };
+
+    for value in data.into_iter() {
+        match value.value {
+            UntaggedValue::Primitive(p) => {
+                smallest = p.min(smallest);
+            }
+            _ => {
+                return Err(ShellError::labeled_error(
+                    "Attempted to compute the min with value that cannot be minimized.",
+                    "value appears here",
+                    value.tag.span,
+                ))
+            }
+        }
+    }
+    Ok(Value {
+        value: UntaggedValue::Primitive(smallest),
+        tag: Tag::unknown(),
+    })
+}
+
 fn formula(
     acc_begin: Value,
     calculator: Box<dyn Fn(Vec<Value>) -> Result<Value, ShellError> + Send + Sync + 'static>,
@@ -266,9 +299,8 @@ pub fn reducer_for(
 ) -> Box<dyn Fn(Value, Vec<Value>) -> Result<Value, ShellError> + Send + Sync + 'static> {
     match command {
         Reduce::Sum | Reduce::Default => Box::new(formula(Value::zero(), Box::new(sum))),
+        Reduce::Minimum => Box::new(|_, values| min(values)),
         Reduce::Maximum => Box::new(|_, values| max(values)),
-        // Reduce::Minimum => Box::new(formula(Value::nothing(), Box::new(minimum))),
-        _ => Box::new(formula(Value::zero(), Box::new(sum))),
     }
 }
 

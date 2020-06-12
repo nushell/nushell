@@ -25,15 +25,15 @@ impl WholeStreamCommand for Math {
         Signature::build("math").required(
             "operation",
             SyntaxShape::String,
-            "The mathematical function that aggregates the vector the numbers (average, max, min)",
+            "The mathematical function that aggregates the vector the numbers (average, min, max)",
         )
     }
 
     fn usage(&self) -> &str {
         "Use mathematical functions to aggregate vectors of numbers
         math average
-        math max
         math min
+        math max
         "
     }
 
@@ -47,9 +47,10 @@ impl WholeStreamCommand for Math {
         let math_func: MathFunction;
         match sub_args.last() {
             Some(&"average") => math_func = avg,
+            Some(&"min") => math_func = minimum,
             Some(&"max") => math_func = maximum,
-            Some(&"minimum") => unimplemented!(),
             Some(s) => {
+                // TODO: Figure out how to do spans for error reporting
                 return Err(ShellError::unexpected(format!(
                     "Unexpected math function: {}",
                     s
@@ -140,6 +141,11 @@ async fn calculate(
     }
 }
 
+fn minimum(values: &[Value], _name: &Tag) -> Result<Value, ShellError> {
+    let min_func = reducer_for(Reduce::Minimum);
+    min_func(Value::nothing(), values.to_vec())
+}
+
 fn maximum(values: &[Value], _name: &Tag) -> Result<Value, ShellError> {
     let max_func = reducer_for(Reduce::Maximum);
     max_func(Value::nothing(), values.to_vec())
@@ -214,30 +220,78 @@ mod tests {
     }
 
     #[test]
-    fn test_max() {
-        maximum(&Vec::new(), &Tag::unknown()).expect_err("Empty data should produce an error");
-
+    fn test_math_functions() {
+        struct TestCase {
+            description: &'static str,
+            values: Vec<Value>,
+            expected_err: Option<ShellError>,
+            // Order is: avg, min, max
+            expected_res: Vec<Result<Value, ShellError>>,
+        }
+        let tt: Vec<TestCase> = vec![
+            TestCase {
+                description: "Single value",
+                values: vec![int(10)],
+                expected_err: None,
+                expected_res: vec![Ok(decimal(10)), Ok(int(10)), Ok(int(10))],
+            },
+            TestCase {
+                description: "Multiple Values",
+                values: vec![int(10), int(30), int(20)],
+                expected_err: None,
+                expected_res: vec![Ok(decimal(20)), Ok(int(10)), Ok(int(30))],
+            },
+            TestCase {
+                description: "Mixed Values",
+                values: vec![int(10), decimal(26.5), decimal(26.5)],
+                expected_err: None,
+                expected_res: vec![Ok(decimal(21)), Ok(int(10)), Ok(decimal(26.5))],
+            },
+            TestCase {
+                description: "Negative Values",
+                values: vec![int(10), int(-11), int(-14)],
+                expected_err: None,
+                expected_res: vec![Ok(decimal(-5)), Ok(int(-14)), Ok(int(10))],
+            },
+            TestCase {
+                description: "Mixed Negative Values",
+                values: vec![int(10), decimal(-11.5), decimal(-13.5)],
+                expected_err: None,
+                expected_res: vec![Ok(decimal(-5)), Ok(decimal(-13.5)), Ok(int(10))],
+            },
+            // TODO-Uncomment once Issue: https://github.com/nushell/nushell/issues/1883 is resolved
+            // TestCase {
+            //     description: "Invalid Mixed Values",
+            //     values: vec![int(10), decimal(26.5), decimal(26.5), string("math")],
+            //     expected_err: Some(ShellError::unimplemented("something")),
+            //     expected_res: vec![],
+            // },
+        ];
         let test_tag = Tag::unknown();
-        assert_eq!(maximum(&vec![int(10)], &test_tag), Ok(int(10)),);
-        assert_eq!(
-            maximum(&vec![int(10), int(30), int(20)], &test_tag),
-            Ok(int(30),),
-        );
-        assert_eq!(
-            maximum(&vec![int(10), decimal(30), int(20)], &test_tag),
-            Ok(decimal(30),),
-        );
 
-        // TODO: Get tables to work?
-        // assert_eq!(
-        //     maximum(
-        //         &vec![table(&vec![int(30)]), table(&vec![int(50)]),],
-        //         &test_tag
-        //     ),
-        //     Ok(int(50),),
-        // );
+        for tc in tt.iter() {
+            let tc: &TestCase = tc; // Just for type annotations
+            let math_functions: Vec<MathFunction> = vec![avg, minimum, maximum];
+            let results = math_functions
+                .iter()
+                .map(|mf| mf(&tc.values, &test_tag))
+                .collect_vec();
 
-        maximum(&vec![string("math")], &test_tag)
-            .expect_err("String vector should return an error");
+            if tc.expected_err.is_some() {
+                assert!(
+                    results.iter().all(|r| r.is_err()),
+                    "Expected all functions to error for test-case: {}",
+                    tc.description,
+                );
+            } else {
+                for (i, res) in results.into_iter().enumerate() {
+                    assert_eq!(
+                        res, tc.expected_res[i],
+                        "math function {} failed on test-case {}",
+                        i, tc.description
+                    );
+                }
+            }
+        }
     }
 }
