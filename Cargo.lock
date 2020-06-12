@@ -2247,6 +2247,7 @@ dependencies = [
  "dirs 2.0.2",
  "dunce",
  "eml-parser",
+ "encoding_rs",
  "filesize",
  "futures 0.3.5",
  "futures-util",
