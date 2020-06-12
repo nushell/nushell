@@ -37,7 +37,7 @@ impl WholeStreamCommand for SubCommand {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        operate(args, registry)
+        operate(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -59,50 +59,49 @@ impl WholeStreamCommand for SubCommand {
 #[derive(Clone)]
 struct Replace(String);
 
-fn operate(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn operate(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
 
-    let stream = async_stream! {
-        let (Arguments { replace, rest }, mut input) = args.process(&registry).await?;
-        let options = Replace(replace.item);
+    let (Arguments { replace, rest }, input) = args.process(&registry).await?;
+    let options = Replace(replace.item);
 
-        let column_paths: Vec<_> = rest.iter().map(|x| x.clone()).collect();
+    let column_paths: Vec<_> = rest;
 
-        while let Some(v) = input.next().await {
+    Ok(input
+        .map(move |v| {
             if column_paths.is_empty() {
                 match action(&v, &options, v.tag()) {
-                    Ok(out) => yield ReturnSuccess::value(out),
-                    Err(err) => {
-                        yield Err(err);
-                        return;
-                    }
+                    Ok(out) => ReturnSuccess::value(out),
+                    Err(err) => Err(err),
                 }
             } else {
-
-                let mut ret = v.clone();
+                let mut ret = v;
 
                 for path in &column_paths {
                     let options = options.clone();
 
-                    let swapping = ret.swap_data_by_column_path(path, Box::new(move |old| action(old, &options, old.tag())));
+                    let swapping = ret.swap_data_by_column_path(
+                        path,
+                        Box::new(move |old| action(old, &options, old.tag())),
+                    );
 
                     match swapping {
                         Ok(new_value) => {
                             ret = new_value;
                         }
                         Err(err) => {
-                            yield Err(err);
-                            return;
+                            return Err(err);
                         }
                     }
                 }
 
-                yield ReturnSuccess::value(ret);
+                ReturnSuccess::value(ret)
             }
-        }
-    };
-
-    Ok(stream.to_output_stream())
+        })
+        .to_output_stream())
 }
 
 fn action(_input: &Value, options: &Replace, tag: impl Into<Tag>) -> Result<Value, ShellError> {
