@@ -339,6 +339,14 @@ impl Value {
         }
     }
 
+    /// View the Value as a Primitive value, if possible
+    pub fn is_primitive(&self) -> bool {
+        match &self.value {
+            UntaggedValue::Primitive(_) => true,
+            _ => false,
+        }
+    }
+
     /// View the Value as unsigned 64-bit, if possible
     pub fn as_u64(&self) -> Result<u64, ShellError> {
         match &self.value {
