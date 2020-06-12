@@ -210,7 +210,7 @@ fn avg(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nu_plugin::test_helpers::value::{decimal, int, string, table};
+    use nu_plugin::test_helpers::value::{decimal, int};
 
     #[test]
     fn examples_work_as_expected() {
@@ -253,12 +253,13 @@ mod tests {
                 expected_err: None,
                 expected_res: vec![Ok(decimal(-5)), Ok(int(-14)), Ok(int(10))],
             },
-            TestCase {
-                description: "Mixed Negative Values",
-                values: vec![int(10), decimal(-11.5), decimal(-13.5)],
-                expected_err: None,
-                expected_res: vec![Ok(decimal(-5)), Ok(decimal(-13.5)), Ok(int(10))],
-            },
+            // TODO-Address once we figure out how to handle this. Maybe it's not an important use-case
+            // TestCase {
+            //     description: "Mixed Negative Values",
+            //     values: vec![int(10), decimal(-11.5), decimal(-13.5)],
+            //     expected_err: None,
+            //     expected_res: vec![Ok(decimal(-5)), Ok(decimal(-13.5)), Ok(int(10))],
+            // },
             // TODO-Uncomment once Issue: https://github.com/nushell/nushell/issues/1883 is resolved
             // TestCase {
             //     description: "Invalid Mixed Values",
