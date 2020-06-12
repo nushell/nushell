@@ -150,7 +150,7 @@ pub(crate) use du::Du;
 pub(crate) use each::Each;
 pub(crate) use echo::Echo;
 pub(crate) use is_empty::IsEmpty;
-pub(crate) use math::Average;
+pub(crate) use math::Math;
 pub(crate) use update::Update;
 pub(crate) mod kill;
 pub(crate) use kill::Kill;

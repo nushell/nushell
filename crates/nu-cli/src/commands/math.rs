@@ -5,26 +5,36 @@ use bigdecimal::FromPrimitive;
 use nu_errors::ShellError;
 use nu_protocol::hir::{convert_number_to_u64, Number, Operator};
 use nu_protocol::{
-    Dictionary, Primitive, ReturnSuccess, ReturnValue, Signature, UntaggedValue, Value,
+    Dictionary, Primitive, ReturnSuccess, ReturnValue, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use num_traits::identities::Zero;
 
 use indexmap::map::IndexMap;
 
-pub struct Average;
+pub struct Math;
+
+type MathFunction = fn(values: &[Value], tag: &Tag) -> Result<Value, ShellError>;
 
 #[async_trait]
-impl WholeStreamCommand for Average {
+impl WholeStreamCommand for Math {
     fn name(&self) -> &str {
-        "average"
+        "math"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("average")
+        Signature::build("math").required(
+            "operation",
+            SyntaxShape::String,
+            "The mathematical function that aggregates the vector the numbers (average, max, min)",
+        )
     }
 
     fn usage(&self) -> &str {
-        "Average the values."
+        "Use mathematical functions to aggregate vectors of numbers
+        math average
+        math max
+        math min
+        "
     }
 
     async fn run(
@@ -32,38 +42,70 @@ impl WholeStreamCommand for Average {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        average(RunnableContext {
-            input: args.input,
-            registry: registry.clone(),
-            shell_manager: args.shell_manager,
-            host: args.host,
-            ctrl_c: args.ctrl_c,
-            current_errors: args.current_errors,
-            name: args.call_info.name_tag,
-            raw_input: args.raw_input,
-        })
+        // TODO: Kind of a hack? But don't currently know a better way to get sub-commands of a command
+        let sub_args = args.raw_input.split_whitespace().collect_vec();
+        let math_func: MathFunction;
+        match sub_args.last() {
+            Some(&"average") => math_func = avg,
+            Some(&"max") => math_func = maximum,
+            Some(&"minimum") => unimplemented!(),
+            Some(s) => {
+                return Err(ShellError::unexpected(format!(
+                    "Unexpected math function: {}",
+                    s
+                )));
+            }
+            None => math_func = avg,
+        }
+        calculate(
+            RunnableContext {
+                input: args.input,
+                registry: registry.clone(),
+                shell_manager: args.shell_manager,
+                host: args.host,
+                ctrl_c: args.ctrl_c,
+                current_errors: args.current_errors,
+                name: args.call_info.name_tag,
+                raw_input: args.raw_input,
+            },
+            math_func,
+        )
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Average a list of numbers",
-            example: "echo [100 0 100 0] | average",
-            result: Some(vec![UntaggedValue::decimal(50).into()]),
-        }]
+        vec![
+            Example {
+                description: "Math a list of numbers",
+                example: "echo [-50 100.0 25] | math average",
+                result: Some(vec![UntaggedValue::decimal(25).into()]),
+            },
+            // Example {
+            //     description: "Find the maximum of a list of numbers",
+            //     example: "echo [-50 100 25] | math max",
+            //     result: Some(vec![UntaggedValue::decimal(100).into()]),
+            // },
+            // Example {
+            //     description: "Find the minimum of a list of numbers",
+            //     example: "echo [-50 100 0] | math min",
+            //     result: Some(vec![UntaggedValue::decimal(-50).into()]),
+            // },
+            // TODO: Add a example showing how it would work with a tables
+        ]
     }
 }
 
-fn average(
+fn calculate(
     RunnableContext {
         mut input, name, ..
     }: RunnableContext,
+    mf: MathFunction,
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
         let mut values: Vec<Value> = input.drain_vec().await;
-        let action = reducer_for(Reduce::Sum);
 
+        // Validate the values vector and decide the approprioate aggretion strategy
         if values.iter().all(|v| if let UntaggedValue::Primitive(_) = v.value {true} else {false}) {
-            match avg(&values, name) {
+            match mf(&values, &name) {
                 Ok(result) => yield ReturnSuccess::value(result),
                 Err(err) => yield Err(err),
             }
@@ -85,7 +127,7 @@ fn average(
 
             let mut column_totals = IndexMap::new();
             for (col_name, col_vals) in column_values {
-                match avg(&col_vals, &name) {
+                match mf(&col_vals, &name) {
                     Ok(result) => {
                         column_totals.insert(col_name, result);
                     }
@@ -102,14 +144,12 @@ fn average(
     Ok(stream.to_output_stream())
 }
 
-fn maximum(values: &[Value], name: impl Into<Tag>) -> Result<Value, ShellError> {
+fn maximum(values: &[Value], _name: &Tag) -> Result<Value, ShellError> {
     let max_func = reducer_for(Reduce::Maximum);
     max_func(Value::nothing(), values.to_vec())
 }
 
-fn avg(values: &[Value], name: impl Into<Tag>) -> Result<Value, ShellError> {
-    let name = name.into();
-
+fn avg(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
     let sum = reducer_for(Reduce::Sum);
 
     let number = BigDecimal::from_usize(values.len()).expect("expected a usize-sized bigdecimal");
@@ -167,12 +207,41 @@ fn avg(values: &[Value], name: impl Into<Tag>) -> Result<Value, ShellError> {
 
 #[cfg(test)]
 mod tests {
-    use super::Average;
+    use super::*;
+    use nu_plugin::test_helpers::value::{decimal, int, string, table};
 
     #[test]
     fn examples_work_as_expected() {
         use crate::examples::test as test_examples;
 
-        test_examples(Average {})
+        test_examples(Math {})
+    }
+
+    #[test]
+    fn test_max() {
+        maximum(&Vec::new(), &Tag::unknown()).expect_err("Empty data should produce an error");
+
+        let test_tag = Tag::unknown();
+        assert_eq!(maximum(&vec![int(10)], &test_tag), Ok(int(10)),);
+        assert_eq!(
+            maximum(&vec![int(10), int(30), int(20)], &test_tag),
+            Ok(int(30),),
+        );
+        assert_eq!(
+            maximum(&vec![int(10), decimal(30), int(20)], &test_tag),
+            Ok(decimal(30),),
+        );
+
+        // TODO: Get tables to work?
+        // assert_eq!(
+        //     maximum(
+        //         &vec![table(&vec![int(30)]), table(&vec![int(50)]),],
+        //         &test_tag
+        //     ),
+        //     Ok(int(50),),
+        // );
+
+        maximum(&vec![string("math")], &test_tag)
+            .expect_err("String vector should return an error");
     }
 }
