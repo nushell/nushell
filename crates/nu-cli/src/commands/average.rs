@@ -4,9 +4,7 @@ use crate::utils::data_processing::{reducer_for, Reduce};
 use bigdecimal::FromPrimitive;
 use nu_errors::ShellError;
 use nu_protocol::hir::{convert_number_to_u64, Number, Operator};
-use nu_protocol::{
-    Dictionary, Primitive, ReturnSuccess, ReturnValue, Signature, UntaggedValue, Value,
-};
+use nu_protocol::{Dictionary, Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 use num_traits::identities::Zero;
 
 use indexmap::map::IndexMap;
@@ -42,6 +40,7 @@ impl WholeStreamCommand for Average {
             name: args.call_info.name_tag,
             raw_input: args.raw_input,
         })
+        .await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -53,53 +52,48 @@ impl WholeStreamCommand for Average {
     }
 }
 
-fn average(
+async fn average(
     RunnableContext {
         mut input, name, ..
     }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    let stream = async_stream! {
-        let mut values: Vec<Value> = input.drain_vec().await;
-        let action = reducer_for(Reduce::Sum);
+    let values: Vec<Value> = input.drain_vec().await;
 
-        if values.iter().all(|v| if let UntaggedValue::Primitive(_) = v.value {true} else {false}) {
-            match avg(&values, name) {
-                Ok(result) => yield ReturnSuccess::value(result),
-                Err(err) => yield Err(err),
-            }
-        } else {
-            let mut column_values = IndexMap::new();
-            for value in values {
-                match value.value {
-                    UntaggedValue::Row(row_dict) => {
-                        for (key, value) in row_dict.entries.iter() {
-                            column_values
-                                .entry(key.clone())
-                                .and_modify(|v: &mut Vec<Value>| v.push(value.clone()))
-                                .or_insert(vec![value.clone()]);
-                        }
-                    },
-                    table => {},
-                };
-            }
-
-            let mut column_totals = IndexMap::new();
-            for (col_name, col_vals) in column_values {
-                match avg(&col_vals, &name) {
-                    Ok(result) => {
-                        column_totals.insert(col_name, result);
-                    }
-                    Err(err) => yield Err(err),
+    if values.iter().all(|v| v.is_primitive()) {
+        match avg(&values, name) {
+            Ok(result) => Ok(OutputStream::one(ReturnSuccess::value(result))),
+            Err(err) => Err(err),
+        }
+    } else {
+        let mut column_values = IndexMap::new();
+        for value in values {
+            if let UntaggedValue::Row(row_dict) = value.value {
+                for (key, value) in row_dict.entries.iter() {
+                    column_values
+                        .entry(key.clone())
+                        .and_modify(|v: &mut Vec<Value>| v.push(value.clone()))
+                        .or_insert(vec![value.clone()]);
                 }
             }
-            yield ReturnSuccess::value(
-                UntaggedValue::Row(Dictionary {entries: column_totals}).into_untagged_value())
         }
-    };
 
-    let stream: BoxStream<'static, ReturnValue> = stream.boxed();
+        let mut column_totals = IndexMap::new();
+        for (col_name, col_vals) in column_values {
+            match avg(&col_vals, &name) {
+                Ok(result) => {
+                    column_totals.insert(col_name, result);
+                }
+                Err(err) => return Err(err),
+            }
+        }
 
-    Ok(stream.to_output_stream())
+        Ok(OutputStream::one(ReturnSuccess::value(
+            UntaggedValue::Row(Dictionary {
+                entries: column_totals,
+            })
+            .into_untagged_value(),
+        )))
+    }
 }
 
 fn avg(values: &[Value], name: impl Into<Tag>) -> Result<Value, ShellError> {
