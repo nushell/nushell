@@ -198,6 +198,7 @@ pub(crate) use lines::Lines;
 pub(crate) use ls::Ls;
 #[allow(unused_imports)]
 pub(crate) use map_max_by::MapMaxBy;
+pub(crate) use math::{Average, Maximum, Minimum};
 pub(crate) use merge::Merge;
 pub(crate) use mkdir::Mkdir;
 pub(crate) use mv::Move;
