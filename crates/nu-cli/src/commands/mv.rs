@@ -43,7 +43,7 @@ impl WholeStreamCommand for Move {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        mv(args, registry)
+        mv(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -67,20 +67,13 @@ impl WholeStreamCommand for Move {
     }
 }
 
-fn mv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn mv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let name = args.call_info.name_tag.clone();
-        let shell_manager = args.shell_manager.clone();
-        let (args, _) = args.process(&registry).await?;
-        let mut result = shell_manager.mv(args, name)?;
+    let name = args.call_info.name_tag.clone();
+    let shell_manager = args.shell_manager.clone();
+    let (args, _) = args.process(&registry).await?;
 
-        while let Some(item) = result.next().await {
-            yield item;
-        }
-    };
-
-    Ok(stream.to_output_stream())
+    shell_manager.mv(args, name)
 }
 
 #[cfg(test)]

@@ -33,7 +33,7 @@ impl WholeStreamCommand for Touch {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        touch(args, registry)
+        touch(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -45,21 +45,18 @@ impl WholeStreamCommand for Touch {
     }
 }
 
-fn touch(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn touch(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let (TouchArgs { target }, _) = args.process(&registry).await?;
-        match OpenOptions::new().write(true).create(true).open(&target) {
-            Ok(_) => {},
-            Err(err) => yield Err(ShellError::labeled_error(
-                "File Error",
-                err.to_string(),
-                &target.tag,
-            )),
-        }
-    };
+    let (TouchArgs { target }, _) = args.process(&registry).await?;
 
-    Ok(stream.to_output_stream())
+    match OpenOptions::new().write(true).create(true).open(&target) {
+        Ok(_) => Ok(OutputStream::empty()),
+        Err(err) => Err(ShellError::labeled_error(
+            "File Error",
+            err.to_string(),
+            &target.tag,
+        )),
+    }
 }
 
 #[cfg(test)]
