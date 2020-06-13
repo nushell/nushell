@@ -47,7 +47,6 @@ async fn reject(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputS
     let registry = registry.clone();
     let name = args.call_info.name_tag.clone();
     let (RejectArgs { rest: fields }, input) = args.process(&registry).await?;
-
     if fields.is_empty() {
         return Err(ShellError::labeled_error(
             "Reject requires fields",

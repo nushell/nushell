@@ -51,92 +51,105 @@ impl WholeStreamCommand for Pivot {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        pivot(args, registry)
+        pivot(args, registry).await
     }
 }
 
-pub fn pivot(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+pub async fn pivot(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let name = args.call_info.name_tag.clone();
-    let stream = async_stream! {
-        let (args, mut input): (PivotArgs, _) = args.process(&registry).await?;
-        let input = input.into_vec().await;
+    let (args, input): (PivotArgs, _) = args.process(&registry).await?;
+    let input = input.into_vec().await;
 
-        let descs = merge_descriptors(&input);
+    let descs = merge_descriptors(&input);
 
-        let mut headers: Vec<String> = vec![];
+    let mut headers: Vec<String> = vec![];
 
-        if args.rest.len() > 0 && args.header_row {
-            yield Err(ShellError::labeled_error("Can not provide header names and use header row", "using header row", name));
-            return;
-        }
+    if !args.rest.is_empty() && args.header_row {
+        return Err(ShellError::labeled_error(
+            "Can not provide header names and use header row",
+            "using header row",
+            name,
+        ));
+    }
 
-        if args.header_row {
-            for i in input.clone() {
-                if let Some(desc) = descs.get(0) {
-                    match get_data_by_key(&i, desc[..].spanned_unknown()) {
-                        Some(x) => {
-                            if let Ok(s) = x.as_string() {
-                                headers.push(s.to_string());
-                            } else {
-                                yield Err(ShellError::labeled_error("Header row needs string headers", "used non-string headers", name));
-                                return;
-                            }
-                        }
-                        _ => {
-                            yield Err(ShellError::labeled_error("Header row is incomplete and can't be used", "using incomplete header row", name));
-                            return;
-                        }
-                    }
-                } else {
-                    yield Err(ShellError::labeled_error("Header row is incomplete and can't be used", "using incomplete header row", name));
-                    return;
-                }
-            }
-        } else {
-            for i in 0..=input.len() {
-                if let Some(name) = args.rest.get(i) {
-                    headers.push(name.to_string())
-                } else {
-                    headers.push(format!("Column{}", i));
-                }
-            }
-        }
-
-        let descs: Vec<_> = if args.header_row {
-            descs.iter().skip(1).collect()
-        } else {
-            descs.iter().collect()
-        };
-
-        for desc in descs {
-            let mut column_num: usize = 0;
-            let mut dict = TaggedDictBuilder::new(&name);
-
-            if !args.ignore_titles && !args.header_row {
-                dict.insert_untagged(headers[column_num].clone(), UntaggedValue::string(desc.clone()));
-                column_num += 1
-            }
-
-            for i in input.clone() {
+    if args.header_row {
+        for i in input.clone() {
+            if let Some(desc) = descs.get(0) {
                 match get_data_by_key(&i, desc[..].spanned_unknown()) {
                     Some(x) => {
-                        dict.insert_value(headers[column_num].clone(), x.clone());
+                        if let Ok(s) = x.as_string() {
+                            headers.push(s.to_string());
+                        } else {
+                            return Err(ShellError::labeled_error(
+                                "Header row needs string headers",
+                                "used non-string headers",
+                                name,
+                            ));
+                        }
                     }
                     _ => {
-                        dict.insert_untagged(headers[column_num].clone(), UntaggedValue::nothing());
+                        return Err(ShellError::labeled_error(
+                            "Header row is incomplete and can't be used",
+                            "using incomplete header row",
+                            name,
+                        ));
                     }
                 }
-                column_num += 1;
+            } else {
+                return Err(ShellError::labeled_error(
+                    "Header row is incomplete and can't be used",
+                    "using incomplete header row",
+                    name,
+                ));
             }
-
-            yield ReturnSuccess::value(dict.into_value());
         }
+    } else {
+        for i in 0..=input.len() {
+            if let Some(name) = args.rest.get(i) {
+                headers.push(name.to_string())
+            } else {
+                headers.push(format!("Column{}", i));
+            }
+        }
+    }
 
-
+    let descs: Vec<_> = if args.header_row {
+        descs.into_iter().skip(1).collect()
+    } else {
+        descs
     };
 
-    Ok(OutputStream::new(stream))
+    Ok(futures::stream::iter(descs.into_iter().map(move |desc| {
+        let mut column_num: usize = 0;
+        let mut dict = TaggedDictBuilder::new(&name);
+
+        if !args.ignore_titles && !args.header_row {
+            dict.insert_untagged(
+                headers[column_num].clone(),
+                UntaggedValue::string(desc.clone()),
+            );
+            column_num += 1
+        }
+
+        for i in input.clone() {
+            match get_data_by_key(&i, desc[..].spanned_unknown()) {
+                Some(x) => {
+                    dict.insert_value(headers[column_num].clone(), x.clone());
+                }
+                _ => {
+                    dict.insert_untagged(headers[column_num].clone(), UntaggedValue::nothing());
+                }
+            }
+            column_num += 1;
+        }
+
+        ReturnSuccess::value(dict.into_value())
+    }))
+    .to_output_stream())
 }
 
 #[cfg(test)]

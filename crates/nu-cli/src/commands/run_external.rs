@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 use nu_errors::ShellError;
 use nu_protocol::hir::{Expression, ExternalArgs, ExternalCommand, Literal, SpannedExpression};
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape};
+use nu_protocol::{Signature, SyntaxShape};
 use nu_source::Tagged;
 
 #[derive(Deserialize)]
@@ -99,69 +99,49 @@ impl WholeStreamCommand for RunExternalCommand {
 
         let is_interactive = self.interactive;
 
-        let stream = async_stream! {
-            let command = ExternalCommand {
-                name,
-                name_tag: args.call_info.name_tag.clone(),
-                args: ExternalArgs {
-                    list: positionals.collect(),
-                    span: args.call_info.args.span,
-                },
-            };
-
-            // If we're in interactive mode, we will "auto cd". That is, instead of interpreting
-            // this as an external command, we will see it as a path and `cd` into it.
-            if is_interactive {
-                if let Some(path) = maybe_autocd_dir(&command, &mut external_context).await {
-                    let cd_args = CdArgs {
-                        path: Some(Tagged {
-                            item: PathBuf::from(path),
-                            tag: args.call_info.name_tag.clone(),
-                        })
-                    };
-
-                    let result = external_context.shell_manager.cd(cd_args, args.call_info.name_tag.clone());
-                    match result {
-                        Ok(mut stream) => {
-                            while let Some(value) = stream.next().await {
-                                yield value;
-                            }
-                        },
-                        Err(e) => {
-                            yield Err(e);
-                        },
-                        _ => {}
-                    }
-
-                    return;
-                }
-            }
-
-            let scope = args.call_info.scope.clone();
-            let is_last = args.call_info.args.is_last;
-            let input = args.input;
-            let result = external::run_external_command(
-                command,
-                &mut external_context,
-                input,
-                &scope,
-                is_last,
-            ).await;
-
-            match result {
-                Ok(mut stream) => {
-                    while let Some(value) = stream.next().await {
-                        yield Ok(ReturnSuccess::Value(value));
-                    }
-                },
-                Err(e) => {
-                    yield Err(e);
-                },
-                _ => {}
-            }
+        let command = ExternalCommand {
+            name,
+            name_tag: args.call_info.name_tag.clone(),
+            args: ExternalArgs {
+                list: positionals.collect(),
+                span: args.call_info.args.span,
+            },
         };
 
-        Ok(stream.to_output_stream())
+        // If we're in interactive mode, we will "auto cd". That is, instead of interpreting
+        // this as an external command, we will see it as a path and `cd` into it.
+        if is_interactive {
+            if let Some(path) = maybe_autocd_dir(&command, &mut external_context).await {
+                let cd_args = CdArgs {
+                    path: Some(Tagged {
+                        item: PathBuf::from(path),
+                        tag: args.call_info.name_tag.clone(),
+                    }),
+                };
+
+                let result = external_context
+                    .shell_manager
+                    .cd(cd_args, args.call_info.name_tag.clone());
+                match result {
+                    Ok(stream) => return Ok(stream.to_output_stream()),
+                    Err(e) => {
+                        return Err(e);
+                    }
+                }
+            }
+        }
+
+        let scope = args.call_info.scope.clone();
+        let is_last = args.call_info.args.is_last;
+        let input = args.input;
+        let result =
+            external::run_external_command(command, &mut external_context, input, &scope, is_last)
+                .await;
+
+        match result {
+            Ok(stream) => Ok(stream.to_output_stream()),
+            Err(e) => Err(e),
+        }
     }
 }
 
