@@ -38,7 +38,7 @@ impl WholeStreamCommand for ToJSON {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        to_json(args, registry)
+        to_json(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -163,78 +163,103 @@ fn json_list(input: &[Value]) -> Result<Vec<serde_json::Value>, ShellError> {
     Ok(out)
 }
 
-fn to_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn to_json(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let name_tag = args.call_info.name_tag.clone();
-        let (ToJSONArgs { pretty }, mut input) = args.process(&registry).await?;
-        let name_span = name_tag.span;
-        let input: Vec<Value> = input.collect().await;
+    let name_tag = args.call_info.name_tag.clone();
+    let (ToJSONArgs { pretty }, input) = args.process(&registry).await?;
+    let name_span = name_tag.span;
+    let input: Vec<Value> = input.collect().await;
 
-        let to_process_input = if input.len() > 1 {
+    let to_process_input = match input.len() {
+        x if x > 1 => {
             let tag = input[0].tag.clone();
-            vec![Value { value: UntaggedValue::Table(input), tag } ]
-        } else if input.len() == 1 {
-            input
-        } else {
-            vec![]
-        };
+            vec![Value {
+                value: UntaggedValue::Table(input),
+                tag,
+            }]
+        }
+        1 => input,
+        _ => vec![],
+    };
 
-        for value in to_process_input {
-            match value_to_json_value(&value) {
-                Ok(json_value) => {
-                    let value_span = value.tag.span;
+    Ok(futures::stream::iter(to_process_input.into_iter().map(
+        move |value| match value_to_json_value(&value) {
+            Ok(json_value) => {
+                let value_span = value.tag.span;
 
-                    match serde_json::to_string(&json_value) {
-                        Ok(mut serde_json_string) => {
-                            if let Some(pretty_value) = &pretty {
-                                let mut pretty_format_failed = true;
+                match serde_json::to_string(&json_value) {
+                    Ok(mut serde_json_string) => {
+                        if let Some(pretty_value) = &pretty {
+                            let mut pretty_format_failed = true;
 
-                                if let Ok(pretty_u64) = pretty_value.as_u64() {
-                                    if let Ok(serde_json_value) = serde_json::from_str::<serde_json::Value>(serde_json_string.as_str()) {
-                                        let indentation_string = std::iter::repeat(" ").take(pretty_u64 as usize).collect::<String>();
-                                        let serde_formatter = serde_json::ser::PrettyFormatter::with_indent(indentation_string.as_bytes());
-                                        let serde_buffer = Vec::new();
-                                        let mut serde_serializer = serde_json::Serializer::with_formatter(serde_buffer, serde_formatter);
-                                        let serde_json_object = json!(serde_json_value);
+                            if let Ok(pretty_u64) = pretty_value.as_u64() {
+                                if let Ok(serde_json_value) =
+                                    serde_json::from_str::<serde_json::Value>(
+                                        serde_json_string.as_str(),
+                                    )
+                                {
+                                    let indentation_string = std::iter::repeat(" ")
+                                        .take(pretty_u64 as usize)
+                                        .collect::<String>();
+                                    let serde_formatter =
+                                        serde_json::ser::PrettyFormatter::with_indent(
+                                            indentation_string.as_bytes(),
+                                        );
+                                    let serde_buffer = Vec::new();
+                                    let mut serde_serializer =
+                                        serde_json::Serializer::with_formatter(
+                                            serde_buffer,
+                                            serde_formatter,
+                                        );
+                                    let serde_json_object = json!(serde_json_value);
 
-                                        if let Ok(()) = serde_json_object.serialize(&mut serde_serializer) {
-                                            if let Ok(ser_json_string) = String::from_utf8(serde_serializer.into_inner()) {
-                                                pretty_format_failed = false;
-                                                serde_json_string = ser_json_string
-                                            }
+                                    if let Ok(()) =
+                                        serde_json_object.serialize(&mut serde_serializer)
+                                    {
+                                        if let Ok(ser_json_string) =
+                                            String::from_utf8(serde_serializer.into_inner())
+                                        {
+                                            pretty_format_failed = false;
+                                            serde_json_string = ser_json_string
                                         }
                                     }
                                 }
-
-                                if pretty_format_failed {
-                                    yield Err(ShellError::labeled_error("Pretty formatting failed", "failed", pretty_value.tag()));
-                                    return;
-                                }
                             }
 
-                            yield ReturnSuccess::value(
-                                UntaggedValue::Primitive(Primitive::String(serde_json_string)).into_value(&name_tag),
-                            )
-                        },
-                        _ => yield Err(ShellError::labeled_error_with_secondary(
-                            "Expected a table with JSON-compatible structure.tag() from pipeline",
-                            "requires JSON-compatible input",
-                            name_span,
-                            "originates from here".to_string(),
-                            value_span,
-                        )),
-                    }
-                }
-                _ => yield Err(ShellError::labeled_error(
-                    "Expected a table with JSON-compatible structure from pipeline",
-                    "requires JSON-compatible input",
-                    &name_tag))
-            }
-        }
-    };
+                            if pretty_format_failed {
+                                return Err(ShellError::labeled_error(
+                                    "Pretty formatting failed",
+                                    "failed",
+                                    pretty_value.tag(),
+                                ));
+                            }
+                        }
 
-    Ok(stream.to_output_stream())
+                        ReturnSuccess::value(
+                            UntaggedValue::Primitive(Primitive::String(serde_json_string))
+                                .into_value(&name_tag),
+                        )
+                    }
+                    _ => Err(ShellError::labeled_error_with_secondary(
+                        "Expected a table with JSON-compatible structure.tag() from pipeline",
+                        "requires JSON-compatible input",
+                        name_span,
+                        "originates from here".to_string(),
+                        value_span,
+                    )),
+                }
+            }
+            _ => Err(ShellError::labeled_error(
+                "Expected a table with JSON-compatible structure from pipeline",
+                "requires JSON-compatible input",
+                &name_tag,
+            )),
+        },
+    ))
+    .to_output_stream())
 }
 
 #[cfg(test)]

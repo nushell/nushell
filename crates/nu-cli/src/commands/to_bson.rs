@@ -29,7 +29,7 @@ impl WholeStreamCommand for ToBSON {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        to_bson(args, registry)
+        to_bson(args, registry).await
     }
 
     fn is_binary(&self) -> bool {
@@ -261,51 +261,53 @@ fn bson_value_to_bytes(bson: Bson, tag: Tag) -> Result<Vec<u8>, ShellError> {
     Ok(out)
 }
 
-fn to_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn to_bson(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let args = args.evaluate_once(&registry).await?;
-        let name_tag = args.name_tag();
-        let name_span = name_tag.span;
+    let args = args.evaluate_once(&registry).await?;
+    let name_tag = args.name_tag();
+    let name_span = name_tag.span;
 
-        let input: Vec<Value> = args.input.collect().await;
+    let input: Vec<Value> = args.input.collect().await;
 
-        let to_process_input = if input.len() > 1 {
+    let to_process_input = match input.len() {
+        x if x > 1 => {
             let tag = input[0].tag.clone();
-            vec![Value { value: UntaggedValue::Table(input), tag } ]
-        } else if input.len() == 1 {
-            input
-        } else {
-            vec![]
-        };
-
-        for value in to_process_input {
-            match value_to_bson_value(&value) {
-                Ok(bson_value) => {
-                    let value_span = value.tag.span;
-
-                    match bson_value_to_bytes(bson_value, name_tag.clone()) {
-                        Ok(x) => yield ReturnSuccess::value(
-                            UntaggedValue::binary(x).into_value(&name_tag),
-                        ),
-                        _ => yield Err(ShellError::labeled_error_with_secondary(
-                            "Expected a table with BSON-compatible structure from pipeline",
-                            "requires BSON-compatible input",
-                            name_span,
-                            "originates from here".to_string(),
-                            value_span,
-                        )),
-                    }
-                }
-                _ => yield Err(ShellError::labeled_error(
-                    "Expected a table with BSON-compatible structure from pipeline",
-                    "requires BSON-compatible input",
-                    &name_tag))
-            }
+            vec![Value {
+                value: UntaggedValue::Table(input),
+                tag,
+            }]
         }
+        1 => input,
+        _ => vec![],
     };
 
-    Ok(stream.to_output_stream())
+    Ok(futures::stream::iter(to_process_input.into_iter().map(
+        move |value| match value_to_bson_value(&value) {
+            Ok(bson_value) => {
+                let value_span = value.tag.span;
+
+                match bson_value_to_bytes(bson_value, name_tag.clone()) {
+                    Ok(x) => ReturnSuccess::value(UntaggedValue::binary(x).into_value(&name_tag)),
+                    _ => Err(ShellError::labeled_error_with_secondary(
+                        "Expected a table with BSON-compatible structure from pipeline",
+                        "requires BSON-compatible input",
+                        name_span,
+                        "originates from here".to_string(),
+                        value_span,
+                    )),
+                }
+            }
+            _ => Err(ShellError::labeled_error(
+                "Expected a table with BSON-compatible structure from pipeline",
+                "requires BSON-compatible input",
+                &name_tag,
+            )),
+        },
+    ))
+    .to_output_stream())
 }
 
 #[cfg(test)]

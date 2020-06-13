@@ -24,7 +24,7 @@ impl WholeStreamCommand for ToTOML {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        to_toml(args, registry)
+        to_toml(args, registry).await
     }
     // TODO: add an example here. What commands to run to get a Row(Dictionary)?
     // fn examples(&self) -> Vec<Example> {
@@ -135,49 +135,53 @@ fn collect_values(input: &[Value]) -> Result<Vec<toml::Value>, ShellError> {
     Ok(out)
 }
 
-fn to_toml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn to_toml(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let args = args.evaluate_once(&registry).await?;
-        let name_tag = args.name_tag();
-        let name_span = name_tag.span;
-        let input: Vec<Value> = args.input.collect().await;
+    let args = args.evaluate_once(&registry).await?;
+    let name_tag = args.name_tag();
+    let name_span = name_tag.span;
+    let input: Vec<Value> = args.input.collect().await;
 
-        let to_process_input = if input.len() > 1 {
+    let to_process_input = match input.len() {
+        x if x > 1 => {
             let tag = input[0].tag.clone();
-            vec![Value { value: UntaggedValue::Table(input), tag } ]
-        } else if input.len() == 1 {
-            input
-        } else {
-            vec![]
-        };
-
-        for value in to_process_input {
-            let value_span = value.tag.span;
-            match value_to_toml_value(&value) {
-                Ok(toml_value) => {
-                    match toml::to_string(&toml_value) {
-                        Ok(x) => yield ReturnSuccess::value(
-                            UntaggedValue::Primitive(Primitive::String(x)).into_value(&name_tag),
-                        ),
-                        _ => yield Err(ShellError::labeled_error_with_secondary(
-                            "Expected a table with TOML-compatible structure.tag() from pipeline",
-                            "requires TOML-compatible input",
-                            name_span,
-                            "originates from here".to_string(),
-                            value_span,
-                        )),
-                    }
-                }
-                _ => yield Err(ShellError::labeled_error(
-                    "Expected a table with TOML-compatible structure from pipeline",
-                    "requires TOML-compatible input",
-                    &name_tag))
-            }
+            vec![Value {
+                value: UntaggedValue::Table(input),
+                tag,
+            }]
         }
+        1 => input,
+        _ => vec![],
     };
 
-    Ok(stream.to_output_stream())
+    Ok(
+        futures::stream::iter(to_process_input.into_iter().map(move |value| {
+            let value_span = value.tag.span;
+            match value_to_toml_value(&value) {
+                Ok(toml_value) => match toml::to_string(&toml_value) {
+                    Ok(x) => ReturnSuccess::value(
+                        UntaggedValue::Primitive(Primitive::String(x)).into_value(&name_tag),
+                    ),
+                    _ => Err(ShellError::labeled_error_with_secondary(
+                        "Expected a table with TOML-compatible structure.tag() from pipeline",
+                        "requires TOML-compatible input",
+                        name_span,
+                        "originates from here".to_string(),
+                        value_span,
+                    )),
+                },
+                _ => Err(ShellError::labeled_error(
+                    "Expected a table with TOML-compatible structure from pipeline",
+                    "requires TOML-compatible input",
+                    &name_tag,
+                )),
+            }
+        }))
+        .to_output_stream(),
+    )
 }
 
 #[cfg(test)]

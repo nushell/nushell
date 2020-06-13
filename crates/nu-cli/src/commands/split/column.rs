@@ -43,16 +43,27 @@ impl WholeStreamCommand for SubCommand {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        split_column(args, registry)
+        split_column(args, registry).await
     }
 }
 
-fn split_column(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn split_column(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let name_span = args.call_info.name_tag.span;
     let registry = registry.clone();
-    let stream = async_stream! {
-        let (SplitColumnArgs { separator, rest, collapse_empty }, mut input) = args.process(&registry).await?;
-        while let Some(v) = input.next().await {
+    let (
+        SplitColumnArgs {
+            separator,
+            rest,
+            collapse_empty,
+        },
+        input,
+    ) = args.process(&registry).await?;
+
+    Ok(input
+        .map(move |v| {
             if let Ok(s) = v.as_string() {
                 let splitter = separator.replace("\\n", "\n");
                 trace!("splitting with {:?}", splitter);
@@ -79,7 +90,7 @@ fn split_column(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputS
                         dict.insert_untagged(v.clone(), Primitive::String(k.into()));
                     }
 
-                    yield ReturnSuccess::value(dict.into_value());
+                    ReturnSuccess::value(dict.into_value())
                 } else {
                     let mut dict = TaggedDictBuilder::new(&v.tag);
                     for (&k, v) in split_result.iter().zip(positional.iter()) {
@@ -88,21 +99,19 @@ fn split_column(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputS
                             UntaggedValue::Primitive(Primitive::String(k.into())),
                         );
                     }
-                    yield ReturnSuccess::value(dict.into_value());
+                    ReturnSuccess::value(dict.into_value())
                 }
             } else {
-                yield Err(ShellError::labeled_error_with_secondary(
+                Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
                     name_span,
                     "value originates from here",
                     v.tag.span,
-                ));
+                ))
             }
-        }
-    };
-
-    Ok(stream.to_output_stream())
+        })
+        .to_output_stream())
 }
 
 #[cfg(test)]

@@ -389,42 +389,44 @@ impl WholeStreamCommand for FnFilterCommand {
             ctrl_c,
             shell_manager,
             call_info,
-            mut input,
+            input,
             ..
         }: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        let host: Arc<parking_lot::Mutex<dyn Host>> = host.clone();
-        let registry: CommandRegistry = registry.clone();
+        let registry = Arc::new(registry.clone());
         let func = self.func;
 
-        let stream = async_stream! {
-            while let Some(it) = input.next().await {
+        Ok(input
+            .then(move |it| {
+                let host = host.clone();
                 let registry = registry.clone();
-                let call_info = match call_info.clone().evaluate_with_new_it(&registry, &it).await {
-                    Err(err) => { yield Err(err); return; },
-                    Ok(args) => args,
-                };
-
-                let args = EvaluatedFilterCommandArgs::new(
-                    host.clone(),
-                    ctrl_c.clone(),
-                    shell_manager.clone(),
-                    call_info,
-                );
-
-                match func(args) {
-                    Err(err) => yield Err(err),
-                    Ok(mut stream) => {
-                        while let Some(value) = stream.values.next().await {
-                            yield value;
+                let ctrl_c = ctrl_c.clone();
+                let shell_manager = shell_manager.clone();
+                let call_info = call_info.clone();
+                async move {
+                    let call_info = match call_info.evaluate_with_new_it(&*registry, &it).await {
+                        Err(err) => {
+                            return OutputStream::one(Err(err));
                         }
+                        Ok(args) => args,
+                    };
+
+                    let args = EvaluatedFilterCommandArgs::new(
+                        host.clone(),
+                        ctrl_c.clone(),
+                        shell_manager.clone(),
+                        call_info,
+                    );
+
+                    match func(args) {
+                        Err(err) => return OutputStream::one(Err(err)),
+                        Ok(stream) => stream,
                     }
                 }
-            }
-        };
-
-        Ok(stream.to_output_stream())
+            })
+            .flatten()
+            .to_output_stream())
     }
 }
 

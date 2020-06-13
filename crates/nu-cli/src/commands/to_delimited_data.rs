@@ -165,7 +165,7 @@ fn merge_descriptors(values: &[Value]) -> Vec<Spanned<String>> {
     ret
 }
 
-pub fn to_delimited_data(
+pub async fn to_delimited_data(
     headerless: bool,
     sep: char,
     format_name: &'static str,
@@ -175,33 +175,41 @@ pub fn to_delimited_data(
     let name_tag = name;
     let name_span = name_tag.span;
 
-    let stream = async_stream! {
-        let input: Vec<Value> = input.collect().await;
+    let input: Vec<Value> = input.collect().await;
 
-        let to_process_input = if input.len() > 1 {
+    let to_process_input = match input.len() {
+        x if x > 1 => {
             let tag = input[0].tag.clone();
-            vec![Value { value: UntaggedValue::Table(input), tag } ]
-        } else if input.len() == 1 {
-            input
-        } else {
-            vec![]
-        };
+            vec![Value {
+                value: UntaggedValue::Table(input),
+                tag,
+            }]
+        }
+        1 => input,
+        _ => vec![],
+    };
 
-        for value in to_process_input {
+    Ok(
+        futures::stream::iter(to_process_input.into_iter().map(move |value| {
             match from_value_to_delimited_string(&clone_tagged_value(&value), sep) {
                 Ok(mut x) => {
                     if headerless {
-                        x.find('\n').map(|second_line|{
+                        if let Some(second_line) = x.find('\n') {
                             let start = second_line + 1;
                             x.replace_range(0..start, "");
-                        });
+                        }
                     }
-                    yield ReturnSuccess::value(UntaggedValue::Primitive(Primitive::String(x)).into_value(&name_tag))
+                    ReturnSuccess::value(
+                        UntaggedValue::Primitive(Primitive::String(x)).into_value(&name_tag),
+                    )
                 }
-                Err(x) => {
-                    let expected = format!("Expected a table with {}-compatible structure from pipeline", format_name);
+                Err(_) => {
+                    let expected = format!(
+                        "Expected a table with {}-compatible structure from pipeline",
+                        format_name
+                    );
                     let requires = format!("requires {}-compatible input", format_name);
-                    yield Err(ShellError::labeled_error_with_secondary(
+                    Err(ShellError::labeled_error_with_secondary(
                         expected,
                         requires,
                         name_span,
@@ -210,8 +218,7 @@ pub fn to_delimited_data(
                     ))
                 }
             }
-        }
-    };
-
-    Ok(stream.to_output_stream())
+        }))
+        .to_output_stream(),
+    )
 }
