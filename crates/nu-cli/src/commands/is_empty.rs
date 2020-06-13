@@ -42,15 +42,19 @@ impl WholeStreamCommand for IsEmpty {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        is_empty(args, registry)
+        is_empty(args, registry).await
     }
 }
 
-fn is_empty(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn is_empty(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let (IsEmptyArgs { rest }, mut input) = args.process(&registry).await?;
-        while let Some(value) = input.next().await {
+    let (IsEmptyArgs { rest }, input) = args.process(&registry).await?;
+
+    Ok(input
+        .map(move |value| {
             let value_tag = value.tag();
 
             let action = if rest.len() <= 2 {
@@ -85,15 +89,14 @@ fn is_empty(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
             };
 
             match action {
-                IsEmptyFor::Value => yield Ok(ReturnSuccess::Value(
+                IsEmptyFor::Value => Ok(ReturnSuccess::Value(
                     UntaggedValue::boolean(value.is_empty()).into_value(value_tag),
                 )),
                 IsEmptyFor::RowWithFieldsAndFallback(fields, default) => {
                     let mut out = value;
 
                     for field in fields.iter() {
-                        let val =
-                            crate::commands::get::get_column_path(&field, &out)?;
+                        let val = crate::commands::get::get_column_path(&field, &out)?;
 
                         let emptiness_value = match out {
                             obj
@@ -125,11 +128,10 @@ fn is_empty(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
                         out = emptiness_value?;
                     }
 
-                    yield Ok(ReturnSuccess::Value(out))
+                    Ok(ReturnSuccess::Value(out))
                 }
                 IsEmptyFor::RowWithField(field) => {
-                    let val =
-                        crate::commands::get::get_column_path(&field, &value)?;
+                    let val = crate::commands::get::get_column_path(&field, &value)?;
 
                     match &value {
                         obj
@@ -143,18 +145,18 @@ fn is_empty(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
                                     &field,
                                     UntaggedValue::boolean(true).into_value(&value_tag),
                                 ) {
-                                    Some(v) => yield Ok(ReturnSuccess::Value(v)),
-                                    None => yield Err(ShellError::labeled_error(
+                                    Some(v) => Ok(ReturnSuccess::Value(v)),
+                                    None => Err(ShellError::labeled_error(
                                         "empty? could not find place to check emptiness",
                                         "column name",
                                         &field.tag,
                                     )),
                                 }
                             } else {
-                                yield Ok(ReturnSuccess::Value(value))
+                                Ok(ReturnSuccess::Value(value))
                             }
                         }
-                        _ => yield Err(ShellError::labeled_error(
+                        _ => Err(ShellError::labeled_error(
                             "Unrecognized type in stream",
                             "original value",
                             &value_tag,
@@ -162,8 +164,7 @@ fn is_empty(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
                     }
                 }
                 IsEmptyFor::RowWithFieldAndFallback(field, default) => {
-                    let val =
-                        crate::commands::get::get_column_path(&field, &value)?;
+                    let val = crate::commands::get::get_column_path(&field, &value)?;
 
                     match &value {
                         obj
@@ -174,18 +175,18 @@ fn is_empty(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
                         } => {
                             if val.is_empty() {
                                 match obj.replace_data_at_column_path(&field, default) {
-                                    Some(v) => yield Ok(ReturnSuccess::Value(v)),
-                                    None => yield Err(ShellError::labeled_error(
+                                    Some(v) => Ok(ReturnSuccess::Value(v)),
+                                    None => Err(ShellError::labeled_error(
                                         "empty? could not find place to check emptiness",
                                         "column name",
                                         &field.tag,
                                     )),
                                 }
                             } else {
-                                yield Ok(ReturnSuccess::Value(value))
+                                Ok(ReturnSuccess::Value(value))
                             }
                         }
-                        _ => yield Err(ShellError::labeled_error(
+                        _ => Err(ShellError::labeled_error(
                             "Unrecognized type in stream",
                             "original value",
                             &value_tag,
@@ -193,9 +194,8 @@ fn is_empty(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
                     }
                 }
             }
-        }
-    };
-    Ok(stream.to_output_stream())
+        })
+        .to_output_stream())
 }
 
 #[cfg(test)]
