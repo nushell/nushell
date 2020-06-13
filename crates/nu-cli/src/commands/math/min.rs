@@ -45,8 +45,8 @@ impl WholeStreamCommand for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Get the minimum of a list of numbers",
-            example: "echo [-50 100.0 25] | math minimum",
-            result: Some(vec![UntaggedValue::decimal(-50).into()]),
+            example: "echo [-50 100 25] | math min",
+            result: Some(vec![UntaggedValue::int(-50).into()]),
         }]
     }
 }
