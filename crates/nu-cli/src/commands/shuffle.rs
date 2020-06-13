@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, ReturnValue, Value};
+use nu_protocol::{ReturnSuccess, Value};
 
 use rand::seq::SliceRandom;
 use rand::thread_rng;
