@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 
 pub struct Keep;
@@ -35,7 +35,7 @@ impl WholeStreamCommand for Keep {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        keep(args, registry)
+        keep(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -59,27 +59,16 @@ impl WholeStreamCommand for Keep {
     }
 }
 
-fn keep(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn keep(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let (KeepArgs { rows }, mut input) = args.process(&registry).await?;
-        let mut rows_desired = if let Some(quantity) = rows {
-            *quantity
-        } else {
-            1
-        };
-
-        while let Some(input) = input.next().await {
-            if rows_desired > 0 {
-                yield ReturnSuccess::value(input);
-                rows_desired -= 1;
-            } else {
-                break;
-            }
-        }
+    let (KeepArgs { rows }, input) = args.process(&registry).await?;
+    let rows_desired = if let Some(quantity) = rows {
+        *quantity
+    } else {
+        1
     };
 
-    Ok(stream.to_output_stream())
+    Ok(input.take(rows_desired).to_output_stream())
 }
 
 #[cfg(test)]

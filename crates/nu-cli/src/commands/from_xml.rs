@@ -24,7 +24,7 @@ impl WholeStreamCommand for FromXML {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        from_xml(args, registry)
+        from_xml(args, registry).await
     }
 }
 
@@ -99,37 +99,38 @@ pub fn from_xml_string_to_value(s: String, tag: impl Into<Tag>) -> Result<Value,
     Ok(from_document_to_value(&parsed, tag))
 }
 
-fn from_xml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn from_xml(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let args = args.evaluate_once(&registry).await?;
-        let tag = args.name_tag();
-        let input = args.input;
+    let args = args.evaluate_once(&registry).await?;
+    let tag = args.name_tag();
+    let input = args.input;
 
-        let concat_string = input.collect_string(tag.clone()).await?;
+    let concat_string = input.collect_string(tag.clone()).await?;
 
+    Ok(
         match from_xml_string_to_value(concat_string.item, tag.clone()) {
             Ok(x) => match x {
-                Value { value: UntaggedValue::Table(list), .. } => {
-                    for l in list {
-                        yield ReturnSuccess::value(l);
-                    }
-                }
-                x => yield ReturnSuccess::value(x),
+                Value {
+                    value: UntaggedValue::Table(list),
+                    ..
+                } => futures::stream::iter(list.into_iter().map(ReturnSuccess::value))
+                    .to_output_stream(),
+                x => OutputStream::one(ReturnSuccess::value(x)),
             },
             Err(_) => {
-                yield Err(ShellError::labeled_error_with_secondary(
+                return Err(ShellError::labeled_error_with_secondary(
                     "Could not parse as XML",
                     "input cannot be parsed as XML",
                     &tag,
                     "value originates from here",
                     &concat_string.tag,
                 ))
-            } ,
-        }
-    };
-
-    Ok(stream.to_output_stream())
+            }
+        },
+    )
 }
 
 #[cfg(test)]

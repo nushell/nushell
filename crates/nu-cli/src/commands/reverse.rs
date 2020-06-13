@@ -25,7 +25,7 @@ impl WholeStreamCommand for Reverse {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        reverse(args, registry)
+        reverse(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -43,19 +43,16 @@ impl WholeStreamCommand for Reverse {
     }
 }
 
-fn reverse(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn reverse(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let args = args.evaluate_once(&registry).await?;
-        let (input, _args) = args.parts();
+    let args = args.evaluate_once(&registry).await?;
+    let (input, _args) = args.parts();
 
-        let input = input.collect::<Vec<_>>().await;
-        for output in input.into_iter().rev() {
-            yield ReturnSuccess::value(output);
-        }
-    };
-
-    Ok(stream.to_output_stream())
+    let input = input.collect::<Vec<_>>().await;
+    Ok(futures::stream::iter(input.into_iter().rev().map(ReturnSuccess::value)).to_output_stream())
 }
 
 #[cfg(test)]

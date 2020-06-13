@@ -24,7 +24,7 @@ impl WholeStreamCommand for FromTOML {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        from_toml(args, registry)
+        from_toml(args, registry).await
     }
 }
 
@@ -64,28 +64,28 @@ pub fn from_toml_string_to_value(s: String, tag: impl Into<Tag>) -> Result<Value
     Ok(convert_toml_value_to_nu_value(&v, tag))
 }
 
-pub fn from_toml(
+pub async fn from_toml(
     args: CommandArgs,
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let args = args.evaluate_once(&registry).await?;
-        let tag = args.name_tag();
-        let input = args.input;
+    let args = args.evaluate_once(&registry).await?;
+    let tag = args.name_tag();
+    let input = args.input;
 
-        let concat_string = input.collect_string(tag.clone()).await?;
+    let concat_string = input.collect_string(tag.clone()).await?;
+    Ok(
         match from_toml_string_to_value(concat_string.item, tag.clone()) {
             Ok(x) => match x {
-                Value { value: UntaggedValue::Table(list), .. } => {
-                    for l in list {
-                        yield ReturnSuccess::value(l);
-                    }
-                }
-                x => yield ReturnSuccess::value(x),
+                Value {
+                    value: UntaggedValue::Table(list),
+                    ..
+                } => futures::stream::iter(list.into_iter().map(ReturnSuccess::value))
+                    .to_output_stream(),
+                x => OutputStream::one(ReturnSuccess::value(x)),
             },
             Err(_) => {
-                yield Err(ShellError::labeled_error_with_secondary(
+                return Err(ShellError::labeled_error_with_secondary(
                     "Could not parse as TOML",
                     "input cannot be parsed as TOML",
                     &tag,
@@ -93,10 +93,8 @@ pub fn from_toml(
                     concat_string.tag,
                 ))
             }
-        }
-    };
-
-    Ok(stream.to_output_stream())
+        },
+    )
 }
 
 #[cfg(test)]

@@ -24,67 +24,58 @@ impl WholeStreamCommand for ToURL {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        to_url(args, registry)
+        to_url(args, registry).await
     }
 }
 
-fn to_url(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn to_url(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let args = args.evaluate_once(&registry).await?;
-        let tag = args.name_tag();
-        let input = args.input;
+    let args = args.evaluate_once(&registry).await?;
+    let tag = args.name_tag();
+    let input = args.input;
 
-        let input: Vec<Value> = input.collect().await;
-
-        for value in input {
-            match value {
-                Value { value: UntaggedValue::Row(row), .. } => {
-                    let mut row_vec = vec![];
-                    for (k,v) in row.entries {
-                        match v.as_string() {
-                            Ok(s) => {
-                                row_vec.push((k.clone(), s.to_string()));
-                            }
-                            _ => {
-                                yield Err(ShellError::labeled_error_with_secondary(
-                                    "Expected table with string values",
-                                    "requires table with strings",
-                                    &tag,
-                                    "value originates from here",
-                                    v.tag,
-                                ))
-                            }
-                        }
-                    }
-
-                    match serde_urlencoded::to_string(row_vec) {
+    Ok(input
+        .map(move |value| match value {
+            Value {
+                value: UntaggedValue::Row(row),
+                ..
+            } => {
+                let mut row_vec = vec![];
+                for (k, v) in row.entries {
+                    match v.as_string() {
                         Ok(s) => {
-                            yield ReturnSuccess::value(UntaggedValue::string(s).into_value(&tag));
+                            row_vec.push((k.clone(), s.to_string()));
                         }
                         _ => {
-                            yield Err(ShellError::labeled_error(
-                                "Failed to convert to url-encoded",
-                                "cannot url-encode",
+                            return Err(ShellError::labeled_error_with_secondary(
+                                "Expected table with string values",
+                                "requires table with strings",
                                 &tag,
-                            ))
+                                "value originates from here",
+                                v.tag,
+                            ));
                         }
                     }
                 }
-                Value { tag: value_tag, .. } => {
-                    yield Err(ShellError::labeled_error_with_secondary(
-                        "Expected a table from pipeline",
-                        "requires table input",
+
+                match serde_urlencoded::to_string(row_vec) {
+                    Ok(s) => ReturnSuccess::value(UntaggedValue::string(s).into_value(&tag)),
+                    _ => Err(ShellError::labeled_error(
+                        "Failed to convert to url-encoded",
+                        "cannot url-encode",
                         &tag,
-                        "value originates from here",
-                        value_tag.span,
-                    ))
+                    )),
                 }
             }
-        }
-    };
-
-    Ok(stream.to_output_stream())
+            Value { tag: value_tag, .. } => Err(ShellError::labeled_error_with_secondary(
+                "Expected a table from pipeline",
+                "requires table input",
+                &tag,
+                "value originates from here",
+                value_tag.span,
+            )),
+        })
+        .to_output_stream())
 }
 
 #[cfg(test)]
