@@ -24,28 +24,20 @@ impl WholeStreamCommand for Shuffle {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        shuffle(args, registry)
+        shuffle(args, registry).await
     }
 }
 
-fn shuffle(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let stream = async_stream! {
-        let mut input = args.input;
-        let mut values: Vec<Value> = input.collect().await;
+async fn shuffle(
+    args: CommandArgs,
+    _registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
+    let input = args.input;
+    let mut values: Vec<Value> = input.collect().await;
 
-        let out = {
-            values.shuffle(&mut thread_rng());
-            values.clone()
-        };
+    values.shuffle(&mut thread_rng());
 
-        for val in out.into_iter() {
-            yield ReturnSuccess::value(val);
-        }
-    };
-
-    let stream: BoxStream<'static, ReturnValue> = stream.boxed();
-
-    Ok(stream.to_output_stream())
+    Ok(futures::stream::iter(values.into_iter().map(ReturnSuccess::value)).to_output_stream())
 }
 
 #[cfg(test)]

@@ -31,7 +31,7 @@ impl WholeStreamCommand for Reject {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        reject(args, registry)
+        reject(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -43,28 +43,23 @@ impl WholeStreamCommand for Reject {
     }
 }
 
-fn reject(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn reject(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let name = args.call_info.name_tag.clone();
-        let (RejectArgs { rest: fields }, mut input) = args.process(&registry).await?;
-        if fields.is_empty() {
-            yield Err(ShellError::labeled_error(
-                "Reject requires fields",
-                "needs parameter",
-                name,
-            ));
-            return;
-        }
+    let name = args.call_info.name_tag.clone();
+    let (RejectArgs { rest: fields }, input) = args.process(&registry).await?;
+    if fields.is_empty() {
+        return Err(ShellError::labeled_error(
+            "Reject requires fields",
+            "needs parameter",
+            name,
+        ));
+    }
 
-        let fields: Vec<_> = fields.iter().map(|f| f.item.clone()).collect();
+    let fields: Vec<_> = fields.iter().map(|f| f.item.clone()).collect();
 
-        while let Some(item) = input.next().await {
-            yield ReturnSuccess::value(reject_fields(&item, &fields, &item.tag));
-        }
-    };
-
-    Ok(stream.to_output_stream())
+    Ok(input
+        .map(move |item| ReturnSuccess::value(reject_fields(&item, &fields, &item.tag)))
+        .to_output_stream())
 }
 
 #[cfg(test)]

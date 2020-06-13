@@ -37,7 +37,7 @@ impl WholeStreamCommand for Merge {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        merge(args, registry)
+        merge(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -49,57 +49,61 @@ impl WholeStreamCommand for Merge {
     }
 }
 
-fn merge(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn merge(
+    raw_args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let scope = raw_args.call_info.scope.clone();
-    let stream = async_stream! {
-        let mut context = Context::from_raw(&raw_args, &registry);
-        let name_tag = raw_args.call_info.name_tag.clone();
-        let (merge_args, mut input): (MergeArgs, _) = raw_args.process(&registry).await?;
-        let block = merge_args.block;
+    let mut context = Context::from_raw(&raw_args, &registry);
+    let name_tag = raw_args.call_info.name_tag.clone();
+    let (merge_args, input): (MergeArgs, _) = raw_args.process(&registry).await?;
+    let block = merge_args.block;
 
-        let table: Option<Vec<Value>> = match run_block(&block,
-                &mut context,
-                InputStream::empty(),
-                &scope.it,
-                &scope.vars,
-                &scope.env).await {
-            Ok(mut stream) => Some(stream.drain_vec().await),
-            Err(err) => {
-                yield Err(err);
-                return;
-            }
-        };
-
-
-        let table = table.unwrap_or_else(|| vec![Value {
-            value: UntaggedValue::row(IndexMap::default()),
-            tag: name_tag,
-        }]);
-
-        let mut idx = 0;
-
-        while let Some(value) = input.next().await {
-            let other = table.get(idx);
-
-            match other {
-                Some(replacement) => {
-                    match merge_values(&value.value, &replacement.value) {
-                        Ok(merged_value) => yield ReturnSuccess::value(merged_value.into_value(&value.tag)),
-                        Err(err) => {
-                            let message = format!("The row at {:?} types mismatch", idx);
-                            yield Err(ShellError::labeled_error("Could not merge", &message, &value.tag));
-                        }
-                    }
-                }
-                None => yield ReturnSuccess::value(value),
-            }
-
-            idx += 1;
+    let table: Option<Vec<Value>> = match run_block(
+        &block,
+        &mut context,
+        InputStream::empty(),
+        &scope.it,
+        &scope.vars,
+        &scope.env,
+    )
+    .await
+    {
+        Ok(mut stream) => Some(stream.drain_vec().await),
+        Err(err) => {
+            return Err(err);
         }
     };
 
-    Ok(stream.to_output_stream())
+    let table = table.unwrap_or_else(|| {
+        vec![Value {
+            value: UntaggedValue::row(IndexMap::default()),
+            tag: name_tag,
+        }]
+    });
+
+    Ok(input
+        .enumerate()
+        .map(move |(idx, value)| {
+            let other = table.get(idx);
+
+            match other {
+                Some(replacement) => match merge_values(&value.value, &replacement.value) {
+                    Ok(merged_value) => ReturnSuccess::value(merged_value.into_value(&value.tag)),
+                    Err(_) => {
+                        let message = format!("The row at {:?} types mismatch", idx);
+                        Err(ShellError::labeled_error(
+                            "Could not merge",
+                            &message,
+                            &value.tag,
+                        ))
+                    }
+                },
+                None => ReturnSuccess::value(value),
+            }
+        })
+        .to_output_stream())
 }
 
 #[cfg(test)]

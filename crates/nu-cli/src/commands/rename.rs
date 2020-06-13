@@ -38,7 +38,7 @@ impl WholeStreamCommand for Rename {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        rename(args, registry)
+        rename(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -57,17 +57,20 @@ impl WholeStreamCommand for Rename {
     }
 }
 
-pub fn rename(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+pub async fn rename(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let name = args.call_info.name_tag.clone();
-    let stream = async_stream! {
-        let (Arguments { column_name, rest }, mut input) = args.process(&registry).await?;
-        let mut new_column_names = vec![vec![column_name]];
-        new_column_names.push(rest);
+    let (Arguments { column_name, rest }, input) = args.process(&registry).await?;
+    let mut new_column_names = vec![vec![column_name]];
+    new_column_names.push(rest);
 
-        let new_column_names = new_column_names.into_iter().flatten().collect::<Vec<_>>();
+    let new_column_names = new_column_names.into_iter().flatten().collect::<Vec<_>>();
 
-        while let Some(item) = input.next().await {
+    Ok(input
+        .map(move |item| {
             if let Value {
                 value: UntaggedValue::Row(row),
                 tag,
@@ -87,21 +90,19 @@ pub fn rename(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
 
                 let out = UntaggedValue::Row(renamed_row.into()).into_value(tag);
 
-                yield ReturnSuccess::value(out);
+                ReturnSuccess::value(out)
             } else {
-                yield ReturnSuccess::value(
+                ReturnSuccess::value(
                     UntaggedValue::Error(ShellError::labeled_error(
                         "no column names available",
                         "can't rename",
                         &name,
                     ))
                     .into_untagged_value(),
-                );
+                )
             }
-        }
-    };
-
-    Ok(stream.to_output_stream())
+        })
+        .to_output_stream())
 }
 
 #[cfg(test)]

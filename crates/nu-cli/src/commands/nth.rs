@@ -38,7 +38,7 @@ impl WholeStreamCommand for Nth {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        nth(args, registry)
+        nth(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -57,30 +57,36 @@ impl WholeStreamCommand for Nth {
     }
 }
 
-fn nth(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn nth(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let (NthArgs { row_number, rest: and_rows}, input) = args.process(&registry).await?;
+    let (
+        NthArgs {
+            row_number,
+            rest: and_rows,
+        },
+        input,
+    ) = args.process(&registry).await?;
 
-        let mut inp = input.enumerate();
-        while let Some((idx, item)) = inp.next().await {
-            let row_number = vec![row_number.clone()];
+    let row_numbers = vec![vec![row_number], and_rows]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<Tagged<u64>>>();
 
-            let row_numbers = vec![&row_number, &and_rows]
-                .into_iter()
-                .flatten()
-                .collect::<Vec<&Tagged<u64>>>();
-
-            if row_numbers
-                .iter()
-                .any(|requested| requested.item == idx as u64)
-            {
-                yield ReturnSuccess::value(item);
-            }
-        }
-    };
-
-    Ok(stream.to_output_stream())
+    Ok(input
+        .enumerate()
+        .filter_map(move |(idx, item)| {
+            futures::future::ready(
+                if row_numbers
+                    .iter()
+                    .any(|requested| requested.item == idx as u64)
+                {
+                    Some(ReturnSuccess::value(item))
+                } else {
+                    None
+                },
+            )
+        })
+        .to_output_stream())
 }
 
 #[cfg(test)]

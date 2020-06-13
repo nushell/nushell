@@ -33,7 +33,7 @@ impl WholeStreamCommand for FromJSON {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        from_json(args, registry)
+        from_json(args, registry).await
     }
 }
 
@@ -71,65 +71,73 @@ pub fn from_json_string_to_value(s: String, tag: impl Into<Tag>) -> serde_hjson:
     Ok(convert_json_value_to_nu_value(&v, tag))
 }
 
-fn from_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn from_json(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
     let registry = registry.clone();
 
-    let stream = async_stream! {
-        let (FromJSONArgs { objects }, mut input) = args.process(&registry).await?;
-        let concat_string = input.collect_string(name_tag.clone()).await?;
+    let (FromJSONArgs { objects }, input) = args.process(&registry).await?;
+    let concat_string = input.collect_string(name_tag.clone()).await?;
 
-        if objects {
-            for json_str in concat_string.item.lines() {
+    let string_clone: Vec<_> = concat_string.item.lines().map(|x| x.to_string()).collect();
+
+    if objects {
+        Ok(
+            futures::stream::iter(string_clone.into_iter().filter_map(move |json_str| {
                 if json_str.is_empty() {
-                    continue;
+                    return None;
                 }
 
-                match from_json_string_to_value(json_str.to_string(), &name_tag) {
-                    Ok(x) =>
-                        yield ReturnSuccess::value(x),
+                match from_json_string_to_value(json_str, &name_tag) {
+                    Ok(x) => Some(ReturnSuccess::value(x)),
                     Err(e) => {
                         let mut message = "Could not parse as JSON (".to_string();
                         message.push_str(&e.to_string());
                         message.push_str(")");
 
-                        yield Err(ShellError::labeled_error_with_secondary(
+                        Some(Err(ShellError::labeled_error_with_secondary(
                             message,
                             "input cannot be parsed as JSON",
-                            &name_tag,
+                            name_tag.clone(),
                             "value originates from here",
-                            concat_string.tag.clone()))
+                            concat_string.tag.clone(),
+                        )))
                     }
                 }
-            }
-        } else {
-            match from_json_string_to_value(concat_string.item, name_tag.clone()) {
-                Ok(x) =>
-                    match x {
-                        Value { value: UntaggedValue::Table(list), .. } => {
-                            for l in list {
-                                yield ReturnSuccess::value(l);
-                            }
-                        }
-                        x => yield ReturnSuccess::value(x),
-                    }
-                Err(e) => {
-                    let mut message = "Could not parse as JSON (".to_string();
-                    message.push_str(&e.to_string());
-                    message.push_str(")");
+            }))
+            .to_output_stream(),
+        )
+    } else {
+        match from_json_string_to_value(concat_string.item, name_tag.clone()) {
+            Ok(x) => match x {
+                Value {
+                    value: UntaggedValue::Table(list),
+                    ..
+                } => Ok(
+                    futures::stream::iter(list.into_iter().map(ReturnSuccess::value))
+                        .to_output_stream(),
+                ),
+                x => Ok(OutputStream::one(ReturnSuccess::value(x))),
+            },
+            Err(e) => {
+                let mut message = "Could not parse as JSON (".to_string();
+                message.push_str(&e.to_string());
+                message.push_str(")");
 
-                    yield Err(ShellError::labeled_error_with_secondary(
+                Ok(OutputStream::one(Err(
+                    ShellError::labeled_error_with_secondary(
                         message,
                         "input cannot be parsed as JSON",
                         name_tag,
                         "value originates from here",
-                        concat_string.tag))
-                }
+                        concat_string.tag,
+                    ),
+                )))
             }
         }
-    };
-
-    Ok(stream.to_output_stream())
+    }
 }
 
 #[cfg(test)]
