@@ -29,8 +29,10 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) {
                     .iter()
                     .zip(result.iter())
                     .all(|(e, a)| values_equal(e, a)),
-                "example produced unexpected result: {}",
+                "example command produced unexpected result.\ncommand: {}\nexpected: {:?}\nactual:{:?}",
                 example.example,
+                expected,
+                result,
             );
         }
     }
