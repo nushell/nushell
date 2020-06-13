@@ -6,7 +6,6 @@ use nu_protocol::{
     ColumnPath, PathMember, Primitive, ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder,
     UnspannedPathMember, UntaggedValue, Value,
 };
-use nu_source::span_for_spanned_list;
 use nu_value_ext::{as_string, get_data_by_column_path};
 
 #[derive(Deserialize)]
