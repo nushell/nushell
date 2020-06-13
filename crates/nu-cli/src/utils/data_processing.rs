@@ -221,10 +221,14 @@ pub fn max(data: Vec<Value>) -> Result<Value, ShellError> {
         ));
     }
 
-    let mut biggest = if let UntaggedValue::Primitive(p) = &data.first().unwrap().value {
+    let mut biggest = if let UntaggedValue::Primitive(p) =
+        &data.first().expect("Expected a initial value").value
+    {
         p.clone()
     } else {
-        Value::zero().as_primitive().unwrap()
+        Value::zero()
+            .as_primitive()
+            .expect("Expected Value::zero to be primitive")
     };
 
     for value in data.into_iter() {
@@ -254,10 +258,14 @@ pub fn min(data: Vec<Value>) -> Result<Value, ShellError> {
         ));
     }
 
-    let mut smallest = if let UntaggedValue::Primitive(p) = &data.first().unwrap().value {
+    let mut smallest = if let UntaggedValue::Primitive(p) =
+        &data.first().expect("Expected a initial value").value
+    {
         p.clone()
     } else {
-        Value::zero().as_primitive().unwrap()
+        Value::zero()
+            .as_primitive()
+            .expect("Expected Value::zero to be primitive")
     };
 
     for value in data.into_iter() {
