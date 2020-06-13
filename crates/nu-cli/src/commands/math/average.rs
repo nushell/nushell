@@ -9,8 +9,6 @@ use nu_protocol::{
     Primitive, Signature, UntaggedValue, Value,
 };
 
-struct AverageArgs {}
-
 pub struct SubCommand;
 
 #[async_trait]

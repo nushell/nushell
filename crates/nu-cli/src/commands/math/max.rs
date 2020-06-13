@@ -2,10 +2,8 @@ use crate::commands::math::utils::calculate;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use crate::utils::data_processing::{reducer_for, Reduce};
-use bigdecimal::FromPrimitive;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, Signature, UntaggedValue, Value};
-struct MaximumArgs {}
+use nu_protocol::{Signature, UntaggedValue, Value};
 
 pub struct SubCommand;
 

@@ -1,12 +1,6 @@
 use crate::prelude::*;
-use crate::utils::data_processing::{reducer_for, Reduce};
-use bigdecimal::FromPrimitive;
 use nu_errors::ShellError;
-use nu_protocol::hir::{convert_number_to_u64, Number, Operator};
-use nu_protocol::{
-    Dictionary, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
-};
-use num_traits::identities::Zero;
+use nu_protocol::{Dictionary, ReturnSuccess, UntaggedValue, Value};
 
 use indexmap::map::IndexMap;
 
