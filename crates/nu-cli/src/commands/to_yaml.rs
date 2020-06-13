@@ -24,7 +24,7 @@ impl WholeStreamCommand for ToYAML {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        to_yaml(args, registry)
+        to_yaml(args, registry).await
     }
 }
 
@@ -125,51 +125,55 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
     })
 }
 
-fn to_yaml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn to_yaml(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let args = args.evaluate_once(&registry).await?;
-        let name_tag = args.name_tag();
-        let name_span = name_tag.span;
+    let args = args.evaluate_once(&registry).await?;
+    let name_tag = args.name_tag();
+    let name_span = name_tag.span;
 
-        let input: Vec<Value> = args.input.collect().await;
+    let input: Vec<Value> = args.input.collect().await;
 
-        let to_process_input = if input.len() > 1 {
+    let to_process_input = match input.len() {
+        x if x > 1 => {
             let tag = input[0].tag.clone();
-            vec![Value { value: UntaggedValue::Table(input), tag } ]
-        } else if input.len() == 1 {
-            input
-        } else {
-            vec![]
-        };
+            vec![Value {
+                value: UntaggedValue::Table(input),
+                tag,
+            }]
+        }
+        1 => input,
+        _ => vec![],
+    };
 
-        for value in to_process_input {
+    Ok(
+        futures::stream::iter(to_process_input.into_iter().map(move |value| {
             let value_span = value.tag.span;
 
             match value_to_yaml_value(&value) {
-                Ok(yaml_value) => {
-                    match serde_yaml::to_string(&yaml_value) {
-                        Ok(x) => yield ReturnSuccess::value(
-                            UntaggedValue::Primitive(Primitive::String(x)).into_value(&name_tag),
-                        ),
-                        _ => yield Err(ShellError::labeled_error_with_secondary(
-                            "Expected a table with YAML-compatible structure from pipeline",
-                            "requires YAML-compatible input",
-                            name_span,
-                            "originates from here".to_string(),
-                            value_span,
-                        )),
-                    }
-                }
-                _ => yield Err(ShellError::labeled_error(
+                Ok(yaml_value) => match serde_yaml::to_string(&yaml_value) {
+                    Ok(x) => ReturnSuccess::value(
+                        UntaggedValue::Primitive(Primitive::String(x)).into_value(&name_tag),
+                    ),
+                    _ => Err(ShellError::labeled_error_with_secondary(
+                        "Expected a table with YAML-compatible structure from pipeline",
+                        "requires YAML-compatible input",
+                        name_span,
+                        "originates from here".to_string(),
+                        value_span,
+                    )),
+                },
+                _ => Err(ShellError::labeled_error(
                     "Expected a table with YAML-compatible structure from pipeline",
                     "requires YAML-compatible input",
-                    &name_tag))
+                    &name_tag,
+                )),
             }
-        }
-    };
-
-    Ok(stream.to_output_stream())
+        }))
+        .to_output_stream(),
+    )
 }
 
 #[cfg(test)]

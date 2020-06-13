@@ -33,21 +33,25 @@ impl WholeStreamCommand for History {
 
 fn history(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag;
-    let stream = async_stream! {
-        let history_path = HistoryFile::path();
-        let file = File::open(history_path);
-        if let Ok(file) = file {
-            let reader = BufReader::new(file);
-            for line in reader.lines() {
-                if let Ok(line) = line {
-                    yield ReturnSuccess::value(UntaggedValue::string(line).into_value(tag.clone()));
-                }
-            }
-        } else {
-            yield Err(ShellError::labeled_error("Could not open history", "history file could not be opened", tag.clone()));
-        }
-    };
-    Ok(stream.to_output_stream())
+    let history_path = HistoryFile::path();
+    let file = File::open(history_path);
+    if let Ok(file) = file {
+        let reader = BufReader::new(file);
+        let output = reader.lines().filter_map(move |line| match line {
+            Ok(line) => Some(ReturnSuccess::value(
+                UntaggedValue::string(line).into_value(tag.clone()),
+            )),
+            Err(_) => None,
+        });
+
+        Ok(futures::stream::iter(output).to_output_stream())
+    } else {
+        Err(ShellError::labeled_error(
+            "Could not open history",
+            "history file could not be opened",
+            tag,
+        ))
+    }
 }
 
 #[cfg(test)]

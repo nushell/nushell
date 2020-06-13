@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, ReturnValue, Signature, UntaggedValue};
+use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 
 pub struct What;
 
@@ -28,23 +28,23 @@ impl WholeStreamCommand for What {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        // args.process(registry, what)?.run()
-        what(args, registry)
+        what(args, registry).await
     }
 }
 
-pub fn what(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let stream = async_stream! {
-        let mut input = args.input;
-        while let Some(row) = input.next().await {
+pub async fn what(
+    args: CommandArgs,
+    _registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
+    Ok(args
+        .input
+        .map(|row| {
             let name = value::format_type(&row, 100);
-            yield ReturnSuccess::value(UntaggedValue::string(name).into_value(Tag::unknown_anchor(row.tag.span)));
-        }
-    };
-
-    let stream: BoxStream<'static, ReturnValue> = stream.boxed();
-
-    Ok(OutputStream::from(stream))
+            ReturnSuccess::value(
+                UntaggedValue::string(name).into_value(Tag::unknown_anchor(row.tag.span)),
+            )
+        })
+        .to_output_stream())
 }
 
 #[cfg(test)]

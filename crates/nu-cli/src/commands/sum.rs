@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use crate::utils::data_processing::{reducer_for, Reduce};
 use nu_errors::ShellError;
-use nu_protocol::{Dictionary, ReturnSuccess, ReturnValue, Signature, UntaggedValue, Value};
+use nu_protocol::{Dictionary, ReturnSuccess, Signature, UntaggedValue, Value};
 use num_traits::identities::Zero;
 
 use indexmap::map::IndexMap;
@@ -38,6 +38,7 @@ impl WholeStreamCommand for Sum {
             name: args.call_info.name_tag,
             raw_input: args.raw_input,
         })
+        .await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -56,48 +57,45 @@ impl WholeStreamCommand for Sum {
     }
 }
 
-fn sum(RunnableContext { mut input, .. }: RunnableContext) -> Result<OutputStream, ShellError> {
-    let stream = async_stream! {
-        let mut values: Vec<Value> = input.drain_vec().await;
-        let action = reducer_for(Reduce::Sum);
+async fn sum(
+    RunnableContext { mut input, .. }: RunnableContext,
+) -> Result<OutputStream, ShellError> {
+    let values: Vec<Value> = input.drain_vec().await;
+    let action = reducer_for(Reduce::Sum);
 
-        if values.iter().all(|v| if let UntaggedValue::Primitive(_) = v.value {true} else {false}) {
-            let total = action(Value::zero(), values)?;
-            yield ReturnSuccess::value(total)
-        } else {
-            let mut column_values = IndexMap::new();
-            for value in values {
-                match value.value {
-                    UntaggedValue::Row(row_dict) => {
-                        for (key, value) in row_dict.entries.iter() {
-                            column_values
-                                .entry(key.clone())
-                                .and_modify(|v: &mut Vec<Value>| v.push(value.clone()))
-                                .or_insert(vec![value.clone()]);
-                        }
-                    },
-                    table => {},
-                };
-            }
-
-            let mut column_totals = IndexMap::new();
-            for (col_name, col_vals) in column_values {
-                let sum = action(Value::zero(), col_vals);
-                match sum {
-                    Ok(value) => {
-                        column_totals.insert(col_name, value);
-                    },
-                    Err(err) => yield Err(err),
-                };
-            }
-            yield ReturnSuccess::value(
-                UntaggedValue::Row(Dictionary {entries: column_totals}).into_untagged_value())
+    if values.iter().all(|v| v.is_primitive()) {
+        let total = action(Value::zero(), values)?;
+        Ok(OutputStream::one(ReturnSuccess::value(total)))
+    } else {
+        let mut column_values = IndexMap::new();
+        for value in values {
+            if let UntaggedValue::Row(row_dict) = value.value {
+                for (key, value) in row_dict.entries.iter() {
+                    column_values
+                        .entry(key.clone())
+                        .and_modify(|v: &mut Vec<Value>| v.push(value.clone()))
+                        .or_insert(vec![value.clone()]);
+                }
+            };
         }
-    };
 
-    let stream: BoxStream<'static, ReturnValue> = stream.boxed();
-
-    Ok(stream.to_output_stream())
+        let mut column_totals = IndexMap::new();
+        for (col_name, col_vals) in column_values {
+            let sum = action(Value::zero(), col_vals);
+            match sum {
+                Ok(value) => {
+                    column_totals.insert(col_name, value);
+                }
+                Err(err) => return Err(err),
+            };
+        }
+        Ok(OutputStream::one(ReturnSuccess::value(
+            UntaggedValue::Row(Dictionary {
+                entries: column_totals,
+            })
+            .into_untagged_value(),
+        )))
+    }
 }
 
 #[cfg(test)]

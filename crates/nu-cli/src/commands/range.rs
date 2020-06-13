@@ -36,28 +36,25 @@ impl WholeStreamCommand for Range {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        range(args, registry)
+        range(args, registry).await
     }
 }
 
-fn range(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn range(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let (RangeArgs { area }, mut input) = args.process(&registry).await?;
-        let range = area.item;
-        let (from, _) = range.from;
-        let (to, _) = range.to;
+    let (RangeArgs { area }, input) = args.process(&registry).await?;
+    let range = area.item;
+    let (from, _) = range.from;
+    let (to, _) = range.to;
 
-        let from = *from as usize;
-        let to = *to as usize;
+    let from = *from as usize;
+    let to = *to as usize;
 
-        let mut inp = input.skip(from).take(to - from + 1);
-        while let Some(item) = inp.next().await {
-            yield ReturnSuccess::value(item);
-        }
-    };
-
-    Ok(stream.to_output_stream())
+    Ok(input
+        .skip(from)
+        .take(to - from + 1)
+        .map(ReturnSuccess::value)
+        .to_output_stream())
 }
 
 #[cfg(test)]

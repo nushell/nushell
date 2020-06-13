@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 
 #[derive(Deserialize)]
 struct PrependArgs {
@@ -34,7 +34,7 @@ impl WholeStreamCommand for Prepend {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        prepend(args, registry)
+        prepend(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -51,19 +51,17 @@ impl WholeStreamCommand for Prepend {
     }
 }
 
-fn prepend(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn prepend(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
 
-    let stream = async_stream! {
-        let (PrependArgs { row }, mut input) = args.process(&registry).await?;
+    let (PrependArgs { row }, input) = args.process(&registry).await?;
 
-        yield ReturnSuccess::value(row);
-        while let Some(item) = input.next().await {
-            yield ReturnSuccess::value(item);
-        }
-    };
+    let bos = futures::stream::iter(vec![row]);
 
-    Ok(stream.to_output_stream())
+    Ok(bos.chain(input).to_output_stream())
 }
 
 #[cfg(test)]

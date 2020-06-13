@@ -45,7 +45,7 @@ impl WholeStreamCommand for Histogram {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        histogram(args, registry)
+        histogram(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -70,95 +70,136 @@ impl WholeStreamCommand for Histogram {
     }
 }
 
-pub fn histogram(
+pub async fn histogram(
     args: CommandArgs,
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let name = args.call_info.name_tag.clone();
-    let stream = async_stream! {
-        let (HistogramArgs { column_name, rest}, mut input) = args.process(&registry).await?;
-        let values: Vec<Value> = input.collect().await;
+    let (HistogramArgs { column_name, rest }, input) = args.process(&registry).await?;
+    let values: Vec<Value> = input.collect().await;
 
-        let Tagged { item: group_by, .. } = column_name.clone();
+    let Tagged { item: group_by, .. } = column_name.clone();
 
-        let groups = group(&column_name, values, &name)?;
-        let group_labels = columns_sorted(Some(group_by.clone()), &groups, &name);
-        let sorted = t_sort(Some(group_by.clone()), None, &groups, &name)?;
-        let evaled = evaluate(&sorted, None, &name)?;
-        let reduced = reduce(&evaled, None, &name)?;
-        let maxima = map_max(&reduced, None, &name)?;
-        let percents = percentages(&reduced, maxima, &name)?;
+    let groups = group(&column_name, values, &name)?;
+    let group_labels = columns_sorted(Some(group_by.clone()), &groups, &name);
+    let sorted = t_sort(Some(group_by), None, &groups, &name)?;
+    let evaled = evaluate(&sorted, None, &name)?;
+    let reduced = reduce(&evaled, None, &name)?;
+    let maxima = map_max(&reduced, None, &name)?;
+    let percents = percentages(&reduced, maxima, &name)?;
 
-        match percents {
-            Value {
-                value: UntaggedValue::Table(datasets),
-                ..
-            } => {
+    match percents {
+        Value {
+            value: UntaggedValue::Table(datasets),
+            ..
+        } => {
+            let mut idx = 0;
 
-                let mut idx = 0;
+            let column_names_supplied: Vec<_> = rest.iter().map(|f| f.item.clone()).collect();
 
-                let column_names_supplied: Vec<_> = rest.iter().map(|f| f.item.clone()).collect();
+            let frequency_column_name = if column_names_supplied.is_empty() {
+                "frequency".to_string()
+            } else {
+                column_names_supplied[0].clone()
+            };
 
-                let frequency_column_name = if column_names_supplied.is_empty() {
-                    "frequency".to_string()
-                } else {
-                    column_names_supplied[0].clone()
-                };
+            let column = (*column_name).clone();
 
-                let column = (*column_name).clone();
+            let count_column_name = "count".to_string();
+            let count_shell_error = ShellError::labeled_error(
+                "Unable to load group count",
+                "unabled to load group count",
+                &name,
+            );
+            let mut count_values: Vec<u64> = Vec::new();
 
-                let count_column_name = "count".to_string();
-                let count_shell_error = ShellError::labeled_error("Unable to load group count", "unabled to load group count", &name);
-                let mut count_values: Vec<u64> = Vec::new();
-
-                for table_entry in reduced.table_entries() {
-                    match table_entry {
-                        Value {
-                            value: UntaggedValue::Table(list),
-                            ..
-                        } => {
-                            for i in list {
-                                if let Ok(count) = i.value.clone().into_value(&name).as_u64() {
-                                    count_values.push(count);
-                                } else {
-                                    yield Err(count_shell_error);
-                                    return;
-                                }
+            for table_entry in reduced.table_entries() {
+                match table_entry {
+                    Value {
+                        value: UntaggedValue::Table(list),
+                        ..
+                    } => {
+                        for i in list {
+                            if let Ok(count) = i.value.clone().into_value(&name).as_u64() {
+                                count_values.push(count);
+                            } else {
+                                return Err(count_shell_error);
                             }
                         }
-                        _ => {
-                            yield Err(count_shell_error);
-                            return;
-                        }
+                    }
+                    _ => {
+                        return Err(count_shell_error);
                     }
                 }
+            }
 
-                if let Value { value: UntaggedValue::Table(start), .. } = datasets.get(0).ok_or_else(|| ShellError::labeled_error("Unable to load dataset", "unabled to load dataset", &name))? {
-                    for percentage in start.iter() {
-
+            if let Value {
+                value: UntaggedValue::Table(start),
+                ..
+            } = datasets.get(0).ok_or_else(|| {
+                ShellError::labeled_error(
+                    "Unable to load dataset",
+                    "unabled to load dataset",
+                    &name,
+                )
+            })? {
+                let start = start.clone();
+                Ok(
+                    futures::stream::iter(start.into_iter().map(move |percentage| {
                         let mut fact = TaggedDictBuilder::new(&name);
-                        let value: Tagged<String> = group_labels.get(idx).ok_or_else(|| ShellError::labeled_error("Unable to load group labels", "unabled to load group labels", &name))?.clone();
-                        fact.insert_value(&column, UntaggedValue::string(value.item).into_value(value.tag));
+                        let value: Tagged<String> = group_labels
+                            .get(idx)
+                            .ok_or_else(|| {
+                                ShellError::labeled_error(
+                                    "Unable to load group labels",
+                                    "unabled to load group labels",
+                                    &name,
+                                )
+                            })?
+                            .clone();
+                        fact.insert_value(
+                            &column,
+                            UntaggedValue::string(value.item).into_value(value.tag),
+                        );
 
-                        fact.insert_untagged(&count_column_name, UntaggedValue::int(count_values[idx]));
+                        fact.insert_untagged(
+                            &count_column_name,
+                            UntaggedValue::int(count_values[idx]),
+                        );
 
-                        if let Value { value: UntaggedValue::Primitive(Primitive::Int(ref num)), ref tag } = percentage.clone() {
-                            let string = std::iter::repeat("*").take(num.to_i32().ok_or_else(|| ShellError::labeled_error("Expected a number", "expected a number", tag))? as usize).collect::<String>();
-                            fact.insert_untagged(&frequency_column_name, UntaggedValue::string(string));
+                        if let Value {
+                            value: UntaggedValue::Primitive(Primitive::Int(ref num)),
+                            ref tag,
+                        } = percentage
+                        {
+                            let string = std::iter::repeat("*")
+                                .take(num.to_i32().ok_or_else(|| {
+                                    ShellError::labeled_error(
+                                        "Expected a number",
+                                        "expected a number",
+                                        tag,
+                                    )
+                                })? as usize)
+                                .collect::<String>();
+                            fact.insert_untagged(
+                                &frequency_column_name,
+                                UntaggedValue::string(string),
+                            );
                         }
 
                         idx += 1;
 
-                        yield ReturnSuccess::value(fact.into_value());
-                    }
-                }
+                        ReturnSuccess::value(fact.into_value())
+                    }))
+                    .to_output_stream(),
+                )
+            } else {
+                Ok(OutputStream::empty())
             }
-            _ => {}
         }
-    };
-
-    Ok(stream.to_output_stream())
+        _ => Ok(OutputStream::empty()),
+    }
 }
 
 fn percentages(values: &Value, max: Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {

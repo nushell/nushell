@@ -65,7 +65,11 @@ pub fn read(
         Some(ref file) => file.clone(),
     };
 
-    touch(&filename)?;
+    if !filename.exists() && touch(&filename).is_err() {
+        // If we can't create configs, let's just return an empty indexmap instead as we may be in
+        // a readonly environment
+        return Ok(IndexMap::new());
+    }
 
     trace!("config file = {}", filename.display());
 

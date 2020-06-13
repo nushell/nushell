@@ -28,7 +28,7 @@ impl WholeStreamCommand for Which {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        which(args, registry)
+        which(args, registry).await
     }
 }
 
@@ -77,36 +77,42 @@ struct WhichArgs {
     all: bool,
 }
 
-fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let mut all = true;
-    let stream = async_stream! {
-        let (WhichArgs { application, all: all_items }, _) = args.process(&registry).await?;
-        all = all_items;
-        let external = application.starts_with('^');
-        let item = if external {
-            application.item[1..].to_string()
-        } else {
-            application.item.clone()
-        };
-        if !external {
-            let builtin = registry.has(&item);
-            if builtin {
-                yield ReturnSuccess::value(entry_builtin!(item, application.tag.clone()));
-            }
-        }
 
-        if let Ok(paths) = ichwh::which_all(&item).await {
-            for path in paths {
-                yield ReturnSuccess::value(entry_path!(item, path.into(), application.tag.clone()));
-            }
-        }
+    let mut output = vec![];
+
+    let (WhichArgs { application, all }, _) = args.process(&registry).await?;
+    let external = application.starts_with('^');
+    let item = if external {
+        application.item[1..].to_string()
+    } else {
+        application.item.clone()
     };
+    if !external {
+        let builtin = registry.has(&item);
+        if builtin {
+            output.push(ReturnSuccess::value(entry_builtin!(
+                item,
+                application.tag.clone()
+            )));
+        }
+    }
+
+    if let Ok(paths) = ichwh::which_all(&item).await {
+        for path in paths {
+            output.push(ReturnSuccess::value(entry_path!(
+                item,
+                path.into(),
+                application.tag.clone()
+            )));
+        }
+    }
 
     if all {
-        Ok(stream.to_output_stream())
+        Ok(futures::stream::iter(output.into_iter()).to_output_stream())
     } else {
-        Ok(stream.take(1).to_output_stream())
+        Ok(futures::stream::iter(output.into_iter().take(1)).to_output_stream())
     }
 }
 
