@@ -57,16 +57,6 @@ pub enum Primitive {
 }
 
 impl Primitive {
-    /// Utility function for determining if a primitive is a number type
-    /// Useful for functions that are only valid for number types like sum, min, max
-    pub fn is_number(&self) -> bool {
-        match self {
-            Primitive::Int(_) => true,
-            Primitive::Decimal(_) => true,
-            _ => false,
-        }
-    }
-
     /// Converts a primitive value to a u64, if possible. Uses a span to build an error if the conversion isn't possible.
     pub fn as_u64(&self, span: Span) -> Result<u64, ShellError> {
         match self {
