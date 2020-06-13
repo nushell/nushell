@@ -2,7 +2,7 @@ use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, ReturnSuccess, Signature, SyntaxShape, Value};
+use nu_protocol::{hir::Block, Signature, SyntaxShape, Value};
 use nu_source::Tagged;
 
 pub struct WithEnv;
@@ -42,7 +42,7 @@ impl WholeStreamCommand for WithEnv {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        with_env(args, registry)
+        with_env(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -54,46 +54,29 @@ impl WholeStreamCommand for WithEnv {
     }
 }
 
-fn with_env(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn with_env(
+    raw_args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
 
-    let stream = async_stream! {
-        let mut context = Context::from_raw(&raw_args, &registry);
-        let mut scope = raw_args
-            .call_info
-            .scope
-            .clone();
-        let (WithEnvArgs { variable, block }, mut input) = raw_args.process(&registry).await?;
+    let mut context = Context::from_raw(&raw_args, &registry);
+    let mut scope = raw_args.call_info.scope.clone();
+    let (WithEnvArgs { variable, block }, input) = raw_args.process(&registry).await?;
 
-        scope.env.insert(variable.0.item, variable.1.item);
+    scope.env.insert(variable.0.item, variable.1.item);
 
-        let result = run_block(
-            &block,
-            &mut context,
-            input,
-            &scope.it,
-            &scope.vars,
-            &scope.env,
-        ).await;
+    let result = run_block(
+        &block,
+        &mut context,
+        input,
+        &scope.it,
+        &scope.vars,
+        &scope.env,
+    )
+    .await;
 
-        match result {
-            Ok(mut stream) => {
-                while let Some(result) = stream.next().await {
-                    yield Ok(ReturnSuccess::Value(result));
-                }
-
-                let errors = context.get_errors();
-                if let Some(error) = errors.first() {
-                    yield Err(error.clone());
-                }
-            }
-            Err(e) => {
-                yield Err(e);
-            }
-        }
-    };
-
-    Ok(stream.to_output_stream())
+    result.map(|x| x.to_output_stream())
 }
 
 #[cfg(test)]

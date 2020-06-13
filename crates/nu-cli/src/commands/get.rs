@@ -39,7 +39,7 @@ impl WholeStreamCommand for Get {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        get(args, registry)
+        get(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -192,21 +192,24 @@ pub fn get_column_path(path: &ColumnPath, obj: &Value) -> Result<Value, ShellErr
     )
 }
 
-pub fn get(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+pub async fn get(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let (GetArgs { rest: mut fields }, mut input) = args.process(&registry).await?;
-        if fields.is_empty() {
-            let mut vec = input.drain_vec().await;
+    let (GetArgs { rest: mut fields }, mut input) = args.process(&registry).await?;
+    if fields.is_empty() {
+        let vec = input.drain_vec().await;
 
-            let descs = nu_protocol::merge_descriptors(&vec);
-            for desc in descs {
-                yield ReturnSuccess::value(desc);
-            }
-        } else {
-            let member = fields.remove(0);
-            trace!("get {:?} {:?}", member, fields);
-            while let Some(item) = input.next().await {
+        let descs = nu_protocol::merge_descriptors(&vec);
+
+        Ok(futures::stream::iter(descs.into_iter().map(ReturnSuccess::value)).to_output_stream())
+    } else {
+        let member = fields.remove(0);
+        trace!("get {:?} {:?}", member, fields);
+
+        Ok(input
+            .map(move |item| {
                 let member = vec![member.clone()];
 
                 let column_paths = vec![&member, &fields]
@@ -214,6 +217,7 @@ pub fn get(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                     .flatten()
                     .collect::<Vec<&ColumnPath>>();
 
+                let mut output = vec![];
                 for path in column_paths {
                     let res = get_column_path(&path, &item);
 
@@ -224,24 +228,26 @@ pub fn get(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                                 ..
                             } => {
                                 for item in rows {
-                                    yield ReturnSuccess::value(item.clone());
+                                    output.push(ReturnSuccess::value(item.clone()));
                                 }
                             }
                             Value {
                                 value: UntaggedValue::Primitive(Primitive::Nothing),
                                 ..
                             } => {}
-                            other => yield ReturnSuccess::value(other.clone()),
+                            other => output.push(ReturnSuccess::value(other.clone())),
                         },
-                        Err(reason) => yield ReturnSuccess::value(
+                        Err(reason) => output.push(ReturnSuccess::value(
                             UntaggedValue::Error(reason).into_untagged_value(),
-                        ),
+                        )),
                     }
                 }
-            }
-        }
-    };
-    Ok(stream.to_output_stream())
+
+                futures::stream::iter(output)
+            })
+            .flatten()
+            .to_output_stream())
+    }
 }
 
 #[cfg(test)]

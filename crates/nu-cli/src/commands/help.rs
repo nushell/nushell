@@ -36,70 +36,93 @@ impl WholeStreamCommand for Help {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        help(args, registry)
+        help(args, registry).await
     }
 }
 
-fn help(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn help(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let name = args.call_info.name_tag.clone();
-    let stream = async_stream! {
-        let (HelpArgs { rest }, mut input) = args.process(&registry).await?;
-        if let Some(document) = rest.get(0) {
-            if document.item == "commands" {
-                let mut sorted_names = registry.names();
-                sorted_names.sort();
-                for cmd in sorted_names {
+    let (HelpArgs { rest }, ..) = args.process(&registry).await?;
+
+    if !rest.is_empty() {
+        if rest[0].item == "commands" {
+            let mut sorted_names = registry.names();
+            sorted_names.sort();
+
+            Ok(
+                futures::stream::iter(sorted_names.into_iter().filter_map(move |cmd| {
                     // If it's a subcommand, don't list it during the commands list
                     if cmd.contains(' ') {
-                        continue;
+                        return None;
                     }
                     let mut short_desc = TaggedDictBuilder::new(name.clone());
-                    let document_tag = document.tag.clone();
+                    let document_tag = rest[0].tag.clone();
                     let value = command_dict(
-                        registry.get_command(&cmd).ok_or_else(|| {
+                        match registry.get_command(&cmd).ok_or_else(|| {
                             ShellError::labeled_error(
                                 format!("Could not load {}", cmd),
                                 "could not load command",
                                 document_tag,
                             )
-                        })?,
+                        }) {
+                            Ok(ok) => ok,
+                            Err(err) => return Some(Err(err)),
+                        },
                         name.clone(),
                     );
 
                     short_desc.insert_untagged("name", cmd);
                     short_desc.insert_untagged(
                         "description",
-                        get_data_by_key(&value, "usage".spanned_unknown())
-                            .ok_or_else(|| {
+                        match match get_data_by_key(&value, "usage".spanned_unknown()).ok_or_else(
+                            || {
                                 ShellError::labeled_error(
                                     "Expected a usage key",
                                     "expected a 'usage' key",
                                     &value.tag,
                                 )
-                            })?
-                            .as_string()?,
+                            },
+                        ) {
+                            Ok(ok) => ok,
+                            Err(err) => return Some(Err(err)),
+                        }
+                        .as_string()
+                        {
+                            Ok(ok) => ok,
+                            Err(err) => return Some(Err(err)),
+                        },
                     );
 
-                    yield ReturnSuccess::value(short_desc.into_value());
-                }
-            } else if rest.len() == 2 {
-                // Check for a subcommand
-                let command_name = format!("{} {}", rest[0].item, rest[1].item);
-                if let Some(command) = registry.get_command(&command_name) {
-                    yield Ok(ReturnSuccess::Value(UntaggedValue::string(get_help(command.stream_command(), &registry)).into_value(Tag::unknown())));
-                }
-            } else if let Some(command) = registry.get_command(&document.item) {
-                yield Ok(ReturnSuccess::Value(UntaggedValue::string(get_help(command.stream_command(), &registry)).into_value(Tag::unknown())));
+                    Some(ReturnSuccess::value(short_desc.into_value()))
+                }))
+                .to_output_stream(),
+            )
+        } else if rest.len() == 2 {
+            // Check for a subcommand
+            let command_name = format!("{} {}", rest[0].item, rest[1].item);
+            if let Some(command) = registry.get_command(&command_name) {
+                Ok(OutputStream::one(ReturnSuccess::value(
+                    UntaggedValue::string(get_help(command.stream_command(), &registry))
+                        .into_value(Tag::unknown()),
+                )))
             } else {
-                yield Err(ShellError::labeled_error(
-                    "Can't find command (use 'help commands' for full list)",
-                    "can't find command",
-                    document.tag.span,
-                ));
+                Ok(OutputStream::empty())
             }
+        } else if let Some(command) = registry.get_command(&rest[0].item) {
+            Ok(OutputStream::one(ReturnSuccess::value(
+                UntaggedValue::string(get_help(command.stream_command(), &registry))
+                    .into_value(Tag::unknown()),
+            )))
         } else {
-            let msg = r#"Welcome to Nushell.
+            Err(ShellError::labeled_error(
+                "Can't find command (use 'help commands' for full list)",
+                "can't find command",
+                rest[0].tag.span,
+            ))
+        }
+    } else {
+        let msg = r#"Welcome to Nushell.
 
 Here are some tips to help you get started.
   * help commands - list all available commands
@@ -121,11 +144,10 @@ Get the processes on your system actively using CPU:
 
 You can also learn more at https://www.nushell.sh/book/"#;
 
-            yield Ok(ReturnSuccess::Value(UntaggedValue::string(msg).into_value(Tag::unknown())));
-        }
-    };
-
-    Ok(stream.to_output_stream())
+        Ok(OutputStream::one(ReturnSuccess::value(
+            UntaggedValue::string(msg).into_value(Tag::unknown()),
+        )))
+    }
 }
 
 #[allow(clippy::cognitive_complexity)]

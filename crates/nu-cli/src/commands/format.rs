@@ -37,7 +37,7 @@ impl WholeStreamCommand for Format {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        format_command(args, registry)
+        format_command(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -49,49 +49,60 @@ impl WholeStreamCommand for Format {
     }
 }
 
-fn format_command(
+async fn format_command(
     args: CommandArgs,
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let stream = async_stream! {
-        let scope = args.call_info.scope.clone();
-        let (FormatArgs { pattern }, mut input) = args.process(&registry).await?;
-        let pattern_tag = pattern.tag.clone();
+    let registry = Arc::new(registry.clone());
+    let scope = Arc::new(args.call_info.scope.clone());
+    let (FormatArgs { pattern }, input) = args.process(&registry).await?;
 
-        let format_pattern = format(&pattern);
-        let commands = format_pattern;
+    let format_pattern = format(&pattern);
+    let commands = Arc::new(format_pattern);
 
-        while let Some(value) = input.next().await {
+    Ok(input
+        .then(move |value| {
             let mut output = String::new();
+            let commands = commands.clone();
+            let registry = registry.clone();
+            let scope = scope.clone();
 
-            for command in &commands {
-                match command {
-                    FormatCommand::Text(s) => {
-                        output.push_str(&s);
-                    }
-                    FormatCommand::Column(c) => {
-                        // FIXME: use the correct spans
-                        let full_column_path = nu_parser::parse_full_column_path(&(c.to_string()).spanned(Span::unknown()), &registry);
+            async move {
+                for command in &*commands {
+                    match command {
+                        FormatCommand::Text(s) => {
+                            output.push_str(&s);
+                        }
+                        FormatCommand::Column(c) => {
+                            // FIXME: use the correct spans
+                            let full_column_path = nu_parser::parse_full_column_path(
+                                &(c.to_string()).spanned(Span::unknown()),
+                                &*registry,
+                            );
 
-                        let result = evaluate_baseline_expr(&full_column_path.0, &registry, &value, &scope.vars, &scope.env).await;
+                            let result = evaluate_baseline_expr(
+                                &full_column_path.0,
+                                &registry,
+                                &value,
+                                &scope.vars,
+                                &scope.env,
+                            )
+                            .await;
 
-                        if let Ok(c) = result {
-                            output
-                                .push_str(&value::format_leaf(c.borrow()).plain_string(100_000))
-                        } else {
-                            // That column doesn't match, so don't emit anything
+                            if let Ok(c) = result {
+                                output
+                                    .push_str(&value::format_leaf(c.borrow()).plain_string(100_000))
+                            } else {
+                                // That column doesn't match, so don't emit anything
+                            }
                         }
                     }
                 }
+
+                ReturnSuccess::value(UntaggedValue::string(output).into_untagged_value())
             }
-
-            yield ReturnSuccess::value(
-                UntaggedValue::string(output).into_untagged_value())
-        }
-    };
-
-    Ok(stream.to_output_stream())
+        })
+        .to_output_stream())
 }
 
 #[derive(Debug)]

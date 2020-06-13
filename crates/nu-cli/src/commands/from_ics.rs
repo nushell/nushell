@@ -28,35 +28,40 @@ impl WholeStreamCommand for FromIcs {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        from_ics(args, registry)
+        from_ics(args, registry).await
     }
 }
 
-fn from_ics(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn from_ics(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let args = args.evaluate_once(&registry).await?;
-        let tag = args.name_tag();
-        let input = args.input;
+    let args = args.evaluate_once(&registry).await?;
+    let tag = args.name_tag();
+    let input = args.input;
 
-        let input_string = input.collect_string(tag.clone()).await?.item;
-        let input_bytes = input_string.as_bytes();
-        let buf_reader = BufReader::new(input_bytes);
-        let parser = ical::IcalParser::new(buf_reader);
+    let input_string = input.collect_string(tag.clone()).await?.item;
+    let input_bytes = input_string.as_bytes();
+    let buf_reader = BufReader::new(input_bytes);
+    let parser = ical::IcalParser::new(buf_reader);
 
-        for calendar in parser {
-            match calendar {
-                Ok(c) => yield ReturnSuccess::value(calendar_to_value(c, tag.clone())),
-                Err(_) => yield Err(ShellError::labeled_error(
-                    "Could not parse as .ics",
-                    "input cannot be parsed as .ics",
-                    tag.clone()
-                )),
-            }
+    // TODO: it should be possible to make this a stream, but the some of the lifetime requirements make this tricky.
+    // Pre-computing for now
+    let mut output = vec![];
+
+    for calendar in parser {
+        match calendar {
+            Ok(c) => output.push(ReturnSuccess::value(calendar_to_value(c, tag.clone()))),
+            Err(_) => output.push(Err(ShellError::labeled_error(
+                "Could not parse as .ics",
+                "input cannot be parsed as .ics",
+                tag.clone(),
+            ))),
         }
-    };
+    }
 
-    Ok(stream.to_output_stream())
+    Ok(futures::stream::iter(output).to_output_stream())
 }
 
 fn calendar_to_value(calendar: IcalCalendar, tag: Tag) -> Value {

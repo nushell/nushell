@@ -3,7 +3,7 @@ use crate::prelude::*;
 use derive_new::new;
 use log::trace;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, ReturnValue, Signature, UntaggedValue, Value};
+use nu_protocol::{ReturnValue, Signature, Value};
 use serde::{self, Deserialize, Serialize};
 use std::io::prelude::*;
 use std::io::BufReader;
@@ -304,49 +304,47 @@ impl WholeStreamCommand for PluginSink {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        sink_plugin(self.path.clone(), args, registry)
+        sink_plugin(self.path.clone(), args, registry).await
     }
 }
 
-pub fn sink_plugin(
+pub async fn sink_plugin(
     path: String,
     args: CommandArgs,
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let args = args.evaluate_once(&registry).await?;
-        let call_info = args.call_info.clone();
+    let args = args.evaluate_once(&registry).await?;
+    let call_info = args.call_info.clone();
 
-        let input: Vec<Value> = args.input.collect().await;
+    let input: Vec<Value> = args.input.collect().await;
 
-        let request = JsonRpc::new("sink", (call_info.clone(), input));
-        let request_raw = serde_json::to_string(&request);
-        if let Ok(request_raw) = request_raw {
-            if let Ok(mut tmpfile) = tempfile::NamedTempFile::new() {
-                let _ = writeln!(tmpfile, "{}", request_raw);
-                let _ = tmpfile.flush();
+    let request = JsonRpc::new("sink", (call_info.clone(), input));
+    let request_raw = serde_json::to_string(&request);
+    if let Ok(request_raw) = request_raw {
+        if let Ok(mut tmpfile) = tempfile::NamedTempFile::new() {
+            let _ = writeln!(tmpfile, "{}", request_raw);
+            let _ = tmpfile.flush();
 
-                let mut child = std::process::Command::new(path)
-                    .arg(tmpfile.path())
-                    .spawn();
+            let child = std::process::Command::new(path).arg(tmpfile.path()).spawn();
 
-                if let Ok(mut child) = child {
-                    let _ = child.wait();
+            if let Ok(mut child) = child {
+                let _ = child.wait();
 
-                    // Needed for async_stream to type check
-                    if false {
-                        yield ReturnSuccess::value(UntaggedValue::nothing().into_untagged_value());
-                    }
-                } else {
-                    yield Err(ShellError::untagged_runtime_error("Could not create process for sink command"));
-                }
+                Ok(OutputStream::empty())
             } else {
-                yield Err(ShellError::untagged_runtime_error("Could not open file to send sink command message"));
+                Err(ShellError::untagged_runtime_error(
+                    "Could not create process for sink command",
+                ))
             }
         } else {
-            yield Err(ShellError::untagged_runtime_error("Could not create message to sink command"));
+            Err(ShellError::untagged_runtime_error(
+                "Could not open file to send sink command message",
+            ))
         }
-    };
-    Ok(OutputStream::new(stream))
+    } else {
+        Err(ShellError::untagged_runtime_error(
+            "Could not create message to sink command",
+        ))
+    }
 }
