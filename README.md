@@ -303,6 +303,10 @@ Nu is in heavy development, and will naturally change as it matures and people u
 | Completions |          |     X     |     |         |        | Completions are currently barebones, at best
 | Type-checking |        |     X     |     |         |        | Commands check basic types, but input/output isn't checked
 
+# Current Roadmap
+
+We've added a `Roadmap Board` to help collaboratively capture the direction we're going for the current release as well as capture some important issues we'd like to see in NuShell. You can find the Roadmap [here](https://github.com/nushell/nushell/projects/2).
+
 # Contributing
 
 See [Contributing](CONTRIBUTING.md) for details.
