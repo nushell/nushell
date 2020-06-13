@@ -185,7 +185,7 @@ async fn save(
         let mut should_return_file_path_error = true;
 
         // If there is no filename, check the metadata for the anchor filename
-        if input.len() > 0 {
+        if !input.is_empty() {
             let anchor = input[0].tag.anchor();
 
             if let Some(path) = anchor {
@@ -203,14 +203,13 @@ async fn save(
                 name_tag.clone(),
             ));
         }
-    } else {
-        if let Some(file) = path {
-            full_path.push(file.item());
-        }
+    } else if let Some(file) = path {
+        full_path.push(file.item());
     }
 
     // TODO use label_break_value once it is stable:
     // https://github.com/rust-lang/rust/issues/48594
+    #[allow(clippy::never_loop)]
     let content: Result<Vec<u8>, ShellError> = 'scope: loop {
         break if !save_raw {
             if let Some(extension) = full_path.extension() {
@@ -254,7 +253,7 @@ async fn save(
 
     match content {
         Ok(save_data) => match std::fs::write(full_path, save_data) {
-            Ok(o) => Ok(OutputStream::empty()),
+            Ok(_) => Ok(OutputStream::empty()),
             Err(e) => Err(ShellError::labeled_error(
                 e.to_string(),
                 "IO error while saving",
