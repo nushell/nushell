@@ -72,9 +72,8 @@ async fn mv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
     let name = args.call_info.name_tag.clone();
     let shell_manager = args.shell_manager.clone();
     let (args, _) = args.process(&registry).await?;
-    let result = shell_manager.mv(args, name)?;
 
-    Ok(result)
+    shell_manager.mv(args, name)
 }
 
 #[cfg(test)]
