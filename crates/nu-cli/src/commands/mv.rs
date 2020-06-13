@@ -43,7 +43,7 @@ impl WholeStreamCommand for Move {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        mv(args, registry)
+        mv(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
