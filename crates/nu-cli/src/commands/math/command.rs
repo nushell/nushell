@@ -62,6 +62,12 @@ mod tests {
         }
         let tt: Vec<TestCase> = vec![
             TestCase {
+                description: "Empty data should throw an error",
+                values: Vec::new(),
+                expected_err: Some(ShellError::unexpected("Expected data")),
+                expected_res: Vec::new(),
+            },
+            TestCase {
                 description: "Single value",
                 values: vec![int(10)],
                 expected_err: None,
@@ -85,13 +91,12 @@ mod tests {
                 expected_err: None,
                 expected_res: vec![Ok(decimal(-5)), Ok(int(-14)), Ok(int(10))],
             },
-            // TODO-Address once we figure out how to handle this. Maybe it's not an important use-case
-            // TestCase {
-            //     description: "Mixed Negative Values",
-            //     values: vec![int(10), decimal(-11.5), decimal(-13.5)],
-            //     expected_err: None,
-            //     expected_res: vec![Ok(decimal(-5)), Ok(decimal(-13.5)), Ok(int(10))],
-            // },
+            TestCase {
+                description: "Mixed Negative Values",
+                values: vec![int(10), decimal(-11.5), decimal(-13.5)],
+                expected_err: None,
+                expected_res: vec![Ok(decimal(-5)), Ok(decimal(-13.5)), Ok(int(10))],
+            },
             // TODO-Uncomment once Issue: https://github.com/nushell/nushell/issues/1883 is resolved
             // TestCase {
             //     description: "Invalid Mixed Values",

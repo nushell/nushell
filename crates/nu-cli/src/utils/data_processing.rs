@@ -8,6 +8,9 @@ use nu_source::{SpannedItem, Tag, Tagged, TaggedItem};
 use nu_value_ext::{get_data_by_key, ValueExt};
 use num_traits::Zero;
 
+// Re-usable error messages
+const ERR_EMPTY_DATA: &str = "Cannot perform aggregate math operation on empty data";
+
 pub fn columns_sorted(
     _group_by_name: Option<String>,
     value: &Value,
@@ -198,6 +201,9 @@ pub fn evaluate(
 }
 
 pub fn sum(data: Vec<Value>) -> Result<Value, ShellError> {
+    if data.is_empty() {
+        return Err(ShellError::unexpected(ERR_EMPTY_DATA));
+    }
     let mut acc = Value::zero();
     for value in data {
         match value.value {
@@ -215,75 +221,51 @@ pub fn sum(data: Vec<Value>) -> Result<Value, ShellError> {
 }
 
 pub fn max(data: Vec<Value>) -> Result<Value, ShellError> {
-    if data.is_empty() {
-        return Err(ShellError::unexpected(
-            "Attempted to find maximum in empty data",
-        ));
-    }
+    let mut biggest = data
+        .first()
+        .ok_or_else(|| ShellError::unexpected(ERR_EMPTY_DATA))?
+        .value
+        .clone();
 
-    let mut biggest = if let UntaggedValue::Primitive(p) =
-        &data.first().expect("Expected a initial value").value
-    {
-        p.clone()
-    } else {
-        Value::zero()
-            .as_primitive()
-            .expect("Expected Value::zero to be primitive")
-    };
-
-    for value in data.into_iter() {
-        match value.value {
-            UntaggedValue::Primitive(p) => {
-                biggest = p.max(biggest);
+    for value in data.iter() {
+        if let Ok(greater_than) = compare_values(Operator::GreaterThan, &value.value, &biggest) {
+            if greater_than {
+                biggest = value.value.clone();
             }
-            _ => {
-                return Err(ShellError::labeled_error(
-                    "Attempted to compute the max with value that cannot be maximized.",
-                    "value appears here",
-                    value.tag.span,
-                ))
-            }
+        } else {
+            return Err(ShellError::unexpected(format!(
+                "Could not compare\nleft: {:?}\nright: {:?}",
+                biggest, value.value
+            )));
         }
     }
     Ok(Value {
-        value: UntaggedValue::Primitive(biggest),
+        value: biggest,
         tag: Tag::unknown(),
     })
 }
 
 pub fn min(data: Vec<Value>) -> Result<Value, ShellError> {
-    if data.is_empty() {
-        return Err(ShellError::unexpected(
-            "Attempted to find minimum in empty data",
-        ));
-    }
+    let mut smallest = data
+        .first()
+        .ok_or_else(|| ShellError::unexpected(ERR_EMPTY_DATA))?
+        .value
+        .clone();
 
-    let mut smallest = if let UntaggedValue::Primitive(p) =
-        &data.first().expect("Expected a initial value").value
-    {
-        p.clone()
-    } else {
-        Value::zero()
-            .as_primitive()
-            .expect("Expected Value::zero to be primitive")
-    };
-
-    for value in data.into_iter() {
-        match value.value {
-            UntaggedValue::Primitive(p) => {
-                smallest = p.min(smallest);
+    for value in data.iter() {
+        if let Ok(greater_than) = compare_values(Operator::LessThan, &value.value, &smallest) {
+            if greater_than {
+                smallest = value.value.clone();
             }
-            _ => {
-                return Err(ShellError::labeled_error(
-                    "Attempted to compute the min with value that cannot be minimized.",
-                    "value appears here",
-                    value.tag.span,
-                ))
-            }
+        } else {
+            return Err(ShellError::unexpected(format!(
+                "Could not compare\nleft: {:?}\nright: {:?}",
+                smallest, value.value
+            )));
         }
     }
     Ok(Value {
-        value: UntaggedValue::Primitive(smallest),
+        value: smallest,
         tag: Tag::unknown(),
     })
 }
