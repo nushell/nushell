@@ -3,7 +3,7 @@ use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ColumnPath, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{ColumnPath, ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_value_ext::ValueExt;
 
 use futures::stream::once;
@@ -44,105 +44,124 @@ impl WholeStreamCommand for Update {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        update(args, registry)
+        update(args, registry).await
     }
 }
 
-fn update(raw_args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let scope = raw_args.call_info.scope.clone();
+async fn process_row(
+    scope: Arc<Scope>,
+    mut context: Arc<Context>,
+    input: Value,
+    mut replacement: Arc<Value>,
+    field: Arc<ColumnPath>,
+) -> Result<OutputStream, ShellError> {
+    let replacement = Arc::make_mut(&mut replacement);
 
-    let stream = async_stream! {
-        let mut context = Context::from_raw(&raw_args, &registry);
-        let (UpdateArgs { field, replacement }, mut input) = raw_args.process(&registry).await?;
-        while let Some(input) = input.next().await {
-            let replacement = replacement.clone();
-            match replacement {
-                Value {
-                    value: UntaggedValue::Block(block),
-                    tag,
-                } =>  {
-                    let for_block = input.clone();
-                    let input_stream = once(async { Ok(for_block) }).to_input_stream();
+    Ok(match replacement {
+        Value {
+            value: UntaggedValue::Block(block),
+            ..
+        } => {
+            let for_block = input.clone();
+            let input_stream = once(async { Ok(for_block) }).to_input_stream();
 
-                    let result = run_block(
-                        &block,
-                        &mut context,
-                        input_stream,
-                        &input,
-                        &scope.vars,
-                        &scope.env
-                    ).await;
+            let result = run_block(
+                &block,
+                Arc::make_mut(&mut context),
+                input_stream,
+                &input,
+                &scope.vars,
+                &scope.env,
+            )
+            .await;
 
-                    match result {
-                        Ok(mut stream) => {
-                            let errors = context.get_errors();
-                            if let Some(error) = errors.first() {
-                                yield Err(error.clone());
-                            }
-
-                            match input {
-                                obj @ Value {
-                                    value: UntaggedValue::Row(_),
-                                    ..
-                                } => {
-                                    if let Some(result) = stream.next().await {
-                                        match obj.replace_data_at_column_path(&field, result.clone()) {
-                                            Some(v) => yield Ok(ReturnSuccess::Value(v)),
-                                            None => {
-                                                yield Err(ShellError::labeled_error(
-                                                    "update could not find place to insert column",
-                                                    "column name",
-                                                    obj.tag,
-                                                ))
-                                            }
-                                        }
-                                    }
-                                }
-                                Value { tag, ..} => {
-                                    yield Err(ShellError::labeled_error(
-                                        "Unrecognized type in stream",
-                                        "original value",
-                                        tag,
-                                    ))
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            yield Err(e);
-                        }
+            match result {
+                Ok(mut stream) => {
+                    let errors = context.get_errors();
+                    if let Some(error) = errors.first() {
+                        return Err(error.clone());
                     }
-                }
-                _ => {
+
                     match input {
-                        obj @ Value {
+                        obj
+                        @
+                        Value {
                             value: UntaggedValue::Row(_),
                             ..
-                        } => match obj.replace_data_at_column_path(&field, replacement.clone()) {
-                            Some(v) => yield Ok(ReturnSuccess::Value(v)),
-                            None => {
-                                yield Err(ShellError::labeled_error(
-                                    "update could not find place to insert column",
-                                    "column name",
-                                    obj.tag,
-                                ))
+                        } => {
+                            if let Some(result) = stream.next().await {
+                                match obj.replace_data_at_column_path(&field, result) {
+                                    Some(v) => OutputStream::one(ReturnSuccess::value(v)),
+                                    None => OutputStream::one(Err(ShellError::labeled_error(
+                                        "update could not find place to insert column",
+                                        "column name",
+                                        obj.tag,
+                                    ))),
+                                }
+                            } else {
+                                OutputStream::empty()
                             }
-                        },
-                        Value { tag, ..} => {
-                            yield Err(ShellError::labeled_error(
-                                "Unrecognized type in stream",
-                                "original value",
-                                tag,
-                            ))
                         }
-                        _ => {}
+                        Value { tag, .. } => OutputStream::one(Err(ShellError::labeled_error(
+                            "Unrecognized type in stream",
+                            "original value",
+                            tag,
+                        ))),
                     }
                 }
+                Err(e) => OutputStream::one(Err(e)),
             }
         }
-    };
+        _ => match input {
+            obj
+            @
+            Value {
+                value: UntaggedValue::Row(_),
+                ..
+            } => match obj.replace_data_at_column_path(&field, replacement.clone()) {
+                Some(v) => OutputStream::one(ReturnSuccess::value(v)),
+                None => OutputStream::one(Err(ShellError::labeled_error(
+                    "update could not find place to insert column",
+                    "column name",
+                    obj.tag,
+                ))),
+            },
+            Value { tag, .. } => OutputStream::one(Err(ShellError::labeled_error(
+                "Unrecognized type in stream",
+                "original value",
+                tag,
+            ))),
+        },
+    })
+}
 
-    Ok(stream.to_output_stream())
+async fn update(
+    raw_args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let scope = Arc::new(raw_args.call_info.scope.clone());
+    let context = Arc::new(Context::from_raw(&raw_args, &registry));
+    let (UpdateArgs { field, replacement }, input) = raw_args.process(&registry).await?;
+    let replacement = Arc::new(replacement);
+    let field = Arc::new(field);
+
+    Ok(input
+        .then(move |input| {
+            let replacement = replacement.clone();
+            let scope = scope.clone();
+            let context = context.clone();
+            let field = field.clone();
+
+            async {
+                match process_row(scope, context, input, replacement, field).await {
+                    Ok(s) => s,
+                    Err(e) => OutputStream::one(Err(e)),
+                }
+            }
+        })
+        .flatten()
+        .to_output_stream())
 }
 
 #[cfg(test)]
