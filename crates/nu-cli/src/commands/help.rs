@@ -43,7 +43,7 @@ impl WholeStreamCommand for Help {
 async fn help(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let name = args.call_info.name_tag.clone();
-    let (HelpArgs { rest }, input) = args.process(&registry).await?;
+    let (HelpArgs { rest }, ..) = args.process(&registry).await?;
 
     if !rest.is_empty() {
         if rest[0].item == "commands" {
