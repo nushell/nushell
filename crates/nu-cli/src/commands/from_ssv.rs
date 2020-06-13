@@ -51,7 +51,7 @@ impl WholeStreamCommand for FromSSV {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        from_ssv(args, registry)
+        from_ssv(args, registry).await
     }
 }
 
@@ -251,37 +251,53 @@ fn from_ssv_string_to_value(
     Some(UntaggedValue::Table(rows).into_value(&tag))
 }
 
-fn from_ssv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn from_ssv(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let registry = registry.clone();
-    let stream = async_stream! {
-        let (FromSSVArgs { headerless, aligned_columns, minimum_spaces }, mut input) = args.process(&registry).await?;
-        let concat_string = input.collect_string(name.clone()).await?;
-        let split_at = match minimum_spaces {
-            Some(number) => number.item,
-            None => DEFAULT_MINIMUM_SPACES
-        };
+    let (
+        FromSSVArgs {
+            headerless,
+            aligned_columns,
+            minimum_spaces,
+        },
+        input,
+    ) = args.process(&registry).await?;
+    let concat_string = input.collect_string(name.clone()).await?;
+    let split_at = match minimum_spaces {
+        Some(number) => number.item,
+        None => DEFAULT_MINIMUM_SPACES,
+    };
 
-        match from_ssv_string_to_value(&concat_string.item, headerless, aligned_columns, split_at, name.clone()) {
+    Ok(
+        match from_ssv_string_to_value(
+            &concat_string.item,
+            headerless,
+            aligned_columns,
+            split_at,
+            name.clone(),
+        ) {
             Some(x) => match x {
-                Value { value: UntaggedValue::Table(list), ..} => {
-                    for l in list { yield ReturnSuccess::value(l) }
-                }
-                x => yield ReturnSuccess::value(x)
+                Value {
+                    value: UntaggedValue::Table(list),
+                    ..
+                } => futures::stream::iter(list.into_iter().map(ReturnSuccess::value))
+                    .to_output_stream(),
+                x => OutputStream::one(ReturnSuccess::value(x)),
             },
             None => {
-                yield Err(ShellError::labeled_error_with_secondary(
+                return Err(ShellError::labeled_error_with_secondary(
                     "Could not parse as SSV",
                     "input cannot be parsed ssv",
                     &name,
                     "value originates from here",
                     &concat_string.tag,
-                ))
-            },
-        }
-    };
-
-    Ok(stream.to_output_stream())
+                ));
+            }
+        },
+    )
 }
 
 #[cfg(test)]

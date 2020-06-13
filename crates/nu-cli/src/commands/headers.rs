@@ -28,7 +28,7 @@ impl WholeStreamCommand for Headers {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        headers(args, registry)
+        headers(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -40,51 +40,65 @@ impl WholeStreamCommand for Headers {
     }
 }
 
-pub fn headers(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let stream = async_stream! {
-        let mut input = args.input;
-        let rows: Vec<Value> = input.collect().await;
+pub async fn headers(
+    args: CommandArgs,
+    _registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
+    let input = args.input;
+    let rows: Vec<Value> = input.collect().await;
 
-        if rows.len() < 1 {
-            yield Err(ShellError::untagged_runtime_error("Couldn't find headers, was the input a properly formatted, non-empty table?"));
-        }
+    if rows.is_empty() {
+        return Err(ShellError::untagged_runtime_error(
+            "Couldn't find headers, was the input a properly formatted, non-empty table?",
+        ));
+    }
 
-        //the headers are the first row in the table
-        let headers: Vec<String> = match &rows[0].value {
-            UntaggedValue::Row(d) => {
-                Ok(d.entries.iter().map(|(k, v)| {
+    //the headers are the first row in the table
+    let headers: Vec<String> = match &rows[0].value {
+        UntaggedValue::Row(d) => {
+            Ok(d.entries
+                .iter()
+                .map(|(k, v)| {
                     match v.as_string() {
                         Ok(s) => s,
-                        Err(_) => { //If a cell that should contain a header name is empty, we name the column Column[index]
+                        Err(_) => {
+                            //If a cell that should contain a header name is empty, we name the column Column[index]
                             match d.entries.get_full(k) {
                                 Some((index, _, _)) => format!("Column{}", index),
-                                None => "unknownColumn".to_string()
+                                None => "unknownColumn".to_string(),
                             }
                         }
                     }
-                }).collect())
-            }
-            _ => Err(ShellError::unexpected_eof("Could not get headers, is the table empty?", rows[0].tag.span))
-        }?;
+                })
+                .collect())
+        }
+        _ => Err(ShellError::unexpected_eof(
+            "Could not get headers, is the table empty?",
+            rows[0].tag.span,
+        )),
+    }?;
 
-        //Each row is a dictionary with the headers as keys
-        for r in rows.iter().skip(1) {
+    Ok(
+        futures::stream::iter(rows.into_iter().skip(1).map(move |r| {
+            //Each row is a dictionary with the headers as keys
             match &r.value {
                 UntaggedValue::Row(d) => {
-                    let mut i = 0;
                     let mut entries = IndexMap::new();
-                    for (_, v) in d.entries.iter() {
+                    for (i, (_, v)) in d.entries.iter().enumerate() {
                         entries.insert(headers[i].clone(), v.clone());
-                        i += 1;
                     }
-                    yield Ok(ReturnSuccess::Value(UntaggedValue::Row(Dictionary{entries}).into_value(r.tag.clone())))
+                    Ok(ReturnSuccess::Value(
+                        UntaggedValue::Row(Dictionary { entries }).into_value(r.tag.clone()),
+                    ))
                 }
-                _ => yield Err(ShellError::unexpected_eof("Couldn't iterate through rows, was the input a properly formatted table?", r.tag.span))
+                _ => Err(ShellError::unexpected_eof(
+                    "Couldn't iterate through rows, was the input a properly formatted table?",
+                    r.tag.span,
+                )),
             }
-        }
-    };
-
-    Ok(stream.to_output_stream())
+        }))
+        .to_output_stream(),
+    )
 }
 
 #[cfg(test)]
