@@ -8,6 +8,9 @@ use nu_source::{SpannedItem, Tag, Tagged, TaggedItem};
 use nu_value_ext::{get_data_by_key, ValueExt};
 use num_traits::Zero;
 
+// Re-usable error messages
+const ERR_EMPTY_DATA: &str = "Cannot perform aggregate math operation on empty data";
+
 pub fn columns_sorted(
     _group_by_name: Option<String>,
     value: &Value,
@@ -198,6 +201,9 @@ pub fn evaluate(
 }
 
 pub fn sum(data: Vec<Value>) -> Result<Value, ShellError> {
+    if data.is_empty() {
+        return Err(ShellError::unexpected(ERR_EMPTY_DATA));
+    }
     let mut acc = Value::zero();
     for value in data {
         match value.value {
@@ -212,6 +218,56 @@ pub fn sum(data: Vec<Value>) -> Result<Value, ShellError> {
         }
     }
     Ok(acc)
+}
+
+pub fn max(data: Vec<Value>) -> Result<Value, ShellError> {
+    let mut biggest = data
+        .first()
+        .ok_or_else(|| ShellError::unexpected(ERR_EMPTY_DATA))?
+        .value
+        .clone();
+
+    for value in data.iter() {
+        if let Ok(greater_than) = compare_values(Operator::GreaterThan, &value.value, &biggest) {
+            if greater_than {
+                biggest = value.value.clone();
+            }
+        } else {
+            return Err(ShellError::unexpected(format!(
+                "Could not compare\nleft: {:?}\nright: {:?}",
+                biggest, value.value
+            )));
+        }
+    }
+    Ok(Value {
+        value: biggest,
+        tag: Tag::unknown(),
+    })
+}
+
+pub fn min(data: Vec<Value>) -> Result<Value, ShellError> {
+    let mut smallest = data
+        .first()
+        .ok_or_else(|| ShellError::unexpected(ERR_EMPTY_DATA))?
+        .value
+        .clone();
+
+    for value in data.iter() {
+        if let Ok(greater_than) = compare_values(Operator::LessThan, &value.value, &smallest) {
+            if greater_than {
+                smallest = value.value.clone();
+            }
+        } else {
+            return Err(ShellError::unexpected(format!(
+                "Could not compare\nleft: {:?}\nright: {:?}",
+                smallest, value.value
+            )));
+        }
+    }
+    Ok(Value {
+        value: smallest,
+        tag: Tag::unknown(),
+    })
 }
 
 fn formula(
@@ -233,11 +289,15 @@ pub fn reducer_for(
 ) -> Box<dyn Fn(Value, Vec<Value>) -> Result<Value, ShellError> + Send + Sync + 'static> {
     match command {
         Reduce::Sum | Reduce::Default => Box::new(formula(Value::zero(), Box::new(sum))),
+        Reduce::Minimum => Box::new(|_, values| min(values)),
+        Reduce::Maximum => Box::new(|_, values| max(values)),
     }
 }
 
 pub enum Reduce {
     Sum,
+    Minimum,
+    Maximum,
     Default,
 }
 
@@ -250,6 +310,8 @@ pub fn reduce(
 
     let reduce_with = match reducer {
         Some(cmd) if cmd == "sum" => reducer_for(Reduce::Sum),
+        Some(cmd) if cmd == "min" => reducer_for(Reduce::Minimum),
+        Some(cmd) if cmd == "max" => reducer_for(Reduce::Maximum),
         Some(_) | None => reducer_for(Reduce::Default),
     };
 

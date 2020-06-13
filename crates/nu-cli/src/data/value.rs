@@ -126,6 +126,7 @@ pub fn compute_values(
     }
 }
 
+/// If left is {{ Operator }} right
 pub fn compare_values(
     operator: Operator,
     left: &UntaggedValue,

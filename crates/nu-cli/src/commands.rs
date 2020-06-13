@@ -8,7 +8,6 @@ pub(crate) mod alias;
 pub(crate) mod append;
 pub(crate) mod args;
 pub(crate) mod autoview;
-pub(crate) mod average;
 pub(crate) mod build_string;
 pub(crate) mod cal;
 pub(crate) mod calc;
@@ -68,6 +67,7 @@ pub(crate) mod lines;
 pub(crate) mod ls;
 #[allow(unused)]
 pub(crate) mod map_max_by;
+pub(crate) mod math;
 pub(crate) mod merge;
 pub(crate) mod mkdir;
 pub(crate) mod mv;
@@ -135,7 +135,6 @@ pub(crate) use command::{
 
 pub(crate) use alias::Alias;
 pub(crate) use append::Append;
-pub(crate) use average::Average;
 pub(crate) use build_string::BuildString;
 pub(crate) use cal::Cal;
 pub(crate) use calc::Calc;
@@ -151,6 +150,7 @@ pub(crate) use du::Du;
 pub(crate) use each::Each;
 pub(crate) use echo::Echo;
 pub(crate) use is_empty::IsEmpty;
+pub(crate) use math::Math;
 pub(crate) use update::Update;
 pub(crate) mod kill;
 pub(crate) use kill::Kill;
@@ -198,6 +198,7 @@ pub(crate) use lines::Lines;
 pub(crate) use ls::Ls;
 #[allow(unused_imports)]
 pub(crate) use map_max_by::MapMaxBy;
+pub(crate) use math::{Average, Maximum, Minimum};
 pub(crate) use merge::Merge;
 pub(crate) use mkdir::Mkdir;
 pub(crate) use mv::Move;

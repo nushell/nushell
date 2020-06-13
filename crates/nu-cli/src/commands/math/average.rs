@@ -1,28 +1,28 @@
+use crate::commands::math::utils::calculate;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use crate::utils::data_processing::{reducer_for, Reduce};
-use bigdecimal::FromPrimitive;
+use bigdecimal::{FromPrimitive, Zero};
 use nu_errors::ShellError;
-use nu_protocol::hir::{convert_number_to_u64, Number, Operator};
-use nu_protocol::{Dictionary, Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
-use num_traits::identities::Zero;
+use nu_protocol::{
+    hir::{convert_number_to_u64, Number, Operator},
+    Primitive, Signature, UntaggedValue, Value,
+};
 
-use indexmap::map::IndexMap;
-
-pub struct Average;
+pub struct SubCommand;
 
 #[async_trait]
-impl WholeStreamCommand for Average {
+impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
-        "average"
+        "math average"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("average")
+        Signature::build("math average")
     }
 
     fn usage(&self) -> &str {
-        "Average the values."
+        "Gets the average of a list of numbers"
     }
 
     async fn run(
@@ -30,75 +30,32 @@ impl WholeStreamCommand for Average {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        average(RunnableContext {
-            input: args.input,
-            registry: registry.clone(),
-            shell_manager: args.shell_manager,
-            host: args.host,
-            ctrl_c: args.ctrl_c,
-            current_errors: args.current_errors,
-            name: args.call_info.name_tag,
-            raw_input: args.raw_input,
-        })
+        calculate(
+            RunnableContext {
+                input: args.input,
+                registry: registry.clone(),
+                shell_manager: args.shell_manager,
+                host: args.host,
+                ctrl_c: args.ctrl_c,
+                current_errors: args.current_errors,
+                name: args.call_info.name_tag,
+                raw_input: args.raw_input,
+            },
+            average,
+        )
         .await
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Average a list of numbers",
-            example: "echo [100 0 100 0] | average",
-            result: Some(vec![UntaggedValue::decimal(50).into()]),
+            description: "Get the average of a list of numbers",
+            example: "echo [-50 100.0 25] | math average",
+            result: Some(vec![UntaggedValue::decimal(25).into()]),
         }]
     }
 }
 
-async fn average(
-    RunnableContext {
-        mut input, name, ..
-    }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    let values: Vec<Value> = input.drain_vec().await;
-
-    if values.iter().all(|v| v.is_primitive()) {
-        match avg(&values, name) {
-            Ok(result) => Ok(OutputStream::one(ReturnSuccess::value(result))),
-            Err(err) => Err(err),
-        }
-    } else {
-        let mut column_values = IndexMap::new();
-        for value in values {
-            if let UntaggedValue::Row(row_dict) = value.value {
-                for (key, value) in row_dict.entries.iter() {
-                    column_values
-                        .entry(key.clone())
-                        .and_modify(|v: &mut Vec<Value>| v.push(value.clone()))
-                        .or_insert(vec![value.clone()]);
-                }
-            }
-        }
-
-        let mut column_totals = IndexMap::new();
-        for (col_name, col_vals) in column_values {
-            match avg(&col_vals, &name) {
-                Ok(result) => {
-                    column_totals.insert(col_name, result);
-                }
-                Err(err) => return Err(err),
-            }
-        }
-
-        Ok(OutputStream::one(ReturnSuccess::value(
-            UntaggedValue::Row(Dictionary {
-                entries: column_totals,
-            })
-            .into_untagged_value(),
-        )))
-    }
-}
-
-fn avg(values: &[Value], name: impl Into<Tag>) -> Result<Value, ShellError> {
-    let name = name.into();
-
+pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
     let sum = reducer_for(Reduce::Sum);
 
     let number = BigDecimal::from_usize(values.len()).expect("expected a usize-sized bigdecimal");
@@ -156,12 +113,12 @@ fn avg(values: &[Value], name: impl Into<Tag>) -> Result<Value, ShellError> {
 
 #[cfg(test)]
 mod tests {
-    use super::Average;
+    use super::SubCommand;
 
     #[test]
     fn examples_work_as_expected() {
         use crate::examples::test as test_examples;
 
-        test_examples(Average {})
+        test_examples(SubCommand {})
     }
 }
