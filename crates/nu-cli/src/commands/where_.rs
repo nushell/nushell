@@ -35,7 +35,7 @@ impl WholeStreamCommand for Where {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        where_command(args, registry)
+        where_command(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -63,65 +63,71 @@ impl WholeStreamCommand for Where {
         ]
     }
 }
-fn where_command(
+async fn where_command(
     raw_args: CommandArgs,
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let scope = raw_args.call_info.scope.clone();
+    let registry = Arc::new(registry.clone());
+    let scope = Arc::new(raw_args.call_info.scope.clone());
     let tag = raw_args.call_info.name_tag.clone();
-    let stream = async_stream! {
-        let (WhereArgs { block }, mut input) = raw_args.process(&registry).await?;
-        let condition = {
-            if block.block.len() != 1 {
-                yield Err(ShellError::labeled_error(
-                    "Expected a condition",
-                    "expected a condition",
-                    tag,
-                ));
-                return;
-            }
-            match block.block[0].list.get(0) {
-                Some(item) => match item {
-                    ClassifiedCommand::Expr(expr) => expr.clone(),
-                    _ => {
-                        yield Err(ShellError::labeled_error(
-                            "Expected a condition",
-                            "expected a condition",
-                            tag,
-                        ));
-                        return;
-                    }
-                },
-                None => {
-                    yield Err(ShellError::labeled_error(
+    let (WhereArgs { block }, input) = raw_args.process(&registry).await?;
+    let condition = {
+        if block.block.len() != 1 {
+            return Err(ShellError::labeled_error(
+                "Expected a condition",
+                "expected a condition",
+                tag,
+            ));
+        }
+        match block.block[0].list.get(0) {
+            Some(item) => match item {
+                ClassifiedCommand::Expr(expr) => expr.clone(),
+                _ => {
+                    return Err(ShellError::labeled_error(
                         "Expected a condition",
                         "expected a condition",
                         tag,
                     ));
-                    return;
                 }
+            },
+            None => {
+                return Err(ShellError::labeled_error(
+                    "Expected a condition",
+                    "expected a condition",
+                    tag,
+                ));
             }
-        };
-
-        let mut input = input;
-        while let Some(input) = input.next().await {
-
-            //FIXME: should we use the scope that's brought in as well?
-            let condition = evaluate_baseline_expr(&condition, &registry, &input, &scope.vars, &scope.env).await?;
-
-            match condition.as_bool() {
-                Ok(b) => {
-                    if b {
-                        yield Ok(ReturnSuccess::Value(input));
-                    }
-                }
-                Err(e) => yield Err(e),
-            };
         }
     };
 
-    Ok(stream.to_output_stream())
+    Ok(input
+        .filter_map(move |input| {
+            let condition = condition.clone();
+            let registry = registry.clone();
+            let scope = scope.clone();
+
+            async move {
+                //FIXME: should we use the scope that's brought in as well?
+                let condition =
+                    evaluate_baseline_expr(&condition, &*registry, &input, &scope.vars, &scope.env)
+                        .await;
+
+                match condition {
+                    Ok(condition) => match condition.as_bool() {
+                        Ok(b) => {
+                            if b {
+                                Some(Ok(ReturnSuccess::Value(input)))
+                            } else {
+                                None
+                            }
+                        }
+                        Err(e) => Some(Err(e)),
+                    },
+                    Err(e) => Some(Err(e)),
+                }
+            }
+        })
+        .to_output_stream())
 }
 
 #[cfg(test)]

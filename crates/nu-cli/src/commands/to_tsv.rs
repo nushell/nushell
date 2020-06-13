@@ -43,7 +43,7 @@ async fn to_tsv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputS
     let name = args.call_info.name_tag.clone();
     let (ToTSVArgs { headerless }, input) = args.process(&registry).await?;
 
-    to_delimited_data(headerless, '\t', "TSV", input, name)
+    to_delimited_data(headerless, '\t', "TSV", input, name).await
 }
 
 #[cfg(test)]

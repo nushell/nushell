@@ -36,62 +36,66 @@ impl WholeStreamCommand for FromXLSX {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        from_xlsx(args, registry)
+        from_xlsx(args, registry).await
     }
 }
 
-fn from_xlsx(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn from_xlsx(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let registry = registry.clone();
-    let stream = async_stream! {
-        let (FromXLSXArgs { headerless: _headerless }, mut input) = args.process(&registry).await?;
-        let value = input.collect_binary(tag.clone()).await?;
+    let (
+        FromXLSXArgs {
+            headerless: _headerless,
+        },
+        input,
+    ) = args.process(&registry).await?;
+    let value = input.collect_binary(tag.clone()).await?;
 
-        let mut buf: Cursor<Vec<u8>> = Cursor::new(value.item);
-        let mut xls = Xlsx::<_>::new(buf).map_err(|_| {
-            ShellError::labeled_error("Could not load xlsx file", "could not load xlsx file", &tag)
-        })?;
+    let buf: Cursor<Vec<u8>> = Cursor::new(value.item);
+    let mut xls = Xlsx::<_>::new(buf).map_err(|_| {
+        ShellError::labeled_error("Could not load xlsx file", "could not load xlsx file", &tag)
+    })?;
 
-        let mut dict = TaggedDictBuilder::new(&tag);
+    let mut dict = TaggedDictBuilder::new(&tag);
 
-        let sheet_names = xls.sheet_names().to_owned();
+    let sheet_names = xls.sheet_names().to_owned();
 
-        for sheet_name in &sheet_names {
-            let mut sheet_output = TaggedListBuilder::new(&tag);
+    for sheet_name in &sheet_names {
+        let mut sheet_output = TaggedListBuilder::new(&tag);
 
-            if let Some(Ok(current_sheet)) = xls.worksheet_range(sheet_name) {
-                for row in current_sheet.rows() {
-                    let mut row_output = TaggedDictBuilder::new(&tag);
-                    for (i, cell) in row.iter().enumerate() {
-                        let value = match cell {
-                            DataType::Empty => UntaggedValue::nothing(),
-                            DataType::String(s) => UntaggedValue::string(s),
-                            DataType::Float(f) => UntaggedValue::decimal(*f),
-                            DataType::Int(i) => UntaggedValue::int(*i),
-                            DataType::Bool(b) => UntaggedValue::boolean(*b),
-                            _ => UntaggedValue::nothing(),
-                        };
+        if let Some(Ok(current_sheet)) = xls.worksheet_range(sheet_name) {
+            for row in current_sheet.rows() {
+                let mut row_output = TaggedDictBuilder::new(&tag);
+                for (i, cell) in row.iter().enumerate() {
+                    let value = match cell {
+                        DataType::Empty => UntaggedValue::nothing(),
+                        DataType::String(s) => UntaggedValue::string(s),
+                        DataType::Float(f) => UntaggedValue::decimal(*f),
+                        DataType::Int(i) => UntaggedValue::int(*i),
+                        DataType::Bool(b) => UntaggedValue::boolean(*b),
+                        _ => UntaggedValue::nothing(),
+                    };
 
-                        row_output.insert_untagged(&format!("Column{}", i), value);
-                    }
-
-                    sheet_output.push_untagged(row_output.into_untagged_value());
+                    row_output.insert_untagged(&format!("Column{}", i), value);
                 }
 
-                dict.insert_untagged(sheet_name, sheet_output.into_untagged_value());
-            } else {
-                yield Err(ShellError::labeled_error(
-                    "Could not load sheet",
-                    "could not load sheet",
-                    &tag,
-                ));
+                sheet_output.push_untagged(row_output.into_untagged_value());
             }
+
+            dict.insert_untagged(sheet_name, sheet_output.into_untagged_value());
+        } else {
+            return Err(ShellError::labeled_error(
+                "Could not load sheet",
+                "could not load sheet",
+                &tag,
+            ));
         }
+    }
 
-        yield ReturnSuccess::value(dict.into_value());
-    };
-
-    Ok(stream.to_output_stream())
+    Ok(OutputStream::one(ReturnSuccess::value(dict.into_value())))
 }
 
 #[cfg(test)]

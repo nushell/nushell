@@ -57,36 +57,47 @@ impl WholeStreamCommand for TSortBy {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        t_sort_by(args, registry)
+        t_sort_by(args, registry).await
     }
 }
 
-fn t_sort_by(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn t_sort_by(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let stream = async_stream! {
-        let name = args.call_info.name_tag.clone();
-        let (TSortByArgs { show_columns, group_by, ..}, mut input) = args.process(&registry).await?;
-        let values: Vec<Value> = input.collect().await;
+    let name = args.call_info.name_tag.clone();
+    let (
+        TSortByArgs {
+            show_columns,
+            group_by,
+            ..
+        },
+        mut input,
+    ) = args.process(&registry).await?;
+    let values: Vec<Value> = input.collect().await;
 
-        let column_grouped_by_name = if let Some(grouped_by) = group_by {
-            Some(grouped_by.item().clone())
-        } else {
-            None
-        };
-
-        if show_columns {
-            for label in columns_sorted(column_grouped_by_name, &values[0], &name).into_iter() {
-                 yield ReturnSuccess::value(UntaggedValue::string(label.item).into_value(label.tag));
-            }
-        } else {
-            match t_sort(column_grouped_by_name, None, &values[0], name) {
-                Ok(sorted) => yield ReturnSuccess::value(sorted),
-                Err(err) => yield Err(err)
-            }
-        }
+    let column_grouped_by_name = if let Some(grouped_by) = group_by {
+        Some(grouped_by.item().clone())
+    } else {
+        None
     };
 
-    Ok(stream.to_output_stream())
+    if show_columns {
+        Ok(futures::stream::iter(
+            columns_sorted(column_grouped_by_name, &values[0], &name)
+                .into_iter()
+                .map(move |label| {
+                    ReturnSuccess::value(UntaggedValue::string(label.item).into_value(label.tag))
+                }),
+        )
+        .to_output_stream())
+    } else {
+        match t_sort(column_grouped_by_name, None, &values[0], name) {
+            Ok(sorted) => Ok(OutputStream::one(ReturnSuccess::value(sorted))),
+            Err(err) => Ok(OutputStream::one(Err(err))),
+        }
+    }
 }
 
 #[cfg(test)]

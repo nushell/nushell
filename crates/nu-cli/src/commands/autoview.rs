@@ -9,7 +9,6 @@ use parking_lot::Mutex;
 use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
 use prettytable::{color, Attr, Cell, Row, Table};
 use std::sync::atomic::AtomicBool;
-use std::sync::atomic::Ordering;
 use textwrap::fill;
 
 pub struct Autoview;
@@ -115,23 +114,12 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
         match input_stream.next().await {
             Some(y) => {
                 let ctrl_c = context.ctrl_c.clone();
-                let stream = async_stream! {
-                    yield Ok(x);
-                    yield Ok(y);
+                let xy = vec![x, y];
+                let xy_stream = futures::stream::iter(xy)
+                    .chain(input_stream)
+                    .interruptible(ctrl_c);
 
-                    loop {
-                        match input_stream.next().await {
-                            Some(z) => {
-                                if ctrl_c.load(Ordering::SeqCst) {
-                                    break;
-                                }
-                                yield Ok(z);
-                            }
-                            _ => break,
-                        }
-                    }
-                };
-                let stream = stream.to_input_stream();
+                let stream = InputStream::from_stream(xy_stream);
 
                 if let Some(table) = table {
                     let command_args = create_default_command_args(&context).with_input(stream);
