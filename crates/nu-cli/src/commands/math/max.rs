@@ -46,7 +46,7 @@ impl WholeStreamCommand for SubCommand {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Math a list of numbers",
+            description: "Find the maximum of list of numbers",
             example: "echo [-50 100.0 25] | math maximum",
             result: Some(vec![UntaggedValue::decimal(25).into()]),
         }]

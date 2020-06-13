@@ -16,7 +16,11 @@ impl WholeStreamCommand for Command {
     }
 
     fn usage(&self) -> &str {
-        "Use mathematical functions (average, min, max) to aggregate vectors of numbers"
+        r#"Use mathematical functions (average, min, max) to aggregate list of numbers or tables
+        math average
+        math min
+        math max
+        "#
     }
 
     async fn run(
@@ -28,26 +32,6 @@ impl WholeStreamCommand for Command {
             UntaggedValue::string(crate::commands::help::get_help(&Command, &registry.clone()))
                 .into_value(Tag::unknown()),
         ))))
-    }
-
-    fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Get the average of a list of numbers",
-                example: "echo [-50 100.0 25] | math average",
-                result: Some(vec![UntaggedValue::decimal(25).into()]),
-            },
-            Example {
-                description: "Find the minimum of a list of numbers",
-                example: "echo [-50 100 0] | math min",
-                result: Some(vec![UntaggedValue::decimal(-50).into()]),
-            },
-            Example {
-                description: "Find the maximum of a list of numbers",
-                example: "echo [-50 100 25] | math max",
-                result: Some(vec![UntaggedValue::decimal(100).into()]),
-            },
-        ]
     }
 }
 
