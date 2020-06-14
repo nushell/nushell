@@ -9,7 +9,7 @@ pub struct DirectorySpecificEnvironment {
     allowed_directories: IndexSet<PathBuf>,
 
     //Directory -> Env key. If an environment var has been added from a .nu in a directory, we track it here so we can remove it when the user leaves the directory.
-    added_env_vars: IndexMap<PathBuf, Vec<String>>,
+    added_env_vars: IndexMap<PathBuf, IndexSet<String>>,
 
     //Directory -> (env_key, value). If a .nu overwrites some existing environment variables, they are added here so that they can be restored later.
     overwritten_env_values: IndexMap<PathBuf, IndexMap<String, OsString>>,
@@ -51,8 +51,7 @@ impl DirectorySpecificEnvironment {
         let current_dir = std::env::current_dir()?;
         let mut working_dir = Some(current_dir.as_path());
 
-        let mut new_overwritten_env_values: IndexMap<PathBuf, IndexMap<String, OsString>> =
-            IndexMap::new();
+        let mut new_overwritten_env_values = IndexMap::new();
         let mut keyvals_to_restore = IndexMap::new();
 
         while let Some(wdir) = working_dir {
@@ -67,7 +66,6 @@ impl DirectorySpecificEnvironment {
                 keyvals.iter().for_each(|(k, v)| {
                     keyvals_to_restore.insert(k.clone(), v.to_str().unwrap().to_string());
                 });
-                self.added_env_vars.remove(dir);
             }
         }
 
@@ -105,11 +103,11 @@ impl DirectorySpecificEnvironment {
                                     .entry(wdir.to_path_buf())
                                     .or_insert(IndexMap::new())
                                     .insert(k.clone(), val);
-                            } else {
+                            } else { //Otherwise, we just track that we added it here
                                 self.added_env_vars
                                     .entry(wdir.to_path_buf())
-                                    .or_insert(vec![])
-                                    .push(k.clone());
+                                    .or_insert(IndexSet::new())
+                                    .insert(k.clone());
                             }
                         }
                     });
@@ -124,9 +122,11 @@ impl DirectorySpecificEnvironment {
     }
 
     //If the user has left directories which added env vars through .nu, we clear those vars
+    //once they are marked for deletion, remove them from added_env_vars
     pub fn env_vars_to_delete(&mut self) -> Result<Vec<String>> {
         let current_dir = std::env::current_dir()?;
 
+        let mut new_added_env_vars: IndexMap<PathBuf, IndexSet<String>> = IndexMap::new();
         //Gather up all environment variables that should be deleted.
         //If we are not in a directory or one of its subdirectories, mark the env_vals it maps to for removal.
         let vars_to_delete = self.added_env_vars.iter().fold(
@@ -136,6 +136,9 @@ impl DirectorySpecificEnvironment {
 
                 while let Some(wdir) = working_dir {
                     if wdir == directory {
+                        if let Some(vars_added_by_this_directory) = self.added_env_vars.get(wdir) { //If we are still in a directory, we should continue to track the vars it added.
+                            new_added_env_vars.insert(wdir.to_path_buf(), vars_added_by_this_directory.clone());
+                        }
                         return vars_to_delete;
                     } else {
                         working_dir = working_dir.expect("Root directory has no parent").parent();
@@ -146,7 +149,7 @@ impl DirectorySpecificEnvironment {
                 vars_to_delete
             },
         );
-
+        self.added_env_vars = new_added_env_vars;
         Ok(vars_to_delete)
     }
 }
