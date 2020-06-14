@@ -37,7 +37,7 @@ mod tests {
     use crate::commands::math::{
         average::average, max::maximum, min::minimum, utils::MathFunction,
     };
-    use nu_plugin::test_helpers::value::{decimal, int, table};
+    use nu_plugin::test_helpers::value::{decimal, int};
     use nu_protocol::Value;
 
     #[test]
