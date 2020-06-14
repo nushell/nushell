@@ -12,7 +12,7 @@ pub struct DirectorySpecificEnvironment {
     added_env_vars: IndexMap<PathBuf, Vec<String>>,
 
     //Directory -> (env_key, value). If a .nu overwrites some existing environment variables, they are added here so that they can be restored later.
-    overwritten_env_values: IndexMap<PathBuf, Vec<(String, OsString)>>,
+    overwritten_env_values: IndexMap<PathBuf, IndexMap<String, OsString>>,
 }
 
 impl DirectorySpecificEnvironment {
@@ -49,25 +49,35 @@ impl DirectorySpecificEnvironment {
     //If we are no longer in a directory, we restore the values it overwrote.
     pub fn overwritten_values_to_restore(&mut self) -> Result<IndexMap<String, String>> {
         let current_dir = std::env::current_dir()?;
-        let working_dir = Some(current_dir.as_path());
+        let mut working_dir = Some(current_dir.as_path());
 
-        self
-            .overwritten_env_values
-            .iter()
-            .filter(|(directory, keyvals)| {
-                while let Some(wdir) = working_dir {
-                    if &wdir == directory {
-                        return false;
-                    } else {
-                        working_dir = working_dir.expect("This directory has no parent").parent();
-                    }
-                }
-                true
-            })
-            .collect();
 
+        let mut file = OpenOptions::new()
+            .write(true)
+            .append(true)
+            .create(true)
+            .open("restore.txt").unwrap();
+
+        write!(&mut file, "about to restore: {:?}\n", self.overwritten_env_values).unwrap();
 
         let mut keyvals_to_restore = IndexMap::new();
+        let mut new_overwritten_env_values = IndexMap::new();
+        //If we are not in wdir or its subdir, remove its vals
+        self.overwritten_env_values
+            .iter()
+            .for_each(|(directory, keyvals)| {
+                while let Some(wdir) = working_dir {
+                    if &wdir == directory {
+                        keyvals.iter().for_each(|(k, v)| {
+                            keyvals_to_restore.insert(k.clone(), v.to_str().unwrap().to_string());
+                        });
+                    }
+                    working_dir = working_dir.expect("This directory has no parent").parent();
+                }
+                new_overwritten_env_values.insert(directory.clone(), keyvals.clone());
+            });
+
+        self.overwritten_env_values = new_overwritten_env_values;
         Ok(keyvals_to_restore)
     }
 
@@ -81,7 +91,7 @@ impl DirectorySpecificEnvironment {
         //Start in the current directory, then traverse towards the root with working_dir to see if we are in a subdirectory of a valid directory.
         while let Some(wdir) = working_dir {
             if self.allowed_directories.contains(wdir) {
-                let toml_doc = std::fs::read_to_string(wdir.join(".nu").as_path())
+                let toml_doc = std::fs::read_to_string(wdir.join(".nu-env").as_path())
                     .unwrap_or_else(|_| r#"[env]"#.to_string())
                     .parse::<toml::Value>()?;
 
@@ -99,8 +109,8 @@ impl DirectorySpecificEnvironment {
                             if let Some(val) = std::env::var_os(k) {
                                 self.overwritten_env_values
                                     .entry(wdir.to_path_buf())
-                                    .or_insert(vec![])
-                                    .push((k.clone(), val));
+                                    .or_insert(IndexMap::new())
+                                    .insert(k.clone(), val);
                             } else {
                                 self.added_env_vars
                                     .entry(wdir.to_path_buf())
@@ -110,6 +120,15 @@ impl DirectorySpecificEnvironment {
                         }
                     });
             }
+
+            let mut file = OpenOptions::new()
+                .write(true)
+                .append(true)
+                .create(true)
+                .open("restore.txt").unwrap();
+
+            write!(&mut file, "overwritten: {:?}\n\n", self.overwritten_env_values).unwrap();
+
             working_dir = working_dir //Keep going up in the directory structure with .parent()
                 .expect("This directory has no parent")
                 .parent();
