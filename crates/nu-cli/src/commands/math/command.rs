@@ -16,11 +16,7 @@ impl WholeStreamCommand for Command {
     }
 
     fn usage(&self) -> &str {
-        r#"Use mathematical functions (average, min, max) to aggregate list of numbers or tables
-        math average
-        math min
-        math max
-        "#
+        "Use mathematical functions as aggregate functions on a list of numbers or tables"
     }
 
     async fn run(
@@ -41,7 +37,7 @@ mod tests {
     use crate::commands::math::{
         average::average, max::maximum, min::minimum, utils::MathFunction,
     };
-    use nu_plugin::test_helpers::value::{decimal, int};
+    use nu_plugin::test_helpers::value::{decimal, int, table};
     use nu_protocol::Value;
 
     #[test]
@@ -94,6 +90,16 @@ mod tests {
             TestCase {
                 description: "Mixed Negative Values",
                 values: vec![int(10), decimal(-11.5), decimal(-13.5)],
+                expected_err: None,
+                expected_res: vec![Ok(decimal(-5)), Ok(decimal(-13.5)), Ok(int(10))],
+            },
+            TestCase {
+                description: "Tables",
+                values: vec![
+                    table(&vec![int(3), int(4), int(4)]),
+                    table(&vec![int(3), int(4), int(4)]),
+                    table(&vec![int(3), int(4), int(4)]),
+                ],
                 expected_err: None,
                 expected_res: vec![Ok(decimal(-5)), Ok(decimal(-13.5)), Ok(int(10))],
             },
