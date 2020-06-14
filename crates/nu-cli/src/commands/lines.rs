@@ -24,7 +24,7 @@ impl WholeStreamCommand for Lines {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        lines(args, registry)
+        lines(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -46,82 +46,121 @@ fn ends_with_line_ending(st: &str) -> bool {
     }
 }
 
-fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let mut leftover = vec![];
-    let mut leftover_string = String::new();
+async fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let leftover = Arc::new(vec![]);
+    let leftover_string = Arc::new(String::new());
     let registry = registry.clone();
-    let stream = async_stream! {
-        let args = args.evaluate_once(&registry).await.unwrap();
-        let tag = args.name_tag();
-        let name_span = tag.span;
-        let mut input = args.input;
-        loop {
-            match input.next().await {
-                Some(Value { value: UntaggedValue::Primitive(Primitive::String(st)), ..}) => {
-                    let mut st = leftover_string.clone() + &st;
-                    leftover.clear();
+    let args = args.evaluate_once(&registry).await?;
+    let tag = args.name_tag();
+    let name_span = tag.span;
+
+    let eos = futures::stream::iter(vec![
+        UntaggedValue::Primitive(Primitive::EndOfStream).into_untagged_value()
+    ]);
+
+    Ok(args
+        .input
+        .chain(eos)
+        .map(move |item| {
+            let mut leftover = leftover.clone();
+            let mut leftover_string = leftover_string.clone();
+
+            match item {
+                Value {
+                    value: UntaggedValue::Primitive(Primitive::String(st)),
+                    ..
+                } => {
+                    let st = (&*leftover_string).clone() + &st;
+                    if let Some(leftover) = Arc::get_mut(&mut leftover) {
+                        leftover.clear();
+                    }
 
                     let mut lines: Vec<String> = st.lines().map(|x| x.to_string()).collect();
 
                     if !ends_with_line_ending(&st) {
                         if let Some(last) = lines.pop() {
-                            leftover_string = last;
-                        } else {
+                            if let Some(leftover_string) = Arc::get_mut(&mut leftover_string) {
+                                leftover_string.clear();
+                                leftover_string.push_str(&last);
+                            }
+                        } else if let Some(leftover_string) = Arc::get_mut(&mut leftover_string) {
                             leftover_string.clear();
                         }
-                    } else {
+                    } else if let Some(leftover_string) = Arc::get_mut(&mut leftover_string) {
                         leftover_string.clear();
                     }
 
-                    let success_lines: Vec<_> = lines.iter().map(|x| ReturnSuccess::value(UntaggedValue::line(x).into_untagged_value())).collect();
+                    let success_lines: Vec<_> = lines
+                        .iter()
+                        .map(|x| ReturnSuccess::value(UntaggedValue::line(x).into_untagged_value()))
+                        .collect();
 
-                    yield futures::stream::iter(success_lines)
+                    futures::stream::iter(success_lines)
                 }
-                Some(Value { value: UntaggedValue::Primitive(Primitive::Line(st)), ..}) => {
-                    let mut st = leftover_string.clone() + &st;
-                    leftover.clear();
-
+                Value {
+                    value: UntaggedValue::Primitive(Primitive::Line(st)),
+                    ..
+                } => {
+                    let st = (&*leftover_string).clone() + &st;
+                    if let Some(leftover) = Arc::get_mut(&mut leftover) {
+                        leftover.clear();
+                    }
                     let mut lines: Vec<String> = st.lines().map(|x| x.to_string()).collect();
                     if !ends_with_line_ending(&st) {
                         if let Some(last) = lines.pop() {
-                            leftover_string = last;
-                        } else {
+                            if let Some(leftover_string) = Arc::get_mut(&mut leftover_string) {
+                                leftover_string.clear();
+                                leftover_string.push_str(&last);
+                            }
+                        } else if let Some(leftover_string) = Arc::get_mut(&mut leftover_string) {
                             leftover_string.clear();
                         }
-                    } else {
+                    } else if let Some(leftover_string) = Arc::get_mut(&mut leftover_string) {
                         leftover_string.clear();
                     }
 
-                    let success_lines: Vec<_> = lines.iter().map(|x| ReturnSuccess::value(UntaggedValue::line(x).into_untagged_value())).collect();
-                    yield futures::stream::iter(success_lines)
+                    let success_lines: Vec<_> = lines
+                        .iter()
+                        .map(|x| ReturnSuccess::value(UntaggedValue::line(x).into_untagged_value()))
+                        .collect();
+                    futures::stream::iter(success_lines)
                 }
-                Some( Value { tag: value_span, ..}) => {
-                    yield futures::stream::iter(vec![Err(ShellError::labeled_error_with_secondary(
-                        "Expected a string from pipeline",
-                        "requires string input",
-                        name_span,
-                        "value originates from here",
-                        value_span,
-                    ))]);
-                }
-                None => {
+                Value {
+                    value: UntaggedValue::Primitive(Primitive::EndOfStream),
+                    ..
+                } => {
                     if !leftover.is_empty() {
-                        let mut st = leftover_string.clone();
-                        if let Ok(extra) = String::from_utf8(leftover) {
+                        let mut st = (&*leftover_string).clone();
+                        if let Ok(extra) = String::from_utf8((&*leftover).clone()) {
                             st.push_str(&extra);
                         }
-                        yield futures::stream::iter(vec![ReturnSuccess::value(UntaggedValue::string(st).into_untagged_value())])
+                        // futures::stream::iter(vec![ReturnSuccess::value(
+                        //     UntaggedValue::string(st).into_untagged_value(),
+                        // )])
+                        if !st.is_empty() {
+                            futures::stream::iter(vec![ReturnSuccess::value(
+                                UntaggedValue::string(&*leftover_string).into_untagged_value(),
+                            )])
+                        } else {
+                            futures::stream::iter(vec![])
+                        }
+                    } else {
+                        futures::stream::iter(vec![])
                     }
-                    break;
                 }
+                Value {
+                    tag: value_span, ..
+                } => futures::stream::iter(vec![Err(ShellError::labeled_error_with_secondary(
+                    "Expected a string from pipeline",
+                    "requires string input",
+                    name_span,
+                    "value originates from here",
+                    value_span,
+                ))]),
             }
-        }
-        if !leftover_string.is_empty() {
-            yield futures::stream::iter(vec![ReturnSuccess::value(UntaggedValue::string(leftover_string).into_untagged_value())]);
-        }
-    }
-    .flatten();
-    Ok(stream.to_output_stream())
+        })
+        .flatten()
+        .to_output_stream())
 }
 
 #[cfg(test)]

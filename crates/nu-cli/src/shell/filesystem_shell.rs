@@ -147,40 +147,44 @@ impl Shell for FilesystemShell {
         }
 
         // Generated stream: impl Stream<Item = Result<ReturnSuccess, ShellError>
-        let stream = async_stream::try_stream! {
-            for path in paths {
-                let path = path.map_err(|e| ShellError::from(e.into_error()))?;
 
-                if !all && is_hidden_dir(&path) {
-                    continue;
-                }
+        Ok(futures::stream::iter(paths.filter_map(move |path| {
+            let path = match path.map_err(|e| ShellError::from(e.into_error())) {
+                Ok(path) => path,
+                Err(err) => return Some(Err(err)),
+            };
 
-                let metadata = match std::fs::symlink_metadata(&path) {
-                    Ok(metadata) => Ok(Some(metadata)),
-                    Err(e) => if let PermissionDenied = e.kind() {
-                        Ok(None)
-                    } else {
-                        Err(e)
-                    },
-                }?;
-
-                let entry = dir_entry_dict(
-                    &path,
-                    metadata.as_ref(),
-                    name_tag.clone(),
-                    full,
-                    short_names,
-                    with_symlink_targets,
-                    du,
-                    ctrl_c.clone()
-                )
-                .map(|entry| ReturnSuccess::Value(entry.into()))?;
-
-                yield entry;
+            if !all && is_hidden_dir(&path) {
+                return None;
             }
-        };
 
-        Ok(stream.interruptible(ctrl_c_copy).to_output_stream())
+            let metadata = match std::fs::symlink_metadata(&path) {
+                Ok(metadata) => Some(metadata),
+                Err(e) => {
+                    if e.kind() == std::io::ErrorKind::PermissionDenied {
+                        None
+                    } else {
+                        return Some(Err(e.into()));
+                    }
+                }
+            };
+
+            let entry = dir_entry_dict(
+                &path,
+                metadata.as_ref(),
+                name_tag.clone(),
+                full,
+                short_names,
+                with_symlink_targets,
+                du,
+                ctrl_c.clone(),
+            )
+            .map(ReturnSuccess::Value);
+
+            Some(entry)
+        }))
+        .interruptible(ctrl_c_copy)
+        .to_output_stream())
     }
 
     fn cd(&self, args: CdArgs, name: Tag) -> Result<OutputStream, ShellError> {
