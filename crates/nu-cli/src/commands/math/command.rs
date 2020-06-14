@@ -93,16 +93,17 @@ mod tests {
                 expected_err: None,
                 expected_res: vec![Ok(decimal(-5)), Ok(decimal(-13.5)), Ok(int(10))],
             },
-            TestCase {
-                description: "Tables",
-                values: vec![
-                    table(&vec![int(3), int(4), int(4)]),
-                    table(&vec![int(3), int(4), int(4)]),
-                    table(&vec![int(3), int(4), int(4)]),
-                ],
-                expected_err: None,
-                expected_res: vec![Ok(decimal(-5)), Ok(decimal(-13.5)), Ok(int(10))],
-            },
+            // TODO-Uncomment once I figure out how to structure tables
+            // TestCase {
+            //     description: "Tables",
+            //     values: vec![
+            //         table(&vec![int(3), int(4), int(4)]),
+            //         table(&vec![int(3), int(4), int(4)]),
+            //         table(&vec![int(3), int(4), int(4)]),
+            //     ],
+            //     expected_err: None,
+            //     expected_res: vec![Ok(decimal(-5)), Ok(decimal(-13.5)), Ok(int(10))],
+            // },
             // TODO-Uncomment once Issue: https://github.com/nushell/nushell/issues/1883 is resolved
             // TestCase {
             //     description: "Invalid Mixed Values",
