@@ -20,6 +20,8 @@ pub async fn calculate(
             Err(err) => Err(err),
         }
     } else {
+        // If we are not dealing with Primitives, then perhaps we are dealing with a table
+        // Create a key for each column name
         let mut column_values = IndexMap::new();
         for value in values {
             if let UntaggedValue::Row(row_dict) = value.value {
@@ -31,7 +33,7 @@ pub async fn calculate(
                 }
             }
         }
-
+        // The mathematical function operates over the columns of the table
         let mut column_totals = IndexMap::new();
         for (col_name, col_vals) in column_values {
             match mf(&col_vals, &name) {
