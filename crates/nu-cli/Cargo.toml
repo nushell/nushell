@@ -1,6 +1,6 @@
 [package]
 name = "nu-cli"
-version = "0.15.0"
+version = "0.15.1"
 authors = ["The Nu Project Contributors"]
 description = "CLI for nushell"
 edition = "2018"
@@ -10,13 +10,13 @@ license = "MIT"
 doctest = false
 
 [dependencies]
-nu-source = { version = "0.15.0", path = "../nu-source" }
-nu-plugin = { version = "0.15.0", path = "../nu-plugin" }
-nu-protocol = { version = "0.15.0", path = "../nu-protocol" }
-nu-errors = { version = "0.15.0", path = "../nu-errors" }
-nu-parser = { version = "0.15.0", path = "../nu-parser" }
-nu-value-ext = { version = "0.15.0", path = "../nu-value-ext" }
-nu-test-support = { version = "0.15.0", path = "../nu-test-support" }
+nu-source = { version = "0.15.1", path = "../nu-source" }
+nu-plugin = { version = "0.15.1", path = "../nu-plugin" }
+nu-protocol = { version = "0.15.1", path = "../nu-protocol" }
+nu-errors = { version = "0.15.1", path = "../nu-errors" }
+nu-parser = { version = "0.15.1", path = "../nu-parser" }
+nu-value-ext = { version = "0.15.1", path = "../nu-value-ext" }
+nu-test-support = { version = "0.15.1", path = "../nu-test-support" }
 
 ansi_term = "0.12.1"
 app_dirs = "1.2.1"
@@ -101,7 +101,7 @@ version = "0.23.1"
 features = ["bundled", "blob"]
 
 [build-dependencies]
-nu-build = { version = "0.15.0", path = "../nu-build" }
+nu-build = { version = "0.15.1", path = "../nu-build" }
 
 [dev-dependencies]
 quickcheck = "0.9"
