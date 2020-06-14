@@ -3,7 +3,7 @@ use crate::prelude::*;
 use derive_new::new;
 use log::trace;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnValue, Signature, Value};
+use nu_protocol::{Primitive, ReturnValue, Signature, UntaggedValue, Value};
 use serde::{self, Deserialize, Serialize};
 use std::io::prelude::*;
 use std::io::BufReader;
@@ -61,11 +61,11 @@ impl WholeStreamCommand for PluginCommand {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        filter_plugin(self.path.clone(), args, registry)
+        filter_plugin(self.path.clone(), args, registry).await
     }
 }
 
-pub fn filter_plugin(
+pub async fn filter_plugin(
     path: String,
     args: CommandArgs,
     registry: &CommandRegistry,
@@ -75,207 +75,216 @@ pub fn filter_plugin(
 
     let scope = args.call_info.scope.clone();
 
-    let stream = async_stream! {
-        let mut args = args.evaluate_once_with_scope(&registry, &scope).await?;
+    let bos = futures::stream::iter(vec![
+        UntaggedValue::Primitive(Primitive::BeginningOfStream).into_untagged_value()
+    ]);
+    let eos = futures::stream::iter(vec![
+        UntaggedValue::Primitive(Primitive::EndOfStream).into_untagged_value()
+    ]);
 
-        let mut child = std::process::Command::new(path)
-            .stdin(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::piped())
-            .spawn()
-            .expect("Failed to spawn child process");
+    let args = args.evaluate_once_with_scope(&registry, &scope).await?;
 
-        let call_info = args.call_info.clone();
+    let mut child = std::process::Command::new(path)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .expect("Failed to spawn child process");
 
-        trace!("filtering :: {:?}", call_info);
+    let call_info = args.call_info.clone();
 
-        // Beginning of the stream
-        {
-            let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-            let stdout = child.stdout.as_mut().expect("Failed to open stdout");
+    trace!("filtering :: {:?}", call_info);
 
-            let mut reader = BufReader::new(stdout);
+    Ok(bos
+        .chain(args.input)
+        .chain(eos)
+        .map(move |item| {
+            match item {
+                Value {
+                    value: UntaggedValue::Primitive(Primitive::BeginningOfStream),
+                    ..
+                } => {
+                    // Beginning of the stream
+                    let stdin = child.stdin.as_mut().expect("Failed to open stdin");
+                    let stdout = child.stdout.as_mut().expect("Failed to open stdout");
 
-            let request = JsonRpc::new("begin_filter", call_info.clone());
-            let request_raw = serde_json::to_string(&request);
+                    let mut reader = BufReader::new(stdout);
 
-            match request_raw {
-                Err(_) => {
-                    yield Err(ShellError::labeled_error(
-                        "Could not load json from plugin",
-                        "could not load json from plugin",
-                        &call_info.name_tag,
-                    ));
-                }
-                Ok(request_raw) => match stdin.write(format!("{}\n", request_raw).as_bytes()) {
-                    Ok(_) => {}
-                    Err(err) => {
-                        yield Err(ShellError::unexpected(format!("{}", err)));
-                    }
-                },
-            }
+                    let request = JsonRpc::new("begin_filter", call_info.clone());
+                    let request_raw = serde_json::to_string(&request);
 
-            let mut input = String::new();
-            match reader.read_line(&mut input) {
-                Ok(_) => {
-                    let response = serde_json::from_str::<NuResult>(&input);
-                    match response {
-                        Ok(NuResult::response { params }) => match params {
-                            Ok(params) => for param in params { yield param },
-                            Err(e) => {
-                                yield ReturnValue::Err(e);
+                    match request_raw {
+                        Err(_) => {
+                            return OutputStream::one(Err(ShellError::labeled_error(
+                                "Could not load json from plugin",
+                                "could not load json from plugin",
+                                &call_info.name_tag,
+                            )));
+                        }
+                        Ok(request_raw) => {
+                            match stdin.write(format!("{}\n", request_raw).as_bytes()) {
+                                Ok(_) => {}
+                                Err(err) => {
+                                    return OutputStream::one(Err(ShellError::unexpected(
+                                        format!("{}", err),
+                                    )));
+                                }
                             }
-                        },
+                        }
+                    }
+
+                    let mut input = String::new();
+                    match reader.read_line(&mut input) {
+                        Ok(_) => {
+                            let response = serde_json::from_str::<NuResult>(&input);
+                            match response {
+                                Ok(NuResult::response { params }) => match params {
+                                    Ok(params) => futures::stream::iter(params).to_output_stream(),
+                                    Err(e) => futures::stream::iter(vec![ReturnValue::Err(e)])
+                                        .to_output_stream(),
+                                },
+
+                                Err(e) => OutputStream::one(Err(
+                                    ShellError::untagged_runtime_error(format!(
+                                        "Error while processing begin_filter response: {:?} {}",
+                                        e, input
+                                    )),
+                                )),
+                            }
+                        }
+                        Err(e) => OutputStream::one(Err(ShellError::untagged_runtime_error(
+                            format!("Error while reading begin_filter response: {:?}", e),
+                        ))),
+                    }
+                }
+                Value {
+                    value: UntaggedValue::Primitive(Primitive::EndOfStream),
+                    ..
+                } => {
+                    // post stream contents
+                    let stdin = child.stdin.as_mut().expect("Failed to open stdin");
+                    let stdout = child.stdout.as_mut().expect("Failed to open stdout");
+
+                    let mut reader = BufReader::new(stdout);
+
+                    let request: JsonRpc<std::vec::Vec<Value>> = JsonRpc::new("end_filter", vec![]);
+                    let request_raw = serde_json::to_string(&request);
+
+                    match request_raw {
+                        Err(_) => {
+                            return OutputStream::one(Err(ShellError::labeled_error(
+                                "Could not load json from plugin",
+                                "could not load json from plugin",
+                                &call_info.name_tag,
+                            )));
+                        }
+                        Ok(request_raw) => {
+                            match stdin.write(format!("{}\n", request_raw).as_bytes()) {
+                                Ok(_) => {}
+                                Err(err) => {
+                                    return OutputStream::one(Err(ShellError::unexpected(
+                                        format!("{}", err),
+                                    )));
+                                }
+                            }
+                        }
+                    }
+
+                    let mut input = String::new();
+                    let stream = match reader.read_line(&mut input) {
+                        Ok(_) => {
+                            let response = serde_json::from_str::<NuResult>(&input);
+                            match response {
+                                Ok(NuResult::response { params }) => match params {
+                                    Ok(params) => futures::stream::iter(params).to_output_stream(),
+                                    Err(e) => futures::stream::iter(vec![ReturnValue::Err(e)])
+                                        .to_output_stream(),
+                                },
+                                Err(e) => futures::stream::iter(vec![Err(
+                                    ShellError::untagged_runtime_error(format!(
+                                        "Error while processing end_filter response: {:?} {}",
+                                        e, input
+                                    )),
+                                )])
+                                .to_output_stream(),
+                            }
+                        }
                         Err(e) => {
-                            yield Err(ShellError::untagged_runtime_error(format!(
-                                "Error while processing begin_filter response: {:?} {}",
-                                e, input
+                            futures::stream::iter(vec![Err(ShellError::untagged_runtime_error(
+                                format!("Error while reading end_filter response: {:?}", e),
+                            ))])
+                            .to_output_stream()
+                        }
+                    };
+
+                    let stdin = child.stdin.as_mut().expect("Failed to open stdin");
+
+                    let request: JsonRpc<std::vec::Vec<Value>> = JsonRpc::new("quit", vec![]);
+                    let request_raw = serde_json::to_string(&request);
+
+                    match request_raw {
+                        Ok(request_raw) => {
+                            let _ = stdin.write(format!("{}\n", request_raw).as_bytes());
+                            // TODO: Handle error
+                        }
+                        Err(e) => {
+                            return OutputStream::one(Err(ShellError::untagged_runtime_error(
+                                format!("Error while processing quit response: {:?}", e),
                             )));
                         }
                     }
+                    let _ = child.wait();
+
+                    stream
                 }
-                Err(e) => {
-                    yield Err(ShellError::untagged_runtime_error(format!(
-                        "Error while reading begin_filter response: {:?}",
-                        e
-                    )));
-                }
-            }
-        }
 
-        // Stream contents
-        {
-            while let Some(v) = args.input.next().await {
-                let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-                let stdout = child.stdout.as_mut().expect("Failed to open stdout");
+                v => {
+                    // Stream contents
+                    let stdin = child.stdin.as_mut().expect("Failed to open stdin");
+                    let stdout = child.stdout.as_mut().expect("Failed to open stdout");
 
-                let mut reader = BufReader::new(stdout);
+                    let mut reader = BufReader::new(stdout);
 
-                let request = JsonRpc::new("filter", v);
-                let request_raw = serde_json::to_string(&request);
-                match request_raw {
-                    Ok(request_raw) => {
-                        let _ = stdin.write(format!("{}\n", request_raw).as_bytes()); // TODO: Handle error
+                    let request = JsonRpc::new("filter", v);
+                    let request_raw = serde_json::to_string(&request);
+                    match request_raw {
+                        Ok(request_raw) => {
+                            let _ = stdin.write(format!("{}\n", request_raw).as_bytes());
+                            // TODO: Handle error
+                        }
+                        Err(e) => {
+                            return OutputStream::one(Err(ShellError::untagged_runtime_error(
+                                format!("Error while processing filter response: {:?}", e),
+                            )));
+                        }
                     }
-                    Err(e) => {
-                        yield Err(ShellError::untagged_runtime_error(format!(
-                            "Error while processing filter response: {:?}",
-                            e
-                        )));
-                    }
-                }
 
-                let mut input = String::new();
-                match reader.read_line(&mut input) {
-                    Ok(_) => {
-                        let response = serde_json::from_str::<NuResult>(&input);
-                        match response {
-                            Ok(NuResult::response { params }) => match params {
-                                Ok(params) => for param in params { yield param },
-                                Err(e) => {
-                                    yield ReturnValue::Err(e);
-                                }
-                            },
-                            Err(e) => {
-                                yield Err(ShellError::untagged_runtime_error(format!(
+                    let mut input = String::new();
+                    match reader.read_line(&mut input) {
+                        Ok(_) => {
+                            let response = serde_json::from_str::<NuResult>(&input);
+                            match response {
+                                Ok(NuResult::response { params }) => match params {
+                                    Ok(params) => futures::stream::iter(params).to_output_stream(),
+                                    Err(e) => futures::stream::iter(vec![ReturnValue::Err(e)])
+                                        .to_output_stream(),
+                                },
+                                Err(e) => OutputStream::one(Err(
+                                    ShellError::untagged_runtime_error(format!(
                                     "Error while processing filter response: {:?}\n== input ==\n{}",
                                     e, input
-                                )));
+                                )),
+                                )),
                             }
                         }
-                    }
-                    Err(e) => {
-                        yield Err(ShellError::untagged_runtime_error(format!(
-                            "Error while reading filter response: {:?}",
-                            e
-                        )));
+                        Err(e) => OutputStream::one(Err(ShellError::untagged_runtime_error(
+                            format!("Error while reading filter response: {:?}", e),
+                        ))),
                     }
                 }
-
             }
-        }
-
-        // post stream contents
-        {
-            let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-            let stdout = child.stdout.as_mut().expect("Failed to open stdout");
-
-            let mut reader = BufReader::new(stdout);
-
-            let request: JsonRpc<std::vec::Vec<Value>> = JsonRpc::new("end_filter", vec![]);
-            let request_raw = serde_json::to_string(&request);
-
-            match request_raw {
-                Err(_) => {
-                    yield Err(ShellError::labeled_error(
-                        "Could not load json from plugin",
-                        "could not load json from plugin",
-                        &call_info.name_tag,
-                    ));
-                }
-                Ok(request_raw) => match stdin.write(format!("{}\n", request_raw).as_bytes()) {
-                    Ok(_) => {}
-                    Err(err) => {
-                        yield Err(ShellError::unexpected(format!("{}", err)));
-                    }
-                },
-            }
-
-            let mut input = String::new();
-            match reader.read_line(&mut input) {
-                Ok(_) => {
-                    let response = serde_json::from_str::<NuResult>(&input);
-                    match response {
-                        Ok(NuResult::response { params }) => match params {
-                            Ok(params) => for param in params { yield param },
-                            Err(e) => {
-                                yield ReturnValue::Err(e);
-                            }
-                        },
-                        Err(e) => {
-                            yield Err(ShellError::untagged_runtime_error(format!(
-                                "Error while processing end_filter response: {:?} {}",
-                                e, input
-                            )));
-                        }
-                    }
-                }
-                Err(e) => {
-                    yield Err(ShellError::untagged_runtime_error(format!(
-                        "Error while reading end_filter response: {:?}",
-                        e
-                    )));
-                }
-            }
-        }
-
-        // End of the stream
-        {
-            let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-            let stdout = child.stdout.as_mut().expect("Failed to open stdout");
-
-            let mut reader = BufReader::new(stdout);
-
-            let request: JsonRpc<std::vec::Vec<Value>> = JsonRpc::new("quit", vec![]);
-            let request_raw = serde_json::to_string(&request);
-
-            match request_raw {
-                Ok(request_raw) => {
-                    let _ = stdin.write(format!("{}\n", request_raw).as_bytes()); // TODO: Handle error
-                }
-                Err(e) => {
-                    yield Err(ShellError::untagged_runtime_error(format!(
-                        "Error while processing quit response: {:?}",
-                        e
-                    )));
-                    return;
-                }
-            }
-        }
-
-        let _ = child.wait();
-    };
-
-    Ok(stream.to_output_stream())
+        })
+        .flatten()
+        .to_output_stream())
 }
 
 #[derive(new)]

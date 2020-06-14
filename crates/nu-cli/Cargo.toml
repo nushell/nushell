@@ -23,7 +23,6 @@ app_dirs = "1.2.1"
 async-recursion = "0.3.1"
 async-trait = "0.1.31"
 directories = "2.0.2"
-async-stream = "0.2"
 base64 = "0.12.1"
 bigdecimal = { version = "0.1.2", features = ["serde"] }
 bson = { version = "0.14.1", features = ["decimal128"] }
