@@ -64,12 +64,12 @@ impl Environment {
             self.remove_env(&k);
         });
 
-        // self.direnv
-        //     .overwritten_values_to_restore()?
-        //     .iter()
-        //     .for_each(|(k, v)| {
-        //         self.add_env(&k, &v.to_string_lossy(), true);
-        //     });
+        self.direnv
+            .overwritten_values_to_restore()?
+            .iter()
+            .for_each(|(k, v)| {
+                self.add_env(&k, &v.to_string_lossy(), true);
+            });
 
         self.direnv.env_vars_to_add()?.iter().for_each(|(k, v)| {
             self.add_env(&k, &v.to_string_lossy(), true);
@@ -85,14 +85,6 @@ impl Environment {
         }) = self.environment_vars
         {
 
-            let mut file = OpenOptions::new()
-                .write(true)
-                .append(true)
-                .create(true)
-                .open("delete.txt")
-                .unwrap();
-
-            write!(&mut file, "deleting: {:?}\n", key).unwrap();
             envs.entries.remove(key);
             std::env::remove_var(key);
         };
