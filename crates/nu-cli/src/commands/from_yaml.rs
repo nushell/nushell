@@ -101,7 +101,6 @@ fn convert_yaml_value_to_nu_value(
                     // Strangely, serde_yaml returns
                     // "value" -> Mapping(Mapping { map: {Mapping(Mapping { map: {String("something"): Null} }): Null} })
                     (serde_yaml::Value::Mapping(m), serde_yaml::Value::Null) => {
-                        println!("m: {:?}", m);
                         return m
                             .iter()
                             .take(1)
