@@ -676,13 +676,13 @@ pub async fn cli(
 
         match line {
             LineResult::Success(line) => {
-                rl.add_history_entry(line.clone());
+                rl.add_history_entry(&line);
                 let _ = rl.save_history(&History::path());
                 context.maybe_print_errors(Text::from(line));
             }
 
             LineResult::Error(line, err) => {
-                rl.add_history_entry(line.clone());
+                rl.add_history_entry(&line);
                 let _ = rl.save_history(&History::path());
 
                 context.with_host(|_host| {
