@@ -1,21 +1,25 @@
 use indexmap::{IndexMap, IndexSet};
 use nu_protocol::{Primitive, UntaggedValue, Value};
+use std::io::Write;
 use std::{
     ffi::OsString,
     fmt::Debug,
+    fs::OpenOptions,
     io::{Error, ErrorKind, Result},
     path::PathBuf,
 };
 
+type EnvKey = String;
+type EnvVal = OsString;
 #[derive(Debug, Default)]
 pub struct DirectorySpecificEnvironment {
     allowed_directories: IndexSet<PathBuf>,
 
     //Directory -> Env key. If an environment var has been added from a .nu in a directory, we track it here so we can remove it when the user leaves the directory.
-    added_env_vars: IndexMap<PathBuf, Vec<String>>,
+    added_env_vars: IndexMap<PathBuf, Vec<EnvKey>>,
 
     //Directory -> (env_key, value). If a .nu overwrites some existing environment variables, they are added here so that they can be restored later.
-    overwritten_env_vars: IndexMap<PathBuf, IndexMap<String, OsString>>,
+    overwritten_env_vars: IndexMap<PathBuf, IndexMap<EnvKey, EnvVal>>,
 }
 
 impl DirectorySpecificEnvironment {
@@ -50,7 +54,7 @@ impl DirectorySpecificEnvironment {
     }
 
     //If we are no longer in a directory, we restore the values it overwrote.
-    pub fn overwritten_values_to_restore(&mut self) -> Result<IndexMap<String, String>> {
+    pub fn overwritten_values_to_restore(&mut self) -> Result<IndexMap<EnvKey, EnvVal>> {
         let current_dir = std::env::current_dir()?;
         let mut working_dir = Some(current_dir.as_path());
 
@@ -69,7 +73,7 @@ impl DirectorySpecificEnvironment {
         for (dir, keyvals) in &self.overwritten_env_vars {
             if !new_overwritten_env_values.contains_key(dir) {
                 keyvals.iter().for_each(|(k, v)| {
-                    keyvals_to_restore.insert(k.clone(), v.to_str().unwrap().to_string());
+                    keyvals_to_restore.insert(k.clone(), v.clone());
                 });
             }
         }
@@ -78,7 +82,7 @@ impl DirectorySpecificEnvironment {
         Ok(keyvals_to_restore)
     }
 
-    pub fn env_vars_to_add(&mut self) -> Result<IndexMap<String, String>> {
+    pub fn env_vars_to_add(&mut self) -> Result<IndexMap<EnvKey, EnvVal>> {
         let current_dir = std::env::current_dir()?;
         let mut working_dir = Some(current_dir.as_path());
 
@@ -97,22 +101,29 @@ impl DirectorySpecificEnvironment {
                     .as_table()
                     .ok_or_else(|| Error::new(ErrorKind::InvalidData, "env section malformed"))?
                     .iter()
-                    .for_each(|(k, v)| {
-                        if !vars_to_add.contains_key(k) {
-                            vars_to_add.insert(k.clone(), v.as_str().unwrap().to_string());
+                    .for_each(|(env_key, directory_env_val)| {
+                        if !vars_to_add.contains_key(env_key) {
+                            let directory_env_val: EnvVal =
+                                directory_env_val.as_str().unwrap().into();
 
                             //If we are about to overwrite any environment variables, we save them first so they can be restored later.
-                            if let Some(val) = std::env::var_os(k) {
-                                self.overwritten_env_vars
-                                    .entry(wdir.to_path_buf())
-                                    .or_insert(IndexMap::new())
-                                    .insert(k.clone(), val);
+                            if let Some(existing_val) = std::env::var_os(env_key) {
+                                if existing_val != directory_env_val {
+                                    self.overwritten_env_vars
+                                        .entry(wdir.to_path_buf())
+                                        .or_insert(IndexMap::new())
+                                        .insert(env_key.clone(), existing_val);
+
+                                    vars_to_add.insert(env_key.clone(), directory_env_val);
+                                }
                             } else {
                                 //Otherwise, we just track that we added it here
                                 self.added_env_vars
                                     .entry(wdir.to_path_buf())
                                     .or_insert(vec![])
-                                    .push(k.clone());
+                                    .push(env_key.clone());
+
+                                vars_to_add.insert(env_key.clone(), directory_env_val);
                             }
                         }
                     });
@@ -127,9 +138,8 @@ impl DirectorySpecificEnvironment {
 
     //If the user has left directories which added env vars through .nu, we clear those vars
     //once they are marked for deletion, remove them from added_env_vars
-    pub fn env_vars_to_delete(&mut self) -> Result<Vec<String>> {
+    pub fn env_vars_to_delete(&mut self) -> Result<Vec<EnvKey>> {
         let current_dir = std::env::current_dir()?;
-
         let mut new_added_env_vars = IndexMap::new();
         let mut working_dir = Some(current_dir.as_path());
 
@@ -143,7 +153,7 @@ impl DirectorySpecificEnvironment {
                 .parent();
         }
 
-        //Gather up all environment variables that should be deleted.
+        // Gather up all environment variables that should be deleted.
         let mut vars_to_delete = vec![];
         for (dir, added_keys) in &self.added_env_vars {
             if !new_added_env_vars.contains_key(dir) {
@@ -151,6 +161,7 @@ impl DirectorySpecificEnvironment {
             }
         }
         self.added_env_vars = new_added_env_vars;
+
         Ok(vars_to_delete)
     }
 }

@@ -1,9 +1,10 @@
 use crate::data::config::Conf;
+use std::io::Write;
 use crate::env::directory_specific_environment::*;
 use indexmap::{indexmap, IndexSet};
 use nu_protocol::{UntaggedValue, Value};
 use std::ffi::OsString;
-use std::fmt::Debug;
+use std::{fs::OpenOptions, fmt::Debug};
 
 pub trait Env: Debug + Send {
     fn env(&self) -> Option<Value>;
@@ -63,15 +64,15 @@ impl Environment {
             self.remove_env(&k);
         });
 
-        self.direnv
-            .overwritten_values_to_restore()?
-            .iter()
-            .for_each(|(k, v)| {
-                self.add_env(&k, &v, true);
-            });
+        // self.direnv
+        //     .overwritten_values_to_restore()?
+        //     .iter()
+        //     .for_each(|(k, v)| {
+        //         self.add_env(&k, &v.to_string_lossy(), true);
+        //     });
 
         self.direnv.env_vars_to_add()?.iter().for_each(|(k, v)| {
-            self.add_env(&k, &v, true);
+            self.add_env(&k, &v.to_string_lossy(), true);
         });
 
         Ok(())
@@ -83,7 +84,17 @@ impl Environment {
             tag: _,
         }) = self.environment_vars
         {
+
+            let mut file = OpenOptions::new()
+                .write(true)
+                .append(true)
+                .create(true)
+                .open("delete.txt")
+                .unwrap();
+
+            write!(&mut file, "deleting: {:?}\n", key).unwrap();
             envs.entries.remove(key);
+            std::env::remove_var(key);
         };
     }
 
