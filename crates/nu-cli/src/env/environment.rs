@@ -84,7 +84,6 @@ impl Environment {
             tag: _,
         }) = self.environment_vars
         {
-
             envs.entries.remove(key);
             std::env::remove_var(key);
         };
