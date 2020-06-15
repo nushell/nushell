@@ -1,8 +1,11 @@
 use indexmap::{IndexMap, IndexSet};
 use nu_protocol::{Primitive, UntaggedValue, Value};
-use std::io::Write;
-use std::io::{Error, ErrorKind, Result};
-use std::{ffi::OsString, fmt::Debug, fs::OpenOptions, path::PathBuf};
+use std::{
+    ffi::OsString,
+    fmt::Debug,
+    io::{Error, ErrorKind, Result},
+    path::PathBuf,
+};
 
 #[derive(Debug, Default)]
 pub struct DirectorySpecificEnvironment {
@@ -12,7 +15,7 @@ pub struct DirectorySpecificEnvironment {
     added_env_vars: IndexMap<PathBuf, Vec<String>>,
 
     //Directory -> (env_key, value). If a .nu overwrites some existing environment variables, they are added here so that they can be restored later.
-    overwritten_env_values: IndexMap<PathBuf, IndexMap<String, OsString>>,
+    overwritten_env_vars: IndexMap<PathBuf, IndexMap<String, OsString>>,
 }
 
 impl DirectorySpecificEnvironment {
@@ -42,7 +45,7 @@ impl DirectorySpecificEnvironment {
         DirectorySpecificEnvironment {
             allowed_directories,
             added_env_vars: IndexMap::new(),
-            overwritten_env_values: IndexMap::new(),
+            overwritten_env_vars: IndexMap::new(),
         }
     }
 
@@ -55,13 +58,15 @@ impl DirectorySpecificEnvironment {
         let mut keyvals_to_restore = IndexMap::new();
 
         while let Some(wdir) = working_dir {
-            if let Some(val) = self.overwritten_env_values.get(wdir) {
+            if let Some(val) = self.overwritten_env_vars.get(wdir) {
                 new_overwritten_env_values.insert(wdir.to_path_buf(), val.clone());
             }
-            working_dir = working_dir.unwrap().parent();
+            working_dir = working_dir
+                .expect("This should not be None because of the while condition")
+                .parent();
         }
 
-        for (dir, keyvals) in &self.overwritten_env_values {
+        for (dir, keyvals) in &self.overwritten_env_vars {
             if !new_overwritten_env_values.contains_key(dir) {
                 keyvals.iter().for_each(|(k, v)| {
                     keyvals_to_restore.insert(k.clone(), v.to_str().unwrap().to_string());
@@ -69,7 +74,7 @@ impl DirectorySpecificEnvironment {
             }
         }
 
-        self.overwritten_env_values = new_overwritten_env_values;
+        self.overwritten_env_vars = new_overwritten_env_values;
         Ok(keyvals_to_restore)
     }
 
@@ -77,7 +82,6 @@ impl DirectorySpecificEnvironment {
         let current_dir = std::env::current_dir()?;
         let mut working_dir = Some(current_dir.as_path());
 
-        let empty = toml::value::Table::new();
         let mut vars_to_add = IndexMap::new();
 
         //Start in the current directory, then traverse towards the root with working_dir to see if we are in a subdirectory of a valid directory.
@@ -89,9 +93,9 @@ impl DirectorySpecificEnvironment {
 
                 toml_doc
                     .get("env")
-                    .unwrap()
+                    .ok_or_else(|| Error::new(ErrorKind::InvalidData, "env section missing"))?
                     .as_table()
-                    .unwrap_or_else(|| &empty)
+                    .ok_or_else(|| Error::new(ErrorKind::InvalidData, "env section malformed"))?
                     .iter()
                     .for_each(|(k, v)| {
                         if !vars_to_add.contains_key(k) {
@@ -99,7 +103,7 @@ impl DirectorySpecificEnvironment {
 
                             //If we are about to overwrite any environment variables, we save them first so they can be restored later.
                             if let Some(val) = std::env::var_os(k) {
-                                self.overwritten_env_values
+                                self.overwritten_env_vars
                                     .entry(wdir.to_path_buf())
                                     .or_insert_with(|| IndexMap::new())
                                     .insert(k.clone(), val);
@@ -113,9 +117,8 @@ impl DirectorySpecificEnvironment {
                         }
                     });
             }
-
             working_dir = working_dir //Keep going up in the directory structure with .parent()
-                .expect("This directory has no parent")
+                .expect("This should not be None because of the while condition")
                 .parent();
         }
 
@@ -132,10 +135,12 @@ impl DirectorySpecificEnvironment {
 
         while let Some(wdir) = working_dir {
             if let Some(vars_added_by_this_directory) = self.added_env_vars.get(wdir) {
-                new_added_env_vars.insert(wdir.to_path_buf(), vars_added_by_this_directory.clone());
                 //If we are still in a directory, we should continue to track the vars it added.
+                new_added_env_vars.insert(wdir.to_path_buf(), vars_added_by_this_directory.clone());
             }
-            working_dir = working_dir.expect("Root directory has no parent").parent();
+            working_dir = working_dir
+                .expect("This should not be None because of the while condition")
+                .parent();
         }
 
         //Gather up all environment variables that should be deleted.

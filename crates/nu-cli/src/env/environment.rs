@@ -2,9 +2,8 @@ use crate::data::config::Conf;
 use crate::env::directory_specific_environment::*;
 use indexmap::{indexmap, IndexSet};
 use nu_protocol::{UntaggedValue, Value};
-use std::io::Write;
 use std::ffi::OsString;
-use std::{fs::OpenOptions, fmt::Debug};
+use std::fmt::Debug;
 
 pub trait Env: Debug + Send {
     fn env(&self) -> Option<Value>;
@@ -64,18 +63,10 @@ impl Environment {
             self.remove_env(&k);
         });
 
-        // let mut file = OpenOptions::new()
-        //     .write(true)
-        //     .append(true)
-        //     .create(true)
-        //     .open("restore.txt")
-        //     .unwrap();
-
         self.direnv
             .overwritten_values_to_restore()?
             .iter()
             .for_each(|(k, v)| {
-                // write!(&mut file, "restoring: {:?}\n", (k, v)).unwrap();
                 self.add_env(&k, &v, true);
             });
 
