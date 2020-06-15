@@ -105,13 +105,13 @@ impl DirectorySpecificEnvironment {
                             if let Some(val) = std::env::var_os(k) {
                                 self.overwritten_env_vars
                                     .entry(wdir.to_path_buf())
-                                    .or_insert_with(|| IndexMap::new())
+                                    .or_insert(IndexMap::new())
                                     .insert(k.clone(), val);
                             } else {
                                 //Otherwise, we just track that we added it here
                                 self.added_env_vars
                                     .entry(wdir.to_path_buf())
-                                    .or_insert_with(|| vec![])
+                                    .or_insert(vec![])
                                     .push(k.clone());
                             }
                         }
