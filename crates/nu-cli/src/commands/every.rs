@@ -24,17 +24,17 @@ impl WholeStreamCommand for Every {
             .required(
                 "stride",
                 SyntaxShape::Int,
-                "every which row to select",
+                "how many rows to skip between (and including) each row returned",
             )
             .switch(
                 "skip",
-                "skip the rows instead of selecting them",
-                Some('s')
+                "skip the rows that would be returned, instead of selecting them",
+                Some('s'),
             )
     }
 
     fn usage(&self) -> &str {
-        "Show (or skip) every nth row, starting from the first."
+        "Show (or skip) every n-th row, starting from the first one."
     }
 
     async fn run(
