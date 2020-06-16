@@ -1,5 +1,4 @@
 use indexmap::{IndexMap, IndexSet};
-use nu_errors::ShellError;
 use nu_protocol::{Primitive, UntaggedValue, Value};
 use std::io::Write;
 use std::{
@@ -90,6 +89,7 @@ impl DirectorySpecificEnvironment {
 
         // //WE CRASHING SOMEWHERE HERE
 
+        let mut seen_vars = IndexSet::new();
         //Start in the current directory, then traverse towards the root with working_dir to see if we are in a subdirectory of a valid directory.
         while let Some(wdir) = working_dir {
             if self.allowed_directories.contains(wdir) {
@@ -107,23 +107,26 @@ impl DirectorySpecificEnvironment {
 
                         //If we are about to overwrite any environment variables, we save them first so they can be restored later.
                         if let Some(existing_val) = std::env::var_os(dir_env_key) {
-                        //     if existing_val != dir_env_val {
-                        //         self.overwritten_env_vars
-                        //             .entry(wdir.to_path_buf())
-                        //             .or_insert(IndexMap::new())
-                        //             .insert(dir_env_key.clone(), existing_val);
+                            if !seen_vars.contains(dir_env_key) {
+                                // self.overwritten_env_vars
+                                //     .entry(wdir.to_path_buf())
+                                //     .or_insert(IndexMap::new())
+                                //     .insert(dir_env_key.clone(), existing_val);
 
-                        //         vars_to_add.insert(dir_env_key.clone(), dir_env_val);
-                        //     }
-                        } else {
+                                std::env::set_var(dir_env_key, dir_env_val.clone());
+                                seen_vars.insert(dir_env_key.clone());
+                                vars_to_add.insert(dir_env_key.clone(), dir_env_val);
+                            }
+                        } //else {
                             //Otherwise, we just track that we added it here
-                            self.added_env_vars
-                                .entry(wdir.to_path_buf())
-                                .or_insert(IndexSet::new())
-                                .insert(dir_env_key.clone());
-
-                            vars_to_add.insert(dir_env_key.clone(), dir_env_val);
-                        }
+                            // self.added_env_vars
+                            //     .entry(wdir.to_path_buf())
+                            //     .or_insert(IndexSet::new())
+                            //     .insert(dir_env_key.clone());
+                            // std::env::set_var(dir_env_key, dir_env_val.clone());
+                            // vars_to_add.insert(dir_env_key.clone(), dir_env_val);
+                            // seen_vars.insert(dir_env_key.clone());
+                        //}
                     });
             }
 
