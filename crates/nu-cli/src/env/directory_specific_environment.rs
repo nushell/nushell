@@ -8,6 +8,7 @@ use std::{
     io::{Error, ErrorKind, Result},
     path::PathBuf,
 };
+use nu_errors::ShellError;
 
 type EnvKey = String;
 type EnvVal = OsString;
@@ -82,11 +83,22 @@ impl DirectorySpecificEnvironment {
         Ok(keyvals_to_restore)
     }
 
-    pub fn env_vars_to_add(&mut self) -> Result<IndexMap<EnvKey, EnvVal>> {
+    pub fn env_vars_to_add(&mut self) -> std::result::Result<IndexMap<EnvKey, EnvVal>, ShellError> {
         let current_dir = std::env::current_dir()?;
         let mut working_dir = Some(current_dir.as_path());
 
         let mut vars_to_add = IndexMap::new();
+
+        // let mut file = OpenOptions::new()
+        //     .write(true)
+        //     .append(true)
+        //     .create(true)
+        //     .open("toadd.txt")
+        //     .unwrap(
+            // );
+
+        // write!(&mut file, "1: {:?}\n", vars_to_add).unwrap();
+        //WE CRASHING SOMEWHERE HERE
 
         //Start in the current directory, then traverse towards the root with working_dir to see if we are in a subdirectory of a valid directory.
         while let Some(wdir) = working_dir {
@@ -96,9 +108,9 @@ impl DirectorySpecificEnvironment {
 
                 toml_doc
                     .get("env")
-                    .ok_or_else(|| Error::new(ErrorKind::InvalidData, "env section missing"))?
+                    .ok_or_else(|| Err(ShellError::untagged_runtime_error("env section missing")))?
                     .as_table()
-                    .ok_or_else(|| Error::new(ErrorKind::InvalidData, "env section malformed"))?
+                    .ok_or_else(|| Err(ShellError::untagged_runtime_error("env section malformed")))?
                     .iter()
                     .for_each(|(directory_env_key, directory_env_val)| {
                         if !vars_to_add.contains_key(directory_env_key) {
