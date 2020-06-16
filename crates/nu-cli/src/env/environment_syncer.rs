@@ -45,14 +45,13 @@ impl EnvironmentSyncer {
     pub fn sync_env_vars(&mut self, ctx: &mut Context) -> Result<(), ShellError> {
         let mut environment = self.env.lock();
 
+        environment.maintain_directory_environment().ok();
         if environment.env().is_some() {
             for (name, value) in ctx.with_host(|host| host.vars()) {
                 if name != "path" && name != "PATH" {
                     // account for new env vars present in the current session
                     // that aren't loaded from config.
                     environment.add_env(&name, &value, false);
-
-                    environment.maintain_directory_environment()?;
 
                     // clear the env var from the session
                     // we are about to replace them

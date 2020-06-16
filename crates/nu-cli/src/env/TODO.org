@@ -20,3 +20,4 @@ returning =None=, which completely skips running the code for dealing with direc
      - This holds even if the old value was set by a .nu in a parent directory. The overwritten value is restored when you leave the directory.
 ** Security
   https://github.com/nushell/nushell/issues/1965
+** Nice errors

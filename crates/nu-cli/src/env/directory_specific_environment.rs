@@ -1,4 +1,5 @@
 use indexmap::{IndexMap, IndexSet};
+use nu_errors::ShellError;
 use nu_protocol::{Primitive, UntaggedValue, Value};
 use std::io::Write;
 use std::{
@@ -8,7 +9,6 @@ use std::{
     io::{Error, ErrorKind, Result},
     path::PathBuf,
 };
-use nu_errors::ShellError;
 
 type EnvKey = String;
 type EnvVal = OsString;
@@ -83,22 +83,12 @@ impl DirectorySpecificEnvironment {
         Ok(keyvals_to_restore)
     }
 
-    pub fn env_vars_to_add(&mut self) -> std::result::Result<IndexMap<EnvKey, EnvVal>, ShellError> {
+    pub fn env_vars_to_add(&mut self) -> std::io::Result<IndexMap<EnvKey, EnvVal>> {
         let current_dir = std::env::current_dir()?;
         let mut working_dir = Some(current_dir.as_path());
-
         let mut vars_to_add = IndexMap::new();
 
-        // let mut file = OpenOptions::new()
-        //     .write(true)
-        //     .append(true)
-        //     .create(true)
-        //     .open("toadd.txt")
-        //     .unwrap(
-            // );
-
-        // write!(&mut file, "1: {:?}\n", vars_to_add).unwrap();
-        //WE CRASHING SOMEWHERE HERE
+        // //WE CRASHING SOMEWHERE HERE
 
         //Start in the current directory, then traverse towards the root with working_dir to see if we are in a subdirectory of a valid directory.
         while let Some(wdir) = working_dir {
@@ -108,41 +98,48 @@ impl DirectorySpecificEnvironment {
 
                 toml_doc
                     .get("env")
-                    .ok_or_else(|| Err(ShellError::untagged_runtime_error("env section missing")))?
+                    .ok_or_else(|| Error::new(ErrorKind::InvalidData, "env section missing"))?
                     .as_table()
-                    .ok_or_else(|| Err(ShellError::untagged_runtime_error("env section malformed")))?
+                    .ok_or_else(|| Error::new(ErrorKind::InvalidData, "env section malformed"))?
                     .iter()
-                    .for_each(|(directory_env_key, directory_env_val)| {
-                        if !vars_to_add.contains_key(directory_env_key) {
-                            let directory_env_val: EnvVal =
-                                directory_env_val.as_str().unwrap().into();
+                    .for_each(|(dir_env_key, dir_env_val)| {
+                        let dir_env_val: EnvVal = dir_env_val.as_str().unwrap().into();
 
-                            //If we are about to overwrite any environment variables, we save them first so they can be restored later.
-                            if let Some(existing_val) = std::env::var_os(directory_env_key) {
-                                if existing_val != directory_env_val {
-                                    self.overwritten_env_vars
-                                        .entry(wdir.to_path_buf())
-                                        .or_insert(IndexMap::new())
-                                        .insert(directory_env_key.clone(), existing_val);
+                        //If we are about to overwrite any environment variables, we save them first so they can be restored later.
+                        if let Some(existing_val) = std::env::var_os(dir_env_key) {
+                        //     if existing_val != dir_env_val {
+                        //         self.overwritten_env_vars
+                        //             .entry(wdir.to_path_buf())
+                        //             .or_insert(IndexMap::new())
+                        //             .insert(dir_env_key.clone(), existing_val);
 
-                                    vars_to_add.insert(directory_env_key.clone(), directory_env_val);
-                                }
-                            } else {
-                                //Otherwise, we just track that we added it here
-                                self.added_env_vars
-                                    .entry(wdir.to_path_buf())
-                                    .or_insert(IndexSet::new())
-                                    .insert(directory_env_key.clone());
+                        //         vars_to_add.insert(dir_env_key.clone(), dir_env_val);
+                        //     }
+                        } else {
+                            //Otherwise, we just track that we added it here
+                            self.added_env_vars
+                                .entry(wdir.to_path_buf())
+                                .or_insert(IndexSet::new())
+                                .insert(dir_env_key.clone());
 
-                                vars_to_add.insert(directory_env_key.clone(), directory_env_val);
-                            }
+                            vars_to_add.insert(dir_env_key.clone(), dir_env_val);
                         }
                     });
             }
+
             working_dir = working_dir //Keep going up in the directory structure with .parent()
                 .expect("This should not be None because of the while condition")
                 .parent();
         }
+
+        let mut file = OpenOptions::new()
+            .write(true)
+            .append(true)
+            .create(true)
+            .open("toadd.txt")
+            .unwrap();
+
+        write!(&mut file, "adding: {:?}\n", vars_to_add).unwrap();
 
         Ok(vars_to_add)
     }

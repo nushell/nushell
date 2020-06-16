@@ -5,6 +5,7 @@ use indexmap::{indexmap, IndexSet};
 use nu_protocol::{UntaggedValue, Value};
 use std::ffi::OsString;
 use std::{fs::OpenOptions, fmt::Debug};
+use nu_errors::ShellError;
 
 pub trait Env: Debug + Send {
     fn env(&self) -> Option<Value>;
@@ -71,10 +72,10 @@ impl Environment {
         //         self.add_env(&k, &v.to_string_lossy(), true);
         //     });
 
-        // self.direnv.env_vars_to_add()?.iter().for_each(|(k, v)| {
-        //     std::env::set_var(k, v);
-        //     self.add_env(&k, &v.to_string_lossy(), true);
-        // });
+        self.direnv.env_vars_to_add()?.iter().for_each(|(k, v)| {
+            // std::env::set_var(k, v);
+            self.add_env(&k, &v.to_string_lossy(), true);
+        });
 
         Ok(())
     }
