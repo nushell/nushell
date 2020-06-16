@@ -59,27 +59,19 @@ fn convert_yaml_value_to_nu_value(
 ) -> Result<Value, ShellError> {
     let tag = tag.into();
 
+    let err_not_compatible_number = ShellError::labeled_error(
+        "Expected a compatible number",
+        "expected a compatible number",
+        &tag,
+    );
     Ok(match v {
         serde_yaml::Value::Bool(b) => UntaggedValue::boolean(*b).into_value(tag),
         serde_yaml::Value::Number(n) if n.is_i64() => {
-            UntaggedValue::int(n.as_i64().ok_or_else(|| {
-                ShellError::labeled_error(
-                    "Expected a compatible number",
-                    "expected a compatible number",
-                    &tag,
-                )
-            })?)
-            .into_value(tag)
+            UntaggedValue::int(n.as_i64().ok_or_else(|| err_not_compatible_number)?).into_value(tag)
         }
         serde_yaml::Value::Number(n) if n.is_f64() => {
-            UntaggedValue::decimal(n.as_f64().ok_or_else(|| {
-                ShellError::labeled_error(
-                    "Expected a compatible number",
-                    "expected a compatible number",
-                    &tag,
-                )
-            })?)
-            .into_value(tag)
+            UntaggedValue::decimal(n.as_f64().ok_or_else(|| err_not_compatible_number)?)
+                .into_value(tag)
         }
         serde_yaml::Value::String(s) => UntaggedValue::string(s).into_value(tag),
         serde_yaml::Value::Sequence(a) => {
@@ -93,11 +85,39 @@ fn convert_yaml_value_to_nu_value(
             let mut collected = TaggedDictBuilder::new(&tag);
 
             for (k, v) in t.iter() {
-                match k {
-                    serde_yaml::Value::String(k) => {
+                // A ShellError that we re-use multiple times in the Mapping scenario
+                let err_unexpected_map = ShellError::labeled_error(
+                    format!("Unexpected YAML:\nKey: {:?}\nValue: {:?}", k, v),
+                    "unexpected",
+                    tag.clone(),
+                );
+                match (k, v) {
+                    (serde_yaml::Value::String(k), _) => {
                         collected.insert_value(k.clone(), convert_yaml_value_to_nu_value(v, &tag)?);
                     }
-                    _ => unimplemented!("Unknown key type"),
+                    // Hard-code fix for cases where "v" is a string without quotations with double curly braces
+                    // e.g. k = value
+                    // value: {{ something }}
+                    // Strangely, serde_yaml returns
+                    // "value" -> Mapping(Mapping { map: {Mapping(Mapping { map: {String("something"): Null} }): Null} })
+                    (serde_yaml::Value::Mapping(m), serde_yaml::Value::Null) => {
+                        return m
+                            .iter()
+                            .take(1)
+                            .collect_vec()
+                            .first()
+                            .and_then(|e| match e {
+                                (serde_yaml::Value::String(s), serde_yaml::Value::Null) => Some(
+                                    UntaggedValue::string("{{ ".to_owned() + &s + " }}")
+                                        .into_value(tag),
+                                ),
+                                _ => None,
+                            })
+                            .ok_or(err_unexpected_map);
+                    }
+                    (_, _) => {
+                        return Err(err_unexpected_map);
+                    }
                 }
             }
 
@@ -151,12 +171,48 @@ async fn from_yaml(
 
 #[cfg(test)]
 mod tests {
-    use super::FromYAML;
+    use super::*;
+    use nu_plugin::row;
+    use nu_plugin::test_helpers::value::string;
 
     #[test]
     fn examples_work_as_expected() {
         use crate::examples::test as test_examples;
 
         test_examples(FromYAML {})
+    }
+
+    #[test]
+    fn test_problematic_yaml() {
+        struct TestCase {
+            description: &'static str,
+            input: &'static str,
+            expected: Result<Value, ShellError>,
+        }
+        let tt: Vec<TestCase> = vec![
+            TestCase {
+                description: "Double Curly Braces With Quotes",
+                input: r#"value: "{{ something }}""#,
+                expected: Ok(row!["value".to_owned() => string("{{ something }}")]),
+            },
+            TestCase {
+                description: "Double Curly Braces Without Quotes",
+                input: r#"value: {{ something }}"#,
+                expected: Ok(row!["value".to_owned() => string("{{ something }}")]),
+            },
+        ];
+        for tc in tt.into_iter() {
+            let actual = from_yaml_string_to_value(tc.input.to_owned(), Tag::default());
+            if actual.is_err() {
+                assert!(
+                    tc.expected.is_err(),
+                    "actual is Err for test:\nTest Description {}\nErr: {:?}",
+                    tc.description,
+                    actual
+                );
+            } else {
+                assert_eq!(actual, tc.expected, "{}", tc.description);
+            }
+        }
     }
 }
