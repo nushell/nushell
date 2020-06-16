@@ -112,90 +112,48 @@ fn get_invalid_year_shell_error(year_tag: &Tag) -> ShellError {
 }
 
 struct MonthHelper {
-    day_number_month_starts_on: u32,
-    number_of_days_in_month: u32,
     selected_year: i32,
     selected_month: u32,
+    day_number_of_week_month_starts_on: u32,
+    number_of_days_in_month: u32,
+    quarter_number: u32,
+    month_name: String,
 }
 
 impl MonthHelper {
     pub fn new(selected_year: i32, selected_month: u32) -> Result<MonthHelper, ()> {
-        let mut month_helper = MonthHelper {
-            day_number_month_starts_on: 0,
-            number_of_days_in_month: 0,
+        let naive_date = NaiveDate::from_ymd_opt(selected_year, selected_month, 1).ok_or(())?;
+        let number_of_days_in_month =
+            MonthHelper::calculate_number_of_days_in_month(selected_year, selected_month)?;
+
+        Ok(MonthHelper {
             selected_year,
             selected_month,
-        };
-
-        let chosen_date_result_one = month_helper.update_day_number_month_starts_on();
-        let chosen_date_result_two = month_helper.update_number_of_days_in_month();
-
-        if chosen_date_result_one.is_ok() && chosen_date_result_two.is_ok() {
-            return Ok(month_helper);
-        }
-
-        Err(())
+            day_number_of_week_month_starts_on: naive_date.weekday().num_days_from_sunday(),
+            number_of_days_in_month,
+            quarter_number: ((selected_month - 1) / 3) + 1,
+            month_name: naive_date.format("%B").to_string().to_ascii_lowercase(),
+        })
     }
 
-    pub fn get_month_name(&self) -> String {
-        let month_name = match self.selected_month {
-            1 => "january",
-            2 => "february",
-            3 => "march",
-            4 => "april",
-            5 => "may",
-            6 => "june",
-            7 => "july",
-            8 => "august",
-            9 => "september",
-            10 => "october",
-            11 => "november",
-            _ => "december",
-        };
-
-        month_name.to_string()
-    }
-
-    fn update_day_number_month_starts_on(&mut self) -> Result<(), ()> {
-        let naive_date_result =
-            MonthHelper::get_naive_date(self.selected_year, self.selected_month);
-
-        match naive_date_result {
-            Ok(naive_date) => {
-                self.day_number_month_starts_on = naive_date.weekday().num_days_from_sunday();
-                Ok(())
-            }
-            _ => Err(()),
-        }
-    }
-
-    fn update_number_of_days_in_month(&mut self) -> Result<(), ()> {
+    fn calculate_number_of_days_in_month(
+        mut selected_year: i32,
+        mut selected_month: u32,
+    ) -> Result<u32, ()> {
         // Chrono does not provide a method to output the amount of days in a month
         // This is a workaround taken from the example code from the Chrono docs here:
         // https://docs.rs/chrono/0.3.0/chrono/naive/date/struct.NaiveDate.html#example-30
-        let (adjusted_year, adjusted_month) = if self.selected_month == 12 {
-            (self.selected_year + 1, 1)
+        if selected_month == 12 {
+            selected_year += 1;
+            selected_month = 1;
         } else {
-            (self.selected_year, self.selected_month + 1)
+            selected_month += 1;
         };
 
-        let naive_date_result = MonthHelper::get_naive_date(adjusted_year, adjusted_month);
+        let next_month_naive_date =
+            NaiveDate::from_ymd_opt(selected_year, selected_month, 1).ok_or(())?;
 
-        match naive_date_result {
-            Ok(naive_date) => {
-                self.number_of_days_in_month = naive_date.pred().day();
-                Ok(())
-            }
-            _ => Err(()),
-        }
-    }
-
-    fn get_naive_date(selected_year: i32, selected_month: u32) -> Result<NaiveDate, ()> {
-        if let Some(naive_date) = NaiveDate::from_ymd_opt(selected_year, selected_month, 1) {
-            return Ok(naive_date);
-        }
-
-        Err(())
+        Ok(next_month_naive_date.pred().day())
     }
 }
 
@@ -268,7 +226,8 @@ fn add_month_to_table(
         },
     };
 
-    let day_limit = month_helper.number_of_days_in_month + month_helper.day_number_month_starts_on;
+    let day_limit =
+        month_helper.number_of_days_in_month + month_helper.day_number_of_week_month_starts_on;
     let mut day_count: u32 = 1;
 
     let days_of_the_week = [
@@ -282,45 +241,46 @@ fn add_month_to_table(
     ];
 
     let should_show_year_column = args.has("year");
-    let should_show_month_column = args.has("month");
     let should_show_quarter_column = args.has("quarter");
+    let should_show_month_column = args.has("month");
     let should_show_month_names = args.has("month-names");
 
     while day_count <= day_limit {
-        let mut indexmap = IndexMap::new();
+        let mut index_map = IndexMap::new();
 
         if should_show_year_column {
-            indexmap.insert(
+            index_map.insert(
                 "year".to_string(),
                 UntaggedValue::int(month_helper.selected_year).into_value(tag),
             );
         }
 
         if should_show_quarter_column {
-            indexmap.insert(
+            index_map.insert(
                 "quarter".to_string(),
-                UntaggedValue::int(((month_helper.selected_month - 1) / 3) + 1).into_value(tag),
+                UntaggedValue::int(month_helper.quarter_number).into_value(tag),
             );
         }
 
         if should_show_month_column {
             let month_value = if should_show_month_names {
-                UntaggedValue::string(month_helper.get_month_name()).into_value(tag)
+                UntaggedValue::string(month_helper.month_name.clone()).into_value(tag)
             } else {
                 UntaggedValue::int(month_helper.selected_month).into_value(tag)
             };
 
-            indexmap.insert("month".to_string(), month_value);
+            index_map.insert("month".to_string(), month_value);
         }
 
         for day in &days_of_the_week {
-            let should_add_day_number_to_table =
-                (day_count <= day_limit) && (day_count > month_helper.day_number_month_starts_on);
+            let should_add_day_number_to_table = (day_count <= day_limit)
+                && (day_count > month_helper.day_number_of_week_month_starts_on);
 
             let mut value = UntaggedValue::nothing().into_value(tag);
 
             if should_add_day_number_to_table {
-                let day_count_with_offset = day_count - month_helper.day_number_month_starts_on;
+                let day_count_with_offset =
+                    day_count - month_helper.day_number_of_week_month_starts_on;
 
                 value = UntaggedValue::int(day_count_with_offset).into_value(tag);
 
@@ -332,13 +292,13 @@ fn add_month_to_table(
                 }
             }
 
-            indexmap.insert((*day).to_string(), value);
+            index_map.insert((*day).to_string(), value);
 
             day_count += 1;
         }
 
         calendar_vec_deque
-            .push_back(UntaggedValue::Row(Dictionary::from(indexmap)).into_value(tag));
+            .push_back(UntaggedValue::Row(Dictionary::from(index_map)).into_value(tag));
     }
 
     Ok(())
