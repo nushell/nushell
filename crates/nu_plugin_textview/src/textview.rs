@@ -5,13 +5,14 @@ use crossterm::{
 
 use nu_protocol::{Primitive, UntaggedValue, Value};
 use nu_source::AnchorLocation;
+//use nu_source::{AnchorLocation, Tag};
+// use nu_cli::data::config::{read, Conf, NuConfig};
 
-use syntect::easy::HighlightLines;
-use syntect::highlighting::{Style, ThemeSet};
-use syntect::parsing::SyntaxSet;
+use syntect::highlighting::Style;
 
 use std::io::Write;
 use std::path::Path;
+
 
 enum DrawCommand {
     DrawString(Style, String),
@@ -223,13 +224,29 @@ fn scroll_view(s: &str) {
 }
 
 pub fn view_text_value(value: &Value) {
+    // if let Ok(config) = nu_cli::data::config(Tag::unknown()) {
+    //     if let Some(bat_envs) = config.get("bat") {
+    //         if let Value {
+    //             value: UntaggedValue::Table(pipelines),
+    //             ..
+    //         } = bat_envs
+    //         {
+    //             for pipeline in pipelines {
+    //                 if let Ok(env) = pipeline.as_string() {
+    //                     //search_paths.push(PathBuf::from(plugin_dir));
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+
     let value_anchor = value.anchor();
     if let UntaggedValue::Primitive(Primitive::String(ref s)) = &value.value {
         if let Some(source) = value_anchor {
-            let extension: Option<String> = match source {
+            let file_path: Option<String> = match source {
                 AnchorLocation::File(file) => {
                     let path = Path::new(&file);
-                    path.extension().map(|x| x.to_string_lossy().to_string())
+                    Some(path.to_string_lossy().to_string())
                 }
                 AnchorLocation::Url(url) => {
                     let url = url::Url::parse(&url);
@@ -237,7 +254,7 @@ pub fn view_text_value(value: &Value) {
                         if let Some(mut segments) = url.path_segments() {
                             if let Some(file) = segments.next_back() {
                                 let path = Path::new(file);
-                                path.extension().map(|x| x.to_string_lossy().to_string())
+                                Some(path.to_string_lossy().to_string())
                             } else {
                                 None
                             }
@@ -252,31 +269,29 @@ pub fn view_text_value(value: &Value) {
                 AnchorLocation::Source(_source) => None,
             };
 
-            match extension {
-                Some(extension) => {
-                    // Load these once at the start of your program
-                    let ps: SyntaxSet =
-                        syntect::dumps::from_binary(include_bytes!("assets/syntaxes.bin"));
-
-                    if let Some(syntax) = ps.find_syntax_by_extension(&extension) {
-                        let ts: ThemeSet =
-                            syntect::dumps::from_binary(include_bytes!("assets/themes.bin"));
-                        let mut h = HighlightLines::new(syntax, &ts.themes["OneHalfDark"]);
-
-                        let mut v = vec![];
-                        for line in s.lines() {
-                            let ranges: Vec<(Style, &str)> = h.highlight(line, &ps);
-
-                            for range in ranges {
-                                v.push(DrawCommand::DrawString(range.0, range.1.to_string()));
-                            }
-
-                            v.push(DrawCommand::NextLine);
-                        }
-                        scroll_view_lines_if_needed(v, true);
-                    } else {
-                        scroll_view(s);
-                    }
+            match file_path {
+                Some(file_path) => {
+                    // Let bat do it's thing
+                    bat::PrettyPrinter::new()
+                        .input_file(file_path)
+                        .term_width(textwrap::termwidth())
+                        .tab_width(Some(4))
+                        .colored_output(true)
+                        .true_color(true)
+                        .header(true)
+                        .line_numbers(true)
+                        .grid(true)
+                        .vcs_modification_markers(true)
+                        .snip(true)
+                        .wrapping_mode(bat::WrappingMode::NoWrapping)
+                        .use_italics(true)
+                        .paging_mode(bat::PagingMode::QuitIfOneScreen)
+                        .pager("less")
+                        .line_ranges(bat::line_range::LineRanges::all())
+                        .highlight_range(0, 0)
+                        .theme("OneHalfDark")
+                        .print()
+                        .expect("Error with bat PrettyPrint");
                 }
                 _ => {
                     scroll_view(s);
