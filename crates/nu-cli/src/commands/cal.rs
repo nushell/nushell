@@ -246,17 +246,17 @@ fn add_month_to_table(
     let should_show_month_names = args.has("month-names");
 
     while day_count <= day_limit {
-        let mut index_map = IndexMap::new();
+        let mut indexmap = IndexMap::new();
 
         if should_show_year_column {
-            index_map.insert(
+            indexmap.insert(
                 "year".to_string(),
                 UntaggedValue::int(month_helper.selected_year).into_value(tag),
             );
         }
 
         if should_show_quarter_column {
-            index_map.insert(
+            indexmap.insert(
                 "quarter".to_string(),
                 UntaggedValue::int(month_helper.quarter_number).into_value(tag),
             );
@@ -269,7 +269,7 @@ fn add_month_to_table(
                 UntaggedValue::int(month_helper.selected_month).into_value(tag)
             };
 
-            index_map.insert("month".to_string(), month_value);
+            indexmap.insert("month".to_string(), month_value);
         }
 
         for day in &days_of_the_week {
@@ -292,13 +292,13 @@ fn add_month_to_table(
                 }
             }
 
-            index_map.insert((*day).to_string(), value);
+            indexmap.insert((*day).to_string(), value);
 
             day_count += 1;
         }
 
         calendar_vec_deque
-            .push_back(UntaggedValue::Row(Dictionary::from(index_map)).into_value(tag));
+            .push_back(UntaggedValue::Row(Dictionary::from(indexmap)).into_value(tag));
     }
 
     Ok(())
