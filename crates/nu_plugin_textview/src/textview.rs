@@ -273,7 +273,7 @@ pub fn view_text_value(value: &Value) {
                 Some(file_path) => {
                     // Let bat do it's thing
                     bat::PrettyPrinter::new()
-                        .input_file(file_path)
+                        .input_from_bytes_with_name(s.as_bytes(), file_path)
                         .term_width(textwrap::termwidth())
                         .tab_width(Some(4))
                         .colored_output(true)
