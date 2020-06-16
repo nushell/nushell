@@ -10,6 +10,7 @@ pub struct Every;
 #[derive(Deserialize)]
 pub struct EveryArgs {
     stride: Tagged<u64>,
+    skip: Tagged<bool>,
 }
 
 #[async_trait]
@@ -25,10 +26,15 @@ impl WholeStreamCommand for Every {
                 SyntaxShape::Int,
                 "every which row to select",
             )
+            .switch(
+                "skip",
+                "skip the rows instead of selecting them",
+                Some('s')
+            )
     }
 
     fn usage(&self) -> &str {
-        "Show only every nth row, starting from the first."
+        "Show (or skip) every nth row, starting from the first."
     }
 
     async fn run(
@@ -50,13 +56,21 @@ impl WholeStreamCommand for Every {
                     UntaggedValue::int(5).into(),
                 ]),
             },
+            Example {
+                description: "Skip every second row",
+                example: "echo [1 2 3 4 5] | every 2 --skip",
+                result: Some(vec![
+                    UntaggedValue::int(2).into(),
+                    UntaggedValue::int(4).into(),
+                ]),
+            },
         ]
     }
 }
 
 async fn every(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let (EveryArgs { stride }, input) = args.process(&registry).await?;
+    let (EveryArgs { stride, skip }, input) = args.process(&registry).await?;
     let v: Vec<_> = input.into_vec().await;
 
     let stride_desired = if stride.item < 1 { 1 } else { stride.item } as usize;
@@ -64,7 +78,13 @@ async fn every(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
     let mut values_vec_deque = VecDeque::new();
 
     for (i, x) in v.iter().enumerate() {
-        if i % stride_desired == 0 {
+        let should_include = if skip.item {
+            i % stride_desired != 0
+        } else {
+            i % stride_desired == 0
+        };
+
+        if should_include {
             values_vec_deque.push_back(ReturnSuccess::value(x.clone()));
         }
     }

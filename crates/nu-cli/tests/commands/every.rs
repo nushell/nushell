@@ -27,8 +27,32 @@ fn gets_all_rows_by_every_zero() {
 }
 
 #[test]
-fn gets_all_rows_by_every_one() {
+fn gets_no_rows_by_every_skip_zero() {
     Playground::setup("every_test_2", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("los.txt"),
+            EmptyFile("tres.txt"),
+            EmptyFile("amigos.txt"),
+            EmptyFile("arepas.clu"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ls
+                | every 0 --skip
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual.out, "0");
+    })
+}
+
+#[test]
+fn gets_all_rows_by_every_one() {
+    Playground::setup("every_test_3", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("los.txt"),
             EmptyFile("tres.txt"),
@@ -51,8 +75,32 @@ fn gets_all_rows_by_every_one() {
 }
 
 #[test]
+fn gets_no_rows_by_every_skip_one() {
+    Playground::setup("every_test_4", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("los.txt"),
+            EmptyFile("tres.txt"),
+            EmptyFile("amigos.txt"),
+            EmptyFile("arepas.clu"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ls
+                | every 1 --skip
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual.out, "0");
+    })
+}
+
+#[test]
 fn gets_first_row_by_every_too_much() {
-    Playground::setup("every_test_3", |dirs, sandbox| {
+    Playground::setup("every_test_5", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("los.txt"),
             EmptyFile("tres.txt"),
@@ -75,8 +123,32 @@ fn gets_first_row_by_every_too_much() {
 }
 
 #[test]
+fn gets_all_rows_except_first_by_every_skip_too_much() {
+    Playground::setup("every_test_6", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("los.txt"),
+            EmptyFile("tres.txt"),
+            EmptyFile("amigos.txt"),
+            EmptyFile("arepas.clu"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ls
+                | every 999 --skip
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual.out, "3");
+    })
+}
+
+#[test]
 fn gets_every_third_row() {
-    Playground::setup("every_test_4", |dirs, sandbox| {
+    Playground::setup("every_test_7", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("los.txt"),
             EmptyFile("tres.txt"),
@@ -96,5 +168,30 @@ fn gets_every_third_row() {
         ));
 
         assert_eq!(actual.out, "2");
+    })
+}
+
+#[test]
+fn skips_every_third_row() {
+    Playground::setup("every_test_8", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("los.txt"),
+            EmptyFile("tres.txt"),
+            EmptyFile("quatro.txt"),
+            EmptyFile("amigos.txt"),
+            EmptyFile("arepas.clu"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ls
+                | every 3 --skip
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual.out, "3");
     })
 }
