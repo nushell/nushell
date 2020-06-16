@@ -16,13 +16,19 @@ fn gets_all_rows_by_every_zero() {
             cwd: dirs.test(), pipeline(
             r#"
                 ls
+                | get name
                 | every 0
-                | count
-                | echo $it
             "#
         ));
 
-        assert_eq!(actual.out, "4");
+        let expected = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                echo [ amigos.txt arepas.clu los.txt tres.txt ]
+            "#
+        ));
+
+        assert_eq!(actual.out, expected.out);
     })
 }
 
@@ -40,13 +46,19 @@ fn gets_no_rows_by_every_skip_zero() {
             cwd: dirs.test(), pipeline(
             r#"
                 ls
+                | get name
                 | every 0 --skip
-                | count
-                | echo $it
             "#
         ));
 
-        assert_eq!(actual.out, "0");
+        let expected = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                echo [ ]
+            "#
+        ));
+
+        assert_eq!(actual.out, expected.out);
     })
 }
 
@@ -64,13 +76,19 @@ fn gets_all_rows_by_every_one() {
             cwd: dirs.test(), pipeline(
             r#"
                 ls
+                | get name
                 | every 1
-                | count
-                | echo $it
             "#
         ));
 
-        assert_eq!(actual.out, "4");
+        let expected = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                echo [ amigos.txt arepas.clu los.txt tres.txt ]
+            "#
+        ));
+
+        assert_eq!(actual.out, expected.out);
     })
 }
 
@@ -88,13 +106,19 @@ fn gets_no_rows_by_every_skip_one() {
             cwd: dirs.test(), pipeline(
             r#"
                 ls
+                | get name
                 | every 1 --skip
-                | count
-                | echo $it
             "#
         ));
 
-        assert_eq!(actual.out, "0");
+        let expected = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                echo [ ]
+            "#
+        ));
+
+        assert_eq!(actual.out, expected.out);
     })
 }
 
@@ -112,13 +136,19 @@ fn gets_first_row_by_every_too_much() {
             cwd: dirs.test(), pipeline(
             r#"
                 ls
+                | get name
                 | every 999
-                | count
-                | echo $it
             "#
         ));
 
-        assert_eq!(actual.out, "1");
+        let expected = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                echo [ amigos.txt ]
+            "#
+        ));
+
+        assert_eq!(actual.out, expected.out);
     })
 }
 
@@ -136,13 +166,19 @@ fn gets_all_rows_except_first_by_every_skip_too_much() {
             cwd: dirs.test(), pipeline(
             r#"
                 ls
+                | get name
                 | every 999 --skip
-                | count
-                | echo $it
             "#
         ));
 
-        assert_eq!(actual.out, "3");
+        let expected = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                echo [ arepas.clu los.txt tres.txt ]
+            "#
+        ));
+
+        assert_eq!(actual.out, expected.out);
     })
 }
 
@@ -161,13 +197,19 @@ fn gets_every_third_row() {
             cwd: dirs.test(), pipeline(
             r#"
                 ls
+                | get name
                 | every 3
-                | count
-                | echo $it
             "#
         ));
 
-        assert_eq!(actual.out, "2");
+        let expected = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                echo [ amigos.txt quatro.txt ]
+            "#
+        ));
+
+        assert_eq!(actual.out, expected.out);
     })
 }
 
@@ -186,12 +228,18 @@ fn skips_every_third_row() {
             cwd: dirs.test(), pipeline(
             r#"
                 ls
+                | get name
                 | every 3 --skip
-                | count
-                | echo $it
             "#
         ));
 
-        assert_eq!(actual.out, "3");
+        let expected = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                echo [ arepas.clu los.txt tres.txt ]
+            "#
+        ));
+
+        assert_eq!(actual.out, expected.out);
     })
 }
