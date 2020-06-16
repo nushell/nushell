@@ -30,6 +30,7 @@ pub(crate) mod echo;
 pub(crate) mod enter;
 #[allow(unused)]
 pub(crate) mod evaluate_by;
+pub(crate) mod every;
 pub(crate) mod exit;
 pub(crate) mod first;
 pub(crate) mod format;
@@ -160,6 +161,7 @@ pub(crate) mod touch;
 pub(crate) use enter::Enter;
 #[allow(unused_imports)]
 pub(crate) use evaluate_by::EvaluateBy;
+pub(crate) use every::Every;
 pub(crate) use exit::Exit;
 pub(crate) use first::First;
 pub(crate) use format::Format;

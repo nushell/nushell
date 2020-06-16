@@ -320,6 +320,7 @@ pub fn create_default_context(
             whole_stream_command(GroupByDate),
             whole_stream_command(First),
             whole_stream_command(Last),
+            whole_stream_command(Every),
             whole_stream_command(Nth),
             whole_stream_command(Drop),
             whole_stream_command(Format),
