@@ -10,6 +10,7 @@ mod default;
 mod drop;
 mod each;
 mod enter;
+mod every;
 mod first;
 mod format;
 mod get;
