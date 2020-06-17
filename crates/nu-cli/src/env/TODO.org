@@ -1,0 +1,26 @@
+* TODO
+** Run even if =env()= returns None
+It happens if there is no env-section in .config/nu/config.toml.
+This results in
+#+begin_src rust
+impl Env for Environment {
+    fn env(&self) -> Option<Value> {
+        if let Some(vars) = &self.environment_vars {
+            return Some(vars.clone());
+        }
+
+        None
+    }
+#+end_src
+returning =None=, which completely skips running the code for dealing with directory specific environment variables.
+** Confirm intended behavior
+   - If you are in a directory, or a subdirectory to a directory with a .nu-file, the vars in that .nu-file are applied.
+   - If you leave a directory which set some variables, the variables are unset.
+   - If a directory contains a .nu with an environment variable that was already set, the old value will be overwritten.
+     - This holds even if the old value was set by a .nu in a parent directory. The overwritten value is restored when you leave the directory.
+** Security
+  https://github.com/nushell/nushell/issues/1965
+** Nice errors
+** Potential issues
+   - Currently the functionality to restore environment variables is disabled, as it is handled by other parts of nushell just fine.
+     - This functionality might need to be re-added if 

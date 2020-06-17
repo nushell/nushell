@@ -1,9 +1,10 @@
 use crate::data::config::Conf;
+use std::io::Write;
 use crate::env::directory_specific_environment::*;
 use indexmap::{indexmap, IndexSet};
 use nu_protocol::{UntaggedValue, Value};
 use std::ffi::OsString;
-use std::fmt::Debug;
+use std::{fs::OpenOptions, fmt::Debug};
 
 pub trait Env: Debug + Send {
     fn env(&self) -> Option<Value>;
@@ -62,17 +63,18 @@ impl Environment {
         self.direnv.env_vars_to_delete()?.iter().for_each(|k| {
             self.remove_env(&k);
         });
+
+        // self.direnv
+        //     .overwritten_values_to_restore()?
+        //     .iter()
+        //     .for_each(|(k, v)| {
+        //         self.add_env(&k, &v.to_string_lossy(), true);
+        //     });
+
         self.direnv.env_vars_to_add()?.iter().for_each(|(k, v)| {
-            self.add_env(&k, &v, true);
+            // std::env::set_var(k, v);
+            self.add_env(&k, &v.to_string_lossy(), true);
         });
-
-        self.direnv
-            .overwritten_values_to_restore()?
-            .iter()
-            .for_each(|(k, v)| {
-                self.add_env(&k, &v, true);
-            });
-
         Ok(())
     }
 
@@ -83,6 +85,7 @@ impl Environment {
         }) = self.environment_vars
         {
             envs.entries.remove(key);
+            std::env::remove_var(key);
         };
     }
 
