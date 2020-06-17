@@ -246,16 +246,16 @@ fn add_month_to_table(
         }
     }
 
-    let week_day_start_offset = days_of_the_week.len()
+    let week_start_day_offset = days_of_the_week.len()
         - days_of_the_week
             .iter()
             .position(|day| *day == cal_week_start_day)
             .unwrap_or(0);
 
-    days_of_the_week.rotate_right(week_day_start_offset);
+    days_of_the_week.rotate_right(week_start_day_offset);
 
     let mut total_start_offset: u32 =
-        month_helper.day_number_of_week_month_starts_on + week_day_start_offset as u32;
+        month_helper.day_number_of_week_month_starts_on + week_start_day_offset as u32;
     total_start_offset %= days_of_the_week.len() as u32;
 
     let mut day_number: u32 = 1;
