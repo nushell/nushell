@@ -1,16 +1,15 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{
-    Signature, SpannedTypeName, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
-};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, Value};
 use nu_source::Tagged;
+use nu_value_ext::as_string;
 
 pub struct SplitBy;
 
 #[derive(Deserialize)]
 pub struct SplitByArgs {
-    column_name: Tagged<String>,
+    column_name: Option<Tagged<String>>,
 }
 
 #[async_trait]
@@ -20,7 +19,7 @@ impl WholeStreamCommand for SplitBy {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("split-by").required(
+        Signature::build("split-by").optional(
             "column_name",
             SyntaxShape::String,
             "the name of the column within the nested table to split by",
@@ -53,108 +52,84 @@ pub async fn split_by(
         return Err(ShellError::labeled_error(
             "Expected table from pipeline",
             "requires a table input",
-            column_name.span(),
+            name,
         ));
     }
 
-    match split(&column_name, &values[0], name) {
-        Ok(split) => Ok(OutputStream::one(split)),
+    match split(&column_name, &values[0], &name) {
+        Ok(splits) => Ok(OutputStream::one(ReturnSuccess::value(splits))),
         Err(err) => Err(err),
     }
 }
 
+enum Grouper {
+    ByColumn(Option<Tagged<String>>),
+}
+
 pub fn split(
-    column_name: &Tagged<String>,
-    value: &Value,
+    column_name: &Option<Tagged<String>>,
+    values: &Value,
     tag: impl Into<Tag>,
 ) -> Result<Value, ShellError> {
-    let origin_tag = tag.into();
+    let name = tag.into();
 
-    let mut splits = indexmap::IndexMap::new();
+    let grouper = if let Some(column_name) = column_name {
+        Grouper::ByColumn(Some(column_name.clone()))
+    } else {
+        Grouper::ByColumn(None)
+    };
 
-    match value {
-        Value {
-            value: UntaggedValue::Row(group_sets),
-            ..
-        } => {
-            for (group_key, group_value) in group_sets.entries.iter() {
-                match *group_value {
-                    Value {
-                        value: UntaggedValue::Table(ref dataset),
-                        ..
-                    } => {
-                        let group = crate::commands::group_by::group(
-                            &column_name,
-                            dataset.to_vec(),
-                            &origin_tag,
-                        )?;
-
-                        match group {
-                            Value {
-                                value: UntaggedValue::Row(o),
-                                ..
-                            } => {
-                                for (split_label, subset) in o.entries.into_iter() {
-                                    match subset {
-                                        Value {
-                                            value: UntaggedValue::Table(subset),
-                                            tag,
-                                        } => {
-                                            let s = splits
-                                                .entry(split_label.clone())
-                                                .or_insert(indexmap::IndexMap::new());
-                                            s.insert(
-                                                group_key.clone(),
-                                                UntaggedValue::table(&subset).into_value(tag),
-                                            );
-                                        }
-                                        other => {
-                                            return Err(ShellError::type_error(
-                                                "a table value",
-                                                other.spanned_type_name(),
-                                            ))
-                                        }
-                                    }
-                                }
-                            }
-                            _ => {
-                                return Err(ShellError::type_error(
-                                    "a table value",
-                                    group.spanned_type_name(),
-                                ))
-                            }
-                        }
-                    }
-                    ref other => {
-                        return Err(ShellError::type_error(
-                            "a table value",
-                            other.spanned_type_name(),
-                        ))
-                    }
+    match grouper {
+        Grouper::ByColumn(Some(column_name)) => {
+            let block = Box::new(move |row: &Value| {
+                match row.get_data_by_key(column_name.borrow_spanned()) {
+                    Some(group_key) => Ok(as_string(&group_key)?),
+                    None => Err(suggestions(column_name.borrow_tagged(), &row)),
                 }
-            }
+            });
+
+            crate::utils::data::split(&values, &Some(block), &name)
         }
-        _ => {
-            return Err(ShellError::type_error(
-                "a table value",
-                value.spanned_type_name(),
-            ))
+        Grouper::ByColumn(None) => {
+            let block = Box::new(move |row: &Value| match as_string(row) {
+                Ok(group_key) => Ok(group_key),
+                Err(reason) => Err(reason),
+            });
+
+            crate::utils::data::split(&values, &Some(block), &name)
         }
     }
-
-    let mut out = TaggedDictBuilder::new(&origin_tag);
-
-    for (k, v) in splits.into_iter() {
-        out.insert_untagged(k, UntaggedValue::row(v));
-    }
-
-    Ok(out.into_value())
 }
+
+pub fn suggestions(tried: Tagged<&str>, for_value: &Value) -> ShellError {
+    let possibilities = for_value.data_descriptors();
+
+    let mut possible_matches: Vec<_> = possibilities
+        .iter()
+        .map(|x| (natural::distance::levenshtein_distance(x, &tried), x))
+        .collect();
+
+    possible_matches.sort();
+
+    if !possible_matches.is_empty() {
+        return ShellError::labeled_error(
+            "Unknown column",
+            format!("did you mean '{}'?", possible_matches[0].1),
+            tried.tag(),
+        );
+    } else {
+        return ShellError::labeled_error(
+            "Unknown column",
+            "row does not contain this column",
+            tried.tag(),
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
-
+    use super::split;
     use crate::commands::group_by::group;
-    use crate::commands::split_by::split;
     use indexmap::IndexMap;
     use nu_errors::ShellError;
     use nu_protocol::{UntaggedValue, Value};
@@ -173,11 +148,12 @@ mod tests {
     }
 
     fn nu_releases_grouped_by_date() -> Result<Value, ShellError> {
-        let key = String::from("date").tagged_unknown();
-        group(&key, nu_releases_commiters(), Tag::unknown())
+        let key = Some(String::from("date").tagged_unknown());
+        let sample = table(&nu_releases_committers());
+        group(&key, &sample, Tag::unknown())
     }
 
-    fn nu_releases_commiters() -> Vec<Value> {
+    fn nu_releases_committers() -> Vec<Value> {
         vec![
             row(
                 indexmap! {"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("August 23-2019")},
@@ -211,7 +187,7 @@ mod tests {
 
     #[test]
     fn splits_inner_tables_by_key() -> Result<(), ShellError> {
-        let for_key = String::from("country").tagged_unknown();
+        let for_key = Some(String::from("country").tagged_unknown());
 
         assert_eq!(
             split(&for_key, &nu_releases_grouped_by_date()?, Tag::unknown())?,
@@ -257,7 +233,7 @@ mod tests {
 
     #[test]
     fn errors_if_key_within_some_inner_table_is_missing() {
-        let for_key = String::from("country").tagged_unknown();
+        let for_key = Some(String::from("country").tagged_unknown());
 
         let nu_releases = row(indexmap! {
             "August 23-2019".into() =>  table(&[

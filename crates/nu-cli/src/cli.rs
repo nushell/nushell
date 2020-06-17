@@ -49,8 +49,9 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
     let mut input = String::new();
     let result = match reader.read_line(&mut input) {
         Ok(count) => {
-            trace!("processing response ({} bytes)", count);
-            trace!("response: {}", input);
+            trace!(target: "nu::load", "plugin infrastructure -> config response");
+            trace!(target: "nu::load", "plugin infrastructure -> processing response ({} bytes)", count);
+            trace!(target: "nu::load", "plugin infrastructure -> response: {}", input);
 
             let response = serde_json::from_str::<JsonRpc<Result<Signature, ShellError>>>(&input);
             match response {
@@ -58,13 +59,13 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
                     Ok(params) => {
                         let fname = path.to_string_lossy();
 
-                        trace!("processing {:?}", params);
+                        trace!(target: "nu::load", "plugin infrastructure -> processing {:?}", params);
 
                         let name = params.name.clone();
                         let fname = fname.to_string();
 
                         if context.get_command(&name).is_some() {
-                            trace!("plugin {:?} already loaded.", &name);
+                            trace!(target: "nu::load", "plugin infrastructure -> {:?} already loaded.", &name);
                         } else if params.is_filter {
                             context.add_commands(vec![whole_stream_command(PluginCommand::new(
                                 name, fname, params,
@@ -79,7 +80,7 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
                     Err(e) => Err(e),
                 },
                 Err(e) => {
-                    trace!("incompatible plugin {:?}", input);
+                    trace!(target: "nu::load", "plugin infrastructure -> incompatible {:?}", input);
                     Err(ShellError::untagged_runtime_error(format!(
                         "Error: {:?}",
                         e
@@ -188,7 +189,7 @@ pub fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
                 };
 
                 if is_valid_name && is_executable {
-                    trace!("Trying {:?}", path.display());
+                    trace!(target: "nu::load", "plugin infrastructure -> Trying {:?}", path.display());
 
                     // we are ok if this plugin load fails
                     let _ = load_plugin(&path, &mut context.clone());

@@ -76,14 +76,14 @@ pub async fn histogram(
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let name = args.call_info.name_tag.clone();
+
     let (HistogramArgs { column_name, rest }, input) = args.process(&registry).await?;
     let values: Vec<Value> = input.collect().await;
+    let values = UntaggedValue::table(&values).into_value(&name);
 
-    let Tagged { item: group_by, .. } = column_name.clone();
-
-    let groups = group(&column_name, values, &name)?;
-    let group_labels = columns_sorted(Some(group_by.clone()), &groups, &name);
-    let sorted = t_sort(Some(group_by), None, &groups, &name)?;
+    let groups = group(&Some(column_name.clone()), &values, &name)?;
+    let group_labels = columns_sorted(Some(column_name.clone()), &groups, &name);
+    let sorted = t_sort(Some(column_name.clone()), None, &groups, &name)?;
     let evaled = evaluate(&sorted, None, &name)?;
     let reduced = reduce(&evaled, None, &name)?;
     let maxima = map_max(&reduced, None, &name)?;
