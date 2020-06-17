@@ -21,3 +21,6 @@ returning =None=, which completely skips running the code for dealing with direc
 ** Security
   https://github.com/nushell/nushell/issues/1965
 ** Nice errors
+** Potential issues
+   - Currently the functionality to restore environment variables is disabled, as it is handled by other parts of nushell just fine.
+     - This functionality might need to be re-added if 

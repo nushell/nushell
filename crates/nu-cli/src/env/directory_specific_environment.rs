@@ -1,10 +1,8 @@
 use indexmap::{IndexMap, IndexSet};
 use nu_protocol::{Primitive, UntaggedValue, Value};
-use std::io::Write;
 use std::{
     ffi::OsString,
     fmt::Debug,
-    fs::OpenOptions,
     io::{Error, ErrorKind, Result},
     path::PathBuf,
 };
@@ -108,25 +106,23 @@ impl DirectorySpecificEnvironment {
                         //If we are about to overwrite any environment variables, we save them first so they can be restored later.
                         if let Some(existing_val) = std::env::var_os(dir_env_key) {
                             if !seen_vars.contains(dir_env_key) {
-                                // self.overwritten_env_vars
-                                //     .entry(wdir.to_path_buf())
-                                //     .or_insert(IndexMap::new())
-                                //     .insert(dir_env_key.clone(), existing_val);
+                                self.overwritten_env_vars
+                                    .entry(wdir.to_path_buf())
+                                    .or_insert(IndexMap::new())
+                                    .insert(dir_env_key.clone(), existing_val);
 
-                                std::env::set_var(dir_env_key, dir_env_val.clone());
                                 seen_vars.insert(dir_env_key.clone());
                                 vars_to_add.insert(dir_env_key.clone(), dir_env_val);
                             }
-                        } //else {
+                        } else {
                             //Otherwise, we just track that we added it here
-                            // self.added_env_vars
-                            //     .entry(wdir.to_path_buf())
-                            //     .or_insert(IndexSet::new())
-                            //     .insert(dir_env_key.clone());
-                            // std::env::set_var(dir_env_key, dir_env_val.clone());
-                            // vars_to_add.insert(dir_env_key.clone(), dir_env_val);
-                            // seen_vars.insert(dir_env_key.clone());
-                        //}
+                            self.added_env_vars
+                                .entry(wdir.to_path_buf())
+                                .or_insert(IndexSet::new())
+                                .insert(dir_env_key.clone());
+                            vars_to_add.insert(dir_env_key.clone(), dir_env_val);
+                            seen_vars.insert(dir_env_key.clone());
+                        }
                     });
             }
 
@@ -134,15 +130,6 @@ impl DirectorySpecificEnvironment {
                 .expect("This should not be None because of the while condition")
                 .parent();
         }
-
-        let mut file = OpenOptions::new()
-            .write(true)
-            .append(true)
-            .create(true)
-            .open("toadd.txt")
-            .unwrap();
-
-        write!(&mut file, "adding: {:?}\n", vars_to_add).unwrap();
 
         Ok(vars_to_add)
     }
