@@ -1,5 +1,5 @@
 * TODO
-** Run even if =env()= returns None
+** Fixed: Run even if =env()= returns None
 It happens if there is no env-section in .config/nu/config.toml.
 This results in
 #+begin_src rust
@@ -22,5 +22,5 @@ returning =None=, which completely skips running the code for dealing with direc
   https://github.com/nushell/nushell/issues/1965
 ** Nice errors
 ** Potential issues
-   - Currently the functionality to restore environment variables is disabled, as it is handled by other parts of nushell just fine.
-     - This functionality might need to be re-added if 
+    - Functionality to re-add overwritten variables is currently untested.
+      - Needs to be tested with what happens if you set a variable in the current session from some other source than .nu-env or config.toml
