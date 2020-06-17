@@ -18,7 +18,7 @@ impl DirectorySpecificEnvironment {
     pub fn new(allowed_directories: Option<Value>) -> DirectorySpecificEnvironment {
         let mut allowed_directories = if let Some(Value {
             value: UntaggedValue::Table(ref wrapped_directories),
-            tag: _,
+            ..
         }) = allowed_directories
         {
             wrapped_directories
@@ -26,7 +26,7 @@ impl DirectorySpecificEnvironment {
                 .filter_map(|dirval| {
                     if let Value {
                         value: UntaggedValue::Primitive(Primitive::String(ref dir)),
-                        tag: _,
+                        ..
                     } = dirval
                     {
                         return Some(PathBuf::from(&dir));
