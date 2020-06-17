@@ -1,7 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, Value};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct GroupByDate;
@@ -55,7 +55,11 @@ impl WholeStreamCommand for GroupByDate {
 }
 
 enum Grouper {
-    ByDate(Option<String>),
+    ByDate(Option<Tagged<String>>),
+}
+
+enum GroupByColumn {
+    Name(Option<Tagged<String>>),
 }
 
 pub async fn group_by_date(
@@ -80,36 +84,93 @@ pub async fn group_by_date(
             name,
         ))
     } else {
-        let grouper = if let Some(Tagged { item: fmt, tag: _ }) = format {
-            Grouper::ByDate(Some(fmt))
+        let values = UntaggedValue::table(&values).into_value(&name);
+
+        let grouper_column = if let Some(column_name) = column_name {
+            GroupByColumn::Name(Some(column_name))
+        } else {
+            GroupByColumn::Name(None)
+        };
+
+        let grouper_date = if let Some(date_format) = format {
+            Grouper::ByDate(Some(date_format))
         } else {
             Grouper::ByDate(None)
         };
 
-        match grouper {
-            Grouper::ByDate(None) => {
-                match crate::utils::data::group(
-                    column_name,
-                    &values,
-                    Some(Box::new(|row: &Value| row.format("%Y-%b-%d"))),
-                    &name,
-                ) {
+        match (grouper_date, grouper_column) {
+            (Grouper::ByDate(None), GroupByColumn::Name(None)) => {
+                let block = Box::new(move |row: &Value| row.format("%Y-%b-%d"));
+
+                match crate::utils::data::group(&values, &Some(block), &name) {
                     Ok(grouped) => Ok(OutputStream::one(ReturnSuccess::value(grouped))),
                     Err(err) => Err(err),
                 }
             }
-            Grouper::ByDate(Some(fmt)) => {
-                match crate::utils::data::group(
-                    column_name,
-                    &values,
-                    Some(Box::new(move |row: &Value| row.format(&fmt))),
-                    &name,
-                ) {
+            (Grouper::ByDate(None), GroupByColumn::Name(Some(column_name))) => {
+                let block = Box::new(move |row: &Value| {
+                    let group_key = match row.get_data_by_key(column_name.borrow_spanned()) {
+                        Some(group_key) => Ok(group_key),
+                        None => Err(suggestions(column_name.borrow_tagged(), &row)),
+                    };
+
+                    group_key?.format("%Y-%b-%d")
+                });
+
+                match crate::utils::data::group(&values, &Some(block), &name) {
+                    Ok(grouped) => Ok(OutputStream::one(ReturnSuccess::value(grouped))),
+                    Err(err) => Err(err),
+                }
+            }
+            (Grouper::ByDate(Some(fmt)), GroupByColumn::Name(None)) => {
+                let block = Box::new(move |row: &Value| row.format(&fmt));
+
+                match crate::utils::data::group(&values, &Some(block), &name) {
+                    Ok(grouped) => Ok(OutputStream::one(ReturnSuccess::value(grouped))),
+                    Err(err) => Err(err),
+                }
+            }
+            (Grouper::ByDate(Some(fmt)), GroupByColumn::Name(Some(column_name))) => {
+                let block = Box::new(move |row: &Value| {
+                    let group_key = match row.get_data_by_key(column_name.borrow_spanned()) {
+                        Some(group_key) => Ok(group_key),
+                        None => Err(suggestions(column_name.borrow_tagged(), &row)),
+                    };
+
+                    group_key?.format(&fmt)
+                });
+
+                match crate::utils::data::group(&values, &Some(block), &name) {
                     Ok(grouped) => Ok(OutputStream::one(ReturnSuccess::value(grouped))),
                     Err(err) => Err(err),
                 }
             }
         }
+    }
+}
+
+pub fn suggestions(tried: Tagged<&str>, for_value: &Value) -> ShellError {
+    let possibilities = for_value.data_descriptors();
+
+    let mut possible_matches: Vec<_> = possibilities
+        .iter()
+        .map(|x| (natural::distance::levenshtein_distance(x, &tried), x))
+        .collect();
+
+    possible_matches.sort();
+
+    if !possible_matches.is_empty() {
+        ShellError::labeled_error(
+            "Unknown column",
+            format!("did you mean '{}'?", possible_matches[0].1),
+            tried.tag(),
+        )
+    } else {
+        ShellError::labeled_error(
+            "Unknown column",
+            "row does not contain this column",
+            tried.tag(),
+        )
     }
 }
 

@@ -12,7 +12,7 @@ use num_traits::Zero;
 const ERR_EMPTY_DATA: &str = "Cannot perform aggregate math operation on empty data";
 
 pub fn columns_sorted(
-    _group_by_name: Option<String>,
+    _group_by_name: Option<Tagged<String>>,
     value: &Value,
     tag: impl Into<Tag>,
 ) -> Vec<Tagged<String>> {
@@ -61,7 +61,7 @@ pub fn columns_sorted(
 }
 
 pub fn t_sort(
-    group_by_name: Option<String>,
+    group_by_name: Option<Tagged<String>>,
     split_by_name: Option<String>,
     value: &Value,
     tag: impl Into<Tag>,
@@ -454,12 +454,13 @@ mod tests {
     }
 
     fn nu_releases_grouped_by_date() -> Result<Value, ShellError> {
-        let key = String::from("date").tagged_unknown();
-        group(&key, nu_releases_commiters(), Tag::unknown())
+        let key = Some(String::from("date").tagged_unknown());
+        let sample = table(&nu_releases_committers());
+        group(&key, &sample, Tag::unknown())
     }
 
     fn nu_releases_sorted_by_date() -> Result<Value, ShellError> {
-        let key = String::from("date");
+        let key = String::from("date").tagged(Tag::unknown());
 
         t_sort(
             Some(key),
@@ -481,7 +482,7 @@ mod tests {
         )
     }
 
-    fn nu_releases_commiters() -> Vec<Value> {
+    fn nu_releases_committers() -> Vec<Value> {
         vec![
             row(
                 indexmap! {"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("August 23-2019")},
@@ -515,7 +516,7 @@ mod tests {
 
     #[test]
     fn show_columns_sorted_given_a_column_to_sort_by() -> Result<(), ShellError> {
-        let by_column = String::from("date");
+        let by_column = String::from("date").tagged(Tag::unknown());
 
         assert_eq!(
             columns_sorted(
@@ -535,7 +536,7 @@ mod tests {
 
     #[test]
     fn sorts_the_tables() -> Result<(), ShellError> {
-        let group_by = String::from("date");
+        let group_by = String::from("date").tagged(Tag::unknown());
 
         assert_eq!(
             t_sort(
