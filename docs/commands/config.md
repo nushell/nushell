@@ -43,6 +43,7 @@ Syntax: `config {flags}`
 | rm_always_trash    | boolean                | whether or not to always use system trash when no flags are given to `rm` |
 | pivot_mode         | "auto" or "always" or "never"                | "auto" will only pivot single row tables if the output is greater than the terminal width. "always" will always pivot single row tables. "never" will never pivot single row tables.            |
 | plugin_dirs        | table of strings       | additional directories to search for plugins during startup               |
+| cal_week_start_day | string ("sunday" ...)  | Sets the day that the week starts on in the calendar                      |
 
 ## Examples
 
