@@ -112,17 +112,17 @@ pub fn suggestions(tried: Tagged<&str>, for_value: &Value) -> ShellError {
     possible_matches.sort();
 
     if !possible_matches.is_empty() {
-        return ShellError::labeled_error(
+        ShellError::labeled_error(
             "Unknown column",
             format!("did you mean '{}'?", possible_matches[0].1),
             tried.tag(),
-        );
+        )
     } else {
-        return ShellError::labeled_error(
+        ShellError::labeled_error(
             "Unknown column",
             "row does not contain this column",
             tried.tag(),
-        );
+        )
     }
 }
 
