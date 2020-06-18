@@ -53,6 +53,20 @@ fn cal_rows_in_2020() {
 }
 
 #[test]
+fn cal_week_day_start_monday() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        cal --full-year 2020 -m --month-names --week-start monday | where month == january | to json
+        "#
+    ));
+
+    let cal_january_json = r#"[{"month":"january","monday":null,"tuesday":null,"wednesday":1,"thursday":2,"friday":3,"saturday":4,"sunday":5},{"month":"january","monday":6,"tuesday":7,"wednesday":8,"thursday":9,"friday":10,"saturday":11,"sunday":12},{"month":"january","monday":13,"tuesday":14,"wednesday":15,"thursday":16,"friday":17,"saturday":18,"sunday":19},{"month":"january","monday":20,"tuesday":21,"wednesday":22,"thursday":23,"friday":24,"saturday":25,"sunday":26},{"month":"january","monday":27,"tuesday":28,"wednesday":29,"thursday":30,"friday":31,"saturday":null,"sunday":null}]"#;
+
+    assert_eq!(actual.out, cal_january_json);
+}
+
+#[test]
 fn cal_sees_pipeline_year() {
     let actual = nu!(
         cwd: ".", pipeline(

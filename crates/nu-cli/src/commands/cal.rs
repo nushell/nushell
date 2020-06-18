@@ -24,6 +24,12 @@ impl WholeStreamCommand for Cal {
                 "Display a year-long calendar for the specified year",
                 None,
             )
+            .named(
+                "week-start",
+                SyntaxShape::String,
+                "Display the calendar with the specified day as the first day of the week",
+                None,
+            )
             .switch(
                 "month-names",
                 "Display the month names instead of integers",
@@ -53,6 +59,11 @@ impl WholeStreamCommand for Cal {
             Example {
                 description: "The calendar for all of 2012",
                 example: "cal --full-year 2012",
+                result: None,
+            },
+            Example {
+                description: "This month's calendar with the week starting on monday",
+                example: "cal --week-start monday",
                 result: None,
             },
         ]
@@ -236,20 +247,26 @@ fn add_month_to_table(
         "saturday",
     ];
 
-    let config_indexmap = config::config(Tag::unknown())?;
+    let mut week_start_day = days_of_the_week[0].to_string();
 
-    let mut cal_week_start_day = days_of_the_week[0].to_string();
-
-    if let Some(value) = config_indexmap.get("cal_week_start_day") {
-        if let Ok(day) = value.as_string() {
-            cal_week_start_day = day;
+    if let Some(week_start_value) = args.get("week-start") {
+        if let Ok(day) = week_start_value.as_string() {
+            if days_of_the_week.contains(&day.as_str()) {
+                week_start_day = day;
+            } else {
+                return Err(ShellError::labeled_error(
+                    "The specified week start day is invalid",
+                    "invalid week start day",
+                    week_start_value.tag(),
+                ));
+            }
         }
     }
 
     let week_start_day_offset = days_of_the_week.len()
         - days_of_the_week
             .iter()
-            .position(|day| *day == cal_week_start_day)
+            .position(|day| *day == week_start_day)
             .unwrap_or(0);
 
     days_of_the_week.rotate_right(week_start_day_offset);
