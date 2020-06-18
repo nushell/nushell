@@ -1,6 +1,5 @@
 mod alias;
 mod append;
-mod average;
 mod cal;
 mod calc;
 mod cd;

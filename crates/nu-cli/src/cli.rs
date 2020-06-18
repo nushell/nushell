@@ -348,9 +348,10 @@ pub fn create_default_context(
             // Data processing
             whole_stream_command(Histogram),
             whole_stream_command(Math),
-            whole_stream_command(Average),
-            whole_stream_command(Minimum),
-            whole_stream_command(Maximum),
+            whole_stream_command(MathAverage),
+            whole_stream_command(MathMedian),
+            whole_stream_command(MathMinimum),
+            whole_stream_command(MathMaximum),
             whole_stream_command(Sum),
             // File format output
             whole_stream_command(To),
