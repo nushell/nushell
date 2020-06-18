@@ -1,6 +1,8 @@
 mod alias;
 mod append;
 mod average;
+mod autoenv;
+mod autoenv_trust;
 mod cal;
 mod calc;
 mod cd;

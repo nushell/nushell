@@ -7,6 +7,8 @@ mod to_delimited_data;
 pub(crate) mod alias;
 pub(crate) mod append;
 pub(crate) mod args;
+pub(crate) mod autoenv;
+pub(crate) mod autoenv_trust;
 pub(crate) mod autoview;
 pub(crate) mod build_string;
 pub(crate) mod cal;
@@ -135,6 +137,8 @@ pub(crate) use command::{
 
 pub(crate) use alias::Alias;
 pub(crate) use append::Append;
+pub(crate) use autoenv::Autoenv;
+pub(crate) use autoenv_trust::AutoenvTrust;
 pub(crate) use build_string::BuildString;
 pub(crate) use cal::Cal;
 pub(crate) use calc::Calc;

@@ -345,6 +345,8 @@ pub fn create_default_context(
             whole_stream_command(Headers),
             // Data processing
             whole_stream_command(Histogram),
+            whole_stream_command(Autoenv),
+            whole_stream_command(AutoenvTrust),
             whole_stream_command(Math),
             whole_stream_command(Average),
             whole_stream_command(Minimum),
