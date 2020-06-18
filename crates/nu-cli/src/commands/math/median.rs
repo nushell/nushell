@@ -14,15 +14,15 @@ pub struct SubCommand;
 #[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
-        "math average"
+        "math median"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("math average")
+        Signature::build("math median")
     }
 
     fn usage(&self) -> &str {
-        "Gets the average of a list of numbers"
+        "Gets the median of a list of numbers"
     }
 
     async fn run(
@@ -41,31 +41,94 @@ impl WholeStreamCommand for SubCommand {
                 name: args.call_info.name_tag,
                 raw_input: args.raw_input,
             },
-            average,
+            median,
         )
         .await
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Get the average of a list of numbers",
-            example: "echo [-50 100.0 25] | math average",
-            result: Some(vec![UntaggedValue::decimal(25).into()]),
+            description: "Get the median of a list of numbers",
+            example: "echo [3 8 9 12 12 15] | math median",
+            result: Some(vec![UntaggedValue::decimal(10.5).into()]),
         }]
     }
 }
 
-pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
-    let sum = reducer_for(Reduce::Sum);
+enum Pick {
+    MedianAverage,
+    Median,
+}
 
-    let number = BigDecimal::from_usize(values.len()).ok_or_else(|| {
+pub fn median(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
+    let take = if values.len() % 2 == 0 {
+        Pick::MedianAverage
+    } else {
+        Pick::Median
+    };
+
+    let mut sorted = vec![];
+
+    for item in values {
+        sorted.push(item.clone());
+    }
+
+    crate::commands::sort_by::sort(&mut sorted, &[], name)?;
+
+    match take {
+        Pick::Median => {
+            let idx = (values.len() as f64 / 2.0).floor() as usize;
+            let out = sorted.get(idx).ok_or_else(|| {
+                ShellError::labeled_error(
+                    "could not extract value",
+                    "could not extract value",
+                    &name.span,
+                )
+            })?;
+            Ok(out.clone())
+        }
+        Pick::MedianAverage => {
+            let idx_end = (values.len() / 2) as usize;
+            let idx_start = idx_end - 1;
+
+            let left = sorted
+                .get(idx_start)
+                .ok_or_else(|| {
+                    ShellError::labeled_error(
+                        "could not extract value",
+                        "could not extract value",
+                        &name.span,
+                    )
+                })?
+                .clone();
+
+            let right = sorted
+                .get(idx_end)
+                .ok_or_else(|| {
+                    ShellError::labeled_error(
+                        "could not extract value",
+                        "could not extract value",
+                        &name.span,
+                    )
+                })?
+                .clone();
+
+            compute_average(&[left, right], name)
+        }
+    }
+}
+
+fn compute_average(values: &[Value], name: impl Into<Tag>) -> Result<Value, ShellError> {
+    let name = name.into();
+
+    let sum = reducer_for(Reduce::Sum);
+    let number = BigDecimal::from_usize(2).ok_or_else(|| {
         ShellError::labeled_error(
             "could not convert to big decimal",
             "could not convert to big decimal",
-            &name.span,
+            &name,
         )
     })?;
-
     let total_rows = UntaggedValue::decimal(number);
     let total = sum(Value::zero(), values.to_vec())?;
 
@@ -84,7 +147,7 @@ pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
                     Ok(UntaggedValue::bytes(number).into_value(name))
                 }
                 Ok(_) => Err(ShellError::labeled_error(
-                    "could not calculate average of non-integer or unrelated types",
+                    "could not calculate median of non-numeric or unrelated types",
                     "source",
                     name,
                 )),
@@ -110,7 +173,7 @@ pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
             }
         }
         _ => Err(ShellError::labeled_error(
-            "could not calculate average of non-integer or unrelated types",
+            "could not calculate median of non-numeric or unrelated types",
             "source",
             name,
         )),

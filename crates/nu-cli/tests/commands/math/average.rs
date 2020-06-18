@@ -11,7 +11,7 @@ fn can_average_numbers() {
              | echo $it
          "#
     ));
-    println!("{:?}", actual.err);
+
     assert_eq!(actual.out, "101.5")
 }
 

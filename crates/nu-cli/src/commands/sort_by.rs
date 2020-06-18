@@ -70,15 +70,33 @@ async fn sort_by(
     let (SortByArgs { rest }, mut input) = args.process(&registry).await?;
     let mut vec = input.drain_vec().await;
 
+    sort(&mut vec, &rest, &tag)?;
+
+    let mut values_vec_deque: VecDeque<Value> = VecDeque::new();
+
+    for item in vec {
+        values_vec_deque.push_back(item);
+    }
+
+    Ok(futures::stream::iter(values_vec_deque).to_output_stream())
+}
+
+pub fn sort(
+    vec: &mut [Value],
+    keys: &[Tagged<String>],
+    tag: impl Into<Tag>,
+) -> Result<(), ShellError> {
+    let tag = tag.into();
+
     if vec.is_empty() {
         return Err(ShellError::labeled_error(
-            "Error performing sort-by command",
-            "sort-by error",
+            "no values to work with",
+            "no values to work with",
             tag,
         ));
     }
 
-    for sort_arg in rest.iter() {
+    for sort_arg in keys.iter() {
         let match_test = get_data_by_key(&vec[0], sort_arg.borrow_spanned());
         if match_test == None {
             return Err(ShellError::labeled_error(
@@ -98,7 +116,7 @@ async fn sort_by(
         }
         _ => {
             let calc_key = |item: &Value| {
-                rest.iter()
+                keys.iter()
                     .map(|f| get_data_by_key(item, f.borrow_spanned()))
                     .collect::<Vec<Option<Value>>>()
             };
@@ -106,13 +124,7 @@ async fn sort_by(
         }
     };
 
-    let mut values_vec_deque: VecDeque<Value> = VecDeque::new();
-
-    for item in vec {
-        values_vec_deque.push_back(item);
-    }
-
-    Ok(futures::stream::iter(values_vec_deque).to_output_stream())
+    Ok(())
 }
 
 #[cfg(test)]
