@@ -1,6 +1,10 @@
 use nu_protocol::{Primitive, UntaggedValue, Value};
-use nu_source::AnchorLocation;
+use nu_source::{AnchorLocation, Tag};
 use std::path::Path;
+// use nu_cli::utils::test_bins as binaries;
+// use nu_cli::{create_default_context, EnvironmentSyncer};
+//use nu_cli::{self, data, config::config};
+use nu_cli::data::config as nuconfig;
 
 #[derive(Default)]
 pub struct TextView;
@@ -12,6 +16,38 @@ impl TextView {
 }
 
 pub fn view_text_value(value: &Value) {
+    //let cfg = nu_cli::data::config::config(Tag::unknown());
+    // let cfg = nuconfig::config(Tag::unknown());
+    // before we start up, let's run our startup commands
+    if let Ok(config) = nuconfig::config(Tag::unknown()) {
+        if let Some(commands) = config.get("[bat]") {
+            match commands {
+                Value {
+                    value: UntaggedValue::Table(pipelines),
+                    ..
+                } => {
+                    for pipeline in pipelines {
+                        if let Ok(pipeline_string) = pipeline.as_string() {
+                            // let _ = run_pipeline_standalone(
+                            //     pipeline_string,
+                            //     false,
+                            //     &mut context,
+                            //     false,
+                            // )
+                            // .await;
+                        }
+                    }
+                }
+                _ => {
+                    println!("warning: expected a table of pipeline strings as startup commands");
+                }
+            }
+        }
+    }
+
+
+
+
     let value_anchor = value.anchor();
     if let UntaggedValue::Primitive(Primitive::String(ref s)) = &value.value {
         if let Some(source) = value_anchor {
