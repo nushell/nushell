@@ -27,5 +27,7 @@ returning =None=, which completely skips running the code for dealing with direc
   - Add command to clear allowed .nu-envs in a directory.
 ** Nice errors
 ** Potential issues
-    - Functionality to re-add overwritten variables is currently untested.
-      - Needs to be tested with what happens if you set a variable in the current session from some other source than .nu-env or config.toml
+    There was previously functionality to track overwritten environment variables, which was used to restore any values that are overwritten.
+    However, it seems that with the current version the already existing nushell functionality takes care of this, in every case I can come up with.
+    Because of that, I just removed the code. It's still there, in the venerable git log if anything ever changes `acd3215b` `Remove overwritten values tracking, as it is not needed`.
+    (I am making a note of this as I half expect someone to come up with a scenario which requires this to be re-added.)
