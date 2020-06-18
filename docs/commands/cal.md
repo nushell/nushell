@@ -8,6 +8,7 @@ Use `cal` to display a calendar.
 * `-q`, `--quarter`: Display the quarter column
 * `-m`, `--month`: Display the month column
 * `--full-year` \<integer>: Display a year-long calendar for the specified year
+* `--week-start` \<string>: Display the calendar with the specified day as the first day of the week
 * `--month-names`: Display the month names instead of integers
 
 ## Examples
@@ -187,4 +188,17 @@ Use `cal` to display a calendar.
  0 │ 2020 │ march    │      8 │      9 │      10 │        11 │       12 │     13 │       14
  1 │ 2020 │ november │      8 │      9 │      10 │        11 │       12 │     13 │       14
 ───┴──────┴──────────┴────────┴────────┴─────────┴───────────┴──────────┴────────┴──────────
+```
+
+```shell
+> cal -ymq --month-names --week-start-day monday
+───┬──────┬─────────┬───────┬────────┬─────────┬───────────┬──────────┬────────┬──────────┬────────
+ # │ year │ quarter │ month │ monday │ tuesday │ wednesday │ thursday │ friday │ saturday │ sunday
+───┼──────┼─────────┼───────┼────────┼─────────┼───────────┼──────────┼────────┼──────────┼────────
+ 0 │ 2020 │       2 │ june  │      1 │       2 │         3 │        4 │      5 │        6 │      7
+ 1 │ 2020 │       2 │ june  │      8 │       9 │        10 │       11 │     12 │       13 │     14
+ 2 │ 2020 │       2 │ june  │     15 │      16 │        17 │       18 │     19 │       20 │     21
+ 3 │ 2020 │       2 │ june  │     22 │      23 │        24 │       25 │     26 │       27 │     28
+ 4 │ 2020 │       2 │ june  │     29 │      30 │           │          │        │          │
+───┴──────┴─────────┴───────┴────────┴─────────┴───────────┴──────────┴────────┴──────────┴────────
 ```

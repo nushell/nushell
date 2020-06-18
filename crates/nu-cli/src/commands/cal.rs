@@ -24,6 +24,12 @@ impl WholeStreamCommand for Cal {
                 "Display a year-long calendar for the specified year",
                 None,
             )
+            .named(
+                "week-start",
+                SyntaxShape::String,
+                "Display the calendar with the specified day as the first day of the week",
+                None,
+            )
             .switch(
                 "month-names",
                 "Display the month names instead of integers",
@@ -53,6 +59,11 @@ impl WholeStreamCommand for Cal {
             Example {
                 description: "The calendar for all of 2012",
                 example: "cal --full-year 2012",
+                result: None,
+            },
+            Example {
+                description: "This month's calendar with the week starting on monday",
+                example: "cal --week-start monday",
                 result: None,
             },
         ]
@@ -226,11 +237,7 @@ fn add_month_to_table(
         },
     };
 
-    let day_limit =
-        month_helper.number_of_days_in_month + month_helper.day_number_of_week_month_starts_on;
-    let mut day_count: u32 = 1;
-
-    let days_of_the_week = [
+    let mut days_of_the_week = [
         "sunday",
         "monday",
         "tuesday",
@@ -240,12 +247,43 @@ fn add_month_to_table(
         "saturday",
     ];
 
+    let mut week_start_day = days_of_the_week[0].to_string();
+
+    if let Some(week_start_value) = args.get("week-start") {
+        if let Ok(day) = week_start_value.as_string() {
+            if days_of_the_week.contains(&day.as_str()) {
+                week_start_day = day;
+            } else {
+                return Err(ShellError::labeled_error(
+                    "The specified week start day is invalid",
+                    "invalid week start day",
+                    week_start_value.tag(),
+                ));
+            }
+        }
+    }
+
+    let week_start_day_offset = days_of_the_week.len()
+        - days_of_the_week
+            .iter()
+            .position(|day| *day == week_start_day)
+            .unwrap_or(0);
+
+    days_of_the_week.rotate_right(week_start_day_offset);
+
+    let mut total_start_offset: u32 =
+        month_helper.day_number_of_week_month_starts_on + week_start_day_offset as u32;
+    total_start_offset %= days_of_the_week.len() as u32;
+
+    let mut day_number: u32 = 1;
+    let day_limit: u32 = total_start_offset + month_helper.number_of_days_in_month;
+
     let should_show_year_column = args.has("year");
     let should_show_quarter_column = args.has("quarter");
     let should_show_month_column = args.has("month");
     let should_show_month_names = args.has("month-names");
 
-    while day_count <= day_limit {
+    while day_number <= day_limit {
         let mut indexmap = IndexMap::new();
 
         if should_show_year_column {
@@ -273,19 +311,18 @@ fn add_month_to_table(
         }
 
         for day in &days_of_the_week {
-            let should_add_day_number_to_table = (day_count <= day_limit)
-                && (day_count > month_helper.day_number_of_week_month_starts_on);
+            let should_add_day_number_to_table =
+                (day_number > total_start_offset) && (day_number <= day_limit);
 
             let mut value = UntaggedValue::nothing().into_value(tag);
 
             if should_add_day_number_to_table {
-                let day_count_with_offset =
-                    day_count - month_helper.day_number_of_week_month_starts_on;
+                let adjusted_day_number = day_number - total_start_offset;
 
-                value = UntaggedValue::int(day_count_with_offset).into_value(tag);
+                value = UntaggedValue::int(adjusted_day_number).into_value(tag);
 
                 if let Some(current_day) = current_day_option {
-                    if current_day == day_count_with_offset {
+                    if current_day == adjusted_day_number {
                         // TODO: Update the value here with a color when color support is added
                         // This colors the current day
                     }
@@ -294,7 +331,7 @@ fn add_month_to_table(
 
             indexmap.insert((*day).to_string(), value);
 
-            day_count += 1;
+            day_number += 1;
         }
 
         calendar_vec_deque
