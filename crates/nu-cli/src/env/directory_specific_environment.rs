@@ -67,19 +67,14 @@ impl DirectorySpecificEnvironment {
                     .for_each(|(dir_env_key, dir_env_val)| {
                         let dir_env_val: EnvVal = dir_env_val.as_str().unwrap().into();
 
-                        //If we are about to overwrite any environment variables, we save them first so they can be restored later.
-                        if std::env::var_os(dir_env_key).is_some()
-                            && !vars_to_add.contains_key(dir_env_key)
-                        {
-                            //This condition is to make sure variables in parent directories don't overwrite variables set by subdirectories.
+                        //This condition is to make sure variables in parent directories don't overwrite variables set by subdirectories.
+                        if !vars_to_add.contains_key(dir_env_key) {
                             vars_to_add.insert(dir_env_key.clone(), dir_env_val);
-                        } else {
-                            //Otherwise, we just track that we added it here
+
                             self.added_env_vars
                                 .entry(wdir.to_path_buf())
                                 .or_insert(IndexSet::new())
                                 .insert(dir_env_key.clone());
-                            vars_to_add.insert(dir_env_key.clone(), dir_env_val);
                         }
                     });
             }

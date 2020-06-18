@@ -20,6 +20,11 @@ returning =None=, which completely skips running the code for dealing with direc
      - This holds even if the old value was set by a .nu in a parent directory. The overwritten value is restored when you leave the directory.
 ** Security
   https://github.com/nushell/nushell/issues/1965
+  - Add trust subcommand
+    - The trust subcommand should hash the current directory path and the content of its .nu-env.
+    - If the directory path changes or the content of the .nu-env changes, show a warning.
+  - Add distrust subcommand
+  - Add command to clear allowed .nu-envs in a directory.
 ** Nice errors
 ** Potential issues
     - Functionality to re-add overwritten variables is currently untested.
