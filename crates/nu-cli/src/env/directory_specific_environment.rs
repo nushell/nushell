@@ -15,9 +15,6 @@ pub struct DirectorySpecificEnvironment {
 
     //Directory -> Env key. If an environment var has been added from a .nu in a directory, we track it here so we can remove it when the user leaves the directory.
     added_env_vars: IndexMap<PathBuf, IndexSet<EnvKey>>,
-
-    //Directory -> (env_key, value). If a .nu overwrites some existing environment variables, they are added here so that they can be restored later.
-    overwritten_env_vars: IndexMap<PathBuf, IndexMap<EnvKey, EnvVal>>,
 }
 
 impl DirectorySpecificEnvironment {
@@ -47,36 +44,7 @@ impl DirectorySpecificEnvironment {
         DirectorySpecificEnvironment {
             allowed_directories,
             added_env_vars: IndexMap::new(),
-            overwritten_env_vars: IndexMap::new(),
         }
-    }
-
-    //If we are no longer in a directory, we restore the values it overwrote.
-    pub fn overwritten_values_to_restore(&mut self) -> Result<IndexMap<EnvKey, EnvVal>> {
-        let current_dir = std::env::current_dir()?;
-        let mut working_dir = Some(current_dir.as_path());
-
-        let mut new_overwritten_env_values = IndexMap::new();
-        while let Some(wdir) = working_dir {
-            if let Some(val) = self.overwritten_env_vars.get(wdir) {
-                new_overwritten_env_values.insert(wdir.to_path_buf(), val.clone());
-            }
-            working_dir = working_dir
-                .expect("This should not be None because of the while condition")
-                .parent();
-        }
-
-        let mut keyvals_to_restore = IndexMap::new();
-        for (dir, keyvals) in &self.overwritten_env_vars {
-            if !new_overwritten_env_values.contains_key(dir) {
-                for (k, v) in keyvals {
-                    keyvals_to_restore.insert(k.clone(), v.clone());
-                }
-            }
-        }
-
-        self.overwritten_env_vars = new_overwritten_env_values;
-        Ok(keyvals_to_restore)
     }
 
     pub fn env_vars_to_add(&mut self) -> std::io::Result<IndexMap<EnvKey, EnvVal>> {
@@ -100,16 +68,11 @@ impl DirectorySpecificEnvironment {
                         let dir_env_val: EnvVal = dir_env_val.as_str().unwrap().into();
 
                         //If we are about to overwrite any environment variables, we save them first so they can be restored later.
-                        if let Some(existing_val) = std::env::var_os(dir_env_key) {
+                        if std::env::var_os(dir_env_key).is_some()
+                            && !vars_to_add.contains_key(dir_env_key)
+                        {
                             //This condition is to make sure variables in parent directories don't overwrite variables set by subdirectories.
-                            if !vars_to_add.contains_key(dir_env_key) {
-                                self.overwritten_env_vars
-                                    .entry(wdir.to_path_buf())
-                                    .or_insert(IndexMap::new())
-                                    .insert(dir_env_key.clone(), existing_val);
-
-                                vars_to_add.insert(dir_env_key.clone(), dir_env_val);
-                            }
+                            vars_to_add.insert(dir_env_key.clone(), dir_env_val);
                         } else {
                             //Otherwise, we just track that we added it here
                             self.added_env_vars
