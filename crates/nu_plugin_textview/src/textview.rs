@@ -36,7 +36,6 @@ pub fn view_text_value(value: &Value) {
     if let Ok(config) = nuconfig::config(Tag::unknown()) {
         if let Some(batvars) = config.get("bat") {
             for (idx, value) in batvars.row_entries() {
-                println!("idx: {:?}, value: {:?}", idx, value);
                 match idx {
                     x if x == "term_width" => {
                         term_width = match value.as_u64() {
