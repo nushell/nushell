@@ -16,7 +16,7 @@ impl WholeStreamCommand for Uniq {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("uniq")
+        Signature::build("uniq").switch("count", "Count the unique rows", Some('c'))
     }
 
     fn usage(&self) -> &str {
@@ -32,7 +32,9 @@ impl WholeStreamCommand for Uniq {
     }
 }
 
-async fn uniq(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn uniq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(&registry).await?;
+    let should_show_count = args.has("count");
     let input = args.input;
     let uniq_values = {
         let mut counter = IndexMap::<nu_protocol::Value, usize>::new();
@@ -45,22 +47,30 @@ async fn uniq(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputSt
 
     let mut values_vec_deque = VecDeque::new();
 
-    for item in uniq_values {
-        use nu_protocol::{UntaggedValue, Value};
-        let value = match item.0.value {
-            UntaggedValue::Row(mut row) => {
-                row.entries.insert(
-                    "count".to_string(),
-                    UntaggedValue::int(item.1.to_biguint().unwrap()).into_untagged_value(),
-                );
-                Value {
-                    value: UntaggedValue::Row(row),
-                    tag: item.0.tag,
+    if should_show_count {
+        for item in uniq_values {
+            use nu_protocol::{UntaggedValue, Value};
+            let value = {
+                match item.0.value {
+                    UntaggedValue::Row(mut row) => {
+                        row.entries.insert(
+                            "count".to_string(),
+                            UntaggedValue::int(item.1.to_biguint().unwrap()).into_untagged_value(),
+                        );
+                        Value {
+                            value: UntaggedValue::Row(row),
+                            tag: item.0.tag,
+                        }
+                    }
+                    _ => panic!("Could not match: {:#?}", item),
                 }
-            }
-            _ => panic!("Could not match: {:#?}", item),
-        };
-        values_vec_deque.push_back(value);
+            };
+            values_vec_deque.push_back(value);
+        }
+    } else {
+        for item in uniq_values {
+            values_vec_deque.push_back(item.0);
+        }
     }
 
     Ok(futures::stream::iter(values_vec_deque).to_output_stream())

@@ -149,7 +149,7 @@ fn uniq_counting() {
             echo '["A", "B", "A"]'
             | from json
             | wrap item
-            | uniq -c
+            | uniq --count
         "#
     ));
     let expected = nu!(
