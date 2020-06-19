@@ -52,4 +52,4 @@ theme = "TwoDark"
 ```
 
 ### Help
-A more detailed description of the configuration points that textview uses, please visit the `bat` repo at https://github.com/sharkdp/bat
+For a more detailed description of the configuration points that textview uses, please visit the `bat` repo at https://github.com/sharkdp/bat
