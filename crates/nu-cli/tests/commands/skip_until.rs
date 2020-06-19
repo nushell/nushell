@@ -40,7 +40,7 @@ fn condition_is_met() {
                 | skip-until "Chicken Collection" == "Red Chickens"
                 | str to-int "31/04/2020"
                 | get "31/04/2020"
-                | sum
+                | math sum
                 | echo $it
                 "#
         ));

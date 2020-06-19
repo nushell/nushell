@@ -18,7 +18,7 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Get the maximum of a list of numbers or tables"
+        "Finds the maximum within a list of numbers or tables"
     }
 
     async fn run(

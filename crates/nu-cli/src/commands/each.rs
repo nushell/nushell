@@ -56,7 +56,7 @@ impl WholeStreamCommand for Each {
             },
             Example {
                 description: "Echo the sum of each row",
-                example: "echo [[1 2] [3 4]] | each { echo $it | sum }",
+                example: "echo [[1 2] [3 4]] | each { echo $it | math sum }",
                 result: Some(vec![
                     UntaggedValue::int(3).into(),
                     UntaggedValue::int(7).into(),

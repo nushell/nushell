@@ -25,7 +25,7 @@ fn all() {
                 open meals.json
                 | get meals
                 | get calories
-                | sum
+                | math sum
                 | echo $it
             "#
         ));
@@ -53,7 +53,7 @@ fn outputs_zero_with_no_input() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                sum
+                math sum
                 | echo $it
             "#
         ));
@@ -74,7 +74,7 @@ fn compute_sum_of_individual_row() -> Result<(), String> {
     for (column_name, expected_value) in answers_for_columns.iter() {
         let actual = nu!(
             cwd: "tests/fixtures/formats/",
-            format!("open sample-ps-output.json | select {} | sum | get {}", column_name, column_name)
+            format!("open sample-ps-output.json | select {} | math sum | get {}", column_name, column_name)
         );
         let result =
             f64::from_str(&actual.out).map_err(|_| String::from("Failed to parse float."))?;
@@ -95,7 +95,7 @@ fn compute_sum_of_table() -> Result<(), String> {
     for (column_name, expected_value) in answers_for_columns.iter() {
         let actual = nu!(
             cwd: "tests/fixtures/formats/",
-            format!("open sample-ps-output.json | select cpu mem virtual | sum | get {}", column_name)
+            format!("open sample-ps-output.json | select cpu mem virtual | math sum | get {}", column_name)
         );
         let result =
             f64::from_str(&actual.out).map_err(|_| String::from("Failed to parse float."))?;
@@ -108,7 +108,7 @@ fn compute_sum_of_table() -> Result<(), String> {
 fn sum_of_a_row_containing_a_table_is_an_error() {
     let actual = nu!(
         cwd: "tests/fixtures/formats/",
-        "open sample-sys-output.json | sum"
+        "open sample-sys-output.json | math sum"
     );
     assert!(actual
         .err

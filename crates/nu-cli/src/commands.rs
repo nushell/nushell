@@ -102,7 +102,6 @@ pub(crate) mod sort_by;
 pub(crate) mod split;
 pub(crate) mod split_by;
 pub(crate) mod str_;
-pub(crate) mod sum;
 #[allow(unused)]
 pub(crate) mod t_sort_by;
 pub(crate) mod table;
@@ -151,7 +150,6 @@ pub(crate) use du::Du;
 pub(crate) use each::Each;
 pub(crate) use echo::Echo;
 pub(crate) use is_empty::IsEmpty;
-pub(crate) use math::Math;
 pub(crate) use update::Update;
 pub(crate) mod kill;
 pub(crate) use kill::Kill;
@@ -200,7 +198,7 @@ pub(crate) use lines::Lines;
 pub(crate) use ls::Ls;
 #[allow(unused_imports)]
 pub(crate) use map_max_by::MapMaxBy;
-pub(crate) use math::{Average, Maximum, Minimum};
+pub(crate) use math::{Math, MathAverage, MathMaximum, MathMedian, MathMinimum, MathSummation};
 pub(crate) use merge::Merge;
 pub(crate) use mkdir::Mkdir;
 pub(crate) use mv::Move;
@@ -237,7 +235,6 @@ pub(crate) use str_::{
     Str, StrCapitalize, StrDowncase, StrFindReplace, StrSet, StrSubstring, StrToDatetime,
     StrToDecimal, StrToInteger, StrTrim, StrUpcase,
 };
-pub(crate) use sum::Sum;
 #[allow(unused_imports)]
 pub(crate) use t_sort_by::TSortBy;
 pub(crate) use table::Table;
