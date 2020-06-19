@@ -22,7 +22,7 @@ fn adds_value_provided_if_column_is_empty() {
                 open likes.csv
                 | empty? likes 1
                 | get likes
-                | sum
+                | math sum
                 | echo $it
             "#
         ));
@@ -43,7 +43,7 @@ fn adds_value_provided_for_columns_that_are_empty() {
                     {"boost": 1, "check": {}},
                     {"boost": null, "check": ["" {} [] ""]}
                 ]
-                
+
             "#,
         )]);
 
@@ -53,7 +53,7 @@ fn adds_value_provided_for_columns_that_are_empty() {
                 open checks.json
                 | empty? boost check 1
                 | get boost check
-                | sum
+                | math sum
                 | echo $it
             "#
         ));

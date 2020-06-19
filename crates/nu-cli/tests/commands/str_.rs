@@ -108,7 +108,7 @@ fn converts_to_decimal() {
             echo "3.1, 0.0415"
             | split row ","
             | str to-decimal
-            | sum
+            | math sum
         "#
     ));
 
@@ -130,7 +130,7 @@ fn sets() {
             cwd: dirs.test(), pipeline(
             r#"
                  open sample.toml
-                 | str set wykittenshell package.name 
+                 | str set wykittenshell package.name
                  | get package.name
                  | echo $it
              "#

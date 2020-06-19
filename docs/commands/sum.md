@@ -5,7 +5,7 @@ This command allows you to calculate the sum of values in a column.
 To get the sum of the file sizes in a directory, simply pipe the size column from the ls command to the sum command.
 
 ```shell
-> ls | get size | sum
+> ls | get size | math sum
 ━━━━━━━━━
  value
 ━━━━━━━━━
@@ -15,7 +15,7 @@ To get the sum of the file sizes in a directory, simply pipe the size column fro
 
 To get the sum of the characters that make up your  present working directory.
 ```shell
-> pwd | split-row / | size | get chars | sum
+> pwd | split-row / | size | get chars | math sum
 ━━━━━━━━━
  <value>
 ━━━━━━━━━
@@ -27,15 +27,15 @@ Note that sum only works for integer and byte values. If the shell doesn't recog
 One way to solve this is to convert each row to an integer when possible and then pipe the result to `sum`
 
 ```shell
-> open tests/fixtures/formats/caco3_plastics.csv | get tariff_item | sum
+> open tests/fixtures/formats/caco3_plastics.csv | get tariff_item | math sum
 error: Unrecognized type in stream: Primitive(String("2509000000"))
 - shell:1:0
-1 | open tests/fixtures/formats/caco3_plastics.csv | get tariff_item | sum
+1 | open tests/fixtures/formats/caco3_plastics.csv | get tariff_item | math sum
   | ^^^^ source
 ```
 
 ```shell
-> open tests/fixtures/formats/caco3_plastics.csv | get tariff_item | str --to-int | sum
+> open tests/fixtures/formats/caco3_plastics.csv | get tariff_item | str --to-int | math sum
 ━━━━━━━━━━━━━
  <value>
 ─────────────
