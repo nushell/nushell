@@ -61,12 +61,6 @@ enum Pick {
 }
 
 pub fn median(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
-    let take = if values.len() % 2 == 0 {
-        Pick::MedianAverage
-    } else {
-        Pick::Median
-    };
-
     let mut sorted = vec![];
 
     for item in values {
@@ -74,11 +68,18 @@ pub fn median(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
     }
 
     crate::commands::sort_by::sort(&mut sorted, &[], name)?;
+    sorted.dedup();
+
+    let take = if sorted.len() % 2 == 0 {
+        Pick::MedianAverage
+    } else {
+        Pick::Median
+    };
 
     match take {
         Pick::Median => {
-            let idx = (values.len() as f64 / 2.0).floor() as usize;
-            let out = sorted.get(idx).ok_or_else(|| {
+            let idx = (sorted.len() as f64 / 2.0).floor() as usize;
+            let out = sorted.get(idx + 1).ok_or_else(|| {
                 ShellError::labeled_error(
                     "could not extract value",
                     "could not extract value",
@@ -88,11 +89,11 @@ pub fn median(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
             Ok(out.clone())
         }
         Pick::MedianAverage => {
-            let idx_end = (values.len() / 2) as usize;
+            let idx_end = (sorted.len() / 2) as usize;
             let idx_start = idx_end - 1;
 
             let left = sorted
-                .get(idx_start)
+                .get(idx_start + 1)
                 .ok_or_else(|| {
                     ShellError::labeled_error(
                         "could not extract value",
@@ -103,7 +104,7 @@ pub fn median(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
                 .clone();
 
             let right = sorted
-                .get(idx_end)
+                .get(idx_end + 1)
                 .ok_or_else(|| {
                     ShellError::labeled_error(
                         "could not extract value",
