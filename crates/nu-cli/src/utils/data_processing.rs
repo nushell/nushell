@@ -288,14 +288,14 @@ pub fn reducer_for(
     command: Reduce,
 ) -> Box<dyn Fn(Value, Vec<Value>) -> Result<Value, ShellError> + Send + Sync + 'static> {
     match command {
-        Reduce::Sum | Reduce::Default => Box::new(formula(Value::zero(), Box::new(sum))),
+        Reduce::Summation | Reduce::Default => Box::new(formula(Value::zero(), Box::new(sum))),
         Reduce::Minimum => Box::new(|_, values| min(values)),
         Reduce::Maximum => Box::new(|_, values| max(values)),
     }
 }
 
 pub enum Reduce {
-    Sum,
+    Summation,
     Minimum,
     Maximum,
     Default,
@@ -309,7 +309,7 @@ pub fn reduce(
     let tag = tag.into();
 
     let reduce_with = match reducer {
-        Some(cmd) if cmd == "sum" => reducer_for(Reduce::Sum),
+        Some(cmd) if cmd == "sum" => reducer_for(Reduce::Summation),
         Some(cmd) if cmd == "min" => reducer_for(Reduce::Minimum),
         Some(cmd) if cmd == "max" => reducer_for(Reduce::Maximum),
         Some(_) | None => reducer_for(Reduce::Default),
@@ -642,7 +642,7 @@ mod tests {
     fn reducer_computes_given_a_sum_command() -> Result<(), ShellError> {
         let subject = vec![int(1), int(1), int(1)];
 
-        let action = reducer_for(Reduce::Sum);
+        let action = reducer_for(Reduce::Summation);
 
         assert_eq!(action(Value::zero(), subject)?, int(3));
 

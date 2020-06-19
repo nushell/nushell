@@ -22,7 +22,7 @@ fn rows() {
                 open caballeros.csv
                 | keep 3
                 | get lucky_code
-                | sum
+                | math sum
                 | echo $it
                 "#
         ));

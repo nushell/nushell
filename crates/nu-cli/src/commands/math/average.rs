@@ -22,7 +22,7 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Gets the average of a list of numbers"
+        "Finds the average of a list of numbers or tables"
     }
 
     async fn run(
@@ -56,7 +56,7 @@ impl WholeStreamCommand for SubCommand {
 }
 
 pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
-    let sum = reducer_for(Reduce::Sum);
+    let sum = reducer_for(Reduce::Summation);
 
     let number = BigDecimal::from_usize(values.len()).ok_or_else(|| {
         ShellError::labeled_error(

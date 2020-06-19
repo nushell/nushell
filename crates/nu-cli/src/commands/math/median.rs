@@ -121,7 +121,7 @@ pub fn median(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
 fn compute_average(values: &[Value], name: impl Into<Tag>) -> Result<Value, ShellError> {
     let name = name.into();
 
-    let sum = reducer_for(Reduce::Sum);
+    let sum = reducer_for(Reduce::Summation);
     let number = BigDecimal::from_usize(2).ok_or_else(|| {
         ShellError::labeled_error(
             "could not convert to big decimal",
