@@ -16,7 +16,7 @@ extern crate quickcheck_macros;
 mod cli;
 mod commands;
 mod context;
-mod data;
+pub mod data;
 mod deserializer;
 mod env;
 mod evaluate;
@@ -39,6 +39,7 @@ pub use crate::commands::command::{
 };
 pub use crate::commands::help::get_help;
 pub use crate::context::CommandRegistry;
+pub use crate::data::config;
 pub use crate::data::dict::TaggedListBuilder;
 pub use crate::data::primitive;
 pub use crate::data::value;
