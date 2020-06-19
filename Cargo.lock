@@ -2767,6 +2767,7 @@ dependencies = [
  "bat",
  "crossterm",
  "nu-build",
+ "nu-cli",
  "nu-errors",
  "nu-plugin",
  "nu-protocol",

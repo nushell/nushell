@@ -14,7 +14,7 @@ nu-plugin = { path = "../nu-plugin", version = "0.15.1" }
 nu-protocol = { path = "../nu-protocol", version = "0.15.1" }
 nu-source = { path = "../nu-source", version = "0.15.1" }
 nu-errors = { path = "../nu-errors", version = "0.15.1" }
-#nu-cli = { path = "../nu-cli", version = "0.15.1" }
+nu-cli = { path = "../nu-cli", version = "0.15.1" }
 
 crossterm = "0.17.5"
 syntect = { version = "4.2", default-features = false, features = ["default-fancy"]}
