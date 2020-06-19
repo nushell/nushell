@@ -1,4 +1,4 @@
-mod average;
+mod avg;
 mod median;
 
 use nu_test_support::{nu, pipeline};
