@@ -34,3 +34,11 @@ Yehuda,Katz,10/11/2013,A
  1 │ B
 ━━━┷━━━━━━━━━
 ```
+
+### Counting
+`uniq -c` is the flag to output a `count` column.
+
+```
+> `open test.csv | get type | uniq -c`
+
+```

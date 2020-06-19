@@ -43,7 +43,7 @@ async fn uniq(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputSt
         counter
     };
 
-    let mut values_vec_deque = VecDeque::<nu_protocol::Value>::new();
+    let mut values_vec_deque = VecDeque::new();
 
     for item in uniq_values {
         use nu_protocol::{UntaggedValue, Value};
