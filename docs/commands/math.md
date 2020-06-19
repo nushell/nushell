@@ -117,6 +117,13 @@ To get the average of the file sizes in a directory, simply pipe the size column
 ────────────┴────────
 ```
 
+To get the sum of the characters that make up your present working directory.
+
+```shell
+> pwd | split row / | size | get chars | math sum
+50
+```
+
 ## Errors
 
 `math` functions are aggregation functions so empty lists are invalid
