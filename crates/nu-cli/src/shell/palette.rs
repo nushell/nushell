@@ -70,7 +70,7 @@ pub struct ThemedPalette {
 
 impl ThemedPalette {
     // remove this once we start actually loading themes.
-    `#[allow(dead_code)]`
+    #[allow(dead_code)]
     pub fn new<R: io::Read>(reader: &mut R) -> Result<ThemedPalette, ThemeError> {
         let theme = serde_json::from_reader(reader)?;
         Ok(ThemedPalette { theme })
