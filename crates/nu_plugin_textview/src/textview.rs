@@ -1,7 +1,6 @@
 use nu_protocol::{Primitive, UntaggedValue, Value};
 use nu_source::{AnchorLocation, Tag};
 use std::path::Path;
-use nu_cli::data::config as nuconfig;
 
 #[derive(Default)]
 pub struct TextView;
@@ -33,7 +32,7 @@ pub fn view_text_value(value: &Value) {
     let highlight_range_to: u64 = 0;
     let mut theme = "OneHalfDark".to_string();
 
-    if let Ok(config) = nuconfig::config(Tag::unknown()) {
+    if let Ok(config) = nu_cli::data::config::config(Tag::unknown()) {
         if let Some(batvars) = config.get("bat") {
             for (idx, value) in batvars.row_entries() {
                 match idx {
