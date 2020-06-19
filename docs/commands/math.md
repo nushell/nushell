@@ -2,10 +2,11 @@
 
 Mathematical functions that generally only operate on a list of numbers (integers, decimals, bytes) and tables.
 Currently the following functions are implemented:
-`math average` Finds the average of a list of numbers or tables
-`math min` Finds the minimum within a list of numbers or tables
-`math max` Finds the maximum within a list of numbers or tables
-`math sum` Finds the sum of a list of numbers or tables
+
+* `math average`: Finds the average of a list of numbers or tables
+* `math min`: Finds the minimum within a list of numbers or tables
+* `math max`: Finds the maximum within a list of numbers or tables
+* `math sum`: Finds the sum of a list of numbers or tables
 
 However, the mathematical functions like `min` and `max` are more permissive and also work on `Dates`.
 
