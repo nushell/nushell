@@ -35,7 +35,7 @@ impl WholeStreamCommand for Command {
 mod tests {
     use super::*;
     use crate::commands::math::{
-        average::average, max::maximum, min::minimum, sum::summation, utils::MathFunction,
+        avg::average, max::maximum, min::minimum, sum::summation, utils::MathFunction,
     };
     use nu_plugin::test_helpers::value::{decimal, int};
     use nu_protocol::Value;
