@@ -33,7 +33,7 @@ pub fn view_text_value(value: &Value) {
     let mut theme = "OneHalfDark".to_string();
 
     if let Ok(config) = nu_cli::data::config::config(Tag::unknown()) {
-        if let Some(batvars) = config.get("bat") {
+        if let Some(batvars) = config.get("textview") {
             for (idx, value) in batvars.row_entries() {
                 match idx {
                     x if x == "term_width" => {
