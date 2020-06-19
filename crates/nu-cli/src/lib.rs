@@ -39,9 +39,9 @@ pub use crate::commands::command::{
 };
 pub use crate::commands::help::get_help;
 pub use crate::context::CommandRegistry;
+pub use crate::data::config;
 pub use crate::data::dict::TaggedListBuilder;
 pub use crate::data::primitive;
-pub use crate::data::config;
 pub use crate::data::value;
 pub use crate::env::environment_syncer::EnvironmentSyncer;
 pub use crate::env::host::BasicHost;
