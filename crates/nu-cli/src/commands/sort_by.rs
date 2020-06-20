@@ -1,4 +1,5 @@
 use crate::commands::WholeStreamCommand;
+use crate::data::base::coerce_compare;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
@@ -112,7 +113,7 @@ pub fn sort(
             value: UntaggedValue::Primitive(_),
             ..
         } => {
-            vec.sort();
+            vec.sort_by(|a, b| coerce_compare(a, b).expect("Unimplemented BUG: What about primitives that don't have an order defined?").compare());
         }
         _ => {
             let calc_key = |item: &Value| {
