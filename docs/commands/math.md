@@ -3,7 +3,7 @@
 Mathematical functions that generally only operate on a list of numbers (integers, decimals, bytes) and tables.
 Currently the following functions are implemented:
 
-* `math average`: Finds the average of a list of numbers or tables
+* `math avg`: Finds the average of a list of numbers or tables
 * `math min`: Finds the minimum within a list of numbers or tables
 * `math max`: Finds the maximum within a list of numbers or tables
 * `math sum`: Finds the sum of a list of numbers or tables
@@ -44,7 +44,7 @@ To get the average of the file sizes in a directory, simply pipe the size column
 ```
 
 ```shell
-> ls | get size | math average
+> ls | get size | math avg
 ───┬────────
  0 │ 7.2 KB
 ───┴────────
@@ -108,7 +108,7 @@ To get the average of the file sizes in a directory, simply pipe the size column
 ```
 
 ```shell
-> pwd | split row / | size | math average
+> pwd | split row / | size | math avg
 ────────────┬────────
  lines      │ 0.0000
  words      │ 1.0000
@@ -117,12 +117,19 @@ To get the average of the file sizes in a directory, simply pipe the size column
 ────────────┴────────
 ```
 
+To get the sum of the characters that make up your present working directory.
+
+```shell
+> pwd | split row / | size | get chars | math sum
+50
+```
+
 ## Errors
 
 `math` functions are aggregation functions so empty lists are invalid
 
 ```shell
-> echo [] | math average
+> echo [] | math avg
 error: Error: Unexpected: Cannot perform aggregate math operation on empty data
 ```
 
@@ -130,6 +137,6 @@ Note `math` functions only work on list of numbers (integers, decimals, bytes) a
 then unexpected results can occur.
 
 ```shell
->  echo [1 2 a ] | math average
+>  echo [1 2 a ] | math avg
 0
 ```
