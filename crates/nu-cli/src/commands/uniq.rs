@@ -77,6 +77,9 @@ async fn uniq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
                             tag: item.0.tag,
                         }
                     }
+                    // TODO(siedentop): Obviously, the panic should be removed (as well as the unwraps above). However,
+                    // is there a way to collect the failures in an outside chanel (stderr, logs, telemetry)? Just staying
+                    // silent on what is most likely programmer error, does not feel right.
                     _ => panic!("Could not match: {:#?}", item),
                     // _ => item.0
                 }
