@@ -35,62 +35,62 @@ pub fn view_text_value(value: &Value) {
     if let Ok(config) = nu_cli::data::config::config(Tag::unknown()) {
         if let Some(batvars) = config.get("textview") {
             for (idx, value) in batvars.row_entries() {
-                match idx {
-                    x if x == "term_width" => {
+                match idx.as_ref() {
+                    "term_width" => {
                         term_width = match value.as_u64() {
                             Ok(n) => n,
                             _ => textwrap::termwidth() as u64,
                         }
                     }
-                    x if x == "tab_width" => {
+                    "tab_width" => {
                         tab_width = match value.as_u64() {
                             Ok(n) => n,
                             _ => 4u64,
                         }
                     }
-                    x if x == "colored_output" => {
+                    "colored_output" => {
                         colored_output = match value.as_bool() {
                             Ok(b) => b,
                             _ => true,
                         }
                     }
-                    x if x == "true_color" => {
+                    "true_color" => {
                         true_color = match value.as_bool() {
                             Ok(b) => b,
                             _ => true,
                         }
                     }
-                    x if x == "header" => {
+                    "header" => {
                         header = match value.as_bool() {
                             Ok(b) => b,
                             _ => true,
                         }
                     }
-                    x if x == "line_numbers" => {
+                    "line_numbers" => {
                         line_numbers = match value.as_bool() {
                             Ok(b) => b,
                             _ => true,
                         }
                     }
-                    x if x == "grid" => {
+                    "grid" => {
                         grid = match value.as_bool() {
                             Ok(b) => b,
                             _ => true,
                         }
                     }
-                    x if x == "vcs_modification_markers" => {
+                    "vcs_modification_markers" => {
                         vcs_modification_markers = match value.as_bool() {
                             Ok(b) => b,
                             _ => true,
                         }
                     }
-                    x if x == "snip" => {
+                    "snip" => {
                         snip = match value.as_bool() {
                             Ok(b) => b,
                             _ => true,
                         }
                     }
-                    x if x == "wrapping_mode" => {
+                    "wrapping_mode" => {
                         wrapping_mode = match value.as_string() {
                             Ok(s) if s.to_lowercase() == "nowrapping" => {
                                 bat::WrappingMode::NoWrapping
@@ -101,13 +101,13 @@ pub fn view_text_value(value: &Value) {
                             _ => bat::WrappingMode::NoWrapping,
                         }
                     }
-                    x if x == "use_italics" => {
+                    "use_italics" => {
                         use_italics = match value.as_bool() {
                             Ok(b) => b,
                             _ => true,
                         }
                     }
-                    x if x == "paging_mode" => {
+                    "paging_mode" => {
                         paging_mode = match value.as_string() {
                             Ok(s) if s.to_lowercase() == "always" => bat::PagingMode::Always,
                             Ok(s) if s.to_lowercase() == "never" => bat::PagingMode::Never,
@@ -117,15 +117,15 @@ pub fn view_text_value(value: &Value) {
                             _ => bat::PagingMode::QuitIfOneScreen,
                         }
                     }
-                    x if x == "pager" => {
+                    "pager" => {
                         pager = match value.as_string() {
                             Ok(s) => s,
                             _ => "less".to_string(),
                         }
                     }
-                    x if x == "line_ranges" => line_ranges = bat::line_range::LineRanges::all(), // not real sure what to do with this
-                    x if x == "highlight_range" => _highlight_range = "0,0", //ignore config value for now
-                    x if x == "theme" => {
+                    "line_ranges" => line_ranges = bat::line_range::LineRanges::all(), // not real sure what to do with this
+                    "highlight_range" => _highlight_range = "0,0", //ignore config value for now
+                    "theme" => {
                         theme = match value.as_string() {
                             Ok(s) => s,
                             _ => "OneDarkHalf".to_string(),
