@@ -2472,6 +2472,7 @@ dependencies = [
  "nu-plugin",
  "nu-protocol",
  "nu-source",
+ "nu-table",
  "nu-test-support",
  "nu-value-ext",
  "num-bigint",
@@ -2609,6 +2610,14 @@ dependencies = [
  "pretty",
  "serde 1.0.110",
  "termcolor",
+]
+
+[[package]]
+name = "nu-table"
+version = "0.15.1"
+dependencies = [
+ "ansi_term 0.12.1",
+ "unicode-width",
 ]
 
 [[package]]

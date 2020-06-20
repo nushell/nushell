@@ -1,4 +1,5 @@
 use nu_protocol::{hir::Number, Primitive};
+use nu_table::TextStyle;
 
 pub fn number(number: impl Into<Number>) -> Primitive {
     let number = number.into();
@@ -9,9 +10,9 @@ pub fn number(number: impl Into<Number>) -> Primitive {
     }
 }
 
-pub fn style_primitive(primitive: &Primitive) -> &'static str {
+pub fn style_primitive(primitive: &Primitive) -> TextStyle {
     match primitive {
-        Primitive::Int(_) | Primitive::Bytes(_) | Primitive::Decimal(_) => "r",
-        _ => "",
+        Primitive::Int(_) | Primitive::Bytes(_) | Primitive::Decimal(_) => TextStyle::basic_right(),
+        _ => TextStyle::basic(),
     }
 }
