@@ -6,6 +6,7 @@ Currently the following functions are implemented:
 * `math avg`: Finds the average of a list of numbers or tables
 * `math min`: Finds the minimum within a list of numbers or tables
 * `math max`: Finds the maximum within a list of numbers or tables
+* `math median`: Finds the median of a list of numbers or tables
 * `math sum`: Finds the sum of a list of numbers or tables
 
 However, the mathematical functions like `min` and `max` are more permissive and also work on `Dates`.
@@ -46,6 +47,8 @@ To get the average of the file sizes in a directory, simply pipe the size column
 ```shell
 > ls | get size | math avg
 ───┬────────
+ # │
+───┼────────
  0 │ 7.2 KB
 ───┴────────
 ```
@@ -53,21 +56,35 @@ To get the average of the file sizes in a directory, simply pipe the size column
 ```shell
 > ls | get size | math min
 ───┬─────
+ # │
+───┼─────
  0 │ 0 B
 ───┴─────
 ```
 
 ```shell
-> ls | get size | math max
 ───┬──────────
- 0 │ 113.5 KB
+ # │
+───┼──────────
+ 0 │ 113.6 KB
 ───┴──────────
+```
+
+```shell
+> ls | get size | math median
+───┬───────
+ # │
+───┼───────
+ 0 │ 320 B
+───┴───────
 ```
 
 ```shell
 > ls | get size | math sum
 ───┬──────────
- 0 │ 143.4 KB
+ # │
+───┼──────────
+ 0 │ 143.6 KB
 ───┴──────────
 ```
 
@@ -91,29 +108,31 @@ To get the average of the file sizes in a directory, simply pipe the size column
  # │ lines │ words │ chars │ max length
 ───┼───────┼───────┼───────┼────────────
  0 │     0 │     1 │     5 │          5
- 1 │     0 │     1 │     7 │          7
- 2 │     0 │     1 │     9 │          9
- 3 │     0 │     1 │     7 │          7
+ 1 │     0 │     1 │    11 │         11
+ 2 │     0 │     1 │    11 │         11
+ 3 │     0 │     1 │     4 │          4
+ 4 │     0 │     2 │    12 │         12
+ 5 │     0 │     1 │     7 │          7
 ───┴───────┴───────┴───────┴────────────
 ```
 
 ```shell
 > pwd | split row / | size | math max
-───────────┬───
+────────────┬────
  lines      │ 0
- words      │ 1
- chars      │ 9
- max length │ 9
-────────────┴───
+ words      │ 2
+ chars      │ 12
+ max length │ 12
+────────────┴────
 ```
 
 ```shell
 > pwd | split row / | size | math avg
 ────────────┬────────
  lines      │ 0.0000
- words      │ 1.0000
- chars      │ 7.0000
- max length │ 7.0000
+ words      │ 1.1666
+ chars      │ 8.3333
+ max length │ 8.3333
 ────────────┴────────
 ```
 

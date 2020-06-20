@@ -35,7 +35,8 @@ impl WholeStreamCommand for Command {
 mod tests {
     use super::*;
     use crate::commands::math::{
-        avg::average, max::maximum, min::minimum, sum::summation, utils::MathFunction,
+        avg::average, max::maximum, median::median, min::minimum, sum::summation,
+        utils::MathFunction,
     };
     use nu_plugin::test_helpers::value::{decimal, int};
     use nu_protocol::Value;
@@ -67,13 +68,25 @@ mod tests {
                 description: "Single value",
                 values: vec![int(10)],
                 expected_err: None,
-                expected_res: vec![Ok(decimal(10)), Ok(int(10)), Ok(int(10)), Ok(int(10))],
+                expected_res: vec![
+                    Ok(decimal(10)),
+                    Ok(int(10)),
+                    Ok(int(10)),
+                    Ok(int(10)),
+                    Ok(int(10)),
+                ],
             },
             TestCase {
                 description: "Multiple Values",
-                values: vec![int(10), int(30), int(20)],
+                values: vec![int(10), int(20), int(30)],
                 expected_err: None,
-                expected_res: vec![Ok(decimal(20)), Ok(int(10)), Ok(int(30)), Ok(int(60))],
+                expected_res: vec![
+                    Ok(decimal(20)),
+                    Ok(int(10)),
+                    Ok(int(30)),
+                    Ok(int(20)),
+                    Ok(int(60)),
+                ],
             },
             TestCase {
                 description: "Mixed Values",
@@ -83,23 +96,31 @@ mod tests {
                     Ok(decimal(21)),
                     Ok(int(10)),
                     Ok(decimal(26.5)),
+                    Ok(decimal(26.5)),
                     Ok(decimal(63)),
                 ],
             },
             TestCase {
                 description: "Negative Values",
-                values: vec![int(10), int(-11), int(-14)],
+                values: vec![int(-14), int(-11), int(10)],
                 expected_err: None,
-                expected_res: vec![Ok(decimal(-5)), Ok(int(-14)), Ok(int(10)), Ok(int(-15))],
+                expected_res: vec![
+                    Ok(decimal(-5)),
+                    Ok(int(-14)),
+                    Ok(int(10)),
+                    Ok(int(-11)),
+                    Ok(int(-15)),
+                ],
             },
             TestCase {
                 description: "Mixed Negative Values",
-                values: vec![int(10), decimal(-11.5), decimal(-13.5)],
+                values: vec![decimal(-13.5), decimal(-11.5), int(10)],
                 expected_err: None,
                 expected_res: vec![
                     Ok(decimal(-5)),
                     Ok(decimal(-13.5)),
                     Ok(int(10)),
+                    Ok(decimal(-11.5)),
                     Ok(decimal(-15)),
                 ],
             },
@@ -126,7 +147,8 @@ mod tests {
 
         for tc in tt.iter() {
             let tc: &TestCase = tc; // Just for type annotations
-            let math_functions: Vec<MathFunction> = vec![average, minimum, maximum, summation];
+            let math_functions: Vec<MathFunction> =
+                vec![average, minimum, maximum, median, summation];
             let results = math_functions
                 .iter()
                 .map(|mf| mf(&tc.values, &test_tag))
