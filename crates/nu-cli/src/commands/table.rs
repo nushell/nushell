@@ -56,7 +56,7 @@ fn str_to_color(s: String) -> Option<ansi_term::Color> {
 pub fn from_list(values: &[Value], starting_idx: usize) -> nu_table::Table {
     let config = crate::data::config::config(Tag::unknown());
 
-    let header_style = if let Ok(config) = config {
+    let header_style = if let Ok(config) = &config {
         let header_align = config.get("header_align").map_or(Alignment::Left, |a| {
             a.as_string()
                 .map_or(Alignment::Center, |a| match a.to_lowercase().as_str() {
@@ -97,6 +97,19 @@ pub fn from_list(values: &[Value], starting_idx: usize) -> nu_table::Table {
         .collect();
     let entries = values_to_entries(values, &mut headers, starting_idx);
 
+    if let Ok(config) = config {
+        if let Some(style) = config.get("table_mode") {
+            if let Ok(table_mode) = style.as_string() {
+                if table_mode == "light" {
+                    return nu_table::Table {
+                        headers,
+                        data: entries,
+                        theme: Theme::light(),
+                    };
+                }
+            }
+        }
+    }
     nu_table::Table {
         headers,
         data: entries,
