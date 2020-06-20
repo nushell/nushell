@@ -19,7 +19,7 @@ futures = { version = "0.3", features = ["compat", "io-compat"] }
 futures-timer = "3.0.2"
 
 [dependencies.heim]
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 default-features = false
 features = ["process"]
 
