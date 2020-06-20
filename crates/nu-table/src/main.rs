@@ -12,7 +12,11 @@ fn main() {
     let t = Table::new(
         vec![
             StyledString::new("Test me".to_owned(), TextStyle::default_header()),
-            StyledString::new("Long column name".to_owned(), TextStyle::default_header()),
+            StyledString::new(
+                "Long column \n name with carriage returns on on ononoohoh honasdf am\n checkit"
+                    .to_owned(),
+                TextStyle::default_header(),
+            ),
             StyledString::new("Another".to_owned(), TextStyle::default_header()),
         ],
         vec![msg; 2],

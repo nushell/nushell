@@ -50,29 +50,44 @@ impl<'a> Display for Line<'a> {
     }
 }
 
-pub fn split_sublines(input: &str) -> impl Iterator<Item = Subline> {
-    input.split_terminator(' ').map(|x| Subline {
-        subline: x,
-        width: UnicodeWidthStr::width(x),
-    })
+pub fn split_sublines(input: &str) -> Vec<Vec<Subline>> {
+    input
+        .split_terminator('\n')
+        .map(|line| {
+            line.split_terminator(' ')
+                .map(|x| Subline {
+                    subline: x,
+                    width: UnicodeWidthStr::width(x),
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>()
 }
 
-pub fn column_width<'a>(input: impl Iterator<Item = &'a Subline<'a>>) -> usize {
-    let mut total = 0;
+pub fn column_width<'a>(input: &[Vec<Subline<'a>>]) -> usize {
+    let mut max = 0;
 
-    let mut first = true;
-    for inp in input {
-        if !first {
-            // Account for the space
-            total += 1;
-        } else {
-            first = false;
+    for line in input {
+        let mut total = 0;
+
+        let mut first = true;
+        for inp in line {
+            if !first {
+                // Account for the space
+                total += 1;
+            } else {
+                first = false;
+            }
+
+            total += inp.width;
         }
 
-        total += inp.width;
+        if total > max {
+            max = total;
+        }
     }
 
-    total
+    max
 }
 
 fn split_word<'a>(cell_width: usize, word: &'a str) -> Vec<Subline<'a>> {
@@ -113,8 +128,7 @@ fn split_word<'a>(cell_width: usize, word: &'a str) -> Vec<Subline<'a>> {
 pub fn wrap<'a>(
     cell_width: usize,
     mut input: impl Iterator<Item = Subline<'a>>,
-    style: TextStyle,
-) -> WrappedCell {
+) -> (Vec<WrappedLine>, usize) {
     let mut lines = vec![];
     let mut current_line: Vec<Subline> = vec![];
     let mut current_width = 0;
@@ -218,9 +232,5 @@ pub fn wrap<'a>(
         });
     }
 
-    WrappedCell {
-        lines: output,
-        max_width: current_max,
-        style,
-    }
+    (output, current_max)
 }

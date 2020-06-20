@@ -224,7 +224,7 @@ pub struct ProcessedTable<'a> {
 
 #[derive(Debug)]
 pub struct ProcessedCell<'a> {
-    pub contents: Vec<Subline<'a>>,
+    pub contents: Vec<Vec<Subline<'a>>>,
     pub style: TextStyle,
 }
 
@@ -440,7 +440,7 @@ fn process_table(table: &Table) -> ProcessedTable {
         let mut out_row = vec![];
         for column in row {
             out_row.push(ProcessedCell {
-                contents: split_sublines(&column.contents).collect::<Vec<_>>(),
+                contents: split_sublines(&column.contents),
                 style: column.style.clone(),
             });
         }
@@ -450,7 +450,7 @@ fn process_table(table: &Table) -> ProcessedTable {
     let mut processed_headers = vec![];
     for header in &table.headers {
         processed_headers.push(ProcessedCell {
-            contents: split_sublines(&header.contents).collect::<Vec<_>>(),
+            contents: split_sublines(&header.contents),
             style: header.style.clone(),
         });
     }
@@ -476,12 +476,12 @@ fn get_max_column_widths(processed_table: &ProcessedTable) -> Vec<usize> {
     let mut output = vec![0; max_num_columns];
 
     for column in processed_table.headers.iter().enumerate() {
-        output[column.0] = max(output[column.0], column_width(column.1.contents.iter()));
+        output[column.0] = max(output[column.0], column_width(&column.1.contents));
     }
 
     for row in &processed_table.data {
         for column in row.iter().enumerate() {
-            output[column.0] = max(output[column.0], column_width(column.1.contents.iter()));
+            output[column.0] = max(output[column.0], column_width(&column.1.contents));
         }
     }
 
@@ -554,11 +554,19 @@ fn wrap_cells(processed_table: ProcessedTable, max_column_width: usize) -> Wrapp
     ];
     let mut output_headers = vec![];
     for header in processed_table.headers.into_iter().enumerate() {
-        let wrapped = wrap(
-            max_column_width,
-            header.1.contents.into_iter(),
-            header.1.style,
-        );
+        let mut wrapped = WrappedCell {
+            lines: vec![],
+            max_width: 0,
+            style: header.1.style,
+        };
+
+        for contents in header.1.contents.into_iter() {
+            let (mut lines, inner_max_width) = wrap(max_column_width, contents.into_iter());
+            wrapped.lines.append(&mut lines);
+            if inner_max_width > wrapped.max_width {
+                wrapped.max_width = inner_max_width;
+            }
+        }
         if column_widths[header.0] < wrapped.max_width {
             column_widths[header.0] = wrapped.max_width;
         }
@@ -569,11 +577,18 @@ fn wrap_cells(processed_table: ProcessedTable, max_column_width: usize) -> Wrapp
     for row in processed_table.data.into_iter() {
         let mut output_row = vec![];
         for column in row.into_iter().enumerate() {
-            let wrapped = wrap(
-                max_column_width,
-                column.1.contents.into_iter(),
-                column.1.style,
-            );
+            let mut wrapped = WrappedCell {
+                lines: vec![],
+                max_width: 0,
+                style: column.1.style,
+            };
+            for contents in column.1.contents.into_iter() {
+                let (mut lines, inner_max_width) = wrap(max_column_width, contents.into_iter());
+                wrapped.lines.append(&mut lines);
+                if inner_max_width > wrapped.max_width {
+                    wrapped.max_width = inner_max_width;
+                }
+            }
             if column_widths[column.0] < wrapped.max_width {
                 column_widths[column.0] = wrapped.max_width;
             }
