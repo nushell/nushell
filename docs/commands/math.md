@@ -6,6 +6,7 @@ Currently the following functions are implemented:
 * `math avg`: Finds the average of a list of numbers or tables
 * `math min`: Finds the minimum within a list of numbers or tables
 * `math max`: Finds the maximum within a list of numbers or tables
+* `math median`: Finds the median of a list of numbers or tables
 * `math sum`: Finds the sum of a list of numbers or tables
 
 However, the mathematical functions like `min` and `max` are more permissive and also work on `Dates`.
@@ -46,6 +47,8 @@ To get the average of the file sizes in a directory, simply pipe the size column
 ```shell
 > ls | get size | math avg
 ───┬────────
+ # │
+───┼────────
  0 │ 7.2 KB
 ───┴────────
 ```
@@ -53,14 +56,17 @@ To get the average of the file sizes in a directory, simply pipe the size column
 ```shell
 > ls | get size | math min
 ───┬─────
+ # │
+───┼─────
  0 │ 0 B
 ───┴─────
 ```
 
 ```shell
-> ls | get size | math max
 ───┬──────────
- 0 │ 113.5 KB
+ # │
+───┼──────────
+ 0 │ 113.6 KB
 ───┴──────────
 ```
 
@@ -76,7 +82,9 @@ To get the average of the file sizes in a directory, simply pipe the size column
 ```shell
 > ls | get size | math sum
 ───┬──────────
- 0 │ 143.4 KB
+ # │
+───┼──────────
+ 0 │ 143.6 KB
 ───┴──────────
 ```
 
