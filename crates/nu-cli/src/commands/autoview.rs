@@ -6,10 +6,7 @@ use nu_errors::ShellError;
 use nu_protocol::{hir, hir::Expression, hir::Literal, hir::SpannedExpression};
 use nu_protocol::{Primitive, Scope, Signature, UntaggedValue, Value};
 use parking_lot::Mutex;
-use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
-use prettytable::{color, Attr, Cell, Row, Table};
 use std::sync::atomic::AtomicBool;
-use textwrap::fill;
 
 pub struct Autoview;
 
@@ -268,90 +265,28 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                                 + row.entries.iter().count() * 2)
                                 > textwrap::termwidth()) =>
                     {
-                        let termwidth = std::cmp::max(textwrap::termwidth(), 20);
-
-                        enum TableMode {
-                            Light,
-                            Normal,
-                        }
-
-                        let mut table = Table::new();
-                        let table_mode = crate::data::config::config(Tag::unknown());
-
-                        let table_mode = if let Some(s) = table_mode?.get("table_mode") {
-                            match s.as_string() {
-                                Ok(typ) if typ == "light" => TableMode::Light,
-                                _ => TableMode::Normal,
-                            }
-                        } else {
-                            TableMode::Normal
-                        };
-
-                        match table_mode {
-                            TableMode::Light => {
-                                table.set_format(
-                                    FormatBuilder::new()
-                                        .separator(
-                                            LinePosition::Title,
-                                            LineSeparator::new('─', '─', ' ', ' '),
-                                        )
-                                        .separator(
-                                            LinePosition::Bottom,
-                                            LineSeparator::new(' ', ' ', ' ', ' '),
-                                        )
-                                        .padding(1, 1)
-                                        .build(),
-                                );
-                            }
-                            _ => {
-                                table.set_format(
-                                    FormatBuilder::new()
-                                        .column_separator('│')
-                                        .separator(
-                                            LinePosition::Top,
-                                            LineSeparator::new('─', '┬', ' ', ' '),
-                                        )
-                                        .separator(
-                                            LinePosition::Title,
-                                            LineSeparator::new('─', '┼', ' ', ' '),
-                                        )
-                                        .separator(
-                                            LinePosition::Bottom,
-                                            LineSeparator::new('─', '┴', ' ', ' '),
-                                        )
-                                        .padding(1, 1)
-                                        .build(),
-                                );
-                            }
-                        }
-
-                        let mut max_key_len = 0;
-                        for (key, _) in row.entries.iter() {
-                            max_key_len = std::cmp::max(max_key_len, key.chars().count());
-                        }
-
-                        if max_key_len > (termwidth / 2 - 1) {
-                            max_key_len = termwidth / 2 - 1;
-                        }
-
-                        let max_val_len = termwidth - max_key_len - 5;
-
+                        let mut entries = vec![];
                         for (key, value) in row.entries.iter() {
-                            table.add_row(Row::new(vec![
-                                Cell::new(&fill(&key, max_key_len))
-                                    .with_style(Attr::ForegroundColor(color::GREEN))
-                                    .with_style(Attr::Bold),
-                                Cell::new(&fill(
-                                    &format_leaf(value).plain_string(100_000),
-                                    max_val_len,
-                                )),
-                            ]));
+                            entries.push(vec![
+                                nu_table::StyledString::new(
+                                    key.to_string(),
+                                    nu_table::TextStyle {
+                                        alignment: nu_table::Alignment::Left,
+                                        color: Some(ansi_term::Color::Green),
+                                        is_bold: true,
+                                    },
+                                ),
+                                nu_table::StyledString::new(
+                                    format_leaf(value).plain_string(100_000),
+                                    nu_table::TextStyle::basic(),
+                                ),
+                            ]);
                         }
 
-                        table.printstd();
+                        let table =
+                            nu_table::Table::new(vec![], entries, nu_table::Theme::compact());
 
-                        // table.print_term(&mut *context.host.lock().out_terminal().ok_or_else(|| ShellError::untagged_runtime_error("Could not open terminal for output"))?)
-                        //     .map_err(|_| ShellError::untagged_runtime_error("Internal error: could not print to terminal (for unix systems check to make sure TERM is set)"))?;
+                        nu_table::draw_table(&table, textwrap::termwidth());
                     }
 
                     Value {

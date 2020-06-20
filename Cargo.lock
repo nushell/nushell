@@ -1899,9 +1899,9 @@ dependencies = [
 
 [[package]]
 name = "kstring"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6382df53100fd22e149030b6634720c94a151076db8d727b3274d7070975d609"
+checksum = "fbbc30beb80d56ddf6346e935c7abcba96329ee5c5a4cde8984a4e6b6f18b58e"
 dependencies = [
  "serde 1.0.110",
 ]
@@ -2038,9 +2038,9 @@ dependencies = [
 
 [[package]]
 name = "liquid-core"
-version = "0.20.1"
+version = "0.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ea59709d9530bab4e9cc0ece12f20fe4999fdef90f7d89391b0fc9ff563b62b"
+checksum = "4dc58422728185d54cd044bba4d45a2ef2a7111a421f84d344f65629949de4f1"
 dependencies = [
  "anymap",
  "chrono",
@@ -2481,7 +2481,6 @@ dependencies = [
  "pin-utils",
  "pretty-hex",
  "pretty_env_logger",
- "prettytable-rs",
  "ptree",
  "query_interface",
  "quickcheck",
@@ -3233,20 +3232,6 @@ checksum = "926d36b9553851b8b0005f1275891b392ee4d2d833852c417ed025477350fb9d"
 dependencies = [
  "env_logger",
  "log",
-]
-
-[[package]]
-name = "prettytable-rs"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fd04b170004fa2daccf418a7f8253aaf033c27760b5f225889024cf66d7ac2e"
-dependencies = [
- "atty",
- "csv",
- "encode_unicode",
- "lazy_static 1.4.0",
- "term",
- "unicode-width",
 ]
 
 [[package]]

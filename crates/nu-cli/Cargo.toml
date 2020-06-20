@@ -62,7 +62,6 @@ parking_lot = "0.10.2"
 pin-utils = "0.1.0"
 pretty-hex = "0.1.1"
 pretty_env_logger = "0.4.0"
-prettytable-rs = "0.8.0"
 ptree = {version = "0.2" }
 query_interface = "0.3.5"
 rand = "0.7"

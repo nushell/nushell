@@ -134,11 +134,7 @@ pub fn view_text_value(value: &Value) {
                     _ => (),
                 }
             }
-        } else {
-            println!("Couldn't find bat section in config");
         }
-    } else {
-        println!("Error reading config!");
     }
 
     let value_anchor = value.anchor();

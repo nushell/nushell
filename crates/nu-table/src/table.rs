@@ -81,6 +81,8 @@ pub struct Theme {
 
     pub print_left_border: bool,
     pub print_right_border: bool,
+    pub print_top_border: bool,
+    pub print_bottom_border: bool,
 }
 
 impl Theme {
@@ -108,6 +110,8 @@ impl Theme {
 
             print_left_border: true,
             print_right_border: true,
+            print_top_border: true,
+            print_bottom_border: true,
         }
     }
     #[allow(unused)]
@@ -136,6 +140,8 @@ impl Theme {
 
             print_left_border: true,
             print_right_border: true,
+            print_top_border: true,
+            print_bottom_border: true,
         }
     }
     #[allow(unused)]
@@ -160,10 +166,12 @@ impl Theme {
             right_vertical: ' ',
 
             separate_header: true,
-            separate_rows: true,
+            separate_rows: false,
 
             print_left_border: true,
             print_right_border: true,
+            print_top_border: false,
+            print_bottom_border: true,
         }
     }
     #[allow(unused)]
@@ -191,6 +199,8 @@ impl Theme {
 
             print_left_border: false,
             print_right_border: false,
+            print_top_border: true,
+            print_bottom_border: true,
         }
     }
 }
@@ -227,84 +237,77 @@ pub struct WrappedTable {
 }
 
 impl WrappedTable {
-    //TODO: optimize this
     fn print_separator(&self, separator_position: SeparatorPosition) {
         let column_count = self.column_widths.len();
+        let mut output = String::new();
 
         match separator_position {
             SeparatorPosition::Top => {
                 for column in self.column_widths.iter().enumerate() {
                     if column.0 == 0 && self.theme.print_left_border {
-                        print!("{}", self.theme.top_left);
+                        output.push(self.theme.top_left);
                     }
-                    print!(
-                        "{}",
-                        std::iter::repeat(self.theme.top_horizontal)
-                            .take(*column.1)
-                            .collect::<String>()
-                    );
 
-                    print!("{}{}", self.theme.top_horizontal, self.theme.top_horizontal);
+                    for _ in 0..*column.1 {
+                        output.push(self.theme.top_horizontal);
+                    }
+
+                    output.push(self.theme.top_horizontal);
+                    output.push(self.theme.top_horizontal);
                     if column.0 == column_count - 1 {
                         if self.theme.print_right_border {
-                            print!("{}", self.theme.top_right);
+                            output.push(self.theme.top_right);
                         }
                     } else {
-                        print!("{}", self.theme.top_center);
+                        output.push(self.theme.top_center);
                     }
                 }
             }
             SeparatorPosition::Middle => {
                 for column in self.column_widths.iter().enumerate() {
                     if column.0 == 0 && self.theme.print_left_border {
-                        print!("{}", self.theme.middle_left);
+                        output.push(self.theme.middle_left);
                     }
-                    print!(
-                        "{}",
-                        std::iter::repeat(self.theme.middle_horizontal)
-                            .take(*column.1)
-                            .collect::<String>()
-                    );
 
-                    print!(
-                        "{}{}",
-                        self.theme.middle_horizontal, self.theme.middle_horizontal
-                    );
+                    for _ in 0..*column.1 {
+                        output.push(self.theme.middle_horizontal);
+                    }
+
+                    output.push(self.theme.middle_horizontal);
+                    output.push(self.theme.middle_horizontal);
+
                     if column.0 == column_count - 1 {
                         if self.theme.print_right_border {
-                            print!("{}", self.theme.middle_right);
+                            output.push(self.theme.middle_right);
                         }
                     } else {
-                        print!("{}", self.theme.center);
+                        output.push(self.theme.center);
                     }
                 }
             }
             SeparatorPosition::Bottom => {
                 for column in self.column_widths.iter().enumerate() {
                     if column.0 == 0 && self.theme.print_left_border {
-                        print!("{}", self.theme.bottom_left);
+                        output.push(self.theme.bottom_left);
                     }
-                    print!(
-                        "{}",
-                        std::iter::repeat(self.theme.bottom_horizontal)
-                            .take(*column.1)
-                            .collect::<String>()
-                    );
+                    for _ in 0..*column.1 {
+                        output.push(self.theme.bottom_horizontal);
+                    }
+                    output.push(self.theme.bottom_horizontal);
+                    output.push(self.theme.bottom_horizontal);
 
-                    print!(
-                        "{}{}",
-                        self.theme.bottom_horizontal, self.theme.bottom_horizontal
-                    );
                     if column.0 == column_count - 1 {
                         if self.theme.print_right_border {
-                            print!("{}", self.theme.bottom_right);
+                            output.push(self.theme.bottom_right);
                         }
                     } else {
-                        print!("{}", self.theme.bottom_center);
+                        output.push(self.theme.bottom_center);
                     }
                 }
             }
         }
+
+        println!("{}", output);
     }
 
     fn print_cell_contents(&self, cells: &[WrappedCell]) {
@@ -399,10 +402,13 @@ impl WrappedTable {
             return;
         }
 
-        self.print_separator(SeparatorPosition::Top);
-        println!();
+        if self.theme.print_top_border {
+            self.print_separator(SeparatorPosition::Top);
+        }
 
-        self.print_cell_contents(&self.headers);
+        if !self.headers.is_empty() {
+            self.print_cell_contents(&self.headers);
+        }
 
         let mut first_row = true;
 
@@ -410,21 +416,21 @@ impl WrappedTable {
             if !first_row {
                 if self.theme.separate_rows {
                     self.print_separator(SeparatorPosition::Middle);
-                    println!();
                 }
             } else {
                 first_row = false;
 
-                if self.theme.separate_header {
+                if self.theme.separate_header && !self.headers.is_empty() {
                     self.print_separator(SeparatorPosition::Middle);
-                    println!();
                 }
             }
 
             self.print_cell_contents(row);
         }
-        self.print_separator(SeparatorPosition::Bottom);
-        println!();
+
+        if self.theme.print_bottom_border {
+            self.print_separator(SeparatorPosition::Bottom);
+        }
     }
 }
 
@@ -499,6 +505,17 @@ pub fn draw_table(table: &Table, termwidth: usize) {
     // maybe_truncate_columns(&mut headers, &mut entries, termwidth);
     let headers_len = table.headers.len();
 
+    // fix the length of the table if there are no headers:
+    let headers_len = if headers_len == 0 {
+        if !table.data.is_empty() && !table.data[0].is_empty() {
+            table.data[0].len()
+        } else {
+            return;
+        }
+    } else {
+        headers_len
+    };
+
     // Measure how big our columns need to be (accounting for separators also)
     let max_naive_column_width = (termwidth - 3 * (headers_len - 1)) / headers_len;
 
@@ -518,18 +535,23 @@ pub fn draw_table(table: &Table, termwidth: usize) {
     // This should give us the final max column width
     let max_column_width = column_space.max_width(termwidth);
 
-    let wrapped_table = wrap_cells(
-        processed_table,
-        // max_per_column,
-        // max_naive_column_width,
-        max_column_width,
-    );
+    let wrapped_table = wrap_cells(processed_table, max_column_width);
 
     wrapped_table.new_print_table();
 }
 
 fn wrap_cells(processed_table: ProcessedTable, max_column_width: usize) -> WrappedTable {
-    let mut column_widths = vec![0; processed_table.headers.len()];
+    let mut column_widths = vec![
+        0;
+        std::cmp::max(
+            processed_table.headers.len(),
+            if !processed_table.data.is_empty() {
+                processed_table.data[0].len()
+            } else {
+                0
+            }
+        )
+    ];
     let mut output_headers = vec![];
     for header in processed_table.headers.into_iter().enumerate() {
         let wrapped = wrap(
