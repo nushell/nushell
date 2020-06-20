@@ -17,6 +17,7 @@ nu-errors = { version = "0.15.1", path = "../nu-errors" }
 nu-parser = { version = "0.15.1", path = "../nu-parser" }
 nu-value-ext = { version = "0.15.1", path = "../nu-value-ext" }
 nu-test-support = { version = "0.15.1", path = "../nu-test-support" }
+nu-table = {version = "0.1.0", path = "../../../nu-table"}
 
 ansi_term = "0.12.1"
 app_dirs = "1.2.1"

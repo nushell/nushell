@@ -284,7 +284,7 @@ pub fn create_default_context(
             whole_stream_command(Exit),
             // Viewers
             whole_stream_command(Autoview),
-            whole_stream_command(Table),
+            whole_stream_command(NuTable),
             // Text manipulation
             whole_stream_command(Split),
             whole_stream_command(SplitColumn),
@@ -739,7 +739,7 @@ fn chomp_newline(s: &str) -> &str {
     }
 }
 
-enum LineResult {
+pub enum LineResult {
     Success(String),
     Error(String, ShellError),
     CtrlC,
@@ -747,7 +747,7 @@ enum LineResult {
 }
 
 /// Process the line by parsing the text to turn it into commands, classify those commands so that we understand what is being called in the pipeline, and then run this pipeline
-async fn process_line(
+pub async fn process_line(
     readline: Result<String, ReadlineError>,
     ctx: &mut Context,
     redirect_stdin: bool,

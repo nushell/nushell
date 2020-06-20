@@ -77,7 +77,7 @@ pub(crate) use crate::context::CommandRegistry;
 pub(crate) use crate::context::Context;
 pub(crate) use crate::data::config;
 pub(crate) use crate::data::value;
-pub(crate) use crate::env::host::handle_unexpected;
+// pub(crate) use crate::env::host::handle_unexpected;
 pub(crate) use crate::env::Host;
 pub(crate) use crate::shell::filesystem_shell::FilesystemShell;
 pub(crate) use crate::shell::help_shell::HelpShell;
