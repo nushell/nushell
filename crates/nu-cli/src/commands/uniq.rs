@@ -74,14 +74,13 @@ async fn uniq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
                             tag: item.0.tag,
                         }
                     }
-                    UntaggedValue::Table(_) => Value {
-                        value: UntaggedValue::Error(ShellError::labeled_error(
+                    UntaggedValue::Table(_) => {
+                        return Err(ShellError::labeled_error(
                             "uniq -c cannot operate on tables.",
                             "source",
                             item.0.tag.span,
-                        )),
-                        tag: item.0.tag,
-                    },
+                        ))
+                    }
                     UntaggedValue::Error(_) | UntaggedValue::Block(_) => item.0,
                 }
             };
