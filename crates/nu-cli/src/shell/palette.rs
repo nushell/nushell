@@ -2,7 +2,6 @@ use ansi_term::{Color, Style};
 use nu_protocol::hir::FlatShape;
 use nu_source::{Span, Spanned};
 use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
-use serde_json;
 use std::error::Error;
 use std::ops::Deref;
 use std::str::Bytes;
@@ -256,7 +255,7 @@ impl ThemeColor {
         match character {
             b'0'..=b'9' => Ok(character - b'0'),
             b'a'..=b'z' => Ok(character - (b'a' - 10)),
-            _ => return Err(E::custom(format!("invalid charater {}", character))),
+            _ => Err(E::custom(format!("invalid charater {}", character))),
         }
     }
 }
