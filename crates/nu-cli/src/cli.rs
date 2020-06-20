@@ -284,7 +284,7 @@ pub fn create_default_context(
             whole_stream_command(Exit),
             // Viewers
             whole_stream_command(Autoview),
-            whole_stream_command(NuTable),
+            whole_stream_command(Table),
             // Text manipulation
             whole_stream_command(Split),
             whole_stream_command(SplitColumn),

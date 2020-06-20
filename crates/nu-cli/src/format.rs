@@ -1,5 +1,3 @@
-pub(crate) mod table;
-
 use crate::prelude::*;
 use nu_errors::ShellError;
 

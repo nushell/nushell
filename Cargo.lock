@@ -2614,7 +2614,7 @@ dependencies = [
 
 [[package]]
 name = "nu-table"
-version = "0.1.0"
+version = "0.15.1"
 dependencies = [
  "ansi_term 0.12.1",
  "unicode-width",

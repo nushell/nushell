@@ -74,7 +74,6 @@ pub(crate) mod mkdir;
 pub(crate) mod mv;
 pub(crate) mod next;
 pub(crate) mod nth;
-pub(crate) mod nu_table;
 pub(crate) mod open;
 pub(crate) mod parse;
 pub(crate) mod pivot;
@@ -105,6 +104,7 @@ pub(crate) mod split_by;
 pub(crate) mod str_;
 #[allow(unused)]
 pub(crate) mod t_sort_by;
+pub(crate) mod table;
 pub(crate) mod tags;
 pub(crate) mod to;
 pub(crate) mod to_bson;
@@ -156,7 +156,6 @@ pub(crate) use kill::Kill;
 pub(crate) mod clear;
 pub(crate) use clear::Clear;
 pub(crate) mod touch;
-pub(crate) use crate::commands::nu_table::NuTable;
 pub(crate) use enter::Enter;
 #[allow(unused_imports)]
 pub(crate) use evaluate_by::EvaluateBy;
@@ -238,6 +237,7 @@ pub(crate) use str_::{
 };
 #[allow(unused_imports)]
 pub(crate) use t_sort_by::TSortBy;
+pub(crate) use table::Table;
 pub(crate) use tags::Tags;
 pub(crate) use to::To;
 pub(crate) use to_bson::ToBSON;
