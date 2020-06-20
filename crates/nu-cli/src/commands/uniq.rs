@@ -6,6 +6,7 @@ use nu_errors::ShellError;
 use nu_protocol::Signature;
 
 use num_bigint::ToBigUint;
+use num_traits::Zero;
 
 pub struct Uniq;
 
@@ -39,8 +40,7 @@ async fn uniq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
     let uniq_values = {
         let mut counter = IndexMap::<nu_protocol::Value, usize>::new();
         for line in input.into_vec().await {
-            // TODO: Is there a way to collect and await at the end of the loop? (input.map() failed)
-            *counter.entry(line).or_insert(0) += 1;
+            *counter.entry(line).or_insert(Zero::zero()) += 1;
         }
         counter
     };
@@ -55,7 +55,7 @@ async fn uniq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
                     UntaggedValue::Row(mut row) => {
                         row.entries.insert(
                             "count".to_string(),
-                            UntaggedValue::int(item.1.to_biguint().unwrap()).into_untagged_value(),
+                            UntaggedValue::int(item.1).into_untagged_value(),
                         );
                         Value {
                             value: UntaggedValue::Row(row),
@@ -70,18 +70,24 @@ async fn uniq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
                         );
                         map.insert(
                             "count".to_string(),
-                            UntaggedValue::int(item.1.to_biguint().unwrap()).into_untagged_value(),
+                            UntaggedValue::int(item.1).into_untagged_value(),
                         );
                         Value {
                             value: UntaggedValue::row(map),
                             tag: item.0.tag,
                         }
                     }
-                    // TODO(siedentop): Obviously, the panic should be removed (as well as the unwraps above). However,
-                    // is there a way to collect the failures in an outside chanel (stderr, logs, telemetry)? Just staying
-                    // silent on what is most likely programmer error, does not feel right.
-                    _ => panic!("Could not match: {:#?}", item),
-                    // _ => item.0
+                    UntaggedValue::Table(_) => Value {
+                        value: UntaggedValue::Error(ShellError::type_error(
+                             "a row or primitive type".to_string(),
+                             nu_source::Spanned{
+                                span: item.0.tag.span,
+                                item: "a table".to_string(),
+                             }
+                        )),
+                        tag: item.0.tag,
+                    },
+                    UntaggedValue::Error(_) | UntaggedValue::Block(_) => item.0,
                 }
             };
             values_vec_deque.push_back(value);
