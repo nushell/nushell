@@ -27,3 +27,17 @@ fn median_numbers_with_odd_rows() {
 
     assert_eq!(actual.out, "10.5")
 }
+
+#[test]
+fn median_mixed_numbers() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+             echo [-11.5 -13.5 10]
+             | math median
+             | echo $it
+         "#
+    ));
+
+    assert_eq!(actual.out, "-11.5")
+}
