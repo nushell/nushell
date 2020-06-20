@@ -62,7 +62,23 @@ async fn uniq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
                             tag: item.0.tag,
                         }
                     }
+                    UntaggedValue::Primitive(p) => {
+                        let mut map = IndexMap::<String, Value>::new();
+                        map.insert(
+                            "value".to_string(),
+                            UntaggedValue::Primitive(p).into_untagged_value(),
+                        );
+                        map.insert(
+                            "count".to_string(),
+                            UntaggedValue::int(item.1.to_biguint().unwrap()).into_untagged_value(),
+                        );
+                        Value {
+                            value: UntaggedValue::row(map),
+                            tag: item.0.tag,
+                        }
+                    }
                     _ => panic!("Could not match: {:#?}", item),
+                    // _ => item.0
                 }
             };
             values_vec_deque.push_back(value);
