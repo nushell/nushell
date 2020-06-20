@@ -65,6 +65,15 @@ To get the average of the file sizes in a directory, simply pipe the size column
 ```
 
 ```shell
+> ls | get size | math median
+───┬───────
+ # │
+───┼───────
+ 0 │ 320 B
+───┴───────
+```
+
+```shell
 > ls | get size | math sum
 ───┬──────────
  0 │ 143.4 KB
