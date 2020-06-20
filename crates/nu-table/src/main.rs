@@ -3,7 +3,7 @@ use nu_table::{draw_table, StyledString, Table, TextStyle, Theme};
 fn main() {
     let args: Vec<_> = std::env::args().collect();
 
-    let width = args[1].parse::<usize>().unwrap();
+    let width = args[1].parse::<usize>().expect("Need a width in columns");
     let msg = args[2..]
         .iter()
         .map(|x| StyledString::new(x.to_owned(), TextStyle::basic()))
