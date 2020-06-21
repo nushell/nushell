@@ -88,6 +88,54 @@ fn division_of_ints2() {
 }
 
 #[test]
+fn error_zero_division_int_int() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            = 1 / 0
+        "#
+    ));
+
+    assert!(actual.err.contains("division by zero"));
+}
+
+#[test]
+fn error_zero_division_decimal_int() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            = 1.0 / 0
+        "#
+    ));
+
+    assert!(actual.err.contains("division by zero"));
+}
+
+#[test]
+fn error_zero_division_int_decimal() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            = 1 / 0.0
+        "#
+    ));
+
+    assert!(actual.err.contains("division by zero"));
+}
+
+#[test]
+fn error_zero_division_decimal_decimal() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            = 1.0 / 0.0
+        "#
+    ));
+
+    assert!(actual.err.contains("division by zero"));
+}
+
+#[test]
 fn proper_precedence_history() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
