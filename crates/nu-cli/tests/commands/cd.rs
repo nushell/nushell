@@ -439,18 +439,20 @@ fn test_change_windows_drive() {
     Playground::setup("cd_test_20", |dirs, sandbox| {
         sandbox.mkdir("test_folder");
 
-        let actual = nu!(
+        let _actual = nu!(
             cwd: dirs.test(),
             r#"
-                pwd | config --set_into main_dir 
-                subst Z: test_folder 
-                Z: 
-                echo "some text" > test_file.txt 
-                config --get main_dir | cd $it
+                subst Z: test_folder
+                Z:
+                echo "some text" | save test_file.txt
+                cd ~
                 subst Z: /d
-                type test_folder\test_file.txt
             "#
         );
-        assert!(actual.out.contains("some text"));
+        assert!(dirs
+            .test()
+            .join("test_folder")
+            .join("test_file.txt")
+            .exists());
     })
 }
