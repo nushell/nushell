@@ -6,26 +6,34 @@ This command increments the value of variable by one.
 
 ```shell
 > open rustfmt.toml
-━━━━━━━━━
- edition
-─────────
- 2018
-━━━━━━━━━
+─────────┬──────
+ edition │ 2018
+─────────┴──────
+```
+
+```shell
 > open rustfmt.toml | inc edition
-━━━━━━━━━
- edition
-─────────
- 2019
-━━━━━━━━━
+─────────┬──────
+ edition │ 2019
+─────────┴──────
 ```
 
 ```shell
 > open Cargo.toml | get package.version
-0.1.3
+0.15.1
+```
+
+```shell
 > open Cargo.toml | inc package.version --major | get package.version
 1.0.0
+```
+
+```shell
 > open Cargo.toml | inc package.version --minor | get package.version
-0.2.0
+0.16.0
+```
+
+```shell
 > open Cargo.toml | inc package.version --patch | get package.version
-0.1.4
+0.15.2
 ```

@@ -18,58 +18,64 @@ Usage:
 `which` finds the location of an executable:
 
 ```shell
-/home/bob> which python
-━━━━━━━━┯━━━━━━━━━━━━━━━━━┯━━━━━━━━━
- arg    │ path            │ builtin
-────────┼─────────────────┼─────────
- python │ /usr/bin/python │ No
-━━━━━━━━┷━━━━━━━━━━━━━━━━━┷━━━━━━━━━
-/home/bob> which cargo
-━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━
- arg   │ path                       │ builtin
-───────┼────────────────────────────┼─────────
- cargo │ /home/bob/.cargo/bin/cargo │ No
-━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━
+> which python
+─────────┬─────────────────
+ arg     │ python
+ path    │ /usr/bin/python
+ builtin │ No
+─────────┴─────────────────
+```
+
+```shell
+> which cargo
+─────────┬────────────────────────────
+ arg     │ cargo
+ path    │ /home/bob/.cargo/bin/cargo
+ builtin │ No
+─────────┴────────────────────────────
 ```
 
 `which` will identify nushell commands:
 
 ```shell
-/home/bob> which ls
-━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━
- arg │ path                     │ builtin
-─────┼──────────────────────────┼─────────
- ls  │ nushell built-in command │ Yes
-━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━
-/home/bob> which which
-━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━
- arg   │ path                     │ builtin
-───────┼──────────────────────────┼─────────
- which │ nushell built-in command │ Yes
-━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━
+> which ls
+─────────┬──────────────────────────
+ arg     │ ls
+ path    │ nushell built-in command
+ builtin │ Yes
+─────────┴──────────────────────────
+```
+
+```shell
+> which which
+─────────┬──────────────────────────
+ arg     │ which
+ path    │ nushell built-in command
+ builtin │ Yes
+─────────┴──────────────────────────
 ```
 
 Passing the `all` flag identifies all instances of a command or binary
 
 ```shell
-/home/bob> which ls --all
-━━━┯━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━
+> which ls --all
+───┬─────┬──────────────────────────┬─────────
  # │ arg │ path                     │ builtin
 ───┼─────┼──────────────────────────┼─────────
  0 │ ls  │ nushell built-in command │ Yes
- 1 │ ls  │ /usr/bin/ls              │ No
-━━━┷━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━
+ 1 │ ls  │ /bin/ls                  │ No
+───┴─────┴──────────────────────────┴─────────
 ```
 
 `which` will also identify local binaries
 
 ```shell
-/home/bob> touch foo
-/home/bob> chmod +x foo
-/home/bob> which ./foo
-━━━━━━━┯━━━━━━━━━━━━━━━┯━━━━━━━━━
- arg   │ path          │ builtin
-───────┼───────────────┼─────────
- ./foo │ /home/bob/foo │ No
-━━━━━━━┷━━━━━━━━━━━━━━━┷━━━━━━━━━
+> touch foo
+> chmod +x foo
+> which ./foo
+─────────┬────────────────────────────────
+ arg     │ ./foo
+ path    │ /Users/josephlyons/Desktop/foo
+ builtin │ No
+─────────┴────────────────────────────────
 ```

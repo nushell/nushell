@@ -15,6 +15,9 @@ Updates an existing column on a table. First parameter is the column to update a
  3 │ abaracadabra.txt           │ File │          │ 401 B  │ a day ago │ a day ago
  4 │ youshouldeatmorecereal.txt │ File │          │ 768 B  │ a day ago │ a day ago
 ━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━┷━━━━━━━━━━┷━━━━━━━━┷━━━━━━━━━━━┷━━━━━━━━━━━
+```
+
+```shell
 > ls | update modified neverrrr
 ━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━┯━━━━━━━━━━┯━━━━━━━━┯━━━━━━━━━━━┯━━━━━━━━━━
  # │ name                       │ type │ readonly │ size   │ accessed  │ modified
@@ -35,6 +38,9 @@ Updates an existing column on a table. First parameter is the column to update a
  0 │ X │ filesystem │ /home/username/stuff/expr/stuff
  1 │   │ filesystem │ /
 ━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+```shell
 > shells | update " " X | update path /
 ━━━┯━━━┯━━━━━━━━━━━━┯━━━━━━
  # │   │ name       │ path

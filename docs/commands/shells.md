@@ -4,7 +4,7 @@ Lists all the active nu shells with a number/index, a name and the path. Also ma
 
 ## Examples
 
-```
+```shell
 > shells
 ━━━┯━━━┯━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  # │   │ name       │ path
@@ -15,7 +15,7 @@ Lists all the active nu shells with a number/index, a name and the path. Also ma
 ━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-```
+```shell
 /> shells
 ━━━┯━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  # │   │ name                                             │ path

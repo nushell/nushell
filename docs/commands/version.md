@@ -6,9 +6,7 @@ Outputs the nushell version.
 
 ```shell
 > version
-━━━━━━━━━
- version
-─────────
- 0.6.0
-━━━━━━━━━
+─────────┬────────
+ version │ 0.15.1
+─────────┴────────
 ```
