@@ -1,20 +1,11 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::value::format_leaf;
 use crate::prelude::*;
-use directories::ProjectDirs;
-use futures::StreamExt;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
-use nu_source::AnchorLocation;
+use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 use std::hash::{Hash, Hasher};
-use std::io::Write;
-use toml_edit::{Document, value};
-use std::io::Read;
-use std::{
-    collections::hash_map::DefaultHasher,
-    fs::{self, OpenOptions},
-    path::PathBuf,
-};
+use std::io::{Read, Write};
+use std::{collections::hash_map::DefaultHasher, fs, path::PathBuf};
+use serde_derive::Serialize;
 
 pub struct AutoenvTrust;
 
@@ -44,42 +35,28 @@ impl WholeStreamCommand for AutoenvTrust {
 
         let config_path = config::default_path_for(&Some(PathBuf::from("nu-env.toml")))?;
 
-        let mut file = OpenOptions::new()
+        let mut file = std::fs::OpenOptions::new()
             .read(true)
-            .write(true)
             .create(true)
-            .open(config_path.clone())?;
+            .write(true)
+            .open(config_path.clone())
+            .unwrap();
+        let mut doc = String::new();
+        file.read_to_string(&mut doc)?;
 
-        let mut contents = String::new();
-        file.read_to_string(&mut contents)?;
+        let mut toml_doc = doc.parse::<toml::Value>().unwrap();
+        let mut empty = toml::value::Value::Table(toml::value::Table::new());
+        toml_doc
+            .get_mut("allowed-files")
+            .unwrap_or_else(|| &mut empty)
+            .as_table_mut()
+            .unwrap()
+            .insert(
+                current_dir.to_string_lossy().to_string(),
+                toml::Value::try_from(hasher.finish().to_string())?,
+            );
 
-        let mut toml_table =
-            match std::fs::read_to_string(config_path.clone())?.parse::<toml::Value>() {
-                Ok(toml_doc) => {
-                    let table = match toml_doc.get("allowed-files") {
-                        Some(v) => v.clone(),
-                        None => r#"[allowed-files]"#.parse::<toml::Value>().unwrap(),
-                    };
-
-                    table.as_table().unwrap().clone()
-                }
-                Err(_) => {
-                    let mut table = toml::value::Table::new();
-                    table.insert("allowed-files".to_string(), toml::Value::from(""));
-                    table
-
-                    // let table = "[allowed-files]".parse::<toml::Value>().unwrap();
-                    // table.as_table().unwrap().clone()
-                }
-            };
-
-        toml_table.insert(
-            current_dir.to_string_lossy().to_string(),
-            toml::Value::try_from(hasher.finish().to_string())?,
-        );
-        let toml_string: String = toml::to_string(&toml_table).expect(";");
-
-        fs::write(config_path, toml_string).expect("Couldn't write to toml file");
+        fs::write(config_path, toml_doc.as_str().unwrap()).expect("Couldn't write to toml file");
 
         let tag = args.call_info.name_tag.clone();
         Ok(OutputStream::one(ReturnSuccess::value(

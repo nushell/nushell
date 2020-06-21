@@ -82,7 +82,6 @@ term = "0.5.2"
 termcolor = "1.1.0"
 textwrap = {version = "0.11.0", features = ["term_size"]}
 toml = "0.5.6"
-toml_edit = "0.2.0"
 typetag = "0.1.4"
 umask = "1.0.0"
 unicode-xid = "0.2.0"
