@@ -6,7 +6,7 @@ use nu_protocol::SyntaxShape;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 use std::hash::{Hash, Hasher};
 use std::io::Read;
-use std::{collections::hash_map::DefaultHasher, ffi::OsStr, fs, path::PathBuf};
+use std::{collections::hash_map::DefaultHasher, fs, path::PathBuf};
 pub struct AutoenvTrust;
 
 #[async_trait]
@@ -33,11 +33,11 @@ impl WholeStreamCommand for AutoenvTrust {
             Some(Value {
                 value: UntaggedValue::Primitive(Primitive::String(ref path)),
                 tag: _,
-            }) => PathBuf::from(path),
-            _ => std::env::current_dir()?,
+            }) => path.clone(),
+            _ => std::env::current_dir()?.to_string_lossy().to_string(),
         };
 
-        let mut env_file_to_allow = dir_to_allow.clone();
+        let mut env_file_to_allow = PathBuf::from(dir_to_allow.clone());
         env_file_to_allow.push(".nu-env");
         let content = std::fs::read_to_string(env_file_to_allow)?;
         let mut hasher = DefaultHasher::new();
@@ -67,7 +67,7 @@ impl WholeStreamCommand for AutoenvTrust {
         });
         allowed
             .dirs
-            .insert(dir_to_allow.as_os_str(), hasher.finish().to_string());
+            .insert(dir_to_allow, hasher.finish().to_string());
 
         fs::write(config_path, toml::to_string(&allowed).unwrap())
             .expect("Couldn't write to toml file");

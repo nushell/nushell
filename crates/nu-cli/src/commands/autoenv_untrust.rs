@@ -34,10 +34,9 @@ impl WholeStreamCommand for AutoenvUnTrust {
             Some(Value {
                 value: UntaggedValue::Primitive(Primitive::String(ref path)),
                 tag: _,
-            }) => PathBuf::from(path),
-            _ => std::env::current_dir()?,
+            }) => path.clone(),
+            _ => std::env::current_dir()?.to_string_lossy().to_string(),
         };
-
         let config_path = config::default_path_for(&Some(PathBuf::from("nu-env.toml")))?;
 
         let mut file = match std::fs::OpenOptions::new()
