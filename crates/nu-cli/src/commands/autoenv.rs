@@ -2,9 +2,15 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, UntaggedValue, Signature};
+use serde::Deserialize;
+use serde::Serialize;
 
 pub struct Autoenv;
 
+#[derive(Deserialize, Serialize)]
+pub struct Allowed {
+    pub dirs: IndexMap<String, String>,
+}
 #[async_trait]
 impl WholeStreamCommand for Autoenv {
     fn name(&self) -> &str {
