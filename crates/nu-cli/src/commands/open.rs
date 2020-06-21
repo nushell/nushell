@@ -6,10 +6,13 @@ use nu_source::{AnchorLocation, Span, Tagged};
 use std::path::{Path, PathBuf};
 extern crate encoding_rs;
 use encoding_rs::*;
-use std::fs::File;
-use std::io::BufWriter;
+use futures::prelude::*;
 use std::io::Read;
 use std::io::Write;
+use std::{
+    fs::File,
+    io::{prelude::*, BufReader, BufWriter},
+};
 
 pub struct Open;
 
@@ -96,6 +99,37 @@ pub fn get_encoding(opt: Option<String>) -> &'static Encoding {
 }
 
 async fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let cwd = PathBuf::from(args.shell_manager.path());
+    let full_path = cwd;
+    let registry = registry.clone();
+
+    let (
+        OpenArgs {
+            path,
+            raw,
+            encoding,
+        },
+        _,
+    ) = args.process(&registry).await?;
+
+    let f = File::open(&path).expect("Could not open file");
+    let reader = BufReader::new(f);
+    let stream = stream::iter(reader.bytes().into_iter().map(|x| match x {
+        // Ok(b) => ReturnSuccess::debug_value(UntaggedValue::bytes(b).into_untagged_value()),
+        Ok(b) => ReturnSuccess::debug_value(UntaggedValue::binary(vec![b]).into_untagged_value()),
+        Err(e) => Err(ShellError::unimplemented(format!(
+            "file stream error: {:?}",
+            e
+        ))),
+    }));
+    let output = OutputStream::new(stream);
+    Ok(output)
+}
+
+async fn openOld(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let cwd = PathBuf::from(args.shell_manager.path());
     let full_path = cwd;
     let registry = registry.clone();
