@@ -114,15 +114,13 @@ async fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
 
     let f = File::open(&path).expect("Could not open file");
     let reader = BufReader::new(f);
-    let stream = stream::iter(reader.bytes().into_iter().map(|x| match x {
-        // Ok(b) => ReturnSuccess::debug_value(UntaggedValue::bytes(b).into_untagged_value()),
-        Ok(b) => ReturnSuccess::debug_value(UntaggedValue::binary(vec![b]).into_untagged_value()),
-        Err(e) => Err(ShellError::unimplemented(format!(
-            "file stream error: {:?}",
-            e
-        ))),
-    }));
-    let output = OutputStream::new(stream);
+    // NOTE: Cannot use reader.bytes().into_iter().chunks() because Chunk implements !Sync
+    // Instead we Chunk the resulting Stream of Reader.bytes()
+    let stream = stream::iter(reader.bytes().map(|r| r.expect("Could not read binary!")));
+    let chunked_stream = stream
+        .chunks(2000)
+        .map(|chunk| ReturnSuccess::value(UntaggedValue::binary(chunk)));
+    let output = OutputStream::new(chunked_stream);
     Ok(output)
 }
 
