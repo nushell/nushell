@@ -2,13 +2,13 @@ use crate::data::base::coerce_compare;
 use crate::data::base::shape::{Column, InlineShape};
 use crate::data::primitive::style_primitive;
 use chrono::DateTime;
-use num_traits::Zero;
 use nu_errors::ShellError;
 use nu_protocol::hir::Operator;
 use nu_protocol::ShellTypeName;
 use nu_protocol::{Primitive, Type, UntaggedValue};
 use nu_source::{DebugDocBuilder, PrettyDebug, Tagged};
 use nu_table::TextStyle;
+use num_traits::Zero;
 
 pub fn date_from_str(s: Tagged<&str>) -> Result<UntaggedValue, ShellError> {
     let date = DateTime::parse_from_rfc3339(s.item).map_err(|err| {
@@ -57,7 +57,9 @@ pub fn compute_values(
                 Operator::Multiply => Ok(UntaggedValue::Primitive(Primitive::Int(x * y))),
                 Operator::Divide => {
                     if y.is_zero() {
-                        Ok(UntaggedValue::Error(ShellError::untagged_runtime_error("division by zero")))
+                        Ok(UntaggedValue::Error(ShellError::untagged_runtime_error(
+                            "division by zero",
+                        )))
                     } else if x - (y * (x / y)) == num_bigint::BigInt::from(0) {
                         Ok(UntaggedValue::Primitive(Primitive::Int(x / y)))
                     } else {
@@ -76,10 +78,12 @@ pub fn compute_values(
                     Operator::Multiply => Ok(x * bigdecimal::BigDecimal::from(y.clone())),
                     Operator::Divide => {
                         if y.is_zero() {
-                            return Ok(UntaggedValue::Error(ShellError::untagged_runtime_error("division by zero")))
+                            return Ok(UntaggedValue::Error(ShellError::untagged_runtime_error(
+                                "division by zero",
+                            )));
                         }
                         Ok(x / bigdecimal::BigDecimal::from(y.clone()))
-                    },
+                    }
                     _ => Err((left.type_name(), right.type_name())),
                 }?;
                 Ok(UntaggedValue::Primitive(Primitive::Decimal(result)))
@@ -91,10 +95,12 @@ pub fn compute_values(
                     Operator::Multiply => Ok(bigdecimal::BigDecimal::from(x.clone()) * y),
                     Operator::Divide => {
                         if y.is_zero() {
-                            return Ok(UntaggedValue::Error(ShellError::untagged_runtime_error("division by zero")))
-                        }                        
+                            return Ok(UntaggedValue::Error(ShellError::untagged_runtime_error(
+                                "division by zero",
+                            )));
+                        }
                         Ok(bigdecimal::BigDecimal::from(x.clone()) / y)
-                    },
+                    }
                     _ => Err((left.type_name(), right.type_name())),
                 }?;
                 Ok(UntaggedValue::Primitive(Primitive::Decimal(result)))
@@ -106,10 +112,12 @@ pub fn compute_values(
                     Operator::Multiply => Ok(x * y),
                     Operator::Divide => {
                         if y.is_zero() {
-                            return Ok(UntaggedValue::Error(ShellError::untagged_runtime_error("division by zero")))
+                            return Ok(UntaggedValue::Error(ShellError::untagged_runtime_error(
+                                "division by zero",
+                            )));
                         }
                         Ok(x / y)
-                    },
+                    }
                     _ => Err((left.type_name(), right.type_name())),
                 }?;
                 Ok(UntaggedValue::Primitive(Primitive::Decimal(result)))
