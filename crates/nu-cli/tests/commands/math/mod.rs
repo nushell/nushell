@@ -88,7 +88,7 @@ fn division_of_ints2() {
 }
 
 #[test]
-fn division_of_int_by_zero_int() {
+fn error_zero_division_int_int() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
@@ -100,7 +100,7 @@ fn division_of_int_by_zero_int() {
 }
 
 #[test]
-fn division_of_float_by_zero_int() {
+fn error_zero_division_decimal_int() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
@@ -112,7 +112,7 @@ fn division_of_float_by_zero_int() {
 }
 
 #[test]
-fn division_of_int_by_zero_float() {
+fn error_zero_division_int_decimal() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
@@ -124,7 +124,7 @@ fn division_of_int_by_zero_float() {
 }
 
 #[test]
-fn division_of_float_by_zero_float() {
+fn error_zero_division_decimal_decimal() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
