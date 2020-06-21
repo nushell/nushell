@@ -34,3 +34,16 @@ Yehuda,Katz,10/11/2013,A
  1 │ B
 ━━━┷━━━━━━━━━
 ```
+
+### Counting
+`--count` or `-c` is the flag to output a `count` column.
+
+```
+> `open test.csv | get type | uniq -c`
+───┬───────┬───────
+ # │ value │ count 
+───┼───────┼───────
+ 0 │ A     │     3 
+ 1 │ B     │     2 
+───┴───────┴───────
+```

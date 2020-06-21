@@ -140,3 +140,26 @@ fn uniq_when_keys_out_of_order() {
 
     assert_eq!(actual.out, "1");
 }
+
+#[test]
+fn uniq_counting() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            echo '["A", "B", "A"]'
+            | from json
+            | wrap item
+            | uniq --count
+        "#
+    ));
+    let expected = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+        echo '[{"item": "A", "count": 2}, {"item": "B", "count": 1}]'
+        | from json
+        "#
+    ));
+    print!("{}", actual.out);
+    print!("{}", expected.out);
+    assert_eq!(actual.out, expected.out);
+}
