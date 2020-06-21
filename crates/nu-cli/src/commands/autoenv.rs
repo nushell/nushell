@@ -19,7 +19,7 @@ impl WholeStreamCommand for Autoenv {
     }
     async fn run(
         &self,
-        args: CommandArgs,
+        _args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         let registry = registry.clone();
