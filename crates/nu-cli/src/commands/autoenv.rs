@@ -1,7 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue, Value, Signature};
+use nu_protocol::{ReturnSuccess, UntaggedValue, Signature};
 
 pub struct Autoenv;
 

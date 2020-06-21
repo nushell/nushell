@@ -2,12 +2,17 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
+use serde::Deserialize;
+use serde::Serialize;
 use std::hash::{Hash, Hasher};
 use std::io::{Read, Write};
 use std::{collections::hash_map::DefaultHasher, fs, path::PathBuf};
-use serde_derive::Serialize;
-
 pub struct AutoenvTrust;
+
+#[derive(Deserialize, Serialize)]
+struct Allowed {
+    pub dirs: IndexMap<String, String>,
+}
 
 #[async_trait]
 impl WholeStreamCommand for AutoenvTrust {
@@ -44,19 +49,16 @@ impl WholeStreamCommand for AutoenvTrust {
         let mut doc = String::new();
         file.read_to_string(&mut doc)?;
 
-        let mut toml_doc = doc.parse::<toml::Value>().unwrap();
-        let mut empty = toml::value::Value::Table(toml::value::Table::new());
-        toml_doc
-            .get_mut("allowed-files")
-            .unwrap_or_else(|| &mut empty)
-            .as_table_mut()
-            .unwrap()
-            .insert(
-                current_dir.to_string_lossy().to_string(),
-                toml::Value::try_from(hasher.finish().to_string())?,
-            );
+        let mut allowed: Allowed = toml::from_str(doc.as_str()).unwrap_or_else(|_| Allowed {
+            dirs: IndexMap::new(),
+        });
+        allowed.dirs.insert(
+            current_dir.to_string_lossy().to_string(),
+            hasher.finish().to_string(),
+        );
 
-        fs::write(config_path, toml_doc.as_str().unwrap()).expect("Couldn't write to toml file");
+        fs::write(config_path, toml::to_string(&allowed).unwrap())
+            .expect("Couldn't write to toml file");
 
         let tag = args.call_info.name_tag.clone();
         Ok(OutputStream::one(ReturnSuccess::value(
