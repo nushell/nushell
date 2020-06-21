@@ -8,6 +8,7 @@ use nu_protocol::hir::Operator;
 use nu_protocol::ShellTypeName;
 use nu_protocol::{Primitive, Type, UntaggedValue};
 use nu_source::{DebugDocBuilder, PrettyDebug, Tagged};
+use nu_table::TextStyle;
 
 pub fn date_from_str(s: Tagged<&str>) -> Result<UntaggedValue, ShellError> {
     let date = DateTime::parse_from_rfc3339(s.item).map_err(|err| {
@@ -178,10 +179,10 @@ pub fn format_leaf<'a>(value: impl Into<&'a UntaggedValue>) -> DebugDocBuilder {
     InlineShape::from_value(value.into()).format().pretty()
 }
 
-pub fn style_leaf<'a>(value: impl Into<&'a UntaggedValue>) -> &'static str {
+pub fn style_leaf<'a>(value: impl Into<&'a UntaggedValue>) -> TextStyle {
     match value.into() {
         UntaggedValue::Primitive(p) => style_primitive(p),
-        _ => "",
+        _ => TextStyle::basic(),
     }
 }
 
