@@ -36,6 +36,10 @@ pub fn merge_values(
     }
 }
 
+fn zero_division_error() -> UntaggedValue {
+    UntaggedValue::Error(ShellError::untagged_runtime_error("division by zero"))
+}
+
 pub fn compute_values(
     operator: Operator,
     left: &UntaggedValue,
@@ -57,9 +61,7 @@ pub fn compute_values(
                 Operator::Multiply => Ok(UntaggedValue::Primitive(Primitive::Int(x * y))),
                 Operator::Divide => {
                     if y.is_zero() {
-                        Ok(UntaggedValue::Error(ShellError::untagged_runtime_error(
-                            "division by zero",
-                        )))
+                        Ok(zero_division_error())
                     } else if x - (y * (x / y)) == num_bigint::BigInt::from(0) {
                         Ok(UntaggedValue::Primitive(Primitive::Int(x / y)))
                     } else {
@@ -78,9 +80,7 @@ pub fn compute_values(
                     Operator::Multiply => Ok(x * bigdecimal::BigDecimal::from(y.clone())),
                     Operator::Divide => {
                         if y.is_zero() {
-                            return Ok(UntaggedValue::Error(ShellError::untagged_runtime_error(
-                                "division by zero",
-                            )));
+                            return Ok(zero_division_error());
                         }
                         Ok(x / bigdecimal::BigDecimal::from(y.clone()))
                     }
@@ -95,9 +95,7 @@ pub fn compute_values(
                     Operator::Multiply => Ok(bigdecimal::BigDecimal::from(x.clone()) * y),
                     Operator::Divide => {
                         if y.is_zero() {
-                            return Ok(UntaggedValue::Error(ShellError::untagged_runtime_error(
-                                "division by zero",
-                            )));
+                            return Ok(zero_division_error());
                         }
                         Ok(bigdecimal::BigDecimal::from(x.clone()) / y)
                     }
@@ -112,9 +110,7 @@ pub fn compute_values(
                     Operator::Multiply => Ok(x * y),
                     Operator::Divide => {
                         if y.is_zero() {
-                            return Ok(UntaggedValue::Error(ShellError::untagged_runtime_error(
-                                "division by zero",
-                            )));
+                            return Ok(zero_division_error());
                         }
                         Ok(x / y)
                     }
