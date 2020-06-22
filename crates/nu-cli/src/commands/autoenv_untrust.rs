@@ -70,7 +70,13 @@ impl WholeStreamCommand for AutoenvUnTrust {
         let mut allowed: Trusted = toml::from_str(doc.as_str()).unwrap_or_else(|_| Trusted::new());
 
         let file_to_untrust = file_to_untrust.to_string_lossy().to_string();
-        allowed.files.remove(&file_to_untrust);
+
+        if allowed.files.remove(&file_to_untrust).is_none() {
+            return
+                Err(ShellError::untagged_runtime_error(
+                    "No .nu-env file to untrust in the given directory",
+                ));
+        }
 
         fs::write(config_path, toml::to_string(&allowed).unwrap())
             .expect("Couldn't write to toml file");

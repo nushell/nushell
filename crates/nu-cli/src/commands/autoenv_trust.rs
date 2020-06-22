@@ -45,7 +45,12 @@ impl WholeStreamCommand for AutoenvTrust {
             }
         };
 
-        let content = std::fs::read_to_string(&file_to_trust)?;
+        let content = std::fs::read_to_string(&file_to_trust).or_else(|_| {
+            Err(ShellError::untagged_runtime_error(
+                "No .nu-env file in the given directory",
+            ))
+        })?;
+
         let mut hasher = DefaultHasher::new();
         content.hash(&mut hasher);
 
