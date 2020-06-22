@@ -69,14 +69,12 @@ impl WholeStreamCommand for AutoenvTrust {
         let mut doc = String::new();
         file.read_to_string(&mut doc)?;
 
-        let mut allowed: Allowed = toml::from_str(doc.as_str()).unwrap_or_else(|_| Allowed {
-            dirs: IndexMap::new(),
-        });
+        let mut allowed: Allowed = toml::from_str(doc.as_str()).unwrap_or_else(|_| Allowed::new());
 
-        let file_to_allow = file_to_trust.to_string_lossy().to_string();
+        let file_to_untrust = file_to_trust.to_string_lossy().to_string();
         allowed
-            .dirs
-            .insert(file_to_allow, hasher.finish().to_string());
+            .files
+            .insert(file_to_untrust, hasher.finish().to_string());
 
         fs::write(config_path, toml::to_string(&allowed).unwrap())
             .expect("Couldn't write to toml file");

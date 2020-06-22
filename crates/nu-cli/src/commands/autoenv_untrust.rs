@@ -30,13 +30,22 @@ impl WholeStreamCommand for AutoenvUnTrust {
     ) -> Result<OutputStream, ShellError> {
 
         let tag = args.call_info.name_tag.clone();
-        let dir_to_untrust = match args.call_info.evaluate(registry).await?.args.nth(0) {
+        let file_to_untrust = match args.call_info.evaluate(registry).await?.args.nth(0) {
             Some(Value {
                 value: UntaggedValue::Primitive(Primitive::String(ref path)),
                 tag: _,
-            }) => path.clone(),
-            _ => std::env::current_dir()?.to_string_lossy().to_string(),
+            }) => {
+                let mut dir = crate::path::absolutize(std::env::current_dir()?, path);
+                dir.push(".nu-env");
+                dir
+            }
+            _ => {
+                let mut dir = std::env::current_dir()?;
+                dir.push(".nu-env");
+                dir
+            }
         };
+
         let config_path = config::default_path_for(&Some(PathBuf::from("nu-env.toml")))?;
 
         let mut file = match std::fs::OpenOptions::new()
@@ -53,10 +62,11 @@ impl WholeStreamCommand for AutoenvUnTrust {
         let mut doc = String::new();
         file.read_to_string(&mut doc)?;
 
-        let mut allowed: Allowed = toml::from_str(doc.as_str()).unwrap_or_else(|_| Allowed {
-            dirs: IndexMap::new(),
-        });
-        allowed.dirs.remove(&dir_to_untrust);
+        let mut allowed: Allowed = toml::from_str(doc.as_str()).unwrap_or_else(|_| Allowed::new());
+
+
+        let file_to_untrust = file_to_untrust.to_string_lossy().to_string();
+        allowed.files.remove(&file_to_untrust);
 
         fs::write(config_path, toml::to_string(&allowed).unwrap())
             .expect("Couldn't write to toml file");

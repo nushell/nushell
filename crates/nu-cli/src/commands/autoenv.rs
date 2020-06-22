@@ -1,7 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, UntaggedValue, Signature};
+use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -9,7 +9,14 @@ pub struct Autoenv;
 
 #[derive(Deserialize, Serialize)]
 pub struct Allowed {
-    pub dirs: IndexMap<String, String>,
+    pub files: IndexMap<String, String>,
+}
+impl Allowed {
+    pub fn new() -> Self {
+        Allowed {
+            files: IndexMap::new(),
+        }
+    }
 }
 #[async_trait]
 impl WholeStreamCommand for Autoenv {
@@ -39,7 +46,7 @@ impl WholeStreamCommand for Autoenv {
         vec![Example {
             description: "Allow .nu-env file in current directory",
             example: "autoenv trust",
-            result: None
+            result: None,
         }]
     }
 }
