@@ -31,7 +31,7 @@ impl DirectorySpecificEnvironment {
         }
     }
 
-    fn toml_if_trusted(&self, mut wdirenv: PathBuf) -> std::io::Result<toml::Value> {
+    fn toml_if_directory_is_trusted(&self, mut wdirenv: PathBuf) -> std::io::Result<toml::Value> {
         if let Some(trusted) = &self.trusted {
             wdirenv.push(".nu-env");
             if wdirenv.exists() {
@@ -54,8 +54,8 @@ impl DirectorySpecificEnvironment {
 
         //Start in the current directory, then traverse towards the root with working_dir to see if we are in a subdirectory of a valid directory.
         while let Some(wdir) = working_dir {
-            if let Ok(toml_doc) = self.toml_if_trusted(wdir.to_path_buf()) {
-                toml_doc
+            if let Ok(toml_doc) = self.toml_if_directory_is_trusted(wdir.to_path_buf()) {
+               toml_doc
                     .get("env")
                     .ok_or_else(|| Error::new(ErrorKind::InvalidData, "env section missing"))?
                     .as_table()
