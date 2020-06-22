@@ -74,7 +74,7 @@ impl WholeStreamCommand for AutoenvUnTrust {
         if allowed.files.remove(&file_to_untrust).is_none() {
             return
                 Err(ShellError::untagged_runtime_error(
-                    "No .nu-env file to untrust in the given directory",
+                    "No .nu-env file to untrust in the given directory. Is it missing, or already untrusted?",
                 ));
         }
 
