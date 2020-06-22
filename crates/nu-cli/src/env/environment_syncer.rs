@@ -3,7 +3,6 @@ use crate::data::config::{Conf, NuConfig};
 use crate::env::environment::{Env, Environment};
 use parking_lot::Mutex;
 use std::sync::Arc;
-use nu_errors::ShellError;
 
 pub struct EnvironmentSyncer {
     pub env: Arc<Mutex<Box<Environment>>>,
@@ -42,7 +41,7 @@ impl EnvironmentSyncer {
         environment.morph(&*self.config);
     }
 
-    pub fn sync_env_vars(&mut self, ctx: &mut Context) -> Result<(), ShellError> {
+    pub fn sync_env_vars(&mut self, ctx: &mut Context) {
         let mut environment = self.env.lock();
 
         environment.maintain_directory_environment().ok();
@@ -72,7 +71,6 @@ impl EnvironmentSyncer {
                 }
             }
         }
-        Ok(())
     }
 
     pub fn sync_path_vars(&mut self, ctx: &mut Context) {

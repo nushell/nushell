@@ -4,8 +4,8 @@ use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 use serde::Deserialize;
 use serde::Serialize;
-use std::path::PathBuf;
 use std::io::Read;
+use std::path::PathBuf;
 
 pub struct Autoenv;
 
@@ -26,7 +26,7 @@ impl Trusted {
             .read(true)
             .create(true)
             .write(true)
-            .open(config_path.clone())
+            .open(config_path)
         {
             Ok(p) => p,
             Err(_) => {

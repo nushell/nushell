@@ -47,7 +47,7 @@ impl Environment {
         }
     }
 
-        pub fn from_config<T: Conf>(configuration: &T) -> Environment {
+    pub fn from_config<T: Conf>(configuration: &T) -> Environment {
         let env = configuration.env();
         let path = configuration.path();
         Environment {

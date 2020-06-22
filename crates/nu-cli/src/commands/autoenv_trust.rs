@@ -5,7 +5,7 @@ use nu_errors::ShellError;
 use nu_protocol::SyntaxShape;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 use std::hash::{Hash, Hasher};
-use std::{fs, collections::hash_map::DefaultHasher, path::PathBuf};
+use std::{collections::hash_map::DefaultHasher, fs, path::PathBuf};
 pub struct AutoenvTrust;
 
 #[async_trait]

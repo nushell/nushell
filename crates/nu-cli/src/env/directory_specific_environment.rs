@@ -2,11 +2,12 @@ use crate::commands::{self, autoenv::Trusted};
 use commands::autoenv;
 use indexmap::{IndexMap, IndexSet};
 use std::{
+    collections::hash_map::DefaultHasher,
     ffi::OsString,
     fmt::Debug,
+    hash::{Hash, Hasher},
     io::{Error, ErrorKind},
     path::PathBuf,
-    hash::{Hash, Hasher}, collections::hash_map::DefaultHasher
 };
 
 type EnvKey = String;
@@ -39,9 +40,10 @@ impl DirectorySpecificEnvironment {
                 let mut hasher = DefaultHasher::new();
                 content.hash(&mut hasher);
                 if trusted.files.get(wdirenv.to_str().unwrap())
-                    == Some(&hasher.finish().to_string()) {
-                        return Ok(content.parse::<toml::Value>()?);
-                    }
+                    == Some(&hasher.finish().to_string())
+                {
+                    return Ok(content.parse::<toml::Value>()?);
+                }
             }
         }
         Err(Error::new(ErrorKind::Other, "No trusted directories"))
@@ -55,7 +57,7 @@ impl DirectorySpecificEnvironment {
         //Start in the current directory, then traverse towards the root with working_dir to see if we are in a subdirectory of a valid directory.
         while let Some(wdir) = working_dir {
             if let Ok(toml_doc) = self.toml_if_directory_is_trusted(wdir.to_path_buf()) {
-               toml_doc
+                toml_doc
                     .get("env")
                     .ok_or_else(|| Error::new(ErrorKind::InvalidData, "env section missing"))?
                     .as_table()

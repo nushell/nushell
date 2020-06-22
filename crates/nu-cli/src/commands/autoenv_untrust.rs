@@ -1,3 +1,4 @@
+use super::autoenv::Trusted;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -5,9 +6,7 @@ use nu_protocol::SyntaxShape;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 use std::io::Read;
 use std::{fs, path::PathBuf};
-use super::autoenv::Trusted;
 pub struct AutoenvUnTrust;
-
 
 #[async_trait]
 impl WholeStreamCommand for AutoenvUnTrust {
@@ -16,7 +15,11 @@ impl WholeStreamCommand for AutoenvUnTrust {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("autoenv untrust").optional("dir", SyntaxShape::String, "Directory to disallow")
+        Signature::build("autoenv untrust").optional(
+            "dir",
+            SyntaxShape::String,
+            "Directory to disallow",
+        )
     }
 
     fn usage(&self) -> &str {
@@ -28,7 +31,6 @@ impl WholeStreamCommand for AutoenvUnTrust {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-
         let tag = args.call_info.name_tag.clone();
         let file_to_untrust = match args.call_info.evaluate(registry).await?.args.nth(0) {
             Some(Value {
@@ -52,18 +54,20 @@ impl WholeStreamCommand for AutoenvUnTrust {
             .read(true)
             .create(true)
             .write(true)
-            .open(config_path.clone()) {
-                Ok(p) => p,
-                Err(_) => {
-                    return Err(ShellError::untagged_runtime_error("Couldn't open nu-env.toml"));
-                }
-            };
+            .open(config_path.clone())
+        {
+            Ok(p) => p,
+            Err(_) => {
+                return Err(ShellError::untagged_runtime_error(
+                    "Couldn't open nu-env.toml",
+                ));
+            }
+        };
 
         let mut doc = String::new();
         file.read_to_string(&mut doc)?;
 
         let mut allowed: Trusted = toml::from_str(doc.as_str()).unwrap_or_else(|_| Trusted::new());
-
 
         let file_to_untrust = file_to_untrust.to_string_lossy().to_string();
         allowed.files.remove(&file_to_untrust);
