@@ -3,9 +3,7 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use futures_codec::FramedRead;
 use nu_errors::ShellError;
-use nu_protocol::{
-    CommandAction, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
 use nu_source::{AnchorLocation, Span, Tagged};
 use std::path::{Path, PathBuf};
 extern crate encoding_rs;
@@ -13,13 +11,11 @@ use encoding_rs::*;
 use futures::prelude::*;
 use std::io::Read;
 use std::io::Write;
-use std::{
-    fs::File,
-    io::{prelude::*, BufReader, BufWriter},
-};
+use std::{fs::File, io::BufWriter};
 
 pub struct Open;
 
+#[allow(dead_code)] // TODO: Still working on encoding for MaybeTextCodec
 #[derive(Deserialize)]
 pub struct OpenArgs {
     path: Tagged<PathBuf>,
@@ -103,88 +99,39 @@ pub fn get_encoding(opt: Option<String>) -> &'static Encoding {
 }
 
 async fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let cwd = PathBuf::from(args.shell_manager.path());
-    let full_path = cwd;
+    let _cwd = PathBuf::from(args.shell_manager.path());
     let registry = registry.clone();
 
     let (
         OpenArgs {
             path,
-            raw,
-            encoding,
+            raw: _,
+            encoding: _,
         },
         _,
     ) = args.process(&registry).await?;
 
     let f = File::open(&path).expect("Could not open file");
-    // let reader = BufReader::new(f);
-    // NOTE: Cannot use reader.bytes().into_iter().chunks() because Chunk implements !Sync
-    // Instead we Chunk the resulting Stream of Reader.bytes()
-    // let stream = stream::iter(reader.bytes().map(|r| r.expect("Could not read binary!")));
-    // let chunked_stream = stream.chunks(2000);
-    // TODO: Determine if stream conversion is necessary? Maybe I can directly convert it to implement AsyncRead
-
     let async_reader = futures::io::AllowStdIo::new(f);
     let final_stream = FramedRead::new(async_reader, MaybeTextCodec)
-        .map(|res| match res {
-            Ok(chunk) => match chunk {
-                StringOrBinary::String(s) => {
-                    ReturnSuccess::value(UntaggedValue::string(s).into_untagged_value())
-                }
-                StringOrBinary::Binary(b) => ReturnSuccess::value(
-                    UntaggedValue::binary(b.into_iter().collect()).into_untagged_value(),
-                ),
-            },
-            Err(e) => panic!(format!("{:?}", e)),
+        .map_ok(|sob| match sob {
+            StringOrBinary::String(s) => UntaggedValue::string(s).into_untagged_value(),
+            StringOrBinary::Binary(b) => {
+                UntaggedValue::binary(b.into_iter().collect()).into_untagged_value()
+            }
+        })
+        .map(|item| match item {
+            Ok(sob) => ReturnSuccess::value(sob),
+            Err(e) => Err(ShellError::unexpected(format!(
+                "AsyncRead failed in open function: {:?}",
+                e
+            ))),
         })
         .into_stream();
 
     let output = OutputStream::new(final_stream);
 
     Ok(output)
-}
-
-async fn openOld(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let cwd = PathBuf::from(args.shell_manager.path());
-    let full_path = cwd;
-    let registry = registry.clone();
-
-    let (
-        OpenArgs {
-            path,
-            raw,
-            encoding,
-        },
-        _,
-    ) = args.process(&registry).await?;
-    let enc = match encoding {
-        Some(e) => e.to_string(),
-        _ => "".to_string(),
-    };
-    let result = fetch(&full_path, &path.item, path.tag.span, enc).await;
-
-    let (file_extension, contents, contents_tag) = result?;
-
-    let file_extension = if raw.item {
-        None
-    } else {
-        // If the extension could not be determined via mimetype, try to use the path
-        // extension. Some file types do not declare their mimetypes (such as bson files).
-        file_extension.or_else(|| path.extension().map(|x| x.to_string_lossy().to_string()))
-    };
-
-    let tagged_contents = contents.into_value(&contents_tag);
-
-    if let Some(extension) = file_extension {
-        Ok(OutputStream::one(ReturnSuccess::action(
-            CommandAction::AutoConvert(tagged_contents, extension),
-        )))
-    } else {
-        Ok(OutputStream::one(ReturnSuccess::value(tagged_contents)))
-    }
 }
 
 pub async fn fetch(
