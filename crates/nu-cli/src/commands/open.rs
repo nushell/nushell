@@ -1,7 +1,11 @@
+use crate::commands::classified::external::{MaybeTextCodec, StringOrBinary};
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
+use futures_codec::FramedRead;
 use nu_errors::ShellError;
-use nu_protocol::{CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{
+    CommandAction, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+};
 use nu_source::{AnchorLocation, Span, Tagged};
 use std::path::{Path, PathBuf};
 extern crate encoding_rs;
@@ -113,14 +117,30 @@ async fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
     ) = args.process(&registry).await?;
 
     let f = File::open(&path).expect("Could not open file");
-    let reader = BufReader::new(f);
+    // let reader = BufReader::new(f);
     // NOTE: Cannot use reader.bytes().into_iter().chunks() because Chunk implements !Sync
     // Instead we Chunk the resulting Stream of Reader.bytes()
-    let stream = stream::iter(reader.bytes().map(|r| r.expect("Could not read binary!")));
-    let chunked_stream = stream
-        .chunks(2000)
-        .map(|chunk| ReturnSuccess::value(UntaggedValue::binary(chunk)));
-    let output = OutputStream::new(chunked_stream);
+    // let stream = stream::iter(reader.bytes().map(|r| r.expect("Could not read binary!")));
+    // let chunked_stream = stream.chunks(2000);
+    // TODO: Determine if stream conversion is necessary? Maybe I can directly convert it to implement AsyncRead
+
+    let async_reader = futures::io::AllowStdIo::new(f);
+    let final_stream = FramedRead::new(async_reader, MaybeTextCodec)
+        .map(|res| match res {
+            Ok(chunk) => match chunk {
+                StringOrBinary::String(s) => {
+                    ReturnSuccess::value(UntaggedValue::string(s).into_untagged_value())
+                }
+                StringOrBinary::Binary(b) => ReturnSuccess::value(
+                    UntaggedValue::binary(b.into_iter().collect()).into_untagged_value(),
+                ),
+            },
+            Err(e) => panic!(format!("{:?}", e)),
+        })
+        .into_stream();
+
+    let output = OutputStream::new(final_stream);
+
     Ok(output)
 }
 
@@ -337,132 +357,6 @@ pub async fn fetch(
             span,
         ))
     }
-    /*
-    cwd.push(Path::new(location));
-    if let Ok(cwd) = dunce::canonicalize(cwd) {
-        match std::fs::read(&cwd) {
-            Ok(bytes) => match std::str::from_utf8(&bytes) {
-                Ok(s) => Ok((
-                    cwd.extension()
-                        .map(|name| name.to_string_lossy().to_string()),
-                    UntaggedValue::string(s),
-                    Tag {
-                        span,
-                        anchor: Some(AnchorLocation::File(cwd.to_string_lossy().to_string())),
-                    },
-                )),
-                Err(_) => {
-                    //Non utf8 data.
-                    match (bytes.get(0), bytes.get(1)) {
-                        (Some(x), Some(y)) if *x == 0xff && *y == 0xfe => {
-                            // Possibly UTF-16 little endian
-                            let utf16 = read_le_u16(&bytes[2..]);
-
-                            if let Some(utf16) = utf16 {
-                                match std::string::String::from_utf16(&utf16) {
-                                    Ok(s) => Ok((
-                                        cwd.extension()
-                                            .map(|name| name.to_string_lossy().to_string()),
-                                        UntaggedValue::string(s),
-                                        Tag {
-                                            span,
-                                            anchor: Some(AnchorLocation::File(
-                                                cwd.to_string_lossy().to_string(),
-                                            )),
-                                        },
-                                    )),
-                                    Err(_) => Ok((
-                                        None,
-                                        UntaggedValue::binary(bytes),
-                                        Tag {
-                                            span,
-                                            anchor: Some(AnchorLocation::File(
-                                                cwd.to_string_lossy().to_string(),
-                                            )),
-                                        },
-                                    )),
-                                }
-                            } else {
-                                Ok((
-                                    None,
-                                    UntaggedValue::binary(bytes),
-                                    Tag {
-                                        span,
-                                        anchor: Some(AnchorLocation::File(
-                                            cwd.to_string_lossy().to_string(),
-                                        )),
-                                    },
-                                ))
-                            }
-                        }
-                        (Some(x), Some(y)) if *x == 0xfe && *y == 0xff => {
-                            // Possibly UTF-16 big endian
-                            let utf16 = read_be_u16(&bytes[2..]);
-
-                            if let Some(utf16) = utf16 {
-                                match std::string::String::from_utf16(&utf16) {
-                                    Ok(s) => Ok((
-                                        cwd.extension()
-                                            .map(|name| name.to_string_lossy().to_string()),
-                                        UntaggedValue::string(s),
-                                        Tag {
-                                            span,
-                                            anchor: Some(AnchorLocation::File(
-                                                cwd.to_string_lossy().to_string(),
-                                            )),
-                                        },
-                                    )),
-                                    Err(_) => Ok((
-                                        None,
-                                        UntaggedValue::binary(bytes),
-                                        Tag {
-                                            span,
-                                            anchor: Some(AnchorLocation::File(
-                                                cwd.to_string_lossy().to_string(),
-                                            )),
-                                        },
-                                    )),
-                                }
-                            } else {
-                                Ok((
-                                    None,
-                                    UntaggedValue::binary(bytes),
-                                    Tag {
-                                        span,
-                                        anchor: Some(AnchorLocation::File(
-                                            cwd.to_string_lossy().to_string(),
-                                        )),
-                                    },
-                                ))
-                            }
-                        }
-                        _ => Ok((
-                            None,
-                            UntaggedValue::binary(bytes),
-                            Tag {
-                                span,
-                                anchor: Some(AnchorLocation::File(
-                                    cwd.to_string_lossy().to_string(),
-                                )),
-                            },
-                        )),
-                    }
-                }
-            },
-            Err(_) => Err(ShellError::labeled_error(
-                "File could not be opened",
-                "file not found",
-                span,
-            )),
-        }
-    } else {
-        Err(ShellError::labeled_error(
-            "File could not be opened",
-            "file not found",
-            span,
-        ))
-    }
-    */
 }
 
 fn convert_via_utf8(
