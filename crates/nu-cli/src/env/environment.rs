@@ -4,6 +4,7 @@ use indexmap::{indexmap, IndexSet};
 use nu_protocol::{UntaggedValue, Value};
 use std::ffi::OsString;
 use std::fmt::Debug;
+use nu_errors::ShellError;
 
 pub trait Env: Debug + Send {
     fn env(&self) -> Option<Value>;
@@ -57,7 +58,7 @@ impl Environment {
         }
     }
 
-    pub fn maintain_directory_environment(&mut self) -> std::io::Result<()> {
+    pub fn maintain_directory_environment(&mut self) -> Result<(), ShellError> {
         self.direnv.env_vars_to_delete()?.iter().for_each(|k| {
             self.remove_env(&k);
         });

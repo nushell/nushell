@@ -238,7 +238,7 @@ pub fn create_default_context(
     syncer.load_environment();
 
     let mut context = Context::basic()?;
-    syncer.sync_env_vars(&mut context);
+    syncer.sync_env_vars(&mut context)?;
     syncer.sync_path_vars(&mut context);
 
     {
@@ -677,7 +677,7 @@ pub async fn cli(
         // TODO: make sure config is cached so we don't path this load every call
         // FIXME: we probably want to be a bit more graceful if we can't set the environment
         syncer.reload();
-        syncer.sync_env_vars(&mut context);
+        syncer.sync_env_vars(&mut context)?;
         syncer.sync_path_vars(&mut context);
 
         match line {
