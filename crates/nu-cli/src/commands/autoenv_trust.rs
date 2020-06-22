@@ -1,12 +1,11 @@
-use super::{autoenv::Allowed, cd::CdArgs};
+use super::autoenv::Trusted;
 use crate::commands::WholeStreamCommand;
 use crate::{path, prelude::*};
 use nu_errors::ShellError;
 use nu_protocol::SyntaxShape;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 use std::hash::{Hash, Hasher};
-use std::io::Read;
-use std::{collections::hash_map::DefaultHasher, fs, path::PathBuf};
+use std::{fs, collections::hash_map::DefaultHasher, path::PathBuf};
 pub struct AutoenvTrust;
 
 #[async_trait]
@@ -50,32 +49,13 @@ impl WholeStreamCommand for AutoenvTrust {
         let mut hasher = DefaultHasher::new();
         content.hash(&mut hasher);
 
-        let config_path = config::default_path_for(&Some(PathBuf::from("nu-env.toml")))?;
-
-        let mut file = match std::fs::OpenOptions::new()
-            .read(true)
-            .create(true)
-            .write(true)
-            .open(config_path.clone())
-        {
-            Ok(p) => p,
-            Err(_) => {
-                return Err(ShellError::untagged_runtime_error(
-                    "Couldn't open nu-env.toml",
-                ));
-            }
-        };
-
-        let mut doc = String::new();
-        file.read_to_string(&mut doc)?;
-
-        let mut allowed: Allowed = toml::from_str(doc.as_str()).unwrap_or_else(|_| Allowed::new());
-
-        let file_to_untrust = file_to_trust.to_string_lossy().to_string();
+        let file_to_trust = file_to_trust.to_string_lossy().to_string();
+        let mut allowed = Trusted::read_trusted()?;
         allowed
             .files
-            .insert(file_to_untrust, hasher.finish().to_string());
+            .insert(file_to_trust, hasher.finish().to_string());
 
+        let config_path = config::default_path_for(&Some(PathBuf::from("nu-env.toml")))?;
         fs::write(config_path, toml::to_string(&allowed).unwrap())
             .expect("Couldn't write to toml file");
 

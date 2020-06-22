@@ -3,9 +3,9 @@ use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::SyntaxShape;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
-use std::io::{Read, Write};
+use std::io::Read;
 use std::{fs, path::PathBuf};
-use super::autoenv::Allowed;
+use super::autoenv::Trusted;
 pub struct AutoenvUnTrust;
 
 
@@ -62,7 +62,7 @@ impl WholeStreamCommand for AutoenvUnTrust {
         let mut doc = String::new();
         file.read_to_string(&mut doc)?;
 
-        let mut allowed: Allowed = toml::from_str(doc.as_str()).unwrap_or_else(|_| Allowed::new());
+        let mut allowed: Trusted = toml::from_str(doc.as_str()).unwrap_or_else(|_| Trusted::new());
 
 
         let file_to_untrust = file_to_untrust.to_string_lossy().to_string();

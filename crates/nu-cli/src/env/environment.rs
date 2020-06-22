@@ -43,18 +43,17 @@ impl Environment {
         Environment {
             environment_vars: None,
             path_vars: None,
-            direnv: DirectorySpecificEnvironment::new(None),
+            direnv: DirectorySpecificEnvironment::new(),
         }
     }
 
-    pub fn from_config<T: Conf>(configuration: &T) -> Environment {
+        pub fn from_config<T: Conf>(configuration: &T) -> Environment {
         let env = configuration.env();
         let path = configuration.path();
-
         Environment {
             environment_vars: env,
             path_vars: path,
-            direnv: DirectorySpecificEnvironment::new(configuration.nu_env_dirs()),
+            direnv: DirectorySpecificEnvironment::new(),
         }
     }
 

@@ -4,18 +4,42 @@ use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 use serde::Deserialize;
 use serde::Serialize;
+use std::path::PathBuf;
+use std::io::Read;
 
 pub struct Autoenv;
 
-#[derive(Deserialize, Serialize)]
-pub struct Allowed {
+#[derive(Deserialize, Serialize, Debug, Default)]
+pub struct Trusted {
     pub files: IndexMap<String, String>,
 }
-impl Allowed {
+impl Trusted {
     pub fn new() -> Self {
-        Allowed {
+        Trusted {
             files: IndexMap::new(),
         }
+    }
+    pub fn read_trusted() -> Result<Self, ShellError> {
+        let config_path = config::default_path_for(&Some(PathBuf::from("nu-env.toml")))?;
+
+        let mut file = match std::fs::OpenOptions::new()
+            .read(true)
+            .create(true)
+            .write(true)
+            .open(config_path.clone())
+        {
+            Ok(p) => p,
+            Err(_) => {
+                return Err(ShellError::untagged_runtime_error(
+                    "Couldn't open nu-env.toml",
+                ));
+            }
+        };
+        let mut doc = String::new();
+        file.read_to_string(&mut doc)?;
+
+        let allowed: Trusted = toml::from_str(doc.as_str()).unwrap_or_else(|_| Trusted::new());
+        Ok(allowed)
     }
 }
 #[async_trait]

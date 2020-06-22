@@ -1,48 +1,31 @@
 use indexmap::{IndexMap, IndexSet};
-use nu_protocol::{Primitive, UntaggedValue, Value};
 use std::{
     ffi::OsString,
     fmt::Debug,
-    io::{Error, ErrorKind, Result},
+    io::{Error, ErrorKind},
     path::PathBuf,
 };
+use crate::commands::{autoenv::Trusted, self};
+use commands::autoenv;
 
 type EnvKey = String;
 type EnvVal = OsString;
 #[derive(Debug, Default)]
 pub struct DirectorySpecificEnvironment {
-    allowed_directories: IndexSet<PathBuf>,
+    trusted: Option<Trusted>,
 
     //Directory -> Env key. If an environment var has been added from a .nu in a directory, we track it here so we can remove it when the user leaves the directory.
     added_env_vars: IndexMap<PathBuf, IndexSet<EnvKey>>,
 }
 
 impl DirectorySpecificEnvironment {
-    pub fn new(allowed_directories: Option<Value>) -> DirectorySpecificEnvironment {
-        let allowed_directories = if let Some(Value {
-            value: UntaggedValue::Table(ref wrapped_directories),
-            tag: _,
-        }) = allowed_directories
-        {
-            wrapped_directories
-                .iter()
-                .filter_map(|dirval| {
-                    if let Value {
-                        value: UntaggedValue::Primitive(Primitive::String(ref dir)),
-                        tag: _,
-                    } = dirval
-                    {
-                        return Some(PathBuf::from(&dir));
-                    }
-                    None
-                })
-                .collect()
-        } else {
-            IndexSet::new()
+    pub fn new() -> DirectorySpecificEnvironment {
+        let trusted = match autoenv::Trusted::read_trusted() {
+            Ok(t) => Some(t),
+            Err(_) => None
         };
-
         DirectorySpecificEnvironment {
-            allowed_directories,
+            trusted,
             added_env_vars: IndexMap::new(),
         }
     }
@@ -54,7 +37,8 @@ impl DirectorySpecificEnvironment {
 
         //Start in the current directory, then traverse towards the root with working_dir to see if we are in a subdirectory of a valid directory.
         while let Some(wdir) = working_dir {
-            if self.allowed_directories.contains(wdir) {
+            // if self.allowed_directories.contains(wdir) {
+            if true {
                 let toml_doc = std::fs::read_to_string(wdir.join(".nu-env").as_path())?
                     .parse::<toml::Value>()?;
 
@@ -89,7 +73,7 @@ impl DirectorySpecificEnvironment {
 
     //If the user has left directories which added env vars through .nu, we clear those vars
     //once they are marked for deletion, remove them from added_env_vars
-    pub fn env_vars_to_delete(&mut self) -> Result<IndexSet<EnvKey>> {
+    pub fn env_vars_to_delete(&mut self) -> std::io::Result<IndexSet<EnvKey>> {
         let current_dir = std::env::current_dir()?;
         let mut working_dir = Some(current_dir.as_path());
 
