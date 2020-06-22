@@ -30,6 +30,21 @@ impl DirectorySpecificEnvironment {
         }
     }
 
+    // fn check_hashes(&self, wdir: PathBuf) -> std::io::Result<bool> {
+    //     if let Some(trusted) = &self.trusted {
+    //         let wdirenv = wdir.join(".nu-env");
+    //         if wdirenv.exists() {
+    //             let content = std::fs::read_to_string(&wdirenv)?;
+    //             let mut hasher = DefaultHasher::new();
+    //             content.hash(&mut hasher);
+    //             return Ok(trusted.files.get(wdirenv.to_str().unwrap())
+    //                       == Some(&hasher.finish().to_string()));
+    //         }
+    //     }
+
+    //     Ok(true)
+    // }
+
     pub fn env_vars_to_add(&mut self) -> std::io::Result<IndexMap<EnvKey, EnvVal>> {
         let current_dir = std::env::current_dir()?;
         let mut working_dir = Some(current_dir.as_path());
