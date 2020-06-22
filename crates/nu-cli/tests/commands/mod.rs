@@ -1,6 +1,5 @@
 mod alias;
 mod append;
-mod average;
 mod autoenv;
 mod autoenv_trust;
 mod autoenv_untrust;
