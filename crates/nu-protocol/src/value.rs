@@ -91,6 +91,14 @@ impl UntaggedValue {
         }
     }
 
+    /// Returns true if this value represents a table
+    pub fn is_table(&self) -> bool {
+        match self {
+            UntaggedValue::Table(_) => true,
+            _ => false,
+        }
+    }
+
     /// Returns true if the value represents something other than Nothing
     pub fn is_some(&self) -> bool {
         !self.is_none()

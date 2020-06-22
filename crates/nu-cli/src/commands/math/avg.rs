@@ -14,15 +14,15 @@ pub struct SubCommand;
 #[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
-        "math average"
+        "math avg"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("math average")
+        Signature::build("math avg")
     }
 
     fn usage(&self) -> &str {
-        "Gets the average of a list of numbers"
+        "Finds the average of a list of numbers or tables"
     }
 
     async fn run(
@@ -49,16 +49,22 @@ impl WholeStreamCommand for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Get the average of a list of numbers",
-            example: "echo [-50 100.0 25] | math average",
+            example: "echo [-50 100.0 25] | math avg",
             result: Some(vec![UntaggedValue::decimal(25).into()]),
         }]
     }
 }
 
 pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
-    let sum = reducer_for(Reduce::Sum);
+    let sum = reducer_for(Reduce::Summation);
 
-    let number = BigDecimal::from_usize(values.len()).expect("expected a usize-sized bigdecimal");
+    let number = BigDecimal::from_usize(values.len()).ok_or_else(|| {
+        ShellError::labeled_error(
+            "could not convert to big decimal",
+            "could not convert to big decimal",
+            &name.span,
+        )
+    })?;
 
     let total_rows = UntaggedValue::decimal(number);
     let total = sum(Value::zero(), values.to_vec())?;

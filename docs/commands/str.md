@@ -41,7 +41,7 @@ Applies the subcommand to a value or a table.
  1 │   │ filesystem │
 ━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-> echo "1, 2, 3" | split row "," | str to-int | sum
+> echo "1, 2, 3" | split row "," | str to-int | math sum
 ━━━━━━━━━
  <value>
 ─────────

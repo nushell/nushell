@@ -7,6 +7,8 @@ use nu_protocol::hir::Operator;
 use nu_protocol::ShellTypeName;
 use nu_protocol::{Primitive, Type, UntaggedValue};
 use nu_source::{DebugDocBuilder, PrettyDebug, Tagged};
+use nu_table::TextStyle;
+use num_traits::Zero;
 
 pub fn date_from_str(s: Tagged<&str>) -> Result<UntaggedValue, ShellError> {
     let date = DateTime::parse_from_rfc3339(s.item).map_err(|err| {
@@ -34,6 +36,10 @@ pub fn merge_values(
     }
 }
 
+fn zero_division_error() -> UntaggedValue {
+    UntaggedValue::Error(ShellError::untagged_runtime_error("division by zero"))
+}
+
 pub fn compute_values(
     operator: Operator,
     left: &UntaggedValue,
@@ -54,7 +60,9 @@ pub fn compute_values(
                 Operator::Minus => Ok(UntaggedValue::Primitive(Primitive::Int(x - y))),
                 Operator::Multiply => Ok(UntaggedValue::Primitive(Primitive::Int(x * y))),
                 Operator::Divide => {
-                    if x - (y * (x / y)) == num_bigint::BigInt::from(0) {
+                    if y.is_zero() {
+                        Ok(zero_division_error())
+                    } else if x - (y * (x / y)) == num_bigint::BigInt::from(0) {
                         Ok(UntaggedValue::Primitive(Primitive::Int(x / y)))
                     } else {
                         Ok(UntaggedValue::Primitive(Primitive::Decimal(
@@ -70,7 +78,12 @@ pub fn compute_values(
                     Operator::Plus => Ok(x + bigdecimal::BigDecimal::from(y.clone())),
                     Operator::Minus => Ok(x - bigdecimal::BigDecimal::from(y.clone())),
                     Operator::Multiply => Ok(x * bigdecimal::BigDecimal::from(y.clone())),
-                    Operator::Divide => Ok(x / bigdecimal::BigDecimal::from(y.clone())),
+                    Operator::Divide => {
+                        if y.is_zero() {
+                            return Ok(zero_division_error());
+                        }
+                        Ok(x / bigdecimal::BigDecimal::from(y.clone()))
+                    }
                     _ => Err((left.type_name(), right.type_name())),
                 }?;
                 Ok(UntaggedValue::Primitive(Primitive::Decimal(result)))
@@ -80,7 +93,12 @@ pub fn compute_values(
                     Operator::Plus => Ok(bigdecimal::BigDecimal::from(x.clone()) + y),
                     Operator::Minus => Ok(bigdecimal::BigDecimal::from(x.clone()) - y),
                     Operator::Multiply => Ok(bigdecimal::BigDecimal::from(x.clone()) * y),
-                    Operator::Divide => Ok(bigdecimal::BigDecimal::from(x.clone()) / y),
+                    Operator::Divide => {
+                        if y.is_zero() {
+                            return Ok(zero_division_error());
+                        }
+                        Ok(bigdecimal::BigDecimal::from(x.clone()) / y)
+                    }
                     _ => Err((left.type_name(), right.type_name())),
                 }?;
                 Ok(UntaggedValue::Primitive(Primitive::Decimal(result)))
@@ -90,7 +108,12 @@ pub fn compute_values(
                     Operator::Plus => Ok(x + y),
                     Operator::Minus => Ok(x - y),
                     Operator::Multiply => Ok(x * y),
-                    Operator::Divide => Ok(x / y),
+                    Operator::Divide => {
+                        if y.is_zero() {
+                            return Ok(zero_division_error());
+                        }
+                        Ok(x / y)
+                    }
                     _ => Err((left.type_name(), right.type_name())),
                 }?;
                 Ok(UntaggedValue::Primitive(Primitive::Decimal(result)))
@@ -160,10 +183,10 @@ pub fn format_leaf<'a>(value: impl Into<&'a UntaggedValue>) -> DebugDocBuilder {
     InlineShape::from_value(value.into()).format().pretty()
 }
 
-pub fn style_leaf<'a>(value: impl Into<&'a UntaggedValue>) -> &'static str {
+pub fn style_leaf<'a>(value: impl Into<&'a UntaggedValue>) -> TextStyle {
     match value.into() {
         UntaggedValue::Primitive(p) => style_primitive(p),
-        _ => "",
+        _ => TextStyle::basic(),
     }
 }
 

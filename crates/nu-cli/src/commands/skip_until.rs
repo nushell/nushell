@@ -100,8 +100,8 @@ impl WholeStreamCommand for SkipUntil {
                     trace!("RESULT = {:?}", result);
 
                     match result {
-                        Ok(ref v) if v.is_true() => true,
-                        _ => false,
+                        Ok(ref v) if v.is_true() => false, // stop skipping
+                        _ => true,
                     }
                 }
             })

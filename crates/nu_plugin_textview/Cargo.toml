@@ -14,11 +14,14 @@ nu-plugin = { path = "../nu-plugin", version = "0.15.1" }
 nu-protocol = { path = "../nu-protocol", version = "0.15.1" }
 nu-source = { path = "../nu-source", version = "0.15.1" }
 nu-errors = { path = "../nu-errors", version = "0.15.1" }
+nu-cli = { path = "../nu-cli", version = "0.15.1" }
 
 crossterm = "0.17.5"
 syntect = { version = "4.2", default-features = false, features = ["default-fancy"]}
 ansi_term = "0.12.1"
 url = "2.1.1"
+bat = "0.15.4"
+textwrap = {version = "0.11.0", features = ["term_size"]}
 
 [build-dependencies]
 nu-build = { version = "0.15.1", path = "../nu-build" }

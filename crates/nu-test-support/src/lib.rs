@@ -36,14 +36,14 @@ mod tests {
                 | from-csv
                 | get rusty_luck
                 | str --to-int
-                | sum
+                | math sum
                 | echo "$it"
             "#,
         );
 
         assert_eq!(
             actual,
-            r#"open los_tres_amigos.txt | from-csv | get rusty_luck | str --to-int | sum | echo "$it""#
+            r#"open los_tres_amigos.txt | from-csv | get rusty_luck | str --to-int | math sum | echo "$it""#
         );
     }
 }

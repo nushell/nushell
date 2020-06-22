@@ -16,7 +16,7 @@ extern crate quickcheck_macros;
 mod cli;
 mod commands;
 mod context;
-mod data;
+pub mod data;
 mod deserializer;
 mod env;
 mod evaluate;
@@ -32,13 +32,15 @@ pub mod utils;
 mod examples;
 
 pub use crate::cli::{
-    cli, create_default_context, load_plugins, run_pipeline_standalone, run_vec_of_pipelines,
+    cli, create_default_context, load_plugins, process_line, run_pipeline_standalone,
+    run_vec_of_pipelines, LineResult,
 };
 pub use crate::commands::command::{
     whole_stream_command, CommandArgs, EvaluatedWholeStreamCommandArgs, WholeStreamCommand,
 };
 pub use crate::commands::help::get_help;
 pub use crate::context::CommandRegistry;
+pub use crate::data::config;
 pub use crate::data::dict::TaggedListBuilder;
 pub use crate::data::primitive;
 pub use crate::data::value;

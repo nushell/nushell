@@ -78,7 +78,7 @@ async fn t_sort_by(
     let values: Vec<Value> = input.collect().await;
 
     let column_grouped_by_name = if let Some(grouped_by) = group_by {
-        Some(grouped_by.item().clone())
+        Some(grouped_by)
     } else {
         None
     };

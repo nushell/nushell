@@ -6,7 +6,7 @@ use parking_lot::Mutex;
 use std::fmt::Debug;
 use std::sync::Arc;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct NuConfig {
     pub vars: Arc<Mutex<IndexMap<String, Value>>>,
 }

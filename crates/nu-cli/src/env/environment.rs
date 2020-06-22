@@ -71,7 +71,7 @@ impl Environment {
     fn remove_env(&mut self, key: &str) {
         if let Some(Value {
             value: UntaggedValue::Row(ref mut envs),
-            tag: _,
+            ..
         }) = self.environment_vars
         {
             envs.entries.remove(key);

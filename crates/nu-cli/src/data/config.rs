@@ -103,7 +103,7 @@ pub fn read(
     }
 }
 
-pub(crate) fn config(tag: impl Into<Tag>) -> Result<IndexMap<String, Value>, ShellError> {
+pub fn config(tag: impl Into<Tag>) -> Result<IndexMap<String, Value>, ShellError> {
     read(tag, &None)
 }
 
