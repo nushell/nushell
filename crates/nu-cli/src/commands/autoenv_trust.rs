@@ -1,6 +1,6 @@
-use super::autoenv::Allowed;
+use super::{autoenv::Allowed, cd::CdArgs};
 use crate::commands::WholeStreamCommand;
-use crate::prelude::*;
+use crate::{path, prelude::*};
 use nu_errors::ShellError;
 use nu_protocol::SyntaxShape;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
@@ -29,16 +29,19 @@ impl WholeStreamCommand for AutoenvTrust {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
+
         let dir_to_allow = match args.call_info.evaluate(registry).await?.args.nth(0) {
             Some(Value {
                 value: UntaggedValue::Primitive(Primitive::String(ref path)),
                 tag: _,
-            }) => path.clone(),
+            }) => path::absolutize(std::env::current_dir()?, path)
+                .to_string_lossy()
+                .to_string(),
             _ => std::env::current_dir()?.to_string_lossy().to_string(),
         };
-
         let mut env_file_to_allow = PathBuf::from(dir_to_allow.clone());
         env_file_to_allow.push(".nu-env");
+
         let content = std::fs::read_to_string(env_file_to_allow)?;
         let mut hasher = DefaultHasher::new();
         content.hash(&mut hasher);
