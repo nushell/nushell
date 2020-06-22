@@ -1,6 +1,6 @@
-use super::autoenv::Allowed;
+use super::{autoenv::Allowed, cd::CdArgs};
 use crate::commands::WholeStreamCommand;
-use crate::prelude::*;
+use crate::{path, prelude::*};
 use nu_errors::ShellError;
 use nu_protocol::SyntaxShape;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
@@ -29,17 +29,24 @@ impl WholeStreamCommand for AutoenvTrust {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let dir_to_allow = match args.call_info.evaluate(registry).await?.args.nth(0) {
+
+        let file_to_trust = match args.call_info.evaluate(registry).await?.args.nth(0) {
             Some(Value {
                 value: UntaggedValue::Primitive(Primitive::String(ref path)),
                 tag: _,
-            }) => path.clone(),
-            _ => std::env::current_dir()?.to_string_lossy().to_string(),
+            }) => {
+                let mut dir = path::absolutize(std::env::current_dir()?, path);
+                dir.push(".nu-env");
+                dir
+            }
+            _ => {
+                let mut dir = std::env::current_dir()?;
+                dir.push(".nu-env");
+                dir
+            }
         };
 
-        let mut env_file_to_allow = PathBuf::from(dir_to_allow.clone());
-        env_file_to_allow.push(".nu-env");
-        let content = std::fs::read_to_string(env_file_to_allow)?;
+        let content = std::fs::read_to_string(&file_to_trust)?;
         let mut hasher = DefaultHasher::new();
         content.hash(&mut hasher);
 
@@ -65,9 +72,11 @@ impl WholeStreamCommand for AutoenvTrust {
         let mut allowed: Allowed = toml::from_str(doc.as_str()).unwrap_or_else(|_| Allowed {
             dirs: IndexMap::new(),
         });
+
+        let file_to_allow = file_to_trust.to_string_lossy().to_string();
         allowed
             .dirs
-            .insert(dir_to_allow, hasher.finish().to_string());
+            .insert(file_to_allow, hasher.finish().to_string());
 
         fs::write(config_path, toml::to_string(&allowed).unwrap())
             .expect("Couldn't write to toml file");
