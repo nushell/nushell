@@ -1,12 +1,13 @@
+use crate::commands::{self, autoenv::Trusted};
+use commands::autoenv;
 use indexmap::{IndexMap, IndexSet};
 use std::{
     ffi::OsString,
     fmt::Debug,
     io::{Error, ErrorKind},
     path::PathBuf,
+    hash::{Hash, Hasher}, collections::hash_map::DefaultHasher
 };
-use crate::commands::{autoenv::Trusted, self};
-use commands::autoenv;
 
 type EnvKey = String;
 type EnvVal = OsString;
@@ -22,7 +23,7 @@ impl DirectorySpecificEnvironment {
     pub fn new() -> DirectorySpecificEnvironment {
         let trusted = match autoenv::Trusted::read_trusted() {
             Ok(t) => Some(t),
-            Err(_) => None
+            Err(_) => None,
         };
         DirectorySpecificEnvironment {
             trusted,
@@ -30,20 +31,21 @@ impl DirectorySpecificEnvironment {
         }
     }
 
-    // fn check_hashes(&self, wdir: PathBuf) -> std::io::Result<bool> {
-    //     if let Some(trusted) = &self.trusted {
-    //         let wdirenv = wdir.join(".nu-env");
-    //         if wdirenv.exists() {
-    //             let content = std::fs::read_to_string(&wdirenv)?;
-    //             let mut hasher = DefaultHasher::new();
-    //             content.hash(&mut hasher);
-    //             return Ok(trusted.files.get(wdirenv.to_str().unwrap())
-    //                       == Some(&hasher.finish().to_string()));
-    //         }
-    //     }
-
-    //     Ok(true)
-    // }
+    fn toml_if_trusted(&self, mut wdirenv: PathBuf) -> std::io::Result<toml::Value> {
+        if let Some(trusted) = &self.trusted {
+            wdirenv.push(".nu-env");
+            if wdirenv.exists() {
+                let content = std::fs::read_to_string(&wdirenv)?;
+                let mut hasher = DefaultHasher::new();
+                content.hash(&mut hasher);
+                if trusted.files.get(wdirenv.to_str().unwrap())
+                    == Some(&hasher.finish().to_string()) {
+                        return Ok(content.parse::<toml::Value>()?);
+                    }
+            }
+        }
+        Err(Error::new(ErrorKind::Other, "No trusted directories"))
+    }
 
     pub fn env_vars_to_add(&mut self) -> std::io::Result<IndexMap<EnvKey, EnvVal>> {
         let current_dir = std::env::current_dir()?;
@@ -52,11 +54,7 @@ impl DirectorySpecificEnvironment {
 
         //Start in the current directory, then traverse towards the root with working_dir to see if we are in a subdirectory of a valid directory.
         while let Some(wdir) = working_dir {
-            // if self.allowed_directories.contains(wdir) {
-            if true {
-                let toml_doc = std::fs::read_to_string(wdir.join(".nu-env").as_path())?
-                    .parse::<toml::Value>()?;
-
+            if let Ok(toml_doc) = self.toml_if_trusted(wdir.to_path_buf()) {
                 toml_doc
                     .get("env")
                     .ok_or_else(|| Error::new(ErrorKind::InvalidData, "env section missing"))?
