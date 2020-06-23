@@ -39,7 +39,9 @@ impl DirectorySpecificEnvironment {
             let mut hasher = DefaultHasher::new();
             content.hash(&mut hasher);
 
-            if trusted.files.get(wdirenv.to_str().unwrap()) == Some(&hasher.finish().to_string()) {
+            if trusted.files.get(wdirenv.to_str().unwrap_or(""))
+                == Some(&hasher.finish().to_string())
+            {
                 return Ok(content.parse::<toml::Value>().or_else(|_| {
                     Err(ShellError::untagged_runtime_error(
                         "Could not parse .nu-env file. Is it well-formed?",
@@ -65,21 +67,21 @@ impl DirectorySpecificEnvironment {
                 toml_doc
                     .get("env")
                     .ok_or_else(|| {
-                        Error::new(
-                            ErrorKind::InvalidData,
-                            format!("[env] section missing in {:?}", wdirenv),
-                        )
+                        ShellError::untagged_runtime_error(format!(
+                            "[env] section missing in {:?}",
+                            wdirenv
+                        ))
                     })?
                     .as_table()
                     .ok_or_else(|| {
-                        Error::new(
-                            ErrorKind::InvalidData,
-                            format!("[env] section malformed in {:?}", wdirenv),
-                        )
+                        ShellError::untagged_runtime_error(format!(
+                            "[env] section malformed in {:?}",
+                            wdirenv
+                        ))
                     })?
                     .iter()
                     .for_each(|(dir_env_key, dir_env_val)| {
-                        let dir_env_val: EnvVal = dir_env_val.as_str().unwrap().into();
+                        let dir_env_val: EnvVal = dir_env_val.as_str().unwrap_or_else("").into();
 
                         //This condition is to make sure variables in parent directories don't overwrite variables set by subdirectories.
                         if !vars_to_add.contains_key(dir_env_key) {
