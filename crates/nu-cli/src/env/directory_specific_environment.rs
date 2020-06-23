@@ -1,6 +1,8 @@
 use crate::commands::{self, autoenv::Trusted};
 use commands::autoenv;
 use indexmap::{IndexMap, IndexSet};
+use nu_errors::ShellError;
+use nu_source::Span;
 use std::{
     collections::hash_map::DefaultHasher,
     ffi::OsString,
@@ -32,36 +34,42 @@ impl DirectorySpecificEnvironment {
         }
     }
 
-    fn toml_if_directory_is_trusted(&self, mut wdirenv: PathBuf) -> std::io::Result<toml::Value> {
+    fn toml_if_directory_is_trusted(
+        &self,
+        wdirenv: PathBuf,
+    ) -> Result<toml::Value, ShellError> {
         if let Some(trusted) = &self.trusted {
-            wdirenv.push(".nu-env");
-            if wdirenv.exists() {
-                let content = std::fs::read_to_string(&wdirenv)?;
-                let mut hasher = DefaultHasher::new();
-                content.hash(&mut hasher);
-                if trusted.files.get(wdirenv.to_str().unwrap())
-                    == Some(&hasher.finish().to_string())
-                {
-                    return Ok(content.parse::<toml::Value>()?);
-                }
+            let content = std::fs::read_to_string(&wdirenv)?;
+            let mut hasher = DefaultHasher::new();
+            content.hash(&mut hasher);
+
+            if trusted.files.get(wdirenv.to_str().unwrap()) == Some(&hasher.finish().to_string()) {
+                return Ok(content.parse::<toml::Value>().or_else(|_| {
+                    Err(ShellError::untagged_runtime_error(
+                        "Could not parse .nu-env file. Is it well-formed?",
+                    ))
+                })?);
             }
+            return Err(ShellError::untagged_runtime_error("Found untrusted .nu-env file in this directory. Run 'autoenv trust' and restart nushell to allow it. This needs to be done after each change to the file."));
         }
-        Err(Error::new(ErrorKind::Other, "No trusted directories"))
+        Err(ShellError::untagged_runtime_error("No trusted directories"))
     }
 
-    pub fn env_vars_to_add(&mut self) -> std::io::Result<IndexMap<EnvKey, EnvVal>> {
+    pub fn env_vars_to_add(&mut self) -> Result<IndexMap<EnvKey, EnvVal>, ShellError> {
         let current_dir = std::env::current_dir()?;
         let mut working_dir = Some(current_dir.as_path());
         let mut vars_to_add = IndexMap::new();
 
         //Start in the current directory, then traverse towards the root with working_dir to see if we are in a subdirectory of a valid directory.
         while let Some(wdir) = working_dir {
-            if let Ok(toml_doc) = self.toml_if_directory_is_trusted(wdir.to_path_buf()) {
+            let wdirenv = wdir.join(".nu-env");
+            if wdirenv.exists() {
+                let toml_doc = self.toml_if_directory_is_trusted(wdirenv)?;
                 toml_doc
                     .get("env")
-                    .ok_or_else(|| Error::new(ErrorKind::InvalidData, "env section missing"))?
+                    .ok_or_else(|| Error::new(ErrorKind::InvalidData, "env section missing in .nu-env"))?
                     .as_table()
-                    .ok_or_else(|| Error::new(ErrorKind::InvalidData, "env section malformed"))?
+                    .ok_or_else(|| Error::new(ErrorKind::InvalidData, "malformed env section in .nu-env"))?
                     .iter()
                     .for_each(|(dir_env_key, dir_env_val)| {
                         let dir_env_val: EnvVal = dir_env_val.as_str().unwrap().into();
@@ -88,7 +96,7 @@ impl DirectorySpecificEnvironment {
 
     //If the user has left directories which added env vars through .nu, we clear those vars
     //once they are marked for deletion, remove them from added_env_vars
-    pub fn env_vars_to_delete(&mut self) -> std::io::Result<IndexSet<EnvKey>> {
+    pub fn env_vars_to_delete(&mut self) -> Result<IndexSet<EnvKey>, ShellError> {
         let current_dir = std::env::current_dir()?;
         let mut working_dir = Some(current_dir.as_path());
 
