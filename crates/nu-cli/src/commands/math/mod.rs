@@ -1,4 +1,4 @@
-pub mod average;
+pub mod avg;
 pub mod command;
 pub mod max;
 pub mod median;
@@ -7,7 +7,7 @@ pub mod mode;
 pub mod sum;
 pub mod utils;
 
-pub use average::SubCommand as MathAverage;
+pub use avg::SubCommand as MathAverage;
 pub use command::Command as Math;
 pub use max::SubCommand as MathMaximum;
 pub use median::SubCommand as MathMedian;

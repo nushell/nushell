@@ -32,7 +32,8 @@ pub mod utils;
 mod examples;
 
 pub use crate::cli::{
-    cli, create_default_context, load_plugins, run_pipeline_standalone, run_vec_of_pipelines,
+    cli, create_default_context, load_plugins, process_line, run_pipeline_standalone,
+    run_vec_of_pipelines, LineResult,
 };
 pub use crate::commands::command::{
     whole_stream_command, CommandArgs, EvaluatedWholeStreamCommandArgs, WholeStreamCommand,

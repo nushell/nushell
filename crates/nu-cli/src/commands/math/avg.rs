@@ -14,11 +14,11 @@ pub struct SubCommand;
 #[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
-        "math average"
+        "math avg"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("math average")
+        Signature::build("math avg")
     }
 
     fn usage(&self) -> &str {
@@ -49,7 +49,7 @@ impl WholeStreamCommand for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Get the average of a list of numbers",
-            example: "echo [-50 100.0 25] | math average",
+            example: "echo [-50 100.0 25] | math avg",
             result: Some(vec![UntaggedValue::decimal(25).into()]),
         }]
     }

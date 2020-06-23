@@ -2466,6 +2466,7 @@ dependencies = [
  "nu-plugin",
  "nu-protocol",
  "nu-source",
+ "nu-table",
  "nu-test-support",
  "nu-value-ext",
  "num-bigint",
@@ -2474,7 +2475,6 @@ dependencies = [
  "pin-utils",
  "pretty-hex",
  "pretty_env_logger",
- "prettytable-rs",
  "ptree",
  "query_interface",
  "quickcheck",
@@ -2603,6 +2603,14 @@ dependencies = [
  "pretty",
  "serde 1.0.113",
  "termcolor",
+]
+
+[[package]]
+name = "nu-table"
+version = "0.15.1"
+dependencies = [
+ "ansi_term 0.12.1",
+ "unicode-width",
 ]
 
 [[package]]
@@ -3224,20 +3232,6 @@ checksum = "926d36b9553851b8b0005f1275891b392ee4d2d833852c417ed025477350fb9d"
 dependencies = [
  "env_logger",
  "log",
-]
-
-[[package]]
-name = "prettytable-rs"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fd04b170004fa2daccf418a7f8253aaf033c27760b5f225889024cf66d7ac2e"
-dependencies = [
- "atty",
- "csv",
- "encode_unicode",
- "lazy_static 1.4.0",
- "term",
- "unicode-width",
 ]
 
 [[package]]
