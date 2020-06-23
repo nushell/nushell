@@ -13,6 +13,9 @@ Converts table data into yaml text.
  1 │   │ filesystem │ /home/shaurya/Pictures
  2 │   │ filesystem │ /home/shaurya/Desktop
 ━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+```shell
 > shells | to yaml
 ---
 - " ": X
@@ -33,6 +36,9 @@ Converts table data into yaml text.
 ────────────────────┼────────────────┼─────────────────┼───────┼─────────────────┼─────────────────
  Visual Studio 2017 │ [table: 1 row] │ [table: 5 rows] │       │ [table: 2 rows] │ [table: 2 rows]
 ━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━┷━━━━━━━┷━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━
+```
+
+```shell
 > open appveyor.yml | to yaml
 ---
 image: Visual Studio 2017

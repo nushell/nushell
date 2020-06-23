@@ -13,6 +13,9 @@ Converts table data into [url-encoded text](https://url.spec.whatwg.org/#applica
  1 │   │ filesystem │ /home/shaurya/Pictures
  2 │   │ filesystem │ /home/shaurya/Desktop
 ━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+```shell
 > shells | to url
 ━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  # │ value
@@ -30,6 +33,9 @@ Converts table data into [url-encoded text](https://url.spec.whatwg.org/#applica
 ──────────┼────────┼──────┼────────
  baguette │ comté  │ ham  │ butter
 ━━━━━━━━━━┷━━━━━━━━┷━━━━━━┷━━━━━━━━
+```
+
+```shell
 > open sample.url  | to url
 bread=baguette&cheese=comt%C3%A9&meat=ham&fat=butter
 ```

@@ -4,7 +4,7 @@ Format columns into a string using a simple pattern
 
 Syntax: `format <pattern>`
 
-### Parameters
+## Parameters
 
 * `<pattern>`: the pattern to match
 
@@ -28,7 +28,7 @@ Let's say we have a table like this:
 ```shell
 > open pets.csv | format "{name} is a {age} year old {animal}"
 ━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- # │ <value>
+ # │
 ───┼─────────────────────────────────
  0 │ Tom is a 7 year old cat
  1 │ Alfred is a 10 year old dog

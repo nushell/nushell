@@ -1,14 +1,17 @@
 # skip
-Skips the first 'n' rows of a table. 
+
+Skips the first 'n' rows of a table.
 
 ## Usage
+
 ```shell
 > [input-command] | skip (n)
 ```
 
 ## Examples
 
-If we open a file with a list of contacts, we get all of the contacts. 
+If we open a file with a list of contacts, we get all of the contacts.
+
 ```shell
 > open contacts.csv
 ───┬─────────┬──────┬─────────────────
@@ -22,6 +25,7 @@ If we open a file with a list of contacts, we get all of the contacts.
 ```
 
 To ignore the first 2 contacts, we can `skip` them.
+
 ```shell
 > open contacts.csv | skip 2
 ───┬─────────┬──────┬─────────────────
