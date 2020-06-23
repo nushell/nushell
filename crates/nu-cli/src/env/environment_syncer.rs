@@ -3,7 +3,6 @@ use crate::data::config::{Conf, NuConfig};
 use crate::env::environment::{Env, Environment};
 use parking_lot::Mutex;
 use std::sync::Arc;
-use nu_errors::ShellError;
 use nu_source::Text;
 
 pub struct EnvironmentSyncer {

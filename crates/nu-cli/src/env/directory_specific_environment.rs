@@ -2,14 +2,13 @@ use crate::commands::{self, autoenv::Trusted};
 use commands::autoenv;
 use indexmap::{IndexMap, IndexSet};
 use nu_errors::ShellError;
-use nu_source::Span;
 use std::{
     collections::hash_map::DefaultHasher,
     ffi::OsString,
     fmt::Debug,
     hash::{Hash, Hasher},
     io::{Error, ErrorKind},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 type EnvKey = String;
@@ -34,10 +33,7 @@ impl DirectorySpecificEnvironment {
         }
     }
 
-    fn toml_if_directory_is_trusted(
-        &self,
-        wdirenv: PathBuf,
-    ) -> Result<toml::Value, ShellError> {
+    fn toml_if_directory_is_trusted(&self, wdirenv: &PathBuf) -> Result<toml::Value, ShellError> {
         if let Some(trusted) = &self.trusted {
             let content = std::fs::read_to_string(&wdirenv)?;
             let mut hasher = DefaultHasher::new();
@@ -50,7 +46,8 @@ impl DirectorySpecificEnvironment {
                     ))
                 })?);
             }
-            return Err(ShellError::untagged_runtime_error("Found untrusted .nu-env file in this directory. Run 'autoenv trust' and restart nushell to allow it. This needs to be done after each change to the file."));
+            return Err(ShellError::untagged_runtime_error(
+                format!("{:?} is untrusted. Run 'autoenv trust {:?}' and restart nushell to trust it.\nThis needs to be done after each change to the file.", wdirenv, wdirenv.parent().unwrap_or_else(|| &Path::new("")))));
         }
         Err(ShellError::untagged_runtime_error("No trusted directories"))
     }
@@ -64,12 +61,16 @@ impl DirectorySpecificEnvironment {
         while let Some(wdir) = working_dir {
             let wdirenv = wdir.join(".nu-env");
             if wdirenv.exists() {
-                let toml_doc = self.toml_if_directory_is_trusted(wdirenv)?;
+                let toml_doc = self.toml_if_directory_is_trusted(&wdirenv)?;
                 toml_doc
                     .get("env")
-                    .ok_or_else(|| Error::new(ErrorKind::InvalidData, "env section missing in .nu-env"))?
+                    .ok_or_else(|| {
+                        Error::new(ErrorKind::InvalidData, format!("[env] section missing in {:?}", wdirenv))
+                    })?
                     .as_table()
-                    .ok_or_else(|| Error::new(ErrorKind::InvalidData, "malformed env section in .nu-env"))?
+                    .ok_or_else(|| {
+                        Error::new(ErrorKind::InvalidData, format!("[env] section malformed in {:?}", wdirenv))
+                    })?
                     .iter()
                     .for_each(|(dir_env_key, dir_env_val)| {
                         let dir_env_val: EnvVal = dir_env_val.as_str().unwrap().into();
