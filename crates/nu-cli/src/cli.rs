@@ -351,6 +351,7 @@ pub fn create_default_context(
             whole_stream_command(MathAverage),
             whole_stream_command(MathMedian),
             whole_stream_command(MathMinimum),
+            whole_stream_command(MathMode),
             whole_stream_command(MathMaximum),
             whole_stream_command(MathSummation),
             // File format output
