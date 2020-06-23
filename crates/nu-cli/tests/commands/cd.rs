@@ -432,3 +432,27 @@ fn valuesystem_path_not_found() {
         assert!(actual.err.contains("No such path exists"));
     })
 }
+
+#[cfg(target_os = "windows")]
+#[test]
+fn test_change_windows_drive() {
+    Playground::setup("cd_test_20", |dirs, sandbox| {
+        sandbox.mkdir("test_folder");
+
+        let _actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                subst Z: test_folder
+                Z:
+                echo "some text" | save test_file.txt
+                cd ~
+                subst Z: /d
+            "#
+        );
+        assert!(dirs
+            .test()
+            .join("test_folder")
+            .join("test_file.txt")
+            .exists());
+    })
+}

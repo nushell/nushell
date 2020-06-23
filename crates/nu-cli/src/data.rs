@@ -1,6 +1,6 @@
 pub(crate) mod base;
 pub(crate) mod command;
-pub(crate) mod config;
+pub mod config;
 pub(crate) mod dict;
 pub(crate) mod files;
 pub mod primitive;

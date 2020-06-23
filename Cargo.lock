@@ -1493,9 +1493,9 @@ dependencies = [
 
 [[package]]
 name = "heim"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea9164f267a5f4325020b8a989c4b0ab06acc0685ccdb22551f59257fdf296ab"
+checksum = "d1014732324a9baf5a691525faabb33909bf6f40dcc2b03c8f2fb07bb01e7e3f"
 dependencies = [
  "heim-common",
  "heim-cpu",
@@ -1529,9 +1529,9 @@ dependencies = [
 
 [[package]]
 name = "heim-cpu"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b088c42ce30cf60b485df484e0aa19c31ad8663bb939180ef64ca340d15eca6"
+checksum = "73b1442359831aa671aa931f0a084aab210e77b1330ded78f1e60cc305abc4bb"
 dependencies = [
  "cfg-if",
  "futures 0.3.5",
@@ -1613,9 +1613,9 @@ dependencies = [
 
 [[package]]
 name = "heim-process"
-version = "0.1.1-beta.2"
+version = "0.1.1-beta.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "190f1085293c8d54060dd77c943da0d5bd1729aa00d2ac68188e26446dc0170d"
+checksum = "fd969deb2a89a488b6a9bf18a65923ae4cdef6b128fa2dedb74ef5c694deb5ae"
 dependencies = [
  "async-trait",
  "cfg-if",
@@ -1899,9 +1899,9 @@ dependencies = [
 
 [[package]]
 name = "kstring"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6382df53100fd22e149030b6634720c94a151076db8d727b3274d7070975d609"
+checksum = "fbbc30beb80d56ddf6346e935c7abcba96329ee5c5a4cde8984a4e6b6f18b58e"
 dependencies = [
  "serde 1.0.110",
 ]
@@ -2038,9 +2038,9 @@ dependencies = [
 
 [[package]]
 name = "liquid-core"
-version = "0.20.1"
+version = "0.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ea59709d9530bab4e9cc0ece12f20fe4999fdef90f7d89391b0fc9ff563b62b"
+checksum = "4dc58422728185d54cd044bba4d45a2ef2a7111a421f84d344f65629949de4f1"
 dependencies = [
  "anymap",
  "chrono",
@@ -2472,6 +2472,7 @@ dependencies = [
  "nu-plugin",
  "nu-protocol",
  "nu-source",
+ "nu-table",
  "nu-test-support",
  "nu-value-ext",
  "num-bigint",
@@ -2480,7 +2481,6 @@ dependencies = [
  "pin-utils",
  "pretty-hex",
  "pretty_env_logger",
- "prettytable-rs",
  "ptree",
  "query_interface",
  "quickcheck",
@@ -2609,6 +2609,14 @@ dependencies = [
  "pretty",
  "serde 1.0.110",
  "termcolor",
+]
+
+[[package]]
+name = "nu-table"
+version = "0.15.1"
+dependencies = [
+ "ansi_term 0.12.1",
+ "unicode-width",
 ]
 
 [[package]]
@@ -2767,6 +2775,7 @@ dependencies = [
  "bat",
  "crossterm",
  "nu-build",
+ "nu-cli",
  "nu-errors",
  "nu-plugin",
  "nu-protocol",
@@ -3223,20 +3232,6 @@ checksum = "926d36b9553851b8b0005f1275891b392ee4d2d833852c417ed025477350fb9d"
 dependencies = [
  "env_logger",
  "log",
-]
-
-[[package]]
-name = "prettytable-rs"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fd04b170004fa2daccf418a7f8253aaf033c27760b5f225889024cf66d7ac2e"
-dependencies = [
- "atty",
- "csv",
- "encode_unicode",
- "lazy_static 1.4.0",
- "term",
- "unicode-width",
 ]
 
 [[package]]

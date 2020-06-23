@@ -1,7 +1,7 @@
 use crate::prelude::*;
 #[cfg(test)]
 use indexmap::IndexMap;
-use nu_errors::ShellError;
+// use nu_errors::ShellError;
 use std::ffi::OsString;
 use std::fmt::Debug;
 
@@ -200,13 +200,13 @@ impl Host for FakeHost {
     }
 }
 
-pub(crate) fn handle_unexpected<T>(
-    host: &mut dyn Host,
-    func: impl FnOnce(&mut dyn Host) -> Result<T, ShellError>,
-) {
-    let result = func(host);
+// pub(crate) fn handle_unexpected<T>(
+//     host: &mut dyn Host,
+//     func: impl FnOnce(&mut dyn Host) -> Result<T, ShellError>,
+// ) {
+//     let result = func(host);
 
-    if let Err(err) = result {
-        host.stderr(&format!("Something unexpected happened:\n{:?}", err));
-    }
-}
+//     if let Err(err) = result {
+//         host.stderr(&format!("Something unexpected happened:\n{:?}", err));
+//     }
+// }

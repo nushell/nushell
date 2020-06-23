@@ -348,10 +348,11 @@ pub fn create_default_context(
             // Data processing
             whole_stream_command(Histogram),
             whole_stream_command(Math),
-            whole_stream_command(Average),
-            whole_stream_command(Minimum),
-            whole_stream_command(Maximum),
-            whole_stream_command(Sum),
+            whole_stream_command(MathAverage),
+            whole_stream_command(MathMedian),
+            whole_stream_command(MathMinimum),
+            whole_stream_command(MathMaximum),
+            whole_stream_command(MathSummation),
             // File format output
             whole_stream_command(To),
             whole_stream_command(ToBSON),
@@ -738,7 +739,7 @@ fn chomp_newline(s: &str) -> &str {
     }
 }
 
-enum LineResult {
+pub enum LineResult {
     Success(String),
     Error(String, ShellError),
     CtrlC,
@@ -746,7 +747,7 @@ enum LineResult {
 }
 
 /// Process the line by parsing the text to turn it into commands, classify those commands so that we understand what is being called in the pipeline, and then run this pipeline
-async fn process_line(
+pub async fn process_line(
     readline: Result<String, ReadlineError>,
     ctx: &mut Context,
     redirect_stdin: bool,

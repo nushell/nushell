@@ -198,7 +198,7 @@ fn echoing_ranges() {
     let actual = nu!(
         cwd: ".",
         r#"
-            echo 1..3 | sum
+            echo 1..3 | math sum
         "#
     );
 
