@@ -16,7 +16,18 @@ pub async fn calculate(
 
     if values.iter().all(|v| v.is_primitive()) {
         match mf(&values, &name) {
-            Ok(result) => Ok(OutputStream::one(ReturnSuccess::value(result))),
+            Ok(result) => {
+                if result.value.is_table() {
+                    Ok(OutputStream::from(
+                        result
+                            .table_entries()
+                            .map(|v| ReturnSuccess::value(v.clone()))
+                            .collect::<Vec<_>>(),
+                    ))
+                } else {
+                    Ok(OutputStream::one(ReturnSuccess::value(result)))
+                }
+            }
             Err(err) => Err(err),
         }
     } else {
