@@ -15,6 +15,9 @@ This command displays only the column names passed on to it.
  3 │ abaracadabra.txt           │ File │          │ 401 B  │ a month ago │ a month ago │ a month ago
  4 │ youshouldeatmorecereal.txt │ File │          │ 768 B  │ a month ago │ a month ago │ a month ago
 ━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━┷━━━━━━━━━━┷━━━━━━━━┷━━━━━━━━━━━━━┷━━━━━━━━━━━━━┷━━━━━━━━━━━━━
+```
+
+```shell
 > ls | select name
 ━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  # │ name
@@ -40,6 +43,9 @@ The order in which you put the column names matters:
  3 │ File │ abaracadabra.txt           │ 401 B
  4 │ File │ youshouldeatmorecereal.txt │ 768 B
 ━━━┷━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━
+```
+
+```shell
 > ls | select size type name
 ━━━┯━━━━━━━━┯━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  # │ size   │ type │ name

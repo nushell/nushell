@@ -28,6 +28,9 @@ Converts table data into a string or binary. The target format is specified as a
  1 │   │ filesystem │ /home/shaurya/Pictures
  2 │   │ filesystem │ /home/shaurya/Desktop
 ━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+```shell
 > shells | to csv
  ,name,path
 X,filesystem,/home/shaurya
@@ -42,6 +45,9 @@ X,filesystem,/home/shaurya
 ──────────┼────────┼──────┼────────
  baguette │ comté  │ ham  │ butter
 ━━━━━━━━━━┷━━━━━━━━┷━━━━━━┷━━━━━━━━
+```
+
+```shell
 > open sample.url  | to url
 bread=baguette&cheese=comt%C3%A9&meat=ham&fat=butter
 ```

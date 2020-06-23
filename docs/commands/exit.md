@@ -8,7 +8,7 @@ Exits the nu shell. If you have multiple nu shells, use `exit --now` to exit all
 > exit
 ```
 
-```
+```shell
 > shells
 ━━━┯━━━┯━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  # │   │ name       │ path

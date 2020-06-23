@@ -6,7 +6,15 @@ Use `echo` to repeat arguments back to the user
 
 ```shell
 > echo Hello world
-Hello world
+───┬───────
+ # │
+───┼───────
+ 0 │ Hello
+ 1 │ world
+───┴───────
+```
+
+```shell
 > echo "Hello, world!"
 Hello, world!
 ```

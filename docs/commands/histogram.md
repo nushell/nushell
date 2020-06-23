@@ -4,7 +4,7 @@ Creates a new table with a histogram based on the column name passed in.
 
 Syntax: `histogram <column_name>  ...args`
 
-### Parameters
+## Parameters
 
 * `<column-name>`: name of the column to graph by
 * `args`: column name to give the histogram's frequency column
@@ -23,7 +23,7 @@ Let's say we have this file `random_numers.csv` which contains 50 random numbers
   0 │              1
   1 │              2
   2 │              2
-        ...
+...
  47 │              5
  48 │              5
  49 │              1

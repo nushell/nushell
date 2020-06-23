@@ -6,25 +6,29 @@ use indexmap::map::IndexMap;
 
 pub type MathFunction = fn(values: &[Value], tag: &Tag) -> Result<Value, ShellError>;
 
-pub async fn calculate(
+pub async fn run_with_function(
     RunnableContext {
         mut input, name, ..
     }: RunnableContext,
     mf: MathFunction,
 ) -> Result<OutputStream, ShellError> {
     let values: Vec<Value> = input.drain_vec().await;
+    let res = calculate(&values, &name, mf);
+    match res {
+        Ok(v) => Ok(OutputStream::one(ReturnSuccess::value(v))),
+        Err(e) => Err(e),
+    }
+}
 
+pub fn calculate(values: &[Value], name: &Tag, mf: MathFunction) -> Result<Value, ShellError> {
     if values.iter().all(|v| v.is_primitive()) {
-        match mf(&values, &name) {
-            Ok(result) => Ok(OutputStream::one(ReturnSuccess::value(result))),
-            Err(err) => Err(err),
-        }
+        mf(&values, &name)
     } else {
         // If we are not dealing with Primitives, then perhaps we are dealing with a table
         // Create a key for each column name
         let mut column_values = IndexMap::new();
         for value in values {
-            if let UntaggedValue::Row(row_dict) = value.value {
+            if let UntaggedValue::Row(row_dict) = &value.value {
                 for (key, value) in row_dict.entries.iter() {
                     column_values
                         .entry(key.clone())
@@ -44,11 +48,9 @@ pub async fn calculate(
             }
         }
 
-        Ok(OutputStream::one(ReturnSuccess::value(
-            UntaggedValue::Row(Dictionary {
-                entries: column_totals,
-            })
-            .into_untagged_value(),
-        )))
+        Ok(UntaggedValue::Row(Dictionary {
+            entries: column_totals,
+        })
+        .into_untagged_value())
     }
 }
