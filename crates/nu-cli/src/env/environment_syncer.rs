@@ -4,6 +4,7 @@ use crate::env::environment::{Env, Environment};
 use parking_lot::Mutex;
 use std::sync::Arc;
 use nu_errors::ShellError;
+use nu_source::Text;
 
 pub struct EnvironmentSyncer {
     pub env: Arc<Mutex<Box<Environment>>>,
@@ -46,7 +47,7 @@ impl EnvironmentSyncer {
         let mut environment = self.env.lock();
 
         if let Err(e) = environment.maintain_directory_environment() {
-            ctx.error(e);
+            crate::cli::print_err(e, &Text::from(""));
         }
         if environment.env().is_some() {
             for (name, value) in ctx.with_host(|host| host.vars()) {

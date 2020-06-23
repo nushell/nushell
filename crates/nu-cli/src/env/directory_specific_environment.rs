@@ -34,34 +34,6 @@ impl DirectorySpecificEnvironment {
         }
     }
 
-    // fn toml_if_directory_is_trusted(
-    //     &self,
-    //     mut wdirenv: PathBuf,
-    // ) -> Result<toml::Value, ShellError> {
-    //     if let Some(trusted) = &self.trusted {
-    //         wdirenv.push(".nu-env");
-    //         if wdirenv.exists() {
-    //             let content = std::fs::read_to_string(&wdirenv)?;
-    //             let mut hasher = DefaultHasher::new();
-    //             content.hash(&mut hasher);
-    //             if trusted.files.get(wdirenv.to_str().unwrap())
-    //                 == Some(&hasher.finish().to_string())
-    //             {
-    //                 return Ok(content.parse::<toml::Value>().or_else(|_| {
-    //                     Err(ShellError::unexpected_eof(
-    //                         "Could not parse .nu-env file. Is it well-formed?",
-    //                         Span::default(),
-    //                     ))
-    //                 })?);
-    //             } else {
-    //                 return Err(ShellError::unexpected_eof("Found .nu-env file in this directory, but it is not trusted. You can run 'autoenv trust' to allow it. This needs to be done after each change to the file",
-    //                 Span::default()));
-    //             }
-    //         }
-    //     }
-    //     Err(ShellError::unexpected_eof("No trusted directories", Span::default()))
-    // }
-
     fn toml_if_directory_is_trusted(
         &self,
         wdirenv: PathBuf,
@@ -78,7 +50,7 @@ impl DirectorySpecificEnvironment {
                     ))
                 })?);
             }
-            return Err(ShellError::untagged_runtime_error("Found .nu-env file in this directory, but it is not trusted. You can run 'autoenv trust' to allow it. This needs to be done after each change to the file"));
+            return Err(ShellError::untagged_runtime_error("Found untrusted .nu-env file in this directory. Run 'autoenv trust' and restart nushell to allow it. This needs to be done after each change to the file."));
         }
         Err(ShellError::untagged_runtime_error("No trusted directories"))
     }
@@ -95,9 +67,9 @@ impl DirectorySpecificEnvironment {
                 let toml_doc = self.toml_if_directory_is_trusted(wdirenv)?;
                 toml_doc
                     .get("env")
-                    .ok_or_else(|| Error::new(ErrorKind::InvalidData, "env section missing"))?
+                    .ok_or_else(|| Error::new(ErrorKind::InvalidData, "env section missing in .nu-env"))?
                     .as_table()
-                    .ok_or_else(|| Error::new(ErrorKind::InvalidData, "env section malformed"))?
+                    .ok_or_else(|| Error::new(ErrorKind::InvalidData, "malformed env section in .nu-env"))?
                     .iter()
                     .for_each(|(dir_env_key, dir_env_val)| {
                         let dir_env_val: EnvVal = dir_env_val.as_str().unwrap().into();
