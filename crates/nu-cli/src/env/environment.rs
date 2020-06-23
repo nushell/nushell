@@ -36,7 +36,7 @@ impl Env for Box<dyn Env> {
 pub struct Environment {
     environment_vars: Option<Value>,
     path_vars: Option<Value>,
-    pub direnv: DirectorySpecificEnvironment,
+    pub autoenv: DirectorySpecificEnvironment,
 }
 
 impl Environment {
@@ -44,7 +44,7 @@ impl Environment {
         Environment {
             environment_vars: None,
             path_vars: None,
-            direnv: DirectorySpecificEnvironment::new(),
+            autoenv: DirectorySpecificEnvironment::new(),
         }
     }
 
@@ -54,16 +54,16 @@ impl Environment {
         Environment {
             environment_vars: env,
             path_vars: path,
-            direnv: DirectorySpecificEnvironment::new(),
+            autoenv: DirectorySpecificEnvironment::new(),
         }
     }
 
-    pub fn maintain_directory_environment(&mut self) -> Result<(), ShellError> {
-        self.direnv.env_vars_to_delete()?.iter().for_each(|k| {
+    pub fn autoenv(&mut self) -> Result<(), ShellError> {
+        self.autoenv.env_vars_to_delete()?.iter().for_each(|k| {
             self.remove_env(&k);
         });
 
-        self.direnv.env_vars_to_add()?.iter().for_each(|(k, v)| {
+        self.autoenv.env_vars_to_add()?.iter().for_each(|(k, v)| {
             self.add_env(&k, &v.to_string_lossy(), true);
         });
         Ok(())

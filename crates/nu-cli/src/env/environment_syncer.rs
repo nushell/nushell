@@ -45,7 +45,7 @@ impl EnvironmentSyncer {
     pub fn sync_env_vars(&mut self, ctx: &mut Context) {
         let mut environment = self.env.lock();
 
-        if let Err(e) = environment.maintain_directory_environment() {
+        if let Err(e) = environment.autoenv() {
             crate::cli::print_err(e, &Text::from(""));
         }
         if environment.env().is_some() {
