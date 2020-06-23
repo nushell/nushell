@@ -2,6 +2,7 @@ use crate::commands::{self, autoenv::Trusted};
 use commands::autoenv;
 use indexmap::{IndexMap, IndexSet};
 use nu_errors::ShellError;
+use nu_source::Span;
 use std::{
     collections::hash_map::DefaultHasher,
     ffi::OsString,
@@ -33,30 +34,51 @@ impl DirectorySpecificEnvironment {
         }
     }
 
+    // fn toml_if_directory_is_trusted(
+    //     &self,
+    //     mut wdirenv: PathBuf,
+    // ) -> Result<toml::Value, ShellError> {
+    //     if let Some(trusted) = &self.trusted {
+    //         wdirenv.push(".nu-env");
+    //         if wdirenv.exists() {
+    //             let content = std::fs::read_to_string(&wdirenv)?;
+    //             let mut hasher = DefaultHasher::new();
+    //             content.hash(&mut hasher);
+    //             if trusted.files.get(wdirenv.to_str().unwrap())
+    //                 == Some(&hasher.finish().to_string())
+    //             {
+    //                 return Ok(content.parse::<toml::Value>().or_else(|_| {
+    //                     Err(ShellError::unexpected_eof(
+    //                         "Could not parse .nu-env file. Is it well-formed?",
+    //                         Span::default(),
+    //                     ))
+    //                 })?);
+    //             } else {
+    //                 return Err(ShellError::unexpected_eof("Found .nu-env file in this directory, but it is not trusted. You can run 'autoenv trust' to allow it. This needs to be done after each change to the file",
+    //                 Span::default()));
+    //             }
+    //         }
+    //     }
+    //     Err(ShellError::unexpected_eof("No trusted directories", Span::default()))
+    // }
+
     fn toml_if_directory_is_trusted(
         &self,
-        mut wdirenv: PathBuf,
+        wdirenv: PathBuf,
     ) -> Result<toml::Value, ShellError> {
         if let Some(trusted) = &self.trusted {
-            wdirenv.push(".nu-env");
-            if wdirenv.exists() {
-                let content = std::fs::read_to_string(&wdirenv)?;
-                let mut hasher = DefaultHasher::new();
-                content.hash(&mut hasher);
-                if trusted.files.get(wdirenv.to_str().unwrap())
-                    == Some(&hasher.finish().to_string())
-                {
-                    return Ok(content.parse::<toml::Value>().or_else(|_| {
-                        Err(
-                            ShellError::untagged_runtime_error(
-                                "Could not parse .nu-env file. Is it well-formed?",
-                            ),
-                        )
-                    })?);
-                } else {
-                    return Err(ShellError::untagged_runtime_error("Found .nu-env file in this directory, but it is not trusted. You can run 'autoenv trust' to allow it. This needs to be done after each change to the file"));
-                }
+            let content = std::fs::read_to_string(&wdirenv)?;
+            let mut hasher = DefaultHasher::new();
+            content.hash(&mut hasher);
+
+            if trusted.files.get(wdirenv.to_str().unwrap()) == Some(&hasher.finish().to_string()) {
+                return Ok(content.parse::<toml::Value>().or_else(|_| {
+                    Err(ShellError::untagged_runtime_error(
+                        "Could not parse .nu-env file. Is it well-formed?",
+                    ))
+                })?);
             }
+            return Err(ShellError::untagged_runtime_error("Found .nu-env file in this directory, but it is not trusted. You can run 'autoenv trust' to allow it. This needs to be done after each change to the file"));
         }
         Err(ShellError::untagged_runtime_error("No trusted directories"))
     }
@@ -68,26 +90,29 @@ impl DirectorySpecificEnvironment {
 
         //Start in the current directory, then traverse towards the root with working_dir to see if we are in a subdirectory of a valid directory.
         while let Some(wdir) = working_dir {
-            let toml_doc = self.toml_if_directory_is_trusted(wdir.to_path_buf())?;
-            toml_doc
-                .get("env")
-                .ok_or_else(|| Error::new(ErrorKind::InvalidData, "env section missing"))?
-                .as_table()
-                .ok_or_else(|| Error::new(ErrorKind::InvalidData, "env section malformed"))?
-                .iter()
-                .for_each(|(dir_env_key, dir_env_val)| {
-                    let dir_env_val: EnvVal = dir_env_val.as_str().unwrap().into();
+            let wdirenv = wdir.join(".nu-env");
+            if wdirenv.exists() {
+                let toml_doc = self.toml_if_directory_is_trusted(wdirenv)?;
+                toml_doc
+                    .get("env")
+                    .ok_or_else(|| Error::new(ErrorKind::InvalidData, "env section missing"))?
+                    .as_table()
+                    .ok_or_else(|| Error::new(ErrorKind::InvalidData, "env section malformed"))?
+                    .iter()
+                    .for_each(|(dir_env_key, dir_env_val)| {
+                        let dir_env_val: EnvVal = dir_env_val.as_str().unwrap().into();
 
-                    //This condition is to make sure variables in parent directories don't overwrite variables set by subdirectories.
-                    if !vars_to_add.contains_key(dir_env_key) {
-                        vars_to_add.insert(dir_env_key.clone(), dir_env_val);
+                        //This condition is to make sure variables in parent directories don't overwrite variables set by subdirectories.
+                        if !vars_to_add.contains_key(dir_env_key) {
+                            vars_to_add.insert(dir_env_key.clone(), dir_env_val);
 
-                        self.added_env_vars
-                            .entry(wdir.to_path_buf())
-                            .or_insert(IndexSet::new())
-                            .insert(dir_env_key.clone());
-                    }
-                });
+                            self.added_env_vars
+                                .entry(wdir.to_path_buf())
+                                .or_insert(IndexSet::new())
+                                .insert(dir_env_key.clone());
+                        }
+                    });
+            }
 
             working_dir = working_dir //Keep going up in the directory structure with .parent()
                 .expect("This should not be None because of the while condition")

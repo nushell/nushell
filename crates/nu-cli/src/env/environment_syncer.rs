@@ -42,10 +42,12 @@ impl EnvironmentSyncer {
         environment.morph(&*self.config);
     }
 
-    pub fn sync_env_vars(&mut self, ctx: &mut Context) -> Result<(), ShellError>{
+    pub fn sync_env_vars(&mut self, ctx: &mut Context) {
         let mut environment = self.env.lock();
 
-        environment.maintain_directory_environment().ok();
+        if let Err(e) = environment.maintain_directory_environment() {
+            ctx.error(e);
+        }
         if environment.env().is_some() {
             for (name, value) in ctx.with_host(|host| host.vars()) {
                 if name != "path" && name != "PATH" {
@@ -72,7 +74,6 @@ impl EnvironmentSyncer {
                 }
             }
         }
-        Ok(())
     }
 
     pub fn sync_path_vars(&mut self, ctx: &mut Context) {
