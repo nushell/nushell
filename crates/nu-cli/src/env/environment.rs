@@ -1,10 +1,10 @@
 use crate::data::config::Conf;
 use crate::env::directory_specific_environment::*;
 use indexmap::{indexmap, IndexSet};
+use nu_errors::ShellError;
 use nu_protocol::{UntaggedValue, Value};
 use std::ffi::OsString;
 use std::fmt::Debug;
-use nu_errors::ShellError;
 
 pub trait Env: Debug + Send {
     fn env(&self) -> Option<Value>;

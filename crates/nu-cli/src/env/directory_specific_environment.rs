@@ -65,11 +65,17 @@ impl DirectorySpecificEnvironment {
                 toml_doc
                     .get("env")
                     .ok_or_else(|| {
-                        Error::new(ErrorKind::InvalidData, format!("[env] section missing in {:?}", wdirenv))
+                        Error::new(
+                            ErrorKind::InvalidData,
+                            format!("[env] section missing in {:?}", wdirenv),
+                        )
                     })?
                     .as_table()
                     .ok_or_else(|| {
-                        Error::new(ErrorKind::InvalidData, format!("[env] section malformed in {:?}", wdirenv))
+                        Error::new(
+                            ErrorKind::InvalidData,
+                            format!("[env] section malformed in {:?}", wdirenv),
+                        )
                     })?
                     .iter()
                     .for_each(|(dir_env_key, dir_env_val)| {
