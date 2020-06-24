@@ -16,17 +16,16 @@ pub async fn run_with_function(
     let res = calculate(&values, &name, mf);
     match res {
         Ok(v) => {
-            if result.value.is_table() {
-                    Ok(OutputStream::from(
-                        result
-                            .table_entries()
-                            .map(|v| ReturnSuccess::value(v.clone()))
-                            .collect::<Vec<_>>(),
-                    ))
-                } else {
-                    Ok(OutputStream::one(ReturnSuccess::value(result)))
-                }
-        },
+            if v.value.is_table() {
+                Ok(OutputStream::from(
+                    v.table_entries()
+                        .map(|v| ReturnSuccess::value(v.clone()))
+                        .collect::<Vec<_>>(),
+                ))
+            } else {
+                Ok(OutputStream::one(ReturnSuccess::value(v)))
+            }
+        }
         Err(e) => Err(e),
     }
 }

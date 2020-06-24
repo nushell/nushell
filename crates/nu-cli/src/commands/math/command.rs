@@ -36,7 +36,7 @@ mod tests {
     use super::*;
     use crate::commands::math::{
         avg::average, max::maximum, median::median, min::minimum, mode::mode, sum::summation,
-        utils::MathFunction,
+        utils::calculate, utils::MathFunction,
     };
     use nu_plugin::row;
     use nu_plugin::test_helpers::value::{decimal, int, table};
@@ -144,6 +144,9 @@ mod tests {
                     Ok(row!["col1".to_owned() => int(1), "col2".to_owned() => int(5)]),
                     Ok(row!["col1".to_owned() => int(4), "col2".to_owned() => int(8)]),
                     Ok(row!["col1".to_owned() => decimal(2.5), "col2".to_owned() => decimal(6.5)]),
+                    Ok(
+                        row!["col1".to_owned() => table(&vec![int(1), int(2), int(3), int(4)]), "col2".to_owned() => table(&vec![int(5), int(6), int(7), int(8)])],
+                    ),
                     Ok(row!["col1".to_owned() => int(10), "col2".to_owned() => int(26)]),
                 ],
             },

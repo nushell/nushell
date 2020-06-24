@@ -1,4 +1,4 @@
-use crate::commands::math::utils::calculate;
+use crate::commands::math::utils::run_with_function;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -41,7 +41,7 @@ impl WholeStreamCommand for SubCommand {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        calculate(
+        run_with_function(
             RunnableContext {
                 input: args.input,
                 registry: registry.clone(),
