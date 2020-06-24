@@ -172,9 +172,9 @@ dependencies = [
 
 [[package]]
 name = "attohttpc"
-version = "0.13.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5db1932a9d70d5091139d6b0e04ec6a4d9f9184041c15d71a5ef954cb3c5312"
+checksum = "93610ce1c035e8a273fe56a19852e42798f3c019ca2726e52d2971197f116525"
 dependencies = [
  "http 0.2.1",
  "log",
@@ -2408,6 +2408,7 @@ dependencies = [
  "pretty_env_logger",
  "semver 0.10.0",
  "serde 1.0.110",
+ "starship",
  "syntect",
  "toml 0.5.6",
  "url",
@@ -3008,9 +3009,9 @@ checksum = "a86ed3f5f244b372d6b1a00b72ef7f8876d0bc6a78a4c9985c53614041512063"
 
 [[package]]
 name = "os_info"
-version = "2.0.5"
+version = "2.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae61f9dcacbe39e64641baaff75d97d61a0e7409a60dc6c7fc83691511afb3fe"
+checksum = "67cc1fe7b45f7e51f755195fd86b0483dbae30fdcf831a3254438d29118d12c4"
 dependencies = [
  "log",
  "serde 1.0.110",
@@ -3489,9 +3490,9 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "1.3.7"
+version = "1.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a6020f034922e3194c711b82a627453881bc4682166cabb07134a10c26ba7692"
+checksum = "9c3780fcf44b193bc4d09f36d2a3c87b251da4a046c87795a0d35f4f927ad8e6"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -3510,9 +3511,9 @@ dependencies = [
 
 [[package]]
 name = "regex-syntax"
-version = "0.6.17"
+version = "0.6.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fe5bd57d1d7414c6b5ed48563a2c855d995ff777729dcd91c369ec7fea395ae"
+checksum = "26412eb97c6b088a6997e05f69403a802a92d520de2f8e63c2b65f9e0f47c4e8"
 
 [[package]]
 name = "remove_dir_all"
@@ -3953,9 +3954,9 @@ dependencies = [
 
 [[package]]
 name = "starship"
-version = "0.41.3"
+version = "0.42.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "891dec63d2b8ffed3d2388c0449dbd939f6da1b26747ba0ed1a01e4d47f32fce"
+checksum = "3e5fbb7eefc575ca97af2adcd9176933d28b0fc9357af45bac5d653c0e922342"
 dependencies = [
  "ansi_term 0.12.1",
  "attohttpc",
@@ -4108,9 +4109,9 @@ dependencies = [
 
 [[package]]
 name = "sysinfo"
-version = "0.14.2"
+version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70bbf8e10fc10b83e71bc19f4374ce17209d45c7c4c99b5067ac554aba3bfd08"
+checksum = "11c9e4fd26a5b1dfa0aceb8417d4825b65b49cf98b84a45b7af4007ad403e797"
 dependencies = [
  "cfg-if",
  "doc-comment",
