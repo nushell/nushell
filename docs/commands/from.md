@@ -27,7 +27,7 @@ Use this when nushell cannot determine the input file extension.
 
 ## Example for `from csv`
 
-Let's say we have the following file :
+Let's say we have the following file:
 
 ```shell
 > cat pets.txt
@@ -37,7 +37,7 @@ dog, Alfred, 10
 chameleon, Linda, 1
 ```
 
-`pets.txt` is actually a .csv file but it has the .txt extension, `open` is not able to convert it into a table :
+`pets.txt` is actually a .csv file but it has the .txt extension, `open` is not able to convert it into a table:
 
 ```shell
 > open pets.txt

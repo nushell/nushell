@@ -14,31 +14,29 @@ As of writing this, the only metadata returned includes:
 
 ```shell
 > open README.md | tags
-━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- span           │ anchor
-────────────────┼──────────────────────────────────────────────────
- [table: 1 row] │ /Users/danielh/Projects/github/nushell/README.md
-━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+────────┬──────────────────────────────────────────────────
+ span   │ [row end start]
+ anchor │ /Users/danielh/Projects/github/nushell/README.md
+────────┴──────────────────────────────────────────────────
 ```
 
 ```shell
 > open README.md | tags | get span
-━━━━━━━┯━━━━━
- start │ end
-───────┼─────
-     5 │  14
-━━━━━━━┷━━━━━
+───────┬────
+ start │ 5
+ end   │ 14
+───────┴────
 ```
 
 ```shell
 > ls | tags | first 3 | get span
-━━━┯━━━━━━━┯━━━━━
+───┬───────┬─────
  # │ start │ end
 ───┼───────┼─────
  0 │     0 │   2
  1 │     0 │   2
  2 │     0 │   2
-━━━┷━━━━━━━┷━━━━━
+───┴───────┴─────
 ```
 
 ## Reference

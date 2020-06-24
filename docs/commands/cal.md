@@ -191,7 +191,7 @@ Use `cal` to display a calendar.
 ```
 
 ```shell
-> cal -ymq --month-names --week-start-day monday
+> cal -ymq --month-names --week-start monday
 ───┬──────┬─────────┬───────┬────────┬─────────┬───────────┬──────────┬────────┬──────────┬────────
  # │ year │ quarter │ month │ monday │ tuesday │ wednesday │ thursday │ friday │ saturday │ sunday
 ───┼──────┼─────────┼───────┼────────┼─────────┼───────────┼──────────┼────────┼──────────┼────────

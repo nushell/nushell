@@ -1,14 +1,13 @@
 # from json
 
-Parse text as `.json` and create table. Use this when nushell cannot dertermine the input file extension.
+Parse text as `.json` and create table. Use this when nushell cannot determine the input file extension.
 
 Syntax: `from json {flags}`
 
-### Flags:
+## Flags
 
     --objects
       treat each line as a separate value
-
 
 ## Examples
 

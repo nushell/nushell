@@ -1,13 +1,17 @@
 # lines
+
 This command takes a string from a pipeline as input, and returns a table where each line of the input string is a row in the table. Empty lines are ignored. This command is capable of feeding other commands, such as `nth`, with its output.
 
 ## Usage
+
 ```shell
 > [input-command] | lines
 ```
 
 ## Examples
+
 Basic usage:
+
 ```shell
 > printf "Hello\nWorld!\nLove, nushell." | lines
 ━━━┯━━━━━━━━━━━━━━━━
@@ -20,6 +24,7 @@ Basic usage:
 ```
 
 One useful application is piping the contents of file into `lines`. This example extracts a certain line from a given file.
+
 ```shell
 > cat lines.md | lines | nth 6
 ## Examples

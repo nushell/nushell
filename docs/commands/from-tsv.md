@@ -4,7 +4,7 @@ Parse text as `.tsv` and create table.
 
 Syntax: `from tsv {flags}`
 
-### Flags:
+## Flags
 
     --headerless
       don't treat the first row as column names

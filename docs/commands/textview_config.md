@@ -1,7 +1,8 @@
 # textview config
 The configuration for textview, which is used to autoview text files, uses [bat](https://docs.rs/bat/0.15.4/bat/struct.PrettyPrinter.html). The textview configurtion will **not** use any existing `bat` configuration you may have.
 
-### Configuration Points and Defaults
+## Configuration Points and Defaults
+
 | config point | definition | implemented |
 | - | - | - |
 | term_width | The character width of the terminal (default: autodetect) | yes |
@@ -22,7 +23,8 @@ The configuration for textview, which is used to autoview text files, uses [bat]
 | highlight_range | Specify a range of lines that should be highlighted (default: none). This can be called multiple times to highlight more than one range of lines. | no |
 | theme | Specify the highlighting theme (default: OneHalfDark) | yes |
 
-### Example textview confguration for `config.toml`
+## Example textview confguration for `config.toml`
+
 ```toml
 [textview]
 term_width = "default"
@@ -40,16 +42,21 @@ paging_mode = "QuitIfOneScreen"
 pager = "less"
 theme = "TwoDark"
 ```
-### Example Usage
-```
+
+## Example Usage
+
+```shell
 > open src/main.rs
 ```
-```
+
+```shell
 > cat some_file.txt | textview
 ```
-```
+
+```shell
 > fetch https://www.jonathanturner.org/feed.xml --raw
 ```
 
-### Help
+## Help
+
 For a more detailed description of the configuration points that textview uses, please visit the `bat` repo at https://github.com/sharkdp/bat
