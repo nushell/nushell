@@ -8,7 +8,6 @@ Syntax: `> [input-command] | every <stride> {flags}`
 
 * `--skip`, `-s`: Skip the rows that would be returned, instead of selecting them
 
-
 ## Examples
 
 ```shell

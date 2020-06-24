@@ -2,7 +2,7 @@
 
 This commands gives word count statistics on any text.
 
-## Examples -
+## Examples
 
 ```shell
 > open lalala.txt | size
@@ -11,6 +11,9 @@ This commands gives word count statistics on any text.
 ───────┼───────┼───────┼────────────
      4 │    10 │    72 │         72
 ━━━━━━━┷━━━━━━━┷━━━━━━━┷━━━━━━━━━━━━
+```
+
+```shell
 > open the_mysterious_affair_at_styles.txt | size
 ━━━━━━━┯━━━━━━━┯━━━━━━━━┯━━━━━━━━━━━━
  lines │ words │ chars  │ max length

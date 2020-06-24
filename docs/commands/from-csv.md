@@ -4,7 +4,7 @@ Converts csv data into table. Use this when nushell cannot determine the input f
 
 ## Example
 
-Let's say we have the following file :
+Let's say we have the following file:
 
 ```shell
 > cat pets.txt
@@ -14,7 +14,7 @@ dog, Alfred, 10
 chameleon, Linda, 1
 ```
 
-`pets.txt` is actually a .csv file but it has the .txt extension, `open` is not able to convert it into a table :
+`pets.txt` is actually a .csv file but it has the .txt extension, `open` is not able to convert it into a table:
 
 ```shell
 > open pets.txt
@@ -24,7 +24,7 @@ dog, Alfred, 10
 chameleon, Linda, 1
 ```
 
-To get a table from `pets.txt` we need to use the `from csv` command :
+To get a table from `pets.txt` we need to use the `from csv` command:
 
 ```shell
 > open pets.txt | from csv
@@ -37,7 +37,7 @@ To get a table from `pets.txt` we need to use the `from csv` command :
 ━━━┷━━━━━━━━━━━┷━━━━━━━━━┷━━━━━━
 ```
 
-To ignore the csv headers use `--headerless` :
+To ignore the csv headers use `--headerless`:
 
 ```shell
 ━━━┯━━━━━━━━━━━┯━━━━━━━━━┯━━━━━━━━━
@@ -48,7 +48,7 @@ To ignore the csv headers use `--headerless` :
 ━━━┷━━━━━━━━━━━┷━━━━━━━━━┷━━━━━━━━━
 ```
 
-To split on a character other than ',' use `--separator` :
+To split on a character other than ',' use `--separator`:
 
 ```shell
 > open pets.txt
@@ -105,7 +105,7 @@ Note that separators are currently provided as strings and need to be wrapped in
   |                                            ^
 ```
 
-It is also considered an error to use a separator greater than one char :
+It is also considered an error to use a separator greater than one char:
 
 ```shell
 > open pets.txt | from csv --separator '123'

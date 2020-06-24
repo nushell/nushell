@@ -4,7 +4,7 @@ Parses MS Excel binary data into a table. `open` calls `from xlsx` automatically
 
 ## Examples
 
-```sh
+```shell
 > open abc.xlsx
 ─────────────────
  Sheet1

@@ -4,72 +4,66 @@ Pivots the table contents so rows become columns and columns become rows.
 
 ## Examples
 
-```sh
+```shell
 > ls docs
-━━━┯━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━┯━━━━━━━━━━┯━━━━━━━━┯━━━━━━━━━━━━━┯━━━━━━━━━━━━━
- # │ name               │ type      │ readonly │ size   │ accessed    │ modified
-───┼────────────────────┼───────────┼──────────┼────────┼─────────────┼─────────────
- 0 │ docs/commands      │ Directory │          │ 4.1 KB │ an hour ago │ an hour ago
- 1 │ docs/docker.md     │ File      │          │ 7.0 KB │ an hour ago │ a day ago
- 2 │ docs/philosophy.md │ File      │          │ 896 B  │ an hour ago │ a day ago
-━━━┷━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━┷━━━━━━━━━━┷━━━━━━━━┷━━━━━━━━━━━━━┷━━━━━━━━━━━━━
+───┬────────────────────┬──────┬────────┬─────────────
+ # │ name               │ type │ size   │ modified
+───┼────────────────────┼──────┼────────┼─────────────
+ 0 │ docs/commands      │ Dir  │ 2.7 KB │ 53 mins ago
+ 1 │ docs/docker.md     │ File │ 7.0 KB │ 40 mins ago
+ 2 │ docs/philosophy.md │ File │  912 B │ 54 mins ago
+───┴────────────────────┴──────┴────────┴─────────────
+```
 
+```shell
 > ls docs | pivot
-━━━┯━━━━━━━━━━┯━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━
+───┬──────────┬───────────────┬────────────────┬────────────────────
  # │ Column0  │ Column1       │ Column2        │ Column3
 ───┼──────────┼───────────────┼────────────────┼────────────────────
  0 │ name     │ docs/commands │ docs/docker.md │ docs/philosophy.md
- 1 │ type     │ Directory     │ File           │ File
- 2 │ readonly │               │                │
- 3 │ size     │        4.1 KB │         7.0 KB │             896 B
- 4 │ accessed │ an hour ago   │ an hour ago    │ an hour ago
- 5 │ modified │ an hour ago   │ a day ago      │ a day ago
-━━━┷━━━━━━━━━━┷━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━
+ 1 │ type     │ Dir           │ File           │ File
+ 2 │ size     │        2.7 KB │         7.0 KB │              912 B
+ 3 │ modified │ 53 mins ago   │ 40 mins ago    │ 55 mins ago
+───┴──────────┴───────────────┴────────────────┴────────────────────
 ```
 
 Use `--header-row` to treat the first row as column names:
 
 ```shell
 > ls docs | pivot --header-row
-━━━┯━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━
+───┬───────────────┬────────────────┬────────────────────
  # │ docs/commands │ docs/docker.md │ docs/philosophy.md
 ───┼───────────────┼────────────────┼────────────────────
- 0 │ Directory     │ File           │ File
- 1 │               │                │
- 2 │        4.1 KB │         7.0 KB │             896 B
- 3 │ an hour ago   │ an hour ago    │ an hour ago
- 4 │ an hour ago   │ a day ago      │ a day ago
-━━━┷━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━
+ 0 │ Dir           │ File           │ File
+ 1 │        2.7 KB │         7.0 KB │              912 B
+ 2 │ 53 mins ago   │ 40 mins ago    │ 55 mins ago
+───┴───────────────┴────────────────┴────────────────────
 ```
 
 Use `--ignore-titles` to prevent pivoting the column names into values:
 
 ```shell
 > ls docs | pivot --ignore-titles
-━━━┯━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━
+───┬───────────────┬────────────────┬────────────────────
  # │ Column0       │ Column1        │ Column2
 ───┼───────────────┼────────────────┼────────────────────
  0 │ docs/commands │ docs/docker.md │ docs/philosophy.md
- 1 │ Directory     │ File           │ File
- 2 │               │                │
- 3 │        4.1 KB │         7.0 KB │             896 B
- 4 │ an hour ago   │ an hour ago    │ an hour ago
- 5 │ an hour ago   │ a day ago      │ a day ago
-━━━┷━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━
+ 1 │ Dir           │ File           │ File
+ 2 │        2.7 KB │         7.0 KB │              912 B
+ 3 │ 54 mins ago   │ 41 mins ago    │ 56 mins ago
+───┴───────────────┴────────────────┴────────────────────
 ```
 
 Additional arguments are used as column names:
 
 ```shell
 > ls docs | pivot foo bar baz
-━━━┯━━━━━━━━━━┯━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━
+───┬──────────┬───────────────┬────────────────┬────────────────────
  # │ foo      │ bar           │ baz            │ Column3
 ───┼──────────┼───────────────┼────────────────┼────────────────────
  0 │ name     │ docs/commands │ docs/docker.md │ docs/philosophy.md
- 1 │ type     │ Directory     │ File           │ File
- 2 │ readonly │               │                │
- 3 │ size     │        4.1 KB │         7.0 KB │             896 B
- 4 │ accessed │ 2 hours ago   │ 2 hours ago    │ 2 hours ago
- 5 │ modified │ 2 hours ago   │ a day ago      │ a day ago
-━━━┷━━━━━━━━━━┷━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━
+ 1 │ type     │ Dir           │ File           │ File
+ 2 │ size     │        2.7 KB │         7.0 KB │              912 B
+ 3 │ modified │ 55 mins ago   │ 41 mins ago    │ 56 mins ago
+───┴──────────┴───────────────┴────────────────┴────────────────────
 ```

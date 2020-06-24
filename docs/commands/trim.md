@@ -7,18 +7,26 @@ Trim leading and following whitespace from text data
 ```shell
 > echo "    Hello world"
     Hello world
+```
+
+```shell
 > echo "    Hello world" | trim
 Hello world
 ```
 
 Trim can also be passed a list or table of text, for which it will trim each item individually.
 It will fail if any element in the list or table is not of type String.
+
 ```shell
 > open greetings.json | to json
 ["  hi  ", "  hello  ", "  wassup  "]
+```
+
+```shell
 > open greetings.json | trim | to json
 ["hi", "hello", "wassup"]
 ```
+
 ```shell
 > cargo search shells --limit 10 | lines | parse "{crate_name} = {version} #{description}"
 ━━━┯━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -36,6 +44,9 @@ It will fail if any element in the list or table is not of type String.
  9 │ rust_keylock_shell │ "0.10.0"                    │  Shell access to the rust-keylock. rust-keylock is a password manager with goals
    │                    │                             │ to be Secure, …
 ━━━┷━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+```shell
 > cargo search shells --limit 10 | lines | parse "{crate_name} = {version} #{description}" | trim
 ━━━┯━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  # │ crate_name         │ version  │ description

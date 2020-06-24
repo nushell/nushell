@@ -4,7 +4,7 @@ This command saves the contents of the pipeline to a file. Use this in combinati
 
 Syntax: `save (path) {flags}`
 
-### Parameters:
+## Parameters
 
 * `(path)` the path to save contents to
 

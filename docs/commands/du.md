@@ -6,17 +6,27 @@
 
 ```shell
 > du src/commands
-───┬──────────────┬──────────┬──────────┬────────────────
- # │ path         │ apparent │ physical │ directories
-───┼──────────────┼──────────┼──────────┼────────────────
- 0 │ src/commands │ 411.5 KB │ 647.2 KB │ [table 1 rows]
-───┴──────────────┴──────────┴──────────┴────────────────
+─────────────┬────────────────────────────
+ path        │ crates/nu-cli/src/commands
+ apparent    │ 655.9 KB
+ physical    │ 950.3 KB
+ directories │ [table 5 rows]
+ files       │
+─────────────┴────────────────────────────
+```
+
+```shell
 > du -a src/commands
-───┬──────────────┬──────────┬──────────┬─────────────────┬────────────────
- # │ path         │ apparent │ physical │ files           │ directories
-───┼──────────────┼──────────┼──────────┼─────────────────┼────────────────
- 0 │ src/commands │ 411.5 KB │ 647.2 KB │ [table 95 rows] │ [table 1 rows]
-───┴──────────────┴──────────┴──────────┴─────────────────┴────────────────
+─────────────┬────────────────────────────
+ path        │ crates/nu-cli/src/commands
+ apparent    │ 655.9 KB
+ physical    │ 950.3 KB
+ directories │ [table 5 rows]
+ files       │ [table 118 rows]
+─────────────┴────────────────────────────
+```
+
+```shell
 > du *.rs
 ───┬──────────┬──────────┬──────────
  # │ path     │ apparent │ physical

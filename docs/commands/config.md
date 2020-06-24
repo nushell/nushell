@@ -4,7 +4,7 @@ Configuration management.
 
 Syntax: `config {flags}`
 
-### Flags
+## Flags
 
     --load <file path shape>
       load the config from the path give
@@ -27,7 +27,7 @@ Syntax: `config {flags}`
     --path
       return the path to the config file
 
-### Variables
+## Variables
 
 | Variable           | Type                   | Description                                                               |
 | ------------------ | ---------------------- | ------------------------------------------------------------------------- |

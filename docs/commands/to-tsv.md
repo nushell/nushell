@@ -13,10 +13,12 @@ Converts table data into tsv text.
  1 │   │ filesystem │ /home/shaurya/Pictures
  2 │   │ filesystem │ /home/shaurya/Desktop
 ━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━
-> shells | to tsv
- 	name	path
-X	filesystem	/home/shaurya
+```
 
+```shell
+> shells | to tsv
+  name  path
+X filesystem  /home/shaurya
 ```
 
 ```shell
@@ -65,6 +67,9 @@ X	filesystem	/home/shaurya
    │              │              │             │ OMYACARB 1T  │          │            │            │            │           │           │
    │              │              │             │ CG BPA 25 NO │          │            │            │            │           │           │
 ━━━┷━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━┷━━━━━━━━━━━━━┷━━━━━━━━━━━━━━┷━━━━━━━━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━┷━━━━━━━━━━━┷━━━━━━━━━━━━━━
+```
+
+```shell
 > open caco3_plastics.tsv | to tsv
 importer        shipper tariff_item     name    origin  shipped_at      arrived_at      net_weight      fob_price       cif_price       cif_per_net_weight
 PLASTICOS RIVAL CIA LTDA        S A REVERTE     2509000000      CARBONATO DE CALCIO TIPO CALCIPORE 160 T AL     SPAIN   18/03/2016      17/04/2016    81,000.00        14,417.58       18,252.34       0.23
@@ -76,5 +81,4 @@ PICA PLASTICOS INDUSTRIALES C.A.        OMYA ANDINA S.A 3824909999      CARBONAT
 PLASTIQUIM S.A. OMYA ANDINA S.A NIT 830.027.386-6       3824909999      CARBONATO DE CALCIO RECUBIERTO CON ACIDO ESTEARICO OMYA CARB 1T CG BBS 1000   COLOMBIA 01/01/1900      25/10/2016      33,000.00       6,270.00        9,999.00        0.30
 QUIMICOS ANDINOS QUIMANDI S.A.  SIBELCO COLOMBIA SAS    3824909999      CARBONATO DE CALCIO RECUBIERTO  COLOMBIA        01/11/2016      03/11/2016    52,000.00        8,944.00        13,039.05       0.25
 TIGRE ECUADOR S.A. ECUATIGRE    OMYA ANDINA S.A NIT 830.027.386-6       3824909999      CARBONATO DE  CALCIO RECUBIERTO CON ACIDO ESTEARICO OMYACARB 1T CG BPA 25 NO   COLOMBIA        01/01/1900      28/10/2016      66,000.00       11,748.00       18,216.00       0.28
-
 ```
