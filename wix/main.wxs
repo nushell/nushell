@@ -175,6 +175,15 @@
                                 Source='target\$(var.Profile)\nu.exe'
                                 KeyPath='yes'/>
                         </Component>
+                        <!-- Downloaded from here https://github.com/jftuga/less-Windows/releases/download/less-v562.0/less.exe -->
+                        <Component Id='binary11' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe11'
+                                Name='less.exe'
+                                DiskId='1'
+                                Source='wix\less.exe'
+                                KeyPath='yes'/>
+                        </Component>
                     </Directory>
                 </Directory>
             </Directory>
@@ -206,6 +215,7 @@
             <ComponentRef Id='binary8'/>
             <ComponentRef Id='binary9'/>
             <ComponentRef Id='binary10'/>
+            <ComponentRef Id='binary11'/>
 
             <Feature
                 Id='Environment'
