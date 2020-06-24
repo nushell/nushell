@@ -15,21 +15,6 @@ impl WholeStreamCommand for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("math mode")
-            .switch(
-                "all",
-                "return a list of all modes, if there are multiple",
-                Some('a'),
-            )
-            .switch(
-                "min",
-                "return the smallest all modes, if there are multiple",
-                None,
-            )
-            .switch(
-                "max",
-                "return a list of all modes, if there are multiple",
-                None,
-            )
     }
 
     fn usage(&self) -> &str {
