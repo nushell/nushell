@@ -35,10 +35,10 @@ impl WholeStreamCommand for Command {
 mod tests {
     use super::*;
     use crate::commands::math::{
-        avg::average, max::maximum, median::median, min::minimum, sum::summation,
+        avg::average, max::maximum, median::median, min::minimum, mode::mode, sum::summation,
         utils::MathFunction,
     };
-    use nu_plugin::test_helpers::value::{decimal, int};
+    use nu_plugin::test_helpers::value::{decimal, int, table};
     use nu_protocol::Value;
 
     #[test]
@@ -73,6 +73,7 @@ mod tests {
                     Ok(int(10)),
                     Ok(int(10)),
                     Ok(int(10)),
+                    Ok(table(&vec![int(10)])),
                     Ok(int(10)),
                 ],
             },
@@ -85,6 +86,7 @@ mod tests {
                     Ok(int(10)),
                     Ok(int(30)),
                     Ok(int(20)),
+                    Ok(table(&vec![int(10), int(20), int(30)])),
                     Ok(int(60)),
                 ],
             },
@@ -97,6 +99,7 @@ mod tests {
                     Ok(int(10)),
                     Ok(decimal(26.5)),
                     Ok(decimal(26.5)),
+                    Ok(table(&vec![decimal(26.5)])),
                     Ok(decimal(63)),
                 ],
             },
@@ -109,6 +112,7 @@ mod tests {
                     Ok(int(-14)),
                     Ok(int(10)),
                     Ok(int(-11)),
+                    Ok(table(&vec![int(-14), int(-11), int(10)])),
                     Ok(int(-15)),
                 ],
             },
@@ -121,6 +125,7 @@ mod tests {
                     Ok(decimal(-13.5)),
                     Ok(int(10)),
                     Ok(decimal(-11.5)),
+                    Ok(table(&vec![decimal(-13.5), decimal(-11.5), int(10)])),
                     Ok(decimal(-15)),
                 ],
             },
@@ -148,7 +153,7 @@ mod tests {
         for tc in tt.iter() {
             let tc: &TestCase = tc; // Just for type annotations
             let math_functions: Vec<MathFunction> =
-                vec![average, minimum, maximum, median, summation];
+                vec![average, minimum, maximum, median, mode, summation];
             let results = math_functions
                 .iter()
                 .map(|mf| mf(&tc.values, &test_tag))

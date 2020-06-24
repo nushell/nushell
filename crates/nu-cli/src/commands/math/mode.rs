@@ -33,7 +33,7 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Gets the mode of a list of numbers"
+        "Gets the most frequent element(s) from a list of numbers or tables"
     }
 
     async fn run(
@@ -62,8 +62,8 @@ impl WholeStreamCommand for SubCommand {
             description: "Get the mode(s) of a list of numbers",
             example: "echo [3 3 9 12 12 15] | math mode",
             result: Some(vec![
-                UntaggedValue::decimal(3).into(),
-                UntaggedValue::decimal(12).into(),
+                UntaggedValue::int(3).into_untagged_value(),
+                UntaggedValue::int(12).into_untagged_value(),
             ]),
         }]
     }
@@ -92,7 +92,7 @@ pub fn mode(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
         }
     }
 
-    modes.sort();
+    crate::commands::sort_by::sort(&mut modes, &[], name)?;
     Ok(UntaggedValue::Table(modes).into_value(name))
 }
 
