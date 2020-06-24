@@ -305,6 +305,7 @@ pub fn create_default_context(
             whole_stream_command(StrToDatetime),
             whole_stream_command(StrTrim),
             whole_stream_command(BuildString),
+            whole_stream_command(Human), // TODO correct location?
             // Column manipulation
             whole_stream_command(Reject),
             whole_stream_command(Select),
