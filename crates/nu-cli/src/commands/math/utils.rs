@@ -15,7 +15,17 @@ pub async fn run_with_function(
     let values: Vec<Value> = input.drain_vec().await;
     let res = calculate(&values, &name, mf);
     match res {
-        Ok(v) => Ok(OutputStream::one(ReturnSuccess::value(v))),
+        Ok(v) => {
+            if v.value.is_table() {
+                Ok(OutputStream::from(
+                    v.table_entries()
+                        .map(|v| ReturnSuccess::value(v.clone()))
+                        .collect::<Vec<_>>(),
+                ))
+            } else {
+                Ok(OutputStream::one(ReturnSuccess::value(v)))
+            }
+        }
         Err(e) => Err(e),
     }
 }
