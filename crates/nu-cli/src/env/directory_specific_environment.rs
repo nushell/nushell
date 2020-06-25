@@ -2,11 +2,10 @@ use crate::commands::{self, autoenv::Trusted};
 use commands::autoenv;
 use indexmap::{IndexMap, IndexSet};
 use nu_errors::ShellError;
+use sha2::{Digest, Sha256};
 use std::{
-    collections::hash_map::DefaultHasher,
     ffi::OsString,
     fmt::Debug,
-    hash::{Hash, Hasher},
     path::{Path, PathBuf},
 };
 
@@ -34,13 +33,14 @@ impl DirectorySpecificEnvironment {
 
     fn toml_if_directory_is_trusted(&self, wdirenv: &PathBuf) -> Result<toml::Value, ShellError> {
         if let Some(trusted) = &self.trusted {
-            let content = std::fs::read_to_string(&wdirenv)?;
-            let mut hasher = DefaultHasher::new();
-            content.hash(&mut hasher);
+            let content = std::fs::read(&wdirenv)?;
 
             if trusted.files.get(wdirenv.to_str().unwrap_or(""))
-                == Some(&hasher.finish().to_string())
+                == Some(&Sha256::digest(&content).as_slice().to_vec())
             {
+                let content = std::str::from_utf8(&content.as_slice()).or_else(|_| {
+                    Err(ShellError::untagged_runtime_error(format!("Could not read {:?} as utf8 string", content)))
+                })?;
                 return Ok(content.parse::<toml::Value>().or_else(|_| {
                     Err(ShellError::untagged_runtime_error(format!(
                         "Could not parse {:?}. Is it well-formed?",

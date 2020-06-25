@@ -4,8 +4,9 @@ use crate::{path, prelude::*};
 use nu_errors::ShellError;
 use nu_protocol::SyntaxShape;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
-use std::hash::{Hash, Hasher};
-use std::{collections::hash_map::DefaultHasher, fs, path::PathBuf};
+use std::{fs, path::PathBuf};
+
+use sha2::{Digest, Sha256};
 pub struct AutoenvTrust;
 
 #[async_trait]
@@ -45,20 +46,14 @@ impl WholeStreamCommand for AutoenvTrust {
             }
         };
 
-        let content = std::fs::read_to_string(&file_to_trust).or_else(|_| {
-            Err(ShellError::untagged_runtime_error(
-                "No .nu-env file in the given directory",
-            ))
-        })?;
+        let content = std::fs::read(&file_to_trust)?;
 
-        let mut hasher = DefaultHasher::new();
-        content.hash(&mut hasher);
-
-        let file_to_trust = file_to_trust.to_string_lossy().to_string();
+        let filename = file_to_trust.to_string_lossy().to_string();
         let mut allowed = Trusted::read_trusted()?;
-        allowed
-            .files
-            .insert(file_to_trust, hasher.finish().to_string());
+        allowed.files.insert(
+            filename,
+            Sha256::digest(&content).as_slice().to_vec()
+        );
 
         let config_path = config::default_path_for(&Some(PathBuf::from("nu-env.toml")))?;
         let tomlstr = toml::to_string(&allowed).or_else(|_| {

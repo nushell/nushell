@@ -11,7 +11,7 @@ pub struct Autoenv;
 
 #[derive(Deserialize, Serialize, Debug, Default)]
 pub struct Trusted {
-    pub files: IndexMap<String, String>,
+    pub files: IndexMap<String, Vec<u8>>,
 }
 impl Trusted {
     pub fn new() -> Self {
