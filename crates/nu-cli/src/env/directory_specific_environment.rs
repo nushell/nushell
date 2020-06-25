@@ -42,9 +42,10 @@ impl DirectorySpecificEnvironment {
                 == Some(&hasher.finish().to_string())
             {
                 return Ok(content.parse::<toml::Value>().or_else(|_| {
-                    Err(ShellError::untagged_runtime_error(
-                        format!("Could not parse {:?}. Is it well-formed?", wdirenv)
-                    ))
+                    Err(ShellError::untagged_runtime_error(format!(
+                        "Could not parse {:?}. Is it well-formed?",
+                        wdirenv
+                    )))
                 })?);
             }
             return Err(ShellError::untagged_runtime_error(
