@@ -2402,6 +2402,7 @@ dependencies = [
  "pretty_env_logger",
  "semver 0.10.0",
  "serde 1.0.113",
+ "starship",
  "syntect",
  "toml 0.5.6",
  "url",
