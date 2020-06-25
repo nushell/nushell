@@ -181,7 +181,7 @@
                                 Id='exe11'
                                 Name='less.exe'
                                 DiskId='1'
-                                Source='wix\less.exe'
+                                Source='output\less.exe'
                                 KeyPath='yes'/>
                         </Component>
                     </Directory>
