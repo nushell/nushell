@@ -128,6 +128,7 @@ mod tests {
     use crate::context::Context;
     use crate::data::config::tests::FakeConfig;
     use crate::env::environment::Env;
+    use indexmap::IndexMap;
     use nu_errors::ShellError;
     use nu_test_support::fs::Stub::FileWithContent;
     use nu_test_support::playground::Playground;
@@ -141,13 +142,12 @@ mod tests {
         let mut ctx = Context::basic()?;
         ctx.host = Arc::new(Mutex::new(Box::new(crate::env::host::FakeHost::new())));
 
-        let expected = vec![
-            (
-                "SHELL".to_string(),
-                "/usr/bin/you_already_made_the_nu_choice".to_string(),
-            ),
-            ("USER".to_string(), "NUNO".to_string()),
-        ];
+        let mut expected = IndexMap::new();
+        expected.insert(
+            "SHELL".to_string(),
+            "/usr/bin/you_already_made_the_nu_choice".to_string(),
+        );
+        expected.insert("USER".to_string(), "NUNO".to_string());
 
         Playground::setup("syncs_env_test_1", |dirs, sandbox| {
             sandbox.with_files(vec![FileWithContent(
@@ -205,33 +205,34 @@ mod tests {
                     .into_string()
                     .expect("Couldn't convert to string.");
 
-                let actual = vec![
-                    ("SHELL".to_string(), var_shell),
-                    ("USER".to_string(), var_user),
-                ];
+                let mut found = IndexMap::new();
+                found.insert("SHELL".to_string(), var_shell);
+                found.insert("USER".to_string(), var_user);
 
-                assert_eq!(actual, expected);
+                for k in found.keys() {
+                    assert!(expected.contains_key(k));
+                }
             });
 
             // Now confirm in-memory environment variables synced appropriately
             // including the newer one accounted for.
             let environment = actual.env.lock();
 
-            let vars = environment
+            let mut vars = IndexMap::new();
+            environment
                 .env()
                 .expect("No variables in the environment.")
                 .row_entries()
-                .map(|(name, value)| {
-                    (
+                .for_each(|(name, value)| {
+                    vars.insert(
                         name.to_string(),
                         value.as_string().expect("Couldn't convert to string"),
-                    )
-                })
-                .collect::<Vec<_>>();
-
-            assert_eq!(vars, expected);
+                    );
+                });
+            for k in expected.keys() {
+                assert!(vars.contains_key(k));
+            }
         });
-
         Ok(())
     }
 
@@ -240,10 +241,11 @@ mod tests {
         let mut ctx = Context::basic()?;
         ctx.host = Arc::new(Mutex::new(Box::new(crate::env::host::FakeHost::new())));
 
-        let expected = vec![(
+        let mut expected = IndexMap::new();
+        expected.insert(
             "SHELL".to_string(),
             "/usr/bin/you_already_made_the_nu_choice".to_string(),
-        )];
+        );
 
         Playground::setup("syncs_env_test_2", |dirs, sandbox| {
             sandbox.with_files(vec![FileWithContent(
@@ -280,26 +282,30 @@ mod tests {
                     .into_string()
                     .expect("Couldn't convert to string.");
 
-                let actual = vec![("SHELL".to_string(), var_shell)];
+                let mut found = IndexMap::new();
+                found.insert("SHELL".to_string(), var_shell);
 
-                assert_eq!(actual, expected);
+                for k in found.keys() {
+                    assert!(expected.contains_key(k));
+                }
             });
 
             let environment = actual.env.lock();
 
-            let vars = environment
+            let mut vars = IndexMap::new();
+            environment
                 .env()
                 .expect("No variables in the environment.")
                 .row_entries()
-                .map(|(name, value)| {
-                    (
+                .for_each(|(name, value)| {
+                    vars.insert(
                         name.to_string(),
-                        value.as_string().expect("Couldn't convert to string"),
-                    )
-                })
-                .collect::<Vec<_>>();
-
-            assert_eq!(vars, expected);
+                        value.as_string().expect("couldn't convert to string"),
+                    );
+                });
+            for k in expected.keys() {
+                assert!(vars.contains_key(k));
+            }
         });
 
         Ok(())

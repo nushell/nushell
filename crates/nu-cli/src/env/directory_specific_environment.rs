@@ -7,7 +7,6 @@ use std::{
     ffi::OsString,
     fmt::Debug,
     hash::{Hash, Hasher},
-    io::{Error, ErrorKind},
     path::{Path, PathBuf},
 };
 
@@ -81,7 +80,7 @@ impl DirectorySpecificEnvironment {
                     })?
                     .iter()
                     .for_each(|(dir_env_key, dir_env_val)| {
-                        let dir_env_val: EnvVal = dir_env_val.as_str().unwrap_or_else("").into();
+                        let dir_env_val: EnvVal = dir_env_val.as_str().unwrap_or("").into();
 
                         //This condition is to make sure variables in parent directories don't overwrite variables set by subdirectories.
                         if !vars_to_add.contains_key(dir_env_key) {
@@ -94,7 +93,6 @@ impl DirectorySpecificEnvironment {
                         }
                     });
             }
-
             working_dir = working_dir //Keep going up in the directory structure with .parent()
                 .expect("This should not be None because of the while condition")
                 .parent();
