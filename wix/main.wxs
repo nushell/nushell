@@ -154,31 +154,23 @@
                         <Component Id='binary8' Guid='*' Win64='$(var.Win64)'>
                             <File
                                 Id='exe8'
-                                Name='nu_plugin_stable_tree.exe'
-                                DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_stable_tree.exe'
-                                KeyPath='yes'/>
-                        </Component>
-                        <Component Id='binary9' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe9'
                                 Name='nu_plugin_textview.exe'
                                 DiskId='1'
                                 Source='target\$(var.Profile)\nu_plugin_textview.exe'
                                 KeyPath='yes'/>
                         </Component>
-                        <Component Id='binary10' Guid='*' Win64='$(var.Win64)'>
+                        <Component Id='binary9' Guid='*' Win64='$(var.Win64)'>
                             <File
-                                Id='exe10'
+                                Id='exe9'
                                 Name='nu_plugin_tree.exe'
                                 DiskId='1'
                                 Source='target\$(var.Profile)\nu_plugin_tree.exe'
                                 KeyPath='yes'/>
                         </Component>
                         <!-- Downloaded from here https://github.com/jftuga/less-Windows/releases/download/less-v562.0/less.exe -->
-                        <Component Id='binary11' Guid='*' Win64='$(var.Win64)'>
+                        <Component Id='binary10' Guid='*' Win64='$(var.Win64)'>
                             <File
-                                Id='exe11'
+                                Id='exe10'
                                 Name='less.exe'
                                 DiskId='1'
                                 Source='output\less.exe'
@@ -215,7 +207,6 @@
             <ComponentRef Id='binary8'/>
             <ComponentRef Id='binary9'/>
             <ComponentRef Id='binary10'/>
-            <ComponentRef Id='binary11'/>
 
             <Feature
                 Id='Environment'
