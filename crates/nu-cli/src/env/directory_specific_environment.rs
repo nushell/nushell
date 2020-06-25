@@ -49,7 +49,7 @@ impl DirectorySpecificEnvironment {
                 })?);
             }
             return Err(ShellError::untagged_runtime_error(
-                format!("{:?} is untrusted. Run 'autoenv trust {:?}' and restart nushell to trust it.\nThis needs to be done after each change to the file.\n", wdirenv, wdirenv.parent().unwrap_or_else(|| &Path::new("")))));
+                format!("{:?} is untrusted. Run 'autoenv trust {:?}' and restart nushell to trust it.\nThis needs to be done after each change to the file.", wdirenv, wdirenv.parent().unwrap_or_else(|| &Path::new("")))));
         }
         Err(ShellError::untagged_runtime_error("No trusted directories"))
     }

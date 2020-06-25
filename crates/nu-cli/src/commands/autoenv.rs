@@ -22,19 +22,16 @@ impl Trusted {
     pub fn read_trusted() -> Result<Self, ShellError> {
         let config_path = config::default_path_for(&Some(PathBuf::from("nu-env.toml")))?;
 
-        let mut file = match std::fs::OpenOptions::new()
+        let mut file = std::fs::OpenOptions::new()
             .read(true)
             .create(true)
             .write(true)
             .open(config_path)
-        {
-            Ok(p) => p,
-            Err(_) => {
-                return Err(ShellError::untagged_runtime_error(
+            .or_else(|_| {
+                Err(ShellError::untagged_runtime_error(
                     "Couldn't open nu-env.toml",
-                ));
-            }
-        };
+                ))
+            })?;
         let mut doc = String::new();
         file.read_to_string(&mut doc)?;
 
