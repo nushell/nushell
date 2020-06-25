@@ -41,9 +41,10 @@ impl DirectorySpecificEnvironment {
                 let content = std::str::from_utf8(&content.as_slice()).or_else(|_| {
                     Err(ShellError::untagged_runtime_error(format!("Could not read {:?} as utf8 string", content)))
                 })?;
+                let content = std::fs::read_to_string(&wdirenv)?;
                 return Ok(content.parse::<toml::Value>().or_else(|_| {
                     Err(ShellError::untagged_runtime_error(format!(
-                        "Could not parse {:?}. Is it well-formed?",
+                        "Could not parse {:?}. Is it well-formed? Each entry must be written as key = \"value\" (note the quotation marks)",
                         wdirenv
                     )))
                 })?);
