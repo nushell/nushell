@@ -101,38 +101,30 @@ jobs:
       - name: Copy files to output
         run: |
           cp target\release\nu.exe output\
+          rm target\release\nu_plugin_core_*.exe
+          rm target\release\nu_plugin_stable_*.exe
           cp target\release\nu_plugin_*.exe output\
           cp README.build.txt output\README.txt
-          rm output\nu_plugin_core_*.exe
-          rm output\nu_plugin_stable_*.exe
       # Note: If the version of `less.exe` needs to be changed, update this URL
       # Similarly, if `less.exe` is checked into the repo, copy from the local path here
       - name: Download Less Binary
         run: Invoke-WebRequest -Uri "https://github.com/jftuga/less-Windows/releases/download/less-v562.1/less.exe" -OutFile "output\less.exe"
-      - name: Upload artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: windows
-          path: output/*
       # moved this stuff down to create wix after we download less
       - name: Create msi with wix
         uses: actions-rs/cargo@v1
         with:
           command: wix
           args: --no-build --nocapture --output target\wix\nushell-windows.msi
-      - name: Create zip of binaries
-        run: powershell Compress-Archive nu*.exe nushell-windows.zip
-        working-directory: ./target/release
       - name: Upload installer
         uses: actions/upload-artifact@v2
         with:
           name: windows-installer
-          path: target/wix/nushell-windows.msi
-      - name: Upload zip
+          path: target\wix\nushell-windows.msi
+      - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
-          name: windows-zip
-          path: target/release/nushell-windows.zip          
+          name: windows
+          path: output\*
 
   release:
     name: Publish Release
