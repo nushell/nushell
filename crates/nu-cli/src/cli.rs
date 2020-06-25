@@ -389,6 +389,9 @@ pub fn create_default_context(
             whole_stream_command(FromVcf),
             // "Private" commands (not intended to be accessed directly)
             whole_stream_command(RunExternalCommand { interactive }),
+            // Random value generation
+            whole_stream_command(Random),
+            whole_stream_command(RandomUUID),
         ]);
 
         cfg_if::cfg_if! {
