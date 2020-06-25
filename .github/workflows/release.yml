@@ -121,7 +121,7 @@ jobs:
           command: wix
           args: --no-build --nocapture --output target\wix\nushell-windows.msi
       - name: Create zip of binaries
-        run: powershell Compress-Archive nushell-windows.zip
+        run: powershell Compress-Archive nu*.exe nushell-windows.zip
         working-directory: ./target/release
       - name: Upload installer
         uses: actions/upload-artifact@v2
@@ -212,10 +212,15 @@ jobs:
           asset_content_type: application/zip
       - name: Create Windows Directory
         run: mkdir -p ${{ steps.info.outputs.windowsdir }}/${{ steps.info.outputs.innerdir }}
-      - name: Download Windows Artifacts
+      - name: Download Windows installer
         uses: actions/download-artifact@v2
         with:
-          name: windows
+          name: windows-installer
+          path: ${{ steps.info.outputs.windowsdir }}/${{ steps.info.outputs.innerdir }}
+      - name: Download Windows zip
+        uses: actions/download-artifact@v2
+        with:
+          name: windows-zip
           path: ${{ steps.info.outputs.windowsdir }}/${{ steps.info.outputs.innerdir }}
       # TODO: Remove Show
       - name: Show Windows Artifacts
@@ -230,4 +235,22 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./${{ steps.info.outputs.windowsdir }}.zip
           asset_name: ${{ steps.info.outputs.windowsdir }}.zip
+          asset_content_type: application/zip
+      - name: Upload Windows installer
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release/nushell-windows.msi
+          asset_name: nushell-${{ steps.release_info.outputs.version }}-windows-x86_64.msi
+          asset_content_type: applictaion/x-msi
+      - name: Upload Windows zip
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release/nushell-windows.zip
+          asset_name: nushell-${{ steps.release_info.outputs.version }}-windows.zip
           asset_content_type: application/zip
