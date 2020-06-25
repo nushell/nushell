@@ -61,7 +61,8 @@ impl WholeStreamCommand for AutoenvTrust {
             .insert(file_to_trust, hasher.finish().to_string());
 
         let config_path = config::default_path_for(&Some(PathBuf::from("nu-env.toml")))?;
-        fs::write(config_path, toml::to_string(&allowed).unwrap())
+        let tomlstr = toml::to_string(&allowed).or_else(|_| Err(ShellError::untagged_runtime_error("Couldn't serialize allowed dirs to nu-env.toml")))?;
+        fs::write(config_path, tomlstr)
             .expect("Couldn't write to toml file");
 
         Ok(OutputStream::one(ReturnSuccess::value(

@@ -43,7 +43,7 @@ impl DirectorySpecificEnvironment {
             {
                 return Ok(content.parse::<toml::Value>().or_else(|_| {
                     Err(ShellError::untagged_runtime_error(
-                        "Could not parse .nu-env file. Is it well-formed?",
+                        format!("Could not parse {:?}. Is it well-formed?", wdirenv)
                     ))
                 })?);
             }
