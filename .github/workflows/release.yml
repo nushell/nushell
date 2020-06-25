@@ -100,7 +100,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: wix
-          args: --no-build --output target\wix\nushell-windows.msi
+          args: --no-build --nocapture --output target\wix\nushell-windows.msi
       - name: Create zip of binaries
         run: powershell Compress-Archive nushell-windows.zip
         working-directory: ./target/release
