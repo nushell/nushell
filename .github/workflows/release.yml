@@ -114,6 +114,7 @@ jobs:
         with:
           name: windows
           path: output/*
+      # moved this stuff down to create wix after we download less
       - name: Create msi with wix
         uses: actions-rs/cargo@v1
         with:
