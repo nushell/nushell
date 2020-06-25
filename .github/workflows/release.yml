@@ -98,6 +98,8 @@ jobs:
           args: --release --all --features=stable
       - name: Create output directory
         run: mkdir output
+      - name: Download Less Binary
+        run: Invoke-WebRequest -Uri "https://github.com/jftuga/less-Windows/releases/download/less-v562.1/less.exe" -OutFile "target\release\less.exe"
       - name: Copy files to output
         run: |
           cp target\release\nu.exe output\
@@ -105,10 +107,9 @@ jobs:
           rm target\release\nu_plugin_stable_*.exe
           cp target\release\nu_plugin_*.exe output\
           cp README.build.txt output\README.txt
+          cp target\release\less.exe output\
       # Note: If the version of `less.exe` needs to be changed, update this URL
       # Similarly, if `less.exe` is checked into the repo, copy from the local path here
-      - name: Download Less Binary
-        run: Invoke-WebRequest -Uri "https://github.com/jftuga/less-Windows/releases/download/less-v562.1/less.exe" -OutFile "output\less.exe"
       # moved this stuff down to create wix after we download less
       - name: Create msi with wix
         uses: actions-rs/cargo@v1
