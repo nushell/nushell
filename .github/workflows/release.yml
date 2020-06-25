@@ -221,17 +221,6 @@ jobs:
       # TODO: Remove Show
       - name: Show Windows Artifacts
         run: ls -la ${{ steps.info.outputs.windowsdir }}/${{ steps.info.outputs.innerdir }}
-      - name: Create Windows Archive
-        run: zip -r ${{ steps.info.outputs.windowsdir }}.zip ${{ steps.info.outputs.windowsdir }}
-      - name: Upload Windows Artifact
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./${{ steps.info.outputs.windowsdir }}.zip
-          asset_name: ${{ steps.info.outputs.windowsdir }}.zip
-          asset_content_type: application/zip
       - name: Upload Windows installer
         uses: actions/upload-release-asset@v1
         env:
