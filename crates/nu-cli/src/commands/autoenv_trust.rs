@@ -50,10 +50,9 @@ impl WholeStreamCommand for AutoenvTrust {
 
         let filename = file_to_trust.to_string_lossy().to_string();
         let mut allowed = Trusted::read_trusted()?;
-        allowed.files.insert(
-            filename,
-            Sha256::digest(&content).as_slice().to_vec()
-        );
+        allowed
+            .files
+            .insert(filename, Sha256::digest(&content).as_slice().to_vec());
 
         let config_path = config::default_path_for(&Some(PathBuf::from("nu-env.toml")))?;
         let tomlstr = toml::to_string(&allowed).or_else(|_| {
