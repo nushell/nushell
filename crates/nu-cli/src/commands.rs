@@ -81,6 +81,7 @@ pub(crate) mod plugin;
 pub(crate) mod prepend;
 pub(crate) mod prev;
 pub(crate) mod pwd;
+pub(crate) mod random;
 pub(crate) mod range;
 #[allow(unused)]
 pub(crate) mod reduce_by;
@@ -198,7 +199,9 @@ pub(crate) use lines::Lines;
 pub(crate) use ls::Ls;
 #[allow(unused_imports)]
 pub(crate) use map_max_by::MapMaxBy;
-pub(crate) use math::{Math, MathAverage, MathMaximum, MathMedian, MathMinimum, MathSummation};
+pub(crate) use math::{
+    Math, MathAverage, MathMaximum, MathMedian, MathMinimum, MathMode, MathSummation,
+};
 pub(crate) use merge::Merge;
 pub(crate) use mkdir::Mkdir;
 pub(crate) use mv::Move;
@@ -210,6 +213,7 @@ pub(crate) use pivot::Pivot;
 pub(crate) use prepend::Prepend;
 pub(crate) use prev::Previous;
 pub(crate) use pwd::Pwd;
+pub(crate) use random::{Random, RandomUUID};
 pub(crate) use range::Range;
 #[allow(unused_imports)]
 pub(crate) use reduce_by::ReduceBy;

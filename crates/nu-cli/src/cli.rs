@@ -4,13 +4,11 @@ use crate::commands::plugin::JsonRpc;
 use crate::commands::plugin::{PluginCommand, PluginSink};
 use crate::commands::whole_stream_command;
 use crate::context::Context;
-#[cfg(not(feature = "starship-prompt"))]
 use crate::git::current_branch;
 use crate::path::canonicalize;
 use crate::prelude::*;
 use crate::EnvironmentSyncer;
 use futures_codec::FramedRead;
-
 use nu_errors::ShellError;
 use nu_protocol::hir::{ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments};
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
@@ -351,6 +349,7 @@ pub fn create_default_context(
             whole_stream_command(MathAverage),
             whole_stream_command(MathMedian),
             whole_stream_command(MathMinimum),
+            whole_stream_command(MathMode),
             whole_stream_command(MathMaximum),
             whole_stream_command(MathSummation),
             // File format output
@@ -388,6 +387,9 @@ pub fn create_default_context(
             whole_stream_command(FromVcf),
             // "Private" commands (not intended to be accessed directly)
             whole_stream_command(RunExternalCommand { interactive }),
+            // Random value generation
+            whole_stream_command(Random),
+            whole_stream_command(RandomUUID),
         ]);
 
         cfg_if::cfg_if! {
@@ -584,6 +586,15 @@ pub async fn cli(
 
         rl.set_helper(Some(crate::shell::Helper::new(context.clone())));
 
+        let config = config::config(Tag::unknown())?;
+        let use_starship = match config.get("use_starship") {
+            Some(b) => match b.as_bool() {
+                Ok(b) => b,
+                _ => false,
+            },
+            _ => false,
+        };
+
         let edit_mode = config::config(Tag::unknown())?
             .get("edit_mode")
             .map(|s| match s.value.expect_string() {
@@ -621,8 +632,7 @@ pub async fn cli(
         rl.set_completion_type(completion_mode);
 
         let colored_prompt = {
-            #[cfg(feature = "starship-prompt")]
-            {
+            if use_starship {
                 std::env::set_var("STARSHIP_SHELL", "");
                 std::env::set_var("PWD", &cwd);
                 let mut starship_context =
@@ -638,9 +648,7 @@ pub async fn cli(
                     _ => {}
                 };
                 starship::print::get_prompt(starship_context)
-            }
-            #[cfg(not(feature = "starship-prompt"))]
-            {
+            } else {
                 format!(
                     "\x1b[32m{}{}\x1b[m> ",
                     cwd,
