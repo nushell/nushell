@@ -86,11 +86,34 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
+      - name: Add cargo-wix subcommand
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-wix
       - name: Build
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --release --all --features=stable
+      - name: Create msi with wix
+        uses: actions-rs/cargo@v1
+        with:
+          command: wix
+          args: --no-build --output target\wix\nushell-windows.msi
+      - name: Create zip of binaries
+        run: powershell Compress-Archive nushell-windows.zip
+        working-directory: ./target/release
+      - name: Upload installer
+        uses: actions/upload-artifact@v2
+        with:
+          name: windows-installer
+          path: target/wix/nushell-windows.msi
+      - name: Upload zip
+        uses: actions/upload-artifact@v2
+        with:
+          name: windows-zip
+          path: target/release/nushell-windows.zip          
       - name: Create output directory
         run: mkdir output
       - name: Copy files to output
