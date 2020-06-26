@@ -1,9 +1,10 @@
 use crate::context::Context;
 use crate::data::config::{Conf, NuConfig};
+use std::io::Write;
 use crate::env::environment::{Env, Environment};
 use nu_source::Text;
 use parking_lot::Mutex;
-use std::sync::Arc;
+use std::{fs::OpenOptions, sync::Arc};
 
 pub struct EnvironmentSyncer {
     pub env: Arc<Mutex<Box<Environment>>>,
@@ -53,7 +54,7 @@ impl EnvironmentSyncer {
                 if name != "path" && name != "PATH" {
                     // account for new env vars present in the current session
                     // that aren't loaded from config.
-                    environment.add_env(&name, &value, false);
+                    environment.add_env(&name, &value, true);
 
                     // clear the env var from the session
                     // we are about to replace them

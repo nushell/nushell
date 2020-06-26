@@ -60,44 +60,32 @@ impl Environment {
     }
 
     pub fn autoenv(&mut self) -> Result<(), ShellError> {
-        let (to_delete, to_restore) = self.autoenv.cleanup_after_dir_exit()?;
-
-
-        let mut file = OpenOptions::new()
-            .write(true)
-            .append(true)
-            .create(true)
-            .open("cleanup.txt")
-            .unwrap(
-        );
-
-        write!(&mut file, "delete {:?}\n", to_delete).unwrap();
-
-        for k in to_delete {
-            self.remove_env(&k);
-        }
-
-        for (k, v) in to_restore {
-            self.add_env(&k, &v.to_string_lossy(), true);
-        }
-
         for (k, v) in self.autoenv.env_vars_to_add()? {
-            self.add_env(&k, &v.to_string_lossy(), true);
+            std::env::set_var(&k, OsString::from(v.to_string_lossy().to_string()));
+        }
+
+        let cleanup = self.autoenv.cleanup_after_dir_exit()?;
+
+        // let mut file = OpenOptions::new()
+        //     .write(true)
+        //     .append(true)
+        //     .create(true)
+        //     .open("cleanup.txt")
+        //     .unwrap(
+        // );
+
+        // write!(&mut file, "{:?}\n", cleanup).unwrap();
+
+        for (k, v) in  cleanup {
+            if let Some(v) = v {
+                std::env::set_var(k, v);
+            } else {
+                std::env::remove_var(k);
+            }
         }
 
         self.autoenv.last_seen_directory = std::env::current_dir()?;
         Ok(())
-    }
-
-    fn remove_env(&mut self, key: &str) {
-        if let Some(Value {
-            value: UntaggedValue::Row(ref mut envs),
-            ..
-        }) = self.environment_vars
-        {
-            envs.entries.remove(key);
-            std::env::remove_var(key);
-        };
     }
 
     pub fn morph<T: Conf>(&mut self, configuration: &T) {
