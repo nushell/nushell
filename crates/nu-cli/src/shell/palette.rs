@@ -241,8 +241,12 @@ impl ThemeColor {
     where
         E: serde::de::Error,
     {
-        let upper = b.next().ok_or(E::custom("color string too short"))?;
-        let lower = b.next().ok_or(E::custom("color string too short"))?;
+        let upper = b
+            .next()
+            .ok_or_else(|| E::custom("color string too short"))?;
+        let lower = b
+            .next()
+            .ok_or_else(|| E::custom("color string too short"))?;
         let mut val = ThemeColor::numerical_value(upper)?;
         val = (val << 4) | ThemeColor::numerical_value(lower)?;
         Ok(val)
