@@ -16,9 +16,9 @@ type EnvVal = OsString;
 #[derive(Debug, Default)]
 pub struct DirectorySpecificEnvironment {
     trusted: Option<Trusted>,
-    last_seen_directory: PathBuf,
+    pub last_seen_directory: PathBuf,
     //Directory -> Env key. If an environment var has been added from a .nu in a directory, we track it here so we can remove it when the user leaves the directory.
-    added_env_vars: IndexMap<PathBuf, IndexSet<EnvKey>>,
+    added_env_vars: IndexMap<PathBuf, IndexMap<EnvKey, Option<EnvVal>>>,
 }
 
 impl DirectorySpecificEnvironment {
@@ -67,7 +67,6 @@ impl DirectorySpecificEnvironment {
         //If current dir is parent to last_seen_directory, current.cmp(last) returns less
         //if current dir is the same as last_seen, current.cmp(last) returns equal
         if current_dir.cmp(&self.last_seen_directory) != std::cmp::Ordering::Greater {
-            self.last_seen_directory = current_dir;
             return Ok(vars_to_add);
         }
 
@@ -93,16 +92,27 @@ impl DirectorySpecificEnvironment {
                     })?
                     .iter()
                     .for_each(|(dir_env_key, dir_env_val)| {
+                        if let Some(existing_val) = std::env::var_os(dir_env_key) {
+                            let mut file = OpenOptions::new()
+                                .write(true)
+                                .append(true)
+                                .create(true)
+                                .open("toadd.txt")
+                                .unwrap();
+
+                            write!(&mut file, "{:?} = {:?}\n", dir_env_key, existing_val).unwrap();
+                        }
+
                         let dir_env_val: EnvVal = dir_env_val.as_str().unwrap_or("").into();
 
                         //This condition is to make sure variables in parent directories don't overwrite variables set by subdirectories.
                         if !vars_to_add.contains_key(dir_env_key) {
                             vars_to_add.insert(dir_env_key.clone(), dir_env_val);
-
+                            let existing_val = std::env::var_os(dir_env_key);
                             self.added_env_vars
                                 .entry(wdir.to_path_buf())
-                                .or_insert(IndexSet::new())
-                                .insert(dir_env_key.clone());
+                                .or_insert(IndexMap::new())
+                                .insert(dir_env_key.clone(), existing_val);
                         }
                     });
             }
@@ -117,38 +127,41 @@ impl DirectorySpecificEnvironment {
                 .expect("This should not be None because of the while condition")
                 .parent();
         }
-
-        self.last_seen_directory = current_dir;
         Ok(vars_to_add)
     }
 
     //If the user has left directories which added env vars through .nu, we clear those vars
     //once they are marked for deletion, remove them from added_env_vars
-    pub fn env_vars_to_delete(&mut self) -> Result<IndexSet<EnvKey>, ShellError> {
+    pub fn cleanup_after_dir_exit(
+        &mut self,
+    ) -> Result<(IndexSet<EnvKey>, IndexMap<EnvKey, EnvVal>), ShellError> {
         let current_dir = std::env::current_dir()?;
         let mut vars_to_delete = IndexSet::new();
+        let mut vars_to_restore = IndexMap::new();
 
         //If we are in the same directory as last_seen, or a subdirectory to it, do nothing
         //If we are in a subdirectory to last seen, do nothing
-        //If we are in a parent directory to last seen, exit .nu-envs from last seen to parent
+        //If we are in a parent directory to last seen, exit .nu-envs from last seen to parent and restore old vals
         if self.last_seen_directory.cmp(&current_dir) != std::cmp::Ordering::Greater {
-            return Ok(vars_to_delete);
+            return Ok((vars_to_delete, vars_to_restore));
         }
 
-        let mut working_dir = Some(self.last_seen_directory.as_path());
+        let mut working_dir = self.last_seen_directory.clone();
 
-        while let Some(wdir) = working_dir {
-            if let Some(vars_added_by_this_directory) = self.added_env_vars.get(wdir) {
-                //If we are still in a directory, we should continue to track the vars it added.
-                for k in vars_added_by_this_directory {
-                    vars_to_delete.insert(k.clone());
+        while working_dir != current_dir {
+            if let Some(vars_added_by_this_directory) = self.added_env_vars.get(&working_dir) {
+
+                for (k, v) in vars_added_by_this_directory {
+                    if let Some(v) = v {
+                        vars_to_restore.insert(k.clone(), v.clone());
+                    } else {
+                        vars_to_delete.insert(k.clone());
+                    }
                 }
             }
-            working_dir = working_dir
-                .expect("This should not be None because of the while condition")
-                .parent();
+            working_dir.pop();
         }
 
-        Ok(vars_to_delete)
+        Ok((vars_to_delete, vars_to_restore))
     }
 }

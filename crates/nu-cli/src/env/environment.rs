@@ -4,7 +4,8 @@ use indexmap::{indexmap, IndexSet};
 use nu_errors::ShellError;
 use nu_protocol::{UntaggedValue, Value};
 use std::ffi::OsString;
-use std::fmt::Debug;
+use std::io::Write;
+use std::{fmt::Debug, fs::OpenOptions};
 
 pub trait Env: Debug + Send {
     fn env(&self) -> Option<Value>;
@@ -59,13 +60,32 @@ impl Environment {
     }
 
     pub fn autoenv(&mut self) -> Result<(), ShellError> {
-        self.autoenv.env_vars_to_delete()?.iter().for_each(|k| {
-            self.remove_env(&k);
-        });
+        let (to_delete, to_restore) = self.autoenv.cleanup_after_dir_exit()?;
 
-        self.autoenv.env_vars_to_add()?.iter().for_each(|(k, v)| {
+
+        let mut file = OpenOptions::new()
+            .write(true)
+            .append(true)
+            .create(true)
+            .open("cleanup.txt")
+            .unwrap(
+        );
+
+        write!(&mut file, "delete {:?}\n", to_delete).unwrap();
+
+        for k in to_delete {
+            self.remove_env(&k);
+        }
+
+        for (k, v) in to_restore {
             self.add_env(&k, &v.to_string_lossy(), true);
-        });
+        }
+
+        for (k, v) in self.autoenv.env_vars_to_add()? {
+            self.add_env(&k, &v.to_string_lossy(), true);
+        }
+
+        self.autoenv.last_seen_directory = std::env::current_dir()?;
         Ok(())
     }
 
