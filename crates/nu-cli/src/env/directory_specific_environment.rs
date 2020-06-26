@@ -57,17 +57,6 @@ impl DirectorySpecificEnvironment {
         Err(ShellError::untagged_runtime_error("No trusted directories"))
     }
 
-    fn is_parent_or_same(&self, parent: &PathBuf, child: &PathBuf) -> bool {
-        let mut child = Some(child.as_path());
-        while let Some(c) = child {
-            if c == parent {
-                return true;
-            }
-            child = child.expect("Can't be none").parent();
-        }
-        return false;
-    }
-
     pub fn env_vars_to_add(&mut self) -> Result<IndexMap<EnvKey, EnvVal>, ShellError> {
         let current_dir = std::env::current_dir()?;
         let mut working_dir = Some(current_dir.as_path());
@@ -75,17 +64,15 @@ impl DirectorySpecificEnvironment {
 
         //If we are in the last seen directory, do nothing
         //If we are in a parent directory to last_seen_directory, just return without applying .nu-env in the parent directory - they were already applied earlier.
-        if self.is_parent_or_same(&current_dir, &self.last_seen_directory) {
+        //If current dir is parent to last_seen_directory, current.cmp(last) returns less
+        //if current dir is the same as last_seen, current.cmp(last) returns equal
+        if current_dir.cmp(&self.last_seen_directory) != std::cmp::Ordering::Greater {
+            self.last_seen_directory = current_dir;
             return Ok(vars_to_add);
         }
 
         //Start in the current directory, then traverse towards the root with working_dir to see if we are in a subdirectory of a valid directory.
         while let Some(wdir) = working_dir {
-            //If we are in a subdirectory to last_seen_directory, we should apply all .nu-envs up until last_seen_directory
-            if wdir == self.last_seen_directory {
-                self.last_seen_directory = current_dir;
-                return Ok(vars_to_add);
-            }
             let wdirenv = wdir.join(".nu-env");
             if wdirenv.exists() {
                 let toml_doc = self.toml_if_directory_is_trusted(&wdirenv)?;
@@ -119,6 +106,13 @@ impl DirectorySpecificEnvironment {
                         }
                     });
             }
+
+            //If we are in a subdirectory to last_seen_directory, we should apply all .nu-envs up until last_seen_directory
+            if wdir == self.last_seen_directory {
+                self.last_seen_directory = current_dir;
+                return Ok(vars_to_add);
+            }
+
             working_dir = working_dir //Keep going up in the directory structure with .parent()
                 .expect("This should not be None because of the while condition")
                 .parent();
