@@ -176,6 +176,22 @@
                                 Source='output\less.exe'
                                 KeyPath='yes'/>
                         </Component>
+                        <Component Id='binary11' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe11'
+                                Name='nu_plugin_match.exe'
+                                DiskId='1'
+                                Source='target\$(var.Profile)\nu_plugin_match.exe'
+                                KeyPath='yes'/>
+                        </Component>
+                        <Component Id='binary12' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe12'
+                                Name='README.txt'
+                                DiskId='1'
+                                Source='output\README.txt'
+                                KeyPath='yes'/>
+                        </Component>
                     </Directory>
                 </Directory>
             </Directory>
@@ -207,6 +223,8 @@
             <ComponentRef Id='binary8'/>
             <ComponentRef Id='binary9'/>
             <ComponentRef Id='binary10'/>
+            <ComponentRef Id='binary11'/>
+            <ComponentRef Id='binary12'/>
 
             <Feature
                 Id='Environment'
