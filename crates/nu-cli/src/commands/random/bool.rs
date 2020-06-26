@@ -25,7 +25,7 @@ impl WholeStreamCommand for SubCommand {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        uuid(args, registry).await
+        bool_command(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -37,9 +37,9 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn uuid(
     _args: CommandArgs,
     _registry: &CommandRegistry,
+pub async fn bool_command(
 ) -> Result<OutputStream, ShellError> {
     let mut rng = thread_rng();
     let bool_result: bool = rng.gen_bool(0.5);
