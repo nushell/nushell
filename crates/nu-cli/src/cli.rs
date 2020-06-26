@@ -635,13 +635,6 @@ pub async fn cli(
 
         rl.set_completion_type(completion_mode);
 
-        // Check the config to see if we need to update the path
-        // TODO: make sure config is cached so we don't path this load every call
-        // FIXME: we probably want to be a bit more graceful if we can't set the environment
-        syncer.reload();
-        syncer.sync_env_vars(&mut context);
-        syncer.sync_path_vars(&mut context);
-
         let colored_prompt = {
             if use_starship {
                 std::env::set_var("STARSHIP_SHELL", "");
@@ -730,6 +723,13 @@ pub async fn cli(
         }
 
         let line = process_line(readline, &mut context, false, true).await;
+
+        // Check the config to see if we need to update the path
+        // TODO: make sure config is cached so we don't path this load every call
+        // FIXME: we probably want to be a bit more graceful if we can't set the environment
+        syncer.reload();
+        syncer.sync_env_vars(&mut context);
+        syncer.sync_path_vars(&mut context);
 
         match line {
             LineResult::Success(line) => {

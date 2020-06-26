@@ -371,14 +371,6 @@ impl Value {
         }
     }
 
-    /// View the Value as block, if possible
-    pub fn as_block(&self) -> Result<hir::Block, ShellError> {
-        match &self.value {
-            UntaggedValue::Block(p) => Ok(p.clone()),
-            _ => Err(ShellError::type_error("block", self.spanned_type_name())),
-        }
-    }
-
     /// Returns an iterator of the values rows
     pub fn table_entries(&self) -> TableValueIter<'_> {
         crate::value::iter::table_entries(&self)
