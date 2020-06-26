@@ -5,6 +5,7 @@ mod from_delimited_data;
 mod to_delimited_data;
 
 pub(crate) mod alias;
+pub(crate) mod ansi;
 pub(crate) mod append;
 pub(crate) mod args;
 pub(crate) mod autoview;
@@ -23,6 +24,7 @@ pub(crate) mod cp;
 pub(crate) mod date;
 pub(crate) mod debug;
 pub(crate) mod default;
+pub(crate) mod do_;
 pub(crate) mod drop;
 pub(crate) mod du;
 pub(crate) mod each;
@@ -135,6 +137,7 @@ pub(crate) use command::{
 };
 
 pub(crate) use alias::Alias;
+pub(crate) use ansi::Ansi;
 pub(crate) use append::Append;
 pub(crate) use build_string::BuildString;
 pub(crate) use cal::Cal;
@@ -146,6 +149,7 @@ pub(crate) use cp::Cpy;
 pub(crate) use date::Date;
 pub(crate) use debug::Debug;
 pub(crate) use default::Default;
+pub(crate) use do_::Do;
 pub(crate) use drop::Drop;
 pub(crate) use du::Du;
 pub(crate) use each::Each;
