@@ -1,14 +1,14 @@
 use crate::commands::{self, autoenv::Trusted};
 use commands::autoenv;
-use indexmap::{IndexMap, IndexSet};
+use indexmap::{IndexMap};
+use std::io::Write;
 use nu_errors::ShellError;
 use sha2::{Digest, Sha256};
-use std::io::Write;
+
 use std::{
     ffi::OsString,
     fmt::Debug,
-    fs::OpenOptions,
-    path::{Path, PathBuf},
+    path::{Path, PathBuf}, fs::OpenOptions,
 };
 
 type EnvKey = String;
@@ -69,7 +69,6 @@ impl DirectorySpecificEnvironment {
         if working_dir.cmp(&self.last_seen_directory) != std::cmp::Ordering::Greater {
             return Ok(vars_to_add);
         }
-
         while working_dir != self.last_seen_directory {
             let wdirenv = working_dir.join(".nu-env");
             if wdirenv.exists() {

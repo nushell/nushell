@@ -1,10 +1,10 @@
 use crate::context::Context;
 use crate::data::config::{Conf, NuConfig};
-use std::io::Write;
+
 use crate::env::environment::{Env, Environment};
 use nu_source::Text;
 use parking_lot::Mutex;
-use std::{fs::OpenOptions, sync::Arc};
+use std::{sync::Arc};
 
 pub struct EnvironmentSyncer {
     pub env: Arc<Mutex<Box<Environment>>>,

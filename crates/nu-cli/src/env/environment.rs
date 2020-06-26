@@ -4,8 +4,8 @@ use indexmap::{indexmap, IndexSet};
 use nu_errors::ShellError;
 use nu_protocol::{UntaggedValue, Value};
 use std::ffi::OsString;
-use std::io::Write;
-use std::{fmt::Debug, fs::OpenOptions};
+
+use std::{fmt::Debug};
 
 pub trait Env: Debug + Send {
     fn env(&self) -> Option<Value>;
@@ -66,15 +66,6 @@ impl Environment {
 
         let cleanup = self.autoenv.cleanup_after_dir_exit()?;
 
-        // let mut file = OpenOptions::new()
-        //     .write(true)
-        //     .append(true)
-        //     .create(true)
-        //     .open("cleanup.txt")
-        //     .unwrap(
-        // );
-
-        // write!(&mut file, "{:?}\n", cleanup).unwrap();
 
         for (k, v) in  cleanup {
             if let Some(v) = v {
