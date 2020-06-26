@@ -126,30 +126,28 @@ impl DirectorySpecificEnvironment {
     //once they are marked for deletion, remove them from added_env_vars
     pub fn env_vars_to_delete(&mut self) -> Result<IndexSet<EnvKey>, ShellError> {
         let current_dir = std::env::current_dir()?;
-        let mut working_dir = Some(current_dir.as_path());
+        let mut vars_to_delete = IndexSet::new();
 
-        //We start from the current directory and go towards the root. We retain the variables set by directories we are in.
-        let mut new_added_env_vars = IndexMap::new();
+        //If we are in the same directory as last_seen, or a subdirectory to it, do nothing
+        //If we are in a subdirectory to last seen, do nothing
+        //If we are in a parent directory to last seen, exit .nu-envs from last seen to parent
+        if self.last_seen_directory.cmp(&current_dir) != std::cmp::Ordering::Greater {
+            return Ok(vars_to_delete);
+        }
+
+        let mut working_dir = Some(self.last_seen_directory.as_path());
+
         while let Some(wdir) = working_dir {
             if let Some(vars_added_by_this_directory) = self.added_env_vars.get(wdir) {
                 //If we are still in a directory, we should continue to track the vars it added.
-                new_added_env_vars.insert(wdir.to_path_buf(), vars_added_by_this_directory.clone());
+                for k in vars_added_by_this_directory {
+                    vars_to_delete.insert(k.clone());
+                }
             }
             working_dir = working_dir
                 .expect("This should not be None because of the while condition")
                 .parent();
         }
-
-        // Gather up all environment variables that should be deleted.
-        let mut vars_to_delete = IndexSet::new();
-        for (dir, added_keys) in &self.added_env_vars {
-            if !new_added_env_vars.contains_key(dir) {
-                for k in added_keys {
-                    vars_to_delete.insert(k.clone());
-                }
-            }
-        }
-        self.added_env_vars = new_added_env_vars;
 
         Ok(vars_to_delete)
     }
