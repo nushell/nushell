@@ -33,12 +33,12 @@ impl WholeStreamCommand for Ansi {
             Example {
                 description: "Change color to green",
                 example: r#"ansi green"#,
-                result: Some(vec![Value::from("my env value")]),
+                result: Some(vec![Value::from("\u{1b}[32m")]),
             },
             Example {
                 description: "Reset the color",
                 example: r#"ansi reset"#,
-                result: Some(vec![Value::from("my env value")]),
+                result: Some(vec![Value::from("\u{1b}[0m")]),
             },
         ]
     }
