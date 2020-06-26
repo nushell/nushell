@@ -389,6 +389,7 @@ pub fn create_default_context(
             whole_stream_command(RunExternalCommand { interactive }),
             // Random value generation
             whole_stream_command(Random),
+            whole_stream_command(RandomBool),
             whole_stream_command(RandomUUID),
         ]);
 

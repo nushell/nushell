@@ -1,1 +1,2 @@
+mod bool;
 mod uuid;
