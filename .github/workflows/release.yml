@@ -127,7 +127,7 @@ jobs:
       - name: Upload zip
         uses: actions/upload-artifact@v2
         with:
-          name: windows
+          name: windows-zip
           path: output\nushell-windows.zip
 
   release:
