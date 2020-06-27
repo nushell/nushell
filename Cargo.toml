@@ -43,11 +43,11 @@ url = { version = "2.1.1", optional = true }
 
 clap = "2.33.1"
 ctrlc = "3.1.4"
-dunce = "1.0.0"
+dunce = "1.0.1"
 futures = { version = "0.3", features = ["compat", "io-compat"] }
 log = "0.4.8"
 pretty_env_logger = "0.4.0"
-starship = "0.42.0"
+starship = "0.43.0"
 
 [dev-dependencies]
 nu-test-support = { version = "0.15.1", path = "./crates/nu-test-support" }

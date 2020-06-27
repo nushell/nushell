@@ -13,7 +13,7 @@ impl TextView {
 
 #[allow(clippy::cognitive_complexity)]
 pub fn view_text_value(value: &Value) {
-    let mut term_width: u64 = textwrap::termwidth() as u64;
+    let (mut term_width, _) = term_size::dimensions().unwrap_or_else(|| (20, 20));
     let mut tab_width: u64 = 4;
     let mut colored_output = true;
     let mut true_color = true;
@@ -38,8 +38,8 @@ pub fn view_text_value(value: &Value) {
                 match idx.as_ref() {
                     "term_width" => {
                         term_width = match value.as_u64() {
-                            Ok(n) => n,
-                            _ => textwrap::termwidth() as u64,
+                            Ok(n) => n as usize,
+                            _ => term_width as usize,
                         }
                     }
                     "tab_width" => {

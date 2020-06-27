@@ -106,6 +106,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
     };
 
     let (mut input_stream, context) = RunnableContextWithoutInput::convert(context);
+    let term_width = context.host.lock().width();
 
     if let Some(x) = input_stream.next().await {
         match input_stream.next().await {
@@ -263,7 +264,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                                 .iter()
                                 .fold(0usize, |acc, len| acc + len.len())
                                 + row.entries.iter().count() * 2)
-                                > textwrap::termwidth()) =>
+                                > term_width) =>
                     {
                         let mut entries = vec![];
                         for (key, value) in row.entries.iter() {
@@ -286,7 +287,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                         let table =
                             nu_table::Table::new(vec![], entries, nu_table::Theme::compact());
 
-                        nu_table::draw_table(&table, textwrap::termwidth());
+                        nu_table::draw_table(&table, term_width);
                     }
 
                     Value {
