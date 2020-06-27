@@ -72,7 +72,7 @@ async fn do_(
         },
         input,
     ) = raw_args.process(&registry).await?;
-    block.redirect_output(!is_last);
+    block.set_is_last(!is_last);
 
     let result = run_block(
         &block,

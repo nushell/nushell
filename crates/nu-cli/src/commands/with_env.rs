@@ -60,18 +60,9 @@ async fn with_env(
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
 
-    let is_last = raw_args.call_info.args.is_last;
     let mut context = Context::from_raw(&raw_args, &registry);
     let mut scope = raw_args.call_info.scope.clone();
-    let (
-        WithEnvArgs {
-            variable,
-            mut block,
-        },
-        input,
-    ) = raw_args.process(&registry).await?;
-
-    block.redirect_output(!is_last);
+    let (WithEnvArgs { variable, block }, input) = raw_args.process(&registry).await?;
 
     scope.env.insert(variable.0.item, variable.1.item);
 
