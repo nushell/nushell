@@ -240,8 +240,8 @@ pub(crate) use split::SplitColumn;
 pub(crate) use split::SplitRow;
 pub(crate) use split_by::SplitBy;
 pub(crate) use str_::{
-    Str, StrCapitalize, StrDowncase, StrFindReplace, StrSet, StrSubstring, StrToDatetime,
-    StrToDecimal, StrToInteger, StrTrim, StrUpcase,
+    Str, StrCapitalize, StrCollect, StrDowncase, StrFindReplace, StrSet, StrSubstring,
+    StrToDatetime, StrToDecimal, StrToInteger, StrTrim, StrUpcase,
 };
 #[allow(unused_imports)]
 pub(crate) use t_sort_by::TSortBy;
