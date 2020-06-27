@@ -200,6 +200,16 @@ impl Block {
             commands.expand_it_usage();
         }
     }
+
+    pub fn redirect_output(&mut self, redirect: bool) {
+        if let Some(pipeline) = self.block.last_mut() {
+            if let Some(command) = pipeline.list.last_mut() {
+                if let ClassifiedCommand::Internal(internal) = command {
+                    internal.args.is_last = !redirect;
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]

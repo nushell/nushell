@@ -40,7 +40,9 @@ impl WholeStreamCommand for AliasCommand {
     ) -> Result<OutputStream, ShellError> {
         let call_info = args.call_info.clone();
         let registry = registry.clone();
-        let block = self.block.clone();
+        let mut block = self.block.clone();
+        block.redirect_output(!call_info.args.is_last);
+
         let alias_command = self.clone();
         let mut context = Context::from_args(&args, &registry);
         let input = args.input;
