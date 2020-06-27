@@ -66,7 +66,6 @@ impl Environment {
 
         let cleanup = self.autoenv.cleanup_after_dir_exit()?;
 
-
         for (k, v) in  cleanup {
             if let Some(v) = v {
                 std::env::set_var(k, v);

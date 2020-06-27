@@ -1,14 +1,15 @@
 use crate::commands::{self, autoenv::Trusted};
 use commands::autoenv;
-use indexmap::{IndexMap};
-use std::io::Write;
+use indexmap::IndexMap;
 use nu_errors::ShellError;
 use sha2::{Digest, Sha256};
+use std::io::Write;
 
 use std::{
     ffi::OsString,
     fmt::Debug,
-    path::{Path, PathBuf}, fs::OpenOptions,
+    fs::OpenOptions,
+    path::{Path, PathBuf},
 };
 
 type EnvKey = String;
@@ -17,7 +18,8 @@ type EnvVal = OsString;
 pub struct DirectorySpecificEnvironment {
     trusted: Option<Trusted>,
     pub last_seen_directory: PathBuf,
-    //Directory -> Env key. If an environment var has been added from a .nu in a directory, we track it here so we can remove it when the user leaves the directory.
+    //If an environment var has been added from a .nu in a directory, we track it here so we can remove it when the user leaves the directory.
+    //If setting the var overwrote some value, we save the old value in an option so we can restore it later.
     added_env_vars: IndexMap<PathBuf, IndexMap<EnvKey, Option<EnvVal>>>,
 }
 
@@ -65,11 +67,7 @@ impl DirectorySpecificEnvironment {
         //If we are in a parent directory to last_seen_directory, just return without applying .nu-env in the parent directory - they were already applied earlier.
         //If current dir is parent to last_seen_directory, current.cmp(last) returns less
         //if current dir is the same as last_seen, current.cmp(last) returns equal
-
-        if working_dir.cmp(&self.last_seen_directory) != std::cmp::Ordering::Greater {
-            return Ok(vars_to_add);
-        }
-        while working_dir != self.last_seen_directory {
+        while self.last_seen_directory.cmp(&working_dir) == std::cmp::Ordering::Less { //parent.cmp(child) = Less
             let wdirenv = working_dir.join(".nu-env");
             if wdirenv.exists() {
                 let toml_doc = self.toml_if_directory_is_trusted(&wdirenv)?;
@@ -116,23 +114,17 @@ impl DirectorySpecificEnvironment {
         //If we are in the same directory as last_seen, or a subdirectory to it, do nothing
         //If we are in a subdirectory to last seen, do nothing
         //If we are in a parent directory to last seen, exit .nu-envs from last seen to parent and restore old vals
-        if self.last_seen_directory.cmp(&current_dir) != std::cmp::Ordering::Greater {
-            return Ok(vars_to_cleanup);
-        }
-
         let mut working_dir = self.last_seen_directory.clone();
 
-        while working_dir != current_dir {
+        while current_dir.cmp(&working_dir) == std::cmp::Ordering::Less {
             if let Some(vars_added_by_this_directory) = self.added_env_vars.get(&working_dir) {
                 for (k, v) in vars_added_by_this_directory {
                     vars_to_cleanup.insert(k.clone(), v.clone());
                 }
-
                 self.added_env_vars.remove(&working_dir);
             }
             working_dir.pop();
         }
-
         Ok(vars_to_cleanup)
     }
 }
