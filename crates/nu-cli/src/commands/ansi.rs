@@ -96,13 +96,17 @@ fn str_to_ansi_color(s: String) -> Option<String> {
         "br" | "black_reverse" => Some(ansi_term::Color::Black.reverse().prefix().to_string()),
         "y" | "yellow" => Some(ansi_term::Color::Yellow.prefix().to_string()),
         "yb" | "yellow_bold" => Some(ansi_term::Color::Yellow.bold().prefix().to_string()),
-        "yu" | "yellow_underline" => Some(ansi_term::Color::Yellow.underline().prefix().to_string()),
+        "yu" | "yellow_underline" => {
+            Some(ansi_term::Color::Yellow.underline().prefix().to_string())
+        }
         "yi" | "yellow_italic" => Some(ansi_term::Color::Yellow.italic().prefix().to_string()),
         "yd" | "yellow_dimmed" => Some(ansi_term::Color::Yellow.dimmed().prefix().to_string()),
         "yr" | "yellow_reverse" => Some(ansi_term::Color::Yellow.reverse().prefix().to_string()),
         "p" | "purple" => Some(ansi_term::Color::Purple.prefix().to_string()),
         "pb" | "purple_bold" => Some(ansi_term::Color::Purple.bold().prefix().to_string()),
-        "pu" | "purple_underline" => Some(ansi_term::Color::Purple.underline().prefix().to_string()),
+        "pu" | "purple_underline" => {
+            Some(ansi_term::Color::Purple.underline().prefix().to_string())
+        }
         "pi" | "purple_italic" => Some(ansi_term::Color::Purple.italic().prefix().to_string()),
         "pd" | "purple_dimmed" => Some(ansi_term::Color::Purple.dimmed().prefix().to_string()),
         "pr" | "purple_reverse" => Some(ansi_term::Color::Purple.reverse().prefix().to_string()),
