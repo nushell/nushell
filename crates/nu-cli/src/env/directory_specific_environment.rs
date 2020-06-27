@@ -36,11 +36,11 @@ impl DirectorySpecificEnvironment {
         }
     }
 
-    fn toml_if_directory_is_trusted(&self, wdirenv: &PathBuf) -> Result<toml::Value, ShellError> {
+    fn toml_if_directory_is_trusted(&self, nu_env_file: &PathBuf) -> Result<toml::Value, ShellError> {
         if let Some(trusted) = &self.trusted {
-            let content = std::fs::read(&wdirenv)?;
+            let content = std::fs::read(&nu_env_file)?;
 
-            if trusted.files.get(wdirenv.to_str().unwrap_or(""))
+            if trusted.files.get(nu_env_file.to_str().unwrap_or(""))
                 == Some(&Sha256::digest(&content).as_slice().to_vec())
             {
                 return Ok(std::str::from_utf8(&content.as_slice()).or_else(|_| {
@@ -49,12 +49,12 @@ impl DirectorySpecificEnvironment {
                 .parse::<toml::Value>().or_else(|_| {
                     Err(ShellError::untagged_runtime_error(format!(
                         "Could not parse {:?}. Is it well-formed? Each entry must be written as key = \"value\" (note the quotation marks)",
-                        wdirenv
+                        nu_env_file
                     )))
                 })?);
             }
             return Err(ShellError::untagged_runtime_error(
-                format!("{:?} is untrusted. Run 'autoenv trust {:?}' and restart nushell to trust it.\nThis needs to be done after each change to the file.", wdirenv, wdirenv.parent().unwrap_or_else(|| &Path::new("")))));
+                format!("{:?} is untrusted. Run 'autoenv trust {:?}' and restart nushell to trust it.\nThis needs to be done after each change to the file.", nu_env_file, nu_env_file.parent().unwrap_or_else(|| &Path::new("")))));
         }
         Err(ShellError::untagged_runtime_error("No trusted directories"))
     }
@@ -62,28 +62,28 @@ impl DirectorySpecificEnvironment {
     pub fn env_vars_to_add(&mut self) -> Result<IndexMap<EnvKey, EnvVal>, ShellError> {
         let mut working_dir = std::env::current_dir()?;
         let mut vars_to_add = IndexMap::new();
+        let nu_env_file = working_dir.join(".nu-env");
 
         //If we are in the last seen directory, do nothing
         //If we are in a parent directory to last_seen_directory, just return without applying .nu-env in the parent directory - they were already applied earlier.
         //If current dir is parent to last_seen_directory, current.cmp(last) returns less
         //if current dir is the same as last_seen, current.cmp(last) returns equal
         while self.last_seen_directory.cmp(&working_dir) == std::cmp::Ordering::Less { //parent.cmp(child) = Less
-            let wdirenv = working_dir.join(".nu-env");
-            if wdirenv.exists() {
-                let toml_doc = self.toml_if_directory_is_trusted(&wdirenv)?;
+            if nu_env_file.exists() {
+                let toml_doc = self.toml_if_directory_is_trusted(&nu_env_file)?;
                 toml_doc
                     .get("env")
                     .ok_or_else(|| {
                         ShellError::untagged_runtime_error(format!(
                             "[env] section missing in {:?}",
-                            wdirenv
+                            nu_env_file
                         ))
                     })?
                     .as_table()
                     .ok_or_else(|| {
                         ShellError::untagged_runtime_error(format!(
                             "[env] section malformed in {:?}",
-                            wdirenv
+                            nu_env_file
                         ))
                     })?
                     .iter()
