@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use futures::stream::{iter, once};
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, UntaggedValue, Value};
+use nu_protocol::{Primitive, Type, UntaggedValue, Value};
 use nu_source::{Tagged, TaggedItem};
 
 pub struct InputStream {
@@ -74,12 +74,18 @@ impl InputStream {
                     value_tag = value_t;
                     bytes.extend_from_slice(&b);
                 }
-                Some(Value { tag: value_tag, .. }) => {
+                Some(Value {
+                    tag: value_tag,
+                    value,
+                }) => {
                     return Err(ShellError::labeled_error_with_secondary(
                         "Expected a string from pipeline",
                         "requires string input",
                         tag,
-                        "value originates from here",
+                        format!(
+                            "{} originates from here",
+                            Type::from_value(&value).plain_string(100000)
+                        ),
                         value_tag,
                     ))
                 }

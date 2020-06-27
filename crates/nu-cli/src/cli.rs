@@ -303,6 +303,7 @@ pub fn create_default_context(
             whole_stream_command(StrSet),
             whole_stream_command(StrToDatetime),
             whole_stream_command(StrTrim),
+            whole_stream_command(StrCollect),
             whole_stream_command(BuildString),
             whole_stream_command(Ansi),
             // Column manipulation
@@ -657,9 +658,11 @@ pub async fn cli(
 
                 if let Ok(result) = nu_parser::lite_parse(&prompt_line, 0).map_err(ShellError::from)
                 {
-                    let prompt_block = nu_parser::classify_block(&result, context.registry());
+                    let mut prompt_block = nu_parser::classify_block(&result, context.registry());
 
                     let env = context.get_env();
+
+                    prompt_block.block.expand_it_usage();
 
                     match run_block(
                         &prompt_block.block,
