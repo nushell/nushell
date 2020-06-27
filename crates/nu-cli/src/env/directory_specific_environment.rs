@@ -36,11 +36,12 @@ impl DirectorySpecificEnvironment {
         }
     }
 
-    fn toml_if_directory_is_trusted(&mut self, nu_env_file: &PathBuf) -> Result<toml::Value, ShellError> {
-        if let Some(trusted) = self.trusted.as_mut() {
+    fn toml_if_directory_is_trusted(&self, nu_env_file: &PathBuf) -> Result<toml::Value, ShellError> {
+        if let Some(trusted) = &self.trusted {
             let content = std::fs::read(&nu_env_file)?;
 
-            if trusted.file_is_trusted_reload_config(&nu_env_file, &content)?
+            if trusted.files.get(nu_env_file.to_str().unwrap_or(""))
+                == Some(&Sha256::digest(&content).as_slice().to_vec())
             {
                 return Ok(std::str::from_utf8(&content.as_slice()).or_else(|_| {
                     Err(ShellError::untagged_runtime_error(format!("Could not read {:?} as utf8 string", content)))
@@ -65,6 +66,8 @@ impl DirectorySpecificEnvironment {
 
         //If we are in the last seen directory, do nothing
         //If we are in a parent directory to last_seen_directory, just return without applying .nu-env in the parent directory - they were already applied earlier.
+        //If current dir is parent to last_seen_directory, current.cmp(last) returns less
+        //if current dir is the same as last_seen, current.cmp(last) returns equal
         while self.last_seen_directory.cmp(&working_dir) == std::cmp::Ordering::Less { //parent.cmp(child) = Less
             if nu_env_file.exists() {
                 let toml_doc = self.toml_if_directory_is_trusted(&nu_env_file)?;
