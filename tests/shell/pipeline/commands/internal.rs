@@ -85,12 +85,24 @@ fn it_expansion_of_invocation() {
 }
 
 #[test]
+fn invocation_properly_redirects() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            echo $(nu --testbin cococo "hello") | str collect
+        "#
+    );
+
+    assert_eq!(actual.out, "hello");
+}
+
+#[test]
 fn argument_invocation() {
     let actual = nu!(
         cwd: ".",
         r#"
-                    echo "foo" | echo $(echo $it)
-            "#
+            echo "foo" | echo $(echo $it)
+        "#
     );
 
     assert_eq!(actual.out, "foo");

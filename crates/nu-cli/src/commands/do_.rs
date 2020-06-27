@@ -61,16 +61,18 @@ async fn do_(
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
+    let is_last = raw_args.call_info.args.is_last;
 
     let mut context = Context::from_raw(&raw_args, &registry);
     let scope = raw_args.call_info.scope.clone();
     let (
         DoArgs {
             ignore_errors,
-            block,
+            mut block,
         },
         input,
     ) = raw_args.process(&registry).await?;
+    block.set_is_last(!is_last);
 
     let result = run_block(
         &block,
