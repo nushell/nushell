@@ -269,6 +269,7 @@ pub fn create_default_context(
             whole_stream_command(Debug),
             whole_stream_command(Alias),
             whole_stream_command(WithEnv),
+            whole_stream_command(Do),
             // Statistics
             whole_stream_command(Size),
             whole_stream_command(Count),
@@ -302,7 +303,9 @@ pub fn create_default_context(
             whole_stream_command(StrSet),
             whole_stream_command(StrToDatetime),
             whole_stream_command(StrTrim),
+            whole_stream_command(StrCollect),
             whole_stream_command(BuildString),
+            whole_stream_command(Ansi),
             whole_stream_command(Human), // TODO correct location?
             // Column manipulation
             whole_stream_command(Reject),
@@ -390,6 +393,7 @@ pub fn create_default_context(
             whole_stream_command(RunExternalCommand { interactive }),
             // Random value generation
             whole_stream_command(Random),
+            whole_stream_command(RandomBool),
             whole_stream_command(RandomUUID),
         ]);
 
@@ -588,6 +592,7 @@ pub async fn cli(
         rl.set_helper(Some(crate::shell::Helper::new(context.clone())));
 
         let config = config::config(Tag::unknown())?;
+
         let use_starship = match config.get("use_starship") {
             Some(b) => match b.as_bool() {
                 Ok(b) => b,
@@ -596,7 +601,7 @@ pub async fn cli(
             _ => false,
         };
 
-        let edit_mode = config::config(Tag::unknown())?
+        let edit_mode = config
             .get("edit_mode")
             .map(|s| match s.value.expect_string() {
                 "vi" => EditMode::Vi,
@@ -607,21 +612,21 @@ pub async fn cli(
 
         rl.set_edit_mode(edit_mode);
 
-        let max_history_size = config::config(Tag::unknown())?
+        let max_history_size = config
             .get("history_size")
             .map(|i| i.value.expect_int())
             .unwrap_or(100_000);
 
         rl.set_max_history_size(max_history_size as usize);
 
-        let key_timeout = config::config(Tag::unknown())?
+        let key_timeout = config
             .get("key_timeout")
             .map(|s| s.value.expect_int())
             .unwrap_or(1);
 
         rl.set_keyseq_timeout(key_timeout as i32);
 
-        let completion_mode = config::config(Tag::unknown())?
+        let completion_mode = config
             .get("completion_mode")
             .map(|s| match s.value.expect_string() {
                 "list" => CompletionType::List,
@@ -649,6 +654,50 @@ pub async fn cli(
                     _ => {}
                 };
                 starship::print::get_prompt(starship_context)
+            } else if let Some(prompt) = config.get("prompt") {
+                let prompt_line = prompt.as_string()?;
+
+                if let Ok(result) = nu_parser::lite_parse(&prompt_line, 0).map_err(ShellError::from)
+                {
+                    let mut prompt_block = nu_parser::classify_block(&result, context.registry());
+
+                    let env = context.get_env();
+
+                    prompt_block.block.expand_it_usage();
+
+                    match run_block(
+                        &prompt_block.block,
+                        &mut context,
+                        InputStream::empty(),
+                        &Value::nothing(),
+                        &IndexMap::new(),
+                        &env,
+                    )
+                    .await
+                    {
+                        Ok(result) => {
+                            context.clear_errors();
+
+                            match result.collect_string(Tag::unknown()).await {
+                                Ok(string_result) => string_result.item,
+                                Err(_) => {
+                                    context.maybe_print_errors(Text::from(prompt_line));
+                                    context.clear_errors();
+
+                                    "Error running prompt> ".to_string()
+                                }
+                            }
+                        }
+                        Err(_) => {
+                            context.maybe_print_errors(Text::from(prompt_line));
+                            context.clear_errors();
+
+                            "Error running prompt> ".to_string()
+                        }
+                    }
+                } else {
+                    "Error parsing prompt> ".to_string()
+                }
             } else {
                 format!(
                     "\x1b[32m{}{}\x1b[m> ",

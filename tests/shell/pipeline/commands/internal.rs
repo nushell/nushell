@@ -73,6 +73,18 @@ fn it_expansion_of_list() {
 }
 
 #[test]
+fn it_expansion_of_invocation() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            echo $(echo "4" | echo $it | str to-int )
+        "#
+    );
+
+    assert_eq!(actual.out, "4");
+}
+
+#[test]
 fn argument_invocation() {
     let actual = nu!(
         cwd: ".",

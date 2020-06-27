@@ -44,6 +44,14 @@ impl InternalCommand {
             ),
         }
     }
+
+    pub fn expand_it_usage(&mut self) {
+        if let Some(positionals) = &mut self.args.positional {
+            for arg in positionals {
+                arg.expand_it_usage();
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
@@ -109,34 +117,8 @@ impl ClassifiedCommand {
 
     pub fn expand_it_usage(&mut self) {
         match self {
-            ClassifiedCommand::Internal(command) => {
-                if let Some(positionals) = &mut command.args.positional {
-                    for arg in positionals {
-                        if let SpannedExpression {
-                            expr: Expression::Block(block),
-                            ..
-                        } = arg
-                        {
-                            block.expand_it_usage();
-                        }
-                    }
-                }
-            }
-            ClassifiedCommand::Expr(expr) => {
-                if let SpannedExpression {
-                    expr: Expression::Block(ref block),
-                    span,
-                } = **expr
-                {
-                    let mut block = block.clone();
-                    block.expand_it_usage();
-                    *expr = Box::new(SpannedExpression {
-                        expr: Expression::Block(block),
-                        span,
-                    });
-                }
-            }
-
+            ClassifiedCommand::Internal(command) => command.expand_it_usage(),
+            ClassifiedCommand::Expr(expr) => expr.expand_it_usage(),
             _ => {}
         }
     }
@@ -586,6 +568,44 @@ impl SpannedExpression {
                 false
             }
             _ => false,
+        }
+    }
+
+    pub fn expand_it_usage(&mut self) {
+        match self {
+            SpannedExpression {
+                expr: Expression::Block(block),
+                ..
+            } => {
+                block.expand_it_usage();
+            }
+            SpannedExpression {
+                expr: Expression::Invocation(block),
+                ..
+            } => {
+                block.expand_it_usage();
+            }
+            SpannedExpression {
+                expr: Expression::List(list),
+                ..
+            } => {
+                for item in list.iter_mut() {
+                    item.expand_it_usage();
+                }
+            }
+            SpannedExpression {
+                expr: Expression::Path(path),
+                ..
+            } => {
+                if let SpannedExpression {
+                    expr: Expression::Invocation(block),
+                    ..
+                } = &mut path.head
+                {
+                    block.expand_it_usage();
+                }
+            }
+            _ => {}
         }
     }
 }
