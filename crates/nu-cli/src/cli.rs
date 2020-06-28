@@ -9,7 +9,7 @@ use crate::path::canonicalize;
 use crate::prelude::*;
 use crate::EnvironmentSyncer;
 use futures_codec::FramedRead;
-use nu_errors::ShellError;
+use nu_errors::{ProximateShellError, ShellDiagnostic, ShellError};
 use nu_protocol::hir::{ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments};
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 
@@ -591,7 +591,20 @@ pub async fn cli(
 
         rl.set_helper(Some(crate::shell::Helper::new(context.clone())));
 
-        let config = config::config(Tag::unknown())?;
+        let config = match config::config(Tag::unknown()) {
+            Ok(config) => config,
+            Err(e) => {
+                eprintln!("Config could not be loaded.");
+                if let ShellError {
+                    error: ProximateShellError::Diagnostic(ShellDiagnostic { diagnostic }),
+                    ..
+                } = e
+                {
+                    eprintln!("{}", diagnostic.message);
+                }
+                IndexMap::new()
+            }
+        };
 
         let use_starship = match config.get("use_starship") {
             Some(b) => match b.as_bool() {
@@ -657,46 +670,58 @@ pub async fn cli(
             } else if let Some(prompt) = config.get("prompt") {
                 let prompt_line = prompt.as_string()?;
 
-                if let Ok(result) = nu_parser::lite_parse(&prompt_line, 0).map_err(ShellError::from)
-                {
-                    let mut prompt_block = nu_parser::classify_block(&result, context.registry());
+                match nu_parser::lite_parse(&prompt_line, 0).map_err(ShellError::from) {
+                    Ok(result) => {
+                        let mut prompt_block =
+                            nu_parser::classify_block(&result, context.registry());
 
-                    let env = context.get_env();
+                        let env = context.get_env();
 
-                    prompt_block.block.expand_it_usage();
+                        prompt_block.block.expand_it_usage();
 
-                    match run_block(
-                        &prompt_block.block,
-                        &mut context,
-                        InputStream::empty(),
-                        &Value::nothing(),
-                        &IndexMap::new(),
-                        &env,
-                    )
-                    .await
-                    {
-                        Ok(result) => {
-                            context.clear_errors();
-
-                            match result.collect_string(Tag::unknown()).await {
-                                Ok(string_result) => string_result.item,
-                                Err(_) => {
+                        match run_block(
+                            &prompt_block.block,
+                            &mut context,
+                            InputStream::empty(),
+                            &Value::nothing(),
+                            &IndexMap::new(),
+                            &env,
+                        )
+                        .await
+                        {
+                            Ok(result) => match result.collect_string(Tag::unknown()).await {
+                                Ok(string_result) => {
+                                    let errors = context.get_errors();
                                     context.maybe_print_errors(Text::from(prompt_line));
                                     context.clear_errors();
 
-                                    "Error running prompt> ".to_string()
+                                    if !errors.is_empty() {
+                                        "> ".to_string()
+                                    } else {
+                                        string_result.item
+                                    }
                                 }
+                                Err(e) => {
+                                    crate::cli::print_err(e, &Text::from(prompt_line));
+                                    context.clear_errors();
+
+                                    "> ".to_string()
+                                }
+                            },
+                            Err(e) => {
+                                crate::cli::print_err(e, &Text::from(prompt_line));
+                                context.clear_errors();
+
+                                "> ".to_string()
                             }
                         }
-                        Err(_) => {
-                            context.maybe_print_errors(Text::from(prompt_line));
-                            context.clear_errors();
-
-                            "Error running prompt> ".to_string()
-                        }
                     }
-                } else {
-                    "Error parsing prompt> ".to_string()
+                    Err(e) => {
+                        crate::cli::print_err(e, &Text::from(prompt_line));
+                        context.clear_errors();
+
+                        "> ".to_string()
+                    }
                 }
             } else {
                 format!(
