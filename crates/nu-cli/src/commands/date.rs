@@ -7,7 +7,7 @@ use crate::commands::WholeStreamCommand;
 use chrono::{Datelike, TimeZone, Timelike};
 use core::fmt::Display;
 use indexmap::IndexMap;
-use nu_protocol::{Signature, UntaggedValue};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
 
 pub struct Date;
 
@@ -21,6 +21,12 @@ impl WholeStreamCommand for Date {
         Signature::build("date")
             .switch("utc", "use universal time (UTC)", Some('u'))
             .switch("local", "use the local time", Some('l'))
+            .named(
+                "format",
+                SyntaxShape::String,
+                "report datetime in supplied strftime format",
+                Some('f'),
+            )
     }
 
     fn usage(&self) -> &str {
@@ -47,46 +53,59 @@ impl WholeStreamCommand for Date {
                 example: "date --utc",
                 result: None,
             },
+            Example {
+                description: "Get the current time and date and reports in raw format",
+                example: "date --format '%Y-%m-%d %H:%M:%S.%f %z'",
+                result: None,
+            },
         ]
     }
 }
 
-pub fn date_to_value<T: TimeZone>(dt: DateTime<T>, tag: Tag) -> Value
+pub fn date_to_value<T: TimeZone>(dt: DateTime<T>, tag: Tag, dt_format: String) -> Value
 where
     T::Offset: Display,
 {
     let mut indexmap = IndexMap::new();
 
-    indexmap.insert(
-        "year".to_string(),
-        UntaggedValue::int(dt.year()).into_value(&tag),
-    );
-    indexmap.insert(
-        "month".to_string(),
-        UntaggedValue::int(dt.month()).into_value(&tag),
-    );
-    indexmap.insert(
-        "day".to_string(),
-        UntaggedValue::int(dt.day()).into_value(&tag),
-    );
-    indexmap.insert(
-        "hour".to_string(),
-        UntaggedValue::int(dt.hour()).into_value(&tag),
-    );
-    indexmap.insert(
-        "minute".to_string(),
-        UntaggedValue::int(dt.minute()).into_value(&tag),
-    );
-    indexmap.insert(
-        "second".to_string(),
-        UntaggedValue::int(dt.second()).into_value(&tag),
-    );
+    if dt_format.is_empty() {
+        indexmap.insert(
+            "year".to_string(),
+            UntaggedValue::int(dt.year()).into_value(&tag),
+        );
+        indexmap.insert(
+            "month".to_string(),
+            UntaggedValue::int(dt.month()).into_value(&tag),
+        );
+        indexmap.insert(
+            "day".to_string(),
+            UntaggedValue::int(dt.day()).into_value(&tag),
+        );
+        indexmap.insert(
+            "hour".to_string(),
+            UntaggedValue::int(dt.hour()).into_value(&tag),
+        );
+        indexmap.insert(
+            "minute".to_string(),
+            UntaggedValue::int(dt.minute()).into_value(&tag),
+        );
+        indexmap.insert(
+            "second".to_string(),
+            UntaggedValue::int(dt.second()).into_value(&tag),
+        );
 
-    let tz = dt.offset();
-    indexmap.insert(
-        "timezone".to_string(),
-        UntaggedValue::string(format!("{}", tz)).into_value(&tag),
-    );
+        let tz = dt.offset();
+        indexmap.insert(
+            "timezone".to_string(),
+            UntaggedValue::string(format!("{}", tz)).into_value(&tag),
+        );
+    } else {
+        let result = dt.format(&dt_format);
+        indexmap.insert(
+            "formatted".to_string(),
+            UntaggedValue::string(format!("{}", result)).into_value(&tag),
+        );
+    }
 
     UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag)
 }
@@ -100,12 +119,22 @@ pub async fn date(
 
     let tag = args.call_info.name_tag.clone();
 
+    let dt_fmt = if args.has("format") {
+        if let Some(dt_fmt) = args.get("format") {
+            dt_fmt.convert_to_string()
+        } else {
+            "".to_string()
+        }
+    } else {
+        "".to_string()
+    };
+
     let value = if args.has("utc") {
         let utc: DateTime<Utc> = Utc::now();
-        date_to_value(utc, tag)
+        date_to_value(utc, tag, dt_fmt)
     } else {
         let local: DateTime<Local> = Local::now();
-        date_to_value(local, tag)
+        date_to_value(local, tag, dt_fmt)
     };
 
     Ok(OutputStream::one(value))
