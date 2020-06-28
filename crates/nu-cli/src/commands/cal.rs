@@ -84,17 +84,15 @@ pub async fn cal(
     let mut selected_year: i32 = current_year;
     let mut current_day_option: Option<u32> = Some(current_day);
 
-    let month_range = if args.has("full-year") {
-        if let Some(full_year_value) = args.get("full-year") {
-            if let Ok(year_u64) = full_year_value.as_u64() {
-                selected_year = year_u64 as i32;
+    let month_range = if let Some(full_year_value) = args.get("full-year") {
+        if let Ok(year_u64) = full_year_value.as_u64() {
+            selected_year = year_u64 as i32;
 
-                if selected_year != current_year {
-                    current_day_option = None
-                }
-            } else {
-                return Err(get_invalid_year_shell_error(&full_year_value.tag()));
+            if selected_year != current_year {
+                current_day_option = None
             }
+        } else {
+            return Err(get_invalid_year_shell_error(&full_year_value.tag()));
         }
 
         (1, 12)
