@@ -27,6 +27,7 @@ impl WholeStreamCommand for Date {
                 "report datetime in supplied strftime format",
                 Some('f'),
             )
+            .switch("raw", "print date without tables", Some('r'))
     }
 
     fn usage(&self) -> &str {
@@ -54,12 +55,25 @@ impl WholeStreamCommand for Date {
                 result: None,
             },
             Example {
-                description: "Get the current time and date and reports in raw format",
+                description: "Get the current time and date and report it based on format",
                 example: "date --format '%Y-%m-%d %H:%M:%S.%f %z'",
+                result: None,
+            },
+            Example {
+                description: "Get the current time and date and report it without a table",
+                example: "date --format '%Y-%m-%d %H:%M:%S.%f %z' --raw",
                 result: None,
             },
         ]
     }
+}
+
+pub fn date_to_value_raw<T: TimeZone>(dt: DateTime<T>, dt_format: String) -> String
+where
+    T::Offset: Display,
+{
+    let result = dt.format(&dt_format);
+    format!("{}", result)
 }
 
 pub fn date_to_value<T: TimeZone>(dt: DateTime<T>, tag: Tag, dt_format: String) -> Value
@@ -116,8 +130,8 @@ pub async fn date(
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let args = args.evaluate_once(&registry).await?;
-
     let tag = args.call_info.name_tag.clone();
+    let raw = args.has("raw");
 
     let dt_fmt = if args.has("format") {
         if let Some(dt_fmt) = args.get("format") {
@@ -131,10 +145,18 @@ pub async fn date(
 
     let value = if args.has("utc") {
         let utc: DateTime<Utc> = Utc::now();
-        date_to_value(utc, tag, dt_fmt)
+        if raw {
+            UntaggedValue::string(date_to_value_raw(utc, dt_fmt)).into_untagged_value()
+        } else {
+            date_to_value(utc, tag, dt_fmt)
+        }
     } else {
         let local: DateTime<Local> = Local::now();
-        date_to_value(local, tag, dt_fmt)
+        if raw {
+            UntaggedValue::string(date_to_value_raw(local, dt_fmt)).into_untagged_value()
+        } else {
+            date_to_value(local, tag, dt_fmt)
+        }
     };
 
     Ok(OutputStream::one(value))
