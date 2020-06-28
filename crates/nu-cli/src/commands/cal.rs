@@ -298,7 +298,7 @@ fn add_month_to_table(
             );
         }
 
-        if should_show_month_column {
+        if should_show_month_column || should_show_month_names {
             let month_value = if should_show_month_names {
                 UntaggedValue::string(month_helper.month_name.clone()).into_value(tag)
             } else {
