@@ -343,18 +343,19 @@ impl Command {
         self.0.usage()
     }
 
-    pub async fn run(&self, args: CommandArgs, registry: &CommandRegistry) -> OutputStream {
+    pub async fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
         if args.call_info.switch_present("help") {
             let cl = self.0.clone();
             let registry = registry.clone();
-            OutputStream::one(Ok(ReturnSuccess::Value(
+            Ok(OutputStream::one(Ok(ReturnSuccess::Value(
                 UntaggedValue::string(get_help(&*cl, &registry)).into_value(Tag::unknown()),
-            )))
+            ))))
         } else {
-            match self.0.run(args, registry).await {
-                Ok(stream) => stream,
-                Err(err) => OutputStream::one(Err(err)),
-            }
+            self.0.run(args, registry).await
         }
     }
 

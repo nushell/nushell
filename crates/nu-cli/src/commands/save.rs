@@ -232,7 +232,7 @@ async fn save(
                             scope,
                         },
                     };
-                    let mut result = converter.run(new_args.with_input(input), &registry).await;
+                    let mut result = converter.run(new_args.with_input(input), &registry).await?;
                     let result_vec: Vec<Result<ReturnSuccess, ShellError>> =
                         result.drain_vec().await;
                     if converter.is_binary() {
