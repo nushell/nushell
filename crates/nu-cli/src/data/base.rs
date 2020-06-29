@@ -98,14 +98,15 @@ impl CompareValues {
             CompareValues::String(left, right) => left.cmp(right),
             CompareValues::Date(left, right) => left.cmp(right),
             CompareValues::DateDuration(left, right) => {
-                // FIXME: Not sure how to handle the unwraps since this function should not fail.
                 // FIXME: Not sure if I could do something better with the Span.
                 let duration = Primitive::into_chrono_duration(
                     Primitive::Duration(right.clone()),
                     Span::unknown(),
                 )
-                .unwrap();
-                let right: DateTime<Utc> = Utc::now().checked_add_signed(duration).unwrap();
+                .expect("Could not convert nushell Duration into chrono Duration.");
+                let right: DateTime<Utc> = Utc::now()
+                    .checked_add_signed(duration)
+                    .expect("Data overflow");
                 right.cmp(left)
             }
             CompareValues::Booleans(left, right) => left.cmp(right),

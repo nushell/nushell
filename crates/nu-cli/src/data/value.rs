@@ -127,16 +127,10 @@ pub fn compute_values(
             (Primitive::Date(x), Primitive::Duration(_)) => {
                 let result = match operator {
                     Operator::Plus => {
-                        // FIXME: I'm not sure if this is the way the overflows should be handled.
-                        // The previous version used except().
                         // FIXME: Not sure if I could do something better with the Span.
-                        match Primitive::into_chrono_duration(rhs.clone(), Span::unknown()) {
-                            Ok(y) => match x.checked_add_signed(y) {
-                                Some(result) => Ok(result),
-                                None => Err((left.type_name(), right.type_name())),
-                            },
-                            Err(_) => Err((left.type_name(), right.type_name())),
-                        }
+                        let y = Primitive::into_chrono_duration(rhs.clone(), Span::unknown())
+                            .expect("Could not convert nushell Duration into chrono Duration.");
+                        Ok(x.checked_add_signed(y).expect("Data overflow."))
                     }
                     _ => Err((left.type_name(), right.type_name())),
                 }?;

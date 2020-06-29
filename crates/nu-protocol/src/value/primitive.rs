@@ -14,6 +14,8 @@ use num_traits::sign::Signed;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+const NANOS_PER_SEC: u32 = 1000000000;
+
 /// The most fundamental of structured values in Nu are the Primitive values. These values represent types like integers, strings, booleans, dates, etc that are then used
 /// as the buildig blocks to build up more complex structures.
 ///
@@ -82,8 +84,7 @@ impl Primitive {
     pub fn into_chrono_duration(self, span: Span) -> Result<chrono::Duration, ShellError> {
         match self {
             Primitive::Duration(duration) => {
-                // FIXME: Define const for the NANOS_PER_SEC?
-                let (secs, nanos) = duration.div_rem(&BigInt::from(1000 * 1000 * 1000));
+                let (secs, nanos) = duration.div_rem(&BigInt::from(NANOS_PER_SEC));
                 // FIXME: I would have prefered to return a ShellError, but there is not one for
                 // overflow.
                 let secs = secs.to_i64().expect("Overflowing duration");
@@ -354,41 +355,29 @@ pub fn format_duration(duration: &BigInt) -> String {
     let (minutes, seconds): (BigInt, BigInt) = seconds.div_rem(&big_int_60);
     let (hours, minutes): (BigInt, BigInt) = minutes.div_rem(&big_int_60);
     let (days, hours): (BigInt, BigInt) = hours.div_rem(&big_int_24);
-
+    let decimals = match (
+        milliseconds.to_i64().unwrap(),
+        microseconds.to_i64().unwrap(),
+        nanoseconds.to_i64().unwrap(),
+    ) {
+        (0, 0, 0) => String::from("0"),
+        (0, 0, ns) => format!("{:09}", ns),
+        (0, us, ns) => format!("{:06}{:03}", us, ns),
+        (ms, 0, ns) => format!("{:03}{:06}", ms, ns),
+        (ms, us, ns) => format!("{:03}{:03}{:03}", ms, us, ns),
+    };
     match (
         days.to_i64()
             .expect("Overflowing while formatting duration."),
         hours.to_i64().unwrap(),
         minutes.to_i64().unwrap(),
         seconds.to_i64().unwrap(),
-        milliseconds.to_i64().unwrap(),
-        microseconds.to_i64().unwrap(),
-        nanoseconds.to_i64().unwrap(),
     ) {
-        (0, 0, 0, 0, 0, 0, ns) => format!("{}", sign * ns),
-        (0, 0, 0, 0, 0, us, ns) => format!("{}:{:03}", sign * us, ns),
-        (0, 0, 0, 0, ms, us, ns) => format!("{}:{:03}:{:03}", sign * ms, us, ns),
-        (0, 0, 0, s, ms, us, ns) => format!("{}:{:03}:{:03}:{:03}", sign * s, ms, us, ns),
-        (0, 0, m, s, ms, us, ns) => format!("{}:{:02}:{:03}:{:03}:{:03}", sign * m, s, ms, us, ns),
-        (0, h, m, s, ms, us, ns) => format!(
-            "{}:{:02}:{:02}:{:03}:{:03}:{:03}",
-            sign * h,
-            m,
-            s,
-            ms,
-            us,
-            ns
-        ),
-        (d, h, m, s, ms, us, ns) => format!(
-            "{}:{:02}:{:02}:{:02}:{:03}:{:03}:{:03}",
-            sign * d,
-            h,
-            m,
-            s,
-            ms,
-            us,
-            ns
-        ),
+        (0, 0, 0, 0) => format!("{}.{}", if sign == 1 { "0" } else { "-0" }, decimals),
+        (0, 0, 0, s) => format!("{}.{}", sign * s, decimals),
+        (0, 0, m, s) => format!("{}:{:02}.{}", sign * m, s, decimals),
+        (0, h, m, s) => format!("{}:{:02}:{:02}.{}", sign * h, m, s, decimals),
+        (d, h, m, s) => format!("{}:{:02}:{:02}:{:02}.{}", sign * d, h, m, s, decimals),
     }
 }
 
