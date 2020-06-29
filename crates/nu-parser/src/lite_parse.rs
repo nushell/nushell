@@ -104,6 +104,58 @@ fn bare(src: &mut Input, span_offset: usize) -> Result<Spanned<String>, ParseErr
     Ok(bare.spanned(span))
 }
 
+#[test]
+fn bare_simple_1() -> Result<(), ParseError> {
+    let input = "foo bar baz";
+
+    let input = &mut input.char_indices().peekable();
+    let result = bare(input, 0)?;
+
+    assert_eq!(result.span.start(), 0);
+    assert_eq!(result.span.end(), 3);
+
+    Ok(())
+}
+
+#[test]
+fn bare_simple_2() -> Result<(), ParseError> {
+    let input = "'foo bar' baz";
+
+    let input = &mut input.char_indices().peekable();
+    let result = bare(input, 0)?;
+
+    assert_eq!(result.span.start(), 0);
+    assert_eq!(result.span.end(), 9);
+
+    Ok(())
+}
+
+#[test]
+fn bare_simple_3() -> Result<(), ParseError> {
+    let input = "'foo\" bar' baz";
+
+    let input = &mut input.char_indices().peekable();
+    let result = bare(input, 0)?;
+
+    assert_eq!(result.span.start(), 0);
+    assert_eq!(result.span.end(), 10);
+
+    Ok(())
+}
+
+#[test]
+fn bare_simple_4() -> Result<(), ParseError> {
+    let input = "[foo bar] baz";
+
+    let input = &mut input.char_indices().peekable();
+    let result = bare(input, 0)?;
+
+    assert_eq!(result.span.start(), 0);
+    assert_eq!(result.span.end(), 9);
+
+    Ok(())
+}
+
 fn command(src: &mut Input, span_offset: usize) -> Result<LiteCommand, ParseError> {
     let command = bare(src, span_offset)?;
     if command.item.is_empty() {
