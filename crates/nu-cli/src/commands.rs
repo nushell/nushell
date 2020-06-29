@@ -219,7 +219,7 @@ pub(crate) use pivot::Pivot;
 pub(crate) use prepend::Prepend;
 pub(crate) use prev::Previous;
 pub(crate) use pwd::Pwd;
-pub(crate) use random::{Random, RandomBool, RandomUUID};
+pub(crate) use random::{Random, RandomBool, RandomDice, RandomUUID};
 pub(crate) use range::Range;
 #[allow(unused_imports)]
 pub(crate) use reduce_by::ReduceBy;
