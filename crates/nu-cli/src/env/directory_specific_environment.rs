@@ -26,6 +26,7 @@ pub struct DirectorySpecificEnvironment {
 pub struct NuEnvDoc {
     pub env: IndexMap<String, String>,
     pub scriptvars: IndexMap<String, String>,
+    // pub entryscripts: Vec<String>
 }
 
 impl DirectorySpecificEnvironment {
@@ -47,13 +48,26 @@ impl DirectorySpecificEnvironment {
 
             if trusted.file_is_trusted_reload_config(&nu_env_file, &content)?
             {
-                let doc: NuEnvDoc = toml::de::from_str(std::str::from_utf8(&content).unwrap()).unwrap();
+                let doc: NuEnvDoc = toml::de::from_slice(&content).or_else(|e|{
+                    Err(ShellError::untagged_runtime_error(format!("{:?}", e)))
+                })?;
                 return Ok(doc);
             }
             return Err(ShellError::untagged_runtime_error(
-                format!("{:?} is untrusted. Run 'autoenv trust {:?}' and restart nushell to trust it.\nThis needs to be done after each change to the file.", nu_env_file, nu_env_file.parent().unwrap_or_else(|| &Path::new("")))));
+                format!("{:?} is untrusted. Run 'autoenv trust {:?}' to trust it.\nThis needs to be done after each change to the file.", nu_env_file, nu_env_file.parent().unwrap_or_else(|| &Path::new("")))));
         }
         Err(ShellError::untagged_runtime_error("No trusted directories"))
+    }
+
+    pub fn add_key_if_appropriate(&mut self, vars_to_add: &mut IndexMap<EnvKey, EnvVal>, working_dir: &PathBuf, dir_env_key: &EnvKey, dir_env_val: &String) {
+        //This condition is to make sure variables in parent directories don't overwrite variables set by subdirectories.
+        if !vars_to_add.contains_key(dir_env_key) {
+            vars_to_add.insert(dir_env_key.clone(), OsString::from(dir_env_val));
+            self.added_env_vars
+                .entry(working_dir.clone())
+                .or_insert(IndexMap::new())
+                .insert(dir_env_key.clone(), std::env::var_os(dir_env_key));
+        }
     }
 
     pub fn env_vars_to_add(&mut self) -> Result<IndexMap<EnvKey, EnvVal>, ShellError> {
@@ -65,25 +79,18 @@ impl DirectorySpecificEnvironment {
         //If we are in a parent directory to last_seen_directory, just return without applying .nu-env in the parent directory - they were already applied earlier.
         while self.last_seen_directory.cmp(&working_dir) == std::cmp::Ordering::Less { //parent.cmp(child) = Less
             if nu_env_file.exists() {
-                let toml_doc = self.toml_if_directory_is_trusted(&nu_env_file)?;
+                let nu_env_doc = self.toml_if_directory_is_trusted(&nu_env_file)?;
 
                 //add regular variables from the [env section]
-                toml_doc
+                nu_env_doc
                     .env
                     .iter()
                     .for_each(|(dir_env_key, dir_env_val)| {
-                        //This condition is to make sure variables in parent directories don't overwrite variables set by subdirectories.
-                        if !vars_to_add.contains_key(dir_env_key) {
-                            vars_to_add.insert(dir_env_key.clone(), OsString::from(dir_env_val));
-                            self.added_env_vars
-                                .entry(working_dir.clone())
-                                .or_insert(IndexMap::new())
-                                .insert(dir_env_key.clone(), std::env::var_os(dir_env_key));
-                        }
+                        self.add_key_if_appropriate(&mut vars_to_add, &working_dir, &dir_env_key, dir_env_val);
                     });
 
-                //Add variables that need to evaluate scripts to run
-                toml_doc
+                //Add variables that need to evaluate scripts to run, from [scriptvars] section
+                nu_env_doc
                     .scriptvars
                     .iter()
                     .for_each(|(dir_env_key, dir_val_script)| {
@@ -92,15 +99,8 @@ impl DirectorySpecificEnvironment {
                             .arg(dir_val_script)
                             .output()
                             .expect("couldn't exec");
-                        let response = std::str::from_utf8(&command.stdout[..command.stdout.len() - 1]).ok();
-
-                        if !vars_to_add.contains_key(dir_env_key) {
-                            vars_to_add.insert(dir_env_key.clone(), OsString::from(response.unwrap().to_string()));
-                            self.added_env_vars
-                                .entry(working_dir.clone())
-                                .or_insert(IndexMap::new())
-                                .insert(dir_env_key.clone(), std::env::var_os(dir_env_key));
-                        }
+                        let response = std::str::from_utf8(&command.stdout[..command.stdout.len() - 1]).unwrap();
+                        self.add_key_if_appropriate(&mut vars_to_add, &working_dir, &dir_env_key, &response.to_string());
                     });
             }
             working_dir.pop();
