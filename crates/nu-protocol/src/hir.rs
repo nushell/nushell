@@ -469,25 +469,6 @@ pub fn convert_number_to_u64(number: &Number) -> u64 {
     }
 }
 
-fn convert_number_to_i64(number: &Number) -> i64 {
-    match number {
-        Number::Int(big_int) => {
-            if let Some(x) = big_int.to_i64() {
-                x
-            } else {
-                unreachable!("Internal error: convert_number_to_u64 given incompatible number")
-            }
-        }
-        Number::Decimal(big_decimal) => {
-            if let Some(x) = big_decimal.to_i64() {
-                x
-            } else {
-                unreachable!("Internal error: convert_number_to_u64 given incompatible number")
-            }
-        }
-    }
-}
-
 impl Unit {
     pub fn as_str(self) -> &'static str {
         match self {
