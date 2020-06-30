@@ -1,5 +1,6 @@
 use crate::commands::{self, autoenv::Trusted};
 use commands::autoenv;
+use std::process::Command;
 use indexmap::IndexMap;
 use nu_errors::ShellError;
 
@@ -93,6 +94,34 @@ impl DirectorySpecificEnvironment {
                                 .insert(dir_env_key.clone(), std::env::var_os(dir_env_key));
                         }
                     });
+
+                toml_doc
+                    .get("script-vars")
+                    .ok_or_else(|| {
+                        ShellError::untagged_runtime_error(format!(
+                            "[script-vars] section missing in {:?}",
+                            nu_env_file
+                        ))
+                    })?
+                    .as_table()
+                    .ok()
+                    .iter()
+                    .for_each(|(dir_env_key, dir_val_script)| {
+                        let hi = Command::new("sh")
+                            .arg("-c")
+                            .arg(dir_val_script.as_str().unwrap_or(""))
+                            .output()
+                            .expect("couldn't exec");
+                        let response = std::str::from_utf8(&hi.stdout[..hi.stdout.len() - 1]).ok();
+
+                        if !vars_to_add.contains_key(dir_env_key) {
+                            vars_to_add.insert(dir_env_key.clone(), OsString::from(response.unwrap()));
+                            self.added_env_vars
+                                .entry(working_dir.clone())
+                                .or_insert(IndexMap::new())
+                                .insert(dir_env_key.clone(), std::env::var_os(dir_env_key));
+                        }
+                    })
             }
             working_dir.pop();
         }

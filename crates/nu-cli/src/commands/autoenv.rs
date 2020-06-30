@@ -6,7 +6,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::io::Read;
-use std::{fs::OpenOptions, path::PathBuf};
+use std::path::PathBuf;
 pub struct Autoenv;
 
 #[derive(Deserialize, Serialize, Debug, Default)]
