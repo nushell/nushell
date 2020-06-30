@@ -3,6 +3,7 @@ use commands::autoenv;
 use std::process::Command;
 use indexmap::IndexMap;
 use nu_errors::ShellError;
+use serde::Deserialize;
 
 use std::{
     ffi::OsString,
@@ -21,6 +22,12 @@ pub struct DirectorySpecificEnvironment {
     added_env_vars: IndexMap<PathBuf, IndexMap<EnvKey, Option<EnvVal>>>,
 }
 
+#[derive(Deserialize, Debug, Default)]
+pub struct NuEnvDoc {
+    pub env: IndexMap<String, String>,
+    pub scriptvars: IndexMap<String, String>,
+}
+
 impl DirectorySpecificEnvironment {
     pub fn new() -> DirectorySpecificEnvironment {
         let trusted = match autoenv::Trusted::read_trusted() {
@@ -34,21 +41,14 @@ impl DirectorySpecificEnvironment {
         }
     }
 
-    fn toml_if_directory_is_trusted(&mut self, nu_env_file: &PathBuf) -> Result<toml::Value, ShellError> {
+    fn toml_if_directory_is_trusted(&mut self, nu_env_file: &PathBuf) -> Result<NuEnvDoc, ShellError> {
         if let Some(trusted) = self.trusted.as_mut() {
             let content = std::fs::read(&nu_env_file)?;
 
             if trusted.file_is_trusted_reload_config(&nu_env_file, &content)?
             {
-                return Ok(std::str::from_utf8(&content.as_slice()).or_else(|_| {
-                    Err(ShellError::untagged_runtime_error(format!("Could not read {:?} as utf8 string", content)))
-                })?
-                .parse::<toml::Value>().or_else(|_| {
-                    Err(ShellError::untagged_runtime_error(format!(
-                        "Could not parse {:?}. Is it well-formed? Each entry must be written as key = \"value\" (note the quotation marks)",
-                        nu_env_file
-                    )))
-                })?);
+                let doc: NuEnvDoc = toml::de::from_str(std::str::from_utf8(&content).unwrap()).unwrap();
+                return Ok(doc);
             }
             return Err(ShellError::untagged_runtime_error(
                 format!("{:?} is untrusted. Run 'autoenv trust {:?}' and restart nushell to trust it.\nThis needs to be done after each change to the file.", nu_env_file, nu_env_file.parent().unwrap_or_else(|| &Path::new("")))));
@@ -58,7 +58,7 @@ impl DirectorySpecificEnvironment {
 
     pub fn env_vars_to_add(&mut self) -> Result<IndexMap<EnvKey, EnvVal>, ShellError> {
         let mut working_dir = std::env::current_dir()?;
-        let mut vars_to_add = IndexMap::new();
+        let mut vars_to_add: IndexMap<EnvKey, EnvVal> = IndexMap::new();
         let nu_env_file = working_dir.join(".nu-env");
 
         //If we are in the last seen directory, do nothing
@@ -66,28 +66,15 @@ impl DirectorySpecificEnvironment {
         while self.last_seen_directory.cmp(&working_dir) == std::cmp::Ordering::Less { //parent.cmp(child) = Less
             if nu_env_file.exists() {
                 let toml_doc = self.toml_if_directory_is_trusted(&nu_env_file)?;
+
+                //add regular variables from the [env section]
                 toml_doc
-                    .get("env")
-                    .ok_or_else(|| {
-                        ShellError::untagged_runtime_error(format!(
-                            "[env] section missing in {:?}",
-                            nu_env_file
-                        ))
-                    })?
-                    .as_table()
-                    .ok_or_else(|| {
-                        ShellError::untagged_runtime_error(format!(
-                            "[env] section malformed in {:?}",
-                            nu_env_file
-                        ))
-                    })?
+                    .env
                     .iter()
                     .for_each(|(dir_env_key, dir_env_val)| {
-                        let dir_env_val: EnvVal = dir_env_val.as_str().unwrap_or("").into();
-
                         //This condition is to make sure variables in parent directories don't overwrite variables set by subdirectories.
                         if !vars_to_add.contains_key(dir_env_key) {
-                            vars_to_add.insert(dir_env_key.clone(), dir_env_val);
+                            vars_to_add.insert(dir_env_key.clone(), OsString::from(dir_env_val));
                             self.added_env_vars
                                 .entry(working_dir.clone())
                                 .or_insert(IndexMap::new())
@@ -95,33 +82,26 @@ impl DirectorySpecificEnvironment {
                         }
                     });
 
+                //Add variables that need to evaluate scripts to run
                 toml_doc
-                    .get("script-vars")
-                    .ok_or_else(|| {
-                        ShellError::untagged_runtime_error(format!(
-                            "[script-vars] section missing in {:?}",
-                            nu_env_file
-                        ))
-                    })?
-                    .as_table()
-                    .ok()
+                    .scriptvars
                     .iter()
                     .for_each(|(dir_env_key, dir_val_script)| {
-                        let hi = Command::new("sh")
+                        let command = Command::new("sh")
                             .arg("-c")
-                            .arg(dir_val_script.as_str().unwrap_or(""))
+                            .arg(dir_val_script)
                             .output()
                             .expect("couldn't exec");
-                        let response = std::str::from_utf8(&hi.stdout[..hi.stdout.len() - 1]).ok();
+                        let response = std::str::from_utf8(&command.stdout[..command.stdout.len() - 1]).ok();
 
                         if !vars_to_add.contains_key(dir_env_key) {
-                            vars_to_add.insert(dir_env_key.clone(), OsString::from(response.unwrap()));
+                            vars_to_add.insert(dir_env_key.clone(), OsString::from(response.unwrap().to_string()));
                             self.added_env_vars
                                 .entry(working_dir.clone())
                                 .or_insert(IndexMap::new())
                                 .insert(dir_env_key.clone(), std::env::var_os(dir_env_key));
                         }
-                    })
+                    });
             }
             working_dir.pop();
         }
