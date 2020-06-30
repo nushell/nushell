@@ -34,10 +34,15 @@ pub struct NuEnvDoc {
 
 impl DirectorySpecificEnvironment {
     pub fn new() -> DirectorySpecificEnvironment {
+        let root_dir = if cfg!(target_os = "windows") {
+            PathBuf::from("c:\\")
+        } else {
+            PathBuf::from("/")
+        };
         let trusted = autoenv::Trusted::read_trusted().ok();
         DirectorySpecificEnvironment {
             trusted,
-            last_seen_directory: PathBuf::from("/"),
+            last_seen_directory: root_dir,
             added_env_vars: IndexMap::new(),
             exitscripts: IndexMap::new(),
         }
