@@ -60,9 +60,9 @@ impl Environment {
     }
 
     pub fn autoenv(&mut self) -> Result<(), ShellError> {
-        for (k, v) in self.autoenv.env_vars_to_add()? {
-            std::env::set_var(&k, OsString::from(v.to_string_lossy().to_string()));
-        }
+        // for (k, v) in self.autoenv.env_vars_to_add()? {
+        //     std::env::set_var(&k, OsString::from(v.to_string_lossy().to_string()));
+        // }
 
         let cleanup = self.autoenv.cleanup_after_dir_exit()?;
 
