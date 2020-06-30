@@ -2,13 +2,10 @@ use crate::commands::{self, autoenv::Trusted};
 use commands::autoenv;
 use indexmap::IndexMap;
 use nu_errors::ShellError;
-use sha2::{Digest, Sha256};
-use std::io::Write;
 
 use std::{
     ffi::OsString,
     fmt::Debug,
-    fs::OpenOptions,
     path::{Path, PathBuf},
 };
 

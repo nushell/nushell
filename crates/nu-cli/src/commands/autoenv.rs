@@ -1,6 +1,5 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
-use std::io::Write;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 use serde::Deserialize;
