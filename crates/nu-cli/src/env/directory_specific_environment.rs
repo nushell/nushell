@@ -102,11 +102,16 @@ impl DirectorySpecificEnvironment {
 
                 //Add variables that need to evaluate scripts to run, from [scriptvars] section
                 for (dir_env_key, dir_val_script) in nu_env_doc.scriptvars {
-                    let command = Command::new("sh")
-                        .arg("-c")
-                        .arg(dir_val_script)
-                        .output()
-                        .expect("couldn't exec");
+                    let command = if cfg!(target_os = "windows") {
+                        Command::new("cmd")
+                            .args(&["/C", dir_val_script.as_str()])
+                            .output()?
+                    } else {
+                        Command::new("sh")
+                            .arg("-c")
+                            .arg(dir_val_script)
+                            .output()?
+                    };
                     let response = std::str::from_utf8(&command.stdout[..command.stdout.len() - 1])
                         .or_else(|e| {
                             Err(ShellError::untagged_runtime_error(format!(
@@ -123,11 +128,16 @@ impl DirectorySpecificEnvironment {
                 }
 
                 for script in nu_env_doc.entryscripts {
-                    Command::new("sh")
-                        .arg("-c")
-                        .arg(script)
-                        .output()
-                        .expect("couldn't exec");
+                    if cfg!(target_os = "windows") {
+                        Command::new("cmd")
+                            .args(&["/C", script.as_str()])
+                            .output()?;
+                    } else {
+                        Command::new("sh")
+                            .arg("-c")
+                            .arg(script)
+                            .output()?;
+                    }
                 }
                 self.exitscripts
                     .insert(working_dir.clone(), nu_env_doc.exitscripts);
@@ -158,11 +168,16 @@ impl DirectorySpecificEnvironment {
 
             if let Some(scripts) = self.exitscripts.get(&working_dir) {
                 for script in scripts {
-                    Command::new("sh")
-                        .arg("-c")
-                        .arg(script)
-                        .output()
-                        .expect("couldn't exec");
+                    if cfg!(target_os = "windows") {
+                        Command::new("cmd")
+                            .args(&["/C", script.as_str()])
+                            .output()?
+                    } else {
+                        Command::new("sh")
+                            .arg("-c")
+                            .arg(script)
+                            .output()?
+                    }
                 }
             }
             working_dir.pop();
