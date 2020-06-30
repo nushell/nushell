@@ -1,7 +1,7 @@
 use nu_test_support::{nu, pipeline};
 
 #[test]
-fn generates_a_dice_roll() {
+fn rolls_4_roll() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
