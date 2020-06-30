@@ -1,6 +1,6 @@
 [package]
 name = "nu_plugin_binaryview"
-version = "0.15.1"
+version = "0.16.0"
 authors = ["The Nu Project Contributors"]
 edition = "2018"
 description = "A binary viewer plugin for Nushell"
@@ -12,14 +12,14 @@ doctest = false
 [dependencies]
 ansi_term = "0.12.1"
 crossterm = { version = "0.17.5" }
-nu-plugin = { path = "../nu-plugin", version = "0.15.1" }
-nu-protocol = { path = "../nu-protocol", version = "0.15.1" }
-nu-source = { path = "../nu-source", version = "0.15.1" }
-nu-errors = { path = "../nu-errors", version = "0.15.1" }
+nu-plugin = { path = "../nu-plugin", version = "0.16.0" }
+nu-protocol = { path = "../nu-protocol", version = "0.16.0" }
+nu-source = { path = "../nu-source", version = "0.16.0" }
+nu-errors = { path = "../nu-errors", version = "0.16.0" }
 pretty-hex = "0.1.1"
 image = { version = "0.22.4", default_features = false, features = ["png_codec", "jpeg"] }
 rawkey = "0.1.2"
 neso = "0.5.0"
 
 [build-dependencies]
-nu-build = { version = "0.15.1", path = "../nu-build" }
+nu-build = { version = "0.16.0", path = "../nu-build" }
