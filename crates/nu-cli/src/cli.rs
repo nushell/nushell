@@ -394,6 +394,7 @@ pub fn create_default_context(
             // Random value generation
             whole_stream_command(Random),
             whole_stream_command(RandomBool),
+            whole_stream_command(RandomDice),
             whole_stream_command(RandomUUID),
         ]);
 
