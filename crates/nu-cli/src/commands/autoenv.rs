@@ -1,12 +1,13 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
+use std::io::Write;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 use serde::Deserialize;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::io::Read;
-use std::path::PathBuf;
+use std::{fs::OpenOptions, path::PathBuf};
 pub struct Autoenv;
 
 #[derive(Deserialize, Serialize, Debug, Default)]
@@ -18,13 +19,6 @@ impl Trusted {
         Trusted {
             files: IndexMap::new(),
         }
-    }
-
-    pub fn read_trusted() -> Result<Trusted, ShellError> {
-        let allowed = Trusted {
-            files: read_config_file()?,
-        };
-        Ok(allowed)
     }
     pub fn file_is_trusted_reload_config(
         &mut self,
@@ -38,34 +32,38 @@ impl Trusted {
         if self.files.get(nufile) == Some(&contentdigest) {
             return Ok(true);
         }
-        //Otherwise, we re-read the hash from nu-env.toml and compare with that. If it is the same, we update the map.
+        //Otherwise, we re-read nu-env.toml and compare with that. If it is the same, we update the map.
         //This allows the user to use autoenv trust without having to restart nushell afterwards
-        // let current_config = read_config_file()?;
-        // if current_config.get(nufile) == Some(&contentdigest) {
-        //     self.files = current_config;
-        //     return Ok(true);
-        // }
+        let new_trusted = Trusted::read_trusted()?;
+        if new_trusted.files.get(nufile) == Some(&contentdigest) {
+            self.files = new_trusted.files;
+            return Ok(true);
+        }
         Ok(false)
+    }
+
+    pub fn read_trusted() -> Result<Self, ShellError> {
+        let config_path = config::default_path_for(&Some(PathBuf::from("nu-env.toml")))?;
+
+        let mut file = std::fs::OpenOptions::new()
+            .read(true)
+            .create(true)
+            .write(true)
+            .open(config_path)
+            .or_else(|_| {
+                Err(ShellError::untagged_runtime_error(
+                    "Couldn't open nu-env.toml",
+                ))
+            })?;
+        let mut doc = String::new();
+        file.read_to_string(&mut doc)?;
+
+        let allowed = toml::de::from_str(doc.as_str()).unwrap_or_else(|_| Trusted::new());
+
+        Ok(allowed)
     }
 }
 
-fn read_config_file() -> Result<IndexMap<String, Vec<u8>>, ShellError> {
-    let config_path = config::default_path_for(&Some(PathBuf::from("nu-env.toml")))?;
-
-    let mut file = std::fs::OpenOptions::new()
-        .read(true)
-        .create(true)
-        .write(true)
-        .open(config_path)
-        .or_else(|_| {
-            Err(ShellError::untagged_runtime_error(
-                "Couldn't open nu-env.toml",
-            ))
-        })?;
-    let mut doc = String::new();
-    file.read_to_string(&mut doc)?;
-    Ok(toml::from_str(doc.as_str()).unwrap_or_else(|_| IndexMap::new()))
-}
 
 #[async_trait]
 impl WholeStreamCommand for Autoenv {
