@@ -1,9 +1,10 @@
 use crate::commands::{self, autoenv::Trusted};
 use commands::autoenv;
-use std::process::Command;
 use indexmap::IndexMap;
 use nu_errors::ShellError;
 use serde::Deserialize;
+use std::cmp::Ordering::Less;
+use std::process::Command;
 
 use std::{
     ffi::OsString,
@@ -20,37 +21,38 @@ pub struct DirectorySpecificEnvironment {
     //If an environment var has been added from a .nu in a directory, we track it here so we can remove it when the user leaves the directory.
     //If setting the var overwrote some value, we save the old value in an option so we can restore it later.
     added_env_vars: IndexMap<PathBuf, IndexMap<EnvKey, Option<EnvVal>>>,
+    exitscripts: IndexMap<PathBuf, Vec<String>>,
 }
 
 #[derive(Deserialize, Debug, Default)]
 pub struct NuEnvDoc {
     pub env: IndexMap<String, String>,
     pub scriptvars: IndexMap<String, String>,
-    // pub entryscripts: Vec<String>
+    pub entryscripts: Vec<String>,
+    pub exitscripts: Vec<String>,
 }
 
 impl DirectorySpecificEnvironment {
     pub fn new() -> DirectorySpecificEnvironment {
-        let trusted = match autoenv::Trusted::read_trusted() {
-            Ok(t) => Some(t),
-            Err(_) => None,
-        };
+        let trusted = autoenv::Trusted::read_trusted().ok();
         DirectorySpecificEnvironment {
             trusted,
             last_seen_directory: PathBuf::from("/"),
             added_env_vars: IndexMap::new(),
+            exitscripts: IndexMap::new(),
         }
     }
 
-    fn toml_if_directory_is_trusted(&mut self, nu_env_file: &PathBuf) -> Result<NuEnvDoc, ShellError> {
+    fn toml_if_directory_is_trusted(
+        &mut self,
+        nu_env_file: &PathBuf,
+    ) -> Result<NuEnvDoc, ShellError> {
         if let Some(trusted) = self.trusted.as_mut() {
             let content = std::fs::read(&nu_env_file)?;
 
-            if trusted.file_is_trusted_reload_config(&nu_env_file, &content)?
-            {
-                let doc: NuEnvDoc = toml::de::from_slice(&content).or_else(|e|{
-                    Err(ShellError::untagged_runtime_error(format!("{:?}", e)))
-                })?;
+            if trusted.file_is_trusted_reload_config(&nu_env_file, &content)? {
+                let doc: NuEnvDoc = toml::de::from_slice(&content)
+                    .or_else(|e| Err(ShellError::untagged_runtime_error(format!("{:?}", e))))?;
                 return Ok(doc);
             }
             return Err(ShellError::untagged_runtime_error(
@@ -59,7 +61,13 @@ impl DirectorySpecificEnvironment {
         Err(ShellError::untagged_runtime_error("No trusted directories"))
     }
 
-    pub fn add_key_if_appropriate(&mut self, vars_to_add: &mut IndexMap<EnvKey, EnvVal>, working_dir: &PathBuf, dir_env_key: &EnvKey, dir_env_val: &String) {
+    pub fn add_key_if_appropriate(
+        &mut self,
+        vars_to_add: &mut IndexMap<EnvKey, EnvVal>,
+        working_dir: &PathBuf,
+        dir_env_key: &EnvKey,
+        dir_env_val: &String,
+    ) {
         //This condition is to make sure variables in parent directories don't overwrite variables set by subdirectories.
         if !vars_to_add.contains_key(dir_env_key) {
             vars_to_add.insert(dir_env_key.clone(), OsString::from(dir_env_val));
@@ -77,31 +85,46 @@ impl DirectorySpecificEnvironment {
 
         //If we are in the last seen directory, do nothing
         //If we are in a parent directory to last_seen_directory, just return without applying .nu-env in the parent directory - they were already applied earlier.
-        while self.last_seen_directory.cmp(&working_dir) == std::cmp::Ordering::Less { //parent.cmp(child) = Less
+        //parent.cmp(child) = Less
+        while self.last_seen_directory.cmp(&working_dir) == Less {
             if nu_env_file.exists() {
                 let nu_env_doc = self.toml_if_directory_is_trusted(&nu_env_file)?;
 
                 //add regular variables from the [env section]
-                nu_env_doc
-                    .env
-                    .iter()
-                    .for_each(|(dir_env_key, dir_env_val)| {
-                        self.add_key_if_appropriate(&mut vars_to_add, &working_dir, &dir_env_key, dir_env_val);
-                    });
+                for (dir_env_key, dir_env_val) in nu_env_doc.env {
+                    self.add_key_if_appropriate(
+                        &mut vars_to_add,
+                        &working_dir,
+                        &dir_env_key,
+                        &dir_env_val,
+                    );
+                }
 
                 //Add variables that need to evaluate scripts to run, from [scriptvars] section
-                nu_env_doc
-                    .scriptvars
-                    .iter()
-                    .for_each(|(dir_env_key, dir_val_script)| {
-                        let command = Command::new("sh")
-                            .arg("-c")
-                            .arg(dir_val_script)
-                            .output()
-                            .expect("couldn't exec");
-                        let response = std::str::from_utf8(&command.stdout[..command.stdout.len() - 1]).unwrap();
-                        self.add_key_if_appropriate(&mut vars_to_add, &working_dir, &dir_env_key, &response.to_string());
-                    });
+                for (dir_env_key, dir_val_script) in nu_env_doc.scriptvars {
+                    let command = Command::new("sh")
+                        .arg("-c")
+                        .arg(dir_val_script)
+                        .output()
+                        .expect("couldn't exec");
+                    let response =
+                        std::str::from_utf8(&command.stdout[..command.stdout.len() - 1]).unwrap();
+                    self.add_key_if_appropriate(
+                        &mut vars_to_add,
+                        &working_dir,
+                        &dir_env_key,
+                        &response.to_string(),
+                    );
+                }
+
+                for script in nu_env_doc.entryscripts {
+                    Command::new("sh")
+                        .arg("-c")
+                        .arg(script)
+                        .output()
+                        .expect("couldn't exec");
+                }
+                self.exitscripts.insert(working_dir.clone(), nu_env_doc.exitscripts);
             }
             working_dir.pop();
         }
@@ -119,12 +142,22 @@ impl DirectorySpecificEnvironment {
         //If we are in a parent directory to last seen, exit .nu-envs from last seen to parent and restore old vals
         let mut working_dir = self.last_seen_directory.clone();
 
-        while current_dir.cmp(&working_dir) == std::cmp::Ordering::Less {
+        while current_dir.cmp(&working_dir) == Less {
             if let Some(vars_added_by_this_directory) = self.added_env_vars.get(&working_dir) {
                 for (k, v) in vars_added_by_this_directory {
                     vars_to_cleanup.insert(k.clone(), v.clone());
                 }
                 self.added_env_vars.remove(&working_dir);
+            }
+
+            if let Some(scripts) = self.exitscripts.get(&working_dir) {
+                for script in scripts {
+                    Command::new("sh")
+                        .arg("-c")
+                        .arg(script)
+                        .output()
+                        .expect("couldn't exec");
+                }
             }
             working_dir.pop();
         }
