@@ -69,14 +69,17 @@ impl Environment {
             Err(_) => {}
         }
 
-        let cleanup = self.autoenv.cleanup_after_dir_exit()?;
-
-        for (k, v) in cleanup {
-            if let Some(v) = v {
-                std::env::set_var(k, v);
-            } else {
-                std::env::remove_var(k);
+        match self.autoenv.cleanup_after_dir_exit() {
+            Ok(cleanup) => {
+                for (k, v) in cleanup {
+                    if let Some(v) = v {
+                        std::env::set_var(k, v);
+                    } else {
+                        std::env::remove_var(k);
+                    }
+                }
             }
+            Err(_) => {}
         }
 
         self.autoenv.last_seen_directory = std::env::current_dir()?;
