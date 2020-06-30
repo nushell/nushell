@@ -22,7 +22,7 @@ impl Trusted {
     pub fn file_is_trusted_reload_config(
         &mut self,
         nu_env_file: &PathBuf,
-        content: &Vec<u8>,
+        content: &[u8],
     ) -> Result<bool, ShellError> {
         let contentdigest = Sha256::digest(&content).as_slice().to_vec();
         let nufile = nu_env_file.to_str().unwrap_or("");
@@ -62,7 +62,6 @@ impl Trusted {
         Ok(allowed)
     }
 }
-
 
 #[async_trait]
 impl WholeStreamCommand for Autoenv {

@@ -65,16 +65,16 @@ impl DirectorySpecificEnvironment {
         &mut self,
         vars_to_add: &mut IndexMap<EnvKey, EnvVal>,
         working_dir: &PathBuf,
-        dir_env_key: &EnvKey,
-        dir_env_val: &String,
+        dir_env_key: &str,
+        dir_env_val: &str,
     ) {
         //This condition is to make sure variables in parent directories don't overwrite variables set by subdirectories.
         if !vars_to_add.contains_key(dir_env_key) {
-            vars_to_add.insert(dir_env_key.clone(), OsString::from(dir_env_val));
+            vars_to_add.insert(dir_env_key.to_string(), OsString::from(dir_env_val));
             self.added_env_vars
                 .entry(working_dir.clone())
                 .or_insert(IndexMap::new())
-                .insert(dir_env_key.clone(), std::env::var_os(dir_env_key));
+                .insert(dir_env_key.to_string(), std::env::var_os(dir_env_key));
         }
     }
 
@@ -107,8 +107,13 @@ impl DirectorySpecificEnvironment {
                         .arg(dir_val_script)
                         .output()
                         .expect("couldn't exec");
-                    let response =
-                        std::str::from_utf8(&command.stdout[..command.stdout.len() - 1]).unwrap();
+                    let response = std::str::from_utf8(&command.stdout[..command.stdout.len() - 1])
+                        .or_else(|e| {
+                            Err(ShellError::untagged_runtime_error(format!(
+                                "Couldn't parse stdout from command {:?}: {:?}",
+                                command, e
+                            )))
+                        })?;
                     self.add_key_if_appropriate(
                         &mut vars_to_add,
                         &working_dir,
@@ -124,7 +129,8 @@ impl DirectorySpecificEnvironment {
                         .output()
                         .expect("couldn't exec");
                 }
-                self.exitscripts.insert(working_dir.clone(), nu_env_doc.exitscripts);
+                self.exitscripts
+                    .insert(working_dir.clone(), nu_env_doc.exitscripts);
             }
             working_dir.pop();
         }

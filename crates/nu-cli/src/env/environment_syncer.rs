@@ -4,7 +4,7 @@ use crate::data::config::{Conf, NuConfig};
 use crate::env::environment::{Env, Environment};
 use nu_source::Text;
 use parking_lot::Mutex;
-use std::{sync::Arc};
+use std::sync::Arc;
 
 pub struct EnvironmentSyncer {
     pub env: Arc<Mutex<Box<Environment>>>,

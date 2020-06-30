@@ -5,7 +5,7 @@ use nu_errors::ShellError;
 use nu_protocol::{UntaggedValue, Value};
 use std::ffi::OsString;
 
-use std::{fmt::Debug};
+use std::fmt::Debug;
 
 pub trait Env: Debug + Send {
     fn env(&self) -> Option<Value>;
@@ -66,7 +66,7 @@ impl Environment {
 
         let cleanup = self.autoenv.cleanup_after_dir_exit()?;
 
-        for (k, v) in  cleanup {
+        for (k, v) in cleanup {
             if let Some(v) = v {
                 std::env::set_var(k, v);
             } else {
