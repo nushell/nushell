@@ -1,7 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 use rand::prelude::{thread_rng, Rng};
 
@@ -82,7 +82,7 @@ pub async fn dice(
         6
     };
 
-    let iter = (0..dice).into_iter().map(move |_| {
+    let iter = (0..dice).map(move |_| {
         let mut thread_rng = thread_rng();
         UntaggedValue::int(thread_rng.gen_range(1, sides + 1)).into_value(tag.clone())
     });
