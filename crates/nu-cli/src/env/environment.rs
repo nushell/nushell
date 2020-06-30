@@ -11,7 +11,7 @@ pub trait Env: Debug + Send {
     fn env(&self) -> Option<Value>;
     fn path(&self) -> Option<Value>;
 
-    fn add_env(&mut self, key: &str, value: &str, overwrite_existing: bool);
+    fn add_env(&mut self, key: &str, value: &str);
     fn add_path(&mut self, new_path: OsString);
 }
 
@@ -24,8 +24,8 @@ impl Env for Box<dyn Env> {
         (**self).path()
     }
 
-    fn add_env(&mut self, key: &str, value: &str, overwrite_existing: bool) {
-        (**self).add_env(key, value, overwrite_existing);
+    fn add_env(&mut self, key: &str, value: &str) {
+        (**self).add_env(key, value);
     }
 
     fn add_path(&mut self, new_path: OsString) {
@@ -60,26 +60,18 @@ impl Environment {
     }
 
     pub fn autoenv(&mut self) -> Result<(), ShellError> {
-        match self.autoenv.env_vars_to_add() {
-            Ok(vars) => {
-                for (k, v) in vars {
-                    std::env::set_var(&k, OsString::from(v.to_string_lossy().to_string()));
-                }
-            }
-            Err(_) => {}
+        for (k, v) in self.autoenv.env_vars_to_add()? {
+            std::env::set_var(&k, OsString::from(v.to_string_lossy().to_string()));
         }
 
-        match self.autoenv.cleanup_after_dir_exit() {
-            Ok(cleanup) => {
-                for (k, v) in cleanup {
-                    if let Some(v) = v {
-                        std::env::set_var(k, v);
-                    } else {
-                        std::env::remove_var(k);
-                    }
-                }
+        let cleanup = self.autoenv.cleanup_after_dir_exit()?;
+
+        for (k, v) in cleanup {
+            if let Some(v) = v {
+                std::env::set_var(k, v);
+            } else {
+                std::env::remove_var(k);
             }
-            Err(_) => {}
         }
 
         self.autoenv.last_seen_directory = std::env::current_dir()?;
@@ -109,7 +101,7 @@ impl Env for Environment {
         None
     }
 
-    fn add_env(&mut self, key: &str, value: &str, overwrite_existing: bool) {
+    fn add_env(&mut self, key: &str, value: &str) {
         let value = UntaggedValue::string(value);
 
         let new_envs = {
@@ -120,7 +112,7 @@ impl Env for Environment {
             {
                 let mut new_envs = envs.clone();
 
-                if !new_envs.contains_key(key) || overwrite_existing {
+                if !new_envs.contains_key(key) {
                     new_envs.insert_data_at_key(key, value.into_value(tag.clone()));
                 }
 
@@ -238,7 +230,7 @@ mod tests {
             let fake_config = FakeConfig::new(&file);
             let mut actual = Environment::from_config(&fake_config);
 
-            actual.add_env("USER", "NUNO", false);
+            actual.add_env("USER", "NUNO");
 
             assert_eq!(
                 actual.env(),
@@ -271,7 +263,7 @@ mod tests {
             let fake_config = FakeConfig::new(&file);
             let mut actual = Environment::from_config(&fake_config);
 
-            actual.add_env("SHELL", "/usr/bin/sh", false);
+            actual.add_env("SHELL", "/usr/bin/sh");
 
             assert_eq!(
                 actual.env(),

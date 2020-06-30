@@ -54,7 +54,7 @@ impl EnvironmentSyncer {
                 if name != "path" && name != "PATH" {
                     // account for new env vars present in the current session
                     // that aren't loaded from config.
-                    environment.add_env(&name, &value, true);
+                    environment.add_env(&name, &value);
 
                     // clear the env var from the session
                     // we are about to replace them
