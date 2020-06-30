@@ -82,14 +82,12 @@ pub async fn dice(
         6
     };
 
-    let mut thread_rng = thread_rng();
+    let iter = (0..dice).into_iter().map(move |_| {
+        let mut thread_rng = thread_rng();
+        UntaggedValue::int(thread_rng.gen_range(1, sides + 1)).into_value(tag.clone())
+    });
 
-    let values: Vec<Value> = (0..dice)
-        .into_iter()
-        .map(|_| UntaggedValue::int(thread_rng.gen_range(1, sides + 1)).into_value(tag.clone()))
-        .collect();
-
-    Ok(futures::stream::iter(values).to_output_stream())
+    Ok(futures::stream::iter(iter).to_output_stream())
 }
 
 #[cfg(test)]
