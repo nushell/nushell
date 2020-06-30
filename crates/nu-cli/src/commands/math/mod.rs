@@ -6,6 +6,7 @@ pub mod min;
 pub mod mode;
 pub mod sum;
 pub mod utils;
+pub mod variance;
 
 pub use avg::SubCommand as MathAverage;
 pub use command::Command as Math;
@@ -14,3 +15,4 @@ pub use median::SubCommand as MathMedian;
 pub use min::SubCommand as MathMinimum;
 pub use mode::SubCommand as MathMode;
 pub use sum::SubCommand as MathSummation;
+pub use variance::SubCommand as MathVariance;

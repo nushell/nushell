@@ -372,6 +372,7 @@ pub fn create_default_context(
             whole_stream_command(MathMode),
             whole_stream_command(MathMaximum),
             whole_stream_command(MathSummation),
+            whole_stream_command(MathVariance),
             // File format output
             whole_stream_command(To),
             whole_stream_command(ToBSON),
