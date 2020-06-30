@@ -107,10 +107,7 @@ impl DirectorySpecificEnvironment {
                             .args(&["/C", dir_val_script.as_str()])
                             .output()?
                     } else {
-                        Command::new("sh")
-                            .arg("-c")
-                            .arg(dir_val_script)
-                            .output()?
+                        Command::new("sh").arg("-c").arg(dir_val_script).output()?
                     };
                     let response = std::str::from_utf8(&command.stdout[..command.stdout.len() - 1])
                         .or_else(|e| {
@@ -133,10 +130,7 @@ impl DirectorySpecificEnvironment {
                             .args(&["/C", script.as_str()])
                             .output()?;
                     } else {
-                        Command::new("sh")
-                            .arg("-c")
-                            .arg(script)
-                            .output()?;
+                        Command::new("sh").arg("-c").arg(script).output()?;
                     }
                 }
                 self.exitscripts
@@ -171,12 +165,9 @@ impl DirectorySpecificEnvironment {
                     if cfg!(target_os = "windows") {
                         Command::new("cmd")
                             .args(&["/C", script.as_str()])
-                            .output()?
+                            .output()?;
                     } else {
-                        Command::new("sh")
-                            .arg("-c")
-                            .arg(script)
-                            .output()?
+                        Command::new("sh").arg("-c").arg(script).output()?;
                     }
                 }
             }
