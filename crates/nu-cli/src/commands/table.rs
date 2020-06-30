@@ -241,7 +241,7 @@ async fn table(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
 
     let mut delay_slot = None;
 
-    let termwidth = std::cmp::max(textwrap::termwidth(), 20);
+    let term_width = args.host.lock().width();
 
     while !finished {
         let mut new_input: VecDeque<Value> = VecDeque::new();
@@ -294,7 +294,7 @@ async fn table(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
         if !input.is_empty() {
             let t = from_list(&input, start_number);
 
-            draw_table(&t, termwidth);
+            draw_table(&t, term_width);
         }
 
         start_number += input.len();

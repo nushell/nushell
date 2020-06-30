@@ -37,7 +37,7 @@ pub(crate) async fn run_internal_command(
                 &scope,
                 objects,
             )
-            .await
+            .await?
     };
 
     let head = Arc::new(command.args.head.clone());
@@ -89,37 +89,49 @@ pub(crate) async fn run_internal_command(
                                             scope: (&*scope).clone(),
                                         },
                                     };
-                                    let mut result = converter
+                                    let result = converter
                                         .run(
                                             new_args.with_input(vec![tagged_contents]),
                                             &context.registry,
                                         )
                                         .await;
-                                    let result_vec: Vec<Result<ReturnSuccess, ShellError>> =
-                                        result.drain_vec().await;
 
-                                    let mut output = vec![];
-                                    for res in result_vec {
-                                        match res {
-                                            Ok(ReturnSuccess::Value(Value {
-                                                value: UntaggedValue::Table(list),
-                                                ..
-                                            })) => {
-                                                for l in list {
-                                                    output.push(Ok(l));
+                                    match result {
+                                        Ok(mut result) => {
+                                            let result_vec: Vec<Result<ReturnSuccess, ShellError>> =
+                                                result.drain_vec().await;
+
+                                            let mut output = vec![];
+                                            for res in result_vec {
+                                                match res {
+                                                    Ok(ReturnSuccess::Value(Value {
+                                                        value: UntaggedValue::Table(list),
+                                                        ..
+                                                    })) => {
+                                                        for l in list {
+                                                            output.push(Ok(l));
+                                                        }
+                                                    }
+                                                    Ok(ReturnSuccess::Value(Value {
+                                                        value,
+                                                        ..
+                                                    })) => {
+                                                        output
+                                                            .push(Ok(value
+                                                                .into_value(contents_tag.clone())));
+                                                    }
+                                                    Err(e) => output.push(Err(e)),
+                                                    _ => {}
                                                 }
                                             }
-                                            Ok(ReturnSuccess::Value(Value { value, .. })) => {
-                                                output.push(Ok(
-                                                    value.into_value(contents_tag.clone())
-                                                ));
-                                            }
-                                            Err(e) => output.push(Err(e)),
-                                            _ => {}
+
+                                            futures::stream::iter(output).to_input_stream()
+                                        }
+                                        Err(e) => {
+                                            context.add_error(e);
+                                            InputStream::empty()
                                         }
                                     }
-
-                                    futures::stream::iter(output).to_input_stream()
                                 } else {
                                     InputStream::one(tagged_contents)
                                 }

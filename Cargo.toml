@@ -43,10 +43,11 @@ url = { version = "2.1.1", optional = true }
 
 clap = "2.33.1"
 ctrlc = "3.1.4"
-dunce = "1.0.0"
+dunce = "1.0.1"
 futures = { version = "0.3", features = ["compat", "io-compat"] }
 log = "0.4.8"
 pretty_env_logger = "0.4.0"
+starship = "0.43.0"
 
 [dev-dependencies]
 nu-test-support = { version = "0.15.1", path = "./crates/nu-test-support" }
@@ -58,7 +59,7 @@ nu-build = { version = "0.15.1", path = "./crates/nu-build" }
 
 [features]
 default = ["sys", "ps", "textview", "inc"]
-stable = ["default", "starship-prompt", "binaryview", "match", "tree", "post", "fetch", "clipboard-cli", "trash-support", "start"]
+stable = ["default", "binaryview", "match", "tree", "post", "fetch", "clipboard-cli", "trash-support", "start"]
 
 # Default
 textview = ["crossterm", "syntect", "url", "nu_plugin_textview"]
@@ -76,7 +77,7 @@ tree = ["nu_plugin_tree"]
 start = ["nu_plugin_start"]
 
 clipboard-cli = ["nu-cli/clipboard-cli"]
-starship-prompt = ["nu-cli/starship-prompt"]
+# starship-prompt = ["nu-cli/starship-prompt"]
 trash-support = ["nu-cli/trash-support"]
 
 # Core plugins that ship with `cargo install nu` by default

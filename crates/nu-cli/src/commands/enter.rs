@@ -158,7 +158,7 @@ async fn enter(
                         };
                         let mut result = converter
                             .run(new_args.with_input(vec![tagged_contents]), &registry)
-                            .await;
+                            .await?;
                         let result_vec: Vec<Result<ReturnSuccess, ShellError>> =
                             result.drain_vec().await;
 

@@ -34,6 +34,7 @@ mod mv;
 mod open;
 mod parse;
 mod prepend;
+mod random;
 mod range;
 mod rename;
 mod reverse;

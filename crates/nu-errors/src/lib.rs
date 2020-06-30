@@ -177,8 +177,8 @@ impl PrettyDebug for ArgumentError {
 /// creating a cause chain.
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Serialize, Deserialize, Hash)]
 pub struct ShellError {
-    error: ProximateShellError,
-    cause: Option<Box<ShellError>>,
+    pub error: ProximateShellError,
+    pub cause: Option<Box<ShellError>>,
 }
 
 /// `PrettyDebug` is for internal debugging. For user-facing debugging, [into_diagnostic](ShellError::into_diagnostic)
@@ -773,7 +773,7 @@ impl HasFallibleSpan for ProximateShellError {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShellDiagnostic {
-    pub(crate) diagnostic: Diagnostic<usize>,
+    pub diagnostic: Diagnostic<usize>,
 }
 
 impl std::hash::Hash for ShellDiagnostic {
