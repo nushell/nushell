@@ -96,9 +96,7 @@ impl DirectorySpecificEnvironment {
             if nu_env_file.exists() {
                 let nu_env_doc = self.toml_if_directory_is_trusted(&nu_env_file)?;
 
-                if true {
-                    return Ok(IndexMap::new());
-                }
+                //returning here does not work
                 //add regular variables from the [env section]
                 for (dir_env_key, dir_env_val) in nu_env_doc.env {
                     self.add_key_if_appropriate(
@@ -108,8 +106,6 @@ impl DirectorySpecificEnvironment {
                         &dir_env_val,
                     );
                 }
-
-                //returning here does not work
 
                 //Add variables that need to evaluate scripts to run, from [scriptvars] section
                 for (dir_env_key, dir_val_script) in nu_env_doc.scriptvars {
