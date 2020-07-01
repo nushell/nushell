@@ -91,7 +91,8 @@ impl DirectorySpecificEnvironment {
         //If we are in the last seen directory, do nothing
         //If we are in a parent directory to last_seen_directory, just return without applying .nu-env in the parent directory - they were already applied earlier.
         //parent.cmp(child) = Less
-        while self.last_seen_directory.cmp(&working_dir) == Less {
+        // while self.last_seen_directory.cmp(&working_dir) == Less {
+        while false {
             if nu_env_file.exists() {
                 let nu_env_doc = self.toml_if_directory_is_trusted(&nu_env_file)?;
 
