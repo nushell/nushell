@@ -105,6 +105,9 @@ impl DirectorySpecificEnvironment {
                     );
                 }
 
+                if true {
+                    return Ok(IndexMap::new());
+                }
                 //Add variables that need to evaluate scripts to run, from [scriptvars] section
                 for (dir_env_key, dir_val_script) in nu_env_doc.scriptvars {
                     let command = if cfg!(target_os = "windows") {
@@ -141,10 +144,6 @@ impl DirectorySpecificEnvironment {
                 self.exitscripts
                     .insert(working_dir.clone(), nu_env_doc.exitscripts);
             }
-
-            // if true {
-            //     return Ok(IndexMap::new());
-            // }
             working_dir.pop();
         }
         Ok(vars_to_add)
