@@ -74,7 +74,7 @@ impl Environment {
         //     }
         // }
 
-        // self.autoenv.last_seen_directory = std::env::current_dir()?;
+        self.autoenv.last_seen_directory = std::env::current_dir()?;
         Ok(())
     }
 

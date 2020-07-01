@@ -142,9 +142,9 @@ impl DirectorySpecificEnvironment {
                     .insert(working_dir.clone(), nu_env_doc.exitscripts);
             }
 
-            if true {
-                return Ok(IndexMap::new());
-            }
+            // if true {
+            //     return Ok(IndexMap::new());
+            // }
             working_dir.pop();
         }
         Ok(vars_to_add)
