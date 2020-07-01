@@ -84,14 +84,19 @@ impl DirectorySpecificEnvironment {
     }
 
     pub fn env_vars_to_add(&mut self) -> Result<IndexMap<EnvKey, EnvVal>, ShellError> {
+        //returning here works
         let mut working_dir = std::env::current_dir()?;
         let mut vars_to_add: IndexMap<EnvKey, EnvVal> = IndexMap::new();
         let nu_env_file = working_dir.join(".nu-env");
+
 
         //If we are in the last seen directory, do nothing
         //If we are in a parent directory to last_seen_directory, just return without applying .nu-env in the parent directory - they were already applied earlier.
         //parent.cmp(child) = Less
         while self.last_seen_directory.cmp(&working_dir) == Less {
+            if true {
+                return Ok(IndexMap::new());
+            }
             if nu_env_file.exists() {
                 let nu_env_doc = self.toml_if_directory_is_trusted(&nu_env_file)?;
 
@@ -105,9 +110,8 @@ impl DirectorySpecificEnvironment {
                     );
                 }
 
-                if true {
-                    return Ok(IndexMap::new());
-                }
+                //returning here does not work
+
                 //Add variables that need to evaluate scripts to run, from [scriptvars] section
                 for (dir_env_key, dir_val_script) in nu_env_doc.scriptvars {
                     let command = if cfg!(target_os = "windows") {
