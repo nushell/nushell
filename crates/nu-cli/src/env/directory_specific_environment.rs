@@ -86,64 +86,63 @@ impl DirectorySpecificEnvironment {
     pub fn env_vars_to_add(&mut self) -> Result<IndexMap<EnvKey, EnvVal>, ShellError> {
         let mut working_dir = std::env::current_dir()?;
         let mut vars_to_add: IndexMap<EnvKey, EnvVal> = IndexMap::new();
-        let nu_env_file = working_dir.join(".nu-env");
+        // let nu_env_file = working_dir.join(".nu-env");
 
         //If we are in the last seen directory, do nothing
         //If we are in a parent directory to last_seen_directory, just return without applying .nu-env in the parent directory - they were already applied earlier.
         //parent.cmp(child) = Less
         // while self.last_seen_directory.cmp(&working_dir) == Less {
-        while false {
-            if nu_env_file.exists() {
-                let nu_env_doc = self.toml_if_directory_is_trusted(&nu_env_file)?;
+        //     if nu_env_file.exists() {
+        //         let nu_env_doc = self.toml_if_directory_is_trusted(&nu_env_file)?;
 
-                //add regular variables from the [env section]
-                for (dir_env_key, dir_env_val) in nu_env_doc.env {
-                    self.add_key_if_appropriate(
-                        &mut vars_to_add,
-                        &working_dir,
-                        &dir_env_key,
-                        &dir_env_val,
-                    );
-                }
+        //         //add regular variables from the [env section]
+        //         for (dir_env_key, dir_env_val) in nu_env_doc.env {
+        //             self.add_key_if_appropriate(
+        //                 &mut vars_to_add,
+        //                 &working_dir,
+        //                 &dir_env_key,
+        //                 &dir_env_val,
+        //             );
+        //         }
 
-                //Add variables that need to evaluate scripts to run, from [scriptvars] section
-                for (dir_env_key, dir_val_script) in nu_env_doc.scriptvars {
-                    let command = if cfg!(target_os = "windows") {
-                        Command::new("cmd")
-                            .args(&["/C", dir_val_script.as_str()])
-                            .output()?
-                    } else {
-                        Command::new("sh").arg("-c").arg(dir_val_script).output()?
-                    };
-                    let response = std::str::from_utf8(&command.stdout[..command.stdout.len() - 1])
-                        .or_else(|e| {
-                            Err(ShellError::untagged_runtime_error(format!(
-                                "Couldn't parse stdout from command {:?}: {:?}",
-                                command, e
-                            )))
-                        })?;
-                    self.add_key_if_appropriate(
-                        &mut vars_to_add,
-                        &working_dir,
-                        &dir_env_key,
-                        &response.to_string(),
-                    );
-                }
+        //         //Add variables that need to evaluate scripts to run, from [scriptvars] section
+        //         for (dir_env_key, dir_val_script) in nu_env_doc.scriptvars {
+        //             let command = if cfg!(target_os = "windows") {
+        //                 Command::new("cmd")
+        //                     .args(&["/C", dir_val_script.as_str()])
+        //                     .output()?
+        //             } else {
+        //                 Command::new("sh").arg("-c").arg(dir_val_script).output()?
+        //             };
+        //             let response = std::str::from_utf8(&command.stdout[..command.stdout.len() - 1])
+        //                 .or_else(|e| {
+        //                     Err(ShellError::untagged_runtime_error(format!(
+        //                         "Couldn't parse stdout from command {:?}: {:?}",
+        //                         command, e
+        //                     )))
+        //                 })?;
+        //             self.add_key_if_appropriate(
+        //                 &mut vars_to_add,
+        //                 &working_dir,
+        //                 &dir_env_key,
+        //                 &response.to_string(),
+        //             );
+        //         }
 
-                for script in nu_env_doc.entryscripts {
-                    if cfg!(target_os = "windows") {
-                        Command::new("cmd")
-                            .args(&["/C", script.as_str()])
-                            .output()?;
-                    } else {
-                        Command::new("sh").arg("-c").arg(script).output()?;
-                    }
-                }
-                self.exitscripts
-                    .insert(working_dir.clone(), nu_env_doc.exitscripts);
-            }
-            working_dir.pop();
-        }
+        //         for script in nu_env_doc.entryscripts {
+        //             if cfg!(target_os = "windows") {
+        //                 Command::new("cmd")
+        //                     .args(&["/C", script.as_str()])
+        //                     .output()?;
+        //             } else {
+        //                 Command::new("sh").arg("-c").arg(script).output()?;
+        //             }
+        //         }
+        //         self.exitscripts
+        //             .insert(working_dir.clone(), nu_env_doc.exitscripts);
+        //     }
+        //     working_dir.pop();
+        // }
         Ok(vars_to_add)
     }
 
