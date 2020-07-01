@@ -1,4 +1,4 @@
-use crate::commands::classified::external::{MaybeTextCodec, StringOrBinary};
+use crate::commands::classified::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use futures_codec::FramedRead;
@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 extern crate encoding_rs;
 use encoding_rs::*;
 use futures::prelude::*;
+use log::debug;
 use std::io::Read;
 use std::io::Write;
 use std::{fs::File, io::BufWriter};
@@ -89,9 +90,8 @@ pub fn get_encoding(opt: Option<String>) -> &'static Encoding {
         None => UTF_8,
         Some(label) => match Encoding::for_label((&label).as_bytes()) {
             None => {
-                //print!("{} is not a known encoding label. Trying UTF-8.", label);
-                //std::process::exit(-2);
-                get_encoding(Some("utf-8".to_string()))
+                debug!("{} encoding not found, defaulting to UTF-8", label);
+                UTF_8
             }
             Some(encoding) => encoding,
         },
@@ -105,15 +105,23 @@ async fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
     let (
         OpenArgs {
             path,
-            raw: _,
-            encoding: _,
+            raw,
+            encoding,
         },
         _,
     ) = args.process(&registry).await?;
 
-    let f = File::open(&path).expect("Could not open file");
+    let encoding = get_encoding(encoding.map(|x| x.item));
+
+    let f = File::open(&path).map_err(|e| {
+        ShellError::labeled_error(
+            format!("Error opening file: {:?}", e),
+            "Error opening file",
+            path.span(),
+        )
+    })?;
     let async_reader = futures::io::AllowStdIo::new(f);
-    let final_stream = FramedRead::new(async_reader, MaybeTextCodec)
+    let final_stream = FramedRead::new(async_reader, MaybeTextCodec::new(Some(encoding)))
         .map_ok(|sob| match sob {
             StringOrBinary::String(s) => UntaggedValue::string(s).into_untagged_value(),
             StringOrBinary::Binary(b) => {
