@@ -94,6 +94,9 @@ impl DirectorySpecificEnvironment {
         while self.last_seen_directory.cmp(&working_dir) == Less {
             //returning here works
             if nu_env_file.exists() {
+                if true {
+                    return Ok(vars_to_add);
+                }
                 let nu_env_doc = self.toml_if_directory_is_trusted(&nu_env_file)?;
 
                 //returning here does not work

@@ -24,9 +24,7 @@ impl Trusted {
         nu_env_file: &PathBuf,
         content: &[u8],
     ) -> Result<bool, ShellError> {
-        if true {
-            return Ok(true);
-        }
+        //returning here does not work
         let contentdigest = Sha256::digest(&content).as_slice().to_vec();
         let nufile = nu_env_file.to_str().unwrap_or("");
 
