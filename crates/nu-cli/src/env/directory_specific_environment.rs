@@ -143,7 +143,7 @@ impl DirectorySpecificEnvironment {
             }
 
             return Ok(IndexMap::new());
-            working_dir.pop();
+            // working_dir.pop();
         }
         Ok(vars_to_add)
     }
