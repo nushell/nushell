@@ -87,15 +87,12 @@ impl DirectorySpecificEnvironment {
         let mut working_dir = std::env::current_dir()?;
         let mut vars_to_add: IndexMap<EnvKey, EnvVal> = IndexMap::new();
         let nu_env_file = working_dir.join(".nu-env");
-        let mut popped = true;
 
         //If we are in the last seen directory, do nothing
         //If we are in a parent directory to last_seen_directory, just return without applying .nu-env in the parent directory - they were already applied earlier.
         //parent.cmp(child) = Less
+        let mut popped = true;
         while self.last_seen_directory.cmp(&working_dir) == Less && popped {
-            //returning here works
-
-            //nu env file does not exist on ci/cd, so this should clearly be false
             if nu_env_file.exists() {
                 let nu_env_doc = self.toml_if_directory_is_trusted(&nu_env_file)?;
                 //add regular variables from the [env section]
@@ -160,7 +157,8 @@ impl DirectorySpecificEnvironment {
         //If we are in a parent directory to last seen, exit .nu-envs from last seen to parent and restore old vals
         let mut working_dir = self.last_seen_directory.clone();
 
-        while current_dir.cmp(&working_dir) == Less {
+        let mut popped = true;
+        while current_dir.cmp(&working_dir) == Less && popped {
             if let Some(vars_added_by_this_directory) = self.added_env_vars.get(&working_dir) {
                 for (k, v) in vars_added_by_this_directory {
                     vars_to_cleanup.insert(k.clone(), v.clone());
@@ -179,7 +177,7 @@ impl DirectorySpecificEnvironment {
                     }
                 }
             }
-            working_dir.pop();
+            popped = working_dir.pop();
         }
         Ok(vars_to_cleanup)
     }
