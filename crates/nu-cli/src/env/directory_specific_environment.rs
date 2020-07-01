@@ -84,7 +84,7 @@ impl DirectorySpecificEnvironment {
     }
 
     pub fn env_vars_to_add(&mut self) -> Result<IndexMap<EnvKey, EnvVal>, ShellError> {
-        let working_dir = std::env::current_dir()?;
+        let mut working_dir = std::env::current_dir()?;
         let mut vars_to_add: IndexMap<EnvKey, EnvVal> = IndexMap::new();
         let nu_env_file = working_dir.join(".nu-env");
 
@@ -142,8 +142,10 @@ impl DirectorySpecificEnvironment {
                     .insert(working_dir.clone(), nu_env_doc.exitscripts);
             }
 
-            return Ok(IndexMap::new());
-            // working_dir.pop();
+            if true {
+                return Ok(IndexMap::new());
+            }
+            working_dir.pop();
         }
         Ok(vars_to_add)
     }
