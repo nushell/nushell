@@ -64,19 +64,19 @@ fn str_to_character(s: &str) -> Option<String> {
     match s {
         "newline" | "enter" | "nl" => Some("\n".into()),
         "tab" => Some("\t".into()),
-        "branch" => Some('\u{e0a0}'.to_string().into()), // 
-        "branch_identical" => Some('\u{2263}'.to_string().into()), // ≣
-        "branch_untracked" => Some('\u{2262}'.to_string().into()), // ≢
-        "branch_ahead" => Some('\u{2191}'.to_string().into()), // ↑
-        "branch_behind" => Some('\u{2193}'.to_string().into()), // ↓
-        "branch_ahead_behind" => Some('\u{2195}'.to_string().into()), // ↕
-        "prompt" => Some('\u{25b6}'.to_string().into()), // ▶
-        "failed" => Some('\u{2a2f}'.to_string().into()), // ⨯
-        "elevated" => Some('\u{26a1}'.to_string().into()), // ⚡
-        "segment" => Some('\u{e0b0}'.to_string().into()), // 
-        "home" => Some("~".into()),                      // ~
-        "root" => Some("#".into()),                      // #
-        "hamburger" => Some('\u{2261}'.to_string().into()), // ≡
+        "branch" => Some('\u{e0a0}'.to_string()), // 
+        "branch_identical" => Some('\u{2263}'.to_string()), // ≣
+        "branch_untracked" => Some('\u{2262}'.to_string()), // ≢
+        "branch_ahead" => Some('\u{2191}'.to_string()), // ↑
+        "branch_behind" => Some('\u{2193}'.to_string()), // ↓
+        "branch_ahead_behind" => Some('\u{2195}'.to_string()), // ↕
+        "prompt" => Some('\u{25b6}'.to_string()), // ▶
+        "failed" => Some('\u{2a2f}'.to_string()), // ⨯
+        "elevated" => Some('\u{26a1}'.to_string()), // ⚡
+        "segment" => Some('\u{e0b0}'.to_string()), // 
+        "home" => Some("~".into()),               // ~
+        "root" => Some("#".into()),               // #
+        "hamburger" => Some('\u{2261}'.to_string()), // ≡
         _ => None,
     }
 }
