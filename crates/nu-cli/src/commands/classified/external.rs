@@ -118,29 +118,18 @@ async fn run_with_stdin(
         let value =
             evaluate_baseline_expr(arg, &context.registry, &scope.it, &scope.vars, &scope.env)
                 .await?;
+
         // Skip any arguments that don't really exist, treating them as optional
         // FIXME: we may want to preserve the gap in the future, though it's hard to say
         // what value we would put in its place.
         if value.value.is_none() {
             continue;
         }
+
         // Do the cleanup that we need to do on any argument going out:
         let trimmed_value_string = value.as_string()?.trim_end_matches('\n').to_string();
 
-        let value_string;
-        #[cfg(not(windows))]
-        {
-            value_string = trimmed_value_string
-                .replace('$', "\\$")
-                .replace('"', "\\\"")
-                .to_string()
-        }
-        #[cfg(windows)]
-        {
-            value_string = trimmed_value_string
-        }
-
-        command_args.push(value_string);
+        command_args.push(trimmed_value_string);
     }
 
     let process_args = command_args
