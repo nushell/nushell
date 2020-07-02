@@ -34,11 +34,7 @@ impl WholeStreamCommand for AutoenvTrust {
                 value: UntaggedValue::Primitive(Primitive::String(ref path)),
                 tag: _,
             }) => {
-                let mut dir = if path != "." {
-                    path::absolutize(std::env::current_dir()?, path)
-                } else {
-                    std::env::current_dir()?
-                };
+                let mut dir = fs::canonicalize(path)?;
                 dir.push(".nu-env");
                 dir
             }
