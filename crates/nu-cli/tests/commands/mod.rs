@@ -16,6 +16,7 @@ mod get;
 mod group_by;
 mod headers;
 mod histogram;
+mod human;
 mod insert;
 mod is_empty;
 mod keep;
