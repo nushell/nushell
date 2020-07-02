@@ -1,5 +1,4 @@
 use bytes::{BufMut, Bytes, BytesMut};
-use log::trace;
 
 use nu_errors::ShellError;
 
@@ -13,9 +12,9 @@ pub enum StringOrBinary {
     Binary(Vec<u8>),
 }
 
-enum EncodingGuess {
+pub enum EncodingGuess {
     NoGuess,
-    Specified,
+    Known, // An encoding that encoding_rs can determine via BOM sniffing
     Binary,
 }
 
@@ -25,9 +24,10 @@ pub struct MaybeTextCodec {
 }
 
 impl MaybeTextCodec {
+    // The constructor takes an Option<&'static Encoding>, because an absence of an encoding indicates that we want BOM sniffing enabled
     pub fn new(encoding: Option<&'static Encoding>) -> Self {
         let (decoder, guess) = match encoding {
-            Some(e) => (e.new_decoder_with_bom_removal(), EncodingGuess::Specified),
+            Some(e) => (e.new_decoder_with_bom_removal(), EncodingGuess::Known),
             None => (UTF_8.new_decoder(), EncodingGuess::NoGuess),
         };
         MaybeTextCodec { guess, decoder }
@@ -74,16 +74,16 @@ impl futures_codec::Decoder for MaybeTextCodec {
         }
 
         let mut s = String::with_capacity(OUTPUT_BUFFER_SIZE);
-        // TODO: Do something different if nothing has been guessed
-        match self.guess {
-            // The encoding has not been specified or guess yet, try to figure out what the encoding is
-            EncodingGuess::NoGuess => {}
-            // The encoding is binary, so just spit out the binary
-            EncodingGuess::Binary => {}
-            // The user already specified a encoding so just use that without BOM sniffing
-            EncodingGuess::Specified => {}
+        // The encoding has not been specified or guessed yet, try to figure out what the encoding is
+        if let EncodingGuess::NoGuess = self.guess {
+            self.guess = guess_encoding(src);
         }
-        // TODO: If raw passed I need to disable BOM sniffing
+
+        // The encoding is binary, so just spit out the binary
+        if let EncodingGuess::Binary = self.guess {
+            return Ok(Some(StringOrBinary::Binary(src.to_vec())));
+        }
+
         let (res, read, _replacements) = self.decoder.decode_to_string(src, &mut s, false);
         match res {
             CoderResult::InputEmpty => {
@@ -93,7 +93,7 @@ impl futures_codec::Decoder for MaybeTextCodec {
             CoderResult::OutputFull => {
                 // If the original buffer size is too small,
                 // We continue to allocate new Strings and append them to the result until the input buffer is smaller than the allocated String
-                // TODO: This is pretty stupid to be allocating String like this right?
+                // TODO: This is pretty stupid to be allocating String like this right? Best to use Vec?
                 let mut starting_index = read;
                 loop {
                     let mut more = String::with_capacity(OUTPUT_BUFFER_SIZE);
@@ -112,4 +112,48 @@ impl futures_codec::Decoder for MaybeTextCodec {
             }
         }
     }
+}
+
+// Function that reads the first couple bytes to determine what type of encoding we are dealing with
+// Note that it's not necessary to specify which exact encoding it is because encoding_rs already does BOM sniffing
+// It does this the process of elimination e.g. not utf-8 AND not utf-16 AND ...
+pub fn guess_encoding(first_bytes: &[u8]) -> EncodingGuess {
+    let (b0, b1) = (first_bytes.get(0), first_bytes.get(1));
+    // I guess if there is 0 or 1 byte than it's probably binary
+    if b0.is_none() || b1.is_none() {
+        return EncodingGuess::Binary;
+    };
+    const EXPECT_MESSAGE: &'static str = "Expected a byte";
+    // Now we will do some BOM sniffing to determine if we are NOT dealing with binary
+    let (x, y, oz): (&u8, &u8, Option<&u8>) = (
+        b0.expect(EXPECT_MESSAGE),
+        b1.expect(EXPECT_MESSAGE),
+        first_bytes.get(2),
+    );
+
+    // From https://en.wikipedia.org/wiki/Byte_order_mark
+
+    // UTF-8
+    if *x == 0xef && *y == 0xbb && oz.is_some() && *oz.expect(EXPECT_MESSAGE) == 0xbf {
+        return EncodingGuess::Known;
+    }
+
+    // UTF-16 Little Endian
+    if *x == 0xff && *y == 0xfe {
+        return EncodingGuess::Known;
+    }
+    // UTF-16 Big Endian
+    if *x == 0xfe && *y == 0xff {
+        return EncodingGuess::Known;
+    }
+
+    // Lastly, maybe it is a UTF-8 but doesn't have BOM
+    // Note that we don't need to read all the bytes. The first 6 is sufficient
+    if std::str::from_utf8(&first_bytes[..6]).is_ok() {
+        return EncodingGuess::Known;
+    }
+
+    // TODO: Other BOMs? UTF-32 etc... Although note that encoding_rs only supports sniffing for utf-8, utf-16le, utf-16be
+
+    return EncodingGuess::Binary;
 }

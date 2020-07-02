@@ -1,18 +1,18 @@
-use crate::commands::classified::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
+use crate::commands::classified::maybe_text_codec::{
+    guess_encoding, EncodingGuess, MaybeTextCodec, StringOrBinary,
+};
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use futures_codec::FramedRead;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::{AnchorLocation, Span, Tagged};
 use std::path::{Path, PathBuf};
 extern crate encoding_rs;
 use encoding_rs::*;
 use futures::prelude::*;
 use log::debug;
-use std::io::Read;
-use std::io::Write;
-use std::{fs::File, io::BufWriter};
+use std::fs::File;
 
 pub struct Open;
 
@@ -85,15 +85,15 @@ documentation link at https://docs.rs/encoding_rs/0.8.23/encoding_rs/#statics"#
     }
 }
 
-pub fn get_encoding(opt: Option<String>) -> &'static Encoding {
+pub fn get_encoding(opt: Option<String>) -> Result<&'static Encoding, ShellError> {
     match opt {
-        None => UTF_8,
+        None => Ok(UTF_8),
         Some(label) => match Encoding::for_label((&label).as_bytes()) {
-            None => {
-                debug!("{} encoding not found, defaulting to UTF-8", label);
-                UTF_8
-            }
-            Some(encoding) => encoding,
+            None => Err(ShellError::unexpected(format!(
+                r#"{} is not a valid encoding, refer to https://docs.rs/encoding_rs/0.8.23/encoding_rs/#statics for a valid list of encodings"#,
+                label,
+            ))),
+            Some(encoding) => Ok(encoding),
         },
     }
 }
@@ -105,13 +105,16 @@ async fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
     let (
         OpenArgs {
             path,
-            raw,
+            raw: _,
             encoding,
         },
         _,
     ) = args.process(&registry).await?;
 
-    let encoding = get_encoding(encoding.map(|x| x.item));
+    let encoding = match encoding {
+        None => None,
+        Some(t) => Some(get_encoding(Some(t.item().to_owned()))?),
+    };
 
     let f = File::open(&path).map_err(|e| {
         ShellError::labeled_error(
@@ -121,7 +124,7 @@ async fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
         )
     })?;
     let async_reader = futures::io::AllowStdIo::new(f);
-    let final_stream = FramedRead::new(async_reader, MaybeTextCodec::new(Some(encoding)))
+    let final_stream = FramedRead::new(async_reader, MaybeTextCodec::new(encoding))
         .map_ok(|sob| match sob {
             StringOrBinary::String(s) => UntaggedValue::string(s).into_untagged_value(),
             StringOrBinary::Binary(b) => {
@@ -146,298 +149,65 @@ pub async fn fetch(
     cwd: &PathBuf,
     location: &PathBuf,
     span: Span,
-    encoding: String,
-) -> Result<(Option<String>, UntaggedValue, Tag), ShellError> {
+    encoding_choice: Option<String>,
+) -> Result<(Option<String>, Value), ShellError> {
     let mut cwd = cwd.clone();
-    let output_encoding: &Encoding = get_encoding(Some("utf-8".to_string()));
-    let input_encoding: &Encoding = get_encoding(Some(encoding.clone()));
-    let mut decoder = input_encoding.new_decoder();
-    let mut encoder = output_encoding.new_encoder();
-    let mut _file: File;
-    let buf = Vec::new();
-    let mut bufwriter = BufWriter::new(buf);
+    cwd.push(Path::new(location)); // This is so we have the correct path for reading/error reporting
 
-    cwd.push(Path::new(location));
-    if let Ok(cwd) = dunce::canonicalize(&cwd) {
-        if !encoding.is_empty() {
-            // use the encoding string
-            match File::open(&Path::new(&cwd)) {
-                Ok(mut _file) => {
-                    convert_via_utf8(
-                        &mut decoder,
-                        &mut encoder,
-                        &mut _file,
-                        &mut bufwriter,
-                        false,
-                    );
-                    //bufwriter.flush()?;
-                    Ok((
-                        cwd.extension()
-                            .map(|name| name.to_string_lossy().to_string()),
-                        UntaggedValue::string(String::from_utf8_lossy(&bufwriter.buffer())),
-                        Tag {
-                            span,
-                            anchor: Some(AnchorLocation::File(cwd.to_string_lossy().to_string())),
-                        },
-                    ))
-                }
-                Err(_) => Err(ShellError::labeled_error(
-                    format!("Cannot open {:?} for reading.", &cwd),
-                    "file not found",
-                    span,
-                )),
-            }
-        } else {
-            // Do the old stuff
-            match std::fs::read(&cwd) {
-                Ok(bytes) => match std::str::from_utf8(&bytes) {
-                    Ok(s) => Ok((
-                        cwd.extension()
-                            .map(|name| name.to_string_lossy().to_string()),
-                        UntaggedValue::string(s),
-                        Tag {
-                            span,
-                            anchor: Some(AnchorLocation::File(cwd.to_string_lossy().to_string())),
-                        },
-                    )),
-                    Err(_) => {
-                        //Non utf8 data.
-                        match (bytes.get(0), bytes.get(1)) {
-                            (Some(x), Some(y)) if *x == 0xff && *y == 0xfe => {
-                                // Possibly UTF-16 little endian
-                                let utf16 = read_le_u16(&bytes[2..]);
-
-                                if let Some(utf16) = utf16 {
-                                    match std::string::String::from_utf16(&utf16) {
-                                        Ok(s) => Ok((
-                                            cwd.extension()
-                                                .map(|name| name.to_string_lossy().to_string()),
-                                            UntaggedValue::string(s),
-                                            Tag {
-                                                span,
-                                                anchor: Some(AnchorLocation::File(
-                                                    cwd.to_string_lossy().to_string(),
-                                                )),
-                                            },
-                                        )),
-                                        Err(_) => Ok((
-                                            None,
-                                            UntaggedValue::binary(bytes),
-                                            Tag {
-                                                span,
-                                                anchor: Some(AnchorLocation::File(
-                                                    cwd.to_string_lossy().to_string(),
-                                                )),
-                                            },
-                                        )),
-                                    }
-                                } else {
-                                    Ok((
-                                        None,
-                                        UntaggedValue::binary(bytes),
-                                        Tag {
-                                            span,
-                                            anchor: Some(AnchorLocation::File(
-                                                cwd.to_string_lossy().to_string(),
-                                            )),
-                                        },
-                                    ))
-                                }
-                            }
-                            (Some(x), Some(y)) if *x == 0xfe && *y == 0xff => {
-                                // Possibly UTF-16 big endian
-                                let utf16 = read_be_u16(&bytes[2..]);
-
-                                if let Some(utf16) = utf16 {
-                                    match std::string::String::from_utf16(&utf16) {
-                                        Ok(s) => Ok((
-                                            cwd.extension()
-                                                .map(|name| name.to_string_lossy().to_string()),
-                                            UntaggedValue::string(s),
-                                            Tag {
-                                                span,
-                                                anchor: Some(AnchorLocation::File(
-                                                    cwd.to_string_lossy().to_string(),
-                                                )),
-                                            },
-                                        )),
-                                        Err(_) => Ok((
-                                            None,
-                                            UntaggedValue::binary(bytes),
-                                            Tag {
-                                                span,
-                                                anchor: Some(AnchorLocation::File(
-                                                    cwd.to_string_lossy().to_string(),
-                                                )),
-                                            },
-                                        )),
-                                    }
-                                } else {
-                                    Ok((
-                                        None,
-                                        UntaggedValue::binary(bytes),
-                                        Tag {
-                                            span,
-                                            anchor: Some(AnchorLocation::File(
-                                                cwd.to_string_lossy().to_string(),
-                                            )),
-                                        },
-                                    ))
-                                }
-                            }
-                            _ => Ok((
-                                None,
-                                UntaggedValue::binary(bytes),
-                                Tag {
-                                    span,
-                                    anchor: Some(AnchorLocation::File(
-                                        cwd.to_string_lossy().to_string(),
-                                    )),
-                                },
-                            )),
-                        }
-                    }
-                },
-                Err(_) => Err(ShellError::labeled_error(
-                    format!("Cannot open {:?} for reading.", &cwd),
-                    "file not found",
-                    span,
-                )),
-            }
-        }
-    } else {
-        Err(ShellError::labeled_error(
-            format!("Cannot open {:?} for reading.", &cwd),
-            "file not found",
+    let path = dunce::canonicalize(&cwd).map_err(|e| {
+        ShellError::labeled_error(
+            format!("Cannot canonicalize file {:?} because {:?}", &cwd, e),
+            "Cannot canonicalize",
             span,
-        ))
-    }
-}
+        )
+    })?;
+    // The extension will be used in auto-convert later on
+    let ext = path
+        .extension()
+        .map(|name| name.to_string_lossy().to_string());
 
-fn convert_via_utf8(
-    decoder: &mut Decoder,
-    encoder: &mut Encoder,
-    read: &mut dyn Read,
-    write: &mut dyn Write,
-    last: bool,
-) {
-    let mut input_buffer = [0u8; 2048];
-    let mut intermediate_buffer_bytes = [0u8; 4096];
-    // Is there a safe way to create a stack-allocated &mut str?
-    let mut intermediate_buffer: &mut str =
-        //unsafe { std::mem::transmute(&mut intermediate_buffer_bytes[..]) };
-        std::str::from_utf8_mut(&mut intermediate_buffer_bytes[..]).expect("error with from_utf8_mut");
-    let mut output_buffer = [0u8; 4096];
-    let mut current_input_ended = false;
-    while !current_input_ended {
-        match read.read(&mut input_buffer) {
-            Err(_) => {
-                print!("Error reading input.");
-                //std::process::exit(-5);
-            }
-            Ok(decoder_input_end) => {
-                current_input_ended = decoder_input_end == 0;
-                let input_ended = last && current_input_ended;
-                let mut decoder_input_start = 0usize;
-                loop {
-                    let (decoder_result, decoder_read, decoder_written, _) = decoder.decode_to_str(
-                        &input_buffer[decoder_input_start..decoder_input_end],
-                        &mut intermediate_buffer,
-                        input_ended,
-                    );
-                    decoder_input_start += decoder_read;
+    // The tag that will used when returning a Value
+    let file_tag = Tag {
+        span,
+        anchor: Some(AnchorLocation::File(
+            path.clone().to_string_lossy().to_string(),
+        )),
+    };
 
-                    let last_output = if input_ended {
-                        match decoder_result {
-                            CoderResult::InputEmpty => true,
-                            CoderResult::OutputFull => false,
-                        }
-                    } else {
-                        false
-                    };
+    let res = std::fs::read(path).map_err(|e| ShellError::from(e))?;
 
-                    // Regardless of whether the intermediate buffer got full
-                    // or the input buffer was exhausted, let's process what's
-                    // in the intermediate buffer.
-
-                    if encoder.encoding() == UTF_8 {
-                        // If the target is UTF-8, optimize out the encoder.
-                        if write
-                            .write_all(&intermediate_buffer.as_bytes()[..decoder_written])
-                            .is_err()
-                        {
-                            print!("Error writing output.");
-                            //std::process::exit(-7);
-                        }
-                    } else {
-                        let mut encoder_input_start = 0usize;
-                        loop {
-                            let (encoder_result, encoder_read, encoder_written, _) = encoder
-                                .encode_from_utf8(
-                                    &intermediate_buffer[encoder_input_start..decoder_written],
-                                    &mut output_buffer,
-                                    last_output,
-                                );
-                            encoder_input_start += encoder_read;
-                            if write.write_all(&output_buffer[..encoder_written]).is_err() {
-                                print!("Error writing output.");
-                                //std::process::exit(-6);
-                            }
-                            match encoder_result {
-                                CoderResult::InputEmpty => {
-                                    break;
-                                }
-                                CoderResult::OutputFull => {
-                                    continue;
-                                }
-                            }
-                        }
-                    }
-
-                    // Now let's see if we should read again or process the
-                    // rest of the current input buffer.
-                    match decoder_result {
-                        CoderResult::InputEmpty => {
-                            break;
-                        }
-                        CoderResult::OutputFull => {
-                            continue;
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-fn read_le_u16(input: &[u8]) -> Option<Vec<u16>> {
-    if input.len() % 2 != 0 || input.len() < 2 {
-        None
+    // If no encoding is provided we try to guess the encoding to read the file with
+    let guess: EncodingGuess;
+    let encoding: &'static Encoding;
+    if encoding_choice.is_none() {
+        guess = guess_encoding(&res);
+        encoding = UTF_8;
     } else {
-        let mut result = vec![];
-        let mut pos = 0;
-        while pos < input.len() {
-            result.push(u16::from_le_bytes([input[pos], input[pos + 1]]));
-            pos += 2;
-        }
-
-        Some(result)
+        guess = EncodingGuess::Known;
+        encoding = get_encoding(encoding_choice.clone())?;
     }
-}
 
-fn read_be_u16(input: &[u8]) -> Option<Vec<u16>> {
-    if input.len() % 2 != 0 || input.len() < 2 {
-        None
+    // If it's a binary file we can just spit out the the results
+    if let EncodingGuess::Binary = guess {
+        return Ok((ext, UntaggedValue::binary(res).into_value(file_tag)));
+    }
+
+    let decoded_res;
+    // If the user specified an encoding, then do not do BOM sniffing
+    if encoding_choice.is_some() {
+        let r = encoding.decode_with_bom_removal(&res);
+        decoded_res = r.0;
     } else {
-        let mut result = vec![];
-        let mut pos = 0;
-        while pos < input.len() {
-            result.push(u16::from_be_bytes([input[pos], input[pos + 1]]));
-            pos += 2;
-        }
-
-        Some(result)
+        // Otherwise, use the default UTF-8 encoder with BOM sniffing
+        let r = encoding.decode(&res);
+        debug!("Decoded using {:?}", r.1);
+        decoded_res = r.0;
     }
+
+    return Ok((
+        ext,
+        UntaggedValue::string(decoded_res.to_string()).into_value(file_tag),
+    ));
 }
 
 #[cfg(test)]
