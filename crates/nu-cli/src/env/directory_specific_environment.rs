@@ -112,8 +112,11 @@ impl DirectorySpecificEnvironment {
                             .args(&["/C", dir_val_script.as_str()])
                             .output()?
                     } else {
-                        Command::new("sh").arg("-c").arg(dir_val_script).output()?
+                        Command::new("sh").arg("-c").arg(&dir_val_script).output()?
                     };
+                    if command.stdout.len() == 0 {
+                        return Err(ShellError::untagged_runtime_error(format!("{:?} in {:?} did not return any output", dir_val_script, working_dir)))
+                    }
                     let response = std::str::from_utf8(&command.stdout[..command.stdout.len() - 1])
                         .or_else(|e| {
                             Err(ShellError::untagged_runtime_error(format!(

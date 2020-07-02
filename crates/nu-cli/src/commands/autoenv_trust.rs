@@ -5,7 +5,6 @@ use nu_errors::ShellError;
 use nu_protocol::SyntaxShape;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 use std::{fs, path::PathBuf};
-
 use sha2::{Digest, Sha256};
 pub struct AutoenvTrust;
 
@@ -35,7 +34,12 @@ impl WholeStreamCommand for AutoenvTrust {
                 value: UntaggedValue::Primitive(Primitive::String(ref path)),
                 tag: _,
             }) => {
-                let mut dir = path::absolutize(std::env::current_dir()?, path);
+                let mut dir = PathBuf::new();
+                if path != "." {
+                    dir = path::absolutize(std::env::current_dir()?, path);
+                } else {
+                    dir = std::env::current_dir()?;
+                }
                 dir.push(".nu-env");
                 dir
             }
