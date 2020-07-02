@@ -1,4 +1,4 @@
-use super::autoenv::Trusted;
+use super::autoenv::read_trusted;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -48,7 +48,7 @@ impl WholeStreamCommand for AutoenvTrust {
         let content = std::fs::read(&file_to_trust)?;
 
         let filename = file_to_trust.to_string_lossy().to_string();
-        let mut allowed = Trusted::read_trusted()?;
+        let mut allowed = read_trusted()?;
         allowed
             .files
             .insert(filename, Sha256::digest(&content).as_slice().to_vec());

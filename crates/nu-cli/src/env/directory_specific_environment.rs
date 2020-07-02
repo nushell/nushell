@@ -1,4 +1,4 @@
-use crate::commands::{self, autoenv::Trusted};
+use crate::commands;
 use commands::autoenv;
 use indexmap::IndexMap;
 use nu_errors::ShellError;
@@ -16,7 +16,6 @@ type EnvKey = String;
 type EnvVal = OsString;
 #[derive(Debug, Default)]
 pub struct DirectorySpecificEnvironment {
-    trusted: Option<Trusted>,
     pub last_seen_directory: PathBuf,
     //If an environment var has been added from a .nu in a directory, we track it here so we can remove it when the user leaves the directory.
     //If setting the var overwrote some value, we save the old value in an option so we can restore it later.
@@ -40,9 +39,7 @@ impl DirectorySpecificEnvironment {
         } else {
             PathBuf::from("/")
         };
-        let trusted = autoenv::Trusted::read_trusted().ok();
         DirectorySpecificEnvironment {
-            trusted,
             last_seen_directory: root_dir,
             added_env_vars: IndexMap::new(),
             exitscripts: IndexMap::new(),
@@ -53,29 +50,25 @@ impl DirectorySpecificEnvironment {
         &mut self,
         nu_env_file: &PathBuf,
     ) -> Result<NuEnvDoc, ShellError> {
-        if let Some(trusted) = self.trusted.as_mut() {
-            let content = std::fs::read(&nu_env_file)?;
+        let content = std::fs::read(&nu_env_file)?;
 
-            if trusted.file_is_trusted_reload_config(&nu_env_file, &content)? {
-                let mut doc: NuEnvDoc = toml::de::from_slice(&content)
-                    .or_else(|e| Err(ShellError::untagged_runtime_error(format!("{:?}", e))))?;
+        if autoenv::file_is_trusted(&nu_env_file, &content)? {
+            let mut doc: NuEnvDoc = toml::de::from_slice(&content)
+                .or_else(|e| Err(ShellError::untagged_runtime_error(format!("{:?}", e))))?;
 
-                if let Some(scripts) = doc.scripts.as_ref() {
-                    for (k, v) in scripts {
-                        if k == "entryscripts" {
-                            doc.entryscripts = Some(v.clone());
-                        } else if k == "exitscripts" {
-                            doc.exitscripts = Some(v.clone());
-                        }
+            if let Some(scripts) = doc.scripts.as_ref() {
+                for (k, v) in scripts {
+                    if k == "entryscripts" {
+                        doc.entryscripts = Some(v.clone());
+                    } else if k == "exitscripts" {
+                        doc.exitscripts = Some(v.clone());
                     }
                 }
-
-                return Ok(doc);
             }
-            return Err(ShellError::untagged_runtime_error(
-                format!("{:?} is untrusted. Run 'autoenv trust {:?}' to trust it.\nThis needs to be done after each change to the file.", nu_env_file, nu_env_file.parent().unwrap_or_else(|| &Path::new("")))));
+            return Ok(doc);
         }
-        Err(ShellError::untagged_runtime_error("No trusted directories"))
+        Err(ShellError::untagged_runtime_error(
+                format!("{:?} is untrusted. Run 'autoenv trust {:?}' to trust it.\nThis needs to be done after each change to the file.", nu_env_file, nu_env_file.parent().unwrap_or_else(|| &Path::new("")))))
     }
 
     pub fn add_key_if_appropriate(
