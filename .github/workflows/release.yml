@@ -121,7 +121,7 @@ jobs:
         run: Invoke-WebRequest -Uri "https://github.com/jftuga/less-Windows/releases/download/less-v562.0/less.exe" -OutFile "target\release\less.exe"
 
       - name: Download Less License
-        run: Invoke-WebRequest -Uri "https://github.com/jftuga/less-Windows/blob/master/LICENSE" -OutFile "target\release\LICENSE-for-less.txt"
+        run: Invoke-WebRequest -Uri "https://raw.githubusercontent.com/jftuga/less-Windows/master/LICENSE" -OutFile "target\release\LICENSE-for-less.txt"
 
       - name: Copy files to output
         run: |
