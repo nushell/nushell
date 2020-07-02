@@ -158,8 +158,7 @@ impl DirectorySpecificEnvironment {
                         }
                     }
                     if let Some(exitscripts) = nu_env_doc.exitscripts {
-                        self.exitscripts
-                            .insert(working_dir.clone(), exitscripts);
+                        self.exitscripts.insert(working_dir.clone(), exitscripts);
                     }
                 }
             }
