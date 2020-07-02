@@ -157,9 +157,10 @@ impl DirectorySpecificEnvironment {
                             Command::new("sh").arg("-c").arg(script).output()?;
                         }
                     }
-                    if let Some(exitscripts) = nu_env_doc.exitscripts {
-                        self.exitscripts.insert(working_dir.clone(), exitscripts);
-                    }
+                }
+
+                if let Some(exitscripts) = nu_env_doc.exitscripts {
+                    self.exitscripts.insert(working_dir.clone(), exitscripts);
                 }
             }
             popped = working_dir.pop();
