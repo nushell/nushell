@@ -1,6 +1,6 @@
 [package]
 name = "nu-source"
-version = "0.15.1"
+version = "0.16.0"
 authors = ["The Nu Project Contributors"]
 edition = "2018"
 description = "A source string characterizer for Nushell"
@@ -18,4 +18,4 @@ termcolor = "1.1.0"
 pretty = "0.5.2"
 
 [build-dependencies]
-nu-build = { version = "0.15.1", path = "../nu-build" }
+nu-build = { version = "0.16.0", path = "../nu-build" }

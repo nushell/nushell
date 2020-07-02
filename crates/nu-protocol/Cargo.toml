@@ -1,6 +1,6 @@
 [package]
 name = "nu-protocol"
-version = "0.15.1"
+version = "0.16.0"
 authors = ["The Nu Project Contributors"]
 edition = "2018"
 description = "Core values and protocols for Nushell"
@@ -10,8 +10,8 @@ license = "MIT"
 doctest = false
 
 [dependencies]
-nu-source = { path = "../nu-source", version = "0.15.1" }
-nu-errors = { path = "../nu-errors", version = "0.15.1" }
+nu-source = { path = "../nu-source", version = "0.16.0" }
+nu-errors = { path = "../nu-errors", version = "0.16.0" }
 
 serde = { version = "1.0.114", features = ["derive"] }
 indexmap = { version = "1.4.0", features = ["serde-1"] }
@@ -37,4 +37,4 @@ toml = "0.5.6"
 serde_json = "1.0.55"
 
 [build-dependencies]
-nu-build = { version = "0.15.1", path = "../nu-build" }
+nu-build = { version = "0.16.0", path = "../nu-build" }

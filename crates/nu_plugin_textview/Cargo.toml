@@ -1,6 +1,6 @@
 [package]
 name = "nu_plugin_textview"
-version = "0.15.1"
+version = "0.16.0"
 authors = ["The Nu Project Contributors"]
 edition = "2018"
 description = "Text viewer plugin for Nushell"
@@ -10,11 +10,11 @@ license = "MIT"
 doctest = false
 
 [dependencies]
-nu-plugin = { path = "../nu-plugin", version = "0.15.1" }
-nu-protocol = { path = "../nu-protocol", version = "0.15.1" }
-nu-source = { path = "../nu-source", version = "0.15.1" }
-nu-errors = { path = "../nu-errors", version = "0.15.1" }
-nu-cli = { path = "../nu-cli", version = "0.15.1" }
+nu-plugin = { path = "../nu-plugin", version = "0.16.0" }
+nu-protocol = { path = "../nu-protocol", version = "0.16.0" }
+nu-source = { path = "../nu-source", version = "0.16.0" }
+nu-errors = { path = "../nu-errors", version = "0.16.0" }
+nu-cli = { path = "../nu-cli", version = "0.16.0" }
 
 crossterm = "0.17.5"
 syntect = { version = "4.2", default-features = false, features = ["default-fancy"]}
@@ -24,4 +24,4 @@ bat = "0.15.4"
 term_size = "0.3.2"
 
 [build-dependencies]
-nu-build = { version = "0.15.1", path = "../nu-build" }
+nu-build = { version = "0.16.0", path = "../nu-build" }

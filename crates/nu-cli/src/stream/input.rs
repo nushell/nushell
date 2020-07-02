@@ -75,6 +75,12 @@ impl InputStream {
                     bytes.extend_from_slice(&b);
                 }
                 Some(Value {
+                    value: UntaggedValue::Primitive(Primitive::Nothing),
+                    tag: value_t,
+                }) => {
+                    value_tag = value_t;
+                }
+                Some(Value {
                     tag: value_tag,
                     value,
                 }) => {

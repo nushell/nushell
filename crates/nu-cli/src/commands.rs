@@ -13,6 +13,7 @@ pub(crate) mod build_string;
 pub(crate) mod cal;
 pub(crate) mod calc;
 pub(crate) mod cd;
+pub(crate) mod char_;
 pub(crate) mod classified;
 #[cfg(feature = "clipboard")]
 pub(crate) mod clip;
@@ -144,6 +145,7 @@ pub(crate) use append::Append;
 pub(crate) use build_string::BuildString;
 pub(crate) use cal::Cal;
 pub(crate) use calc::Calc;
+pub(crate) use char_::Char;
 pub(crate) use compact::Compact;
 pub(crate) use config::Config;
 pub(crate) use count::Count;
@@ -221,7 +223,7 @@ pub(crate) use precision::Precision;
 pub(crate) use prepend::Prepend;
 pub(crate) use prev::Previous;
 pub(crate) use pwd::Pwd;
-pub(crate) use random::{Random, RandomBool, RandomUUID};
+pub(crate) use random::{Random, RandomBool, RandomDice, RandomUUID};
 pub(crate) use range::Range;
 #[allow(unused_imports)]
 pub(crate) use reduce_by::ReduceBy;

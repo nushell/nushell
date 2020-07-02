@@ -121,7 +121,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
 
                 if let Some(table) = table {
                     let command_args = create_default_command_args(&context).with_input(stream);
-                    let result = table.run(command_args, &context.registry).await;
+                    let result = table.run(command_args, &context.registry).await?;
                     result.collect::<Vec<_>>().await;
                 }
             }
@@ -138,7 +138,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                             );
                             let command_args =
                                 create_default_command_args(&context).with_input(stream);
-                            let result = text.run(command_args, &context.registry).await;
+                            let result = text.run(command_args, &context.registry).await?;
                             result.collect::<Vec<_>>().await;
                         } else {
                             out!("{}", s);
@@ -161,7 +161,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                             );
                             let command_args =
                                 create_default_command_args(&context).with_input(stream);
-                            let result = text.run(command_args, &context.registry).await;
+                            let result = text.run(command_args, &context.registry).await?;
                             result.collect::<Vec<_>>().await;
                         } else {
                             out!("{}\n", s);
@@ -236,7 +236,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                             stream.push_back(x);
                             let command_args =
                                 create_default_command_args(&context).with_input(stream);
-                            let result = binary.run(command_args, &context.registry).await;
+                            let result = binary.run(command_args, &context.registry).await?;
                             result.collect::<Vec<_>>().await;
                         } else {
                             use pretty_hex::*;
@@ -298,7 +298,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                             stream.push_back(x);
                             let command_args =
                                 create_default_command_args(&context).with_input(stream);
-                            let result = table.run(command_args, &context.registry).await;
+                            let result = table.run(command_args, &context.registry).await?;
                             result.collect::<Vec<_>>().await;
                         } else {
                             out!("{:?}", item);

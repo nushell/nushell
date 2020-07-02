@@ -200,6 +200,28 @@ impl Block {
             commands.expand_it_usage();
         }
     }
+
+    pub fn set_is_last(&mut self, is_last: bool) {
+        if let Some(pipeline) = self.block.last_mut() {
+            if let Some(command) = pipeline.list.last_mut() {
+                if let ClassifiedCommand::Internal(internal) = command {
+                    internal.args.is_last = is_last;
+                }
+            }
+        }
+    }
+
+    pub fn get_is_last(&mut self) -> Option<bool> {
+        if let Some(pipeline) = self.block.last_mut() {
+            if let Some(command) = pipeline.list.last_mut() {
+                if let ClassifiedCommand::Internal(internal) = command {
+                    return Some(internal.args.is_last);
+                }
+            }
+        }
+
+        None
+    }
 }
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
