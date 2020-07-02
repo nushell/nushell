@@ -28,8 +28,9 @@ pub struct DirectorySpecificEnvironment {
 pub struct NuEnvDoc {
     pub env: IndexMap<String, String>,
     pub scriptvars: IndexMap<String, String>,
-    pub entryscripts: Vec<String>,
-    pub exitscripts: Vec<String>,
+    pub scripts: Option<IndexMap<String, Vec<String>>>,
+    pub entryscripts: Option<Vec<String>>,
+    pub exitscripts: Option<Vec<String>>,
 }
 
 impl DirectorySpecificEnvironment {
@@ -56,8 +57,19 @@ impl DirectorySpecificEnvironment {
             let content = std::fs::read(&nu_env_file)?;
 
             if trusted.file_is_trusted_reload_config(&nu_env_file, &content)? {
-                let doc: NuEnvDoc = toml::de::from_slice(&content)
+                let mut doc: NuEnvDoc = toml::de::from_slice(&content)
                     .or_else(|e| Err(ShellError::untagged_runtime_error(format!("{:?}", e))))?;
+
+                if let Some(scripts) = doc.scripts.as_ref() {
+                    for (k, v) in scripts {
+                        if k == "entryscripts" {
+                            doc.entryscripts = Some(v.clone());
+                        } else if k == "exitscripts" {
+                            doc.exitscripts = Some(v.clone());
+                        }
+                    }
+                }
+
                 return Ok(doc);
             }
             return Err(ShellError::untagged_runtime_error(
@@ -114,7 +126,7 @@ impl DirectorySpecificEnvironment {
                     } else {
                         Command::new("sh").arg("-c").arg(&dir_val_script).output()?
                     };
-                    if command.stdout.len() == 0 {
+                    if command.stdout.is_empty() {
                         return Err(ShellError::untagged_runtime_error(format!(
                             "{:?} in {:?} did not return any output",
                             dir_val_script, working_dir
@@ -135,17 +147,21 @@ impl DirectorySpecificEnvironment {
                     );
                 }
 
-                for script in nu_env_doc.entryscripts {
-                    if cfg!(target_os = "windows") {
-                        Command::new("cmd")
-                            .args(&["/C", script.as_str()])
-                            .output()?;
-                    } else {
-                        Command::new("sh").arg("-c").arg(script).output()?;
+                if let Some(entryscripts) = nu_env_doc.entryscripts {
+                    for script in entryscripts {
+                        if cfg!(target_os = "windows") {
+                            Command::new("cmd")
+                                .args(&["/C", script.as_str()])
+                                .output()?;
+                        } else {
+                            Command::new("sh").arg("-c").arg(script).output()?;
+                        }
+                    }
+                    if let Some(exitscripts) = nu_env_doc.exitscripts {
+                        self.exitscripts
+                            .insert(working_dir.clone(), exitscripts);
                     }
                 }
-                self.exitscripts
-                    .insert(working_dir.clone(), nu_env_doc.exitscripts);
             }
             popped = working_dir.pop();
         }
