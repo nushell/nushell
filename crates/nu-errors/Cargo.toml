@@ -1,6 +1,6 @@
 [package]
 name = "nu-errors"
-version = "0.15.1"
+version = "0.16.0"
 authors = ["The Nu Project Contributors"]
 edition = "2018"
 description = "Core error subsystem for Nushell"
@@ -10,7 +10,7 @@ license = "MIT"
 doctest = false
 
 [dependencies]
-nu-source = { path = "../nu-source", version = "0.15.1" }
+nu-source = { path = "../nu-source", version = "0.16.0" }
 
 ansi_term = "0.12.1"
 bigdecimal = { version = "0.1.2", features = ["serde"] }
@@ -28,4 +28,4 @@ serde_json = "1.0.55"
 glob = "0.3.0"
 
 [build-dependencies]
-nu-build = { version = "0.15.1", path = "../nu-build" }
+nu-build = { version = "0.16.0", path = "../nu-build" }
