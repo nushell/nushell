@@ -9,6 +9,7 @@ use nu_protocol::{CommandAction, ReturnSuccess, Signature, SyntaxShape, Untagged
 use nu_source::{AnchorLocation, Span, Tagged};
 use std::path::{Path, PathBuf};
 extern crate encoding_rs;
+use crate::commands::constants::BAT_LANGUAGES;
 use encoding_rs::*;
 use futures::prelude::*;
 use log::debug;
@@ -115,17 +116,18 @@ async fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
         _,
     ) = args.process(&registry).await?;
 
-    // As a short term workaround for getting AutoConvert functionality
-    // Assuming the user doesn't want the raw output...
+    // TODO: Remove once Streams are supported everywhere!
+    // As a short term workaround for getting AutoConvert and Bat functionality (Those don't currently support Streams)
 
-    // We will check if the extension has a "from *" command
-    // If so, then we will collect the Stream so we can AutoConvert into a Value
-    // Otherwise we Stream as normal
+    // Check if the extension has a "from *" command OR "bat" supports syntax highlighting
+    // AND the user doesn't want the raw output
+    // In these cases, we will collect the Stream
     let ext = path
         .extension()
         .map(|name| name.to_string_lossy().to_string());
 
     if let (Some(ext), false) = (ext, raw.item) {
+        // Check if we have a conversion command
         if let Some(_command) = registry.get_command(&format!("from {}", ext)) {
             let (_, tagged_contents) = crate::commands::open::fetch(
                 &_cwd,
@@ -138,8 +140,20 @@ async fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
                 CommandAction::AutoConvert(tagged_contents, ext),
             )));
         }
+        // Check if bat does syntax highlighting
+        if BAT_LANGUAGES.contains(&ext.as_ref()) {
+            let (_, tagged_contents) = crate::commands::open::fetch(
+                &_cwd,
+                &PathBuf::from(&path.item),
+                path.tag.span,
+                encoding,
+            )
+            .await?;
+            return Ok(OutputStream::one(ReturnSuccess::value(tagged_contents)));
+        }
     }
 
+    // Normal Streaming operation
     let with_encoding;
     if encoding.is_none() {
         with_encoding = None;
@@ -189,7 +203,7 @@ pub async fn fetch(
             span,
         )
     })?;
-    // The extension will be used in auto-convert later on
+    // The extension may be used in AutoConvert later on
     let ext = path
         .extension()
         .map(|name| name.to_string_lossy().to_string());
