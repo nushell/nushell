@@ -1,4 +1,5 @@
 mod capitalize;
+mod collect;
 mod command;
 mod downcase;
 mod find_replace;
@@ -11,6 +12,7 @@ mod trim;
 mod upcase;
 
 pub use capitalize::SubCommand as StrCapitalize;
+pub use collect::SubCommand as StrCollect;
 pub use command::Command as Str;
 pub use downcase::SubCommand as StrDowncase;
 pub use find_replace::SubCommand as StrFindReplace;

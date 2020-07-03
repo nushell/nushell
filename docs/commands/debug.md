@@ -4,10 +4,10 @@
 
 ## Examples
 
-```
-❯ ls | first 2 | debug
+```shell
+> ls | first 2 | debug
 ───┬──────────────────────────────────────────
- # │ <value>
+ # │
 ───┼──────────────────────────────────────────
  0 │ (name=".azure"
    │ type="Dir"
@@ -20,10 +20,13 @@
    │ modified=2020-01-06T05:45:30.933303081Z((B
    │ mdate))
 ───┴──────────────────────────────────────────
-❯ ls | last 8 | get type | debug
-───┬─────────
- # │ <value>
-───┼─────────
+```
+
+```shell
+> ls | last 8 | get type | debug
+───┬───────────────────────
+ # │
+───┼───────────────────────
  0 │ "Dir"
  1 │ "Dir"
  2 │ "File"
@@ -32,10 +35,16 @@
  5 │ "Dir"
  6 │ "Dir"
  7 │ "Dir"
-───┴─────────
-❯ open --raw Cargo.toml | size | debug
-(lines=271 words=955 chars=7855 max length=7856)
-❯ du src/ | debug
+───┴───────────────────────
+```
+
+```shell
+> open --raw Cargo.toml | size | debug
+(lines=139 words=560 chars=4607 max length=4607)
+```
+
+```shell
+> du src/ | debug
 (path="src"(path)
  apparent=705300(bytesize)
  physical=1118208(bytesize)

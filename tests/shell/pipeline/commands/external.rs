@@ -11,6 +11,16 @@ fn shows_error_for_command_not_found() {
 }
 
 #[test]
+fn shows_error_for_command_not_found_in_pipeline() {
+    let actual = nu!(
+        cwd: ".",
+        "ferris_is_not_here.exe | echo done"
+    );
+
+    assert!(actual.err.contains("Command not found"));
+}
+
+#[test]
 fn automatically_change_directory() {
     use nu_test_support::playground::Playground;
 
@@ -181,6 +191,15 @@ mod external_words {
         "#);
 
         assert_eq!(actual.out, "joturner@foo.bar.baz");
+    }
+
+    #[test]
+    fn no_escaping_for_single_quoted_strings() {
+        let actual = nu!(cwd: ".", r#"
+        nu --testbin cococo 'test "things"'
+        "#);
+
+        assert_eq!(actual.out, "test \"things\"");
     }
 }
 

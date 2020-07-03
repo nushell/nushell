@@ -406,7 +406,10 @@ impl WrappedTable {
             self.print_separator(SeparatorPosition::Top);
         }
 
-        if !self.headers.is_empty() {
+        let skip_headers = (self.headers.len() == 2 && self.headers[1].max_width == 0)
+            || (self.headers.len() == 1 && self.headers[0].max_width == 0);
+
+        if !self.headers.is_empty() && !skip_headers {
             self.print_cell_contents(&self.headers);
         }
 
@@ -420,7 +423,7 @@ impl WrappedTable {
             } else {
                 first_row = false;
 
-                if self.theme.separate_header && !self.headers.is_empty() {
+                if self.theme.separate_header && !self.headers.is_empty() && !skip_headers {
                     self.print_separator(SeparatorPosition::Middle);
                 }
             }

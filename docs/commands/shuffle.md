@@ -2,32 +2,36 @@
 
 Shuffles the rows in a random order.
 
-## Examples - 
+## Examples
 
-Passing the same input to shuffle multiple times gives different results - 
+Passing the same input to shuffle multiple times gives different results -
 
+```shell
+> echo [ a b c d ] | shuffle
+───┬───
+ 0 │ a
+ 1 │ c
+ 2 │ d
+ 3 │ b
+───┴───
 ```
-❯ echo [ a b c d ]  | shuffle 
-───┬───
- 0 │ a 
- 1 │ c 
- 2 │ d 
- 3 │ b 
-───┴───
 
-❯ echo [ a b c d ]  | shuffle 
+```shell
+> echo [ a b c d ] | shuffle
 ───┬───
- 0 │ c 
- 1 │ b 
- 2 │ d 
- 3 │ a 
+ 0 │ c
+ 1 │ b
+ 2 │ d
+ 3 │ a
 ───┴───
+```
 
-❯ echo [ a b c d ]  | shuffle 
+```shell
+> echo [ a b c d ] | shuffle
 ───┬───
- 0 │ c 
- 1 │ b 
- 2 │ a 
- 3 │ d 
+ 0 │ c
+ 1 │ b
+ 2 │ a
+ 3 │ d
 ───┴───
 ```

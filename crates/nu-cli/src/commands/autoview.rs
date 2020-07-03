@@ -106,6 +106,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
     };
 
     let (mut input_stream, context) = RunnableContextWithoutInput::convert(context);
+    let term_width = context.host.lock().width();
 
     if let Some(x) = input_stream.next().await {
         match input_stream.next().await {
@@ -120,7 +121,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
 
                 if let Some(table) = table {
                     let command_args = create_default_command_args(&context).with_input(stream);
-                    let result = table.run(command_args, &context.registry).await;
+                    let result = table.run(command_args, &context.registry).await?;
                     result.collect::<Vec<_>>().await;
                 }
             }
@@ -137,7 +138,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                             );
                             let command_args =
                                 create_default_command_args(&context).with_input(stream);
-                            let result = text.run(command_args, &context.registry).await;
+                            let result = text.run(command_args, &context.registry).await?;
                             result.collect::<Vec<_>>().await;
                         } else {
                             out!("{}", s);
@@ -160,7 +161,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                             );
                             let command_args =
                                 create_default_command_args(&context).with_input(stream);
-                            let result = text.run(command_args, &context.registry).await;
+                            let result = text.run(command_args, &context.registry).await?;
                             result.collect::<Vec<_>>().await;
                         } else {
                             out!("{}\n", s);
@@ -235,7 +236,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                             stream.push_back(x);
                             let command_args =
                                 create_default_command_args(&context).with_input(stream);
-                            let result = binary.run(command_args, &context.registry).await;
+                            let result = binary.run(command_args, &context.registry).await?;
                             result.collect::<Vec<_>>().await;
                         } else {
                             use pretty_hex::*;
@@ -263,7 +264,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                                 .iter()
                                 .fold(0usize, |acc, len| acc + len.len())
                                 + row.entries.iter().count() * 2)
-                                > textwrap::termwidth()) =>
+                                > term_width) =>
                     {
                         let mut entries = vec![];
                         for (key, value) in row.entries.iter() {
@@ -286,7 +287,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                         let table =
                             nu_table::Table::new(vec![], entries, nu_table::Theme::compact());
 
-                        nu_table::draw_table(&table, textwrap::termwidth());
+                        nu_table::draw_table(&table, term_width);
                     }
 
                     Value {
@@ -297,7 +298,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                             stream.push_back(x);
                             let command_args =
                                 create_default_command_args(&context).with_input(stream);
-                            let result = table.run(command_args, &context.registry).await;
+                            let result = table.run(command_args, &context.registry).await?;
                             result.collect::<Vec<_>>().await;
                         } else {
                             out!("{:?}", item);

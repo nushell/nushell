@@ -1,0 +1,315 @@
+<?xml version='1.0' encoding='windows-1252'?>
+<!--
+  Copyright (C) 2017 Christopher R. Field.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+
+<!--
+  Please do not remove these pre-processor If-Else blocks. These are used with
+  the `cargo wix` subcommand to automatically determine the installation
+  destination for 32-bit versus 64-bit installers. Removal of these lines will
+  cause installation errors.
+-->
+<?if $(var.Platform) = x64 ?>
+    <?define Win64 = "yes" ?>
+    <?define PlatformProgramFilesFolder = "ProgramFiles64Folder" ?>
+<?else ?>
+  <?define Win64 = "no" ?>
+  <?define PlatformProgramFilesFolder = "ProgramFilesFolder" ?>
+<?endif ?>
+
+<Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
+
+    <Product
+        Id='*'
+        Name='nu'
+        UpgradeCode='82D756D2-19FA-4F09-B10F-64942E89F364'
+        Manufacturer='The Nu Project Contributors'
+        Language='1033'
+        Codepage='1252'
+        Version='$(var.Version)'>
+
+        <Package Id='*'
+            Keywords='Installer'
+            Description='A new type of shell'
+            Manufacturer='The Nu Project Contributors'
+            InstallerVersion='450'
+            Languages='1033'
+            Compressed='yes'
+            InstallScope='perMachine'
+            SummaryCodepage='1252'
+            Platform='$(var.Platform)'/>
+
+        <MajorUpgrade
+            Schedule='afterInstallInitialize'
+            DowngradeErrorMessage='A newer version of [ProductName] is already installed. Setup will now exit.'/>
+
+        <Media Id='1' Cabinet='media1.cab' EmbedCab='yes' DiskPrompt='CD-ROM #1'/>
+        <Property Id='DiskPrompt' Value='nu Installation'/>
+
+        <Directory Id='TARGETDIR' Name='SourceDir'>
+            <Directory Id='$(var.PlatformProgramFilesFolder)' Name='PFiles'>
+                <Directory Id='APPLICATIONFOLDER' Name='nu'>
+                    <!--
+                      Disabling the license sidecar file in the installer is a two step process:
+
+                      1. Comment out or remove the `Component` tag along with its contents.
+                      2. Comment out or remove the `ComponentRef` tag with the "License" Id
+                         attribute value further down in this file.
+                    -->
+                    <Component Id='License' Guid='*' Win64='$(var.Win64)'>
+                        <File Id='LicenseFile'
+                            Name='License.rtf'
+                            DiskId='1'
+                            Source='wix\License.rtf'
+                            KeyPath='yes'/>
+                    </Component>
+                    
+                    <Directory Id='Bin' Name='bin'>
+                        <Component Id='Path' Guid='285921EA-6DC0-4632-B12C-D7D737F30686' Win64='$(var.Win64)' KeyPath='yes'>
+                            <Environment
+                                Id='PATH'
+                                Name='PATH'
+                                Value='[Bin]'
+                                Permanent='no'
+                                Part='last'
+                                Action='set'
+                                System='yes'/>
+                        </Component>
+                        <Component Id='binary0' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe0'
+                                Name='nu.exe'
+                                DiskId='1'
+                                Source='target\$(var.Profile)\nu.exe'
+                                KeyPath='yes'/>
+                        </Component>
+                        <Component Id='binary1' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe1'
+                                Name='nu_plugin_binaryview.exe'
+                                DiskId='1'
+                                Source='target\$(var.Profile)\nu_plugin_binaryview.exe'
+                                KeyPath='yes'/>
+                        </Component>
+                        <Component Id='binary2' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe2'
+                                Name='nu_plugin_fetch.exe'
+                                DiskId='1'
+                                Source='target\$(var.Profile)\nu_plugin_fetch.exe'
+                                KeyPath='yes'/>
+                        </Component>
+                        <Component Id='binary3' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe3'
+                                Name='nu_plugin_inc.exe'
+                                DiskId='1'
+                                Source='target\$(var.Profile)\nu_plugin_inc.exe'
+                                KeyPath='yes'/>
+                        </Component>
+                        <Component Id='binary4' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe4'
+                                Name='nu_plugin_post.exe'
+                                DiskId='1'
+                                Source='target\$(var.Profile)\nu_plugin_post.exe'
+                                KeyPath='yes'/>
+                        </Component>
+                        <Component Id='binary5' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe5'
+                                Name='nu_plugin_ps.exe'
+                                DiskId='1'
+                                Source='target\$(var.Profile)\nu_plugin_ps.exe'
+                                KeyPath='yes'/>
+                        </Component>
+                        <Component Id='binary6' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe6'
+                                Name='nu_plugin_start.exe'
+                                DiskId='1'
+                                Source='target\$(var.Profile)\nu_plugin_start.exe'
+                                KeyPath='yes'/>
+                        </Component>
+                        <Component Id='binary7' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe7'
+                                Name='nu_plugin_sys.exe'
+                                DiskId='1'
+                                Source='target\$(var.Profile)\nu_plugin_sys.exe'
+                                KeyPath='yes'/>
+                        </Component>
+                        <Component Id='binary8' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe8'
+                                Name='nu_plugin_textview.exe'
+                                DiskId='1'
+                                Source='target\$(var.Profile)\nu_plugin_textview.exe'
+                                KeyPath='yes'/>
+                        </Component>
+                        <Component Id='binary9' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe9'
+                                Name='nu_plugin_tree.exe'
+                                DiskId='1'
+                                Source='target\$(var.Profile)\nu_plugin_tree.exe'
+                                KeyPath='yes'/>
+                        </Component>
+                        <!-- Downloaded from here https://github.com/jftuga/less-Windows/releases/download/less-v562.0/less.exe -->
+                        <Component Id='binary10' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe10'
+                                Name='less.exe'
+                                DiskId='1'
+                                Source='output\less.exe'
+                                KeyPath='yes'/>
+                        </Component>
+                        <Component Id='binary11' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe11'
+                                Name='nu_plugin_match.exe'
+                                DiskId='1'
+                                Source='target\$(var.Profile)\nu_plugin_match.exe'
+                                KeyPath='yes'/>
+                        </Component>
+                        <Component Id='binary12' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe12'
+                                Name='README.txt'
+                                DiskId='1'
+                                Source='output\README.txt'
+                                KeyPath='yes'/>
+                        </Component>
+                        <Component Id='binary13' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe13'
+                                Name='LICENSE'
+                                DiskId='1'
+                                Source='output\LICENSE'
+                                KeyPath='yes'/>
+                        </Component>
+                        <Component Id='binary14' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe14'
+                                Name='LICENSE-for-less.txt'
+                                DiskId='1'
+                                Source='output\LICENSE-for-less.txt'
+                                KeyPath='yes'/>
+                        </Component>
+                    </Directory>
+                </Directory>
+            </Directory>
+        </Directory>
+
+        <Feature
+            Id='Binaries'
+            Title='Application'
+            Description='Installs all binaries and the license.'
+            Level='1'
+            ConfigurableDirectory='APPLICATIONFOLDER'
+            AllowAdvertise='no'
+            Display='expand'
+            Absent='disallow'>
+            <!--
+              Comment out or remove the following `ComponentRef` tag to remove
+              the license sidecar file from the installer.
+            -->
+            <ComponentRef Id='License'/>
+            
+            <ComponentRef Id='binary0'/>
+            <ComponentRef Id='binary1'/>
+            <ComponentRef Id='binary2'/>
+            <ComponentRef Id='binary3'/>
+            <ComponentRef Id='binary4'/>
+            <ComponentRef Id='binary5'/>
+            <ComponentRef Id='binary6'/>
+            <ComponentRef Id='binary7'/>
+            <ComponentRef Id='binary8'/>
+            <ComponentRef Id='binary9'/>
+            <ComponentRef Id='binary10'/>
+            <ComponentRef Id='binary11'/>
+            <ComponentRef Id='binary12'/>
+            <ComponentRef Id='binary13'/>
+            <ComponentRef Id='binary14'/>
+
+            <Feature
+                Id='Environment'
+                Title='PATH Environment Variable'
+                Description='Add the install location of the [ProductName] executable to the PATH system environment variable. This allows the [ProductName] executable to be called from any location.'
+                Level='1'
+                Absent='allow'>
+                <ComponentRef Id='Path'/>
+            </Feature>
+        </Feature>
+
+        <SetProperty Id='ARPINSTALLLOCATION' Value='[APPLICATIONFOLDER]' After='CostFinalize'/>
+
+        
+        <!--
+          Uncomment the following `Icon` and `Property` tags to change the product icon.
+
+          The product icon is the graphic that appears in the Add/Remove
+          Programs control panel for the application.
+        -->
+        <!--<Icon Id='ProductICO' SourceFile='wix\Product.ico'/>-->
+        <!--<Property Id='ARPPRODUCTICON' Value='ProductICO' />-->
+
+        <Property Id='ARPHELPLINK' Value='https://www.nushell.sh/book/'/>
+        
+        <UI>
+            <UIRef Id='WixUI_FeatureTree'/>
+            <!--
+              Disabling the EULA dialog in the installer is a two step process:
+
+                 1. Uncomment the following two `Publish` tags
+                 2. Comment out or remove the `<WiXVariable Id='WixUILicenseRtf'...` tag further down
+
+            -->
+            <!--<Publish Dialog='WelcomeDlg' Control='Next' Event='NewDialog' Value='CustomizeDlg' Order='99'>1</Publish>-->
+            <!--<Publish Dialog='CustomizeDlg' Control='Back' Event='NewDialog' Value='WelcomeDlg' Order='99'>1</Publish>-->
+            
+        </UI>
+
+        <!--
+          Disabling the EULA dialog in the installer requires commenting out
+          or removing the following `WixVariable` tag
+        -->
+        <WixVariable Id='WixUILicenseRtf' Value='wix\License.rtf'/>
+        
+        
+        <!--
+          Uncomment the next `WixVaraible` tag to customize the installer's
+          Graphical User Interface (GUI) and add a custom banner image across
+          the top of each screen. See the WiX Toolset documentation for details
+          about customization.
+
+          The banner BMP dimensions are 493 x 58 pixels.
+        -->
+        <!--<WixVariable Id='WixUIBannerBmp' Value='wix\Banner.bmp'/>-->
+
+        
+        <!--
+          Uncomment the next `WixVariable` tag to customize the installer's
+          Graphical User Interface (GUI) and add a custom image to the first
+          dialog, or screen. See the WiX Toolset documentation for details about
+          customization.
+
+          The dialog BMP dimensions are 493 x 312 pixels.
+        -->
+        <!--<WixVariable Id='WixUIDialogBmp' Value='wix\Dialog.bmp'/>-->
+
+    </Product>
+
+</Wix>

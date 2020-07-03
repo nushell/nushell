@@ -184,6 +184,10 @@ impl Context {
         self.current_errors.lock().clone()
     }
 
+    pub(crate) fn add_error(&self, err: ShellError) {
+        self.current_errors.lock().push(err);
+    }
+
     pub(crate) fn maybe_print_errors(&mut self, source: Text) -> bool {
         let errors = self.current_errors.clone();
         let mut errors = errors.lock();
@@ -232,7 +236,7 @@ impl Context {
         args: hir::Call,
         scope: &Scope,
         input: InputStream,
-    ) -> OutputStream {
+    ) -> Result<OutputStream, ShellError> {
         let command_args = self.command_args(args, input, name_tag, scope);
         command.run(command_args, self.registry()).await
     }

@@ -1,6 +1,6 @@
 [package]
 name = "nu-errors"
-version = "0.15.1"
+version = "0.16.0"
 authors = ["The Nu Project Contributors"]
 edition = "2018"
 description = "Core error subsystem for Nushell"
@@ -10,22 +10,22 @@ license = "MIT"
 doctest = false
 
 [dependencies]
-nu-source = { path = "../nu-source", version = "0.15.1" }
+nu-source = { path = "../nu-source", version = "0.16.0" }
 
 ansi_term = "0.12.1"
 bigdecimal = { version = "0.1.2", features = ["serde"] }
 derive-new = "0.5.8"
-codespan-reporting = { version = "0.9.4", features = ["serialization"]}
+codespan-reporting = { version = "0.9.5", features = ["serialization"]}
 num-bigint = { version = "0.2.6", features = ["serde"] }
-num-traits = "0.2.11"
-serde = { version = "1.0.110", features = ["derive"] }
+num-traits = "0.2.12"
+serde = { version = "1.0.114", features = ["derive"] }
 getset = "0.1.1"
 
 # implement conversions
 serde_yaml = "0.8"
 toml = "0.5.6"
-serde_json = "1.0.53"
+serde_json = "1.0.55"
 glob = "0.3.0"
 
 [build-dependencies]
-nu-build = { version = "0.15.1", path = "../nu-build" }
+nu-build = { version = "0.16.0", path = "../nu-build" }

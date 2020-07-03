@@ -11,11 +11,10 @@ A `Span` keeps track of a value's `start` and `end` positions.
 These types make up the metadata for a value and are wrapped up together in a `Tagged` struct,
 which holds everything needed to track and locate a value.
 
-
 Nu's metadata system can be seen when reporting errors.
 In the following example Nu is able to report to the user where the typo of a column originated from.
 
-```
+```shell
 1 | ls | get typ
   |          ^^^ did you mean 'type'?
 ```
@@ -24,6 +23,7 @@ In addition to metadata tracking, `nu-source` also contains types and traits
 related to debugging, tracing, and formatting the metadata and values it processes.
 
 ## Other Resources
+
 - [Nushell Github Project](https://github.com/nushell):
   Contains all projects in the Nushell ecosystem such as the source code to Nushell as well as website and books.
 - [Nushell Git Repository](https://github.com/nushell/nushell):

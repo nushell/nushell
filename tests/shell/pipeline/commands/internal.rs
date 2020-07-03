@@ -73,12 +73,36 @@ fn it_expansion_of_list() {
 }
 
 #[test]
+fn it_expansion_of_invocation() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            echo $(echo "4" | echo $it | str to-int )
+        "#
+    );
+
+    assert_eq!(actual.out, "4");
+}
+
+#[test]
+fn invocation_properly_redirects() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            echo $(nu --testbin cococo "hello") | str collect
+        "#
+    );
+
+    assert_eq!(actual.out, "hello");
+}
+
+#[test]
 fn argument_invocation() {
     let actual = nu!(
         cwd: ".",
         r#"
-                    echo "foo" | echo $(echo $it)
-            "#
+            echo "foo" | echo $(echo $it)
+        "#
     );
 
     assert_eq!(actual.out, "foo");

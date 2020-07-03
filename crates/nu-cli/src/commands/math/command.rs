@@ -35,10 +35,11 @@ impl WholeStreamCommand for Command {
 mod tests {
     use super::*;
     use crate::commands::math::{
-        avg::average, max::maximum, median::median, min::minimum, sum::summation,
-        utils::MathFunction,
+        avg::average, max::maximum, median::median, min::minimum, mode::mode, sum::summation,
+        utils::calculate, utils::MathFunction,
     };
-    use nu_plugin::test_helpers::value::{decimal, int};
+    use nu_plugin::row;
+    use nu_plugin::test_helpers::value::{decimal, int, table};
     use nu_protocol::Value;
 
     #[test]
@@ -54,7 +55,7 @@ mod tests {
             description: &'static str,
             values: Vec<Value>,
             expected_err: Option<ShellError>,
-            // Order is: avg, min, max
+            // Order is: average, minimum, maximum, median, summation
             expected_res: Vec<Result<Value, ShellError>>,
         }
         let tt: Vec<TestCase> = vec![
@@ -73,6 +74,7 @@ mod tests {
                     Ok(int(10)),
                     Ok(int(10)),
                     Ok(int(10)),
+                    Ok(table(&[int(10)])),
                     Ok(int(10)),
                 ],
             },
@@ -85,6 +87,7 @@ mod tests {
                     Ok(int(10)),
                     Ok(int(30)),
                     Ok(int(20)),
+                    Ok(table(&[int(10), int(20), int(30)])),
                     Ok(int(60)),
                 ],
             },
@@ -97,6 +100,7 @@ mod tests {
                     Ok(int(10)),
                     Ok(decimal(26.5)),
                     Ok(decimal(26.5)),
+                    Ok(table(&[decimal(26.5)])),
                     Ok(decimal(63)),
                 ],
             },
@@ -109,6 +113,7 @@ mod tests {
                     Ok(int(-14)),
                     Ok(int(10)),
                     Ok(int(-11)),
+                    Ok(table(&[int(-14), int(-11), int(10)])),
                     Ok(int(-15)),
                 ],
             },
@@ -121,20 +126,31 @@ mod tests {
                     Ok(decimal(-13.5)),
                     Ok(int(10)),
                     Ok(decimal(-11.5)),
+                    Ok(table(&[decimal(-13.5), decimal(-11.5), int(10)])),
                     Ok(decimal(-15)),
                 ],
             },
-            // TODO-Uncomment once I figure out how to structure tables
-            // TestCase {
-            //     description: "Tables",
-            //     values: vec![
-            //         table(&vec![int(3), int(4), int(4)]),
-            //         table(&vec![int(3), int(4), int(4)]),
-            //         table(&vec![int(3), int(4), int(4)]),
-            //     ],
-            //     expected_err: None,
-            //     expected_res: vec![Ok(decimal(-5)), Ok(decimal(-13.5)), Ok(int(10))],
-            // },
+            TestCase {
+                description: "Tables Or Rows",
+                values: vec![
+                    row!["col1".to_owned() => int(1), "col2".to_owned() => int(5)],
+                    row!["col1".to_owned() => int(2), "col2".to_owned() => int(6)],
+                    row!["col1".to_owned() => int(3), "col2".to_owned() => int(7)],
+                    row!["col1".to_owned() => int(4), "col2".to_owned() => int(8)],
+                ],
+                expected_err: None,
+                expected_res: vec![
+                    Ok(row!["col1".to_owned() => decimal(2.5), "col2".to_owned() => decimal(6.5)]),
+                    Ok(row!["col1".to_owned() => int(1), "col2".to_owned() => int(5)]),
+                    Ok(row!["col1".to_owned() => int(4), "col2".to_owned() => int(8)]),
+                    Ok(row!["col1".to_owned() => decimal(2.5), "col2".to_owned() => decimal(6.5)]),
+                    Ok(row![
+                        "col1".to_owned() => table(&[int(1), int(2), int(3), int(4)]),
+                        "col2".to_owned() => table(&[int(5), int(6), int(7), int(8)])
+                    ]),
+                    Ok(row!["col1".to_owned() => int(10), "col2".to_owned() => int(26)]),
+                ],
+            },
             // TODO-Uncomment once Issue: https://github.com/nushell/nushell/issues/1883 is resolved
             // TestCase {
             //     description: "Invalid Mixed Values",
@@ -144,14 +160,13 @@ mod tests {
             // },
         ];
         let test_tag = Tag::unknown();
-
         for tc in tt.iter() {
             let tc: &TestCase = tc; // Just for type annotations
             let math_functions: Vec<MathFunction> =
-                vec![average, minimum, maximum, median, summation];
+                vec![average, minimum, maximum, median, mode, summation];
             let results = math_functions
-                .iter()
-                .map(|mf| mf(&tc.values, &test_tag))
+                .into_iter()
+                .map(|mf| calculate(&tc.values, &test_tag, mf))
                 .collect_vec();
 
             if tc.expected_err.is_some() {

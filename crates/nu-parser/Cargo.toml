@@ -1,6 +1,6 @@
 [package]
 name = "nu-parser"
-version = "0.15.1"
+version = "0.16.0"
 authors = ["The Nu Project Contributors"]
 edition = "2018"
 description = "Nushell parser"
@@ -11,18 +11,18 @@ license = "MIT"
 [dependencies]
 num-bigint = { version = "0.2.6", features = ["serde"] }
 bigdecimal = { version = "0.1.2", features = ["serde"] }
-indexmap = { version = "1.3.2", features = ["serde-1"] }
-parking_lot = "0.10.2"
-num-traits = "0.2.11"
+indexmap = { version = "1.4.0", features = ["serde-1"] }
+parking_lot = "0.11.0"
+num-traits = "0.2.12"
 derive-new = "0.5.8"
-serde = "1.0.110"
-codespan-reporting = "0.9.4"
+serde = "1.0.114"
+codespan-reporting = "0.9.5"
 log = "0.4.8"
 shellexpand = "2.0.0"
 
-nu-source = { version = "0.15.1", path = "../nu-source" }
-nu-protocol = { version = "0.15.1", path = "../nu-protocol" }
-nu-errors = { version = "0.15.1", path = "../nu-errors" }
+nu-source = { version = "0.16.0", path = "../nu-source" }
+nu-protocol = { version = "0.16.0", path = "../nu-protocol" }
+nu-errors = { version = "0.16.0", path = "../nu-errors" }
 
 [features]
 stable = []

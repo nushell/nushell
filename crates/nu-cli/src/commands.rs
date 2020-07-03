@@ -5,6 +5,7 @@ mod from_delimited_data;
 mod to_delimited_data;
 
 pub(crate) mod alias;
+pub(crate) mod ansi;
 pub(crate) mod append;
 pub(crate) mod args;
 pub(crate) mod autoview;
@@ -12,6 +13,7 @@ pub(crate) mod build_string;
 pub(crate) mod cal;
 pub(crate) mod calc;
 pub(crate) mod cd;
+pub(crate) mod char_;
 pub(crate) mod classified;
 #[cfg(feature = "clipboard")]
 pub(crate) mod clip;
@@ -24,6 +26,7 @@ pub(crate) mod cp;
 pub(crate) mod date;
 pub(crate) mod debug;
 pub(crate) mod default;
+pub(crate) mod do_;
 pub(crate) mod drop;
 pub(crate) mod du;
 pub(crate) mod each;
@@ -82,6 +85,7 @@ pub(crate) mod plugin;
 pub(crate) mod prepend;
 pub(crate) mod prev;
 pub(crate) mod pwd;
+pub(crate) mod random;
 pub(crate) mod range;
 #[allow(unused)]
 pub(crate) mod reduce_by;
@@ -135,10 +139,12 @@ pub(crate) use command::{
 };
 
 pub(crate) use alias::Alias;
+pub(crate) use ansi::Ansi;
 pub(crate) use append::Append;
 pub(crate) use build_string::BuildString;
 pub(crate) use cal::Cal;
 pub(crate) use calc::Calc;
+pub(crate) use char_::Char;
 pub(crate) use compact::Compact;
 pub(crate) use config::Config;
 pub(crate) use count::Count;
@@ -146,6 +152,7 @@ pub(crate) use cp::Cpy;
 pub(crate) use date::Date;
 pub(crate) use debug::Debug;
 pub(crate) use default::Default;
+pub(crate) use do_::Do;
 pub(crate) use drop::Drop;
 pub(crate) use du::Du;
 pub(crate) use each::Each;
@@ -199,7 +206,9 @@ pub(crate) use lines::Lines;
 pub(crate) use ls::Ls;
 #[allow(unused_imports)]
 pub(crate) use map_max_by::MapMaxBy;
-pub(crate) use math::{Math, MathAverage, MathMaximum, MathMedian, MathMinimum, MathSummation};
+pub(crate) use math::{
+    Math, MathAverage, MathMaximum, MathMedian, MathMinimum, MathMode, MathSummation,
+};
 pub(crate) use merge::Merge;
 pub(crate) use mkdir::Mkdir;
 pub(crate) use mv::Move;
@@ -211,6 +220,7 @@ pub(crate) use pivot::Pivot;
 pub(crate) use prepend::Prepend;
 pub(crate) use prev::Previous;
 pub(crate) use pwd::Pwd;
+pub(crate) use random::{Random, RandomBool, RandomDice, RandomUUID};
 pub(crate) use range::Range;
 #[allow(unused_imports)]
 pub(crate) use reduce_by::ReduceBy;
@@ -233,8 +243,8 @@ pub(crate) use split::SplitColumn;
 pub(crate) use split::SplitRow;
 pub(crate) use split_by::SplitBy;
 pub(crate) use str_::{
-    Str, StrCapitalize, StrDowncase, StrFindReplace, StrSet, StrSubstring, StrToDatetime,
-    StrToDecimal, StrToInteger, StrTrim, StrUpcase,
+    Str, StrCapitalize, StrCollect, StrDowncase, StrFindReplace, StrSet, StrSubstring,
+    StrToDatetime, StrToDecimal, StrToInteger, StrTrim, StrUpcase,
 };
 #[allow(unused_imports)]
 pub(crate) use t_sort_by::TSortBy;

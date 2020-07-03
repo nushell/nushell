@@ -13,6 +13,9 @@ Converts table data into toml text.
  1 │   │ filesystem │ /home/shaurya/Pictures
  2 │   │ filesystem │ /home/shaurya/Desktop
 ━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+```shell
 > shells | to toml
 [[]]
 " " = "X"
@@ -28,7 +31,6 @@ path = "/home/shaurya/Pictures"
 " " = " "
 name = "filesystem"
 path = "/home/shaurya/Desktop"
-
 ```
 
 ```shell
@@ -38,6 +40,9 @@ path = "/home/shaurya/Desktop"
 ────────────────┼──────────────────┼────────────────
  [table: 1 row] │ [table: 1 row]   │ [table: 1 row]
 ━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━
+```
+
+```shell
 > open cargo_sample.toml | to toml
 [dependencies]
 ansi_term = "0.11.0"
@@ -83,7 +88,7 @@ version = "0.4.6"
 [dependencies.cursive]
 default-features = false
 features = ["pancurses-backend"]
-version = "0.15.1"
+version = "0.16.0"
 
 [dependencies.futures-preview]
 features = ["compat", "io-compat"]
@@ -107,5 +112,4 @@ edition = "2018"
 license = "ISC"
 name = "nu"
 version = "0.1.1"
-
 ```

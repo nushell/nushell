@@ -413,6 +413,15 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
                 visit::<Tagged<i64>, _>(i.tagged(tag), name, fields, visitor)
             }
             Value {
+                value: UntaggedValue::Primitive(Primitive::Decimal(decimal)),
+                ..
+            } => {
+                let i: f64 = decimal
+                    .tagged(value.val.tag)
+                    .coerce_into("converting to f64")?;
+                visit::<Tagged<f64>, _>(i.tagged(tag), name, fields, visitor)
+            }
+            Value {
                 value: UntaggedValue::Primitive(Primitive::String(string)),
                 ..
             } => visit::<Tagged<String>, _>(string.tagged(tag), name, fields, visitor),

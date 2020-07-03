@@ -6,9 +6,10 @@ Parse [url-encoded string](https://url.spec.whatwg.org/#application/x-www-form-u
 
 ```shell
 > echo 'bread=baguette&cheese=comt%C3%A9&meat=ham&fat=butter' | from url
-━━━━━━━━━━┯━━━━━━━━┯━━━━━━┯━━━━━━━━
- bread    │ cheese │ meat │ fat
-──────────┼────────┼──────┼────────
- baguette │ comté  │ ham  │ butter
-━━━━━━━━━━┷━━━━━━━━┷━━━━━━┷━━━━━━━━
+────────┬──────────
+ bread  │ baguette
+ cheese │ comté
+ meat   │ ham
+ fat    │ butter
+────────┴──────────
 ```
