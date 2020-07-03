@@ -5,7 +5,7 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use futures_codec::FramedRead;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::{AnchorLocation, Span, Tagged};
 use std::path::{Path, PathBuf};
 extern crate encoding_rs;
@@ -85,14 +85,18 @@ documentation link at https://docs.rs/encoding_rs/0.8.23/encoding_rs/#statics"#
     }
 }
 
-pub fn get_encoding(opt: Option<String>) -> Result<&'static Encoding, ShellError> {
+pub fn get_encoding(opt: Option<Tagged<String>>) -> Result<&'static Encoding, ShellError> {
     match opt {
         None => Ok(UTF_8),
-        Some(label) => match Encoding::for_label((&label).as_bytes()) {
-            None => Err(ShellError::unexpected(format!(
-                r#"{} is not a valid encoding, refer to https://docs.rs/encoding_rs/0.8.23/encoding_rs/#statics for a valid list of encodings"#,
-                label,
-            ))),
+        Some(label) => match Encoding::for_label((&label.item).as_bytes()) {
+            None => Err(ShellError::labeled_error(
+                format!(
+                    r#"{} is not a valid encoding, refer to https://docs.rs/encoding_rs/0.8.23/encoding_rs/#statics for a valid list of encodings"#,
+                    label.item
+                ),
+                "invalid encoding",
+                label.span(),
+            )),
             Some(encoding) => Ok(encoding),
         },
     }
@@ -105,17 +109,43 @@ async fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
     let (
         OpenArgs {
             path,
-            raw: _,
+            raw,
             encoding,
         },
         _,
     ) = args.process(&registry).await?;
 
-    let encoding = match encoding {
-        None => None,
-        Some(t) => Some(get_encoding(Some(t.item().to_owned()))?),
-    };
+    // As a short term workaround for getting AutoConvert functionality
+    // Assuming the user doesn't want the raw output...
 
+    // We will check if the extension has a "from *" command
+    // If so, then we will collect the Stream so we can AutoConvert into a Value
+    // Otherwise we Stream as normal
+    let ext = path
+        .extension()
+        .map(|name| name.to_string_lossy().to_string());
+
+    if let (Some(ext), false) = (ext, raw.item) {
+        if let Some(_command) = registry.get_command(&format!("from {}", ext)) {
+            let (_, tagged_contents) = crate::commands::open::fetch(
+                &_cwd,
+                &PathBuf::from(&path.item),
+                path.tag.span,
+                encoding,
+            )
+            .await?;
+            return Ok(OutputStream::one(ReturnSuccess::action(
+                CommandAction::AutoConvert(tagged_contents, ext),
+            )));
+        }
+    }
+
+    let with_encoding;
+    if encoding.is_none() {
+        with_encoding = None;
+    } else {
+        with_encoding = Some(get_encoding(encoding)?);
+    }
     let f = File::open(&path).map_err(|e| {
         ShellError::labeled_error(
             format!("Error opening file: {:?}", e),
@@ -124,32 +154,30 @@ async fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
         )
     })?;
     let async_reader = futures::io::AllowStdIo::new(f);
-    let final_stream = FramedRead::new(async_reader, MaybeTextCodec::new(encoding))
-        .map_ok(|sob| match sob {
-            StringOrBinary::String(s) => UntaggedValue::string(s).into_untagged_value(),
-            StringOrBinary::Binary(b) => {
-                UntaggedValue::binary(b.into_iter().collect()).into_untagged_value()
-            }
-        })
-        .map(|item| match item {
-            Ok(sob) => ReturnSuccess::value(sob),
-            Err(e) => Err(ShellError::unexpected(format!(
-                "AsyncRead failed in open function: {:?}",
-                e
-            ))),
-        })
+    let sob_stream = FramedRead::new(async_reader, MaybeTextCodec::new(with_encoding))
+        .map_err(|e| ShellError::unexpected(format!("AsyncRead failed in open function: {:?}", e)))
         .into_stream();
 
-    let output = OutputStream::new(final_stream);
+    let final_stream = sob_stream.map(|x| match x {
+        Ok(StringOrBinary::String(s)) => {
+            ReturnSuccess::value(UntaggedValue::string(s).into_untagged_value())
+        }
+        Ok(StringOrBinary::Binary(b)) => ReturnSuccess::value(
+            UntaggedValue::binary(b.into_iter().collect()).into_untagged_value(),
+        ),
+        Err(se) => Err(se),
+    });
 
-    Ok(output)
+    Ok(OutputStream::new(final_stream))
 }
 
+// Note that we do not output a Stream in "fetch" since it is only used by "enter" command
+// Which we expect to use a concrete Value a not a Stream
 pub async fn fetch(
     cwd: &PathBuf,
     location: &PathBuf,
     span: Span,
-    encoding_choice: Option<String>,
+    encoding_choice: Option<Tagged<String>>,
 ) -> Result<(Option<String>, Value), ShellError> {
     let mut cwd = cwd.clone();
     cwd.push(Path::new(location)); // This is so we have the correct path for reading/error reporting

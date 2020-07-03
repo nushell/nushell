@@ -125,10 +125,7 @@ async fn enter(
             &full_path,
             &PathBuf::from(location_clone),
             tag.span,
-            match encoding {
-                Some(e) => Some(e.to_string()),
-                _ => None,
-            },
+            encoding,
         )
         .await?;
 
