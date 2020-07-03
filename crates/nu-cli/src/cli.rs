@@ -288,6 +288,7 @@ pub fn create_default_context(
             whole_stream_command(Split),
             whole_stream_command(SplitColumn),
             whole_stream_command(SplitRow),
+            whole_stream_command(SplitChars),
             whole_stream_command(Lines),
             whole_stream_command(Trim),
             whole_stream_command(Echo),
