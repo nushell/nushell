@@ -1,6 +1,4 @@
-use crate::commands::classified::maybe_text_codec::{
-    guess_encoding, EncodingGuess, MaybeTextCodec, StringOrBinary,
-};
+use crate::commands::classified::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use futures_codec::FramedRead;
@@ -222,31 +220,27 @@ pub async fn fetch(
     let res = std::fs::read(location).map_err(|e| ShellError::from(e))?;
 
     // If no encoding is provided we try to guess the encoding to read the file with
-    let guess: EncodingGuess;
     let encoding: &'static Encoding;
     if encoding_choice.is_none() {
-        guess = guess_encoding(&res);
         encoding = UTF_8;
     } else {
-        guess = EncodingGuess::Known;
         encoding = get_encoding(encoding_choice.clone())?;
-    }
-
-    // If it's a binary file we can just spit out the the results
-    if let EncodingGuess::Binary = guess {
-        return Ok((ext, UntaggedValue::binary(res).into_value(file_tag)));
     }
 
     let decoded_res;
     // If the user specified an encoding, then do not do BOM sniffing
     if encoding_choice.is_some() {
-        let r = encoding.decode_with_bom_removal(&res);
-        decoded_res = r.0;
+        let (cow_res, _replacements) = encoding.decode_with_bom_removal(&res);
+        decoded_res = cow_res;
     } else {
         // Otherwise, use the default UTF-8 encoder with BOM sniffing
-        let r = encoding.decode(&res);
-        debug!("Decoded using {:?}", r.1);
-        decoded_res = r.0;
+        let (cow_res, actual_encoding, replacements) = encoding.decode(&res);
+        // If we had to use replacement characters then fallback to binary
+        if replacements {
+            return Ok((ext, UntaggedValue::binary(res).into_value(file_tag)));
+        }
+        debug!("Decoded using {:?}", actual_encoding);
+        decoded_res = cow_res;
     }
 
     return Ok((ext, Value::from(decoded_res.to_string())));

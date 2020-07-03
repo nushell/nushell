@@ -12,8 +12,9 @@ pub enum StringOrBinary {
     Binary(Vec<u8>),
 }
 
+#[derive(Debug)]
 pub enum EncodingGuess {
-    NoGuess,
+    Unknown,
     Known, // An encoding that encoding_rs can determine via BOM sniffing
     Binary,
 }
@@ -28,7 +29,7 @@ impl MaybeTextCodec {
     pub fn new(encoding: Option<&'static Encoding>) -> Self {
         let (decoder, guess) = match encoding {
             Some(e) => (e.new_decoder_with_bom_removal(), EncodingGuess::Known),
-            None => (UTF_8.new_decoder(), EncodingGuess::NoGuess),
+            None => (UTF_8.new_decoder(), EncodingGuess::Unknown),
         };
         MaybeTextCodec { guess, decoder }
     }
@@ -38,7 +39,7 @@ impl Default for MaybeTextCodec {
     // The default MaybeTextCodec uses a UTF_8 decoder
     fn default() -> Self {
         MaybeTextCodec {
-            guess: EncodingGuess::NoGuess,
+            guess: EncodingGuess::Unknown,
             decoder: UTF_8.new_decoder(),
         }
     }
@@ -75,7 +76,7 @@ impl futures_codec::Decoder for MaybeTextCodec {
 
         let mut s = String::with_capacity(OUTPUT_BUFFER_SIZE);
         // The encoding has not been specified or guessed yet, try to figure out what the encoding is
-        if let EncodingGuess::NoGuess = self.guess {
+        if let EncodingGuess::Unknown = self.guess {
             self.guess = guess_encoding(src);
         }
 
@@ -146,33 +147,8 @@ pub fn guess_encoding(first_bytes: &[u8]) -> EncodingGuess {
     if *x == 0xfe && *y == 0xff {
         return EncodingGuess::Known;
     }
-
-    // Lastly, maybe it is a UTF-8 but doesn't have BOM
-    // Note that we don't need to read all the bytes. The first 6 is sufficient
-    let n = if first_bytes.len() < 6 {
-        first_bytes.len()
-    } else {
-        6
-    };
-
-    let src = first_bytes;
-    // Note: the longest UTF-8 character per Unicode spec is currently 6 bytes. If we fail somewhere earlier than the last 6 bytes,
-    // we know that we're failing to understand the string encoding and not just seeing a partial character. When this happens, let's
-    // fall back to assuming it's a binary buffer.
-    match String::from_utf8(first_bytes[..n].to_vec()) {
-        Ok(_) => return EncodingGuess::Known,
-        Err(err) => {
-            if src.is_empty() {
-                return EncodingGuess::Known;
-            } else if src.len() > 6 && (src.len() - err.utf8_error().valid_up_to() > 6) {
-                // Fall back to assuming binary
-                return EncodingGuess::Binary;
-            } else {
-                // Looks like a utf-8 string, so let's assume that
-                return EncodingGuess::Known;
-            }
-        }
-    }
+    // We couldn't figure it out from the BOM, so let's just let encoding_rs figure it out OR fallback to Binary where necessary
+    EncodingGuess::Unknown
 
     // TODO: Other BOMs? UTF-32 etc... Although note that encoding_rs only supports sniffing for utf-8, utf-16le, utf-16be
 }
