@@ -239,8 +239,8 @@ pub async fn fetch(
         debug!("Decoded using {:?}", actual_encoding);
         cow_res
     };
-
-    Ok((ext, Value::from(decoded_res.to_string())))
+    let v = UntaggedValue::string(decoded_res.to_string()).into_value(file_tag);
+    Ok((ext, v))
 }
 
 #[cfg(test)]
