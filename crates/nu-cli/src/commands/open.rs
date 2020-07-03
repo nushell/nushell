@@ -154,12 +154,11 @@ async fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
     }
 
     // Normal Streaming operation
-    let with_encoding;
-    if encoding.is_none() {
-        with_encoding = None;
+    let with_encoding = if encoding.is_none() {
+        None
     } else {
-        with_encoding = Some(get_encoding(encoding)?);
-    }
+        Some(get_encoding(encoding)?)
+    };
     let f = File::open(&path).map_err(|e| {
         ShellError::labeled_error(
             format!("Error opening file: {:?}", e),
@@ -217,21 +216,19 @@ pub async fn fetch(
         )),
     };
 
-    let res = std::fs::read(location).map_err(|e| ShellError::from(e))?;
+    let res = std::fs::read(location)?;
 
     // If no encoding is provided we try to guess the encoding to read the file with
-    let encoding: &'static Encoding;
-    if encoding_choice.is_none() {
-        encoding = UTF_8;
+    let encoding = if encoding_choice.is_none() {
+        UTF_8
     } else {
-        encoding = get_encoding(encoding_choice.clone())?;
-    }
+        get_encoding(encoding_choice.clone())?
+    };
 
-    let decoded_res;
     // If the user specified an encoding, then do not do BOM sniffing
-    if encoding_choice.is_some() {
+    let decoded_res = if encoding_choice.is_some() {
         let (cow_res, _replacements) = encoding.decode_with_bom_removal(&res);
-        decoded_res = cow_res;
+        cow_res
     } else {
         // Otherwise, use the default UTF-8 encoder with BOM sniffing
         let (cow_res, actual_encoding, replacements) = encoding.decode(&res);
@@ -240,10 +237,10 @@ pub async fn fetch(
             return Ok((ext, UntaggedValue::binary(res).into_value(file_tag)));
         }
         debug!("Decoded using {:?}", actual_encoding);
-        decoded_res = cow_res;
-    }
+        cow_res
+    };
 
-    return Ok((ext, Value::from(decoded_res.to_string())));
+    Ok((ext, Value::from(decoded_res.to_string())))
 }
 
 #[cfg(test)]
