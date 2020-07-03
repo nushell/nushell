@@ -50,6 +50,11 @@ impl WholeStreamCommand for Each {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
+                description: "Echo the sum of each row",
+                example: "echo [[1 2] [3 4]] | each { echo $it | math sum }",
+                result: None,
+            },
+            Example {
                 description: "Echo the square of each integer",
                 example: "echo [1 2 3] | each { echo $(= $it * $it) }",
                 result: Some(vec![
@@ -59,21 +64,10 @@ impl WholeStreamCommand for Each {
                 ]),
             },
             Example {
-                description: "Echo the sum of each row",
-                example: "echo [[1 2] [3 4]] | each { echo $it | math sum }",
-                result: Some(vec![
-                    UntaggedValue::int(3).into(),
-                    UntaggedValue::int(7).into(),
-                ]),
-            },
-            Example {
                 description: "Number each item and echo a message",
                 example:
                     "echo ['bob' 'fred'] | each --numbered { echo `{{$it.index}} is {{$it.item}}` }",
-                result: Some(vec![
-                    UntaggedValue::string("0 is bob").into(),
-                    UntaggedValue::string("1 is box").into(),
-                ]),
+                result: Some(vec![Value::from("0 is bob"), Value::from("1 is fred")]),
             },
         ]
     }
