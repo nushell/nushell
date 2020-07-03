@@ -7,14 +7,16 @@ use futures::stream::once;
 use nu_errors::ShellError;
 use nu_protocol::{
     hir::Block, hir::Expression, hir::SpannedExpression, hir::Synthetic, Scope, Signature,
-    SyntaxShape, UntaggedValue, Value,
+    SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
 };
+use nu_source::Tagged;
 
 pub struct Each;
 
 #[derive(Deserialize)]
 pub struct EachArgs {
     block: Block,
+    numbered: Tagged<bool>,
 }
 
 #[async_trait]
@@ -24,11 +26,13 @@ impl WholeStreamCommand for Each {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("each").required(
-            "block",
-            SyntaxShape::Block,
-            "the block to run on each row",
-        )
+        Signature::build("each")
+            .required("block", SyntaxShape::Block, "the block to run on each row")
+            .switch(
+                "numbered",
+                "returned a numbered item ($it.index and $it.item)",
+                Some('n'),
+            )
     }
 
     fn usage(&self) -> &str {
@@ -60,6 +64,15 @@ impl WholeStreamCommand for Each {
                 result: Some(vec![
                     UntaggedValue::int(3).into(),
                     UntaggedValue::int(7).into(),
+                ]),
+            },
+            Example {
+                description: "Number each item and echo a message",
+                example:
+                    "echo ['bob' 'fred'] | each --numbered { echo `{{$it.index}} is {{$it.item}}` }",
+                result: Some(vec![
+                    UntaggedValue::string("0 is bob").into(),
+                    UntaggedValue::string("1 is box").into(),
                 ]),
             },
         ]
@@ -111,21 +124,47 @@ async fn each(
     let context = Arc::new(Context::from_raw(&raw_args, &registry));
     let (each_args, input): (EachArgs, _) = raw_args.process(&registry).await?;
     let block = Arc::new(each_args.block);
-    Ok(input
-        .then(move |input| {
-            let block = block.clone();
-            let scope = scope.clone();
-            let head = head.clone();
-            let context = context.clone();
-            async {
-                match process_row(block, scope, head, context, input).await {
-                    Ok(s) => s,
-                    Err(e) => OutputStream::one(Err(e)),
+
+    if each_args.numbered.item {
+        Ok(input
+            .enumerate()
+            .then(move |input| {
+                let block = block.clone();
+                let scope = scope.clone();
+                let head = head.clone();
+                let context = context.clone();
+
+                let mut dict = TaggedDictBuilder::new(input.1.tag());
+                dict.insert_untagged("index", UntaggedValue::int(input.0));
+                dict.insert_value("item", input.1);
+
+                async {
+                    match process_row(block, scope, head, context, dict.into_value()).await {
+                        Ok(s) => s,
+                        Err(e) => OutputStream::one(Err(e)),
+                    }
                 }
-            }
-        })
-        .flatten()
-        .to_output_stream())
+            })
+            .flatten()
+            .to_output_stream())
+    } else {
+        Ok(input
+            .then(move |input| {
+                let block = block.clone();
+                let scope = scope.clone();
+                let head = head.clone();
+                let context = context.clone();
+
+                async {
+                    match process_row(block, scope, head, context, input).await {
+                        Ok(s) => s,
+                        Err(e) => OutputStream::one(Err(e)),
+                    }
+                }
+            })
+            .flatten()
+            .to_output_stream())
+    }
 }
 
 #[cfg(test)]
