@@ -1,3 +1,4 @@
+use crate::commands::classified::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
 use crate::evaluate::evaluate_baseline_expr;
 use crate::futures::ThreadedReceiver;
 use crate::prelude::*;
@@ -7,9 +8,7 @@ use std::ops::Deref;
 use std::process::{Command, Stdio};
 use std::sync::mpsc;
 
-use bytes::{BufMut, Bytes, BytesMut};
 use futures::executor::block_on_stream;
-// use futures::stream::StreamExt;
 use futures_codec::FramedRead;
 use log::trace;
 
@@ -17,70 +16,6 @@ use nu_errors::ShellError;
 use nu_protocol::hir::ExternalCommand;
 use nu_protocol::{Primitive, Scope, ShellTypeName, UntaggedValue, Value};
 use nu_source::Tag;
-
-pub enum StringOrBinary {
-    String(String),
-    Binary(Vec<u8>),
-}
-pub struct MaybeTextCodec;
-
-impl futures_codec::Encoder for MaybeTextCodec {
-    type Item = StringOrBinary;
-    type Error = std::io::Error;
-
-    fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
-        match item {
-            StringOrBinary::String(s) => {
-                dst.reserve(s.len());
-                dst.put(s.as_bytes());
-                Ok(())
-            }
-            StringOrBinary::Binary(b) => {
-                dst.reserve(b.len());
-                dst.put(Bytes::from(b));
-                Ok(())
-            }
-        }
-    }
-}
-
-impl futures_codec::Decoder for MaybeTextCodec {
-    type Item = StringOrBinary;
-    type Error = std::io::Error;
-
-    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        let v: Vec<u8> = src.to_vec();
-        match String::from_utf8(v) {
-            Ok(s) => {
-                src.clear();
-                if s.is_empty() {
-                    Ok(None)
-                } else {
-                    Ok(Some(StringOrBinary::String(s)))
-                }
-            }
-            Err(err) => {
-                // Note: the longest UTF-8 character per Unicode spec is currently 6 bytes. If we fail somewhere earlier than the last 6 bytes,
-                // we know that we're failing to understand the string encoding and not just seeing a partial character. When this happens, let's
-                // fall back to assuming it's a binary buffer.
-                if src.is_empty() {
-                    Ok(None)
-                } else if src.len() > 6 && (src.len() - err.utf8_error().valid_up_to() > 6) {
-                    // Fall back to assuming binary
-                    let buf = src.to_vec();
-                    src.clear();
-                    Ok(Some(StringOrBinary::Binary(buf)))
-                } else {
-                    // Looks like a utf-8 string, so let's assume that
-                    let buf = src.split_to(err.utf8_error().valid_up_to() + 1);
-                    String::from_utf8(buf.to_vec())
-                        .map(|x| Some(StringOrBinary::String(x)))
-                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
-                }
-            }
-        }
-    }
-}
 
 pub(crate) async fn run_external_command(
     command: ExternalCommand,
@@ -319,7 +254,7 @@ fn spawn(
                 };
 
                 let file = futures::io::AllowStdIo::new(stdout);
-                let stream = FramedRead::new(file, MaybeTextCodec);
+                let stream = FramedRead::new(file, MaybeTextCodec::default());
 
                 for line in block_on_stream(stream) {
                     match line {
@@ -373,7 +308,7 @@ fn spawn(
                 }
 
                 let file = futures::io::AllowStdIo::new(stderr);
-                let err_stream = FramedRead::new(file, MaybeTextCodec);
+                let err_stream = FramedRead::new(file, MaybeTextCodec::default());
 
                 for err_line in block_on_stream(err_stream) {
                     match err_line {

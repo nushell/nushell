@@ -1,5 +1,5 @@
 use crate::commands::classified::block::run_block;
-use crate::commands::classified::external::{MaybeTextCodec, StringOrBinary};
+use crate::commands::classified::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
 use crate::commands::plugin::JsonRpc;
 use crate::commands::plugin::{PluginCommand, PluginSink};
 use crate::commands::whole_stream_command;
@@ -953,7 +953,7 @@ pub async fn process_line(
 
             let input_stream = if redirect_stdin {
                 let file = futures::io::AllowStdIo::new(std::io::stdin());
-                let stream = FramedRead::new(file, MaybeTextCodec).map(|line| {
+                let stream = FramedRead::new(file, MaybeTextCodec::default()).map(|line| {
                     if let Ok(line) = line {
                         match line {
                             StringOrBinary::String(s) => Ok(Value {

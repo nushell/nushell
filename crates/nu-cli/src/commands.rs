@@ -20,6 +20,7 @@ pub(crate) mod clip;
 pub(crate) mod command;
 pub(crate) mod compact;
 pub(crate) mod config;
+pub(crate) mod constants;
 pub(crate) mod count;
 pub(crate) mod cp;
 pub(crate) mod date;
