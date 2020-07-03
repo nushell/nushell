@@ -308,7 +308,7 @@ fn spawn(
                 }
 
                 let file = futures::io::AllowStdIo::new(stderr);
-                let err_stream = FramedRead::new(file, MaybeTextCodec);
+                let err_stream = FramedRead::new(file, MaybeTextCodec::default());
 
                 for err_line in block_on_stream(err_stream) {
                     match err_line {
