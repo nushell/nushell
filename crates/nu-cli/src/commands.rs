@@ -238,6 +238,7 @@ pub(crate) use skip_until::SkipUntil;
 pub(crate) use skip_while::SkipWhile;
 pub(crate) use sort_by::SortBy;
 pub(crate) use split::Split;
+pub(crate) use split::SplitChars;
 pub(crate) use split::SplitColumn;
 pub(crate) use split::SplitRow;
 pub(crate) use split_by::SplitBy;
