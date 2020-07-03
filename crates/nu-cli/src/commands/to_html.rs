@@ -8,6 +8,11 @@ use nu_source::AnchorLocation;
 
 pub struct ToHTML;
 
+#[derive(Deserialize)]
+pub struct ToHtmlArgs {
+    color: bool,
+}
+
 #[async_trait]
 impl WholeStreamCommand for ToHTML {
     fn name(&self) -> &str {
@@ -15,7 +20,11 @@ impl WholeStreamCommand for ToHTML {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to html")
+        Signature::build("to html").switch(
+            "color",
+            "output html with colors matching ansi escape sequences",
+            None,
+        )
     }
 
     fn usage(&self) -> &str {
@@ -35,17 +44,23 @@ async fn to_html(
     args: CommandArgs,
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let args = args.evaluate_once(&registry).await?;
-    let name_tag = args.name_tag();
-    let input: Vec<Value> = args.input.collect().await;
+    let registry = registry.clone();    
+    let name_tag = args.call_info.name_tag.clone();
+    let (ToHtmlArgs { color }, input) = args.process(&registry).await?;
+    let input: Vec<Value> = input.collect().await;
     let headers = nu_protocol::merge_descriptors(&input);
-    let mut output_string = "<html><body>".to_string();
+    let mut output_string = "<html><head><style>".to_string();
+    output_string.push_str("table, th, td { border: 2px solid black; border-collapse: collapse; padding: 10px; }");
+    output_string.push_str("</style></head><body>");
 
     if !headers.is_empty() && (headers.len() > 1 || headers[0] != "") {
         output_string.push_str("<table>");
 
-        output_string.push_str("<tr>");
+        if color {
+            output_string.push_str("<tr style=\"background-color:black;color:cyan;\">");
+        } else {
+            output_string.push_str("<tr>");
+        }
         for header in &headers {
             output_string.push_str("<th>");
             output_string.push_str(&htmlescape::encode_minimal(&header));
