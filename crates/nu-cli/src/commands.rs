@@ -244,7 +244,7 @@ pub(crate) use split::SplitColumn;
 pub(crate) use split::SplitRow;
 pub(crate) use split_by::SplitBy;
 pub(crate) use str_::{
-    Str, StrCapitalize, StrCollect, StrDowncase, StrFindReplace, StrSet, StrSubstring,
+    Str, StrCapitalize, StrCollect, StrDowncase, StrFindReplace, StrLength, StrSet, StrSubstring,
     StrToDatetime, StrToDecimal, StrToInteger, StrTrim, StrUpcase,
 };
 #[allow(unused_imports)]
