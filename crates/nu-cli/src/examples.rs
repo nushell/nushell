@@ -6,7 +6,7 @@ use nu_protocol::hir::ClassifiedBlock;
 use nu_protocol::{ShellTypeName, Value};
 
 use crate::commands::classified::block::run_block;
-use crate::commands::{whole_stream_command, Echo};
+use crate::commands::{whole_stream_command, BuildString, Echo};
 use crate::context::Context;
 use crate::stream::InputStream;
 use crate::WholeStreamCommand;
@@ -14,8 +14,10 @@ use crate::WholeStreamCommand;
 pub fn test(cmd: impl WholeStreamCommand + 'static) {
     let examples = cmd.examples();
     let mut base_context = Context::basic().expect("could not create basic context");
+
     base_context.add_commands(vec![
         whole_stream_command(Echo {}),
+        whole_stream_command(BuildString {}),
         whole_stream_command(cmd),
     ]);
 
@@ -24,12 +26,27 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) {
         let block = parse_line(example.example, &mut ctx).expect("failed to parse example");
         if let Some(expected) = example.result {
             let result = block_on(evaluate_block(block, &mut ctx)).expect("failed to run example");
+
+            let errors = ctx.get_errors();
+
+            assert!(
+                errors.is_empty(),
+                "errors while running command.\ncommand: {}\nerrors: {:?}",
+                example.example,
+                errors
+            );
+
+            assert!(expected.len() == result.len(), "example command produced unexpected number of results.\ncommand: {}\nexpected number: {}\nactual: {}",
+                example.example,
+                expected.len(),
+                result.len(),);
+
             assert!(
                 expected
                     .iter()
                     .zip(result.iter())
                     .all(|(e, a)| values_equal(e, a)),
-                "example command produced unexpected result.\ncommand: {}\nexpected: {:?}\nactual:{:?}",
+                "example command produced unexpected result.\ncommand: {}\nexpected: {:?}\nactual: {:?}",
                 example.example,
                 expected,
                 result,
