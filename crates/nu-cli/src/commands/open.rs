@@ -7,7 +7,7 @@ use futures_codec::FramedRead;
 use nu_errors::ShellError;
 use nu_protocol::{CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::{AnchorLocation, Span, Tagged};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 extern crate encoding_rs;
 use crate::commands::constants::BAT_LANGUAGES;
 use encoding_rs::*;
@@ -17,7 +17,6 @@ use std::fs::File;
 
 pub struct Open;
 
-#[allow(dead_code)] // TODO: Still working on encoding for MaybeTextCodec
 #[derive(Deserialize)]
 pub struct OpenArgs {
     path: Tagged<PathBuf>,
@@ -104,7 +103,7 @@ pub fn get_encoding(opt: Option<Tagged<String>>) -> Result<&'static Encoding, Sh
 }
 
 async fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let _cwd = PathBuf::from(args.shell_manager.path());
+    let cwd = PathBuf::from(args.shell_manager.path());
     let registry = registry.clone();
 
     let (
@@ -122,15 +121,18 @@ async fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
     // Check if the extension has a "from *" command OR "bat" supports syntax highlighting
     // AND the user doesn't want the raw output
     // In these cases, we will collect the Stream
-    let ext = path
-        .extension()
-        .map(|name| name.to_string_lossy().to_string());
+    let ext = if raw.item {
+        None
+    } else {
+        path.extension()
+            .map(|name| name.to_string_lossy().to_string())
+    };
 
-    if let (Some(ext), false) = (ext, raw.item) {
+    if let Some(ext) = ext {
         // Check if we have a conversion command
         if let Some(_command) = registry.get_command(&format!("from {}", ext)) {
             let (_, tagged_contents) = crate::commands::open::fetch(
-                &_cwd,
+                &cwd,
                 &PathBuf::from(&path.item),
                 path.tag.span,
                 encoding,
@@ -143,7 +145,7 @@ async fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
         // Check if bat does syntax highlighting
         if BAT_LANGUAGES.contains(&ext.as_ref()) {
             let (_, tagged_contents) = crate::commands::open::fetch(
-                &_cwd,
+                &cwd,
                 &PathBuf::from(&path.item),
                 path.tag.span,
                 encoding,
@@ -193,18 +195,19 @@ pub async fn fetch(
     span: Span,
     encoding_choice: Option<Tagged<String>>,
 ) -> Result<(Option<String>, Value), ShellError> {
+    // TODO: I don't understand the point of this? Maybe for better error reporting
     let mut cwd = cwd.clone();
-    cwd.push(Path::new(location)); // This is so we have the correct path for reading/error reporting
-
-    let path = dunce::canonicalize(&cwd).map_err(|e| {
+    cwd.push(location);
+    let nice_location = dunce::canonicalize(&cwd).map_err(|e| {
         ShellError::labeled_error(
             format!("Cannot canonicalize file {:?} because {:?}", &cwd, e),
             "Cannot canonicalize",
             span,
         )
     })?;
+
     // The extension may be used in AutoConvert later on
-    let ext = path
+    let ext = location
         .extension()
         .map(|name| name.to_string_lossy().to_string());
 
@@ -212,11 +215,11 @@ pub async fn fetch(
     let file_tag = Tag {
         span,
         anchor: Some(AnchorLocation::File(
-            path.clone().to_string_lossy().to_string(),
+            nice_location.to_string_lossy().to_string(),
         )),
     };
 
-    let res = std::fs::read(path).map_err(|e| ShellError::from(e))?;
+    let res = std::fs::read(location).map_err(|e| ShellError::from(e))?;
 
     // If no encoding is provided we try to guess the encoding to read the file with
     let guess: EncodingGuess;
@@ -246,10 +249,7 @@ pub async fn fetch(
         decoded_res = r.0;
     }
 
-    return Ok((
-        ext,
-        UntaggedValue::string(decoded_res.to_string()).into_value(file_tag),
-    ));
+    return Ok((ext, Value::from(decoded_res.to_string())));
 }
 
 #[cfg(test)]

@@ -149,11 +149,30 @@ pub fn guess_encoding(first_bytes: &[u8]) -> EncodingGuess {
 
     // Lastly, maybe it is a UTF-8 but doesn't have BOM
     // Note that we don't need to read all the bytes. The first 6 is sufficient
-    if std::str::from_utf8(&first_bytes[..6]).is_ok() {
-        return EncodingGuess::Known;
+    let n = if first_bytes.len() < 6 {
+        first_bytes.len()
+    } else {
+        6
+    };
+
+    let src = first_bytes;
+    // Note: the longest UTF-8 character per Unicode spec is currently 6 bytes. If we fail somewhere earlier than the last 6 bytes,
+    // we know that we're failing to understand the string encoding and not just seeing a partial character. When this happens, let's
+    // fall back to assuming it's a binary buffer.
+    match String::from_utf8(first_bytes[..n].to_vec()) {
+        Ok(_) => return EncodingGuess::Known,
+        Err(err) => {
+            if src.is_empty() {
+                return EncodingGuess::Known;
+            } else if src.len() > 6 && (src.len() - err.utf8_error().valid_up_to() > 6) {
+                // Fall back to assuming binary
+                return EncodingGuess::Binary;
+            } else {
+                // Looks like a utf-8 string, so let's assume that
+                return EncodingGuess::Known;
+            }
+        }
     }
 
     // TODO: Other BOMs? UTF-32 etc... Although note that encoding_rs only supports sniffing for utf-8, utf-16le, utf-16be
-
-    return EncodingGuess::Binary;
 }
