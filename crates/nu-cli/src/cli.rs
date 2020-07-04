@@ -330,6 +330,7 @@ pub fn create_default_context(
             whole_stream_command(Drop),
             whole_stream_command(Format),
             whole_stream_command(Where),
+            whole_stream_command(If),
             whole_stream_command(Compact),
             whole_stream_command(Default),
             whole_stream_command(Skip),

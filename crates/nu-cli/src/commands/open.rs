@@ -171,14 +171,22 @@ async fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
         .map_err(|e| ShellError::unexpected(format!("AsyncRead failed in open function: {:?}", e)))
         .into_stream();
 
-    let final_stream = sob_stream.map(|x| match x {
-        Ok(StringOrBinary::String(s)) => {
-            ReturnSuccess::value(UntaggedValue::string(s).into_untagged_value())
+    let final_stream = sob_stream.map(move |x| {
+        // The tag that will used when returning a Value
+        let file_tag = Tag {
+            span: path.tag.span,
+            anchor: Some(AnchorLocation::File(path.to_string_lossy().to_string())),
+        };
+
+        match x {
+            Ok(StringOrBinary::String(s)) => {
+                ReturnSuccess::value(UntaggedValue::string(s).into_value(file_tag))
+            }
+            Ok(StringOrBinary::Binary(b)) => ReturnSuccess::value(
+                UntaggedValue::binary(b.into_iter().collect()).into_value(file_tag),
+            ),
+            Err(se) => Err(se),
         }
-        Ok(StringOrBinary::Binary(b)) => ReturnSuccess::value(
-            UntaggedValue::binary(b.into_iter().collect()).into_untagged_value(),
-        ),
-        Err(se) => Err(se),
     });
 
     Ok(OutputStream::new(final_stream))

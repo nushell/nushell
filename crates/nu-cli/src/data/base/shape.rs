@@ -29,7 +29,7 @@ pub enum InlineShape {
     Date(DateTime<Utc>),
     Duration(i64),
     Path(PathBuf),
-    Binary,
+    Binary(usize),
 
     Row(BTreeMap<Column, InlineShape>),
     Table(Vec<InlineShape>),
@@ -73,7 +73,7 @@ impl InlineShape {
             Primitive::Date(date) => InlineShape::Date(*date),
             Primitive::Duration(duration) => InlineShape::Duration(*duration),
             Primitive::Path(path) => InlineShape::Path(path.clone()),
-            Primitive::Binary(_) => InlineShape::Binary,
+            Primitive::Binary(b) => InlineShape::Binary(b.len()),
             Primitive::BeginningOfStream => InlineShape::BeginningOfStream,
             Primitive::EndOfStream => InlineShape::EndOfStream,
         }
@@ -182,7 +182,7 @@ impl PrettyDebug for FormatInlineShape {
                 b::description(format_primitive(&Primitive::Duration(*duration), None))
             }
             InlineShape::Path(path) => b::primitive(path.display()),
-            InlineShape::Binary => b::opaque("<binary>"),
+            InlineShape::Binary(length) => b::opaque(format!("<binary: {} bytes>", length)),
             InlineShape::Row(row) => b::delimit(
                 "[",
                 b::kind("row")

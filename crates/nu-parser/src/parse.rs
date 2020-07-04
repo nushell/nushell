@@ -1019,6 +1019,7 @@ fn parse_positional_argument(
     idx: usize,
     lite_cmd: &LiteCommand,
     positional_type: &PositionalType,
+    remaining_positionals: usize,
     registry: &dyn SignatureRegistry,
 ) -> (usize, SpannedExpression, Option<ParseError>) {
     let mut idx = idx;
@@ -1038,8 +1039,12 @@ fn parse_positional_argument(
                     }
                     arg
                 } else {
-                    let (new_idx, arg, err) =
-                        parse_math_expression(idx, &lite_cmd.args[idx..], registry, true);
+                    let (new_idx, arg, err) = parse_math_expression(
+                        idx,
+                        &lite_cmd.args[idx..(lite_cmd.args.len() - remaining_positionals)],
+                        registry,
+                        true,
+                    );
 
                     let span = arg.span;
                     let mut commands = hir::Commands::new(span);
@@ -1049,7 +1054,7 @@ fn parse_positional_argument(
 
                     let arg = SpannedExpression::new(Expression::Block(block), span);
 
-                    idx = new_idx;
+                    idx = new_idx - 1;
                     if error.is_none() {
                         error = err;
                     }
@@ -1165,6 +1170,7 @@ fn parse_internal_command(
                     idx,
                     &lite_cmd,
                     &signature.positional[current_positional].0,
+                    signature.positional.len() - current_positional - 1,
                     registry,
                 );
                 idx = new_idx;
