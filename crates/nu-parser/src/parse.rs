@@ -1039,12 +1039,14 @@ fn parse_positional_argument(
                     }
                     arg
                 } else {
-                    let (new_idx, arg, err) = parse_math_expression(
-                        idx,
-                        &lite_cmd.args[idx..(lite_cmd.args.len() - remaining_positionals)],
-                        registry,
-                        true,
-                    );
+                    let end_idx = if lite_cmd.args.len() > remaining_positionals {
+                        lite_cmd.args.len() - remaining_positionals
+                    } else {
+                        lite_cmd.args.len()
+                    };
+
+                    let (new_idx, arg, err) =
+                        parse_math_expression(idx, &lite_cmd.args[idx..end_idx], registry, true);
 
                     let span = arg.span;
                     let mut commands = hir::Commands::new(span);
