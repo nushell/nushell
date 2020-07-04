@@ -52,7 +52,7 @@ fn skip_whitespace(src: &mut Input) {
 enum BlockKind {
     Paren,
     CurlyBracket,
-    SquareBracket
+    SquareBracket,
 }
 
 fn bare(src: &mut Input, span_offset: usize) -> Result<Spanned<String>, ParseError> {
@@ -107,15 +107,18 @@ fn bare(src: &mut Input, span_offset: usize) -> Result<Spanned<String>, ParseErr
     );
 
     if let Some(block) = block_level.last() {
-        return Err(ParseError::unexpected_eof(match block {
-            BlockKind::Paren => ")",
-            BlockKind::SquareBracket => "]",
-            BlockKind::CurlyBracket => "}",
-        }, span))
+        return Err(ParseError::unexpected_eof(
+            match block {
+                BlockKind::Paren => ")",
+                BlockKind::SquareBracket => "]",
+                BlockKind::CurlyBracket => "}",
+            },
+            span,
+        ));
     }
 
     if let Some(delimiter) = inside_quote {
-        return Err(ParseError::unexpected_eof(delimiter.to_string(), span))
+        return Err(ParseError::unexpected_eof(delimiter.to_string(), span));
     }
 
     Ok(bare.spanned(span))
