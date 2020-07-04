@@ -68,9 +68,10 @@ pub(crate) fn dir_entry_dict(
     }
 
     if full || with_symlink_targets {
+        // Even if we can't find (or aren't allowed to view) the metadata
+        // We still want to insert a "Nothing" to keep tables aligned
+        let mut symlink_target_untagged_value: UntaggedValue = UntaggedValue::nothing();
         if let Some(md) = metadata {
-            let mut symlink_target_untagged_value: UntaggedValue = UntaggedValue::nothing();
-
             if md.file_type().is_symlink() {
                 if let Ok(path_to_link) = filename.read_link() {
                     symlink_target_untagged_value =
@@ -80,9 +81,8 @@ pub(crate) fn dir_entry_dict(
                         UntaggedValue::string("Could not obtain target file's path");
                 }
             }
-
-            dict.insert_untagged("target", symlink_target_untagged_value);
         }
+        dict.insert_untagged("target", symlink_target_untagged_value);
     }
 
     if full {
