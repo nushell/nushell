@@ -75,6 +75,7 @@ impl WholeStreamCommand for RunExternalCommand {
                 Context {
                     registry: registry.clone(),
                     host: args.host.clone(),
+                    user_recently_used_autoenv_untrust: false,
                     shell_manager: args.shell_manager.clone(),
                     ctrl_c: args.ctrl_c.clone(),
                     current_errors: Arc::new(Mutex::new(vec![])),
