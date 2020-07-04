@@ -3,6 +3,7 @@ use crate::env::directory_specific_environment::*;
 use indexmap::{indexmap, IndexSet};
 use nu_errors::ShellError;
 use nu_protocol::{UntaggedValue, Value};
+use std::env::*;
 use std::ffi::OsString;
 
 use std::fmt::Debug;
@@ -59,20 +60,24 @@ impl Environment {
         }
     }
 
-    pub fn autoenv(&mut self) -> Result<(), ShellError> {
+    pub fn autoenv(&mut self, reload_trusted: bool) -> Result<(), ShellError> {
         for (k, v) in self.autoenv.env_vars_to_add()? {
-            std::env::set_var(&k, OsString::from(v.to_string_lossy().to_string()));
+            set_var(&k, OsString::from(v.to_string_lossy().to_string()));
         }
 
         for (k, v) in self.autoenv.cleanup_after_dir_exit()? {
             if let Some(v) = v {
-                std::env::set_var(k, v);
+                set_var(k, v);
             } else {
-                std::env::remove_var(k);
+                remove_var(k);
             }
         }
 
-        self.autoenv.last_seen_directory = std::env::current_dir()?;
+        if reload_trusted {
+            self.autoenv.clear_recently_untrusted_file()?;
+        }
+
+        self.autoenv.last_seen_directory = current_dir()?;
         Ok(())
     }
 
@@ -136,7 +141,7 @@ impl Env for Environment {
             {
                 let mut new_paths = current_paths.clone();
 
-                let new_path_candidates = std::env::split_paths(&paths).map(|path| {
+                let new_path_candidates = split_paths(&paths).map(|path| {
                     UntaggedValue::string(path.to_string_lossy()).into_value(tag.clone())
                 });
 

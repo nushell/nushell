@@ -46,9 +46,10 @@ impl EnvironmentSyncer {
     pub fn sync_env_vars(&mut self, ctx: &mut Context) {
         let mut environment = self.env.lock();
 
-        if let Err(e) = environment.autoenv() {
+        if let Err(e) = environment.autoenv(ctx.user_recently_used_autoenv_untrust) {
             crate::cli::print_err(e, &Text::from(""));
         }
+        ctx.user_recently_used_autoenv_untrust = false;
         if environment.env().is_some() {
             for (name, value) in ctx.with_host(|host| host.vars()) {
                 if name != "path" && name != "PATH" {

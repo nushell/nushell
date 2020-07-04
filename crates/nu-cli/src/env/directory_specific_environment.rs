@@ -1,6 +1,6 @@
 use crate::commands;
 use commands::autoenv;
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 use nu_errors::ShellError;
 use serde::Deserialize;
 use std::cmp::Ordering::Less;
@@ -71,50 +71,28 @@ impl DirectorySpecificEnvironment {
                 format!("{:?} is untrusted. Run 'autoenv trust {:?}' to trust it.\nThis needs to be done after each change to the file.", nu_env_file, nu_env_file.parent().unwrap_or_else(|| &Path::new("")))))
     }
 
-    pub fn add_key_if_appropriate(
-        &mut self,
-        vars_to_add: &mut IndexMap<EnvKey, EnvVal>,
-        working_dir: &PathBuf,
-        dir_env_key: &str,
-        dir_env_val: &str,
-    ) {
-        //This condition is to make sure variables in parent directories don't overwrite variables set by subdirectories.
-        if !vars_to_add.contains_key(dir_env_key) {
-            vars_to_add.insert(dir_env_key.to_string(), OsString::from(dir_env_val));
-            self.added_env_vars
-                .entry(working_dir.clone())
-                .or_insert(IndexMap::new())
-                .insert(dir_env_key.to_string(), std::env::var_os(dir_env_key));
-        }
-    }
-
     pub fn env_vars_to_add(&mut self) -> Result<IndexMap<EnvKey, EnvVal>, ShellError> {
-        let mut working_dir = std::env::current_dir()?;
+        let mut dir = std::env::current_dir()?;
         let mut vars_to_add: IndexMap<EnvKey, EnvVal> = IndexMap::new();
-        let nu_env_file = working_dir.join(".nu-env");
+        let nu_env_file = dir.join(".nu-env");
 
         //If we are in the last seen directory, do nothing
         //If we are in a parent directory to last_seen_directory, just return without applying .nu-env in the parent directory - they were already applied earlier.
         //parent.cmp(child) = Less
         let mut popped = true;
-        while self.last_seen_directory.cmp(&working_dir) == Less && popped {
+        while self.last_seen_directory.cmp(&dir) == Less && popped {
             if nu_env_file.exists() {
                 let nu_env_doc = self.toml_if_directory_is_trusted(&nu_env_file)?;
                 //add regular variables from the [env section]
                 if let Some(env) = nu_env_doc.env {
-                    for (dir_env_key, dir_env_val) in env {
-                        self.add_key_if_appropriate(
-                            &mut vars_to_add,
-                            &working_dir,
-                            &dir_env_key,
-                            &dir_env_val,
-                        );
+                    for (env_key, env_val) in env {
+                        self.add_key_if_appropriate(&mut vars_to_add, &dir, &env_key, &env_val);
                     }
                 }
 
                 //Add variables that need to evaluate scripts to run, from [scriptvars] section
                 if let Some(scriptvars) = nu_env_doc.scriptvars {
-                    for (dir_env_key, dir_val_script) in scriptvars {
+                    for (env_key, dir_val_script) in scriptvars {
                         let command = if cfg!(target_os = "windows") {
                             Command::new("cmd")
                                 .args(&["/C", dir_val_script.as_str()])
@@ -125,7 +103,7 @@ impl DirectorySpecificEnvironment {
                         if command.stdout.is_empty() {
                             return Err(ShellError::untagged_runtime_error(format!(
                                 "{:?} in {:?} did not return any output",
-                                dir_val_script, working_dir
+                                dir_val_script, dir
                             )));
                         }
                         let response =
@@ -138,8 +116,8 @@ impl DirectorySpecificEnvironment {
                                 })?;
                         self.add_key_if_appropriate(
                             &mut vars_to_add,
-                            &working_dir,
-                            &dir_env_key,
+                            &dir,
+                            &env_key,
                             &response.to_string(),
                         );
                     }
@@ -158,12 +136,29 @@ impl DirectorySpecificEnvironment {
                 }
 
                 if let Some(exitscripts) = nu_env_doc.exitscripts {
-                    self.exitscripts.insert(working_dir.clone(), exitscripts);
+                    self.exitscripts.insert(dir.clone(), exitscripts);
                 }
             }
-            popped = working_dir.pop();
+            popped = dir.pop();
         }
         Ok(vars_to_add)
+    }
+
+    pub fn add_key_if_appropriate(
+        &mut self,
+        vars_to_add: &mut IndexMap<EnvKey, EnvVal>,
+        dir: &PathBuf,
+        env_key: &str,
+        env_val: &str,
+    ) {
+        //This condition is to make sure variables in parent directories don't overwrite variables set by subdirectories.
+        if !vars_to_add.contains_key(env_key) {
+            vars_to_add.insert(env_key.to_string(), OsString::from(env_val));
+            self.added_env_vars
+                .entry(dir.clone())
+                .or_insert(IndexMap::new())
+                .insert(env_key.to_string(), std::env::var_os(env_key));
+        }
     }
 
     pub fn cleanup_after_dir_exit(
@@ -175,18 +170,18 @@ impl DirectorySpecificEnvironment {
         //If we are in the same directory as last_seen, or a subdirectory to it, do nothing
         //If we are in a subdirectory to last seen, do nothing
         //If we are in a parent directory to last seen, exit .nu-envs from last seen to parent and restore old vals
-        let mut working_dir = self.last_seen_directory.clone();
+        let mut dir = self.last_seen_directory.clone();
 
         let mut popped = true;
-        while current_dir.cmp(&working_dir) == Less && popped {
-            if let Some(vars_added_by_this_directory) = self.added_env_vars.get(&working_dir) {
+        while current_dir.cmp(&dir) == Less && popped {
+            if let Some(vars_added_by_this_directory) = self.added_env_vars.get(&dir) {
                 for (k, v) in vars_added_by_this_directory {
                     vars_to_cleanup.insert(k.clone(), v.clone());
                 }
-                self.added_env_vars.remove(&working_dir);
+                self.added_env_vars.remove(&dir);
             }
 
-            if let Some(scripts) = self.exitscripts.get(&working_dir) {
+            if let Some(scripts) = self.exitscripts.get(&dir) {
                 for script in scripts {
                     if cfg!(target_os = "windows") {
                         Command::new("cmd")
@@ -197,8 +192,44 @@ impl DirectorySpecificEnvironment {
                     }
                 }
             }
-            popped = working_dir.pop();
+            popped = dir.pop();
         }
         Ok(vars_to_cleanup)
+    }
+
+    // If the user recently ran autoenv untrust on a file, we clear the environment variables it set and make sure to not run any possible exitscripts.
+    pub fn clear_recently_untrusted_file(&mut self) -> Result<(), ShellError> {
+        // Figure out which file was untrusted
+        // Remove all vars set by it
+        let current_trusted_files: IndexSet<PathBuf> = autoenv::read_trusted()?
+            .files
+            .iter()
+            .map(|(k, _)| PathBuf::from(k))
+            .collect();
+
+        // We figure out which file(s) the user untrusted by taking the set difference of current trusted files in .config/nu/nu-env.toml and the files tracked by self.added_env_vars
+        // If a file is in self.added_env_vars but not in nu-env.toml, it was just untrusted.
+        let untrusted_files: IndexSet<PathBuf> = self
+            .added_env_vars
+            .iter()
+            .filter_map(|(path, _)| {
+                if !current_trusted_files.contains(path) {
+                    return Some(path.clone());
+                }
+                None
+            })
+            .collect();
+
+        for path in untrusted_files {
+            if let Some(added_keys) = self.added_env_vars.get(&path) {
+                for (key, _) in added_keys {
+                    std::env::remove_var(key);
+                }
+            }
+            self.exitscripts.remove(&path);
+            self.added_env_vars.remove(&path);
+        }
+
+        Ok(())
     }
 }

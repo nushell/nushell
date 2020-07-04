@@ -88,6 +88,7 @@ impl WholeStreamCommand for RunExternalCommand {
             {
                 Context {
                     registry: registry.clone(),
+                    user_recently_used_autoenv_untrust: false,
                     host: args.host.clone(),
                     shell_manager: args.shell_manager.clone(),
                     ctrl_c: args.ctrl_c.clone(),
