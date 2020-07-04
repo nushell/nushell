@@ -75,14 +75,6 @@ impl DirectorySpecificEnvironment {
         let mut dir = std::env::current_dir()?;
         let mut vars_to_add: IndexMap<EnvKey, EnvVal> = IndexMap::new();
 
-        let mut file = std::fs::OpenOptions::new()
-            .write(true)
-            .append(true)
-            .create(true)
-            .open("/home/sam/output.txt")
-            .unwrap();
-        use std::io::Write;
-
         //If we are in the last seen directory, do nothing
         //If we are in a parent directory to last_seen_directory, just return without applying .nu-env in the parent directory - they were already applied earlier.
         //parent.cmp(child) = Less
@@ -91,8 +83,6 @@ impl DirectorySpecificEnvironment {
             let nu_env_file = dir.join(".nu-env");
             if nu_env_file.exists() {
                 let nu_env_doc = self.toml_if_directory_is_trusted(&nu_env_file)?;
-
-                write!(&mut file, "Found doc: {:?} in {:?}\n", nu_env_doc, dir).unwrap();
 
                 //add regular variables from the [env section]
                 if let Some(env) = nu_env_doc.env {
@@ -152,6 +142,7 @@ impl DirectorySpecificEnvironment {
             }
             popped = dir.pop();
         }
+
         Ok(vars_to_add)
     }
 
