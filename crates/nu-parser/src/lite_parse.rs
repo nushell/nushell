@@ -156,6 +156,43 @@ fn bare_simple_4() -> Result<(), ParseError> {
     Ok(())
 }
 
+#[test]
+fn bare_simple_5() -> Result<(), ParseError> {
+    let input = "'foo 'bar baz";
+
+    let input = &mut input.char_indices().peekable();
+    let result = bare(input, 0)?;
+
+    assert_eq!(result.span.start(), 0);
+    assert_eq!(result.span.end(), 6);
+
+    Ok(())
+}
+
+#[test]
+fn bare_invalid_1() -> Result<(), ParseError> {
+    let input = "'foo bar";
+
+    let input = &mut input.char_indices().peekable();
+    let result = bare(input, 0);
+
+    assert_eq!(result.is_ok(), false);
+
+    Ok(())
+}
+
+#[test]
+fn bare_invalid_2() -> Result<(), ParseError> {
+    let input = "foo 'bar";
+
+    let input = &mut input.char_indices().peekable();
+    let result = bare(input, 0);
+
+    assert_eq!(result.is_ok(), false);
+
+    Ok(())
+}
+
 fn command(src: &mut Input, span_offset: usize) -> Result<LiteCommand, ParseError> {
     let command = bare(src, span_offset)?;
     if command.item.is_empty() {
