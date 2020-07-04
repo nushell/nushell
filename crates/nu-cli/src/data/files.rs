@@ -45,24 +45,28 @@ pub(crate) fn dir_entry_dict(
 ) -> Result<Value, ShellError> {
     let tag = tag.into();
     let mut dict = TaggedDictBuilder::new(&tag);
-    // Insert all columns first to maintain proper table alignment if we can't find (are not allowed to view) any information
+    // Insert all columns first to maintain proper table alignment if we can't find (or are not allowed to view) any information
     if full {
-        for column in [
-            "name", "type", "target", "readonly", "size", "created", "accessed", "modified",
-        ]
-        .iter()
-        {
-            dict.insert_untagged(*column, UntaggedValue::nothing());
-        }
-        #[cfg(unix)]
+        #[cfg(windows)]
         {
             for column in [
-                "name", "type", "target", "readonly", "mode", "uid", "group", "created", "size",
-                "accessed", "modified",
+                "name", "type", "target", "readonly", "size", "created", "accessed", "modified",
             ]
             .iter()
             {
                 dict.insert_untagged(*column, UntaggedValue::nothing());
+            }
+        }
+
+        #[cfg(unix)]
+        {
+            for column in [
+                "name", "type", "target", "readonly", "mode", "uid", "group", "size", "created",
+                "accessed", "modified",
+            ]
+            .iter()
+            {
+                dict.insert_untagged(&(*column.to_owned()), UntaggedValue::nothing());
             }
         }
     } else {
@@ -140,7 +144,7 @@ pub(crate) fn dir_entry_dict(
                     );
                 }
             }
-        } 
+        }
     }
 
     if let Some(md) = metadata {
@@ -190,7 +194,7 @@ pub(crate) fn dir_entry_dict(
         if let Ok(m) = md.modified() {
             dict.insert_untagged("modified", UntaggedValue::system_date(m));
         }
-    } 
+    }
 
     Ok(dict.into_value())
 }
