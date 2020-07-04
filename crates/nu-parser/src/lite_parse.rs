@@ -59,19 +59,20 @@ fn bare(src: &mut Input, span_offset: usize) -> Result<Spanned<String>, ParseErr
         0
     };
 
-    let mut delimiter = ' ';
+    let mut delimiter: Option<char> = None;
     let mut inside_quote = false;
     let mut block_level = vec![];
 
     while let Some((_, c)) = src.peek() {
         let c = *c;
         if inside_quote {
-            if c == delimiter {
+            if Some(c) == delimiter {
                 inside_quote = false;
+                delimiter = None;
             }
         } else if c == '\'' || c == '"' || c == '`' {
             inside_quote = true;
-            delimiter = c;
+            delimiter = Some(c);
         } else if c == '[' {
             block_level.push(c);
         } else if c == ']' {
@@ -164,7 +165,7 @@ fn bare_simple_5() -> Result<(), ParseError> {
     let result = bare(input, 0)?;
 
     assert_eq!(result.span.start(), 0);
-    assert_eq!(result.span.end(), 6);
+    assert_eq!(result.span.end(), 9);
 
     Ok(())
 }
