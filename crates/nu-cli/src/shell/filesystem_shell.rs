@@ -12,7 +12,6 @@ use crate::shell::completer::NuCompleter;
 use crate::shell::shell::Shell;
 use crate::utils::FileStructure;
 
-use log::debug;
 use rustyline::completion::FilenameCompleter;
 use rustyline::hint::{Hinter, HistoryHinter};
 use std::collections::HashMap;
@@ -608,8 +607,7 @@ impl Shell for FilesystemShell {
                         }
 
                         if let Err(e) = result {
-                            debug!("{:?}", e.kind());
-                            let msg = format!("Could not delete {:}", e);
+                            let msg = format!("Could not delete because: {:}", e);
                             Err(ShellError::labeled_error(msg, e.to_string(), tag))
                         } else {
                             let val = format!("deleted {:}", f.to_string_lossy()).into();
