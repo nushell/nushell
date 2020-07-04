@@ -2,6 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
+use parking_lot::Mutex;
 
 pub struct Lines;
 
@@ -47,8 +48,7 @@ fn ends_with_line_ending(st: &str) -> bool {
 }
 
 async fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let leftover = Arc::new(vec![]);
-    let leftover_string = Arc::new(String::new());
+    let leftover_string = Arc::new(Mutex::new(String::new()));
     let registry = registry.clone();
     let args = args.evaluate_once(&registry).await?;
     let tag = args.name_tag();
@@ -62,31 +62,27 @@ async fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
         .input
         .chain(eos)
         .map(move |item| {
-            let mut leftover = leftover.clone();
-            let mut leftover_string = leftover_string.clone();
+            let leftover_string = leftover_string.clone();
 
             match item {
                 Value {
                     value: UntaggedValue::Primitive(Primitive::String(st)),
                     ..
                 } => {
+                    let mut leftover_string = leftover_string.lock();
+
                     let st = (&*leftover_string).clone() + &st;
-                    if let Some(leftover) = Arc::get_mut(&mut leftover) {
-                        leftover.clear();
-                    }
 
                     let mut lines: Vec<String> = st.lines().map(|x| x.to_string()).collect();
 
                     if !ends_with_line_ending(&st) {
                         if let Some(last) = lines.pop() {
-                            if let Some(leftover_string) = Arc::get_mut(&mut leftover_string) {
-                                leftover_string.clear();
-                                leftover_string.push_str(&last);
-                            }
-                        } else if let Some(leftover_string) = Arc::get_mut(&mut leftover_string) {
+                            leftover_string.clear();
+                            leftover_string.push_str(&last);
+                        } else {
                             leftover_string.clear();
                         }
-                    } else if let Some(leftover_string) = Arc::get_mut(&mut leftover_string) {
+                    } else {
                         leftover_string.clear();
                     }
 
@@ -101,21 +97,20 @@ async fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
                     value: UntaggedValue::Primitive(Primitive::Line(st)),
                     ..
                 } => {
+                    let mut leftover_string = leftover_string.lock();
+
                     let st = (&*leftover_string).clone() + &st;
-                    if let Some(leftover) = Arc::get_mut(&mut leftover) {
-                        leftover.clear();
-                    }
+
                     let mut lines: Vec<String> = st.lines().map(|x| x.to_string()).collect();
+
                     if !ends_with_line_ending(&st) {
                         if let Some(last) = lines.pop() {
-                            if let Some(leftover_string) = Arc::get_mut(&mut leftover_string) {
-                                leftover_string.clear();
-                                leftover_string.push_str(&last);
-                            }
-                        } else if let Some(leftover_string) = Arc::get_mut(&mut leftover_string) {
+                            leftover_string.clear();
+                            leftover_string.push_str(&last);
+                        } else {
                             leftover_string.clear();
                         }
-                    } else if let Some(leftover_string) = Arc::get_mut(&mut leftover_string) {
+                    } else {
                         leftover_string.clear();
                     }
 
@@ -123,27 +118,18 @@ async fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
                         .iter()
                         .map(|x| ReturnSuccess::value(UntaggedValue::line(x).into_untagged_value()))
                         .collect();
+
                     futures::stream::iter(success_lines)
                 }
                 Value {
                     value: UntaggedValue::Primitive(Primitive::EndOfStream),
                     ..
                 } => {
-                    if !leftover.is_empty() {
-                        let mut st = (&*leftover_string).clone();
-                        if let Ok(extra) = String::from_utf8((&*leftover).clone()) {
-                            st.push_str(&extra);
-                        }
-                        // futures::stream::iter(vec![ReturnSuccess::value(
-                        //     UntaggedValue::string(st).into_untagged_value(),
-                        // )])
-                        if !st.is_empty() {
-                            futures::stream::iter(vec![ReturnSuccess::value(
-                                UntaggedValue::string(&*leftover_string).into_untagged_value(),
-                            )])
-                        } else {
-                            futures::stream::iter(vec![])
-                        }
+                    let st = (&*leftover_string).lock().clone();
+                    if !st.is_empty() {
+                        futures::stream::iter(vec![ReturnSuccess::value(
+                            UntaggedValue::string(st).into_untagged_value(),
+                        )])
                     } else {
                         futures::stream::iter(vec![])
                     }
