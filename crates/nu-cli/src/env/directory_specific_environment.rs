@@ -4,6 +4,7 @@ use indexmap::{IndexMap, IndexSet};
 use nu_errors::ShellError;
 use serde::Deserialize;
 use std::cmp::Ordering::Less;
+use std::env::*;
 use std::process::Command;
 
 use std::{
@@ -72,7 +73,7 @@ impl DirectorySpecificEnvironment {
     }
 
     pub fn env_vars_to_add(&mut self) -> Result<IndexMap<EnvKey, EnvVal>, ShellError> {
-        let mut dir = std::env::current_dir()?;
+        let mut dir = current_dir()?;
         let mut vars_to_add: IndexMap<EnvKey, EnvVal> = IndexMap::new();
 
         //If we are in the last seen directory, do nothing
@@ -159,14 +160,14 @@ impl DirectorySpecificEnvironment {
             self.added_env_vars
                 .entry(dir.clone())
                 .or_insert(IndexMap::new())
-                .insert(env_key.to_string(), std::env::var_os(env_key));
+                .insert(env_key.to_string(), var_os(env_key));
         }
     }
 
     pub fn cleanup_after_dir_exit(
         &mut self,
     ) -> Result<IndexMap<EnvKey, Option<EnvVal>>, ShellError> {
-        let current_dir = std::env::current_dir()?;
+        let current_dir = current_dir()?;
         let mut vars_to_cleanup = IndexMap::new();
 
         //If we are in the same directory as last_seen, or a subdirectory to it, do nothing
@@ -225,7 +226,7 @@ impl DirectorySpecificEnvironment {
         for path in untrusted_files {
             if let Some(added_keys) = self.added_env_vars.get(&path) {
                 for (key, _) in added_keys {
-                    std::env::remove_var(key);
+                    remove_var(key);
                 }
             }
             self.exitscripts.remove(&path);
