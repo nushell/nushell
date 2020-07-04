@@ -74,7 +74,7 @@ fn format_decimal(decimal: BigDecimal, locale: SystemLocale) -> String {
         .rev()
         .fold(String::from(""), |acc, ch| match (acc, ch) {
             // strip trailing zeros
-            (a, '0') if a == String::from("") => a,
+            (a, '0') if a == "" => a,
             (mut a, c) => {
                 a.push(c);
                 a
@@ -127,7 +127,7 @@ async fn human(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
         .map(
             move |val| match format_value(UntaggedValue::from(val), prec_digits) {
                 Ok(v) => ReturnSuccess::value(v),
-                Err(s) => return Err(s),
+                Err(s) => Err(s),
             },
         )
         .to_output_stream())
