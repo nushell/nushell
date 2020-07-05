@@ -71,7 +71,7 @@ async fn drop(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
         futures::stream::iter(v).to_output_stream()
     } else {
         let k = if v.len() < rows_to_drop {
-            v.len()
+            0
         } else {
             v.len() - rows_to_drop
         };
