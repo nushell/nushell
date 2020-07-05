@@ -35,20 +35,7 @@ impl WholeStreamCommand for Drop {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        let (DropArgs { rows }, input) = args.process(&registry).await?;
-        let mut v: Vec<_> = input.into_vec().await;
-
-        let rows_to_drop = if let Some(quantity) = rows {
-            *quantity as usize
-        } else {
-            1
-        };
-
-        for _ in 0..rows_to_drop {
-            v.pop();
-        }
-
-        Ok(futures::stream::iter(v).to_output_stream())
+        drop(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -68,6 +55,31 @@ impl WholeStreamCommand for Drop {
             },
         ]
     }
+}
+
+async fn drop(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let (DropArgs { rows }, input) = args.process(&registry).await?;
+    let v: Vec<_> = input.into_vec().await;
+
+    let rows_to_drop = if let Some(quantity) = rows {
+        *quantity as usize
+    } else {
+        1
+    };
+
+    Ok(if rows_to_drop == 0 {
+        futures::stream::iter(v).to_output_stream()
+    } else {
+        let k = if v.len() < rows_to_drop {
+            v.len()
+        } else {
+            v.len() - rows_to_drop
+        };
+
+        let iter = v.into_iter().take(k);
+
+        futures::stream::iter(iter).to_output_stream()
+    })
 }
 
 #[cfg(test)]
