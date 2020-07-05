@@ -78,7 +78,7 @@ async fn every(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
         let should_include = skip.item == (i % stride_desired != 0);
 
         if should_include {
-            return Some(ReturnSuccess::value(x.clone()));
+            return Some(ReturnSuccess::value(x));
         }
 
         None
