@@ -69,16 +69,18 @@ async fn last(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
         1
     };
 
-    let mut values_vec_deque = VecDeque::new();
-
     let count = rows_desired as usize;
 
-    if count < v.len() {
-        let k = v.len() - count;
+    let k = if count < v.len() {
+        v.len() - count
+    } else {
+        return Ok(futures::stream::iter(v).to_output_stream())
+    };
 
-        for x in v[k..].iter() {
-            values_vec_deque.push_back(ReturnSuccess::value(x.clone()));
-        }
+    let mut values_vec_deque = VecDeque::new();
+
+    for x in v[k..].iter() {
+        values_vec_deque.push_back(ReturnSuccess::value(x.clone()));
     }
 
     Ok(futures::stream::iter(values_vec_deque).to_output_stream())
