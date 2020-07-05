@@ -1,21 +1,21 @@
 [package]
-name = "nu-source"
-version = "0.16.0"
 authors = ["The Nu Project Contributors"]
-edition = "2018"
 description = "A source string characterizer for Nushell"
+edition = "2018"
 license = "MIT"
+name = "nu-source"
+version = "0.16.1"
 
 [lib]
 doctest = false
 
 [dependencies]
-serde = { version = "1.0.114", features = ["derive"] }
+codespan-reporting = "0.9.5"
 derive-new = "0.5.8"
 getset = "0.1.1"
-codespan-reporting = "0.9.5"
-termcolor = "1.1.0"
 pretty = "0.5.2"
+serde = {version = "1.0.114", features = ["derive"]}
+termcolor = "1.1.0"
 
 [build-dependencies]
-nu-build = { version = "0.16.0", path = "../nu-build" }
+nu-build = {version = "0.16.1", path = "../nu-build"}
