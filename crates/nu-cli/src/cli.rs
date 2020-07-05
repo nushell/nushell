@@ -309,6 +309,7 @@ pub fn create_default_context(
             whole_stream_command(BuildString),
             whole_stream_command(Ansi),
             whole_stream_command(Char),
+            whole_stream_command(Human),
             // Column manipulation
             whole_stream_command(MoveColumn),
             whole_stream_command(Reject),
@@ -364,6 +365,7 @@ pub fn create_default_context(
             whole_stream_command(MathMode),
             whole_stream_command(MathMaximum),
             whole_stream_command(MathSummation),
+            whole_stream_command(Precision),
             // File format output
             whole_stream_command(To),
             whole_stream_command(ToBSON),
