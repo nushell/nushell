@@ -54,3 +54,15 @@ fn gets_last_row_when_no_amount_given() {
         assert_eq!(actual.out, "1");
     })
 }
+
+#[test]
+fn requests_more_rows_than_table_has() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        date | last 50 | count
+        "#
+    ));
+
+    assert_eq!(actual.out, "1");
+}
