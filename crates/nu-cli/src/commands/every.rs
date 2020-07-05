@@ -73,23 +73,18 @@ async fn every(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
     let (EveryArgs { stride, skip }, input) = args.process(&registry).await?;
     let v: Vec<_> = input.into_vec().await;
 
-    let stride_desired = if stride.item < 1 { 1 } else { stride.item } as usize;
-
-    let mut values_vec_deque = VecDeque::new();
-
-    for (i, x) in v.iter().enumerate() {
-        let should_include = if skip.item {
-            i % stride_desired != 0
-        } else {
-            i % stride_desired == 0
-        };
+    let iter = v.into_iter().enumerate().filter_map(move |(i, x)| {
+        let stride_desired = if stride.item < 1 { 1 } else { stride.item } as usize;
+        let should_include = skip.item == (i % stride_desired != 0);
 
         if should_include {
-            values_vec_deque.push_back(ReturnSuccess::value(x.clone()));
+            return Some(ReturnSuccess::value(x.clone()));
         }
-    }
 
-    Ok(futures::stream::iter(values_vec_deque).to_output_stream())
+        None
+    });
+
+    Ok(futures::stream::iter(iter).to_output_stream())
 }
 
 #[cfg(test)]
