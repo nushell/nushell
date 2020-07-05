@@ -2430,7 +2430,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "clap",
  "crossterm",
@@ -2468,7 +2468,7 @@ dependencies = [
 
 [[package]]
 name = "nu-build"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "lazy_static 1.4.0",
  "serde 1.0.114",
@@ -2478,7 +2478,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cli"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "ansi_term 0.12.1",
  "app_dirs",
@@ -2571,7 +2571,7 @@ dependencies = [
 
 [[package]]
 name = "nu-errors"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "ansi_term 0.12.1",
  "bigdecimal",
@@ -2591,7 +2591,7 @@ dependencies = [
 
 [[package]]
 name = "nu-parser"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "bigdecimal",
  "codespan-reporting",
@@ -2610,7 +2610,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "bigdecimal",
  "indexmap",
@@ -2626,7 +2626,7 @@ dependencies = [
 
 [[package]]
 name = "nu-protocol"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "ansi_term 0.12.1",
  "bigdecimal",
@@ -2655,7 +2655,7 @@ dependencies = [
 
 [[package]]
 name = "nu-source"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "codespan-reporting",
  "derive-new",
@@ -2668,7 +2668,7 @@ dependencies = [
 
 [[package]]
 name = "nu-table"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "ansi_term 0.12.1",
  "unicode-width",
@@ -2676,7 +2676,7 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "directories 2.0.2",
  "dunce",
@@ -2692,7 +2692,7 @@ dependencies = [
 
 [[package]]
 name = "nu-value-ext"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "indexmap",
  "itertools",
@@ -2706,7 +2706,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_binaryview"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "ansi_term 0.12.1",
  "crossterm",
@@ -2723,7 +2723,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_fetch"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "base64 0.12.3",
  "futures 0.3.5",
@@ -2738,7 +2738,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_inc"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "nu-build",
  "nu-errors",
@@ -2751,7 +2751,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_match"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "futures 0.3.5",
  "nu-build",
@@ -2764,7 +2764,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_post"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "base64 0.12.3",
  "futures 0.3.5",
@@ -2781,7 +2781,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_ps"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "futures 0.3.5",
  "futures-timer",
@@ -2795,7 +2795,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_start"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "glob",
  "nu-build",
@@ -2809,7 +2809,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_sys"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "battery",
  "futures 0.3.5",
@@ -2824,7 +2824,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_textview"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "ansi_term 0.12.1",
  "bat",
@@ -2842,7 +2842,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_tree"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "derive-new",
  "nu-build",
