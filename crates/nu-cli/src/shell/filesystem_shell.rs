@@ -15,6 +15,7 @@ use crate::utils::FileStructure;
 use rustyline::completion::FilenameCompleter;
 use rustyline::hint::{Hinter, HistoryHinter};
 use std::collections::HashMap;
+use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
 
 #[cfg(unix)]
@@ -587,25 +588,27 @@ impl Shell for FilesystemShell {
                                 .map(|val| val.is_true())
                                 .unwrap_or(false);
                             result = if _trash.item || (rm_always_trash && !_permanent.item) {
-                                trash::remove(&f).map_err(|_| f.to_string_lossy())
+                                trash::remove(&f).map_err(|e: trash::Error| {
+                                    Error::new(ErrorKind::Other, format!("{:?}", e))
+                                })
                             } else if metadata.is_file() {
-                                std::fs::remove_file(&f).map_err(|_| f.to_string_lossy())
+                                std::fs::remove_file(&f)
                             } else {
-                                std::fs::remove_dir_all(&f).map_err(|_| f.to_string_lossy())
+                                std::fs::remove_dir_all(&f)
                             };
                         }
                         #[cfg(not(feature = "trash-support"))]
                         {
                             result = if metadata.is_file() {
-                                std::fs::remove_file(&f).map_err(|_| f.to_string_lossy())
+                                std::fs::remove_file(&f)
                             } else {
-                                std::fs::remove_dir_all(&f).map_err(|_| f.to_string_lossy())
+                                std::fs::remove_dir_all(&f)
                             };
                         }
 
                         if let Err(e) = result {
-                            let msg = format!("Could not delete {:}", e);
-                            Err(ShellError::labeled_error(msg, e, tag))
+                            let msg = format!("Could not delete because: {:}", e);
+                            Err(ShellError::labeled_error(msg, e.to_string(), tag))
                         } else {
                             let val = format!("deleted {:}", f.to_string_lossy()).into();
                             Ok(ReturnSuccess::Value(val))
