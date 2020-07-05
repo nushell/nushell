@@ -607,7 +607,7 @@ impl Shell for FilesystemShell {
                         }
 
                         if let Err(e) = result {
-                            let msg = format!("Could not delete because: {:}\nTry --trash", e);
+                            let msg = format!("Could not delete because: {:}\nTry '--trash' flag", e);
                             Err(ShellError::labeled_error(msg, e.to_string(), tag))
                         } else {
                             let val = format!("deleted {:}", f.to_string_lossy()).into();
