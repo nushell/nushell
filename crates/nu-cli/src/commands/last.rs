@@ -74,7 +74,7 @@ async fn last(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
     let k = if count < v.len() {
         v.len() - count
     } else {
-        return Ok(futures::stream::iter(v).to_output_stream())
+        return Ok(futures::stream::iter(v).to_output_stream());
     };
 
     let mut values_vec_deque = VecDeque::new();
