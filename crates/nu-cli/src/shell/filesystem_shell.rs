@@ -705,7 +705,7 @@ impl Shell for FilesystemShell {
             pos
         };
 
-        self.completer.complete(&expanded, pos, ctx)
+        requote(self.completer.complete(&expanded, pos, ctx))
     }
 
     fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
@@ -795,5 +795,30 @@ fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
                 .map(|name| name.to_string_lossy().starts_with('.'))
                 .unwrap_or(false)
         }
+    }
+}
+
+fn requote(completions: Result<(usize, Vec<rustyline::completion::Pair>), rustyline::error::ReadlineError>) -> Result<(usize, Vec<rustyline::completion::Pair>), rustyline::error::ReadlineError> {
+    match completions {
+        Ok(items) => {
+            let mut new_items = Vec::with_capacity(items.0);
+
+            for item in items.1 {
+                let unescaped = rustyline::completion::unescape(&item.replacement, Some('\\'));
+                let maybe_quote = if unescaped != item.replacement {
+                    "\""
+                } else {
+                    ""
+                };
+
+                new_items.push(rustyline::completion::Pair {
+                    display: item.display,
+                    replacement: format!("{}{}{}", maybe_quote, unescaped, maybe_quote),
+                });
+            }
+
+            Ok((items.0, new_items))
+        },
+        Err(err) => Err(err),
     }
 }
