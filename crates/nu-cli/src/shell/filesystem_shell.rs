@@ -798,7 +798,9 @@ fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
     }
 }
 
-fn requote(completions: Result<(usize, Vec<rustyline::completion::Pair>), rustyline::error::ReadlineError>) -> Result<(usize, Vec<rustyline::completion::Pair>), rustyline::error::ReadlineError> {
+fn requote(
+    completions: Result<(usize, Vec<rustyline::completion::Pair>), rustyline::error::ReadlineError>,
+) -> Result<(usize, Vec<rustyline::completion::Pair>), rustyline::error::ReadlineError> {
     match completions {
         Ok(items) => {
             let mut new_items = Vec::with_capacity(items.0);
@@ -818,7 +820,7 @@ fn requote(completions: Result<(usize, Vec<rustyline::completion::Pair>), rustyl
             }
 
             Ok((items.0, new_items))
-        },
+        }
         Err(err) => Err(err),
     }
 }
