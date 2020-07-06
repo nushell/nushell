@@ -3,7 +3,7 @@ use crate::commands::command::EvaluatedWholeStreamCommandArgs;
 use crate::commands::cp::CopyArgs;
 use crate::commands::ls::LsArgs;
 use crate::commands::mkdir::MkdirArgs;
-use crate::commands::mv::MoveArgs;
+use crate::commands::move_::mv::Arguments as MvArgs;
 use crate::commands::rm::RemoveArgs;
 use crate::data::dir_entry_dict;
 use crate::path::canonicalize;
@@ -441,7 +441,7 @@ impl Shell for FilesystemShell {
 
     fn mv(
         &self,
-        MoveArgs { src, dst }: MoveArgs,
+        MvArgs { src, dst }: MvArgs,
         _name: Tag,
         path: &str,
     ) -> Result<OutputStream, ShellError> {

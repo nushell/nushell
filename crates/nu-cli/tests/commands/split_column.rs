@@ -19,8 +19,7 @@ fn to_column() {
                 | lines
                 | trim
                 | split column ","
-                | pivot
-                | nth 1
+                | get Column2
                 | echo $it
             "#
         ));

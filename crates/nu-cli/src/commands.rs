@@ -79,7 +79,7 @@ pub(crate) mod map_max_by;
 pub(crate) mod math;
 pub(crate) mod merge;
 pub(crate) mod mkdir;
-pub(crate) mod mv;
+pub(crate) mod move_;
 pub(crate) mod next;
 pub(crate) mod nth;
 pub(crate) mod open;
@@ -219,7 +219,7 @@ pub(crate) use math::{
 };
 pub(crate) use merge::Merge;
 pub(crate) use mkdir::Mkdir;
-pub(crate) use mv::Move;
+pub(crate) use move_::{Move, MoveColumn, Mv};
 pub(crate) use next::Next;
 pub(crate) use nth::Nth;
 pub(crate) use open::Open;
@@ -246,10 +246,7 @@ pub(crate) use skip::Skip;
 pub(crate) use skip_until::SkipUntil;
 pub(crate) use skip_while::SkipWhile;
 pub(crate) use sort_by::SortBy;
-pub(crate) use split::Split;
-pub(crate) use split::SplitChars;
-pub(crate) use split::SplitColumn;
-pub(crate) use split::SplitRow;
+pub(crate) use split::{Split, SplitChars, SplitColumn, SplitRow};
 pub(crate) use split_by::SplitBy;
 pub(crate) use str_::{
     Str, StrCapitalize, StrCollect, StrDowncase, StrFindReplace, StrLength, StrSet, StrSubstring,
