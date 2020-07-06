@@ -65,12 +65,20 @@ fn bare(src: &mut Input, span_offset: usize) -> Result<Spanned<String>, ParseErr
         0
     };
 
+    let mut escaping = false;
     let mut inside_quote: Option<char> = None;
     let mut block_level: Vec<BlockKind> = vec![];
 
     while let Some((_, c)) = src.peek() {
         let c = *c;
-        if inside_quote.is_some() {
+
+        if escaping {
+            escaping = false;
+        } else if c == '\\' {
+            escaping = true;
+            let _ = src.next();
+            continue;
+        } else if inside_quote.is_some() {
             if Some(c) == inside_quote {
                 inside_quote = None;
             }
@@ -237,6 +245,32 @@ fn bare_simple_9() -> Result<(), ParseError> {
 
     assert_eq!(result.span.start(), 1);
     assert_eq!(result.span.end(), 6);
+
+    Ok(())
+}
+
+#[test]
+fn bare_escape_1() -> Result<(), ParseError> {
+    let input = " f\\'oo";
+
+    let input = &mut input.char_indices().peekable();
+    let result = bare(input, 0)?;
+
+    assert_eq!(result.span.start(), 1);
+    assert_eq!(result.span.end(), 5);
+
+    Ok(())
+}
+
+#[test]
+fn bare_escape_2() -> Result<(), ParseError> {
+    let input = " f\\\\'oo'";
+
+    let input = &mut input.char_indices().peekable();
+    let result = bare(input, 0)?;
+
+    assert_eq!(result.span.start(), 1);
+    assert_eq!(result.span.end(), 7);
 
     Ok(())
 }
