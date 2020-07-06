@@ -74,7 +74,7 @@ fn bare(src: &mut Input, span_offset: usize) -> Result<Spanned<String>, ParseErr
 
         if escaping {
             escaping = false;
-        } else if c == '\\' {
+        } else if c == '\\' && inside_quote != Some('\'') {
             escaping = true;
             let _ = src.next();
             continue;
@@ -271,6 +271,19 @@ fn bare_escape_2() -> Result<(), ParseError> {
 
     assert_eq!(result.span.start(), 1);
     assert_eq!(result.span.end(), 7);
+
+    Ok(())
+}
+
+#[test]
+fn bare_escape_3() -> Result<(), ParseError> {
+    let input = " --escape_char='\\t'";
+
+    let input = &mut input.char_indices().peekable();
+    let result = bare(input, 0)?;
+
+    assert_eq!(result.span.start(), 1);
+    assert_eq!(result.span.end(), 19);
 
     Ok(())
 }
