@@ -168,7 +168,31 @@ fn duration_math() {
         "#
     ));
 
-    assert_eq!(actual.out, "8:00:00:00");
+    assert_eq!(actual.out, "8:00:00:00.0");
+}
+
+#[test]
+fn duration_math_with_nanoseconds() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            = 1w + 10ns
+        "#
+    ));
+
+    assert_eq!(actual.out, "7:00:00:00.00000001");
+}
+
+#[test]
+fn duration_math_with_negative() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            = 1d - 1w
+        "#
+    ));
+
+    assert_eq!(actual.out, "-6:00:00:00.0");
 }
 
 #[test]

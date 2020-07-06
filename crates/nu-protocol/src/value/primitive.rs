@@ -85,14 +85,27 @@ impl Primitive {
         match self {
             Primitive::Duration(duration) => {
                 let (secs, nanos) = duration.div_rem(&BigInt::from(NANOS_PER_SEC));
-                // FIXME: I would have prefered to return a ShellError, but there is not one for
-                // overflow.
-                let secs = secs.to_i64().expect("Overflowing duration");
+                let secs = match secs.to_i64() {
+                    Some(secs) => secs,
+                    None => {
+                        return Err(ShellError::labeled_error(
+                            "Internal duration conversion overflow.",
+                            "duration overflow",
+                            span,
+                        ))
+                    }
+                };
                 // This should never fail since nanos < 10^9.
-                let nanos = nanos.to_i64().unwrap();
+                let nanos = match nanos.to_i64() {
+                    Some(nanos) => nanos,
+                    None => return Err(ShellError::unexpected("Unexpected i64 overflow")),
+                };
                 let nanos = chrono::Duration::nanoseconds(nanos);
                 // This should also never fail since we are adding less than NANOS_PER_SEC.
-                Ok(chrono::Duration::seconds(secs).checked_add(&nanos).unwrap())
+                match chrono::Duration::seconds(secs).checked_add(&nanos) {
+                    Some(duration) => Ok(duration),
+                    None => Err(ShellError::unexpected("Unexpected duration overflow")),
+                }
             }
             other => Err(ShellError::type_error(
                 "duration",
@@ -242,10 +255,10 @@ impl From<chrono::Duration> for Primitive {
         // This will never fail.
         let nanos: u32 = duration
             .checked_sub(&chrono::Duration::seconds(secs))
-            .unwrap()
+            .expect("Unexpected overflow")
             .num_nanoseconds()
-            .unwrap() as u32;
-        Primitive::Duration(BigInt::from(secs) * 1000 * 1000 * 1000 + nanos)
+            .expect("Unexpected overflow") as u32;
+        Primitive::Duration(BigInt::from(secs) * NANOS_PER_SEC + nanos)
     }
 }
 
@@ -344,40 +357,42 @@ pub fn format_duration(duration: &BigInt) -> String {
     let big_int_60 = BigInt::from(60);
     let big_int_24 = BigInt::from(24);
     // We only want the biggest subvidision to have the negative sign.
-    let (sign, duration) = if duration.is_positive() {
+    let (sign, duration) = if duration.is_zero() || duration.is_positive() {
         (1, duration.clone())
     } else {
         (-1, -duration)
     };
-    let (microseconds, nanoseconds): (BigInt, BigInt) = duration.div_rem(&big_int_1000);
-    let (milliseconds, microseconds): (BigInt, BigInt) = microseconds.div_rem(&big_int_1000);
-    let (seconds, milliseconds): (BigInt, BigInt) = milliseconds.div_rem(&big_int_1000);
-    let (minutes, seconds): (BigInt, BigInt) = seconds.div_rem(&big_int_60);
-    let (hours, minutes): (BigInt, BigInt) = minutes.div_rem(&big_int_60);
+    let (micros, nanos): (BigInt, BigInt) = duration.div_rem(&big_int_1000);
+    let (millis, micros): (BigInt, BigInt) = micros.div_rem(&big_int_1000);
+    let (secs, millis): (BigInt, BigInt) = millis.div_rem(&big_int_1000);
+    let (mins, secs): (BigInt, BigInt) = secs.div_rem(&big_int_60);
+    let (hours, mins): (BigInt, BigInt) = mins.div_rem(&big_int_60);
     let (days, hours): (BigInt, BigInt) = hours.div_rem(&big_int_24);
-    let decimals = match (
-        milliseconds.to_i64().unwrap(),
-        microseconds.to_i64().unwrap(),
-        nanoseconds.to_i64().unwrap(),
-    ) {
-        (0, 0, 0) => String::from("0"),
-        (0, 0, ns) => format!("{:09}", ns),
-        (0, us, ns) => format!("{:06}{:03}", us, ns),
-        (ms, 0, ns) => format!("{:03}{:06}", ms, ns),
-        (ms, us, ns) => format!("{:03}{:03}{:03}", ms, us, ns),
+    let decimals = if millis.is_zero() && micros.is_zero() && nanos.is_zero() {
+        String::from("0")
+    } else {
+        format!("{:03}{:03}{:03}", millis, micros, nanos)
+            .trim_end_matches('0')
+            .to_string()
     };
     match (
-        days.to_i64()
-            .expect("Overflowing while formatting duration."),
-        hours.to_i64().unwrap(),
-        minutes.to_i64().unwrap(),
-        seconds.to_i64().unwrap(),
+        days.is_zero(),
+        hours.is_zero(),
+        mins.is_zero(),
+        secs.is_zero(),
     ) {
-        (0, 0, 0, 0) => format!("{}.{}", if sign == 1 { "0" } else { "-0" }, decimals),
-        (0, 0, 0, s) => format!("{}.{}", sign * s, decimals),
-        (0, 0, m, s) => format!("{}:{:02}.{}", sign * m, s, decimals),
-        (0, h, m, s) => format!("{}:{:02}:{:02}.{}", sign * h, m, s, decimals),
-        (d, h, m, s) => format!("{}:{:02}:{:02}:{:02}.{}", sign * d, h, m, s, decimals),
+        (true, true, true, true) => format!("{}.{}", if sign == 1 { "0" } else { "-0" }, decimals),
+        (true, true, true, _) => format!("{}.{}", sign * secs, decimals),
+        (true, true, _, _) => format!("{}:{:02}.{}", sign * mins, secs, decimals),
+        (true, _, _, _) => format!("{}:{:02}:{:02}.{}", sign * hours, mins, secs, decimals),
+        _ => format!(
+            "{}:{:02}:{:02}:{:02}.{}",
+            sign * days,
+            hours,
+            mins,
+            secs,
+            decimals
+        ),
     }
 }
 

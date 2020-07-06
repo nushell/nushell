@@ -439,6 +439,8 @@ impl ToBigInt for Number {
     fn to_bigint(&self) -> Option<BigInt> {
         match self {
             Number::Int(int) => Some(int.clone()),
+            // The BigDecimal to BigInt conversion always return Some().
+            // FIXME: This conversion might not be want we want, it just remove the scale.
             Number::Decimal(decimal) => decimal.to_bigint(),
         }
     }
@@ -503,24 +505,68 @@ impl Unit {
             Unit::Petabyte => {
                 bytes(convert_number_to_u64(&size) * 1024 * 1024 * 1024 * 1024 * 1024)
             }
-            Unit::Nanosecond => duration(size.to_bigint().unwrap()),
-            Unit::Microsecond => duration(size.to_bigint().unwrap() * 1000),
-            Unit::Millisecond => duration(size.to_bigint().unwrap() * 1000 * 1000),
-            Unit::Second => duration(size.to_bigint().unwrap() * 1000 * 1000 * 1000),
-            Unit::Minute => duration(size.to_bigint().unwrap() * 60 * 1000 * 1000 * 1000),
-            Unit::Hour => duration(size.to_bigint().unwrap() * 60 * 60 * 1000 * 1000 * 1000),
-            Unit::Day => duration(size.to_bigint().unwrap() * 24 * 60 * 60 * 1000 * 1000 * 1000),
-            Unit::Week => {
-                duration(size.to_bigint().unwrap() * 7 * 24 * 60 * 60 * 1000 * 1000 * 1000)
+            Unit::Nanosecond => duration(size.to_bigint().expect("Conversion should never fail.")),
+            Unit::Microsecond => {
+                duration(size.to_bigint().expect("Conversion should never fail.") * 1000)
             }
+            Unit::Millisecond => {
+                duration(size.to_bigint().expect("Conversion should never fail.") * 1000 * 1000)
+            }
+            Unit::Second => duration(
+                size.to_bigint().expect("Conversion should never fail.") * 1000 * 1000 * 1000,
+            ),
+            Unit::Minute => duration(
+                size.to_bigint().expect("Conversion should never fail.") * 60 * 1000 * 1000 * 1000,
+            ),
+            Unit::Hour => duration(
+                size.to_bigint().expect("Conversion should never fail.")
+                    * 60
+                    * 60
+                    * 1000
+                    * 1000
+                    * 1000,
+            ),
+            Unit::Day => duration(
+                size.to_bigint().expect("Conversion should never fail.")
+                    * 24
+                    * 60
+                    * 60
+                    * 1000
+                    * 1000
+                    * 1000,
+            ),
+            Unit::Week => duration(
+                size.to_bigint().expect("Conversion should never fail.")
+                    * 7
+                    * 24
+                    * 60
+                    * 60
+                    * 1000
+                    * 1000
+                    * 1000,
+            ),
             // FIXME: Number of days per month should not always be 30.
-            Unit::Month => {
-                duration(size.to_bigint().unwrap() * 30 * 24 * 60 * 60 * 1000 * 1000 * 1000)
-            }
+            Unit::Month => duration(
+                size.to_bigint().expect("Conversion should never fail.")
+                    * 30
+                    * 24
+                    * 60
+                    * 60
+                    * 1000
+                    * 1000
+                    * 1000,
+            ),
             // FIXME: Number of days per year should not be 365.
-            Unit::Year => {
-                duration(size.to_bigint().unwrap() * 365 * 24 * 60 * 60 * 1000 * 1000 * 1000)
-            }
+            Unit::Year => duration(
+                size.to_bigint().expect("Conversion should never fail.")
+                    * 365
+                    * 24
+                    * 60
+                    * 60
+                    * 1000
+                    * 1000
+                    * 1000,
+            ),
         }
     }
 }
