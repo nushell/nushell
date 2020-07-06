@@ -3,7 +3,7 @@ use crate::commands::command::EvaluatedWholeStreamCommandArgs;
 use crate::commands::cp::CopyArgs;
 use crate::commands::ls::LsArgs;
 use crate::commands::mkdir::MkdirArgs;
-use crate::commands::mv::MoveArgs;
+use crate::commands::move_::mv::Arguments as MvArgs;
 use crate::commands::rm::RemoveArgs;
 use crate::prelude::*;
 use crate::shell::filesystem_shell::FilesystemShell;
@@ -170,7 +170,7 @@ impl ShellManager {
         shells[self.current_shell()].mkdir(args, name, &path)
     }
 
-    pub fn mv(&self, args: MoveArgs, name: Tag) -> Result<OutputStream, ShellError> {
+    pub fn mv(&self, args: MvArgs, name: Tag) -> Result<OutputStream, ShellError> {
         let shells = self.shells.lock();
 
         let path = shells[self.current_shell()].path();

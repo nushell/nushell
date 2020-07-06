@@ -31,7 +31,7 @@ mod ls;
 mod math;
 mod merge;
 mod mkdir;
-mod mv;
+mod move_;
 mod open;
 mod parse;
 mod prepend;

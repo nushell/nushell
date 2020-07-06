@@ -260,7 +260,7 @@ pub fn create_default_context(
             whole_stream_command(Cal),
             whole_stream_command(Calc),
             whole_stream_command(Mkdir),
-            whole_stream_command(Move),
+            whole_stream_command(Mv),
             whole_stream_command(Kill),
             whole_stream_command(Version),
             whole_stream_command(Clear),
@@ -310,6 +310,7 @@ pub fn create_default_context(
             whole_stream_command(Ansi),
             whole_stream_command(Char),
             // Column manipulation
+            whole_stream_command(MoveColumn),
             whole_stream_command(Reject),
             whole_stream_command(Select),
             whole_stream_command(Get),
@@ -345,6 +346,7 @@ pub fn create_default_context(
             whole_stream_command(Each),
             whole_stream_command(IsEmpty),
             // Table manipulation
+            whole_stream_command(Move),
             whole_stream_command(Merge),
             whole_stream_command(Shuffle),
             whole_stream_command(Wrap),

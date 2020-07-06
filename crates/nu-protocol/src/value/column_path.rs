@@ -61,6 +61,11 @@ impl ColumnPath {
     pub fn split_last(&self) -> Option<(&PathMember, &[PathMember])> {
         self.members.split_last()
     }
+
+    /// Returns the last member
+    pub fn last(&self) -> Option<&PathMember> {
+        self.iter().last()
+    }
 }
 
 impl PrettyDebug for ColumnPath {
@@ -98,6 +103,13 @@ impl PathMember {
     /// Create a numeric path member
     pub fn int(int: impl Into<BigInt>, span: impl Into<Span>) -> PathMember {
         UnspannedPathMember::Int(int.into()).into_path_member(span)
+    }
+
+    pub fn as_string(&self) -> String {
+        match &self.unspanned {
+            UnspannedPathMember::String(string) => string.clone(),
+            UnspannedPathMember::Int(int) => format!("{}", int),
+        }
     }
 }
 
