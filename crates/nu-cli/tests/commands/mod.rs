@@ -11,6 +11,7 @@ mod cp;
 mod default;
 mod drop;
 mod each;
+mod echo;
 mod enter;
 mod every;
 mod first;

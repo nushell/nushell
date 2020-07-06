@@ -71,20 +71,23 @@ impl WholeStreamCommand for Every {
 async fn every(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let (EveryArgs { stride, skip }, input) = args.process(&registry).await?;
-    let v: Vec<_> = input.into_vec().await;
 
-    let iter = v.into_iter().enumerate().filter_map(move |(i, value)| {
-        let stride_desired = if stride.item < 1 { 1 } else { stride.item } as usize;
-        let should_include = skip.item == (i % stride_desired != 0);
+    let stride = stride.item;
+    let skip = skip.item;
 
-        if should_include {
-            return Some(ReturnSuccess::value(value));
-        }
+    Ok(input
+        .enumerate()
+        .filter_map(move |(i, value)| async move {
+            let stride_desired = if stride < 1 { 1 } else { stride } as usize;
+            let should_include = skip == (i % stride_desired != 0);
 
-        None
-    });
-
-    Ok(futures::stream::iter(iter).to_output_stream())
+            if should_include {
+                Some(ReturnSuccess::value(value))
+            } else {
+                None
+            }
+        })
+        .to_output_stream())
 }
 
 #[cfg(test)]
