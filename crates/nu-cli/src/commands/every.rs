@@ -73,12 +73,12 @@ async fn every(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
     let (EveryArgs { stride, skip }, input) = args.process(&registry).await?;
     let v: Vec<_> = input.into_vec().await;
 
-    let iter = v.into_iter().enumerate().filter_map(move |(i, x)| {
+    let iter = v.into_iter().enumerate().filter_map(move |(i, value)| {
         let stride_desired = if stride.item < 1 { 1 } else { stride.item } as usize;
         let should_include = skip.item == (i % stride_desired != 0);
 
         if should_include {
-            return Some(ReturnSuccess::value(x));
+            return Some(ReturnSuccess::value(value));
         }
 
         None
