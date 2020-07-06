@@ -1,23 +1,23 @@
 [package]
-name = "nu_plugin_fetch"
-version = "0.15.1"
 authors = ["The Nu Project Contributors"]
-edition = "2018"
 description = "A URL fetch plugin for Nushell"
+edition = "2018"
 license = "MIT"
+name = "nu_plugin_fetch"
+version = "0.16.1"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-plugin = { path = "../nu-plugin", version = "0.15.1" }
-nu-protocol = { path = "../nu-protocol", version = "0.15.1" }
-nu-source = { path = "../nu-source", version = "0.15.1" }
-nu-errors = { path = "../nu-errors", version = "0.15.1" }
-futures = { version = "0.3", features = ["compat", "io-compat"] }
+base64 = "0.12.3"
+futures = {version = "0.3", features = ["compat", "io-compat"]}
+nu-errors = {path = "../nu-errors", version = "0.16.1"}
+nu-plugin = {path = "../nu-plugin", version = "0.16.1"}
+nu-protocol = {path = "../nu-protocol", version = "0.16.1"}
+nu-source = {path = "../nu-source", version = "0.16.1"}
 surf = "1.0.3"
 url = "2.1.1"
-base64 = "0.12.3"
 
 [build-dependencies]
-nu-build = { version = "0.15.1", path = "../nu-build" }
+nu-build = {version = "0.16.1", path = "../nu-build"}

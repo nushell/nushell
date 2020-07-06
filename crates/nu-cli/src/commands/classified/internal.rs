@@ -28,6 +28,10 @@ pub(crate) async fn run_internal_command(
     let objects: InputStream = trace_stream!(target: "nu::trace_stream::internal", "input" = input);
     let internal_command = context.expect_command(&command.name);
 
+    if command.name == "autoenv untrust" {
+        context.user_recently_used_autoenv_untrust = true;
+    }
+
     let result = {
         context
             .run_command(

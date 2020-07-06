@@ -6,16 +6,16 @@ use nu_protocol::{Signature, SyntaxShape};
 use nu_source::Tagged;
 use std::path::PathBuf;
 
-pub struct Move;
+pub struct Mv;
 
 #[derive(Deserialize)]
-pub struct MoveArgs {
+pub struct Arguments {
     pub src: Tagged<PathBuf>,
     pub dst: Tagged<PathBuf>,
 }
 
 #[async_trait]
-impl WholeStreamCommand for Move {
+impl WholeStreamCommand for Mv {
     fn name(&self) -> &str {
         "mv"
     }
@@ -78,12 +78,12 @@ async fn mv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
 
 #[cfg(test)]
 mod tests {
-    use super::Move;
+    use super::Mv;
 
     #[test]
     fn examples_work_as_expected() {
         use crate::examples::test as test_examples;
 
-        test_examples(Move {})
+        test_examples(Mv {})
     }
 }

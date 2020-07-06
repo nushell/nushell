@@ -8,6 +8,9 @@ pub(crate) mod alias;
 pub(crate) mod ansi;
 pub(crate) mod append;
 pub(crate) mod args;
+pub(crate) mod autoenv;
+pub(crate) mod autoenv_trust;
+pub(crate) mod autoenv_untrust;
 pub(crate) mod autoview;
 pub(crate) mod build_string;
 pub(crate) mod cal;
@@ -20,6 +23,7 @@ pub(crate) mod clip;
 pub(crate) mod command;
 pub(crate) mod compact;
 pub(crate) mod config;
+pub(crate) mod constants;
 pub(crate) mod count;
 pub(crate) mod cp;
 pub(crate) mod date;
@@ -61,6 +65,7 @@ pub(crate) mod headers;
 pub(crate) mod help;
 pub(crate) mod histogram;
 pub(crate) mod history;
+pub(crate) mod if_;
 pub(crate) mod insert;
 pub(crate) mod is_empty;
 pub(crate) mod keep;
@@ -74,7 +79,7 @@ pub(crate) mod map_max_by;
 pub(crate) mod math;
 pub(crate) mod merge;
 pub(crate) mod mkdir;
-pub(crate) mod mv;
+pub(crate) mod move_;
 pub(crate) mod next;
 pub(crate) mod nth;
 pub(crate) mod open;
@@ -140,6 +145,9 @@ pub(crate) use command::{
 pub(crate) use alias::Alias;
 pub(crate) use ansi::Ansi;
 pub(crate) use append::Append;
+pub(crate) use autoenv::Autoenv;
+pub(crate) use autoenv_trust::AutoenvTrust;
+pub(crate) use autoenv_untrust::AutoenvUnTrust;
 pub(crate) use build_string::BuildString;
 pub(crate) use cal::Cal;
 pub(crate) use calc::Calc;
@@ -156,6 +164,7 @@ pub(crate) use drop::Drop;
 pub(crate) use du::Du;
 pub(crate) use each::Each;
 pub(crate) use echo::Echo;
+pub(crate) use if_::If;
 pub(crate) use is_empty::IsEmpty;
 pub(crate) use update::Update;
 pub(crate) mod kill;
@@ -210,7 +219,7 @@ pub(crate) use math::{
 };
 pub(crate) use merge::Merge;
 pub(crate) use mkdir::Mkdir;
-pub(crate) use mv::Move;
+pub(crate) use move_::{Move, MoveColumn, Mv};
 pub(crate) use next::Next;
 pub(crate) use nth::Nth;
 pub(crate) use open::Open;
@@ -219,7 +228,7 @@ pub(crate) use pivot::Pivot;
 pub(crate) use prepend::Prepend;
 pub(crate) use prev::Previous;
 pub(crate) use pwd::Pwd;
-pub(crate) use random::{Random, RandomBool, RandomUUID};
+pub(crate) use random::{Random, RandomBool, RandomDice, RandomUUID};
 pub(crate) use range::Range;
 #[allow(unused_imports)]
 pub(crate) use reduce_by::ReduceBy;
@@ -237,12 +246,10 @@ pub(crate) use skip::Skip;
 pub(crate) use skip_until::SkipUntil;
 pub(crate) use skip_while::SkipWhile;
 pub(crate) use sort_by::SortBy;
-pub(crate) use split::Split;
-pub(crate) use split::SplitColumn;
-pub(crate) use split::SplitRow;
+pub(crate) use split::{Split, SplitChars, SplitColumn, SplitRow};
 pub(crate) use split_by::SplitBy;
 pub(crate) use str_::{
-    Str, StrCapitalize, StrCollect, StrDowncase, StrFindReplace, StrSet, StrSubstring,
+    Str, StrCapitalize, StrCollect, StrDowncase, StrFindReplace, StrLength, StrSet, StrSubstring,
     StrToDatetime, StrToDecimal, StrToInteger, StrTrim, StrUpcase,
 };
 #[allow(unused_imports)]

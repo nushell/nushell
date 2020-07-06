@@ -3,7 +3,7 @@ use crate::commands::command::EvaluatedWholeStreamCommandArgs;
 use crate::commands::cp::CopyArgs;
 use crate::commands::ls::LsArgs;
 use crate::commands::mkdir::MkdirArgs;
-use crate::commands::mv::MoveArgs;
+use crate::commands::move_::mv::Arguments as MvArgs;
 use crate::commands::rm::RemoveArgs;
 use crate::data::dir_entry_dict;
 use crate::path::canonicalize;
@@ -15,6 +15,7 @@ use crate::utils::FileStructure;
 use rustyline::completion::FilenameCompleter;
 use rustyline::hint::{Hinter, HistoryHinter};
 use std::collections::HashMap;
+use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
 
 #[cfg(unix)]
@@ -54,7 +55,7 @@ impl Clone for FilesystemShell {
 }
 
 impl FilesystemShell {
-    pub fn basic(commands: CommandRegistry) -> Result<FilesystemShell, std::io::Error> {
+    pub fn basic(commands: CommandRegistry) -> Result<FilesystemShell, Error> {
         let path = std::env::current_dir()?;
 
         Ok(FilesystemShell {
@@ -161,7 +162,7 @@ impl Shell for FilesystemShell {
             let metadata = match std::fs::symlink_metadata(&path) {
                 Ok(metadata) => Some(metadata),
                 Err(e) => {
-                    if e.kind() == std::io::ErrorKind::PermissionDenied {
+                    if e.kind() == ErrorKind::PermissionDenied {
                         None
                     } else {
                         return Some(Err(e.into()));
@@ -440,7 +441,7 @@ impl Shell for FilesystemShell {
 
     fn mv(
         &self,
-        MoveArgs { src, dst }: MoveArgs,
+        MvArgs { src, dst }: MvArgs,
         _name: Tag,
         path: &str,
     ) -> Result<OutputStream, ShellError> {
@@ -587,25 +588,28 @@ impl Shell for FilesystemShell {
                                 .map(|val| val.is_true())
                                 .unwrap_or(false);
                             result = if _trash.item || (rm_always_trash && !_permanent.item) {
-                                trash::remove(&f).map_err(|_| f.to_string_lossy())
+                                trash::remove(&f).map_err(|e: trash::Error| {
+                                    Error::new(ErrorKind::Other, format!("{:?}", e))
+                                })
                             } else if metadata.is_file() {
-                                std::fs::remove_file(&f).map_err(|_| f.to_string_lossy())
+                                std::fs::remove_file(&f)
                             } else {
-                                std::fs::remove_dir_all(&f).map_err(|_| f.to_string_lossy())
+                                std::fs::remove_dir_all(&f)
                             };
                         }
                         #[cfg(not(feature = "trash-support"))]
                         {
                             result = if metadata.is_file() {
-                                std::fs::remove_file(&f).map_err(|_| f.to_string_lossy())
+                                std::fs::remove_file(&f)
                             } else {
-                                std::fs::remove_dir_all(&f).map_err(|_| f.to_string_lossy())
+                                std::fs::remove_dir_all(&f)
                             };
                         }
 
                         if let Err(e) = result {
-                            let msg = format!("Could not delete {:}", e);
-                            Err(ShellError::labeled_error(msg, e, tag))
+                            let msg =
+                                format!("Could not delete because: {:}\nTry '--trash' flag", e);
+                            Err(ShellError::labeled_error(msg, e.to_string(), tag))
                         } else {
                             let val = format!("deleted {:}", f.to_string_lossy()).into();
                             Ok(ReturnSuccess::Value(val))

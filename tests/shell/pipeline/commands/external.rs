@@ -192,6 +192,15 @@ mod external_words {
 
         assert_eq!(actual.out, "joturner@foo.bar.baz");
     }
+
+    #[test]
+    fn no_escaping_for_single_quoted_strings() {
+        let actual = nu!(cwd: ".", r#"
+        nu --testbin cococo 'test "things"'
+        "#);
+
+        assert_eq!(actual.out, "test \"things\"");
+    }
 }
 
 mod nu_commands {

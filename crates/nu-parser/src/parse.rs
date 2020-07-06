@@ -516,6 +516,26 @@ fn parse_interpolated_string(
 }
 
 /// Parses the given argument using the shape as a guide for how to correctly parse the argument
+fn parse_external_arg(
+    registry: &dyn SignatureRegistry,
+    lite_arg: &Spanned<String>,
+) -> (SpannedExpression, Option<ParseError>) {
+    if lite_arg.item.starts_with('$') {
+        return parse_full_column_path(&lite_arg, registry);
+    }
+
+    if lite_arg.item.starts_with('`') && lite_arg.item.len() > 1 && lite_arg.item.ends_with('`') {
+        // This is an interpolated string
+        parse_interpolated_string(registry, &lite_arg)
+    } else {
+        (
+            SpannedExpression::new(Expression::string(lite_arg.item.clone()), lite_arg.span),
+            None,
+        )
+    }
+}
+
+/// Parses the given argument using the shape as a guide for how to correctly parse the argument
 fn parse_arg(
     expected_type: SyntaxShape,
     registry: &dyn SignatureRegistry,
@@ -1002,6 +1022,7 @@ fn parse_positional_argument(
     idx: usize,
     lite_cmd: &LiteCommand,
     positional_type: &PositionalType,
+    remaining_positionals: usize,
     registry: &dyn SignatureRegistry,
 ) -> (usize, SpannedExpression, Option<ParseError>) {
     let mut idx = idx;
@@ -1021,8 +1042,14 @@ fn parse_positional_argument(
                     }
                     arg
                 } else {
+                    let end_idx = if lite_cmd.args.len() > remaining_positionals {
+                        lite_cmd.args.len() - remaining_positionals
+                    } else {
+                        lite_cmd.args.len()
+                    };
+
                     let (new_idx, arg, err) =
-                        parse_math_expression(idx, &lite_cmd.args[idx..], registry, true);
+                        parse_math_expression(idx, &lite_cmd.args[idx..end_idx], registry, true);
 
                     let span = arg.span;
                     let mut commands = hir::Commands::new(span);
@@ -1032,7 +1059,7 @@ fn parse_positional_argument(
 
                     let arg = SpannedExpression::new(Expression::Block(block), span);
 
-                    idx = new_idx;
+                    idx = new_idx - 1;
                     if error.is_none() {
                         error = err;
                     }
@@ -1148,6 +1175,7 @@ fn parse_internal_command(
                     idx,
                     &lite_cmd,
                     &signature.positional[current_positional].0,
+                    signature.positional.len() - current_positional - 1,
                     registry,
                 );
                 idx = new_idx;
@@ -1240,7 +1268,7 @@ fn classify_pipeline(
             args.push(name);
 
             for lite_arg in &lite_cmd.args {
-                let (expr, err) = parse_arg(SyntaxShape::String, registry, lite_arg);
+                let (expr, err) = parse_external_arg(registry, lite_arg);
                 if error.is_none() {
                     error = err;
                 }
@@ -1316,7 +1344,7 @@ fn classify_pipeline(
             args.push(name);
 
             for lite_arg in &lite_cmd.args {
-                let (expr, err) = parse_arg(SyntaxShape::String, registry, lite_arg);
+                let (expr, err) = parse_external_arg(registry, lite_arg);
                 if error.is_none() {
                     error = err;
                 }

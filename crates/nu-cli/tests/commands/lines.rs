@@ -19,3 +19,18 @@ fn lines() {
 
     assert_eq!(actual.out, "rustyline");
 }
+
+#[test]
+fn lines_proper_buffering() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            open lines_test.txt -r
+            | lines
+            | str length
+            | to json
+        "#
+    ));
+
+    assert_eq!(actual.out, "[8194,4]");
+}

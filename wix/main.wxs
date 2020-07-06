@@ -192,6 +192,22 @@
                                 Source='output\README.txt'
                                 KeyPath='yes'/>
                         </Component>
+                        <Component Id='binary13' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe13'
+                                Name='LICENSE'
+                                DiskId='1'
+                                Source='output\LICENSE'
+                                KeyPath='yes'/>
+                        </Component>
+                        <Component Id='binary14' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe14'
+                                Name='LICENSE-for-less.txt'
+                                DiskId='1'
+                                Source='output\LICENSE-for-less.txt'
+                                KeyPath='yes'/>
+                        </Component>
                     </Directory>
                 </Directory>
             </Directory>
@@ -225,6 +241,8 @@
             <ComponentRef Id='binary10'/>
             <ComponentRef Id='binary11'/>
             <ComponentRef Id='binary12'/>
+            <ComponentRef Id='binary13'/>
+            <ComponentRef Id='binary14'/>
 
             <Feature
                 Id='Environment'

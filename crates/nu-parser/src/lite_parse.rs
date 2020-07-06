@@ -49,6 +49,12 @@ fn skip_whitespace(src: &mut Input) {
     }
 }
 
+enum BlockKind {
+    Paren,
+    CurlyBracket,
+    SquareBracket,
+}
+
 fn bare(src: &mut Input, span_offset: usize) -> Result<Spanned<String>, ParseError> {
     skip_whitespace(src);
 
@@ -59,35 +65,33 @@ fn bare(src: &mut Input, span_offset: usize) -> Result<Spanned<String>, ParseErr
         0
     };
 
-    let mut delimiter = ' ';
-    let mut inside_quote = false;
-    let mut block_level = vec![];
+    let mut inside_quote: Option<char> = None;
+    let mut block_level: Vec<BlockKind> = vec![];
 
     while let Some((_, c)) = src.peek() {
         let c = *c;
-        if inside_quote {
-            if c == delimiter {
-                inside_quote = false;
+        if inside_quote.is_some() {
+            if Some(c) == inside_quote {
+                inside_quote = None;
             }
         } else if c == '\'' || c == '"' || c == '`' {
-            inside_quote = true;
-            delimiter = c;
+            inside_quote = Some(c);
         } else if c == '[' {
-            block_level.push(c);
+            block_level.push(BlockKind::SquareBracket);
         } else if c == ']' {
-            if let Some('[') = block_level.last() {
+            if let Some(BlockKind::SquareBracket) = block_level.last() {
                 let _ = block_level.pop();
             }
         } else if c == '{' {
-            block_level.push(c);
+            block_level.push(BlockKind::CurlyBracket);
         } else if c == '}' {
-            if let Some('{') = block_level.last() {
+            if let Some(BlockKind::CurlyBracket) = block_level.last() {
                 let _ = block_level.pop();
             }
         } else if c == '(' {
-            block_level.push(c);
+            block_level.push(BlockKind::Paren);
         } else if c == ')' {
-            if let Some('(') = block_level.last() {
+            if let Some(BlockKind::Paren) = block_level.last() {
                 let _ = block_level.pop();
             }
         } else if block_level.is_empty() && (c.is_whitespace() || c == '|' || c == ';') {
@@ -101,7 +105,189 @@ fn bare(src: &mut Input, span_offset: usize) -> Result<Spanned<String>, ParseErr
         start_offset + span_offset,
         start_offset + span_offset + bare.len(),
     );
+
+    if let Some(block) = block_level.last() {
+        return Err(ParseError::unexpected_eof(
+            match block {
+                BlockKind::Paren => ")",
+                BlockKind::SquareBracket => "]",
+                BlockKind::CurlyBracket => "}",
+            },
+            span,
+        ));
+    }
+
+    if let Some(delimiter) = inside_quote {
+        return Err(ParseError::unexpected_eof(delimiter.to_string(), span));
+    }
+
     Ok(bare.spanned(span))
+}
+
+#[test]
+fn bare_simple_1() -> Result<(), ParseError> {
+    let input = "foo bar baz";
+
+    let input = &mut input.char_indices().peekable();
+    let result = bare(input, 0)?;
+
+    assert_eq!(result.span.start(), 0);
+    assert_eq!(result.span.end(), 3);
+
+    Ok(())
+}
+
+#[test]
+fn bare_simple_2() -> Result<(), ParseError> {
+    let input = "'foo bar' baz";
+
+    let input = &mut input.char_indices().peekable();
+    let result = bare(input, 0)?;
+
+    assert_eq!(result.span.start(), 0);
+    assert_eq!(result.span.end(), 9);
+
+    Ok(())
+}
+
+#[test]
+fn bare_simple_3() -> Result<(), ParseError> {
+    let input = "'foo\" bar' baz";
+
+    let input = &mut input.char_indices().peekable();
+    let result = bare(input, 0)?;
+
+    assert_eq!(result.span.start(), 0);
+    assert_eq!(result.span.end(), 10);
+
+    Ok(())
+}
+
+#[test]
+fn bare_simple_4() -> Result<(), ParseError> {
+    let input = "[foo bar] baz";
+
+    let input = &mut input.char_indices().peekable();
+    let result = bare(input, 0)?;
+
+    assert_eq!(result.span.start(), 0);
+    assert_eq!(result.span.end(), 9);
+
+    Ok(())
+}
+
+#[test]
+fn bare_simple_5() -> Result<(), ParseError> {
+    let input = "'foo 'bar baz";
+
+    let input = &mut input.char_indices().peekable();
+    let result = bare(input, 0)?;
+
+    assert_eq!(result.span.start(), 0);
+    assert_eq!(result.span.end(), 9);
+
+    Ok(())
+}
+
+#[test]
+fn bare_simple_6() -> Result<(), ParseError> {
+    let input = "''foo baz";
+
+    let input = &mut input.char_indices().peekable();
+    let result = bare(input, 0)?;
+
+    assert_eq!(result.span.start(), 0);
+    assert_eq!(result.span.end(), 5);
+
+    Ok(())
+}
+
+#[test]
+fn bare_simple_7() -> Result<(), ParseError> {
+    let input = "'' foo";
+
+    let input = &mut input.char_indices().peekable();
+    let result = bare(input, 0)?;
+
+    assert_eq!(result.span.start(), 0);
+    assert_eq!(result.span.end(), 2);
+
+    Ok(())
+}
+
+#[test]
+fn bare_simple_8() -> Result<(), ParseError> {
+    let input = " '' foo";
+
+    let input = &mut input.char_indices().peekable();
+    let result = bare(input, 0)?;
+
+    assert_eq!(result.span.start(), 1);
+    assert_eq!(result.span.end(), 3);
+
+    Ok(())
+}
+
+#[test]
+fn bare_simple_9() -> Result<(), ParseError> {
+    let input = " 'foo' foo";
+
+    let input = &mut input.char_indices().peekable();
+    let result = bare(input, 0)?;
+
+    assert_eq!(result.span.start(), 1);
+    assert_eq!(result.span.end(), 6);
+
+    Ok(())
+}
+
+#[test]
+fn bare_ignore_future() -> Result<(), ParseError> {
+    let input = "foo 'bar";
+
+    let input = &mut input.char_indices().peekable();
+    let result = bare(input, 0)?;
+
+    assert_eq!(result.span.start(), 0);
+    assert_eq!(result.span.end(), 3);
+
+    Ok(())
+}
+
+#[test]
+fn bare_invalid_1() -> Result<(), ParseError> {
+    let input = "'foo bar";
+
+    let input = &mut input.char_indices().peekable();
+    let result = bare(input, 0);
+
+    assert_eq!(result.is_ok(), false);
+
+    Ok(())
+}
+
+#[test]
+fn bare_invalid_2() -> Result<(), ParseError> {
+    let input = "'bar";
+
+    let input = &mut input.char_indices().peekable();
+    let result = bare(input, 0);
+
+    assert_eq!(result.is_ok(), false);
+
+    Ok(())
+}
+
+#[test]
+fn bare_invalid_4() -> Result<(), ParseError> {
+    let input = " 'bar";
+
+    let input = &mut input.char_indices().peekable();
+    let result = bare(input, 0);
+
+    assert_eq!(result.is_ok(), false);
+
+    Ok(())
 }
 
 fn command(src: &mut Input, span_offset: usize) -> Result<LiteCommand, ParseError> {
