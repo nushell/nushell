@@ -55,7 +55,7 @@ impl Clone for FilesystemShell {
 }
 
 impl FilesystemShell {
-    pub fn basic(commands: CommandRegistry) -> Result<FilesystemShell, std::io::Error> {
+    pub fn basic(commands: CommandRegistry) -> Result<FilesystemShell, Error> {
         let path = std::env::current_dir()?;
 
         Ok(FilesystemShell {
@@ -162,7 +162,7 @@ impl Shell for FilesystemShell {
             let metadata = match std::fs::symlink_metadata(&path) {
                 Ok(metadata) => Some(metadata),
                 Err(e) => {
-                    if e.kind() == std::io::ErrorKind::PermissionDenied {
+                    if e.kind() == ErrorKind::PermissionDenied {
                         None
                     } else {
                         return Some(Err(e.into()));
