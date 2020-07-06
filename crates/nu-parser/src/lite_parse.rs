@@ -55,6 +55,12 @@ enum BlockKind {
     SquareBracket,
 }
 
+#[cfg(target_family = "windows")]
+const ESCAPE_CHAR: char = '^';
+
+#[cfg(target_family = "unix")]
+const ESCAPE_CHAR: char = '\\';
+
 fn bare(src: &mut Input, span_offset: usize) -> Result<Spanned<String>, ParseError> {
     skip_whitespace(src);
 
@@ -74,7 +80,7 @@ fn bare(src: &mut Input, span_offset: usize) -> Result<Spanned<String>, ParseErr
 
         if escaping {
             escaping = false;
-        } else if c == '\\' && (inside_quote.is_none() || inside_quote == Some('`')) {
+        } else if c == ESCAPE_CHAR && (inside_quote.is_none() || inside_quote == Some('`')) {
             escaping = true;
             let _ = src.next();
             continue;
@@ -251,7 +257,7 @@ fn bare_simple_9() -> Result<(), ParseError> {
 
 #[test]
 fn bare_escape_1() -> Result<(), ParseError> {
-    let input = " f\\'oo";
+    let input = format!(" f{}'oo", ESCAPE_CHAR);
 
     let input = &mut input.char_indices().peekable();
     let result = bare(input, 0)?;
@@ -264,7 +270,7 @@ fn bare_escape_1() -> Result<(), ParseError> {
 
 #[test]
 fn bare_escape_2() -> Result<(), ParseError> {
-    let input = " f\\\\'oo'";
+    let input = format!(" f{}{}'oo'", ESCAPE_CHAR, ESCAPE_CHAR);
 
     let input = &mut input.char_indices().peekable();
     let result = bare(input, 0)?;
@@ -277,7 +283,7 @@ fn bare_escape_2() -> Result<(), ParseError> {
 
 #[test]
 fn bare_escape_3() -> Result<(), ParseError> {
-    let input = " --escape_char='\\t'";
+    let input = format!(" --escape_char='{}t'", ESCAPE_CHAR);
 
     let input = &mut input.char_indices().peekable();
     let result = bare(input, 0)?;
@@ -290,7 +296,7 @@ fn bare_escape_3() -> Result<(), ParseError> {
 
 #[test]
 fn bare_escape_4() -> Result<(), ParseError> {
-    let input = " --escape_char=\"\\t\"";
+    let input = format!(" --escape_char=\"{}t\"", ESCAPE_CHAR);
 
     let input = &mut input.char_indices().peekable();
     let result = bare(input, 0)?;
@@ -303,7 +309,7 @@ fn bare_escape_4() -> Result<(), ParseError> {
 
 #[test]
 fn bare_escape_5() -> Result<(), ParseError> {
-    let input = " `pw\\d` ";
+    let input = format!(" `pw{}d` ", ESCAPE_CHAR);
 
     let input = &mut input.char_indices().peekable();
     let result = bare(input, 0)?;
