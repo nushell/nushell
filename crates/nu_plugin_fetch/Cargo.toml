@@ -16,6 +16,7 @@ nu-errors = {path = "../nu-errors", version = "0.16.1"}
 nu-plugin = {path = "../nu-plugin", version = "0.16.1"}
 nu-protocol = {path = "../nu-protocol", version = "0.16.1"}
 nu-source = {path = "../nu-source", version = "0.16.1"}
+nu-cli = {path = "../nu-cli", version = "0.16.1"}
 surf = "1.0.3"
 url = "2.1.1"
 
