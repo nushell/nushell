@@ -65,7 +65,6 @@ pub(crate) mod headers;
 pub(crate) mod help;
 pub(crate) mod histogram;
 pub(crate) mod history;
-pub(crate) mod human;
 pub(crate) mod if_;
 pub(crate) mod insert;
 pub(crate) mod is_empty;
@@ -87,7 +86,6 @@ pub(crate) mod open;
 pub(crate) mod parse;
 pub(crate) mod pivot;
 pub(crate) mod plugin;
-pub(crate) mod precision;
 pub(crate) mod prepend;
 pub(crate) mod prev;
 pub(crate) mod pwd;
@@ -207,7 +205,6 @@ pub(crate) use headers::Headers;
 pub(crate) use help::Help;
 pub(crate) use histogram::Histogram;
 pub(crate) use history::History;
-pub(crate) use human::Human;
 pub(crate) use insert::Insert;
 pub(crate) use keep::Keep;
 pub(crate) use keep_until::KeepUntil;
@@ -228,7 +225,6 @@ pub(crate) use nth::Nth;
 pub(crate) use open::Open;
 pub(crate) use parse::Parse;
 pub(crate) use pivot::Pivot;
-pub(crate) use precision::Precision;
 pub(crate) use prepend::Prepend;
 pub(crate) use prev::Previous;
 pub(crate) use pwd::Pwd;
@@ -253,8 +249,8 @@ pub(crate) use sort_by::SortBy;
 pub(crate) use split::{Split, SplitChars, SplitColumn, SplitRow};
 pub(crate) use split_by::SplitBy;
 pub(crate) use str_::{
-    Str, StrCapitalize, StrCollect, StrDowncase, StrFindReplace, StrLength, StrSet, StrSubstring,
-    StrToDatetime, StrToDecimal, StrToInteger, StrTrim, StrUpcase,
+    Str, StrCapitalize, StrCollect, StrDowncase, StrFindReplace, StrFrom, StrLength, StrSet,
+    StrSubstring, StrToDatetime, StrToDecimal, StrToInteger, StrTrim, StrUpcase,
 };
 #[allow(unused_imports)]
 pub(crate) use t_sort_by::TSortBy;

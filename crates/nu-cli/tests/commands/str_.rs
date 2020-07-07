@@ -1,6 +1,7 @@
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
+use std::env;
 
 #[test]
 fn trims() {
@@ -339,4 +340,43 @@ fn substrings_the_input_and_treats_end_index_as_length_if_blank_end_index_given(
 
         assert_eq!(actual.out, "arepas");
     })
+}
+
+#[test]
+fn from_decimal_trim_zeros() {
+    env::set_var("LC_NUMERIC", "en_US.UTF-8");
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        = 1.23000 | str from -d 3
+        "#
+    ));
+
+    assert!(actual.out.contains("1.23"));
+}
+
+#[test]
+fn from_decimal_grouping_en_us() {
+    env::set_var("LC_NUMERIC", "en_US.UTF-8");
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        = 10000.1 | str from -g
+        "#
+    ));
+
+    assert!(actual.out.contains("10,000.1"));
+}
+
+#[test]
+fn from_decimal_grouping_posix() {
+    env::set_var("LC_NUMERIC", "POSIX");
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        = 10000.1 | str from -g
+        "#
+    ));
+
+    assert!(actual.out.contains("10000.1"));
 }
