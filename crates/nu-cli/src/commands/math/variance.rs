@@ -2,10 +2,9 @@ use crate::commands::math::utils::run_with_function;
 use crate::commands::WholeStreamCommand;
 use crate::data::value::compute_values;
 use crate::prelude::*;
-use crate::utils::data_processing::{reducer_for, Reduce};
 use bigdecimal::{FromPrimitive, Zero};
 use nu_errors::ShellError;
-use nu_protocol::{hir::Operator, Signature, UntaggedValue, Value};
+use nu_protocol::{hir::Operator, Primitive, Signature, UntaggedValue, Value};
 
 pub struct SubCommand;
 
@@ -53,74 +52,100 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn sum_squared_values(values: &[Value]) -> Result<Value, ShellError> {
-    let mut acc = Value::zero();
-    for value in values {
-        match value.value {
-            UntaggedValue::Primitive(_) => {
-                let v_squared = compute_values(Operator::Multiply, &value.value, &value.value);
-                match v_squared {
-                    Ok(v) => acc = acc + v.into_untagged_value(),
-                    Err((left_type, right_type)) => {
-                        return Err(ShellError::coerce_error(
-                            left_type.spanned(value.tag.span),
-                            right_type.spanned(value.tag.span),
-                        ))
-                    }
-                }
-            }
-            _ => {
-                return Err(ShellError::labeled_error(
-                    "Attempted to compute the sum of a value that cannot be summed.",
-                    "value appears here",
-                    value.tag.span,
-                ))
-            }
-        }
-    }
-    Ok(acc)
-}
-
-pub fn variance(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
-    let sum = reducer_for(Reduce::Summation);
-
-    let number = BigDecimal::from_usize(values.len()).ok_or_else(|| {
+fn sum_of_squares(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
+    let n = BigDecimal::from_usize(values.len()).ok_or_else(|| {
         ShellError::labeled_error(
             "could not convert to big decimal",
             "could not convert to big decimal",
             &name.span,
         )
     })?;
+    let mut sum_x = Value::zero();
+    let mut sum_x2 = Value::zero();
+    for value in values {
+        let v = match value {
+            Value {
+                value: UntaggedValue::Primitive(Primitive::Bytes(num)),
+                ..
+            } => {
+                UntaggedValue::from(Primitive::Int(num.clone().into()))
+            },
+            Value {
+                value: UntaggedValue::Primitive(num),
+                ..
+            } => {
+                UntaggedValue::from(num.clone())
+            },
+            _ => {
+                return Err(ShellError::labeled_error(
+                    "Attempted to compute the sum of squared values of a value that cannot be summed or squared.",
+                    "value appears here",
+                    value.tag.span,
+                ))
+            }
+        };
+        let v_squared = compute_values(Operator::Multiply, &v, &v);
+        match v_squared {
+            // X^2
+            Ok(x2) => sum_x2 = sum_x2 + x2.into_untagged_value(),
+            Err((left_type, right_type)) => {
+                return Err(ShellError::coerce_error(
+                    left_type.spanned(value.tag.span),
+                    right_type.spanned(value.tag.span),
+                ))
+            }
+        };
+        sum_x = sum_x + v.into_untagged_value();
+    }
 
-    let total_rows = UntaggedValue::decimal(number);
-    let total_sum = sum(Value::zero(), values.to_vec())?;
-    let total_sum_squared_values = sum_squared_values(values)?;
-
-    if total_sum.is_primitive() && total_sum_squared_values.is_primitive() {
-        let sum_x = total_sum.value;
-        let sum_x2 = total_sum_squared_values.value;
-        // (SUM(X))^2
-        let sum_x_2 = compute_values(Operator::Multiply, &sum_x, &sum_x).unwrap();
-        // (SUM(X))^2 / N
-        let sum_x_2_div_n = compute_values(Operator::Divide, &sum_x_2, &total_rows).unwrap();
-        // SS = SUM(X^2) - (SUM(X))^2/N
-        let ss = compute_values(Operator::Minus, &sum_x2, &sum_x_2_div_n).unwrap();
-        // Variance = SS / N
-        let result = compute_values(Operator::Divide, &ss, &total_rows);
-
-        match result {
-            Ok(value) => Ok(value.into_value(name)),
-            Err((left_type, right_type)) => Err(ShellError::coerce_error(
+    let sum_x_squared = match compute_values(Operator::Multiply, &sum_x, &sum_x) {
+        Ok(v) => v.into_untagged_value(),
+        Err((left_type, right_type)) => {
+            return Err(ShellError::coerce_error(
                 left_type.spanned(name.span),
                 right_type.spanned(name.span),
-            )),
+            ))
         }
-    } else {
-        Err(ShellError::labeled_error(
+    };
+    let sum_x_squared_div_n = match compute_values(Operator::Divide, &sum_x_squared, &n.into()) {
+        Ok(v) => v.into_untagged_value(),
+        Err((left_type, right_type)) => {
+            return Err(ShellError::coerce_error(
+                left_type.spanned(name.span),
+                right_type.spanned(name.span),
+            ))
+        }
+    };
+    let ss = match compute_values(Operator::Minus, &sum_x2, &sum_x_squared_div_n) {
+        Ok(v) => v.into_untagged_value(),
+        Err((left_type, right_type)) => {
+            return Err(ShellError::coerce_error(
+                left_type.spanned(name.span),
+                right_type.spanned(name.span),
+            ))
+        }
+    };
+
+    Ok(ss)
+}
+
+pub fn variance(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
+    let ss = sum_of_squares(values, name)?;
+    let n = BigDecimal::from_usize(values.len()).ok_or_else(|| {
+        ShellError::labeled_error(
+            "could not convert to big decimal",
+            "could not convert to big decimal",
+            &name.span,
+        )
+    })?;
+    let variance = compute_values(Operator::Divide, &ss, &n.into());
+    match variance {
+        Ok(value) => Ok(value.into_value(name)),
+        Err((_, _)) => Err(ShellError::labeled_error(
             "could not calculate variance of non-integer or unrelated types",
             "source",
             name,
-        ))
+        )),
     }
 }
 
