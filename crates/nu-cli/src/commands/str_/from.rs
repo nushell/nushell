@@ -1,11 +1,14 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{
+    ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+};
 use nu_source::Tagged;
 use num_bigint::{BigInt, BigUint, ToBigInt};
-use num_format::{SystemLocale, ToFormattedString};
+use num_format::{Locale, SystemLocale, ToFormattedString};
 use num_traits::{Pow, Signed};
+use std::iter;
 
 pub struct SubCommand;
 
@@ -14,6 +17,7 @@ struct Arguments {
     decimals: Option<Tagged<u64>>,
     #[serde(rename(deserialize = "group-digits"))]
     group_digits: bool,
+    rest: Vec<ColumnPath>,
 }
 
 #[async_trait]
@@ -46,7 +50,7 @@ impl WholeStreamCommand for SubCommand {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        to_str(args, registry).await
+        operate(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -67,29 +71,114 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn format_decimal(
-    mut decimal: BigDecimal,
+async fn operate(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
+    let (
+        Arguments {
+            decimals,
+            group_digits,
+            rest: column_paths,
+        },
+        input,
+    ) = args.process(&registry.clone()).await?;
+
+    let digits = decimals.as_ref().map(|tagged| tagged.item);
+    // let locale = match SystemLocale::default() {
+    //     Ok(locale) => locale,
+    //     Err(_) => {
+    //         return Err(ShellError::unexpected(
+    //             "num-format failed to load system locale",
+    //         ))
+    //     }
+    // };
+
+    // let box_locale: Box<dyn Format> = match SystemLocale::default() {
+    //     Ok(locale) => Box::new(&locale),
+    //     Err(_) => Box::new(&Locale::en_US_POSIX),
+    // };
+
+    Ok(input
+        .map(move |v| {
+            if column_paths.is_empty() {
+                match action(&v, v.tag(), digits, group_digits) {
+                    Ok(out) => ReturnSuccess::value(out),
+                    Err(err) => Err(err),
+                }
+            } else {
+                let mut ret = v;
+                for path in &column_paths {
+                    let swapping = ret.swap_data_by_column_path(
+                        path,
+                        Box::new(move |old| action(old, old.tag(), digits, group_digits)),
+                    );
+                    match swapping {
+                        Ok(new_value) => {
+                            ret = new_value;
+                        }
+                        Err(err) => {
+                            return Err(err);
+                        }
+                    }
+                }
+
+                ReturnSuccess::value(ret)
+            }
+        })
+        .to_output_stream())
+}
+
+// TODO If you're using the with-system-locale feature and you're on Windows, Clang 3.9 or higher is also required.
+fn action(
+    input: &Value,
+    tag: impl Into<Tag>,
     digits: Option<u64>,
-    locale: Option<&SystemLocale>,
-) -> String {
-    decimal = match digits {
-        None => decimal,
-        Some(n) => round_decimal(&decimal, n),
-    };
+    group_digits: bool,
+) -> Result<Value, ShellError> {
+    Ok(match &input.value {
+        UntaggedValue::Primitive(prim) => UntaggedValue::string(match prim {
+            Primitive::Int(int) => {
+                if group_digits {
+                    format_bigint(int) // int.to_formatted_string(*locale)
+                } else {
+                    int.to_string()
+                }
+            }
+            Primitive::Decimal(dec) => format_decimal(dec.clone(), digits, group_digits),
+            _ => return Err(ShellError::unimplemented("str from for non-numeric types")),
+        })
+        .into_value(tag),
+        _ => input.clone(),
+    })
+}
+
+fn format_bigint(int: &BigInt) -> String {
+    match SystemLocale::default() {
+        Ok(locale) => int.to_formatted_string(&locale),
+        Err(_) => int.to_formatted_string(&Locale::en_US_POSIX),
+    }
+}
+
+fn format_decimal(mut decimal: BigDecimal, digits: Option<u64>, group_digits: bool) -> String {
+    if let Some(n) = digits {
+        decimal = round_decimal(&decimal, n)
+    }
 
     if decimal.is_integer() {
         // TODO append zeros?
         let int = decimal
             .to_bigint()
             .expect("integer BigDecimal should convert to BigInt");
-        return match locale {
-            None => int.to_string(),
-            Some(loc) => int.to_formatted_string(loc),
+        return if group_digits {
+            int.to_string()
+        } else {
+            format_bigint(&int)
         };
     }
 
     let (int, exp) = decimal.as_bigint_and_exponent();
-    let factor = BigInt::from(10).pow(BigUint::from(exp as u64));
+    let factor = BigInt::from(10).pow(BigUint::from(exp as u64)); // exp > 0 for non-int decimal
     let int_part = &int / &factor;
     let dec_part = (&int % &factor)
         .abs()
@@ -100,9 +189,14 @@ fn format_decimal(
     let mut dec_str = String::from("");
     let mut backlog = String::from("");
     if let Some(n) = digits {
-        dec_str = dec_part.chars().take(n as usize).collect();
+        dec_str = dec_part
+            .chars()
+            .chain(iter::repeat('0'))
+            .take(n as usize)
+            .collect();
     } else {
         dec_part.chars().for_each(|ch| match ch {
+            // TODO move this fxnty to trim --char
             '0' => backlog.push('0'),
             other => {
                 dec_str.push_str(backlog.as_str());
@@ -111,13 +205,35 @@ fn format_decimal(
             }
         });
     }
+    #[cfg(target_os = "windows")]
+    {
+        let loc = Locale::en_US_POSIX;
+        let (int_str, sep) = (
+            int_part.to_formatted_string(&loc),
+            String::from(loc.decimal()),
+        );
 
-    let (int_part_str, sep) = match locale {
-        None => (int_part.to_string(), "."),
-        Some(loc) => (int_part.to_formatted_string(loc), loc.decimal()),
-    };
+        format!("{}{}{}", int_str, sep, dec_str)
+    }
 
-    format!("{}{}{}", int_part_str, sep, dec_str)
+    #[cfg(not(target_os = "windows"))]
+    {
+        let (int_str, sep) = match SystemLocale::default() {
+            Ok(sys_loc) => (
+                int_part.to_formatted_string(&sys_loc),
+                String::from(sys_loc.decimal()),
+            ),
+            Err(_) => {
+                let loc = Locale::en_US_POSIX;
+                (
+                    int_part.to_formatted_string(&loc),
+                    String::from(loc.decimal()),
+                )
+            }
+        };
+
+        format!("{}{}{}", int_str, sep, dec_str)
+    }
 }
 
 fn round_decimal(decimal: &BigDecimal, mut digits: u64) -> BigDecimal {
@@ -128,47 +244,6 @@ fn round_decimal(decimal: &BigDecimal, mut digits: u64) -> BigDecimal {
     }
 
     decimal.with_prec(digits)
-}
-
-async fn to_str(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let (
-        Arguments {
-            decimals,
-            group_digits,
-        },
-        input,
-    ) = args.process(&registry.clone()).await?;
-    let locale = match SystemLocale::default() {
-        Ok(locale) => locale,
-        Err(_) => {
-            return Err(ShellError::unexpected(
-                "num-format failed to load system locale",
-            ))
-        }
-    };
-
-    Ok(input
-        .map(move |val| {
-            ReturnSuccess::value(match val.value {
-                UntaggedValue::Primitive(prim) => UntaggedValue::string(match prim {
-                    Primitive::Int(int) => {
-                        if group_digits {
-                            int.to_formatted_string(&locale)
-                        } else {
-                            int.to_string()
-                        }
-                    }
-                    Primitive::Decimal(dec) => format_decimal(
-                        dec,
-                        decimals.as_ref().map(|tagged| tagged.item),
-                        if group_digits { Some(&locale) } else { None },
-                    ),
-                    other => other.into_string(val.tag.span)?,
-                }),
-                other => other,
-            })
-        })
-        .to_output_stream())
 }
 
 #[cfg(test)]

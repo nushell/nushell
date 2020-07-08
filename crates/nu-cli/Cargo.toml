@@ -57,7 +57,6 @@ log = "0.4.8"
 meval = "0.2"
 natural = "0.5.0"
 num-bigint = {version = "0.2.6", features = ["serde"]}
-num-format = {version = "0.4", features = ["with-num-bigint", "with-system-locale"]}
 num-traits = "0.2.11"
 parking_lot = "0.11.0"
 pin-utils = "0.1.0"
@@ -98,6 +97,12 @@ trash = {version = "1.0.1", optional = true}
 
 [target.'cfg(unix)'.dependencies]
 users = "0.10.0"
+
+[target.'cfg(not(windows))'.dependencies]
+num-format = {version = "0.4", features = ["with-num-bigint", "with-system-locale"]}
+
+[target.'cfg(windows)'.dependencies]
+num-format = {version = "0.4", features = ["with-num-bigint"]}
 
 [dependencies.rusqlite]
 features = ["bundled", "blob"]
