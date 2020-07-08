@@ -5,7 +5,6 @@ use ical::parser::vcard::component::*;
 use ical::property::Property;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
-use std::io::BufReader;
 
 pub struct FromVcf;
 
@@ -42,28 +41,20 @@ async fn from_vcf(
     let input = args.input;
 
     let input_string = input.collect_string(tag.clone()).await?.item;
-    let input_bytes = input_string.as_bytes();
-    let buf_reader = BufReader::new(input_bytes);
+    let input_bytes = input_string.into_bytes();
+    let buf_reader = std::io::Cursor::new(input_bytes);
     let parser = ical::VcardParser::new(buf_reader);
 
-    let mut values_vec_deque = VecDeque::new();
+    let iter = parser.map(move |contact| match contact {
+        Ok(c) => ReturnSuccess::value(contact_to_value(c, tag.clone())),
+        Err(_) => Err(ShellError::labeled_error(
+            "Could not parse as .vcf",
+            "input cannot be parsed as .vcf",
+            tag.clone(),
+        )),
+    });
 
-    for contact in parser {
-        match contact {
-            Ok(c) => {
-                values_vec_deque.push_back(ReturnSuccess::value(contact_to_value(c, tag.clone())))
-            }
-            Err(_) => {
-                return Err(ShellError::labeled_error(
-                    "Could not parse as .vcf",
-                    "input cannot be parsed as .vcf",
-                    tag.clone(),
-                ))
-            }
-        }
-    }
-
-    Ok(futures::stream::iter(values_vec_deque).to_output_stream())
+    Ok(futures::stream::iter(iter).to_output_stream())
 }
 
 fn contact_to_value(contact: VcardContact, tag: Tag) -> Value {
