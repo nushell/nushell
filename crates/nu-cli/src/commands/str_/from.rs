@@ -154,9 +154,16 @@ fn action(
 }
 
 fn format_bigint(int: &BigInt) -> String {
-    match SystemLocale::default() {
-        Ok(locale) => int.to_formatted_string(&locale),
-        Err(_) => int.to_formatted_string(&Locale::en_US_POSIX),
+    #[cfg(target_os = "windows")]
+    {
+        int.to_formatted_string(&Locale::en_US_POSIX)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        match SystemLocale::default() {
+            Ok(locale) => int.to_formatted_string(&locale),
+            Err(_) => int.to_formatted_string(&Locale::en_US_POSIX),
+        }
     }
 }
 
@@ -205,6 +212,7 @@ fn format_decimal(mut decimal: BigDecimal, digits: Option<u64>, group_digits: bo
             }
         });
     }
+
     #[cfg(target_os = "windows")]
     {
         let loc = Locale::en_US_POSIX;
@@ -215,7 +223,6 @@ fn format_decimal(mut decimal: BigDecimal, digits: Option<u64>, group_digits: bo
 
         format!("{}{}{}", int_str, sep, dec_str)
     }
-
     #[cfg(not(target_os = "windows"))]
     {
         let (int_str, sep) = match SystemLocale::default() {

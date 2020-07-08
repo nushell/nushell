@@ -98,10 +98,10 @@ trash = {version = "1.0.1", optional = true}
 [target.'cfg(unix)'.dependencies]
 users = "0.10.0"
 
-[target.'cfg(not(windows))'.dependencies]
+[target.'cfg(not(target_os = "windows"))'.dependencies]
 num-format = {version = "0.4", features = ["with-num-bigint", "with-system-locale"]}
 
-[target.'cfg(windows)'.dependencies]
+[target.'cfg(target_os = "windows")'.dependencies]
 num-format = {version = "0.4", features = ["with-num-bigint"]}
 
 [dependencies.rusqlite]
