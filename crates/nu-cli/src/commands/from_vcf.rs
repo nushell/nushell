@@ -45,10 +45,10 @@ async fn from_vcf(
     let buf_reader = std::io::Cursor::new(input_bytes);
     let parser = ical::VcardParser::new(buf_reader);
 
-    let iter = parser.into_iter().map(move |contact| match contact {
+    let iter = parser.map(move |contact| match contact {
         Ok(c) => ReturnSuccess::value(contact_to_value(c, tag.clone())),
         Err(_) => {
-            return Err(ShellError::labeled_error(
+            Err(ShellError::labeled_error(
                 "Could not parse as .vcf",
                 "input cannot be parsed as .vcf",
                 tag.clone(),
