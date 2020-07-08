@@ -47,13 +47,11 @@ async fn from_vcf(
 
     let iter = parser.map(move |contact| match contact {
         Ok(c) => ReturnSuccess::value(contact_to_value(c, tag.clone())),
-        Err(_) => {
-            Err(ShellError::labeled_error(
-                "Could not parse as .vcf",
-                "input cannot be parsed as .vcf",
-                tag.clone(),
-            ))
-        }
+        Err(_) => Err(ShellError::labeled_error(
+            "Could not parse as .vcf",
+            "input cannot be parsed as .vcf",
+            tag.clone(),
+        )),
     });
 
     Ok(futures::stream::iter(iter).to_output_stream())
