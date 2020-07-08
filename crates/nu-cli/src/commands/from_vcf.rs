@@ -5,7 +5,6 @@ use ical::parser::vcard::component::*;
 use ical::property::Property;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
-use std::io::BufReader;
 
 pub struct FromVcf;
 
