@@ -2728,7 +2728,6 @@ dependencies = [
  "base64 0.12.3",
  "futures 0.3.5",
  "nu-build",
- "nu-cli",
  "nu-errors",
  "nu-plugin",
  "nu-protocol",
