@@ -42,8 +42,8 @@ async fn from_vcf(
 
     let input_string = input.collect_string(tag.clone()).await?.item;
     let input_bytes = input_string.into_bytes();
-    let buf_reader = std::io::Cursor::new(input_bytes);
-    let parser = ical::VcardParser::new(buf_reader);
+    let cursor = std::io::Cursor::new(input_bytes);
+    let parser = ical::VcardParser::new(cursor);
 
     let iter = parser.map(move |contact| match contact {
         Ok(c) => ReturnSuccess::value(contact_to_value(c, tag.clone())),
