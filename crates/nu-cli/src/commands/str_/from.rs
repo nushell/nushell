@@ -91,7 +91,7 @@ async fn operate(
         },
         input,
     ) = args.process(&registry.clone()).await?;
-    let digits = decimals.as_ref().map(|tagged| tagged.item);
+    let digits = decimals.map(|tagged| tagged.item);
 
     Ok(input
         .map(move |v| {
@@ -147,8 +147,10 @@ fn action(
             }
         })
         .into_value(tag)),
-        UntaggedValue::Row(_) => Err(ShellError::syntax_error(
-            String::from("specify table column to use 'str from'").spanned(input.tag.clone()),
+        UntaggedValue::Row(_) => Err(ShellError::labeled_error(
+            "specify column to use 'str from'",
+            "found table",
+            input.tag.clone(),
         )),
         _ => Err(ShellError::unimplemented(
             "str from for non-primitive, non-table types",
