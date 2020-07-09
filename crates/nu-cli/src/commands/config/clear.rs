@@ -2,32 +2,22 @@ use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
-use nu_source::Tagged;
+use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 
 pub struct SubCommand;
-
-#[derive(Deserialize)]
-pub struct SetArgs {
-    set: (Tagged<String>, Value),
-}
 
 #[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
-        "config set"
+        "config clear"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("config set").required(
-            "set",
-            SyntaxShape::Any,
-            "sets a value in the config, eg) set [key value]",
-        )
+        Signature::build("config clear")
     }
 
     fn usage(&self) -> &str {
-        "Sets a value in the config"
+        "clear the config"
     }
 
     async fn run(
@@ -35,34 +25,33 @@ impl WholeStreamCommand for SubCommand {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        set(args, registry).await
+        clear(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Set completion_mode to circular",
-            example: "config set [completion_mode circular]",
+            description: "Clear the config (be careful!)",
+            example: "config clear",
             result: None,
         }]
     }
 }
 
-pub async fn set(
+pub async fn clear(
     args: CommandArgs,
-    registry: &CommandRegistry,
+    _registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
     let name_span = args.call_info.name_tag.clone();
-    let (SetArgs { set: (key, value) }, _) = args.process(&registry).await?;
 
     // NOTE: None because we are not loading a new config file, we just want to read from the
     // existing config
     let mut result = crate::data::config::read(name_span, &None)?;
 
-    result.insert(key.to_string(), value.clone());
+    result.clear();
 
     config::write(&result, &None)?;
 
     Ok(OutputStream::one(ReturnSuccess::value(
-        UntaggedValue::Row(result.into()).into_value(&value.tag),
+        UntaggedValue::Row(result.into()).into_value(args.call_info.name_tag),
     )))
 }

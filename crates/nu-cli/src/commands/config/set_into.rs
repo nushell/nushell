@@ -41,7 +41,7 @@ impl WholeStreamCommand for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Store the contents of the pipeline as a path",
-            example: "echo ['/usr/bin' '/bin'] | config --set_into path",
+            example: "echo ['/usr/bin' '/bin'] | config set_into path",
             result: None,
         }]
     }
