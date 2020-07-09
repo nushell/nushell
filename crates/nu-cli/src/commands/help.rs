@@ -170,6 +170,7 @@ fn generate_docs(registry: &CommandRegistry) -> String {
                 "Expected command from names to be in registry {}",
                 name
             ));
+            // Sub-commands are Header 2
             if name.contains(" ") {
                 acc + &format!(
                     "## {}\n\n{}\n\n",
@@ -177,6 +178,7 @@ fn generate_docs(registry: &CommandRegistry) -> String {
                     &get_help(command.stream_command(), registry)
                 )
             } else {
+                // Commands are Header 1
                 acc + &format!(
                     "# {}\n\n{}\n\n",
                     name,
