@@ -60,6 +60,7 @@ macro_rules! entry_builtin {
     };
 }
 
+#[allow(unused)]
 macro_rules! entry_path {
     ($arg:expr, $path:expr, $tag:expr) => {
         entry(
@@ -99,13 +100,16 @@ async fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
         }
     }
 
-    if let Ok(paths) = ichwh::which_all(&item).await {
-        for path in paths {
-            output.push(ReturnSuccess::value(entry_path!(
-                item,
-                path.into(),
-                application.tag.clone()
-            )));
+    #[cfg(feature = "ichwh")]
+    {
+        if let Ok(paths) = ichwh::which_all(&item).await {
+            for path in paths {
+                output.push(ReturnSuccess::value(entry_path!(
+                    item,
+                    path.into(),
+                    application.tag.clone()
+                )));
+            }
         }
     }
 

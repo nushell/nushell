@@ -26,7 +26,7 @@ pub(crate) async fn run_external_command(
 ) -> Result<InputStream, ShellError> {
     trace!(target: "nu::run::external", "-> {}", command.name);
 
-    if !did_find_command(&command.name).await {
+    if !did_find_command(&command.name) {
         return Err(ShellError::labeled_error(
             "Command not found",
             "command not found",
@@ -70,7 +70,18 @@ async fn run_with_stdin(
     let process_args = command_args
         .iter()
         .map(|arg| {
-            let arg = expand_tilde(arg.deref(), dirs::home_dir);
+            let home_dir;
+
+            #[cfg(feature = "dirs")]
+            {
+                home_dir = dirs::home_dir;
+            }
+            #[cfg(not(feature = "dirs"))]
+            {
+                home_dir = || Some(std::path::PathBuf::from("/"));
+            }
+
+            let arg = expand_tilde(arg.deref(), home_dir);
 
             #[cfg(not(windows))]
             {
@@ -407,8 +418,13 @@ fn spawn(
     }
 }
 
-async fn did_find_command(name: &str) -> bool {
-    #[cfg(not(windows))]
+pub fn did_find_command(name: &str) -> bool {
+    #[cfg(target_arch = "wasm32")]
+    {
+        false
+    }
+
+    #[cfg(not(any(windows, target_arch = "wasm32")))]
     {
         which::which(name).is_ok()
     }

@@ -6,9 +6,6 @@ use std::ffi::OsString;
 use std::fmt::Debug;
 
 pub trait Host: Debug + Send {
-    fn out_terminal(&self) -> Option<Box<term::StdoutTerminal>>;
-    fn err_terminal(&self) -> Option<Box<term::StderrTerminal>>;
-
     fn out_termcolor(&self) -> termcolor::StandardStream;
     fn err_termcolor(&self) -> termcolor::StandardStream;
 
@@ -24,14 +21,6 @@ pub trait Host: Debug + Send {
 }
 
 impl Host for Box<dyn Host> {
-    fn out_terminal(&self) -> Option<Box<term::StdoutTerminal>> {
-        (**self).out_terminal()
-    }
-
-    fn err_terminal(&self) -> Option<Box<term::StderrTerminal>> {
-        (**self).err_terminal()
-    }
-
     fn stdout(&mut self, out: &str) {
         (**self).stdout(out)
     }
@@ -73,14 +62,6 @@ impl Host for Box<dyn Host> {
 pub struct BasicHost;
 
 impl Host for BasicHost {
-    fn out_terminal(&self) -> Option<Box<term::StdoutTerminal>> {
-        term::stdout()
-    }
-
-    fn err_terminal(&self) -> Option<Box<term::StderrTerminal>> {
-        term::stderr()
-    }
-
     fn stdout(&mut self, out: &str) {
         match out {
             "\n" => outln!(""),
@@ -145,14 +126,6 @@ impl FakeHost {
 
 #[cfg(test)]
 impl Host for FakeHost {
-    fn out_terminal(&self) -> Option<Box<term::StdoutTerminal>> {
-        None
-    }
-
-    fn err_terminal(&self) -> Option<Box<term::StderrTerminal>> {
-        None
-    }
-
     fn stdout(&mut self, out: &str) {
         self.line_written = out.to_string();
     }

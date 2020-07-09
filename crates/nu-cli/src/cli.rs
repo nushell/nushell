@@ -437,6 +437,7 @@ pub async fn run_vec_of_pipelines(
 
     let cc = context.ctrl_c.clone();
 
+    #[cfg(feature = "ctrlc")]
     ctrlc::set_handler(move || {
         cc.store(true, Ordering::SeqCst);
     })
@@ -557,6 +558,8 @@ pub async fn cli(
     let _ = rl.load_history(&History::path());
 
     let cc = context.ctrl_c.clone();
+
+    #[cfg(feature = "ctrlc")]
     ctrlc::set_handler(move || {
         cc.store(true, Ordering::SeqCst);
     })
@@ -661,21 +664,35 @@ pub async fn cli(
 
         let colored_prompt = {
             if use_starship {
-                std::env::set_var("STARSHIP_SHELL", "");
-                std::env::set_var("PWD", &cwd);
-                let mut starship_context =
-                    starship::context::Context::new_with_dir(clap::ArgMatches::default(), cwd);
+                #[cfg(feature = "starship")]
+                {
+                    std::env::set_var("STARSHIP_SHELL", "");
+                    std::env::set_var("PWD", &cwd);
+                    let mut starship_context =
+                        starship::context::Context::new_with_dir(clap::ArgMatches::default(), cwd);
 
-                match starship_context.config.config {
-                    None => {
-                        starship_context.config.config = create_default_starship_config();
-                    }
-                    Some(toml::Value::Table(t)) if t.is_empty() => {
-                        starship_context.config.config = create_default_starship_config();
-                    }
-                    _ => {}
-                };
-                starship::print::get_prompt(starship_context)
+                    match starship_context.config.config {
+                        None => {
+                            starship_context.config.config = create_default_starship_config();
+                        }
+                        Some(toml::Value::Table(t)) if t.is_empty() => {
+                            starship_context.config.config = create_default_starship_config();
+                        }
+                        _ => {}
+                    };
+                    starship::print::get_prompt(starship_context)
+                }
+                #[cfg(not(feature = "starship"))]
+                {
+                    format!(
+                        "\x1b[32m{}{}\x1b[m> ",
+                        cwd,
+                        match current_branch() {
+                            Some(s) => format!("({})", s),
+                            None => "".to_string(),
+                        }
+                    )
+                }
             } else if let Some(prompt) = config.get("prompt") {
                 let prompt_line = prompt.as_string()?;
 
@@ -914,7 +931,7 @@ pub async fn process_line(
                             .unwrap_or(true)
                         && canonicalize(ctx.shell_manager.path(), name).is_ok()
                         && Path::new(&name).is_dir()
-                        && which::which(&name).is_err()
+                        && !crate::commands::classified::external::did_find_command(&name)
                     {
                         // Here we work differently if we're in Windows because of the expected Windows behavior
                         #[cfg(windows)]

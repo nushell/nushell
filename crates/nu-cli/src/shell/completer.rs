@@ -3,8 +3,9 @@ use crate::context::CommandRegistry;
 use crate::data::config;
 use crate::prelude::*;
 use derive_new::new;
-#[cfg(windows)]
+#[cfg(all(windows, feature = "ichwh"))]
 use ichwh::IchwhError;
+#[cfg(feature = "ichwh")]
 use ichwh::IchwhResult;
 use indexmap::set::IndexSet;
 use rustyline::completion::{Completer, FilenameCompleter};
@@ -245,15 +246,19 @@ impl NuCompleter {
     }
 
     #[cfg(unix)]
-    fn is_executable(&self, file: &DirEntry) -> IchwhResult<bool> {
-        let metadata = file.metadata()?;
+    fn is_executable(&self, file: &DirEntry) -> bool {
+        let metadata = file.metadata();
 
-        let filetype = metadata.file_type();
-        let permissions = metadata.permissions();
+        if let Ok(metadata) = metadata {
+            let filetype = metadata.file_type();
+            let permissions = metadata.permissions();
 
-        // The file is executable if it is a directory or a symlink and the permissions are set for
-        // owner, group, or other
-        Ok((filetype.is_file() || filetype.is_symlink()) && (permissions.mode() & 0o111 != 0))
+            // The file is executable if it is a directory or a symlink and the permissions are set for
+            // owner, group, or other
+            (filetype.is_file() || filetype.is_symlink()) && (permissions.mode() & 0o111 != 0)
+        } else {
+            false
+        }
     }
 
     fn find_path_executables(&self) -> Option<IndexSet<String>> {
@@ -264,7 +269,7 @@ impl NuCompleter {
         for path in paths {
             if let Ok(mut contents) = read_dir(path) {
                 while let Some(Ok(item)) = contents.next() {
-                    if let Ok(true) = self.is_executable(&item) {
+                    if self.is_executable(&item) {
                         if let Ok(name) = item.file_name().into_string() {
                             executables.insert(name);
                         }

@@ -32,7 +32,7 @@ pub fn nu(env: &IndexMap<String, String>, tag: impl Into<Tag>) -> Result<Value, 
     let path = std::env::current_dir()?;
     nu_dict.insert_value("cwd", UntaggedValue::path(path).into_value(&tag));
 
-    if let Some(home) = dirs::home_dir() {
+    if let Some(home) = crate::shell::filesystem_shell::homedir_if_possible() {
         nu_dict.insert_value("home-dir", UntaggedValue::path(home).into_value(&tag));
     }
 

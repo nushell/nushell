@@ -95,32 +95,32 @@ impl Playground {
         self
     }
 
-    pub fn symlink(&mut self, from: impl AsRef<Path>, to: impl AsRef<Path>) -> &mut Self {
-        let from = self.cwd.join(from);
-        let to = self.cwd.join(to);
+    // pub fn symlink(&mut self, from: impl AsRef<Path>, to: impl AsRef<Path>) -> &mut Self {
+    //     let from = self.cwd.join(from);
+    //     let to = self.cwd.join(to);
 
-        let create_symlink = {
-            #[cfg(unix)]
-            {
-                std::os::unix::fs::symlink
-            }
+    //     let create_symlink = {
+    //         #[cfg(unix)]
+    //         {
+    //             std::os::unix::fs::symlink
+    //         }
 
-            #[cfg(windows)]
-            {
-                if from.is_file() {
-                    std::os::windows::fs::symlink_file
-                } else if from.is_dir() {
-                    std::os::windows::fs::symlink_dir
-                } else {
-                    panic!("symlink from must be a file or dir")
-                }
-            }
-        };
+    //         #[cfg(windows)]
+    //         {
+    //             if from.is_file() {
+    //                 std::os::windows::fs::symlink_file
+    //             } else if from.is_dir() {
+    //                 std::os::windows::fs::symlink_dir
+    //             } else {
+    //                 panic!("symlink from must be a file or dir")
+    //             }
+    //         }
+    //     };
 
-        create_symlink(from, to).expect("can not create symlink");
-        self.back_to_playground();
-        self
-    }
+    //     create_symlink(from, to).expect("can not create symlink");
+    //     self.back_to_playground();
+    //     self
+    // }
 
     pub fn with_files(&mut self, files: Vec<Stub>) -> &mut Self {
         let endl = fs::line_ending();

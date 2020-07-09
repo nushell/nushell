@@ -157,7 +157,7 @@ async fn maybe_autocd_dir<'a>(cmd: &ExternalCommand, ctx: &mut Context) -> Optio
         || (cmd.args.is_empty()
             && PathBuf::from(name).is_dir()
             && dunce::canonicalize(name).is_ok()
-            && which::which(&name).is_err())
+            && !crate::commands::classified::external::did_find_command(&name))
     {
         Some(name)
     } else {
