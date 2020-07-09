@@ -1,58 +1,22 @@
-use crate::commands::WholeStreamCommand;
-use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, Signature, TaggedDictBuilder, UntaggedValue, Value};
+use nu_protocol::{Primitive, ReturnSuccess, ReturnValue, TaggedDictBuilder, UntaggedValue, Value};
+use nu_source::Tag;
 use rusqlite::{types::ValueRef, Connection, Row, NO_PARAMS};
 use std::io::Write;
 use std::path::Path;
 
-pub struct FromSQLite;
-
-#[async_trait]
-impl WholeStreamCommand for FromSQLite {
-    fn name(&self) -> &str {
-        "from sqlite"
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build("from sqlite")
-    }
-
-    fn usage(&self) -> &str {
-        "Parse binary data as sqlite .db and create table."
-    }
-
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        from_sqlite(args, registry).await
-    }
+#[derive(Default)]
+pub struct FromSqlite {
+    pub state: Vec<u8>,
+    pub name_tag: Tag,
 }
 
-pub struct FromDB;
-
-#[async_trait]
-impl WholeStreamCommand for FromDB {
-    fn name(&self) -> &str {
-        "from db"
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build("from db")
-    }
-
-    fn usage(&self) -> &str {
-        "Parse binary data as db and create table."
-    }
-
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        from_sqlite(args, registry).await
+impl FromSqlite {
+    pub fn new() -> FromSqlite {
+        FromSqlite {
+            state: vec![],
+            name_tag: Tag::unknown(),
+        }
     }
 }
 
@@ -135,47 +99,19 @@ pub fn from_sqlite_bytes_to_value(
     }
 }
 
-async fn from_sqlite(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let args = args.evaluate_once(&registry).await?;
-    let tag = args.name_tag();
-    let input = args.input;
-
-    let bytes = input.collect_binary(tag.clone()).await?;
-
-    match from_sqlite_bytes_to_value(bytes.item, tag.clone()) {
+pub fn from_sqlite(bytes: Vec<u8>, name_tag: Tag) -> Result<Vec<ReturnValue>, ShellError> {
+    match from_sqlite_bytes_to_value(bytes, name_tag.clone()) {
         Ok(x) => match x {
             Value {
                 value: UntaggedValue::Table(list),
                 ..
-            } => Ok(futures::stream::iter(list).to_output_stream()),
-            _ => Ok(OutputStream::one(x)),
+            } => Ok(list.into_iter().map(ReturnSuccess::value).collect()),
+            _ => Ok(vec![ReturnSuccess::value(x)]),
         },
-        Err(err) => {
-            println!("{:?}", err);
-
-            Err(ShellError::labeled_error_with_secondary(
-                "Could not parse as SQLite",
-                "input cannot be parsed as SQLite",
-                &tag,
-                "value originates from here",
-                bytes.tag,
-            ))
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::FromSQLite;
-
-    #[test]
-    fn examples_work_as_expected() {
-        use crate::examples::test as test_examples;
-
-        test_examples(FromSQLite {})
+        Err(_) => Err(ShellError::labeled_error(
+            "Could not parse as SQLite",
+            "input cannot be parsed as SQLite",
+            &name_tag,
+        )),
     }
 }

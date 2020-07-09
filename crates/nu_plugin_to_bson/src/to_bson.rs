@@ -1,39 +1,21 @@
-use crate::commands::WholeStreamCommand;
-use crate::prelude::*;
 use bson::{encode_document, oid::ObjectId, spec::BinarySubtype, Bson, Document};
 use nu_errors::{CoerceInto, ShellError};
 use nu_protocol::{
-    Dictionary, Primitive, ReturnSuccess, Signature, SpannedTypeName, UnspannedPathMember,
+    Dictionary, Primitive, ReturnSuccess, ReturnValue, SpannedTypeName, UnspannedPathMember,
     UntaggedValue, Value,
 };
+use nu_source::{Tag, TaggedItem};
+use num_traits::ToPrimitive;
 use std::convert::TryInto;
 
-pub struct ToBSON;
+#[derive(Default)]
+pub struct ToBSON {
+    pub state: Vec<Value>,
+}
 
-#[async_trait]
-impl WholeStreamCommand for ToBSON {
-    fn name(&self) -> &str {
-        "to bson"
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build("to bson")
-    }
-
-    fn usage(&self) -> &str {
-        "Convert table into .bson text."
-    }
-
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        to_bson(args, registry).await
-    }
-
-    fn is_binary(&self) -> bool {
-        true
+impl ToBSON {
+    pub fn new() -> ToBSON {
+        ToBSON { state: vec![] }
     }
 }
 
@@ -261,16 +243,8 @@ fn bson_value_to_bytes(bson: Bson, tag: Tag) -> Result<Vec<u8>, ShellError> {
     Ok(out)
 }
 
-async fn to_bson(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let args = args.evaluate_once(&registry).await?;
-    let name_tag = args.name_tag();
+pub fn to_bson(input: Vec<Value>, name_tag: Tag) -> Vec<ReturnValue> {
     let name_span = name_tag.span;
-
-    let input: Vec<Value> = args.input.collect().await;
 
     let to_process_input = match input.len() {
         x if x > 1 => {
@@ -284,13 +258,14 @@ async fn to_bson(
         _ => vec![],
     };
 
-    Ok(futures::stream::iter(to_process_input.into_iter().map(
-        move |value| match value_to_bson_value(&value) {
+    to_process_input
+        .into_iter()
+        .map(move |value| match value_to_bson_value(&value) {
             Ok(bson_value) => {
                 let value_span = value.tag.span;
 
                 match bson_value_to_bytes(bson_value, name_tag.clone()) {
-                    Ok(x) => ReturnSuccess::value(UntaggedValue::binary(x).into_value(&name_tag)),
+                    Ok(x) => ReturnSuccess::value(UntaggedValue::binary(x).into_value(name_span)),
                     _ => Err(ShellError::labeled_error_with_secondary(
                         "Expected a table with BSON-compatible structure from pipeline",
                         "requires BSON-compatible input",
@@ -305,19 +280,6 @@ async fn to_bson(
                 "requires BSON-compatible input",
                 &name_tag,
             )),
-        },
-    ))
-    .to_output_stream())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::ToBSON;
-
-    #[test]
-    fn examples_work_as_expected() {
-        use crate::examples::test as test_examples;
-
-        test_examples(ToBSON {})
-    }
+        })
+        .collect()
 }

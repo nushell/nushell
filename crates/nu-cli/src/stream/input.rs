@@ -128,7 +128,6 @@ impl InputStream {
                     tag: value_tag,
                     value: v,
                 }) => {
-                    println!("{:?}", v);
                     return Err(ShellError::labeled_error_with_secondary(
                         "Expected binary from pipeline",
                         "requires binary input",

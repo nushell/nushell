@@ -2449,6 +2449,8 @@ dependencies = [
  "nu-value-ext",
  "nu_plugin_binaryview",
  "nu_plugin_fetch",
+ "nu_plugin_from_bson",
+ "nu_plugin_from_sqlite",
  "nu_plugin_inc",
  "nu_plugin_match",
  "nu_plugin_post",
@@ -2456,6 +2458,8 @@ dependencies = [
  "nu_plugin_start",
  "nu_plugin_sys",
  "nu_plugin_textview",
+ "nu_plugin_to_bson",
+ "nu_plugin_to_sqlite",
  "nu_plugin_tree",
  "pretty_env_logger",
  "semver 0.10.0",
@@ -2486,7 +2490,6 @@ dependencies = [
  "async-trait",
  "base64 0.12.3",
  "bigdecimal",
- "bson",
  "byte-unit",
  "bytes 0.5.5",
  "calamine",
@@ -2737,6 +2740,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu_plugin_from_bson"
+version = "0.16.1"
+dependencies = [
+ "bigdecimal",
+ "bson",
+ "nu-build",
+ "nu-errors",
+ "nu-plugin",
+ "nu-protocol",
+ "nu-source",
+ "nu-value-ext",
+ "num-traits 0.2.12",
+]
+
+[[package]]
+name = "nu_plugin_from_sqlite"
+version = "0.16.1"
+dependencies = [
+ "bigdecimal",
+ "nu-build",
+ "nu-errors",
+ "nu-plugin",
+ "nu-protocol",
+ "nu-source",
+ "nu-value-ext",
+ "num-traits 0.2.12",
+ "rusqlite",
+ "tempfile",
+]
+
+[[package]]
 name = "nu_plugin_inc"
 version = "0.16.1"
 dependencies = [
@@ -2838,6 +2872,36 @@ dependencies = [
  "syntect",
  "term_size",
  "url",
+]
+
+[[package]]
+name = "nu_plugin_to_bson"
+version = "0.16.1"
+dependencies = [
+ "bson",
+ "nu-build",
+ "nu-errors",
+ "nu-plugin",
+ "nu-protocol",
+ "nu-source",
+ "nu-value-ext",
+ "num-traits 0.2.12",
+]
+
+[[package]]
+name = "nu_plugin_to_sqlite"
+version = "0.16.1"
+dependencies = [
+ "hex 0.4.2",
+ "nu-build",
+ "nu-errors",
+ "nu-plugin",
+ "nu-protocol",
+ "nu-source",
+ "nu-value-ext",
+ "num-traits 0.2.12",
+ "rusqlite",
+ "tempfile",
 ]
 
 [[package]]

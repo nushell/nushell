@@ -1,69 +1,20 @@
-use crate::commands::WholeStreamCommand;
-use crate::prelude::*;
 use hex::encode;
 use nu_errors::ShellError;
-use nu_protocol::{Dictionary, Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
+use nu_protocol::{Dictionary, Primitive, ReturnSuccess, ReturnValue, UntaggedValue, Value};
+use nu_source::Tag;
 use rusqlite::{Connection, NO_PARAMS};
 use std::io::Read;
 
-pub struct ToSQLite;
-
-#[async_trait]
-impl WholeStreamCommand for ToSQLite {
-    fn name(&self) -> &str {
-        "to sqlite"
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build("to sqlite")
-    }
-
-    fn usage(&self) -> &str {
-        "Convert table to sqlite .db binary data"
-    }
-
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        to_sqlite(args, registry).await
-    }
-
-    fn is_binary(&self) -> bool {
-        true
-    }
+#[derive(Default)]
+pub struct ToSqlite {
+    pub state: Vec<Value>,
 }
 
-pub struct ToDB;
-
-#[async_trait]
-impl WholeStreamCommand for ToDB {
-    fn name(&self) -> &str {
-        "to db"
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build("to db")
-    }
-
-    fn usage(&self) -> &str {
-        "Convert table to db data"
-    }
-
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        to_sqlite(args, registry).await
-    }
-
-    fn is_binary(&self) -> bool {
-        true
+impl ToSqlite {
+    pub fn new() -> ToSqlite {
+        ToSqlite { state: vec![] }
     }
 }
-
 fn comma_concat(acc: String, current: String) -> String {
     if acc == "" {
         current
@@ -183,9 +134,6 @@ fn sqlite_input_stream_to_bytes(values: Vec<Value>) -> Result<Value, std::io::Er
                 {
                     Ok(_) => (),
                     Err(e) => {
-                        outln!("{}", create);
-                        outln!("{}", insert);
-                        outln!("{:?}", e);
                         return Err(std::io::Error::new(std::io::ErrorKind::Other, e));
                     }
                 }
@@ -203,33 +151,13 @@ fn sqlite_input_stream_to_bytes(values: Vec<Value>) -> Result<Value, std::io::Er
     Ok(UntaggedValue::binary(out).into_value(tag))
 }
 
-async fn to_sqlite(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let args = args.evaluate_once(&registry).await?;
-    let name_tag = args.name_tag();
-    let input: Vec<Value> = args.input.collect().await;
-
+pub fn to_sqlite(input: Vec<Value>, name_tag: Tag) -> Result<Vec<ReturnValue>, ShellError> {
     match sqlite_input_stream_to_bytes(input) {
-        Ok(out) => Ok(OutputStream::one(ReturnSuccess::value(out))),
+        Ok(out) => Ok(vec![ReturnSuccess::value(out)]),
         _ => Err(ShellError::labeled_error(
             "Expected a table with SQLite-compatible structure from pipeline",
             "requires SQLite-compatible input",
             name_tag,
         )),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::ToSQLite;
-
-    #[test]
-    fn examples_work_as_expected() {
-        use crate::examples::test as test_examples;
-
-        test_examples(ToSQLite {})
     }
 }

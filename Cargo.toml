@@ -27,6 +27,8 @@ nu-source = {version = "0.16.1", path = "./crates/nu-source"}
 nu-value-ext = {version = "0.16.1", path = "./crates/nu-value-ext"}
 nu_plugin_binaryview = {version = "0.16.1", path = "./crates/nu_plugin_binaryview", optional = true}
 nu_plugin_fetch = {version = "0.16.1", path = "./crates/nu_plugin_fetch", optional = true}
+nu_plugin_from_bson = {version = "0.16.1", path = "./crates/nu_plugin_from_bson", optional = true}
+nu_plugin_from_sqlite = {version = "0.16.1", path = "./crates/nu_plugin_from_sqlite", optional = true}
 nu_plugin_inc = {version = "0.16.1", path = "./crates/nu_plugin_inc", optional = true}
 nu_plugin_match = {version = "0.16.1", path = "./crates/nu_plugin_match", optional = true}
 nu_plugin_post = {version = "0.16.1", path = "./crates/nu_plugin_post", optional = true}
@@ -34,6 +36,8 @@ nu_plugin_ps = {version = "0.16.1", path = "./crates/nu_plugin_ps", optional = t
 nu_plugin_start = {version = "0.16.1", path = "./crates/nu_plugin_start", optional = true}
 nu_plugin_sys = {version = "0.16.1", path = "./crates/nu_plugin_sys", optional = true}
 nu_plugin_textview = {version = "0.16.1", path = "./crates/nu_plugin_textview", optional = true}
+nu_plugin_to_bson = {version = "0.16.1", path = "./crates/nu_plugin_to_bson", optional = true}
+nu_plugin_to_sqlite = {version = "0.16.1", path = "./crates/nu_plugin_to_sqlite", optional = true}
 nu_plugin_tree = {version = "0.16.1", path = "./crates/nu_plugin_tree", optional = true}
 
 crossterm = {version = "0.17.5", optional = true}
