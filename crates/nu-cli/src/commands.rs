@@ -153,7 +153,7 @@ pub(crate) use cal::Cal;
 pub(crate) use calc::Calc;
 pub(crate) use char_::Char;
 pub(crate) use compact::Compact;
-pub(crate) use config::{Config, ConfigGet};
+pub(crate) use config::{Config, ConfigGet, ConfigSet};
 pub(crate) use count::Count;
 pub(crate) use cp::Cpy;
 pub(crate) use date::Date;
