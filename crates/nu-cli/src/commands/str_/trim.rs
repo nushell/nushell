@@ -108,6 +108,34 @@ fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
     }
 }
 
+// TODO make callable using flag
+pub fn trim_char(s: String, to_trim: char, leading: bool, trailing: bool) -> String {
+    let mut trimmed = String::from("");
+    let mut backlog = String::from("");
+    let mut at_left = true;
+    s.chars().for_each(|ch| match ch {
+        c if c == to_trim => {
+            if !(leading && at_left) {
+                if trailing {
+                    backlog.push(c)
+                } else {
+                    trimmed.push(c)
+                }
+            }
+        }
+        other => {
+            at_left = false;
+            if trailing {
+                trimmed.push_str(backlog.as_str());
+                backlog = String::from("");
+            }
+            trimmed.push(other);
+        }
+    });
+
+    trimmed
+}
+
 #[cfg(test)]
 mod tests {
     use super::{action, SubCommand};

@@ -1,3 +1,4 @@
+use crate::commands::str_::trim::trim_char;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -6,7 +7,9 @@ use nu_protocol::{
 };
 use nu_source::Tagged;
 use num_bigint::{BigInt, BigUint, ToBigInt};
-use num_format::{Locale, SystemLocale, ToFormattedString};
+
+// TODO num_format::SystemLocale once platform-specific dependencies are stable (see Cargo.toml)
+use num_format::{Locale, ToFormattedString};
 use num_traits::{Pow, Signed};
 use std::iter;
 
@@ -14,10 +17,10 @@ pub struct SubCommand;
 
 #[derive(Deserialize)]
 struct Arguments {
+    rest: Vec<ColumnPath>,
     decimals: Option<Tagged<u64>>,
     #[serde(rename(deserialize = "group-digits"))]
     group_digits: bool,
-    rest: Vec<ColumnPath>,
 }
 
 #[async_trait]
@@ -28,6 +31,10 @@ impl WholeStreamCommand for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str from")
+            .rest(
+                SyntaxShape::ColumnPath,
+                "optionally convert to string by column paths",
+            )
             .named(
                 "decimals",
                 SyntaxShape::Int,
@@ -36,7 +43,8 @@ impl WholeStreamCommand for SubCommand {
             )
             .switch(
                 "group-digits",
-                "group digits according to system localization",
+                // TODO according to system localization
+                "group digits, currently by thousand with commas",
                 Some('g'),
             )
     }
@@ -62,9 +70,9 @@ impl WholeStreamCommand for SubCommand {
             },
             Example {
                 description: "format large number with localized digit grouping",
-                example: "= 1000000 | str from -g", // TODO localization
+                example: "= 1000000.2 | str from -g",
                 result: Some(vec![
-                    UntaggedValue::string("1,000,000").into_untagged_value()
+                    UntaggedValue::string("1,000,000.2").into_untagged_value()
                 ]),
             },
         ]
@@ -83,21 +91,7 @@ async fn operate(
         },
         input,
     ) = args.process(&registry.clone()).await?;
-
     let digits = decimals.as_ref().map(|tagged| tagged.item);
-    // let locale = match SystemLocale::default() {
-    //     Ok(locale) => locale,
-    //     Err(_) => {
-    //         return Err(ShellError::unexpected(
-    //             "num-format failed to load system locale",
-    //         ))
-    //     }
-    // };
-
-    // let box_locale: Box<dyn Format> = match SystemLocale::default() {
-    //     Ok(locale) => Box::new(&locale),
-    //     Err(_) => Box::new(&Locale::en_US_POSIX),
-    // };
 
     Ok(input
         .map(move |v| {
@@ -136,8 +130,8 @@ fn action(
     digits: Option<u64>,
     group_digits: bool,
 ) -> Result<Value, ShellError> {
-    Ok(match &input.value {
-        UntaggedValue::Primitive(prim) => UntaggedValue::string(match prim {
+    match &input.value {
+        UntaggedValue::Primitive(prim) => Ok(UntaggedValue::string(match prim {
             Primitive::Int(int) => {
                 if group_digits {
                     format_bigint(int) // int.to_formatted_string(*locale)
@@ -146,25 +140,37 @@ fn action(
                 }
             }
             Primitive::Decimal(dec) => format_decimal(dec.clone(), digits, group_digits),
-            _ => return Err(ShellError::unimplemented("str from for non-numeric types")),
+            _ => {
+                return Err(ShellError::unimplemented(
+                    "str from for non-numeric primitives",
+                ))
+            }
         })
-        .into_value(tag),
-        _ => input.clone(),
-    })
+        .into_value(tag)),
+        UntaggedValue::Row(_) => Err(ShellError::syntax_error(
+            String::from("specify table column to use 'str from'").spanned(input.tag.clone()),
+        )),
+        _ => Err(ShellError::unimplemented(
+            "str from for non-primitive, non-table types",
+        )),
+    }
 }
 
 fn format_bigint(int: &BigInt) -> String {
-    #[cfg(target_os = "windows")]
-    {
-        int.to_formatted_string(&Locale::en_US_POSIX)
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        match SystemLocale::default() {
-            Ok(locale) => int.to_formatted_string(&locale),
-            Err(_) => int.to_formatted_string(&Locale::en_US_POSIX),
-        }
-    }
+    int.to_formatted_string(&Locale::en)
+
+    // TODO once platform-specific dependencies are stable (see Cargo.toml)
+    // #[cfg(windows)]
+    // {
+    //     int.to_formatted_string(&Locale::en)
+    // }
+    // #[cfg(not(windows))]
+    // {
+    //     match SystemLocale::default() {
+    //         Ok(locale) => int.to_formatted_string(&locale),
+    //         Err(_) => int.to_formatted_string(&Locale::en),
+    //     }
+    // }
 }
 
 fn format_decimal(mut decimal: BigDecimal, digits: Option<u64>, group_digits: bool) -> String {
@@ -172,8 +178,7 @@ fn format_decimal(mut decimal: BigDecimal, digits: Option<u64>, group_digits: bo
         decimal = round_decimal(&decimal, n)
     }
 
-    if decimal.is_integer() {
-        // TODO append zeros?
+    if decimal.is_integer() && (digits.is_none() || digits == Some(0)) {
         let int = decimal
             .to_bigint()
             .expect("integer BigDecimal should convert to BigInt");
@@ -193,54 +198,44 @@ fn format_decimal(mut decimal: BigDecimal, digits: Option<u64>, group_digits: bo
         .expect("BigInt::abs should always produce positive signed BigInt and thus BigUInt")
         .to_str_radix(10);
 
-    let mut dec_str = String::from("");
-    let mut backlog = String::from("");
-    if let Some(n) = digits {
-        dec_str = dec_part
+    let dec_str = if let Some(n) = digits {
+        dec_part
             .chars()
             .chain(iter::repeat('0'))
             .take(n as usize)
-            .collect();
+            .collect()
     } else {
-        dec_part.chars().for_each(|ch| match ch {
-            // TODO move this fxnty to trim --char
-            '0' => backlog.push('0'),
-            other => {
-                dec_str.push_str(backlog.as_str());
-                backlog = String::from("");
-                dec_str.push(other);
-            }
-        });
-    }
+        trim_char(dec_part, '0', false, true)
+    };
 
-    #[cfg(target_os = "windows")]
-    {
-        let loc = Locale::en_US_POSIX;
+    let format_default_loc = |int_part: BigInt| {
+        let loc = Locale::en;
         let (int_str, sep) = (
             int_part.to_formatted_string(&loc),
             String::from(loc.decimal()),
         );
 
         format!("{}{}{}", int_str, sep, dec_str)
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        let (int_str, sep) = match SystemLocale::default() {
-            Ok(sys_loc) => (
-                int_part.to_formatted_string(&sys_loc),
-                String::from(sys_loc.decimal()),
-            ),
-            Err(_) => {
-                let loc = Locale::en_US_POSIX;
-                (
-                    int_part.to_formatted_string(&loc),
-                    String::from(loc.decimal()),
-                )
-            }
-        };
+    };
 
-        format!("{}{}{}", int_str, sep, dec_str)
-    }
+    format_default_loc(int_part)
+
+    // TODO once platform-specific dependencies are stable (see Cargo.toml)
+    // #[cfg(windows)]
+    // {
+    //     format_default_loc(int_part)
+    // }
+    // #[cfg(not(windows))]
+    // {
+    //     match SystemLocale::default() {
+    //         Ok(sys_loc) => {
+    //             let int_str = int_part.to_formatted_string(&sys_loc);
+    //             let sep = String::from(sys_loc.decimal());
+    //             format!("{}{}{}", int_str, sep, dec_str)
+    //         }
+    //         Err(_) => format_default_loc(int_part),
+    //     }
+    // }
 }
 
 fn round_decimal(decimal: &BigDecimal, mut digits: u64) -> BigDecimal {

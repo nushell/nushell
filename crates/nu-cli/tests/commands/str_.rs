@@ -1,7 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
-use std::env;
 
 #[test]
 fn trims() {
@@ -344,7 +343,6 @@ fn substrings_the_input_and_treats_end_index_as_length_if_blank_end_index_given(
 
 #[test]
 fn from_decimal_correct_trailing_zeros() {
-    env::set_var("LC_NUMERIC", "en_US.UTF-8");
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
@@ -356,14 +354,40 @@ fn from_decimal_correct_trailing_zeros() {
 }
 
 #[test]
-fn from_decimal_grouping_en_us() {
-    env::set_var("LC_NUMERIC", "en_US.UTF-8");
+fn from_int_decimal_correct_trailing_zeros() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        = 10000.1 | str from -g
+        = 1.00000 | str from -d 3
         "#
     ));
 
-    assert!(actual.out.contains("10,000.1"));
+    assert!(actual.out.contains("1.000"));
+}
+
+#[test]
+fn from_int_decimal_trim_trailing_zeros() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        = 1.00000 | str from | format "{$it} flat"
+        "#
+    ));
+
+    assert!(actual.out.contains("1 flat")); // "1" would match "1.0"
+}
+
+#[test]
+fn from_table() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        echo '[{"name": "foo", "weight": 32.377}, {"name": "bar", "weight": 15.2}]'
+        | from json
+        | str from weight -d 2
+        "#
+    ));
+
+    assert!(actual.out.contains("32.38"));
+    assert!(actual.out.contains("15.20"));
 }
