@@ -154,7 +154,7 @@ pub(crate) use calc::Calc;
 pub(crate) use char_::Char;
 pub(crate) use compact::Compact;
 pub(crate) use config::{
-    Config, ConfigClear, ConfigGet, ConfigLoad, ConfigRemove, ConfigSet, ConfigSetInto,
+    Config, ConfigClear, ConfigGet, ConfigLoad, ConfigPath, ConfigRemove, ConfigSet, ConfigSetInto,
 };
 pub(crate) use count::Count;
 pub(crate) use cp::Cpy;

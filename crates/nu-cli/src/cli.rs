@@ -257,6 +257,7 @@ pub fn create_default_context(
             whole_stream_command(ConfigClear),
             whole_stream_command(ConfigLoad),
             whole_stream_command(ConfigRemove),
+            whole_stream_command(ConfigPath),
             whole_stream_command(Help),
             whole_stream_command(History),
             whole_stream_command(Save),
