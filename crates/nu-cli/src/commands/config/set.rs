@@ -40,8 +40,8 @@ impl WholeStreamCommand for SubCommand {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Get the current startup commands",
-            example: "config get startup",
+            description: "Set completion_mode to circular",
+            example: "config --set [completion_mode circular]",
             result: None,
         }]
     }
