@@ -22,12 +22,16 @@ impl WholeStreamCommand for Command {
 
     async fn run(
         &self,
-        _args: CommandArgs,
-        registry: &CommandRegistry,
+        args: CommandArgs,
+        _registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        Ok(OutputStream::one(Ok(ReturnSuccess::Value(
-            UntaggedValue::string(crate::commands::help::get_help(&Command, &registry.clone()))
-                .into_value(Tag::unknown()),
-        ))))
+        let name_span = args.call_info.name_tag.clone();
+        let name = args.call_info.name_tag.clone();
+        let result = crate::data::config::read(name_span, &None)?;
+
+        Ok(futures::stream::iter(vec![ReturnSuccess::value(
+            UntaggedValue::Row(result.into()).into_value(name),
+        )])
+        .to_output_stream())
     }
 }
