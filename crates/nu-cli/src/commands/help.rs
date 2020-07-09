@@ -98,6 +98,16 @@ async fn help(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
                 }))
                 .to_output_stream(),
             )
+        } else if rest[0].item == "generate_docs" {
+            let content = generate_docs(&registry);
+            let docs_path = std::path::Path::new("docs/generated_docs.md");
+            std::fs::write(&docs_path, content)?;
+            return Ok(OutputStream::one(ReturnSuccess::value(
+                UntaggedValue::string(format!(
+                    "Docs generated in {}",
+                    docs_path.to_string_lossy().to_string()
+                )),
+            )));
         } else if rest.len() == 2 {
             // Check for a subcommand
             let command_name = format!("{} {}", rest[0].item, rest[1].item);
@@ -148,6 +158,33 @@ You can also learn more at https://www.nushell.sh/book/"#;
             UntaggedValue::string(msg).into_value(Tag::unknown()),
         )))
     }
+}
+
+fn generate_docs(registry: &CommandRegistry) -> String {
+    let mut sorted_names = registry.names();
+    sorted_names.sort();
+    sorted_names
+        .iter()
+        .fold("".to_owned(), |acc, name| {
+            let command = registry.get_command(name).expect(&format!(
+                "Expected command from names to be in registry {}",
+                name
+            ));
+            if name.contains(" ") {
+                acc + &format!(
+                    "## {}\n\n{}\n\n",
+                    name,
+                    &get_help(command.stream_command(), registry)
+                )
+            } else {
+                acc + &format!(
+                    "# {}\n\n{}\n\n",
+                    name,
+                    &get_help(command.stream_command(), registry)
+                )
+            }
+        })
+        .replace("\n", "    \n")
 }
 
 #[allow(clippy::cognitive_complexity)]
