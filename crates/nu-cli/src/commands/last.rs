@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct Last;
@@ -63,22 +63,19 @@ async fn last(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
     let (LastArgs { rows }, input) = args.process(&registry).await?;
     let v: Vec<_> = input.into_vec().await;
 
-    let rows_desired = if let Some(quantity) = rows {
-        *quantity
+    let end_rows_desired = if let Some(quantity) = rows {
+        *quantity as usize
     } else {
         1
     };
 
-    let count = rows_desired as usize;
-    let rows_to_show = v.len() - count;
+    let beginning_rows_to_skip = if end_rows_desired < v.len() {
+        v.len() - end_rows_desired
+    } else {
+        0
+    };
 
-    let iter = v.into_iter().enumerate().filter_map(move |(i, value)| {
-        if rows_to_show <= i {
-            return Some(ReturnSuccess::value(value.clone()));
-        }
-
-        None
-    });
+    let iter = v.into_iter().skip(beginning_rows_to_skip);
 
     Ok(futures::stream::iter(iter).to_output_stream())
 }
