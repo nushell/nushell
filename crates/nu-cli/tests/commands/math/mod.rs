@@ -168,7 +168,7 @@ fn duration_math() {
         "#
     ));
 
-    assert_eq!(actual.out, "8:00:00:00.0");
+    assert_eq!(actual.out, "8d");
 }
 
 #[test]
@@ -180,7 +180,7 @@ fn duration_math_with_nanoseconds() {
         "#
     ));
 
-    assert_eq!(actual.out, "7:00:00:00.00000001");
+    assert_eq!(actual.out, "7d 10ns");
 }
 
 #[test]
@@ -192,7 +192,7 @@ fn duration_math_with_negative() {
         "#
     ));
 
-    assert_eq!(actual.out, "-6:00:00:00.0");
+    assert_eq!(actual.out, "-6d");
 }
 
 #[test]

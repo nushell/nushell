@@ -2643,6 +2643,7 @@ dependencies = [
  "nu-errors",
  "nu-source",
  "num-bigint",
+ "num-integer",
  "num-traits 0.2.12",
  "query_interface",
  "serde 1.0.114",
@@ -2820,6 +2821,7 @@ dependencies = [
  "nu-plugin",
  "nu-protocol",
  "nu-source",
+ "num-bigint",
 ]
 
 [[package]]

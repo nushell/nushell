@@ -368,32 +368,42 @@ pub fn format_duration(duration: &BigInt) -> String {
     let (mins, secs): (BigInt, BigInt) = secs.div_rem(&big_int_60);
     let (hours, mins): (BigInt, BigInt) = mins.div_rem(&big_int_60);
     let (days, hours): (BigInt, BigInt) = hours.div_rem(&big_int_24);
-    let decimals = if millis.is_zero() && micros.is_zero() && nanos.is_zero() {
-        String::from("0")
-    } else {
-        format!("{:03}{:03}{:03}", millis, micros, nanos)
-            .trim_end_matches('0')
-            .to_string()
-    };
-    match (
-        days.is_zero(),
-        hours.is_zero(),
-        mins.is_zero(),
-        secs.is_zero(),
-    ) {
-        (true, true, true, true) => format!("{}.{}", if sign == 1 { "0" } else { "-0" }, decimals),
-        (true, true, true, _) => format!("{}.{}", sign * secs, decimals),
-        (true, true, _, _) => format!("{}:{:02}.{}", sign * mins, secs, decimals),
-        (true, _, _, _) => format!("{}:{:02}:{:02}.{}", sign * hours, mins, secs, decimals),
-        _ => format!(
-            "{}:{:02}:{:02}:{:02}.{}",
-            sign * days,
-            hours,
-            mins,
-            secs,
-            decimals
-        ),
+
+    let mut output_prep = vec![];
+
+    if !days.is_zero() {
+        output_prep.push(format!("{}d", days));
     }
+
+    if !hours.is_zero() {
+        output_prep.push(format!("{}h", hours));
+    }
+
+    if !mins.is_zero() {
+        output_prep.push(format!("{}m", mins));
+    }
+
+    if !secs.is_zero() {
+        output_prep.push(format!("{}s", secs));
+    }
+
+    if !millis.is_zero() {
+        output_prep.push(format!("{}ms", millis));
+    }
+
+    if !micros.is_zero() {
+        output_prep.push(format!("{}us", micros));
+    }
+
+    if !nanos.is_zero() {
+        output_prep.push(format!("{}ns", nanos));
+    }
+
+    format!(
+        "{}{}",
+        if sign == -1 { "-" } else { "" },
+        output_prep.join(" ")
+    )
 }
 
 #[allow(clippy::cognitive_complexity)]
