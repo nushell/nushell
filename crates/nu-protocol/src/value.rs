@@ -48,14 +48,6 @@ pub enum UntaggedValue {
 }
 
 impl UntaggedValue {
-    /// Tags an UntaggedValue so that it can become a Value
-    pub fn retag(self, tag: impl Into<Tag>) -> Value {
-        Value {
-            value: self,
-            tag: tag.into(),
-        }
-    }
-
     /// Get the corresponding descriptors (column names) associated with this value
     pub fn data_descriptors(&self) -> Vec<String> {
         match self {
