@@ -56,7 +56,10 @@ impl Clone for FilesystemShell {
 
 impl FilesystemShell {
     pub fn basic(commands: CommandRegistry) -> Result<FilesystemShell, Error> {
-        let path = std::env::current_dir()?;
+        let path = match std::env::current_dir() {
+            Ok(path) => path,
+            Err(_) => PathBuf::from("/"),
+        };
 
         Ok(FilesystemShell {
             path: path.to_string_lossy().to_string(),

@@ -77,19 +77,40 @@ impl Host for BasicHost {
     }
 
     fn vars(&mut self) -> Vec<(String, String)> {
-        std::env::vars().collect::<Vec<_>>()
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            std::env::vars().collect::<Vec<_>>()
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            vec![]
+        }
     }
 
     fn env_get(&mut self, key: OsString) -> Option<OsString> {
-        std::env::var_os(key)
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            std::env::var_os(key)
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            None
+        }
     }
 
     fn env_set(&mut self, key: OsString, value: OsString) {
-        std::env::set_var(key, value);
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            std::env::set_var(key, value);
+        }
     }
 
     fn env_rm(&mut self, key: OsString) {
-        std::env::remove_var(key);
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            std::env::remove_var(key);
+        }
     }
 
     fn out_termcolor(&self) -> termcolor::StandardStream {

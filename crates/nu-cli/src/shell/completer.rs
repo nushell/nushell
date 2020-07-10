@@ -245,6 +245,11 @@ impl NuCompleter {
         }
     }
 
+    #[cfg(target_arch = "wasm32")]
+    fn is_executable(&self, file: &DirEntry) -> bool {
+        false
+    }
+
     #[cfg(unix)]
     fn is_executable(&self, file: &DirEntry) -> bool {
         let metadata = file.metadata();

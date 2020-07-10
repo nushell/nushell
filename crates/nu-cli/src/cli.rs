@@ -12,6 +12,7 @@ use futures_codec::FramedRead;
 use nu_errors::{ProximateShellError, ShellDiagnostic, ShellError};
 use nu_protocol::hir::{ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments};
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
+use nu_source::Tagged;
 
 use log::{debug, trace};
 use rustyline::error::ReadlineError;
@@ -842,11 +843,42 @@ fn chomp_newline(s: &str) -> &str {
     }
 }
 
+#[derive(Debug)]
 pub enum LineResult {
     Success(String),
     Error(String, ShellError),
     CtrlC,
     Break,
+}
+
+pub async fn parse_and_eval(line: &str, ctx: &mut Context) -> Result<String, ShellError> {
+    let line = if line.ends_with('\n') {
+        &line[..line.len() - 1]
+    } else {
+        line
+    };
+
+    let lite_result = nu_parser::lite_parse(&line, 0)?;
+
+    // TODO ensure the command whose examples we're testing is actually in the pipeline
+    let mut classified_block = nu_parser::classify_block(&lite_result, ctx.registry());
+    classified_block.block.expand_it_usage();
+
+    let input_stream = InputStream::empty();
+    let env = ctx.get_env();
+
+    run_block(
+        &classified_block.block,
+        ctx,
+        input_stream,
+        &Value::nothing(),
+        &IndexMap::new(),
+        &env,
+    )
+    .await?
+    .collect_string(Tag::unknown())
+    .await
+    .map(|x| x.item)
 }
 
 /// Process the line by parsing the text to turn it into commands, classify those commands so that we understand what is being called in the pipeline, and then run this pipeline

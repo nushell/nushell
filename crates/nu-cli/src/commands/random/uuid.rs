@@ -41,7 +41,8 @@ pub async fn uuid(
     _args: CommandArgs,
     _registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
-    let uuid_4 = Uuid::new_v4().to_hyphenated().to_string();
+    //TODO: let uuid_4 = Uuid::new_v4().to_hyphenated().to_string();
+    let uuid_4 = String::new();
 
     Ok(OutputStream::one(ReturnSuccess::value(uuid_4)))
 }
