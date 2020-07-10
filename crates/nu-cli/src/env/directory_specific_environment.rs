@@ -239,17 +239,18 @@ impl DirectorySpecificEnvironment {
 
 #[cfg(test)]
 mod tests {
+    use nu_test_support::fs::Stub::FileWithContent;
     use nu_test_support::nu;
     use nu_test_support::playground::Playground;
-    use nu_test_support::fs::Stub::FileWithContent;
 
     #[test]
-    fn basic_autoenv_vars_are_added_and_removed(){
+    fn basic_autoenv_vars_are_added_and_removed() {
         Playground::setup("autoenv_test_1", |dirs, sandbox| {
-
-            sandbox.with_files(vec![FileWithContent(
-                ".nu-env",
-                r#"
+            sandbox.mkdir("foo/bar");
+            sandbox.with_files(vec![
+                FileWithContent(
+                    ".nu-env",
+                    r#"
                     [env]
                     testkey = "testvalue"
                     [scriptvars]
@@ -259,7 +260,23 @@ mod tests {
                     entryscripts = ["touch hello.txt"]
                     exitscripts = ["touch bye.txt"]
                 "#,
-            )]);
+                ),
+                FileWithContent(
+                    "foo/.nu-env",
+                    r#"
+                            [env]
+                            overwrite_me = "set_in_foo"
+                            fookey = "fooval"
+                        "#,
+                ),
+                FileWithContent(
+                    "foo/bar/.nu-env",
+                    r#"
+                            [env]
+                            overwrite_me = "set_in_bar"
+                        "#,
+                )
+            ]);
 
             //Make sure basic keys are set
             let actual = nu!(
@@ -283,14 +300,13 @@ mod tests {
             );
             assert!(actual.out.contains("hello.txt"));
 
-            //Back out of directory
+            //Backing out of the directory should unset the keys
             let actual = nu!(
                 cwd: dirs.test(),
                 r#"cd ..
                    echo $nu.env.testkey"#
             );
             assert!(!actual.out.ends_with("testvalue"));
-
 
             // Make sure exit scripts are run
             let actual = nu!(
@@ -299,6 +315,27 @@ mod tests {
                    ls | where name == "bye.txt" | get name"#
             );
             assert!(actual.out.contains("bye.txt"));
+
+            //Subdirectories should overwrite the values of parent directories.
+            let actual = nu!(
+                cwd: dirs.test(),
+                r#"autoenv trust foo
+                   cd foo/bar
+                   autoenv trust
+                   echo $nu.env.overwrite_me"#
+            );
+            assert!(actual.out.ends_with("set_in_bar"));
+
+
+            //Variables set in parent directories should be set even if you cd to a subdir
+            let actual = nu!(
+                cwd: dirs.test(),
+                r#"autoenv trust foo
+                   cd foo/bar
+                   autoenv trust
+                   echo $nu.env.fookey"#
+            );
+            assert!(actual.out.ends_with("fooval"));
         })
     }
 }
