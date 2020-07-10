@@ -3,7 +3,7 @@ use commands::autoenv;
 use indexmap::{IndexMap, IndexSet};
 use nu_errors::ShellError;
 use serde::Deserialize;
-use std::cmp::Ordering::Less;
+use std::cmp::Ordering::{self, Less};
 use std::env::*;
 use std::process::Command;
 
@@ -32,6 +32,43 @@ pub struct NuEnvDoc {
     pub entryscripts: Option<Vec<String>>,
     pub exitscripts: Option<Vec<String>>,
 }
+
+#[derive(Eq, PartialEq)]
+struct NonLexicographicalPathBuf(PathBuf);
+
+impl PartialOrd for NonLexicographicalPathBuf {
+    fn partial_cmp(&self, other: &NonLexicographicalPathBuf) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for NonLexicographicalPathBuf {
+    fn cmp(&self, other: &NonLexicographicalPathBuf) -> Ordering {
+        let mut selfcomponents = self.0.components();
+        let mut othercomponents = other.0.components();
+        let mut selfc = selfcomponents.next();
+        let mut otherc = othercomponents.next();
+
+        loop {
+            match (selfc, otherc) {
+                (None, None) => {
+                    return Ordering::Equal;
+                },
+                (None, Some(_)) => {
+                    return Ordering::Less;
+                },
+                (Some(_), None) => {
+                    return Ordering::Greater;
+                },
+                (Some(_), Some(_)) => {
+                    selfc = selfcomponents.next();
+                    otherc = othercomponents.next();
+                }
+            }
+        }
+    }
+}
+
 
 impl DirectorySpecificEnvironment {
     pub fn new() -> DirectorySpecificEnvironment {
@@ -73,22 +110,24 @@ impl DirectorySpecificEnvironment {
     }
 
     pub fn env_vars_to_add(&mut self) -> Result<IndexMap<EnvKey, EnvVal>, ShellError> {
-        let mut dir = current_dir()?;
+        let mut dir = NonLexicographicalPathBuf(current_dir()?);
         let mut vars_to_add: IndexMap<EnvKey, EnvVal> = IndexMap::new();
 
         //If we are in the last seen directory, do nothing
         //If we are in a parent directory to last_seen_directory, just return without applying .nu-env in the parent directory - they were already applied earlier.
         //parent.cmp(child) = Less
         let mut popped = true;
-        while self.last_seen_directory.cmp(&dir) == Less && popped {
-            let nu_env_file = dir.join(".nu-env");
+        let lastseen = NonLexicographicalPathBuf(self.last_seen_directory.clone());
+
+        while lastseen.cmp(&dir) == Less && popped {
+            let nu_env_file = dir.0.join(".nu-env");
             if nu_env_file.exists() {
                 let nu_env_doc = self.toml_if_directory_is_trusted(&nu_env_file)?;
 
                 //add regular variables from the [env section]
                 if let Some(env) = nu_env_doc.env {
                     for (env_key, env_val) in env {
-                        self.add_key_if_appropriate(&mut vars_to_add, &dir, &env_key, &env_val);
+                        self.add_key_if_appropriate(&mut vars_to_add, &dir.0, &env_key, &env_val);
                     }
                 }
 
@@ -105,7 +144,7 @@ impl DirectorySpecificEnvironment {
                         if command.stdout.is_empty() {
                             return Err(ShellError::untagged_runtime_error(format!(
                                 "{:?} in {:?} did not return any output",
-                                dir_val_script, dir
+                                dir_val_script, dir.0
                             )));
                         }
                         let response =
@@ -118,7 +157,7 @@ impl DirectorySpecificEnvironment {
                                 })?;
                         self.add_key_if_appropriate(
                             &mut vars_to_add,
-                            &dir,
+                            &dir.0,
                             &env_key,
                             &response.to_string(),
                         );
@@ -138,10 +177,10 @@ impl DirectorySpecificEnvironment {
                 }
 
                 if let Some(exitscripts) = nu_env_doc.exitscripts {
-                    self.exitscripts.insert(dir.clone(), exitscripts);
+                    self.exitscripts.insert(dir.0.clone(), exitscripts);
                 }
             }
-            popped = dir.pop();
+            popped = dir.0.pop();
         }
 
         Ok(vars_to_add)
