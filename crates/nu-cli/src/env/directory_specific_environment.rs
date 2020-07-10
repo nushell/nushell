@@ -244,38 +244,32 @@ mod tests {
     use nu_test_support::playground::Playground;
 
     #[test]
-    fn basic_autoenv_vars_are_added_and_removed() {
+    fn autoenv() {
         Playground::setup("autoenv_test_1", |dirs, sandbox| {
             sandbox.mkdir("foo/bar");
             sandbox.with_files(vec![
                 FileWithContent(
                     ".nu-env",
-                    r#"
-                    [env]
+                    r#"[env]
                     testkey = "testvalue"
                     [scriptvars]
                     myscript = "echo 'myval'"
 
                     [scripts]
                     entryscripts = ["touch hello.txt"]
-                    exitscripts = ["touch bye.txt"]
-                "#,
+                    exitscripts = ["touch bye.txt"]"#,
                 ),
                 FileWithContent(
                     "foo/.nu-env",
-                    r#"
-                            [env]
-                            overwrite_me = "set_in_foo"
-                            fookey = "fooval"
-                        "#,
+                    r#"[env]
+                        overwrite_me = "set_in_foo"
+                        fookey = "fooval""#,
                 ),
                 FileWithContent(
                     "foo/bar/.nu-env",
-                    r#"
-                            [env]
-                            overwrite_me = "set_in_bar"
-                        "#,
-                )
+                    r#"[env]
+                        overwrite_me = "set_in_bar""#,
+                ),
             ]);
 
             //Make sure basic keys are set
@@ -326,8 +320,7 @@ mod tests {
             );
             assert!(actual.out.ends_with("set_in_bar"));
 
-
-            //Variables set in parent directories should be set even if you cd to a subdir
+            //Variables set in parent directories should be set even if you directly cd to a subdir
             let actual = nu!(
                 cwd: dirs.test(),
                 r#"autoenv trust foo
@@ -336,6 +329,18 @@ mod tests {
                    echo $nu.env.fookey"#
             );
             assert!(actual.out.ends_with("fooval"));
+
+            //Make sure that overwritten values are restored.
+            //By deleting foo/.nu-env, we make sure that the value is actually restored and not just set again by autoenv when we re-visit foo.
+            let actual = nu!(
+                cwd: dirs.test(),
+                r#"cd foo
+                   cd bar
+                   rm ../.nu-env
+                   cd ..
+                   echo $nu.env.overwrite_me"#
+            );
+            assert!(actual.out.ends_with("set_in_foo"))
         })
     }
 }
