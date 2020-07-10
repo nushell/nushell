@@ -41,10 +41,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
             })?))
         }
         UntaggedValue::Primitive(Primitive::Duration(i)) => {
-            serde_yaml::Value::Number(serde_yaml::Number::from(CoerceInto::<i64>::coerce_into(
-                i.tagged(&v.tag),
-                "converting to YAML number",
-            )?))
+            serde_yaml::Value::String(i.to_string())
         }
         UntaggedValue::Primitive(Primitive::Date(d)) => serde_yaml::Value::String(d.to_string()),
         UntaggedValue::Primitive(Primitive::EndOfStream) => serde_yaml::Value::Null,
