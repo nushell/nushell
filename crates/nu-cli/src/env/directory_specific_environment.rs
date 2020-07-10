@@ -269,12 +269,19 @@ mod tests {
             );
             assert!(actual.out.ends_with("testvalue"));
 
-            // //Make sure script keys are set
+            // Make sure script keys are set
             let actual = nu!(
                 cwd: dirs.test(),
                 r#"echo $nu.env.myscript"#
             );
             assert!(actual.out.ends_with("myval"));
+
+            // Make sure entry scripts are run
+            let actual = nu!(
+                cwd: dirs.test(),
+                r#"ls | where name == "hello.txt" | get name"#
+            );
+            assert!(actual.out.contains("hello.txt"));
 
             //Back out of directory
             let actual = nu!(
@@ -283,6 +290,15 @@ mod tests {
                    echo $nu.env.testkey"#
             );
             assert!(!actual.out.ends_with("testvalue"));
+
+
+            // Make sure exit scripts are run
+            let actual = nu!(
+                cwd: dirs.test(),
+                r#"cd ..
+                   ls | where name == "bye.txt" | get name"#
+            );
+            assert!(actual.out.contains("bye.txt"));
         })
     }
 }
