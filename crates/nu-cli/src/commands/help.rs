@@ -10,6 +10,8 @@ use nu_protocol::{
 use nu_source::{SpannedItem, Tagged};
 use nu_value_ext::get_data_by_key;
 
+use std::collections::HashMap;
+
 pub struct Help;
 
 #[derive(Deserialize)]
@@ -160,37 +162,106 @@ You can also learn more at https://www.nushell.sh/book/"#;
     }
 }
 
+fn indent(s: &String, count: usize) -> String {
+    let mut v = s.split("\n").map(|s| s.to_owned()).collect_vec();
+    for i in 0..v.len() {
+        v[i] = format!("{:indent$}{}", "", v[i], indent = count);
+    }
+    v.join("\n").to_string()
+}
+
+struct DocumentationConfig {
+    no_subcommands: bool,
+    no_colour: bool,
+}
+
+impl Default for DocumentationConfig {
+    fn default() -> Self {
+        DocumentationConfig {
+            no_subcommands: false,
+            no_colour: false,
+        }
+    }
+}
+
+// generate_docs gets the documentation from each command but
 fn generate_docs(registry: &CommandRegistry) -> String {
     let mut sorted_names = registry.names();
     sorted_names.sort();
+
+    let mut cmap: HashMap<String, Vec<String>> = HashMap::new();
+    for name in &sorted_names {
+        if name.contains(" ") {
+            let split_name = name.split_whitespace().collect_vec();
+            let parent_name = split_name.first().expect("Expected a parent command name");
+            let sub_names = cmap
+                .get_mut(*parent_name)
+                .expect("Expected a entry for parent");
+            sub_names.push(name.to_owned());
+        } else {
+            cmap.insert(name.to_owned(), Vec::new());
+        };
+    }
     sorted_names
         .iter()
         .fold("".to_owned(), |acc, name| {
+            // Must be a sub-command, skip since it's being handled underneath when we hit the parent command
+            if !cmap.contains_key(name) {
+                return acc;
+            }
+
             let command = registry.get_command(name).expect(&format!(
                 "Expected command from names to be in registry {}",
                 name
             ));
-            // Sub-commands are Header 2
-            if name.contains(" ") {
-                acc + &format!(
-                    "## {}\n\n{}\n\n",
+            // Iterate over all the subcommands, so that we can have a collapsible within a collapsible
+            let subcommands_docs = cmap.get(name).unwrap_or(&Vec::new()).iter().fold(
+                "".to_owned(),
+                |sub_acc, name| {
+                    sub_acc
+                        + &format!(
+                            "- <details><summary>{}</summary>\n\n{}\n",
+                            name,
+                            indent(
+                                &(get_documentation(
+                                    command.stream_command(),
+                                    registry,
+                                    &DocumentationConfig {
+                                        no_subcommands: true,
+                                        no_colour: true,
+                                    }
+                                ) + "</details>"),
+                                2
+                            )
+                        )
+                },
+            );
+
+            let acc = acc
+                + &format!(
+                    "<details><summary>{}</summary>\n\n{}\n{}</details>\n",
                     name,
-                    &get_help(command.stream_command(), registry)
-                )
-            } else {
-                // Commands are Header 1
-                acc + &format!(
-                    "# {}\n\n{}\n\n",
-                    name,
-                    &get_help(command.stream_command(), registry)
-                )
-            }
+                    &get_documentation(
+                        command.stream_command(),
+                        registry,
+                        &DocumentationConfig {
+                            no_subcommands: true,
+                            no_colour: true,
+                        }
+                    ),
+                    subcommands_docs,
+                );
+            return acc;
         })
         .replace("\n", "    \n")
 }
 
 #[allow(clippy::cognitive_complexity)]
-pub fn get_help(cmd: &dyn WholeStreamCommand, registry: &CommandRegistry) -> String {
+fn get_documentation(
+    cmd: &dyn WholeStreamCommand,
+    registry: &CommandRegistry,
+    config: &DocumentationConfig,
+) -> String {
     let cmd_name = cmd.name();
     let signature = cmd.signature();
     let mut long_desc = String::new();
@@ -199,11 +270,13 @@ pub fn get_help(cmd: &dyn WholeStreamCommand, registry: &CommandRegistry) -> Str
     long_desc.push_str("\n");
 
     let mut subcommands = String::new();
-    for name in registry.names() {
-        if name.starts_with(&format!("{} ", cmd_name)) {
-            let subcommand = registry.get_command(&name).expect("This shouldn't happen");
+    if !config.no_subcommands {
+        for name in registry.names() {
+            if name.starts_with(&format!("{} ", cmd_name)) {
+                let subcommand = registry.get_command(&name).expect("This shouldn't happen");
 
-            subcommands.push_str(&format!("  {} - {}\n", name, subcommand.usage()));
+                subcommands.push_str(&format!("  {} - {}\n", name, subcommand.usage()));
+            }
         }
     }
 
@@ -271,14 +344,23 @@ pub fn get_help(cmd: &dyn WholeStreamCommand, registry: &CommandRegistry) -> Str
         long_desc.push_str("\n");
         long_desc.push_str("  ");
         long_desc.push_str(example.description);
-        let colored_example =
-            crate::shell::helper::Painter::paint_string(example.example, registry, &palette);
-        long_desc.push_str(&format!("\n  > {}\n", colored_example));
+
+        if config.no_colour {
+            long_desc.push_str(&format!("\n  > {}\n", example.example));
+        } else {
+            let colored_example =
+                crate::shell::helper::Painter::paint_string(example.example, registry, &palette);
+            long_desc.push_str(&format!("\n  > {}\n", colored_example));
+        }
     }
 
     long_desc.push_str("\n");
 
     long_desc
+}
+
+pub fn get_help(cmd: &dyn WholeStreamCommand, registry: &CommandRegistry) -> String {
+    get_documentation(cmd, registry, &DocumentationConfig::default())
 }
 
 fn get_flags_section(signature: &Signature) -> String {

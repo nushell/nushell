@@ -1,4 +1,4 @@
-# alias    
+<details><summary>alias</summary>    
     
 Define a shortcut for another command.    
     
@@ -16,14 +16,14 @@ Flags:
     
 Examples:    
   An alias without parameters    
-  > [1;36malias[0m[37m [0m[32msay-hi[0m[37m [] { [0m[1;36mecho[0m[37m [0m[32m'Hello!'[0m[37m }[0m    
+  > alias say-hi [] { echo 'Hello!' }    
     
   An alias with a single parameter    
-  > [1;36malias[0m[37m [0m[32ml[0m[37m [[0m[32mx[0m[37m] { [0m[1;36mls[0m[37m [0m[35m$x[0m[37m }[0m    
+  > alias l [x] { ls $x }    
     
     
-    
-# ansi    
+</details>    
+<details><summary>ansi</summary>    
     
 Output ANSI codes to change color    
     
@@ -38,14 +38,14 @@ Flags:
     
 Examples:    
   Change color to green    
-  > [1;36mansi[0m[37m [0m[32mgreen[0m    
+  > ansi green    
     
   Reset the color    
-  > [1;36mansi[0m[37m [0m[32mreset[0m    
+  > ansi reset    
     
     
-    
-# append    
+</details>    
+<details><summary>append</summary>    
     
 Append the given row to the table    
     
@@ -60,61 +60,57 @@ Flags:
     
 Examples:    
   Add something to the end of a list or table    
-  > [1;36mecho[0m[37m [[0m[1;35m1[0m[37m [0m[1;35m2[0m[37m [0m[1;35m3[0m[37m] | [0m[1;36mappend[0m[37m [0m[1;35m4[0m    
+  > echo [1 2 3] | append 4    
     
     
-    
-# autoenv    
+</details>    
+<details><summary>autoenv</summary>    
     
 Manage directory specific environments    
     
 Usage:    
-  > autoenv <subcommand> {flags}     
-    
-Subcommands:    
-  autoenv trust - Trust a .nu-env file in the current or given directory    
-  autoenv untrust - Untrust a .nu-env file in the current or given directory    
+  > autoenv {flags}     
     
 Flags:    
   -h, --help: Display this help message    
     
 Examples:    
   Allow .nu-env file in current directory    
-  > [1;36mautoenv trust[0m    
+  > autoenv trust    
     
     
+- <details><summary>autoenv trust</summary>    
     
-## autoenv trust    
+  Manage directory specific environments    
+      
+  Usage:    
+    > autoenv {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  Examples:    
+    Allow .nu-env file in current directory    
+    > autoenv trust    
+      
+  </details>    
+- <details><summary>autoenv untrust</summary>    
     
-Trust a .nu-env file in the current or given directory    
-    
-Usage:    
-  > autoenv trust (dir) {flags}     
-    
-Parameters:    
-  (dir) Directory to allow    
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-    
-    
-## autoenv untrust    
-    
-Untrust a .nu-env file in the current or given directory    
-    
-Usage:    
-  > autoenv untrust (dir) {flags}     
-    
-Parameters:    
-  (dir) Directory to disallow    
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-    
-    
-# autoview    
+  Manage directory specific environments    
+      
+  Usage:    
+    > autoenv {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  Examples:    
+    Allow .nu-env file in current directory    
+    > autoenv trust    
+      
+  </details>    
+</details>    
+<details><summary>autoview</summary>    
     
 View the contents of the pipeline as a table or list.    
     
@@ -126,14 +122,14 @@ Flags:
     
 Examples:    
   Automatically view the results    
-  > [1;36mls[0m[37m | [0m[1;36mautoview[0m    
+  > ls | autoview    
     
   Autoview is also implied. The above can be written as    
-  > [1;36mls[0m    
+  > ls    
     
     
-    
-# binaryview    
+</details>    
+<details><summary>binaryview</summary>    
     
 Autoview of binary data.    
     
@@ -145,8 +141,8 @@ Flags:
   -l, --lores: use low resolution output mode    
     
     
-    
-# build-string    
+</details>    
+<details><summary>build-string</summary>    
     
 Builds a string from the arguments    
     
@@ -161,11 +157,11 @@ Flags:
     
 Examples:    
   Builds a string from a string and a number, without spaces between them    
-  > [1;36mbuild-string[0m[37m [0m[32m'foo'[0m[37m [0m[1;35m3[0m    
+  > build-string 'foo' 3    
     
     
-    
-# cal    
+</details>    
+<details><summary>cal</summary>    
     
 Display a calendar.    
     
@@ -183,17 +179,17 @@ Flags:
     
 Examples:    
   This month's calendar    
-  > [1;36mcal[0m    
+  > cal    
     
   The calendar for all of 2012    
-  > [1;36mcal[0m[37m [0m[1;34m--full-year[0m[37m [0m[1;35m2012[0m    
+  > cal --full-year 2012    
     
   This month's calendar with the week starting on monday    
-  > [1;36mcal[0m[37m [0m[1;34m--week-start[0m[37m [0m[32mmonday[0m    
+  > cal --week-start monday    
     
     
-    
-# calc    
+</details>    
+<details><summary>calc</summary>    
     
 Parse a math expression into a number    
     
@@ -205,11 +201,11 @@ Flags:
     
 Examples:    
   Calculate math in the pipeline    
-  > [1;36mecho[0m[37m [0m[32m'10 / 4'[0m[37m | [0m[1;36mcalc[0m    
+  > echo '10 / 4' | calc    
     
     
-    
-# cd    
+</details>    
+<details><summary>cd</summary>    
     
 Change to a new path.    
     
@@ -224,20 +220,20 @@ Flags:
     
 Examples:    
   Change to a new directory called 'dirname'    
-  > [1;36mcd[0m[37m [0m[36mdirname[0m    
+  > cd dirname    
     
   Change to your home directory    
-  > [1;36mcd[0m    
+  > cd    
     
   Change to your home directory (alternate version)    
-  > [1;36mcd[0m[37m [0m[36m~[0m    
+  > cd ~    
     
   Change to the previous directory    
-  > [1;36mcd[0m[37m [0m[36m-[0m    
+  > cd -    
     
     
-    
-# char    
+</details>    
+<details><summary>char</summary>    
     
 Output special characters (eg. 'newline')    
     
@@ -252,11 +248,11 @@ Flags:
     
 Examples:    
   Output newline    
-  > [1;36mchar[0m[37m [0m[32mnewline[0m    
+  > char newline    
     
     
-    
-# clear    
+</details>    
+<details><summary>clear</summary>    
     
 clears the terminal    
     
@@ -268,11 +264,11 @@ Flags:
     
 Examples:    
   Clear the screen    
-  > [1;36mclear[0m    
+  > clear    
     
     
-    
-# clip    
+</details>    
+<details><summary>clip</summary>    
     
 Copy the contents of the pipeline to the copy/paste buffer    
     
@@ -284,11 +280,11 @@ Flags:
     
 Examples:    
   Save text to the clipboard    
-  > [1;36mecho[0m[37m [0m[32m'secret value'[0m[37m | [0m[1;36mclip[0m    
+  > echo 'secret value' | clip    
     
     
-    
-# compact    
+</details>    
+<details><summary>compact</summary>    
     
 Creates a table with non-empty rows    
     
@@ -303,14 +299,14 @@ Flags:
     
 Examples:    
   Filter out all null entries in a list    
-  > [1;36mecho[0m[37m [[0m[1;35m1[0m[37m [0m[1;35m2[0m[37m [0m[35m$null[0m[37m [0m[1;35m3[0m[37m [0m[35m$null[0m[37m [0m[35m$null[0m[37m] | [0m[1;36mcompact[0m    
+  > echo [1 2 $null 3 $null $null] | compact    
     
   Filter out all directory entries having no 'target'    
-  > [1;36mls[0m[37m [0m[1;34m-af[0m[37m | [0m[1;36mcompact[0m[37m [0m[32mtarget[0m    
+  > ls -af | compact target    
     
     
-    
-# config    
+</details>    
+<details><summary>config</summary>    
     
 Configuration management.    
     
@@ -329,29 +325,29 @@ Flags:
     
 Examples:    
   See all config values    
-  > [1;36mconfig[0m    
+  > config    
     
   Set completion_mode to circular    
-  > [1;36mconfig[0m[37m [0m[1;34m--set[0m[37m [[0m[32mcompletion_mode[0m[37m [0m[32mcircular[0m[37m][0m    
+  > config --set [completion_mode circular]    
     
   Store the contents of the pipeline as a path    
-  > [1;36mecho[0m[37m [[0m[32m'/usr/bin'[0m[37m [0m[32m'/bin'[0m[37m] | [0m[1;36mconfig[0m[37m [0m[1;34m--set_into[0m[37m [0m[32mpath[0m    
+  > echo ['/usr/bin' '/bin'] | config --set_into path    
     
   Get the current startup commands    
-  > [1;36mconfig[0m[37m [0m[1;34m--get[0m[37m [0m[32mstartup[0m    
+  > config --get startup    
     
   Remove the startup commands    
-  > [1;36mconfig[0m[37m [0m[1;34m--remove[0m[37m [0m[32mstartup[0m    
+  > config --remove startup    
     
   Clear the config (be careful!)    
-  > [1;36mconfig[0m[37m [0m[1;34m--clear[0m    
+  > config --clear    
     
   Get the path to the current config file    
-  > [1;36mconfig[0m[37m [0m[1;34m--path[0m    
+  > config --path    
     
     
-    
-# count    
+</details>    
+<details><summary>count</summary>    
     
 Show the total number of rows or items.    
     
@@ -363,11 +359,11 @@ Flags:
     
 Examples:    
   Count the number of entries in a list    
-  > [1;36mecho[0m[37m [[0m[1;35m1[0m[37m [0m[1;35m2[0m[37m [0m[1;35m3[0m[37m [0m[1;35m4[0m[37m [0m[1;35m5[0m[37m] | [0m[1;36mcount[0m    
+  > echo [1 2 3 4 5] | count    
     
     
-    
-# cp    
+</details>    
+<details><summary>cp</summary>    
     
 Copy files.    
     
@@ -384,14 +380,14 @@ Flags:
     
 Examples:    
   Copy myfile to dir_b    
-  > [1;36mcp[0m[37m [0m[1;36mmyfile[0m[37m [0m[36mdir_b[0m    
+  > cp myfile dir_b    
     
   Recursively copy dir_a to dir_b    
-  > [1;36mcp[0m[37m [0m[1;34m-r[0m[37m [0m[1;36mdir_a[0m[37m [0m[36mdir_b[0m    
+  > cp -r dir_a dir_b    
     
     
-    
-# date    
+</details>    
+<details><summary>date</summary>    
     
 Get the current datetime.    
     
@@ -407,20 +403,20 @@ Flags:
     
 Examples:    
   Get the current local time and date    
-  > [1;36mdate[0m    
+  > date    
     
   Get the current UTC time and date    
-  > [1;36mdate[0m[37m [0m[1;34m--utc[0m    
+  > date --utc    
     
   Get the current time and date and report it based on format    
-  > [1;36mdate[0m[37m [0m[1;34m--format[0m[37m [0m[32m'%Y-%m-%d %H:%M:%S.%f %z'[0m    
+  > date --format '%Y-%m-%d %H:%M:%S.%f %z'    
     
   Get the current time and date and report it without a table    
-  > [1;36mdate[0m[37m [0m[1;34m--format[0m[37m [0m[32m'%Y-%m-%d %H:%M:%S.%f %z'[0m[37m [0m[1;34m--raw[0m    
+  > date --format '%Y-%m-%d %H:%M:%S.%f %z' --raw    
     
     
-    
-# debug    
+</details>    
+<details><summary>debug</summary>    
     
 Print the Rust debug representation of the values    
     
@@ -432,8 +428,8 @@ Flags:
   -r, --raw: Prints the raw value representation.    
     
     
-    
-# default    
+</details>    
+<details><summary>default</summary>    
     
 Sets a default row's column if missing.    
     
@@ -449,11 +445,11 @@ Flags:
     
 Examples:    
   Give a default 'target' to all file entries    
-  > [1;36mls[0m[37m [0m[1;34m-af[0m[37m | [0m[1;36mdefault[0m[37m [0m[32mtarget[0m[37m [0m[32m'nothing'[0m    
+  > ls -af | default target 'nothing'    
     
     
-    
-# describe    
+</details>    
+<details><summary>describe</summary>    
     
 Describes the objects in the stream.    
     
@@ -464,8 +460,8 @@ Flags:
   -h, --help: Display this help message    
     
     
-    
-# do    
+</details>    
+<details><summary>do</summary>    
     
 Runs a block, optionally ignoring errors    
     
@@ -481,14 +477,14 @@ Flags:
     
 Examples:    
   Run the block    
-  > [1;36mdo[0m[37m { [0m[1;36mecho[0m[37m [0m[32mhello[0m[37m }[0m    
+  > do { echo hello }    
     
   Run the block and ignore errors    
-  > [1;36mdo[0m[37m [0m[1;34m-i[0m[37m { [0m[32mthisisnotarealcommand[0m[37m }[0m    
+  > do -i { thisisnotarealcommand }    
     
     
-    
-# drop    
+</details>    
+<details><summary>drop</summary>    
     
 Drop the last number of rows.    
     
@@ -503,14 +499,14 @@ Flags:
     
 Examples:    
   Remove the last item of a list/table    
-  > [1;36mecho[0m[37m [[0m[1;35m1[0m[37m [0m[1;35m2[0m[37m [0m[1;35m3[0m[37m] | [0m[1;36mdrop[0m    
+  > echo [1 2 3] | drop    
     
   Remove the last 2 items of a list/table    
-  > [1;36mecho[0m[37m [[0m[1;35m1[0m[37m [0m[1;35m2[0m[37m [0m[1;35m3[0m[37m] | [0m[1;36mdrop[0m[37m [0m[1;35m2[0m    
+  > echo [1 2 3] | drop 2    
     
     
-    
-# du    
+</details>    
+<details><summary>du</summary>    
     
 Find disk usage sizes of specified items    
     
@@ -530,11 +526,11 @@ Flags:
     
 Examples:    
   Disk usage of the current directory    
-  > [1;36mdu[0m    
+  > du    
     
     
-    
-# each    
+</details>    
+<details><summary>each</summary>    
     
 Run a block on each row of the table.    
     
@@ -550,17 +546,17 @@ Flags:
     
 Examples:    
   Echo the sum of each row    
-  > [1;36mecho[0m[37m [[[0m[1;35m1[0m[37m [0m[1;35m2[0m[37m] [[0m[1;35m3[0m[37m [0m[1;35m4[0m[37m]] | [0m[1;36meach[0m[37m { [0m[1;36mecho[0m[37m [0m[35m$it[0m[37m | [0m[1;36mmath sum[0m[37m }[0m    
+  > echo [[1 2] [3 4]] | each { echo $it | math sum }    
     
   Echo the square of each integer    
-  > [1;36mecho[0m[37m [[0m[1;35m1[0m[37m [0m[1;35m2[0m[37m [0m[1;35m3[0m[37m] | [0m[1;36meach[0m[37m { [0m[1;36mecho[0m[37m $(= [0m[35m$it[0m[37m [0m[33m*[0m[37m [0m[35m$it[0m[37m) }[0m    
+  > echo [1 2 3] | each { echo $(= $it * $it) }    
     
   Number each item and echo a message    
-  > [1;36mecho[0m[37m [[0m[32m'bob'[0m[37m [0m[32m'fred'[0m[37m] | [0m[1;36meach[0m[37m [0m[1;34m--numbered[0m[37m { [0m[1;36mecho[0m[37m [0m[1;33m`{{[0m[35m$it.[0m[1;33mindex}}[0m[32m is [0m[1;33m{{[0m[35m$it.[0m[1;33mitem}}`[0m[37m }[0m    
+  > echo ['bob' 'fred'] | each --numbered { echo `{{$it.index}} is {{$it.item}}` }    
     
     
-    
-# echo    
+</details>    
+<details><summary>echo</summary>    
     
 Echo the arguments back to the user.    
     
@@ -575,14 +571,14 @@ Flags:
     
 Examples:    
   Put a hello message in the pipeline    
-  > [1;36mecho[0m[37m [0m[32m'hello'[0m    
+  > echo 'hello'    
     
   Print the value of the special '$nu' variable    
-  > [1;36mecho[0m[37m [0m[35m$nu[0m    
+  > echo $nu    
     
     
-    
-# empty?    
+</details>    
+<details><summary>empty?</summary>    
     
 Checks emptiness. The last value is the replacement value for any empty column(s) given to check against the table.    
     
@@ -596,8 +592,8 @@ Flags:
   -h, --help: Display this help message    
     
     
-    
-# enter    
+</details>    
+<details><summary>enter</summary>    
     
 Create a new shell and begin at this path.    
             
@@ -620,17 +616,17 @@ Flags:
     
 Examples:    
   Enter a path as a new shell    
-  > [1;36menter[0m[37m [0m[36m../projectB[0m    
+  > enter ../projectB    
     
   Enter a file as a new shell    
-  > [1;36menter[0m[37m [0m[36mpackage.json[0m    
+  > enter package.json    
     
   Enters file with iso-8859-1 encoding    
-  > [1;36menter[0m[37m [0m[36mfile.csv[0m[37m [0m[1;34m--encoding[0m[37m [0m[32miso-8859-1[0m    
+  > enter file.csv --encoding iso-8859-1    
     
     
-    
-# every    
+</details>    
+<details><summary>every</summary>    
     
 Show (or skip) every n-th row, starting from the first one.    
     
@@ -646,14 +642,14 @@ Flags:
     
 Examples:    
   Get every second row    
-  > [1;36mecho[0m[37m [[0m[1;35m1[0m[37m [0m[1;35m2[0m[37m [0m[1;35m3[0m[37m [0m[1;35m4[0m[37m [0m[1;35m5[0m[37m] | [0m[1;36mevery[0m[37m [0m[1;35m2[0m    
+  > echo [1 2 3 4 5] | every 2    
     
   Skip every second row    
-  > [1;36mecho[0m[37m [[0m[1;35m1[0m[37m [0m[1;35m2[0m[37m [0m[1;35m3[0m[37m [0m[1;35m4[0m[37m [0m[1;35m5[0m[37m] | [0m[1;36mevery[0m[37m [0m[1;35m2[0m[37m [0m[1;34m--skip[0m    
+  > echo [1 2 3 4 5] | every 2 --skip    
     
     
-    
-# exit    
+</details>    
+<details><summary>exit</summary>    
     
 Exit the current shell (or all shells)    
     
@@ -666,14 +662,14 @@ Flags:
     
 Examples:    
   Exit the current shell    
-  > [1;36mexit[0m    
+  > exit    
     
   Exit all shells (exiting Nu)    
-  > [1;36mexit[0m[37m [0m[1;34m--now[0m    
+  > exit --now    
     
     
-    
-# fetch    
+</details>    
+<details><summary>fetch</summary>    
     
 Load from a URL into a cell, convert to table if possible (avoid by appending '--raw')    
     
@@ -690,8 +686,8 @@ Flags:
   -r, --raw: fetch contents as text rather than a table    
     
     
-    
-# first    
+</details>    
+<details><summary>first</summary>    
     
 Show only the first number of rows.    
     
@@ -706,14 +702,14 @@ Flags:
     
 Examples:    
   Return the first item of a list/table    
-  > [1;36mecho[0m[37m [[0m[1;35m1[0m[37m [0m[1;35m2[0m[37m [0m[1;35m3[0m[37m] | [0m[1;36mfirst[0m    
+  > echo [1 2 3] | first    
     
   Return the first 2 items of a list/table    
-  > [1;36mecho[0m[37m [[0m[1;35m1[0m[37m [0m[1;35m2[0m[37m [0m[1;35m3[0m[37m] | [0m[1;36mfirst[0m[37m [0m[1;35m2[0m    
+  > echo [1 2 3] | first 2    
     
     
-    
-# format    
+</details>    
+<details><summary>format</summary>    
     
 Format columns into a string using a simple pattern.    
     
@@ -728,283 +724,221 @@ Flags:
     
 Examples:    
   Print filenames with their sizes    
-  > [1;36mls[0m[37m | [0m[1;36mformat[0m[37m [0m[32m'{name}: {size}'[0m    
+  > ls | format '{name}: {size}'    
     
     
-    
-# from    
+</details>    
+<details><summary>from</summary>    
     
 Parse content (string or binary) as a table (input format based on subcommand, like csv, ini, json, toml)    
     
 Usage:    
-  > from <subcommand> {flags}     
-    
-Subcommands:    
-  from csv - Parse text as .csv and create table.    
-  from eml - Parse text as .eml and create table.    
-  from tsv - Parse text as .tsv and create table.    
-  from ssv - Parse text as space-separated values and create a table. The default minimum number of spaces counted as a separator is 2.    
-  from ini - Parse text as .ini and create table    
-  from bson - Parse binary as .bson and create table.    
-  from json - Parse text as .json and create table.    
-  from ods - Parse OpenDocument Spreadsheet(.ods) data and create table.    
-  from db - Parse binary data as db and create table.    
-  from sqlite - Parse binary data as sqlite .db and create table.    
-  from toml - Parse text as .toml and create table.    
-  from url - Parse url-encoded string as a table.    
-  from xlsx - Parse binary Excel(.xlsx) data and create table.    
-  from xml - Parse text as .xml and create table.    
-  from yaml - Parse text as .yaml/.yml and create table.    
-  from yml - Parse text as .yaml/.yml and create table.    
-  from ics - Parse text as .ics and create table.    
-  from vcf - Parse text as .vcf and create table.    
+  > from {flags}     
     
 Flags:    
   -h, --help: Display this help message    
     
     
-    
-## from bson    
-    
-Parse binary as .bson and create table.    
-    
-Usage:    
-  > from bson {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-Examples:    
-  Convert bson data to a table    
-  > [1;36mopen[0m[37m [0m[36mfile.bin[0m[37m | [0m[1;36mfrom bson[0m    
-    
-    
-    
-## from csv    
-    
-Parse text as .csv and create table.    
-    
-Usage:    
-  > from csv {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-  -s, --separator <string>: a character to separate columns, defaults to ','    
-  --headerless: don't treat the first row as column names    
-    
-Examples:    
-  Convert comma-separated data to a table    
-  > [1;36mopen[0m[37m [0m[36mdata.txt[0m[37m | [0m[1;36mfrom csv[0m    
-    
-  Convert comma-separated data to a table, ignoring headers    
-  > [1;36mopen[0m[37m [0m[36mdata.txt[0m[37m | [0m[1;36mfrom csv[0m[37m [0m[1;34m--headerless[0m    
-    
-  Convert semicolon-separated data to a table    
-  > [1;36mopen[0m[37m [0m[36mdata.txt[0m[37m | [0m[1;36mfrom csv[0m[37m [0m[1;34m--separator[0m[37m [0m[32m';'[0m    
-    
-    
-    
-## from db    
-    
-Parse binary data as db and create table.    
-    
-Usage:    
-  > from db {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-    
-    
-## from eml    
-    
-Parse text as .eml and create table.    
-    
-Usage:    
-  > from eml {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-  -b, --preview-body <integer>: How many bytes of the body to preview    
-    
-    
-    
-## from ics    
-    
-Parse text as .ics and create table.    
-    
-Usage:    
-  > from ics {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-    
-    
-## from ini    
-    
-Parse text as .ini and create table    
-    
-Usage:    
-  > from ini {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-    
-    
-## from json    
-    
-Parse text as .json and create table.    
-    
-Usage:    
-  > from json {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-  -o, --objects: treat each line as a separate value    
-    
-    
-    
-## from ods    
-    
-Parse OpenDocument Spreadsheet(.ods) data and create table.    
-    
-Usage:    
-  > from ods {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-  --headerless: don't treat the first row as column names    
-    
-    
-    
-## from sqlite    
-    
-Parse binary data as sqlite .db and create table.    
-    
-Usage:    
-  > from sqlite {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-    
-    
-## from ssv    
-    
-Parse text as space-separated values and create a table. The default minimum number of spaces counted as a separator is 2.    
-    
-Usage:    
-  > from ssv {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-  --headerless: don't treat the first row as column names    
-  -a, --aligned-columns: assume columns are aligned    
-  -m, --minimum-spaces <integer>: the minimum spaces to separate columns    
-    
-    
-    
-## from toml    
-    
-Parse text as .toml and create table.    
-    
-Usage:    
-  > from toml {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-    
-    
-## from tsv    
-    
-Parse text as .tsv and create table.    
-    
-Usage:    
-  > from tsv {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-  --headerless: don't treat the first row as column names    
-    
-    
-    
-## from url    
-    
-Parse url-encoded string as a table.    
-    
-Usage:    
-  > from url {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-    
-    
-## from vcf    
-    
-Parse text as .vcf and create table.    
-    
-Usage:    
-  > from vcf {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-    
-    
-## from xlsx    
-    
-Parse binary Excel(.xlsx) data and create table.    
-    
-Usage:    
-  > from xlsx {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-  --headerless: don't treat the first row as column names    
-    
-    
-    
-## from xml    
-    
-Parse text as .xml and create table.    
-    
-Usage:    
-  > from xml {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-    
-    
-## from yaml    
-    
-Parse text as .yaml/.yml and create table.    
-    
-Usage:    
-  > from yaml {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-    
-    
-## from yml    
-    
-Parse text as .yaml/.yml and create table.    
-    
-Usage:    
-  > from yml {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-    
-    
-# get    
+- <details><summary>from bson</summary>    
+    
+  Parse content (string or binary) as a table (input format based on subcommand, like csv, ini, json, toml)    
+      
+  Usage:    
+    > from {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>from csv</summary>    
+    
+  Parse content (string or binary) as a table (input format based on subcommand, like csv, ini, json, toml)    
+      
+  Usage:    
+    > from {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>from db</summary>    
+    
+  Parse content (string or binary) as a table (input format based on subcommand, like csv, ini, json, toml)    
+      
+  Usage:    
+    > from {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>from eml</summary>    
+    
+  Parse content (string or binary) as a table (input format based on subcommand, like csv, ini, json, toml)    
+      
+  Usage:    
+    > from {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>from ics</summary>    
+    
+  Parse content (string or binary) as a table (input format based on subcommand, like csv, ini, json, toml)    
+      
+  Usage:    
+    > from {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>from ini</summary>    
+    
+  Parse content (string or binary) as a table (input format based on subcommand, like csv, ini, json, toml)    
+      
+  Usage:    
+    > from {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>from json</summary>    
+    
+  Parse content (string or binary) as a table (input format based on subcommand, like csv, ini, json, toml)    
+      
+  Usage:    
+    > from {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>from ods</summary>    
+    
+  Parse content (string or binary) as a table (input format based on subcommand, like csv, ini, json, toml)    
+      
+  Usage:    
+    > from {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>from sqlite</summary>    
+    
+  Parse content (string or binary) as a table (input format based on subcommand, like csv, ini, json, toml)    
+      
+  Usage:    
+    > from {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>from ssv</summary>    
+    
+  Parse content (string or binary) as a table (input format based on subcommand, like csv, ini, json, toml)    
+      
+  Usage:    
+    > from {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>from toml</summary>    
+    
+  Parse content (string or binary) as a table (input format based on subcommand, like csv, ini, json, toml)    
+      
+  Usage:    
+    > from {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>from tsv</summary>    
+    
+  Parse content (string or binary) as a table (input format based on subcommand, like csv, ini, json, toml)    
+      
+  Usage:    
+    > from {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>from url</summary>    
+    
+  Parse content (string or binary) as a table (input format based on subcommand, like csv, ini, json, toml)    
+      
+  Usage:    
+    > from {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>from vcf</summary>    
+    
+  Parse content (string or binary) as a table (input format based on subcommand, like csv, ini, json, toml)    
+      
+  Usage:    
+    > from {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>from xlsx</summary>    
+    
+  Parse content (string or binary) as a table (input format based on subcommand, like csv, ini, json, toml)    
+      
+  Usage:    
+    > from {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>from xml</summary>    
+    
+  Parse content (string or binary) as a table (input format based on subcommand, like csv, ini, json, toml)    
+      
+  Usage:    
+    > from {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>from yaml</summary>    
+    
+  Parse content (string or binary) as a table (input format based on subcommand, like csv, ini, json, toml)    
+      
+  Usage:    
+    > from {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>from yml</summary>    
+    
+  Parse content (string or binary) as a table (input format based on subcommand, like csv, ini, json, toml)    
+      
+  Usage:    
+    > from {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+</details>    
+<details><summary>get</summary>    
     
 Open given cells as text.    
     
@@ -1019,22 +953,19 @@ Flags:
     
 Examples:    
   Extract the name of files as a list    
-  > [1;36mls[0m[37m | [0m[1;36mget[0m[37m [0m[36mname[0m    
+  > ls | get name    
     
   Extract the cpu list from the sys information    
-  > [1;36msys[0m[37m | [0m[1;36mget[0m[37m [0m[36mcpu[0m    
+  > sys | get cpu    
     
     
-    
-# group-by    
+</details>    
+<details><summary>group-by</summary>    
     
 Creates a new table with the data from the table rows grouped by the column given.    
     
 Usage:    
-  > group-by (column_name) <subcommand> {flags}     
-    
-Subcommands:    
-  group-by date - Creates a new table with the data from the table rows grouped by the column given.    
+  > group-by (column_name) {flags}     
     
 Parameters:    
   (column_name) the name of the column to group by    
@@ -1044,34 +975,35 @@ Flags:
     
 Examples:    
   Group items by type    
-  > [1;36mls[0m[37m | [0m[1;36mgroup-by[0m[37m [0m[32mtype[0m    
+  > ls | group-by type    
     
   Group items by their value    
-  > [1;36mecho[0m[37m [[0m[1;35m1[0m[37m [0m[1;35m3[0m[37m [0m[1;35m1[0m[37m [0m[1;35m3[0m[37m [0m[1;35m2[0m[37m [0m[1;35m1[0m[37m [0m[1;35m1[0m[37m] | [0m[1;36mgroup-by[0m    
+  > echo [1 3 1 3 2 1 1] | group-by    
     
     
+- <details><summary>group-by date</summary>    
     
-## group-by date    
-    
-Creates a new table with the data from the table rows grouped by the column given.    
-    
-Usage:    
-  > group-by date (column_name) {flags}     
-    
-Parameters:    
-  (column_name) the name of the column to group by    
-    
-Flags:    
-  -h, --help: Display this help message    
-  -f, --format <string>: Specify date and time formatting    
-    
-Examples:    
-  Group files by type    
-  > [1;36mls[0m[37m | [0m[1;36mgroup-by date[0m[37m [0m[1;34m--format[0m[37m [0m[32m'%d/%m/%Y'[0m    
-    
-    
-    
-# headers    
+  Creates a new table with the data from the table rows grouped by the column given.    
+      
+  Usage:    
+    > group-by (column_name) {flags}     
+      
+  Parameters:    
+    (column_name) the name of the column to group by    
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  Examples:    
+    Group items by type    
+    > ls | group-by type    
+      
+    Group items by their value    
+    > echo [1 3 1 3 2 1 1] | group-by    
+      
+  </details>    
+</details>    
+<details><summary>headers</summary>    
     
 Use the first row of the table as column names    
     
@@ -1083,11 +1015,11 @@ Flags:
     
 Examples:    
   Create headers for a raw string    
-  > [1;36mecho[0m[37m [0m[32m"a b c|1 2 3"[0m[37m | [0m[1;36msplit row[0m[37m [0m[32m"|"[0m[37m | [0m[1;36msplit column[0m[37m [0m[32m" "[0m[37m | [0m[1;36mheaders[0m    
+  > echo "a b c|1 2 3" | split row "|" | split column " " | headers    
     
     
-    
-# help    
+</details>    
+<details><summary>help</summary>    
     
 Display help information about commands.    
     
@@ -1101,8 +1033,8 @@ Flags:
   -h, --help: Display this help message    
     
     
-    
-# histogram    
+</details>    
+<details><summary>histogram</summary>    
     
 Creates a new table with a histogram based on the column name passed in.    
     
@@ -1118,17 +1050,17 @@ Flags:
     
 Examples:    
   Get a histogram for the types of files    
-  > [1;36mls[0m[37m | [0m[1;36mhistogram[0m[37m [0m[32mtype[0m    
+  > ls | histogram type    
     
   Get a histogram for the types of files, with frequency column named count    
-  > [1;36mls[0m[37m | [0m[1;36mhistogram[0m[37m [0m[32mtype[0m[37m [0m[32mcount[0m    
+  > ls | histogram type count    
     
   Get a histogram for a list of numbers    
-  > [1;36mecho[0m[37m [[0m[1;35m1[0m[37m [0m[1;35m2[0m[37m [0m[1;35m3[0m[37m [0m[1;35m1[0m[37m [0m[1;35m1[0m[37m [0m[1;35m1[0m[37m [0m[1;35m2[0m[37m [0m[1;35m2[0m[37m [0m[1;35m1[0m[37m [0m[1;35m1[0m[37m] | [0m[1;36mhistogram[0m    
+  > echo [1 2 3 1 1 1 2 2 1 1] | histogram    
     
     
-    
-# history    
+</details>    
+<details><summary>history</summary>    
     
 Display command history.    
     
@@ -1139,8 +1071,8 @@ Flags:
   -h, --help: Display this help message    
     
     
-    
-# if    
+</details>    
+<details><summary>if</summary>    
     
 Filter table to match the condition.    
     
@@ -1157,14 +1089,14 @@ Flags:
     
 Examples:    
   Run a block if a condition is true    
-  > [1;36mecho[0m[37m [0m[1;35m10[0m[37m | [0m[1;36mif[0m[37m [0m[35m$it[0m[37m [0m[33m>[0m[37m [0m[1;35m5[0m[37m { [0m[1;36mecho[0m[37m [0m[32m'greater than 5'[0m[37m } { [0m[1;36mecho[0m[37m [0m[32m'less than or equal to 5'[0m[37m }[0m    
+  > echo 10 | if $it > 5 { echo 'greater than 5' } { echo 'less than or equal to 5' }    
     
   Run a block if a condition is false    
-  > [1;36mecho[0m[37m [0m[1;35m1[0m[37m | [0m[1;36mif[0m[37m [0m[35m$it[0m[37m [0m[33m>[0m[37m [0m[1;35m5[0m[37m { [0m[1;36mecho[0m[37m [0m[32m'greater than 5'[0m[37m } { [0m[1;36mecho[0m[37m [0m[32m'less than or equal to 5'[0m[37m }[0m    
+  > echo 1 | if $it > 5 { echo 'greater than 5' } { echo 'less than or equal to 5' }    
     
     
-    
-# inc    
+</details>    
+<details><summary>inc</summary>    
     
 Increment a value or version. Optionally use the column of a table.    
     
@@ -1181,8 +1113,8 @@ Flags:
   -p, --patch: increment the patch version (eg 1.2.1 -> 1.2.2)    
     
     
-    
-# insert    
+</details>    
+<details><summary>insert</summary>    
     
 Insert a new column with a given value.    
     
@@ -1197,8 +1129,8 @@ Flags:
   -h, --help: Display this help message    
     
     
-    
-# keep    
+</details>    
+<details><summary>keep</summary>    
     
 Keep the number of rows only    
     
@@ -1213,14 +1145,14 @@ Flags:
     
 Examples:    
   Keep the first row    
-  > [1;36mecho[0m[37m [[0m[1;35m1[0m[37m [0m[1;35m2[0m[37m [0m[1;35m3[0m[37m] | [0m[1;36mkeep[0m    
+  > echo [1 2 3] | keep    
     
   Keep the first four rows    
-  > [1;36mecho[0m[37m [[0m[1;35m1[0m[37m [0m[1;35m2[0m[37m [0m[1;35m3[0m[37m [0m[1;35m4[0m[37m [0m[1;35m5[0m[37m] | [0m[1;36mkeep[0m[37m [0m[1;35m4[0m    
+  > echo [1 2 3 4 5] | keep 4    
     
     
-    
-# keep-until    
+</details>    
+<details><summary>keep-until</summary>    
     
 Keeps rows until the condition matches.    
     
@@ -1234,8 +1166,8 @@ Flags:
   -h, --help: Display this help message    
     
     
-    
-# keep-while    
+</details>    
+<details><summary>keep-while</summary>    
     
 Keeps rows while the condition matches.    
     
@@ -1249,8 +1181,8 @@ Flags:
   -h, --help: Display this help message    
     
     
-    
-# kill    
+</details>    
+<details><summary>kill</summary>    
     
 Kill a process using the process id.    
     
@@ -1268,14 +1200,14 @@ Flags:
     
 Examples:    
   Kill the pid using the most memory    
-  > [1;36mps[0m[37m | [0m[1;36msort-by[0m[37m [0m[32mmem[0m[37m | [0m[1;36mlast[0m[37m | [0m[1;36mkill[0m[37m [0m[35m$it.[0m[1;33mpid[0m    
+  > ps | sort-by mem | last | kill $it.pid    
     
   Force kill a given pid    
-  > [1;36mkill[0m[37m [0m[1;34m--force[0m[37m [0m[1;35m12345[0m    
+  > kill --force 12345    
     
     
-    
-# last    
+</details>    
+<details><summary>last</summary>    
     
 Show only the last number of rows.    
     
@@ -1290,14 +1222,14 @@ Flags:
     
 Examples:    
   Get the last row    
-  > [1;36mecho[0m[37m [[0m[1;35m1[0m[37m [0m[1;35m2[0m[37m [0m[1;35m3[0m[37m] | [0m[1;36mlast[0m    
+  > echo [1 2 3] | last    
     
   Get the last three rows    
-  > [1;36mecho[0m[37m [[0m[1;35m1[0m[37m [0m[1;35m2[0m[37m [0m[1;35m3[0m[37m [0m[1;35m4[0m[37m [0m[1;35m5[0m[37m] | [0m[1;36mlast[0m[37m [0m[1;35m3[0m    
+  > echo [1 2 3 4 5] | last 3    
     
     
-    
-# lines    
+</details>    
+<details><summary>lines</summary>    
     
 Split single string into rows, one per line.    
     
@@ -1309,11 +1241,11 @@ Flags:
     
 Examples:    
   Split multi-line string into lines    
-  > [32m^echo[0m[37m [0m[32m"two\nlines"[0m[37m | [0m[1;36mlines[0m    
+  > ^echo "two\nlines" | lines    
     
     
-    
-# ls    
+</details>    
+<details><summary>ls</summary>    
     
 View the contents of the current or given path.    
     
@@ -1333,17 +1265,17 @@ Flags:
     
 Examples:    
   List all files in the current directory    
-  > [1;36mls[0m    
+  > ls    
     
   List all files in a subdirectory    
-  > [1;36mls[0m[37m [0m[1;36msubdir[0m    
+  > ls subdir    
     
   List all rust files    
-  > [1;36mls[0m[37m [0m[1;36m*.rs[0m    
+  > ls *.rs    
     
     
-    
-# match    
+</details>    
+<details><summary>match</summary>    
     
 filter rows by regex    
     
@@ -1358,127 +1290,86 @@ Flags:
   -h, --help: Display this help message    
     
     
-    
-# math    
+</details>    
+<details><summary>math</summary>    
     
 Use mathematical functions as aggregate functions on a list of numbers or tables    
     
 Usage:    
-  > math <subcommand> {flags}     
-    
-Subcommands:    
-  math avg - Finds the average of a list of numbers or tables    
-  math median - Gets the median of a list of numbers    
-  math min - Finds the minimum within a list of numbers or tables    
-  math mode - Gets the most frequent element(s) from a list of numbers or tables    
-  math max - Finds the maximum within a list of numbers or tables    
-  math sum - Finds the sum of a list of numbers or tables    
+  > math {flags}     
     
 Flags:    
   -h, --help: Display this help message    
     
     
+- <details><summary>math avg</summary>    
     
-## math avg    
+  Use mathematical functions as aggregate functions on a list of numbers or tables    
+      
+  Usage:    
+    > math {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>math max</summary>    
     
-Finds the average of a list of numbers or tables    
+  Use mathematical functions as aggregate functions on a list of numbers or tables    
+      
+  Usage:    
+    > math {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>math median</summary>    
     
-Usage:    
-  > math avg {flags}     
+  Use mathematical functions as aggregate functions on a list of numbers or tables    
+      
+  Usage:    
+    > math {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>math min</summary>    
     
-Flags:    
-  -h, --help: Display this help message    
+  Use mathematical functions as aggregate functions on a list of numbers or tables    
+      
+  Usage:    
+    > math {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>math mode</summary>    
     
-Examples:    
-  Get the average of a list of numbers    
-  > [1;36mecho[0m[37m [[0m[1;35m-50[0m[37m [0m[1;35m100.0[0m[37m [0m[1;35m25[0m[37m] | [0m[1;36mmath avg[0m    
+  Use mathematical functions as aggregate functions on a list of numbers or tables    
+      
+  Usage:    
+    > math {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>math sum</summary>    
     
-    
-    
-## math max    
-    
-Finds the maximum within a list of numbers or tables    
-    
-Usage:    
-  > math max {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-Examples:    
-  Find the maximum of list of numbers    
-  > [1;36mecho[0m[37m [[0m[1;35m-50[0m[37m [0m[1;35m100[0m[37m [0m[1;35m25[0m[37m] | [0m[1;36mmath max[0m    
-    
-    
-    
-## math median    
-    
-Gets the median of a list of numbers    
-    
-Usage:    
-  > math median {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-Examples:    
-  Get the median of a list of numbers    
-  > [1;36mecho[0m[37m [[0m[1;35m3[0m[37m [0m[1;35m8[0m[37m [0m[1;35m9[0m[37m [0m[1;35m12[0m[37m [0m[1;35m12[0m[37m [0m[1;35m15[0m[37m] | [0m[1;36mmath median[0m    
-    
-    
-    
-## math min    
-    
-Finds the minimum within a list of numbers or tables    
-    
-Usage:    
-  > math min {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-Examples:    
-  Get the minimum of a list of numbers    
-  > [1;36mecho[0m[37m [[0m[1;35m-50[0m[37m [0m[1;35m100[0m[37m [0m[1;35m25[0m[37m] | [0m[1;36mmath min[0m    
-    
-    
-    
-## math mode    
-    
-Gets the most frequent element(s) from a list of numbers or tables    
-    
-Usage:    
-  > math mode {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-Examples:    
-  Get the mode(s) of a list of numbers    
-  > [1;36mecho[0m[37m [[0m[1;35m3[0m[37m [0m[1;35m3[0m[37m [0m[1;35m9[0m[37m [0m[1;35m12[0m[37m [0m[1;35m12[0m[37m [0m[1;35m15[0m[37m] | [0m[1;36mmath mode[0m    
-    
-    
-    
-## math sum    
-    
-Finds the sum of a list of numbers or tables    
-    
-Usage:    
-  > math sum {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-Examples:    
-  Sum a list of numbers    
-  > [1;36mecho[0m[37m [[0m[1;35m1[0m[37m [0m[1;35m2[0m[37m [0m[1;35m3[0m[37m] | [0m[1;36mmath sum[0m    
-    
-  Get the disk usage for the current directory    
-  > [1;36mls[0m[37m [0m[1;34m--all[0m[37m [0m[1;34m--du[0m[37m | [0m[1;36mget[0m[37m [0m[36msize[0m[37m | [0m[1;36mmath sum[0m    
-    
-    
-    
-# merge    
+  Use mathematical functions as aggregate functions on a list of numbers or tables    
+      
+  Usage:    
+    > math {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+</details>    
+<details><summary>merge</summary>    
     
 Merge a table.    
     
@@ -1493,11 +1384,11 @@ Flags:
     
 Examples:    
   Merge a 1-based index column with some ls output    
-  > [1;36mls[0m[37m | [0m[1;36mselect[0m[37m [0m[36mname[0m[37m | [0m[1;36mkeep[0m[37m [0m[1;35m3[0m[37m | [0m[1;36mmerge[0m[37m { [0m[1;36mecho[0m[37m [[0m[1;35m1[0m[37m [0m[1;35m2[0m[37m [0m[1;35m3[0m[37m] | [0m[1;36mwrap[0m[37m [0m[32mindex[0m[37m }[0m    
+  > ls | select name | keep 3 | merge { echo [1 2 3] | wrap index }    
     
     
-    
-# mkdir    
+</details>    
+<details><summary>mkdir</summary>    
     
 Make directories, creates intermediary directories as required.    
     
@@ -1513,43 +1404,34 @@ Flags:
     
 Examples:    
   Make a directory named foo    
-  > [1;36mmkdir[0m[37m [0m[36mfoo[0m    
+  > mkdir foo    
     
     
-    
-# move    
+</details>    
+<details><summary>move</summary>    
     
 moves across desired subcommand.    
     
 Usage:    
-  > move <subcommand> {flags}     
-    
-Subcommands:    
-  move column - Move columns.    
+  > move {flags}     
     
 Flags:    
   -h, --help: Display this help message    
     
     
+- <details><summary>move column</summary>    
     
-## move column    
-    
-Move columns.    
-    
-Usage:    
-  > move column  ...args{flags}     
-    
-Parameters:    
-  ...args: the columns to move    
-    
-Flags:    
-  -h, --help: Display this help message    
-  --after <column path>: the column that will precede the columns moved    
-  --before <column path>: the column that will be next the columns moved    
-    
-    
-    
-# mv    
+  moves across desired subcommand.    
+      
+  Usage:    
+    > move {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+</details>    
+<details><summary>mv</summary>    
     
 Move files or directories.    
     
@@ -1565,17 +1447,17 @@ Flags:
     
 Examples:    
   Rename a file    
-  > [1;36mmv[0m[37m [0m[1;36mbefore.txt[0m[37m [0m[36mafter.txt[0m    
+  > mv before.txt after.txt    
     
   Move a file into a directory    
-  > [1;36mmv[0m[37m [0m[1;36mtest.txt[0m[37m [0m[36mmy/subdirectory[0m    
+  > mv test.txt my/subdirectory    
     
   Move many files into a directory    
-  > [1;36mmv[0m[37m [0m[1;36m*.txt[0m[37m [0m[36mmy/subdirectory[0m    
+  > mv *.txt my/subdirectory    
     
     
-    
-# n    
+</details>    
+<details><summary>n</summary>    
     
 Go to next shell.    
     
@@ -1586,8 +1468,8 @@ Flags:
   -h, --help: Display this help message    
     
     
-    
-# nth    
+</details>    
+<details><summary>nth</summary>    
     
 Return only the selected rows    
     
@@ -1603,14 +1485,14 @@ Flags:
     
 Examples:    
   Get the second row    
-  > [1;36mecho[0m[37m [[0m[32mfirst[0m[37m [0m[32msecond[0m[37m [0m[32mthird[0m[37m] | [0m[1;36mnth[0m[37m [0m[1;35m1[0m    
+  > echo [first second third] | nth 1    
     
   Get the first and third rows    
-  > [1;36mecho[0m[37m [[0m[32mfirst[0m[37m [0m[32msecond[0m[37m [0m[32mthird[0m[37m] | [0m[1;36mnth[0m[37m [0m[1;35m0[0m[37m [0m[1;35m2[0m    
+  > echo [first second third] | nth 0 2    
     
     
-    
-# open    
+</details>    
+<details><summary>open</summary>    
     
 Load a file into a cell, convert to table if possible (avoid by appending '--raw').    
             
@@ -1634,14 +1516,14 @@ Flags:
     
 Examples:    
   Opens "users.csv" and creates a table from the data    
-  > [1;36mopen[0m[37m [0m[36musers.csv[0m    
+  > open users.csv    
     
   Opens file with iso-8859-1 encoding    
-  > [1;36mopen[0m[37m [0m[36mfile.csv[0m[37m [0m[1;34m--encoding[0m[37m [0m[32miso-8859-1[0m[37m | [0m[1;36mfrom csv[0m    
+  > open file.csv --encoding iso-8859-1 | from csv    
     
     
-    
-# p    
+</details>    
+<details><summary>p</summary>    
     
 Go to previous shell.    
     
@@ -1652,8 +1534,8 @@ Flags:
   -h, --help: Display this help message    
     
     
-    
-# parse    
+</details>    
+<details><summary>parse</summary>    
     
 Parse columns from string data using a simple pattern.    
     
@@ -1668,8 +1550,8 @@ Flags:
   -r, --regex: use full regex syntax for patterns    
     
     
-    
-# pivot    
+</details>    
+<details><summary>pivot</summary>    
     
 Pivots the table contents so rows become columns and columns become rows.    
     
@@ -1685,8 +1567,8 @@ Flags:
   -i, --ignore-titles: don't pivot the column names into values    
     
     
-    
-# post    
+</details>    
+<details><summary>post</summary>    
     
 Post content to a url and retrieve data as a table if possible.    
     
@@ -1706,8 +1588,8 @@ Flags:
   -r, --raw: return values as a string instead of a table    
     
     
-    
-# prepend    
+</details>    
+<details><summary>prepend</summary>    
     
 Prepend the given row to the front of the table    
     
@@ -1722,11 +1604,11 @@ Flags:
     
 Examples:    
   Add something to the beginning of a list or table    
-  > [1;36mecho[0m[37m [[0m[1;35m2[0m[37m [0m[1;35m3[0m[37m [0m[1;35m4[0m[37m] | [0m[1;36mprepend[0m[37m [0m[1;35m1[0m    
+  > echo [2 3 4] | prepend 1    
     
     
-    
-# ps    
+</details>    
+<details><summary>ps</summary>    
     
 View information about system processes.    
     
@@ -1738,8 +1620,8 @@ Flags:
   -f, --full: list all available columns for each entry    
     
     
-    
-# pwd    
+</details>    
+<details><summary>pwd</summary>    
     
 Output the current working directory.    
     
@@ -1751,85 +1633,56 @@ Flags:
     
 Examples:    
   Print the current working directory    
-  > [1;36mpwd[0m    
+  > pwd    
     
     
-    
-# random    
+</details>    
+<details><summary>random</summary>    
     
 Generate random values    
     
 Usage:    
-  > random <subcommand> {flags}     
-    
-Subcommands:    
-  random bool - Generate a random boolean value    
-  random dice - Generate a random dice roll    
-  random uuid - Generate a random uuid4 string    
+  > random {flags}     
     
 Flags:    
   -h, --help: Display this help message    
     
     
+- <details><summary>random bool</summary>    
     
-## random bool    
+  Generate random values    
+      
+  Usage:    
+    > random {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>random dice</summary>    
     
-Generate a random boolean value    
+  Generate random values    
+      
+  Usage:    
+    > random {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>random uuid</summary>    
     
-Usage:    
-  > random bool {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-  -b, --bias <number>: Adjusts the probability of a "true" outcome    
-    
-Examples:    
-  Generate a random boolean value    
-  > [1;36mrandom bool[0m    
-    
-  Generate a random boolean value with a 75% chance of "true"    
-  > [1;36mrandom bool[0m[37m [0m[1;34m--bias[0m[37m [0m[1;35m0.75[0m    
-    
-    
-    
-## random dice    
-    
-Generate a random dice roll    
-    
-Usage:    
-  > random dice {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-  -d, --dice <integer>: The amount of dice being rolled    
-  -s, --sides <integer>: The amount of sides a die has    
-    
-Examples:    
-  Roll 1 dice with 6 sides each    
-  > [1;36mrandom dice[0m    
-    
-  Roll 10 dice with 12 sides each    
-  > [1;36mrandom dice[0m[37m [0m[1;34m-d[0m[37m [0m[1;35m10[0m[37m [0m[1;34m-s[0m[37m [0m[1;35m12[0m    
-    
-    
-    
-## random uuid    
-    
-Generate a random uuid4 string    
-    
-Usage:    
-  > random uuid {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-Examples:    
-  Generate a random uuid4 string    
-  > [1;36mrandom uuid[0m    
-    
-    
-    
-# range    
+  Generate random values    
+      
+  Usage:    
+    > random {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+</details>    
+<details><summary>range</summary>    
     
 Return only the selected rows    
     
@@ -1843,8 +1696,8 @@ Flags:
   -h, --help: Display this help message    
     
     
-    
-# reject    
+</details>    
+<details><summary>reject</summary>    
     
 Remove the given columns from the table.    
     
@@ -1859,11 +1712,11 @@ Flags:
     
 Examples:    
   Lists the files in a directory without showing the modified column    
-  > [1;36mls[0m[37m | [0m[1;36mreject[0m[37m [0m[32mmodified[0m    
+  > ls | reject modified    
     
     
-    
-# rename    
+</details>    
+<details><summary>rename</summary>    
     
 Creates a new table with columns renamed.    
     
@@ -1879,14 +1732,14 @@ Flags:
     
 Examples:    
   Rename a column    
-  > [1;36mecho[0m[37m [0m[32m"{a: 1, b: 2, c: 3}"[0m[37m | [0m[1;36mfrom json[0m[37m | [0m[1;36mrename[0m[37m [0m[32mmy_column[0m    
+  > echo "{a: 1, b: 2, c: 3}" | from json | rename my_column    
     
   Rename many columns    
-  > [1;36mecho[0m[37m [0m[32m"{a: 1, b: 2, c: 3}"[0m[37m | [0m[1;36mfrom json[0m[37m | [0m[1;36mrename[0m[37m [0m[32mspam[0m[37m [0m[32meggs[0m[37m [0m[32mcars[0m    
+  > echo "{a: 1, b: 2, c: 3}" | from json | rename spam eggs cars    
     
     
-    
-# reverse    
+</details>    
+<details><summary>reverse</summary>    
     
 Reverses the table.    
     
@@ -1898,11 +1751,11 @@ Flags:
     
 Examples:    
   Sort list of numbers in descending file size    
-  > [1;36mecho[0m[37m [[0m[1;35m3[0m[37m [0m[1;35m1[0m[37m [0m[1;35m2[0m[37m [0m[1;35m19[0m[37m [0m[1;35m0[0m[37m] | [0m[1;36mreverse[0m    
+  > echo [3 1 2 19 0] | reverse    
     
     
-    
-# rm    
+</details>    
+<details><summary>rm</summary>    
     
 Remove file(s)    
     
@@ -1920,17 +1773,17 @@ Flags:
     
 Examples:    
   Delete or move a file to the system trash (depending on 'rm_always_trash' config option)    
-  > [1;36mrm[0m[37m [0m[1;36mfile.txt[0m    
+  > rm file.txt    
     
   Move a file to the system trash    
-  > [1;36mrm[0m[37m [0m[1;34m--trash[0m[37m [0m[1;36mfile.txt[0m    
+  > rm --trash file.txt    
     
   Delete a file permanently    
-  > [1;36mrm[0m[37m [0m[1;34m--permanent[0m[37m [0m[1;36mfile.txt[0m    
+  > rm --permanent file.txt    
     
     
-    
-# run_external    
+</details>    
+<details><summary>run_external</summary>    
     
     
     
@@ -1944,8 +1797,8 @@ Flags:
   -h, --help: Display this help message    
     
     
-    
-# save    
+</details>    
+<details><summary>save</summary>    
     
 Save the contents of the pipeline to a file.    
     
@@ -1960,8 +1813,8 @@ Flags:
   -r, --raw: treat values as-is rather than auto-converting based on file extension    
     
     
-    
-# select    
+</details>    
+<details><summary>select</summary>    
     
 Down-select table to only these columns.    
     
@@ -1976,14 +1829,14 @@ Flags:
     
 Examples:    
   Select just the name column    
-  > [1;36mls[0m[37m | [0m[1;36mselect[0m[37m [0m[36mname[0m    
+  > ls | select name    
     
   Select the name and size columns    
-  > [1;36mls[0m[37m | [0m[1;36mselect[0m[37m [0m[36mname[0m[37m [0m[36msize[0m    
+  > ls | select name size    
     
     
-    
-# shells    
+</details>    
+<details><summary>shells</summary>    
     
 Display the list of current shells.    
     
@@ -1994,8 +1847,8 @@ Flags:
   -h, --help: Display this help message    
     
     
-    
-# shuffle    
+</details>    
+<details><summary>shuffle</summary>    
     
 Shuffle rows randomly.    
     
@@ -2006,8 +1859,8 @@ Flags:
   -h, --help: Display this help message    
     
     
-    
-# size    
+</details>    
+<details><summary>size</summary>    
     
 Gather word count statistics on the text.    
     
@@ -2019,11 +1872,11 @@ Flags:
     
 Examples:    
   Count the number of words in a string    
-  > [1;36mecho[0m[37m [0m[32m"There are seven words in this sentence"[0m[37m | [0m[1;36msize[0m    
+  > echo "There are seven words in this sentence" | size    
     
     
-    
-# skip    
+</details>    
+<details><summary>skip</summary>    
     
 Skip some number of rows.    
     
@@ -2038,11 +1891,11 @@ Flags:
     
 Examples:    
   Skip the first 5 rows    
-  > [1;36mecho[0m[37m [[0m[1;35m1[0m[37m [0m[1;35m2[0m[37m [0m[1;35m3[0m[37m [0m[1;35m4[0m[37m [0m[1;35m5[0m[37m [0m[1;35m6[0m[37m [0m[1;35m7[0m[37m] | [0m[1;36mskip[0m[37m [0m[1;35m5[0m    
+  > echo [1 2 3 4 5 6 7] | skip 5    
     
     
-    
-# skip-until    
+</details>    
+<details><summary>skip-until</summary>    
     
 Skips rows until the condition matches.    
     
@@ -2056,8 +1909,8 @@ Flags:
   -h, --help: Display this help message    
     
     
-    
-# skip-while    
+</details>    
+<details><summary>skip-while</summary>    
     
 Skips rows while the condition matches.    
     
@@ -2071,8 +1924,8 @@ Flags:
   -h, --help: Display this help message    
     
     
-    
-# sort-by    
+</details>    
+<details><summary>sort-by</summary>    
     
 Sort by the given columns, in increasing order.    
     
@@ -2087,82 +1940,62 @@ Flags:
     
 Examples:    
   Sort list by increasing value    
-  > [1;36mecho[0m[37m [[0m[1;35m4[0m[37m [0m[1;35m2[0m[37m [0m[1;35m3[0m[37m [0m[1;35m1[0m[37m] | [0m[1;36msort-by[0m    
+  > echo [4 2 3 1] | sort-by    
     
   Sort output by increasing file size    
-  > [1;36mls[0m[37m | [0m[1;36msort-by[0m[37m [0m[32msize[0m    
+  > ls | sort-by size    
     
   Sort output by type, and then by file size for each type    
-  > [1;36mls[0m[37m | [0m[1;36msort-by[0m[37m [0m[32mtype[0m[37m [0m[32msize[0m    
+  > ls | sort-by type size    
     
     
-    
-# split    
+</details>    
+<details><summary>split</summary>    
     
 split contents across desired subcommand (like row, column) via the separator.    
     
 Usage:    
-  > split <subcommand> {flags}     
-    
-Subcommands:    
-  split column - splits contents across multiple columns via the separator.    
-  split row - splits contents over multiple rows via the separator.    
-  split chars - splits a string's characters into separate rows    
+  > split {flags}     
     
 Flags:    
   -h, --help: Display this help message    
     
     
+- <details><summary>split chars</summary>    
     
-## split chars    
+  split contents across desired subcommand (like row, column) via the separator.    
+      
+  Usage:    
+    > split {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>split column</summary>    
     
-splits a string's characters into separate rows    
+  split contents across desired subcommand (like row, column) via the separator.    
+      
+  Usage:    
+    > split {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>split row</summary>    
     
-Usage:    
-  > split chars {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-Examples:    
-  Split the string's characters into separate rows    
-  > [1;36mecho[0m[37m [0m[32m'hello'[0m[37m | [0m[1;36msplit chars[0m    
-    
-    
-    
-## split column    
-    
-splits contents across multiple columns via the separator.    
-    
-Usage:    
-  > split column <separator>  ...args{flags}     
-    
-Parameters:    
-  <separator> the character that denotes what separates columns    
-  ...args: column names to give the new columns    
-    
-Flags:    
-  -h, --help: Display this help message    
-  -c, --collapse-empty: remove empty columns    
-    
-    
-    
-## split row    
-    
-splits contents over multiple rows via the separator.    
-    
-Usage:    
-  > split row <separator> {flags}     
-    
-Parameters:    
-  <separator> the character that denotes what separates rows    
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-    
-    
-# split-by    
+  split contents across desired subcommand (like row, column) via the separator.    
+      
+  Usage:    
+    > split {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+</details>    
+<details><summary>split-by</summary>    
     
 Creates a new table with the data from the inner tables split by the column given.    
     
@@ -2176,8 +2009,8 @@ Flags:
   -h, --help: Display this help message    
     
     
-    
-# start    
+</details>    
+<details><summary>start</summary>    
     
 Opens each file/directory/URL using the default application    
     
@@ -2192,27 +2025,13 @@ Flags:
   -a, --application <string>: Specifies the application used for opening the files/directories/urls    
     
     
-    
-# str    
+</details>    
+<details><summary>str</summary>    
     
 Apply string function.    
     
 Usage:    
-  > str  ...args<subcommand> {flags}     
-    
-Subcommands:    
-  str to-decimal - converts text into decimal    
-  str to-int - converts text into integer    
-  str downcase - downcases text    
-  str upcase - upcases text    
-  str capitalize - capitalizes text    
-  str find-replace - finds and replaces text    
-  str substring - substrings text    
-  str set - sets text    
-  str to-datetime - converts text into datetime    
-  str trim - trims text    
-  str collect - collects a list of strings into a string    
-  str length - outputs the lengths of the strings in the pipeline    
+  > str  ...args{flags}     
     
 Parameters:    
   ...args: optionally convert by column paths    
@@ -2221,247 +2040,176 @@ Flags:
   -h, --help: Display this help message    
     
     
-    
-## str capitalize    
-    
-capitalizes text    
-    
-Usage:    
-  > str capitalize  ...args{flags}     
-    
-Parameters:    
-  ...args: optionally capitalize text by column paths    
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-Examples:    
-  Capitalize contents    
-  > [1;36mecho[0m[37m [0m[32m'good day'[0m[37m | [0m[1;36mstr capitalize[0m    
-    
-    
-    
-## str collect    
-    
-collects a list of strings into a string    
-    
-Usage:    
-  > str collect {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-Examples:    
-  Collect a list of string    
-  > [1;36mecho[0m[37m [[0m[32m'a'[0m[37m [0m[32m'b'[0m[37m [0m[32m'c'[0m[37m] | [0m[1;36mstr collect[0m    
-    
-    
-    
-## str downcase    
-    
-downcases text    
-    
-Usage:    
-  > str downcase  ...args{flags}     
-    
-Parameters:    
-  ...args: optionally downcase text by column paths    
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-Examples:    
-  Downcase contents    
-  > [1;36mecho[0m[37m [0m[32m'NU'[0m[37m | [0m[1;36mstr downcase[0m    
-    
-    
-    
-## str find-replace    
-    
-finds and replaces text    
-    
-Usage:    
-  > str find-replace <find> <replace>  ...args{flags}     
-    
-Parameters:    
-  <find> the pattern to find    
-  <replace> the replacement pattern    
-  ...args: optionally find and replace text by column paths    
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-Examples:    
-  Find and replace contents with capture group    
-  > [1;36mecho[0m[37m [0m[32m'my_library.rb'[0m[37m | [0m[1;36mstr find-replace[0m[37m [0m[32m'(.+).rb'[0m[37m [0m[32m'$1.nu'[0m    
-    
-    
-    
-## str length    
-    
-outputs the lengths of the strings in the pipeline    
-    
-Usage:    
-  > str length {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-Examples:    
-  Return the lengths of multiple strings    
-  > [1;36mecho[0m[37m [0m[32m'hello'[0m[37m | [0m[1;36mstr length[0m    
-    
-  Return the lengths of multiple strings    
-  > [1;36mecho[0m[37m [0m[32m'hi'[0m[37m [0m[32m'there'[0m[37m | [0m[1;36mstr length[0m    
-    
-    
-    
-## str set    
-    
-sets text    
-    
-Usage:    
-  > str set <set>  ...args{flags}     
-    
-Parameters:    
-  <set> the new string to set    
-  ...args: optionally set text by column paths    
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-Examples:    
-  Set contents with preferred string    
-  > [1;36mecho[0m[37m [0m[32m'good day'[0m[37m | [0m[1;36mstr set[0m[37m [0m[32m'good bye'[0m    
-    
-  Set the contents on preferred column paths    
-  > [1;36mopen[0m[37m [0m[36mCargo.toml[0m[37m | [0m[1;36mstr set[0m[37m [0m[32m'255'[0m[37m [0m[36mpackage.version[0m    
-    
-    
-    
-## str substring    
-    
-substrings text    
-    
-Usage:    
-  > str substring <range>  ...args{flags}     
-    
-Parameters:    
-  <range> the indexes to substring "start, end"    
-  ...args: optionally substring text by column paths    
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-Examples:    
-  Get a substring from the text    
-  > [1;36mecho[0m[37m [0m[32m'good nushell'[0m[37m | [0m[1;36mstr substring[0m[37m [0m[32m'5,12'[0m    
-    
-  Get the remaining characters from a starting index    
-  > [1;36mecho[0m[37m [0m[32m'good nushell'[0m[37m | [0m[1;36mstr substring[0m[37m [0m[32m'5,'[0m    
-    
-  Get the characters from the beginning until ending index    
-  > [1;36mecho[0m[37m [0m[32m'good nushell'[0m[37m | [0m[1;36mstr substring[0m[37m [0m[32m',7'[0m    
-    
-    
-    
-## str to-datetime    
-    
-converts text into datetime    
-    
-Usage:    
-  > str to-datetime  ...args{flags}     
-    
-Parameters:    
-  ...args: optionally convert text into datetime by column paths    
-    
-Flags:    
-  -h, --help: Display this help message    
-  -f, --format <string>: Specify date and time formatting    
-    
-Examples:    
-  Convert to datetime    
-  > [1;36mecho[0m[37m [0m[32m'16.11.1984 8:00 am +0000'[0m[37m | [0m[1;36mstr to-datetime[0m    
-    
-    
-    
-## str to-decimal    
-    
-converts text into decimal    
-    
-Usage:    
-  > str to-decimal  ...args{flags}     
-    
-Parameters:    
-  ...args: optionally convert text into decimal by column paths    
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-Examples:    
-  Convert to decimal    
-  > [1;36mecho[0m[37m [0m[32m'3.1415'[0m[37m | [0m[1;36mstr to-decimal[0m    
-    
-    
-    
-## str to-int    
-    
-converts text into integer    
-    
-Usage:    
-  > str to-int  ...args{flags}     
-    
-Parameters:    
-  ...args: optionally convert text into integer by column paths    
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-Examples:    
-  Convert to an integer    
-  > [1;36mecho[0m[37m [0m[32m'255'[0m[37m | [0m[1;36mstr to-int[0m    
-    
-    
-    
-## str trim    
-    
-trims text    
-    
-Usage:    
-  > str trim  ...args{flags}     
-    
-Parameters:    
-  ...args: optionally trim text by column paths    
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-Examples:    
-  Trim contents    
-  > [1;36mecho[0m[37m [0m[32m'Nu shell '[0m[37m | [0m[1;36mstr trim[0m    
-    
-    
-    
-## str upcase    
-    
-upcases text    
-    
-Usage:    
-  > str upcase  ...args{flags}     
-    
-Parameters:    
-  ...args: optionally upcase text by column paths    
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-Examples:    
-  Upcase contents    
-  > [1;36mecho[0m[37m [0m[32m'nu'[0m[37m | [0m[1;36mstr upcase[0m    
-    
-    
-    
-# sys    
+- <details><summary>str capitalize</summary>    
+    
+  Apply string function.    
+      
+  Usage:    
+    > str  ...args{flags}     
+      
+  Parameters:    
+    ...args: optionally convert by column paths    
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>str collect</summary>    
+    
+  Apply string function.    
+      
+  Usage:    
+    > str  ...args{flags}     
+      
+  Parameters:    
+    ...args: optionally convert by column paths    
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>str downcase</summary>    
+    
+  Apply string function.    
+      
+  Usage:    
+    > str  ...args{flags}     
+      
+  Parameters:    
+    ...args: optionally convert by column paths    
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>str find-replace</summary>    
+    
+  Apply string function.    
+      
+  Usage:    
+    > str  ...args{flags}     
+      
+  Parameters:    
+    ...args: optionally convert by column paths    
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>str length</summary>    
+    
+  Apply string function.    
+      
+  Usage:    
+    > str  ...args{flags}     
+      
+  Parameters:    
+    ...args: optionally convert by column paths    
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>str set</summary>    
+    
+  Apply string function.    
+      
+  Usage:    
+    > str  ...args{flags}     
+      
+  Parameters:    
+    ...args: optionally convert by column paths    
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>str substring</summary>    
+    
+  Apply string function.    
+      
+  Usage:    
+    > str  ...args{flags}     
+      
+  Parameters:    
+    ...args: optionally convert by column paths    
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>str to-datetime</summary>    
+    
+  Apply string function.    
+      
+  Usage:    
+    > str  ...args{flags}     
+      
+  Parameters:    
+    ...args: optionally convert by column paths    
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>str to-decimal</summary>    
+    
+  Apply string function.    
+      
+  Usage:    
+    > str  ...args{flags}     
+      
+  Parameters:    
+    ...args: optionally convert by column paths    
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>str to-int</summary>    
+    
+  Apply string function.    
+      
+  Usage:    
+    > str  ...args{flags}     
+      
+  Parameters:    
+    ...args: optionally convert by column paths    
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>str trim</summary>    
+    
+  Apply string function.    
+      
+  Usage:    
+    > str  ...args{flags}     
+      
+  Parameters:    
+    ...args: optionally convert by column paths    
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>str upcase</summary>    
+    
+  Apply string function.    
+      
+  Usage:    
+    > str  ...args{flags}     
+      
+  Parameters:    
+    ...args: optionally convert by column paths    
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+</details>    
+<details><summary>sys</summary>    
     
 View information about the current system.    
     
@@ -2472,8 +2220,8 @@ Flags:
   -h, --help: Display this help message    
     
     
-    
-# table    
+</details>    
+<details><summary>table</summary>    
     
 View the contents of the pipeline as a table.    
     
@@ -2485,8 +2233,8 @@ Flags:
   -n, --start_number <number>: row number to start viewing from    
     
     
-    
-# tags    
+</details>    
+<details><summary>tags</summary>    
     
 Read the tags (metadata) for values.    
     
@@ -2497,8 +2245,8 @@ Flags:
   -h, --help: Display this help message    
     
     
-    
-# textview    
+</details>    
+<details><summary>textview</summary>    
     
 Autoview of text data.    
     
@@ -2509,176 +2257,141 @@ Flags:
   -h, --help: Display this help message    
     
     
-    
-# to    
+</details>    
+<details><summary>to</summary>    
     
 Convert table into an output format (based on subcommand, like csv, html, json, yaml).    
     
 Usage:    
-  > to <subcommand> {flags}     
-    
-Subcommands:    
-  to bson - Convert table into .bson text.    
-  to csv - Convert table into .csv text     
-  to html - Convert table into simple HTML    
-  to json - Converts table data into JSON text.    
-  to sqlite - Convert table to sqlite .db binary data    
-  to db - Convert table to db data    
-  to md - Convert table into simple Markdown    
-  to toml - Convert table into .toml text    
-  to tsv - Convert table into .tsv text    
-  to url - Convert table into url-encoded text    
-  to yaml - Convert table into .yaml/.yml text    
+  > to {flags}     
     
 Flags:    
   -h, --help: Display this help message    
     
     
-    
-## to bson    
-    
-Convert table into .bson text.    
-    
-Usage:    
-  > to bson {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-    
-    
-## to csv    
-    
-Convert table into .csv text     
-    
-Usage:    
-  > to csv {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-  -s, --separator <string>: a character to separate columns, defaults to ','    
-  --headerless: do not output the columns names as the first row    
-    
-    
-    
-## to db    
-    
-Convert table to db data    
-    
-Usage:    
-  > to db {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-    
-    
-## to html    
-    
-Convert table into simple HTML    
-    
-Usage:    
-  > to html {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-    
-    
-## to json    
-    
-Converts table data into JSON text.    
-    
-Usage:    
-  > to json {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-  -p, --pretty <integer>: Formats the JSON text with the provided indentation setting    
-    
-Examples:    
-  Outputs an unformatted JSON string representing the contents of this table    
-  > [1;36mecho[0m[37m [[0m[1;35m1[0m[37m [0m[1;35m2[0m[37m [0m[1;35m3[0m[37m] | [0m[1;36mto json[0m    
-    
-  Outputs a formatted JSON string representing the contents of this table with an indentation setting of 2 spaces    
-  > [1;36mecho[0m[37m [[0m[1;35m1[0m[37m [0m[1;35m2[0m[37m [0m[1;35m3[0m[37m] | [0m[1;36mto json[0m[37m [0m[1;34m--pretty[0m[37m [0m[1;35m2[0m    
-    
-    
-    
-## to md    
-    
-Convert table into simple Markdown    
-    
-Usage:    
-  > to md {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-    
-    
-## to sqlite    
-    
-Convert table to sqlite .db binary data    
-    
-Usage:    
-  > to sqlite {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-    
-    
-## to toml    
-    
-Convert table into .toml text    
-    
-Usage:    
-  > to toml {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-    
-    
-## to tsv    
-    
-Convert table into .tsv text    
-    
-Usage:    
-  > to tsv {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-  --headerless: do not output the column names as the first row    
-    
-    
-    
-## to url    
-    
-Convert table into url-encoded text    
-    
-Usage:    
-  > to url {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-    
-    
-## to yaml    
-    
-Convert table into .yaml/.yml text    
-    
-Usage:    
-  > to yaml {flags}     
-    
-Flags:    
-  -h, --help: Display this help message    
-    
-    
-    
-# touch    
+- <details><summary>to bson</summary>    
+    
+  Convert table into an output format (based on subcommand, like csv, html, json, yaml).    
+      
+  Usage:    
+    > to {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>to csv</summary>    
+    
+  Convert table into an output format (based on subcommand, like csv, html, json, yaml).    
+      
+  Usage:    
+    > to {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>to db</summary>    
+    
+  Convert table into an output format (based on subcommand, like csv, html, json, yaml).    
+      
+  Usage:    
+    > to {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>to html</summary>    
+    
+  Convert table into an output format (based on subcommand, like csv, html, json, yaml).    
+      
+  Usage:    
+    > to {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>to json</summary>    
+    
+  Convert table into an output format (based on subcommand, like csv, html, json, yaml).    
+      
+  Usage:    
+    > to {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>to md</summary>    
+    
+  Convert table into an output format (based on subcommand, like csv, html, json, yaml).    
+      
+  Usage:    
+    > to {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>to sqlite</summary>    
+    
+  Convert table into an output format (based on subcommand, like csv, html, json, yaml).    
+      
+  Usage:    
+    > to {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>to toml</summary>    
+    
+  Convert table into an output format (based on subcommand, like csv, html, json, yaml).    
+      
+  Usage:    
+    > to {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>to tsv</summary>    
+    
+  Convert table into an output format (based on subcommand, like csv, html, json, yaml).    
+      
+  Usage:    
+    > to {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>to url</summary>    
+    
+  Convert table into an output format (based on subcommand, like csv, html, json, yaml).    
+      
+  Usage:    
+    > to {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+- <details><summary>to yaml</summary>    
+    
+  Convert table into an output format (based on subcommand, like csv, html, json, yaml).    
+      
+  Usage:    
+    > to {flags}     
+      
+  Flags:    
+    -h, --help: Display this help message    
+      
+  </details>    
+</details>    
+<details><summary>touch</summary>    
     
 creates a file    
     
@@ -2693,11 +2406,11 @@ Flags:
     
 Examples:    
   Creates "fixture.json"    
-  > [1;36mtouch[0m[37m [0m[36mfixture.json[0m    
+  > touch fixture.json    
     
     
-    
-# tree    
+</details>    
+<details><summary>tree</summary>    
     
 View the contents of the pipeline as a tree.    
     
@@ -2708,8 +2421,8 @@ Flags:
   -h, --help: Display this help message    
     
     
-    
-# trim    
+</details>    
+<details><summary>trim</summary>    
     
 Trim leading and following whitespace from text data.    
     
@@ -2721,11 +2434,11 @@ Flags:
     
 Examples:    
   Trims surrounding whitespace and outputs "Hello world"    
-  > [1;36mecho[0m[37m [0m[32m"    Hello world"[0m[37m | [0m[1;36mtrim[0m    
+  > echo "    Hello world" | trim    
     
     
-    
-# uniq    
+</details>    
+<details><summary>uniq</summary>    
     
 Return the unique rows    
     
@@ -2737,8 +2450,8 @@ Flags:
   -c, --count: Count the unique rows    
     
     
-    
-# update    
+</details>    
+<details><summary>update</summary>    
     
 Update an existing column to have a new value.    
     
@@ -2753,8 +2466,8 @@ Flags:
   -h, --help: Display this help message    
     
     
-    
-# version    
+</details>    
+<details><summary>version</summary>    
     
 Display Nu version    
     
@@ -2766,11 +2479,11 @@ Flags:
     
 Examples:    
   Display Nu version    
-  > [1;36mversion[0m    
+  > version    
     
     
-    
-# where    
+</details>    
+<details><summary>where</summary>    
     
 Filter table to match the condition.    
     
@@ -2785,20 +2498,20 @@ Flags:
     
 Examples:    
   List all files in the current directory with sizes greater than 2kb    
-  > [1;36mls[0m[37m | [0m[1;36mwhere[0m[37m [0m[1;33msize[0m[37m [0m[33m>[0m[37m [0m[1;35m2[0m[1;36mkb[0m    
+  > ls | where size > 2kb    
     
   List only the files in the current directory    
-  > [1;36mls[0m[37m | [0m[1;36mwhere[0m[37m [0m[1;33mtype[0m[37m [0m[33m==[0m[37m [0m[32mFile[0m    
+  > ls | where type == File    
     
   List all files with names that contain "Car"    
-  > [1;36mls[0m[37m | [0m[1;36mwhere[0m[37m [0m[1;33mname[0m[37m [0m[33m=~[0m[37m [0m[32m"Car"[0m    
+  > ls | where name =~ "Car"    
     
   List all files that were modified in the last two months    
-  > [1;36mls[0m[37m | [0m[1;36mwhere[0m[37m [0m[1;33mmodified[0m[37m [0m[33m<=[0m[37m [0m[1;35m2[0m[1;36mM[0m    
+  > ls | where modified <= 2M    
     
     
-    
-# which    
+</details>    
+<details><summary>which</summary>    
     
 Finds a program file.    
     
@@ -2813,8 +2526,8 @@ Flags:
   -a, --all: list all executables    
     
     
-    
-# with-env    
+</details>    
+<details><summary>with-env</summary>    
     
 Runs a block with an environment set. Eg) with-env [NAME 'foo'] { echo $nu.env.NAME }    
     
@@ -2830,11 +2543,11 @@ Flags:
     
 Examples:    
   Set the MYENV environment variable    
-  > [1;36mwith-env[0m[37m [[0m[32mMYENV[0m[37m [0m[32m"my env value"[0m[37m] { [0m[1;36mecho[0m[37m [0m[35m$nu.[0m[1;33menv[0m[35m.[0m[1;33mMYENV[0m[37m }[0m    
+  > with-env [MYENV "my env value"] { echo $nu.env.MYENV }    
     
     
-    
-# wrap    
+</details>    
+<details><summary>wrap</summary>    
     
 Wraps the given data in a table.    
     
@@ -2849,10 +2562,10 @@ Flags:
     
 Examples:    
   Wrap a list into a table with the default column name    
-  > [1;36mecho[0m[37m [[0m[1;35m1[0m[37m [0m[1;35m2[0m[37m [0m[1;35m3[0m[37m] | [0m[1;36mwrap[0m    
+  > echo [1 2 3] | wrap    
     
   Wrap a list into a table with a given column name    
-  > [1;36mecho[0m[37m [[0m[1;35m1[0m[37m [0m[1;35m2[0m[37m [0m[1;35m3[0m[37m] | [0m[1;36mwrap[0m[37m [0m[32mMyColumn[0m    
+  > echo [1 2 3] | wrap MyColumn    
     
     
-    
+</details>    
