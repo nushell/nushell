@@ -64,6 +64,25 @@ fn str_to_character(s: &str) -> Option<String> {
     match s {
         "newline" | "enter" | "nl" => Some("\n".into()),
         "tab" => Some("\t".into()),
+        "sp" | "space" => Some(" ".into()),
+        // Unicode names came from https://www.compart.com/en/unicode
+        // Private Use Area (U+E000-U+F8FF)
+        "branch" => Some('\u{e0a0}'.to_string()),  // 
+        "segment" => Some('\u{e0b0}'.to_string()), // 
+
+        "identical_to" | "hamburger" => Some('\u{2261}'.to_string()), // ≡
+        "not_identical_to" | "branch_untracked" => Some('\u{2262}'.to_string()), // ≢
+        "strictly_equivalent_to" | "branch_identical" => Some('\u{2263}'.to_string()), // ≣
+
+        "upwards_arrow" | "branch_ahead" => Some('\u{2191}'.to_string()), // ↑
+        "downwards_arrow" | "branch_behind" => Some('\u{2193}'.to_string()), // ↓
+        "up_down_arrow" | "branch_ahead_behind" => Some('\u{2195}'.to_string()), // ↕
+
+        "black_right_pointing_triangle" | "prompt" => Some('\u{25b6}'.to_string()), // ▶
+        "vector_or_cross_product" | "failed" => Some('\u{2a2f}'.to_string()),       // ⨯
+        "high_voltage_sign" | "elevated" => Some('\u{26a1}'.to_string()),           // ⚡
+        "tilde" | "twiddle" | "squiggly" | "home" => Some("~".into()),              // ~
+        "hash" | "hashtag" | "pound_sign" | "sharp" | "root" => Some("#".into()),   // #
         _ => None,
     }
 }

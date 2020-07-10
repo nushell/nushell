@@ -27,7 +27,7 @@ orbs:
 workflows:
   version: 2.0
 
-  # This builds on all pull requests to test, and ignores master
+  # This builds on all pull requests to test, and ignores main
   build_without_deploy:
     jobs:
       - docker/publish:
@@ -39,7 +39,7 @@ workflows:
           filters:
             branches:
               ignore:
-                - master
+                - main
           before_build:
             - pull_cache
           after_build:
@@ -98,11 +98,11 @@ workflows:
                    docker push quay.io/nushell/nu
 
 
-  # publish devel to Docker Hub on merge to master (doesn't build --release)
+  # publish devel to Docker Hub on merge to main (doesn't build --release)
   build_with_deploy_devel:
     jobs:
 
-      # Deploy devel tag on merge to master
+      # Deploy devel tag on merge to main
       - docker/publish:
           image: nushell/nu-base
           registry: quay.io
@@ -113,7 +113,7 @@ workflows:
             - pull_cache
           filters:
             branches:
-              only: master
+              only: main
           after_build:
             - run:
                 name: Build Multistage (smaller) container
@@ -137,7 +137,7 @@ workflows:
           filters:
             branches:
               only:
-                - master
+                - main
     jobs:
       - docker/publish:
           image: nushell/nu-base

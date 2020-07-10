@@ -121,21 +121,16 @@ async fn enter(
 
         let full_path = std::path::PathBuf::from(cwd);
 
-        let (file_extension, contents, contents_tag) = crate::commands::open::fetch(
+        let (file_extension, tagged_contents) = crate::commands::open::fetch(
             &full_path,
             &PathBuf::from(location_clone),
             tag.span,
-            match encoding {
-                Some(e) => e.to_string(),
-                _ => "".to_string(),
-            },
+            encoding,
         )
         .await?;
 
-        match contents {
+        match tagged_contents.value {
             UntaggedValue::Primitive(Primitive::String(_)) => {
-                let tagged_contents = contents.into_value(&contents_tag);
-
                 if let Some(extension) = file_extension {
                     let command_name = format!("from {}", extension);
                     if let Some(converter) = registry.get_command(&command_name) {
@@ -156,18 +151,18 @@ async fn enter(
                                 scope: scope.clone(),
                             },
                         };
+                        let tag = tagged_contents.tag.clone();
                         let mut result = converter
                             .run(new_args.with_input(vec![tagged_contents]), &registry)
                             .await?;
                         let result_vec: Vec<Result<ReturnSuccess, ShellError>> =
                             result.drain_vec().await;
-
                         Ok(futures::stream::iter(result_vec.into_iter().map(
                             move |res| match res {
                                 Ok(ReturnSuccess::Value(Value { value, .. })) => Ok(
                                     ReturnSuccess::Action(CommandAction::EnterValueShell(Value {
                                         value,
-                                        tag: contents_tag.clone(),
+                                        tag: tag.clone(),
                                     })),
                                 ),
                                 x => x,
@@ -185,13 +180,9 @@ async fn enter(
                     )))
                 }
             }
-            _ => {
-                let tagged_contents = contents.into_value(contents_tag);
-
-                Ok(OutputStream::one(ReturnSuccess::action(
-                    CommandAction::EnterValueShell(tagged_contents),
-                )))
-            }
+            _ => Ok(OutputStream::one(ReturnSuccess::action(
+                CommandAction::EnterValueShell(tagged_contents),
+            ))),
         }
     }
 }

@@ -40,7 +40,7 @@ impl WholeStreamCommand for Compact {
         vec![
             Example {
                 description: "Filter out all null entries in a list",
-                example: "echo [1 2 $null 3 $null $null] | compact target",
+                example: "echo [1 2 $null 3 $null $null] | compact",
                 result: Some(vec![
                     UntaggedValue::int(1).into(),
                     UntaggedValue::int(2).into(),

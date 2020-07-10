@@ -1,5 +1,5 @@
 use crate::commands::classified::block::run_block;
-use crate::commands::classified::external::{MaybeTextCodec, StringOrBinary};
+use crate::commands::classified::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
 use crate::commands::plugin::JsonRpc;
 use crate::commands::plugin::{PluginCommand, PluginSink};
 use crate::commands::whole_stream_command;
@@ -260,7 +260,7 @@ pub fn create_default_context(
             whole_stream_command(Cal),
             whole_stream_command(Calc),
             whole_stream_command(Mkdir),
-            whole_stream_command(Move),
+            whole_stream_command(Mv),
             whole_stream_command(Kill),
             whole_stream_command(Version),
             whole_stream_command(Clear),
@@ -288,6 +288,7 @@ pub fn create_default_context(
             whole_stream_command(Split),
             whole_stream_command(SplitColumn),
             whole_stream_command(SplitRow),
+            whole_stream_command(SplitChars),
             whole_stream_command(Lines),
             whole_stream_command(Trim),
             whole_stream_command(Echo),
@@ -304,10 +305,12 @@ pub fn create_default_context(
             whole_stream_command(StrToDatetime),
             whole_stream_command(StrTrim),
             whole_stream_command(StrCollect),
+            whole_stream_command(StrLength),
             whole_stream_command(BuildString),
             whole_stream_command(Ansi),
             whole_stream_command(Char),
             // Column manipulation
+            whole_stream_command(MoveColumn),
             whole_stream_command(Reject),
             whole_stream_command(Select),
             whole_stream_command(Get),
@@ -328,6 +331,7 @@ pub fn create_default_context(
             whole_stream_command(Drop),
             whole_stream_command(Format),
             whole_stream_command(Where),
+            whole_stream_command(If),
             whole_stream_command(Compact),
             whole_stream_command(Default),
             whole_stream_command(Skip),
@@ -342,6 +346,7 @@ pub fn create_default_context(
             whole_stream_command(Each),
             whole_stream_command(IsEmpty),
             // Table manipulation
+            whole_stream_command(Move),
             whole_stream_command(Merge),
             whole_stream_command(Shuffle),
             whole_stream_command(Wrap),
@@ -349,6 +354,9 @@ pub fn create_default_context(
             whole_stream_command(Headers),
             // Data processing
             whole_stream_command(Histogram),
+            whole_stream_command(Autoenv),
+            whole_stream_command(AutoenvTrust),
+            whole_stream_command(AutoenvUnTrust),
             whole_stream_command(Math),
             whole_stream_command(MathAverage),
             whole_stream_command(MathMedian),
@@ -394,6 +402,7 @@ pub fn create_default_context(
             // Random value generation
             whole_stream_command(Random),
             whole_stream_command(RandomBool),
+            whole_stream_command(RandomDice),
             whole_stream_command(RandomUUID),
         ]);
 
@@ -951,7 +960,7 @@ pub async fn process_line(
 
             let input_stream = if redirect_stdin {
                 let file = futures::io::AllowStdIo::new(std::io::stdin());
-                let stream = FramedRead::new(file, MaybeTextCodec).map(|line| {
+                let stream = FramedRead::new(file, MaybeTextCodec::default()).map(|line| {
                     if let Ok(line) = line {
                         match line {
                             StringOrBinary::String(s) => Ok(Value {
