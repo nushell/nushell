@@ -108,12 +108,12 @@ async fn help(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
             let docs_path = generated_dir.join("documentation.md");
             std::fs::write(&docs_path, first_part + "\n" + &second_part)?;
 
-            return Ok(OutputStream::one(ReturnSuccess::value(
+            Ok(OutputStream::one(ReturnSuccess::value(
                 UntaggedValue::string(format!(
                     "Docs generated in {}",
                     docs_path.to_string_lossy().to_string()
                 )),
-            )));
+            )))
         } else if rest.len() == 2 {
             // Check for a subcommand
             let command_name = format!("{} {}", rest[0].item, rest[1].item);
@@ -166,12 +166,14 @@ You can also learn more at https://www.nushell.sh/book/"#;
     }
 }
 
-fn indent(s: &String, count: usize) -> String {
-    let mut v = s.split("\n").map(|s| s.to_owned()).collect_vec();
+fn indent(s: &str, count: usize) -> String {
+    let mut v = s.split('\n').map(|s| s.to_owned()).collect_vec();
+
+    #[allow(clippy::needless_range_loop)]
     for i in 0..v.len() {
         v[i] = format!("{:indent$}{}", "", v[i], indent = count);
     }
-    v.join("\n").to_string()
+    v.join("\n")
 }
 
 struct DocumentationConfig {
@@ -196,7 +198,7 @@ fn generate_docs(registry: &CommandRegistry) -> String {
     // cmap will map parent commands to it's subcommands e.g. to -> [to csv, to yaml, to bson]
     let mut cmap: HashMap<String, Vec<String>> = HashMap::new();
     for name in &sorted_names {
-        if name.contains(" ") {
+        if name.contains(' ') {
             let split_name = name.split_whitespace().collect_vec();
             let parent_name = split_name.first().expect("Expected a parent command name");
             let sub_names = cmap
@@ -207,6 +209,8 @@ fn generate_docs(registry: &CommandRegistry) -> String {
             cmap.insert(name.to_owned(), Vec::new());
         };
     }
+    // Return documentation for each command under a collapsible markdown tag
+    // Subcommands are nested under there parent command
     sorted_names
         .iter()
         .fold("".to_owned(), |acc, name| {
@@ -215,18 +219,18 @@ fn generate_docs(registry: &CommandRegistry) -> String {
                 return acc;
             }
 
-            let command = registry.get_command(name).expect(&format!(
-                "Expected command from names to be in registry {}",
-                name
-            ));
+            let command = registry.get_command(name).unwrap_or_else(|| {
+                panic!("Expected command from names to be in registry {}", name)
+            });
             // Iterate over all the subcommands, so that we can have a collapsible within a collapsible
             let subcommands_docs = cmap.get(name).unwrap_or(&Vec::new()).iter().fold(
                 "".to_owned(),
                 |sub_acc, name| {
                     sub_acc
                         + &format!(
-                            "- <details><summary>{}</summary>\n\n{}\n",
+                            "- <details><summary>[{}](/commands/{}.html)</summary>\n\n{}\n",
                             name,
+                            name.split_whitespace().join("-"), // Because .replace(" ", "-") didn't work
                             indent(
                                 &(get_documentation(
                                     command.stream_command(),
@@ -242,23 +246,22 @@ fn generate_docs(registry: &CommandRegistry) -> String {
                 },
             );
 
-            let acc = acc
-                + &format!(
-                    "<details><summary>{}</summary>\n\n{}\n{}</details>\n",
-                    name,
-                    &get_documentation(
-                        command.stream_command(),
-                        registry,
-                        &DocumentationConfig {
-                            no_subcommands: true,
-                            no_colour: true,
-                        }
-                    ),
-                    subcommands_docs,
-                );
-            return acc;
+            acc + &format!(
+                "<details><summary>[{}](/commands/{}.html)</summary>\n\n{}\n{}</details>\n",
+                name,
+                name,
+                &get_documentation(
+                    command.stream_command(),
+                    registry,
+                    &DocumentationConfig {
+                        no_subcommands: true,
+                        no_colour: true,
+                    }
+                ),
+                subcommands_docs,
+            )
         })
-        .replace("\n", "    \n")
+        .replace("\n", "    \n") // To get proper markdown formatting
 }
 
 #[allow(clippy::cognitive_complexity)]
