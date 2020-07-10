@@ -26,7 +26,7 @@ impl WholeStreamCommand for Command {
         _registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         let name_span = args.call_info.name_tag.clone();
-        let name = args.call_info.name_tag.clone();
+        let name = args.call_info.name_tag;
         let result = crate::data::config::read(name_span, &None)?;
 
         Ok(futures::stream::iter(vec![ReturnSuccess::value(
