@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::EmptyFile;
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::fs::Stub::FileWithContent;
+use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::nu;
 use nu_test_support::pipeline;
 use nu_test_support::playground::Playground;
@@ -46,6 +46,7 @@ fn autoenv() {
                 ".nu-env",
                 r#"[env]
                     testkey = "testvalue"
+
                     [scriptvars]
                     myscript = "echo 'myval'"
 
@@ -72,7 +73,6 @@ fn autoenv() {
             r#"autoenv trust
                echo $nu.env.testkey"#
         );
-        assert_eq!(actual.out, "a");
         assert!(actual.out.ends_with("testvalue"));
 
         // Make sure script keys are set
