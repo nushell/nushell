@@ -236,3 +236,34 @@ impl DirectorySpecificEnvironment {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use nu_test_support::nu;
+    use nu_test_support::playground::Playground;
+    use nu_test_support::fs::Stub::FileWithContent;
+
+    #[test]
+    fn basic_autoenv_vars_are_added(){
+        Playground::setup("autoenv_test_1", |dirs, sandbox| {
+            // sandbox.mkdir("autoenv_test_dir");
+            sandbox.with_files(vec![FileWithContent(
+                ".nu-env",
+                r#"
+                    [env]
+                    testkey = "testvalue"
+                "#,
+            )]);
+
+
+            let actual = nu!(
+                cwd: dirs.test(),
+                r#"autoenv trust
+echo $nu.env.testkey"#
+                // r#"open .nu-env | from toml | get env | echo $it"#
+            );
+
+            assert!(actual.out.ends_with("testvalue"));
+        })
+    }
+}
