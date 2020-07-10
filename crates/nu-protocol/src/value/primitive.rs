@@ -396,7 +396,7 @@ pub fn format_duration(duration: &BigInt) -> String {
     }
 
     if !nanos.is_zero() {
-        output_prep.push(format!("{}ns", days));
+        output_prep.push(format!("{}ns", nanos));
     }
 
     format!(
