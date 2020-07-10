@@ -244,26 +244,45 @@ mod tests {
     use nu_test_support::fs::Stub::FileWithContent;
 
     #[test]
-    fn basic_autoenv_vars_are_added(){
+    fn basic_autoenv_vars_are_added_and_removed(){
         Playground::setup("autoenv_test_1", |dirs, sandbox| {
-            // sandbox.mkdir("autoenv_test_dir");
+
             sandbox.with_files(vec![FileWithContent(
                 ".nu-env",
                 r#"
                     [env]
                     testkey = "testvalue"
+                    [scriptvars]
+                    myscript = "echo 'myval'"
+
+                    [scripts]
+                    entryscripts = ["touch hello.txt"]
+                    exitscripts = ["touch bye.txt"]
                 "#,
             )]);
 
-
+            //Make sure basic keys are set
             let actual = nu!(
                 cwd: dirs.test(),
                 r#"autoenv trust
-echo $nu.env.testkey"#
-                // r#"open .nu-env | from toml | get env | echo $it"#
+                   echo $nu.env.testkey"#
             );
-
             assert!(actual.out.ends_with("testvalue"));
+
+            // //Make sure script keys are set
+            let actual = nu!(
+                cwd: dirs.test(),
+                r#"echo $nu.env.myscript"#
+            );
+            assert!(actual.out.ends_with("myval"));
+
+            //Back out of directory
+            let actual = nu!(
+                cwd: dirs.test(),
+                r#"cd ..
+                   echo $nu.env.testkey"#
+            );
+            assert!(!actual.out.ends_with("testvalue"));
         })
     }
 }
