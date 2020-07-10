@@ -105,7 +105,7 @@ impl CompareValues {
                 )
                 .expect("Could not convert nushell Duration into chrono Duration.");
                 let right: DateTime<Utc> = Utc::now()
-                    .checked_add_signed(duration)
+                    .checked_sub_signed(duration)
                     .expect("Data overflow");
                 right.cmp(left)
             }
