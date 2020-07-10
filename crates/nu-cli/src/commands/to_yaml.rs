@@ -40,15 +40,9 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
                 )
             })?))
         }
-        UntaggedValue::Primitive(Primitive::Duration(secs)) => serde_yaml::Value::Number(
-            serde_yaml::Number::from(secs.to_f64().ok_or_else(|| {
-                ShellError::labeled_error(
-                    "Could not convert to duration",
-                    "could not convert to duration",
-                    &v.tag,
-                )
-            })?),
-        ),
+        UntaggedValue::Primitive(Primitive::Duration(i)) => {
+            serde_yaml::Value::String(i.to_string())
+        }
         UntaggedValue::Primitive(Primitive::Date(d)) => serde_yaml::Value::String(d.to_string()),
         UntaggedValue::Primitive(Primitive::EndOfStream) => serde_yaml::Value::Null,
         UntaggedValue::Primitive(Primitive::BeginningOfStream) => serde_yaml::Value::Null,

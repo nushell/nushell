@@ -4,6 +4,7 @@ use heim::{disk, host, memory, net, sensors};
 use nu_errors::ShellError;
 use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::Tag;
+use num_bigint::BigInt;
 use std::ffi::OsStr;
 
 #[derive(Default)]
@@ -98,9 +99,9 @@ async fn host(tag: Tag) -> Result<Value, ShellError> {
 
     // Uptime
     if let Ok(uptime) = uptime_result {
-        let uptime = uptime.get::<time::second>().round() as i64;
+        let uptime = uptime.get::<time::nanosecond>().round() as i64;
 
-        dict.insert_untagged("uptime", UntaggedValue::duration(uptime));
+        dict.insert_untagged("uptime", UntaggedValue::duration(BigInt::from(uptime)));
     }
 
     // Sessions

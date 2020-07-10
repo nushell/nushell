@@ -7,10 +7,14 @@ use chrono::{DateTime, Utc};
 use nu_errors::{ExpectedRange, ShellError};
 use nu_source::{PrettyDebug, Span, SpannedItem};
 use num_bigint::BigInt;
+use num_integer::Integer;
 use num_traits::cast::{FromPrimitive, ToPrimitive};
 use num_traits::identities::Zero;
+use num_traits::sign::Signed;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+
+const NANOS_PER_SEC: u32 = 1000000000;
 
 /// The most fundamental of structured values in Nu are the Primitive values. These values represent types like integers, strings, booleans, dates, etc that are then used
 /// as the buildig blocks to build up more complex structures.
@@ -40,8 +44,9 @@ pub enum Primitive {
     Boolean(bool),
     /// A date value, in UTC
     Date(DateTime<Utc>),
-    /// A count in the number of seconds
-    Duration(i64),
+    /// A count in the number of nanoseconds
+    #[serde(with = "serde_bigint")]
+    Duration(BigInt),
     /// A range of values
     Range(Box<Range>),
     /// A file path
@@ -70,6 +75,40 @@ impl Primitive {
             },
             other => Err(ShellError::type_error(
                 "integer",
+                other.type_name().spanned(span),
+            )),
+        }
+    }
+
+    // FIXME: This is a bad name, but no other way to differentiate with our own Duration.
+    pub fn into_chrono_duration(self, span: Span) -> Result<chrono::Duration, ShellError> {
+        match self {
+            Primitive::Duration(duration) => {
+                let (secs, nanos) = duration.div_rem(&BigInt::from(NANOS_PER_SEC));
+                let secs = match secs.to_i64() {
+                    Some(secs) => secs,
+                    None => {
+                        return Err(ShellError::labeled_error(
+                            "Internal duration conversion overflow.",
+                            "duration overflow",
+                            span,
+                        ))
+                    }
+                };
+                // This should never fail since nanos < 10^9.
+                let nanos = match nanos.to_i64() {
+                    Some(nanos) => nanos,
+                    None => return Err(ShellError::unexpected("Unexpected i64 overflow")),
+                };
+                let nanos = chrono::Duration::nanoseconds(nanos);
+                // This should also never fail since we are adding less than NANOS_PER_SEC.
+                match chrono::Duration::seconds(secs).checked_add(&nanos) {
+                    Some(duration) => Ok(duration),
+                    None => Err(ShellError::unexpected("Unexpected duration overflow")),
+                }
+            }
+            other => Err(ShellError::type_error(
+                "duration",
                 other.type_name().spanned(span),
             )),
         }
@@ -209,6 +248,20 @@ impl From<f64> for Primitive {
     }
 }
 
+impl From<chrono::Duration> for Primitive {
+    fn from(duration: chrono::Duration) -> Primitive {
+        // FIXME: This is a hack since chrono::Duration does not give access to its 'nanos' field.
+        let secs: i64 = duration.num_seconds();
+        // This will never fail.
+        let nanos: u32 = duration
+            .checked_sub(&chrono::Duration::seconds(secs))
+            .expect("Unexpected overflow")
+            .num_nanoseconds()
+            .expect("Unexpected overflow") as u32;
+        Primitive::Duration(BigInt::from(secs) * NANOS_PER_SEC + nanos)
+    }
+}
+
 impl ShellTypeName for Primitive {
     /// Get the name of the type of a Primitive value
     fn type_name(&self) -> &'static str {
@@ -254,7 +307,7 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
                 _ => byte.format(1),
             }
         }
-        Primitive::Duration(sec) => format_duration(*sec),
+        Primitive::Duration(duration) => format_duration(duration),
         Primitive::Int(i) => i.to_string(),
         Primitive::Decimal(decimal) => format!("{:.4}", decimal),
         Primitive::Range(range) => format!(
@@ -297,18 +350,49 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
     }
 }
 
-/// Format a duration in seconds into a string
-pub fn format_duration(sec: i64) -> String {
-    let (minutes, seconds) = (sec / 60, sec % 60);
-    let (hours, minutes) = (minutes / 60, minutes % 60);
-    let (days, hours) = (hours / 24, hours % 24);
-
-    match (days, hours, minutes, seconds) {
-        (0, 0, 0, 1) => "1 sec".to_owned(),
-        (0, 0, 0, s) => format!("{} secs", s),
-        (0, 0, m, s) => format!("{}:{:02}", m, s),
-        (0, h, m, s) => format!("{}:{:02}:{:02}", h, m, s),
-        (d, h, m, s) => format!("{}:{:02}:{:02}:{:02}", d, h, m, s),
+/// Format a duration in nanoseconds into a string
+pub fn format_duration(duration: &BigInt) -> String {
+    // FIXME: This involves a lot of allocation, but it seems inevitable with BigInt.
+    let big_int_1000 = BigInt::from(1000);
+    let big_int_60 = BigInt::from(60);
+    let big_int_24 = BigInt::from(24);
+    // We only want the biggest subvidision to have the negative sign.
+    let (sign, duration) = if duration.is_zero() || duration.is_positive() {
+        (1, duration.clone())
+    } else {
+        (-1, -duration)
+    };
+    let (micros, nanos): (BigInt, BigInt) = duration.div_rem(&big_int_1000);
+    let (millis, micros): (BigInt, BigInt) = micros.div_rem(&big_int_1000);
+    let (secs, millis): (BigInt, BigInt) = millis.div_rem(&big_int_1000);
+    let (mins, secs): (BigInt, BigInt) = secs.div_rem(&big_int_60);
+    let (hours, mins): (BigInt, BigInt) = mins.div_rem(&big_int_60);
+    let (days, hours): (BigInt, BigInt) = hours.div_rem(&big_int_24);
+    let decimals = if millis.is_zero() && micros.is_zero() && nanos.is_zero() {
+        String::from("0")
+    } else {
+        format!("{:03}{:03}{:03}", millis, micros, nanos)
+            .trim_end_matches('0')
+            .to_string()
+    };
+    match (
+        days.is_zero(),
+        hours.is_zero(),
+        mins.is_zero(),
+        secs.is_zero(),
+    ) {
+        (true, true, true, true) => format!("{}.{}", if sign == 1 { "0" } else { "-0" }, decimals),
+        (true, true, true, _) => format!("{}.{}", sign * secs, decimals),
+        (true, true, _, _) => format!("{}:{:02}.{}", sign * mins, secs, decimals),
+        (true, _, _, _) => format!("{}:{:02}:{:02}.{}", sign * hours, mins, secs, decimals),
+        _ => format!(
+            "{}:{:02}:{:02}:{:02}.{}",
+            sign * days,
+            hours,
+            mins,
+            secs,
+            decimals
+        ),
     }
 }
 

@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use crate::{hir, Primitive, UntaggedValue};
 use crate::{PathMember, ShellTypeName};
 use derive_new::new;
-use num_traits::ToPrimitive;
 
 use nu_errors::ParseError;
 use nu_source::{
@@ -19,9 +18,9 @@ use nu_source::{IntoSpanned, Span, Spanned, SpannedItem, Tag};
 use bigdecimal::BigDecimal;
 use indexmap::IndexMap;
 use log::trace;
-use num_bigint::BigInt;
+use num_bigint::{BigInt, ToBigInt};
 use num_traits::identities::Zero;
-use num_traits::FromPrimitive;
+use num_traits::{FromPrimitive, ToPrimitive};
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct InternalCommand {
@@ -296,6 +295,9 @@ pub enum Unit {
     Petabyte,
 
     // Duration units
+    Nanosecond,
+    Microsecond,
+    Millisecond,
     Second,
     Minute,
     Hour,
@@ -433,6 +435,17 @@ impl std::ops::Mul<u32> for Number {
     }
 }
 
+impl ToBigInt for Number {
+    fn to_bigint(&self) -> Option<BigInt> {
+        match self {
+            Number::Int(int) => Some(int.clone()),
+            // The BigDecimal to BigInt conversion always return Some().
+            // FIXME: This conversion might not be want we want, it just remove the scale.
+            Number::Decimal(decimal) => decimal.to_bigint(),
+        }
+    }
+}
+
 impl PrettyDebug for Unit {
     fn pretty(&self) -> DebugDocBuilder {
         b::keyword(self.as_str())
@@ -458,25 +471,6 @@ pub fn convert_number_to_u64(number: &Number) -> u64 {
     }
 }
 
-fn convert_number_to_i64(number: &Number) -> i64 {
-    match number {
-        Number::Int(big_int) => {
-            if let Some(x) = big_int.to_i64() {
-                x
-            } else {
-                unreachable!("Internal error: convert_number_to_u64 given incompatible number")
-            }
-        }
-        Number::Decimal(big_decimal) => {
-            if let Some(x) = big_decimal.to_i64() {
-                x
-            } else {
-                unreachable!("Internal error: convert_number_to_u64 given incompatible number")
-            }
-        }
-    }
-}
-
 impl Unit {
     pub fn as_str(self) -> &'static str {
         match self {
@@ -486,6 +480,9 @@ impl Unit {
             Unit::Gigabyte => "GB",
             Unit::Terabyte => "TB",
             Unit::Petabyte => "PB",
+            Unit::Nanosecond => "ns",
+            Unit::Microsecond => "us",
+            Unit::Millisecond => "ms",
             Unit::Second => "s",
             Unit::Minute => "m",
             Unit::Hour => "h",
@@ -508,13 +505,68 @@ impl Unit {
             Unit::Petabyte => {
                 bytes(convert_number_to_u64(&size) * 1024 * 1024 * 1024 * 1024 * 1024)
             }
-            Unit::Second => duration(convert_number_to_i64(&size)),
-            Unit::Minute => duration(60 * convert_number_to_i64(&size)),
-            Unit::Hour => duration(60 * 60 * convert_number_to_i64(&size)),
-            Unit::Day => duration(24 * 60 * 60 * convert_number_to_i64(&size)),
-            Unit::Week => duration(7 * 24 * 60 * 60 * convert_number_to_i64(&size)),
-            Unit::Month => duration(30 * 24 * 60 * 60 * convert_number_to_i64(&size)),
-            Unit::Year => duration(365 * 24 * 60 * 60 * convert_number_to_i64(&size)),
+            Unit::Nanosecond => duration(size.to_bigint().expect("Conversion should never fail.")),
+            Unit::Microsecond => {
+                duration(size.to_bigint().expect("Conversion should never fail.") * 1000)
+            }
+            Unit::Millisecond => {
+                duration(size.to_bigint().expect("Conversion should never fail.") * 1000 * 1000)
+            }
+            Unit::Second => duration(
+                size.to_bigint().expect("Conversion should never fail.") * 1000 * 1000 * 1000,
+            ),
+            Unit::Minute => duration(
+                size.to_bigint().expect("Conversion should never fail.") * 60 * 1000 * 1000 * 1000,
+            ),
+            Unit::Hour => duration(
+                size.to_bigint().expect("Conversion should never fail.")
+                    * 60
+                    * 60
+                    * 1000
+                    * 1000
+                    * 1000,
+            ),
+            Unit::Day => duration(
+                size.to_bigint().expect("Conversion should never fail.")
+                    * 24
+                    * 60
+                    * 60
+                    * 1000
+                    * 1000
+                    * 1000,
+            ),
+            Unit::Week => duration(
+                size.to_bigint().expect("Conversion should never fail.")
+                    * 7
+                    * 24
+                    * 60
+                    * 60
+                    * 1000
+                    * 1000
+                    * 1000,
+            ),
+            // FIXME: Number of days per month should not always be 30.
+            Unit::Month => duration(
+                size.to_bigint().expect("Conversion should never fail.")
+                    * 30
+                    * 24
+                    * 60
+                    * 60
+                    * 1000
+                    * 1000
+                    * 1000,
+            ),
+            // FIXME: Number of days per year should not be 365.
+            Unit::Year => duration(
+                size.to_bigint().expect("Conversion should never fail.")
+                    * 365
+                    * 24
+                    * 60
+                    * 60
+                    * 1000
+                    * 1000
+                    * 1000,
+            ),
         }
     }
 }
@@ -523,8 +575,8 @@ pub fn bytes(size: u64) -> UntaggedValue {
     UntaggedValue::Primitive(Primitive::Bytes(size))
 }
 
-pub fn duration(secs: i64) -> UntaggedValue {
-    UntaggedValue::Primitive(Primitive::Duration(secs))
+pub fn duration(nanos: BigInt) -> UntaggedValue {
+    UntaggedValue::Primitive(Primitive::Duration(nanos))
 }
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]

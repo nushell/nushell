@@ -46,7 +46,7 @@ pub fn value_to_bson_value(v: &Value) -> Result<Bson, ShellError> {
                 .to_f64()
                 .expect("Unimplemented BUG: What about big decimals?"),
         ),
-        UntaggedValue::Primitive(Primitive::Duration(secs)) => Bson::I64(*secs as i64),
+        UntaggedValue::Primitive(Primitive::Duration(i)) => Bson::String(i.to_string()),
         UntaggedValue::Primitive(Primitive::Date(d)) => Bson::UtcDatetime(*d),
         UntaggedValue::Primitive(Primitive::EndOfStream) => Bson::Null,
         UntaggedValue::Primitive(Primitive::BeginningOfStream) => Bson::Null,
