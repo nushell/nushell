@@ -101,9 +101,13 @@ async fn help(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
                 .to_output_stream(),
             )
         } else if rest[0].item == "generate_docs" {
-            let content = generate_docs(&registry);
-            let docs_path = std::path::Path::new("docs/generated_docs.md");
-            std::fs::write(&docs_path, content)?;
+            let generated_dir = std::path::Path::new("docs/generated");
+            let first_part = std::fs::read_to_string(&generated_dir.join("_skeleton.md"))
+                .expect("Skeleton is missing!");
+            let second_part = generate_docs(&registry);
+            let docs_path = generated_dir.join("documentation.md");
+            std::fs::write(&docs_path, first_part + "\n" + &second_part)?;
+
             return Ok(OutputStream::one(ReturnSuccess::value(
                 UntaggedValue::string(format!(
                     "Docs generated in {}",
@@ -189,6 +193,7 @@ fn generate_docs(registry: &CommandRegistry) -> String {
     let mut sorted_names = registry.names();
     sorted_names.sort();
 
+    // cmap will map parent commands to it's subcommands e.g. to -> [to csv, to yaml, to bson]
     let mut cmap: HashMap<String, Vec<String>> = HashMap::new();
     for name in &sorted_names {
         if name.contains(" ") {
@@ -230,7 +235,7 @@ fn generate_docs(registry: &CommandRegistry) -> String {
                                         no_subcommands: true,
                                         no_colour: true,
                                     }
-                                ) + "</details>"),
+                                ) + "</details>"), // Kind of dumb but I need to indent </details> as well to get bulleted lists to work
                                 2
                             )
                         )
