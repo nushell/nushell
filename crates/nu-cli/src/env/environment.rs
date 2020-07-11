@@ -61,6 +61,10 @@ impl Environment {
     }
 
     pub fn autoenv(&mut self, reload_trusted: bool) -> Result<(), ShellError> {
+        if self.autoenv.last_seen_directory == current_dir()? {
+            return Ok(());
+        }
+
         for (k, v) in self.autoenv.env_vars_to_add()? {
             set_var(&k, OsString::from(v.to_string_lossy().to_string()));
         }

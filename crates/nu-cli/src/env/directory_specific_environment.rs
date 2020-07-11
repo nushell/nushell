@@ -75,17 +75,16 @@ impl DirectorySpecificEnvironment {
     pub fn env_vars_to_add(&mut self) -> Result<IndexMap<EnvKey, EnvVal>, ShellError> {
         let mut dir = current_dir()?;
         let mut vars_to_add: IndexMap<EnvKey, EnvVal> = IndexMap::new();
-        if self.last_seen_directory == dir {
-            return Ok(vars_to_add);
-        }
 
-        //If we are in the last seen directory, do nothing
-        //If we are in a parent directory to last_seen_directory, just return without applying .nu-env in the parent directory - they were already applied earlier.
-        //parent.cmp(child) = Less
+        //Add all .nu-envs until we reach a dir which we have already added, or we reached the root.
         let mut popped = true;
-        while self.last_seen_directory.cmp(&dir) != Greater && popped {
+        while !self.added_env_vars.contains_key(&dir) && popped {
+
             let nu_env_file = dir.join(".nu-env");
             if nu_env_file.exists() {
+
+                //TODO bug: If a directory is not trusted, this function returns
+                //This means that any of its (trusted) child directories are not applied properly.
                 let nu_env_doc = self.toml_if_directory_is_trusted(&nu_env_file)?;
 
                 //add regular variables from the [env section]
@@ -160,6 +159,7 @@ impl DirectorySpecificEnvironment {
         //This condition is to make sure variables in parent directories don't overwrite variables set by subdirectories.
         if !vars_to_add.contains_key(env_key) {
             vars_to_add.insert(env_key.to_string(), OsString::from(env_val));
+
             self.added_env_vars
                 .entry(dir.clone())
                 .or_insert(IndexMap::new())
