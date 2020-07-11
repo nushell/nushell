@@ -75,12 +75,15 @@ impl DirectorySpecificEnvironment {
     pub fn env_vars_to_add(&mut self) -> Result<IndexMap<EnvKey, EnvVal>, ShellError> {
         let mut dir = current_dir()?;
         let mut vars_to_add: IndexMap<EnvKey, EnvVal> = IndexMap::new();
+        if self.last_seen_directory == dir {
+            return Ok(vars_to_add);
+        }
 
         //If we are in the last seen directory, do nothing
         //If we are in a parent directory to last_seen_directory, just return without applying .nu-env in the parent directory - they were already applied earlier.
         //parent.cmp(child) = Less
         let mut popped = true;
-        while self.last_seen_directory.cmp(&dir) == Less && popped {
+        while self.last_seen_directory.cmp(&dir) != Greater && popped {
             let nu_env_file = dir.join(".nu-env");
             if nu_env_file.exists() {
                 let nu_env_doc = self.toml_if_directory_is_trusted(&nu_env_file)?;
