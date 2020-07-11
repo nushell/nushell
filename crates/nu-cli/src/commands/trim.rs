@@ -41,6 +41,7 @@ fn trim_primitive(p: &mut Primitive) {
     match p {
         Primitive::String(s) | Primitive::Line(s) => *p = Primitive::String(s.trim().to_string()),
         Primitive::Nothing
+        | Primitive::Color(_)
         | Primitive::Int(_)
         | Primitive::Decimal(_)
         | Primitive::Filesize(_)

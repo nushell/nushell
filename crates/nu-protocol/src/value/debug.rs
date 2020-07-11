@@ -43,6 +43,7 @@ impl PrettyType for Primitive {
             Primitive::Duration(_) => ty("duration"),
             Primitive::Path(_) => ty("path"),
             Primitive::Binary(_) => ty("binary"),
+            Primitive::Color(_) => ty("color"),
             Primitive::BeginningOfStream => b::keyword("beginning-of-stream"),
             Primitive::EndOfStream => b::keyword("end-of-stream"),
         }
@@ -84,6 +85,7 @@ impl PrettyDebug for Primitive {
             Primitive::Duration(duration) => primitive_doc(duration, "nanoseconds"),
             Primitive::Path(path) => primitive_doc(path, "path"),
             Primitive::Binary(_) => b::opaque("binary"),
+            Primitive::Color(color) => prim(color.to_string()),
             Primitive::BeginningOfStream => b::keyword("beginning-of-stream"),
             Primitive::EndOfStream => b::keyword("end-of-stream"),
         }

@@ -87,6 +87,7 @@ pub fn value_to_bson_value(v: &Value) -> Result<Bson, ShellError> {
         UntaggedValue::Primitive(Primitive::Binary(b)) => {
             Bson::Binary(BinarySubtype::Generic, b.clone())
         }
+        UntaggedValue::Primitive(Primitive::Color(c)) => Bson::String(c.to_string()),
         UntaggedValue::Row(o) => object_value_to_bson(o)?,
     })
 }

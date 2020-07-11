@@ -44,6 +44,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
             serde_yaml::Value::String(i.to_string())
         }
         UntaggedValue::Primitive(Primitive::Date(d)) => serde_yaml::Value::String(d.to_string()),
+        UntaggedValue::Primitive(Primitive::Color(c)) => serde_yaml::Value::String(c.to_string()),
         UntaggedValue::Primitive(Primitive::EndOfStream) => serde_yaml::Value::Null,
         UntaggedValue::Primitive(Primitive::BeginningOfStream) => serde_yaml::Value::Null,
         UntaggedValue::Primitive(Primitive::Decimal(f)) => {

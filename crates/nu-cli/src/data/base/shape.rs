@@ -65,6 +65,7 @@ impl InlineShape {
             }
             Primitive::Decimal(decimal) => InlineShape::Decimal(decimal.clone()),
             Primitive::Filesize(bytesize) => InlineShape::Bytesize(*bytesize),
+            Primitive::Color(c) => InlineShape::String(c.to_string()),
             Primitive::String(string) => InlineShape::String(string.clone()),
             Primitive::Line(string) => InlineShape::Line(string.clone()),
             Primitive::ColumnPath(path) => InlineShape::ColumnPath(path.clone()),

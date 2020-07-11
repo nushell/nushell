@@ -143,6 +143,7 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
                 .map(serde_json::Value::Number)
                 .collect(),
         ),
+        UntaggedValue::Primitive(Primitive::Color(c)) => serde_json::Value::String(c.to_string()),
         UntaggedValue::Row(o) => {
             let mut m = serde_json::Map::new();
             for (k, v) in o.entries.iter() {

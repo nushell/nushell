@@ -13,6 +13,7 @@ use num_traits::identities::Zero;
 use num_traits::sign::Signed;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+pub mod color;
 
 const NANOS_PER_SEC: u32 = 1000000000;
 
@@ -51,6 +52,8 @@ pub enum Primitive {
     Range(Box<Range>),
     /// A file path
     Path(PathBuf),
+    /// A colour
+    Color(color::Color),
     /// A vector of raw binary data
     #[serde(with = "serde_bytes")]
     Binary(Vec<u8>),
@@ -280,6 +283,7 @@ impl ShellTypeName for Primitive {
             Primitive::Duration(_) => "duration",
             Primitive::Path(_) => "file path",
             Primitive::Binary(_) => "binary",
+            &Primitive::Color(_) => "color",
             Primitive::BeginningOfStream => "marker<beginning of stream>",
             Primitive::EndOfStream => "marker<end of stream>",
         }
@@ -347,6 +351,7 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
         .to_owned(),
         Primitive::Binary(_) => "<binary>".to_owned(),
         Primitive::Date(d) => format_date(d),
+        Primitive::Color(c) => c.to_string(),
     }
 }
 

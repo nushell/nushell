@@ -47,6 +47,7 @@ fn helper(v: &Value) -> Result<toml::Value, ShellError> {
         UntaggedValue::Primitive(Primitive::Filesize(b)) => toml::Value::Integer(*b as i64),
         UntaggedValue::Primitive(Primitive::Duration(i)) => toml::Value::String(i.to_string()),
         UntaggedValue::Primitive(Primitive::Date(d)) => toml::Value::String(d.to_string()),
+        UntaggedValue::Primitive(Primitive::Color(c)) => toml::Value::String(c.to_string()),
         UntaggedValue::Primitive(Primitive::EndOfStream) => {
             toml::Value::String("<End of Stream>".to_string())
         }

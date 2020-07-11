@@ -64,6 +64,9 @@ pub enum Type {
     /// An error value (TODO)
     Error,
 
+    /// A Color
+    Color,
+
     /// Beginning of stream marker (used as bookend markers rather than actual values)
     BeginningOfStream,
     /// End of stream marker (used as bookend markers rather than actual values)
@@ -148,6 +151,7 @@ impl Type {
             Primitive::Duration(_) => Type::Duration,
             Primitive::Path(_) => Type::Path,
             Primitive::Binary(_) => Type::Binary,
+            Primitive::Color(_) => Type::Color,
             Primitive::BeginningOfStream => Type::BeginningOfStream,
             Primitive::EndOfStream => Type::EndOfStream,
         }
@@ -230,6 +234,7 @@ impl PrettyDebug for Type {
             Type::Duration => ty("duration"),
             Type::Path => ty("path"),
             Type::Binary => ty("binary"),
+            Type::Color => ty("color"),
             Type::Error => b::error("error"),
             Type::BeginningOfStream => b::keyword("beginning-of-stream"),
             Type::EndOfStream => b::keyword("end-of-stream"),
