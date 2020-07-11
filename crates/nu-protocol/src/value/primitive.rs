@@ -7,10 +7,14 @@ use chrono::{DateTime, Utc};
 use nu_errors::{ExpectedRange, ShellError};
 use nu_source::{PrettyDebug, Span, SpannedItem};
 use num_bigint::BigInt;
+use num_integer::Integer;
 use num_traits::cast::{FromPrimitive, ToPrimitive};
 use num_traits::identities::Zero;
+use num_traits::sign::Signed;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+
+const NANOS_PER_SEC: u32 = 1000000000;
 
 /// The most fundamental of structured values in Nu are the Primitive values. These values represent types like integers, strings, booleans, dates, etc that are then used
 /// as the buildig blocks to build up more complex structures.
@@ -27,7 +31,7 @@ pub enum Primitive {
     #[serde(with = "serde_bigdecimal")]
     Decimal(BigDecimal),
     /// A count in the number of bytes, used as a filesize
-    Bytes(u64),
+    Filesize(u64),
     /// A string value
     String(String),
     /// A string value with an implied carriage return (or cr/lf) ending
@@ -40,8 +44,9 @@ pub enum Primitive {
     Boolean(bool),
     /// A date value, in UTC
     Date(DateTime<Utc>),
-    /// A count in the number of seconds
-    Duration(i64),
+    /// A count in the number of nanoseconds
+    #[serde(with = "serde_bigint")]
+    Duration(BigInt),
     /// A range of values
     Range(Box<Range>),
     /// A file path
@@ -70,6 +75,40 @@ impl Primitive {
             },
             other => Err(ShellError::type_error(
                 "integer",
+                other.type_name().spanned(span),
+            )),
+        }
+    }
+
+    // FIXME: This is a bad name, but no other way to differentiate with our own Duration.
+    pub fn into_chrono_duration(self, span: Span) -> Result<chrono::Duration, ShellError> {
+        match self {
+            Primitive::Duration(duration) => {
+                let (secs, nanos) = duration.div_rem(&BigInt::from(NANOS_PER_SEC));
+                let secs = match secs.to_i64() {
+                    Some(secs) => secs,
+                    None => {
+                        return Err(ShellError::labeled_error(
+                            "Internal duration conversion overflow.",
+                            "duration overflow",
+                            span,
+                        ))
+                    }
+                };
+                // This should never fail since nanos < 10^9.
+                let nanos = match nanos.to_i64() {
+                    Some(nanos) => nanos,
+                    None => return Err(ShellError::unexpected("Unexpected i64 overflow")),
+                };
+                let nanos = chrono::Duration::nanoseconds(nanos);
+                // This should also never fail since we are adding less than NANOS_PER_SEC.
+                match chrono::Duration::seconds(secs).checked_add(&nanos) {
+                    Some(duration) => Ok(duration),
+                    None => Err(ShellError::unexpected("Unexpected duration overflow")),
+                }
+            }
+            other => Err(ShellError::type_error(
+                "duration",
                 other.type_name().spanned(span),
             )),
         }
@@ -104,7 +143,7 @@ impl num_traits::Zero for Primitive {
         match self {
             Primitive::Int(int) => int.is_zero(),
             Primitive::Decimal(decimal) => decimal.is_zero(),
-            Primitive::Bytes(size) => size.is_zero(),
+            Primitive::Filesize(num_bytes) => num_bytes.is_zero(),
             _ => false,
         }
     }
@@ -125,25 +164,25 @@ impl std::ops::Add for Primitive {
             (Primitive::Decimal(left), Primitive::Int(right)) => {
                 Primitive::Decimal(left + BigDecimal::from(right))
             }
-            (Primitive::Bytes(left), right) => match right {
-                Primitive::Bytes(right) => Primitive::Bytes(left + right),
+            (Primitive::Filesize(left), right) => match right {
+                Primitive::Filesize(right) => Primitive::Filesize(left + right),
                 Primitive::Int(right) => {
-                    Primitive::Bytes(left + right.to_u64().unwrap_or_else(|| 0 as u64))
+                    Primitive::Filesize(left + right.to_u64().unwrap_or_else(|| 0 as u64))
                 }
                 Primitive::Decimal(right) => {
-                    Primitive::Bytes(left + right.to_u64().unwrap_or_else(|| 0 as u64))
+                    Primitive::Filesize(left + right.to_u64().unwrap_or_else(|| 0 as u64))
                 }
-                _ => Primitive::Bytes(left),
+                _ => Primitive::Filesize(left),
             },
-            (left, Primitive::Bytes(right)) => match left {
-                Primitive::Bytes(left) => Primitive::Bytes(left + right),
+            (left, Primitive::Filesize(right)) => match left {
+                Primitive::Filesize(left) => Primitive::Filesize(left + right),
                 Primitive::Int(left) => {
-                    Primitive::Bytes(left.to_u64().unwrap_or_else(|| 0 as u64) + right)
+                    Primitive::Filesize(left.to_u64().unwrap_or_else(|| 0 as u64) + right)
                 }
                 Primitive::Decimal(left) => {
-                    Primitive::Bytes(left.to_u64().unwrap_or_else(|| 0 as u64) + right)
+                    Primitive::Filesize(left.to_u64().unwrap_or_else(|| 0 as u64) + right)
                 }
-                _ => Primitive::Bytes(right),
+                _ => Primitive::Filesize(right),
             },
             _ => Primitive::zero(),
         }
@@ -209,6 +248,20 @@ impl From<f64> for Primitive {
     }
 }
 
+impl From<chrono::Duration> for Primitive {
+    fn from(duration: chrono::Duration) -> Primitive {
+        // FIXME: This is a hack since chrono::Duration does not give access to its 'nanos' field.
+        let secs: i64 = duration.num_seconds();
+        // This will never fail.
+        let nanos: u32 = duration
+            .checked_sub(&chrono::Duration::seconds(secs))
+            .expect("Unexpected overflow")
+            .num_nanoseconds()
+            .expect("Unexpected overflow") as u32;
+        Primitive::Duration(BigInt::from(secs) * NANOS_PER_SEC + nanos)
+    }
+}
+
 impl ShellTypeName for Primitive {
     /// Get the name of the type of a Primitive value
     fn type_name(&self) -> &'static str {
@@ -217,7 +270,7 @@ impl ShellTypeName for Primitive {
             Primitive::Int(_) => "integer",
             Primitive::Range(_) => "range",
             Primitive::Decimal(_) => "decimal",
-            Primitive::Bytes(_) => "bytes",
+            Primitive::Filesize(_) => "filesize(in bytes)",
             Primitive::String(_) => "string",
             Primitive::Line(_) => "line",
             Primitive::ColumnPath(_) => "column path",
@@ -240,8 +293,8 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
         Primitive::BeginningOfStream => String::new(),
         Primitive::EndOfStream => String::new(),
         Primitive::Path(p) => format!("{}", p.display()),
-        Primitive::Bytes(b) => {
-            let byte = byte_unit::Byte::from_bytes(*b as u128);
+        Primitive::Filesize(num_bytes) => {
+            let byte = byte_unit::Byte::from_bytes(*num_bytes as u128);
 
             if byte.get_bytes() == 0u128 {
                 return "—".to_string();
@@ -254,7 +307,7 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
                 _ => byte.format(1),
             }
         }
-        Primitive::Duration(sec) => format_duration(*sec),
+        Primitive::Duration(duration) => format_duration(duration),
         Primitive::Int(i) => i.to_string(),
         Primitive::Decimal(decimal) => format!("{:.4}", decimal),
         Primitive::Range(range) => format!(
@@ -297,19 +350,60 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
     }
 }
 
-/// Format a duration in seconds into a string
-pub fn format_duration(sec: i64) -> String {
-    let (minutes, seconds) = (sec / 60, sec % 60);
-    let (hours, minutes) = (minutes / 60, minutes % 60);
-    let (days, hours) = (hours / 24, hours % 24);
+/// Format a duration in nanoseconds into a string
+pub fn format_duration(duration: &BigInt) -> String {
+    // FIXME: This involves a lot of allocation, but it seems inevitable with BigInt.
+    let big_int_1000 = BigInt::from(1000);
+    let big_int_60 = BigInt::from(60);
+    let big_int_24 = BigInt::from(24);
+    // We only want the biggest subvidision to have the negative sign.
+    let (sign, duration) = if duration.is_zero() || duration.is_positive() {
+        (1, duration.clone())
+    } else {
+        (-1, -duration)
+    };
+    let (micros, nanos): (BigInt, BigInt) = duration.div_rem(&big_int_1000);
+    let (millis, micros): (BigInt, BigInt) = micros.div_rem(&big_int_1000);
+    let (secs, millis): (BigInt, BigInt) = millis.div_rem(&big_int_1000);
+    let (mins, secs): (BigInt, BigInt) = secs.div_rem(&big_int_60);
+    let (hours, mins): (BigInt, BigInt) = mins.div_rem(&big_int_60);
+    let (days, hours): (BigInt, BigInt) = hours.div_rem(&big_int_24);
 
-    match (days, hours, minutes, seconds) {
-        (0, 0, 0, 1) => "1 sec".to_owned(),
-        (0, 0, 0, s) => format!("{} secs", s),
-        (0, 0, m, s) => format!("{}:{:02}", m, s),
-        (0, h, m, s) => format!("{}:{:02}:{:02}", h, m, s),
-        (d, h, m, s) => format!("{}:{:02}:{:02}:{:02}", d, h, m, s),
+    let mut output_prep = vec![];
+
+    if !days.is_zero() {
+        output_prep.push(format!("{}d", days));
     }
+
+    if !hours.is_zero() {
+        output_prep.push(format!("{}h", hours));
+    }
+
+    if !mins.is_zero() {
+        output_prep.push(format!("{}m", mins));
+    }
+
+    if !secs.is_zero() {
+        output_prep.push(format!("{}s", secs));
+    }
+
+    if !millis.is_zero() {
+        output_prep.push(format!("{}ms", millis));
+    }
+
+    if !micros.is_zero() {
+        output_prep.push(format!("{}us", micros));
+    }
+
+    if !nanos.is_zero() {
+        output_prep.push(format!("{}ns", nanos));
+    }
+
+    format!(
+        "{}{}",
+        if sign == -1 { "-" } else { "" },
+        output_prep.join(" ")
+    )
 }
 
 #[allow(clippy::cognitive_complexity)]

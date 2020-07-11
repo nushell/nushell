@@ -64,6 +64,7 @@ fn str_to_character(s: &str) -> Option<String> {
     match s {
         "newline" | "enter" | "nl" => Some("\n".into()),
         "tab" => Some("\t".into()),
+        "sp" | "space" => Some(" ".into()),
         // Unicode names came from https://www.compart.com/en/unicode
         // Private Use Area (U+E000-U+F8FF)
         "branch" => Some('\u{e0a0}'.to_string()),  // 

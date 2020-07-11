@@ -76,6 +76,7 @@ pub struct Context {
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub ctrl_c: Arc<AtomicBool>,
     pub raw_input: String,
+    pub user_recently_used_autoenv_untrust: bool,
     pub(crate) shell_manager: ShellManager,
 
     #[cfg(windows)]
@@ -96,6 +97,7 @@ impl Context {
                 current_errors: raw_args.current_errors.clone(),
                 ctrl_c: raw_args.ctrl_c.clone(),
                 shell_manager: raw_args.shell_manager.clone(),
+                user_recently_used_autoenv_untrust: false,
                 windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
                 raw_input: String::default(),
             }
@@ -108,6 +110,7 @@ impl Context {
                 current_errors: raw_args.current_errors.clone(),
                 ctrl_c: raw_args.ctrl_c.clone(),
                 shell_manager: raw_args.shell_manager.clone(),
+                user_recently_used_autoenv_untrust: false,
                 raw_input: String::default(),
             }
         }
@@ -122,6 +125,7 @@ impl Context {
                 current_errors: args.current_errors.clone(),
                 ctrl_c: args.ctrl_c.clone(),
                 shell_manager: args.shell_manager.clone(),
+                user_recently_used_autoenv_untrust: false,
                 windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
                 raw_input: String::default(),
             }
@@ -133,6 +137,7 @@ impl Context {
                 host: args.host.clone(),
                 current_errors: args.current_errors.clone(),
                 ctrl_c: args.ctrl_c.clone(),
+                user_recently_used_autoenv_untrust: false,
                 shell_manager: args.shell_manager.clone(),
                 raw_input: String::default(),
             }
@@ -151,6 +156,7 @@ impl Context {
                 ))),
                 current_errors: Arc::new(Mutex::new(vec![])),
                 ctrl_c: Arc::new(AtomicBool::new(false)),
+                user_recently_used_autoenv_untrust: false,
                 shell_manager: ShellManager::basic(registry)?,
                 windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
                 raw_input: String::default(),
@@ -166,6 +172,7 @@ impl Context {
                 ))),
                 current_errors: Arc::new(Mutex::new(vec![])),
                 ctrl_c: Arc::new(AtomicBool::new(false)),
+                user_recently_used_autoenv_untrust: false,
                 shell_manager: ShellManager::basic(registry)?,
                 raw_input: String::default(),
             })

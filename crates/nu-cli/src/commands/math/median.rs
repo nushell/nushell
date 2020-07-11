@@ -134,7 +134,7 @@ fn compute_average(values: &[Value], name: impl Into<Tag>) -> Result<Value, Shel
 
     match total {
         Value {
-            value: UntaggedValue::Primitive(Primitive::Bytes(num)),
+            value: UntaggedValue::Primitive(Primitive::Filesize(num)),
             ..
         } => {
             let left = UntaggedValue::from(Primitive::Int(num.into()));
@@ -144,7 +144,7 @@ fn compute_average(values: &[Value], name: impl Into<Tag>) -> Result<Value, Shel
                 Ok(UntaggedValue::Primitive(Primitive::Decimal(result))) => {
                     let number = Number::Decimal(result);
                     let number = convert_number_to_u64(&number);
-                    Ok(UntaggedValue::bytes(number).into_value(name))
+                    Ok(UntaggedValue::filesize(number).into_value(name))
                 }
                 Ok(_) => Err(ShellError::labeled_error(
                     "could not calculate median of non-numeric or unrelated types",

@@ -343,7 +343,7 @@ where
         let values = vec.into_iter().map(Into::into).collect::<Vec<Value>>();
         UntaggedValue::Table(values)
     }
-    .retag(tag)
+    .into_value(tag)
 }
 
 impl From<DirInfo> for Value {
@@ -352,17 +352,17 @@ impl From<DirInfo> for Value {
 
         r.insert(
             "path".to_string(),
-            UntaggedValue::path(d.path).retag(&d.tag),
+            UntaggedValue::path(d.path).into_value(&d.tag),
         );
 
         r.insert(
             "apparent".to_string(),
-            UntaggedValue::bytes(d.size).retag(&d.tag),
+            UntaggedValue::filesize(d.size).into_value(&d.tag),
         );
 
         r.insert(
             "physical".to_string(),
-            UntaggedValue::bytes(d.blocks).retag(&d.tag),
+            UntaggedValue::filesize(d.blocks).into_value(&d.tag),
         );
 
         r.insert("directories".to_string(), value_from_vec(d.dirs, &d.tag));
@@ -376,7 +376,7 @@ impl From<DirInfo> for Value {
                     .map(move |e| UntaggedValue::Error(e).into_untagged_value())
                     .collect::<Vec<Value>>(),
             )
-            .retag(&d.tag);
+            .into_value(&d.tag);
 
             r.insert("errors".to_string(), v);
         }
@@ -394,30 +394,33 @@ impl From<FileInfo> for Value {
 
         r.insert(
             "path".to_string(),
-            UntaggedValue::path(f.path).retag(&f.tag),
+            UntaggedValue::path(f.path).into_value(&f.tag),
         );
 
         r.insert(
             "apparent".to_string(),
-            UntaggedValue::bytes(f.size).retag(&f.tag),
+            UntaggedValue::filesize(f.size).into_value(&f.tag),
         );
 
         let b = f
             .blocks
-            .map(UntaggedValue::bytes)
+            .map(UntaggedValue::filesize)
             .unwrap_or_else(UntaggedValue::nothing)
-            .retag(&f.tag);
+            .into_value(&f.tag);
 
         r.insert("physical".to_string(), b);
 
         r.insert(
             "directories".to_string(),
-            UntaggedValue::nothing().retag(&f.tag),
+            UntaggedValue::nothing().into_value(&f.tag),
         );
 
-        r.insert("files".to_string(), UntaggedValue::nothing().retag(&f.tag));
+        r.insert(
+            "files".to_string(),
+            UntaggedValue::nothing().into_value(&f.tag),
+        );
 
-        UntaggedValue::row(r).retag(&f.tag)
+        UntaggedValue::row(r).into_value(&f.tag)
     }
 }
 

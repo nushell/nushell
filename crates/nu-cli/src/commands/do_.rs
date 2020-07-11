@@ -19,7 +19,7 @@ impl WholeStreamCommand for Do {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("with-env")
+        Signature::build("do")
             .required("block", SyntaxShape::Block, "the block to run ")
             .switch(
                 "ignore_errors",

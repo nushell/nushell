@@ -1,15 +1,18 @@
 use crate::data::config::Conf;
 use crate::env::directory_specific_environment::*;
 use indexmap::{indexmap, IndexSet};
+use nu_errors::ShellError;
 use nu_protocol::{UntaggedValue, Value};
+use std::env::*;
 use std::ffi::OsString;
+
 use std::fmt::Debug;
 
 pub trait Env: Debug + Send {
     fn env(&self) -> Option<Value>;
     fn path(&self) -> Option<Value>;
 
-    fn add_env(&mut self, key: &str, value: &str, overwrite_existing: bool);
+    fn add_env(&mut self, key: &str, value: &str);
     fn add_path(&mut self, new_path: OsString);
 }
 
@@ -22,8 +25,8 @@ impl Env for Box<dyn Env> {
         (**self).path()
     }
 
-    fn add_env(&mut self, key: &str, value: &str, overwrite_existing: bool) {
-        (**self).add_env(key, value, overwrite_existing);
+    fn add_env(&mut self, key: &str, value: &str) {
+        (**self).add_env(key, value);
     }
 
     fn add_path(&mut self, new_path: OsString) {
@@ -35,7 +38,7 @@ impl Env for Box<dyn Env> {
 pub struct Environment {
     environment_vars: Option<Value>,
     path_vars: Option<Value>,
-    pub direnv: DirectorySpecificEnvironment,
+    pub autoenv: DirectorySpecificEnvironment,
 }
 
 impl Environment {
@@ -43,47 +46,39 @@ impl Environment {
         Environment {
             environment_vars: None,
             path_vars: None,
-            direnv: DirectorySpecificEnvironment::new(None),
+            autoenv: DirectorySpecificEnvironment::new(),
         }
     }
 
     pub fn from_config<T: Conf>(configuration: &T) -> Environment {
         let env = configuration.env();
         let path = configuration.path();
-
         Environment {
             environment_vars: env,
             path_vars: path,
-            direnv: DirectorySpecificEnvironment::new(configuration.nu_env_dirs()),
+            autoenv: DirectorySpecificEnvironment::new(),
         }
     }
 
-    pub fn maintain_directory_environment(&mut self) -> std::io::Result<()> {
-        self.direnv.env_vars_to_delete()?.iter().for_each(|k| {
-            self.remove_env(&k);
-        });
-        self.direnv.env_vars_to_add()?.iter().for_each(|(k, v)| {
-            self.add_env(&k, &v, true);
-        });
+    pub fn autoenv(&mut self, reload_trusted: bool) -> Result<(), ShellError> {
+        for (k, v) in self.autoenv.env_vars_to_add()? {
+            set_var(&k, OsString::from(v.to_string_lossy().to_string()));
+        }
 
-        self.direnv
-            .overwritten_values_to_restore()?
-            .iter()
-            .for_each(|(k, v)| {
-                self.add_env(&k, &v, true);
-            });
+        for (k, v) in self.autoenv.cleanup_after_dir_exit()? {
+            if let Some(v) = v {
+                set_var(k, v);
+            } else {
+                remove_var(k);
+            }
+        }
 
+        if reload_trusted {
+            self.autoenv.clear_recently_untrusted_file()?;
+        }
+
+        self.autoenv.last_seen_directory = current_dir()?;
         Ok(())
-    }
-
-    fn remove_env(&mut self, key: &str) {
-        if let Some(Value {
-            value: UntaggedValue::Row(ref mut envs),
-            ..
-        }) = self.environment_vars
-        {
-            envs.entries.remove(key);
-        };
     }
 
     pub fn morph<T: Conf>(&mut self, configuration: &T) {
@@ -109,7 +104,7 @@ impl Env for Environment {
         None
     }
 
-    fn add_env(&mut self, key: &str, value: &str, overwrite_existing: bool) {
+    fn add_env(&mut self, key: &str, value: &str) {
         let value = UntaggedValue::string(value);
 
         let new_envs = {
@@ -120,7 +115,7 @@ impl Env for Environment {
             {
                 let mut new_envs = envs.clone();
 
-                if !new_envs.contains_key(key) || overwrite_existing {
+                if !new_envs.contains_key(key) {
                     new_envs.insert_data_at_key(key, value.into_value(tag.clone()));
                 }
 
@@ -146,7 +141,7 @@ impl Env for Environment {
             {
                 let mut new_paths = current_paths.clone();
 
-                let new_path_candidates = std::env::split_paths(&paths).map(|path| {
+                let new_path_candidates = split_paths(&paths).map(|path| {
                     UntaggedValue::string(path.to_string_lossy()).into_value(tag.clone())
                 });
 
@@ -238,7 +233,7 @@ mod tests {
             let fake_config = FakeConfig::new(&file);
             let mut actual = Environment::from_config(&fake_config);
 
-            actual.add_env("USER", "NUNO", false);
+            actual.add_env("USER", "NUNO");
 
             assert_eq!(
                 actual.env(),
@@ -271,7 +266,7 @@ mod tests {
             let fake_config = FakeConfig::new(&file);
             let mut actual = Environment::from_config(&fake_config);
 
-            actual.add_env("SHELL", "/usr/bin/sh", false);
+            actual.add_env("SHELL", "/usr/bin/sh");
 
             assert_eq!(
                 actual.env(),

@@ -1,16 +1,16 @@
 [package]
-name = "nu"
-version = "0.16.0"
 authors = ["The Nu Project Contributors"]
-description = "A new type of shell"
-license = "MIT"
-edition = "2018"
-readme = "README.md"
 default-run = "nu"
-repository = "https://github.com/nushell/nushell"
-homepage = "https://www.nushell.sh"
+description = "A new type of shell"
 documentation = "https://www.nushell.sh/book/"
+edition = "2018"
 exclude = ["images"]
+homepage = "https://www.nushell.sh"
+license = "MIT"
+name = "nu"
+readme = "README.md"
+repository = "https://github.com/nushell/nushell"
+version = "0.16.1"
 
 [workspace]
 members = ["crates/*/"]
@@ -18,63 +18,63 @@ members = ["crates/*/"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-cli = { version = "0.16.0", path = "./crates/nu-cli" }
-nu-source = { version = "0.16.0", path = "./crates/nu-source" }
-nu-plugin = { version = "0.16.0", path = "./crates/nu-plugin" }
-nu-protocol = { version = "0.16.0", path = "./crates/nu-protocol" }
-nu-errors = { version = "0.16.0", path = "./crates/nu-errors" }
-nu-parser = { version = "0.16.0", path = "./crates/nu-parser" }
-nu-value-ext = { version = "0.16.0", path = "./crates/nu-value-ext" }
-nu_plugin_binaryview = { version = "0.16.0", path = "./crates/nu_plugin_binaryview", optional=true }
-nu_plugin_fetch = { version = "0.16.0", path = "./crates/nu_plugin_fetch", optional=true }
-nu_plugin_inc = { version = "0.16.0", path = "./crates/nu_plugin_inc", optional=true }
-nu_plugin_match = { version = "0.16.0", path = "./crates/nu_plugin_match", optional=true }
-nu_plugin_post = { version = "0.16.0", path = "./crates/nu_plugin_post", optional=true }
-nu_plugin_ps = { version = "0.16.0", path = "./crates/nu_plugin_ps", optional=true }
-nu_plugin_start = { version = "0.16.0", path = "./crates/nu_plugin_start", optional=true }
-nu_plugin_sys = { version = "0.16.0", path = "./crates/nu_plugin_sys", optional=true }
-nu_plugin_textview = { version = "0.16.0", path = "./crates/nu_plugin_textview", optional=true }
-nu_plugin_tree = { version = "0.16.0", path = "./crates/nu_plugin_tree", optional=true }
+nu-cli = {version = "0.16.1", path = "./crates/nu-cli"}
+nu-errors = {version = "0.16.1", path = "./crates/nu-errors"}
+nu-parser = {version = "0.16.1", path = "./crates/nu-parser"}
+nu-plugin = {version = "0.16.1", path = "./crates/nu-plugin"}
+nu-protocol = {version = "0.16.1", path = "./crates/nu-protocol"}
+nu-source = {version = "0.16.1", path = "./crates/nu-source"}
+nu-value-ext = {version = "0.16.1", path = "./crates/nu-value-ext"}
+nu_plugin_binaryview = {version = "0.16.1", path = "./crates/nu_plugin_binaryview", optional = true}
+nu_plugin_fetch = {version = "0.16.1", path = "./crates/nu_plugin_fetch", optional = true}
+nu_plugin_inc = {version = "0.16.1", path = "./crates/nu_plugin_inc", optional = true}
+nu_plugin_match = {version = "0.16.1", path = "./crates/nu_plugin_match", optional = true}
+nu_plugin_post = {version = "0.16.1", path = "./crates/nu_plugin_post", optional = true}
+nu_plugin_ps = {version = "0.16.1", path = "./crates/nu_plugin_ps", optional = true}
+nu_plugin_start = {version = "0.16.1", path = "./crates/nu_plugin_start", optional = true}
+nu_plugin_sys = {version = "0.16.1", path = "./crates/nu_plugin_sys", optional = true}
+nu_plugin_textview = {version = "0.16.1", path = "./crates/nu_plugin_textview", optional = true}
+nu_plugin_tree = {version = "0.16.1", path = "./crates/nu_plugin_tree", optional = true}
 
-crossterm = { version = "0.17.5", optional = true }
-semver = { version = "0.10.0", optional = true }
-syntect = { version = "4.2", default-features = false, features = ["default-fancy"], optional = true}
-url = { version = "2.1.1", optional = true }
+crossterm = {version = "0.17.5", optional = true}
+semver = {version = "0.10.0", optional = true}
+syntect = {version = "4.2", default-features = false, features = ["default-fancy"], optional = true}
+url = {version = "2.1.1", optional = true}
 
 clap = "2.33.1"
 ctrlc = "3.1.4"
 dunce = "1.0.1"
-futures = { version = "0.3", features = ["compat", "io-compat"] }
+futures = {version = "0.3", features = ["compat", "io-compat"]}
 log = "0.4.8"
 pretty_env_logger = "0.4.0"
 starship = "0.43.0"
 
 [dev-dependencies]
-nu-test-support = { version = "0.16.0", path = "./crates/nu-test-support" }
+nu-test-support = {version = "0.16.1", path = "./crates/nu-test-support"}
 
 [build-dependencies]
+nu-build = {version = "0.16.1", path = "./crates/nu-build"}
+serde = {version = "1.0.110", features = ["derive"]}
 toml = "0.5.6"
-serde = { version = "1.0.110", features = ["derive"] }
-nu-build = { version = "0.16.0", path = "./crates/nu-build" }
 
 [features]
 default = ["sys", "ps", "textview", "inc"]
 stable = ["default", "binaryview", "match", "tree", "post", "fetch", "clipboard-cli", "trash-support", "start"]
 
 # Default
-textview = ["crossterm", "syntect", "url", "nu_plugin_textview"]
-sys = ["nu_plugin_sys"]
-ps = ["nu_plugin_ps"]
 inc = ["semver", "nu_plugin_inc"]
+ps = ["nu_plugin_ps"]
+sys = ["nu_plugin_sys"]
+textview = ["crossterm", "syntect", "url", "nu_plugin_textview"]
 
 # Stable
 binaryview = ["nu_plugin_binaryview"]
 fetch = ["nu_plugin_fetch"]
 match = ["nu_plugin_match"]
 post = ["nu_plugin_post"]
+start = ["nu_plugin_start"]
 trace = ["nu-parser/trace"]
 tree = ["nu_plugin_tree"]
-start = ["nu_plugin_start"]
 
 clipboard-cli = ["nu-cli/clipboard-cli"]
 # starship-prompt = ["nu-cli/starship-prompt"]
