@@ -67,13 +67,7 @@ impl Environment {
 
         self.autoenv.env_vars_to_add()?;
 
-        for (k, v) in self.autoenv.cleanup_after_dir_exit()? {
-            if let Some(v) = v {
-                set_var(k, v);
-            } else {
-                remove_var(k);
-            }
-        }
+        self.autoenv.cleanup_after_dir_exit()?;
 
         if reload_trusted {
             self.autoenv.clear_recently_untrusted_file()?;

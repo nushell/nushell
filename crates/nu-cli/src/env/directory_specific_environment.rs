@@ -3,7 +3,6 @@ use commands::autoenv;
 use indexmap::{IndexMap, IndexSet};
 use nu_errors::ShellError;
 use serde::Deserialize;
-use std::cmp::Ordering::Less;
 use std::env::*;
 use std::process::Command;
 
@@ -164,40 +163,47 @@ impl DirectorySpecificEnvironment {
         }
     }
 
-    pub fn cleanup_after_dir_exit(
-        &mut self,
-    ) -> Result<IndexMap<EnvKey, Option<EnvVal>>, ShellError> {
-        let current_dir = current_dir()?;
-        let mut vars_to_cleanup = IndexMap::new();
-
-        //If we are in the same directory as last_seen, or a subdirectory to it, do nothing
-        //If we are in a subdirectory to last seen, do nothing
-        //If we are in a parent directory to last seen, exit .nu-envs from last seen to parent and restore old vals
-        let mut dir = self.last_seen_directory.clone();
-
+    pub fn cleanup_after_dir_exit(&mut self) -> Result<(), ShellError> {
+        let mut dir = current_dir()?;
+        let mut seen_directories = IndexSet::new();
         let mut popped = true;
-        while current_dir.cmp(&dir) == Less && popped {
-            if let Some(vars_added_by_this_directory) = self.added_env_vars.get(&dir) {
-                for (k, v) in vars_added_by_this_directory {
-                    vars_to_cleanup.insert(k.clone(), v.clone());
-                }
-                self.added_env_vars.remove(&dir);
-            }
 
-            if let Some(scripts) = self.exitscripts.get(&dir) {
-                for script in scripts {
-                    if cfg!(target_os = "windows") {
-                        Command::new("cmd")
-                            .args(&["/C", script.as_str()])
-                            .output()?;
+        //Go upward from current dir. Each directory we pass that is in added_env_vars we save, the rest we remove
+        while popped {
+            seen_directories.insert(dir.clone());
+
+            popped = dir.pop();
+        }
+
+        let mut new_env_vars = IndexMap::new();
+        for (dir, dirmap) in &self.added_env_vars {
+            if seen_directories.contains(dir) {
+                new_env_vars.insert(dir.clone(), dirmap.clone());
+            } else {
+
+                if let Some(scripts) = self.exitscripts.get(dir) {
+                    for script in scripts {
+                        if cfg!(target_os = "windows") {
+                            Command::new("cmd")
+                                .args(&["/C", script.as_str()])
+                                .output()?;
+                        } else {
+                            Command::new("sh").arg("-c").arg(script).output()?;
+                        }
+                    }
+                }
+
+                for (k, v) in dirmap {
+                    if let Some(v) = v {
+                        std::env::set_var(k, v);
                     } else {
-                        Command::new("sh").arg("-c").arg(script).output()?;
+                        std::env::remove_var(k);
                     }
                 }
             }
-            popped = dir.pop();
         }
-        Ok(vars_to_cleanup)
+        self.added_env_vars = new_env_vars;
+        Ok(())
     }
 
     // If the user recently ran autoenv untrust on a file, we clear the environment variables it set and make sure to not run any possible exitscripts.

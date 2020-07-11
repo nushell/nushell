@@ -68,16 +68,27 @@ fn autoenv() {
             ),
         ]);
 
-        // //Going to sibling directory without passing parent should work.
+        //Going to sibling directory without passing parent should work.
         let actual = nu!(
             cwd: dirs.test(),
             r#"autoenv trust foo
+               autoenv trust
                cd foob
                cd ../foo
                echo $nu.env.fookey
                cd .."#
         );
         assert!(actual.out.ends_with("fooval"));
+
+        //Going to sibling directory should unset keys
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"cd foo
+               cd ../foob
+               echo $nu.env.fookey
+               cd .."#
+        );
+        assert!(!actual.out.ends_with("fooval"));
 
         //Make sure basic keys are set
         let actual = nu!(
