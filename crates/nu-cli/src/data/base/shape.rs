@@ -27,9 +27,9 @@ pub enum InlineShape {
     Pattern(String),
     Boolean(bool),
     Date(DateTime<Utc>),
-    Duration(i64),
+    Duration(BigInt),
     Path(PathBuf),
-    Binary,
+    Binary(usize),
 
     Row(BTreeMap<Column, InlineShape>),
     Table(Vec<InlineShape>),
@@ -64,16 +64,16 @@ impl InlineShape {
                 }))
             }
             Primitive::Decimal(decimal) => InlineShape::Decimal(decimal.clone()),
-            Primitive::Bytes(bytesize) => InlineShape::Bytesize(*bytesize),
+            Primitive::Filesize(bytesize) => InlineShape::Bytesize(*bytesize),
             Primitive::String(string) => InlineShape::String(string.clone()),
             Primitive::Line(string) => InlineShape::Line(string.clone()),
             Primitive::ColumnPath(path) => InlineShape::ColumnPath(path.clone()),
             Primitive::Pattern(pattern) => InlineShape::Pattern(pattern.clone()),
             Primitive::Boolean(boolean) => InlineShape::Boolean(*boolean),
             Primitive::Date(date) => InlineShape::Date(*date),
-            Primitive::Duration(duration) => InlineShape::Duration(*duration),
+            Primitive::Duration(duration) => InlineShape::Duration(duration.clone()),
             Primitive::Path(path) => InlineShape::Path(path.clone()),
-            Primitive::Binary(_) => InlineShape::Binary,
+            Primitive::Binary(b) => InlineShape::Binary(b.len()),
             Primitive::BeginningOfStream => InlineShape::BeginningOfStream,
             Primitive::EndOfStream => InlineShape::EndOfStream,
         }
@@ -178,11 +178,12 @@ impl PrettyDebug for FormatInlineShape {
                 .to_owned(),
             ),
             InlineShape::Date(date) => b::primitive(nu_protocol::format_date(date)),
-            InlineShape::Duration(duration) => {
-                b::description(format_primitive(&Primitive::Duration(*duration), None))
-            }
+            InlineShape::Duration(duration) => b::description(format_primitive(
+                &Primitive::Duration(duration.clone()),
+                None,
+            )),
             InlineShape::Path(path) => b::primitive(path.display()),
-            InlineShape::Binary => b::opaque("<binary>"),
+            InlineShape::Binary(length) => b::opaque(format!("<binary: {} bytes>", length)),
             InlineShape::Row(row) => b::delimit(
                 "[",
                 b::kind("row")

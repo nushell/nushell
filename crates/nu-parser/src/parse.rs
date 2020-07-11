@@ -311,6 +311,9 @@ fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseErr
         (Unit::Gigabyte, vec!["gb", "GB", "Gb", "gB"]),
         (Unit::Terabyte, vec!["tb", "TB", "Tb", "tB"]),
         (Unit::Petabyte, vec!["pb", "PB", "Pb", "pB"]),
+        (Unit::Nanosecond, vec!["ns"]),
+        (Unit::Microsecond, vec!["us"]),
+        (Unit::Millisecond, vec!["ms"]),
         (Unit::Second, vec!["s"]),
         (Unit::Minute, vec!["m"]),
         (Unit::Hour, vec!["h"]),
@@ -1019,6 +1022,7 @@ fn parse_positional_argument(
     idx: usize,
     lite_cmd: &LiteCommand,
     positional_type: &PositionalType,
+    remaining_positionals: usize,
     registry: &dyn SignatureRegistry,
 ) -> (usize, SpannedExpression, Option<ParseError>) {
     let mut idx = idx;
@@ -1038,8 +1042,14 @@ fn parse_positional_argument(
                     }
                     arg
                 } else {
+                    let end_idx = if lite_cmd.args.len() > remaining_positionals {
+                        lite_cmd.args.len() - remaining_positionals
+                    } else {
+                        lite_cmd.args.len()
+                    };
+
                     let (new_idx, arg, err) =
-                        parse_math_expression(idx, &lite_cmd.args[idx..], registry, true);
+                        parse_math_expression(idx, &lite_cmd.args[idx..end_idx], registry, true);
 
                     let span = arg.span;
                     let mut commands = hir::Commands::new(span);
@@ -1049,7 +1059,7 @@ fn parse_positional_argument(
 
                     let arg = SpannedExpression::new(Expression::Block(block), span);
 
-                    idx = new_idx;
+                    idx = new_idx - 1;
                     if error.is_none() {
                         error = err;
                     }
@@ -1165,6 +1175,7 @@ fn parse_internal_command(
                     idx,
                     &lite_cmd,
                     &signature.positional[current_positional].0,
+                    signature.positional.len() - current_positional - 1,
                     registry,
                 );
                 idx = new_idx;

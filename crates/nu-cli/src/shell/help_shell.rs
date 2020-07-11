@@ -3,7 +3,7 @@ use crate::commands::command::EvaluatedWholeStreamCommandArgs;
 use crate::commands::cp::CopyArgs;
 use crate::commands::ls::LsArgs;
 use crate::commands::mkdir::MkdirArgs;
-use crate::commands::mv::MoveArgs;
+use crate::commands::move_::mv::Arguments as MvArgs;
 use crate::commands::rm::RemoveArgs;
 use crate::data::command_dict;
 use crate::prelude::*;
@@ -185,7 +185,7 @@ impl Shell for HelpShell {
         Ok(OutputStream::empty())
     }
 
-    fn mv(&self, _args: MoveArgs, _name: Tag, _path: &str) -> Result<OutputStream, ShellError> {
+    fn mv(&self, _args: MvArgs, _name: Tag, _path: &str) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::empty())
     }
 

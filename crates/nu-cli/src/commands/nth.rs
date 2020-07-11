@@ -70,16 +70,20 @@ async fn nth(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
     let row_numbers = vec![vec![row_number], and_rows]
         .into_iter()
         .flatten()
-        .collect::<Vec<Tagged<u64>>>();
+        .map(|x| x.item)
+        .collect::<Vec<u64>>();
+
+    let max_row_number = row_numbers
+        .iter()
+        .max()
+        .expect("Internal error: should be > 0 row numbers");
 
     Ok(input
+        .take(*max_row_number as usize + 1)
         .enumerate()
         .filter_map(move |(idx, item)| {
             futures::future::ready(
-                if row_numbers
-                    .iter()
-                    .any(|requested| requested.item == idx as u64)
-                {
+                if row_numbers.iter().any(|requested| *requested == idx as u64) {
                     Some(ReturnSuccess::value(item))
                 } else {
                     None

@@ -34,7 +34,7 @@ pub enum Type {
     /// A decimal (floating point) value
     Decimal,
     /// A filesize in bytes
-    Bytesize,
+    Filesize,
     /// A string of text
     String,
     /// A line of text (a string with trailing line ending)
@@ -138,7 +138,7 @@ impl Type {
                 Type::Range(Box::new(range))
             }
             Primitive::Decimal(_) => Type::Decimal,
-            Primitive::Bytes(_) => Type::Bytesize,
+            Primitive::Filesize(_) => Type::Filesize,
             Primitive::String(_) => Type::String,
             Primitive::Line(_) => Type::Line,
             Primitive::ColumnPath(_) => Type::ColumnPath,
@@ -220,7 +220,7 @@ impl PrettyDebug for Type {
                 )
             }
             Type::Decimal => ty("decimal"),
-            Type::Bytesize => ty("bytesize"),
+            Type::Filesize => ty("filesize"),
             Type::String => ty("string"),
             Type::Line => ty("line"),
             Type::ColumnPath => ty("column-path"),

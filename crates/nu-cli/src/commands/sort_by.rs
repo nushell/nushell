@@ -73,13 +73,7 @@ async fn sort_by(
 
     sort(&mut vec, &rest, &tag)?;
 
-    let mut values_vec_deque: VecDeque<Value> = VecDeque::new();
-
-    for item in vec {
-        values_vec_deque.push_back(item);
-    }
-
-    Ok(futures::stream::iter(values_vec_deque).to_output_stream())
+    Ok(futures::stream::iter(vec.into_iter()).to_output_stream())
 }
 
 pub fn sort(

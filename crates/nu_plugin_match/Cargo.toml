@@ -1,21 +1,21 @@
 [package]
-name = "nu_plugin_match"
-version = "0.16.0"
 authors = ["The Nu Project Contributors"]
-edition = "2018"
 description = "A regex match plugin for Nushell"
+edition = "2018"
 license = "MIT"
+name = "nu_plugin_match"
+version = "0.16.1"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-plugin = { path = "../nu-plugin", version = "0.16.0" }
-nu-protocol = { path = "../nu-protocol", version = "0.16.0" }
-nu-source = { path = "../nu-source", version = "0.16.0" }
-nu-errors = { path = "../nu-errors", version = "0.16.0" }
-futures = { version = "0.3", features = ["compat", "io-compat"] }
+futures = {version = "0.3", features = ["compat", "io-compat"]}
+nu-errors = {path = "../nu-errors", version = "0.16.1"}
+nu-plugin = {path = "../nu-plugin", version = "0.16.1"}
+nu-protocol = {path = "../nu-protocol", version = "0.16.1"}
+nu-source = {path = "../nu-source", version = "0.16.1"}
 regex = "1"
 
 [build-dependencies]
-nu-build = { version = "0.16.0", path = "../nu-build" }
+nu-build = {version = "0.16.1", path = "../nu-build"}

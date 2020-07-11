@@ -16,10 +16,6 @@ impl Conf for FakeConfig {
         self.config.env()
     }
 
-    fn nu_env_dirs(&self) -> Option<Value> {
-        None
-    }
-
     fn path(&self) -> Option<Value> {
         self.config.path()
     }
