@@ -31,7 +31,7 @@ impl WholeStreamCommand for ToYAML {
 pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
     Ok(match &v.value {
         UntaggedValue::Primitive(Primitive::Boolean(b)) => serde_yaml::Value::Bool(*b),
-        UntaggedValue::Primitive(Primitive::Bytes(b)) => {
+        UntaggedValue::Primitive(Primitive::Filesize(b)) => {
             serde_yaml::Value::Number(serde_yaml::Number::from(b.to_f64().ok_or_else(|| {
                 ShellError::labeled_error(
                     "Could not convert to bytes",

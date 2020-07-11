@@ -41,7 +41,7 @@ pub fn value_to_bson_value(v: &Value) -> Result<Bson, ShellError> {
     Ok(match &v.value {
         UntaggedValue::Primitive(Primitive::Boolean(b)) => Bson::Boolean(*b),
         // FIXME: What about really big decimals?
-        UntaggedValue::Primitive(Primitive::Bytes(decimal)) => Bson::FloatingPoint(
+        UntaggedValue::Primitive(Primitive::Filesize(decimal)) => Bson::FloatingPoint(
             (decimal)
                 .to_f64()
                 .expect("Unimplemented BUG: What about big decimals?"),

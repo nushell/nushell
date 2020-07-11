@@ -497,13 +497,13 @@ impl Unit {
         let size = size.clone();
 
         match self {
-            Unit::Byte => bytes(convert_number_to_u64(&size)),
-            Unit::Kilobyte => bytes(convert_number_to_u64(&size) * 1024),
-            Unit::Megabyte => bytes(convert_number_to_u64(&size) * 1024 * 1024),
-            Unit::Gigabyte => bytes(convert_number_to_u64(&size) * 1024 * 1024 * 1024),
-            Unit::Terabyte => bytes(convert_number_to_u64(&size) * 1024 * 1024 * 1024 * 1024),
+            Unit::Byte => filesize(convert_number_to_u64(&size)),
+            Unit::Kilobyte => filesize(convert_number_to_u64(&size) * 1024),
+            Unit::Megabyte => filesize(convert_number_to_u64(&size) * 1024 * 1024),
+            Unit::Gigabyte => filesize(convert_number_to_u64(&size) * 1024 * 1024 * 1024),
+            Unit::Terabyte => filesize(convert_number_to_u64(&size) * 1024 * 1024 * 1024 * 1024),
             Unit::Petabyte => {
-                bytes(convert_number_to_u64(&size) * 1024 * 1024 * 1024 * 1024 * 1024)
+                filesize(convert_number_to_u64(&size) * 1024 * 1024 * 1024 * 1024 * 1024)
             }
             Unit::Nanosecond => duration(size.to_bigint().expect("Conversion should never fail.")),
             Unit::Microsecond => {
@@ -571,8 +571,8 @@ impl Unit {
     }
 }
 
-pub fn bytes(size: u64) -> UntaggedValue {
-    UntaggedValue::Primitive(Primitive::Bytes(size))
+pub fn filesize(size_in_bytes: u64) -> UntaggedValue {
+    UntaggedValue::Primitive(Primitive::Filesize(size_in_bytes))
 }
 
 pub fn duration(nanos: BigInt) -> UntaggedValue {

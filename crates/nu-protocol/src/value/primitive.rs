@@ -31,7 +31,7 @@ pub enum Primitive {
     #[serde(with = "serde_bigdecimal")]
     Decimal(BigDecimal),
     /// A count in the number of bytes, used as a filesize
-    Bytes(u64),
+    Filesize(u64),
     /// A string value
     String(String),
     /// A string value with an implied carriage return (or cr/lf) ending
@@ -143,7 +143,7 @@ impl num_traits::Zero for Primitive {
         match self {
             Primitive::Int(int) => int.is_zero(),
             Primitive::Decimal(decimal) => decimal.is_zero(),
-            Primitive::Bytes(size) => size.is_zero(),
+            Primitive::Filesize(num_bytes) => num_bytes.is_zero(),
             _ => false,
         }
     }
@@ -164,25 +164,25 @@ impl std::ops::Add for Primitive {
             (Primitive::Decimal(left), Primitive::Int(right)) => {
                 Primitive::Decimal(left + BigDecimal::from(right))
             }
-            (Primitive::Bytes(left), right) => match right {
-                Primitive::Bytes(right) => Primitive::Bytes(left + right),
+            (Primitive::Filesize(left), right) => match right {
+                Primitive::Filesize(right) => Primitive::Filesize(left + right),
                 Primitive::Int(right) => {
-                    Primitive::Bytes(left + right.to_u64().unwrap_or_else(|| 0 as u64))
+                    Primitive::Filesize(left + right.to_u64().unwrap_or_else(|| 0 as u64))
                 }
                 Primitive::Decimal(right) => {
-                    Primitive::Bytes(left + right.to_u64().unwrap_or_else(|| 0 as u64))
+                    Primitive::Filesize(left + right.to_u64().unwrap_or_else(|| 0 as u64))
                 }
-                _ => Primitive::Bytes(left),
+                _ => Primitive::Filesize(left),
             },
-            (left, Primitive::Bytes(right)) => match left {
-                Primitive::Bytes(left) => Primitive::Bytes(left + right),
+            (left, Primitive::Filesize(right)) => match left {
+                Primitive::Filesize(left) => Primitive::Filesize(left + right),
                 Primitive::Int(left) => {
-                    Primitive::Bytes(left.to_u64().unwrap_or_else(|| 0 as u64) + right)
+                    Primitive::Filesize(left.to_u64().unwrap_or_else(|| 0 as u64) + right)
                 }
                 Primitive::Decimal(left) => {
-                    Primitive::Bytes(left.to_u64().unwrap_or_else(|| 0 as u64) + right)
+                    Primitive::Filesize(left.to_u64().unwrap_or_else(|| 0 as u64) + right)
                 }
-                _ => Primitive::Bytes(right),
+                _ => Primitive::Filesize(right),
             },
             _ => Primitive::zero(),
         }
@@ -270,7 +270,7 @@ impl ShellTypeName for Primitive {
             Primitive::Int(_) => "integer",
             Primitive::Range(_) => "range",
             Primitive::Decimal(_) => "decimal",
-            Primitive::Bytes(_) => "bytes",
+            Primitive::Filesize(_) => "filesize(in bytes)",
             Primitive::String(_) => "string",
             Primitive::Line(_) => "line",
             Primitive::ColumnPath(_) => "column path",
@@ -293,8 +293,8 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
         Primitive::BeginningOfStream => String::new(),
         Primitive::EndOfStream => String::new(),
         Primitive::Path(p) => format!("{}", p.display()),
-        Primitive::Bytes(b) => {
-            let byte = byte_unit::Byte::from_bytes(*b as u128);
+        Primitive::Filesize(num_bytes) => {
+            let byte = byte_unit::Byte::from_bytes(*num_bytes as u128);
 
             if byte.get_bytes() == 0u128 {
                 return "—".to_string();

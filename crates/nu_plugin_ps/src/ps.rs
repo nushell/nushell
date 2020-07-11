@@ -61,11 +61,11 @@ pub async fn ps(tag: Tag, full: bool) -> Result<Vec<Value>, ShellError> {
             dict.insert_untagged("cpu", UntaggedValue::decimal(usage.get::<ratio::percent>()));
             dict.insert_untagged(
                 "mem",
-                UntaggedValue::bytes(memory.rss().get::<information::byte>()),
+                UntaggedValue::filesize(memory.rss().get::<information::byte>()),
             );
             dict.insert_untagged(
                 "virtual",
-                UntaggedValue::bytes(memory.vms().get::<information::byte>()),
+                UntaggedValue::filesize(memory.vms().get::<information::byte>()),
             );
             if full {
                 if let Ok(parent_pid) = process.parent_pid().await {

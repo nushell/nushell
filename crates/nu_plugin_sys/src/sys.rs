@@ -57,22 +57,22 @@ async fn mem(tag: Tag) -> Value {
     if let Ok(memory) = memory_result {
         dict.insert_untagged(
             "total",
-            UntaggedValue::bytes(memory.total().get::<information::byte>()),
+            UntaggedValue::filesize(memory.total().get::<information::byte>()),
         );
         dict.insert_untagged(
             "free",
-            UntaggedValue::bytes(memory.free().get::<information::byte>()),
+            UntaggedValue::filesize(memory.free().get::<information::byte>()),
         );
     }
 
     if let Ok(swap) = swap_result {
         dict.insert_untagged(
             "swap total",
-            UntaggedValue::bytes(swap.total().get::<information::byte>()),
+            UntaggedValue::filesize(swap.total().get::<information::byte>()),
         );
         dict.insert_untagged(
             "swap free",
-            UntaggedValue::bytes(swap.free().get::<information::byte>()),
+            UntaggedValue::filesize(swap.free().get::<information::byte>()),
         );
     }
 
@@ -160,15 +160,15 @@ async fn disks(tag: Tag) -> Result<Option<UntaggedValue>, ShellError> {
             if let Ok(usage) = disk::usage(part.mount_point().to_path_buf()).await {
                 dict.insert_untagged(
                     "total",
-                    UntaggedValue::bytes(usage.total().get::<information::byte>()),
+                    UntaggedValue::filesize(usage.total().get::<information::byte>()),
                 );
                 dict.insert_untagged(
                     "used",
-                    UntaggedValue::bytes(usage.used().get::<information::byte>()),
+                    UntaggedValue::filesize(usage.used().get::<information::byte>()),
                 );
                 dict.insert_untagged(
                     "free",
-                    UntaggedValue::bytes(usage.free().get::<information::byte>()),
+                    UntaggedValue::filesize(usage.free().get::<information::byte>()),
                 );
             }
 
@@ -295,11 +295,11 @@ async fn net(tag: Tag) -> Result<Option<UntaggedValue>, ShellError> {
             network_idx.insert_untagged("name", UntaggedValue::string(nic.interface()));
             network_idx.insert_untagged(
                 "sent",
-                UntaggedValue::bytes(nic.bytes_sent().get::<information::byte>()),
+                UntaggedValue::filesize(nic.bytes_sent().get::<information::byte>()),
             );
             network_idx.insert_untagged(
                 "recv",
-                UntaggedValue::bytes(nic.bytes_recv().get::<information::byte>()),
+                UntaggedValue::filesize(nic.bytes_recv().get::<information::byte>()),
             );
             output.push(network_idx.into_value());
         }
