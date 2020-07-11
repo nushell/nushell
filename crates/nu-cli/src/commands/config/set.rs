@@ -9,7 +9,8 @@ pub struct SubCommand;
 
 #[derive(Deserialize)]
 pub struct SetArgs {
-    set: (Tagged<String>, Value),
+    key: Tagged<String>,
+    value: Value,
 }
 
 #[async_trait]
@@ -19,11 +20,9 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("config set").required(
-            "set",
-            SyntaxShape::Any,
-            "sets a value in the config, eg) set [key value]",
-        )
+        Signature::build("config set")
+            .required("key", SyntaxShape::String, "variable name to set")
+            .required("value", SyntaxShape::Any, "value to use")
     }
 
     fn usage(&self) -> &str {
@@ -52,7 +51,7 @@ pub async fn set(
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
     let name_span = args.call_info.name_tag.clone();
-    let (SetArgs { set: (key, value) }, _) = args.process(&registry).await?;
+    let (SetArgs { key, value }, _) = args.process(&registry).await?;
 
     // NOTE: None because we are not loading a new config file, we just want to read from the
     // existing config
