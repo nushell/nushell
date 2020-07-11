@@ -61,17 +61,10 @@ impl Environment {
     }
 
     pub fn autoenv(&mut self, reload_trusted: bool) -> Result<(), ShellError> {
-        if self.autoenv.last_seen_directory == current_dir()? {
-            return Ok(());
-        }
-
         self.autoenv.autoenv()?;
-
         if reload_trusted {
             self.autoenv.clear_recently_untrusted_file()?;
         }
-
-        self.autoenv.last_seen_directory = current_dir()?;
         Ok(())
     }
 
