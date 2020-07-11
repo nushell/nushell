@@ -71,21 +71,17 @@ impl DirectorySpecificEnvironment {
                 format!("{:?} is untrusted. Run 'autoenv trust {:?}' to trust it.\nThis needs to be done after each change to the file.", nu_env_file, nu_env_file.parent().unwrap_or_else(|| &Path::new("")))))
     }
 
-    fn run_command(&self, cmd: &str) -> Result<(), ShellError>{
+    fn run_command(&self, cmd: &str) -> Result<(), ShellError> {
         if cfg!(target_os = "windows") {
-            Command::new("cmd")
-                .args(&["/C", cmd])
-                .output()?
+            Command::new("cmd").args(&["/C", cmd]).output()?
         } else {
             Command::new("sh").arg("-c").arg(&cmd).output()?
         };
         Ok(())
     }
-    fn run_command_output(&self, cmd: &str) -> Result<std::process::Output, ShellError> {
+    fn run_command_output(&self, cmd: &str) -> Result<String, ShellError> {
         let command = if cfg!(target_os = "windows") {
-            Command::new("cmd")
-                .args(&["/C", cmd])
-                .output()?
+            Command::new("cmd").args(&["/C", cmd]).output()?
         } else {
             Command::new("sh").arg("-c").arg(&cmd).output()?
         };
@@ -95,16 +91,26 @@ impl DirectorySpecificEnvironment {
                 cmd
             )));
         }
-        Ok(command)
+        let response = std::str::from_utf8(&command.stdout[..command.stdout.len() - 1])
+            .or_else(|e| {
+                Err(ShellError::untagged_runtime_error(format!(
+                    "Couldn't parse stdout from command {:?}: {:?}",
+                    command, e
+                )))
+            })?;
+
+        Ok(response.to_string())
     }
 
-    pub fn env_vars_to_add(&mut self) -> Result<(), ShellError> {
+    pub fn autoenv(&mut self) -> Result<(), ShellError> {
         let mut dir = current_dir()?;
         let mut added_keys = IndexSet::new();
+        let mut seen_directories = IndexSet::new();
 
         //Add all .nu-envs until we reach a dir which we have already added, or we reached the root.
         let mut popped = true;
         while !self.added_env_vars.contains_key(&dir) && popped {
+            seen_directories.insert(dir.clone());
             let nu_env_file = dir.join(".nu-env");
             if nu_env_file.exists() {
                 let nu_env_doc = self.toml_if_directory_is_trusted(&nu_env_file)?;
@@ -112,27 +118,19 @@ impl DirectorySpecificEnvironment {
                 //add regular variables from the [env section]
                 if let Some(env) = nu_env_doc.env {
                     for (env_key, env_val) in env {
-                        self.add_key_if_appropriate(&mut added_keys, &dir, &env_key, &env_val);
+                        self.maybe_add_key(&mut added_keys, &dir, &env_key, &env_val);
                     }
                 }
 
                 //Add variables that need to evaluate scripts to run, from [scriptvars] section
                 if let Some(scriptvars) = nu_env_doc.scriptvars {
                     for (env_key, dir_val_script) in scriptvars {
-                        let command = self.run_command_output(&dir_val_script)?;
-                        let response =
-                            std::str::from_utf8(&command.stdout[..command.stdout.len() - 1])
-                                .or_else(|e| {
-                                    Err(ShellError::untagged_runtime_error(format!(
-                                        "Couldn't parse stdout from command {:?}: {:?}",
-                                        command, e
-                                    )))
-                                })?;
-                        self.add_key_if_appropriate(
+                        let response = self.run_command_output(&dir_val_script)?;
+                        self.maybe_add_key(
                             &mut added_keys,
                             &dir,
                             &env_key,
-                            &response.to_string(),
+                            &response,
                         );
                     }
                 }
@@ -150,10 +148,34 @@ impl DirectorySpecificEnvironment {
             popped = dir.pop();
         }
 
+
+        let mut new_env_vars = IndexMap::new();
+        for (dir, dirmap) in &self.added_env_vars {
+            if seen_directories.contains(dir) {
+                new_env_vars.insert(dir.clone(), dirmap.clone());
+            } else {
+                //If we didn't see the directory when we were going up from current dir, we clean everything up
+                if let Some(scripts) = self.exitscripts.get(dir) {
+                    for script in scripts {
+                        self.run_command(script.as_str())?;
+                    }
+                }
+
+                for (k, v) in dirmap {
+                    if let Some(v) = v {
+                        std::env::set_var(k, v);
+                    } else {
+                        std::env::remove_var(k);
+                    }
+                }
+            }
+        }
+        self.added_env_vars = new_env_vars;
+
         Ok(())
     }
 
-    pub fn add_key_if_appropriate(
+    pub fn maybe_add_key(
         &mut self,
         vars_to_add: &mut IndexSet<EnvKey>,
         dir: &PathBuf,
@@ -170,49 +192,6 @@ impl DirectorySpecificEnvironment {
 
             std::env::set_var(env_key, env_val);
         }
-    }
-
-    pub fn cleanup_after_dir_exit(&mut self) -> Result<(), ShellError> {
-        let mut dir = current_dir()?;
-        let mut seen_directories = IndexSet::new();
-        let mut popped = true;
-
-        //Go upward from current dir. Each directory we pass that is in added_env_vars we save, the rest we remove
-        while popped {
-            seen_directories.insert(dir.clone());
-
-            popped = dir.pop();
-        }
-
-        let mut new_env_vars = IndexMap::new();
-        for (dir, dirmap) in &self.added_env_vars {
-            if seen_directories.contains(dir) {
-                new_env_vars.insert(dir.clone(), dirmap.clone());
-            } else {
-
-                if let Some(scripts) = self.exitscripts.get(dir) {
-                    for script in scripts {
-                        if cfg!(target_os = "windows") {
-                            Command::new("cmd")
-                                .args(&["/C", script.as_str()])
-                                .output()?;
-                        } else {
-                            Command::new("sh").arg("-c").arg(script).output()?;
-                        }
-                    }
-                }
-
-                for (k, v) in dirmap {
-                    if let Some(v) = v {
-                        std::env::set_var(k, v);
-                    } else {
-                        std::env::remove_var(k);
-                    }
-                }
-            }
-        }
-        self.added_env_vars = new_env_vars;
-        Ok(())
     }
 
     // If the user recently ran autoenv untrust on a file, we clear the environment variables it set and make sure to not run any possible exitscripts.

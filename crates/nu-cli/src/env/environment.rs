@@ -65,9 +65,7 @@ impl Environment {
             return Ok(());
         }
 
-        self.autoenv.env_vars_to_add()?;
-
-        self.autoenv.cleanup_after_dir_exit()?;
+        self.autoenv.autoenv()?;
 
         if reload_trusted {
             self.autoenv.clear_recently_untrusted_file()?;
