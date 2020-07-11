@@ -41,6 +41,7 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
 fn autoenv() {
     Playground::setup("autoenv_test_1", |dirs, sandbox| {
         sandbox.mkdir("foo/bar");
+        sandbox.mkdir("foob");
         sandbox.with_files(vec![
             FileWithContent(
                 ".nu-env",
@@ -66,6 +67,16 @@ fn autoenv() {
                     overwrite_me = "set_in_bar""#,
             ),
         ]);
+
+        //Going to sibling directory without passing parent should work.
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust foo
+               cd foob
+               cd ../foo
+               echo $nu.env.fookey"#
+        );
+        assert!(actual.out.ends_with("fooval"));
 
         //Make sure basic keys are set
         let actual = nu!(
