@@ -371,6 +371,7 @@ pub fn create_default_context(
             whole_stream_command(MathMinimum),
             whole_stream_command(MathMode),
             whole_stream_command(MathMaximum),
+            whole_stream_command(MathStddev),
             whole_stream_command(MathSummation),
             whole_stream_command(MathVariance),
             // File format output
