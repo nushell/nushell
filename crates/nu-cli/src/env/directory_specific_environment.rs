@@ -72,9 +72,9 @@ impl DirectorySpecificEnvironment {
                 format!("{:?} is untrusted. Run 'autoenv trust {:?}' to trust it.\nThis needs to be done after each change to the file.", nu_env_file, nu_env_file.parent().unwrap_or_else(|| &Path::new("")))))
     }
 
-    pub fn env_vars_to_add(&mut self) -> Result<IndexMap<EnvKey, EnvVal>, ShellError> {
+    pub fn env_vars_to_add(&mut self) -> Result<(), ShellError> {
         let mut dir = current_dir()?;
-        let mut vars_to_add: IndexMap<EnvKey, EnvVal> = IndexMap::new();
+        let mut added_keys: IndexSet<EnvKey> = IndexSet::new();
 
         //Add all .nu-envs until we reach a dir which we have already added, or we reached the root.
         let mut popped = true;
@@ -82,15 +82,12 @@ impl DirectorySpecificEnvironment {
 
             let nu_env_file = dir.join(".nu-env");
             if nu_env_file.exists() {
-
-                //TODO bug: If a directory is not trusted, this function returns
-                //This means that any of its (trusted) child directories are not applied properly.
                 let nu_env_doc = self.toml_if_directory_is_trusted(&nu_env_file)?;
 
                 //add regular variables from the [env section]
                 if let Some(env) = nu_env_doc.env {
                     for (env_key, env_val) in env {
-                        self.add_key_if_appropriate(&mut vars_to_add, &dir, &env_key, &env_val);
+                        self.add_key_if_appropriate(&mut added_keys, &dir, &env_key, &env_val);
                     }
                 }
 
@@ -119,7 +116,7 @@ impl DirectorySpecificEnvironment {
                                     )))
                                 })?;
                         self.add_key_if_appropriate(
-                            &mut vars_to_add,
+                            &mut added_keys,
                             &dir,
                             &env_key,
                             &response.to_string(),
@@ -146,24 +143,25 @@ impl DirectorySpecificEnvironment {
             popped = dir.pop();
         }
 
-        Ok(vars_to_add)
+        Ok(())
     }
 
     pub fn add_key_if_appropriate(
         &mut self,
-        vars_to_add: &mut IndexMap<EnvKey, EnvVal>,
+        vars_to_add: &mut IndexSet<EnvKey>,
         dir: &PathBuf,
         env_key: &str,
         env_val: &str,
     ) {
         //This condition is to make sure variables in parent directories don't overwrite variables set by subdirectories.
-        if !vars_to_add.contains_key(env_key) {
-            vars_to_add.insert(env_key.to_string(), OsString::from(env_val));
-
+        if !vars_to_add.contains(env_key) {
+            vars_to_add.insert(env_key.to_string());
             self.added_env_vars
                 .entry(dir.clone())
                 .or_insert(IndexMap::new())
                 .insert(env_key.to_string(), var_os(env_key));
+
+            std::env::set_var(env_key, env_val);
         }
     }
 

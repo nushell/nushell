@@ -70,13 +70,14 @@ fn autoenv() {
 
 
 
-        //Going to sibling directory without passing parent should work.
+        // //Going to sibling directory without passing parent should work.
         let actual = nu!(
             cwd: dirs.test(),
             r#"autoenv trust foo
                cd foob
                cd ../foo
-               echo $nu.env.fookey"#
+               echo $nu.env.fookey
+               cd .."#
         );
         assert!(actual.out.ends_with("fooval"));
 
@@ -87,6 +88,15 @@ fn autoenv() {
                echo $nu.env.testkey"#
         );
         assert!(actual.out.ends_with("testvalue"));
+
+
+        //Backing out of the directory should unset the keys
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"cd ..
+               echo $nu.env.testkey"#
+        );
+        assert!(!actual.out.ends_with("testvalue"));
 
 
         // Make sure script keys are set
@@ -103,13 +113,6 @@ fn autoenv() {
         );
         assert!(actual.out.contains("hello.txt"));
 
-        //Backing out of the directory should unset the keys
-        let actual = nu!(
-            cwd: dirs.test(),
-            r#"cd ..
-               echo $nu.env.testkey"#
-        );
-        assert!(!actual.out.ends_with("testvalue"));
 
         // Make sure exit scripts are run
         let actual = nu!(

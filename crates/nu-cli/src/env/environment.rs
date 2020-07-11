@@ -65,9 +65,7 @@ impl Environment {
             return Ok(());
         }
 
-        for (k, v) in self.autoenv.env_vars_to_add()? {
-            set_var(&k, OsString::from(v.to_string_lossy().to_string()));
-        }
+        self.autoenv.env_vars_to_add()?;
 
         for (k, v) in self.autoenv.cleanup_after_dir_exit()? {
             if let Some(v) = v {
