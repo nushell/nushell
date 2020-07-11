@@ -71,6 +71,33 @@ impl DirectorySpecificEnvironment {
                 format!("{:?} is untrusted. Run 'autoenv trust {:?}' to trust it.\nThis needs to be done after each change to the file.", nu_env_file, nu_env_file.parent().unwrap_or_else(|| &Path::new("")))))
     }
 
+    fn run_command(&self, cmd: &str) -> Result<(), ShellError>{
+        if cfg!(target_os = "windows") {
+            Command::new("cmd")
+                .args(&["/C", cmd])
+                .output()?
+        } else {
+            Command::new("sh").arg("-c").arg(&cmd).output()?
+        };
+        Ok(())
+    }
+    fn run_command_output(&self, cmd: &str) -> Result<std::process::Output, ShellError> {
+        let command = if cfg!(target_os = "windows") {
+            Command::new("cmd")
+                .args(&["/C", cmd])
+                .output()?
+        } else {
+            Command::new("sh").arg("-c").arg(&cmd).output()?
+        };
+        if command.stdout.is_empty() {
+            return Err(ShellError::untagged_runtime_error(format!(
+                "{:?} did not return any output",
+                cmd
+            )));
+        }
+        Ok(command)
+    }
+
     pub fn env_vars_to_add(&mut self) -> Result<(), ShellError> {
         let mut dir = current_dir()?;
         let mut added_keys = IndexSet::new();
@@ -92,19 +119,7 @@ impl DirectorySpecificEnvironment {
                 //Add variables that need to evaluate scripts to run, from [scriptvars] section
                 if let Some(scriptvars) = nu_env_doc.scriptvars {
                     for (env_key, dir_val_script) in scriptvars {
-                        let command = if cfg!(target_os = "windows") {
-                            Command::new("cmd")
-                                .args(&["/C", dir_val_script.as_str()])
-                                .output()?
-                        } else {
-                            Command::new("sh").arg("-c").arg(&dir_val_script).output()?
-                        };
-                        if command.stdout.is_empty() {
-                            return Err(ShellError::untagged_runtime_error(format!(
-                                "{:?} in {:?} did not return any output",
-                                dir_val_script, dir
-                            )));
-                        }
+                        let command = self.run_command_output(&dir_val_script)?;
                         let response =
                             std::str::from_utf8(&command.stdout[..command.stdout.len() - 1])
                                 .or_else(|e| {
@@ -124,13 +139,7 @@ impl DirectorySpecificEnvironment {
 
                 if let Some(entryscripts) = nu_env_doc.entryscripts {
                     for script in entryscripts {
-                        if cfg!(target_os = "windows") {
-                            Command::new("cmd")
-                                .args(&["/C", script.as_str()])
-                                .output()?;
-                        } else {
-                            Command::new("sh").arg("-c").arg(script).output()?;
-                        }
+                        self.run_command(script.as_str())?;
                     }
                 }
 
