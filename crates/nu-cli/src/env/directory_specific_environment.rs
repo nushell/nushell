@@ -74,12 +74,11 @@ impl DirectorySpecificEnvironment {
 
     pub fn env_vars_to_add(&mut self) -> Result<(), ShellError> {
         let mut dir = current_dir()?;
-        let mut added_keys: IndexSet<EnvKey> = IndexSet::new();
+        let mut added_keys = IndexSet::new();
 
         //Add all .nu-envs until we reach a dir which we have already added, or we reached the root.
         let mut popped = true;
         while !self.added_env_vars.contains_key(&dir) && popped {
-
             let nu_env_file = dir.join(".nu-env");
             if nu_env_file.exists() {
                 let nu_env_doc = self.toml_if_directory_is_trusted(&nu_env_file)?;

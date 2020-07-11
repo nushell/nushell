@@ -68,8 +68,6 @@ fn autoenv() {
             ),
         ]);
 
-
-
         // //Going to sibling directory without passing parent should work.
         let actual = nu!(
             cwd: dirs.test(),
@@ -89,7 +87,6 @@ fn autoenv() {
         );
         assert!(actual.out.ends_with("testvalue"));
 
-
         //Backing out of the directory should unset the keys
         let actual = nu!(
             cwd: dirs.test(),
@@ -97,7 +94,6 @@ fn autoenv() {
                echo $nu.env.testkey"#
         );
         assert!(!actual.out.ends_with("testvalue"));
-
 
         // Make sure script keys are set
         let actual = nu!(
@@ -112,7 +108,6 @@ fn autoenv() {
             r#"ls | where name == "hello.txt" | get name"#
         );
         assert!(actual.out.contains("hello.txt"));
-
 
         // Make sure exit scripts are run
         let actual = nu!(
