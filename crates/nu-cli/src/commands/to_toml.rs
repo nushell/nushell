@@ -44,7 +44,7 @@ impl WholeStreamCommand for ToTOML {
 fn helper(v: &Value) -> Result<toml::Value, ShellError> {
     Ok(match &v.value {
         UntaggedValue::Primitive(Primitive::Boolean(b)) => toml::Value::Boolean(*b),
-        UntaggedValue::Primitive(Primitive::Bytes(b)) => toml::Value::Integer(*b as i64),
+        UntaggedValue::Primitive(Primitive::Filesize(b)) => toml::Value::Integer(*b as i64),
         UntaggedValue::Primitive(Primitive::Duration(i)) => toml::Value::String(i.to_string()),
         UntaggedValue::Primitive(Primitive::Date(d)) => toml::Value::String(d.to_string()),
         UntaggedValue::Primitive(Primitive::EndOfStream) => {

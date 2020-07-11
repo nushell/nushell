@@ -62,7 +62,7 @@ impl WholeStreamCommand for ToJSON {
 pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
     Ok(match &v.value {
         UntaggedValue::Primitive(Primitive::Boolean(b)) => serde_json::Value::Bool(*b),
-        UntaggedValue::Primitive(Primitive::Bytes(b)) => serde_json::Value::Number(
+        UntaggedValue::Primitive(Primitive::Filesize(b)) => serde_json::Value::Number(
             serde_json::Number::from(b.to_u64().expect("What about really big numbers")),
         ),
         UntaggedValue::Primitive(Primitive::Duration(i)) => {

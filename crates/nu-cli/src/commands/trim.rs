@@ -43,7 +43,7 @@ fn trim_primitive(p: &mut Primitive) {
         Primitive::Nothing
         | Primitive::Int(_)
         | Primitive::Decimal(_)
-        | Primitive::Bytes(_)
+        | Primitive::Filesize(_)
         | Primitive::ColumnPath(_)
         | Primitive::Pattern(_)
         | Primitive::Boolean(_)

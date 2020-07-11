@@ -357,12 +357,12 @@ impl From<DirInfo> for Value {
 
         r.insert(
             "apparent".to_string(),
-            UntaggedValue::bytes(d.size).into_value(&d.tag),
+            UntaggedValue::filesize(d.size).into_value(&d.tag),
         );
 
         r.insert(
             "physical".to_string(),
-            UntaggedValue::bytes(d.blocks).into_value(&d.tag),
+            UntaggedValue::filesize(d.blocks).into_value(&d.tag),
         );
 
         r.insert("directories".to_string(), value_from_vec(d.dirs, &d.tag));
@@ -399,12 +399,12 @@ impl From<FileInfo> for Value {
 
         r.insert(
             "apparent".to_string(),
-            UntaggedValue::bytes(f.size).into_value(&f.tag),
+            UntaggedValue::filesize(f.size).into_value(&f.tag),
         );
 
         let b = f
             .blocks
-            .map(UntaggedValue::bytes)
+            .map(UntaggedValue::filesize)
             .unwrap_or_else(UntaggedValue::nothing)
             .into_value(&f.tag);
 

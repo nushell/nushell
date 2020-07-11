@@ -138,19 +138,19 @@ fn coerce_compare_primitive(
         (Int(left), Decimal(right)) => {
             CompareValues::Decimals(BigDecimal::zero() + left, right.clone())
         }
-        (Int(left), Bytes(right)) => CompareValues::Ints(left.clone(), BigInt::from(*right)),
+        (Int(left), Filesize(right)) => CompareValues::Ints(left.clone(), BigInt::from(*right)),
         (Decimal(left), Decimal(right)) => CompareValues::Decimals(left.clone(), right.clone()),
         (Decimal(left), Int(right)) => {
             CompareValues::Decimals(left.clone(), BigDecimal::zero() + right)
         }
-        (Decimal(left), Bytes(right)) => {
+        (Decimal(left), Filesize(right)) => {
             CompareValues::Decimals(left.clone(), BigDecimal::from(*right))
         }
-        (Bytes(left), Bytes(right)) => {
+        (Filesize(left), Filesize(right)) => {
             CompareValues::Ints(BigInt::from(*left), BigInt::from(*right))
         }
-        (Bytes(left), Int(right)) => CompareValues::Ints(BigInt::from(*left), right.clone()),
-        (Bytes(left), Decimal(right)) => {
+        (Filesize(left), Int(right)) => CompareValues::Ints(BigInt::from(*left), right.clone()),
+        (Filesize(left), Decimal(right)) => {
             CompareValues::Decimals(BigDecimal::from(*left), right.clone())
         }
         (Nothing, Nothing) => CompareValues::Booleans(true, true),

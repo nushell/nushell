@@ -47,13 +47,13 @@ pub fn compute_values(
 ) -> Result<UntaggedValue, (&'static str, &'static str)> {
     match (left, right) {
         (UntaggedValue::Primitive(lhs), UntaggedValue::Primitive(rhs)) => match (lhs, rhs) {
-            (Primitive::Bytes(x), Primitive::Bytes(y)) => {
+            (Primitive::Filesize(x), Primitive::Filesize(y)) => {
                 let result = match operator {
                     Operator::Plus => Ok(x + y),
                     Operator::Minus => Ok(x - y),
                     _ => Err((left.type_name(), right.type_name())),
                 }?;
-                Ok(UntaggedValue::Primitive(Primitive::Bytes(result)))
+                Ok(UntaggedValue::Primitive(Primitive::Filesize(result)))
             }
             (Primitive::Int(x), Primitive::Int(y)) => match operator {
                 Operator::Plus => Ok(UntaggedValue::Primitive(Primitive::Int(x + y))),

@@ -33,7 +33,7 @@ impl PrettyType for Primitive {
             Primitive::Int(_) => ty("integer"),
             Primitive::Range(_) => ty("range"),
             Primitive::Decimal(_) => ty("decimal"),
-            Primitive::Bytes(_) => ty("bytesize"),
+            Primitive::Filesize(_) => ty("filesize"),
             Primitive::String(_) => ty("string"),
             Primitive::Line(_) => ty("line"),
             Primitive::ColumnPath(_) => ty("column-path"),
@@ -71,7 +71,7 @@ impl PrettyDebug for Primitive {
                     .group(),
                 )
             }
-            Primitive::Bytes(bytes) => primitive_doc(bytes, "bytesize"),
+            Primitive::Filesize(bytes) => primitive_doc(bytes, "filesize"),
             Primitive::String(string) => prim(string),
             Primitive::Line(string) => prim(string),
             Primitive::ColumnPath(path) => path.pretty(),

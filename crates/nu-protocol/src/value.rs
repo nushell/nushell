@@ -183,9 +183,9 @@ impl UntaggedValue {
         UntaggedValue::Primitive(Primitive::Path(s.into()))
     }
 
-    /// Helper for creating bytesize values
-    pub fn bytes(s: impl Into<u64>) -> UntaggedValue {
-        UntaggedValue::Primitive(Primitive::Bytes(s.into()))
+    /// Helper for creating filesize values
+    pub fn filesize(s: impl Into<u64>) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Filesize(s.into()))
     }
 
     /// Helper for creating decimal values
@@ -282,7 +282,7 @@ impl Value {
             UntaggedValue::Primitive(Primitive::Boolean(x)) => format!("{}", x),
             UntaggedValue::Primitive(Primitive::Decimal(x)) => format!("{}", x),
             UntaggedValue::Primitive(Primitive::Int(x)) => format!("{}", x),
-            UntaggedValue::Primitive(Primitive::Bytes(x)) => format!("{}", x),
+            UntaggedValue::Primitive(Primitive::Filesize(x)) => format!("{}", x),
             UntaggedValue::Primitive(Primitive::Path(x)) => format!("{}", x.display()),
             UntaggedValue::Primitive(Primitive::ColumnPath(path)) => {
                 let joined = path

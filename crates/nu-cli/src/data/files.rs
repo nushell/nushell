@@ -168,12 +168,12 @@ pub(crate) fn dir_entry_dict(
                 md.len()
             };
 
-            size_untagged_value = UntaggedValue::bytes(dir_size);
+            size_untagged_value = UntaggedValue::filesize(dir_size);
         } else if md.is_file() {
-            size_untagged_value = UntaggedValue::bytes(md.len());
+            size_untagged_value = UntaggedValue::filesize(md.len());
         } else if md.file_type().is_symlink() {
             if let Ok(symlink_md) = filename.symlink_metadata() {
-                size_untagged_value = UntaggedValue::bytes(symlink_md.len() as u64);
+                size_untagged_value = UntaggedValue::filesize(symlink_md.len() as u64);
             }
         }
 
