@@ -49,7 +49,7 @@ fn autoenv() {
                     testkey = "testvalue"
 
                     [scriptvars]
-                    myscript = "echo 'myval'"
+                    myscript = "echo myval"
 
                     [scripts]
                     entryscripts = ["touch hello.txt"]
@@ -84,6 +84,14 @@ fn autoenv() {
         );
         assert!(!actual.out.ends_with("testvalue"));
 
+
+        // Make sure script keys are set
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"echo $nu.env.myscript"#
+        );
+        assert!(actual.out.ends_with("myval"));
+
         //Going to sibling directory without passing parent should work.
         let actual = nu!(
             cwd: dirs.test(),
@@ -105,13 +113,6 @@ fn autoenv() {
         );
         assert!(!actual.out.ends_with("fooval"));
 
-
-        // Make sure script keys are set
-        let actual = nu!(
-            cwd: dirs.test(),
-            r#"echo $nu.env.myscript"#
-        );
-        assert!(actual.out.ends_with("myval"));
 
         // Make sure entry scripts are run
         let actual = nu!(

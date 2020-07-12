@@ -89,14 +89,14 @@ impl DirectorySpecificEnvironment {
             )));
         }
         let response =
-            std::str::from_utf8(&command.stdout[..command.stdout.len() - 1]).or_else(|e| {
+            std::str::from_utf8(&command.stdout[..command.stdout.len()]).or_else(|e| {
                 Err(ShellError::untagged_runtime_error(format!(
                     "Couldn't parse stdout from command {:?}: {:?}",
                     command, e
                 )))
             })?;
 
-        Ok(response.to_string())
+        Ok(response.trim().to_string())
     }
 
     pub fn maintain_autoenv(&mut self) -> Result<(), ShellError> {
@@ -179,18 +179,18 @@ impl DirectorySpecificEnvironment {
         &mut self,
         seen_vars: &mut IndexSet<EnvKey>,
         dir: &PathBuf,
-        env_key: &str,
-        env_val: &str,
+        key: &str,
+        val: &str,
     ) {
         //This condition is to make sure variables in parent directories don't overwrite variables set by subdirectories.
-        if !seen_vars.contains(env_key) {
-            seen_vars.insert(env_key.to_string());
+        if !seen_vars.contains(key) {
+            seen_vars.insert(key.to_string());
             self.added_vars
                 .entry(dir.clone())
                 .or_insert(IndexMap::new())
-                .insert(env_key.to_string(), var_os(env_key));
+                .insert(key.to_string(), var_os(key));
 
-            std::env::set_var(env_key, env_val);
+            std::env::set_var(key, val);
         }
     }
 
