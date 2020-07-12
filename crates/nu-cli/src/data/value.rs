@@ -55,6 +55,16 @@ pub fn compute_values(
                 }?;
                 Ok(UntaggedValue::Primitive(Primitive::Filesize(result)))
             }
+            (Primitive::Filesize(x), Primitive::Int(y)) => match operator {
+                Operator::Plus => Ok(UntaggedValue::Primitive(Primitive::Int(x + y))),
+                Operator::Minus => Ok(UntaggedValue::Primitive(Primitive::Int(x - y))),
+                Operator::Multiply => Ok(UntaggedValue::Primitive(Primitive::Int(x * y))),
+                Operator::Divide => Ok(UntaggedValue::Primitive(Primitive::Decimal(
+                    bigdecimal::BigDecimal::from(x.clone())
+                        / bigdecimal::BigDecimal::from(y.clone()),
+                ))),
+                _ => Err((left.type_name(), right.type_name())),
+            },
             (Primitive::Int(x), Primitive::Int(y)) => match operator {
                 Operator::Plus => Ok(UntaggedValue::Primitive(Primitive::Int(x + y))),
                 Operator::Minus => Ok(UntaggedValue::Primitive(Primitive::Int(x - y))),
