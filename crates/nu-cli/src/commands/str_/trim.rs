@@ -5,12 +5,14 @@ use nu_protocol::ShellTypeName;
 use nu_protocol::{
     ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
 };
-use nu_source::Tag;
+use nu_source::{Tag, Tagged};
 use nu_value_ext::ValueExt;
 
 #[derive(Deserialize)]
 struct Arguments {
     rest: Vec<ColumnPath>,
+    #[serde(rename(deserialize = "char"))]
+    char_: Option<Tagged<char>>,
 }
 
 pub struct SubCommand;
@@ -22,10 +24,17 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("str trim").rest(
-            SyntaxShape::ColumnPath,
-            "optionally trim text by column paths",
-        )
+        Signature::build("str trim")
+            .rest(
+                SyntaxShape::ColumnPath,
+                "optionally trim text by column paths",
+            )
+            .named(
+                "char",
+                SyntaxShape::String,
+                "character to trim (default: whitespace)",
+                Some('c'),
+            )
     }
 
     fn usage(&self) -> &str {
@@ -41,11 +50,18 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Trim contents",
-            example: "echo 'Nu shell ' | str trim",
-            result: Some(vec![Value::from("Nu shell")]),
-        }]
+        vec![
+            Example {
+                description: "Trim whitespace",
+                example: "echo 'Nu shell ' | str trim",
+                result: Some(vec![Value::from("Nu shell")]),
+            },
+            Example {
+                description: "Trim a specific character",
+                example: "echo '=== Nu shell ===' | str trim -c '=' | str trim",
+                result: Some(vec![Value::from("Nu shell")]),
+            },
+        ]
     }
 }
 
@@ -55,14 +71,15 @@ async fn operate(
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
 
-    let (Arguments { rest }, input) = args.process(&registry).await?;
+    let (Arguments { rest, char_ }, input) = args.process(&registry).await?;
 
     let column_paths: Vec<_> = rest;
+    let to_trim = char_.map(|tagged| tagged.item);
 
     Ok(input
         .map(move |v| {
             if column_paths.is_empty() {
-                match action(&v, v.tag()) {
+                match action(&v, v.tag(), to_trim) {
                     Ok(out) => ReturnSuccess::value(out),
                     Err(err) => Err(err),
                 }
@@ -72,7 +89,7 @@ async fn operate(
                 for path in &column_paths {
                     let swapping = ret.swap_data_by_column_path(
                         path,
-                        Box::new(move |old| action(old, old.tag())),
+                        Box::new(move |old| action(old, old.tag(), to_trim)),
                     );
 
                     match swapping {
@@ -91,11 +108,15 @@ async fn operate(
         .to_output_stream())
 }
 
-fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
+fn action(input: &Value, tag: impl Into<Tag>, char_: Option<char>) -> Result<Value, ShellError> {
     match &input.value {
         UntaggedValue::Primitive(Primitive::Line(s))
         | UntaggedValue::Primitive(Primitive::String(s)) => {
-            Ok(UntaggedValue::string(s.trim()).into_value(tag))
+            Ok(UntaggedValue::string(match char_ {
+                None => String::from(s.trim()),
+                Some(ch) => trim_char(s, ch, true, true),
+            })
+            .into_value(tag))
         }
         other => {
             let got = format!("got {}", other.type_name());
@@ -108,12 +129,11 @@ fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
     }
 }
 
-// TODO make callable using flag
-pub fn trim_char(s: String, to_trim: char, leading: bool, trailing: bool) -> String {
+pub fn trim_char(from: &str, to_trim: char, leading: bool, trailing: bool) -> String {
     let mut trimmed = String::from("");
     let mut backlog = String::from("");
     let mut at_left = true;
-    s.chars().for_each(|ch| match ch {
+    from.chars().for_each(|ch| match ch {
         c if c == to_trim => {
             if !(leading && at_left) {
                 if trailing {
@@ -154,7 +174,7 @@ mod tests {
         let word = string("andres ");
         let expected = string("andres");
 
-        let actual = action(&word, Tag::unknown()).unwrap();
+        let actual = action(&word, Tag::unknown(), None).unwrap();
         assert_eq!(actual, expected);
     }
 }
