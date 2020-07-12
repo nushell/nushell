@@ -99,7 +99,7 @@ impl DirectorySpecificEnvironment {
         Ok(response.to_string())
     }
 
-    pub fn autoenv(&mut self) -> Result<(), ShellError> {
+    pub fn maintain_autoenv(&mut self) -> Result<(), ShellError> {
         let mut dir = current_dir()?;
 
         if self.last_seen_directory == dir {

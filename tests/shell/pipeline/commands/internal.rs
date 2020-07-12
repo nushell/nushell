@@ -72,7 +72,6 @@ fn autoenv() {
         let actual = nu!(
             cwd: dirs.test(),
             r#"autoenv trust foo
-               autoenv trust
                cd foob
                cd ../foo
                echo $nu.env.fookey

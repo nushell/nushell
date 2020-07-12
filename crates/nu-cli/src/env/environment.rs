@@ -61,7 +61,7 @@ impl Environment {
     }
 
     pub fn autoenv(&mut self, reload_trusted: bool) -> Result<(), ShellError> {
-        self.autoenv.autoenv()?;
+        self.autoenv.maintain_autoenv()?;
         if reload_trusted {
             self.autoenv.clear_recently_untrusted_file()?;
         }

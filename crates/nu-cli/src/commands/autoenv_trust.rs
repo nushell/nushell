@@ -47,6 +47,17 @@ impl WholeStreamCommand for AutoenvTrust {
 
         let content = std::fs::read(&file_to_trust)?;
 
+        //TODO trusting "\\\\?\\C:\\Users\\samhe\\AppData\\Local\\Temp\\.tmpdPdD9Y\\autoenv_test\\foo\\.nu-env"
+        //For some reason there are other chars before the path?
+        // let mut file = std::fs::OpenOptions::new()
+        //     .read(true)
+        //     .write(true)
+        //     .append(true)
+        //     .open(r#"C:\Users\samhe\Documents\github\output"#).unwrap();
+        // use std::io::Write;
+
+        // write!(&mut file, "trusting {:?}\n", file_to_trust).unwrap();
+
         let filename = file_to_trust.to_string_lossy().to_string();
         let mut allowed = read_trusted()?;
         allowed
