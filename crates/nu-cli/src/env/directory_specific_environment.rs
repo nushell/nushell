@@ -68,37 +68,6 @@ impl DirectorySpecificEnvironment {
                 format!("{:?} is untrusted. Run 'autoenv trust {:?}' to trust it.\nThis needs to be done after each change to the file.", nu_env_file, nu_env_file.parent().unwrap_or_else(|| &Path::new("")))))
     }
 
-    fn run(&self, cmd: &str) -> Result<(), ShellError> {
-        if cfg!(target_os = "windows") {
-            Command::new("cmd").args(&["/C", cmd]).output()?
-        } else {
-            Command::new("sh").arg("-c").arg(&cmd).output()?
-        };
-        Ok(())
-    }
-    fn value_from_script(&self, cmd: &str) -> Result<String, ShellError> {
-        let command = if cfg!(target_os = "windows") {
-            Command::new("cmd").args(&["/C", cmd]).output()?
-        } else {
-            Command::new("sh").arg("-c").arg(&cmd).output()?
-        };
-        if command.stdout.is_empty() {
-            return Err(ShellError::untagged_runtime_error(format!(
-                "{:?} did not return any output",
-                cmd
-            )));
-        }
-        let response =
-            std::str::from_utf8(&command.stdout[..command.stdout.len()]).or_else(|e| {
-                Err(ShellError::untagged_runtime_error(format!(
-                    "Couldn't parse stdout from command {:?}: {:?}",
-                    command, e
-                )))
-            })?;
-
-        Ok(response.trim().to_string())
-    }
-
     pub fn maintain_autoenv(&mut self) -> Result<(), ShellError> {
         let mut dir = current_dir()?;
 
@@ -131,14 +100,14 @@ impl DirectorySpecificEnvironment {
                             &mut added_keys,
                             &dir,
                             &key,
-                            self.value_from_script(&script)?.as_str(),
+                            value_from_script(&script)?.as_str(),
                         );
                     }
                 }
 
                 if let Some(es) = nu_env_doc.entryscripts {
                     for s in es {
-                        self.run(s.as_str())?;
+                        run(s.as_str())?;
                     }
                 }
 
@@ -152,9 +121,9 @@ impl DirectorySpecificEnvironment {
 
         //Time to clear out vars set by directories that we have left.
         let mut new_vars = IndexMap::new();
-        for (dir, dirmap) in &self.added_vars {
-            if seen_directories.contains(dir) {
-                new_vars.insert(dir.clone(), dirmap.clone());
+        for (dir, dirmap) in self.added_vars.drain(..) {
+            if seen_directories.contains(&dir) {
+                new_vars.insert(dir, dirmap);
             } else {
                 for (k, v) in dirmap {
                     if let Some(v) = v {
@@ -163,9 +132,9 @@ impl DirectorySpecificEnvironment {
                         std::env::remove_var(k);
                     }
                 }
-                if let Some(es) = self.exitscripts.get(dir) {
+                if let Some(es) = self.exitscripts.get(&dir) {
                     for s in es {
-                        self.run(s.as_str())?;
+                        run(s.as_str())?;
                     }
                 }
             }
@@ -229,4 +198,34 @@ impl DirectorySpecificEnvironment {
 
         Ok(())
     }
+}
+
+fn run(cmd: &str) -> Result<(), ShellError> {
+    if cfg!(target_os = "windows") {
+        Command::new("cmd").args(&["/C", cmd]).output()?
+    } else {
+        Command::new("sh").arg("-c").arg(&cmd).output()?
+    };
+    Ok(())
+}
+fn value_from_script(cmd: &str) -> Result<String, ShellError> {
+    let command = if cfg!(target_os = "windows") {
+        Command::new("cmd").args(&["/C", cmd]).output()?
+    } else {
+        Command::new("sh").arg("-c").arg(&cmd).output()?
+    };
+    if command.stdout.is_empty() {
+        return Err(ShellError::untagged_runtime_error(format!(
+            "{:?} did not return any output",
+            cmd
+        )));
+    }
+    let response = std::str::from_utf8(&command.stdout[..command.stdout.len()]).or_else(|e| {
+        Err(ShellError::untagged_runtime_error(format!(
+            "Couldn't parse stdout from command {:?}: {:?}",
+            command, e
+        )))
+    })?;
+
+    Ok(response.trim().to_string())
 }
