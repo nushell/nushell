@@ -291,7 +291,10 @@ async fn table(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
 
         let input: Vec<Value> = new_input.into();
 
-        if !input.is_empty() {
+        let table_is_in_default_empty_state = input.len() == 1 && input[0].is_none();
+        let should_draw_table = !input.is_empty() && !table_is_in_default_empty_state;
+
+        if should_draw_table {
             let t = from_list(&input, start_number);
 
             draw_table(&t, term_width);
