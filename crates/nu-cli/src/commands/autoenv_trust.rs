@@ -39,7 +39,7 @@ impl WholeStreamCommand for AutoenvTrust {
                 dir
             }
             _ => {
-                let mut dir = std::env::current_dir()?;
+                let mut dir = fs::canonicalize(std::env::current_dir()?)?;
                 dir.push(".nu-env");
                 dir
             }
