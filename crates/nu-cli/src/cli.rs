@@ -307,6 +307,7 @@ pub fn create_default_context(
             whole_stream_command(StrUpcase),
             whole_stream_command(StrCapitalize),
             whole_stream_command(StrFindReplace),
+            whole_stream_command(StrFrom),
             whole_stream_command(StrSubstring),
             whole_stream_command(StrSet),
             whole_stream_command(StrToDatetime),

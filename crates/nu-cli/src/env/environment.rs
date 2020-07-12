@@ -61,23 +61,10 @@ impl Environment {
     }
 
     pub fn autoenv(&mut self, reload_trusted: bool) -> Result<(), ShellError> {
-        for (k, v) in self.autoenv.env_vars_to_add()? {
-            set_var(&k, OsString::from(v.to_string_lossy().to_string()));
-        }
-
-        for (k, v) in self.autoenv.cleanup_after_dir_exit()? {
-            if let Some(v) = v {
-                set_var(k, v);
-            } else {
-                remove_var(k);
-            }
-        }
-
+        self.autoenv.maintain_autoenv()?;
         if reload_trusted {
             self.autoenv.clear_recently_untrusted_file()?;
         }
-
-        self.autoenv.last_seen_directory = current_dir()?;
         Ok(())
     }
 
