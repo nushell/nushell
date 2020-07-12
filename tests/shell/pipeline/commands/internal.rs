@@ -42,7 +42,21 @@ fn autoenv() {
     Playground::setup("autoenv_test", |dirs, sandbox| {
         sandbox.mkdir("foo/bar");
         sandbox.mkdir("foob");
-        sandbox.with_files(vec![
+
+        let scriptfile = if cfg!(target_os = "windows") {
+            FileWithContent(
+                ".nu-env",
+                r#"[env]
+                    testkey = "testvalue"
+
+                    [scriptvars]
+                    myscript = "echo myval"
+
+                    [scripts]
+                    entryscripts = ["echo nul > hello.txt"]
+                    exitscripts = ["echo nul > bye.txt"]"#,
+            )
+        } else {
             FileWithContent(
                 ".nu-env",
                 r#"[env]
@@ -54,7 +68,11 @@ fn autoenv() {
                     [scripts]
                     entryscripts = ["touch hello.txt"]
                     exitscripts = ["touch bye.txt"]"#,
-            ),
+            )
+        };
+
+        sandbox.with_files(vec![
+            scriptfile,
             FileWithContent(
                 "foo/.nu-env",
                 r#"[env]
@@ -84,7 +102,6 @@ fn autoenv() {
         );
         assert!(!actual.out.ends_with("testvalue"));
 
-
         // Make sure script keys are set
         let actual = nu!(
             cwd: dirs.test(),
@@ -112,7 +129,6 @@ fn autoenv() {
                cd .."#
         );
         assert!(!actual.out.ends_with("fooval"));
-
 
         // Make sure entry scripts are run
         let actual = nu!(
