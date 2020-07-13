@@ -18,6 +18,7 @@ nu-source = {path = "../nu-source", version = "0.16.1"}
 battery = "0.7.5"
 futures = {version = "0.3", features = ["compat", "io-compat"]}
 futures-util = "0.3.5"
+num-bigint = "0.2.6"
 
 [dependencies.heim]
 default-features = false

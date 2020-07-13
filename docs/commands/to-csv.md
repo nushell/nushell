@@ -106,7 +106,7 @@ X;filesystem;/home/shaurya
  ;filesystem;/home/shaurya/Desktop
 ```
 
-The string '\t' can be used to separate on tabs. Note that this is the same as using the to-tsv command.
+The string '\t' can be used to separate on tabs. Note that this is the same as using the to tsv command.
 
 Newlines '\n' are not acceptable separators.
 
@@ -115,9 +115,9 @@ Note that separators are currently provided as strings and need to be wrapped in
 It is also considered an error to use a separator greater than one char:
 
 ```shell
-> open pets.txt | from-csv --separator '123'
+> open pets.txt | from csv --separator '123'
 error: Expected a single separator char from --separator
 - shell:1:37
-1 | open pets.txt | from-csv --separator '123'
+1 | open pets.txt | from csv --separator '123'
   |                                      ^^^^^ requires a single character string input
 ```

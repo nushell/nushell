@@ -274,7 +274,10 @@ impl Signature {
         short: Option<char>,
     ) -> Signature {
         let s = short.and_then(|c| {
-            debug_assert!(!self.get_shorts().contains(&c));
+            debug_assert!(
+                !self.get_shorts().contains(&c),
+                "There may be duplicate short flags, such as -h"
+            );
             Some(c)
         });
 

@@ -3,7 +3,7 @@ use nu_errors::ShellError;
 use nu_plugin::Plugin;
 use nu_protocol::{CallInfo, ReturnValue, Signature, SyntaxShape};
 
-use crate::fetch::fetch_helper;
+use crate::fetch::fetch;
 use crate::Fetch;
 
 impl Plugin for Fetch {
@@ -33,7 +33,7 @@ impl Plugin for Fetch {
 
     fn begin_filter(&mut self, callinfo: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         self.setup(callinfo)?;
-        Ok(vec![block_on(fetch_helper(
+        Ok(vec![block_on(fetch(
             &self.path.clone().ok_or_else(|| {
                 ShellError::labeled_error("internal error: path not set", "path not set", &self.tag)
             })?,

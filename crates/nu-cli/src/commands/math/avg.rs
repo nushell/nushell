@@ -71,7 +71,7 @@ pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
 
     match total {
         Value {
-            value: UntaggedValue::Primitive(Primitive::Bytes(num)),
+            value: UntaggedValue::Primitive(Primitive::Filesize(num)),
             ..
         } => {
             let left = UntaggedValue::from(Primitive::Int(num.into()));
@@ -81,7 +81,7 @@ pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
                 Ok(UntaggedValue::Primitive(Primitive::Decimal(result))) => {
                     let number = Number::Decimal(result);
                     let number = convert_number_to_u64(&number);
-                    Ok(UntaggedValue::bytes(number).into_value(name))
+                    Ok(UntaggedValue::filesize(number).into_value(name))
                 }
                 Ok(_) => Err(ShellError::labeled_error(
                     "could not calculate average of non-integer or unrelated types",

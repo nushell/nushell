@@ -39,7 +39,7 @@ impl WholeStreamCommand for AutoenvTrust {
                 dir
             }
             _ => {
-                let mut dir = std::env::current_dir()?;
+                let mut dir = fs::canonicalize(std::env::current_dir()?)?;
                 dir.push(".nu-env");
                 dir
             }
@@ -69,6 +69,17 @@ impl WholeStreamCommand for AutoenvTrust {
         false
     }
     fn examples(&self) -> Vec<Example> {
-        Vec::new()
+        vec![
+            Example {
+                description: "Allow .nu-env file in current directory",
+                example: "autoenv trust",
+                result: None,
+            },
+            Example {
+                description: "Allow .nu-env file in directory foo",
+                example: "autoenv trust foo",
+                result: None,
+            },
+        ]
     }
 }

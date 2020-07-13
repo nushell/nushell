@@ -18,6 +18,11 @@ use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
 
+use crate::commands::classified::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
+use encoding_rs::Encoding;
+use futures_codec::FramedRead;
+use futures_util::TryStreamExt;
+
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
@@ -677,6 +682,45 @@ impl Shell for FilesystemShell {
         };
         self.last_path = self.path.clone();
         self.path = path.to_string_lossy().to_string();
+    }
+
+    fn open(
+        &self,
+        path: &PathBuf,
+        name: Span,
+        with_encoding: Option<&'static Encoding>,
+    ) -> Result<BoxStream<'static, Result<StringOrBinary, ShellError>>, ShellError> {
+        let f = std::fs::File::open(&path).map_err(|e| {
+            ShellError::labeled_error(
+                format!("Error opening file: {:?}", e),
+                "Error opening file",
+                name,
+            )
+        })?;
+        let async_reader = futures::io::AllowStdIo::new(f);
+        let sob_stream = FramedRead::new(async_reader, MaybeTextCodec::new(with_encoding))
+            .map_err(|e| {
+                ShellError::unexpected(format!("AsyncRead failed in open function: {:?}", e))
+            })
+            .into_stream();
+
+        Ok(sob_stream.boxed())
+    }
+
+    fn save(
+        &mut self,
+        full_path: &PathBuf,
+        save_data: &[u8],
+        name: Span,
+    ) -> Result<OutputStream, ShellError> {
+        match std::fs::write(full_path, save_data) {
+            Ok(_) => Ok(OutputStream::empty()),
+            Err(e) => Err(ShellError::labeled_error(
+                e.to_string(),
+                "IO error while saving",
+                name,
+            )),
+        }
     }
 
     fn complete(
