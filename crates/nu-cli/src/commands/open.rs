@@ -155,7 +155,7 @@ async fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
     let with_encoding = if encoding.is_none() {
         None
     } else {
-        Some(get_encoding(encoding)?.clone())
+        Some(get_encoding(encoding)?)
     };
 
     let sob_stream = shell_manager.open(&path.item, path.tag.span, with_encoding)?;
