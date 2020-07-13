@@ -207,7 +207,7 @@ fn format_decimal(mut decimal: BigDecimal, digits: Option<u64>, group_digits: bo
             .take(n as usize)
             .collect()
     } else {
-        trim_char(dec_part, '0', false, true)
+        trim_char(&dec_part, '0', false, true)
     };
 
     let format_default_loc = |int_part: BigInt| {

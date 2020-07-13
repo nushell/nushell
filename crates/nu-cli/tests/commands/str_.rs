@@ -23,6 +23,19 @@ fn trims() {
 }
 
 #[test]
+fn error_trim_multiple_chars() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        echo 'does it work now?!' | str trim -c '?!'
+        "#
+        )
+    );
+
+    assert!(actual.err.contains("char"));
+}
+
+#[test]
 fn capitalizes() {
     Playground::setup("str_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
