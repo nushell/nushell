@@ -73,8 +73,9 @@ pub fn generate_docs(registry: &CommandRegistry) -> String {
                 |sub_acc, sub_name| {
                     sub_acc
                         + &format!(
-                            "- <details><summary>{name}</summary>\n\n{link}\n\n{doc}\n\n{closing_tag}\n\n",
+                            "- <details><summary>{name} - {usage}</summary>\n\n{link}\n\n{doc}\n\n{closing_tag}\n\n",
                             name=sub_name,
+                            usage=command.usage(),
                             link=indent(
                                 &retrieve_doc_link(sub_name).map_or("".to_owned(), |link| format!(
                                     "[Detailed Doc for {}]({})",
@@ -99,8 +100,9 @@ pub fn generate_docs(registry: &CommandRegistry) -> String {
             );
 
             acc + &format!(
-                "<details><summary>{name}</summary>\n\n{link}\n\n{doc}\n\n{sub_docs}</details>\n\n",
+                "<details><summary>{name} - {usage}</summary>\n\n{link}\n\n{doc}\n\n{sub_docs}</details>\n\n",
                 name=name,
+                usage=command.usage(),
                 link=retrieve_doc_link(name)
                     .map_or("".to_owned(), |link| format!("[Detailed doc]({})", link)),
                 doc=&get_documentation(
