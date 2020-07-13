@@ -80,7 +80,7 @@ The file can contain several optional sections:
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Example .nu-env file",
-            example: r#".nu-env
+            example: r#"cat .nu-env
     [env]
     mykey = "myvalue"
 
