@@ -55,8 +55,13 @@ impl WholeStreamCommand for Autoenv {
     }
     fn usage(&self) -> &str {
         // "Mark a .nu-env file in a directory as trusted. Needs to be re-run after each change to the file or its filepath."
-        "Manage directory specific environments"
+        r#"Manage directory specific environment variables and scripts. Create a file called .nu-env in any directory and run 'autoenv trust' to let nushell read it when entering the directory.
+The file can contain several optional sections:
+    env: environment variables to set when visiting the directory. The variables are unset after leaving the directory and any overwritten values are restored.
+    scriptvars: environment variables that should be set to the return value of a script. After they have been set, they behave in the same way as variables set in the env section.
+    scripts: scripts to run when entering the directory or leaving it. Note that exitscripts are not run in the directory they are declared in."#
     }
+
     fn signature(&self) -> Signature {
         Signature::build("autoenv")
     }
@@ -74,8 +79,16 @@ impl WholeStreamCommand for Autoenv {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Allow .nu-env file in current directory",
-            example: "autoenv trust",
+            description: "Example .nu-env file",
+            example: r#"[env]
+    mykey = "myvalue"
+
+    [scriptvars]
+    myscript = "echo myval"
+
+    [scripts]
+    entryscripts = ["touch hello.txt", "touch hello2.txt"]
+    exitscripts = ["touch bye.txt"]"#,
             result: None,
         }]
     }
