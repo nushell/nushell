@@ -1,4 +1,4 @@
-# from-csv
+# from csv
 
 Converts content (string or binary) into a table. The source format is specified as a subcommand, like `from csv` or `from json`.
 
