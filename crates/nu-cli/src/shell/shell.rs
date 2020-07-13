@@ -1,4 +1,5 @@
 use crate::commands::cd::CdArgs;
+use crate::commands::classified::maybe_text_codec::StringOrBinary;
 use crate::commands::command::EvaluatedWholeStreamCommandArgs;
 use crate::commands::cp::CopyArgs;
 use crate::commands::ls::LsArgs;
@@ -7,6 +8,7 @@ use crate::commands::move_::mv::Arguments as MvArgs;
 use crate::commands::rm::RemoveArgs;
 use crate::prelude::*;
 use crate::stream::OutputStream;
+use encoding_rs::Encoding;
 use nu_errors::ShellError;
 use std::path::PathBuf;
 
@@ -28,6 +30,18 @@ pub trait Shell: std::fmt::Debug {
     fn path(&self) -> String;
     fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError>;
     fn set_path(&mut self, path: String);
+    fn open(
+        &self,
+        path: &PathBuf,
+        name: Span,
+        with_encoding: Option<&'static Encoding>,
+    ) -> Result<BoxStream<'static, Result<StringOrBinary, ShellError>>, ShellError>;
+    fn save(
+        &mut self,
+        path: &PathBuf,
+        contents: &[u8],
+        name: Span,
+    ) -> Result<OutputStream, ShellError>;
 
     fn complete(
         &self,

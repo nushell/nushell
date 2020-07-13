@@ -9,6 +9,8 @@ use crate::prelude::*;
 use crate::shell::shell::Shell;
 use crate::utils::ValueStructure;
 
+use crate::commands::classified::maybe_text_codec::StringOrBinary;
+use encoding_rs::Encoding;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
@@ -228,6 +230,28 @@ impl Shell for ValueShell {
     fn set_path(&mut self, path: String) {
         self.last_path = self.path.clone();
         self.path = path;
+    }
+
+    fn open(
+        &self,
+        _path: &PathBuf,
+        _name: Span,
+        _with_encoding: Option<&'static Encoding>,
+    ) -> Result<BoxStream<'static, Result<StringOrBinary, ShellError>>, ShellError> {
+        Err(ShellError::unimplemented(
+            "open on help shell is not supported",
+        ))
+    }
+
+    fn save(
+        &mut self,
+        _path: &PathBuf,
+        _contents: &[u8],
+        _name: Span,
+    ) -> Result<OutputStream, ShellError> {
+        Err(ShellError::unimplemented(
+            "save on help shell is not supported",
+        ))
     }
 
     fn complete(
