@@ -1,17 +1,14 @@
-use crate::commands::classified::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
+use crate::commands::classified::maybe_text_codec::StringOrBinary;
+use crate::commands::constants::BAT_LANGUAGES;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
-use futures_codec::FramedRead;
+use encoding_rs::{Encoding, UTF_8};
+use futures_util::StreamExt;
+use log::debug;
 use nu_errors::ShellError;
 use nu_protocol::{CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::{AnchorLocation, Span, Tagged};
 use std::path::PathBuf;
-extern crate encoding_rs;
-use crate::commands::constants::BAT_LANGUAGES;
-use encoding_rs::*;
-use futures::prelude::*;
-use log::debug;
-use std::fs::File;
 
 pub struct Open;
 
@@ -103,6 +100,7 @@ pub fn get_encoding(opt: Option<Tagged<String>>) -> Result<&'static Encoding, Sh
 async fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let cwd = PathBuf::from(args.shell_manager.path());
     let registry = registry.clone();
+    let shell_manager = args.shell_manager.clone();
 
     let (
         OpenArgs {
@@ -159,17 +157,8 @@ async fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
     } else {
         Some(get_encoding(encoding)?)
     };
-    let f = File::open(&path).map_err(|e| {
-        ShellError::labeled_error(
-            format!("Error opening file: {:?}", e),
-            "Error opening file",
-            path.span(),
-        )
-    })?;
-    let async_reader = futures::io::AllowStdIo::new(f);
-    let sob_stream = FramedRead::new(async_reader, MaybeTextCodec::new(with_encoding))
-        .map_err(|e| ShellError::unexpected(format!("AsyncRead failed in open function: {:?}", e)))
-        .into_stream();
+
+    let sob_stream = shell_manager.open(&path.item, path.tag.span, with_encoding)?;
 
     let final_stream = sob_stream.map(move |x| {
         // The tag that will used when returning a Value

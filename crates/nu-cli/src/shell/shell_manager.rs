@@ -1,4 +1,5 @@
 use crate::commands::cd::CdArgs;
+use crate::commands::classified::maybe_text_codec::StringOrBinary;
 use crate::commands::command::EvaluatedWholeStreamCommandArgs;
 use crate::commands::cp::CopyArgs;
 use crate::commands::ls::LsArgs;
@@ -9,6 +10,7 @@ use crate::prelude::*;
 use crate::shell::filesystem_shell::FilesystemShell;
 use crate::shell::shell::Shell;
 use crate::stream::OutputStream;
+use encoding_rs::Encoding;
 use nu_errors::ShellError;
 use parking_lot::Mutex;
 use std::error::Error;
@@ -79,6 +81,25 @@ impl ShellManager {
 
     pub fn set_path(&mut self, path: String) {
         self.shells.lock()[self.current_shell()].set_path(path)
+    }
+
+    pub fn open(
+        &self,
+        full_path: &PathBuf,
+        name: Span,
+        with_encoding: Option<&'static Encoding>,
+    ) -> Result<impl Stream<Item = Result<StringOrBinary, ShellError>> + Send + 'static, ShellError>
+    {
+        self.shells.lock()[self.current_shell()].open(full_path, name, with_encoding)
+    }
+
+    pub fn save(
+        &mut self,
+        full_path: &PathBuf,
+        save_data: &[u8],
+        name: Span,
+    ) -> Result<OutputStream, ShellError> {
+        self.shells.lock()[self.current_shell()].save(full_path, save_data, name)
     }
 
     pub fn complete(
