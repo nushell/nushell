@@ -5,10 +5,9 @@ use nu_protocol::{NamedType, PositionalType, Signature};
 
 use std::collections::HashMap;
 
-pub const GENERATED_DOCS_DIR: &'static str = "docs/generated";
-const COMMANDS_DOCS_DIR: &'static str = "docs/commands";
-const COMMAND_DOC_GITHUB_PATH: &'static str =
-    "https://github.com/nushell/nushell/blob/main/docs/commands";
+pub const GENERATED_DOCS_DIR: &str = "docs/generated";
+const COMMANDS_DOCS_DIR: &str = "docs/commands";
+const COMMAND_DOC_GITHUB_PATH: &str = "https://github.com/nushell/nushell/blob/main/docs/commands";
 
 pub struct DocumentationConfig {
     no_subcommands: bool,
