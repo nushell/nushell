@@ -7,7 +7,7 @@ This command creates a new table with the data from the table rows grouped by th
 Let's say we have this table of all countries in the world sorted by their population:
 
 ```shell
-> open countries_by_population.json | from-json | first 10
+> open countries_by_population.json | from json | first 10
 ━━━┯━━━━━━┯━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━┯━━━━━━━━
  # │ rank │ country or area │ UN continental region │ UN statistical region │ population 2018 │ population 2019 │ change
 ───┼──────┼─────────────────┼───────────────────────┼───────────────────────┼─────────────────┼─────────────────┼────────
@@ -29,7 +29,7 @@ Here we have listed only the first 10 lines. In total this table has got 233 row
 We can use the `group-by` command on 'UN statistical region' to create a table per continental region.
 
 ```shell
-> open countries_by_population.json | from-json | group-by "UN continental region"
+> open countries_by_population.json | from json | group-by "UN continental region"
 ━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━
  Asia             │ Americas         │ Africa           │ Europe           │ Oceania
 ──────────────────┼──────────────────┼──────────────────┼──────────────────┼──────────────────
@@ -41,7 +41,7 @@ Now we can already get some information like "which continental regions are ther
 If we want to see only the countries in the continental region of Oceania we can type:
 
 ```shell
-> open countries_by_population.json | from-json | group-by "UN continental region" | get Oceania
+> open countries_by_population.json | from json | group-by "UN continental region" | get Oceania
 ━━━━┯━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━┯━━━━━━━━
  #  │ rank │ country or area                │ UN continental region │ UN statistical region     │ population 2018 │ population 2019 │ change
 ────┼──────┼────────────────────────────────┼───────────────────────┼───────────────────────────┼─────────────────┼─────────────────┼────────
