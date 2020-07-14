@@ -37,13 +37,11 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Return the reversals of multiple strings",
-                example: "echo 'Nushell' | str reverse",
-                result: Some(vec![UntaggedValue::string("llehsuN").into_untagged_value()]),
-            }
-        ]
+        vec![Example {
+            description: "Return the reversals of multiple strings",
+            example: "echo 'Nushell' | str reverse",
+            result: Some(vec![UntaggedValue::string("llehsuN").into_untagged_value()]),
+        }]
     }
 }
 
