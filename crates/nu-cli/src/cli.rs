@@ -314,6 +314,7 @@ pub fn create_default_context(
             whole_stream_command(StrTrim),
             whole_stream_command(StrCollect),
             whole_stream_command(StrLength),
+            whole_stream_command(StrReverse),
             whole_stream_command(BuildString),
             whole_stream_command(Ansi),
             whole_stream_command(Char),
