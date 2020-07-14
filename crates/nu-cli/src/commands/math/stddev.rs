@@ -47,7 +47,7 @@ impl WholeStreamCommand for SubCommand {
         vec![Example {
             description: "Get the stddev of a list of numbers",
             example: "echo [1 2 3 4 5] | math stddev",
-            result: Some(vec![UntaggedValue::decimal(BigDecimal::from_str("1.414213562373095048801688724209698078569671875376948073176679737990732478462107038850387534327641573").unwrap()).into()]),
+            result: Some(vec![UntaggedValue::decimal(BigDecimal::from_str("1.414213562373095048801688724209698078569671875376948073176679737990732478462107038850387534327641573").expect("Could not convert to decimal from string")).into()]),
         }]
     }
 }
