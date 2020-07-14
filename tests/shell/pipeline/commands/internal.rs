@@ -93,10 +93,21 @@ fn autoenv() {
             )
         ]);
 
+        // Make sure entry scripts are run
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"cd ..
+               autoenv trust autoenv_test
+               cd autoenv_test
+               ls | where name == "hello.txt" | get name"#
+        );
+        assert!(actual.out.contains("hello.txt"));
+
         // Make sure entry scripts are run when re-visiting a directory
         let actual = nu!(
             cwd: dirs.test(),
-            r#"cd bizz
+            r#"autoenv trust bizz
+               cd bizz
                rm hello.txt
                cd ..
                cd bizz
@@ -104,7 +115,7 @@ fn autoenv() {
         );
         assert!(actual.out.contains("hello.txt"));
 
-        // // Entryscripts should not run after changing to a subdirectory.
+        // Entryscripts should not run after changing to a subdirectory.
         let actual = nu!(
             cwd: dirs.test(),
             r#"autoenv trust bizz

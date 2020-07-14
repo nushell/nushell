@@ -79,9 +79,20 @@ impl DirectorySpecificEnvironment {
         //We note which directories we pass so we can clear unvisited dirs later.
         let mut seen_directories = IndexSet::new();
 
+        let mut file = std::fs::OpenOptions::new()
+            .read(true)
+            .create(true)
+            .append(true)
+            .write(true)
+            .open("/home/sam/output")
+            .unwrap();
+        use std::io::Write;
+
         //Add all .nu-envs until we reach a dir which we have already added, or we reached the root.
         let mut popped = true;
         while !self.added_vars.contains_key(&dir) && popped {
+
+            write!(&mut file, "inside {:?}\n", dir).unwrap();
             let nu_env_file = dir.join(".nu-env");
             if nu_env_file.exists() {
                 let nu_env_doc = self.toml_if_trusted(&nu_env_file)?;
