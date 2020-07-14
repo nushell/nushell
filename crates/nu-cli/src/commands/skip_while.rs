@@ -99,10 +99,7 @@ impl WholeStreamCommand for SkipWhile {
                     .await;
                     trace!("RESULT = {:?}", result);
 
-                    match result {
-                        Ok(ref v) if v.is_true() => true,
-                        _ => false,
-                    }
+                    matches!(result, Ok(ref v) if v.is_true())
                 }
             })
             .to_output_stream())

@@ -77,18 +77,12 @@ impl UntaggedValue {
 
     /// Returns true if this value represents boolean true
     pub fn is_true(&self) -> bool {
-        match self {
-            UntaggedValue::Primitive(Primitive::Boolean(true)) => true,
-            _ => false,
-        }
+        matches!(self, UntaggedValue::Primitive(Primitive::Boolean(true)))
     }
 
     /// Returns true if this value represents a table
     pub fn is_table(&self) -> bool {
-        match self {
-            UntaggedValue::Table(_) => true,
-            _ => false,
-        }
+        matches!(self, UntaggedValue::Table(_))
     }
 
     /// Returns true if the value represents something other than Nothing
@@ -98,18 +92,12 @@ impl UntaggedValue {
 
     /// Returns true if the value represents Nothing
     pub fn is_none(&self) -> bool {
-        match self {
-            UntaggedValue::Primitive(Primitive::Nothing) => true,
-            _ => false,
-        }
+        matches!(self, UntaggedValue::Primitive(Primitive::Nothing))
     }
 
     /// Returns true if the value represents an error
     pub fn is_error(&self) -> bool {
-        match self {
-            UntaggedValue::Error(_err) => true,
-            _ => false,
-        }
+        matches!(self, UntaggedValue::Error(_err))
     }
 
     /// Expect this value to be an error and return it
@@ -341,10 +329,7 @@ impl Value {
 
     /// View the Value as a Primitive value, if possible
     pub fn is_primitive(&self) -> bool {
-        match &self.value {
-            UntaggedValue::Primitive(_) => true,
-            _ => false,
-        }
+        matches!(&self.value, UntaggedValue::Primitive(_))
     }
 
     /// View the Value as unsigned 64-bit, if possible

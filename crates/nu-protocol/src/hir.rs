@@ -265,13 +265,7 @@ impl ExternalCommand {
                 ..
             } => {
                 let Path { head, .. } = &**path;
-                match head {
-                    SpannedExpression {
-                        expr: Expression::Variable(Variable::It(_)),
-                        ..
-                    } => true,
-                    _ => false,
-                }
+                matches!(head, SpannedExpression{expr: Expression::Variable(Variable::It(_)), ..})
             }
             _ => false,
         })
@@ -1352,10 +1346,7 @@ impl NamedArguments {
     pub fn switch_present(&self, switch: &str) -> bool {
         self.named
             .get(switch)
-            .map(|t| match t {
-                NamedValue::PresentSwitch(_) => true,
-                _ => false,
-            })
+            .map(|t| matches!(t, NamedValue::PresentSwitch(_)))
             .unwrap_or(false)
     }
 }
