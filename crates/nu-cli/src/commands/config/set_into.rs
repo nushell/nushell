@@ -60,7 +60,7 @@ pub async fn set_into(
     // existing config
     let mut result = crate::data::config::read(name_span, &None)?;
 
-    // In the original code, this is set to `Some` if the `--load flag is set`
+    // In the original code, this is set to `Some` if the `load flag is set`
     let configuration = None;
 
     let rows: Vec<Value> = input.collect().await;

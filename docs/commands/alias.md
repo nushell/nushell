@@ -12,7 +12,7 @@ The command expects three parameters:
 
 ## Flags
 
-* `-s`, `--save`: Save the alias to your config (see `config --path` to edit them later)
+* `-s`, `--save`: Save the alias to your config (see `config path` to edit them later)
 
 ## Examples
 
@@ -54,7 +54,7 @@ flags:
 Aliases are most useful when they are persistent. For that, add them to your startup config:
 
 ```shell
-> config --set [startup ["alias myecho [msg] { echo $msg }"]]
+> config set [startup ["alias myecho [msg] { echo $msg }"]]
 ```
 
 This is fine for the first alias, but since it overwrites the startup config, you need a different approach for additional aliases.
@@ -62,7 +62,7 @@ This is fine for the first alias, but since it overwrites the startup config, yo
 To add a 2nd alias:
 
 ```shell
-> config --get startup | append "alias s [] { git status -sb }" | config --set_into startup
+> config get startup | append "alias s [] { git status -sb }" | config set_into startup
 ```
 
 This first reads the `startup` config (a table of strings), then appends another alias, then sets the `startup` config with the output of the pipeline.
@@ -70,7 +70,7 @@ This first reads the `startup` config (a table of strings), then appends another
 To make this process easier, you could define another alias:
 
 ```shell
-> alias addalias [alias-string] { config --get startup | append $alias-string | config --set_into startup }
+> alias addalias [alias-string] { config get startup | append $alias-string | config set_into startup }
 ```
 
 Then use that to add more aliases:

@@ -236,11 +236,11 @@ Here we use the variable `$it` to refer to the value being piped to the external
 
 Nu has early support for configuring the shell. You can refer to the book for a list of [all supported variables](https://www.nushell.sh/book/en/configuration.html).
 
-To set one of these variables, you can use `config --set`. For example:
+To set one of these variables, you can use `config set`. For example:
 
 ```shell
-> config --set [edit_mode "vi"]
-> config --set [path $nu.path]
+> config set [edit_mode "vi"]
+> config set [path $nu.path]
 ```
 
 ### Shells
