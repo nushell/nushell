@@ -20,6 +20,8 @@ pub struct DirectorySpecificEnvironment {
     //If an environment var has been added from a .nu in a directory, we track it here so we can remove it when the user leaves the directory.
     //If setting the var overwrote some value, we save the old value in an option so we can restore it later.
     added_vars: IndexMap<PathBuf, IndexMap<EnvKey, Option<EnvVal>>>,
+
+    //We track directories that we have read .nu-env from. This is different from the keys in added_vars since sometimes a file only wants to run scripts.
     visited_dirs: IndexSet<PathBuf>,
     exitscripts: IndexMap<PathBuf, Vec<String>>,
 }
@@ -77,23 +79,15 @@ impl DirectorySpecificEnvironment {
             return Ok(());
         }
 
+        //We track which keys we set as we go up the directory hierarchy, so that we don't overwrite a value we set in a subdir.
         let mut added_keys = IndexSet::new();
+
         //We note which directories we pass so we can clear unvisited dirs later.
         let mut seen_directories = IndexSet::new();
 
-        let mut file = std::fs::OpenOptions::new()
-            .read(true)
-            .create(true)
-            .append(true)
-            .write(true)
-            .open("/home/sam/output")
-            .unwrap();
-        use std::io::Write;
-
         //Add all .nu-envs until we reach a dir which we have already added, or we reached the root.
         let mut popped = true;
-        while !self.added_vars.contains_key(&dir) && popped && !self.visited_dirs.contains(&dir) {
-            write!(&mut file, "inside {:?}\n", dir).unwrap();
+        while popped && !self.visited_dirs.contains(&dir) {
             let nu_env_file = dir.join(".nu-env");
             if nu_env_file.exists() {
                 let nu_env_doc = self.toml_if_trusted(&nu_env_file)?;

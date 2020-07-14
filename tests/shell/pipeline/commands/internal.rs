@@ -89,8 +89,8 @@ fn autoenv() {
                 "bizz/.nu-env",
                 r#"[scripts]
                     entryscripts = ["touch hello.txt"]
-                    exitscripts = ["touch bye.txt"]"#
-            )
+                    exitscripts = ["touch bye.txt"]"#,
+            ),
         ]);
 
         // Make sure entry scripts are run
@@ -141,7 +141,6 @@ fn autoenv() {
         );
         assert!(!actual.out.ends_with("testvalue"));
 
-
         // Make sure script keys are set
         let actual = nu!(
             cwd: dirs.test(),
@@ -177,7 +176,6 @@ fn autoenv() {
         );
         assert!(actual.out.contains("hello.txt"));
 
-
         // Make sure exit scripts are run
         let actual = nu!(
             cwd: dirs.test(),
@@ -205,7 +203,6 @@ fn autoenv() {
                    echo $nu.env.overwrite_me"#
         );
         assert!(actual.out.ends_with("set_in_bar"));
-
 
         //Make sure that overwritten values are restored.
         //By deleting foo/.nu-env, we make sure that the value is actually restored and not just set again by autoenv when we re-visit foo.
