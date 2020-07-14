@@ -31,8 +31,50 @@ fn groups() {
 }
 
 #[test]
-fn errors_if_given_unknown_column_name_is_missing() {
+fn errors_if_given_unknown_column_name() {
     Playground::setup("group_by_test_2", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_caballeros.json",
+            r#"
+                {
+                    "nu": {
+                        "committers": [
+                            {"name": "Andrés N. Robalino"},
+                            {"name": "Jonathan Turner"},
+                            {"name": "Yehuda Katz"}
+                        ],
+                        "releases": [
+                            {"version": "0.2"}
+                            {"version": "0.8"},
+                            {"version": "0.9999999"}
+                        ],
+                        "0xATYKARNU": [
+                            ["Th", "e", " "],
+                            ["BIG", " ", "UnO"],
+                            ["punto", "cero"]
+                        ]
+                    }
+                }
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open los_tres_caballeros.json
+                | group-by { get nu.releases.version }
+            "#
+        ));
+
+        assert!(actual
+            .err
+            .contains("requires a table with one value for grouping"));
+    })
+}
+
+#[test]
+fn errors_if_block_given_evaluates_more_than_one_row() {
+    Playground::setup("group_by_test_3", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_caballeros.csv",
             r#"

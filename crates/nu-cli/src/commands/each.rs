@@ -83,7 +83,7 @@ fn is_expanded_it_usage(head: &SpannedExpression) -> bool {
     }
 }
 
-async fn process_row(
+pub async fn process_row(
     block: Arc<Block>,
     scope: Arc<Scope>,
     head: Arc<Box<SpannedExpression>>,

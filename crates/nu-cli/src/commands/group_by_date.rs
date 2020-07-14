@@ -34,7 +34,7 @@ impl WholeStreamCommand for GroupByDate {
     }
 
     fn usage(&self) -> &str {
-        "Creates a new table with the data from the table rows grouped by the column given."
+        "creates a table grouped by date."
     }
 
     async fn run(
@@ -100,7 +100,7 @@ pub async fn group_by_date(
 
         match (grouper_date, grouper_column) {
             (Grouper::ByDate(None), GroupByColumn::Name(None)) => {
-                let block = Box::new(move |row: &Value| row.format("%Y-%b-%d"));
+                let block = Box::new(move |_, row: &Value| row.format("%Y-%b-%d"));
 
                 match crate::utils::data::group(&values, &Some(block), &name) {
                     Ok(grouped) => Ok(OutputStream::one(ReturnSuccess::value(grouped))),
@@ -108,7 +108,7 @@ pub async fn group_by_date(
                 }
             }
             (Grouper::ByDate(None), GroupByColumn::Name(Some(column_name))) => {
-                let block = Box::new(move |row: &Value| {
+                let block = Box::new(move |_, row: &Value| {
                     let group_key = match row.get_data_by_key(column_name.borrow_spanned()) {
                         Some(group_key) => Ok(group_key),
                         None => Err(suggestions(column_name.borrow_tagged(), &row)),
@@ -123,7 +123,7 @@ pub async fn group_by_date(
                 }
             }
             (Grouper::ByDate(Some(fmt)), GroupByColumn::Name(None)) => {
-                let block = Box::new(move |row: &Value| row.format(&fmt));
+                let block = Box::new(move |_, row: &Value| row.format(&fmt));
 
                 match crate::utils::data::group(&values, &Some(block), &name) {
                     Ok(grouped) => Ok(OutputStream::one(ReturnSuccess::value(grouped))),
@@ -131,7 +131,7 @@ pub async fn group_by_date(
                 }
             }
             (Grouper::ByDate(Some(fmt)), GroupByColumn::Name(Some(column_name))) => {
-                let block = Box::new(move |row: &Value| {
+                let block = Box::new(move |_, row: &Value| {
                     let group_key = match row.get_data_by_key(column_name.borrow_spanned()) {
                         Some(group_key) => Ok(group_key),
                         None => Err(suggestions(column_name.borrow_tagged(), &row)),
