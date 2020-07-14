@@ -404,3 +404,15 @@ fn from_table() {
     assert!(actual.out.contains("32.38"));
     assert!(actual.out.contains("15.20"));
 }
+
+#[test]
+fn str_reverse() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        echo "nushell" | str reverse
+        "#
+    ));
+
+    assert!(actual.out.contains("llehsun"));
+}

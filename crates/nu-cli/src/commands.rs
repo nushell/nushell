@@ -252,8 +252,8 @@ pub(crate) use sort_by::SortBy;
 pub(crate) use split::{Split, SplitChars, SplitColumn, SplitRow};
 pub(crate) use split_by::SplitBy;
 pub(crate) use str_::{
-    Str, StrCapitalize, StrCollect, StrDowncase, StrFindReplace, StrFrom, StrLength, StrSet,
-    StrSubstring, StrToDatetime, StrToDecimal, StrToInteger, StrTrim, StrUpcase,
+    Str, StrCapitalize, StrCollect, StrDowncase, StrFindReplace, StrFrom, StrLength, StrReverse,
+    StrSet, StrSubstring, StrToDatetime, StrToDecimal, StrToInteger, StrTrim, StrUpcase,
 };
 #[allow(unused_imports)]
 pub(crate) use t_sort_by::TSortBy;
