@@ -65,7 +65,7 @@ fn sum_of_squares(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
     for value in values {
         let v = match value {
             Value {
-                value: UntaggedValue::Primitive(Primitive::Bytes(num)),
+                value: UntaggedValue::Primitive(Primitive::Filesize(num)),
                 ..
             } => {
                 UntaggedValue::from(Primitive::Int(num.clone().into()))
