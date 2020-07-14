@@ -44,6 +44,7 @@ mod save;
 mod select;
 mod semicolon;
 mod skip_until;
+mod skip_while;
 mod sort_by;
 mod split_by;
 mod split_column;

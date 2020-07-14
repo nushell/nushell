@@ -123,7 +123,13 @@ fn action(
 
             let out = match DateTime::parse_from_str(s, dt) {
                 Ok(d) => UntaggedValue::date(d),
-                Err(_) => UntaggedValue::string(s),
+                Err(reason) => {
+                    return Err(ShellError::labeled_error(
+                        "could not parse as datetime",
+                        reason.to_string(),
+                        tag.into().span,
+                    ))
+                }
             };
 
             Ok(out.into_value(tag))
@@ -165,5 +171,16 @@ mod tests {
             UntaggedValue::Primitive(Primitive::Date(_)) => {}
             _ => panic!("Didn't convert to date"),
         }
+    }
+
+    #[test]
+    fn communicates_parsing_error_given_an_invalid_datetimelike_string() {
+        let date_str = string("16.11.1984 8:00 am Oops0000");
+
+        let fmt_options = DatetimeFormat("%d.%m.%Y %H:%M %P %z".to_string());
+
+        let actual = action(&date_str, &fmt_options, Tag::unknown());
+
+        assert!(actual.is_err());
     }
 }

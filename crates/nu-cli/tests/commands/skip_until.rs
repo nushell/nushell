@@ -38,6 +38,7 @@ fn condition_is_met() {
                 | split column ','
                 | headers
                 | skip-until "Chicken Collection" == "Red Chickens"
+                | skip 1
                 | str to-int "31/04/2020"
                 | get "31/04/2020"
                 | math sum
