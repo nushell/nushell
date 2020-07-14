@@ -93,7 +93,6 @@ impl DirectorySpecificEnvironment {
         //Add all .nu-envs until we reach a dir which we have already added, or we reached the root.
         let mut popped = true;
         while !self.added_vars.contains_key(&dir) && popped && !self.visited_dirs.contains(&dir) {
-            self.visited_dirs.insert(dir.clone());
             write!(&mut file, "inside {:?}\n", dir).unwrap();
             let nu_env_file = dir.join(".nu-env");
             if nu_env_file.exists() {
@@ -105,6 +104,7 @@ impl DirectorySpecificEnvironment {
                         self.maybe_add_key(&mut added_keys, &dir, &env_key, &env_val);
                     }
                 }
+                self.visited_dirs.insert(dir.clone());
 
                 //Add variables that need to evaluate scripts to run, from [scriptvars] section
                 if let Some(sv) = nu_env_doc.scriptvars {

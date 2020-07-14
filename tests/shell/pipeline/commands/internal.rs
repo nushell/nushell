@@ -186,6 +186,16 @@ fn autoenv() {
         );
         assert!(actual.out.contains("bye.txt"));
 
+        //Variables set in parent directories should be set even if you directly cd to a subdir
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust foo
+                   cd foo/bar
+                   autoenv trust
+                   echo $nu.env.fookey"#
+        );
+        assert!(actual.out.ends_with("fooval"));
+
         //Subdirectories should overwrite the values of parent directories.
         let actual = nu!(
             cwd: dirs.test(),
@@ -196,15 +206,6 @@ fn autoenv() {
         );
         assert!(actual.out.ends_with("set_in_bar"));
 
-        //Variables set in parent directories should be set even if you directly cd to a subdir
-        let actual = nu!(
-            cwd: dirs.test(),
-            r#"autoenv trust foo
-                   cd foo/bar
-                   autoenv trust
-                   echo $nu.env.fookey"#
-        );
-        assert!(actual.out.ends_with("fooval"));
 
         //Make sure that overwritten values are restored.
         //By deleting foo/.nu-env, we make sure that the value is actually restored and not just set again by autoenv when we re-visit foo.
