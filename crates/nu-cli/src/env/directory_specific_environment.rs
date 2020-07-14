@@ -20,7 +20,6 @@ pub struct DirectorySpecificEnvironment {
     //If an environment var has been added from a .nu in a directory, we track it here so we can remove it when the user leaves the directory.
     //If setting the var overwrote some value, we save the old value in an option so we can restore it later.
     added_vars: IndexMap<PathBuf, IndexMap<EnvKey, Option<EnvVal>>>,
-    visited_dirs: IndexSet<PathBuf>,
     exitscripts: IndexMap<PathBuf, Vec<String>>,
 }
 
@@ -43,7 +42,6 @@ impl DirectorySpecificEnvironment {
         DirectorySpecificEnvironment {
             last_seen_directory: root_dir,
             added_vars: IndexMap::new(),
-            visited_dirs: IndexSet::new(),
             exitscripts: IndexMap::new(),
         }
     }
@@ -79,11 +77,11 @@ impl DirectorySpecificEnvironment {
 
         let mut added_keys = IndexSet::new();
         //We note which directories we pass so we can clear unvisited dirs later.
-        let mut seen_directories_this_run = IndexSet::new();
+        let mut seen_directories = IndexSet::new();
 
         //Add all .nu-envs until we reach a dir which we have already added, or we reached the root.
         let mut popped = true;
-        while !self.visited_dirs.contains(&dir) && popped {
+        while !self.added_vars.contains_key(&dir) && popped {
             let nu_env_file = dir.join(".nu-env");
             if nu_env_file.exists() {
                 let nu_env_doc = self.toml_if_trusted(&nu_env_file)?;
@@ -116,20 +114,17 @@ impl DirectorySpecificEnvironment {
                 if let Some(es) = nu_env_doc.exitscripts {
                     self.exitscripts.insert(dir.clone(), es);
                 }
-                self.visited_dirs.insert(dir.clone());
             }
-
-            seen_directories_this_run.insert(dir.clone());
+            seen_directories.insert(dir.clone());
             popped = dir.pop();
         }
 
         //Time to clear out vars set by directories that we have left.
         let mut new_vars = IndexMap::new();
         for (dir, dirmap) in self.added_vars.drain(..) {
-            if seen_directories_this_run.contains(&dir) {
+            if seen_directories.contains(&dir) {
                 new_vars.insert(dir, dirmap);
             } else {
-                self.visited_dirs.remove(&dir);
                 for (k, v) in dirmap {
                     if let Some(v) = v {
                         std::env::set_var(k, v);
@@ -137,13 +132,22 @@ impl DirectorySpecificEnvironment {
                         std::env::remove_var(k);
                     }
                 }
-                if let Some(es) = self.exitscripts.get(&dir) {
-                    for s in es {
-                        run(s.as_str())?;
-                    }
+            }
+        }
+
+        //Run exitscripts, can not be done in same loop as new vars as some files can contain only exitscripts
+        let mut new_exitscripts = IndexMap::new();
+        for (dir, scripts) in self.exitscripts.drain(..) {
+            if seen_directories.contains(&dir) {
+                new_exitscripts.insert(dir, scripts);
+            } else {
+                for s in scripts {
+                    run(s.as_str())?;
                 }
             }
         }
+
+        self.exitscripts = new_exitscripts;
         self.added_vars = new_vars;
         self.last_seen_directory = current_dir()?;
         Ok(())
