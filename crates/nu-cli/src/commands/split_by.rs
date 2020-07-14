@@ -81,7 +81,7 @@ pub fn split(
 
     match grouper {
         Grouper::ByColumn(Some(column_name)) => {
-            let block = Box::new(move |row: &Value| {
+            let block = Box::new(move |_, row: &Value| {
                 match row.get_data_by_key(column_name.borrow_spanned()) {
                     Some(group_key) => Ok(as_string(&group_key)?),
                     None => Err(suggestions(column_name.borrow_tagged(), &row)),
@@ -91,7 +91,7 @@ pub fn split(
             crate::utils::data::split(&values, &Some(block), &name)
         }
         Grouper::ByColumn(None) => {
-            let block = Box::new(move |row: &Value| match as_string(row) {
+            let block = Box::new(move |_, row: &Value| match as_string(row) {
                 Ok(group_key) => Ok(group_key),
                 Err(reason) => Err(reason),
             });
