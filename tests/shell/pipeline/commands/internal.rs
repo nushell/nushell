@@ -41,6 +41,7 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
 fn autoenv() {
     Playground::setup("autoenv_test", |dirs, sandbox| {
         sandbox.mkdir("foo/bar");
+        sandbox.mkdir("bizz/buzz");
         sandbox.mkdir("foob");
 
         let scriptfile = if cfg!(target_os = "windows") {
@@ -77,14 +78,30 @@ fn autoenv() {
                 "foo/.nu-env",
                 r#"[env]
                     overwrite_me = "set_in_foo"
-                    fookey = "fooval""#,
+                    fookey = "fooval" "#,
             ),
             FileWithContent(
                 "foo/bar/.nu-env",
                 r#"[env]
                     overwrite_me = "set_in_bar""#,
             ),
+            FileWithContent(
+                "bizz/.nu-env",
+                r#"[scripts]
+                    entryscripts = ["touch hello.txt"]
+                    exitscripts = ["touch bye.txt"]"#
+            )
         ]);
+
+        // // Entryscripts should not run after changing to a subdirectory.
+        // let actual = nu!(
+        //     cwd: dirs.test(),
+        //     r#"autoenv trust bizz
+        //        cd bizz
+        //        cd buzz
+        //        ls | where name == hello.txt | get name"#
+        // );
+        // assert!(!actual.out.ends_with("hello.txt"));
 
         //Make sure basic keys are set
         let actual = nu!(
@@ -101,6 +118,7 @@ fn autoenv() {
                echo $nu.env.testkey"#
         );
         assert!(!actual.out.ends_with("testvalue"));
+
 
         // Make sure script keys are set
         let actual = nu!(
@@ -134,6 +152,18 @@ fn autoenv() {
         let actual = nu!(
             cwd: dirs.test(),
             r#"ls | where name == "hello.txt" | get name"#
+        );
+        assert!(actual.out.contains("hello.txt"));
+
+
+        // Make sure entry scripts are run when re-visiting a directory
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"cd bizz
+               rm hello.txt
+               cd ..
+               cd bizz
+               ls | where name == "hello.txt" | get name"#
         );
         assert!(actual.out.contains("hello.txt"));
 
