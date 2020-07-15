@@ -545,6 +545,10 @@ pub async fn cli(
         Cmd::Move(Movement::ForwardWord(1, At::AfterEnd, Word::Vi)),
     );
 
+    if let Err(e) = crate::keybinding::load_keybindings(&mut rl) {
+        println!("Error loading keybindings: {:?}", e);
+    }
+
     #[cfg(windows)]
     {
         let _ = ansi_term::enable_ansi_support();

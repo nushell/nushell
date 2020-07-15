@@ -23,6 +23,7 @@ mod evaluate;
 mod format;
 mod futures;
 mod git;
+mod keybinding;
 mod path;
 mod shell;
 mod stream;
