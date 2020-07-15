@@ -12,7 +12,7 @@ use crate::shell::completer::NuCompleter;
 use crate::shell::shell::Shell;
 use crate::utils::FileStructure;
 
-use rustyline::completion::FilenameCompleter;
+use rustyline::completion::{FilenameCompleter, Pair};
 use rustyline::hint::{Hinter, HistoryHinter};
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
@@ -749,7 +749,7 @@ impl Shell for FilesystemShell {
             pos
         };
 
-        requote(self.completer.complete(&expanded, pos, ctx))
+        self.completer.complete(&expanded, pos, ctx).map(requote)
     }
 
     fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
@@ -842,29 +842,229 @@ fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
     }
 }
 
-fn requote(
-    completions: Result<(usize, Vec<rustyline::completion::Pair>), rustyline::error::ReadlineError>,
-) -> Result<(usize, Vec<rustyline::completion::Pair>), rustyline::error::ReadlineError> {
-    match completions {
-        Ok(items) => {
-            let mut new_items = Vec::with_capacity(items.0);
+fn requote(completions: (usize, Vec<Pair>)) -> (usize, Vec<Pair>) {
+    let items = completions
+        .1
+        .into_iter()
+        .filter_map(|item| {
+            let display = item.display;
 
-            for item in items.1 {
-                let unescaped = rustyline::completion::unescape(&item.replacement, Some('\\'));
-                let maybe_quote = if unescaped != item.replacement {
-                    "\""
-                } else {
-                    ""
-                };
-
-                new_items.push(rustyline::completion::Pair {
-                    display: item.display,
-                    replacement: format!("{}{}{}", maybe_quote, unescaped, maybe_quote),
-                });
+            // Since we're using the rustyline `FilenameCompleter`, quotes may have already been added.
+            // We'll strip them out and add them back later, if necessary for nushell.
+            // TODO this is a good indicator that we need our own completer
+            let mut replacement = item.replacement;
+            if replacement[..1] == replacement[replacement.len() - 1..]
+                && matches!(&replacement[..1], "'" | "\"")
+            {
+                replacement = replacement[1..replacement.len() - 1].to_string();
             }
 
-            Ok((items.0, new_items))
+            let unescaped = rustyline::completion::unescape(&replacement, Some('\\'));
+
+            let mut should_quote = false;
+            let mut can_use_single_quote = true;
+            let mut can_use_double_quote = true;
+            let mut can_use_backtick_quote = true;
+
+            for ch in unescaped.chars() {
+                match ch {
+                    '\'' => {
+                        should_quote = true;
+                        can_use_single_quote = false;
+                    }
+                    '"' => {
+                        should_quote = true;
+                        can_use_double_quote = false;
+                    }
+                    '`' => {
+                        should_quote = true;
+                        can_use_backtick_quote = false;
+                    }
+                    ' ' => {
+                        should_quote = true;
+                    }
+                    _ => (),
+                }
+            }
+
+            if should_quote {
+                let maybe_quote = if can_use_double_quote {
+                    Some("\"")
+                } else if can_use_single_quote {
+                    Some("'")
+                } else if can_use_backtick_quote {
+                    Some("`")
+                } else {
+                    // TODO we need a way to express this, possibly backticks with the `char` command
+                    None
+                };
+
+                maybe_quote.map(move |quote| rustyline::completion::Pair {
+                    display,
+                    replacement: format!("{}{}{}", quote, unescaped, quote),
+                })
+            } else {
+                Some(rustyline::completion::Pair {
+                    display,
+                    replacement,
+                })
+            }
+        })
+        .collect::<Vec<_>>();
+
+    (completions.0, items)
+}
+
+#[cfg(test)]
+mod tests {
+    mod requote {
+        use super::super::requote;
+        use rustyline::completion::Pair;
+
+        #[test]
+        fn should_not_quote_item_that_is_already_quoted() {
+            let input = (
+                111,
+                vec![Pair {
+                    display: "no".to_string(),
+                    replacement: "\"this has spaces\"".to_string(),
+                }],
+            );
+
+            let actual = requote(input);
+
+            assert_eq!(111, actual.0);
+            assert_eq!(1, actual.1.len());
+            assert_eq!("no", actual.1[0].display);
+            assert_eq!("\"this has spaces\"", actual.1[0].replacement);
         }
-        Err(err) => Err(err),
+
+        #[test]
+        fn should_quote_when_there_are_spaces() {
+            let input = (
+                13,
+                vec![Pair {
+                    display: "yes".to_string(),
+                    replacement: "this has\\ spaces".to_string(),
+                }],
+            );
+
+            let actual = requote(input);
+
+            assert_eq!(13, actual.0);
+            assert_eq!(1, actual.1.len());
+            assert_eq!("yes", actual.1[0].display);
+            assert_eq!("\"this has spaces\"", actual.1[0].replacement);
+        }
+
+        #[test]
+        fn should_quote_with_double_quote_when_suggestion_includes_single_quote() {
+            let input = (
+                3,
+                vec![Pair {
+                    display: "abc".to_string(),
+                    replacement: "don't quote me".to_string(),
+                }],
+            );
+
+            let actual = requote(input);
+
+            assert_eq!(3, actual.0);
+            assert_eq!(1, actual.1.len());
+            assert_eq!("abc", actual.1[0].display);
+            assert_eq!("\"don't quote me\"", actual.1[0].replacement);
+        }
+
+        #[test]
+        fn should_quote_with_double_quote_when_suggestion_includes_escaped_single_quote() {
+            let input = (
+                4,
+                vec![Pair {
+                    display: "abc".to_string(),
+                    replacement: "don\\'t quote me".to_string(),
+                }],
+            );
+
+            let actual = requote(input);
+
+            assert_eq!(4, actual.0);
+            assert_eq!(1, actual.1.len());
+            assert_eq!("abc", actual.1[0].display);
+            assert_eq!("\"don't quote me\"", actual.1[0].replacement);
+        }
+
+        #[test]
+        fn should_quote_with_single_quote_when_suggestion_includes_escaped_double_quotes() {
+            let input = (
+                12,
+                vec![Pair {
+                    display: "def".to_string(),
+                    replacement: "do not \\\"quote me\\\"".to_string(),
+                }],
+            );
+
+            let actual = requote(input);
+
+            assert_eq!(12, actual.0);
+            assert_eq!(1, actual.1.len());
+            assert_eq!("def", actual.1[0].display);
+            assert_eq!("'do not \"quote me\"'", actual.1[0].replacement);
+        }
+
+        #[test]
+        fn should_quote_with_backtick_when_suggestion_includes_escaped_single_and_double_quote() {
+            let input = (
+                111,
+                vec![Pair {
+                    display: "x'y'z".to_string(),
+                    replacement: "don\\'t \\\"quote me\\\"".to_string(),
+                }],
+            );
+
+            let actual = requote(input);
+
+            assert_eq!(111, actual.0);
+            assert_eq!(1, actual.1.len());
+            assert_eq!("x'y'z", actual.1[0].display);
+            assert_eq!("`don't \"quote me\"`", actual.1[0].replacement);
+        }
+
+        #[test]
+        fn should_quote_multiple_items() {
+            let input = (
+                24,
+                vec![
+                    Pair {
+                        display: "abc".to_string(),
+                        replacement: "do not \\\"quote me\\\"".to_string(),
+                    },
+                    Pair {
+                        display: "123".to_string(),
+                        replacement: "don\\'t \\\"quote me\\\"".to_string(),
+                    },
+                    Pair {
+                        display: "def".to_string(),
+                        replacement: "don\\'t quote me".to_string(),
+                    },
+                    Pair {
+                        display: "xyz".to_string(),
+                        replacement: "noquotes".to_string(),
+                    },
+                ],
+            );
+
+            let actual = requote(input);
+
+            assert_eq!(24, actual.0);
+            assert_eq!(4, actual.1.len());
+            assert_eq!("abc", actual.1[0].display);
+            assert_eq!("'do not \"quote me\"'", actual.1[0].replacement);
+            assert_eq!("123", actual.1[1].display);
+            assert_eq!("`don't \"quote me\"`", actual.1[1].replacement);
+            assert_eq!("def", actual.1[2].display);
+            assert_eq!("\"don't quote me\"", actual.1[2].replacement);
+            assert_eq!("xyz", actual.1[3].display);
+            assert_eq!("noquotes", actual.1[3].replacement);
+        }
     }
 }
