@@ -264,10 +264,7 @@ impl DebugDocBuilder {
     }
 
     pub fn is_empty(&self) -> bool {
-        match &self.inner.1 {
-            pretty::Doc::Nil => true,
-            _ => false,
-        }
+        matches!(&self.inner.1, pretty::Doc::Nil)
     }
 
     pub fn or(self, doc: DebugDocBuilder) -> DebugDocBuilder {
