@@ -385,6 +385,7 @@ pub fn create_default_context(
             whole_stream_command(ToTSV),
             whole_stream_command(ToURL),
             whole_stream_command(ToYAML),
+            whole_stream_command(ToXML),
             // File format input
             whole_stream_command(From),
             whole_stream_command(FromCSV),

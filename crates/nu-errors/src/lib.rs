@@ -833,6 +833,18 @@ impl std::convert::From<std::io::Error> for ShellError {
     }
 }
 
+impl std::convert::From<std::string::FromUtf8Error> for ShellError {
+    fn from(input: std::string::FromUtf8Error) -> ShellError {
+        ShellError::untagged_runtime_error(format!("{}", input))
+    }
+}
+
+impl std::convert::From<std::str::Utf8Error> for ShellError {
+    fn from(input: std::str::Utf8Error) -> ShellError {
+        ShellError::untagged_runtime_error(format!("{}", input))
+    }
+}
+
 impl std::convert::From<serde_yaml::Error> for ShellError {
     fn from(input: serde_yaml::Error) -> ShellError {
         ShellError::untagged_runtime_error(format!("{:?}", input))
