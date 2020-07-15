@@ -187,7 +187,7 @@ fn values_to_entries(
                 StyledString::new(
                     (starting_idx + idx).to_string(),
                     TextStyle {
-                        alignment: Alignment::Center,
+                        alignment: Alignment::Right,
                         color: Some(ansi_term::Color::Green),
                         is_bold: true,
                     },
