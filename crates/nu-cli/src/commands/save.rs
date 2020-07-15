@@ -170,7 +170,7 @@ async fn save(
     let host = raw_args.host.clone();
     let ctrl_c = raw_args.ctrl_c.clone();
     let current_errors = raw_args.current_errors.clone();
-    let shell_manager = raw_args.shell_manager.clone();
+    let mut shell_manager = raw_args.shell_manager.clone();
 
     let head = raw_args.call_info.args.head.clone();
     let (
@@ -219,7 +219,7 @@ async fn save(
                         host,
                         ctrl_c,
                         current_errors,
-                        shell_manager,
+                        shell_manager: shell_manager.clone(),
                         call_info: UnevaluatedCallInfo {
                             args: nu_protocol::hir::Call {
                                 head,
@@ -252,14 +252,7 @@ async fn save(
     };
 
     match content {
-        Ok(save_data) => match std::fs::write(full_path, save_data) {
-            Ok(_) => Ok(OutputStream::empty()),
-            Err(e) => Err(ShellError::labeled_error(
-                e.to_string(),
-                "IO error while saving",
-                name,
-            )),
-        },
+        Ok(save_data) => shell_manager.save(&full_path, &save_data, name.span),
         Err(e) => Err(e),
     }
 }

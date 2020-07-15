@@ -48,14 +48,6 @@ pub enum UntaggedValue {
 }
 
 impl UntaggedValue {
-    /// Tags an UntaggedValue so that it can become a Value
-    pub fn retag(self, tag: impl Into<Tag>) -> Value {
-        Value {
-            value: self,
-            tag: tag.into(),
-        }
-    }
-
     /// Get the corresponding descriptors (column names) associated with this value
     pub fn data_descriptors(&self) -> Vec<String> {
         match self {
@@ -85,18 +77,12 @@ impl UntaggedValue {
 
     /// Returns true if this value represents boolean true
     pub fn is_true(&self) -> bool {
-        match self {
-            UntaggedValue::Primitive(Primitive::Boolean(true)) => true,
-            _ => false,
-        }
+        matches!(self, UntaggedValue::Primitive(Primitive::Boolean(true)))
     }
 
     /// Returns true if this value represents a table
     pub fn is_table(&self) -> bool {
-        match self {
-            UntaggedValue::Table(_) => true,
-            _ => false,
-        }
+        matches!(self, UntaggedValue::Table(_))
     }
 
     /// Returns true if the value represents something other than Nothing
@@ -106,18 +92,12 @@ impl UntaggedValue {
 
     /// Returns true if the value represents Nothing
     pub fn is_none(&self) -> bool {
-        match self {
-            UntaggedValue::Primitive(Primitive::Nothing) => true,
-            _ => false,
-        }
+        matches!(self, UntaggedValue::Primitive(Primitive::Nothing))
     }
 
     /// Returns true if the value represents an error
     pub fn is_error(&self) -> bool {
-        match self {
-            UntaggedValue::Error(_err) => true,
-            _ => false,
-        }
+        matches!(self, UntaggedValue::Error(_err))
     }
 
     /// Expect this value to be an error and return it
@@ -191,9 +171,9 @@ impl UntaggedValue {
         UntaggedValue::Primitive(Primitive::Path(s.into()))
     }
 
-    /// Helper for creating bytesize values
-    pub fn bytes(s: impl Into<u64>) -> UntaggedValue {
-        UntaggedValue::Primitive(Primitive::Bytes(s.into()))
+    /// Helper for creating filesize values
+    pub fn filesize(s: impl Into<u64>) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Filesize(s.into()))
     }
 
     /// Helper for creating decimal values
@@ -220,8 +200,8 @@ impl UntaggedValue {
     }
 
     /// Helper for creating date duration values
-    pub fn duration(secs: i64) -> UntaggedValue {
-        UntaggedValue::Primitive(Primitive::Duration(secs))
+    pub fn duration(nanos: BigInt) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Duration(nanos))
     }
 
     /// Helper for creating datatime values
@@ -290,7 +270,7 @@ impl Value {
             UntaggedValue::Primitive(Primitive::Boolean(x)) => format!("{}", x),
             UntaggedValue::Primitive(Primitive::Decimal(x)) => format!("{}", x),
             UntaggedValue::Primitive(Primitive::Int(x)) => format!("{}", x),
-            UntaggedValue::Primitive(Primitive::Bytes(x)) => format!("{}", x),
+            UntaggedValue::Primitive(Primitive::Filesize(x)) => format!("{}", x),
             UntaggedValue::Primitive(Primitive::Path(x)) => format!("{}", x.display()),
             UntaggedValue::Primitive(Primitive::ColumnPath(path)) => {
                 let joined = path
@@ -349,10 +329,7 @@ impl Value {
 
     /// View the Value as a Primitive value, if possible
     pub fn is_primitive(&self) -> bool {
-        match &self.value {
-            UntaggedValue::Primitive(_) => true,
-            _ => false,
-        }
+        matches!(&self.value, UntaggedValue::Primitive(_))
     }
 
     /// View the Value as unsigned 64-bit, if possible

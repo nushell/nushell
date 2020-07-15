@@ -7,13 +7,12 @@ use nu_errors::ShellError;
 use nu_protocol::{
     hir, Primitive, ShellTypeName, SpannedTypeName, TaggedDictBuilder, UntaggedValue, Value,
 };
-use nu_source::Tag;
+use nu_source::{Span, Tag};
 use nu_value_ext::ValueExt;
 use num_bigint::BigInt;
 use num_traits::Zero;
 use query_interface::{interfaces, vtable_for, ObjectHash};
 use serde::{Deserialize, Serialize};
-use std::time::SystemTime;
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, new, Serialize)]
 pub struct Operation {
@@ -50,7 +49,6 @@ impl std::convert::TryFrom<Option<&Value>> for Switch {
     }
 }
 
-#[allow(unused)]
 pub(crate) fn select_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> Value {
     let mut out = TaggedDictBuilder::new(tag);
 
@@ -87,7 +85,7 @@ pub(crate) enum CompareValues {
     Decimals(BigDecimal, BigDecimal),
     String(String, String),
     Date(DateTime<Utc>, DateTime<Utc>),
-    DateDuration(DateTime<Utc>, i64),
+    DateDuration(DateTime<Utc>, BigInt),
     Booleans(bool, bool),
 }
 
@@ -99,14 +97,15 @@ impl CompareValues {
             CompareValues::String(left, right) => left.cmp(right),
             CompareValues::Date(left, right) => left.cmp(right),
             CompareValues::DateDuration(left, right) => {
-                use std::time::Duration;
-
-                // Create the datetime we're comparing against, as duration is an offset from now
-                let right: DateTime<Utc> = if *right < 0 {
-                    (SystemTime::now() + Duration::from_secs((*right * -1) as u64)).into()
-                } else {
-                    (SystemTime::now() - Duration::from_secs(*right as u64)).into()
-                };
+                // FIXME: Not sure if I could do something better with the Span.
+                let duration = Primitive::into_chrono_duration(
+                    Primitive::Duration(right.clone()),
+                    Span::unknown(),
+                )
+                .expect("Could not convert nushell Duration into chrono Duration.");
+                let right: DateTime<Utc> = Utc::now()
+                    .checked_sub_signed(duration)
+                    .expect("Data overflow");
                 right.cmp(left)
             }
             CompareValues::Booleans(left, right) => left.cmp(right),
@@ -138,19 +137,19 @@ fn coerce_compare_primitive(
         (Int(left), Decimal(right)) => {
             CompareValues::Decimals(BigDecimal::zero() + left, right.clone())
         }
-        (Int(left), Bytes(right)) => CompareValues::Ints(left.clone(), BigInt::from(*right)),
+        (Int(left), Filesize(right)) => CompareValues::Ints(left.clone(), BigInt::from(*right)),
         (Decimal(left), Decimal(right)) => CompareValues::Decimals(left.clone(), right.clone()),
         (Decimal(left), Int(right)) => {
             CompareValues::Decimals(left.clone(), BigDecimal::zero() + right)
         }
-        (Decimal(left), Bytes(right)) => {
+        (Decimal(left), Filesize(right)) => {
             CompareValues::Decimals(left.clone(), BigDecimal::from(*right))
         }
-        (Bytes(left), Bytes(right)) => {
+        (Filesize(left), Filesize(right)) => {
             CompareValues::Ints(BigInt::from(*left), BigInt::from(*right))
         }
-        (Bytes(left), Int(right)) => CompareValues::Ints(BigInt::from(*left), right.clone()),
-        (Bytes(left), Decimal(right)) => {
+        (Filesize(left), Int(right)) => CompareValues::Ints(BigInt::from(*left), right.clone()),
+        (Filesize(left), Decimal(right)) => {
             CompareValues::Decimals(BigDecimal::from(*left), right.clone())
         }
         (Nothing, Nothing) => CompareValues::Booleans(true, true),
@@ -159,7 +158,7 @@ fn coerce_compare_primitive(
         (String(left), Line(right)) => CompareValues::String(left.clone(), right.clone()),
         (Line(left), Line(right)) => CompareValues::String(left.clone(), right.clone()),
         (Date(left), Date(right)) => CompareValues::Date(*left, *right),
-        (Date(left), Duration(right)) => CompareValues::DateDuration(*left, *right),
+        (Date(left), Duration(right)) => CompareValues::DateDuration(*left, right.clone()),
         (Boolean(left), Boolean(right)) => CompareValues::Booleans(*left, *right),
         _ => return Err((left.type_name(), right.type_name())),
     })

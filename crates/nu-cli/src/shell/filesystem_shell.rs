@@ -18,6 +18,11 @@ use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
 
+use crate::commands::classified::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
+use encoding_rs::Encoding;
+use futures_codec::FramedRead;
+use futures_util::TryStreamExt;
+
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
@@ -694,6 +699,45 @@ impl Shell for FilesystemShell {
         self.path = path.to_string_lossy().to_string();
     }
 
+    fn open(
+        &self,
+        path: &PathBuf,
+        name: Span,
+        with_encoding: Option<&'static Encoding>,
+    ) -> Result<BoxStream<'static, Result<StringOrBinary, ShellError>>, ShellError> {
+        let f = std::fs::File::open(&path).map_err(|e| {
+            ShellError::labeled_error(
+                format!("Error opening file: {:?}", e),
+                "Error opening file",
+                name,
+            )
+        })?;
+        let async_reader = futures::io::AllowStdIo::new(f);
+        let sob_stream = FramedRead::new(async_reader, MaybeTextCodec::new(with_encoding))
+            .map_err(|e| {
+                ShellError::unexpected(format!("AsyncRead failed in open function: {:?}", e))
+            })
+            .into_stream();
+
+        Ok(sob_stream.boxed())
+    }
+
+    fn save(
+        &mut self,
+        full_path: &PathBuf,
+        save_data: &[u8],
+        name: Span,
+    ) -> Result<OutputStream, ShellError> {
+        match std::fs::write(full_path, save_data) {
+            Ok(_) => Ok(OutputStream::empty()),
+            Err(e) => Err(ShellError::labeled_error(
+                e.to_string(),
+                "IO error while saving",
+                name,
+            )),
+        }
+    }
+
     fn complete(
         &self,
         line: &str,
@@ -793,23 +837,25 @@ fn is_empty_dir(dir: impl AsRef<Path>) -> bool {
 }
 
 fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
-    cfg_if::cfg_if! {
-        if #[cfg(windows)] {
-            use std::os::windows::fs::MetadataExt;
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
 
-            if let Ok(metadata) = dir.as_ref().metadata() {
-                let attributes = metadata.file_attributes();
-                // https://docs.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
-                (attributes & 0x2) != 0
-            } else {
-                false
-            }
+        if let Ok(metadata) = dir.as_ref().metadata() {
+            let attributes = metadata.file_attributes();
+            // https://docs.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
+            (attributes & 0x2) != 0
         } else {
-            dir.as_ref()
-                .file_name()
-                .map(|name| name.to_string_lossy().starts_with('.'))
-                .unwrap_or(false)
+            false
         }
+    }
+
+    #[cfg(not(windows))]
+    {
+        dir.as_ref()
+            .file_name()
+            .map(|name| name.to_string_lossy().starts_with('.'))
+            .unwrap_or(false)
     }
 }
 

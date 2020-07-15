@@ -90,10 +90,7 @@ impl RangeIterator {
             curr: range.from.0.item,
             end: range.to.0.item,
             tag,
-            is_end_inclusive: match range.to.1 {
-                RangeInclusion::Inclusive => true,
-                RangeInclusion::Exclusive => false,
-            },
+            is_end_inclusive: matches!(range.to.1, RangeInclusion::Inclusive),
             is_done: false,
         }
     }

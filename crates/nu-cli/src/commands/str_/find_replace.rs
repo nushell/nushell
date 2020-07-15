@@ -80,10 +80,7 @@ async fn operate(
     Ok(input
         .map(move |v| {
             if column_paths.is_empty() {
-                match action(&v, &options, v.tag()) {
-                    Ok(out) => ReturnSuccess::value(out),
-                    Err(err) => Err(err),
-                }
+                ReturnSuccess::value(action(&v, &options, v.tag())?)
             } else {
                 let mut ret = v;
 

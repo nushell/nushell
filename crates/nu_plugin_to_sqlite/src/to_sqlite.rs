@@ -42,9 +42,9 @@ fn nu_value_to_sqlite_string(v: Value) -> String {
         UntaggedValue::Primitive(p) => match p {
             Primitive::Nothing => "NULL".into(),
             Primitive::Int(i) => format!("{}", i),
-            Primitive::Duration(u) => format!("{}", u),
+            Primitive::Duration(i) => format!("{}", i),
             Primitive::Decimal(f) => format!("{}", f),
-            Primitive::Bytes(u) => format!("{}", u),
+            Primitive::Filesize(u) => format!("{}", u),
             Primitive::Pattern(s) => format!("'{}'", s.replace("'", "''")),
             Primitive::String(s) => format!("'{}'", s.replace("'", "''")),
             Primitive::Line(s) => format!("'{}'", s.replace("'", "''")),

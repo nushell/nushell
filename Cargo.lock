@@ -83,6 +83,15 @@ checksum = "a4c527152e37cf757a3f78aae5a06fbeefdb07ccc535c980a3208ee3060dd544"
 
 [[package]]
 name = "arrayvec"
+version = "0.4.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd9fd44efafa8690358b7408d253adf110036b88f55672a933f01d616ad9b1b9"
+dependencies = [
+ "nodrop",
+]
+
+[[package]]
+name = "arrayvec"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cff77d8686867eceff3105329d4698d96c2391c176d5d03adc90c7389162b5b8"
@@ -303,7 +312,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8fb2d74254a3a0b5cac33ac9f8ed0e44aa50378d9dbb2e5d83bd21ed1dc2c8a"
 dependencies = [
  "arrayref",
- "arrayvec",
+ "arrayvec 0.5.1",
  "constant_time_eq",
 ]
 
@@ -1988,7 +1997,7 @@ version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db65c6da02e61f55dae90a0ae427b2a5f6b3e8db09f58d10efab23af92592616"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.5.1",
  "bitflags",
  "cfg-if",
  "ryu",
@@ -2393,6 +2402,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "nodrop"
+version = "0.1.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72ef4a56884ca558e5ddb05a1d1e7e1bfd9a68d9ed024c21704cc98872dae1bb"
+
+[[package]]
 name = "nom"
 version = "1.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2493,7 +2508,6 @@ dependencies = [
  "byte-unit",
  "bytes 0.5.5",
  "calamine",
- "cfg-if",
  "chrono",
  "clap",
  "clipboard",
@@ -2532,6 +2546,7 @@ dependencies = [
  "nu-test-support",
  "nu-value-ext",
  "num-bigint",
+ "num-format",
  "num-traits 0.2.12",
  "parking_lot 0.11.0",
  "pin-utils",
@@ -2646,6 +2661,7 @@ dependencies = [
  "nu-errors",
  "nu-source",
  "num-bigint",
+ "num-integer",
  "num-traits 0.2.12",
  "query_interface",
  "serde 1.0.114",
@@ -2854,6 +2870,7 @@ dependencies = [
  "nu-plugin",
  "nu-protocol",
  "nu-source",
+ "num-bigint",
 ]
 
 [[package]]
@@ -2927,6 +2944,17 @@ dependencies = [
  "num-integer",
  "num-traits 0.2.12",
  "serde 1.0.114",
+]
+
+[[package]]
+name = "num-format"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bafe4179722c2894288ee77a9f044f02811c86af699344c498b0840c698a2465"
+dependencies = [
+ "arrayvec 0.4.12",
+ "itoa",
+ "num-bigint",
 ]
 
 [[package]]

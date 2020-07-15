@@ -35,8 +35,6 @@ pub(crate) mod du;
 pub(crate) mod each;
 pub(crate) mod echo;
 pub(crate) mod enter;
-#[allow(unused)]
-pub(crate) mod evaluate_by;
 pub(crate) mod every;
 pub(crate) mod exit;
 pub(crate) mod first;
@@ -72,8 +70,6 @@ pub(crate) mod keep_while;
 pub(crate) mod last;
 pub(crate) mod lines;
 pub(crate) mod ls;
-#[allow(unused)]
-pub(crate) mod map_max_by;
 pub(crate) mod math;
 pub(crate) mod merge;
 pub(crate) mod mkdir;
@@ -89,8 +85,6 @@ pub(crate) mod prev;
 pub(crate) mod pwd;
 pub(crate) mod random;
 pub(crate) mod range;
-#[allow(unused)]
-pub(crate) mod reduce_by;
 pub(crate) mod reject;
 pub(crate) mod rename;
 pub(crate) mod reverse;
@@ -103,14 +97,10 @@ pub(crate) mod shells;
 pub(crate) mod shuffle;
 pub(crate) mod size;
 pub(crate) mod skip;
-pub(crate) mod skip_until;
-pub(crate) mod skip_while;
 pub(crate) mod sort_by;
 pub(crate) mod split;
 pub(crate) mod split_by;
 pub(crate) mod str_;
-#[allow(unused)]
-pub(crate) mod t_sort_by;
 pub(crate) mod table;
 pub(crate) mod tags;
 pub(crate) mod to;
@@ -149,7 +139,9 @@ pub(crate) use cal::Cal;
 pub(crate) use calc::Calc;
 pub(crate) use char_::Char;
 pub(crate) use compact::Compact;
-pub(crate) use config::Config;
+pub(crate) use config::{
+    Config, ConfigClear, ConfigGet, ConfigLoad, ConfigPath, ConfigRemove, ConfigSet, ConfigSetInto,
+};
 pub(crate) use count::Count;
 pub(crate) use cp::Cpy;
 pub(crate) use date::Date;
@@ -169,8 +161,6 @@ pub(crate) mod clear;
 pub(crate) use clear::Clear;
 pub(crate) mod touch;
 pub(crate) use enter::Enter;
-#[allow(unused_imports)]
-pub(crate) use evaluate_by::EvaluateBy;
 pub(crate) use every::Every;
 pub(crate) use exit::Exit;
 pub(crate) use first::First;
@@ -205,10 +195,9 @@ pub(crate) use keep_while::KeepWhile;
 pub(crate) use last::Last;
 pub(crate) use lines::Lines;
 pub(crate) use ls::Ls;
-#[allow(unused_imports)]
-pub(crate) use map_max_by::MapMaxBy;
 pub(crate) use math::{
-    Math, MathAverage, MathMaximum, MathMedian, MathMinimum, MathMode, MathSummation,
+    Math, MathAverage, MathMaximum, MathMedian, MathMinimum, MathMode, MathStddev, MathSummation,
+    MathVariance,
 };
 pub(crate) use merge::Merge;
 pub(crate) use mkdir::Mkdir;
@@ -223,8 +212,6 @@ pub(crate) use prev::Previous;
 pub(crate) use pwd::Pwd;
 pub(crate) use random::{Random, RandomBool, RandomDice, RandomUUID};
 pub(crate) use range::Range;
-#[allow(unused_imports)]
-pub(crate) use reduce_by::ReduceBy;
 pub(crate) use reject::Reject;
 pub(crate) use rename::Rename;
 pub(crate) use reverse::Reverse;
@@ -235,18 +222,14 @@ pub(crate) use select::Select;
 pub(crate) use shells::Shells;
 pub(crate) use shuffle::Shuffle;
 pub(crate) use size::Size;
-pub(crate) use skip::Skip;
-pub(crate) use skip_until::SkipUntil;
-pub(crate) use skip_while::SkipWhile;
+pub(crate) use skip::{Skip, SkipUntil, SkipWhile};
 pub(crate) use sort_by::SortBy;
 pub(crate) use split::{Split, SplitChars, SplitColumn, SplitRow};
 pub(crate) use split_by::SplitBy;
 pub(crate) use str_::{
-    Str, StrCapitalize, StrCollect, StrDowncase, StrFindReplace, StrLength, StrSet, StrSubstring,
-    StrToDatetime, StrToDecimal, StrToInteger, StrTrim, StrUpcase,
+    Str, StrCapitalize, StrCollect, StrDowncase, StrFindReplace, StrFrom, StrLength, StrReverse,
+    StrSet, StrSubstring, StrToDatetime, StrToDecimal, StrToInteger, StrTrim, StrUpcase,
 };
-#[allow(unused_imports)]
-pub(crate) use t_sort_by::TSortBy;
 pub(crate) use table::Table;
 pub(crate) use tags::Tags;
 pub(crate) use to::To;

@@ -23,6 +23,19 @@ fn trims() {
 }
 
 #[test]
+fn error_trim_multiple_chars() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        echo 'does it work now?!' | str trim -c '?!'
+        "#
+        )
+    );
+
+    assert!(actual.err.contains("char"));
+}
+
+#[test]
 fn capitalizes() {
     Playground::setup("str_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
@@ -339,4 +352,67 @@ fn substrings_the_input_and_treats_end_index_as_length_if_blank_end_index_given(
 
         assert_eq!(actual.out, "arepas");
     })
+}
+
+#[test]
+fn from_decimal_correct_trailing_zeros() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        = 1.23000 | str from -d 3
+        "#
+    ));
+
+    assert!(actual.out.contains("1.230"));
+}
+
+#[test]
+fn from_int_decimal_correct_trailing_zeros() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        = 1.00000 | str from -d 3
+        "#
+    ));
+
+    assert!(actual.out.contains("1.000"));
+}
+
+#[test]
+fn from_int_decimal_trim_trailing_zeros() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        = 1.00000 | str from | format "{$it} flat"
+        "#
+    ));
+
+    assert!(actual.out.contains("1 flat")); // "1" would match "1.0"
+}
+
+#[test]
+fn from_table() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        echo '[{"name": "foo", "weight": 32.377}, {"name": "bar", "weight": 15.2}]'
+        | from json
+        | str from weight -d 2
+        "#
+    ));
+
+    assert!(actual.out.contains("32.38"));
+    assert!(actual.out.contains("15.20"));
+}
+
+#[test]
+fn str_reverse() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        echo "nushell" | str reverse
+        "#
+    ));
+
+    assert!(actual.out.contains("llehsun"));
 }

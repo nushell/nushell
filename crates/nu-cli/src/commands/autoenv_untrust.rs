@@ -93,6 +93,17 @@ impl WholeStreamCommand for AutoenvUnTrust {
         false
     }
     fn examples(&self) -> Vec<Example> {
-        Vec::new()
+        vec![
+            Example {
+                description: "Disallow .nu-env file in current directory",
+                example: "autoenv untrust",
+                result: None,
+            },
+            Example {
+                description: "Disallow .nu-env file in directory foo",
+                example: "autoenv untrust foo",
+                result: None,
+            },
+        ]
     }
 }

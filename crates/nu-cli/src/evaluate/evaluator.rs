@@ -197,7 +197,7 @@ async fn evaluate_invocation(
     let input = InputStream::empty();
 
     let mut block = block.clone();
-    block.set_is_last(true);
+    block.set_is_last(false);
 
     let result = run_block(&block, &mut context, input, it, vars, env).await?;
 

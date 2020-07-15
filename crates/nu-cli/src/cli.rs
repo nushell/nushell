@@ -150,10 +150,7 @@ pub fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
             .map(|path| {
                 let bin_name = {
                     if let Some(name) = path.file_name() {
-                        match name.to_str() {
-                            Some(raw) => raw,
-                            None => "",
-                        }
+                        name.to_str().unwrap_or("")
                     } else {
                         ""
                     }
@@ -252,6 +249,13 @@ pub fn create_default_context(
             whole_stream_command(Remove),
             whole_stream_command(Open),
             whole_stream_command(Config),
+            whole_stream_command(ConfigGet),
+            whole_stream_command(ConfigSet),
+            whole_stream_command(ConfigSetInto),
+            whole_stream_command(ConfigClear),
+            whole_stream_command(ConfigLoad),
+            whole_stream_command(ConfigRemove),
+            whole_stream_command(ConfigPath),
             whole_stream_command(Help),
             whole_stream_command(History),
             whole_stream_command(Save),
@@ -301,12 +305,14 @@ pub fn create_default_context(
             whole_stream_command(StrUpcase),
             whole_stream_command(StrCapitalize),
             whole_stream_command(StrFindReplace),
+            whole_stream_command(StrFrom),
             whole_stream_command(StrSubstring),
             whole_stream_command(StrSet),
             whole_stream_command(StrToDatetime),
             whole_stream_command(StrTrim),
             whole_stream_command(StrCollect),
             whole_stream_command(StrLength),
+            whole_stream_command(StrReverse),
             whole_stream_command(BuildString),
             whole_stream_command(Ansi),
             whole_stream_command(Char),
@@ -364,7 +370,9 @@ pub fn create_default_context(
             whole_stream_command(MathMinimum),
             whole_stream_command(MathMode),
             whole_stream_command(MathMaximum),
+            whole_stream_command(MathStddev),
             whole_stream_command(MathSummation),
+            whole_stream_command(MathVariance),
             // File format output
             whole_stream_command(To),
             whole_stream_command(ToCSV),
@@ -400,17 +408,6 @@ pub fn create_default_context(
             whole_stream_command(RandomDice),
             whole_stream_command(RandomUUID),
         ]);
-
-        cfg_if::cfg_if! {
-            if #[cfg(data_processing_primitives)] {
-                context.add_commands(vec![
-                whole_stream_command(ReduceBy),
-                whole_stream_command(EvaluateBy),
-                whole_stream_command(TSortBy),
-                whole_stream_command(MapMaxBy),
-                ]);
-            }
-        }
 
         #[cfg(feature = "clipboard")]
         {
@@ -543,6 +540,10 @@ pub async fn cli(
         KeyPress::ControlRight,
         Cmd::Move(Movement::ForwardWord(1, At::AfterEnd, Word::Vi)),
     );
+
+    if let Err(e) = crate::keybinding::load_keybindings(&mut rl) {
+        println!("Error loading keybindings: {:?}", e);
+    }
 
     #[cfg(windows)]
     {
@@ -802,10 +803,7 @@ pub async fn cli(
             LineResult::CtrlC => {
                 let config_ctrlc_exit = config::config(Tag::unknown())?
                     .get("ctrlc_exit")
-                    .map(|s| match s.value.expect_string() {
-                        "true" => true,
-                        _ => false,
-                    })
+                    .map(|s| s.value.expect_string() == "true")
                     .unwrap_or(false); // default behavior is to allow CTRL-C spamming similar to other shells
 
                 if !config_ctrlc_exit {

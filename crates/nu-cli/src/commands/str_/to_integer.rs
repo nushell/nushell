@@ -65,10 +65,7 @@ async fn operate(
     Ok(input
         .map(move |v| {
             if column_paths.is_empty() {
-                match action(&v, v.tag()) {
-                    Ok(out) => ReturnSuccess::value(out),
-                    Err(err) => Err(err),
-                }
+                ReturnSuccess::value(action(&v, v.tag())?)
             } else {
                 let mut ret = v;
 
@@ -101,7 +98,13 @@ fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
             let other = s.trim();
             let out = match BigInt::from_str(other) {
                 Ok(v) => UntaggedValue::int(v),
-                Err(_) => UntaggedValue::string(s),
+                Err(reason) => {
+                    return Err(ShellError::labeled_error(
+                        "could not parse as an integer",
+                        reason.to_string(),
+                        tag.into().span,
+                    ))
+                }
             };
             Ok(out.into_value(tag))
         }
@@ -136,5 +139,14 @@ mod tests {
 
         let actual = action(&word, Tag::unknown()).unwrap();
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn communicates_parsing_error_given_an_invalid_integerlike_string() {
+        let integer_str = string("36anra");
+
+        let actual = action(&integer_str, Tag::unknown());
+
+        assert!(actual.is_err());
     }
 }

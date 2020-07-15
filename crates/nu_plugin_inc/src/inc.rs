@@ -78,8 +78,8 @@ impl Inc {
             UntaggedValue::Primitive(Primitive::Int(i)) => {
                 Ok(UntaggedValue::int(i + 1).into_value(value.tag()))
             }
-            UntaggedValue::Primitive(Primitive::Bytes(b)) => {
-                Ok(UntaggedValue::bytes(b + 1 as u64).into_value(value.tag()))
+            UntaggedValue::Primitive(Primitive::Filesize(b)) => {
+                Ok(UntaggedValue::filesize(b + 1 as u64).into_value(value.tag()))
             }
             UntaggedValue::Primitive(Primitive::String(ref s)) => {
                 Ok(self.apply(&s)?.into_value(value.tag()))

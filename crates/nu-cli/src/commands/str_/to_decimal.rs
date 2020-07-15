@@ -65,10 +65,7 @@ async fn operate(
     Ok(input
         .map(move |v| {
             if column_paths.is_empty() {
-                match action(&v, v.tag()) {
-                    Ok(out) => ReturnSuccess::value(out),
-                    Err(err) => Err(err),
-                }
+                ReturnSuccess::value(action(&v, v.tag())?)
             } else {
                 let mut ret = v;
 
@@ -101,7 +98,13 @@ fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
             let other = s.trim();
             let out = match BigDecimal::from_str(other) {
                 Ok(v) => UntaggedValue::decimal(v),
-                Err(_) => UntaggedValue::string(s),
+                Err(reason) => {
+                    return Err(ShellError::labeled_error(
+                        "could not parse as decimal",
+                        reason.to_string(),
+                        tag.into().span,
+                    ))
+                }
             };
             Ok(out.into_value(tag))
         }
@@ -137,5 +140,14 @@ mod tests {
 
         let actual = action(&word, Tag::unknown()).unwrap();
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn communicates_parsing_error_given_an_invalid_decimallike_string() {
+        let decimal_str = string("11.6anra");
+
+        let actual = action(&decimal_str, Tag::unknown());
+
+        assert!(actual.is_err());
     }
 }
