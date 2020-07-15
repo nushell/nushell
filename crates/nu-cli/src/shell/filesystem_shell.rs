@@ -822,23 +822,25 @@ fn is_empty_dir(dir: impl AsRef<Path>) -> bool {
 }
 
 fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
-    cfg_if::cfg_if! {
-        if #[cfg(windows)] {
-            use std::os::windows::fs::MetadataExt;
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
 
-            if let Ok(metadata) = dir.as_ref().metadata() {
-                let attributes = metadata.file_attributes();
-                // https://docs.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
-                (attributes & 0x2) != 0
-            } else {
-                false
-            }
+        if let Ok(metadata) = dir.as_ref().metadata() {
+            let attributes = metadata.file_attributes();
+            // https://docs.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
+            (attributes & 0x2) != 0
         } else {
-            dir.as_ref()
-                .file_name()
-                .map(|name| name.to_string_lossy().starts_with('.'))
-                .unwrap_or(false)
+            false
         }
+    }
+
+    #[cfg(not(windows))]
+    {
+        dir.as_ref()
+            .file_name()
+            .map(|name| name.to_string_lossy().starts_with('.'))
+            .unwrap_or(false)
     }
 }
 

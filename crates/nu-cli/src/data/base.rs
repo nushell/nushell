@@ -49,7 +49,6 @@ impl std::convert::TryFrom<Option<&Value>> for Switch {
     }
 }
 
-#[allow(unused)]
 pub(crate) fn select_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> Value {
     let mut out = TaggedDictBuilder::new(tag);
 
