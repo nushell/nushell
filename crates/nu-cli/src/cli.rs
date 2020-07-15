@@ -801,10 +801,7 @@ pub async fn cli(
             LineResult::CtrlC => {
                 let config_ctrlc_exit = config::config(Tag::unknown())?
                     .get("ctrlc_exit")
-                    .map(|s| match s.value.expect_string() {
-                        "true" => true,
-                        _ => false,
-                    })
+                    .map(|s| s.value.expect_string() == "true")
                     .unwrap_or(false); // default behavior is to allow CTRL-C spamming similar to other shells
 
                 if !config_ctrlc_exit {
