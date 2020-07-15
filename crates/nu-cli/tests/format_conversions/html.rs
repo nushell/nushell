@@ -9,7 +9,10 @@ fn out_html_simple() {
         "#
     ));
 
-    assert_eq!(actual.out, "<html><style>body { background-color:white;color:black; }</style><body>3</body></html>");
+    assert_eq!(
+        actual.out,
+        "<html><style>body { background-color:white;color:black; }</style><body>3</body></html>"
+    );
 }
 
 #[test]
