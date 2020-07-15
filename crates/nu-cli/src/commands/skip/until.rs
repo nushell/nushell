@@ -5,26 +5,26 @@ use log::trace;
 use nu_errors::ShellError;
 use nu_protocol::{hir::ClassifiedCommand, Signature, SyntaxShape, UntaggedValue, Value};
 
-pub struct SkipWhile;
+pub struct SubCommand;
 
 #[async_trait]
-impl WholeStreamCommand for SkipWhile {
+impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
-        "skip-while"
+        "skip until"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("skip-while")
+        Signature::build("skip until")
             .required(
                 "condition",
                 SyntaxShape::Math,
-                "the condition that must be met to continue skipping",
+                "The condition that must be met to stop skipping",
             )
             .filter()
     }
 
     fn usage(&self) -> &str {
-        "Skips rows while the condition matches."
+        "Skips rows until the condition matches."
     }
 
     async fn run(
@@ -82,10 +82,10 @@ impl WholeStreamCommand for SkipWhile {
         Ok(call_info
             .input
             .skip_while(move |item| {
-                let item = item.clone();
                 let condition = condition.clone();
                 let registry = registry.clone();
                 let scope = scope.clone();
+                let item = item.clone();
                 trace!("ITEM = {:?}", item);
 
                 async move {
@@ -100,8 +100,8 @@ impl WholeStreamCommand for SkipWhile {
                     trace!("RESULT = {:?}", result);
 
                     match result {
-                        Ok(ref v) if v.is_true() => true,
-                        _ => false,
+                        Ok(ref v) if v.is_true() => false, // stop skipping
+                        _ => true,
                     }
                 }
             })
@@ -111,12 +111,12 @@ impl WholeStreamCommand for SkipWhile {
 
 #[cfg(test)]
 mod tests {
-    use super::SkipWhile;
+    use super::SubCommand;
 
     #[test]
     fn examples_work_as_expected() {
         use crate::examples::test as test_examples;
 
-        test_examples(SkipWhile {})
+        test_examples(SubCommand {})
     }
 }
