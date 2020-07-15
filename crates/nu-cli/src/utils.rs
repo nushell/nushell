@@ -37,10 +37,7 @@ impl ValueStructure {
         }
 
         let path = if path.starts_with("/") {
-            match path.strip_prefix("/") {
-                Ok(p) => p,
-                Err(_) => path,
-            }
+            path.strip_prefix("/").unwrap_or(path)
         } else {
             path
         };
