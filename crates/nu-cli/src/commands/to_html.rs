@@ -14,6 +14,7 @@ pub struct ToHTML;
 pub struct ToHTMLArgs {
     html_color: bool,
     no_color: bool,
+    dark_bg: bool,
 }
 
 #[async_trait]
@@ -26,6 +27,7 @@ impl WholeStreamCommand for ToHTML {
         Signature::build("to html")
             .switch("html_color", "change ansi colors to html colors", Some('t'))
             .switch("no_color", "remove all ansi colors in output", Some('n'))
+            .switch("dark_bg", "indicate your background color is a darker color", Some('d'))
     }
 
     fn usage(&self) -> &str {
@@ -51,16 +53,23 @@ async fn to_html(
         ToHTMLArgs {
             html_color,
             no_color,
+            dark_bg,
         },
         input,
     ) = args.process(&registry).await?;
     let input: Vec<Value> = input.collect().await;
     let headers = nu_protocol::merge_descriptors(&input);
     let mut output_string = "<html>".to_string();
-    output_string.push_str("<body>");
-    // change the body background color
-    // output_string.push_str("<body style=\"background-color:lightgray;\">");
-    let mut hm = HashMap::new();
+    let mut hm:HashMap<u32, (&str, String)> = HashMap::new();
+
+    // if the user wants a dark background, that means the background will be black
+    // and the foreground will be white, otherwise it's the reverse. I think this
+    // is the best we can do until we get to color themes.
+    if dark_bg {
+        output_string.push_str("<style>body { background-color:black;color:white; }</style><body>");
+    } else {
+        output_string.push_str("<style>body { background-color:white;color:black; }</style><body>");
+    }
 
     // Add grid lines to html
     // let mut output_string = "<html><head><style>".to_string();
@@ -68,11 +77,16 @@ async fn to_html(
     // output_string.push_str("</style></head><body>");
 
     if !headers.is_empty() && (headers.len() > 1 || headers[0] != "") {
-        output_string.push_str("<table>");
+        // output_string.push_str("<table>");
+
+        // change the color of tables
+        if dark_bg {
+            output_string.push_str("<table style=\"background-color:black;color:white;\">");
+        } else {
+            output_string.push_str("<table style=\"background-color:white;color:black;\">");
+        }
 
         output_string.push_str("<tr>");
-        // change the background of tables
-        // output_string.push_str("<tr style=\"background-color:darkgray;color:cyan;\">");
 
         for header in &headers {
             output_string.push_str("<th>");
@@ -154,7 +168,7 @@ async fn to_html(
 
     // Check to see if we want to remove all color or change ansi to html colors
     if html_color {
-        setup_html_color_regexes(&mut hm);
+        setup_html_color_regexes(&mut hm, dark_bg);
         output_string = run_regexes(&hm, &output_string);
     } else if no_color {
         setup_no_color_regexes(&mut hm);
@@ -166,14 +180,17 @@ async fn to_html(
     )))
 }
 
-fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, &'static str)>) {
+// fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, &'static str)>, is_dark: bool) {
+fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, String)>, is_dark: bool) {
+    let text_color = if is_dark { "white".to_string() } else { "black".to_string() };
+    
     // All the bold colors
     hash.insert(
         0,
         (
             r"(?P<reset>\[0m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
-            // Since this is a reset, reset to black, normal weight font
-            r"<span style='color:black;font-weight:normal;'>$word</span>",
+            // Reset the text color, normal weight font
+            format!(r"<span style='color:{};font-weight:normal;'>$word</span>", text_color),
         ),
     );
     hash.insert(
@@ -182,7 +199,7 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, &'static str)
             // Bold Black
             // r"(?P<bb>\[1;30m)(?P<word>[A-Za-z0-9\-'!/_~ &;|=\+\*\.#%:\]$`\(\)]+)",
             r"(?P<bb>\[1;30m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
-            r"<span style='color:black;font-weight:bold;'>$word</span>",
+            format!(r"<span style='color:{};font-weight:bold;'>$word</span>", text_color),
         ),
     );
     hash.insert(
@@ -191,7 +208,7 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, &'static str)
             // Bold Red
             // r"(?P<br>\[1;31m)(?P<word>[A-Za-z0-9\-'!/_~ &;|=\+\*\.#%:\]$`\(\)]+)",
             r"(?P<br>\[1;31m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
-            r"<span style='color:red;font-weight:bold;'>$word</span>",
+            r"<span style='color:red;font-weight:bold;'>$word</span>".to_string(),
         ),
     );
     hash.insert(
@@ -200,7 +217,7 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, &'static str)
             // Bold Green
             // r"(?P<bg>\[1;32m)(?P<word>[A-Za-z0-9\-'!/_~ &;|=\+\*\.#%:\]$`\(\)]+)",
             r"(?P<bg>\[1;32m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
-            r"<span style='color:green;font-weight:bold;'>$word</span>",
+            r"<span style='color:green;font-weight:bold;'>$word</span>".to_string(),
         ),
     );
     hash.insert(
@@ -209,7 +226,7 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, &'static str)
             // Bold Yellow
             // r"(?P<by>\[1;33m)(?P<word>[A-Za-z0-9\-'!/_~ &;|=\+\*\.#%:\]$`\(\)]+)",
             r"(?P<by>\[1;33m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
-            r"<span style='color:yellow;font-weight:bold;'>$word</span>",
+            r"<span style='color:yellow;font-weight:bold;'>$word</span>".to_string(),
         ),
     );
     hash.insert(
@@ -218,7 +235,7 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, &'static str)
             // Bold Blue
             // r"(?P<bu>\[1;34m)(?P<word>[A-Za-z0-9\-'!/_~ &;|=\+\*\.#%:\]$`\(\)]+)",
             r"(?P<bu>\[1;34m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
-            r"<span style='color:blue;font-weight:bold;'>$word</span>",
+            r"<span style='color:blue;font-weight:bold;'>$word</span>".to_string(),
         ),
     );
     hash.insert(
@@ -227,7 +244,7 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, &'static str)
             // Bold Magenta
             // r"(?P<bm>\[1;35m)(?P<word>[A-Za-z0-9\-'!/_~ &;|=\+\*\.#%:\]$`\(\)]+)",
             r"(?P<bm>\[1;35m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
-            r"<span style='color:magenta;font-weight:bold;'>$word</span>",
+            r"<span style='color:magenta;font-weight:bold;'>$word</span>".to_string(),
         ),
     );
     hash.insert(
@@ -236,7 +253,7 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, &'static str)
             // Bold Cyan
             // r"(?P<bc>\[1;36m)(?P<word>[A-Za-z0-9\-'!/_~ &;|=\+\*\.#%:\]$`\(\)]+)",
             r"(?P<bc>\[1;36m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
-            r"<span style='color:cyan;font-weight:bold;'>$word</span>",
+            r"<span style='color:cyan;font-weight:bold;'>$word</span>".to_string(),
         ),
     );
     hash.insert(
@@ -247,7 +264,7 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, &'static str)
             // is white. White on white = no bueno.
             // r"(?P<bw>\[1;37m)(?P<word>[A-Za-z0-9\-'!/_~ &;|=\+\*\.#%:\]$`\(\)]+)",
             r"(?P<bw>\[1;37m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
-            r"<span style='color:black;font-weight:bold;'>$word</span>",
+            format!(r"<span style='color:{};font-weight:bold;'>$word</span>", text_color),
         ),
     );
     // All the normal colors
@@ -257,7 +274,7 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, &'static str)
             // Black
             // r"(?P<b>\[30m)(?P<word>[A-Za-z0-9\-'!/_~ &;|=\+\*\.#%:\]$`\(\)]+)",
             r"(?P<b>\[30m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
-            r"<span style='color:black;'>$word</span>",
+            format!(r"<span style='color:{};'>$word</span>", text_color),
         ),
     );
     hash.insert(
@@ -266,7 +283,7 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, &'static str)
             // Red
             // r"(?P<r>\[31m)(?P<word>[A-Za-z0-9\-'!/_~ &;|=\+\*\.#%:\]$`\(\)]+)",
             r"(?P<r>\[31m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
-            r"<span style='color:red;'>$word</span>",
+            r"<span style='color:red;'>$word</span>".to_string(),
         ),
     );
     hash.insert(
@@ -275,7 +292,7 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, &'static str)
             // Green
             // r"(?P<g>\[32m)(?P<word>[A-Za-z0-9\-'!/_~ &;|=\+\*\.#%:\]$`\(\)]+)",
             r"(?P<g>\[32m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
-            r"<span style='color:green;'>$word</span>",
+            r"<span style='color:green;'>$word</span>".to_string(),
         ),
     );
     hash.insert(
@@ -284,7 +301,7 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, &'static str)
             // Yellow
             // r"(?P<y>\[33m)(?P<word>[A-Za-z0-9\-'!/_~ &;|=\+\*\.#%:\]$`\(\)]+)",
             r"(?P<y>\[33m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
-            r"<span style='color:yellow;'>$word</span>",
+            r"<span style='color:yellow;'>$word</span>".to_string(),
         ),
     );
     hash.insert(
@@ -293,7 +310,7 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, &'static str)
             // Blue
             // r"(?P<u>\[34m)(?P<word>[A-Za-z0-9\-'!/_~ &;|=\+\*\.#%:\]$`\(\)]+)",
             r"(?P<u>\[34m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
-            r"<span style='color:blue;'>$word</span>",
+            r"<span style='color:blue;'>$word</span>".to_string(),
         ),
     );
     hash.insert(
@@ -302,7 +319,7 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, &'static str)
             // Magenta
             // r"(?P<m>\[35m)(?P<word>[A-Za-z0-9\-'!/_~ &;|=\+\*\.#%:\]$`\(\)]+)",
             r"(?P<m>\[35m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
-            r"<span style='color:magenta;'>$word</span>",
+            r"<span style='color:magenta;'>$word</span>".to_string(),
         ),
     );
     hash.insert(
@@ -311,7 +328,7 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, &'static str)
             // Cyan
             // r"(?P<c>\[36m)(?P<word>[A-Za-z0-9\-'!/_~ &;|=\+\*\.#%:\]$`\(\)]+)",
             r"(?P<c>\[36m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
-            r"<span style='color:cyan;'>$word</span>",
+            r"<span style='color:cyan;'>$word</span>".to_string(),
         ),
     );
     hash.insert(
@@ -322,12 +339,13 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, &'static str)
             // is white. White on white = no bueno.
             // r"(?P<w>\[37m)(?P<word>[A-Za-z0-9\-'!/_~ &;|=\+\*\.#%:\]$`\(\)]+)",
             r"(?P<w>\[37m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
-            r"<span style='color:black;'>$word</span>",
+            format!(r"<span style='color:{};'>$word</span>", text_color),
         ),
     );
 }
 
-fn setup_no_color_regexes(hash: &mut HashMap<u32, (&'static str, &'static str)>) {
+// fn setup_no_color_regexes(hash: &mut HashMap<u32, (&'static str, &'static str)>, is_dark: bool) {
+fn setup_no_color_regexes(hash: &mut HashMap<u32, (&'static str, String)>) {
     // We can just use one regex here because we're just removing ansi sequences
     // and not replacing them with html colors.
     // attribution: https://stackoverflow.com/questions/14693701/how-can-i-remove-the-ansi-escape-sequences-from-a-string-in-python
@@ -335,19 +353,21 @@ fn setup_no_color_regexes(hash: &mut HashMap<u32, (&'static str, &'static str)>)
         0,
         (
             r"(?:\x1B[@-Z\\-_]|[\x80-\x9A\x9C-\x9F]|(?:\x1B\[|\x9B)[0-?]*[ -/]*[@-~])",
-            r"$name_group_doesnt_exist",
+            r"$name_group_doesnt_exist".to_string(),
         ),
     );
 }
 
-fn run_regexes(hash: &HashMap<u32, (&'static str, &'static str)>, contents: &str) -> String {
+// fn run_regexes(hash: &HashMap<u32, (&'static str, &'static str)>, contents: &str) -> String {
+fn run_regexes(hash: &HashMap<u32, (&'static str, String)>, contents: &str) -> String {
     let mut working_string = contents.to_owned();
     let hash_count: u32 = hash.len() as u32;
     for n in 0..hash_count {
         let value = hash.get(&n).expect("error getting hash at index");
         //println!("{},{}", value.0, value.1);
         let re = Regex::new(value.0).expect("problem with color regex");
-        let after = re.replace_all(&working_string, value.1).to_string();
+        // let replace = value.1.to_owned();
+        let after = re.replace_all(&working_string, &value.1[..]).to_string();
         working_string = after.clone();
     }
     working_string
