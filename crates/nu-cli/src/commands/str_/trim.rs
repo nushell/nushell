@@ -79,10 +79,7 @@ async fn operate(
     Ok(input
         .map(move |v| {
             if column_paths.is_empty() {
-                match action(&v, v.tag(), to_trim) {
-                    Ok(out) => ReturnSuccess::value(out),
-                    Err(err) => Err(err),
-                }
+                ReturnSuccess::value(action(&v, v.tag(), to_trim)?)
             } else {
                 let mut ret = v;
 

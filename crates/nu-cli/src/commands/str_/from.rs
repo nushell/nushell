@@ -96,10 +96,7 @@ async fn operate(
     Ok(input
         .map(move |v| {
             if column_paths.is_empty() {
-                match action(&v, v.tag(), digits, group_digits) {
-                    Ok(out) => ReturnSuccess::value(out),
-                    Err(err) => Err(err),
-                }
+                ReturnSuccess::value(action(&v, v.tag(), digits, group_digits)?)
             } else {
                 let mut ret = v;
                 for path in &column_paths {

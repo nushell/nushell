@@ -149,10 +149,7 @@ pub fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
             .map(|path| {
                 let bin_name = {
                     if let Some(name) = path.file_name() {
-                        match name.to_str() {
-                            Some(raw) => raw,
-                            None => "",
-                        }
+                        name.to_str().unwrap_or("")
                     } else {
                         ""
                     }
