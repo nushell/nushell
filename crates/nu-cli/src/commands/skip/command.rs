@@ -5,21 +5,21 @@ use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 
-pub struct Skip;
+pub struct Command;
 
 #[derive(Deserialize)]
-pub struct SkipArgs {
+pub struct Arguments {
     rows: Option<Tagged<usize>>,
 }
 
 #[async_trait]
-impl WholeStreamCommand for Skip {
+impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "skip"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("skip").optional("rows", SyntaxShape::Int, "how many rows to skip")
+        Signature::build("skip").optional("rows", SyntaxShape::Int, "How many rows to skip")
     }
 
     fn usage(&self) -> &str {
@@ -48,7 +48,7 @@ impl WholeStreamCommand for Skip {
 
 async fn skip(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let (SkipArgs { rows }, input) = args.process(&registry).await?;
+    let (Arguments { rows }, input) = args.process(&registry).await?;
     let rows_desired = if let Some(quantity) = rows {
         *quantity
     } else {
@@ -60,12 +60,12 @@ async fn skip(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
 
 #[cfg(test)]
 mod tests {
-    use super::Skip;
+    use super::Command;
 
     #[test]
     fn examples_work_as_expected() {
         use crate::examples::test as test_examples;
 
-        test_examples(Skip {})
+        test_examples(Command {})
     }
 }

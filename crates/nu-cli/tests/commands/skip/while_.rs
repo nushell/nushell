@@ -4,7 +4,7 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn condition_is_met() {
-    Playground::setup("skip-until_test_1", |dirs, sandbox| {
+    Playground::setup("skip_while_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "caballeros.txt",
             r#"
@@ -37,7 +37,7 @@ fn condition_is_met() {
                 | skip 2
                 | split column ','
                 | headers
-                | skip-until "Chicken Collection" == "Red Chickens"
+                | skip while "Chicken Collection" != "Red Chickens"
                 | skip 1
                 | str to-int "31/04/2020"
                 | get "31/04/2020"

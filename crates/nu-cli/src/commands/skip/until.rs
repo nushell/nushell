@@ -5,20 +5,20 @@ use log::trace;
 use nu_errors::ShellError;
 use nu_protocol::{hir::ClassifiedCommand, Signature, SyntaxShape, UntaggedValue, Value};
 
-pub struct SkipUntil;
+pub struct SubCommand;
 
 #[async_trait]
-impl WholeStreamCommand for SkipUntil {
+impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
-        "skip-until"
+        "skip until"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("skip-until")
+        Signature::build("skip until")
             .required(
                 "condition",
                 SyntaxShape::Math,
-                "the condition that must be met to stop skipping",
+                "The condition that must be met to stop skipping",
             )
             .filter()
     }
@@ -108,12 +108,12 @@ impl WholeStreamCommand for SkipUntil {
 
 #[cfg(test)]
 mod tests {
-    use super::SkipUntil;
+    use super::SubCommand;
 
     #[test]
     fn examples_work_as_expected() {
         use crate::examples::test as test_examples;
 
-        test_examples(SkipUntil {})
+        test_examples(SubCommand {})
     }
 }
