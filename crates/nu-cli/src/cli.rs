@@ -417,17 +417,6 @@ pub fn create_default_context(
             whole_stream_command(RandomUUID),
         ]);
 
-        cfg_if::cfg_if! {
-            if #[cfg(data_processing_primitives)] {
-                context.add_commands(vec![
-                whole_stream_command(ReduceBy),
-                whole_stream_command(EvaluateBy),
-                whole_stream_command(TSortBy),
-                whole_stream_command(MapMaxBy),
-                ]);
-            }
-        }
-
         #[cfg(feature = "clipboard")]
         {
             context.add_commands(vec![whole_stream_command(crate::commands::clip::Clip)]);

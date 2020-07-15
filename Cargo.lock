@@ -2505,7 +2505,6 @@ dependencies = [
  "byte-unit",
  "bytes 0.5.5",
  "calamine",
- "cfg-if",
  "chrono",
  "clap",
  "clipboard",
