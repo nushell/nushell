@@ -100,10 +100,7 @@ impl WholeStreamCommand for KeepUntil {
                     .await;
                     trace!("RESULT = {:?}", result);
 
-                    match result {
-                        Ok(ref v) if v.is_true() => false,
-                        _ => true,
-                    }
+                    !matches!(result, Ok(ref v) if v.is_true())
                 }
             })
             .to_output_stream())

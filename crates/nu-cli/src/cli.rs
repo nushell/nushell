@@ -314,6 +314,7 @@ pub fn create_default_context(
             whole_stream_command(StrTrim),
             whole_stream_command(StrCollect),
             whole_stream_command(StrLength),
+            whole_stream_command(StrReverse),
             whole_stream_command(BuildString),
             whole_stream_command(Ansi),
             whole_stream_command(Char),
@@ -371,7 +372,9 @@ pub fn create_default_context(
             whole_stream_command(MathMinimum),
             whole_stream_command(MathMode),
             whole_stream_command(MathMaximum),
+            whole_stream_command(MathStddev),
             whole_stream_command(MathSummation),
+            whole_stream_command(MathVariance),
             // File format output
             whole_stream_command(To),
             whole_stream_command(ToBSON),
@@ -798,10 +801,7 @@ pub async fn cli(
             LineResult::CtrlC => {
                 let config_ctrlc_exit = config::config(Tag::unknown())?
                     .get("ctrlc_exit")
-                    .map(|s| match s.value.expect_string() {
-                        "true" => true,
-                        _ => false,
-                    })
+                    .map(|s| s.value.expect_string() == "true")
                     .unwrap_or(false); // default behavior is to allow CTRL-C spamming similar to other shells
 
                 if !config_ctrlc_exit {

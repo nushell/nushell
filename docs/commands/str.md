@@ -70,6 +70,11 @@ Nu
 ```
 
 ```shell
+> echo "Nushell" | str reverse
+llehsuN
+```
+
+```shell
 > shells | str find-replace "TUX" "skipper" path
 ━━━┯━━━┯━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  # │   │ name       │ path
