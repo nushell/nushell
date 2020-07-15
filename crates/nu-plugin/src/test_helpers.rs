@@ -84,12 +84,7 @@ impl<'a, T: Plugin> PluginTest<'a, T> {
             }
         });
 
-        let began = self.plugin.begin_filter(call_stub);
-
-        let return_values = match began {
-            Ok(values) => Ok(values),
-            Err(reason) => Err(reason),
-        };
+        let return_values = self.plugin.begin_filter(call_stub);
 
         callback(self.plugin, return_values);
         self
