@@ -141,6 +141,7 @@ fn action(input: &Value, options: &Substring, tag: impl Into<Tag>) -> Result<Val
                 )
             })?;
 
+            #[allow(clippy::useless_conversion)]
             let start: isize = options.0.try_into().map_err(|_| {
                 ShellError::labeled_error(
                     "could not perform substring",
