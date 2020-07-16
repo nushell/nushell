@@ -14,7 +14,6 @@ pub(crate) mod autoenv_untrust;
 pub(crate) mod autoview;
 pub(crate) mod build_string;
 pub(crate) mod cal;
-pub(crate) mod calc;
 pub(crate) mod cd;
 pub(crate) mod char_;
 pub(crate) mod classified;
@@ -140,7 +139,6 @@ pub(crate) use autoenv_trust::AutoenvTrust;
 pub(crate) use autoenv_untrust::AutoenvUnTrust;
 pub(crate) use build_string::BuildString;
 pub(crate) use cal::Cal;
-pub(crate) use calc::Calc;
 pub(crate) use char_::Char;
 pub(crate) use compact::Compact;
 pub(crate) use config::{
@@ -203,8 +201,8 @@ pub(crate) use last::Last;
 pub(crate) use lines::Lines;
 pub(crate) use ls::Ls;
 pub(crate) use math::{
-    Math, MathAverage, MathMaximum, MathMedian, MathMinimum, MathMode, MathStddev, MathSummation,
-    MathVariance,
+    Math, MathAverage, MathEval, MathMaximum, MathMedian, MathMinimum, MathMode, MathStddev,
+    MathSummation, MathVariance,
 };
 pub(crate) use merge::Merge;
 pub(crate) use mkdir::Mkdir;
