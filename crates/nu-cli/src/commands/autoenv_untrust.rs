@@ -78,10 +78,8 @@ impl WholeStreamCommand for AutoenvUnTrust {
                 ));
         }
 
-        let tomlstr = toml::to_string(&allowed).or_else(|_| {
-            Err(ShellError::untagged_runtime_error(
-                "Couldn't serialize allowed dirs to nu-env.toml",
-            ))
+        let tomlstr = toml::to_string(&allowed).map_err(|_| {
+            ShellError::untagged_runtime_error("Couldn't serialize allowed dirs to nu-env.toml")
         })?;
         fs::write(config_path, tomlstr).expect("Couldn't write to toml file");
 

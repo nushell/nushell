@@ -36,11 +36,7 @@ pub fn read_trusted() -> Result<Trusted, ShellError> {
         .create(true)
         .write(true)
         .open(config_path)
-        .or_else(|_| {
-            Err(ShellError::untagged_runtime_error(
-                "Couldn't open nu-env.toml",
-            ))
-        })?;
+        .map_err(|_| ShellError::untagged_runtime_error("Couldn't open nu-env.toml"))?;
     let mut doc = String::new();
     file.read_to_string(&mut doc)?;
 
