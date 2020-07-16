@@ -100,18 +100,10 @@ async fn operate(
             } else {
                 let mut ret = v;
                 for path in &column_paths {
-                    let swapping = ret.swap_data_by_column_path(
+                    ret = ret.swap_data_by_column_path(
                         path,
                         Box::new(move |old| action(old, old.tag(), digits, group_digits)),
-                    );
-                    match swapping {
-                        Ok(new_value) => {
-                            ret = new_value;
-                        }
-                        Err(err) => {
-                            return Err(err);
-                        }
-                    }
+                    )?;
                 }
 
                 ReturnSuccess::value(ret)
