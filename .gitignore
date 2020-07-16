@@ -20,6 +20,3 @@ debian/nu/
 
 # VSCode's IDE items
 .vscode/*
-
-# Generated Artifacts
-documentation.md

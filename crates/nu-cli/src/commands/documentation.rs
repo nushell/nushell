@@ -1,11 +1,12 @@
 use crate::commands::WholeStreamCommand;
 
 use crate::prelude::*;
-use nu_protocol::{NamedType, PositionalType, Signature};
+use nu_protocol::{NamedType, PositionalType, Signature, UntaggedValue, Value};
+
+use indexmap::IndexMap;
 
 use std::collections::HashMap;
 
-pub const GENERATED_DOCS_DIR: &str = "docs/generated";
 const COMMANDS_DOCS_DIR: &str = "docs/commands";
 const COMMAND_DOC_GITHUB_PATH: &str = "https://github.com/nushell/nushell/blob/main/docs/commands";
 
@@ -23,19 +24,8 @@ impl Default for DocumentationConfig {
     }
 }
 
-fn indent(s: &str, count: usize) -> String {
-    let mut v = s.split('\n').map(|s| s.to_owned()).collect_vec();
-
-    #[allow(clippy::needless_range_loop)]
-    for i in 0..v.len() {
-        v[i] = format!("{:indent$}{}", "", v[i], indent = count);
-    }
-    v.join("\n")
-}
-
-// generate_docs gets the documentation from each command
-// The output will be a markdown document with collapsible headers for each command
-pub fn generate_docs(registry: &CommandRegistry) -> String {
+// generate_docs gets the documentation from each command and returns a dictionary Value as output
+pub fn generate_docs(registry: &CommandRegistry) -> Value {
     let mut sorted_names = registry.names();
     sorted_names.sort();
 
@@ -53,69 +43,78 @@ pub fn generate_docs(registry: &CommandRegistry) -> String {
             cmap.insert(name.to_owned(), Vec::new());
         };
     }
-    // Return documentation for each command under a collapsible markdown tag
+    // Return documentation for each command
     // Subcommands are nested under there parent command
-    sorted_names
-        .iter()
-        .fold("".to_owned(), |acc, name| {
-            // Must be a sub-command, skip since it's being handled underneath when we hit the parent command
-            if !cmap.contains_key(name) {
-                return acc;
-            }
-
-            let command = registry.get_command(name).unwrap_or_else(|| {
-                panic!("Expected command '{}' from names to be in registry", name)
-            });
-            // Iterate over all the subcommands, so that we can have a collapsible within a collapsible
-            let subcommands_docs = cmap.get(name).unwrap_or(&Vec::new()).iter().fold(
-                "".to_owned(),
-                |sub_acc, sub_name| {
-                    sub_acc
-                        + &format!(
-                            "- <details><summary>{name} - {usage}</summary>\n\n{link}\n\n{doc}\n\n{closing_tag}\n\n",
-                            name=sub_name,
-                            usage=command.usage(),
-                            link=indent(
-                                &retrieve_doc_link(sub_name).map_or("".to_owned(), |link| format!(
-                                    "[Detailed Doc for {}]({})",
-                                    sub_name, link
-                                )),
-                                2
-                            ),
-                            doc=indent(
-                                &(get_documentation(
-                                    command.stream_command(),
-                                    registry,
-                                    &DocumentationConfig {
-                                        no_subcommands: true,
-                                        no_colour: true,
-                                    }
-                                )),
-                                2
-                            ),
-                            closing_tag=indent("</details>", 2), // Kind of dumb but I need to indent </details> as well to get bulleted lists to work,
-                        )
+    let mut row = indexmap::IndexMap::new();
+    for name in sorted_names.iter() {
+        // Must be a sub-command, skip since it's being handled underneath when we hit the parent command
+        if !cmap.contains_key(name) {
+            continue;
+        }
+        let mut row_entries = IndexMap::new();
+        let command = registry
+            .get_command(name)
+            .unwrap_or_else(|| panic!("Expected command '{}' from names to be in registry", name));
+        row_entries.insert(
+            "usage".to_owned(),
+            UntaggedValue::string(command.usage()).into_untagged_value(),
+        );
+        retrieve_doc_link(name).and_then(|link| {
+            row_entries.insert(
+                "doc_link".to_owned(),
+                UntaggedValue::string(link).into_untagged_value(),
+            )
+        });
+        row_entries.insert(
+            "documentation".to_owned(),
+            UntaggedValue::string(get_documentation(
+                command.stream_command(),
+                registry,
+                &DocumentationConfig {
+                    no_subcommands: true,
+                    no_colour: true,
                 },
+            ))
+            .into_untagged_value(),
+        );
+        // Iterate over all the subcommands of the parent command
+        for sub_name in cmap.get(name).unwrap_or(&Vec::new()).into_iter() {
+            let mut sub_entries = IndexMap::new();
+            let sub_command = registry.get_command(sub_name).unwrap_or_else(|| {
+                panic!(
+                    "Expected command '{}' from names to be in registry",
+                    sub_name
+                )
+            });
+            sub_entries.insert(
+                "usage".to_owned(),
+                UntaggedValue::string(sub_command.usage()).into_untagged_value(),
             );
-
-            acc + &format!(
-                "<details><summary>{name} - {usage}</summary>\n\n{link}\n\n{doc}\n\n{sub_docs}</details>\n\n",
-                name=name,
-                usage=command.usage(),
-                link=retrieve_doc_link(name)
-                    .map_or("".to_owned(), |link| format!("[Detailed doc]({})", link)),
-                doc=&get_documentation(
-                    command.stream_command(),
+            retrieve_doc_link(sub_name).and_then(|link| {
+                sub_entries.insert(
+                    "doc_link".to_owned(),
+                    UntaggedValue::string(link).into_untagged_value(),
+                )
+            });
+            sub_entries.insert(
+                "documentation".to_owned(),
+                UntaggedValue::string(get_documentation(
+                    sub_command.stream_command(),
                     registry,
                     &DocumentationConfig {
                         no_subcommands: true,
                         no_colour: true,
-                    }
-                ),
-                sub_docs=subcommands_docs,
-            )
-        })
-        .replace("\n", "    \n") // To get proper markdown formatting
+                    },
+                ))
+                .into_untagged_value(),
+            );
+        }
+        row.insert(
+            name.to_owned(),
+            UntaggedValue::row(row_entries).into_untagged_value(),
+        );
+    }
+    UntaggedValue::row(row).into_untagged_value()
 }
 
 fn retrieve_doc_link(name: &str) -> Option<String> {

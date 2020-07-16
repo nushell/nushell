@@ -1,6 +1,4 @@
-use crate::commands::documentation::{
-    generate_docs, get_documentation, DocumentationConfig, GENERATED_DOCS_DIR,
-};
+use crate::commands::documentation::{generate_docs, get_documentation, DocumentationConfig};
 use crate::commands::WholeStreamCommand;
 use crate::data::command_dict;
 
@@ -99,19 +97,9 @@ async fn help(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
                 .to_output_stream(),
             )
         } else if rest[0].item == "generate_docs" {
-            let generated_dir = std::path::Path::new(GENERATED_DOCS_DIR);
-            let first_part = std::fs::read_to_string(&generated_dir.join("_skeleton.md"))
-                .expect("Skeleton is missing!");
-            let second_part = generate_docs(&registry);
-            let docs_path = generated_dir.join("documentation.md");
-            std::fs::write(&docs_path, first_part + "\n" + &second_part)?;
-
-            Ok(OutputStream::one(ReturnSuccess::value(
-                UntaggedValue::string(format!(
-                    "Docs generated in {}",
-                    docs_path.to_string_lossy().to_string()
-                )),
-            )))
+            Ok(OutputStream::one(ReturnSuccess::value(generate_docs(
+                &registry,
+            ))))
         } else if rest.len() == 2 {
             // Check for a subcommand
             let command_name = format!("{} {}", rest[0].item, rest[1].item);
