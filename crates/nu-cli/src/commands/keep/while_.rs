@@ -5,26 +5,26 @@ use log::trace;
 use nu_errors::ShellError;
 use nu_protocol::{hir::ClassifiedCommand, Signature, SyntaxShape, UntaggedValue, Value};
 
-pub struct KeepUntil;
+pub struct SubCommand;
 
 #[async_trait]
-impl WholeStreamCommand for KeepUntil {
+impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
-        "keep-until"
+        "keep while"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("keep-until")
+        Signature::build("keep while")
             .required(
                 "condition",
                 SyntaxShape::Math,
-                "the condition that must be met to stop keeping rows",
+                "The condition that must be met to keep rows",
             )
             .filter()
     }
 
     fn usage(&self) -> &str {
-        "Keeps rows until the condition matches."
+        "Keeps rows while the condition matches."
     }
 
     async fn run(
@@ -34,7 +34,6 @@ impl WholeStreamCommand for KeepUntil {
     ) -> Result<OutputStream, ShellError> {
         let registry = Arc::new(registry.clone());
         let scope = Arc::new(args.call_info.scope.clone());
-
         let call_info = args.evaluate_once(&registry).await?;
 
         let block = call_info.args.expect_nth(0)?.clone();
@@ -87,6 +86,7 @@ impl WholeStreamCommand for KeepUntil {
                 let registry = registry.clone();
                 let scope = scope.clone();
                 let item = item.clone();
+
                 trace!("ITEM = {:?}", item);
 
                 async move {
@@ -100,7 +100,7 @@ impl WholeStreamCommand for KeepUntil {
                     .await;
                     trace!("RESULT = {:?}", result);
 
-                    !matches!(result, Ok(ref v) if v.is_true())
+                    matches!(result, Ok(ref v) if v.is_true())
                 }
             })
             .to_output_stream())
@@ -109,12 +109,12 @@ impl WholeStreamCommand for KeepUntil {
 
 #[cfg(test)]
 mod tests {
-    use super::KeepUntil;
+    use super::SubCommand;
 
     #[test]
     fn examples_work_as_expected() {
         use crate::examples::test as test_examples;
 
-        test_examples(KeepUntil {})
+        test_examples(SubCommand {})
     }
 }

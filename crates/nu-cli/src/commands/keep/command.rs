@@ -5,15 +5,15 @@ use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 
-pub struct Keep;
+pub struct Command;
 
 #[derive(Deserialize)]
-pub struct KeepArgs {
+pub struct Arguments {
     rows: Option<Tagged<usize>>,
 }
 
 #[async_trait]
-impl WholeStreamCommand for Keep {
+impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "keep"
     }
@@ -22,7 +22,7 @@ impl WholeStreamCommand for Keep {
         Signature::build("keep").optional(
             "rows",
             SyntaxShape::Int,
-            "starting from the front, the number of rows to keep",
+            "Starting from the front, the number of rows to keep",
         )
     }
 
@@ -61,7 +61,7 @@ impl WholeStreamCommand for Keep {
 
 async fn keep(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let (KeepArgs { rows }, input) = args.process(&registry).await?;
+    let (Arguments { rows }, input) = args.process(&registry).await?;
     let rows_desired = if let Some(quantity) = rows {
         *quantity
     } else {
@@ -73,12 +73,12 @@ async fn keep(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
 
 #[cfg(test)]
 mod tests {
-    use super::Keep;
+    use super::Command;
 
     #[test]
     fn examples_work_as_expected() {
         use crate::examples::test as test_examples;
 
-        test_examples(Keep {})
+        test_examples(Command {})
     }
 }
