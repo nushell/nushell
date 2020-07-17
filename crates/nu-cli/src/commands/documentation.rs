@@ -8,7 +8,6 @@ use indexmap::IndexMap;
 use std::collections::HashMap;
 
 const COMMANDS_DOCS_DIR: &str = "docs/commands";
-const COMMAND_DOC_GITHUB_PATH: &str = "https://github.com/nushell/nushell/blob/main/docs/commands";
 
 pub struct DocumentationConfig {
     no_subcommands: bool,
@@ -105,13 +104,13 @@ pub fn generate_docs(registry: &CommandRegistry) -> Value {
 }
 
 fn retrieve_doc_link(name: &str) -> Option<String> {
-    let doc_name = name.split_whitespace().join("-") + ".md"; // Because .replace(" ", "-") didn't work
+    let doc_name = name.split_whitespace().join("_"); // Because .replace(" ", "_") didn't work
     let mut entries =
         std::fs::read_dir(COMMANDS_DOCS_DIR).expect("Directory for command docs are missing!");
     entries.find_map(|r| {
         r.map_or(None, |de| {
-            if de.file_name().to_string_lossy() == doc_name {
-                Some(format!("{}/{}", COMMAND_DOC_GITHUB_PATH, doc_name))
+            if de.file_name().to_string_lossy() == format!("{}.{}", &doc_name, "md") {
+                Some(format!("/commands/{}.{}", &doc_name, "html"))
             } else {
                 None
             }
