@@ -500,8 +500,10 @@ fn shell_os_paths() -> Vec<std::path::PathBuf> {
 mod tests {
     use super::{
         add_quotes, argument_contains_whitespace, argument_is_quoted, expand_tilde, remove_quotes,
-        run_external_command, Context, InputStream,
     };
+    #[cfg(feature = "which")]
+    use super::{run_external_command, Context, InputStream};
+
     #[cfg(feature = "which")]
     use futures::executor::block_on;
     #[cfg(feature = "which")]

@@ -75,7 +75,7 @@ default = [
   "term-support",
   "uuid-support",
 ]
-stable = ["default", "binaryview", "match", "tree", "post", "fetch", "clipboard-cli", "trash-support", "start", "starship-prompt"]
+stable = ["default", "binaryview", "match", "tree", "post", "fetch", "clipboard-cli", "trash-support", "start", "starship-prompt", "bson", "sqlite"]
 
 # Default
 inc = ["semver", "nu_plugin_inc"]
@@ -85,9 +85,11 @@ textview = ["crossterm", "syntect", "url", "nu_plugin_textview"]
 
 # Stable
 binaryview = ["nu_plugin_binaryview"]
+bson = ["nu_plugin_from_bson", "nu_plugin_to_bson"]
 fetch = ["nu_plugin_fetch"]
 match = ["nu_plugin_match"]
 post = ["nu_plugin_post"]
+sqlite = ["nu_plugin_from_sqlite", "nu_plugin_to_sqlite"]
 start = ["nu_plugin_start"]
 trace = ["nu-parser/trace"]
 tree = ["nu_plugin_tree"]

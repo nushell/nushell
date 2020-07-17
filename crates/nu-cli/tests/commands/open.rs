@@ -54,6 +54,7 @@ fn parses_csv() {
 // what appears to be an issue in the bson library that is under investigation.
 //
 
+#[cfg(feature = "bson")]
 #[test]
 fn parses_bson() {
     let actual = nu!(
@@ -64,6 +65,7 @@ fn parses_bson() {
     assert_eq!(actual.out, "hello");
 }
 
+#[cfg(feature = "bson")]
 #[test]
 fn parses_more_bson_complexity() {
     let actual = nu!(
