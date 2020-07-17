@@ -15,6 +15,7 @@ fn sets_the_column() {
     assert_eq!(actual.out, "0.7.0");
 }
 
+#[cfg(features = "inc")]
 #[test]
 fn sets_the_column_from_a_block_run_output() {
     let actual = nu!(
