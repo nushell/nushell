@@ -115,19 +115,10 @@ async fn operate(
                 for path in &column_paths {
                     let options = options.clone();
 
-                    let swapping = ret.swap_data_by_column_path(
+                    ret = ret.swap_data_by_column_path(
                         path,
                         Box::new(move |old| action(old, &options, old.tag())),
-                    );
-
-                    match swapping {
-                        Ok(new_value) => {
-                            ret = new_value;
-                        }
-                        Err(err) => {
-                            return Err(err);
-                        }
-                    }
+                    )?;
                 }
 
                 ReturnSuccess::value(ret)
@@ -150,15 +141,8 @@ fn action(input: &Value, options: &Substring, tag: impl Into<Tag>) -> Result<Val
                 )
             })?;
 
-            let start: isize = options.0.try_into().map_err(|_| {
-                ShellError::labeled_error(
-                    "could not perform substring",
-                    "could not perform substring",
-                    tag.span,
-                )
-            })?;
-
-            let end = options.1;
+            let start: isize = options.0;
+            let end: isize = options.1;
 
             if start < len && end >= 0 {
                 match start.cmp(&end) {

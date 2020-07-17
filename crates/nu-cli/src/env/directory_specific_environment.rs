@@ -55,7 +55,7 @@ impl DirectorySpecificEnvironment {
 
         if autoenv::file_is_trusted(&nu_env_file, &content)? {
             let mut doc: NuEnvDoc = toml::de::from_slice(&content)
-                .or_else(|e| Err(ShellError::untagged_runtime_error(format!("{:?}", e))))?;
+                .map_err(|e| ShellError::untagged_runtime_error(format!("{:?}", e)))?;
 
             if let Some(scripts) = doc.scripts.as_ref() {
                 for (k, v) in scripts {
@@ -244,11 +244,11 @@ fn value_from_script(cmd: &str) -> Result<String, ShellError> {
             cmd
         )));
     }
-    let response = std::str::from_utf8(&command.stdout[..command.stdout.len()]).or_else(|e| {
-        Err(ShellError::untagged_runtime_error(format!(
+    let response = std::str::from_utf8(&command.stdout[..command.stdout.len()]).map_err(|e| {
+        ShellError::untagged_runtime_error(format!(
             "Couldn't parse stdout from command {:?}: {:?}",
             command, e
-        )))
+        ))
     })?;
 
     Ok(response.trim().to_string())

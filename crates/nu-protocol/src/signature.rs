@@ -233,9 +233,9 @@ impl Signature {
         desc: impl Into<String>,
         short: Option<char>,
     ) -> Signature {
-        let s = short.and_then(|c| {
+        let s = short.map(|c| {
             debug_assert!(!self.get_shorts().contains(&c));
-            Some(c)
+            c
         });
         self.named.insert(
             name.into(),
@@ -253,9 +253,9 @@ impl Signature {
         desc: impl Into<String>,
         short: Option<char>,
     ) -> Signature {
-        let s = short.and_then(|c| {
+        let s = short.map(|c| {
             debug_assert!(!self.get_shorts().contains(&c));
-            Some(c)
+            c
         });
 
         self.named.insert(
@@ -273,12 +273,12 @@ impl Signature {
         desc: impl Into<String>,
         short: Option<char>,
     ) -> Signature {
-        let s = short.and_then(|c| {
+        let s = short.map(|c| {
             debug_assert!(
                 !self.get_shorts().contains(&c),
                 "There may be duplicate short flags, such as -h"
             );
-            Some(c)
+            c
         });
 
         self.named
