@@ -141,15 +141,8 @@ fn action(input: &Value, options: &Substring, tag: impl Into<Tag>) -> Result<Val
                 )
             })?;
 
-            let start: isize = options.0.try_into().map_err(|_| {
-                ShellError::labeled_error(
-                    "could not perform substring",
-                    "could not perform substring",
-                    tag.span,
-                )
-            })?;
-
-            let end = options.1;
+            let start: isize = options.0;
+            let end: isize = options.1;
 
             if start < len && end >= 0 {
                 match start.cmp(&end) {
