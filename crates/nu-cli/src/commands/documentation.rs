@@ -88,12 +88,12 @@ pub fn generate_docs(registry: &CommandRegistry) -> Value {
         let mut row_entries = generate_doc(registry, name);
         // Iterate over all the subcommands of the parent command
         let mut sub_table = Vec::new();
-        for sub_name in cmap.get(name).unwrap_or(&Vec::new()).into_iter() {
+        for sub_name in cmap.get(name).unwrap_or(&Vec::new()).iter() {
             let sub_row = generate_doc(registry, sub_name);
             sub_table.push(UntaggedValue::row(sub_row).into_untagged_value());
         }
 
-        if sub_table.len() > 0 {
+        if !sub_table.is_empty() {
             row_entries.insert(
                 "subcommands".to_owned(),
                 UntaggedValue::table(&sub_table).into_untagged_value(),
