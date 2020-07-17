@@ -126,7 +126,7 @@ impl InputStream {
                 }
                 Some(Value {
                     tag: value_tag,
-                    value: v,
+                    value: _,
                 }) => {
                     return Err(ShellError::labeled_error_with_secondary(
                         "Expected binary from pipeline",

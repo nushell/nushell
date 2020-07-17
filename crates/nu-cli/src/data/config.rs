@@ -57,6 +57,8 @@ pub fn default_path_for(file: &Option<PathBuf>) -> Result<PathBuf, ShellError> {
 
 #[cfg(feature = "directories")]
 pub fn user_data() -> Result<PathBuf, ShellError> {
+    use directories::ProjectDirs;
+
     let dir = ProjectDirs::from("org", "nushell", "nu")
         .ok_or_else(|| ShellError::untagged_runtime_error("Couldn't find project directory"))?;
     let path = ProjectDirs::data_local_dir(&dir).to_owned();

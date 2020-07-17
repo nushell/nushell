@@ -62,8 +62,20 @@ serde = {version = "1.0.110", features = ["derive"]}
 toml = "0.5.6"
 
 [features]
-default = ["sys", "ps", "textview", "inc"]
-stable = ["default", "binaryview", "match", "tree", "post", "fetch", "clipboard-cli", "trash-support", "start"]
+default = [
+  "sys",
+  "ps",
+  "textview",
+  "inc",
+  "git-support",
+  "directories-support",
+  "ctrlc-support",
+  "which-support",
+  "ptree-support",
+  "term-support",
+  "uuid-support",
+]
+stable = ["default", "binaryview", "match", "tree", "post", "fetch", "clipboard-cli", "trash-support", "start", "starship-prompt"]
 
 # Default
 inc = ["semver", "nu_plugin_inc"]
@@ -81,8 +93,15 @@ trace = ["nu-parser/trace"]
 tree = ["nu_plugin_tree"]
 
 clipboard-cli = ["nu-cli/clipboard-cli"]
-# starship-prompt = ["nu-cli/starship-prompt"]
+ctrlc-support = ["nu-cli/ctrlc"]
+directories-support = ["nu-cli/directories", "nu-cli/dirs"]
+git-support = ["nu-cli/git2"]
+ptree-support = ["nu-cli/ptree"]
+starship-prompt = ["nu-cli/starship-prompt"]
+term-support = ["nu-cli/term"]
 trash-support = ["nu-cli/trash-support"]
+uuid-support = ["nu-cli/uuid_crate"]
+which-support = ["nu-cli/ichwh", "nu-cli/which"]
 
 # Core plugins that ship with `cargo install nu` by default
 # Currently, Cargo limits us to installing only one binary

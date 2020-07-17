@@ -85,7 +85,7 @@ toml = "0.5.6"
 typetag = "0.1.5"
 umask = "1.0.0"
 unicode-xid = "0.2.1"
-uuid_crate = {package = "uuid", version = "0.8.1", features = ["v4"]}
+uuid_crate = {package = "uuid", version = "0.8.1", features = ["v4"], optional = true}
 which = {version = "4.0.1", optional = true}
 
 clipboard = {version = "0.5", optional = true}
@@ -116,7 +116,7 @@ quickcheck = "0.9"
 quickcheck_macros = "0.9"
 
 [features]
-stable = []
-# starship-prompt = ["starship"]
 clipboard-cli = ["clipboard"]
+stable = []
+starship-prompt = ["starship"]
 trash-support = ["trash"]

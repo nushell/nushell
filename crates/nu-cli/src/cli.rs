@@ -12,6 +12,7 @@ use futures_codec::FramedRead;
 use nu_errors::{ProximateShellError, ShellDiagnostic, ShellError};
 use nu_protocol::hir::{ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments};
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
+#[allow(unused)]
 use nu_source::Tagged;
 
 use log::{debug, trace};
@@ -406,6 +407,7 @@ pub fn create_default_context(
             whole_stream_command(Random),
             whole_stream_command(RandomBool),
             whole_stream_command(RandomDice),
+            #[cfg(feature = "uuid_crate")]
             whole_stream_command(RandomUUID),
         ]);
 
@@ -427,16 +429,18 @@ pub async fn run_vec_of_pipelines(
 
     let _ = crate::load_plugins(&mut context);
 
-    let cc = context.ctrl_c.clone();
-
     #[cfg(feature = "ctrlc")]
-    ctrlc::set_handler(move || {
-        cc.store(true, Ordering::SeqCst);
-    })
-    .expect("Error setting Ctrl-C handler");
+    {
+        let cc = context.ctrl_c.clone();
 
-    if context.ctrl_c.load(Ordering::SeqCst) {
-        context.ctrl_c.store(false, Ordering::SeqCst);
+        ctrlc::set_handler(move || {
+            cc.store(true, Ordering::SeqCst);
+        })
+        .expect("Error setting Ctrl-C handler");
+
+        if context.ctrl_c.load(Ordering::SeqCst) {
+            context.ctrl_c.store(false, Ordering::SeqCst);
+        }
     }
 
     // before we start up, let's run our startup commands
@@ -553,13 +557,15 @@ pub async fn cli(
     // we are ok if history does not exist
     let _ = rl.load_history(&History::path());
 
-    let cc = context.ctrl_c.clone();
-
     #[cfg(feature = "ctrlc")]
-    ctrlc::set_handler(move || {
-        cc.store(true, Ordering::SeqCst);
-    })
-    .expect("Error setting Ctrl-C handler");
+    {
+        let cc = context.ctrl_c.clone();
+
+        ctrlc::set_handler(move || {
+            cc.store(true, Ordering::SeqCst);
+        })
+        .expect("Error setting Ctrl-C handler");
+    }
     let mut ctrlcbreak = false;
 
     // before we start up, let's run our startup commands

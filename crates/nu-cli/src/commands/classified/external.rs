@@ -418,18 +418,19 @@ fn spawn(
     }
 }
 
-pub fn did_find_command(name: &str) -> bool {
-    #[cfg(target_arch = "wasm32")]
+pub fn did_find_command(#[allow(unused)] name: &str) -> bool {
+    #[cfg(not(feature = "which"))]
     {
-        false
+        // we can't perform this check, so just assume it can be found
+        true
     }
 
-    #[cfg(not(any(windows, target_arch = "wasm32")))]
+    #[cfg(all(feature = "which", unix))]
     {
         which::which(name).is_ok()
     }
 
-    #[cfg(windows)]
+    #[cfg(all(feature = "which", windows))]
     {
         if which::which(name).is_ok() {
             true
@@ -501,9 +502,13 @@ mod tests {
         add_quotes, argument_contains_whitespace, argument_is_quoted, expand_tilde, remove_quotes,
         run_external_command, Context, InputStream,
     };
+    #[cfg(feature = "which")]
     use futures::executor::block_on;
+    #[cfg(feature = "which")]
     use nu_errors::ShellError;
+    #[cfg(feature = "which")]
     use nu_protocol::Scope;
+    #[cfg(feature = "which")]
     use nu_test_support::commands::ExternalBuilder;
 
     // async fn read(mut stream: OutputStream) -> Option<Value> {
@@ -519,6 +524,7 @@ mod tests {
     //     }
     // }
 
+    #[cfg(feature = "which")]
     async fn non_existent_run() -> Result<(), ShellError> {
         let cmd = ExternalBuilder::for_name("i_dont_exist.exe").build();
 
@@ -558,6 +564,7 @@ mod tests {
     //     block_on(failure_run())
     // }
 
+    #[cfg(feature = "which")]
     #[test]
     fn identifies_command_not_found() -> Result<(), ShellError> {
         block_on(non_existent_run())

@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use std::ffi::OsString;
 
 pub fn current_branch() -> Option<String> {
     if let Ok(config) = crate::data::config::config(Tag::unknown()) {
@@ -12,11 +11,12 @@ pub fn current_branch() -> Option<String> {
         };
 
         if !use_starship {
-            let v: Vec<OsString> = vec![];
-
             #[cfg(feature = "git2")]
             {
                 use git2::{Repository, RepositoryOpenFlags};
+                use std::ffi::OsString;
+
+                let v: Vec<OsString> = vec![];
                 match Repository::open_ext(".", RepositoryOpenFlags::empty(), v) {
                     Ok(repo) => {
                         let r = repo.head();

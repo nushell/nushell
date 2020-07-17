@@ -210,7 +210,9 @@ pub(crate) use pivot::Pivot;
 pub(crate) use prepend::Prepend;
 pub(crate) use prev::Previous;
 pub(crate) use pwd::Pwd;
-pub(crate) use random::{Random, RandomBool, RandomDice, RandomUUID};
+#[cfg(feature = "uuid_crate")]
+pub(crate) use random::RandomUUID;
+pub(crate) use random::{Random, RandomBool, RandomDice};
 pub(crate) use range::Range;
 pub(crate) use reject::Reject;
 pub(crate) use rename::Rename;

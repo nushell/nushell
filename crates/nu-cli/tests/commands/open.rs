@@ -130,6 +130,7 @@ fn parses_more_bson_complexity() {
 //  4 │
 // ━━━┷━━━━━━
 
+#[cfg(feature = "sqlite")]
 #[test]
 fn parses_sqlite() {
     let actual = nu!(

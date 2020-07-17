@@ -5,7 +5,7 @@ use crate::prelude::*;
 use derive_new::new;
 #[cfg(all(windows, feature = "ichwh"))]
 use ichwh::IchwhError;
-#[cfg(feature = "ichwh")]
+#[cfg(all(windows, feature = "ichwh"))]
 use ichwh::IchwhResult;
 use indexmap::set::IndexSet;
 use rustyline::completion::{Completer, FilenameCompleter};
