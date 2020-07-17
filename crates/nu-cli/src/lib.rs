@@ -15,6 +15,7 @@ extern crate quickcheck_macros;
 
 mod cli;
 mod commands;
+mod completion;
 mod context;
 pub mod data;
 mod deserializer;

@@ -5,6 +5,7 @@ use crate::commands::ls::LsArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::move_::mv::Arguments as MvArgs;
 use crate::commands::rm::RemoveArgs;
+use crate::completion;
 use crate::data::command_dict;
 use crate::prelude::*;
 use crate::shell::shell::Shell;
@@ -220,15 +221,15 @@ impl Shell for HelpShell {
             "save on help shell is not supported",
         ))
     }
+}
 
+impl completion::Completer for HelpShell {
     fn complete(
         &self,
         line: &str,
         pos: usize,
-        _ctx: &rustyline::Context<'_>,
-    ) -> Result<(usize, Vec<rustyline::completion::Pair>), rustyline::error::ReadlineError> {
-        let mut completions = vec![];
-
+        _ctx: &completion::Context<'_>,
+    ) -> Result<(usize, Vec<completion::Suggestion>), ShellError> {
         let mut possible_completion = vec![];
         let commands = self.commands();
         for cmd in commands {
@@ -247,6 +248,7 @@ impl Shell for HelpShell {
             replace_pos -= 1;
         }
 
+        let mut completions = vec![];
         for command in possible_completion.iter() {
             let mut pos = replace_pos;
             let mut matched = true;
@@ -264,7 +266,7 @@ impl Shell for HelpShell {
             }
 
             if matched {
-                completions.push(rustyline::completion::Pair {
+                completions.push(completion::Suggestion {
                     display: command.to_string(),
                     replacement: command.to_string(),
                 });
@@ -273,7 +275,7 @@ impl Shell for HelpShell {
         Ok((replace_pos, completions))
     }
 
-    fn hint(&self, _line: &str, _pos: usize, _ctx: &rustyline::Context<'_>) -> Option<String> {
+    fn hint(&self, _line: &str, _pos: usize, _ctx: &completion::Context<'_>) -> Option<String> {
         None
     }
 }

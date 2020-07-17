@@ -6,10 +6,12 @@ use crate::commands::ls::LsArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::move_::mv::Arguments as MvArgs;
 use crate::commands::rm::RemoveArgs;
+use crate::completion::{self, Completer};
 use crate::prelude::*;
 use crate::shell::filesystem_shell::FilesystemShell;
 use crate::shell::shell::Shell;
 use crate::stream::OutputStream;
+
 use encoding_rs::Encoding;
 use nu_errors::ShellError;
 use parking_lot::Mutex;
@@ -102,25 +104,6 @@ impl ShellManager {
         self.shells.lock()[self.current_shell()].save(full_path, save_data, name)
     }
 
-    pub fn complete(
-        &self,
-        line: &str,
-        pos: usize,
-        ctx: &rustyline::Context<'_>,
-    ) -> Result<(usize, Vec<rustyline::completion::Pair>), rustyline::error::ReadlineError> {
-        self.shells.lock()[self.current_shell()].complete(line, pos, ctx)
-    }
-
-    pub fn hint(
-        &self,
-        line: &str,
-        pos: usize,
-        ctx: &rustyline::Context<'_>,
-        //context: ExpandContext,
-    ) -> Option<String> {
-        self.shells.lock()[self.current_shell()].hint(line, pos, ctx)
-    }
-
     pub fn next(&mut self) {
         {
             let shell_len = self.shells.lock().len();
@@ -196,5 +179,26 @@ impl ShellManager {
 
         let path = shells[self.current_shell()].path();
         shells[self.current_shell()].mv(args, name, &path)
+    }
+}
+
+impl Completer for ShellManager {
+    fn complete(
+        &self,
+        line: &str,
+        pos: usize,
+        ctx: &completion::Context<'_>,
+    ) -> Result<(usize, Vec<completion::Suggestion>), ShellError> {
+        self.shells.lock()[self.current_shell()].complete(line, pos, ctx)
+    }
+
+    fn hint(
+        &self,
+        line: &str,
+        pos: usize,
+        ctx: &completion::Context<'_>,
+        //context: ExpandContext,
+    ) -> Option<String> {
+        self.shells.lock()[self.current_shell()].hint(line, pos, ctx)
     }
 }
