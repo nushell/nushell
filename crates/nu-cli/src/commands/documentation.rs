@@ -45,7 +45,7 @@ pub fn generate_docs(registry: &CommandRegistry) -> Value {
     }
     // Return documentation for each command
     // Subcommands are nested under there parent command
-    let mut row = indexmap::IndexMap::new();
+    let mut table = Vec::new();
     for name in sorted_names.iter() {
         // Must be a sub-command, skip since it's being handled underneath when we hit the parent command
         if !cmap.contains_key(name) {
@@ -55,6 +55,10 @@ pub fn generate_docs(registry: &CommandRegistry) -> Value {
         let command = registry
             .get_command(name)
             .unwrap_or_else(|| panic!("Expected command '{}' from names to be in registry", name));
+        row_entries.insert(
+            "name".to_owned(),
+            UntaggedValue::string(name).into_untagged_value(),
+        );
         row_entries.insert(
             "usage".to_owned(),
             UntaggedValue::string(command.usage()).into_untagged_value(),
@@ -78,25 +82,30 @@ pub fn generate_docs(registry: &CommandRegistry) -> Value {
             .into_untagged_value(),
         );
         // Iterate over all the subcommands of the parent command
+        let mut sub_table = Vec::new();
         for sub_name in cmap.get(name).unwrap_or(&Vec::new()).into_iter() {
-            let mut sub_entries = IndexMap::new();
             let sub_command = registry.get_command(sub_name).unwrap_or_else(|| {
                 panic!(
                     "Expected command '{}' from names to be in registry",
                     sub_name
                 )
             });
-            sub_entries.insert(
+            let mut sub_row = IndexMap::new();
+            sub_row.insert(
+                "name".to_owned(),
+                UntaggedValue::string(sub_name).into_untagged_value(),
+            );
+            sub_row.insert(
                 "usage".to_owned(),
                 UntaggedValue::string(sub_command.usage()).into_untagged_value(),
             );
             retrieve_doc_link(sub_name).and_then(|link| {
-                sub_entries.insert(
+                sub_row.insert(
                     "doc_link".to_owned(),
                     UntaggedValue::string(link).into_untagged_value(),
                 )
             });
-            sub_entries.insert(
+            sub_row.insert(
                 "documentation".to_owned(),
                 UntaggedValue::string(get_documentation(
                     sub_command.stream_command(),
@@ -108,13 +117,18 @@ pub fn generate_docs(registry: &CommandRegistry) -> Value {
                 ))
                 .into_untagged_value(),
             );
+            sub_table.push(UntaggedValue::row(sub_row).into_untagged_value());
         }
-        row.insert(
-            name.to_owned(),
-            UntaggedValue::row(row_entries).into_untagged_value(),
-        );
+
+        if sub_table.len() > 0 {
+            row_entries.insert(
+                "subcommands".to_owned(),
+                UntaggedValue::table(&sub_table).into_untagged_value(),
+            );
+        }
+        table.push(UntaggedValue::row(row_entries).into_untagged_value());
     }
-    UntaggedValue::row(row).into_untagged_value()
+    UntaggedValue::table(&table).into_untagged_value()
 }
 
 fn retrieve_doc_link(name: &str) -> Option<String> {
