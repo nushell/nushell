@@ -41,6 +41,7 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
 fn autoenv() {
     Playground::setup("autoenv_test", |dirs, sandbox| {
         sandbox.mkdir("foo/bar");
+        sandbox.mkdir("bizz/buzz");
         sandbox.mkdir("foob");
 
         let scriptfile = if cfg!(target_os = "windows") {
@@ -77,14 +78,52 @@ fn autoenv() {
                 "foo/.nu-env",
                 r#"[env]
                     overwrite_me = "set_in_foo"
-                    fookey = "fooval""#,
+                    fookey = "fooval" "#,
             ),
             FileWithContent(
                 "foo/bar/.nu-env",
                 r#"[env]
                     overwrite_me = "set_in_bar""#,
             ),
+            FileWithContent(
+                "bizz/.nu-env",
+                r#"[scripts]
+                    entryscripts = ["touch hello.txt"]
+                    exitscripts = ["touch bye.txt"]"#,
+            ),
         ]);
+
+        // Make sure entry scripts are run
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"cd ..
+               autoenv trust autoenv_test
+               cd autoenv_test
+               ls | where name == "hello.txt" | get name"#
+        );
+        assert!(actual.out.contains("hello.txt"));
+
+        // Make sure entry scripts are run when re-visiting a directory
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust bizz
+               cd bizz
+               rm hello.txt
+               cd ..
+               cd bizz
+               ls | where name == "hello.txt" | get name"#
+        );
+        assert!(actual.out.contains("hello.txt"));
+
+        // Entryscripts should not run after changing to a subdirectory.
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust bizz
+               cd bizz
+               cd buzz
+               ls | where name == hello.txt | get name"#
+        );
+        assert!(!actual.out.ends_with("hello.txt"));
 
         //Make sure basic keys are set
         let actual = nu!(
@@ -145,16 +184,6 @@ fn autoenv() {
         );
         assert!(actual.out.contains("bye.txt"));
 
-        //Subdirectories should overwrite the values of parent directories.
-        let actual = nu!(
-            cwd: dirs.test(),
-            r#"autoenv trust foo
-                   cd foo/bar
-                   autoenv trust
-                   echo $nu.env.overwrite_me"#
-        );
-        assert!(actual.out.ends_with("set_in_bar"));
-
         //Variables set in parent directories should be set even if you directly cd to a subdir
         let actual = nu!(
             cwd: dirs.test(),
@@ -164,6 +193,16 @@ fn autoenv() {
                    echo $nu.env.fookey"#
         );
         assert!(actual.out.ends_with("fooval"));
+
+        //Subdirectories should overwrite the values of parent directories.
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust foo
+                   cd foo/bar
+                   autoenv trust
+                   echo $nu.env.overwrite_me"#
+        );
+        assert!(actual.out.ends_with("set_in_bar"));
 
         //Make sure that overwritten values are restored.
         //By deleting foo/.nu-env, we make sure that the value is actually restored and not just set again by autoenv when we re-visit foo.

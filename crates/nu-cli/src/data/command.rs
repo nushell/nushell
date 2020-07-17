@@ -38,10 +38,7 @@ fn signature_dict(signature: Signature, tag: impl Into<Tag>) -> Value {
     let mut sig = TaggedListBuilder::new(&tag);
 
     for arg in signature.positional.iter() {
-        let is_required = match arg.0 {
-            PositionalType::Mandatory(_, _) => true,
-            PositionalType::Optional(_, _) => false,
-        };
+        let is_required = matches!(arg.0, PositionalType::Mandatory(_, _));
 
         sig.push_value(for_spec(arg.0.name(), "argument", is_required, &tag));
     }

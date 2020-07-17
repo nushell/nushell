@@ -81,28 +81,17 @@ async fn operate(
     Ok(input
         .map(move |v| {
             if column_paths.is_empty() {
-                match action(&v, &options, v.tag()) {
-                    Ok(out) => ReturnSuccess::value(out),
-                    Err(err) => Err(err),
-                }
+                ReturnSuccess::value(action(&v, &options, v.tag())?)
             } else {
                 let mut ret = v;
 
                 for path in &column_paths {
                     let options = options.clone();
-                    let swapping = ret.swap_data_by_column_path(
+
+                    ret = ret.swap_data_by_column_path(
                         path,
                         Box::new(move |old| action(old, &options, old.tag())),
-                    );
-
-                    match swapping {
-                        Ok(new_value) => {
-                            ret = new_value;
-                        }
-                        Err(err) => {
-                            return Err(err);
-                        }
-                    }
+                    )?;
                 }
 
                 ReturnSuccess::value(ret)
@@ -123,7 +112,13 @@ fn action(
 
             let out = match DateTime::parse_from_str(s, dt) {
                 Ok(d) => UntaggedValue::date(d),
-                Err(_) => UntaggedValue::string(s),
+                Err(reason) => {
+                    return Err(ShellError::labeled_error(
+                        "could not parse as datetime",
+                        reason.to_string(),
+                        tag.into().span,
+                    ))
+                }
             };
 
             Ok(out.into_value(tag))
@@ -165,5 +160,16 @@ mod tests {
             UntaggedValue::Primitive(Primitive::Date(_)) => {}
             _ => panic!("Didn't convert to date"),
         }
+    }
+
+    #[test]
+    fn communicates_parsing_error_given_an_invalid_datetimelike_string() {
+        let date_str = string("16.11.1984 8:00 am Oops0000");
+
+        let fmt_options = DatetimeFormat("%d.%m.%Y %H:%M %P %z".to_string());
+
+        let actual = action(&date_str, &fmt_options, Tag::unknown());
+
+        assert!(actual.is_err());
     }
 }

@@ -5,20 +5,20 @@ use log::trace;
 use nu_errors::ShellError;
 use nu_protocol::{hir::ClassifiedCommand, Signature, SyntaxShape, UntaggedValue, Value};
 
-pub struct SkipWhile;
+pub struct SubCommand;
 
 #[async_trait]
-impl WholeStreamCommand for SkipWhile {
+impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
-        "skip-while"
+        "skip while"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("skip-while")
+        Signature::build("skip while")
             .required(
                 "condition",
                 SyntaxShape::Math,
-                "the condition that must be met to continue skipping",
+                "The condition that must be met to continue skipping",
             )
             .filter()
     }
@@ -99,10 +99,7 @@ impl WholeStreamCommand for SkipWhile {
                     .await;
                     trace!("RESULT = {:?}", result);
 
-                    match result {
-                        Ok(ref v) if v.is_true() => true,
-                        _ => false,
-                    }
+                    matches!(result, Ok(ref v) if v.is_true())
                 }
             })
             .to_output_stream())
@@ -111,12 +108,12 @@ impl WholeStreamCommand for SkipWhile {
 
 #[cfg(test)]
 mod tests {
-    use super::SkipWhile;
+    use super::SubCommand;
 
     #[test]
     fn examples_work_as_expected() {
         use crate::examples::test as test_examples;
 
-        test_examples(SkipWhile {})
+        test_examples(SubCommand {})
     }
 }

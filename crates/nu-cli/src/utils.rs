@@ -8,10 +8,7 @@ use nu_protocol::{UntaggedValue, Value};
 use std::path::{Component, Path, PathBuf};
 
 fn is_value_tagged_dir(value: &Value) -> bool {
-    match &value.value {
-        UntaggedValue::Row(_) | UntaggedValue::Table(_) => true,
-        _ => false,
-    }
+    matches!(&value.value, UntaggedValue::Row(_) | UntaggedValue::Table(_))
 }
 
 #[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -40,10 +37,7 @@ impl ValueStructure {
         }
 
         let path = if path.starts_with("/") {
-            match path.strip_prefix("/") {
-                Ok(p) => p,
-                Err(_) => path,
-            }
+            path.strip_prefix("/").unwrap_or(path)
         } else {
             path
         };

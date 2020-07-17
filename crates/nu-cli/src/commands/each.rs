@@ -74,16 +74,13 @@ impl WholeStreamCommand for Each {
 }
 
 fn is_expanded_it_usage(head: &SpannedExpression) -> bool {
-    match &*head {
-        SpannedExpression {
-            expr: Expression::Synthetic(Synthetic::String(s)),
-            ..
-        } if s == "expanded-each" => true,
-        _ => false,
-    }
+    matches!(&*head, SpannedExpression {
+        expr: Expression::Synthetic(Synthetic::String(s)),
+        ..
+    } if s == "expanded-each")
 }
 
-async fn process_row(
+pub async fn process_row(
     block: Arc<Block>,
     scope: Arc<Scope>,
     head: Arc<Box<SpannedExpression>>,

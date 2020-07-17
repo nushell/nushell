@@ -35,12 +35,13 @@ impl WholeStreamCommand for Command {
 mod tests {
     use super::*;
     use crate::commands::math::{
-        avg::average, max::maximum, median::median, min::minimum, mode::mode, sum::summation,
-        utils::calculate, utils::MathFunction,
+        avg::average, max::maximum, median::median, min::minimum, mode::mode, stddev::stddev,
+        sum::summation, utils::calculate, utils::MathFunction, variance::variance,
     };
     use nu_plugin::row;
     use nu_plugin::test_helpers::value::{decimal, int, table};
     use nu_protocol::Value;
+    use std::str::FromStr;
 
     #[test]
     fn examples_work_as_expected() {
@@ -75,7 +76,9 @@ mod tests {
                     Ok(int(10)),
                     Ok(int(10)),
                     Ok(table(&[int(10)])),
+                    Ok(decimal(0)),
                     Ok(int(10)),
+                    Ok(decimal(0)),
                 ],
             },
             TestCase {
@@ -88,7 +91,9 @@ mod tests {
                     Ok(int(30)),
                     Ok(int(20)),
                     Ok(table(&[int(10), int(20), int(30)])),
+                    Ok(decimal(BigDecimal::from_str("8.164965809277260327324280249019637973219824935522233761442308557503201258191050088466198110348800783").expect("Could not convert to decimal from string"))),
                     Ok(int(60)),
+                    Ok(decimal(BigDecimal::from_str("66.66666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666667").expect("Could not convert to decimal from string"))),
                 ],
             },
             TestCase {
@@ -101,7 +106,9 @@ mod tests {
                     Ok(decimal(26.5)),
                     Ok(decimal(26.5)),
                     Ok(table(&[decimal(26.5)])),
+                    Ok(decimal(BigDecimal::from_str("7.77817459305202276840928798315333943213319531457321440247173855894902863154158871367713143880202865").expect("Could not convert to decimal from string"))),
                     Ok(decimal(63)),
+                    Ok(decimal(60.5)),
                 ],
             },
             TestCase {
@@ -114,7 +121,9 @@ mod tests {
                     Ok(int(10)),
                     Ok(int(-11)),
                     Ok(table(&[int(-14), int(-11), int(10)])),
+                    Ok(decimal(BigDecimal::from_str("10.67707825203131121081152396559571062628228776946058011397810604284900898365140801704064843595778374").expect("Could not convert to decimal from string"))),
                     Ok(int(-15)),
+                    Ok(decimal(114)),
                 ],
             },
             TestCase {
@@ -127,7 +136,9 @@ mod tests {
                     Ok(int(10)),
                     Ok(decimal(-11.5)),
                     Ok(table(&[decimal(-13.5), decimal(-11.5), int(10)])),
+                    Ok(decimal(BigDecimal::from_str("10.63798226482196513098036125801342585449179971588207816421068645273754903468375890632981926875247027").expect("Could not convert to decimal from string"))),
                     Ok(decimal(-15)),
+                    Ok(decimal(BigDecimal::from_str("113.1666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666667").expect("Could not convert to decimal from string"))),
                 ],
             },
             TestCase {
@@ -147,8 +158,13 @@ mod tests {
                     Ok(row![
                         "col1".to_owned() => table(&[int(1), int(2), int(3), int(4)]),
                         "col2".to_owned() => table(&[int(5), int(6), int(7), int(8)])
+                        ]),
+                    Ok(row![
+                        "col1".to_owned() => decimal(BigDecimal::from_str("1.118033988749894848204586834365638117720309179805762862135448622705260462818902449707207204189391137").expect("Could not convert to decimal from string")), 
+                        "col2".to_owned() => decimal(BigDecimal::from_str("1.118033988749894848204586834365638117720309179805762862135448622705260462818902449707207204189391137").expect("Could not convert to decimal from string"))
                     ]),
                     Ok(row!["col1".to_owned() => int(10), "col2".to_owned() => int(26)]),
+                    Ok(row!["col1".to_owned() => decimal(1.25), "col2".to_owned() => decimal(1.25)]),
                 ],
             },
             // TODO-Uncomment once Issue: https://github.com/nushell/nushell/issues/1883 is resolved
@@ -162,8 +178,9 @@ mod tests {
         let test_tag = Tag::unknown();
         for tc in tt.iter() {
             let tc: &TestCase = tc; // Just for type annotations
-            let math_functions: Vec<MathFunction> =
-                vec![average, minimum, maximum, median, mode, summation];
+            let math_functions: Vec<MathFunction> = vec![
+                average, minimum, maximum, median, mode, stddev, summation, variance,
+            ];
             let results = math_functions
                 .into_iter()
                 .map(|mf| calculate(&tc.values, &test_tag, mf))

@@ -7,7 +7,7 @@ use crate::utils::data::group;
 #[allow(clippy::type_complexity)]
 pub fn split(
     value: &Value,
-    splitter: &Option<Box<dyn Fn(&Value) -> Result<String, ShellError> + Send>>,
+    splitter: &Option<Box<dyn Fn(usize, &Value) -> Result<String, ShellError> + Send>>,
     tag: impl Into<Tag>,
 ) -> Result<Value, ShellError> {
     let tag = tag.into();

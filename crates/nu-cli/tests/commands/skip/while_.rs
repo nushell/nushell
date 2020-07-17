@@ -4,7 +4,7 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn condition_is_met() {
-    Playground::setup("keep-until_test_1", |dirs, sandbox| {
+    Playground::setup("skip_while_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "caballeros.txt",
             r#"
@@ -12,20 +12,20 @@ fn condition_is_met() {
                 --------------------------------------------------------------------
                 Chicken Collection,29/04/2020,30/04/2020,31/04/2020,
                 Yellow Chickens,,,
-                Andrés,1,1,1
-                Jonathan,1,1,1
-                Jason,1,1,1
-                Yehuda,1,1,1
+                Andrés,0,0,1
+                Jonathan,0,0,1
+                Jason,0,0,1
+                Yehuda,0,0,1
                 Blue Chickens,,,
-                Andrés,1,1,2
-                Jonathan,1,1,2
-                Jason,1,1,2
-                Yehuda,1,1,2
+                Andrés,0,0,1
+                Jonathan,0,0,1
+                Jason,0,0,1
+                Yehuda,0,0,2
                 Red Chickens,,,
-                Andrés,1,1,3
-                Jonathan,1,1,3
-                Jason,1,1,3
-                Yehuda,1,1,3
+                Andrés,0,0,1
+                Jonathan,0,0,1
+                Jason,0,0,1
+                Yehuda,0,0,3
             "#,
         )]);
 
@@ -37,8 +37,7 @@ fn condition_is_met() {
                 | skip 2
                 | split column ','
                 | headers
-                | skip while "Chicken Collection" != "Blue Chickens"
-                | keep-until "Chicken Collection" == "Red Chickens"
+                | skip while "Chicken Collection" != "Red Chickens"
                 | skip 1
                 | str to-int "31/04/2020"
                 | get "31/04/2020"
@@ -47,6 +46,6 @@ fn condition_is_met() {
                 "#
         ));
 
-        assert_eq!(actual.out, "8");
+        assert_eq!(actual.out, "6");
     })
 }
