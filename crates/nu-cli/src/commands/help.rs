@@ -1,12 +1,10 @@
 use crate::commands::WholeStreamCommand;
 use crate::data::command_dict;
+use crate::documentation::{generate_docs, get_documentation, DocumentationConfig};
 
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{
-    NamedType, PositionalType, ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder,
-    UntaggedValue,
-};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue};
 use nu_source::{SpannedItem, Tagged};
 use nu_value_ext::get_data_by_key;
 
@@ -98,6 +96,10 @@ async fn help(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
                 }))
                 .to_output_stream(),
             )
+        } else if rest[0].item == "generate_docs" {
+            Ok(OutputStream::one(ReturnSuccess::value(generate_docs(
+                &registry,
+            ))))
         } else if rest.len() == 2 {
             // Check for a subcommand
             let command_name = format!("{} {}", rest[0].item, rest[1].item);
@@ -150,165 +152,8 @@ You can also learn more at https://www.nushell.sh/book/"#;
     }
 }
 
-#[allow(clippy::cognitive_complexity)]
 pub fn get_help(cmd: &dyn WholeStreamCommand, registry: &CommandRegistry) -> String {
-    let cmd_name = cmd.name();
-    let signature = cmd.signature();
-    let mut long_desc = String::new();
-
-    long_desc.push_str(&cmd.usage());
-    long_desc.push_str("\n");
-
-    let mut subcommands = String::new();
-    for name in registry.names() {
-        if name.starts_with(&format!("{} ", cmd_name)) {
-            let subcommand = registry.get_command(&name).expect("This shouldn't happen");
-
-            subcommands.push_str(&format!("  {} - {}\n", name, subcommand.usage()));
-        }
-    }
-
-    let mut one_liner = String::new();
-    one_liner.push_str(&signature.name);
-    one_liner.push_str(" ");
-
-    for positional in &signature.positional {
-        match &positional.0 {
-            PositionalType::Mandatory(name, _m) => {
-                one_liner.push_str(&format!("<{}> ", name));
-            }
-            PositionalType::Optional(name, _o) => {
-                one_liner.push_str(&format!("({}) ", name));
-            }
-        }
-    }
-
-    if signature.rest_positional.is_some() {
-        one_liner.push_str(" ...args");
-    }
-
-    if !subcommands.is_empty() {
-        one_liner.push_str("<subcommand> ");
-    }
-
-    if !signature.named.is_empty() {
-        one_liner.push_str("{flags} ");
-    }
-
-    long_desc.push_str(&format!("\nUsage:\n  > {}\n", one_liner));
-
-    if !subcommands.is_empty() {
-        long_desc.push_str("\nSubcommands:\n");
-        long_desc.push_str(&subcommands);
-    }
-
-    if !signature.positional.is_empty() || signature.rest_positional.is_some() {
-        long_desc.push_str("\nParameters:\n");
-        for positional in &signature.positional {
-            match &positional.0 {
-                PositionalType::Mandatory(name, _m) => {
-                    long_desc.push_str(&format!("  <{}> {}\n", name, positional.1));
-                }
-                PositionalType::Optional(name, _o) => {
-                    long_desc.push_str(&format!("  ({}) {}\n", name, positional.1));
-                }
-            }
-        }
-
-        if let Some(rest_positional) = &signature.rest_positional {
-            long_desc.push_str(&format!("  ...args: {}\n", rest_positional.1));
-        }
-    }
-    if !signature.named.is_empty() {
-        long_desc.push_str(&get_flags_section(&signature))
-    }
-
-    let palette = crate::shell::palette::DefaultPalette {};
-    let examples = cmd.examples();
-    if !examples.is_empty() {
-        long_desc.push_str("\nExamples:");
-    }
-    for example in examples {
-        long_desc.push_str("\n");
-        long_desc.push_str("  ");
-        long_desc.push_str(example.description);
-        let colored_example =
-            crate::shell::helper::Painter::paint_string(example.example, registry, &palette);
-        long_desc.push_str(&format!("\n  > {}\n", colored_example));
-    }
-
-    long_desc.push_str("\n");
-
-    long_desc
-}
-
-fn get_flags_section(signature: &Signature) -> String {
-    let mut long_desc = String::new();
-    long_desc.push_str("\nFlags:\n");
-    for (flag, ty) in &signature.named {
-        let msg = match ty.0 {
-            NamedType::Switch(s) => {
-                if let Some(c) = s {
-                    format!(
-                        "  -{}, --{}{} {}\n",
-                        c,
-                        flag,
-                        if !ty.1.is_empty() { ":" } else { "" },
-                        ty.1
-                    )
-                } else {
-                    format!(
-                        "  --{}{} {}\n",
-                        flag,
-                        if !ty.1.is_empty() { ":" } else { "" },
-                        ty.1
-                    )
-                }
-            }
-            NamedType::Mandatory(s, m) => {
-                if let Some(c) = s {
-                    format!(
-                        "  -{}, --{} <{}> (required parameter){} {}\n",
-                        c,
-                        flag,
-                        m.display(),
-                        if !ty.1.is_empty() { ":" } else { "" },
-                        ty.1
-                    )
-                } else {
-                    format!(
-                        "  --{} <{}> (required parameter){} {}\n",
-                        flag,
-                        m.display(),
-                        if !ty.1.is_empty() { ":" } else { "" },
-                        ty.1
-                    )
-                }
-            }
-            NamedType::Optional(s, o) => {
-                if let Some(c) = s {
-                    format!(
-                        "  -{}, --{} <{}>{} {}\n",
-                        c,
-                        flag,
-                        o.display(),
-                        if !ty.1.is_empty() { ":" } else { "" },
-                        ty.1
-                    )
-                } else {
-                    format!(
-                        "  --{} <{}>{} {}\n",
-                        flag,
-                        o.display(),
-                        if !ty.1.is_empty() { ":" } else { "" },
-                        ty.1
-                    )
-                }
-            }
-        };
-        long_desc.push_str(&msg);
-    }
-    long_desc
+    get_documentation(cmd, registry, &DocumentationConfig::default())
 }
 
 #[cfg(test)]

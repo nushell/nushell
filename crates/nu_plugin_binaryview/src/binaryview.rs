@@ -243,12 +243,10 @@ pub fn view_contents(
                 image::FilterType::Lanczos3,
             );
 
-            let mut count = 0;
-            for pixel in resized_img.pixels() {
+            for (count, pixel) in resized_img.pixels().enumerate() {
                 use image::Pixel;
                 let rgb = pixel.to_rgb();
                 render_context.frame_buffer[count] = (rgb[0], rgb[1], rgb[2]);
-                count += 1;
             }
         }
         image::ColorType::RGB(8) => {
@@ -266,12 +264,10 @@ pub fn view_contents(
                 image::FilterType::Lanczos3,
             );
 
-            let mut count = 0;
-            for pixel in resized_img.pixels() {
+            for (count, pixel) in resized_img.pixels().enumerate() {
                 use image::Pixel;
                 let rgb = pixel.to_rgb();
                 render_context.frame_buffer[count] = (rgb[0], rgb[1], rgb[2]);
-                count += 1;
             }
         }
         _ => {
@@ -351,13 +347,11 @@ pub fn view_contents_interactive(
 
             render_context.clear();
 
-            let mut count = 0;
-            for pixel in resized_img.pixels() {
+            for (count, pixel) in resized_img.pixels().enumerate() {
                 use image::Pixel;
                 let rgb = pixel.to_rgb();
 
                 render_context.frame_buffer[count] = (rgb[0], rgb[1], rgb[2]);
-                count += 1;
             }
             render_context.flush()?;
 

@@ -343,6 +343,10 @@ impl Command {
         self.0.usage()
     }
 
+    pub fn examples(&self) -> Vec<Example> {
+        self.0.examples()
+    }
+
     pub async fn run(
         &self,
         args: CommandArgs,
