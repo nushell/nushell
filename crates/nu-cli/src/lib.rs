@@ -18,6 +18,7 @@ mod commands;
 mod context;
 pub mod data;
 mod deserializer;
+mod documentation;
 mod env;
 mod evaluate;
 mod format;

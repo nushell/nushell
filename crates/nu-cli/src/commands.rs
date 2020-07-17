@@ -30,7 +30,6 @@ pub(crate) mod date;
 pub(crate) mod debug;
 pub(crate) mod default;
 pub(crate) mod do_;
-mod documentation;
 pub(crate) mod drop;
 pub(crate) mod du;
 pub(crate) mod each;

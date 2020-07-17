@@ -1,6 +1,6 @@
-use crate::commands::documentation::{generate_docs, get_documentation, DocumentationConfig};
 use crate::commands::WholeStreamCommand;
 use crate::data::command_dict;
+use crate::documentation::{generate_docs, get_documentation, DocumentationConfig};
 
 use crate::prelude::*;
 use nu_errors::ShellError;
