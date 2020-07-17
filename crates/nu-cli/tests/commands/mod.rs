@@ -23,8 +23,6 @@ mod histogram;
 mod insert;
 mod is_empty;
 mod keep;
-mod keep_until;
-mod keep_while;
 mod last;
 mod lines;
 mod ls;
