@@ -56,10 +56,9 @@ async fn insert(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputS
             Value {
                 value: UntaggedValue::Row(_),
                 ..
-            } => match row.insert_data_at_column_path(&column, value.clone()) {
-                Ok(v) => Ok(ReturnSuccess::Value(v)),
-                Err(err) => Err(err),
-            },
+            } => Ok(ReturnSuccess::Value(
+                row.insert_data_at_column_path(&column, value.clone())?,
+            )),
 
             Value { tag, .. } => Err(ShellError::labeled_error(
                 "Unrecognized type in stream",
