@@ -1,6 +1,6 @@
-# calc
+# math eval
 
-calc is a command that takes a math expression from the pipeline and calculates that into a number.
+math eval is a command that takes a math expression from the pipeline and evaluates that into a number. It also optionally takes the math expression as an argument.
 
 This command supports the following operations -
 
@@ -27,62 +27,62 @@ constants:
 ## Examples
 
 ```shell
-> echo "1+2+3" | calc
-6.0
+> echo "1+2+3" | math eval
+6.0u
 ```
 
 ```shell
-> echo "1-2+3" | calc
+> echo "1-2+3" | math eval
 2.0
 ```
 
 ```shell
-> echo "-(-23)" | calc
+> echo "-(-23)" | math eval
 23.0
 ```
 
 ```shell
-> echo "5^2" | calc
+> echo "5^2" | math eval
 25.0
 ```
 
 ```shell
-> echo "5^3" | calc
+> echo "5^3" | math eval
 125.0
 ```
 
 ```shell
-> echo "min(5,4,3,2,1,0,-100,45)" | calc
+> echo "min(5,4,3,2,1,0,-100,45)" | math eval
 -100.0
 ```
 
 ```shell
-> echo "max(5,4,3,2,1,0,-100,45)" | calc
+> echo "max(5,4,3,2,1,0,-100,45)" | math eval
 45.0
 ```
 
 ```shell
-> echo sqrt(2) | calc
+> echo sqrt(2) | math eval
 1.414213562373095
 ```
 
 ```shell
-> echo pi | calc
+> echo pi | math eval
 3.141592653589793
 ```
 
 ```shell
-> echo e | calc
+> echo e | math eval
 2.718281828459045
 ```
 
 ```shell
-> echo "sin(pi / 2)" | calc
+> echo "sin(pi / 2)" | math eval
 1.0
 ```
 
 ```shell
-> echo "floor(5999/1000)" | calc
+> echo "floor(5999/1000)" | math eval
 5.0
 ```
 
@@ -119,7 +119,7 @@ constants:
 ```
 
 ```shell
-> open abc.json | format "({size} + 500) * 4" | calc
+> open abc.json | format "({size} + 500) * 4" | math eval
 ───┬───────────
  # │
 ───┼───────────
@@ -135,7 +135,7 @@ constants:
 ```
 
 ```shell
-> open abc.json | format "({size} - 1000) * 4" | calc
+> open abc.json | format "({size} - 1000) * 4" | math eval
 ───┬────────────
  # │
 ───┼────────────
@@ -150,9 +150,9 @@ constants:
 ───┴────────────
 ```
 
-Note that since `calc` uses floating-point numbers, the result may not always be precise.
+Note that since `math eval` uses floating-point numbers, the result may not always be precise.
 
 ```shell
-> echo "floor(5999999999999999999/1000000000000000000)" | calc
+> echo "floor(5999999999999999999/1000000000000000000)" | math eval
 6.0
 ```
