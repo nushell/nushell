@@ -41,7 +41,7 @@ impl WholeStreamCommand for If {
     }
 
     fn usage(&self) -> &str {
-        "Filter table to match the condition."
+        "Run blocks if a condition is true or false."
     }
 
     async fn run(
