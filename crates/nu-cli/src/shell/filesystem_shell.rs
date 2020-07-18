@@ -61,7 +61,10 @@ impl Clone for FilesystemShell {
 
 impl FilesystemShell {
     pub fn basic(commands: CommandRegistry) -> Result<FilesystemShell, Error> {
-        let path = std::env::current_dir()?;
+        let path = match std::env::current_dir() {
+            Ok(path) => path,
+            Err(_) => PathBuf::from("/"),
+        };
 
         Ok(FilesystemShell {
             path: path.to_string_lossy().to_string(),
@@ -69,7 +72,7 @@ impl FilesystemShell {
             completer: NuCompleter {
                 file_completer: FilenameCompleter::new(),
                 commands,
-                homedir: dirs::home_dir(),
+                homedir: homedir_if_possible(),
             },
             hinter: HistoryHinter {},
         })
@@ -89,10 +92,22 @@ impl FilesystemShell {
             completer: NuCompleter {
                 file_completer: FilenameCompleter::new(),
                 commands,
-                homedir: dirs::home_dir(),
+                homedir: homedir_if_possible(),
             },
             hinter: HistoryHinter {},
         })
+    }
+}
+
+pub fn homedir_if_possible() -> Option<PathBuf> {
+    #[cfg(feature = "dirs")]
+    {
+        dirs::home_dir()
+    }
+
+    #[cfg(not(feature = "dirs"))]
+    {
+        None
     }
 }
 
@@ -102,7 +117,7 @@ impl Shell for FilesystemShell {
     }
 
     fn homedir(&self) -> Option<PathBuf> {
-        dirs::home_dir()
+        homedir_if_possible()
     }
 
     fn ls(
@@ -195,7 +210,7 @@ impl Shell for FilesystemShell {
 
     fn cd(&self, args: CdArgs, name: Tag) -> Result<OutputStream, ShellError> {
         let path = match args.path {
-            None => match dirs::home_dir() {
+            None => match homedir_if_possible() {
                 Some(o) => o,
                 _ => {
                     return Err(ShellError::labeled_error(

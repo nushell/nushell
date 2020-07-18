@@ -144,7 +144,7 @@ impl Context {
         }
     }
 
-    pub(crate) fn basic() -> Result<Context, Box<dyn Error>> {
+    pub fn basic() -> Result<Context, Box<dyn Error>> {
         let registry = CommandRegistry::new();
 
         #[cfg(windows)]

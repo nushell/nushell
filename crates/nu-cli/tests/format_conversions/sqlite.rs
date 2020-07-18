@@ -1,5 +1,7 @@
+#[cfg(feature = "sqlite")]
 use nu_test_support::{nu, pipeline};
 
+#[cfg(feature = "sqlite")]
 #[test]
 fn table_to_sqlite_and_back_into_table() {
     let actual = nu!(

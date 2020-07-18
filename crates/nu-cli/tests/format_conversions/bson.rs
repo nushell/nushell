@@ -1,7 +1,7 @@
-use nu_test_support::{nu, pipeline};
-
+#[cfg(feature = "bson")]
 #[test]
 fn table_to_bson_and_back_into_table() {
+    use nu_test_support::{nu, pipeline};
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"

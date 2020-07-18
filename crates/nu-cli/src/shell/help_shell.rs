@@ -126,7 +126,15 @@ impl Shell for HelpShell {
     }
 
     fn homedir(&self) -> Option<PathBuf> {
-        dirs::home_dir()
+        #[cfg(feature = "dirs")]
+        {
+            dirs::home_dir()
+        }
+
+        #[cfg(not(feature = "dirs"))]
+        {
+            None
+        }
     }
 
     fn path(&self) -> String {

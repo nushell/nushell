@@ -1,4 +1,7 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
+
+#[cfg(feature = "sqlite")]
+use nu_test_support::pipeline;
 
 #[test]
 fn filters_by_unit_size_comparison() {
@@ -40,6 +43,7 @@ fn where_not_in_table() {
     assert_eq!(actual.out, "4");
 }
 
+#[cfg(feature = "sqlite")]
 #[test]
 fn explicit_block_condition() {
     let actual = nu!(
@@ -58,6 +62,7 @@ fn explicit_block_condition() {
     assert_eq!(actual.out, "4253");
 }
 
+#[cfg(feature = "sqlite")]
 #[test]
 fn binary_operator_comparisons() {
     let actual = nu!(
@@ -136,6 +141,7 @@ fn binary_operator_comparisons() {
     assert_eq!(actual.out, "42");
 }
 
+#[cfg(feature = "sqlite")]
 #[test]
 fn contains_operator() {
     let actual = nu!(

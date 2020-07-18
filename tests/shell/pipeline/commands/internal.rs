@@ -1,4 +1,5 @@
 use nu_test_support::fs::Stub::EmptyFile;
+#[cfg(feature = "which")]
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::nu;
@@ -37,6 +38,7 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
     })
 }
 
+#[cfg(feature = "which")]
 #[test]
 fn autoenv() {
     Playground::setup("autoenv_test", |dirs, sandbox| {
@@ -379,6 +381,7 @@ fn string_interpolation_with_it_column_path() {
     assert_eq!(actual.out, "sammie");
 }
 
+#[cfg(feature = "which")]
 #[test]
 fn argument_invocation_reports_errors() {
     let actual = nu!(

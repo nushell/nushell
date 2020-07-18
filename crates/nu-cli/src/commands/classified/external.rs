@@ -26,7 +26,7 @@ pub(crate) async fn run_external_command(
 ) -> Result<InputStream, ShellError> {
     trace!(target: "nu::run::external", "-> {}", command.name);
 
-    if !did_find_command(&command.name).await {
+    if !did_find_command(&command.name) {
         return Err(ShellError::labeled_error(
             "Command not found",
             "command not found",
@@ -70,7 +70,18 @@ async fn run_with_stdin(
     let process_args = command_args
         .iter()
         .map(|arg| {
-            let arg = expand_tilde(arg.deref(), dirs::home_dir);
+            let home_dir;
+
+            #[cfg(feature = "dirs")]
+            {
+                home_dir = dirs::home_dir;
+            }
+            #[cfg(not(feature = "dirs"))]
+            {
+                home_dir = || Some(std::path::PathBuf::from("/"));
+            }
+
+            let arg = expand_tilde(arg.deref(), home_dir);
 
             #[cfg(not(windows))]
             {
@@ -407,13 +418,19 @@ fn spawn(
     }
 }
 
-async fn did_find_command(name: &str) -> bool {
-    #[cfg(not(windows))]
+pub fn did_find_command(#[allow(unused)] name: &str) -> bool {
+    #[cfg(not(feature = "which"))]
+    {
+        // we can't perform this check, so just assume it can be found
+        true
+    }
+
+    #[cfg(all(feature = "which", unix))]
     {
         which::which(name).is_ok()
     }
 
-    #[cfg(windows)]
+    #[cfg(all(feature = "which", windows))]
     {
         if which::which(name).is_ok() {
             true
@@ -483,11 +500,17 @@ fn shell_os_paths() -> Vec<std::path::PathBuf> {
 mod tests {
     use super::{
         add_quotes, argument_contains_whitespace, argument_is_quoted, expand_tilde, remove_quotes,
-        run_external_command, Context, InputStream,
     };
+    #[cfg(feature = "which")]
+    use super::{run_external_command, Context, InputStream};
+
+    #[cfg(feature = "which")]
     use futures::executor::block_on;
+    #[cfg(feature = "which")]
     use nu_errors::ShellError;
+    #[cfg(feature = "which")]
     use nu_protocol::Scope;
+    #[cfg(feature = "which")]
     use nu_test_support::commands::ExternalBuilder;
 
     // async fn read(mut stream: OutputStream) -> Option<Value> {
@@ -503,6 +526,7 @@ mod tests {
     //     }
     // }
 
+    #[cfg(feature = "which")]
     async fn non_existent_run() -> Result<(), ShellError> {
         let cmd = ExternalBuilder::for_name("i_dont_exist.exe").build();
 
@@ -542,6 +566,7 @@ mod tests {
     //     block_on(failure_run())
     // }
 
+    #[cfg(feature = "which")]
     #[test]
     fn identifies_command_not_found() -> Result<(), ShellError> {
         block_on(non_existent_run())

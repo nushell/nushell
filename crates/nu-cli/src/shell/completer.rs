@@ -3,8 +3,9 @@ use crate::context::CommandRegistry;
 use crate::data::config;
 use crate::prelude::*;
 use derive_new::new;
-#[cfg(windows)]
+#[cfg(all(windows, feature = "ichwh"))]
 use ichwh::IchwhError;
+#[cfg(all(windows, feature = "ichwh"))]
 use ichwh::IchwhResult;
 use indexmap::set::IndexSet;
 use rustyline::completion::{Completer, FilenameCompleter};
@@ -225,35 +226,49 @@ impl NuCompleter {
     }
 
     #[cfg(windows)]
-    fn is_executable(&self, file: &DirEntry) -> IchwhResult<bool> {
-        let file_type = file.metadata()?.file_type();
+    fn is_executable(&self, file: &DirEntry) -> bool {
+        if let Ok(metadata) = file.metadata() {
+            let file_type = metadata.file_type();
 
-        // If the entry isn't a file, it cannot be executable
-        if !(file_type.is_file() || file_type.is_symlink()) {
-            return Ok(false);
-        }
+            // If the entry isn't a file, it cannot be executable
+            if !(file_type.is_file() || file_type.is_symlink()) {
+                return false;
+            }
 
-        if let Some(extension) = file.path().extension() {
-            let exts = self.pathext()?;
-
-            Ok(exts
-                .iter()
-                .any(|ext| extension.to_string_lossy().eq_ignore_ascii_case(ext)))
+            if let Some(extension) = file.path().extension() {
+                if let Ok(exts) = self.pathext() {
+                    exts.iter()
+                        .any(|ext| extension.to_string_lossy().eq_ignore_ascii_case(ext))
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
         } else {
-            Ok(false)
+            false
         }
     }
 
+    #[cfg(target_arch = "wasm32")]
+    fn is_executable(&self, file: &DirEntry) -> bool {
+        false
+    }
+
     #[cfg(unix)]
-    fn is_executable(&self, file: &DirEntry) -> IchwhResult<bool> {
-        let metadata = file.metadata()?;
+    fn is_executable(&self, file: &DirEntry) -> bool {
+        let metadata = file.metadata();
 
-        let filetype = metadata.file_type();
-        let permissions = metadata.permissions();
+        if let Ok(metadata) = metadata {
+            let filetype = metadata.file_type();
+            let permissions = metadata.permissions();
 
-        // The file is executable if it is a directory or a symlink and the permissions are set for
-        // owner, group, or other
-        Ok((filetype.is_file() || filetype.is_symlink()) && (permissions.mode() & 0o111 != 0))
+            // The file is executable if it is a directory or a symlink and the permissions are set for
+            // owner, group, or other
+            (filetype.is_file() || filetype.is_symlink()) && (permissions.mode() & 0o111 != 0)
+        } else {
+            false
+        }
     }
 
     fn find_path_executables(&self) -> Option<IndexSet<String>> {
@@ -264,7 +279,7 @@ impl NuCompleter {
         for path in paths {
             if let Ok(mut contents) = read_dir(path) {
                 while let Some(Ok(item)) = contents.next() {
-                    if let Ok(true) = self.is_executable(&item) {
+                    if self.is_executable(&item) {
                         if let Ok(name) = item.file_name().into_string() {
                             executables.insert(name);
                         }

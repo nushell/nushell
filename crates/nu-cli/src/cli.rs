@@ -12,6 +12,8 @@ use futures_codec::FramedRead;
 use nu_errors::{ProximateShellError, ShellDiagnostic, ShellError};
 use nu_protocol::hir::{ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments};
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
+#[allow(unused)]
+use nu_source::Tagged;
 
 use log::{debug, trace};
 use rustyline::error::ReadlineError;
@@ -374,12 +376,9 @@ pub fn create_default_context(
             whole_stream_command(MathVariance),
             // File format output
             whole_stream_command(To),
-            whole_stream_command(ToBSON),
             whole_stream_command(ToCSV),
             whole_stream_command(ToHTML),
             whole_stream_command(ToJSON),
-            whole_stream_command(ToSQLite),
-            whole_stream_command(ToDB),
             whole_stream_command(ToMarkdown),
             whole_stream_command(ToTOML),
             whole_stream_command(ToTSV),
@@ -392,11 +391,8 @@ pub fn create_default_context(
             whole_stream_command(FromTSV),
             whole_stream_command(FromSSV),
             whole_stream_command(FromINI),
-            whole_stream_command(FromBSON),
             whole_stream_command(FromJSON),
             whole_stream_command(FromODS),
-            whole_stream_command(FromDB),
-            whole_stream_command(FromSQLite),
             whole_stream_command(FromTOML),
             whole_stream_command(FromURL),
             whole_stream_command(FromXLSX),
@@ -411,6 +407,7 @@ pub fn create_default_context(
             whole_stream_command(Random),
             whole_stream_command(RandomBool),
             whole_stream_command(RandomDice),
+            #[cfg(feature = "uuid_crate")]
             whole_stream_command(RandomUUID),
         ]);
 
@@ -432,15 +429,18 @@ pub async fn run_vec_of_pipelines(
 
     let _ = crate::load_plugins(&mut context);
 
-    let cc = context.ctrl_c.clone();
+    #[cfg(feature = "ctrlc")]
+    {
+        let cc = context.ctrl_c.clone();
 
-    ctrlc::set_handler(move || {
-        cc.store(true, Ordering::SeqCst);
-    })
-    .expect("Error setting Ctrl-C handler");
+        ctrlc::set_handler(move || {
+            cc.store(true, Ordering::SeqCst);
+        })
+        .expect("Error setting Ctrl-C handler");
 
-    if context.ctrl_c.load(Ordering::SeqCst) {
-        context.ctrl_c.store(false, Ordering::SeqCst);
+        if context.ctrl_c.load(Ordering::SeqCst) {
+            context.ctrl_c.store(false, Ordering::SeqCst);
+        }
     }
 
     // before we start up, let's run our startup commands
@@ -557,11 +557,15 @@ pub async fn cli(
     // we are ok if history does not exist
     let _ = rl.load_history(&History::path());
 
-    let cc = context.ctrl_c.clone();
-    ctrlc::set_handler(move || {
-        cc.store(true, Ordering::SeqCst);
-    })
-    .expect("Error setting Ctrl-C handler");
+    #[cfg(feature = "ctrlc")]
+    {
+        let cc = context.ctrl_c.clone();
+
+        ctrlc::set_handler(move || {
+            cc.store(true, Ordering::SeqCst);
+        })
+        .expect("Error setting Ctrl-C handler");
+    }
     let mut ctrlcbreak = false;
 
     // before we start up, let's run our startup commands
@@ -662,21 +666,35 @@ pub async fn cli(
 
         let colored_prompt = {
             if use_starship {
-                std::env::set_var("STARSHIP_SHELL", "");
-                std::env::set_var("PWD", &cwd);
-                let mut starship_context =
-                    starship::context::Context::new_with_dir(clap::ArgMatches::default(), cwd);
+                #[cfg(feature = "starship")]
+                {
+                    std::env::set_var("STARSHIP_SHELL", "");
+                    std::env::set_var("PWD", &cwd);
+                    let mut starship_context =
+                        starship::context::Context::new_with_dir(clap::ArgMatches::default(), cwd);
 
-                match starship_context.config.config {
-                    None => {
-                        starship_context.config.config = create_default_starship_config();
-                    }
-                    Some(toml::Value::Table(t)) if t.is_empty() => {
-                        starship_context.config.config = create_default_starship_config();
-                    }
-                    _ => {}
-                };
-                starship::print::get_prompt(starship_context)
+                    match starship_context.config.config {
+                        None => {
+                            starship_context.config.config = create_default_starship_config();
+                        }
+                        Some(toml::Value::Table(t)) if t.is_empty() => {
+                            starship_context.config.config = create_default_starship_config();
+                        }
+                        _ => {}
+                    };
+                    starship::print::get_prompt(starship_context)
+                }
+                #[cfg(not(feature = "starship"))]
+                {
+                    format!(
+                        "\x1b[32m{}{}\x1b[m> ",
+                        cwd,
+                        match current_branch() {
+                            Some(s) => format!("({})", s),
+                            None => "".to_string(),
+                        }
+                    )
+                }
             } else if let Some(prompt) = config.get("prompt") {
                 let prompt_line = prompt.as_string()?;
 
@@ -829,11 +847,42 @@ fn chomp_newline(s: &str) -> &str {
     }
 }
 
+#[derive(Debug)]
 pub enum LineResult {
     Success(String),
     Error(String, ShellError),
     CtrlC,
     Break,
+}
+
+pub async fn parse_and_eval(line: &str, ctx: &mut Context) -> Result<String, ShellError> {
+    let line = if line.ends_with('\n') {
+        &line[..line.len() - 1]
+    } else {
+        line
+    };
+
+    let lite_result = nu_parser::lite_parse(&line, 0)?;
+
+    // TODO ensure the command whose examples we're testing is actually in the pipeline
+    let mut classified_block = nu_parser::classify_block(&lite_result, ctx.registry());
+    classified_block.block.expand_it_usage();
+
+    let input_stream = InputStream::empty();
+    let env = ctx.get_env();
+
+    run_block(
+        &classified_block.block,
+        ctx,
+        input_stream,
+        &Value::nothing(),
+        &IndexMap::new(),
+        &env,
+    )
+    .await?
+    .collect_string(Tag::unknown())
+    .await
+    .map(|x| x.item)
 }
 
 /// Process the line by parsing the text to turn it into commands, classify those commands so that we understand what is being called in the pipeline, and then run this pipeline
@@ -912,7 +961,7 @@ pub async fn process_line(
                             .unwrap_or(true)
                         && canonicalize(ctx.shell_manager.path(), name).is_ok()
                         && Path::new(&name).is_dir()
-                        && which::which(&name).is_err()
+                        && !crate::commands::classified::external::did_find_command(&name)
                     {
                         // Here we work differently if we're in Windows because of the expected Windows behavior
                         #[cfg(windows)]

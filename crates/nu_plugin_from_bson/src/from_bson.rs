@@ -1,41 +1,22 @@
-use crate::commands::WholeStreamCommand;
-use crate::prelude::*;
+use bigdecimal::BigDecimal;
 use bson::{decode_document, spec::BinarySubtype, Bson};
 use nu_errors::{ExpectedRange, ShellError};
-use nu_protocol::{Primitive, ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
-use nu_source::SpannedItem;
+use nu_protocol::{Primitive, ReturnSuccess, ReturnValue, TaggedDictBuilder, UntaggedValue, Value};
+use nu_source::{SpannedItem, Tag};
 use std::str::FromStr;
 
-pub struct FromBSON;
+#[derive(Default)]
+pub struct FromBSON {
+    pub state: Vec<u8>,
+    pub name_tag: Tag,
+}
 
-#[async_trait]
-impl WholeStreamCommand for FromBSON {
-    fn name(&self) -> &str {
-        "from bson"
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build("from bson")
-    }
-
-    fn usage(&self) -> &str {
-        "Parse binary as .bson and create table."
-    }
-
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        from_bson(args, registry).await
-    }
-
-    fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Convert bson data to a table",
-            example: "open file.bin | from bson",
-            result: None,
-        }]
+impl FromBSON {
+    pub fn new() -> FromBSON {
+        FromBSON {
+            state: vec![],
+            name_tag: Tag::unknown(),
+        }
     }
 }
 
@@ -208,37 +189,13 @@ pub fn from_bson_bytes_to_value(bytes: Vec<u8>, tag: impl Into<Tag>) -> Result<V
     convert_bson_value_to_nu_value(&Bson::Array(docs), tag)
 }
 
-async fn from_bson(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let args = args.evaluate_once(&registry).await?;
-    let tag = args.name_tag();
-    let input = args.input;
-
-    let bytes = input.collect_binary(tag.clone()).await?;
-
-    match from_bson_bytes_to_value(bytes.item, tag.clone()) {
-        Ok(x) => Ok(OutputStream::one(ReturnSuccess::value(x))),
-        Err(_) => Err(ShellError::labeled_error_with_secondary(
+pub fn from_bson(bytes: Vec<u8>, name_tag: Tag) -> Result<Vec<ReturnValue>, ShellError> {
+    match from_bson_bytes_to_value(bytes, name_tag.clone()) {
+        Ok(x) => Ok(vec![ReturnSuccess::value(x)]),
+        Err(_) => Err(ShellError::labeled_error(
             "Could not parse as BSON",
             "input cannot be parsed as BSON",
-            tag.clone(),
-            "value originates from here",
-            bytes.tag,
+            name_tag,
         )),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::FromBSON;
-
-    #[test]
-    fn examples_work_as_expected() {
-        use crate::examples::test as test_examples;
-
-        test_examples(FromBSON {})
     }
 }

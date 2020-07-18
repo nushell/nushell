@@ -10,7 +10,6 @@ pub(crate) use nuconfig::NuConfig;
 use crate::commands::from_toml::convert_toml_value_to_nu_value;
 use crate::commands::to_toml::value_to_toml_value;
 use crate::prelude::*;
-use directories::ProjectDirs;
 use indexmap::IndexMap;
 use log::trace;
 use nu_errors::ShellError;
@@ -20,8 +19,25 @@ use std::fs::{self, OpenOptions};
 use std::io;
 use std::path::{Path, PathBuf};
 
+#[cfg(feature = "directories")]
 pub fn config_path() -> Result<PathBuf, ShellError> {
-    app_path("config", ProjectDirs::config_dir)
+    use directories::ProjectDirs;
+
+    let dir = ProjectDirs::from("org", "nushell", "nu")
+        .ok_or_else(|| ShellError::untagged_runtime_error("Couldn't find project directory"))?;
+    let path = ProjectDirs::config_dir(&dir).to_owned();
+    std::fs::create_dir_all(&path).map_err(|err| {
+        ShellError::untagged_runtime_error(&format!("Couldn't create {} path:\n{}", "config", err))
+    })?;
+
+    Ok(path)
+}
+
+#[cfg(not(feature = "directories"))]
+pub fn config_path() -> Result<PathBuf, ShellError> {
+    // FIXME: unsure if this should be error or a simple default
+
+    Ok(std::path::PathBuf::from("/"))
 }
 
 pub fn default_path() -> Result<PathBuf, ShellError> {
@@ -39,19 +55,28 @@ pub fn default_path_for(file: &Option<PathBuf>) -> Result<PathBuf, ShellError> {
     Ok(filename)
 }
 
+#[cfg(feature = "directories")]
 pub fn user_data() -> Result<PathBuf, ShellError> {
-    app_path("user data", ProjectDirs::data_local_dir)
-}
+    use directories::ProjectDirs;
 
-fn app_path<F: FnOnce(&ProjectDirs) -> &Path>(display: &str, f: F) -> Result<PathBuf, ShellError> {
     let dir = ProjectDirs::from("org", "nushell", "nu")
         .ok_or_else(|| ShellError::untagged_runtime_error("Couldn't find project directory"))?;
-    let path = f(&dir).to_owned();
+    let path = ProjectDirs::data_local_dir(&dir).to_owned();
     std::fs::create_dir_all(&path).map_err(|err| {
-        ShellError::untagged_runtime_error(&format!("Couldn't create {} path:\n{}", display, err))
+        ShellError::untagged_runtime_error(&format!(
+            "Couldn't create {} path:\n{}",
+            "user data", err
+        ))
     })?;
 
     Ok(path)
+}
+
+#[cfg(not(feature = "directories"))]
+pub fn user_data() -> Result<PathBuf, ShellError> {
+    // FIXME: unsure if this should be error or a simple default
+
+    Ok(std::path::PathBuf::from("/"))
 }
 
 pub fn read(

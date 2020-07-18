@@ -95,6 +95,7 @@ impl Playground {
         self
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn symlink(&mut self, from: impl AsRef<Path>, to: impl AsRef<Path>) -> &mut Self {
         let from = self.cwd.join(from);
         let to = self.cwd.join(to);
