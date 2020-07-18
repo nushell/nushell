@@ -25,9 +25,9 @@ use nu_source::{AnchorLocation, HasSpan, Span, Spanned, Tag};
 use num_bigint::BigInt;
 use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
+use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use std::time::SystemTime;
-
 /// The core structured values that flow through a pipeline
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub enum UntaggedValue {
@@ -220,10 +220,22 @@ impl UntaggedValue {
 }
 
 /// The fundamental structured value that flows through the pipeline, with associated metadata
-#[derive(Debug, Clone, PartialOrd, PartialEq, Ord, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialOrd, Ord, Eq, Serialize, Deserialize)]
 pub struct Value {
     pub value: UntaggedValue,
     pub tag: Tag,
+}
+
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+
+impl Hash for Value {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.value.hash(state);
+    }
 }
 
 /// Overload deferencing to give back the UntaggedValue inside of a Value
