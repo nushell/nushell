@@ -163,3 +163,43 @@ fn uniq_counting() {
     print!("{}", expected.out);
     assert_eq!(actual.out, expected.out);
 }
+
+#[test]
+fn uniq_simple_vals_ints() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            echo [1 2 3 4 1 5]
+            | uniq
+        "#
+    ));
+    let expected = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+        echo [1 2 3 4 5]
+        "#
+    ));
+    print!("{}", actual.out);
+    print!("{}", expected.out);
+    assert_eq!(actual.out, expected.out);
+}
+
+#[test]
+fn uniq_simple_vals_strs() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            echo [A B C A]
+            | uniq
+        "#
+    ));
+    let expected = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+        echo [A B C]
+        "#
+    ));
+    print!("{}", actual.out);
+    print!("{}", expected.out);
+    assert_eq!(actual.out, expected.out);
+}
