@@ -308,7 +308,7 @@ impl completion::Completer for ValueShell {
         Ok((replace_pos, completions))
     }
 
-    fn hint(&self, _line: &str, _pos: usize, _ctx: &completion::Context<'_>) -> Option<String> {
+    fn hint(&self, _line: &str, _pos: usize, _context: &completion::Context<'_>) -> Option<String> {
         None
     }
 }
