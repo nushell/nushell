@@ -252,7 +252,11 @@ async fn to_html(
                             _ => {}
                         }
                     }
-                    _ => {}
+                    _ => {
+                        let output = pretty_hex::pretty_hex(&b);
+
+                        output_string.push_str(&output);
+                    }
                 }
             }
             UntaggedValue::Primitive(Primitive::String(ref b)) => {
