@@ -5,6 +5,7 @@ use crate::commands::ls::LsArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::move_::mv::Arguments as MvArgs;
 use crate::commands::rm::RemoveArgs;
+use crate::completion;
 use crate::data::dir_entry_dict;
 use crate::path::canonicalize;
 use crate::prelude::*;
@@ -737,13 +738,15 @@ impl Shell for FilesystemShell {
             )),
         }
     }
+}
 
+impl completion::Completer for FilesystemShell {
     fn complete(
         &self,
         line: &str,
         pos: usize,
-        ctx: &rustyline::Context<'_>,
-    ) -> Result<(usize, Vec<rustyline::completion::Pair>), rustyline::error::ReadlineError> {
+        ctx: &completion::Context<'_>,
+    ) -> Result<(usize, Vec<completion::Suggestion>), ShellError> {
         let expanded = expand_ndots(&line);
 
         // Find the first not-matching char position, if there is one
@@ -764,11 +767,26 @@ impl Shell for FilesystemShell {
             pos
         };
 
-        requote(self.completer.complete(&expanded, pos, ctx))
+        self.completer
+            .complete(&expanded, pos, ctx.as_ref())
+            .map_err(|e| ShellError::untagged_runtime_error(format!("{}", e)))
+            .map(requote)
+            .map(|(pos, completions)| {
+                (
+                    pos,
+                    completions
+                        .into_iter()
+                        .map(|pair| completion::Suggestion {
+                            display: pair.display,
+                            replacement: pair.replacement,
+                        })
+                        .collect(),
+                )
+            })
     }
 
-    fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
-        self.hinter.hint(line, pos, ctx)
+    fn hint(&self, line: &str, pos: usize, ctx: &completion::Context<'_>) -> Option<String> {
+        self.hinter.hint(line, pos, ctx.as_ref())
     }
 }
 
@@ -860,28 +878,23 @@ fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
 }
 
 fn requote(
-    completions: Result<(usize, Vec<rustyline::completion::Pair>), rustyline::error::ReadlineError>,
-) -> Result<(usize, Vec<rustyline::completion::Pair>), rustyline::error::ReadlineError> {
-    match completions {
-        Ok(items) => {
-            let mut new_items = Vec::with_capacity(items.0);
+    items: (usize, Vec<rustyline::completion::Pair>),
+) -> (usize, Vec<rustyline::completion::Pair>) {
+    let mut new_items = Vec::with_capacity(items.1.len());
 
-            for item in items.1 {
-                let unescaped = rustyline::completion::unescape(&item.replacement, Some('\\'));
-                let maybe_quote = if unescaped != item.replacement {
-                    "\""
-                } else {
-                    ""
-                };
+    for item in items.1 {
+        let unescaped = rustyline::completion::unescape(&item.replacement, Some('\\'));
+        let maybe_quote = if unescaped != item.replacement {
+            "\""
+        } else {
+            ""
+        };
 
-                new_items.push(rustyline::completion::Pair {
-                    display: item.display,
-                    replacement: format!("{}{}{}", maybe_quote, unescaped, maybe_quote),
-                });
-            }
-
-            Ok((items.0, new_items))
-        }
-        Err(err) => Err(err),
+        new_items.push(rustyline::completion::Pair {
+            display: item.display,
+            replacement: format!("{}{}{}", maybe_quote, unescaped, maybe_quote),
+        });
     }
+
+    (items.0, new_items)
 }

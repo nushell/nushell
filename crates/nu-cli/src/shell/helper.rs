@@ -1,11 +1,12 @@
+use crate::completion::{self, Completer as _};
 use crate::context::Context;
 use crate::shell::palette::{DefaultPalette, Palette};
+
 use ansi_term::{Color, Style};
 use nu_parser::SignatureRegistry;
 use nu_protocol::hir::FlatShape;
 use nu_source::{Spanned, Tag, Tagged};
 use rustyline::completion::Completer;
-use rustyline::error::ReadlineError;
 use rustyline::highlight::Highlighter;
 use rustyline::hint::Hinter;
 use std::borrow::Cow::{self, Owned};
@@ -24,21 +25,37 @@ impl Helper {
     }
 }
 
+impl rustyline::completion::Candidate for completion::Suggestion {
+    fn display(&self) -> &str {
+        &self.display
+    }
+
+    fn replacement(&self) -> &str {
+        &self.replacement
+    }
+}
+
 impl Completer for Helper {
-    type Candidate = rustyline::completion::Pair;
+    type Candidate = completion::Suggestion;
+
     fn complete(
         &self,
         line: &str,
         pos: usize,
         ctx: &rustyline::Context<'_>,
-    ) -> Result<(usize, Vec<rustyline::completion::Pair>), ReadlineError> {
-        self.context.shell_manager.complete(line, pos, ctx)
+    ) -> Result<(usize, Vec<Self::Candidate>), rustyline::error::ReadlineError> {
+        let ctx = completion::Context(ctx);
+        self.context
+            .shell_manager
+            .complete(line, pos, &ctx)
+            .map_err(|_| rustyline::error::ReadlineError::Eof)
     }
 }
 
 impl Hinter for Helper {
     fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
-        self.context.shell_manager.hint(line, pos, ctx)
+        let ctx = completion::Context(ctx);
+        self.context.shell_manager.hint(line, pos, &ctx)
     }
 }
 
