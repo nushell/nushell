@@ -59,13 +59,13 @@ fn get_colors(is_dark: bool) -> HashMap<&'static str, String> {
     // https://docs.microsoft.com/en-us/windows/terminal/customize-settings/color-schemes
     // {
     //     "name" : "Campbell",
-    
+
     //     "cursorColor": "#FFFFFF",
     //     "selectionBackground": "#FFFFFF",
-    
+
     //     "background" : "#0C0C0C",
     //     "foreground" : "#CCCCCC",
-    
+
     //     "black" : "#0C0C0C",
     //     "blue" : "#0037DA",
     //     "cyan" : "#3A96DD",
@@ -85,7 +85,7 @@ fn get_colors(is_dark: bool) -> HashMap<&'static str, String> {
     // },
 
     let mut hm: HashMap<&str, String> = HashMap::new();
-    
+
     if is_dark {
         hm.insert("bold_black", "black".to_string());
         hm.insert("bold_red", "red".to_string());
@@ -125,7 +125,7 @@ fn get_colors(is_dark: bool) -> HashMap<&'static str, String> {
         hm.insert("magenta", "#c800c8".to_string());
         hm.insert("cyan", "#037979".to_string());
         hm.insert("white", "white".to_string());
-    
+
         hm.insert("background", "white".to_string());
         hm.insert("foreground", "black".to_string());
     }
@@ -281,7 +281,9 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, String)>, is_
             // Reset the text color, normal weight font
             format!(
                 r"<span style='color:{};font-weight:normal;'>$word</span>",
-                color_hm.get("foreground").expect("Error getting reset text color")
+                color_hm
+                    .get("foreground")
+                    .expect("Error getting reset text color")
             ),
         ),
     );
@@ -292,7 +294,9 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, String)>, is_
             r"(?P<bb>\[1;30m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
                 r"<span style='color:{};font-weight:bold;'>$word</span>",
-                color_hm.get("foreground").expect("Error getting bold black text color")
+                color_hm
+                    .get("foreground")
+                    .expect("Error getting bold black text color")
             ),
         ),
     );
@@ -303,7 +307,9 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, String)>, is_
             r"(?P<br>\[1;31m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
                 r"<span style='color:{};font-weight:bold;'>$word</span>",
-                color_hm.get("bold_red").expect("Error getting bold red text color"),
+                color_hm
+                    .get("bold_red")
+                    .expect("Error getting bold red text color"),
             ),
         ),
     );
@@ -314,7 +320,9 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, String)>, is_
             r"(?P<bg>\[1;32m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
                 r"<span style='color:{};font-weight:bold;'>$word</span>",
-                color_hm.get("bold_green").expect("Error getting bold green text color"),
+                color_hm
+                    .get("bold_green")
+                    .expect("Error getting bold green text color"),
             ),
         ),
     );
@@ -325,7 +333,9 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, String)>, is_
             r"(?P<by>\[1;33m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
                 r"<span style='color:{};font-weight:bold;'>$word</span>",
-                color_hm.get("bold_yellow").expect("Error getting bold yellow text color"),
+                color_hm
+                    .get("bold_yellow")
+                    .expect("Error getting bold yellow text color"),
             ),
         ),
     );
@@ -336,7 +346,9 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, String)>, is_
             r"(?P<bu>\[1;34m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
                 r"<span style='color:{};font-weight:bold;'>$word</span>",
-                color_hm.get("bold_blue").expect("Error getting bold blue text color"),
+                color_hm
+                    .get("bold_blue")
+                    .expect("Error getting bold blue text color"),
             ),
         ),
     );
@@ -347,7 +359,9 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, String)>, is_
             r"(?P<bm>\[1;35m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
                 r"<span style='color:{};font-weight:bold;'>$word</span>",
-                color_hm.get("bold_magenta").expect("Error getting bold magenta text color"),
+                color_hm
+                    .get("bold_magenta")
+                    .expect("Error getting bold magenta text color"),
             ),
         ),
     );
@@ -358,7 +372,9 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, String)>, is_
             r"(?P<bc>\[1;36m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
                 r"<span style='color:{};font-weight:bold;'>$word</span>",
-                color_hm.get("bold_cyan").expect("Error getting bold cyan text color"),
+                color_hm
+                    .get("bold_cyan")
+                    .expect("Error getting bold cyan text color"),
             ),
         ),
     );
@@ -371,7 +387,9 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, String)>, is_
             r"(?P<bw>\[1;37m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
                 r"<span style='color:{};font-weight:bold;'>$word</span>",
-                color_hm.get("foreground").expect("Error getting bold bold white text color"),
+                color_hm
+                    .get("foreground")
+                    .expect("Error getting bold bold white text color"),
             ),
         ),
     );
@@ -382,8 +400,10 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, String)>, is_
             // Black
             r"(?P<b>\[30m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
-                r"<span style='color:{};'>$word</span>", 
-                color_hm.get("foreground").expect("Error getting black text color"),
+                r"<span style='color:{};'>$word</span>",
+                color_hm
+                    .get("foreground")
+                    .expect("Error getting black text color"),
             ),
         ),
     );
@@ -405,7 +425,9 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, String)>, is_
             r"(?P<g>\[32m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
                 r"<span style='color:{};'>$word</span>",
-                color_hm.get("green").expect("Error getting green text color"),
+                color_hm
+                    .get("green")
+                    .expect("Error getting green text color"),
             ),
         ),
     );
@@ -416,7 +438,9 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, String)>, is_
             r"(?P<y>\[33m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
                 r"<span style='color:{};'>$word</span>",
-                color_hm.get("yellow").expect("Error getting yellow text color"),
+                color_hm
+                    .get("yellow")
+                    .expect("Error getting yellow text color"),
             ),
         ),
     );
@@ -438,7 +462,9 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, String)>, is_
             r"(?P<m>\[35m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
                 r"<span style='color:{};'>$word</span>",
-                color_hm.get("magenta").expect("Error getting magenta text color"),
+                color_hm
+                    .get("magenta")
+                    .expect("Error getting magenta text color"),
             ),
         ),
     );
@@ -462,7 +488,9 @@ fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, String)>, is_
             r"(?P<w>\[37m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
                 r"<span style='color:{};'>$word</span>",
-                color_hm.get("foreground").expect("Error getting white text color"),
+                color_hm
+                    .get("foreground")
+                    .expect("Error getting white text color"),
             ),
         ),
     );
