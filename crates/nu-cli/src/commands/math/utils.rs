@@ -50,12 +50,7 @@ pub fn calculate(values: &[Value], name: &Tag, mf: MathFunction) -> Result<Value
         // The mathematical function operates over the columns of the table
         let mut column_totals = IndexMap::new();
         for (col_name, col_vals) in column_values {
-            match mf(&col_vals, &name) {
-                Ok(result) => {
-                    column_totals.insert(col_name, result);
-                }
-                Err(err) => return Err(err),
-            }
+            column_totals.insert(col_name, mf(&col_vals, &name)?);
         }
 
         Ok(UntaggedValue::Row(Dictionary {

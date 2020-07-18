@@ -98,14 +98,11 @@ pub async fn group_by_date(
             Grouper::ByDate(None)
         };
 
-        match (grouper_date, grouper_column) {
+        let value_result = match (grouper_date, grouper_column) {
             (Grouper::ByDate(None), GroupByColumn::Name(None)) => {
                 let block = Box::new(move |_, row: &Value| row.format("%Y-%b-%d"));
 
-                match crate::utils::data::group(&values, &Some(block), &name) {
-                    Ok(grouped) => Ok(OutputStream::one(ReturnSuccess::value(grouped))),
-                    Err(err) => Err(err),
-                }
+                crate::utils::data::group(&values, &Some(block), &name)
             }
             (Grouper::ByDate(None), GroupByColumn::Name(Some(column_name))) => {
                 let block = Box::new(move |_, row: &Value| {
@@ -117,18 +114,12 @@ pub async fn group_by_date(
                     group_key?.format("%Y-%b-%d")
                 });
 
-                match crate::utils::data::group(&values, &Some(block), &name) {
-                    Ok(grouped) => Ok(OutputStream::one(ReturnSuccess::value(grouped))),
-                    Err(err) => Err(err),
-                }
+                crate::utils::data::group(&values, &Some(block), &name)
             }
             (Grouper::ByDate(Some(fmt)), GroupByColumn::Name(None)) => {
                 let block = Box::new(move |_, row: &Value| row.format(&fmt));
 
-                match crate::utils::data::group(&values, &Some(block), &name) {
-                    Ok(grouped) => Ok(OutputStream::one(ReturnSuccess::value(grouped))),
-                    Err(err) => Err(err),
-                }
+                crate::utils::data::group(&values, &Some(block), &name)
             }
             (Grouper::ByDate(Some(fmt)), GroupByColumn::Name(Some(column_name))) => {
                 let block = Box::new(move |_, row: &Value| {
@@ -140,12 +131,11 @@ pub async fn group_by_date(
                     group_key?.format(&fmt)
                 });
 
-                match crate::utils::data::group(&values, &Some(block), &name) {
-                    Ok(grouped) => Ok(OutputStream::one(ReturnSuccess::value(grouped))),
-                    Err(err) => Err(err),
-                }
+                crate::utils::data::group(&values, &Some(block), &name)
             }
-        }
+        };
+
+        Ok(OutputStream::one(ReturnSuccess::value(value_result?)))
     }
 }
 
