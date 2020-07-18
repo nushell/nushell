@@ -644,7 +644,9 @@ pub async fn cli(
             .map(|i| i.value.expect_int())
             .unwrap_or(100_000);
 
-        rl.set_max_history_size(max_history_size as usize);
+        // rl.set_max_history_size(max_history_size as usize);
+        rustyline::config::Configurer::set_max_history_size(&mut rl, max_history_size as usize);
+        rustyline::Editor::set_max_history_size(&mut rl, max_history_size as usize);
 
         let key_timeout = config
             .get("key_timeout")
