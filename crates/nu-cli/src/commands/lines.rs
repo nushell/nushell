@@ -68,32 +68,8 @@ async fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
                 Value {
                     value: UntaggedValue::Primitive(Primitive::String(st)),
                     ..
-                } => {
-                    let mut leftover_string = leftover_string.lock();
-
-                    let st = (&*leftover_string).clone() + &st;
-
-                    let mut lines: Vec<String> = st.lines().map(|x| x.to_string()).collect();
-
-                    if !ends_with_line_ending(&st) {
-                        if let Some(last) = lines.pop() {
-                            leftover_string.clear();
-                            leftover_string.push_str(&last);
-                        } else {
-                            leftover_string.clear();
-                        }
-                    } else {
-                        leftover_string.clear();
-                    }
-
-                    let success_lines: Vec<_> = lines
-                        .iter()
-                        .map(|x| ReturnSuccess::value(UntaggedValue::line(x).into_untagged_value()))
-                        .collect();
-
-                    futures::stream::iter(success_lines)
                 }
-                Value {
+                | Value {
                     value: UntaggedValue::Primitive(Primitive::Line(st)),
                     ..
                 } => {
@@ -103,15 +79,12 @@ async fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
 
                     let mut lines: Vec<String> = st.lines().map(|x| x.to_string()).collect();
 
+                    leftover_string.clear();
+
                     if !ends_with_line_ending(&st) {
                         if let Some(last) = lines.pop() {
-                            leftover_string.clear();
                             leftover_string.push_str(&last);
-                        } else {
-                            leftover_string.clear();
                         }
-                    } else {
-                        leftover_string.clear();
                     }
 
                     let success_lines: Vec<_> = lines
