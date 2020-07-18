@@ -4,6 +4,7 @@ Mathematical functions that generally only operate on a list of numbers (integer
 Currently the following functions are implemented:
 
 * `math avg`: Finds the average of a list of numbers or tables
+* [`math eval`](math-eval.md): Evaluates a list of math expressions into numbers
 * `math min`: Finds the minimum within a list of numbers or tables
 * `math max`: Finds the maximum within a list of numbers or tables
 * `math median`: Finds the median of a list of numbers or tables
@@ -151,12 +152,4 @@ To get the sum of the characters that make up your present working directory.
 ```shell
 > echo [] | math avg
 error: Error: Unexpected: Cannot perform aggregate math operation on empty data
-```
-
-Note `math` functions only work on list of numbers (integers, decimals, bytes) and tables of numbers, if any other types are piped into the function
-then unexpected results can occur.
-
-```shell
->  echo [1 2 a ] | math avg
-0
 ```
