@@ -227,17 +227,21 @@ impl NuCompleter {
 
     #[cfg(windows)]
     fn is_executable(&self, file: &DirEntry) -> bool {
-        let file_type = file.metadata()?.file_type();
+        if let Ok(metadata) = file.metadata() {
+            let file_type = metadata.file_type();
 
-        // If the entry isn't a file, it cannot be executable
-        if !(file_type.is_file() || file_type.is_symlink()) {
-            return false;
-        }
+            // If the entry isn't a file, it cannot be executable
+            if !(file_type.is_file() || file_type.is_symlink()) {
+                return false;
+            }
 
-        if let Some(extension) = file.path().extension() {
-            if let Ok(exts) = self.pathext() {
-                exts.iter()
-                    .any(|ext| extension.to_string_lossy().eq_ignore_ascii_case(ext))
+            if let Some(extension) = file.path().extension() {
+                if let Ok(exts) = self.pathext() {
+                    exts.iter()
+                        .any(|ext| extension.to_string_lossy().eq_ignore_ascii_case(ext))
+                } else {
+                    false
+                }
             } else {
                 false
             }
