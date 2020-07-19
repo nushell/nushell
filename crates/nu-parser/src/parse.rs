@@ -1381,10 +1381,11 @@ fn classify_pipeline(
                 if let Some(signature) =
                     registry.get(&format!("{} {}", lite_cmd.name.item, lite_cmd.args[0].item))
                 {
-                    let (internal_command, err) =
+                    let (mut internal_command, err) =
                         parse_internal_command(&lite_cmd, registry, &signature, 1);
 
                     error = error.or(err);
+                    internal_command.args.is_last = iter.peek().is_none();
                     commands.push(ClassifiedCommand::Internal(internal_command));
                     continue;
                 }
@@ -1392,10 +1393,11 @@ fn classify_pipeline(
 
             // Check if it's an internal command
             if let Some(signature) = registry.get(&lite_cmd.name.item) {
-                let (internal_command, err) =
+                let (mut internal_command, err) =
                     parse_internal_command(&lite_cmd, registry, &signature, 0);
 
                 error = error.or(err);
+                internal_command.args.is_last = iter.peek().is_none();
                 commands.push(ClassifiedCommand::Internal(internal_command));
                 continue;
             }
