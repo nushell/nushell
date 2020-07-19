@@ -20,12 +20,12 @@ fn out_html_table() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-            echo '{"name": "jason"}' | from json | to html
+            echo '{"name": "darren"}' | from json | to html
         "#
     ));
 
     assert_eq!(
         actual.out,
-        "<html><style>body { background-color:white;color:black; }</style><body><table style=\"background-color:white;color:black;\"><tr><th>name</th></tr><tr><td>jason</td></tr></table></body></html>"
+        "<html><style>body { background-color:white;color:black; }</style><body><table style=\"background-color:white;color:black;\"><tr><th>name</th></tr><tr><td>darren</td></tr></table></body></html>"
     );
 }
