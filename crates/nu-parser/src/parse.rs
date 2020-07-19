@@ -738,8 +738,7 @@ mod test {
     use super::*;
 
     #[derive(Clone, Debug)]
-    struct MockRegistry {
-    }
+    struct MockRegistry {}
 
     impl MockRegistry {
         fn new() -> Self {
@@ -768,10 +767,7 @@ mod test {
         let registry = MockRegistry::new();
         let result = parse_arg(SyntaxShape::Int, &registry, &input);
         assert_eq!(result.1, None);
-        assert_eq!(
-            result.0.expr,
-            Expression::integer(32)
-        );
+        assert_eq!(result.0.expr, Expression::integer(32));
         Ok(())
     }
 
@@ -782,40 +778,28 @@ mod test {
         let registry = MockRegistry::new();
         let result = parse_arg(SyntaxShape::Number, &registry, &input);
         assert_eq!(result.1, None);
-        assert_eq!(
-            result.0.expr,
-            Expression::decimal(-32.2)
-        );
+        assert_eq!(result.0.expr, Expression::decimal(-32.2));
 
         let raw = "32.2".to_string();
         let input = raw.clone().spanned(Span::new(0, raw.len()));
         let registry = MockRegistry::new();
         let result = parse_arg(SyntaxShape::Number, &registry, &input);
         assert_eq!(result.1, None);
-        assert_eq!(
-            result.0.expr,
-            Expression::decimal(32.2)
-        );
+        assert_eq!(result.0.expr, Expression::decimal(32.2));
 
         let raw = "-34".to_string();
         let input = raw.clone().spanned(Span::new(0, raw.len()));
         let registry = MockRegistry::new();
         let result = parse_arg(SyntaxShape::Number, &registry, &input);
         assert_eq!(result.1, None);
-        assert_eq!(
-            result.0.expr,
-            Expression::integer(-34)
-        );
+        assert_eq!(result.0.expr, Expression::integer(-34));
 
         let raw = "34".to_string();
         let input = raw.clone().spanned(Span::new(0, raw.len()));
         let registry = MockRegistry::new();
         let result = parse_arg(SyntaxShape::Number, &registry, &input);
         assert_eq!(result.1, None);
-        assert_eq!(
-            result.0.expr,
-            Expression::integer(34)
-        );
+        assert_eq!(result.0.expr, Expression::integer(34));
         Ok(())
     }
 }
