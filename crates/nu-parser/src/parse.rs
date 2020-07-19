@@ -734,6 +734,77 @@ fn parse_arg(
     }
 }
 
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[derive(Clone, Debug)]
+    struct MockRegistry {}
+
+    impl MockRegistry {
+        fn new() -> Self {
+            MockRegistry {}
+        }
+    }
+
+    impl SignatureRegistry for MockRegistry {
+        fn has(&self, _name: &str) -> bool {
+            false
+        }
+
+        fn get(&self, _name: &str) -> Option<nu_protocol::Signature> {
+            None
+        }
+
+        fn clone_box(&self) -> Box<dyn SignatureRegistry> {
+            Box::new(self.clone())
+        }
+    }
+
+    #[test]
+    fn parse_integer() -> Result<(), ParseError> {
+        let raw = "32".to_string();
+        let input = raw.clone().spanned(Span::new(0, raw.len()));
+        let registry = MockRegistry::new();
+        let result = parse_arg(SyntaxShape::Int, &registry, &input);
+        assert_eq!(result.1, None);
+        assert_eq!(result.0.expr, Expression::integer(32));
+        Ok(())
+    }
+
+    #[test]
+    fn parse_number() -> Result<(), ParseError> {
+        let raw = "-32.2".to_string();
+        let input = raw.clone().spanned(Span::new(0, raw.len()));
+        let registry = MockRegistry::new();
+        let result = parse_arg(SyntaxShape::Number, &registry, &input);
+        assert_eq!(result.1, None);
+        assert_eq!(result.0.expr, Expression::decimal(-32.2));
+
+        let raw = "32.2".to_string();
+        let input = raw.clone().spanned(Span::new(0, raw.len()));
+        let registry = MockRegistry::new();
+        let result = parse_arg(SyntaxShape::Number, &registry, &input);
+        assert_eq!(result.1, None);
+        assert_eq!(result.0.expr, Expression::decimal(32.2));
+
+        let raw = "-34".to_string();
+        let input = raw.clone().spanned(Span::new(0, raw.len()));
+        let registry = MockRegistry::new();
+        let result = parse_arg(SyntaxShape::Number, &registry, &input);
+        assert_eq!(result.1, None);
+        assert_eq!(result.0.expr, Expression::integer(-34));
+
+        let raw = "34".to_string();
+        let input = raw.clone().spanned(Span::new(0, raw.len()));
+        let registry = MockRegistry::new();
+        let result = parse_arg(SyntaxShape::Number, &registry, &input);
+        assert_eq!(result.1, None);
+        assert_eq!(result.0.expr, Expression::integer(34));
+        Ok(())
+    }
+}
+
 /// Match the available flags in a signature with what the user provided. This will check both long-form flags (--full) and shorthand flags (-f)
 /// This also allows users to provide a group of shorthand flags (-af) that correspond to multiple shorthand flags at once.
 fn get_flags_from_flag(
