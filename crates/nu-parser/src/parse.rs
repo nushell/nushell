@@ -734,6 +734,7 @@ fn parse_arg(
     }
 }
 
+#[cfg(test)]
 mod test {
     use super::*;
 
@@ -747,11 +748,11 @@ mod test {
     }
 
     impl SignatureRegistry for MockRegistry {
-        fn has(&self, name: &str) -> bool {
+        fn has(&self, _name: &str) -> bool {
             false
         }
 
-        fn get(&self, name: &str) -> Option<nu_protocol::Signature> {
+        fn get(&self, _name: &str) -> Option<nu_protocol::Signature> {
             None
         }
 
