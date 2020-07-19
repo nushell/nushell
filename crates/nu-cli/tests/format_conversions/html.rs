@@ -26,7 +26,7 @@ fn out_html_table() {
 
     assert_eq!(
         actual.out,
-        r"<html><style>body { background-color:white;color:black; }</style><body><table style=\'background-color:white;color:black;\'><tr><th>name</th></tr><tr><td>darren</td></tr></table></body></html>"
+        r"<html><style>body { background-color:white;color:black; }</style><body><table style='background-color:white;color:black;'><tr><th>name</th></tr><tr><td>darren</td></tr></table></body></html>"
     );
 }
 
