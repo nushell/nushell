@@ -554,9 +554,6 @@ pub async fn cli(
         let _ = ansi_term::enable_ansi_support();
     }
 
-    // we are ok if history does not exist
-    let _ = rl.load_history(&History::path());
-
     #[cfg(feature = "ctrlc")]
     {
         let cc = context.ctrl_c.clone();
@@ -644,9 +641,12 @@ pub async fn cli(
             .map(|i| i.value.expect_int())
             .unwrap_or(100_000);
 
-        // rl.set_max_history_size(max_history_size as usize);
-        rustyline::config::Configurer::set_max_history_size(&mut rl, max_history_size as usize);
-        rustyline::Editor::set_max_history_size(&mut rl, max_history_size as usize);
+        rl.set_max_history_size(max_history_size as usize);
+        // rustyline::config::Configurer::set_max_history_size(&mut rl, max_history_size as usize);
+        // rustyline::Editor::set_max_history_size(&mut rl, max_history_size as usize);
+
+        // we are ok if history does not exist
+        let _ = rl.load_history(&History::path());
 
         let key_timeout = config
             .get("key_timeout")
