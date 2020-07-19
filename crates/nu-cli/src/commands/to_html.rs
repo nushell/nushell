@@ -586,7 +586,6 @@ fn run_regexes(hash: &HashMap<u32, (&'static str, String)>, contents: &str) -> S
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
 
     #[test]
     fn examples_work_as_expected() {
