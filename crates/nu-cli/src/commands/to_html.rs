@@ -204,7 +204,11 @@ async fn to_html(
                                 output_string.push_str(&base64::encode(&b));
                                 output_string.push_str("\">");
                             }
-                            _ => {}
+                            _ => {
+                                let output = pretty_hex::pretty_hex(&b);
+
+                                output_string.push_str(&output);
+                            }
                         }
                     }
                     _ => {
