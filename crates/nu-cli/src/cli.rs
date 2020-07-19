@@ -278,6 +278,7 @@ pub fn create_default_context(
             // Statistics
             whole_stream_command(Size),
             whole_stream_command(Count),
+            whole_stream_command(Benchmark),
             // Metadata
             whole_stream_command(Tags),
             // Shells
