@@ -58,7 +58,7 @@ The `sort-by` command sorts the table being displayed in the terminal by a chose
 ━━━┷━━━━━━┷━━━━━━┷━━━━━━━━━━┷━━━━━━━━┷━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━
 ```
 
-(within the Nushell repository)
+Within the Nushell repository...
 
 ```shell
 > ls | sort-by --insensitive name
@@ -89,6 +89,8 @@ The `sort-by` command sorts the table being displayed in the terminal by a chose
  21 │ wix                │ Dir  │    128 B │ 1 hour ago
 ────┴────────────────────┴──────┴──────────┴──────────────
 ```
+
+Within the Nushell repository...
 
 ```shell
 > ls | sort-by --insensitive type name
