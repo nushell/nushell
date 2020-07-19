@@ -64,7 +64,7 @@ fn sort_primitive_values() {
 }
 
 #[test]
-fn sort_ls_by_name_sensitive() {
+fn ls_sort_by_name_sensitive() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
@@ -81,7 +81,7 @@ fn sort_ls_by_name_sensitive() {
 }
 
 #[test]
-fn sort_ls_by_name_insensitive() {
+fn ls_sort_by_name_insensitive() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
@@ -98,7 +98,7 @@ fn sort_ls_by_name_insensitive() {
 }
 
 #[test]
-fn sort_ls_by_type_name_sensitive() {
+fn ls_sort_by_type_name_sensitive() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
@@ -115,7 +115,7 @@ fn sort_ls_by_type_name_sensitive() {
 }
 
 #[test]
-fn sort_ls_by_type_name_insensitive() {
+fn ls_sort_by_type_name_insensitive() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
