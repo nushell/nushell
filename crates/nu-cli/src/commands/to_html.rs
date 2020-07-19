@@ -252,14 +252,18 @@ async fn to_html(
                             _ => {
                                 let output = pretty_hex::pretty_hex(&b);
 
+                                output_string.push_str("<pre>");
                                 output_string.push_str(&output);
+                                output_string.push_str("</pre>");
                             }
                         }
                     }
                     _ => {
                         let output = pretty_hex::pretty_hex(&b);
 
+                        output_string.push_str("<pre>");
                         output_string.push_str(&output);
+                        output_string.push_str("</pre>");
                     }
                 }
             }
