@@ -6,7 +6,7 @@ use nu_protocol::hir::ClassifiedBlock;
 use nu_protocol::{ShellTypeName, Value};
 
 use crate::commands::classified::block::run_block;
-use crate::commands::{whole_stream_command, BuildString, Echo};
+use crate::commands::{whole_stream_command, BuildString, Echo, StrCollect};
 use crate::context::Context;
 use crate::stream::InputStream;
 use crate::WholeStreamCommand;
@@ -19,6 +19,7 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) {
         whole_stream_command(Echo {}),
         whole_stream_command(BuildString {}),
         whole_stream_command(cmd),
+        whole_stream_command(StrCollect),
     ]);
 
     for example in examples {
