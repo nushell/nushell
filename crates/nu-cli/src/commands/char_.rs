@@ -39,7 +39,11 @@ impl WholeStreamCommand for Char {
             Example {
                 description: "Output prompt character, newline and a hamburger character",
                 example: r#"echo $(char prompt) $(char newline) $(char hamburger)"#,
-                result: Some(vec![Value::from("\u{25b6}\n\u{2261}")]),
+                result: Some(vec![
+                    UntaggedValue::string("\u{25b6}").into(),
+                    UntaggedValue::string("\n").into(),
+                    UntaggedValue::string("\u{2261}").into(),
+                ]),
             },
         ]
     }
