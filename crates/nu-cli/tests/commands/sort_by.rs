@@ -62,3 +62,71 @@ fn sort_primitive_values() {
 
     assert_eq!(actual.out, "authors = [\"The Nu Project Contributors\"]");
 }
+
+#[test]
+fn ls_sort_by_name_sensitive() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            open sample-ls-output.json
+            | sort-by name
+            | select name
+            | to json
+        "#
+    ));
+
+    let json_output = r#"[{"name":"B.txt"},{"name":"C"},{"name":"a.txt"}]"#;
+
+    assert_eq!(actual.out, json_output);
+}
+
+#[test]
+fn ls_sort_by_name_insensitive() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            open sample-ls-output.json
+            | sort-by -i name
+            | select name
+            | to json
+        "#
+    ));
+
+    let json_output = r#"[{"name":"a.txt"},{"name":"B.txt"},{"name":"C"}]"#;
+
+    assert_eq!(actual.out, json_output);
+}
+
+#[test]
+fn ls_sort_by_type_name_sensitive() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            open sample-ls-output.json
+            | sort-by type name
+            | select name type
+            | to json
+        "#
+    ));
+
+    let json_output = r#"[{"name":"C","type":"Dir"},{"name":"B.txt","type":"File"},{"name":"a.txt","type":"File"}]"#;
+
+    assert_eq!(actual.out, json_output);
+}
+
+#[test]
+fn ls_sort_by_type_name_insensitive() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            open sample-ls-output.json
+            | sort-by -i type name
+            | select name type
+            | to json
+        "#
+    ));
+
+    let json_output = r#"[{"name":"C","type":"Dir"},{"name":"a.txt","type":"File"},{"name":"B.txt","type":"File"}]"#;
+
+    assert_eq!(actual.out, json_output);
+}

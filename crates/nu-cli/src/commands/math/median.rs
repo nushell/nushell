@@ -73,7 +73,7 @@ pub fn median(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
         sorted.push(item.clone());
     }
 
-    crate::commands::sort_by::sort(&mut sorted, &[], name)?;
+    crate::commands::sort_by::sort(&mut sorted, &[], name, false)?;
 
     match take {
         Pick::Median => {

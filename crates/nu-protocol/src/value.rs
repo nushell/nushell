@@ -85,6 +85,11 @@ impl UntaggedValue {
         matches!(self, UntaggedValue::Table(_))
     }
 
+    /// Returns true if this value represents a string
+    pub fn is_string(&self) -> bool {
+        matches!(self, UntaggedValue::Primitive(Primitive::String(_)))
+    }
+
     /// Returns true if the value represents something other than Nothing
     pub fn is_some(&self) -> bool {
         !self.is_none()
