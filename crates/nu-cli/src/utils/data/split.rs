@@ -13,6 +13,12 @@ pub fn split(
     let tag = tag.into();
 
     let mut splits = indexmap::IndexMap::new();
+    let mut out = TaggedDictBuilder::new(&tag);
+
+    if splitter.is_none() {
+        out.insert_untagged("table", UntaggedValue::table(&vec![value.clone()]));
+        return Ok(out.into_value());
+    }
 
     for (column, value) in value.row_entries() {
         if !&value.is_table() {

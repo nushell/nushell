@@ -281,7 +281,7 @@ impl Value {
     pub fn convert_to_string(&self) -> String {
         match &self.value {
             UntaggedValue::Primitive(Primitive::String(s)) => s.clone(),
-            UntaggedValue::Primitive(Primitive::Date(dt)) => dt.format("%Y-%b-%d").to_string(),
+            UntaggedValue::Primitive(Primitive::Date(dt)) => dt.format("%Y-%m-%d").to_string(),
             UntaggedValue::Primitive(Primitive::Boolean(x)) => format!("{}", x),
             UntaggedValue::Primitive(Primitive::Decimal(x)) => format!("{}", x),
             UntaggedValue::Primitive(Primitive::Int(x)) => format!("{}", x),

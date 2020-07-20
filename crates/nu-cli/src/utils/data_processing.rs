@@ -28,7 +28,7 @@ pub fn columns_sorted(
                 .keys()
                 .map(|s| s.as_ref())
                 .map(|k: &str| {
-                    let date = NaiveDate::parse_from_str(k, "%B %d-%Y");
+                    let date = NaiveDate::parse_from_str(k, "%Y-%m-%d");
 
                     let date = match date {
                         Ok(parsed) => UntaggedValue::Primitive(Primitive::Date(
@@ -49,7 +49,7 @@ pub fn columns_sorted(
                     Value {
                         value: UntaggedValue::Primitive(Primitive::Date(d)),
                         ..
-                    } => format!("{}", d.format("%B %d-%Y")),
+                    } => format!("{}", d.format("%Y-%m-%d")),
                     _ => k.as_string().unwrap_or_else(|_| String::from("<string>")),
                 })
                 .collect();
@@ -429,174 +429,132 @@ pub fn map_max(
 #[cfg(test)]
 mod tests {
     use super::{columns_sorted, evaluate, fetch, map_max, reduce, reducer_for, t_sort, Reduce};
-    use crate::commands::group_by::group;
     use indexmap::IndexMap;
-    use nu_errors::ShellError;
     use nu_protocol::{UntaggedValue, Value};
     use nu_source::*;
     use num_bigint::BigInt;
     use num_traits::Zero;
 
     fn int(s: impl Into<BigInt>) -> Value {
-        UntaggedValue::int(s).into_untagged_value()
+        crate::utils::data::tests::helpers::int(s)
     }
 
     fn string(input: impl Into<String>) -> Value {
-        UntaggedValue::string(input.into()).into_untagged_value()
+        crate::utils::data::tests::helpers::string(input)
+    }
+
+    pub fn date(input: impl Into<String>) -> Value {
+        crate::utils::data::tests::helpers::date(input)
     }
 
     fn row(entries: IndexMap<String, Value>) -> Value {
-        UntaggedValue::row(entries).into_untagged_value()
+        crate::utils::data::tests::helpers::row(entries)
     }
 
     fn table(list: &[Value]) -> Value {
-        UntaggedValue::table(list).into_untagged_value()
+        crate::utils::data::tests::helpers::table(list)
     }
 
-    fn nu_releases_grouped_by_date() -> Result<Value, ShellError> {
-        let key = Some(String::from("date").tagged_unknown());
-        let sample = table(&nu_releases_committers());
-        group(&key, &sample, Tag::unknown())
+    fn committers_grouped_by_date() -> Value {
+        crate::utils::data::tests::helpers::committers_grouped_by_date()
     }
 
-    fn nu_releases_sorted_by_date() -> Result<Value, ShellError> {
-        let key = String::from("date").tagged(Tag::unknown());
-
-        t_sort(
-            Some(key),
-            None,
-            &nu_releases_grouped_by_date()?,
-            Tag::unknown(),
-        )
+    fn datasets_sorted_by_date() -> Value {
+        crate::utils::data::tests::helpers::datasets_sorted_by_date()
     }
 
-    fn nu_releases_evaluated_by_default_one() -> Result<Value, ShellError> {
-        evaluate(&nu_releases_sorted_by_date()?, None, Tag::unknown())
+    fn datasets_evaluated_by_default_one() -> Value {
+        crate::utils::data::tests::helpers::datasets_evaluated_by_default_one()
     }
 
-    fn nu_releases_reduced_by_sum() -> Result<Value, ShellError> {
+    fn nu_releases_reduced_by_sum() -> Value {
         reduce(
-            &nu_releases_evaluated_by_default_one()?,
+            &datasets_evaluated_by_default_one(),
             Some(String::from("sum")),
             Tag::unknown(),
         )
-    }
-
-    fn nu_releases_committers() -> Vec<Value> {
-        vec![
-            row(
-                indexmap! {"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("August 23-2019")},
-            ),
-            row(
-                indexmap! {"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("August 23-2019")},
-            ),
-            row(
-                indexmap! {"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("October 10-2019")},
-            ),
-            row(
-                indexmap! {"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("September 24-2019")},
-            ),
-            row(
-                indexmap! {"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("October 10-2019")},
-            ),
-            row(
-                indexmap! {"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("September 24-2019")},
-            ),
-            row(
-                indexmap! {"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("October 10-2019")},
-            ),
-            row(
-                indexmap! {"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("September 24-2019")},
-            ),
-            row(
-                indexmap! {"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("August 23-2019")},
-            ),
-        ]
+        .unwrap()
     }
 
     #[test]
-    fn show_columns_sorted_given_a_column_to_sort_by() -> Result<(), ShellError> {
+    fn show_columns_sorted_given_a_column_to_sort_by() {
         let by_column = String::from("date").tagged(Tag::unknown());
 
         assert_eq!(
             columns_sorted(
                 Some(by_column),
-                &nu_releases_grouped_by_date()?,
+                &committers_grouped_by_date(),
                 Tag::unknown()
             ),
             vec![
-                "August 23-2019".to_string().tagged_unknown(),
-                "September 24-2019".to_string().tagged_unknown(),
-                "October 10-2019".to_string().tagged_unknown()
+                "2019-07-23".to_string().tagged_unknown(),
+                "2019-09-24".to_string().tagged_unknown(),
+                "2019-10-10".to_string().tagged_unknown()
             ]
         );
-
-        Ok(())
     }
 
     #[test]
-    fn sorts_the_tables() -> Result<(), ShellError> {
+    fn sorts_the_tables() {
         let group_by = String::from("date").tagged(Tag::unknown());
 
         assert_eq!(
             t_sort(
                 Some(group_by),
                 None,
-                &nu_releases_grouped_by_date()?,
+                &committers_grouped_by_date(),
                 Tag::unknown()
-            )?,
+            )
+            .unwrap(),
             table(&[table(&[
                 table(&[
                     row(
-                        indexmap! {"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("August 23-2019")}
+                        indexmap! {"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => date("2019-07-23"), "chickens".into() => int(10) }
                     ),
                     row(
-                        indexmap! {"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("August 23-2019")}
+                        indexmap! {"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => date("2019-07-23"), "chickens".into() =>  int(5) }
                     ),
                     row(
-                        indexmap! {"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("August 23-2019")}
+                        indexmap! {"name".into() => string("YK"), "country".into() => string("US"), "date".into() => date("2019-07-23"), "chickens".into() =>  int(2) }
                     )
                 ]),
                 table(&[
                     row(
-                        indexmap! {"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("September 24-2019")}
+                        indexmap! {"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => date("2019-09-24"), "chickens".into() => int(20) }
                     ),
                     row(
-                        indexmap! {"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("September 24-2019")}
+                        indexmap! {"name".into() => string("YK"), "country".into() => string("US"), "date".into() => date("2019-09-24"), "chickens".into() =>  int(4) }
                     ),
                     row(
-                        indexmap! {"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("September 24-2019")}
+                        indexmap! {"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => date("2019-09-24"), "chickens".into() => int(10) }
                     )
                 ]),
                 table(&[
                     row(
-                        indexmap! {"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("October 10-2019")}
+                        indexmap! {"name".into() => string("YK"), "country".into() => string("US"), "date".into() => date("2019-10-10"), "chickens".into() =>  int(6) }
                     ),
                     row(
-                        indexmap! {"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("October 10-2019")}
+                        indexmap! {"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => date("2019-10-10"), "chickens".into() => int(15) }
                     ),
                     row(
-                        indexmap! {"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("October 10-2019")}
+                        indexmap! {"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => date("2019-10-10"), "chickens".into() => int(30) }
                     )
                 ]),
             ]),])
         );
-
-        Ok(())
     }
 
     #[test]
-    fn evaluator_fetches_by_column_if_supplied_a_column_name() -> Result<(), ShellError> {
+    fn evaluator_fetches_by_column_if_supplied_a_column_name() {
         let subject = row(indexmap! { "name".into() => string("andres") });
 
         let evaluator = fetch(Some(String::from("name")));
 
         assert_eq!(evaluator(subject, Tag::unknown()), Some(string("andres")));
-        Ok(())
     }
 
     #[test]
-    fn evaluator_returns_1_if_no_column_name_given() -> Result<(), ShellError> {
+    fn evaluator_returns_1_if_no_column_name_given() {
         let subject = row(indexmap! { "name".into() => string("andres") });
         let evaluator = fetch(None);
 
@@ -604,72 +562,61 @@ mod tests {
             evaluator(subject, Tag::unknown()),
             Some(UntaggedValue::int(1).into_untagged_value())
         );
-
-        Ok(())
     }
 
     #[test]
-    fn evaluates_the_tables() -> Result<(), ShellError> {
+    fn evaluates_the_tables() {
         assert_eq!(
-            evaluate(&nu_releases_sorted_by_date()?, None, Tag::unknown())?,
+            evaluate(&datasets_sorted_by_date(), None, Tag::unknown()).unwrap(),
             table(&[table(&[
                 table(&[int(1), int(1), int(1)]),
                 table(&[int(1), int(1), int(1)]),
                 table(&[int(1), int(1), int(1)]),
             ]),])
         );
-
-        Ok(())
     }
 
     #[test]
-    fn evaluates_the_tables_with_custom_evaluator() -> Result<(), ShellError> {
+    fn evaluates_the_tables_with_custom_evaluator() {
         let eval = String::from("name");
 
         assert_eq!(
-            evaluate(&nu_releases_sorted_by_date()?, Some(eval), Tag::unknown())?,
+            evaluate(&datasets_sorted_by_date(), Some(eval), Tag::unknown()).unwrap(),
             table(&[table(&[
                 table(&[string("AR"), string("JT"), string("YK")]),
                 table(&[string("AR"), string("YK"), string("JT")]),
                 table(&[string("YK"), string("JT"), string("AR")]),
             ]),])
         );
-
-        Ok(())
     }
 
     #[test]
-    fn reducer_computes_given_a_sum_command() -> Result<(), ShellError> {
+    fn reducer_computes_given_a_sum_command() {
         let subject = vec![int(1), int(1), int(1)];
 
         let action = reducer_for(Reduce::Summation);
 
-        assert_eq!(action(Value::zero(), subject)?, int(3));
-
-        Ok(())
+        assert_eq!(action(Value::zero(), subject).unwrap(), int(3));
     }
 
     #[test]
-    fn reducer_computes() -> Result<(), ShellError> {
+    fn reducer_computes() {
         assert_eq!(
             reduce(
-                &nu_releases_evaluated_by_default_one()?,
+                &datasets_evaluated_by_default_one(),
                 Some(String::from("sum")),
                 Tag::unknown()
-            )?,
-            table(&[table(&[int(3), int(3), int(3)])])
+            )
+            .unwrap(),
+            table(&[int(3), int(3), int(3)])
         );
-
-        Ok(())
     }
 
     #[test]
-    fn maps_and_gets_max_value() -> Result<(), ShellError> {
+    fn maps_and_gets_max_value() {
         assert_eq!(
-            map_max(&nu_releases_reduced_by_sum()?, None, Tag::unknown())?,
+            map_max(&nu_releases_reduced_by_sum(), None, Tag::unknown()).unwrap(),
             int(3)
         );
-
-        Ok(())
     }
 }

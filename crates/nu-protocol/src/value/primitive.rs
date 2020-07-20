@@ -70,10 +70,19 @@ impl Primitive {
                     ExpectedRange::U64,
                     &format!("{}", int).spanned(span),
                     "converting an integer into a 64-bit integer",
-                )
-            }),
+                )),
+                Some(num) => Ok(num),
+            },
+            Primitive::Decimal(decimal) => match decimal.to_u64() {
+                None => Err(ShellError::range_error(
+                    ExpectedRange::U64,
+                    &format!("{}", decimal).spanned(span),
+                    "converting a decimal into a 64-bit integer",
+                )),
+                Some(num) => Ok(num),
+            },
             other => Err(ShellError::type_error(
-                "integer",
+                "number",
                 other.type_name().spanned(span),
             )),
         }

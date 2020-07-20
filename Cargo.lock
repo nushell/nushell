@@ -461,6 +461,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "cassowary"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df8670b8c7b9dae1793364eafadf7239c40d669904660c5960d74cfd80b46a53"
+
+[[package]]
 name = "cc"
 version = "1.0.55"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2462,6 +2468,7 @@ dependencies = [
  "nu-test-support",
  "nu-value-ext",
  "nu_plugin_binaryview",
+ "nu_plugin_chart",
  "nu_plugin_fetch",
  "nu_plugin_from_bson",
  "nu_plugin_from_sqlite",
@@ -2722,6 +2729,22 @@ dependencies = [
  "nu-source",
  "pretty-hex",
  "rawkey",
+]
+
+[[package]]
+name = "nu_plugin_chart"
+version = "0.17.0"
+dependencies = [
+ "crossterm",
+ "nu-build",
+ "nu-cli",
+ "nu-errors",
+ "nu-plugin",
+ "nu-protocol",
+ "nu-source",
+ "nu-value-ext",
+ "rand",
+ "tui",
 ]
 
 [[package]]
@@ -4460,6 +4483,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a3d3efa66f2eb71069c3ba9582361e823626067b728ec882490e68c9c43b5e32"
 dependencies = [
  "winapi 0.3.9",
+]
+
+[[package]]
+name = "tui"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a977b0bb2e2033a6fef950f218f13622c3c34e59754b704ce3492dedab1dfe95"
+dependencies = [
+ "bitflags",
+ "cassowary",
+ "crossterm",
+ "unicode-segmentation",
+ "unicode-width",
 ]
 
 [[package]]

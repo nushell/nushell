@@ -25,6 +25,7 @@ nu-plugin = {version = "0.17.0", path = "./crates/nu-plugin"}
 nu-protocol = {version = "0.17.0", path = "./crates/nu-protocol"}
 nu-source = {version = "0.17.0", path = "./crates/nu-source"}
 nu-value-ext = {version = "0.17.0", path = "./crates/nu-value-ext"}
+nu_plugin_chart = {version = "0.17.0", path = "./crates/nu_plugin_chart", optional = true}
 nu_plugin_binaryview = {version = "0.17.0", path = "./crates/nu_plugin_binaryview", optional = true}
 nu_plugin_fetch = {version = "0.17.0", path = "./crates/nu_plugin_fetch", optional = true}
 nu_plugin_from_bson = {version = "0.17.0", path = "./crates/nu_plugin_from_bson", optional = true}
@@ -66,6 +67,7 @@ default = [
   "sys",
   "ps",
   "textview",
+  "chart",
   "inc",
   "git-support",
   "directories-support",
@@ -79,6 +81,7 @@ stable = ["default", "binaryview", "match", "tree", "post", "fetch", "clipboard-
 
 # Default
 inc = ["semver", "nu_plugin_inc"]
+chart = ["crossterm", "nu_plugin_chart"]
 ps = ["nu_plugin_ps"]
 sys = ["nu_plugin_sys"]
 textview = ["crossterm", "syntect", "url", "nu_plugin_textview"]

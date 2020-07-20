@@ -1,0 +1,25 @@
+[package]
+authors = ["The Nu Project Contributors"]
+description = "A plugin to display charts"
+edition = "2018"
+license = "MIT"
+name = "nu_plugin_chart"
+version = "0.17.0"
+
+[lib]
+doctest = false
+
+[dependencies]
+nu-errors = {path = "../nu-errors", version = "0.17.0"}
+nu-plugin = {path = "../nu-plugin", version = "0.17.0"}
+nu-protocol = {path = "../nu-protocol", version = "0.17.0"}
+nu-source = {path = "../nu-source", version = "0.17.0"}
+nu-cli = {path = "../nu-cli", version = "0.17.0"}
+nu-value-ext = {path = "../nu-value-ext", version = "0.17.0"}
+
+rand = "0.7"
+crossterm = "0.17.5"
+tui = {version = "0.10.0", default-features = false, features = ["crossterm"]}
+
+[build-dependencies]
+nu-build = {version = "0.17.0", path = "../nu-build"}

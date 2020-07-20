@@ -252,75 +252,56 @@ mod tests {
     use super::group;
     use indexmap::IndexMap;
     use nu_errors::ShellError;
-    use nu_protocol::{UntaggedValue, Value};
+    use nu_protocol::Value;
     use nu_source::*;
+    use num_bigint::BigInt;
+
+    fn int(s: impl Into<BigInt>) -> Value {
+        crate::utils::data::tests::helpers::int(s)
+    }
+
+    pub fn date(input: impl Into<String>) -> Value {
+        crate::utils::data::tests::helpers::date(input)
+    }
 
     fn string(input: impl Into<String>) -> Value {
-        UntaggedValue::string(input.into()).into_untagged_value()
+        crate::utils::data::tests::helpers::string(input)
     }
 
     fn row(entries: IndexMap<String, Value>) -> Value {
-        UntaggedValue::row(entries).into_untagged_value()
+        crate::utils::data::tests::helpers::row(entries)
     }
 
     fn table(list: &[Value]) -> Value {
-        UntaggedValue::table(list).into_untagged_value()
+        crate::utils::data::tests::helpers::table(list)
     }
 
-    fn nu_releases_committers() -> Vec<Value> {
-        vec![
-            row(
-                indexmap! {"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("August 23-2019")},
-            ),
-            row(
-                indexmap! {"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("August 23-2019")},
-            ),
-            row(
-                indexmap! {"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("October 10-2019")},
-            ),
-            row(
-                indexmap! {"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("Sept 24-2019")},
-            ),
-            row(
-                indexmap! {"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("October 10-2019")},
-            ),
-            row(
-                indexmap! {"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("Sept 24-2019")},
-            ),
-            row(
-                indexmap! {"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("October 10-2019")},
-            ),
-            row(
-                indexmap! {"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("Sept 24-2019")},
-            ),
-            row(
-                indexmap! {"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("August 23-2019")},
-            ),
-        ]
+    fn committers() -> Vec<Value> {
+        crate::utils::data::tests::helpers::committers()
     }
 
     #[test]
     fn groups_table_by_date_column() -> Result<(), ShellError> {
         let for_key = Some(String::from("date").tagged_unknown());
-        let sample = table(&nu_releases_committers());
+        let sample = table(&committers());
 
         assert_eq!(
             group(&for_key, &sample, Tag::unknown())?,
             row(indexmap! {
-                "August 23-2019".into() =>  table(&[
-                    row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("August 23-2019")}),
-                    row(indexmap!{"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("August 23-2019")}),
-                    row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("August 23-2019")})
+                "2019-07-23".into() =>  table(&[
+                    row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => date("2019-07-23"), "chickens".into() => int(10) }),
+                    row(indexmap!{"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => date("2019-07-23"), "chickens".into() =>  int(5) }),
+                    row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => date("2019-07-23"), "chickens".into() =>  int(2) })
                 ]),
-                "October 10-2019".into() =>  table(&[
-                    row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("October 10-2019")}),
-                    row(indexmap!{"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("October 10-2019")}),
-                    row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("October 10-2019")})
+                "2019-10-10".into() =>  table(&[
+                    row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => date("2019-10-10"), "chickens".into() =>  int(6) }),
+                    row(indexmap!{"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => date("2019-10-10"), "chickens".into() => int(15) }),
+                    row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => date("2019-10-10"), "chickens".into() => int(30) })
                 ]),
-                "Sept 24-2019".into() =>  table(&[
-                    row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("Sept 24-2019")}),
-                    row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("Sept 24-2019")}),
-                    row(indexmap!{"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("Sept 24-2019")})
+                "2019-09-24".into() =>  table(&[
+                    row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => date("2019-09-24"), "chickens".into() => int(20) }),
+                    row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => date("2019-09-24"), "chickens".into() =>  int(4) }),
+                    row(indexmap!{"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => date("2019-09-24"), "chickens".into() => int(10) })
                 ]),
             })
         );
@@ -331,25 +312,25 @@ mod tests {
     #[test]
     fn groups_table_by_country_column() -> Result<(), ShellError> {
         let for_key = Some(String::from("country").tagged_unknown());
-        let sample = table(&nu_releases_committers());
+        let sample = table(&committers());
 
         assert_eq!(
             group(&for_key, &sample, Tag::unknown())?,
             row(indexmap! {
                 "EC".into() =>  table(&[
-                    row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("August 23-2019")}),
-                    row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("Sept 24-2019")}),
-                    row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("October 10-2019")})
+                    row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => date("2019-07-23"), "chickens".into() => int(10) }),
+                    row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => date("2019-09-24"), "chickens".into() => int(20) }),
+                    row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => date("2019-10-10"), "chickens".into() => int(30) })
                 ]),
                 "NZ".into() =>  table(&[
-                    row(indexmap!{"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("August 23-2019")}),
-                    row(indexmap!{"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("October 10-2019")}),
-                    row(indexmap!{"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("Sept 24-2019")})
+                    row(indexmap!{"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => date("2019-07-23"), "chickens".into() =>  int(5) }),
+                    row(indexmap!{"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => date("2019-10-10"), "chickens".into() => int(15) }),
+                    row(indexmap!{"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => date("2019-09-24"), "chickens".into() => int(10) })
                 ]),
                 "US".into() =>  table(&[
-                    row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("October 10-2019")}),
-                    row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("Sept 24-2019")}),
-                    row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("August 23-2019")}),
+                    row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => date("2019-10-10"), "chickens".into() =>  int(6) }),
+                    row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => date("2019-09-24"), "chickens".into() =>  int(4) }),
+                    row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => date("2019-07-23"), "chickens".into() =>  int(2) }),
                 ]),
             })
         );
