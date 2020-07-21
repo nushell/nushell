@@ -10,7 +10,7 @@ Syntax: `config {flags}`
       load the config from the path give
 
     set <any shape>
-      set a value in the config, eg) set [key value]
+      set a value in the config, eg) set variable value
 
     set_into <member shape>
       sets a variable from values in the pipeline
@@ -47,7 +47,7 @@ Syntax: `config {flags}`
 ## Examples
 
 ```shell
-> config set [table_mode "light"]
+> config set table_mode "light"
 ```
 
 A more detailed description on how to use this command to configure Nu shell can be found in the configuration chapter of [Nu Book](https://www.nushell.sh/book/en/configuration.html).
