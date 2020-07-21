@@ -281,16 +281,23 @@ mod external_command_arguments {
         Playground::setup(
             "expands_table_of_primitives_to_positional_arguments",
             |dirs, sandbox| {
-                sandbox.with_files(vec![EmptyFile("jonathan_likes_cake.txt")]);
+                sandbox.with_files(vec![
+                    EmptyFile("jonathan_likes_cake.txt"),
+                    EmptyFile("andres_likes_arepas.txt"),
+                    EmptyFile("ferris_not_here.txt"),
+                ]);
 
                 let actual = nu!(
                 cwd: dirs.test(), pipeline(
                 r#"
-                nu --testbin cococo $(ls | get name)
+                    nu --testbin cococo $(ls | get name)
                 "#
                 ));
 
-                assert_eq!(actual.out, "jonathan_likes_cake.txt");
+                assert_eq!(
+                    actual.out,
+                    "andres_likes_arepas.txt ferris_not_here.txt jonathan_likes_cake.txt"
+                );
             },
         )
     }
