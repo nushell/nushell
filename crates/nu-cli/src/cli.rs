@@ -8,6 +8,7 @@ use crate::git::current_branch;
 use crate::path::canonicalize;
 use crate::prelude::*;
 use crate::EnvironmentSyncer;
+use crate::shell::Helper;
 use futures_codec::FramedRead;
 use nu_errors::{ProximateShellError, ShellDiagnostic, ShellError};
 use nu_protocol::hir::{ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments};
@@ -18,9 +19,9 @@ use nu_source::Tagged;
 use log::{debug, trace};
 use rustyline::error::ReadlineError;
 use rustyline::{
-    self, config::Configurer, config::EditMode, At, Cmd, ColorMode, CompletionType, Config, Editor,
-    KeyPress, Movement, Word,
+    self, config::Configurer, At, Cmd, Editor, KeyPress, Movement, Word
 };
+use rustyline::config::{ColorMode, Config, CompletionType};
 use std::error::Error;
 use std::io::{BufRead, BufReader, Write};
 use std::iter::Iterator;
@@ -521,17 +522,24 @@ pub async fn run_pipeline_standalone(
     Ok(())
 }
 
-/// The entry point for the CLI. Will register all known internal commands, load experimental commands, load plugins, then prepare the prompt and line reader for input.
-pub async fn cli(
-    mut syncer: EnvironmentSyncer,
-    mut context: Context,
-) -> Result<(), Box<dyn Error>> {
+pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>) {
+    // let mut max_history_size = 100_000;
+    // // let mut history_duplicates = rustyline::config::HistoryDuplicates::AlwaysAdd; //alwaysadd, ignoreconsecutive
+    // let mut history_duplicates = true; //false = alwaysadd, true = ignoreconsecutive
+    // let mut history_ignore_space = true;
+    // let mut completion_type = rustyline::config::CompletionType::Circular; // cirular, list, fuzzy
+    // let mut completion_prompt_limit = 1;
+    // let mut keyseq_timeout_ms = 500; //milliseconds
+    // let mut edit_mode = rustyline::config::EditMode::Vi; // vi, emacs
+    // let mut auto_add_history = true;
+    // let mut bell_style = rustyline::config::BellStyle::Audible; // audible, none, visible
+    // let mut color_mode = rustyline::config::ColorMode::Enabled; // enable, forced, disabled
+    // let mut tab_stop = 4;
+
     #[cfg(windows)]
     const DEFAULT_COMPLETION_MODE: CompletionType = CompletionType::Circular;
     #[cfg(not(windows))]
     const DEFAULT_COMPLETION_MODE: CompletionType = CompletionType::List;
-
-    let _ = load_plugins(&mut context);
 
     let config = Config::builder().color_mode(ColorMode::Forced).build();
     let mut rl: Editor<_> = Editor::with_config(config);
@@ -550,13 +558,214 @@ pub async fn cli(
         println!("Error loading keybindings: {:?}", e);
     }
 
+    let config = match config::config(Tag::unknown()) {
+        Ok(config) => config,
+        Err(e) => {
+            eprintln!("Config could not be loaded.");
+            if let ShellError {
+                error: ProximateShellError::Diagnostic(ShellDiagnostic { diagnostic }),
+                ..
+            } = e
+            {
+                eprintln!("{}", diagnostic.message);
+            }
+            IndexMap::new()
+        }
+    };
+
+    if let Ok(config) = config::config(Tag::unknown()) {
+        if let Some(batvars) = config.get("line_editor") {
+            for (idx, value) in batvars.row_entries() {
+                match idx.as_ref() {
+                    "max_history_size" => {
+                        let max_history_size = match value.as_u64() {
+                            Ok(n) => n as usize,
+                            _ => 1000 as usize,
+                        };
+                        rl.set_max_history_size(max_history_size as usize);
+                    }
+                    "history_duplicates" => {
+                        // history_duplicates = match value.as_string() {
+                        //     Ok(s) if s.to_lowercase() == "alwaysadd" => {
+                        //         rustyline::config::HistoryDuplicates::AlwaysAdd
+                        //     }
+                        //     Ok(s) if s.to_lowercase() == "ignoreconsecutive" => {
+                        //         rustyline::config::HistoryDuplicates::IgnoreConsecutive
+                        //     }
+                        //     _ => rustyline::config::HistoryDuplicates::AlwaysAdd,
+                        // };
+                        let history_duplicates = match value.as_bool() {
+                            Ok(b) => b,
+                            _ => true,
+                        };
+                        rl.set_history_ignore_dups(history_duplicates);
+                    }
+                    "history_ignore_space" => {
+                        let history_ignore_space = match value.as_bool() {
+                            Ok(b) => b,
+                            _ => true,
+                        };
+                        rl.set_history_ignore_space(history_ignore_space);
+                    }
+                    "completion_type" => {
+                        let completion_type = match value.as_string() {
+                            Ok(s) if s.to_lowercase() == "circular" => {
+                                rustyline::config::CompletionType::Circular
+                            }
+                            Ok(s) if s.to_lowercase() == "list" => {
+                                rustyline::config::CompletionType::List
+                            }
+                            #[cfg(all(unix, feature = "with-fuzzy"))]
+                            Ok(s) if s.to_lowercase() == "fuzzy" => {
+                                rustyline::config::CompletionType::Fuzzy
+                            }
+                            _ => DEFAULT_COMPLETION_MODE,
+                        };
+                        rl.set_completion_type(completion_type);
+                    }
+                    "completion_prompt_limit" => {
+                        let completion_prompt_limit = match value.as_u64() {
+                            Ok(n) => n as usize,
+                            _ => 1 as usize,
+                        };
+                        rl.set_completion_prompt_limit(completion_prompt_limit);
+                    }
+                    "keyseq_timeout_ms" => {
+                        let keyseq_timeout_ms = match value.as_u64() {
+                            Ok(n) => n as i32,
+                            _ => 500i32,
+                        };
+                        rl.set_keyseq_timeout(keyseq_timeout_ms);
+                    }
+                    "edit_mode" => {
+                        let edit_mode = match value.as_string() {
+                            Ok(s) if s.to_lowercase() == "vi" => {
+                                rustyline::config::EditMode::Vi
+                            }
+                            Ok(s) if s.to_lowercase() == "emacs" => {
+                                rustyline::config::EditMode::Emacs
+                            }
+                            _ => rustyline::config::EditMode::Vi,
+                        };
+                        rl.set_edit_mode(edit_mode);
+                    }
+                    "auto_add_history" => {
+                        let auto_add_history = match value.as_bool() {
+                            Ok(b) => b,
+                            _ => true,
+                        };
+                        rl.set_auto_add_history(auto_add_history);
+                    }
+                    "bell_style" => {
+                        let bell_style = match value.as_string() {
+                            Ok(s) if s.to_lowercase() == "audible" => {
+                                rustyline::config::BellStyle::Audible
+                            }
+                            Ok(s) if s.to_lowercase() == "none" => {
+                                rustyline::config::BellStyle::None
+                            }
+                            Ok(s) if s.to_lowercase() == "visible" => {
+                                rustyline::config::BellStyle::Visible
+                            }
+                            _ => rustyline::config::BellStyle::None,
+                        };
+                        rl.set_bell_style(bell_style);
+                    }
+                    "color_mode" => {
+                        let color_mode = match value.as_string() {
+                            Ok(s) if s.to_lowercase() == "enabled" => {
+                                rustyline::ColorMode::Enabled
+                            }
+                            Ok(s) if s.to_lowercase() == "forced" => {
+                                rustyline::ColorMode::Forced
+                            }
+                            Ok(s) if s.to_lowercase() == "disabled" => {
+                                rustyline::ColorMode::Disabled
+                            }
+                            _ => rustyline::ColorMode::Enabled,
+                        };
+                        rl.set_color_mode(color_mode);
+                    }
+                    "tab_stop" => {
+                        let tab_stop = match value.as_u64() {
+                            Ok(n) => n as usize,
+                            _ => 4 as usize,
+                        };
+                        rl.set_tab_stop(tab_stop);
+                    }
+                    _ => (),
+                }
+            }
+        }
+    }
+
+
+    // // Set the max size of history before loading the history
+    // let max_history_size = config
+    //     .get("history_size")
+    //     .map(|i| i.value.expect_int())
+    //     .unwrap_or(100_000);
+
+    // rl.set_max_history_size(max_history_size as usize);
+    // // rustyline::config::Configurer::set_max_history_size(&mut rl, max_history_size as usize);
+    // // rustyline::Editor::set_max_history_size(&mut rl, max_history_size as usize);
+
+    // let _ = rl.load_history(&History::path());
+
+    // let edit_mode = config
+    //     .get("edit_mode")
+    //     .map(|s| match s.value.expect_string() {
+    //         "vi" => EditMode::Vi,
+    //         "emacs" => EditMode::Emacs,
+    //         _ => EditMode::Emacs,
+    //     })
+    //     .unwrap_or(EditMode::Emacs);
+
+    // rl.set_edit_mode(edit_mode);
+
+
+    // let key_timeout = config
+    //     .get("key_timeout")
+    //     .map(|s| s.value.expect_int())
+    //     .unwrap_or(1);
+
+    // rl.set_keyseq_timeout(key_timeout as i32);
+
+    // let completion_mode = config
+    //     .get("completion_mode")
+    //     .map(|s| match s.value.expect_string() {
+    //         "list" => CompletionType::List,
+    //         "circular" => CompletionType::Circular,
+    //         _ => DEFAULT_COMPLETION_MODE,
+    //     })
+    //     .unwrap_or(DEFAULT_COMPLETION_MODE);
+
+    // rl.set_completion_type(completion_mode);
+
+    (rl, config)
+}
+
+/// The entry point for the CLI. Will register all known internal commands, load experimental commands, load plugins, then prepare the prompt and line reader for input.
+pub async fn cli(
+    mut syncer: EnvironmentSyncer,
+    mut context: Context,
+) -> Result<(), Box<dyn Error>> {
+
+    let _ = load_plugins(&mut context);
+
+    let (mut rl, config) = set_rustyline_configuration();
+    let use_starship = match config.get("use_starship") {
+        Some(b) => match b.as_bool() {
+            Ok(b) => b,
+            _ => false,
+        },
+        _ => false,
+    };
+
     #[cfg(windows)]
     {
         let _ = ansi_term::enable_ansi_support();
     }
-
-    // we are ok if history does not exist
-    let _ = rl.load_history(&History::path());
 
     #[cfg(feature = "ctrlc")]
     {
@@ -605,67 +814,6 @@ pub async fn cli(
         let cwd = context.shell_manager.path();
 
         rl.set_helper(Some(crate::shell::Helper::new(context.clone())));
-
-        let config = match config::config(Tag::unknown()) {
-            Ok(config) => config,
-            Err(e) => {
-                eprintln!("Config could not be loaded.");
-                if let ShellError {
-                    error: ProximateShellError::Diagnostic(ShellDiagnostic { diagnostic }),
-                    ..
-                } = e
-                {
-                    eprintln!("{}", diagnostic.message);
-                }
-                IndexMap::new()
-            }
-        };
-
-        let use_starship = match config.get("use_starship") {
-            Some(b) => match b.as_bool() {
-                Ok(b) => b,
-                _ => false,
-            },
-            _ => false,
-        };
-
-        let edit_mode = config
-            .get("edit_mode")
-            .map(|s| match s.value.expect_string() {
-                "vi" => EditMode::Vi,
-                "emacs" => EditMode::Emacs,
-                _ => EditMode::Emacs,
-            })
-            .unwrap_or(EditMode::Emacs);
-
-        rl.set_edit_mode(edit_mode);
-
-        let max_history_size = config
-            .get("history_size")
-            .map(|i| i.value.expect_int())
-            .unwrap_or(100_000);
-
-        // rl.set_max_history_size(max_history_size as usize);
-        rustyline::config::Configurer::set_max_history_size(&mut rl, max_history_size as usize);
-        rustyline::Editor::set_max_history_size(&mut rl, max_history_size as usize);
-
-        let key_timeout = config
-            .get("key_timeout")
-            .map(|s| s.value.expect_int())
-            .unwrap_or(1);
-
-        rl.set_keyseq_timeout(key_timeout as i32);
-
-        let completion_mode = config
-            .get("completion_mode")
-            .map(|s| match s.value.expect_string() {
-                "list" => CompletionType::List,
-                "circular" => CompletionType::Circular,
-                _ => DEFAULT_COMPLETION_MODE,
-            })
-            .unwrap_or(DEFAULT_COMPLETION_MODE);
-
-        rl.set_completion_type(completion_mode);
 
         let colored_prompt = {
             if use_starship {
