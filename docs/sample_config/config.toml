@@ -1,0 +1,35 @@
+completion_mode = "circular"
+edit_mode = "vi"
+history_size = 100000
+key_timeout = 500
+
+disable_table_indexes = false
+header_align = "l"
+header_color = "c"
+header_bold = true
+nonzero_exit_errors = true
+startup = ["alias la [path] {ls --full $path}", "alias nudown [] {fetch https://api.github.com/repos/nushell/nushell/releases | get assets | select name download_count}"]
+table_mode = "other"
+plugin_dirs = ["D:\\Src\\GitHub\\nu-plugin-lib\\samples\\Nu.Plugin.Len\\bin\\Debug\\netcoreapp3.1"]
+pivot_mode = "auto"
+ctrlc_exit = false
+complete_from_path = true
+rm_always_trash = true
+use_starship = false
+prompt = "echo [ $(ansi gb) $(pwd) $(ansi reset) \"(\" $(ansi cb) $(do -i { git rev-parse --abbrev-ref HEAD | trim }) $(ansi reset) \")\" $(char newline) $(ansi yb) $(date --format \"%m/%d/%Y %I:%M:%S%.3f %p\" --raw) $(ansi reset) \"> \" ] | str collect"
+
+[textview]
+term_width = "default"
+tab_width = 4
+colored_output = true
+true_color = true
+header = true
+line_numbers = true
+grid = false
+vcs_modification_markers = true
+snip = true
+wrapping_mode = "NoWrapping"
+use_italics = true
+paging_mode = "QuitIfOneScreen"
+pager = "less"
+theme = "TwoDark"

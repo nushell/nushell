@@ -1,0 +1,189 @@
+# These are the common keys acrosso modes taken directly from Rustyline. If
+# you want to change the keybinding you should change the letter after
+# "key:". If you want to change the modifier you should change or add the
+# modifier after "key:", such as:
+# key:
+#   Ctrl: A
+# Available modifiers are Ctrl, F (for function), Meta (escape-char, alt-char)
+
+# Common
+#     KeyPress::Home => Cmd::Move(Movement::BeginningOfLine),
+- key:
+    Home:
+  binding:
+    Move: BeginningOfLine
+
+#     KeyPress::End => Cmd::Move(Movement::EndOfLine),
+- key:
+    End:
+  binding:
+    Move: EndOfLine
+
+#     KeyPress::Left => {
+#         if positive {
+#             Cmd::Move(Movement::BackwardChar(n))
+#         } else {
+#             Cmd::Move(Movement::ForwardChar(n))
+#         }
+#     }
+- key:
+    Left: #Left Arrow Key
+  binding:
+    Move:
+      BackwardChar: 1
+
+#     KeyPress::Right => {
+#         if positive {
+#             Cmd::Move(Movement::ForwardChar(n))
+#         } else {
+#             Cmd::Move(Movement::BackwardChar(n))
+#         }
+#     }
+- key:
+    Right: #Right Arrow Key
+  binding:
+    Move:
+      ForwardChar: 1
+
+#     KeyPress::Ctrl('C') => Cmd::Interrupt,
+- key:
+    Ctrl: C
+  binding:
+    Interrupt:
+
+#     KeyPress::Ctrl('D') => Cmd::EndOfFile,
+- key:
+    Ctrl: D
+  binding:
+    EndOfFile:
+
+#     KeyPress::Delete => {
+#         if positive {
+#             Cmd::Kill(Movement::ForwardChar(n))
+#         } else {
+#             Cmd::Kill(Movement::BackwardChar(n))
+#         }
+#     }
+- key:
+    Delete:
+  binding:
+    Kill:
+      ForwardChar: 1
+
+#     KeyPress::Ctrl('J') |
+#     KeyPress::Enter => Cmd::AcceptLine,
+- key:
+    Ctrl: J
+  binding:
+    AcceptLine:
+- key:
+    Enter:
+  binding:
+    AcceptLine:
+  
+#     KeyPress::Down => Cmd::LineDownOrNextHistory(1),
+- key:
+    Down: #Down Arrow Key
+  binding:
+    LineDownOrNextHistory: 1
+
+#     KeyPress::Up => Cmd::LineUpOrPreviousHistory(1),
+- key:
+    Up: #Up Arrow Key
+  binding:
+    LineUpOrPreviousHistory: 1
+
+#     KeyPress::Ctrl('R') => Cmd::ReverseSearchHistory,
+- key:
+    Ctrl: R
+  binding:
+    ReverseSearchHistory:
+
+#     KeyPress::Ctrl('S') => Cmd::ForwardSearchHistory, // most terminals override Ctrl+S to suspend execution
+- key:
+    Ctrl: S
+  binding:
+    ForwardSearchHistory:
+
+#     KeyPress::Ctrl('T') => Cmd::TransposeChars,
+- key:
+    Ctrl: T
+  binding:
+    TransposeChars:
+
+#     KeyPress::Ctrl('U') => {
+#         if positive {
+#             Cmd::Kill(Movement::BeginningOfLine)
+#         } else {
+#             Cmd::Kill(Movement::EndOfLine)
+#         }
+#     },
+- key:
+    Ctrl: U
+  binding:
+    Kill: BeginningOfLine
+
+#     KeyPress::Ctrl('Q') | // most terminals override Ctrl+Q to resume execution
+#     KeyPress::Ctrl('V') => Cmd::QuotedInsert,
+- key:
+    Ctrl: Q
+  binding:
+    QuotedInsert:
+- key:
+    Ctrl: V
+  binding:
+    QuotedInsert:
+
+#     KeyPress::Ctrl('W') => {
+#         if positive {
+#             Cmd::Kill(Movement::BackwardWord(n, Word::Big))
+#         } else {
+#             Cmd::Kill(Movement::ForwardWord(n, At::AfterEnd, Word::Big))
+#         }
+#     }
+- key:
+    Ctrl: W
+  binding:
+    Kill:
+      BackwardWord:
+        repeat: 1
+        word: Big
+
+#     KeyPress::Ctrl('Y') => {
+#         if positive {
+#             Cmd::Yank(n, Anchor::Before)
+#         } else {
+#             Cmd::Unknown // TODO Validate
+#         }
+#     }
+- key:
+    Ctrl: Y
+  binding:
+    Yank:
+      repeat: 1
+      anchor: Before
+
+#     KeyPress::Ctrl('Z') => Cmd::Suspend,
+- key:
+    Ctrl: Z
+  binding:
+    Suspend:
+
+#     KeyPress::Ctrl('_') => Cmd::Undo(n),
+- key:
+    Ctrl: '_'
+  binding:
+    Undo: 1
+
+#     KeyPress::UnknownEscSeq => Cmd::Noop,
+- key:
+    UnknownEscSeq:
+  binding:
+    Noop:
+
+#     KeyPress::BracketedPasteStart => {
+#         let paste = rdr.read_pasted_text()?;
+#         Cmd::Insert(1, paste)
+#     },
+#     _ => Cmd::Unknown,
+# })
