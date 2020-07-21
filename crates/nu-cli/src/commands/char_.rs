@@ -30,11 +30,22 @@ impl WholeStreamCommand for Char {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Output newline",
-            example: r#"char newline"#,
-            result: Some(vec![Value::from("\n")]),
-        }]
+        vec![
+            Example {
+                description: "Output newline",
+                example: r#"char newline"#,
+                result: Some(vec![Value::from("\n")]),
+            },
+            Example {
+                description: "Output prompt character, newline and a hamburger character",
+                example: r#"echo $(char prompt) $(char newline) $(char hamburger)"#,
+                result: Some(vec![
+                    UntaggedValue::string("\u{25b6}").into(),
+                    UntaggedValue::string("\n").into(),
+                    UntaggedValue::string("\u{2261}").into(),
+                ]),
+            },
+        ]
     }
 
     async fn run(

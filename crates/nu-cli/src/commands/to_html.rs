@@ -15,6 +15,7 @@ pub struct ToHTMLArgs {
     html_color: bool,
     no_color: bool,
     dark_bg: bool,
+    use_campbell: bool,
 }
 
 #[async_trait]
@@ -32,6 +33,11 @@ impl WholeStreamCommand for ToHTML {
                 "indicate your background color is a darker color",
                 Some('d'),
             )
+            .switch(
+                "use_campbell",
+                "use microsoft's windows terminal color scheme named campell",
+                Some('c'),
+            )
     }
 
     fn usage(&self) -> &str {
@@ -47,43 +53,60 @@ impl WholeStreamCommand for ToHTML {
     }
 }
 
-fn get_colors(is_dark: bool) -> HashMap<&'static str, String> {
-    // Currently now using bold_white and bold_black.
-    // This is not theming but it is kind of a start. The intent here is to use the
-    // regular terminal colors which appear on black for most people and are very
-    // high contrast. But when there's a light background, use something that works
-    // better for it.
-
+fn get_campbell_theme(is_dark: bool) -> HashMap<&'static str, String> {
     // for reference here is Microsoft's Campbell Theme
     // taken from here
     // https://docs.microsoft.com/en-us/windows/terminal/customize-settings/color-schemes
-    // {
-    //     "name" : "Campbell",
+    let mut hm: HashMap<&str, String> = HashMap::new();
 
-    //     "cursorColor": "#FFFFFF",
-    //     "selectionBackground": "#FFFFFF",
+    if is_dark {
+        hm.insert("bold_black", "#767676".to_string());
+        hm.insert("bold_red", "#E74856".to_string());
+        hm.insert("bold_green", "#16C60C".to_string());
+        hm.insert("bold_yellow", "#F9F1A5".to_string());
+        hm.insert("bold_blue", "#3B78FF".to_string());
+        hm.insert("bold_magenta", "#B4009E".to_string());
+        hm.insert("bold_cyan", "#61D6D6".to_string());
+        hm.insert("bold_white", "#F2F2F2".to_string());
 
-    //     "background" : "#0C0C0C",
-    //     "foreground" : "#CCCCCC",
+        hm.insert("black", "#0C0C0C".to_string());
+        hm.insert("red", "#C50F1F".to_string());
+        hm.insert("green", "#13A10E".to_string());
+        hm.insert("yellow", "#C19C00".to_string());
+        hm.insert("blue", "#0037DA".to_string());
+        hm.insert("magenta", "#881798".to_string());
+        hm.insert("cyan", "#3A96DD".to_string());
+        hm.insert("white", "#CCCCCC".to_string());
 
-    //     "black" : "#0C0C0C",
-    //     "blue" : "#0037DA",
-    //     "cyan" : "#3A96DD",
-    //     "green" : "#13A10E",
-    //     "purple" : "#881798",
-    //     "red" : "#C50F1F",
-    //     "white" : "#CCCCCC",
-    //     "yellow" : "#C19C00",
-    //     "brightBlack" : "#767676",
-    //     "brightBlue" : "#3B78FF",
-    //     "brightCyan" : "#61D6D6",
-    //     "brightGreen" : "#16C60C",
-    //     "brightPurple" : "#B4009E",
-    //     "brightRed" : "#E74856",
-    //     "brightWhite" : "#F2F2F2",
-    //     "brightYellow" : "#F9F1A5"
-    // },
+        hm.insert("background", "#0C0C0C".to_string());
+        hm.insert("foreground", "#CCCCCC".to_string());
+    } else {
+        hm.insert("bold_black", "#767676".to_string());
+        hm.insert("bold_red", "#E74856".to_string());
+        hm.insert("bold_green", "#16C60C".to_string());
+        hm.insert("bold_yellow", "#F9F1A5".to_string());
+        hm.insert("bold_blue", "#3B78FF".to_string());
+        hm.insert("bold_magenta", "#B4009E".to_string());
+        hm.insert("bold_cyan", "#61D6D6".to_string());
+        hm.insert("bold_white", "#F2F2F2".to_string());
 
+        hm.insert("black", "#0C0C0C".to_string());
+        hm.insert("red", "#C50F1F".to_string());
+        hm.insert("green", "#13A10E".to_string());
+        hm.insert("yellow", "#C19C00".to_string());
+        hm.insert("blue", "#0037DA".to_string());
+        hm.insert("magenta", "#881798".to_string());
+        hm.insert("cyan", "#3A96DD".to_string());
+        hm.insert("white", "#CCCCCC".to_string());
+
+        hm.insert("background", "#CCCCCC".to_string());
+        hm.insert("foreground", "#0C0C0C".to_string());
+    }
+
+    hm
+}
+
+fn get_default_theme(is_dark: bool) -> HashMap<&'static str, String> {
     let mut hm: HashMap<&str, String> = HashMap::new();
 
     if is_dark {
@@ -133,6 +156,20 @@ fn get_colors(is_dark: bool) -> HashMap<&'static str, String> {
     hm
 }
 
+fn get_colors(is_dark: bool, use_campbell: bool) -> HashMap<&'static str, String> {
+    // Currently now using bold_white and bold_black.
+    // This is not theming but it is kind of a start. The intent here is to use the
+    // regular terminal colors which appear on black for most people and are very
+    // high contrast. But when there's a light background, use something that works
+    // better for it.
+
+    if use_campbell {
+        get_campbell_theme(is_dark)
+    } else {
+        get_default_theme(is_dark)
+    }
+}
+
 async fn to_html(
     args: CommandArgs,
     registry: &CommandRegistry,
@@ -144,22 +181,26 @@ async fn to_html(
             html_color,
             no_color,
             dark_bg,
+            use_campbell,
         },
         input,
     ) = args.process(&registry).await?;
     let input: Vec<Value> = input.collect().await;
     let headers = nu_protocol::merge_descriptors(&input);
     let mut output_string = "<html>".to_string();
-    let mut hm: HashMap<u32, (&str, String)> = HashMap::new();
+    let mut regex_hm: HashMap<u32, (&str, String)> = HashMap::new();
+    let color_hm = get_colors(dark_bg, use_campbell);
 
-    // if the user wants a dark background, that means the background will be black
-    // and the foreground will be white, otherwise it's the reverse. I think this
-    // is the best we can do until we get to color themes.
-    if dark_bg {
-        output_string.push_str("<style>body { background-color:black;color:white; }</style><body>");
-    } else {
-        output_string.push_str("<style>body { background-color:white;color:black; }</style><body>");
-    }
+    // change the color of the page
+    output_string.push_str(&format!(
+        r"<style>body {{ background-color:{};color:{}; }}</style><body>",
+        color_hm
+            .get("background")
+            .expect("Error getting background color"),
+        color_hm
+            .get("foreground")
+            .expect("Error getting foreground color")
+    ));
 
     // Add grid lines to html
     // let mut output_string = "<html><head><style>".to_string();
@@ -170,11 +211,15 @@ async fn to_html(
         // output_string.push_str("<table>");
 
         // change the color of tables
-        if dark_bg {
-            output_string.push_str("<table style=\"background-color:black;color:white;\">");
-        } else {
-            output_string.push_str("<table style=\"background-color:white;color:black;\">");
-        }
+        output_string.push_str(&format!(
+            r"<table style='background-color:{};color:{};'>",
+            color_hm
+                .get("background")
+                .expect("Error getting background color"),
+            color_hm
+                .get("foreground")
+                .expect("Error getting foreground color")
+        ));
 
         output_string.push_str("<tr>");
 
@@ -270,11 +315,11 @@ async fn to_html(
 
     // Check to see if we want to remove all color or change ansi to html colors
     if html_color {
-        setup_html_color_regexes(&mut hm, dark_bg);
-        output_string = run_regexes(&hm, &output_string);
+        setup_html_color_regexes(&mut regex_hm, dark_bg, use_campbell);
+        output_string = run_regexes(&regex_hm, &output_string);
     } else if no_color {
-        setup_no_color_regexes(&mut hm);
-        output_string = run_regexes(&hm, &output_string);
+        setup_no_color_regexes(&mut regex_hm);
+        output_string = run_regexes(&regex_hm, &output_string);
     }
 
     Ok(OutputStream::one(ReturnSuccess::value(
@@ -282,8 +327,12 @@ async fn to_html(
     )))
 }
 
-fn setup_html_color_regexes(hash: &mut HashMap<u32, (&'static str, String)>, is_dark: bool) {
-    let color_hm = get_colors(is_dark);
+fn setup_html_color_regexes(
+    hash: &mut HashMap<u32, (&'static str, String)>,
+    is_dark: bool,
+    use_campbell: bool,
+) {
+    let color_hm = get_colors(is_dark, use_campbell);
 
     // All the bold colors
     hash.insert(
@@ -537,61 +586,11 @@ fn run_regexes(hash: &HashMap<u32, (&'static str, String)>, contents: &str) -> S
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
 
     #[test]
     fn examples_work_as_expected() {
         use crate::examples::test as test_examples;
 
         test_examples(ToHTML {})
-    }
-
-    #[test]
-    fn test_cd_html_color_flag_dark_false() {
-        let mut hm: HashMap<u32, (&str, String)> = HashMap::new();
-        let cd_help = r"<html><style>body { background-color:white;color:black; }</style><body>Change to a new path.<br><br>Usage:<br>  &gt; cd (directory) {flags} <br><br>Parameters:<br>  (directory) the directory to change to<br><br>Flags:<br>  -h, --help: Display this help message<br><br>Examples:<br>  Change to a new directory called &#x27;dirname&#x27;<br>  &gt; [1;36mcd[0m[37m [0m[36mdirname[0m<br><br>  Change to your home directory<br>  &gt; [1;36mcd[0m<br><br>  Change to your home directory (alternate version)<br>  &gt; [1;36mcd[0m[37m [0m[36m~[0m<br><br>  Change to the previous directory<br>  &gt; [1;36mcd[0m[37m [0m[36m-[0m<br><br></body></html>".to_string();
-        let cd_help_expected_result = r"<html><style>body { background-color:white;color:black; }</style><body>Change to a new path.<br><br>Usage:<br>  &gt; cd (directory) {flags} <br><br>Parameters:<br>  (directory) the directory to change to<br><br>Flags:<br>  -h, --help: Display this help message<br><br>Examples:<br>  Change to a new directory called &#x27;dirname&#x27;<br>  &gt; <span style='color:#037979;font-weight:bold;'>cd<span style='color:black;font-weight:normal;'></span></span><span style='color:black;'> <span style='color:black;font-weight:normal;'></span><span style='color:#037979;'>dirname<span style='color:black;font-weight:normal;'><br><br>  Change to your home directory<br>  &gt; </span><span style='color:#037979;font-weight:bold;'>cd<span style='color:black;font-weight:normal;'><br><br>  Change to your home directory (alternate version)<br>  &gt; </span></span><span style='color:#037979;font-weight:bold;'>cd<span style='color:black;font-weight:normal;'></span></span></span></span><span style='color:black;'> <span style='color:black;font-weight:normal;'></span><span style='color:#037979;'>~<span style='color:black;font-weight:normal;'><br><br>  Change to the previous directory<br>  &gt; </span><span style='color:#037979;font-weight:bold;'>cd<span style='color:black;font-weight:normal;'></span></span></span></span><span style='color:black;'> <span style='color:black;font-weight:normal;'></span><span style='color:#037979;'>-<span style='color:black;font-weight:normal;'><br><br></body></html></span></span></span>".to_string();
-        let is_dark = false;
-        setup_html_color_regexes(&mut hm, is_dark);
-        assert_eq!(cd_help_expected_result, run_regexes(&hm, &cd_help));
-    }
-
-    #[test]
-    fn test_cd_html_color_flag_dark_true() {
-        let mut hm: HashMap<u32, (&str, String)> = HashMap::new();
-        let cd_help = r"<html><style>body { background-color:black;color:white; }</style><body>Change to a new path.<br><br>Usage:<br>  &gt; cd (directory) {flags} <br><br>Parameters:<br>  (directory) the directory to change to<br><br>Flags:<br>  -h, --help: Display this help message<br><br>Examples:<br>  Change to a new directory called &#x27;dirname&#x27;<br>  &gt; [1;36mcd[0m[37m [0m[36mdirname[0m<br><br>  Change to your home directory<br>  &gt; [1;36mcd[0m<br><br>  Change to your home directory (alternate version)<br>  &gt; [1;36mcd[0m[37m [0m[36m~[0m<br><br>  Change to the previous directory<br>  &gt; [1;36mcd[0m[37m [0m[36m-[0m<br><br></body></html>".to_string();
-        let cd_help_expected_result = r"<html><style>body { background-color:black;color:white; }</style><body>Change to a new path.<br><br>Usage:<br>  &gt; cd (directory) {flags} <br><br>Parameters:<br>  (directory) the directory to change to<br><br>Flags:<br>  -h, --help: Display this help message<br><br>Examples:<br>  Change to a new directory called &#x27;dirname&#x27;<br>  &gt; <span style='color:cyan;font-weight:bold;'>cd<span style='color:white;font-weight:normal;'></span></span><span style='color:white;'> <span style='color:white;font-weight:normal;'></span><span style='color:cyan;'>dirname<span style='color:white;font-weight:normal;'><br><br>  Change to your home directory<br>  &gt; </span><span style='color:cyan;font-weight:bold;'>cd<span style='color:white;font-weight:normal;'><br><br>  Change to your home directory (alternate version)<br>  &gt; </span></span><span style='color:cyan;font-weight:bold;'>cd<span style='color:white;font-weight:normal;'></span></span></span></span><span style='color:white;'> <span style='color:white;font-weight:normal;'></span><span style='color:cyan;'>~<span style='color:white;font-weight:normal;'><br><br>  Change to the previous directory<br>  &gt; </span><span style='color:cyan;font-weight:bold;'>cd<span style='color:white;font-weight:normal;'></span></span></span></span><span style='color:white;'> <span style='color:white;font-weight:normal;'></span><span style='color:cyan;'>-<span style='color:white;font-weight:normal;'><br><br></body></html></span></span></span>".to_string();
-        let is_dark = true;
-        setup_html_color_regexes(&mut hm, is_dark);
-        assert_eq!(cd_help_expected_result, run_regexes(&hm, &cd_help));
-    }
-
-    #[test]
-    fn test_no_color_flag() {
-        let mut hm: HashMap<u32, (&str, String)> = HashMap::new();
-        let cd_help = r"<html><style>body { background-color:white;color:black; }</style><body>Change to a new path.<br><br>Usage:<br>  &gt; cd (directory) {flags} <br><br>Parameters:<br>  (directory) the directory to change to<br><br>Flags:<br>  -h, --help: Display this help message<br><br>Examples:<br>  Change to a new directory called &#x27;dirname&#x27;<br>  &gt; [1;36mcd[0m[37m [0m[36mdirname[0m<br><br>  Change to your home directory<br>  &gt; [1;36mcd[0m<br><br>  Change to your home directory (alternate version)<br>  &gt; [1;36mcd[0m[37m [0m[36m~[0m<br><br>  Change to the previous directory<br>  &gt; [1;36mcd[0m[37m [0m[36m-[0m<br><br></body></html>".to_string();
-        let cd_help_expected_result = r"<html><style>body { background-color:white;color:black; }</style><body>Change to a new path.<br><br>Usage:<br>  &gt; cd (directory) {flags} <br><br>Parameters:<br>  (directory) the directory to change to<br><br>Flags:<br>  -h, --help: Display this help message<br><br>Examples:<br>  Change to a new directory called &#x27;dirname&#x27;<br>  &gt; cd dirname<br><br>  Change to your home directory<br>  &gt; cd<br><br>  Change to your home directory (alternate version)<br>  &gt; cd ~<br><br>  Change to the previous directory<br>  &gt; cd -<br><br></body></html>".to_string();
-        setup_no_color_regexes(&mut hm);
-        assert_eq!(cd_help_expected_result, run_regexes(&hm, &cd_help));
-    }
-
-    #[test]
-    fn test_html_color_where_flag_dark_true() {
-        let mut hm: HashMap<u32, (&str, String)> = HashMap::new();
-        let where_help = r"<html><style>body { background-color:black;color:white; }</style><body>Filter table to match the condition.<br><br>Usage:<br>  &gt; where &lt;condition&gt; {flags} <br><br>Parameters:<br>  &lt;condition&gt; the condition that must match<br><br>Flags:<br>  -h, --help: Display this help message<br><br>Examples:<br>  List all files in the current directory with sizes greater than 2kb<br>  &gt; [1;36mls[0m[37m | [0m[1;36mwhere[0m[37m [0m[1;33msize[0m[37m [0m[33m&gt;[0m[37m [0m[1;35m2[0m[1;36mkb[0m<br><br>  List only the files in the current directory<br>  &gt; [1;36mls[0m[37m | [0m[1;36mwhere[0m[37m [0m[1;33mtype[0m[37m [0m[33m==[0m[37m [0m[32mFile[0m<br><br>  List all files with names that contain &quot;Car&quot;<br>  &gt; [1;36mls[0m[37m | [0m[1;36mwhere[0m[37m [0m[1;33mname[0m[37m [0m[33m=~[0m[37m [0m[32m&quot;Car&quot;[0m<br><br>  List all files that were modified in the last two months<br>  &gt; [1;36mls[0m[37m | [0m[1;36mwhere[0m[37m [0m[1;33mmodified[0m[37m [0m[33m&lt;=[0m[37m [0m[1;35m2[0m[1;36mM[0m<br><br></body></html>".to_string();
-        let where_help_exptected_results = r"<html><style>body { background-color:black;color:white; }</style><body>Filter table to match the condition.<br><br>Usage:<br>  &gt; where &lt;condition&gt; {flags} <br><br>Parameters:<br>  &lt;condition&gt; the condition that must match<br><br>Flags:<br>  -h, --help: Display this help message<br><br>Examples:<br>  List all files in the current directory with sizes greater than 2kb<br>  &gt; <span style='color:cyan;font-weight:bold;'>ls<span style='color:white;font-weight:normal;'></span></span><span style='color:white;'> | <span style='color:white;font-weight:normal;'></span><span style='color:cyan;font-weight:bold;'>where<span style='color:white;font-weight:normal;'></span></span></span><span style='color:white;'> <span style='color:white;font-weight:normal;'></span><span style='color:yellow;font-weight:bold;'>size<span style='color:white;font-weight:normal;'></span></span></span><span style='color:white;'> <span style='color:white;font-weight:normal;'></span><span style='color:yellow;'>&gt;<span style='color:white;font-weight:normal;'></span></span></span><span style='color:white;'> <span style='color:white;font-weight:normal;'></span><span style='color:magenta;font-weight:bold;'>2<span style='color:white;font-weight:normal;'></span></span><span style='color:cyan;font-weight:bold;'>kb<span style='color:white;font-weight:normal;'><br><br>  List only the files in the current directory<br>  &gt; </span></span><span style='color:cyan;font-weight:bold;'>ls<span style='color:white;font-weight:normal;'></span></span></span><span style='color:white;'> | <span style='color:white;font-weight:normal;'></span><span style='color:cyan;font-weight:bold;'>where<span style='color:white;font-weight:normal;'></span></span></span><span style='color:white;'> <span style='color:white;font-weight:normal;'></span><span style='color:yellow;font-weight:bold;'>type<span style='color:white;font-weight:normal;'></span></span></span><span style='color:white;'> <span style='color:white;font-weight:normal;'></span><span style='color:yellow;'>==<span style='color:white;font-weight:normal;'></span></span></span><span style='color:white;'> <span style='color:white;font-weight:normal;'></span><span style='color:green;'>File<span style='color:white;font-weight:normal;'><br><br>  List all files with names that contain &quot;Car&quot;<br>  &gt; </span><span style='color:cyan;font-weight:bold;'>ls<span style='color:white;font-weight:normal;'></span></span></span></span><span style='color:white;'> | <span style='color:white;font-weight:normal;'></span><span style='color:cyan;font-weight:bold;'>where<span style='color:white;font-weight:normal;'></span></span></span><span style='color:white;'> <span style='color:white;font-weight:normal;'></span><span style='color:yellow;font-weight:bold;'>name<span style='color:white;font-weight:normal;'></span></span></span><span style='color:white;'> <span style='color:white;font-weight:normal;'></span><span style='color:yellow;'>=~<span style='color:white;font-weight:normal;'></span></span></span><span style='color:white;'> <span style='color:white;font-weight:normal;'></span><span style='color:green;'>&quot;Car&quot;<span style='color:white;font-weight:normal;'><br><br>  List all files that were modified in the last two months<br>  &gt; </span><span style='color:cyan;font-weight:bold;'>ls<span style='color:white;font-weight:normal;'></span></span></span></span><span style='color:white;'> | <span style='color:white;font-weight:normal;'></span><span style='color:cyan;font-weight:bold;'>where<span style='color:white;font-weight:normal;'></span></span></span><span style='color:white;'> <span style='color:white;font-weight:normal;'></span><span style='color:yellow;font-weight:bold;'>modified<span style='color:white;font-weight:normal;'></span></span></span><span style='color:white;'> <span style='color:white;font-weight:normal;'></span><span style='color:yellow;'>&lt;=<span style='color:white;font-weight:normal;'></span></span></span><span style='color:white;'> <span style='color:white;font-weight:normal;'></span><span style='color:magenta;font-weight:bold;'>2<span style='color:white;font-weight:normal;'></span></span><span style='color:cyan;font-weight:bold;'>M<span style='color:white;font-weight:normal;'><br><br></body></html></span></span></span>".to_string();
-        let is_dark = true;
-        setup_html_color_regexes(&mut hm, is_dark);
-        assert_eq!(where_help_exptected_results, run_regexes(&hm, &where_help));
-    }
-
-    #[test]
-    fn test_html_color_where_flag_dark_false() {
-        let mut hm: HashMap<u32, (&str, String)> = HashMap::new();
-        let where_help = r"<html><style>body { background-color:white;color:black; }</style><body>Filter table to match the condition.<br><br>Usage:<br>  &gt; where &lt;condition&gt; {flags} <br><br>Parameters:<br>  &lt;condition&gt; the condition that must match<br><br>Flags:<br>  -h, --help: Display this help message<br><br>Examples:<br>  List all files in the current directory with sizes greater than 2kb<br>  &gt; [1;36mls[0m[37m | [0m[1;36mwhere[0m[37m [0m[1;33msize[0m[37m [0m[33m&gt;[0m[37m [0m[1;35m2[0m[1;36mkb[0m<br><br>  List only the files in the current directory<br>  &gt; [1;36mls[0m[37m | [0m[1;36mwhere[0m[37m [0m[1;33mtype[0m[37m [0m[33m==[0m[37m [0m[32mFile[0m<br><br>  List all files with names that contain &quot;Car&quot;<br>  &gt; [1;36mls[0m[37m | [0m[1;36mwhere[0m[37m [0m[1;33mname[0m[37m [0m[33m=~[0m[37m [0m[32m&quot;Car&quot;[0m<br><br>  List all files that were modified in the last two months<br>  &gt; [1;36mls[0m[37m | [0m[1;36mwhere[0m[37m [0m[1;33mmodified[0m[37m [0m[33m&lt;=[0m[37m [0m[1;35m2[0m[1;36mM[0m<br><br></body></html>".to_string();
-        let where_help_exptected_results = r"<html><style>body { background-color:white;color:black; }</style><body>Filter table to match the condition.<br><br>Usage:<br>  &gt; where &lt;condition&gt; {flags} <br><br>Parameters:<br>  &lt;condition&gt; the condition that must match<br><br>Flags:<br>  -h, --help: Display this help message<br><br>Examples:<br>  List all files in the current directory with sizes greater than 2kb<br>  &gt; <span style='color:#037979;font-weight:bold;'>ls<span style='color:black;font-weight:normal;'></span></span><span style='color:black;'> | <span style='color:black;font-weight:normal;'></span><span style='color:#037979;font-weight:bold;'>where<span style='color:black;font-weight:normal;'></span></span></span><span style='color:black;'> <span style='color:black;font-weight:normal;'></span><span style='color:#717100;font-weight:bold;'>size<span style='color:black;font-weight:normal;'></span></span></span><span style='color:black;'> <span style='color:black;font-weight:normal;'></span><span style='color:#717100;'>&gt;<span style='color:black;font-weight:normal;'></span></span></span><span style='color:black;'> <span style='color:black;font-weight:normal;'></span><span style='color:#c800c8;font-weight:bold;'>2<span style='color:black;font-weight:normal;'></span></span><span style='color:#037979;font-weight:bold;'>kb<span style='color:black;font-weight:normal;'><br><br>  List only the files in the current directory<br>  &gt; </span></span><span style='color:#037979;font-weight:bold;'>ls<span style='color:black;font-weight:normal;'></span></span></span><span style='color:black;'> | <span style='color:black;font-weight:normal;'></span><span style='color:#037979;font-weight:bold;'>where<span style='color:black;font-weight:normal;'></span></span></span><span style='color:black;'> <span style='color:black;font-weight:normal;'></span><span style='color:#717100;font-weight:bold;'>type<span style='color:black;font-weight:normal;'></span></span></span><span style='color:black;'> <span style='color:black;font-weight:normal;'></span><span style='color:#717100;'>==<span style='color:black;font-weight:normal;'></span></span></span><span style='color:black;'> <span style='color:black;font-weight:normal;'></span><span style='color:green;'>File<span style='color:black;font-weight:normal;'><br><br>  List all files with names that contain &quot;Car&quot;<br>  &gt; </span><span style='color:#037979;font-weight:bold;'>ls<span style='color:black;font-weight:normal;'></span></span></span></span><span style='color:black;'> | <span style='color:black;font-weight:normal;'></span><span style='color:#037979;font-weight:bold;'>where<span style='color:black;font-weight:normal;'></span></span></span><span style='color:black;'> <span style='color:black;font-weight:normal;'></span><span style='color:#717100;font-weight:bold;'>name<span style='color:black;font-weight:normal;'></span></span></span><span style='color:black;'> <span style='color:black;font-weight:normal;'></span><span style='color:#717100;'>=~<span style='color:black;font-weight:normal;'></span></span></span><span style='color:black;'> <span style='color:black;font-weight:normal;'></span><span style='color:green;'>&quot;Car&quot;<span style='color:black;font-weight:normal;'><br><br>  List all files that were modified in the last two months<br>  &gt; </span><span style='color:#037979;font-weight:bold;'>ls<span style='color:black;font-weight:normal;'></span></span></span></span><span style='color:black;'> | <span style='color:black;font-weight:normal;'></span><span style='color:#037979;font-weight:bold;'>where<span style='color:black;font-weight:normal;'></span></span></span><span style='color:black;'> <span style='color:black;font-weight:normal;'></span><span style='color:#717100;font-weight:bold;'>modified<span style='color:black;font-weight:normal;'></span></span></span><span style='color:black;'> <span style='color:black;font-weight:normal;'></span><span style='color:#717100;'>&lt;=<span style='color:black;font-weight:normal;'></span></span></span><span style='color:black;'> <span style='color:black;font-weight:normal;'></span><span style='color:#c800c8;font-weight:bold;'>2<span style='color:black;font-weight:normal;'></span></span><span style='color:#037979;font-weight:bold;'>M<span style='color:black;font-weight:normal;'><br><br></body></html></span></span></span>".to_string();
-        let is_dark = false;
-        setup_html_color_regexes(&mut hm, is_dark);
-        assert_eq!(where_help_exptected_results, run_regexes(&hm, &where_help));
     }
 }

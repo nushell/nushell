@@ -40,6 +40,14 @@ impl WholeStreamCommand for Ansi {
                 example: r#"ansi reset"#,
                 result: Some(vec![Value::from("\u{1b}[0m")]),
             },
+            Example {
+                description:
+                    "Use ansi to color text (rb = red bold, gb = green bold, pb = purple bold)",
+                example: r#"echo [$(ansi rb) Hello " " $(ansi gb) Nu " " $(ansi pb) World] | str collect"#,
+                result: Some(vec![Value::from(
+                    "\u{1b}[1;31mHello \u{1b}[1;32mNu \u{1b}[1;35mWorld",
+                )]),
+            },
         ]
     }
 
