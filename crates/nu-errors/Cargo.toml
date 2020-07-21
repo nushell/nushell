@@ -4,13 +4,13 @@ description = "Core error subsystem for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-errors"
-version = "0.16.1"
+version = "0.17.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-source = {path = "../nu-source", version = "0.16.1"}
+nu-source = {path = "../nu-source", version = "0.17.0"}
 
 ansi_term = "0.12.1"
 bigdecimal = {version = "0.1.2", features = ["serde"]}
@@ -28,4 +28,4 @@ serde_yaml = "0.8"
 toml = "0.5.6"
 
 [build-dependencies]
-nu-build = {version = "0.16.1", path = "../nu-build"}
+nu-build = {version = "0.17.0", path = "../nu-build"}

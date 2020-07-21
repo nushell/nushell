@@ -4,7 +4,7 @@ description = "Core build system for nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-build"
-version = "0.16.1"
+version = "0.17.0"
 
 [lib]
 doctest = false
