@@ -523,19 +523,6 @@ pub async fn run_pipeline_standalone(
 }
 
 pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>) {
-    // let mut max_history_size = 100_000;
-    // // let mut history_duplicates = rustyline::config::HistoryDuplicates::AlwaysAdd; //alwaysadd, ignoreconsecutive
-    // let mut history_duplicates = true; //false = alwaysadd, true = ignoreconsecutive
-    // let mut history_ignore_space = true;
-    // let mut completion_type = rustyline::config::CompletionType::Circular; // cirular, list, fuzzy
-    // let mut completion_prompt_limit = 1;
-    // let mut keyseq_timeout_ms = 500; //milliseconds
-    // let mut edit_mode = rustyline::config::EditMode::Vi; // vi, emacs
-    // let mut auto_add_history = true;
-    // let mut bell_style = rustyline::config::BellStyle::Audible; // audible, none, visible
-    // let mut color_mode = rustyline::config::ColorMode::Enabled; // enable, forced, disabled
-    // let mut tab_stop = 4;
-
     #[cfg(windows)]
     const DEFAULT_COMPLETION_MODE: CompletionType = CompletionType::Circular;
     #[cfg(not(windows))]
@@ -698,49 +685,6 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
             }
         }
     }
-
-
-    // // Set the max size of history before loading the history
-    // let max_history_size = config
-    //     .get("history_size")
-    //     .map(|i| i.value.expect_int())
-    //     .unwrap_or(100_000);
-
-    // rl.set_max_history_size(max_history_size as usize);
-    // // rustyline::config::Configurer::set_max_history_size(&mut rl, max_history_size as usize);
-    // // rustyline::Editor::set_max_history_size(&mut rl, max_history_size as usize);
-
-    // let _ = rl.load_history(&History::path());
-
-    // let edit_mode = config
-    //     .get("edit_mode")
-    //     .map(|s| match s.value.expect_string() {
-    //         "vi" => EditMode::Vi,
-    //         "emacs" => EditMode::Emacs,
-    //         _ => EditMode::Emacs,
-    //     })
-    //     .unwrap_or(EditMode::Emacs);
-
-    // rl.set_edit_mode(edit_mode);
-
-
-    // let key_timeout = config
-    //     .get("key_timeout")
-    //     .map(|s| s.value.expect_int())
-    //     .unwrap_or(1);
-
-    // rl.set_keyseq_timeout(key_timeout as i32);
-
-    // let completion_mode = config
-    //     .get("completion_mode")
-    //     .map(|s| match s.value.expect_string() {
-    //         "list" => CompletionType::List,
-    //         "circular" => CompletionType::Circular,
-    //         _ => DEFAULT_COMPLETION_MODE,
-    //     })
-    //     .unwrap_or(DEFAULT_COMPLETION_MODE);
-
-    // rl.set_completion_type(completion_mode);
 
     (rl, config)
 }
