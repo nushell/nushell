@@ -7,8 +7,8 @@ use crate::context::Context;
 use crate::git::current_branch;
 use crate::path::canonicalize;
 use crate::prelude::*;
-use crate::EnvironmentSyncer;
 use crate::shell::Helper;
+use crate::EnvironmentSyncer;
 use futures_codec::FramedRead;
 use nu_errors::{ProximateShellError, ShellDiagnostic, ShellError};
 use nu_protocol::hir::{ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments};
@@ -17,11 +17,9 @@ use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 use nu_source::Tagged;
 
 use log::{debug, trace};
+use rustyline::config::{ColorMode, CompletionType, Config};
 use rustyline::error::ReadlineError;
-use rustyline::{
-    self, config::Configurer, At, Cmd, Editor, KeyPress, Movement, Word
-};
-use rustyline::config::{ColorMode, Config, CompletionType};
+use rustyline::{self, config::Configurer, At, Cmd, Editor, KeyPress, Movement, Word};
 use std::error::Error;
 use std::io::{BufRead, BufReader, Write};
 use std::iter::Iterator;
@@ -626,9 +624,7 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
                     }
                     "edit_mode" => {
                         let edit_mode = match value.as_string() {
-                            Ok(s) if s.to_lowercase() == "vi" => {
-                                rustyline::config::EditMode::Vi
-                            }
+                            Ok(s) if s.to_lowercase() == "vi" => rustyline::config::EditMode::Vi,
                             Ok(s) if s.to_lowercase() == "emacs" => {
                                 rustyline::config::EditMode::Emacs
                             }
@@ -660,12 +656,8 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
                     }
                     "color_mode" => {
                         let color_mode = match value.as_string() {
-                            Ok(s) if s.to_lowercase() == "enabled" => {
-                                rustyline::ColorMode::Enabled
-                            }
-                            Ok(s) if s.to_lowercase() == "forced" => {
-                                rustyline::ColorMode::Forced
-                            }
+                            Ok(s) if s.to_lowercase() == "enabled" => rustyline::ColorMode::Enabled,
+                            Ok(s) if s.to_lowercase() == "forced" => rustyline::ColorMode::Forced,
                             Ok(s) if s.to_lowercase() == "disabled" => {
                                 rustyline::ColorMode::Disabled
                             }
@@ -694,7 +686,6 @@ pub async fn cli(
     mut syncer: EnvironmentSyncer,
     mut context: Context,
 ) -> Result<(), Box<dyn Error>> {
-
     let _ = load_plugins(&mut context);
 
     let (mut rl, config) = set_rustyline_configuration();
