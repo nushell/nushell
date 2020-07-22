@@ -62,9 +62,29 @@ async fn run_with_stdin(
         }
 
         // Do the cleanup that we need to do on any argument going out:
-        let trimmed_value_string = value.as_string()?.trim_end_matches('\n').to_string();
-
-        command_args.push(trimmed_value_string);
+        match &value.value {
+            UntaggedValue::Table(table) => {
+                for t in table {
+                    match &t.value {
+                        UntaggedValue::Primitive(_) => {
+                            command_args
+                                .push(t.convert_to_string().trim_end_matches('\n').to_string());
+                        }
+                        _ => {
+                            return Err(ShellError::labeled_error(
+                                "Could not convert to positional arguments",
+                                "could not convert to positional arguments",
+                                value.tag(),
+                            ));
+                        }
+                    }
+                }
+            }
+            _ => {
+                let trimmed_value_string = value.as_string()?.trim_end_matches('\n').to_string();
+                command_args.push(trimmed_value_string);
+            }
+        }
     }
 
     let process_args = command_args
