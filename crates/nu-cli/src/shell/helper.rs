@@ -11,7 +11,7 @@ use rustyline::highlight::Highlighter;
 use rustyline::hint::Hinter;
 use std::borrow::Cow::{self, Owned};
 
-pub(crate) struct Helper {
+pub struct Helper {
     context: Context,
     pub colored_prompt: String,
 }
