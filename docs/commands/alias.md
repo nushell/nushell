@@ -54,7 +54,7 @@ flags:
 Aliases are most useful when they are persistent. For that, add them to your startup config:
 
 ```shell
-> config set [startup ["alias myecho [msg] { echo $msg }"]]
+> config set startup ["alias myecho [msg] { echo $msg }"]
 ```
 
 This is fine for the first alias, but since it overwrites the startup config, you need a different approach for additional aliases.
