@@ -41,7 +41,7 @@ impl WholeStreamCommand for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Remove the startup commands",
-            example: "config --remove startup",
+            example: "config remove startup",
             result: None,
         }]
     }
