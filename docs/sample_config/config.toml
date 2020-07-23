@@ -13,7 +13,7 @@ rm_always_trash = true
 use_starship = false
 prompt = "echo [ $(ansi gb) $(pwd) $(ansi reset) \"(\" $(ansi cb) $(do -i { git rev-parse --abbrev-ref HEAD | trim }) $(ansi reset) \")\" $(char newline) $(ansi yb) $(date --format \"%m/%d/%Y %I:%M:%S%.3f %p\" --raw) $(ansi reset) \"> \" ] | str collect"
 
-[rustyline]
+[line_editor]
 max_history_size = 100000
 history_duplicates = "alwaysadd" # alwaysadd,ignoreconsecutive
 history_ignore_space = true
