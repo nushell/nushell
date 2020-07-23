@@ -1,8 +1,3 @@
-completion_mode = "circular"
-edit_mode = "vi"
-history_size = 100000
-key_timeout = 500
-
 disable_table_indexes = false
 header_align = "l"
 header_color = "c"
@@ -17,6 +12,19 @@ complete_from_path = true
 rm_always_trash = true
 use_starship = false
 prompt = "echo [ $(ansi gb) $(pwd) $(ansi reset) \"(\" $(ansi cb) $(do -i { git rev-parse --abbrev-ref HEAD | trim }) $(ansi reset) \")\" $(char newline) $(ansi yb) $(date --format \"%m/%d/%Y %I:%M:%S%.3f %p\" --raw) $(ansi reset) \"> \" ] | str collect"
+
+[rustyline]
+max_history_size = 100000
+history_duplicates = "alwaysadd" # alwaysadd,ignoreconsecutive
+history_ignore_space = true
+completion_type = "circular" # circular, list, fuzzy
+completion_prompt_limit = 1
+keyseq_timeout_ms = 500 # ms
+edit_mode = "vi" # vi, emacs
+auto_add_history = true
+bell_style = "audible" # audible, none, visible
+color_mode = "enabled" # enabled, forced, disabled
+tab_stop = 4
 
 [textview]
 term_width = "default"
@@ -33,3 +41,7 @@ use_italics = true
 paging_mode = "QuitIfOneScreen"
 pager = "less"
 theme = "TwoDark"
+
+# To add path and env do this
+# > config set path $nu.path
+# > config set env $nu.env

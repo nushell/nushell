@@ -6,74 +6,60 @@
 #   Ctrl: A
 # Available modifiers are Ctrl, F (for function), Meta (escape-char, alt-char)
 
-# Common
-#     KeyPress::Home => Cmd::Move(Movement::BeginningOfLine),
+# Common From https://github.com/kkawakam/rustyline#actions
+
+# Move cursor to the beginning of line
 - key:
     Home:
   binding:
     Move: BeginningOfLine
 
-#     KeyPress::End => Cmd::Move(Movement::EndOfLine),
+# Move cursor to end of line
 - key:
     End:
   binding:
     Move: EndOfLine
 
-#     KeyPress::Left => {
-#         if positive {
-#             Cmd::Move(Movement::BackwardChar(n))
-#         } else {
-#             Cmd::Move(Movement::ForwardChar(n))
-#         }
-#     }
+# Move cursor one character left
 - key:
     Left: #Left Arrow Key
   binding:
     Move:
       BackwardChar: 1
 
-#     KeyPress::Right => {
-#         if positive {
-#             Cmd::Move(Movement::ForwardChar(n))
-#         } else {
-#             Cmd::Move(Movement::BackwardChar(n))
-#         }
-#     }
+# Move cursor one character right
 - key:
     Right: #Right Arrow Key
   binding:
     Move:
       ForwardChar: 1
 
-#     KeyPress::Ctrl('C') => Cmd::Interrupt,
+# Interrupt/Cancel edition
 - key:
     Ctrl: C
   binding:
     Interrupt:
 
-#     KeyPress::Ctrl('D') => Cmd::EndOfFile,
+# (if line is not empty) Delete character under cursor
 - key:
     Ctrl: D
   binding:
     EndOfFile:
 
-#     KeyPress::Delete => {
-#         if positive {
-#             Cmd::Kill(Movement::ForwardChar(n))
-#         } else {
-#             Cmd::Kill(Movement::BackwardChar(n))
-#         }
-#     }
+# Delete character under cursor
 - key:
     Delete:
   binding:
     Kill:
       ForwardChar: 1
 
-#     KeyPress::Ctrl('J') |
-#     KeyPress::Enter => Cmd::AcceptLine,
+# Finish the line entry
 - key:
     Ctrl: J
+  binding:
+    AcceptLine:
+- key:
+    Ctrl: M
   binding:
     AcceptLine:
 - key:
@@ -81,50 +67,43 @@
   binding:
     AcceptLine:
   
-#     KeyPress::Down => Cmd::LineDownOrNextHistory(1),
+# Next match from history
 - key:
     Down: #Down Arrow Key
   binding:
     LineDownOrNextHistory: 1
 
-#     KeyPress::Up => Cmd::LineUpOrPreviousHistory(1),
+# Previous match from history
 - key:
     Up: #Up Arrow Key
   binding:
     LineUpOrPreviousHistory: 1
 
-#     KeyPress::Ctrl('R') => Cmd::ReverseSearchHistory,
+# Reverse Search history (Ctrl-S forward, Ctrl-G cancel)
 - key:
     Ctrl: R
   binding:
     ReverseSearchHistory:
 
-#     KeyPress::Ctrl('S') => Cmd::ForwardSearchHistory, // most terminals override Ctrl+S to suspend execution
+# Forward Search history (Ctrl-R backward, Ctrl-G cancel)
 - key:
     Ctrl: S
   binding:
     ForwardSearchHistory:
 
-#     KeyPress::Ctrl('T') => Cmd::TransposeChars,
+# Transpose previous character with current character
 - key:
     Ctrl: T
   binding:
     TransposeChars:
 
-#     KeyPress::Ctrl('U') => {
-#         if positive {
-#             Cmd::Kill(Movement::BeginningOfLine)
-#         } else {
-#             Cmd::Kill(Movement::EndOfLine)
-#         }
-#     },
+# Delete from start of line to cursor
 - key:
     Ctrl: U
   binding:
     Kill: BeginningOfLine
 
-#     KeyPress::Ctrl('Q') | // most terminals override Ctrl+Q to resume execution
-#     KeyPress::Ctrl('V') => Cmd::QuotedInsert,
+# Insert any special character without performing its associated action (#65)
 - key:
     Ctrl: Q
   binding:
@@ -134,13 +113,7 @@
   binding:
     QuotedInsert:
 
-#     KeyPress::Ctrl('W') => {
-#         if positive {
-#             Cmd::Kill(Movement::BackwardWord(n, Word::Big))
-#         } else {
-#             Cmd::Kill(Movement::ForwardWord(n, At::AfterEnd, Word::Big))
-#         }
-#     }
+# Delete word leading up to cursor (using white space as a word boundary)
 - key:
     Ctrl: W
   binding:
@@ -149,13 +122,7 @@
         repeat: 1
         word: Big
 
-#     KeyPress::Ctrl('Y') => {
-#         if positive {
-#             Cmd::Yank(n, Anchor::Before)
-#         } else {
-#             Cmd::Unknown // TODO Validate
-#         }
-#     }
+# Paste from Yank buffer
 - key:
     Ctrl: Y
   binding:
@@ -163,13 +130,13 @@
       repeat: 1
       anchor: Before
 
-#     KeyPress::Ctrl('Z') => Cmd::Suspend,
+# Suspend (Unix only)
 - key:
     Ctrl: Z
   binding:
     Suspend:
 
-#     KeyPress::Ctrl('_') => Cmd::Undo(n),
+# Undo
 - key:
     Ctrl: '_'
   binding:
@@ -181,9 +148,3 @@
   binding:
     Noop:
 
-#     KeyPress::BracketedPasteStart => {
-#         let paste = rdr.read_pasted_text()?;
-#         Cmd::Insert(1, paste)
-#     },
-#     _ => Cmd::Unknown,
-# })
