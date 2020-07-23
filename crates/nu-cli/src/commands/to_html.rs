@@ -36,7 +36,7 @@ impl WholeStreamCommand for ToHTML {
             .named(
                 "theme",
                 SyntaxShape::String,
-                "the name of the theme to use (default, campbell, github)",
+                "the name of the theme to use (default, campbell, github, blulocolight)",
                 Some('t'),
             )
     }
