@@ -50,7 +50,7 @@ fn test_cd_html_color_flag_dark_true() {
     let actual = nu!(
         cwd: ".", pipeline(
             r#"
-                cd --help | to html --html_color --dark_bg
+                cd --help | to html --html_color --dark
             "#
         )
     );
@@ -80,7 +80,7 @@ fn test_html_color_where_flag_dark_true() {
     let actual = nu!(
         cwd: ".", pipeline(
             r#"
-                where --help | to html --html_color --dark_bg
+                where --help | to html --html_color --dark
             "#
         )
     );
