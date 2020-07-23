@@ -3,8 +3,8 @@ use crate::data::value::format_leaf;
 use crate::prelude::*;
 use futures::StreamExt;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
-use nu_source::AnchorLocation;
+use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_source::{AnchorLocation, Tagged};
 use regex::Regex;
 use std::collections::HashMap;
 
@@ -14,8 +14,8 @@ pub struct ToHTML;
 pub struct ToHTMLArgs {
     html_color: bool,
     no_color: bool,
-    dark_bg: bool,
-    use_campbell: bool,
+    dark: bool,
+    theme: Option<Tagged<String>>,
 }
 
 #[async_trait]
@@ -26,17 +26,18 @@ impl WholeStreamCommand for ToHTML {
 
     fn signature(&self) -> Signature {
         Signature::build("to html")
-            .switch("html_color", "change ansi colors to html colors", Some('t'))
+            .switch("html_color", "change ansi colors to html colors", Some('c'))
             .switch("no_color", "remove all ansi colors in output", Some('n'))
             .switch(
-                "dark_bg",
+                "dark",
                 "indicate your background color is a darker color",
                 Some('d'),
             )
-            .switch(
-                "use_campbell",
-                "use microsoft's windows terminal color scheme named campell",
-                Some('c'),
+            .named(
+                "theme",
+                SyntaxShape::String,
+                "the name of the theme to use (default, campbell, github, blulocolight)",
+                Some('t'),
             )
     }
 
@@ -59,46 +60,31 @@ fn get_campbell_theme(is_dark: bool) -> HashMap<&'static str, String> {
     // https://docs.microsoft.com/en-us/windows/terminal/customize-settings/color-schemes
     let mut hm: HashMap<&str, String> = HashMap::new();
 
+    hm.insert("bold_black", "#767676".to_string());
+    hm.insert("bold_red", "#E74856".to_string());
+    hm.insert("bold_green", "#16C60C".to_string());
+    hm.insert("bold_yellow", "#F9F1A5".to_string());
+    hm.insert("bold_blue", "#3B78FF".to_string());
+    hm.insert("bold_magenta", "#B4009E".to_string());
+    hm.insert("bold_cyan", "#61D6D6".to_string());
+    hm.insert("bold_white", "#F2F2F2".to_string());
+
+    hm.insert("black", "#0C0C0C".to_string());
+    hm.insert("red", "#C50F1F".to_string());
+    hm.insert("green", "#13A10E".to_string());
+    hm.insert("yellow", "#C19C00".to_string());
+    hm.insert("blue", "#0037DA".to_string());
+    hm.insert("magenta", "#881798".to_string());
+    hm.insert("cyan", "#3A96DD".to_string());
+    hm.insert("white", "#CCCCCC".to_string());
+
+    // Try to make theme work with light or dark but
+    // flipping the foreground and background but leave
+    // the other colors the same.
     if is_dark {
-        hm.insert("bold_black", "#767676".to_string());
-        hm.insert("bold_red", "#E74856".to_string());
-        hm.insert("bold_green", "#16C60C".to_string());
-        hm.insert("bold_yellow", "#F9F1A5".to_string());
-        hm.insert("bold_blue", "#3B78FF".to_string());
-        hm.insert("bold_magenta", "#B4009E".to_string());
-        hm.insert("bold_cyan", "#61D6D6".to_string());
-        hm.insert("bold_white", "#F2F2F2".to_string());
-
-        hm.insert("black", "#0C0C0C".to_string());
-        hm.insert("red", "#C50F1F".to_string());
-        hm.insert("green", "#13A10E".to_string());
-        hm.insert("yellow", "#C19C00".to_string());
-        hm.insert("blue", "#0037DA".to_string());
-        hm.insert("magenta", "#881798".to_string());
-        hm.insert("cyan", "#3A96DD".to_string());
-        hm.insert("white", "#CCCCCC".to_string());
-
         hm.insert("background", "#0C0C0C".to_string());
         hm.insert("foreground", "#CCCCCC".to_string());
     } else {
-        hm.insert("bold_black", "#767676".to_string());
-        hm.insert("bold_red", "#E74856".to_string());
-        hm.insert("bold_green", "#16C60C".to_string());
-        hm.insert("bold_yellow", "#F9F1A5".to_string());
-        hm.insert("bold_blue", "#3B78FF".to_string());
-        hm.insert("bold_magenta", "#B4009E".to_string());
-        hm.insert("bold_cyan", "#61D6D6".to_string());
-        hm.insert("bold_white", "#F2F2F2".to_string());
-
-        hm.insert("black", "#0C0C0C".to_string());
-        hm.insert("red", "#C50F1F".to_string());
-        hm.insert("green", "#13A10E".to_string());
-        hm.insert("yellow", "#C19C00".to_string());
-        hm.insert("blue", "#0037DA".to_string());
-        hm.insert("magenta", "#881798".to_string());
-        hm.insert("cyan", "#3A96DD".to_string());
-        hm.insert("white", "#CCCCCC".to_string());
-
         hm.insert("background", "#CCCCCC".to_string());
         hm.insert("foreground", "#0C0C0C".to_string());
     }
@@ -109,6 +95,8 @@ fn get_campbell_theme(is_dark: bool) -> HashMap<&'static str, String> {
 fn get_default_theme(is_dark: bool) -> HashMap<&'static str, String> {
     let mut hm: HashMap<&str, String> = HashMap::new();
 
+    // This theme has different colors for dark and light
+    // so we can't just swap the background colors.
     if is_dark {
         hm.insert("bold_black", "black".to_string());
         hm.insert("bold_red", "red".to_string());
@@ -156,17 +144,92 @@ fn get_default_theme(is_dark: bool) -> HashMap<&'static str, String> {
     hm
 }
 
-fn get_colors(is_dark: bool, use_campbell: bool) -> HashMap<&'static str, String> {
-    // Currently now using bold_white and bold_black.
-    // This is not theming but it is kind of a start. The intent here is to use the
-    // regular terminal colors which appear on black for most people and are very
-    // high contrast. But when there's a light background, use something that works
-    // better for it.
+fn get_github_theme(is_dark: bool) -> HashMap<&'static str, String> {
+    // Suggested by Jörn for use with demo site
+    // Taken from here https://github.com/mbadolato/iTerm2-Color-Schemes/blob/master/windowsterminal/Github.json
+    // This is a light theme named github, intended for a white background
+    // The next step will be to load these json themes if we ever get to that point
+    let mut hm: HashMap<&str, String> = HashMap::new();
 
-    if use_campbell {
-        get_campbell_theme(is_dark)
+    hm.insert("bold_black", "#666666".to_string());
+    hm.insert("bold_red", "#de0000".to_string());
+    hm.insert("bold_green", "#87d5a2".to_string());
+    hm.insert("bold_yellow", "#f1d007".to_string());
+    hm.insert("bold_blue", "#2e6cba".to_string());
+    hm.insert("bold_magenta", "#ffa29f".to_string());
+    hm.insert("bold_cyan", "#1cfafe".to_string());
+    hm.insert("bold_white", "#ffffff".to_string());
+
+    hm.insert("black", "#3e3e3e".to_string());
+    hm.insert("red", "#970b16".to_string());
+    hm.insert("green", "#07962a".to_string());
+    hm.insert("yellow", "#f8eec7".to_string());
+    hm.insert("blue", "#003e8a".to_string());
+    hm.insert("magenta", "#e94691".to_string());
+    hm.insert("cyan", "#89d1ec".to_string());
+    hm.insert("white", "#ffffff".to_string());
+
+    // Try to make theme work with light or dark but
+    // flipping the foreground and background but leave
+    // the other colors the same.
+    if is_dark {
+        hm.insert("background", "#3e3e3e".to_string());
+        hm.insert("foreground", "#f4f4f4".to_string());
     } else {
-        get_default_theme(is_dark)
+        hm.insert("background", "#f4f4f4".to_string());
+        hm.insert("foreground", "#3e3e3e".to_string());
+    }
+
+    hm
+}
+
+fn get_blulocolight_theme(is_dark: bool) -> HashMap<&'static str, String> {
+    let mut hm: HashMap<&str, String> = HashMap::new();
+
+    hm.insert("bold_black", "#dedfe8".to_string());
+    hm.insert("bold_red", "#fc4a6d".to_string());
+    hm.insert("bold_green", "#34b354".to_string());
+    hm.insert("bold_yellow", "#b89427".to_string());
+    hm.insert("bold_blue", "#1085d9".to_string());
+    hm.insert("bold_magenta", "#c00db3".to_string());
+    hm.insert("bold_cyan", "#5b80ad".to_string());
+    hm.insert("bold_white", "#1d1d22".to_string());
+
+    hm.insert("black", "#cbccd5".to_string());
+    hm.insert("red", "#c90e42".to_string());
+    hm.insert("green", "#21883a".to_string());
+    hm.insert("yellow", "#d54d17".to_string());
+    hm.insert("blue", "#1e44dd".to_string());
+    hm.insert("magenta", "#6d1bed".to_string());
+    hm.insert("cyan", "#1f4d7a".to_string());
+    hm.insert("white", "#000000".to_string());
+
+    // Try to make theme work with light or dark but
+    // flipping the foreground and background but leave
+    // the other colors the same.
+    if is_dark {
+        hm.insert("background", "#2a2c33".to_string());
+        hm.insert("foreground", "#f7f7f7".to_string());
+    } else {
+        hm.insert("background", "#f7f7f7".to_string());
+        hm.insert("foreground", "#2a2c33".to_string());
+    }
+
+    hm
+}
+
+fn get_colors(is_dark: bool, theme: &Option<Tagged<String>>) -> HashMap<&'static str, String> {
+    let theme_name = match theme {
+        Some(s) => s.to_string(),
+        None => "default".to_string(),
+    };
+
+    match theme_name.as_ref() {
+        "default" => get_default_theme(is_dark),
+        "campbell" => get_campbell_theme(is_dark),
+        "github" => get_github_theme(is_dark),
+        "blulocolight" => get_blulocolight_theme(is_dark),
+        _ => get_default_theme(is_dark),
     }
 }
 
@@ -180,8 +243,8 @@ async fn to_html(
         ToHTMLArgs {
             html_color,
             no_color,
-            dark_bg,
-            use_campbell,
+            dark,
+            theme,
         },
         input,
     ) = args.process(&registry).await?;
@@ -189,10 +252,11 @@ async fn to_html(
     let headers = nu_protocol::merge_descriptors(&input);
     let mut output_string = "<html>".to_string();
     let mut regex_hm: HashMap<u32, (&str, String)> = HashMap::new();
-    let color_hm = get_colors(dark_bg, use_campbell);
+    let color_hm = get_colors(dark, &theme);
 
     // change the color of the page
     output_string.push_str(&format!(
+        // r"<style>body {{ background-color:{};color:{};font-family:'FiraFira Code'; }}</style><body>",
         r"<style>body {{ background-color:{};color:{}; }}</style><body>",
         color_hm
             .get("background")
@@ -315,7 +379,7 @@ async fn to_html(
 
     // Check to see if we want to remove all color or change ansi to html colors
     if html_color {
-        setup_html_color_regexes(&mut regex_hm, dark_bg, use_campbell);
+        setup_html_color_regexes(&mut regex_hm, dark, &theme);
         output_string = run_regexes(&regex_hm, &output_string);
     } else if no_color {
         setup_no_color_regexes(&mut regex_hm);
@@ -330,9 +394,9 @@ async fn to_html(
 fn setup_html_color_regexes(
     hash: &mut HashMap<u32, (&'static str, String)>,
     is_dark: bool,
-    use_campbell: bool,
+    theme: &Option<Tagged<String>>,
 ) {
-    let color_hm = get_colors(is_dark, use_campbell);
+    let color_hm = get_colors(is_dark, theme);
 
     // All the bold colors
     hash.insert(
