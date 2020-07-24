@@ -5,16 +5,12 @@ use crate::commands::ls::LsArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::move_::mv::Arguments as MvArgs;
 use crate::commands::rm::RemoveArgs;
-use crate::completion;
 use crate::data::dir_entry_dict;
 use crate::path::canonicalize;
 use crate::prelude::*;
-use crate::shell::completer::NuCompleter;
 use crate::shell::shell::Shell;
 use crate::utils::FileStructure;
 
-use rustyline::completion::FilenameCompleter;
-use rustyline::hint::{Hinter, HistoryHinter};
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
@@ -28,15 +24,12 @@ use futures_util::TryStreamExt;
 use std::os::unix::fs::PermissionsExt;
 
 use nu_errors::ShellError;
-use nu_parser::expand_ndots;
 use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue};
 use nu_source::Tagged;
 
 pub struct FilesystemShell {
     pub(crate) path: String,
     pub(crate) last_path: String,
-    completer: NuCompleter,
-    hinter: HistoryHinter,
 }
 
 impl std::fmt::Debug for FilesystemShell {
@@ -50,18 +43,12 @@ impl Clone for FilesystemShell {
         FilesystemShell {
             path: self.path.clone(),
             last_path: self.path.clone(),
-            completer: NuCompleter {
-                file_completer: FilenameCompleter::new(),
-                commands: self.completer.commands.clone(),
-                homedir: self.homedir(),
-            },
-            hinter: HistoryHinter {},
         }
     }
 }
 
 impl FilesystemShell {
-    pub fn basic(commands: CommandRegistry) -> Result<FilesystemShell, Error> {
+    pub fn basic() -> Result<FilesystemShell, Error> {
         let path = match std::env::current_dir() {
             Ok(path) => path,
             Err(_) => PathBuf::from("/"),
@@ -70,33 +57,15 @@ impl FilesystemShell {
         Ok(FilesystemShell {
             path: path.to_string_lossy().to_string(),
             last_path: path.to_string_lossy().to_string(),
-            completer: NuCompleter {
-                file_completer: FilenameCompleter::new(),
-                commands,
-                homedir: homedir_if_possible(),
-            },
-            hinter: HistoryHinter {},
         })
     }
 
-    pub fn with_location(
-        path: String,
-        commands: CommandRegistry,
-    ) -> Result<FilesystemShell, std::io::Error> {
+    pub fn with_location(path: String) -> Result<FilesystemShell, std::io::Error> {
         let path = canonicalize(std::env::current_dir()?, &path)?;
         let path = path.display().to_string();
         let last_path = path.clone();
 
-        Ok(FilesystemShell {
-            path,
-            last_path,
-            completer: NuCompleter {
-                file_completer: FilenameCompleter::new(),
-                commands,
-                homedir: homedir_if_possible(),
-            },
-            hinter: HistoryHinter {},
-        })
+        Ok(FilesystemShell { path, last_path })
     }
 }
 
@@ -740,56 +709,6 @@ impl Shell for FilesystemShell {
     }
 }
 
-impl completion::Completer for FilesystemShell {
-    fn complete(
-        &self,
-        line: &str,
-        pos: usize,
-        ctx: &completion::Context<'_>,
-    ) -> Result<(usize, Vec<completion::Suggestion>), ShellError> {
-        let expanded = expand_ndots(&line);
-
-        // Find the first not-matching char position, if there is one
-        let differ_pos = line
-            .chars()
-            .zip(expanded.chars())
-            .enumerate()
-            .find(|(_index, (a, b))| a != b)
-            .map(|(differ_pos, _)| differ_pos);
-
-        let pos = if let Some(differ_pos) = differ_pos {
-            if differ_pos < pos {
-                pos + (expanded.len() - line.len())
-            } else {
-                pos
-            }
-        } else {
-            pos
-        };
-
-        self.completer
-            .complete(&expanded, pos, ctx.as_ref())
-            .map_err(|e| ShellError::untagged_runtime_error(format!("{}", e)))
-            .map(requote)
-            .map(|(pos, completions)| {
-                (
-                    pos,
-                    completions
-                        .into_iter()
-                        .map(|pair| completion::Suggestion {
-                            display: pair.display,
-                            replacement: pair.replacement,
-                        })
-                        .collect(),
-                )
-            })
-    }
-
-    fn hint(&self, line: &str, pos: usize, ctx: &completion::Context<'_>) -> Option<String> {
-        self.hinter.hint(line, pos, ctx.as_ref())
-    }
-}
-
 struct TaggedPathBuf<'a>(&'a PathBuf, &'a Tag);
 
 fn move_file(from: TaggedPathBuf, to: TaggedPathBuf) -> Result<(), ShellError> {
@@ -875,26 +794,4 @@ fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
             .map(|name| name.to_string_lossy().starts_with('.'))
             .unwrap_or(false)
     }
-}
-
-fn requote(
-    items: (usize, Vec<rustyline::completion::Pair>),
-) -> (usize, Vec<rustyline::completion::Pair>) {
-    let mut new_items = Vec::with_capacity(items.1.len());
-
-    for item in items.1 {
-        let unescaped = rustyline::completion::unescape(&item.replacement, Some('\\'));
-        let maybe_quote = if unescaped != item.replacement {
-            "\""
-        } else {
-            ""
-        };
-
-        new_items.push(rustyline::completion::Pair {
-            display: item.display,
-            replacement: format!("{}{}{}", maybe_quote, unescaped, maybe_quote),
-        });
-    }
-
-    (items.0, new_items)
 }

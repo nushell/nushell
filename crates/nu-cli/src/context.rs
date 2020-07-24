@@ -150,14 +150,14 @@ impl Context {
         #[cfg(windows)]
         {
             Ok(Context {
-                registry: registry.clone(),
+                registry: registry,
                 host: Arc::new(parking_lot::Mutex::new(Box::new(
                     crate::env::host::BasicHost,
                 ))),
                 current_errors: Arc::new(Mutex::new(vec![])),
                 ctrl_c: Arc::new(AtomicBool::new(false)),
                 user_recently_used_autoenv_untrust: false,
-                shell_manager: ShellManager::basic(registry)?,
+                shell_manager: ShellManager::basic()?,
                 windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
                 raw_input: String::default(),
             })
@@ -166,14 +166,14 @@ impl Context {
         #[cfg(not(windows))]
         {
             Ok(Context {
-                registry: registry.clone(),
+                registry,
                 host: Arc::new(parking_lot::Mutex::new(Box::new(
                     crate::env::host::BasicHost,
                 ))),
                 current_errors: Arc::new(Mutex::new(vec![])),
                 ctrl_c: Arc::new(AtomicBool::new(false)),
                 user_recently_used_autoenv_untrust: false,
-                shell_manager: ShellManager::basic(registry)?,
+                shell_manager: ShellManager::basic()?,
                 raw_input: String::default(),
             })
         }
