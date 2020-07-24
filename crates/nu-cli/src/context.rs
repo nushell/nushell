@@ -150,7 +150,7 @@ impl Context {
         #[cfg(windows)]
         {
             Ok(Context {
-                registry: registry,
+                registry,
                 host: Arc::new(parking_lot::Mutex::new(Box::new(
                     crate::env::host::BasicHost,
                 ))),
