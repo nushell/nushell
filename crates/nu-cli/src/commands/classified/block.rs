@@ -70,27 +70,21 @@ async fn run_pipeline(
     vars: &IndexMap<String, Value>,
     env: &IndexMap<String, String>,
 ) -> Result<InputStream, ShellError> {
-    let mut iter = commands.list.clone().into_iter().peekable();
-    loop {
-        let item: Option<ClassifiedCommand> = iter.next();
-        let next: Option<&ClassifiedCommand> = iter.peek();
-
-        input = match (item, next) {
-            (Some(ClassifiedCommand::Dynamic(_)), _) | (_, Some(ClassifiedCommand::Dynamic(_))) => {
+    for item in commands.list.clone() {
+        input = match item {
+            ClassifiedCommand::Dynamic(_) => {
                 return Err(ShellError::unimplemented("Dynamic commands"))
             }
 
-            (Some(ClassifiedCommand::Expr(expr)), _) => {
+            ClassifiedCommand::Expr(expr) => {
                 run_expression_block(*expr, ctx, it, vars, env).await?
             }
-            (Some(ClassifiedCommand::Error(err)), _) => return Err(err.into()),
-            (_, Some(ClassifiedCommand::Error(err))) => return Err(err.clone().into()),
 
-            (Some(ClassifiedCommand::Internal(left)), _) => {
+            ClassifiedCommand::Error(err) => return Err(err.into()),
+
+            ClassifiedCommand::Internal(left) => {
                 run_internal_command(left, ctx, input, it, vars, env).await?
             }
-
-            (None, _) => break,
         };
     }
 
