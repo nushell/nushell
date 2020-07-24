@@ -1,8 +1,8 @@
-use super::operate;
+use super::{operate, DefaultArguments};
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, UntaggedValue, Value};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 use std::path::Path;
 
 pub struct PathBasename;
@@ -10,11 +10,12 @@ pub struct PathBasename;
 #[async_trait]
 impl WholeStreamCommand for PathBasename {
     fn name(&self) -> &str {
-        "path filename"
+        "path basename"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("path filename")
+        Signature::build("path basename")
+            .rest(SyntaxShape::ColumnPath, "optionally operate by path")
     }
 
     fn usage(&self) -> &str {
@@ -26,13 +27,14 @@ impl WholeStreamCommand for PathBasename {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        operate(args, registry, action).await
+        let (DefaultArguments { rest }, input) = args.process(&registry).await?;
+        operate(input, rest, &action).await
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Get filename of a path",
-            example: "echo '/home/joe/test.txt' | path filename",
+            description: "Get basename of a path",
+            example: "echo '/home/joe/test.txt' | path basename",
             result: Some(vec![Value::from("test.txt")]),
         }]
     }

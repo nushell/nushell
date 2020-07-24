@@ -1,8 +1,8 @@
-use super::operate;
+use super::{operate, DefaultArguments};
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, UntaggedValue, Value};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 use std::path::Path;
 
 pub struct PathExtension;
@@ -15,6 +15,7 @@ impl WholeStreamCommand for PathExtension {
 
     fn signature(&self) -> Signature {
         Signature::build("path extension")
+            .rest(SyntaxShape::ColumnPath, "optionally operate by path")
     }
 
     fn usage(&self) -> &str {
@@ -26,7 +27,8 @@ impl WholeStreamCommand for PathExtension {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        operate(args, registry, action).await
+        let (DefaultArguments { rest }, input) = args.process(&registry).await?;
+        operate(input, rest, &action).await
     }
 
     fn examples(&self) -> Vec<Example> {
