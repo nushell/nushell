@@ -390,6 +390,7 @@ pub fn create_default_context(
             whole_stream_command(MathStddev),
             whole_stream_command(MathSummation),
             whole_stream_command(MathVariance),
+            whole_stream_command(MathProduct),
             // File format output
             whole_stream_command(To),
             whole_stream_command(ToCSV),
