@@ -52,6 +52,7 @@ futures = {version = "0.3", features = ["compat", "io-compat"]}
 log = "0.4.8"
 pretty_env_logger = "0.4.0"
 starship = "0.43.0"
+quick-xml = "0.18.1"
 
 [dev-dependencies]
 nu-test-support = {version = "0.17.0", path = "./crates/nu-test-support"}
