@@ -44,6 +44,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
+/// Calculate product of given values
 pub fn product(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
     let prod = reducer_for(Reduce::Product);
 
