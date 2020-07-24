@@ -6,7 +6,6 @@ use crate::commands::ls::LsArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::move_::mv::Arguments as MvArgs;
 use crate::commands::rm::RemoveArgs;
-use crate::completion::{self, Completer};
 use crate::prelude::*;
 use crate::shell::filesystem_shell::FilesystemShell;
 use crate::shell::shell::Shell;
@@ -27,12 +26,10 @@ pub struct ShellManager {
 }
 
 impl ShellManager {
-    pub fn basic(commands: CommandRegistry) -> Result<ShellManager, Box<dyn Error>> {
+    pub fn basic() -> Result<ShellManager, Box<dyn Error>> {
         Ok(ShellManager {
             current_shell: Arc::new(AtomicUsize::new(0)),
-            shells: Arc::new(Mutex::new(vec![Box::new(FilesystemShell::basic(
-                commands,
-            )?)])),
+            shells: Arc::new(Mutex::new(vec![Box::new(FilesystemShell::basic()?)])),
         })
     }
 
@@ -179,26 +176,5 @@ impl ShellManager {
 
         let path = shells[self.current_shell()].path();
         shells[self.current_shell()].mv(args, name, &path)
-    }
-}
-
-impl Completer for ShellManager {
-    fn complete(
-        &self,
-        line: &str,
-        pos: usize,
-        ctx: &completion::Context<'_>,
-    ) -> Result<(usize, Vec<completion::Suggestion>), ShellError> {
-        self.shells.lock()[self.current_shell()].complete(line, pos, ctx)
-    }
-
-    fn hint(
-        &self,
-        line: &str,
-        pos: usize,
-        ctx: &completion::Context<'_>,
-        //context: ExpandContext,
-    ) -> Option<String> {
-        self.shells.lock()[self.current_shell()].hint(line, pos, ctx)
     }
 }

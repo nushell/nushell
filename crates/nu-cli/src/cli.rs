@@ -7,6 +7,7 @@ use crate::context::Context;
 use crate::git::current_branch;
 use crate::path::canonicalize;
 use crate::prelude::*;
+use crate::shell::completer::NuCompleter;
 use crate::shell::Helper;
 use crate::EnvironmentSyncer;
 use futures_codec::FramedRead;
@@ -778,7 +779,10 @@ pub async fn cli(
 
         let cwd = context.shell_manager.path();
 
-        rl.set_helper(Some(crate::shell::Helper::new(context.clone())));
+        rl.set_helper(Some(crate::shell::Helper::new(
+            Box::new(<NuCompleter as Default>::default()),
+            context.clone(),
+        )));
 
         let colored_prompt = {
             if use_starship {
