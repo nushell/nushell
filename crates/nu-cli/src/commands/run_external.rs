@@ -140,10 +140,7 @@ impl WholeStreamCommand for RunExternalCommand {
             external::run_external_command(command, &mut external_context, input, &scope, is_last)
                 .await;
 
-        match result {
-            Ok(stream) => Ok(stream.to_output_stream()),
-            Err(e) => Err(e),
-        }
+        Ok(result?.to_output_stream())
     }
 }
 

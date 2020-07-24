@@ -251,10 +251,7 @@ async fn save(
         };
     };
 
-    match content {
-        Ok(save_data) => shell_manager.save(&full_path, &save_data, name.span),
-        Err(e) => Err(e),
-    }
+    shell_manager.save(&full_path, &content?, name.span)
 }
 
 fn string_from(input: &[Value]) -> String {

@@ -100,7 +100,7 @@ pub async fn cal(
         (current_month, current_month)
     };
 
-    let add_months_of_year_to_table_result = add_months_of_year_to_table(
+    add_months_of_year_to_table(
         &args,
         &mut calendar_vec_deque,
         &tag,
@@ -108,12 +108,9 @@ pub async fn cal(
         month_range,
         current_month,
         current_day_option,
-    );
+    )?;
 
-    match add_months_of_year_to_table_result {
-        Ok(()) => Ok(futures::stream::iter(calendar_vec_deque).to_output_stream()),
-        Err(error) => Err(error),
-    }
+    Ok(futures::stream::iter(calendar_vec_deque).to_output_stream())
 }
 
 fn get_invalid_year_shell_error(year_tag: &Tag) -> ShellError {
