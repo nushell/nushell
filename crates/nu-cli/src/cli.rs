@@ -718,8 +718,10 @@ pub async fn cli(
     let _ = load_plugins(&mut context);
 
     let (mut rl, config) = set_rustyline_configuration();
-    let use_starship =
-        matches!(config.get("use_starship"), Some(b) if matches!(b.as_bool(), Ok(b) if b));
+    let use_starship = config
+        .get("use_starship")
+        .map(|x| x.is_true())
+        .unwrap_or(false);
 
     #[cfg(windows)]
     {
