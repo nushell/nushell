@@ -579,17 +579,11 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
                         //     }
                         //     _ => rustyline::config::HistoryDuplicates::AlwaysAdd,
                         // };
-                        let history_duplicates = match value.as_bool() {
-                            Ok(b) => b,
-                            _ => true,
-                        };
+                        let history_duplicates = value.as_bool().unwrap_or(true);
                         rl.set_history_ignore_dups(history_duplicates);
                     }
                     "history_ignore_space" => {
-                        let history_ignore_space = match value.as_bool() {
-                            Ok(b) => b,
-                            _ => true,
-                        };
+                        let history_ignore_space = value.as_bool().unwrap_or(true);
                         rl.set_history_ignore_space(history_ignore_space);
                     }
                     "completion_type" => {
@@ -633,10 +627,7 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
                         rl.set_edit_mode(edit_mode);
                     }
                     "auto_add_history" => {
-                        let auto_add_history = match value.as_bool() {
-                            Ok(b) => b,
-                            _ => true,
-                        };
+                        let auto_add_history = value.as_bool().unwrap_or(true);
                         rl.set_auto_add_history(auto_add_history);
                     }
                     "bell_style" => {

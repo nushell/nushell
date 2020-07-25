@@ -48,48 +48,15 @@ pub fn view_text_value(value: &Value) {
                             _ => 4u64,
                         }
                     }
-                    "colored_output" => {
-                        colored_output = match value.as_bool() {
-                            Ok(b) => b,
-                            _ => true,
-                        }
-                    }
-                    "true_color" => {
-                        true_color = match value.as_bool() {
-                            Ok(b) => b,
-                            _ => true,
-                        }
-                    }
-                    "header" => {
-                        header = match value.as_bool() {
-                            Ok(b) => b,
-                            _ => true,
-                        }
-                    }
-                    "line_numbers" => {
-                        line_numbers = match value.as_bool() {
-                            Ok(b) => b,
-                            _ => true,
-                        }
-                    }
-                    "grid" => {
-                        grid = match value.as_bool() {
-                            Ok(b) => b,
-                            _ => true,
-                        }
-                    }
+                    "colored_output" => colored_output = value.as_bool().unwrap_or(true),
+                    "true_color" => true_color = value.as_bool().unwrap_or(true),
+                    "header" => header = value.as_bool().unwrap_or(true),
+                    "line_numbers" => line_numbers = value.as_bool().unwrap_or(true),
+                    "grid" => grid = value.as_bool().unwrap_or(true),
                     "vcs_modification_markers" => {
-                        vcs_modification_markers = match value.as_bool() {
-                            Ok(b) => b,
-                            _ => true,
-                        }
+                        vcs_modification_markers = value.as_bool().unwrap_or(true)
                     }
-                    "snip" => {
-                        snip = match value.as_bool() {
-                            Ok(b) => b,
-                            _ => true,
-                        }
-                    }
+                    "snip" => snip = value.as_bool().unwrap_or(true),
                     "wrapping_mode" => {
                         wrapping_mode = match value.as_string() {
                             Ok(s) if s.to_lowercase() == "nowrapping" => {
@@ -101,12 +68,7 @@ pub fn view_text_value(value: &Value) {
                             _ => bat::WrappingMode::NoWrapping,
                         }
                     }
-                    "use_italics" => {
-                        use_italics = match value.as_bool() {
-                            Ok(b) => b,
-                            _ => true,
-                        }
-                    }
+                    "use_italics" => use_italics = value.as_bool().unwrap_or(true),
                     "paging_mode" => {
                         paging_mode = match value.as_string() {
                             Ok(s) if s.to_lowercase() == "always" => bat::PagingMode::Always,
