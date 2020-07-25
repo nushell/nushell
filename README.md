@@ -51,12 +51,12 @@ To build Nu, you will need to use the **latest stable (1.41 or later)** version 
 Required dependencies:
 
 * pkg-config and libssl (only needed on Linux)
-  * on Debian/Ubuntu: `apt install pkg-config libssl-dev`
+  * On Debian/Ubuntu: `apt install pkg-config libssl-dev`
 
 Optional dependencies:
 
 * To use Nu with all possible optional features enabled, you'll also need the following:
-  * on Linux (on Debian/Ubuntu): `apt install libxcb-composite0-dev libx11-dev`
+  * On Linux (on Debian/Ubuntu): `apt install libxcb-composite0-dev libx11-dev`
 
 To install Nu via cargo (make sure you have installed [rustup](https://rustup.rs/) and the latest stable compiler via `rustup install stable`):
 

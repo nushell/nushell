@@ -6,9 +6,9 @@ Syntax: `alias {flags} <name> [<parameters>] {<body>}`
 
 The command expects three parameters:
 
-* the name of alias
-* the parameters as a space-separated list (`[a b ...]`), can be empty (`[]`)
-* the body of the alias as a `{...}` block
+* The name of alias
+* The parameters as a space-separated list (`[a b ...]`), can be empty (`[]`)
+* The body of the alias as a `{...}` block
 
 ## Flags
 
