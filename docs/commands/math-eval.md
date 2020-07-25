@@ -6,8 +6,8 @@ This command supports the following operations -
 
 operations:
 
-* binary operators: +, -, *, /, % (remainder), ^ (power)
-* unary operators: +, -, ! (factorial)
+* Binary operators: +, -, *, /, % (remainder), ^ (power)
+* Unary operators: +, -, ! (factorial)
 
 functions:
 
