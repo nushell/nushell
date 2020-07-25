@@ -808,7 +808,7 @@ pub async fn cli(
 
                 match nu_parser::lite_parse(&prompt_line, 0).map_err(ShellError::from) {
                     Ok(result) => {
-                        let mut prompt_block =
+                        let (mut prompt_block, _err) =
                             nu_parser::classify_block(&result, context.registry());
 
                         let env = context.get_env();
@@ -973,7 +973,7 @@ pub async fn parse_and_eval(line: &str, ctx: &mut Context) -> Result<String, She
     let lite_result = nu_parser::lite_parse(&line, 0)?;
 
     // TODO ensure the command whose examples we're testing is actually in the pipeline
-    let mut classified_block = nu_parser::classify_block(&lite_result, ctx.registry());
+    let (mut classified_block, _err) = nu_parser::classify_block(&lite_result, ctx.registry());
     classified_block.block.expand_it_usage();
 
     let input_stream = InputStream::empty();
@@ -1018,12 +1018,12 @@ pub async fn process_line(
             debug!("=== Parsed ===");
             debug!("{:#?}", result);
 
-            let mut classified_block = nu_parser::classify_block(&result, ctx.registry());
+            let (mut classified_block, err) = nu_parser::classify_block(&result, ctx.registry());
 
             debug!("{:#?}", classified_block);
             //println!("{:#?}", pipeline);
 
-            if let Some(failure) = classified_block.failed {
+            if let Some(failure) = err {
                 return LineResult::Error(line.to_string(), failure.into());
             }
 

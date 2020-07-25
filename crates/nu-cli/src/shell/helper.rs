@@ -127,7 +127,7 @@ impl Painter {
         match lite_block {
             Err(_) => Cow::Borrowed(line),
             Ok(lb) => {
-                let classified = nu_parser::classify_block(&lb, registry);
+                let (classified, _err) = nu_parser::classify_block(&lb, registry);
 
                 let shapes = nu_parser::shapes(&classified.block);
                 let mut painter = Painter::new(line);

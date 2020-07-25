@@ -67,7 +67,11 @@ fn parse_line(line: &'static str, ctx: &mut Context) -> Result<ClassifiedBlock, 
     let lite_result = nu_parser::lite_parse(&line, 0)?;
 
     // TODO ensure the command whose examples we're testing is actually in the pipeline
-    let mut classified_block = nu_parser::classify_block(&lite_result, ctx.registry());
+    let (mut classified_block, err) = nu_parser::classify_block(&lite_result, ctx.registry());
+    if let Some(e) = err {
+        return Err(e.into());
+    }
+
     classified_block.block.expand_it_usage();
     Ok(classified_block)
 }

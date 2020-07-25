@@ -1,8 +1,9 @@
 use std::iter::Peekable;
 use std::str::CharIndices;
 
-use nu_errors::ParseError;
 use nu_source::{Span, Spanned, SpannedItem};
+
+use crate::ParseError;
 
 type Input<'t> = Peekable<CharIndices<'t>>;
 
@@ -308,10 +309,7 @@ fn pipeline(src: &mut Input, span_offset: usize) -> Result<LiteBlock, ParseError
     while src.peek().is_some() {
         // If there is content there, let's parse it
 
-        let mut cmd = match command(src, span_offset) {
-            Ok(cmd) => cmd,
-            Err(e) => return Err(e),
-        };
+        let mut cmd = command(src, span_offset)?;
 
         loop {
             skip_whitespace(src);

@@ -1,10 +1,7 @@
 use std::path::Path;
 
-use crate::lite_parse::{lite_parse, LiteBlock, LiteCommand, LitePipeline};
-use crate::path::expand_path;
-use crate::signature::SignatureRegistry;
 use log::trace;
-use nu_errors::{ArgumentError, ParseError};
+use nu_errors::ArgumentError;
 use nu_protocol::hir::{
     self, Binary, Block, ClassifiedBlock, ClassifiedCommand, ClassifiedPipeline, Commands,
     Expression, Flag, FlagKind, InternalCommand, Member, NamedArguments, Operator,
@@ -13,6 +10,11 @@ use nu_protocol::hir::{
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPathMember};
 use nu_source::{Span, Spanned, SpannedItem};
 use num_bigint::BigInt;
+
+use crate::lite_parse::{lite_parse, LiteBlock, LiteCommand, LitePipeline};
+use crate::path::expand_path;
+use crate::signature::SignatureRegistry;
+use crate::ParseError;
 
 /// Parses a simple column path, one without a variable (implied or explicit) at the head
 fn parse_simple_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
@@ -119,8 +121,7 @@ pub fn parse_full_column_path(
                     Err(e) => return (garbage(lite_arg.span), Some(e)),
                 };
 
-                let classified_block = classify_block(&lite_block, registry);
-                let err = classified_block.failed;
+                let (classified_block, err) = classify_block(&lite_block, registry);
 
                 if error.is_none() {
                     error = err;
@@ -169,8 +170,7 @@ pub fn parse_full_column_path(
                     Err(e) => return (garbage(lite_arg.span), Some(e)),
                 };
 
-                let classified_block = classify_block(&lite_block, registry);
-                let err = classified_block.failed;
+                let (classified_block, err) = classify_block(&lite_block, registry);
 
                 if error.is_none() {
                     error = err;
@@ -710,8 +710,7 @@ fn parse_arg(
                         Err(e) => return (garbage(lite_arg.span), Some(e)),
                     };
 
-                    let classified_block = classify_block(&lite_block, registry);
-                    let error = classified_block.failed;
+                    let (classified_block, error) = classify_block(&lite_block, registry);
 
                     (
                         SpannedExpression::new(
@@ -1505,7 +1504,10 @@ fn expand_shorthand_forms(
     }
 }
 
-pub fn classify_block(lite_block: &LiteBlock, registry: &dyn SignatureRegistry) -> ClassifiedBlock {
+pub fn classify_block(
+    lite_block: &LiteBlock,
+    registry: &dyn SignatureRegistry,
+) -> (ClassifiedBlock, Option<ParseError>) {
     // FIXME: fake span
     let mut block = Block::new(Span::new(0, 0));
 
@@ -1571,7 +1573,7 @@ pub fn classify_block(lite_block: &LiteBlock, registry: &dyn SignatureRegistry) 
         }
     }
 
-    ClassifiedBlock::new(block, error)
+    (ClassifiedBlock::new(block), error)
 }
 
 /// Easy shorthand function to create a garbage expression at the given span

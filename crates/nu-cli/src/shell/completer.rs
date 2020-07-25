@@ -192,7 +192,7 @@ fn get_matching_arguments(
     let replace_string = (replace_pos..pos).map(|_| " ").collect::<String>();
     line_copy.replace_range(replace_pos..pos, &replace_string);
 
-    let result = nu_parser::classify_block(&lite_block, &context.registry);
+    let (result, _err) = nu_parser::classify_block(&lite_block, &context.registry);
 
     for pipeline in &result.block.block {
         for command in &pipeline.list {

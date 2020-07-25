@@ -9,7 +9,6 @@ use crate::{hir, Primitive, UntaggedValue};
 use crate::{PathMember, ShellTypeName};
 use derive_new::new;
 
-use nu_errors::ParseError;
 use nu_source::{
     b, DebugDocBuilder, HasSpan, PrettyDebug, PrettyDebugRefineKind, PrettyDebugWithSource,
 };
@@ -56,14 +55,11 @@ impl InternalCommand {
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct ClassifiedBlock {
     pub block: Block,
-    // this is not a Result to make it crystal clear that these shapes
-    // aren't intended to be used directly with `?`
-    pub failed: Option<ParseError>,
 }
 
 impl ClassifiedBlock {
-    pub fn new(block: Block, failed: Option<ParseError>) -> ClassifiedBlock {
-        ClassifiedBlock { block, failed }
+    pub fn new(block: Block) -> ClassifiedBlock {
+        ClassifiedBlock { block }
     }
 }
 
@@ -84,7 +80,6 @@ pub enum ClassifiedCommand {
     #[allow(unused)]
     Dynamic(crate::hir::Call),
     Internal(InternalCommand),
-    Error(ParseError),
 }
 
 impl ClassifiedCommand {

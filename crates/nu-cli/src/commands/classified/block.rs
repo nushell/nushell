@@ -80,8 +80,6 @@ async fn run_pipeline(
                 run_expression_block(*expr, ctx, it, vars, env).await?
             }
 
-            ClassifiedCommand::Error(err) => return Err(err.into()),
-
             ClassifiedCommand::Internal(left) => {
                 run_internal_command(left, ctx, input, it, vars, env).await?
             }
