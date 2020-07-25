@@ -55,33 +55,7 @@ impl NuCompleter {
             }
         } else {
             completions = self.file_completer.complete(line, pos, context.as_ref())?.1;
-
-            for completion in &mut completions {
-                if completion.replacement.contains("\\ ") {
-                    completion.replacement = completion.replacement.replace("\\ ", " ");
-                }
-                if completion.replacement.contains("\\(") {
-                    completion.replacement = completion.replacement.replace("\\(", "(");
-                }
-
-                if completion.replacement.contains(' ') || completion.replacement.contains('(') {
-                    if !completion.replacement.starts_with('\"') {
-                        completion.replacement = format!("\"{}", completion.replacement);
-                    }
-                    if !completion.replacement.ends_with('\"') {
-                        completion.replacement = format!("{}\"", completion.replacement);
-                    }
-                }
-            }
         }
-
-        let complete_from_path = match config::config(Tag::unknown()) {
-            Ok(conf) => match conf.get("complete_from_path") {
-                Some(val) => val.is_true(),
-                _ => true,
-            },
-            _ => true,
-        };
 
         // Only complete executables or commands if the thing we're completing
         // is syntactically a command
@@ -89,12 +63,22 @@ impl NuCompleter {
             let context: &context::Context = context.as_ref();
             let commands: Vec<String> = context.registry.names();
             let mut all_executables: IndexSet<_> = commands.iter().map(|x| x.to_string()).collect();
+
+            let complete_from_path = config::config(Tag::unknown())
+                .map(|conf| {
+                    conf.get("complete_from_path")
+                        .map(|v| v.is_true())
+                        .unwrap_or(true)
+                })
+                .unwrap_or(true);
+
             if complete_from_path {
                 let path_executables = find_path_executables().unwrap_or_default();
                 for path_exe in path_executables {
                     all_executables.insert(path_exe);
                 }
             };
+
             for exe in all_executables.iter() {
                 let mut pos = replace_pos;
                 let mut matched = false;
@@ -103,6 +87,7 @@ impl NuCompleter {
                         if line_chars[pos] != chr {
                             break;
                         }
+
                         pos += 1;
                         if pos == line_chars.len() {
                             matched = true;
@@ -120,12 +105,13 @@ impl NuCompleter {
             }
         }
 
+        // Adjust replacement to deal with a quote already at the cursor. Specifically, if there's
+        // already a quote at the cursor, but the replacement doesn't have one, we need to ensure
+        // one exists (to be safe, even if the completion doesn't need it).
         for completion in &mut completions {
-            // If the cursor is at a double-quote, remove the double-quote in the replacement
-            // This prevents duplicate quotes
-            let cursor_char = line.chars().nth(pos);
-            if cursor_char.unwrap_or(' ') == '"' && completion.replacement.ends_with('"') {
-                completion.replacement.pop();
+            let cursor_char = line.chars().nth(replace_pos);
+            if cursor_char.unwrap_or(' ') == '"' && !completion.replacement.starts_with('"') {
+                completion.replacement.insert(0, '"');
             }
         }
 
