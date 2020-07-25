@@ -79,19 +79,13 @@ pub fn view_text_value(value: &Value) {
                             _ => bat::PagingMode::QuitIfOneScreen,
                         }
                     }
-                    "pager" => {
-                        pager = match value.as_string() {
-                            Ok(s) => s,
-                            _ => "less".to_string(),
-                        }
-                    }
+                    "pager" => pager = value.as_string().unwrap_or_else(|_| "less".to_string()),
                     "line_ranges" => line_ranges = bat::line_range::LineRanges::all(), // not real sure what to do with this
                     "highlight_range" => _highlight_range = "0,0", //ignore config value for now
                     "theme" => {
-                        theme = match value.as_string() {
-                            Ok(s) => s,
-                            _ => "OneDarkHalf".to_string(),
-                        }
+                        theme = value
+                            .as_string()
+                            .unwrap_or_else(|_| "OneDarkHalf".to_string())
                     }
                     _ => (),
                 }
