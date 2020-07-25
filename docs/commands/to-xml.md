@@ -70,7 +70,7 @@ Converts table data into XML text.
 
 Due to XML and internal representation, `to xml` is currently limited, it will:
 
-* only process table data loaded from XML files (e.g. `open file.json | to xml` will fail)
-* drop XML prolog declarations
-* drop namespaces
-* drop comments
+* Only process table data loaded from XML files (e.g. `open file.json | to xml` will fail)
+* Drop XML prolog declarations
+* Drop namespaces
+* Drop comments
