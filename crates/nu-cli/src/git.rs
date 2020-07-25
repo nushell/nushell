@@ -4,7 +4,7 @@ pub fn current_branch() -> Option<String> {
     if let Ok(config) = crate::data::config::config(Tag::unknown()) {
         let use_starship = config
             .get("use_starship")
-            .map(|x| x.is_true())
+            .map(|x| x.as_bool().unwrap_or(true))
             .unwrap_or(false);
 
         if !use_starship {

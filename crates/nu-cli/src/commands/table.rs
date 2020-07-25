@@ -76,7 +76,7 @@ pub fn from_list(values: &[Value], starting_idx: usize) -> nu_table::Table {
 
         let header_bold = config
             .get("header_bold")
-            .map(|x| x.is_true())
+            .map(|x| x.as_bool().unwrap_or(true))
             .unwrap_or(true);
 
         TextStyle {

@@ -711,7 +711,7 @@ pub async fn cli(
     let (mut rl, config) = set_rustyline_configuration();
     let use_starship = config
         .get("use_starship")
-        .map(|x| x.is_true())
+        .map(|x| x.as_bool().unwrap_or(true))
         .unwrap_or(false);
 
     #[cfg(windows)]
