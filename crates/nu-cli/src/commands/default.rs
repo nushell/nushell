@@ -60,13 +60,13 @@ async fn default(
 
     Ok(input
         .map(move |item| {
-            let should_add = match item {
+            let should_add = matches!(
+                item,
                 Value {
                     value: UntaggedValue::Row(ref r),
                     ..
-                } => r.get_data(&column.item).borrow().is_none(),
-                _ => false,
-            };
+                } if r.get_data(&column.item).borrow().is_none()
+            );
 
             if should_add {
                 match item.insert_data_at_path(&column.item, value.clone()) {

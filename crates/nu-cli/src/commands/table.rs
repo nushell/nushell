@@ -74,13 +74,10 @@ pub fn from_list(values: &[Value], starting_idx: usize) -> nu_table::Table {
             _ => ansi_term::Color::Green,
         };
 
-        let header_bold = match config.get("header_bold") {
-            Some(b) => match b.as_bool() {
-                Ok(b) => b,
-                _ => true,
-            },
-            _ => true,
-        };
+        let header_bold = config
+            .get("header_bold")
+            .map(|x| x.as_bool().unwrap_or(true))
+            .unwrap_or(true);
 
         TextStyle {
             alignment: header_align,

@@ -292,10 +292,7 @@ impl Shell for FilesystemShell {
             ));
         }
 
-        let any_source_is_dir = sources.iter().any(|f| match f {
-            Ok(f) => f.is_dir(),
-            Err(_) => false,
-        });
+        let any_source_is_dir = sources.iter().any(|f| matches!(f, Ok(f) if f.is_dir()));
 
         if any_source_is_dir && !recursive.item {
             return Err(ShellError::labeled_error(

@@ -64,10 +64,7 @@ impl Ord for Dictionary {
 impl PartialEq<Value> for Dictionary {
     /// Test a dictionary against a Value for equality
     fn eq(&self, other: &Value) -> bool {
-        match &other.value {
-            UntaggedValue::Row(d) => self == d,
-            _ => false,
-        }
+        matches!(&other.value, UntaggedValue::Row(d) if self == d)
     }
 }
 

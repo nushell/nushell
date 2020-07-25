@@ -2,13 +2,10 @@ use crate::prelude::*;
 
 pub fn current_branch() -> Option<String> {
     if let Ok(config) = crate::data::config::config(Tag::unknown()) {
-        let use_starship = match config.get("use_starship") {
-            Some(b) => match b.as_bool() {
-                Ok(b) => b,
-                _ => false,
-            },
-            _ => false,
-        };
+        let use_starship = config
+            .get("use_starship")
+            .map(|x| x.is_true())
+            .unwrap_or(false);
 
         if !use_starship {
             #[cfg(feature = "git2")]
