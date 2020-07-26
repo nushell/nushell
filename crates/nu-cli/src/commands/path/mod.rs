@@ -1,7 +1,9 @@
 mod basename;
 mod command;
+mod exists;
 mod expand;
 mod extension;
+mod r#type;
 
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -10,8 +12,10 @@ use std::path::Path;
 
 pub use basename::PathBasename;
 pub use command::Path as PathCommand;
+pub use exists::PathExists;
 pub use expand::PathExpand;
 pub use extension::PathExtension;
+pub use r#type::PathType;
 
 #[derive(Deserialize)]
 struct DefaultArguments {

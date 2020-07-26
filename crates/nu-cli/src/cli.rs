@@ -418,6 +418,8 @@ pub fn create_default_context(
             whole_stream_command(PathExtension),
             whole_stream_command(PathBasename),
             whole_stream_command(PathExpand),
+            whole_stream_command(PathExists),
+            whole_stream_command(PathType),
         ]);
 
         #[cfg(feature = "clipboard")]

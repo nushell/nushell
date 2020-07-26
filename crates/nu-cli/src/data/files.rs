@@ -6,7 +6,7 @@ use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
 #[cfg(unix)]
 use std::os::unix::fs::FileTypeExt;
 
-fn get_file_type(md: &std::fs::Metadata) -> &str {
+pub(crate) fn get_file_type(md: &std::fs::Metadata) -> &str {
     let ft = md.file_type();
     let mut file_type = "Unknown";
     if ft.is_dir() {
