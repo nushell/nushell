@@ -12,6 +12,9 @@ mod to_datetime;
 mod to_decimal;
 mod to_integer;
 mod trim;
+mod trim_base;
+mod trim_left;
+mod trim_right;
 mod upcase;
 
 pub use capitalize::SubCommand as StrCapitalize;
@@ -28,4 +31,6 @@ pub use to_datetime::SubCommand as StrToDatetime;
 pub use to_decimal::SubCommand as StrToDecimal;
 pub use to_integer::SubCommand as StrToInteger;
 pub use trim::SubCommand as StrTrim;
+pub use trim_left::SubCommand as StrTrimLeft;
+pub use trim_right::SubCommand as StrTrimRight;
 pub use upcase::SubCommand as StrUpcase;

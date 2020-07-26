@@ -1,19 +1,10 @@
+use crate::commands::str_::trim_base::operate;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::ShellTypeName;
 use nu_protocol::{
-    ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+     Signature, SyntaxShape, Value,
 };
-use nu_source::{Tag, Tagged};
-use nu_value_ext::ValueExt;
-
-#[derive(Deserialize)]
-struct Arguments {
-    rest: Vec<ColumnPath>,
-    #[serde(rename(deserialize = "char"))]
-    char_: Option<Tagged<char>>,
-}
 
 pub struct SubCommand;
 
@@ -46,7 +37,7 @@ impl WholeStreamCommand for SubCommand {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        operate(args, registry).await
+        operate(args, registry, &trim).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -64,56 +55,10 @@ impl WholeStreamCommand for SubCommand {
         ]
     }
 }
-
-async fn operate(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-
-    let (Arguments { rest, char_ }, input) = args.process(&registry).await?;
-
-    let column_paths: Vec<_> = rest;
-    let to_trim = char_.map(|tagged| tagged.item);
-
-    Ok(input
-        .map(move |v| {
-            if column_paths.is_empty() {
-                ReturnSuccess::value(action(&v, v.tag(), to_trim)?)
-            } else {
-                let mut ret = v;
-
-                for path in &column_paths {
-                    ret = ret.swap_data_by_column_path(
-                        path,
-                        Box::new(move |old| action(old, old.tag(), to_trim)),
-                    )?;
-                }
-
-                ReturnSuccess::value(ret)
-            }
-        })
-        .to_output_stream())
-}
-
-fn action(input: &Value, tag: impl Into<Tag>, char_: Option<char>) -> Result<Value, ShellError> {
-    match &input.value {
-        UntaggedValue::Primitive(Primitive::Line(s))
-        | UntaggedValue::Primitive(Primitive::String(s)) => {
-            Ok(UntaggedValue::string(match char_ {
-                None => String::from(s.trim()),
-                Some(ch) => trim_char(s, ch, true, true),
-            })
-            .into_value(tag))
-        }
-        other => {
-            let got = format!("got {}", other.type_name());
-            Err(ShellError::labeled_error(
-                "value is not string",
-                got,
-                tag.into().span,
-            ))
-        }
+fn trim(s: &String, char_: Option<char>) -> String {
+    match char_ {
+        None => String::from(s.trim()),
+        Some(ch) => trim_char(s, ch, true, true)
     }
 }
 
@@ -146,7 +91,8 @@ pub fn trim_char(from: &str, to_trim: char, leading: bool, trailing: bool) -> St
 
 #[cfg(test)]
 mod tests {
-    use super::{action, SubCommand};
+    use crate::commands::str_::trim_base::action;
+    use super::{trim, SubCommand};
     use nu_plugin::test_helpers::value::string;
     use nu_source::Tag;
 
@@ -162,7 +108,7 @@ mod tests {
         let word = string("andres ");
         let expected = string("andres");
 
-        let actual = action(&word, Tag::unknown(), None).unwrap();
+        let actual = action(&word, Tag::unknown(), None, &trim).unwrap();
         assert_eq!(actual, expected);
     }
 }
