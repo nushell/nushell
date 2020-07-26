@@ -1,3 +1,7 @@
+mod trim;
+mod trim_left;
+mod trim_right;
+
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{
@@ -6,6 +10,11 @@ use nu_protocol::{
 use nu_source::{Tag, Tagged};
 use nu_value_ext::ValueExt;
 use nu_protocol::ShellTypeName;
+
+pub use trim::SubCommand as Trim;
+pub use trim_left::SubCommand as TrimLeft;
+pub use trim_right::SubCommand as TrimRight;
+
 #[derive(Deserialize)]
 struct Arguments {
     rest: Vec<ColumnPath>,

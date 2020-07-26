@@ -1,4 +1,4 @@
-use crate::commands::str_::trim_base::operate;
+use super::operate;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -29,7 +29,7 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "trims text from right side"
+        "trims whitespace or character from the end of text"
     }
 
     async fn run(
@@ -43,14 +43,14 @@ impl WholeStreamCommand for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Trim whitespace",
-                example: "echo '  Nu shell ' | str rtrim",
+                description: "Trim whitespace from the end of string",
+                example: "echo ' Nu shell ' | str rtrim",
                 result: Some(vec![Value::from(" Nu shell")]),
             },
             Example {
                 description: "Trim a specific character",
-                example: "echo '=== Nu shell ===' | str rtrim -c '=' | str trim",
-                result: Some(vec![Value::from("=== Nu shell")]),
+                example: "echo '=== Nu shell ===' | str rtrim -c '='",
+                result: Some(vec![Value::from("=== Nu shell ")]),
             },
         ]
     }
@@ -65,7 +65,7 @@ fn trim_right(s: &String, char_: Option<char>) -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::commands::str_::trim_base::action;
+    use crate::commands::str_::trim::action;
     use super::{trim_right, SubCommand};
     use nu_plugin::test_helpers::value::string;
     use nu_source::Tag;
