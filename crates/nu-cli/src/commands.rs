@@ -229,7 +229,8 @@ pub(crate) use split::{Split, SplitChars, SplitColumn, SplitRow};
 pub(crate) use split_by::SplitBy;
 pub(crate) use str_::{
     Str, StrCapitalize, StrCollect, StrDowncase, StrFindReplace, StrFrom, StrLength, StrReverse,
-    StrSet, StrSubstring, StrToDatetime, StrToDecimal, StrToInteger, StrTrim, StrUpcase,
+    StrSet, StrSubstring, StrToDatetime, StrToDecimal, StrToInteger, StrTrim, StrTrimLeft,
+    StrTrimRight, StrUpcase,
 };
 pub(crate) use table::Table;
 pub(crate) use tags::Tags;
