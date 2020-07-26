@@ -2,9 +2,7 @@ use super::operate;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{
-     Signature, SyntaxShape, Value,
-};
+use nu_protocol::{Signature, SyntaxShape, Value};
 
 pub struct SubCommand;
 
@@ -58,14 +56,14 @@ impl WholeStreamCommand for SubCommand {
 fn trim(s: &String, char_: Option<char>) -> String {
     match char_ {
         None => String::from(s.trim()),
-        Some(ch) => String::from(s.trim_matches(ch))
+        Some(ch) => String::from(s.trim_matches(ch)),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::commands::str_::trim::action;
     use super::{trim, SubCommand};
+    use crate::commands::str_::trim::action;
     use nu_plugin::test_helpers::value::string;
     use nu_source::Tag;
 

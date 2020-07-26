@@ -4,12 +4,10 @@ mod trim_right;
 
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{
-    ColumnPath, ReturnSuccess, Value, UntaggedValue, Primitive
-};
+use nu_protocol::ShellTypeName;
+use nu_protocol::{ColumnPath, Primitive, ReturnSuccess, UntaggedValue, Value};
 use nu_source::{Tag, Tagged};
 use nu_value_ext::ValueExt;
-use nu_protocol::ShellTypeName;
 
 pub use trim::SubCommand as Trim;
 pub use trim_left::SubCommand as TrimLeft;
@@ -25,10 +23,10 @@ struct Arguments {
 pub async fn operate<F>(
     args: CommandArgs,
     registry: &CommandRegistry,
-    trim_operation: &'static F
-) -> Result<OutputStream, ShellError> 
-    where
-        F: Fn(&String, Option<char>) -> String + Send + Sync + 'static
+    trim_operation: &'static F,
+) -> Result<OutputStream, ShellError>
+where
+    F: Fn(&String, Option<char>) -> String + Send + Sync + 'static,
 {
     let registry = registry.clone();
 
@@ -57,16 +55,19 @@ pub async fn operate<F>(
         .to_output_stream())
 }
 
-pub fn action<F>(input: &Value, tag: impl Into<Tag>, char_: Option<char>, trim_operation: &F) -> Result<Value, ShellError> 
-    where
-    F: Fn(&String, Option<char>) -> String + Send + Sync + 'static
-
+pub fn action<F>(
+    input: &Value,
+    tag: impl Into<Tag>,
+    char_: Option<char>,
+    trim_operation: &F,
+) -> Result<Value, ShellError>
+where
+    F: Fn(&String, Option<char>) -> String + Send + Sync + 'static,
 {
     match &input.value {
         UntaggedValue::Primitive(Primitive::Line(s))
         | UntaggedValue::Primitive(Primitive::String(s)) => {
-            Ok(UntaggedValue::string(trim_operation(s, char_))
-            .into_value(tag))
+            Ok(UntaggedValue::string(trim_operation(s, char_)).into_value(tag))
         }
         other => {
             let got = format!("got {}", other.type_name());
