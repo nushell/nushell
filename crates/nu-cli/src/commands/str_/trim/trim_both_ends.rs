@@ -53,7 +53,7 @@ impl WholeStreamCommand for SubCommand {
         ]
     }
 }
-fn trim(s: &String, char_: Option<char>) -> String {
+fn trim(s: &str, char_: Option<char>) -> String {
     match char_ {
         None => String::from(s.trim()),
         Some(ch) => String::from(s.trim_matches(ch)),

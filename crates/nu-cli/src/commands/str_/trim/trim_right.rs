@@ -13,10 +13,10 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("str ltrim")
+        Signature::build("str rtrim")
             .rest(
                 SyntaxShape::ColumnPath,
-                "optionally trim text from right by column paths",
+                "optionally trim text starting from the end by column paths",
             )
             .named(
                 "char",
@@ -54,7 +54,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn trim_right(s: &String, char_: Option<char>) -> String {
+fn trim_right(s: &str, char_: Option<char>) -> String {
     match char_ {
         None => String::from(s.trim_end()),
         Some(ch) => String::from(s.trim_end_matches(ch)),

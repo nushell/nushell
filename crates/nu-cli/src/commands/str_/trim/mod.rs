@@ -1,4 +1,4 @@
-mod trim;
+mod trim_both_ends;
 mod trim_left;
 mod trim_right;
 
@@ -9,7 +9,7 @@ use nu_protocol::{ColumnPath, Primitive, ReturnSuccess, UntaggedValue, Value};
 use nu_source::{Tag, Tagged};
 use nu_value_ext::ValueExt;
 
-pub use trim::SubCommand as Trim;
+pub use trim_both_ends::SubCommand as Trim;
 pub use trim_left::SubCommand as TrimLeft;
 pub use trim_right::SubCommand as TrimRight;
 
@@ -26,7 +26,7 @@ pub async fn operate<F>(
     trim_operation: &'static F,
 ) -> Result<OutputStream, ShellError>
 where
-    F: Fn(&String, Option<char>) -> String + Send + Sync + 'static,
+    F: Fn(&str, Option<char>) -> String + Send + Sync + 'static,
 {
     let registry = registry.clone();
 
@@ -62,7 +62,7 @@ pub fn action<F>(
     trim_operation: &F,
 ) -> Result<Value, ShellError>
 where
-    F: Fn(&String, Option<char>) -> String + Send + Sync + 'static,
+    F: Fn(&str, Option<char>) -> String + Send + Sync + 'static,
 {
     match &input.value {
         UntaggedValue::Primitive(Primitive::Line(s))

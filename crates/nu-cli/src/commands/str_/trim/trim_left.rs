@@ -16,7 +16,7 @@ impl WholeStreamCommand for SubCommand {
         Signature::build("str ltrim")
             .rest(
                 SyntaxShape::ColumnPath,
-                "optionally trim text from beginning by column paths",
+                "optionally trim text starting from the beginning by column paths",
             )
             .named(
                 "char",
@@ -54,7 +54,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn trim_left(s: &String, char_: Option<char>) -> String {
+fn trim_left(s: &str, char_: Option<char>) -> String {
     match char_ {
         None => String::from(s.trim_start()),
         Some(ch) => String::from(s.trim_start_matches(ch)),
