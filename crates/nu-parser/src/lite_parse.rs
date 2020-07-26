@@ -124,172 +124,6 @@ fn bare(src: &mut Input, span_offset: usize) -> Result<Spanned<String>, ParseErr
     Ok(bare.spanned(span))
 }
 
-#[test]
-fn bare_simple_1() -> Result<(), ParseError> {
-    let input = "foo bar baz";
-
-    let input = &mut input.char_indices().peekable();
-    let result = bare(input, 0)?;
-
-    assert_eq!(result.span.start(), 0);
-    assert_eq!(result.span.end(), 3);
-
-    Ok(())
-}
-
-#[test]
-fn bare_simple_2() -> Result<(), ParseError> {
-    let input = "'foo bar' baz";
-
-    let input = &mut input.char_indices().peekable();
-    let result = bare(input, 0)?;
-
-    assert_eq!(result.span.start(), 0);
-    assert_eq!(result.span.end(), 9);
-
-    Ok(())
-}
-
-#[test]
-fn bare_simple_3() -> Result<(), ParseError> {
-    let input = "'foo\" bar' baz";
-
-    let input = &mut input.char_indices().peekable();
-    let result = bare(input, 0)?;
-
-    assert_eq!(result.span.start(), 0);
-    assert_eq!(result.span.end(), 10);
-
-    Ok(())
-}
-
-#[test]
-fn bare_simple_4() -> Result<(), ParseError> {
-    let input = "[foo bar] baz";
-
-    let input = &mut input.char_indices().peekable();
-    let result = bare(input, 0)?;
-
-    assert_eq!(result.span.start(), 0);
-    assert_eq!(result.span.end(), 9);
-
-    Ok(())
-}
-
-#[test]
-fn bare_simple_5() -> Result<(), ParseError> {
-    let input = "'foo 'bar baz";
-
-    let input = &mut input.char_indices().peekable();
-    let result = bare(input, 0)?;
-
-    assert_eq!(result.span.start(), 0);
-    assert_eq!(result.span.end(), 9);
-
-    Ok(())
-}
-
-#[test]
-fn bare_simple_6() -> Result<(), ParseError> {
-    let input = "''foo baz";
-
-    let input = &mut input.char_indices().peekable();
-    let result = bare(input, 0)?;
-
-    assert_eq!(result.span.start(), 0);
-    assert_eq!(result.span.end(), 5);
-
-    Ok(())
-}
-
-#[test]
-fn bare_simple_7() -> Result<(), ParseError> {
-    let input = "'' foo";
-
-    let input = &mut input.char_indices().peekable();
-    let result = bare(input, 0)?;
-
-    assert_eq!(result.span.start(), 0);
-    assert_eq!(result.span.end(), 2);
-
-    Ok(())
-}
-
-#[test]
-fn bare_simple_8() -> Result<(), ParseError> {
-    let input = " '' foo";
-
-    let input = &mut input.char_indices().peekable();
-    let result = bare(input, 0)?;
-
-    assert_eq!(result.span.start(), 1);
-    assert_eq!(result.span.end(), 3);
-
-    Ok(())
-}
-
-#[test]
-fn bare_simple_9() -> Result<(), ParseError> {
-    let input = " 'foo' foo";
-
-    let input = &mut input.char_indices().peekable();
-    let result = bare(input, 0)?;
-
-    assert_eq!(result.span.start(), 1);
-    assert_eq!(result.span.end(), 6);
-
-    Ok(())
-}
-
-#[test]
-fn bare_ignore_future() -> Result<(), ParseError> {
-    let input = "foo 'bar";
-
-    let input = &mut input.char_indices().peekable();
-    let result = bare(input, 0)?;
-
-    assert_eq!(result.span.start(), 0);
-    assert_eq!(result.span.end(), 3);
-
-    Ok(())
-}
-
-#[test]
-fn bare_invalid_1() -> Result<(), ParseError> {
-    let input = "'foo bar";
-
-    let input = &mut input.char_indices().peekable();
-    let result = bare(input, 0);
-
-    assert_eq!(result.is_ok(), false);
-
-    Ok(())
-}
-
-#[test]
-fn bare_invalid_2() -> Result<(), ParseError> {
-    let input = "'bar";
-
-    let input = &mut input.char_indices().peekable();
-    let result = bare(input, 0);
-
-    assert_eq!(result.is_ok(), false);
-
-    Ok(())
-}
-
-#[test]
-fn bare_invalid_4() -> Result<(), ParseError> {
-    let input = " 'bar";
-
-    let input = &mut input.char_indices().peekable();
-    let result = bare(input, 0);
-
-    assert_eq!(result.is_ok(), false);
-
-    Ok(())
-}
-
 fn command(src: &mut Input, span_offset: usize) -> Result<LiteCommand, ParseError> {
     let command = bare(src, span_offset)?;
     if command.item.is_empty() {
@@ -374,24 +208,197 @@ pub fn lite_parse(src: &str, span_offset: usize) -> Result<LiteBlock, ParseError
     pipeline(&mut src.char_indices().peekable(), span_offset)
 }
 
-#[test]
-fn lite_simple_1() -> Result<(), ParseError> {
-    let result = lite_parse("foo", 0)?;
-    assert_eq!(result.block.len(), 1);
-    assert_eq!(result.block[0].commands.len(), 1);
-    assert_eq!(result.block[0].commands[0].name.span.start(), 0);
-    assert_eq!(result.block[0].commands[0].name.span.end(), 3);
+#[cfg(test)]
+mod tests {
+    mod bare {
+        #[test]
+        fn simple_1() -> Result<(), ParseError> {
+            let input = "foo bar baz";
 
-    Ok(())
-}
+            let input = &mut input.char_indices().peekable();
+            let result = bare(input, 0)?;
 
-#[test]
-fn lite_simple_offset() -> Result<(), ParseError> {
-    let result = lite_parse("foo", 10)?;
-    assert_eq!(result.block.len(), 1);
-    assert_eq!(result.block[0].commands.len(), 1);
-    assert_eq!(result.block[0].commands[0].name.span.start(), 10);
-    assert_eq!(result.block[0].commands[0].name.span.end(), 13);
+            assert_eq!(result.span.start(), 0);
+            assert_eq!(result.span.end(), 3);
 
-    Ok(())
+            Ok(())
+        }
+
+        #[test]
+        fn simple_2() -> Result<(), ParseError> {
+            let input = "'foo bar' baz";
+
+            let input = &mut input.char_indices().peekable();
+            let result = bare(input, 0)?;
+
+            assert_eq!(result.span.start(), 0);
+            assert_eq!(result.span.end(), 9);
+
+            Ok(())
+        }
+
+        #[test]
+        fn simple_3() -> Result<(), ParseError> {
+            let input = "'foo\" bar' baz";
+
+            let input = &mut input.char_indices().peekable();
+            let result = bare(input, 0)?;
+
+            assert_eq!(result.span.start(), 0);
+            assert_eq!(result.span.end(), 10);
+
+            Ok(())
+        }
+
+        #[test]
+        fn simple_4() -> Result<(), ParseError> {
+            let input = "[foo bar] baz";
+
+            let input = &mut input.char_indices().peekable();
+            let result = bare(input, 0)?;
+
+            assert_eq!(result.span.start(), 0);
+            assert_eq!(result.span.end(), 9);
+
+            Ok(())
+        }
+
+        #[test]
+        fn simple_5() -> Result<(), ParseError> {
+            let input = "'foo 'bar baz";
+
+            let input = &mut input.char_indices().peekable();
+            let result = bare(input, 0)?;
+
+            assert_eq!(result.span.start(), 0);
+            assert_eq!(result.span.end(), 9);
+
+            Ok(())
+        }
+
+        #[test]
+        fn simple_6() -> Result<(), ParseError> {
+            let input = "''foo baz";
+
+            let input = &mut input.char_indices().peekable();
+            let result = bare(input, 0)?;
+
+            assert_eq!(result.span.start(), 0);
+            assert_eq!(result.span.end(), 5);
+
+            Ok(())
+        }
+
+        #[test]
+        fn simple_7() -> Result<(), ParseError> {
+            let input = "'' foo";
+
+            let input = &mut input.char_indices().peekable();
+            let result = bare(input, 0)?;
+
+            assert_eq!(result.span.start(), 0);
+            assert_eq!(result.span.end(), 2);
+
+            Ok(())
+        }
+
+        #[test]
+        fn simple_8() -> Result<(), ParseError> {
+            let input = " '' foo";
+
+            let input = &mut input.char_indices().peekable();
+            let result = bare(input, 0)?;
+
+            assert_eq!(result.span.start(), 1);
+            assert_eq!(result.span.end(), 3);
+
+            Ok(())
+        }
+
+        #[test]
+        fn simple_9() -> Result<(), ParseError> {
+            let input = " 'foo' foo";
+
+            let input = &mut input.char_indices().peekable();
+            let result = bare(input, 0)?;
+
+            assert_eq!(result.span.start(), 1);
+            assert_eq!(result.span.end(), 6);
+
+            Ok(())
+        }
+
+        #[test]
+        fn ignore_future() -> Result<(), ParseError> {
+            let input = "foo 'bar";
+
+            let input = &mut input.char_indices().peekable();
+            let result = bare(input, 0)?;
+
+            assert_eq!(result.span.start(), 0);
+            assert_eq!(result.span.end(), 3);
+
+            Ok(())
+        }
+
+        #[test]
+        fn invalid_1() -> Result<(), ParseError> {
+            let input = "'foo bar";
+
+            let input = &mut input.char_indices().peekable();
+            let result = bare(input, 0);
+
+            assert_eq!(result.is_ok(), false);
+
+            Ok(())
+        }
+
+        #[test]
+        fn invalid_2() -> Result<(), ParseError> {
+            let input = "'bar";
+
+            let input = &mut input.char_indices().peekable();
+            let result = bare(input, 0);
+
+            assert_eq!(result.is_ok(), false);
+
+            Ok(())
+        }
+
+        #[test]
+        fn invalid_4() -> Result<(), ParseError> {
+            let input = " 'bar";
+
+            let input = &mut input.char_indices().peekable();
+            let result = bare(input, 0);
+
+            assert_eq!(result.is_ok(), false);
+
+            Ok(())
+        }
+    }
+
+    mod lite_parse {
+        #[test]
+        fn simple_1() -> Result<(), ParseError> {
+            let result = lite_parse("foo", 0)?;
+            assert_eq!(result.block.len(), 1);
+            assert_eq!(result.block[0].commands.len(), 1);
+            assert_eq!(result.block[0].commands[0].name.span.start(), 0);
+            assert_eq!(result.block[0].commands[0].name.span.end(), 3);
+
+            Ok(())
+        }
+
+        #[test]
+        fn simple_offset() -> Result<(), ParseError> {
+            let result = lite_parse("foo", 10)?;
+            assert_eq!(result.block.len(), 1);
+            assert_eq!(result.block[0].commands.len(), 1);
+            assert_eq!(result.block[0].commands[0].name.span.start(), 10);
+            assert_eq!(result.block[0].commands[0].name.span.end(), 13);
+
+            Ok(())
+        }
+    }
 }
