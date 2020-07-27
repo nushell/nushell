@@ -9,7 +9,7 @@ use nu_source::{PrettyDebug, Span, SpannedItem};
 use num_bigint::BigInt;
 use num_integer::Integer;
 use num_traits::cast::{FromPrimitive, ToPrimitive};
-use num_traits::identities::Zero;
+use num_traits::identities::{One, Zero};
 use num_traits::sign::Signed;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
