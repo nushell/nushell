@@ -81,8 +81,13 @@ async fn run_with_stdin(
                 }
             }
             _ => {
-                let trimmed_value_string = value.as_string()?.trim_end_matches('\n').to_string();
-                command_args.push(trimmed_value_string);
+                let trimmed_value_string: Vec<String> = value
+                    .as_string()?
+                    .trim_end_matches('\n')
+                    .split_whitespace()
+                    .map(String::from)
+                    .collect();
+                command_args.extend(trimmed_value_string);
             }
         }
     }
