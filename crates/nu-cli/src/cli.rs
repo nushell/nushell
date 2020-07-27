@@ -356,6 +356,7 @@ pub fn create_default_context(
             whole_stream_command(Rename),
             whole_stream_command(Uniq),
             whole_stream_command(Each),
+            whole_stream_command(Fold),
             whole_stream_command(IsEmpty),
             // Table manipulation
             whole_stream_command(Move),
