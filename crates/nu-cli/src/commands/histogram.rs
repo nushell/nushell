@@ -63,7 +63,7 @@ impl WholeStreamCommand for Histogram {
             },
             Example {
                 description: "Get a histogram for a list of numbers",
-                example: "echo [1 2 3 1 1 1 2 2 1 1] | histogram",
+                example: "echo [1 2 3 1 1 1 2 2 1 1] | wrap values | histogram valuess",
                 result: None,
             },
         ]
