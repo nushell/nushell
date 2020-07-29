@@ -109,13 +109,20 @@ pub fn read(
             )
         })?;
 
-    let parsed: toml::Value = toml::from_str(&contents).map_err(|err| {
+    let parsed = contents.parse::<toml_edit::Value>().map_err(|err| {
         ShellError::labeled_error(
             &format!("Couldn't parse config file:\n{}", err),
             "file name",
             &tag,
         )
     })?;
+    // let parsed: toml::Value = toml::from_str(&contents).map_err(|err| {
+    //     ShellError::labeled_error(
+    //         &format!("Couldn't parse config file:\n{}", err),
+    //         "file name",
+    //         &tag,
+    //     )
+    // })?;
 
     let value = convert_toml_value_to_nu_value(&parsed, tag);
     let tag = value.tag();
