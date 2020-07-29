@@ -1,8 +1,5 @@
 use std::path::Path;
 
-use crate::lite_parse::{lite_parse, LiteBlock, LiteCommand, LitePipeline};
-use crate::path::expand_path;
-use crate::signature::SignatureRegistry;
 use log::trace;
 use nu_errors::{ArgumentError, ParseError};
 use nu_protocol::hir::{
@@ -13,6 +10,11 @@ use nu_protocol::hir::{
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPathMember};
 use nu_source::{Span, Spanned, SpannedItem};
 use num_bigint::BigInt;
+
+//use crate::errors::{ParseError, ParseResult};
+use crate::lite_parse::{lite_parse, LiteBlock, LiteCommand, LitePipeline};
+use crate::path::expand_path;
+use crate::signature::SignatureRegistry;
 
 /// Parses a simple column path, one without a variable (implied or explicit) at the head
 fn parse_simple_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
@@ -116,7 +118,7 @@ pub fn parse_full_column_path(
                 // We haven't done much with the inner string, so let's go ahead and work with it
                 let lite_block = match lite_parse(&string, lite_arg.span.start() + 2) {
                     Ok(lp) => lp,
-                    Err(e) => return (garbage(lite_arg.span), Some(e)),
+                    Err(e) => return (garbage(lite_arg.span), Some(e.cause)),
                 };
 
                 let classified_block = classify_block(&lite_block, registry);
@@ -166,7 +168,7 @@ pub fn parse_full_column_path(
                 // We haven't done much with the inner string, so let's go ahead and work with it
                 let lite_block = match lite_parse(&string, lite_arg.span.start() + 2) {
                     Ok(lp) => lp,
-                    Err(e) => return (garbage(lite_arg.span), Some(e)),
+                    Err(e) => return (garbage(lite_arg.span), Some(e.cause)),
                 };
 
                 let classified_block = classify_block(&lite_block, registry);
@@ -647,7 +649,7 @@ fn parse_arg(
                     // We haven't done much with the inner string, so let's go ahead and work with it
                     let lite_block = match lite_parse(&string, lite_arg.span.start() + 1) {
                         Ok(lb) => lb,
-                        Err(e) => return (garbage(lite_arg.span), Some(e)),
+                        Err(e) => return (garbage(lite_arg.span), Some(e.cause)),
                     };
 
                     if lite_block.block.is_empty() {
@@ -707,7 +709,7 @@ fn parse_arg(
                     // We haven't done much with the inner string, so let's go ahead and work with it
                     let lite_block = match lite_parse(&string, lite_arg.span.start() + 1) {
                         Ok(lp) => lp,
-                        Err(e) => return (garbage(lite_arg.span), Some(e)),
+                        Err(e) => return (garbage(lite_arg.span), Some(e.cause)),
                     };
 
                     let classified_block = classify_block(&lite_block, registry);
@@ -902,7 +904,7 @@ fn parse_parenthesized_expression(
             // We haven't done much with the inner string, so let's go ahead and work with it
             let lite_block = match lite_parse(&string, lite_arg.span.start() + 1) {
                 Ok(lb) => lb,
-                Err(e) => return (garbage(lite_arg.span), Some(e)),
+                Err(e) => return (garbage(lite_arg.span), Some(e.cause)),
             };
 
             if lite_block.block.len() != 1 {
