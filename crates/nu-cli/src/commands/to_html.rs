@@ -250,6 +250,8 @@ async fn to_html(
     ) = args.process(&registry).await?;
     let input: Vec<Value> = input.collect().await;
     let headers = nu_protocol::merge_descriptors(&input);
+    let headers = Some(headers)
+        .filter(|headers| !headers.is_empty() && (headers.len() > 1 || headers[0] != ""));
     let mut output_string = "<html>".to_string();
     let mut regex_hm: HashMap<u32, (&str, String)> = HashMap::new();
     let color_hm = get_colors(dark, &theme);
@@ -266,115 +268,22 @@ async fn to_html(
             .expect("Error getting foreground color")
     ));
 
-    // Add grid lines to html
-    // let mut output_string = "<html><head><style>".to_string();
-    // output_string.push_str("table, th, td { border: 2px solid black; border-collapse: collapse; padding: 10px; }");
-    // output_string.push_str("</style></head><body>");
-
-    if !headers.is_empty() && (headers.len() > 1 || headers[0] != "") {
-        // output_string.push_str("<table>");
-
-        // change the color of tables
-        output_string.push_str(&format!(
-            r"<table style='background-color:{};color:{};'>",
-            color_hm
-                .get("background")
-                .expect("Error getting background color"),
-            color_hm
-                .get("foreground")
-                .expect("Error getting foreground color")
-        ));
-
-        output_string.push_str("<tr>");
-
-        for header in &headers {
-            output_string.push_str("<th>");
-            output_string.push_str(&htmlescape::encode_minimal(&header));
-            output_string.push_str("</th>");
-        }
-        output_string.push_str("</tr>");
-    }
-
-    for row in input {
-        match row.value {
-            UntaggedValue::Primitive(Primitive::Binary(b)) => {
-                // This might be a bit much, but it's fun :)
-                match row.tag.anchor {
-                    Some(AnchorLocation::Url(f)) | Some(AnchorLocation::File(f)) => {
-                        let extension = f.split('.').last().map(String::from);
-                        match extension {
-                            Some(s)
-                                if ["png", "jpg", "bmp", "gif", "tiff", "jpeg"]
-                                    .contains(&s.to_lowercase().as_str()) =>
-                            {
-                                output_string.push_str("<img src=\"data:image/");
-                                output_string.push_str(&s);
-                                output_string.push_str(";base64,");
-                                output_string.push_str(&base64::encode(&b));
-                                output_string.push_str("\">");
-                            }
-                            _ => {
-                                let output = pretty_hex::pretty_hex(&b);
-
-                                output_string.push_str("<pre>");
-                                output_string.push_str(&output);
-                                output_string.push_str("</pre>");
-                            }
-                        }
-                    }
-                    _ => {
-                        let output = pretty_hex::pretty_hex(&b);
-
-                        output_string.push_str("<pre>");
-                        output_string.push_str(&output);
-                        output_string.push_str("</pre>");
-                    }
-                }
+    let inner_value = match input.len() {
+        0 => String::default(),
+        1 => match headers {
+            Some(headers) => html_table(input, headers, color_hm),
+            None => {
+                let value = &input[0];
+                html_value(value)
             }
-            UntaggedValue::Primitive(Primitive::String(ref b)) => {
-                // This might be a bit much, but it's fun :)
-                match row.tag.anchor {
-                    Some(AnchorLocation::Url(f)) | Some(AnchorLocation::File(f)) => {
-                        let extension = f.split('.').last().map(String::from);
-                        match extension {
-                            Some(s) if s.to_lowercase() == "svg" => {
-                                output_string.push_str("<img src=\"data:image/svg+xml;base64,");
-                                output_string.push_str(&base64::encode(&b.as_bytes()));
-                                output_string.push_str("\">");
-                                continue;
-                            }
-                            _ => {}
-                        }
-                    }
-                    _ => {}
-                }
-                output_string.push_str(
-                    &(htmlescape::encode_minimal(&format_leaf(&row.value).plain_string(100_000))
-                        .replace("\n", "<br>")),
-                );
-            }
-            UntaggedValue::Row(row) => {
-                output_string.push_str("<tr>");
-                for header in &headers {
-                    let data = row.get_data(header);
-                    output_string.push_str("<td>");
-                    output_string.push_str(&format_leaf(data.borrow()).plain_string(100_000));
-                    output_string.push_str("</td>");
-                }
-                output_string.push_str("</tr>");
-            }
-            p => {
-                output_string.push_str(
-                    &(htmlescape::encode_minimal(&format_leaf(&p).plain_string(100_000))
-                        .replace("\n", "<br>")),
-                );
-            }
-        }
-    }
+        },
+        _ => match headers {
+            Some(headers) => html_table(input, headers, color_hm),
+            None => html_list(input),
+        },
+    };
 
-    if !headers.is_empty() && (headers.len() > 1 || headers[0] != "") {
-        output_string.push_str("</table>");
-    }
+    output_string.push_str(&inner_value);
     output_string.push_str("</body></html>");
 
     // Check to see if we want to remove all color or change ansi to html colors
@@ -389,6 +298,130 @@ async fn to_html(
     Ok(OutputStream::one(ReturnSuccess::value(
         UntaggedValue::string(output_string).into_value(name_tag),
     )))
+}
+
+fn html_list(list: Vec<Value>) -> String {
+    let mut output_string = String::new();
+    output_string.push_str("<ol>");
+    for value in list {
+        output_string.push_str("<li>");
+        output_string.push_str(&html_value(&value));
+        output_string.push_str("</li>");
+    }
+    output_string.push_str("</ol>");
+    output_string
+}
+
+fn html_table(table: Vec<Value>, headers: Vec<String>, color_hm: HashMap<&str, String>) -> String {
+    let mut output_string = String::new();
+    // Add grid lines to html
+    // let mut output_string = "<html><head><style>".to_string();
+    // output_string.push_str("table, th, td { border: 2px solid black; border-collapse: collapse; padding: 10px; }");
+    // output_string.push_str("</style></head><body>");
+
+    // output_string.push_str("<table>");
+
+    // change the color of tables
+    output_string.push_str(&format!(
+        r"<table style='background-color:{};color:{};'>",
+        color_hm
+            .get("background")
+            .expect("Error getting background color"),
+        color_hm
+            .get("foreground")
+            .expect("Error getting foreground color")
+    ));
+
+    output_string.push_str("<tr>");
+    for header in &headers {
+        output_string.push_str("<th>");
+        output_string.push_str(&htmlescape::encode_minimal(&header));
+        output_string.push_str("</th>");
+    }
+    output_string.push_str("</tr>");
+
+    for row in table {
+        if let UntaggedValue::Row(row) = row.value {
+            output_string.push_str("<tr>");
+            for header in &headers {
+                let data = row.get_data(header);
+                output_string.push_str("<td>");
+                output_string.push_str(&html_value(data.borrow()));
+                output_string.push_str("</td>");
+            }
+            output_string.push_str("</tr>");
+        }
+    }
+    output_string.push_str("</table>");
+
+    output_string
+}
+
+fn html_value(value: &Value) -> String {
+    let mut output_string = String::new();
+    match &value.value {
+        UntaggedValue::Primitive(Primitive::Binary(b)) => {
+            // This might be a bit much, but it's fun :)
+            match &value.tag.anchor {
+                Some(AnchorLocation::Url(f)) | Some(AnchorLocation::File(f)) => {
+                    let extension = f.split('.').last().map(String::from);
+                    match extension {
+                        Some(s)
+                            if ["png", "jpg", "bmp", "gif", "tiff", "jpeg"]
+                                .contains(&s.to_lowercase().as_str()) =>
+                        {
+                            output_string.push_str("<img src=\"data:image/");
+                            output_string.push_str(&s);
+                            output_string.push_str(";base64,");
+                            output_string.push_str(&base64::encode(&b));
+                            output_string.push_str("\">");
+                        }
+                        _ => {
+                            let output = pretty_hex::pretty_hex(&b);
+
+                            output_string.push_str("<pre>");
+                            output_string.push_str(&output);
+                            output_string.push_str("</pre>");
+                        }
+                    }
+                }
+                _ => {
+                    let output = pretty_hex::pretty_hex(&b);
+
+                    output_string.push_str("<pre>");
+                    output_string.push_str(&output);
+                    output_string.push_str("</pre>");
+                }
+            }
+        }
+        UntaggedValue::Primitive(Primitive::String(ref b)) => {
+            // This might be a bit much, but it's fun :)
+            match &value.tag.anchor {
+                Some(AnchorLocation::Url(f)) | Some(AnchorLocation::File(f)) => {
+                    let extension = f.split('.').last().map(String::from);
+                    match extension {
+                        Some(s) if s.to_lowercase() == "svg" => {
+                            output_string.push_str("<img src=\"data:image/svg+xml;base64,");
+                            output_string.push_str(&base64::encode(&b.as_bytes()));
+                            output_string.push_str("\">");
+                            return output_string;
+                        }
+                        _ => {}
+                    }
+                }
+                _ => {}
+            }
+            output_string.push_str(
+                &htmlescape::encode_minimal(&format_leaf(&value.value).plain_string(100_000))
+                    .replace("\n", "<br>"),
+            );
+        }
+        other => output_string.push_str(
+            &htmlescape::encode_minimal(&format_leaf(other).plain_string(100_000))
+                .replace("\n", "<br>"),
+        ),
+    }
+    output_string
 }
 
 fn setup_html_color_regexes(
