@@ -380,10 +380,11 @@ pub fn did_find_command(#[allow(unused)] name: &str) -> bool {
         if which::which(name).is_ok() {
             true
         } else {
+            // Reference: https://ss64.com/nt/syntax-internal.html
             let cmd_builtins = [
-                "call", "cls", "color", "date", "dir", "echo", "find", "hostname", "pause",
-                "start", "time", "title", "ver", "copy", "mkdir", "rename", "rd", "rmdir", "type",
-                "mklink",
+                "assoc", "break", "color", "copy", "date", "del", "dir", "dpath", "echo", "erase",
+                "for", "ftype", "md", "mkdir", "mklink", "move", "path", "ren", "rename", "rd",
+                "rmdir", "set", "start", "time", "title", "type", "ver", "verify", "vol",
             ];
 
             cmd_builtins.contains(&name)
