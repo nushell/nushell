@@ -641,7 +641,7 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
                             Ok(s) if s.to_lowercase() == "emacs" => {
                                 rustyline::config::EditMode::Emacs
                             }
-                            _ => rustyline::config::EditMode::Vi,
+                            _ => rustyline::config::EditMode::Emacs,
                         };
                         rl.set_edit_mode(edit_mode);
                     }
