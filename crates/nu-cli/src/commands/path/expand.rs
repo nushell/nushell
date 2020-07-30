@@ -26,8 +26,9 @@ impl WholeStreamCommand for PathExpand {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
+        let tag = args.call_info.name_tag.clone();
         let (DefaultArguments { rest }, input) = args.process(&registry).await?;
-        operate(input, rest, &action).await
+        operate(input, rest, &action, tag.span).await
     }
 
     fn examples(&self) -> Vec<Example> {
