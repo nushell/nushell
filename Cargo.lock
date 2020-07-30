@@ -2584,6 +2584,7 @@ dependencies = [
  "typetag",
  "umask",
  "unicode-xid",
+ "url",
  "users",
  "uuid",
  "which",

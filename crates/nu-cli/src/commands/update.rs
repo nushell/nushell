@@ -148,9 +148,9 @@ async fn update(
 
     Ok(input
         .then(move |input| {
-            let replacement = replacement.clone();
             let scope = scope.clone();
             let context = context.clone();
+            let replacement = replacement.clone();
             let field = field.clone();
 
             async {

@@ -313,6 +313,8 @@ pub fn create_default_context(
             whole_stream_command(StrTrim),
             whole_stream_command(StrTrimLeft),
             whole_stream_command(StrTrimRight),
+            whole_stream_command(StrStartsWith),
+            whole_stream_command(StrEndsWith),
             whole_stream_command(StrCollect),
             whole_stream_command(StrLength),
             whole_stream_command(StrReverse),
@@ -420,6 +422,12 @@ pub fn create_default_context(
             whole_stream_command(PathExpand),
             whole_stream_command(PathExists),
             whole_stream_command(PathType),
+            // Url
+            whole_stream_command(UrlCommand),
+            whole_stream_command(UrlScheme),
+            whole_stream_command(UrlPath),
+            whole_stream_command(UrlHost),
+            whole_stream_command(UrlQuery),
         ]);
 
         #[cfg(feature = "clipboard")]

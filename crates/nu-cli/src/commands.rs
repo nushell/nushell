@@ -115,6 +115,7 @@ pub(crate) mod to_yaml;
 pub(crate) mod trim;
 pub(crate) mod uniq;
 pub(crate) mod update;
+pub(crate) mod url_;
 pub(crate) mod version;
 pub(crate) mod what;
 pub(crate) mod where_;
@@ -228,9 +229,9 @@ pub(crate) use sort_by::SortBy;
 pub(crate) use split::{Split, SplitChars, SplitColumn, SplitRow};
 pub(crate) use split_by::SplitBy;
 pub(crate) use str_::{
-    Str, StrCapitalize, StrCollect, StrDowncase, StrFindReplace, StrFrom, StrLength, StrReverse,
-    StrSet, StrSubstring, StrToDatetime, StrToDecimal, StrToInteger, StrTrim, StrTrimLeft,
-    StrTrimRight, StrUpcase,
+    Str, StrCapitalize, StrCollect, StrDowncase, StrEndsWith, StrFindReplace, StrFrom, StrLength,
+    StrReverse, StrSet, StrStartsWith, StrSubstring, StrToDatetime, StrToDecimal, StrToInteger,
+    StrTrim, StrTrimLeft, StrTrimRight, StrUpcase,
 };
 pub(crate) use table::Table;
 pub(crate) use tags::Tags;
@@ -247,6 +248,7 @@ pub(crate) use to_yaml::ToYAML;
 pub(crate) use touch::Touch;
 pub(crate) use trim::Trim;
 pub(crate) use uniq::Uniq;
+pub(crate) use url_::{UrlCommand, UrlHost, UrlPath, UrlQuery, UrlScheme};
 pub(crate) use version::Version;
 pub(crate) use what::What;
 pub(crate) use where_::Where;
