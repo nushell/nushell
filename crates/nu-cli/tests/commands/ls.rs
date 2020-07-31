@@ -180,10 +180,10 @@ fn list_all_columns() {
             );
             let expected = ["name", "type", "target", "size", "modified"].join("");
             assert_eq!(actual.out, expected, "column names are incorrect for ls -w");
-            // Full
+            // Long
             let actual = nu!(
                 cwd: dirs.test(),
-                "ls -f | get | to md"
+                "ls -l | get | to md"
             );
             let expected = {
                 #[cfg(unix)]
@@ -206,7 +206,7 @@ fn list_all_columns() {
             };
             assert_eq!(
                 actual.out, expected,
-                "column names are incorrect for ls full"
+                "column names are incorrect for ls long"
             );
         },
     );

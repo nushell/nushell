@@ -28,7 +28,7 @@ async fn usage(process: Process) -> ProcessResult<(process::Process, Ratio, proc
     Ok((process, usage_2 - usage_1, memory))
 }
 
-pub async fn ps(tag: Tag, full: bool) -> Result<Vec<Value>, ShellError> {
+pub async fn ps(tag: Tag, long: bool) -> Result<Vec<Value>, ShellError> {
     let processes = process::processes()
         .await
         .map_err(|_| {
@@ -67,7 +67,7 @@ pub async fn ps(tag: Tag, full: bool) -> Result<Vec<Value>, ShellError> {
                 "virtual",
                 UntaggedValue::filesize(memory.vms().get::<information::byte>()),
             );
-            if full {
+            if long {
                 if let Ok(parent_pid) = process.parent_pid().await {
                     dict.insert_untagged("parent", UntaggedValue::int(parent_pid))
                 }

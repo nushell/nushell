@@ -805,8 +805,8 @@ mod test {
     }
 }
 
-/// Match the available flags in a signature with what the user provided. This will check both long-form flags (--full) and shorthand flags (-f)
-/// This also allows users to provide a group of shorthand flags (-af) that correspond to multiple shorthand flags at once.
+/// Match the available flags in a signature with what the user provided. This will check both long-form flags (--long) and shorthand flags (-l)
+/// This also allows users to provide a group of shorthand flags (-la) that correspond to multiple shorthand flags at once.
 fn get_flags_from_flag(
     signature: &nu_protocol::Signature,
     cmd: &Spanned<String>,

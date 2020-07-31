@@ -76,7 +76,7 @@ Where with the form `| where readonly` is used to check boolean values. For exam
 ```
 
 ```shell
-> ls -f | where accessed <= 1w
+> ls -l | where accessed <= 1w
 ───┬────────────────────┬──────┬────────┬──────────┬───────────┬─────────────┬───────┬──────────┬──────────────┬─────────────┬─────────────
  # │ name               │ type │ target │ readonly │ mode      │ uid         │ group │ size     │ created      │ accessed    │ modified
 ───┼────────────────────┼──────┼────────┼──────────┼───────────┼─────────────┼───────┼──────────┼──────────────┼─────────────┼─────────────

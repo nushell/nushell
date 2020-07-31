@@ -37,7 +37,7 @@ pub(crate) fn dir_entry_dict(
     filename: &std::path::Path,
     metadata: Option<&std::fs::Metadata>,
     tag: impl Into<Tag>,
-    full: bool,
+    long: bool,
     short_name: bool,
     with_symlink_targets: bool,
     du: bool,
@@ -46,7 +46,7 @@ pub(crate) fn dir_entry_dict(
     let tag = tag.into();
     let mut dict = TaggedDictBuilder::new(&tag);
     // Insert all columns first to maintain proper table alignment if we can't find (or are not allowed to view) any information
-    if full {
+    if long {
         #[cfg(windows)]
         {
             for column in [
@@ -97,7 +97,7 @@ pub(crate) fn dir_entry_dict(
         dict.insert_untagged("type", get_file_type(md));
     }
 
-    if full || with_symlink_targets {
+    if long || with_symlink_targets {
         if let Some(md) = metadata {
             if md.file_type().is_symlink() {
                 let symlink_target_untagged_value: UntaggedValue;
@@ -113,7 +113,7 @@ pub(crate) fn dir_entry_dict(
         }
     }
 
-    if full {
+    if long {
         if let Some(md) = metadata {
             dict.insert_untagged(
                 "readonly",
@@ -181,7 +181,7 @@ pub(crate) fn dir_entry_dict(
     }
 
     if let Some(md) = metadata {
-        if full {
+        if long {
             if let Ok(c) = md.created() {
                 dict.insert_untagged("created", UntaggedValue::system_date(c));
             }

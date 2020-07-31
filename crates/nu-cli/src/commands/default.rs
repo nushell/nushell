@@ -45,7 +45,7 @@ impl WholeStreamCommand for Default {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Give a default 'target' to all file entries",
-            example: "ls -af | default target 'nothing'",
+            example: "ls -la | default target 'nothing'",
             result: None,
         }]
     }
