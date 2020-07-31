@@ -194,7 +194,7 @@ For example, you can load a .toml file as structured data and explore it:
 > open Cargo.toml
 ────────────────────┬───────────────────────────
  bin                │ [table 18 rows]
- build-dependencies │ [row nu-build serde toml]
+ build-dependencies │ [row serde toml]
  dependencies       │ [row 29 columns]
  dev-dependencies   │ [row nu-test-support]
  features           │ [row 19 columns]

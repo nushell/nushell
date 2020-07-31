@@ -20,4 +20,3 @@ itertools = "0.9.0"
 num-traits = "0.2.12"
 
 [build-dependencies]
-nu-build = {version = "0.17.0", path = "../nu-build"}

@@ -2453,7 +2453,6 @@ dependencies = [
  "dunce",
  "futures 0.3.5",
  "log",
- "nu-build",
  "nu-cli",
  "nu-errors",
  "nu-parser",
@@ -2484,16 +2483,6 @@ dependencies = [
  "syntect",
  "toml 0.5.6",
  "url",
-]
-
-[[package]]
-name = "nu-build"
-version = "0.17.0"
-dependencies = [
- "lazy_static 1.4.0",
- "serde 1.0.114",
- "serde_json",
- "toml 0.5.6",
 ]
 
 [[package]]
@@ -2537,7 +2526,6 @@ dependencies = [
  "log",
  "meval",
  "natural",
- "nu-build",
  "nu-errors",
  "nu-parser",
  "nu-plugin",
@@ -2600,7 +2588,6 @@ dependencies = [
  "derive-new",
  "getset",
  "glob",
- "nu-build",
  "nu-source",
  "num-bigint",
  "num-traits 0.2.12",
@@ -2635,7 +2622,6 @@ version = "0.17.0"
 dependencies = [
  "bigdecimal",
  "indexmap",
- "nu-build",
  "nu-errors",
  "nu-protocol",
  "nu-source",
@@ -2660,7 +2646,6 @@ dependencies = [
  "itertools",
  "log",
  "natural",
- "nu-build",
  "nu-errors",
  "nu-source",
  "num-bigint",
@@ -2682,7 +2667,6 @@ dependencies = [
  "codespan-reporting",
  "derive-new",
  "getset",
- "nu-build",
  "pretty",
  "serde 1.0.114",
  "termcolor",
@@ -2705,7 +2689,6 @@ dependencies = [
  "getset",
  "glob",
  "indexmap",
- "nu-build",
  "nu-parser",
  "nu-protocol",
  "nu-source",
@@ -2718,7 +2701,6 @@ version = "0.17.0"
 dependencies = [
  "indexmap",
  "itertools",
- "nu-build",
  "nu-errors",
  "nu-parser",
  "nu-protocol",
@@ -2734,7 +2716,6 @@ dependencies = [
  "crossterm",
  "image",
  "neso",
- "nu-build",
  "nu-errors",
  "nu-plugin",
  "nu-protocol",
@@ -2749,7 +2730,6 @@ version = "0.17.0"
 dependencies = [
  "base64 0.12.3",
  "futures 0.3.5",
- "nu-build",
  "nu-errors",
  "nu-plugin",
  "nu-protocol",
@@ -2764,7 +2744,6 @@ version = "0.17.0"
 dependencies = [
  "bigdecimal",
  "bson",
- "nu-build",
  "nu-errors",
  "nu-plugin",
  "nu-protocol",
@@ -2778,7 +2757,6 @@ name = "nu_plugin_from_sqlite"
 version = "0.17.0"
 dependencies = [
  "bigdecimal",
- "nu-build",
  "nu-errors",
  "nu-plugin",
  "nu-protocol",
@@ -2793,7 +2771,6 @@ dependencies = [
 name = "nu_plugin_inc"
 version = "0.17.0"
 dependencies = [
- "nu-build",
  "nu-errors",
  "nu-plugin",
  "nu-protocol",
@@ -2807,7 +2784,6 @@ name = "nu_plugin_match"
 version = "0.17.0"
 dependencies = [
  "futures 0.3.5",
- "nu-build",
  "nu-errors",
  "nu-plugin",
  "nu-protocol",
@@ -2821,7 +2797,6 @@ version = "0.17.0"
 dependencies = [
  "base64 0.12.3",
  "futures 0.3.5",
- "nu-build",
  "nu-errors",
  "nu-plugin",
  "nu-protocol",
@@ -2839,7 +2814,6 @@ dependencies = [
  "futures 0.3.5",
  "futures-timer",
  "heim",
- "nu-build",
  "nu-errors",
  "nu-plugin",
  "nu-protocol",
@@ -2851,7 +2825,6 @@ name = "nu_plugin_start"
 version = "0.17.0"
 dependencies = [
  "glob",
- "nu-build",
  "nu-errors",
  "nu-plugin",
  "nu-protocol",
@@ -2868,7 +2841,6 @@ dependencies = [
  "futures 0.3.5",
  "futures-util",
  "heim",
- "nu-build",
  "nu-errors",
  "nu-plugin",
  "nu-protocol",
@@ -2883,7 +2855,6 @@ dependencies = [
  "ansi_term 0.12.1",
  "bat",
  "crossterm",
- "nu-build",
  "nu-cli",
  "nu-errors",
  "nu-plugin",
@@ -2899,7 +2870,6 @@ name = "nu_plugin_to_bson"
 version = "0.17.0"
 dependencies = [
  "bson",
- "nu-build",
  "nu-errors",
  "nu-plugin",
  "nu-protocol",
@@ -2913,7 +2883,6 @@ name = "nu_plugin_to_sqlite"
 version = "0.17.0"
 dependencies = [
  "hex 0.4.2",
- "nu-build",
  "nu-errors",
  "nu-plugin",
  "nu-protocol",
@@ -2929,7 +2898,6 @@ name = "nu_plugin_tree"
 version = "0.17.0"
 dependencies = [
  "derive-new",
- "nu-build",
  "nu-errors",
  "nu-plugin",
  "nu-protocol",

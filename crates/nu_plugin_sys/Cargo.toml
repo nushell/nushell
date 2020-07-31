@@ -27,4 +27,3 @@ version = "0.1.0-beta.3"
 features = ["host", "cpu", "memory", "disk", "net", "sensors"]
 
 [build-dependencies]
-nu-build = {version = "0.17.0", path = "../nu-build"}
