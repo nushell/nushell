@@ -356,7 +356,6 @@ pub fn create_default_context(
             whole_stream_command(Rename),
             whole_stream_command(Uniq),
             whole_stream_command(Each),
-            whole_stream_command(Fold),
             whole_stream_command(IsEmpty),
             // Table manipulation
             whole_stream_command(Move),
@@ -365,6 +364,7 @@ pub fn create_default_context(
             whole_stream_command(Wrap),
             whole_stream_command(Pivot),
             whole_stream_command(Headers),
+            whole_stream_command(Fold),
             // Data processing
             whole_stream_command(Histogram),
             whole_stream_command(Autoenv),
