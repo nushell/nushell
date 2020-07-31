@@ -18,4 +18,3 @@ nu-source = {path = "../nu-source", version = "0.17.0"}
 ptree = {version = "0.2"}
 
 [build-dependencies]
-nu-build = {version = "0.17.0", path = "../nu-build"}

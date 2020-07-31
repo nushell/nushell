@@ -37,4 +37,3 @@ serde_yaml = "0.8"
 toml = "0.5.6"
 
 [build-dependencies]
-nu-build = {version = "0.17.0", path = "../nu-build"}

@@ -19,6 +19,5 @@ open = "1.4.0"
 url = "2.1.1"
 
 [build-dependencies]
-nu-build = {version = "0.17.0", path = "../nu-build"}
 nu-errors = {version = "0.17.0", path = "../nu-errors"}
 nu-source = {version = "0.17.0", path = "../nu-source"}

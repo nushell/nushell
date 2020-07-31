@@ -22,4 +22,3 @@ pretty-hex = "0.1.1"
 rawkey = "0.1.2"
 
 [build-dependencies]
-nu-build = {version = "0.17.0", path = "../nu-build"}

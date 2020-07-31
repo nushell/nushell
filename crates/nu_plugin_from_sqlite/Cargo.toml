@@ -24,4 +24,3 @@ features = ["bundled", "blob"]
 version = "0.23.1"
 
 [build-dependencies]
-nu-build = {version = "0.17.0", path = "../nu-build"}

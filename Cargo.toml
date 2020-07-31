@@ -58,7 +58,6 @@ quick-xml = "0.18.1"
 nu-test-support = {version = "0.17.0", path = "./crates/nu-test-support"}
 
 [build-dependencies]
-nu-build = {version = "0.17.0", path = "./crates/nu-build"}
 serde = {version = "1.0.110", features = ["derive"]}
 toml = "0.5.6"
 

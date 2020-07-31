@@ -18,4 +18,3 @@ serde = {version = "1.0.114", features = ["derive"]}
 termcolor = "1.1.0"
 
 [build-dependencies]
-nu-build = {version = "0.17.0", path = "../nu-build"}
