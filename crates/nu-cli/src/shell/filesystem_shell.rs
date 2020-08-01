@@ -95,7 +95,7 @@ impl Shell for FilesystemShell {
         LsArgs {
             path,
             all,
-            full,
+            long,
             short_names,
             with_symlink_targets,
             du,
@@ -164,7 +164,7 @@ impl Shell for FilesystemShell {
                 &path,
                 metadata.as_ref(),
                 name_tag.clone(),
-                full,
+                long,
                 short_names,
                 with_symlink_targets,
                 du,
