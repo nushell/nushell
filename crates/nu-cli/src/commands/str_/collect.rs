@@ -56,7 +56,7 @@ pub async fn collect(
 
     let strings: Vec<Result<String, ShellError>> =
         input.map(|value| value.as_string()).collect().await;
-    let strings: Vec<String> = strings.into_iter().collect::<Result<_,_>>()?;
+    let strings: Vec<String> = strings.into_iter().collect::<Result<_, _>>()?;
     let output = strings.join(&separator);
 
     Ok(OutputStream::one(ReturnSuccess::value(
