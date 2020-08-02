@@ -106,10 +106,9 @@ pub async fn group_by_date(
             }
             (Grouper::ByDate(None), GroupByColumn::Name(Some(column_name))) => {
                 let block = Box::new(move |_, row: &Value| {
-                    let group_key = match row.get_data_by_key(column_name.borrow_spanned()) {
-                        Some(group_key) => Ok(group_key),
-                        None => Err(suggestions(column_name.borrow_tagged(), &row)),
-                    };
+                    let group_key = row
+                        .get_data_by_key(column_name.borrow_spanned())
+                        .ok_or_else(|| suggestions(column_name.borrow_tagged(), &row));
 
                     group_key?.format("%Y-%b-%d")
                 });
@@ -123,10 +122,9 @@ pub async fn group_by_date(
             }
             (Grouper::ByDate(Some(fmt)), GroupByColumn::Name(Some(column_name))) => {
                 let block = Box::new(move |_, row: &Value| {
-                    let group_key = match row.get_data_by_key(column_name.borrow_spanned()) {
-                        Some(group_key) => Ok(group_key),
-                        None => Err(suggestions(column_name.borrow_tagged(), &row)),
-                    };
+                    let group_key = row
+                        .get_data_by_key(column_name.borrow_spanned())
+                        .ok_or_else(|| suggestions(column_name.borrow_tagged(), &row));
 
                     group_key?.format(&fmt)
                 });

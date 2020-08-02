@@ -64,17 +64,15 @@ async fn benchmark(
     )
     .await;
 
-    let output = match result {
-        Ok(mut stream) => {
-            let _ = stream.drain_vec().await;
-            let run_duration: chrono::Duration = Utc::now().signed_duration_since(start_time);
-            context.clear_errors();
-            Ok(ReturnSuccess::Value(Value {
-                value: UntaggedValue::Primitive(Primitive::from(run_duration)),
-                tag: Tag::from(block.span),
-            }))
-        }
-        Err(e) => Err(e),
-    };
+    let _ = result?.drain_vec().await;
+    let run_duration: chrono::Duration = Utc::now().signed_duration_since(start_time);
+
+    context.clear_errors();
+
+    let output = Ok(ReturnSuccess::Value(Value {
+        value: UntaggedValue::Primitive(Primitive::from(run_duration)),
+        tag: Tag::from(block.span),
+    }));
+
     Ok(OutputStream::from(vec![output]))
 }

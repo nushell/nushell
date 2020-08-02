@@ -162,17 +162,18 @@ pub fn compare_values(
 
     use std::cmp::Ordering;
 
-    let result = match (operator, ordering) {
-        (Operator::Equal, Ordering::Equal) => true,
-        (Operator::NotEqual, Ordering::Less) | (Operator::NotEqual, Ordering::Greater) => true,
-        (Operator::LessThan, Ordering::Less) => true,
-        (Operator::GreaterThan, Ordering::Greater) => true,
-        (Operator::GreaterThanOrEqual, Ordering::Greater)
-        | (Operator::GreaterThanOrEqual, Ordering::Equal) => true,
-        (Operator::LessThanOrEqual, Ordering::Less)
-        | (Operator::LessThanOrEqual, Ordering::Equal) => true,
-        _ => false,
-    };
+    let result = matches!(
+        (operator, ordering),
+        (Operator::Equal, Ordering::Equal)
+            | (Operator::GreaterThan, Ordering::Greater)
+            | (Operator::GreaterThanOrEqual, Ordering::Greater)
+            | (Operator::GreaterThanOrEqual, Ordering::Equal)
+            | (Operator::LessThan, Ordering::Less)
+            | (Operator::LessThanOrEqual, Ordering::Less)
+            | (Operator::LessThanOrEqual, Ordering::Equal)
+            | (Operator::NotEqual, Ordering::Greater)
+            | (Operator::NotEqual, Ordering::Less)
+    );
 
     Ok(result)
 }

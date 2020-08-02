@@ -124,12 +124,8 @@ impl WholeStreamCommand for RunExternalCommand {
                 let result = external_context
                     .shell_manager
                     .cd(cd_args, args.call_info.name_tag.clone());
-                match result {
-                    Ok(stream) => return Ok(stream.to_output_stream()),
-                    Err(e) => {
-                        return Err(e);
-                    }
-                }
+
+                return Ok(result?.to_output_stream());
             }
         }
 

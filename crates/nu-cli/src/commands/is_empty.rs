@@ -106,14 +106,14 @@ async fn is_empty(
                                 ..
                             } => {
                                 if val.is_empty() {
-                                    match obj.replace_data_at_column_path(&field, default.clone()) {
-                                        Some(v) => Ok(v),
-                                        None => Err(ShellError::labeled_error(
-                                            "empty? could not find place to check emptiness",
-                                            "column name",
-                                            &field.tag,
-                                        )),
-                                    }
+                                    obj.replace_data_at_column_path(&field, default.clone())
+                                        .ok_or_else(|| {
+                                            ShellError::labeled_error(
+                                                "empty? could not find place to check emptiness",
+                                                "column name",
+                                                &field.tag,
+                                            )
+                                        })
                                 } else {
                                     Ok(obj)
                                 }

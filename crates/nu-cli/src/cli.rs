@@ -622,17 +622,11 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
                         rl.set_completion_type(completion_type);
                     }
                     "completion_prompt_limit" => {
-                        let completion_prompt_limit = match value.as_u64() {
-                            Ok(n) => n as usize,
-                            _ => 1 as usize,
-                        };
+                        let completion_prompt_limit = value.as_u64().unwrap_or(1) as usize;
                         rl.set_completion_prompt_limit(completion_prompt_limit);
                     }
                     "keyseq_timeout_ms" => {
-                        let keyseq_timeout_ms = match value.as_u64() {
-                            Ok(n) => n as i32,
-                            _ => 500i32,
-                        };
+                        let keyseq_timeout_ms = value.as_u64().unwrap_or(500) as i32;
                         rl.set_keyseq_timeout(keyseq_timeout_ms);
                     }
                     "edit_mode" => {
@@ -676,10 +670,7 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
                         rl.set_color_mode(color_mode);
                     }
                     "tab_stop" => {
-                        let tab_stop = match value.as_u64() {
-                            Ok(n) => n as usize,
-                            _ => 4 as usize,
-                        };
+                        let tab_stop = value.as_u64().unwrap_or(4) as usize;
                         rl.set_tab_stop(tab_stop);
                     }
                     _ => (),
@@ -1134,18 +1125,15 @@ pub async fn process_line(
                 let file = futures::io::AllowStdIo::new(std::io::stdin());
                 let stream = FramedRead::new(file, MaybeTextCodec::default()).map(|line| {
                     if let Ok(line) = line {
-                        match line {
-                            StringOrBinary::String(s) => Ok(Value {
-                                value: UntaggedValue::Primitive(Primitive::String(s)),
-                                tag: Tag::unknown(),
-                            }),
-                            StringOrBinary::Binary(b) => Ok(Value {
-                                value: UntaggedValue::Primitive(Primitive::Binary(
-                                    b.into_iter().collect(),
-                                )),
-                                tag: Tag::unknown(),
-                            }),
-                        }
+                        let primitive = match line {
+                            StringOrBinary::String(s) => Primitive::String(s),
+                            StringOrBinary::Binary(b) => Primitive::Binary(b.into_iter().collect()),
+                        };
+
+                        Ok(Value {
+                            value: UntaggedValue::Primitive(primitive),
+                            tag: Tag::unknown(),
+                        })
                     } else {
                         panic!("Internal error: could not read lines of text from stdin")
                     }
