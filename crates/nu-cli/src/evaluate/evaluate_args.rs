@@ -41,7 +41,6 @@ pub(crate) async fn evaluate_args(
                             .await?,
                     );
                 }
-
                 _ => {}
             };
         }
