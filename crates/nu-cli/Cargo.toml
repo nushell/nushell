@@ -20,7 +20,7 @@ nu-test-support = {version = "0.17.0", path = "../nu-test-support"}
 nu-value-ext = {version = "0.17.0", path = "../nu-value-ext"}
 
 ansi_term = "0.12.1"
-app_dirs = "1.2.1"
+app_dirs2 = "2"
 async-recursion = "0.3.1"
 async-trait = "0.1.36"
 base64 = "0.12.3"
