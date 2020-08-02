@@ -1125,18 +1125,15 @@ pub async fn process_line(
                 let file = futures::io::AllowStdIo::new(std::io::stdin());
                 let stream = FramedRead::new(file, MaybeTextCodec::default()).map(|line| {
                     if let Ok(line) = line {
-                        match line {
-                            StringOrBinary::String(s) => Ok(Value {
-                                value: UntaggedValue::Primitive(Primitive::String(s)),
-                                tag: Tag::unknown(),
-                            }),
-                            StringOrBinary::Binary(b) => Ok(Value {
-                                value: UntaggedValue::Primitive(Primitive::Binary(
-                                    b.into_iter().collect(),
-                                )),
-                                tag: Tag::unknown(),
-                            }),
-                        }
+                        let primitive = match line {
+                            StringOrBinary::String(s) => Primitive::String(s),
+                            StringOrBinary::Binary(b) => Primitive::Binary(b.into_iter().collect()),
+                        };
+
+                        Ok(Value {
+                            value: UntaggedValue::Primitive(primitive),
+                            tag: Tag::unknown(),
+                        })
                     } else {
                         panic!("Internal error: could not read lines of text from stdin")
                     }
