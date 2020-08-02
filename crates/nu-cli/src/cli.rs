@@ -364,7 +364,7 @@ pub fn create_default_context(
             whole_stream_command(Wrap),
             whole_stream_command(Pivot),
             whole_stream_command(Headers),
-            whole_stream_command(Fold),
+            whole_stream_command(Reduce),
             // Data processing
             whole_stream_command(Histogram),
             whole_stream_command(Autoenv),
