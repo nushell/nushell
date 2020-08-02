@@ -354,11 +354,9 @@ pub fn swap_data_by_column_path(
 
     value
         .replace_data_at_column_path(&path, replacement)
-        .ok_or(ShellError::labeled_error(
-            "missing column-path",
-            "missing column-path",
-            value.tag.span,
-        ))
+        .ok_or_else(|| {
+            ShellError::labeled_error("missing column-path", "missing column-path", value.tag.span)
+        })
 }
 
 pub fn insert_data_at_path(value: &Value, path: &str, new_value: Value) -> Option<Value> {

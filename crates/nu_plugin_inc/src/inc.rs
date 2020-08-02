@@ -123,11 +123,13 @@ impl Inc {
 
                     value
                         .replace_data_at_column_path(&f, replacement.value.into_untagged_value())
-                        .ok_or(ShellError::labeled_error(
-                            "inc could not find field to replace",
-                            "column name",
-                            value.tag(),
-                        ))
+                        .ok_or_else(|| {
+                            ShellError::labeled_error(
+                                "inc could not find field to replace",
+                                "column name",
+                                value.tag(),
+                            )
+                        })
                 }
                 None => Err(ShellError::untagged_runtime_error(
                     "inc needs a field when incrementing a column in a table",

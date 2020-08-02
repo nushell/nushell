@@ -65,11 +65,13 @@ impl Primitive {
     /// Converts a primitive value to a u64, if possible. Uses a span to build an error if the conversion isn't possible.
     pub fn as_u64(&self, span: Span) -> Result<u64, ShellError> {
         match self {
-            Primitive::Int(int) => int.to_u64().ok_or(ShellError::range_error(
-                ExpectedRange::U64,
-                &format!("{}", int).spanned(span),
-                "converting an integer into a 64-bit integer",
-            )),
+            Primitive::Int(int) => int.to_u64().ok_or_else(|| {
+                ShellError::range_error(
+                    ExpectedRange::U64,
+                    &format!("{}", int).spanned(span),
+                    "converting an integer into a 64-bit integer",
+                )
+            }),
             other => Err(ShellError::type_error(
                 "integer",
                 other.type_name().spanned(span),
@@ -101,7 +103,7 @@ impl Primitive {
                 // This should also never fail since we are adding less than NANOS_PER_SEC.
                 chrono::Duration::seconds(secs)
                     .checked_add(&nanos)
-                    .ok_or(ShellError::unexpected("Unexpected duration overflow"))
+                    .ok_or_else(|| ShellError::unexpected("Unexpected duration overflow"))
             }
             other => Err(ShellError::type_error(
                 "duration",
