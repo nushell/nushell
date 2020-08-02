@@ -15,6 +15,7 @@ pub struct ToHTMLArgs {
     html_color: bool,
     no_color: bool,
     dark: bool,
+    partial: bool,
     theme: Option<Tagged<String>>,
 }
 
@@ -32,6 +33,11 @@ impl WholeStreamCommand for ToHTML {
                 "dark",
                 "indicate your background color is a darker color",
                 Some('d'),
+            )
+            .switch(
+                "partial",
+                "only output the html for the content itself",
+                Some('p'),
             )
             .named(
                 "theme",
@@ -244,6 +250,7 @@ async fn to_html(
             html_color,
             no_color,
             dark,
+            partial,
             theme,
         },
         input,
@@ -252,39 +259,55 @@ async fn to_html(
     let headers = nu_protocol::merge_descriptors(&input);
     let headers = Some(headers)
         .filter(|headers| !headers.is_empty() && (headers.len() > 1 || headers[0] != ""));
-    let mut output_string = "<html>".to_string();
+    let mut output_string = String::new();
     let mut regex_hm: HashMap<u32, (&str, String)> = HashMap::new();
     let color_hm = get_colors(dark, &theme);
 
     // change the color of the page
-    output_string.push_str(&format!(
-        // r"<style>body {{ background-color:{};color:{};font-family:'FiraFira Code'; }}</style><body>",
-        r"<style>body {{ background-color:{};color:{}; }}</style><body>",
-        color_hm
-            .get("background")
-            .expect("Error getting background color"),
-        color_hm
-            .get("foreground")
-            .expect("Error getting foreground color")
-    ));
+    if !partial {
+        output_string.push_str(&format!(
+            r"<html><style>body {{ background-color:{};color:{}; }}</style><body>",
+            color_hm
+                .get("background")
+                .expect("Error getting background color"),
+            color_hm
+                .get("foreground")
+                .expect("Error getting foreground color")
+        ));
+    } else {
+        output_string.push_str(&format!(
+            "<div style=\"background-color:{};color:{};\">",
+            color_hm
+                .get("background")
+                .expect("Error getting background color"),
+            color_hm
+                .get("foreground")
+                .expect("Error getting foreground color")
+        ));
+    }
 
     let inner_value = match input.len() {
         0 => String::default(),
         1 => match headers {
-            Some(headers) => html_table(input, headers, color_hm),
+            Some(headers) => html_table(input, headers),
             None => {
                 let value = &input[0];
                 html_value(value)
             }
         },
         _ => match headers {
-            Some(headers) => html_table(input, headers, color_hm),
+            Some(headers) => html_table(input, headers),
             None => html_list(input),
         },
     };
 
     output_string.push_str(&inner_value);
-    output_string.push_str("</body></html>");
+
+    if !partial {
+        output_string.push_str("</body></html>");
+    } else {
+        output_string.push_str("</div>")
+    }
 
     // Check to see if we want to remove all color or change ansi to html colors
     if html_color {
@@ -312,25 +335,14 @@ fn html_list(list: Vec<Value>) -> String {
     output_string
 }
 
-fn html_table(table: Vec<Value>, headers: Vec<String>, color_hm: HashMap<&str, String>) -> String {
+fn html_table(table: Vec<Value>, headers: Vec<String>) -> String {
     let mut output_string = String::new();
     // Add grid lines to html
     // let mut output_string = "<html><head><style>".to_string();
     // output_string.push_str("table, th, td { border: 2px solid black; border-collapse: collapse; padding: 10px; }");
     // output_string.push_str("</style></head><body>");
 
-    // output_string.push_str("<table>");
-
-    // change the color of tables
-    output_string.push_str(&format!(
-        r"<table style='background-color:{};color:{};'>",
-        color_hm
-            .get("background")
-            .expect("Error getting background color"),
-        color_hm
-            .get("foreground")
-            .expect("Error getting foreground color")
-    ));
+    output_string.push_str("<table>");
 
     output_string.push_str("<tr>");
     for header in &headers {
