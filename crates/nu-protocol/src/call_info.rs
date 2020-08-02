@@ -45,11 +45,12 @@ impl EvaluatedArgs {
 
     /// Get the nth positional argument, error if not possible
     pub fn expect_nth(&self, pos: usize) -> Result<&Value, ShellError> {
-        let shell_error = ShellError::unimplemented("Better error: expect_nth");
-
         match &self.positional {
-            Some(array) => array.get(pos).ok_or(shell_error),
-            None => Err(shell_error),
+            None => Err(ShellError::unimplemented("Better error: expect_nth")),
+            Some(array) => match array.get(pos) {
+                None => Err(ShellError::unimplemented("Better error: expect_nth")),
+                Some(item) => Ok(item),
+            },
         }
     }
 
