@@ -893,7 +893,7 @@ macro_rules! ranged_int {
 
         impl CoerceInto<$ty> for nu_source::Tagged<BigInt> {
             fn coerce_into(self, operation: impl Into<String>) -> Result<$ty, ShellError> {
-                self.$op().ok_or(ShellError::range_error(
+                self.$op().ok_or_else(||ShellError::range_error(
                     $ty::to_expected_range(),
                     &self.item.spanned(self.tag.span),
                     operation.into(),
@@ -903,7 +903,7 @@ macro_rules! ranged_int {
 
         impl CoerceInto<$ty> for nu_source::Tagged<&BigInt> {
             fn coerce_into(self, operation: impl Into<String>) -> Result<$ty, ShellError> {
-                self.$op().ok_or(ShellError::range_error(
+                self.$op().ok_or_else(||ShellError::range_error(
                     $ty::to_expected_range(),
                     &self.item.spanned(self.tag.span),
                     operation.into(),
@@ -932,7 +932,7 @@ macro_rules! ranged_decimal {
 
         impl CoerceInto<$ty> for nu_source::Tagged<BigDecimal> {
             fn coerce_into(self, operation: impl Into<String>) -> Result<$ty, ShellError> {
-                self.$op().ok_or(ShellError::range_error(
+                self.$op().ok_or_else(||ShellError::range_error(
                     $ty::to_expected_range(),
                     &self.item.spanned(self.tag.span),
                     operation.into(),
@@ -942,7 +942,7 @@ macro_rules! ranged_decimal {
 
         impl CoerceInto<$ty> for nu_source::Tagged<&BigDecimal> {
             fn coerce_into(self, operation: impl Into<String>) -> Result<$ty, ShellError> {
-                self.$op().ok_or(ShellError::range_error(
+                self.$op().ok_or_else(||ShellError::range_error(
                     $ty::to_expected_range(),
                     &self.item.spanned(self.tag.span),
                     operation.into(),
