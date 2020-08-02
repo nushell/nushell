@@ -16,6 +16,21 @@ fn out_html_simple() {
 }
 
 #[test]
+fn out_html_partial() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            echo 3 | to html -p
+        "#
+    ));
+
+    assert_eq!(
+        actual.out,
+        "<div style=\"background-color:white;color:black;\">3</div>"
+    );
+}
+
+#[test]
 fn out_html_table() {
     let actual = nu!(
         cwd: ".", pipeline(
@@ -26,7 +41,7 @@ fn out_html_table() {
 
     assert_eq!(
         actual.out,
-        r"<html><style>body { background-color:white;color:black; }</style><body><table style='background-color:white;color:black;'><tr><th>name</th></tr><tr><td>darren</td></tr></table></body></html>"
+        r"<html><style>body { background-color:white;color:black; }</style><body><table><tr><th>name</th></tr><tr><td>darren</td></tr></table></body></html>"
     );
 }
 
