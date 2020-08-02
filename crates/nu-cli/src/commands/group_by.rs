@@ -169,7 +169,7 @@ pub async fn group_by(
 
     let values = UntaggedValue::table(&values).into_value(&name);
 
-    match group_strategy {
+    let group_value = match group_strategy {
         Grouper::ByBlock => {
             let map = keys.clone();
 
@@ -179,16 +179,12 @@ pub async fn group_by(
                 None => as_string(row),
             });
 
-            match crate::utils::data::group(&values, &Some(block), &name) {
-                Ok(grouped) => Ok(OutputStream::one(ReturnSuccess::value(grouped))),
-                Err(reason) => Err(reason),
-            }
+            crate::utils::data::group(&values, &Some(block), &name)
         }
-        Grouper::ByColumn(column_name) => match group(&column_name, &values, name) {
-            Ok(grouped) => Ok(OutputStream::one(ReturnSuccess::value(grouped))),
-            Err(reason) => Err(reason),
-        },
-    }
+        Grouper::ByColumn(column_name) => group(&column_name, &values, name),
+    };
+
+    Ok(OutputStream::one(ReturnSuccess::value(group_value?)))
 }
 
 pub fn suggestions(tried: Tagged<&str>, for_value: &Value) -> ShellError {

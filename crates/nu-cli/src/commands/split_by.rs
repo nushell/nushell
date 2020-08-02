@@ -56,10 +56,8 @@ pub async fn split_by(
         ));
     }
 
-    match split(&column_name, &values[0], &name) {
-        Ok(splits) => Ok(OutputStream::one(ReturnSuccess::value(splits))),
-        Err(err) => Err(err),
-    }
+    let split = split(&column_name, &values[0], &name)?;
+    Ok(OutputStream::one(ReturnSuccess::value(split)))
 }
 
 enum Grouper {
