@@ -626,7 +626,7 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
                         rl.set_completion_prompt_limit(completion_prompt_limit);
                     }
                     "keyseq_timeout_ms" => {
-                        let keyseq_timeout_ms = value.as_u64().unwrap_or(1) as i32;
+                        let keyseq_timeout_ms = value.as_u64().unwrap_or(500) as i32;
                         rl.set_keyseq_timeout(keyseq_timeout_ms);
                     }
                     "edit_mode" => {
