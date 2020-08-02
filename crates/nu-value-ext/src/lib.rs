@@ -352,14 +352,13 @@ pub fn swap_data_by_column_path(
     let to_replace = to_replace?;
     let replacement = callback(&to_replace)?;
 
-    match value.replace_data_at_column_path(&path, replacement) {
-        Some(replaced) => Ok(replaced),
-        None => Err(ShellError::labeled_error(
+    value
+        .replace_data_at_column_path(&path, replacement)
+        .ok_or(ShellError::labeled_error(
             "missing column-path",
             "missing column-path",
             value.tag.span,
-        )),
-    }
+        ))
 }
 
 pub fn insert_data_at_path(value: &Value, path: &str, new_value: Value) -> Option<Value> {

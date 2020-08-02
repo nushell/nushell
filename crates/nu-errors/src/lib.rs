@@ -893,27 +893,21 @@ macro_rules! ranged_int {
 
         impl CoerceInto<$ty> for nu_source::Tagged<BigInt> {
             fn coerce_into(self, operation: impl Into<String>) -> Result<$ty, ShellError> {
-                match self.$op() {
-                    Some(v) => Ok(v),
-                    None => Err(ShellError::range_error(
-                        $ty::to_expected_range(),
-                        &self.item.spanned(self.tag.span),
-                        operation.into(),
-                    )),
-                }
+                self.$op().ok_or(ShellError::range_error(
+                    $ty::to_expected_range(),
+                    &self.item.spanned(self.tag.span),
+                    operation.into(),
+                ))
             }
         }
 
         impl CoerceInto<$ty> for nu_source::Tagged<&BigInt> {
             fn coerce_into(self, operation: impl Into<String>) -> Result<$ty, ShellError> {
-                match self.$op() {
-                    Some(v) => Ok(v),
-                    None => Err(ShellError::range_error(
-                        $ty::to_expected_range(),
-                        &self.item.spanned(self.tag.span),
-                        operation.into(),
-                    )),
-                }
+                self.$op().ok_or(ShellError::range_error(
+                    $ty::to_expected_range(),
+                    &self.item.spanned(self.tag.span),
+                    operation.into(),
+                ))
             }
         }
     };
@@ -938,27 +932,21 @@ macro_rules! ranged_decimal {
 
         impl CoerceInto<$ty> for nu_source::Tagged<BigDecimal> {
             fn coerce_into(self, operation: impl Into<String>) -> Result<$ty, ShellError> {
-                match self.$op() {
-                    Some(v) => Ok(v),
-                    None => Err(ShellError::range_error(
-                        $ty::to_expected_range(),
-                        &self.item.spanned(self.tag.span),
-                        operation.into(),
-                    )),
-                }
+                self.$op().ok_or(ShellError::range_error(
+                    $ty::to_expected_range(),
+                    &self.item.spanned(self.tag.span),
+                    operation.into(),
+                ))
             }
         }
 
         impl CoerceInto<$ty> for nu_source::Tagged<&BigDecimal> {
             fn coerce_into(self, operation: impl Into<String>) -> Result<$ty, ShellError> {
-                match self.$op() {
-                    Some(v) => Ok(v),
-                    None => Err(ShellError::range_error(
-                        $ty::to_expected_range(),
-                        &self.item.spanned(self.tag.span),
-                        operation.into(),
-                    )),
-                }
+                self.$op().ok_or(ShellError::range_error(
+                    $ty::to_expected_range(),
+                    &self.item.spanned(self.tag.span),
+                    operation.into(),
+                ))
             }
         }
     };

@@ -121,16 +121,13 @@ impl Inc {
                     let got = replace_for?;
                     let replacement = self.inc(got)?;
 
-                    match value
+                    value
                         .replace_data_at_column_path(&f, replacement.value.into_untagged_value())
-                    {
-                        Some(v) => Ok(v),
-                        None => Err(ShellError::labeled_error(
+                        .ok_or(ShellError::labeled_error(
                             "inc could not find field to replace",
                             "column name",
                             value.tag(),
-                        )),
-                    }
+                        ))
                 }
                 None => Err(ShellError::untagged_runtime_error(
                     "inc needs a field when incrementing a column in a table",
