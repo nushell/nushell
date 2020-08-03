@@ -249,7 +249,7 @@ impl DebugDocBuilder {
     }
 
     pub fn option(builder: Option<DebugDocBuilder>) -> DebugDocBuilder {
-        builder.unwrap_or_else(|| DebugDocBuilder::blank())
+        builder.unwrap_or_else(DebugDocBuilder::blank)
     }
 
     pub fn space() -> DebugDocBuilder {
