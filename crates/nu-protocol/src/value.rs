@@ -52,11 +52,8 @@ impl UntaggedValue {
     /// Get the corresponding descriptors (column names) associated with this value
     pub fn data_descriptors(&self) -> Vec<String> {
         match self {
-            UntaggedValue::Primitive(_) => vec![],
             UntaggedValue::Row(columns) => columns.entries.keys().map(|x| x.to_string()).collect(),
-            UntaggedValue::Block(_) => vec![],
-            UntaggedValue::Table(_) => vec![],
-            UntaggedValue::Error(_) => vec![],
+            _ => vec![],
         }
     }
 
