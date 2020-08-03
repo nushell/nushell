@@ -31,7 +31,7 @@ fn reduce_table_column() {
 }
 
 #[test]
-fn reduce_rows() {
+fn reduce_rows_example() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
@@ -44,6 +44,22 @@ fn reduce_rows() {
     );
 
     assert_eq!(actual.out, "14.8");
+}
+
+#[test]
+fn reduce_numbered_example() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        echo one longest three bar
+        | reduce -n { if $(echo $it.item | str length) > $(echo $acc.item | str length) {echo $it} {echo $acc}}
+        | get index
+        | echo $it
+        "#
+        )
+    );
+
+    assert_eq!(actual.out, "1");
 }
 
 #[test]

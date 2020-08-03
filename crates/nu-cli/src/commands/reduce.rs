@@ -1,10 +1,12 @@
 use crate::commands::classified::block::run_block;
+use crate::commands::each;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use crate::{CommandArgs, CommandRegistry, Example, OutputStream};
 use futures::stream::once;
 use nu_errors::ShellError;
 use nu_protocol::{hir::Block, Primitive, Scope, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_source::Tagged;
 
 pub struct Reduce;
 
@@ -12,6 +14,7 @@ pub struct Reduce;
 pub struct ReduceArgs {
     block: Block,
     fold: Option<Value>,
+    numbered: Tagged<bool>,
 }
 
 #[async_trait]
@@ -29,6 +32,11 @@ impl WholeStreamCommand for Reduce {
                 Some('f'),
             )
             .required("block", SyntaxShape::Block, "reducing function")
+            .switch(
+                "numbered",
+                "returned a numbered item ($it.index and $it.item)",
+                Some('n'),
+            )
     }
 
     fn usage(&self) -> &str {
@@ -57,9 +65,13 @@ impl WholeStreamCommand for Reduce {
                 result: Some(vec![UntaggedValue::int(9).into()]),
             },
             Example {
-                // TODO this appears to work, but not in testing
                 description: "Folding with rows",
                 example: "<table> | reduce -f 1.6 { = $acc * $(echo $it.a | str to-int) + $(echo $it.b | str to-int) }",
+                result: None,
+            },
+            Example {
+                description: "Numbered reduce to find index of longest word",
+                example: "echo one longest three bar | reduce -n { if $(echo $it.item | str length) > $(echo $acc.item | str length) {echo $it} {echo $acc}} | get index",
                 result: None,
             },
         ]
@@ -95,7 +107,7 @@ async fn reduce(
     let context = Arc::new(Context::from_raw(&raw_args, &registry));
     let (reduce_args, mut input): (ReduceArgs, _) = raw_args.process(&registry).await?;
     let block = Arc::new(reduce_args.block);
-    let initial = Ok(InputStream::one(match reduce_args.fold {
+    let (ioffset, start) = match reduce_args.fold {
         None => {
             let first = input
                 .next()
@@ -105,29 +117,52 @@ async fn reduce(
                 return Err(ShellError::missing_value(None, "empty input"));
             }
 
-            first
+            (1, first)
         }
-        Some(acc) => acc,
-    }));
+        Some(acc) => (0, acc),
+    };
 
-    // if reduce_args.numbered.item {
-    //     // TODO?
-    // } else {
-    Ok(input
-        .fold(initial, move |acc, row| {
-            let block = Arc::clone(&block);
-            let mut scope = base_scope.clone();
-            let context = Arc::clone(&context);
+    if reduce_args.numbered.item {
+        // process_row returns Result<InputStream, ShellError>, so we must fold with one
+        let initial = Ok(InputStream::one(each::make_indexed_item(
+            ioffset - 1,
+            start,
+        )));
 
-            async {
-                scope
-                    .vars
-                    .insert(String::from("$acc"), acc?.into_vec().await[0].clone());
-                process_row(block, Arc::new(scope), context, row).await
-            }
-        })
-        .await?
-        .to_output_stream())
+        Ok(input
+            .enumerate()
+            .fold(initial, move |acc, input| {
+                let block = Arc::clone(&block);
+                let mut scope = base_scope.clone();
+                let context = Arc::clone(&context);
+                let row = each::make_indexed_item(input.0 + ioffset, input.1);
+
+                async {
+                    let f = acc?.into_vec().await[0].clone();
+                    scope.vars.insert(String::from("$acc"), f);
+                    process_row(block, Arc::new(scope), context, row).await
+                }
+            })
+            .await?
+            .to_output_stream())
+    } else {
+        let initial = Ok(InputStream::one(start));
+        Ok(input
+            .fold(initial, move |acc, row| {
+                let block = Arc::clone(&block);
+                let mut scope = base_scope.clone();
+                let context = Arc::clone(&context);
+
+                async {
+                    scope
+                        .vars
+                        .insert(String::from("$acc"), acc?.into_vec().await[0].clone());
+                    process_row(block, Arc::new(scope), context, row).await
+                }
+            })
+            .await?
+            .to_output_stream())
+    }
 }
 
 #[cfg(test)]
