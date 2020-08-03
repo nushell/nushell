@@ -556,7 +556,7 @@ pub fn as_path_member(value: &Value) -> Result<PathMember, ShellError> {
 pub fn as_string(value: &Value) -> Result<String, ShellError> {
     match &value.value {
         UntaggedValue::Primitive(Primitive::String(s)) => Ok(s.clone()),
-        UntaggedValue::Primitive(Primitive::Date(dt)) => Ok(dt.format("%Y-%b-%d").to_string()),
+        UntaggedValue::Primitive(Primitive::Date(dt)) => Ok(dt.format("%Y-%m-%d").to_string()),
         UntaggedValue::Primitive(Primitive::Boolean(x)) => Ok(format!("{}", x)),
         UntaggedValue::Primitive(Primitive::Decimal(x)) => Ok(format!("{}", x)),
         UntaggedValue::Primitive(Primitive::Int(x)) => Ok(format!("{}", x)),

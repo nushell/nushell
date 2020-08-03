@@ -1,8 +1,8 @@
+use crate::commands::math::reducers::{reducer_for, Reduce};
 use crate::commands::math::utils::run_with_function;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
-use crate::utils::data_processing::{reducer_for, Reduce};
-use bigdecimal::{FromPrimitive, Zero};
+use bigdecimal::FromPrimitive;
 use nu_errors::ShellError;
 use nu_protocol::{
     hir::{convert_number_to_u64, Number, Operator},
@@ -130,7 +130,7 @@ fn compute_average(values: &[Value], name: impl Into<Tag>) -> Result<Value, Shel
         )
     })?;
     let total_rows = UntaggedValue::decimal(number);
-    let total = sum(Value::zero(), values.to_vec())?;
+    let total = sum(UntaggedValue::int(0).into_untagged_value(), values.to_vec())?;
 
     match total {
         Value {

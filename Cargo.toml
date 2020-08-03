@@ -25,6 +25,7 @@ nu-plugin = {version = "0.17.0", path = "./crates/nu-plugin"}
 nu-protocol = {version = "0.17.0", path = "./crates/nu-protocol"}
 nu-source = {version = "0.17.0", path = "./crates/nu-source"}
 nu-value-ext = {version = "0.17.0", path = "./crates/nu-value-ext"}
+
 nu_plugin_binaryview = {version = "0.17.0", path = "./crates/nu_plugin_binaryview", optional = true}
 nu_plugin_fetch = {version = "0.17.0", path = "./crates/nu_plugin_fetch", optional = true}
 nu_plugin_from_bson = {version = "0.17.0", path = "./crates/nu_plugin_from_bson", optional = true}

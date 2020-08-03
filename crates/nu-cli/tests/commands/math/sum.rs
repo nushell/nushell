@@ -36,30 +36,9 @@ fn all() {
 
 #[test]
 fn outputs_zero_with_no_input() {
-    Playground::setup("sum_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "meals.json",
-            r#"
-                {
-                    meals: [
-                        {description: "1 large egg", calories: 90},
-                        {description: "1 cup white rice", calories: 250},
-                        {description: "1 tablespoon fish oil", calories: 108}
-                    ]
-                }
-            "#,
-        )]);
+    let actual = nu!(cwd: ".", "math sum | echo $it");
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                math sum
-                | echo $it
-            "#
-        ));
-
-        assert_eq!(actual.out, "0");
-    })
+    assert_eq!(actual.out, "0");
 }
 
 #[test]
@@ -112,5 +91,5 @@ fn sum_of_a_row_containing_a_table_is_an_error() {
     );
     assert!(actual
         .err
-        .contains("Attempted to compute the sum of a value that cannot be summed."));
+        .contains("Attempted to compute values that can't be operated on"));
 }

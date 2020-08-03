@@ -2,7 +2,7 @@ use crate::commands::math::utils::run_with_function;
 use crate::commands::WholeStreamCommand;
 use crate::data::value::compute_values;
 use crate::prelude::*;
-use bigdecimal::{FromPrimitive, Zero};
+use bigdecimal::FromPrimitive;
 use nu_errors::ShellError;
 use nu_protocol::{hir::Operator, Primitive, Signature, UntaggedValue, Value};
 
@@ -60,8 +60,8 @@ fn sum_of_squares(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
             &name.span,
         )
     })?;
-    let mut sum_x = Value::zero();
-    let mut sum_x2 = Value::zero();
+    let mut sum_x = UntaggedValue::int(0).into_untagged_value();
+    let mut sum_x2 = UntaggedValue::int(0).into_untagged_value();
     for value in values {
         let v = match value {
             Value {
@@ -87,7 +87,17 @@ fn sum_of_squares(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
         let v_squared = compute_values(Operator::Multiply, &v, &v);
         match v_squared {
             // X^2
-            Ok(x2) => sum_x2 = sum_x2 + x2.into_untagged_value(),
+            Ok(x2) => {
+                sum_x2 = match compute_values(Operator::Plus, &sum_x2, &x2) {
+                    Ok(v) => v.into_untagged_value(),
+                    Err((left_type, right_type)) => {
+                        return Err(ShellError::coerce_error(
+                            left_type.spanned(name.span),
+                            right_type.spanned(name.span),
+                        ))
+                    }
+                };
+            }
             Err((left_type, right_type)) => {
                 return Err(ShellError::coerce_error(
                     left_type.spanned(value.tag.span),
@@ -95,7 +105,15 @@ fn sum_of_squares(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
                 ))
             }
         };
-        sum_x = sum_x + v.into_untagged_value();
+        sum_x = match compute_values(Operator::Plus, &sum_x, &v) {
+            Ok(v) => v.into_untagged_value(),
+            Err((left_type, right_type)) => {
+                return Err(ShellError::coerce_error(
+                    left_type.spanned(name.span),
+                    right_type.spanned(name.span),
+                ))
+            }
+        };
     }
 
     let sum_x_squared = match compute_values(Operator::Multiply, &sum_x, &sum_x) {

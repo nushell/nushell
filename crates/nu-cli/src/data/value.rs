@@ -1,7 +1,7 @@
 use crate::data::base::coerce_compare;
 use crate::data::base::shape::{Column, InlineShape};
 use crate::data::primitive::style_primitive;
-use chrono::DateTime;
+use chrono::{DateTime, NaiveDate, Utc};
 use nu_errors::ShellError;
 use nu_protocol::hir::Operator;
 use nu_protocol::ShellTypeName;
@@ -10,18 +10,40 @@ use nu_source::{DebugDocBuilder, PrettyDebug, Span, Tagged};
 use nu_table::TextStyle;
 use num_traits::Zero;
 
+pub struct Date;
+
+impl Date {
+    pub fn from_regular_str(s: Tagged<&str>) -> Result<UntaggedValue, ShellError> {
+        let date = DateTime::parse_from_rfc3339(s.item).map_err(|err| {
+            ShellError::labeled_error(
+                &format!("Date parse error: {}", err),
+                "original value",
+                s.tag,
+            )
+        })?;
+
+        let date = date.with_timezone(&chrono::offset::Utc);
+
+        Ok(UntaggedValue::Primitive(Primitive::Date(date)))
+    }
+
+    pub fn naive_from_str(s: Tagged<&str>) -> Result<UntaggedValue, ShellError> {
+        let date = NaiveDate::parse_from_str(s.item, "%Y-%m-%d").map_err(|reason| {
+            ShellError::labeled_error(
+                &format!("Date parse error: {}", reason),
+                "original value",
+                s.tag,
+            )
+        })?;
+
+        Ok(UntaggedValue::Primitive(Primitive::Date(
+            DateTime::<Utc>::from_utc(date.and_hms(12, 34, 56), Utc),
+        )))
+    }
+}
+
 pub fn date_from_str(s: Tagged<&str>) -> Result<UntaggedValue, ShellError> {
-    let date = DateTime::parse_from_rfc3339(s.item).map_err(|err| {
-        ShellError::labeled_error(
-            &format!("Date parse error: {}", err),
-            "original value",
-            s.tag,
-        )
-    })?;
-
-    let date = date.with_timezone(&chrono::offset::Utc);
-
-    Ok(UntaggedValue::Primitive(Primitive::Date(date)))
+    Date::from_regular_str(s)
 }
 
 pub fn merge_values(
@@ -204,23 +226,30 @@ pub fn format_for_column<'a>(
 
 #[cfg(test)]
 mod tests {
-    use super::UntaggedValue as v;
-    use indexmap::indexmap;
-
     use super::merge_values;
+    use super::Date as d;
+    use super::UntaggedValue as v;
+    use nu_source::TaggedItem;
+
+    use indexmap::indexmap;
 
     #[test]
     fn merges_tables() {
+        let (author_1_date, author_2_date) = (
+            "2020-04-29".to_string().tagged_unknown(),
+            "2019-10-10".to_string().tagged_unknown(),
+        );
+
         let table_author_row = v::row(indexmap! {
             "name".into() => v::string("Andrés").into_untagged_value(),
             "country".into() => v::string("EC").into_untagged_value(),
-            "date".into() => v::string("April 29-2020").into_untagged_value()
+            "date".into() => d::naive_from_str(author_1_date.borrow_tagged()).unwrap().into_untagged_value()
         });
 
         let other_table_author_row = v::row(indexmap! {
             "name".into() => v::string("YK").into_untagged_value(),
             "country".into() => v::string("US").into_untagged_value(),
-            "date".into() => v::string("October 10-2019").into_untagged_value()
+            "date".into() => d::naive_from_str(author_2_date.borrow_tagged()).unwrap().into_untagged_value()
         });
 
         assert_eq!(

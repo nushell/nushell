@@ -72,8 +72,15 @@ impl Primitive {
                     "converting an integer into a 64-bit integer",
                 )
             }),
+            Primitive::Decimal(decimal) => decimal.to_u64().ok_or_else(|| {
+                ShellError::range_error(
+                    ExpectedRange::U64,
+                    &format!("{}", decimal).spanned(span),
+                    "converting a decimal into a 64-bit integer",
+                )
+            }),
             other => Err(ShellError::type_error(
-                "integer",
+                "number",
                 other.type_name().spanned(span),
             )),
         }
@@ -128,81 +135,6 @@ impl Primitive {
             Primitive::Nothing => true,
             Primitive::String(s) => s.is_empty(),
             _ => false,
-        }
-    }
-}
-
-impl num_traits::Zero for Primitive {
-    fn zero() -> Self {
-        Primitive::Int(BigInt::zero())
-    }
-
-    fn is_zero(&self) -> bool {
-        match self {
-            Primitive::Int(int) => int.is_zero(),
-            Primitive::Decimal(decimal) => decimal.is_zero(),
-            Primitive::Filesize(num_bytes) => num_bytes.is_zero(),
-            _ => false,
-        }
-    }
-}
-
-impl std::ops::Add for Primitive {
-    type Output = Primitive;
-
-    fn add(self, rhs: Self) -> Self {
-        match (self, rhs) {
-            (Primitive::Int(left), Primitive::Int(right)) => Primitive::Int(left + right),
-            (Primitive::Int(left), Primitive::Decimal(right)) => {
-                Primitive::Decimal(BigDecimal::from(left) + right)
-            }
-            (Primitive::Decimal(left), Primitive::Decimal(right)) => {
-                Primitive::Decimal(left + right)
-            }
-            (Primitive::Decimal(left), Primitive::Int(right)) => {
-                Primitive::Decimal(left + BigDecimal::from(right))
-            }
-            (Primitive::Filesize(left), right) => match right {
-                Primitive::Filesize(right) => Primitive::Filesize(left + right),
-                Primitive::Int(right) => {
-                    Primitive::Filesize(left + right.to_u64().unwrap_or_else(|| 0 as u64))
-                }
-                Primitive::Decimal(right) => {
-                    Primitive::Filesize(left + right.to_u64().unwrap_or_else(|| 0 as u64))
-                }
-                _ => Primitive::Filesize(left),
-            },
-            (left, Primitive::Filesize(right)) => match left {
-                Primitive::Filesize(left) => Primitive::Filesize(left + right),
-                Primitive::Int(left) => {
-                    Primitive::Filesize(left.to_u64().unwrap_or_else(|| 0 as u64) + right)
-                }
-                Primitive::Decimal(left) => {
-                    Primitive::Filesize(left.to_u64().unwrap_or_else(|| 0 as u64) + right)
-                }
-                _ => Primitive::Filesize(right),
-            },
-            _ => Primitive::zero(),
-        }
-    }
-}
-
-impl std::ops::Mul for Primitive {
-    type Output = Self;
-
-    fn mul(self, rhs: Self) -> Self {
-        match (self, rhs) {
-            (Primitive::Int(left), Primitive::Int(right)) => Primitive::Int(left * right),
-            (Primitive::Int(left), Primitive::Decimal(right)) => {
-                Primitive::Decimal(BigDecimal::from(left) * right)
-            }
-            (Primitive::Decimal(left), Primitive::Decimal(right)) => {
-                Primitive::Decimal(left * right)
-            }
-            (Primitive::Decimal(left), Primitive::Int(right)) => {
-                Primitive::Decimal(left * BigDecimal::from(right))
-            }
-            _ => unimplemented!("Internal error: can't multiply incompatible primitives."),
         }
     }
 }

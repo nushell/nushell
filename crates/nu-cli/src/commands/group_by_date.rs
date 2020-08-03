@@ -100,7 +100,7 @@ pub async fn group_by_date(
 
         let value_result = match (grouper_date, grouper_column) {
             (Grouper::ByDate(None), GroupByColumn::Name(None)) => {
-                let block = Box::new(move |_, row: &Value| row.format("%Y-%b-%d"));
+                let block = Box::new(move |_, row: &Value| row.format("%Y-%m-%d"));
 
                 crate::utils::data::group(&values, &Some(block), &name)
             }
@@ -110,7 +110,7 @@ pub async fn group_by_date(
                         .get_data_by_key(column_name.borrow_spanned())
                         .ok_or_else(|| suggestions(column_name.borrow_tagged(), &row));
 
-                    group_key?.format("%Y-%b-%d")
+                    group_key?.format("%Y-%m-%d")
                 });
 
                 crate::utils::data::group(&values, &Some(block), &name)

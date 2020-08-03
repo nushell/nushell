@@ -78,6 +78,11 @@ impl UntaggedValue {
         matches!(self, UntaggedValue::Primitive(Primitive::Boolean(true)))
     }
 
+    /// Returns true if this value represents a filesize
+    pub fn is_filesize(&self) -> bool {
+        matches!(self, UntaggedValue::Primitive(Primitive::Filesize(_)))
+    }
+
     /// Returns true if this value represents a table
     pub fn is_table(&self) -> bool {
         matches!(self, UntaggedValue::Table(_))
@@ -281,7 +286,7 @@ impl Value {
     pub fn convert_to_string(&self) -> String {
         match &self.value {
             UntaggedValue::Primitive(Primitive::String(s)) => s.clone(),
-            UntaggedValue::Primitive(Primitive::Date(dt)) => dt.format("%Y-%b-%d").to_string(),
+            UntaggedValue::Primitive(Primitive::Date(dt)) => dt.format("%Y-%m-%d").to_string(),
             UntaggedValue::Primitive(Primitive::Boolean(x)) => format!("{}", x),
             UntaggedValue::Primitive(Primitive::Decimal(x)) => format!("{}", x),
             UntaggedValue::Primitive(Primitive::Int(x)) => format!("{}", x),
@@ -490,61 +495,6 @@ impl ShellTypeName for UntaggedValue {
             UntaggedValue::Table(_) => "table",
             UntaggedValue::Error(_) => "error",
             UntaggedValue::Block(_) => "block",
-        }
-    }
-}
-
-impl num_traits::Zero for Value {
-    fn zero() -> Self {
-        Value {
-            value: UntaggedValue::Primitive(Primitive::zero()),
-            tag: Tag::unknown(),
-        }
-    }
-
-    fn is_zero(&self) -> bool {
-        match &self.value {
-            UntaggedValue::Primitive(primitive) => primitive.is_zero(),
-            UntaggedValue::Row(row) => row.entries.is_empty(),
-            UntaggedValue::Table(rows) => rows.is_empty(),
-            _ => false,
-        }
-    }
-}
-
-impl std::ops::Mul for Value {
-    type Output = Self;
-
-    fn mul(self, rhs: Self) -> Self {
-        let tag = self.tag.clone();
-
-        match (&*self, &*rhs) {
-            (UntaggedValue::Primitive(left), UntaggedValue::Primitive(right)) => {
-                let left = left.clone();
-                let right = right.clone();
-
-                UntaggedValue::from(left.mul(right)).into_value(tag)
-            }
-            (_, _) => unimplemented!("Internal error: can't multiply non-primitives."),
-        }
-    }
-}
-
-impl std::ops::Add for Value {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self {
-        let tag = self.tag.clone();
-
-        match (&*self, &*rhs) {
-            (UntaggedValue::Primitive(left), UntaggedValue::Primitive(right)) => {
-                let left = left.clone();
-                let right = right.clone();
-
-                UntaggedValue::from(left.add(right)).into_value(tag)
-            }
-            (_, _) => UntaggedValue::Error(ShellError::unimplemented("Can't add non-primitives."))
-                .into_value(tag),
         }
     }
 }
