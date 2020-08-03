@@ -54,14 +54,10 @@ impl DictionaryExt for Dictionary {
     }
 
     fn get_mut_data_by_key(&mut self, name: &str) -> Option<&mut Value> {
-        match self
-            .entries
+        self.entries
             .iter_mut()
             .find(|(desc_name, _)| *desc_name == name)
-        {
-            Some((_, v)) => Some(v),
-            None => None,
-        }
+            .map_or_else(|| None, |x| Some(x.1))
     }
 
     fn insert_data_at_key(&mut self, name: &str, value: Value) {
