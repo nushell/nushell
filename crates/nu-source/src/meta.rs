@@ -465,10 +465,7 @@ impl From<&Span> for Span {
 
 impl From<Option<Span>> for Span {
     fn from(input: Option<Span>) -> Span {
-        match input {
-            None => Span::new(0, 0),
-            Some(span) => span,
-        }
+        input.unwrap_or_else(|| Span::new(0, 0))
     }
 }
 
@@ -635,9 +632,9 @@ impl Span {
     /// //  make clean
     /// //  ----
     /// //  (0,4)
-    /// //  
+    /// //
     /// //       ^(5,5)
-    ///    
+    ///
     /// let make_span = Span::new(0,4);
     /// let clean_span = Span::new(5,5);
     ///
