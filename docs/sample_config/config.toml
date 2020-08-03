@@ -69,6 +69,7 @@ auto_add_history = true
 bell_style = "audible" # audible, none, visible
 color_mode = "enabled" # enabled, forced, disabled
 tab_stop = 4
+history_search_behaviour = "line_by_line" # line_by_line, prefix_reverse_search
 
 [textview]
 term_width = "default" # "default" or a number

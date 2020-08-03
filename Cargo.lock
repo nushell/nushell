@@ -3357,7 +3357,7 @@ dependencies = [
  "roxmltree",
  "rusqlite",
  "rust-embed",
- "rustyline",
+ "rustyline 8.2.0 (git+https://github.com/oberien/rustyline?rev=64f21b4c61e9cc29c5edcfd8cfb4b018584225ea)",
  "serde 1.0.126",
  "serde_bytes",
  "serde_ini",
@@ -3457,7 +3457,7 @@ dependencies = [
  "roxmltree",
  "rusqlite",
  "rust-embed",
- "rustyline",
+ "rustyline 8.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.126",
  "serde_bytes",
  "serde_ini",
@@ -5365,6 +5365,29 @@ name = "rustyline"
 version = "8.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fbd4eaf7a7738f76c98e4f0395253ae853be3eb018f7b0bb57fe1b6c17e31874"
+dependencies = [
+ "bitflags",
+ "cfg-if 1.0.0",
+ "clipboard-win",
+ "dirs-next",
+ "fd-lock",
+ "libc",
+ "log 0.4.14",
+ "memchr",
+ "nix",
+ "radix_trie",
+ "scopeguard",
+ "smallvec 1.6.1",
+ "unicode-segmentation",
+ "unicode-width",
+ "utf8parse 0.2.0",
+ "winapi 0.3.9",
+]
+
+[[package]]
+name = "rustyline"
+version = "8.2.0"
+source = "git+https://github.com/oberien/rustyline?rev=64f21b4c61e9cc29c5edcfd8cfb4b018584225ea#64f21b4c61e9cc29c5edcfd8cfb4b018584225ea"
 dependencies = [
  "bitflags",
  "cfg-if 1.0.0",

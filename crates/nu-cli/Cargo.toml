@@ -76,7 +76,8 @@ rayon = "1.5.0"
 regex = "1.4.3"
 roxmltree = "0.14.0"
 rust-embed = "5.9.0"
-rustyline = { version = "8.1.0", optional = true }
+#rustyline = { version = "8.1.0", optional = true }
+rustyline = { git = "https://github.com/oberien/rustyline", rev = "64f21b4c61e9cc29c5edcfd8cfb4b018584225ea", optional = true }
 serde = { version = "1.0.123", features = ["derive"] }
 serde_bytes = "0.11.5"
 serde_ini = "0.2.0"
