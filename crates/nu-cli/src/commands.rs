@@ -229,9 +229,9 @@ pub(crate) use sort_by::SortBy;
 pub(crate) use split::{Split, SplitChars, SplitColumn, SplitRow};
 pub(crate) use split_by::SplitBy;
 pub(crate) use str_::{
-    Str, StrCapitalize, StrCollect, StrDowncase, StrEndsWith, StrFindReplace, StrFrom, StrLength,
-    StrReverse, StrSet, StrStartsWith, StrSubstring, StrToDatetime, StrToDecimal, StrToInteger,
-    StrTrim, StrTrimLeft, StrTrimRight, StrUpcase, StrContains, StrIndexOf,
+    Str, StrCapitalize, StrCollect, StrContains, StrDowncase, StrEndsWith, StrFindReplace, StrFrom,
+    StrIndexOf, StrLength, StrReverse, StrSet, StrStartsWith, StrSubstring, StrToDatetime,
+    StrToDecimal, StrToInteger, StrTrim, StrTrimLeft, StrTrimRight, StrUpcase,
 };
 pub(crate) use table::Table;
 pub(crate) use tags::Tags;

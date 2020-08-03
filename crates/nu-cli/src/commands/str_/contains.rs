@@ -8,7 +8,6 @@ use nu_protocol::{
 use nu_source::{Tag, Tagged};
 use nu_value_ext::ValueExt;
 
-
 #[derive(Deserialize)]
 struct Arguments {
     pattern: Tagged<String>,
@@ -29,10 +28,9 @@ impl WholeStreamCommand for SubCommand {
             .required("pattern", SyntaxShape::String, "the pattern to find")
             .rest(
                 SyntaxShape::ColumnPath,
-                "optionally check if contains pattern by column paths",
+                "optionally check if string contains pattern by column paths",
             )
             .switch("insensitive", "search is case insensitive", Some('i'))
-
     }
 
     fn usage(&self) -> &str {
@@ -48,16 +46,18 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Check if string contains pattern",
-            example: "echo 'my_library.rb' | str contains '.rb'",
-            result: Some(vec![UntaggedValue::boolean(true).into_untagged_value()]),
-        },
-        Example {
-            description: "Check if string contains pattern case insensitive",
-            example: "echo 'my_library.rb' | str contains -i '.RB'",
-            result: Some(vec![UntaggedValue::boolean(true).into_untagged_value()]),
-        }]
+        vec![
+            Example {
+                description: "Check if string contains pattern",
+                example: "echo 'my_library.rb' | str contains '.rb'",
+                result: Some(vec![UntaggedValue::boolean(true).into_untagged_value()]),
+            },
+            Example {
+                description: "Check if string contains pattern case insensitive",
+                example: "echo 'my_library.rb' | str contains -i '.RB'",
+                result: Some(vec![UntaggedValue::boolean(true).into_untagged_value()]),
+            },
+        ]
     }
 }
 
@@ -67,7 +67,14 @@ async fn operate(
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
 
-    let (Arguments { pattern, rest, insensitive}, input) = args.process(&registry).await?;
+    let (
+        Arguments {
+            pattern,
+            rest,
+            insensitive,
+        },
+        input,
+    ) = args.process(&registry).await?;
     let column_paths: Vec<_> = rest;
 
     Ok(input
@@ -91,11 +98,15 @@ async fn operate(
         .to_output_stream())
 }
 
-fn action(input: &Value, pattern: &str, insensitive: bool , tag: impl Into<Tag>) -> Result<Value, ShellError> {
+fn action(
+    input: &Value,
+    pattern: &str,
+    insensitive: bool,
+    tag: impl Into<Tag>,
+) -> Result<Value, ShellError> {
     match &input.value {
         UntaggedValue::Primitive(Primitive::Line(s))
         | UntaggedValue::Primitive(Primitive::String(s)) => {
-
             let contains = if insensitive {
                 s.to_lowercase().find(&pattern.to_lowercase()).is_some()
             } else {
@@ -137,7 +148,7 @@ mod tests {
         let expected =
             UntaggedValue::Primitive(Primitive::Boolean(true.into())).into_untagged_value();
 
-        let actual = action(&word, &pattern, insensitive ,Tag::unknown()).unwrap();
+        let actual = action(&word, &pattern, insensitive, Tag::unknown()).unwrap();
         assert_eq!(actual, expected);
     }
 
@@ -149,7 +160,7 @@ mod tests {
         let expected =
             UntaggedValue::Primitive(Primitive::Boolean(false.into())).into_untagged_value();
 
-        let actual = action(&word, &pattern, insensitive,Tag::unknown()).unwrap();
+        let actual = action(&word, &pattern, insensitive, Tag::unknown()).unwrap();
         assert_eq!(actual, expected);
     }
 
@@ -161,7 +172,7 @@ mod tests {
         let expected =
             UntaggedValue::Primitive(Primitive::Boolean(true.into())).into_untagged_value();
 
-        let actual = action(&word, &pattern, insensitive ,Tag::unknown()).unwrap();
+        let actual = action(&word, &pattern, insensitive, Tag::unknown()).unwrap();
         assert_eq!(actual, expected);
     }
 
@@ -173,7 +184,7 @@ mod tests {
         let expected =
             UntaggedValue::Primitive(Primitive::Boolean(false.into())).into_untagged_value();
 
-        let actual = action(&word, &pattern, insensitive ,Tag::unknown()).unwrap();
+        let actual = action(&word, &pattern, insensitive, Tag::unknown()).unwrap();
         assert_eq!(actual, expected);
     }
 }
