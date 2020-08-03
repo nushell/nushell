@@ -59,8 +59,8 @@ impl WholeStreamCommand for Reduce {
             Example {
                 // TODO this appears to work, but not in testing
                 description: "Folding with rows",
-                example: r#"echo a,b 1,2 3,4 | split column , | headers | reduce -f 1.6 { = $acc * $(echo $it.a | str to-int) + $(echo $it.b | str to-int) }"#,
-                result: Some(vec![UntaggedValue::decimal(14.8).into()]),
+                example: "<table> | reduce -f 1.6 { = $acc * $(echo $it.a | str to-int) + $(echo $it.b | str to-int) }",
+                result: None,
             },
         ]
     }

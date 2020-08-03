@@ -31,6 +31,22 @@ fn reduce_table_column() {
 }
 
 #[test]
+fn reduce_rows() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        echo a,b 1,2 3,4
+        | split column ,
+        | headers
+        | reduce -f 1.6 { = $acc * $(echo $it.a | str to-int) + $(echo $it.b | str to-int) }
+        "#
+        )
+    );
+
+    assert_eq!(actual.out, "14.8");
+}
+
+#[test]
 fn error_reduce_fold_type_mismatch() {
     let actual = nu!(
         cwd: ".", pipeline(
