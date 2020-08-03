@@ -632,9 +632,9 @@ impl Span {
     /// //  make clean
     /// //  ----
     /// //  (0,4)
-    /// //  
+    /// //
     /// //       ^(5,5)
-    ///    
+    ///
     /// let make_span = Span::new(0,4);
     /// let clean_span = Span::new(5,5);
     ///
