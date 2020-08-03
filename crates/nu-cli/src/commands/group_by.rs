@@ -237,10 +237,7 @@ pub fn group(
             crate::utils::data::group(&values, &Some(block), &name)
         }
         Grouper::ByColumn(None) => {
-            let block = Box::new(move |_, row: &Value| match as_string(row) {
-                Ok(group_key) => Ok(group_key),
-                Err(reason) => Err(reason),
-            });
+            let block = Box::new(move |_, row: &Value| as_string(row));
 
             crate::utils::data::group(&values, &Some(block), &name)
         }
