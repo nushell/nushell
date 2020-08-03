@@ -15,6 +15,8 @@ mod to_decimal;
 mod to_integer;
 mod trim;
 mod upcase;
+mod contains;
+mod index_of;
 
 pub use capitalize::SubCommand as StrCapitalize;
 pub use collect::SubCommand as StrCollect;
@@ -35,3 +37,5 @@ pub use trim::Trim as StrTrim;
 pub use trim::TrimLeft as StrTrimLeft;
 pub use trim::TrimRight as StrTrimRight;
 pub use upcase::SubCommand as StrUpcase;
+pub use contains::SubCommand as StrContains;
+pub use index_of::SubCommand as StrIndexOf;

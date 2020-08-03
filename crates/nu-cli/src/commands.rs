@@ -231,7 +231,7 @@ pub(crate) use split_by::SplitBy;
 pub(crate) use str_::{
     Str, StrCapitalize, StrCollect, StrDowncase, StrEndsWith, StrFindReplace, StrFrom, StrLength,
     StrReverse, StrSet, StrStartsWith, StrSubstring, StrToDatetime, StrToDecimal, StrToInteger,
-    StrTrim, StrTrimLeft, StrTrimRight, StrUpcase,
+    StrTrim, StrTrimLeft, StrTrimRight, StrUpcase, StrContains, StrIndexOf,
 };
 pub(crate) use table::Table;
 pub(crate) use tags::Tags;
