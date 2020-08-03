@@ -168,12 +168,7 @@ pub fn sort(planes: &Labels, values: &Value, tag: impl Into<Tag>) -> Result<Valu
             let grouped = groups.get_data_by_key(key.borrow_spanned());
 
             if let Some(grouped) = grouped {
-                y.push(
-                    grouped
-                        .table_entries()
-                        .cloned()
-                        .collect::<Vec<_>>(),
-                );
+                y.push(grouped.table_entries().cloned().collect::<Vec<_>>());
             } else {
                 let empty = UntaggedValue::table(&[]).into_value(&tag);
                 y.push(empty.table_entries().cloned().collect::<Vec<_>>());
@@ -181,12 +176,8 @@ pub fn sort(planes: &Labels, values: &Value, tag: impl Into<Tag>) -> Result<Valu
         }
 
         x.push(
-            UntaggedValue::table(
-                &y.iter().cloned()
-                    .flatten()
-                    .collect::<Vec<Value>>(),
-            )
-            .into_value(&tag),
+            UntaggedValue::table(&y.iter().cloned().flatten().collect::<Vec<Value>>())
+                .into_value(&tag),
         );
     }
 
