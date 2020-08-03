@@ -13,7 +13,7 @@ use num_traits::Zero;
 pub struct Date;
 
 impl Date {
-    pub fn from_str(s: Tagged<&str>) -> Result<UntaggedValue, ShellError> {
+    pub fn from_regular_str(s: Tagged<&str>) -> Result<UntaggedValue, ShellError> {
         let date = DateTime::parse_from_rfc3339(s.item).map_err(|err| {
             ShellError::labeled_error(
                 &format!("Date parse error: {}", err),
@@ -43,7 +43,7 @@ impl Date {
 }
 
 pub fn date_from_str(s: Tagged<&str>) -> Result<UntaggedValue, ShellError> {
-    Date::from_str(s)
+    Date::from_regular_str(s)
 }
 
 pub fn merge_values(
@@ -77,18 +77,6 @@ pub fn compute_values(
                 }?;
                 Ok(UntaggedValue::Primitive(Primitive::Filesize(result)))
             }
-            (Primitive::Filesize(x), Primitive::Int(y)) => match operator {
-                Operator::Plus => Ok(UntaggedValue::Primitive(Primitive::Int(x + y))),
-                Operator::Minus => Ok(UntaggedValue::Primitive(Primitive::Int(x - y))),
-                Operator::Multiply => Ok(UntaggedValue::Primitive(Primitive::Int(x * y))),
-                _ => Err((left.type_name(), right.type_name())),
-            },
-            (Primitive::Int(x), Primitive::Filesize(y)) => match operator {
-                Operator::Plus => Ok(UntaggedValue::Primitive(Primitive::Int(x + y))),
-                Operator::Minus => Ok(UntaggedValue::Primitive(Primitive::Int(x - y))),
-                Operator::Multiply => Ok(UntaggedValue::Primitive(Primitive::Int(x * y))),
-                _ => Err((left.type_name(), right.type_name())),
-            },
             (Primitive::Int(x), Primitive::Int(y)) => match operator {
                 Operator::Plus => Ok(UntaggedValue::Primitive(Primitive::Int(x + y))),
                 Operator::Minus => Ok(UntaggedValue::Primitive(Primitive::Int(x - y))),

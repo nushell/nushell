@@ -124,35 +124,9 @@ pub fn suggestions(tried: Tagged<&str>, for_value: &Value) -> ShellError {
 #[cfg(test)]
 mod tests {
     use super::split;
-    use indexmap::IndexMap;
-    use nu_protocol::{UntaggedValue, Value};
+    use crate::utils::data::helpers::{committers_grouped_by_date, date, int, row, string, table};
+    use nu_protocol::UntaggedValue;
     use nu_source::*;
-    use num_bigint::BigInt;
-    use num_traits::Zero;
-
-    fn int(s: impl Into<BigInt>) -> Value {
-        crate::utils::data::tests::helpers::int(s)
-    }
-
-    fn string(input: impl Into<String>) -> Value {
-        crate::utils::data::tests::helpers::string(input)
-    }
-
-    pub fn date(input: impl Into<String>) -> Value {
-        crate::utils::data::tests::helpers::date(input)
-    }
-
-    fn row(entries: IndexMap<String, Value>) -> Value {
-        crate::utils::data::tests::helpers::row(entries)
-    }
-
-    fn table(list: &[Value]) -> Value {
-        crate::utils::data::tests::helpers::table(list)
-    }
-
-    fn committers_grouped_by_date() -> Value {
-        crate::utils::data::tests::helpers::committers_grouped_by_date()
-    }
 
     #[test]
     fn splits_inner_tables_by_key() {

@@ -250,35 +250,9 @@ pub fn group(
 #[cfg(test)]
 mod tests {
     use super::group;
-    use indexmap::IndexMap;
+    use crate::utils::data::helpers::{committers, date, int, row, string, table};
     use nu_errors::ShellError;
-    use nu_protocol::Value;
     use nu_source::*;
-    use num_bigint::BigInt;
-
-    fn int(s: impl Into<BigInt>) -> Value {
-        crate::utils::data::tests::helpers::int(s)
-    }
-
-    pub fn date(input: impl Into<String>) -> Value {
-        crate::utils::data::tests::helpers::date(input)
-    }
-
-    fn string(input: impl Into<String>) -> Value {
-        crate::utils::data::tests::helpers::string(input)
-    }
-
-    fn row(entries: IndexMap<String, Value>) -> Value {
-        crate::utils::data::tests::helpers::row(entries)
-    }
-
-    fn table(list: &[Value]) -> Value {
-        crate::utils::data::tests::helpers::table(list)
-    }
-
-    fn committers() -> Vec<Value> {
-        crate::utils::data::tests::helpers::committers()
-    }
 
     #[test]
     fn groups_table_by_date_column() -> Result<(), ShellError> {

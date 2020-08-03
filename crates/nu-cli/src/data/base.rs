@@ -173,19 +173,19 @@ mod tests {
     use num_bigint::BigInt;
 
     fn string(input: impl Into<String>) -> Value {
-        crate::utils::data::tests::helpers::string(input)
+        crate::utils::data::helpers::string(input)
     }
 
     fn int(input: impl Into<BigInt>) -> Value {
-        crate::utils::data::tests::helpers::int(input)
+        crate::utils::data::helpers::int(input)
     }
 
     fn row(entries: IndexMap<String, Value>) -> Value {
-        crate::utils::data::tests::helpers::row(entries)
+        crate::utils::data::helpers::row(entries)
     }
 
     fn table(list: &[Value]) -> Value {
-        crate::utils::data::tests::helpers::table(list)
+        crate::utils::data::helpers::table(list)
     }
 
     fn error_callback(
