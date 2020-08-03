@@ -857,6 +857,12 @@ impl std::convert::From<toml::ser::Error> for ShellError {
     }
 }
 
+impl std::convert::From<toml_edit::TomlError> for ShellError {
+    fn from(input: toml_edit::TomlError) -> ShellError {
+        ShellError::untagged_runtime_error(format!("{:?}", input))
+    }
+}
+
 impl std::convert::From<serde_json::Error> for ShellError {
     fn from(input: serde_json::Error) -> ShellError {
         ShellError::untagged_runtime_error(format!("{:?}", input))

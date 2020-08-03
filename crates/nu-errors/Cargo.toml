@@ -26,6 +26,7 @@ glob = "0.3.0"
 serde_json = "1.0.55"
 serde_yaml = "0.8"
 toml = "0.5.6"
+toml_edit = "0.2.0"
 
 [build-dependencies]
 nu-build = {version = "0.17.0", path = "../nu-build"}

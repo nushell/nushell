@@ -2627,6 +2627,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "toml 0.5.6",
+ "toml_edit",
 ]
 
 [[package]]
@@ -2691,6 +2692,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "toml 0.5.6",
+ "toml_edit",
  "typetag",
 ]
 
