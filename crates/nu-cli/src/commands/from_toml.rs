@@ -2,6 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
+use toml_edit::Item::Value as tValue;
 
 pub struct FromTOML;
 
@@ -25,6 +26,18 @@ impl WholeStreamCommand for FromTOML {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         from_toml(args, registry).await
+    }
+}
+
+pub fn convert_toml_item_to_nu_value(i: &toml_edit::Item, tag: impl Into<Tag>) -> Value {
+    let tag = tag.into();
+
+    match i {
+        tValue(v) => convert_toml_value_to_nu_value(&v, tag),
+        // toml_edit::Table(t) => new::nu_protocol::Value(),
+        // toml_edit::ArrayOfTables(a) => new::Value(),
+        // _ => UntaggedValue::Primitive(Primitive::String(String::from(""))),
+        _ => UntaggedValue::Primitive(Primitive::String(String::from(""))).into_value(tag)
     }
 }
 
