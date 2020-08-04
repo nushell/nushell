@@ -310,6 +310,8 @@ pub fn create_default_context(
             whole_stream_command(StrSubstring),
             whole_stream_command(StrSet),
             whole_stream_command(StrToDatetime),
+            whole_stream_command(StrContains),
+            whole_stream_command(StrIndexOf),
             whole_stream_command(StrTrim),
             whole_stream_command(StrTrimLeft),
             whole_stream_command(StrTrimRight),
