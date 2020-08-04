@@ -8,7 +8,7 @@ use nu_protocol::{
 use nu_source::{Tag, Tagged};
 use nu_value_ext::ValueExt;
 
-use chrono::{DateTime, FixedOffset, Offset, TimeZone, LocalResult};
+use chrono::{DateTime, FixedOffset, LocalResult, Offset, TimeZone};
 
 #[derive(Deserialize)]
 struct Arguments {
@@ -51,21 +51,23 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Convert to datetime",
-            example: "echo '16.11.1984 8:00 am +0000' | str to-datetime",
-            result: None,
-        },
-        Example {
-            description: "Convert to datetime",
-            example: "echo '2020-08-04T16:39:18+00:00' | str to-datetime",
-            result: None
-        },
-        Example {
-            description: "Convert to datetime using a custom format",
-            example: "echo '20200904_163918+0000' | str to-datetime -f '%Y%m%d_%H%M%S%z'",
-            result: None
-        }]
+        vec![
+            Example {
+                description: "Convert to datetime",
+                example: "echo '16.11.1984 8:00 am +0000' | str to-datetime",
+                result: None,
+            },
+            Example {
+                description: "Convert to datetime",
+                example: "echo '2020-08-04T16:39:18+00:00' | str to-datetime",
+                result: None,
+            },
+            Example {
+                description: "Convert to datetime using a custom format",
+                example: "echo '20200904_163918+0000' | str to-datetime -f '%Y%m%d_%H%M%S%z'",
+                result: None,
+            },
+        ]
     }
 }
 
@@ -118,50 +120,44 @@ fn action(
     match &input.value {
         UntaggedValue::Primitive(Primitive::Line(s))
         | UntaggedValue::Primitive(Primitive::String(s)) => {
-
             let out = match options {
-                Some(dt) => {
-                    match DateTime::parse_from_str(s, &dt.0) {
-                        Ok(d) => UntaggedValue::date(d),
-                        Err(reason) => {
-                            return Err(ShellError::labeled_error(
-                                format!("could not parse as datetime using format '{}'", dt.0),
-                                reason.to_string(),
-                                tag.into().span,
-                            ))
-                        }
+                Some(dt) => match DateTime::parse_from_str(s, &dt.0) {
+                    Ok(d) => UntaggedValue::date(d),
+                    Err(reason) => {
+                        return Err(ShellError::labeled_error(
+                            format!("could not parse as datetime using format '{}'", dt.0),
+                            reason.to_string(),
+                            tag.into().span,
+                        ))
                     }
                 },
-                None => {
-                    match dtparse::parse(s) {
-                        Ok((native_dt,fixed_offset)) => {
-                            let offset = match fixed_offset {
-                                Some(fo) => fo,
-                                None => FixedOffset::east(0).fix()
-                            };
-                            match offset.from_local_datetime(&native_dt) {
-                                LocalResult::Single(d) => UntaggedValue::date(d),
-                                LocalResult::Ambiguous(d, _) => UntaggedValue::date(d),
-                                LocalResult::None => {
-                                    return Err(ShellError::labeled_error(
-                                        "could not convert to a timezone-aware datetime",
-                                        "local time representation is invalid",
-                                        tag.into().span
-                                    ))
-                                }
+                None => match dtparse::parse(s) {
+                    Ok((native_dt, fixed_offset)) => {
+                        let offset = match fixed_offset {
+                            Some(fo) => fo,
+                            None => FixedOffset::east(0).fix(),
+                        };
+                        match offset.from_local_datetime(&native_dt) {
+                            LocalResult::Single(d) => UntaggedValue::date(d),
+                            LocalResult::Ambiguous(d, _) => UntaggedValue::date(d),
+                            LocalResult::None => {
+                                return Err(ShellError::labeled_error(
+                                    "could not convert to a timezone-aware datetime",
+                                    "local time representation is invalid",
+                                    tag.into().span,
+                                ))
                             }
-                        },
-                        Err(reason) => {
-                            return Err(ShellError::labeled_error(
-                                "could not parse as datetime",
-                                reason.to_string(),
-                                tag.into().span,
-                            ))
                         }
                     }
-                }
+                    Err(reason) => {
+                        return Err(ShellError::labeled_error(
+                            "could not parse as datetime",
+                            reason.to_string(),
+                            tag.into().span,
+                        ))
+                    }
+                },
             };
-
 
             Ok(out.into_value(tag))
         }
