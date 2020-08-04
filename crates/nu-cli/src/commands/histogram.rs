@@ -8,7 +8,6 @@ pub struct Histogram;
 
 #[derive(Deserialize)]
 pub struct HistogramArgs {
-    column_name: Tagged<String>,
     rest: Vec<Tagged<String>>,
 }
 
@@ -19,16 +18,10 @@ impl WholeStreamCommand for Histogram {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("histogram")
-            .required(
-                "column_name",
-                SyntaxShape::String,
-                "the name of the column to graph by",
-            )
-            .rest(
-                SyntaxShape::String,
-                "column name to give the histogram's frequency column",
-            )
+        Signature::build("histogram").rest(
+            SyntaxShape::String,
+            "column name to give the histogram's frequency column",
+        )
     }
 
     fn usage(&self) -> &str {
@@ -52,13 +45,13 @@ impl WholeStreamCommand for Histogram {
             },
             Example {
                 description:
-                    "Get a histogram for the types of files, with frequency column named count",
-                example: "ls | histogram type count",
+                    "Get a histogram for the types of files, with frequency column named percentage",
+                example: "ls | histogram type percentage",
                 result: None,
             },
             Example {
                 description: "Get a histogram for a list of numbers",
-                example: "echo [1 2 3 1 1 1 2 2 1 1] | wrap values | histogram values",
+                example: "echo [1 2 3 1 1 1 2 2 1 1] | histogram",
                 result: None,
             },
         ]
@@ -72,35 +65,16 @@ pub async fn histogram(
     let registry = registry.clone();
     let name = args.call_info.name_tag.clone();
 
-    let (HistogramArgs { column_name, rest }, input) = args.process(&registry).await?;
+    let (HistogramArgs { rest: mut columns }, input) = args.process(&registry).await?;
     let values: Vec<Value> = input.collect().await;
 
-    let column_grouper = column_name.clone();
+    let column_grouper = if !columns.is_empty() {
+        Some(columns.remove(0))
+    } else {
+        None
+    };
 
-    let results = crate::utils::data::report(
-        &UntaggedValue::table(&values).into_value(&name),
-        crate::utils::data::Operation {
-            grouper: Some(Box::new(move |_, _| Ok(String::from("frequencies")))),
-            splitter: Some(Box::new(move |_, row: &Value| {
-                let key = &column_grouper;
-
-                match row.get_data_by_key(key.borrow_spanned()) {
-                    Some(key) => nu_value_ext::as_string(&key),
-                    None => Err(ShellError::labeled_error(
-                        "unknown column",
-                        "unknown column",
-                        key.tag(),
-                    )),
-                }
-            })),
-            format: None,
-            eval: &None,
-        },
-        &name,
-    )?;
-
-    let labels = results.labels.y.clone();
-    let column_names_supplied: Vec<_> = rest.iter().map(|f| f.item.clone()).collect();
+    let column_names_supplied: Vec<_> = columns.iter().map(|f| f.item.clone()).collect();
 
     let frequency_column_name = if column_names_supplied.is_empty() {
         "frequency".to_string()
@@ -108,7 +82,24 @@ pub async fn histogram(
         column_names_supplied[0].clone()
     };
 
-    let column = (*column_name).clone();
+    let column = if let Some(ref column) = column_grouper {
+        column.clone()
+    } else {
+        "value".to_string().tagged(&name)
+    };
+
+    let results = crate::utils::data::report(
+        &UntaggedValue::table(&values).into_value(&name),
+        crate::utils::data::Operation {
+            grouper: Some(Box::new(move |_, _| Ok(String::from("frequencies")))),
+            splitter: Some(splitter(column_grouper)),
+            format: None,
+            eval: &None,
+        },
+        &name,
+    )?;
+
+    let labels = results.labels.y.clone();
     let mut idx = 0;
 
     Ok(futures::stream::iter(
@@ -136,7 +127,7 @@ pub async fn histogram(
                     })?
                     .clone();
 
-                fact.insert_value(&column, column_value);
+                fact.insert_value(&column.item, column_value);
                 fact.insert_untagged("count", UntaggedValue::int(count));
 
                 let string = std::iter::repeat("*")
@@ -153,6 +144,26 @@ pub async fn histogram(
             }),
     )
     .to_output_stream())
+}
+
+fn splitter(
+    by: Option<Tagged<String>>,
+) -> Box<dyn Fn(usize, &Value) -> Result<String, ShellError> + Send> {
+    match by {
+        Some(column) => Box::new(move |_, row: &Value| {
+            let key = &column;
+
+            match row.get_data_by_key(key.borrow_spanned()) {
+                Some(key) => nu_value_ext::as_string(&key),
+                None => Err(ShellError::labeled_error(
+                    "unknown column",
+                    "unknown column",
+                    key.tag(),
+                )),
+            }
+        }),
+        None => Box::new(move |_, row: &Value| nu_value_ext::as_string(&row)),
+    }
 }
 
 #[cfg(test)]
