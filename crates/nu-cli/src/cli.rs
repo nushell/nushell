@@ -683,29 +683,29 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
             // if the line_editor config section doesn't exist, let's set some defaults
             rl.set_max_history_size(1000);
             rl.set_history_ignore_dups(true);
-            rl.set_history_ignore_space(true);
+            rl.set_history_ignore_space(false);
             rl.set_completion_type(DEFAULT_COMPLETION_MODE);
-            rl.set_completion_prompt_limit(1);
+            rl.set_completion_prompt_limit(100);
             rl.set_keyseq_timeout(500);
-            rl.set_edit_mode(rustyline::config::EditMode::Vi);
-            rl.set_auto_add_history(true);
+            rl.set_edit_mode(rustyline::config::EditMode::Emacs);
+            rl.set_auto_add_history(false);
             rl.set_bell_style(rustyline::config::BellStyle::None);
             rl.set_color_mode(rustyline::ColorMode::Enabled);
-            rl.set_tab_stop(4);
+            rl.set_tab_stop(8);
         }
     } else {
         // if the config file itself doesn't exist, let's set some defaults
         rl.set_max_history_size(1000);
         rl.set_history_ignore_dups(true);
-        rl.set_history_ignore_space(true);
+        rl.set_history_ignore_space(false);
         rl.set_completion_type(DEFAULT_COMPLETION_MODE);
-        rl.set_completion_prompt_limit(1);
+        rl.set_completion_prompt_limit(100);
         rl.set_keyseq_timeout(500);
-        rl.set_edit_mode(rustyline::config::EditMode::Vi);
-        rl.set_auto_add_history(true);
+        rl.set_edit_mode(rustyline::config::EditMode::Emacs);
+        rl.set_auto_add_history(false);
         rl.set_bell_style(rustyline::config::BellStyle::None);
         rl.set_color_mode(rustyline::ColorMode::Enabled);
-        rl.set_tab_stop(4);
+        rl.set_tab_stop(8);
     }
 
     // we are ok if history does not exist
