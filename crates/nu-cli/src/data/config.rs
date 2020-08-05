@@ -7,7 +7,7 @@ pub mod tests;
 pub(crate) use conf::Conf;
 pub(crate) use nuconfig::NuConfig;
 
-use crate::commands::from_toml::convert_toml_item_to_nu_value;
+use crate::commands::from_toml::convert_toml_edit_doc_to_indexmap;
 use crate::commands::to_toml::value_to_toml_value;
 use crate::prelude::*;
 use indexmap::IndexMap;
@@ -136,19 +136,9 @@ pub fn read(
     //     )),
     // }
 
-    let valmap = doc.iter().map(|(_key, item)| {
-        let value = convert_toml_item_to_nu_value(&item, tag);
-        let tag = value.tag();
-        match value.value {
-            UntaggedValue::Row(Dictionary { entries }) => Ok(entries),
-            other => Err(ShellError::type_error(
-                "Dictionary",
-                other.type_name().spanned(tag.span),
-            )),
-        }
-    }).collect::<Result<IndexMap<String, Value>, ShellError>>().unwrap();
-
-    Ok(valmap)
+    let map = convert_toml_edit_doc_to_indexmap(&doc, tag);
+println!("config: [{:?}]", map);
+    map
 }
 
 pub fn config(tag: impl Into<Tag>) -> Result<IndexMap<String, Value>, ShellError> {

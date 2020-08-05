@@ -1,8 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
-use toml_edit::Item::Value as tValue;
+use nu_protocol::{Dictionary, Primitive, ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
 
 pub struct FromTOML;
 
@@ -29,16 +28,51 @@ impl WholeStreamCommand for FromTOML {
     }
 }
 
+pub fn convert_toml_edit_doc_to_indexmap(doc: &toml_edit::Document, tag: impl Into<Tag>) -> Result<IndexMap<String, Value>, ShellError> {
+// IndexMap<String, Value> {
+    //Result<IndexMap<String, Value>, ShellError>
+    // let value = convert_toml_value_to_nu_value(&parsed, tag);
+    // let tag = value.tag();
+    // match value.value {
+    //     UntaggedValue::Row(Dictionary { entries }) => Ok(entries),
+    //     other => Err(ShellError::type_error(
+    //         "Dictionary",
+    //         other.type_name().spanned(tag.span),
+    //     )),
+    // }
+    let tag = tag.into();
+    let mut map: IndexMap<String, Value> = IndexMap::new();
+    for (key, val) in doc.iter() {
+        let value = convert_toml_item_to_nu_value(&val, tag.clone());
+        map.insert(key.to_string(), value);
+    }
+
+    Ok(map)
+}
+
 pub fn convert_toml_item_to_nu_value(i: &toml_edit::Item, tag: impl Into<Tag>) -> Value {
     let tag = tag.into();
 
     match i {
-        tValue(v) => convert_toml_value_to_nu_value(&v, tag),
-        // toml_edit::Table(t) => new::nu_protocol::Value(),
-        // toml_edit::ArrayOfTables(a) => new::Value(),
-        // _ => UntaggedValue::Primitive(Primitive::String(String::from(""))),
+        toml_edit::Item::Value(v) => convert_toml_value_to_nu_value(&v, tag),
+        toml_edit::Item::Table(t) => convert_toml_table_to_nu_value(t, tag),
+        // toml_edit::Item::ArrayOfTables(a) => convert_toml_table_to_nu_value(t, tag),
         _ => UntaggedValue::Primitive(Primitive::String(String::from(""))).into_value(tag)
     }
+}
+
+pub fn convert_toml_table_to_nu_value(table: &dyn toml_edit::TableLike, tag: impl Into<Tag>) -> Value {
+    // for (key, value) in table.iter() {
+    //     convert_toml_item_to_nu_value(value, tag);
+    // }.collect()
+    let tag = tag.into();
+
+    UntaggedValue::Table(
+        table.iter()
+            .map(|(_k, v)| convert_toml_item_to_nu_value(v, &tag))
+            .collect(),
+    )
+    .into_value(tag)
 }
 
 pub fn convert_toml_value_to_nu_value(v: &toml_edit::Value, tag: impl Into<Tag>) -> Value {
