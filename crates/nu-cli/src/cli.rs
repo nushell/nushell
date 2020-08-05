@@ -599,11 +599,9 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
             for (idx, value) in line_editor_vars.row_entries() {
                 match idx.as_ref() {
                     "max_history_size" => {
-                        let max_history_size = match value.as_u64() {
-                            Ok(n) => n as usize,
-                            _ => 100 as usize,
-                        };
-                        rl.set_max_history_size(max_history_size as usize);
+                        if let Ok(max_history_size) = value.as_u64() {
+                            rl.set_max_history_size(max_history_size as usize);
+                        }
                     }
                     "history_duplicates" => {
                         // history_duplicates = match value.as_string() {
@@ -615,12 +613,14 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
                         //     }
                         //     _ => rustyline::config::HistoryDuplicates::AlwaysAdd,
                         // };
-                        let history_duplicates = value.as_bool().unwrap_or(true);
-                        rl.set_history_ignore_dups(history_duplicates);
+                        if let Ok(history_duplicates) = value.as_bool() {
+                            rl.set_history_ignore_dups(history_duplicates);
+                        }
                     }
                     "history_ignore_space" => {
-                        let history_ignore_space = value.as_bool().unwrap_or(false);
-                        rl.set_history_ignore_space(history_ignore_space);
+                        if let Ok(history_ignore_space) = value.as_bool() {
+                            rl.set_history_ignore_space(history_ignore_space);
+                        }
                     }
                     "completion_type" => {
                         let completion_type = match value.as_string() {
@@ -639,12 +639,14 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
                         rl.set_completion_type(completion_type);
                     }
                     "completion_prompt_limit" => {
-                        let completion_prompt_limit = value.as_u64().unwrap_or(100) as usize;
-                        rl.set_completion_prompt_limit(completion_prompt_limit);
+                        if let Ok(completion_prompt_limit) = value.as_u64() {
+                            rl.set_completion_prompt_limit(completion_prompt_limit as usize);
+                        }
                     }
                     "keyseq_timeout_ms" => {
-                        let keyseq_timeout_ms = value.as_u64().unwrap_or(500) as i32;
-                        rl.set_keyseq_timeout(keyseq_timeout_ms);
+                        if let Ok(keyseq_timeout_ms) = value.as_u64() {
+                            rl.set_keyseq_timeout(keyseq_timeout_ms as i32);
+                        }
                     }
                     "edit_mode" => {
                         let edit_mode = match value.as_string() {
@@ -660,8 +662,9 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
                         }
                     }
                     "auto_add_history" => {
-                        let auto_add_history = value.as_bool().unwrap_or(false);
-                        rl.set_auto_add_history(auto_add_history);
+                        if let Ok(auto_add_history) = value.as_bool() {
+                            rl.set_auto_add_history(auto_add_history);
+                        }
                     }
                     "bell_style" => {
                         let bell_style = match value.as_string() {
@@ -690,8 +693,9 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
                         rl.set_color_mode(color_mode);
                     }
                     "tab_stop" => {
-                        let tab_stop = value.as_u64().unwrap_or(8) as usize;
-                        rl.set_tab_stop(tab_stop);
+                        if let Ok(tab_stop) = value.as_u64() {
+                            rl.set_tab_stop(tab_stop as usize);
+                        }
                     }
                     _ => (),
                 }
