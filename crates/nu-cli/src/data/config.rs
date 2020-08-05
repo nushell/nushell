@@ -110,7 +110,6 @@ pub fn read(
         })?;
 
     let doc = contents.parse::<toml_edit::Document>().map_err(|err| {
-    // let parsed = contents.parse::<toml_edit::Value>().map_err(|err| {
         ShellError::labeled_error(
             &format!("Couldn't parse config file:\n{}", err),
             "file name",
@@ -137,7 +136,7 @@ pub fn read(
     // }
 
     let map = convert_toml_edit_doc_to_indexmap(&doc, tag);
-println!("config: [{:?}]", map);
+
     map
 }
 

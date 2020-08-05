@@ -29,8 +29,6 @@ impl WholeStreamCommand for FromTOML {
 }
 
 pub fn convert_toml_edit_doc_to_indexmap(doc: &toml_edit::Document, tag: impl Into<Tag>) -> Result<IndexMap<String, Value>, ShellError> {
-// IndexMap<String, Value> {
-    //Result<IndexMap<String, Value>, ShellError>
     // let value = convert_toml_value_to_nu_value(&parsed, tag);
     // let tag = value.tag();
     // match value.value {
@@ -44,6 +42,7 @@ pub fn convert_toml_edit_doc_to_indexmap(doc: &toml_edit::Document, tag: impl In
     let mut map: IndexMap<String, Value> = IndexMap::new();
     for (key, val) in doc.iter() {
         let value = convert_toml_item_to_nu_value(&val, tag.clone());
+        println!("key: [{}] value: [{:?}]", key, &value);
         map.insert(key.to_string(), value);
     }
 
@@ -56,15 +55,13 @@ pub fn convert_toml_item_to_nu_value(i: &toml_edit::Item, tag: impl Into<Tag>) -
     match i {
         toml_edit::Item::Value(v) => convert_toml_value_to_nu_value(&v, tag),
         toml_edit::Item::Table(t) => convert_toml_table_to_nu_value(t, tag),
+        //TODO: Deal with this
         // toml_edit::Item::ArrayOfTables(a) => convert_toml_table_to_nu_value(t, tag),
         _ => UntaggedValue::Primitive(Primitive::String(String::from(""))).into_value(tag)
     }
 }
 
 pub fn convert_toml_table_to_nu_value(table: &dyn toml_edit::TableLike, tag: impl Into<Tag>) -> Value {
-    // for (key, value) in table.iter() {
-    //     convert_toml_item_to_nu_value(value, tag);
-    // }.collect()
     let tag = tag.into();
 
     UntaggedValue::Table(
