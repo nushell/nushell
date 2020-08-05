@@ -657,9 +657,10 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
                             _ => rustyline::config::EditMode::Emacs,
                         };
                         rl.set_edit_mode(edit_mode);
-                        if edit_mode == rustyline::config::EditMode::Emacs {
-                            rl.set_keyseq_timeout(-1);
-                        }
+                        // Note: When edit_mode is Emacs, the keyseq_timeout_ms is set to -1
+                        // no matter what you may have configured. This is so that key chords
+                        // can be applied without having to do them in a given timeout. So,
+                        // it essentially turns off the keyseq timeout.
                     }
                     "auto_add_history" => {
                         if let Ok(auto_add_history) = value.as_bool() {
