@@ -77,8 +77,8 @@ impl Default for HtmlThemes {
 // }
 impl Default for HtmlTheme {
     fn default() -> Self {
-        HtmlTheme { 
-            name: "nu_default".to_string(), 
+        HtmlTheme {
+            name: "nu_default".to_string(),
             black: "black".to_string(),
             red: "red".to_string(),
             green: "green".to_string(),
@@ -96,7 +96,7 @@ impl Default for HtmlTheme {
             brightCyan: "#037979".to_string(),
             brightWhite: "white".to_string(),
             background: "white".to_string(),
-            foreground: "black".to_string(), 
+            foreground: "black".to_string(),
         }
     }
 }
@@ -193,7 +193,8 @@ fn get_theme_from_asset_file(
     };
 
     if th.name.to_lowercase().eq(&"campbell".to_string()) // this just means no theme was passed in
-        && theme.is_some() // this means there was a theme passed in
+        && theme.is_some()
+    // this means there was a theme passed in
     {
         println!(
             "{}",
