@@ -50,31 +50,6 @@ impl Default for HtmlThemes {
     }
 }
 
-// impl Default for HtmlTheme {
-//     fn default() -> Self {
-//         HtmlTheme {
-//             name: "campbell".to_string(),
-//             black: "#0C0C0C".to_string(),
-//             red: "#C50F1F".to_string(),
-//             green: "#13A10E".to_string(),
-//             yellow: "#C19C00".to_string(),
-//             blue: "#0037DA".to_string(),
-//             purple: "#881798".to_string(),
-//             cyan: "#3A96DD".to_string(),
-//             white: "#CCCCCC".to_string(),
-//             brightBlack: "#767676".to_string(),
-//             brightRed: "#E74856".to_string(),
-//             brightGreen: "#16C60C".to_string(),
-//             brightYellow: "#F9F1A5".to_string(),
-//             brightBlue: "#3B78FF".to_string(),
-//             brightPurple: "#B4009E".to_string(),
-//             brightCyan: "#61D6D6".to_string(),
-//             brightWhite: "#F2F2F2".to_string(),
-//             background: "#0C0C0C".to_string(),
-//             foreground: "#CCCCCC".to_string(),
-//         }
-//     }
-// }
 impl Default for HtmlTheme {
     fn default() -> Self {
         HtmlTheme {
@@ -140,7 +115,7 @@ impl WholeStreamCommand for ToHTML {
             .named(
                 "theme",
                 SyntaxShape::String,
-                "the name of the theme to use (default, campbell, github, blulocolight)",
+                "the name of the theme to use (github, blulocolight, ...)",
                 Some('t'),
             )
             .switch("list", "list the names of all available themes", Some('l'))
@@ -162,10 +137,11 @@ impl WholeStreamCommand for ToHTML {
 fn get_theme_from_asset_file(
     is_dark: bool,
     theme: &Option<Tagged<String>>,
-) -> HashMap<&'static str, String> {
+    theme_tag: &Tag,
+) -> Result<HashMap<&'static str, String>, ShellError> {
     let theme_name = match theme {
         Some(s) => s.to_string(),
-        None => "default".to_string(), // There is no theme named "default" so this will be HtmlTheme::default(), which is campbell.
+        None => "default".to_string(), // There is no theme named "default" so this will be HtmlTheme::default(), which is "nu_default".
     };
 
     // 228 themes come from
@@ -192,22 +168,19 @@ fn get_theme_from_asset_file(
         None => &default_theme,
     };
 
-    if th.name.to_lowercase().eq(&"campbell".to_string()) // this just means no theme was passed in
+    // this just means no theme was passed in
+    if th.name.to_lowercase().eq(&"nu_default".to_string())
+        // this means there was a theme passed in
         && theme.is_some()
-    // this means there was a theme passed in
     {
-        println!(
-            "{}",
-            format!(
-                "There was an error finding a theme named [{}]. Using default theme.",
-                theme_name
-            )
-        );
+        return Err(ShellError::labeled_error(
+            "Error finding theme name",
+            "Error finding theme name",
+            theme_tag.span,
+        ));
     }
-    // println!("{:#?}", th); // the entire json theme
-    // println!("{}", th.name); // the theme name
 
-    convert_html_theme_to_hash_map(is_dark, th)
+    Ok(convert_html_theme_to_hash_map(is_dark, th))
 }
 
 fn get_asset_by_name_as_html_themes(
@@ -323,15 +296,30 @@ async fn to_html(
             output_string.push_str(&format!("{}\n", s));
         }
 
-        output_string.push_str("Screenshots of themes can be found here:");
-        output_string.push_str("https://github.com/mbadolato/iTerm2-Color-Schemes");
+        output_string.push_str("\nScreenshots of themes can be found here:\n");
+        output_string.push_str("https://github.com/mbadolato/iTerm2-Color-Schemes\n");
 
         // Short circuit and return the output_string
         Ok(OutputStream::one(ReturnSuccess::value(
             UntaggedValue::string(output_string).into_value(name_tag),
         )))
     } else {
-        let color_hm = get_theme_from_asset_file(dark, &theme);
+        let theme_tag = match &theme {
+            Some(v) => &v.tag,
+            None => &name_tag,
+        };
+
+        let color_hm = get_theme_from_asset_file(dark, &theme, &theme_tag);
+        let color_hm = match color_hm {
+            Ok(c) => c,
+            _ => {
+                return Err(ShellError::labeled_error(
+                    "Error finding theme name",
+                    "Error finding theme name",
+                    theme_tag.span,
+                ))
+            }
+        };
 
         // change the color of the page
         if !partial {
