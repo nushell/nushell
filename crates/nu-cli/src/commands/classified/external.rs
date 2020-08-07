@@ -541,7 +541,6 @@ fn shell_os_paths() -> Vec<std::path::PathBuf> {
 mod tests {
     use super::{
         add_quotes, argument_contains_whitespace, argument_is_quoted, expand_tilde, remove_quotes,
-        ExternalRedirection,
     };
     #[cfg(feature = "which")]
     use super::{run_external_command, Context, InputStream};
@@ -570,6 +569,7 @@ mod tests {
 
     #[cfg(feature = "which")]
     async fn non_existent_run() -> Result<(), ShellError> {
+        use nu_protocol::hir::ExternalRedirection;
         let cmd = ExternalBuilder::for_name("i_dont_exist.exe").build();
 
         let input = InputStream::empty();
