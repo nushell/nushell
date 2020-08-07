@@ -3,7 +3,7 @@ use crate::commands::WholeStreamCommand;
 use crate::data::value::format_leaf;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{hir, hir::Expression, hir::Literal, hir::SpannedExpression};
+use nu_protocol::hir::{self, Expression, ExternalRedirection, Literal, SpannedExpression};
 use nu_protocol::{Primitive, Scope, Signature, UntaggedValue, Value};
 use parking_lot::Mutex;
 use std::sync::atomic::AtomicBool;
@@ -328,7 +328,7 @@ fn create_default_command_args(context: &RunnableContextWithoutInput) -> RawComm
                 positional: None,
                 named: None,
                 span,
-                is_last: true,
+                external_redirection: ExternalRedirection::Stdout,
             },
             name_tag: context.name.clone(),
             scope: Scope::new(),

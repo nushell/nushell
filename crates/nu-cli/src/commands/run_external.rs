@@ -62,6 +62,8 @@ impl WholeStreamCommand for RunExternalCommand {
 
         let mut positionals = positionals.into_iter();
 
+        let external_redirection = args.call_info.args.external_redirection;
+
         let name = positionals
             .next()
             .ok_or_else(|| {
@@ -130,11 +132,16 @@ impl WholeStreamCommand for RunExternalCommand {
         }
 
         let scope = args.call_info.scope.clone();
-        let is_last = args.call_info.args.is_last;
+
         let input = args.input;
-        let result =
-            external::run_external_command(command, &mut external_context, input, &scope, is_last)
-                .await;
+        let result = external::run_external_command(
+            command,
+            &mut external_context,
+            input,
+            &scope,
+            external_redirection,
+        )
+        .await;
 
         Ok(result?.to_output_stream())
     }
