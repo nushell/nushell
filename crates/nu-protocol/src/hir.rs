@@ -167,7 +167,7 @@ impl Commands {
                             }),
                             span: self.span,
                         }]),
-                        is_last: false, // FIXME
+                        external_redirection: ExternalRedirection::Stdout, // FIXME
                     },
                 })
             }
@@ -200,26 +200,14 @@ impl Block {
         }
     }
 
-    pub fn set_is_last(&mut self, is_last: bool) {
+    pub fn set_redirect(&mut self, external_redirection: ExternalRedirection) {
         if let Some(pipeline) = self.block.last_mut() {
             if let Some(command) = pipeline.list.last_mut() {
                 if let ClassifiedCommand::Internal(internal) = command {
-                    internal.args.is_last = is_last;
+                    internal.args.external_redirection = external_redirection;
                 }
             }
         }
-    }
-
-    pub fn get_is_last(&mut self) -> Option<bool> {
-        if let Some(pipeline) = self.block.last_mut() {
-            if let Some(command) = pipeline.list.last_mut() {
-                if let ClassifiedCommand::Internal(internal) = command {
-                    return Some(internal.args.is_last);
-                }
-            }
-        }
-
-        None
     }
 }
 
@@ -1114,13 +1102,21 @@ impl PrettyDebugWithSource for NamedValue {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
+pub enum ExternalRedirection {
+    None,
+    Stdout,
+    Stderr,
+    StdoutAndStderr,
+}
+
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct Call {
     pub head: Box<SpannedExpression>,
     pub positional: Option<Vec<SpannedExpression>>,
     pub named: Option<NamedArguments>,
     pub span: Span,
-    pub is_last: bool,
+    pub external_redirection: ExternalRedirection,
 }
 
 impl Call {
@@ -1193,7 +1189,7 @@ impl Call {
             positional: None,
             named: None,
             span,
-            is_last: false,
+            external_redirection: ExternalRedirection::Stdout,
         }
     }
 }
