@@ -2,7 +2,9 @@ use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, ReturnSuccess, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    hir::Block, hir::ExternalRedirection, ReturnSuccess, Signature, SyntaxShape, Value,
+};
 
 pub struct Do;
 
@@ -61,7 +63,7 @@ async fn do_(
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let is_last = raw_args.call_info.args.is_last;
+    let external_redirection = raw_args.call_info.args.external_redirection;
 
     let mut context = Context::from_raw(&raw_args, &registry);
     let scope = raw_args.call_info.scope.clone();
@@ -72,7 +74,26 @@ async fn do_(
         },
         input,
     ) = raw_args.process(&registry).await?;
-    block.set_is_last(is_last);
+
+    let block_redirection = match external_redirection {
+        ExternalRedirection::None => {
+            if ignore_errors {
+                ExternalRedirection::Stderr
+            } else {
+                ExternalRedirection::None
+            }
+        }
+        ExternalRedirection::Stdout => {
+            if ignore_errors {
+                ExternalRedirection::StdoutAndStderr
+            } else {
+                ExternalRedirection::Stdout
+            }
+        }
+        x => x,
+    };
+
+    block.set_redirect(block_redirection);
 
     let result = run_block(
         &block,
@@ -85,6 +106,9 @@ async fn do_(
     .await;
 
     if ignore_errors {
+        // To properly ignore errors we need to redirect stderr, consume it, and remove
+        // any errors we see in the process.
+
         match result {
             Ok(mut stream) => {
                 let output = stream.drain_vec().await;
