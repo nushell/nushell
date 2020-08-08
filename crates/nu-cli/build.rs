@@ -22,7 +22,12 @@ impl From<io::Error> for Error {
 }
 
 fn main() -> Result<(), Error> {
-    let out_dir = env::var_os("OUT_DIR").unwrap();
+    let out_dir = env::var_os("OUT_DIR").expect(
+    "\
+        OUT_DIR environment variable not found. \
+        OUT_DIR is guaranteed to to exist in a build script by cargo - see \
+        https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-build-scripts\
+    ");
     let latest_commit_hash = Repository::discover(env::current_dir()?)?
         .head()?
         .peel_to_commit()?
