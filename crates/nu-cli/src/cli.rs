@@ -718,6 +718,18 @@ pub async fn cli(
     let _ = load_plugins(&mut context);
 
     let (mut rl, config) = set_rustyline_configuration();
+
+    let skip_welcome_message = config
+        .get("skip_welcome_message")
+        .map(|x| x.is_true())
+        .unwrap_or(false);
+    if !skip_welcome_message {
+        println!(
+            "Welcome to Nushell {} (type 'help' for more info)",
+            clap::crate_version!()
+        );
+    }
+
     let use_starship = config
         .get("use_starship")
         .map(|x| x.is_true())
