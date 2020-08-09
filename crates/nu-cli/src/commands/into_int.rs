@@ -1,0 +1,79 @@
+use crate::commands::WholeStreamCommand;
+use crate::prelude::*;
+use nu_errors::ShellError;
+use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+
+use num_bigint::ToBigInt;
+
+pub struct IntoInt;
+
+#[derive(Deserialize)]
+pub struct IntoIntArgs {
+    pub rest: Vec<Value>,
+}
+
+#[async_trait]
+impl WholeStreamCommand for IntoInt {
+    fn name(&self) -> &str {
+        "into-int"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("into-int").rest(SyntaxShape::Number, "the values to into-int")
+    }
+
+    fn usage(&self) -> &str {
+        "Convert value to integer"
+    }
+
+    async fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        into_int(args, registry).await
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Convert filesize to integer",
+            example: "ls | into-int $it.size | = $it / 1024",
+            result: None,
+        }]
+    }
+}
+
+async fn into_int(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+    let (args, _): (IntoIntArgs, _) = args.process(&registry).await?;
+
+    let stream = args.rest.into_iter().map(|i| match i {
+        Value {
+            value: UntaggedValue::Primitive(Primitive::Filesize(size)),
+            tag,
+        } => OutputStream::one(Ok(ReturnSuccess::Value(Value {
+            value: UntaggedValue::Primitive(Primitive::Int(
+                size.to_bigint().expect("Conversion should never fail."),
+            )),
+            tag,
+        }))),
+        _ => OutputStream::one(Ok(ReturnSuccess::Value(i))),
+    });
+
+    Ok(futures::stream::iter(stream).flatten().to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::IntoInt;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(IntoInt {})
+    }
+}
