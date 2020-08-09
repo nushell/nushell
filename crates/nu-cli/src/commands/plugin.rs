@@ -111,6 +111,7 @@ pub async fn filter_plugin(
 
                     let request = JsonRpc::new("begin_filter", call_info.clone());
                     let request_raw = serde_json::to_string(&request);
+                    trace!("begin_filter:request {:?}", &request_raw);
 
                     match request_raw {
                         Err(_) => {
@@ -136,6 +137,8 @@ pub async fn filter_plugin(
                     match reader.read_line(&mut input) {
                         Ok(_) => {
                             let response = serde_json::from_str::<NuResult>(&input);
+                            trace!("begin_filter:response {:?}", &response);
+
                             match response {
                                 Ok(NuResult::response { params }) => match params {
                                     Ok(params) => futures::stream::iter(params).to_output_stream(),
@@ -168,6 +171,7 @@ pub async fn filter_plugin(
 
                     let request: JsonRpc<std::vec::Vec<Value>> = JsonRpc::new("end_filter", vec![]);
                     let request_raw = serde_json::to_string(&request);
+                    trace!("end_filter:request {:?}", &request_raw);
 
                     match request_raw {
                         Err(_) => {
@@ -193,6 +197,8 @@ pub async fn filter_plugin(
                     let stream = match reader.read_line(&mut input) {
                         Ok(_) => {
                             let response = serde_json::from_str::<NuResult>(&input);
+                            trace!("end_filter:response {:?}", &response);
+
                             match response {
                                 Ok(NuResult::response { params }) => match params {
                                     Ok(params) => futures::stream::iter(params).to_output_stream(),
@@ -220,6 +226,7 @@ pub async fn filter_plugin(
 
                     let request: JsonRpc<std::vec::Vec<Value>> = JsonRpc::new("quit", vec![]);
                     let request_raw = serde_json::to_string(&request);
+                    trace!("quit:request {:?}", &request_raw);
 
                     match request_raw {
                         Ok(request_raw) => {
@@ -246,6 +253,8 @@ pub async fn filter_plugin(
 
                     let request = JsonRpc::new("filter", v);
                     let request_raw = serde_json::to_string(&request);
+                    trace!("filter:request {:?}", &request_raw);
+
                     match request_raw {
                         Ok(request_raw) => {
                             let _ = stdin.write(format!("{}\n", request_raw).as_bytes());
@@ -262,6 +271,8 @@ pub async fn filter_plugin(
                     match reader.read_line(&mut input) {
                         Ok(_) => {
                             let response = serde_json::from_str::<NuResult>(&input);
+                            trace!("filter:response {:?}", &response);
+
                             match response {
                                 Ok(NuResult::response { params }) => match params {
                                     Ok(params) => futures::stream::iter(params).to_output_stream(),

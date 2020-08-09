@@ -157,26 +157,21 @@ pub fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
                     }
                 };
 
+                // allow plugins with extensions on all platforms
                 let is_valid_name = {
-                    #[cfg(windows)]
-                    {
-                        bin_name
-                            .chars()
-                            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
-                    }
-
-                    #[cfg(not(windows))]
-                    {
-                        bin_name
-                            .chars()
-                            .all(|c| c.is_ascii_alphanumeric() || c == '_')
-                    }
+                    bin_name
+                        .chars()
+                        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
                 };
 
                 let is_executable = {
                     #[cfg(windows)]
                     {
-                        bin_name.ends_with(".exe") || bin_name.ends_with(".bat")
+                        bin_name.ends_with(".exe") 
+                        || bin_name.ends_with(".bat")
+                        || bin_name.ends_with(".cmd")
+                        || bin_name.ends_with(".py")
+                        || bin_name.ends_with(".ps1")
                     }
 
                     #[cfg(not(windows))]
