@@ -212,8 +212,11 @@ impl History {
 
         let cfg = crate::data::config::config(Tag::unknown());
         if let Ok(c) = cfg {
-            match &c["history-path"].value {
-                UntaggedValue::Primitive(p) => match p {
+            match &c.get("history-path") {
+                Some(Value {
+                    value: UntaggedValue::Primitive(p),
+                    ..
+                }) => match p {
                     Primitive::String(path) => PathBuf::from(path),
                     _ => default,
                 },
