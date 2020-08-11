@@ -99,7 +99,6 @@ impl DirectorySpecificEnvironment {
                         self.maybe_add_key(&mut added_keys, &dir, &env_key, &env_val);
                     }
                 }
-                self.visited_dirs.insert(dir.clone());
 
                 //Add variables that need to evaluate scripts to run, from [scriptvars] section
                 if let Some(sv) = nu_env_doc.scriptvars {
@@ -123,6 +122,7 @@ impl DirectorySpecificEnvironment {
                     self.exitscripts.insert(dir.clone(), es);
                 }
             }
+            self.visited_dirs.insert(dir.clone());
             seen_directories.insert(dir.clone());
             popped = dir.pop();
         }
