@@ -77,7 +77,7 @@ impl Default for HtmlTheme {
 }
 
 #[derive(RustEmbed)]
-#[folder = "../../assets/"] // TODO: Should assets be part of the crate versus the project?
+#[folder = "assets/"]
 struct Assets;
 
 pub struct ToHTML;
