@@ -12,6 +12,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
+
+//Tests exist in /nushell/tests/shell/pipeline/commands/internal.rs
+
 type EnvKey = String;
 type EnvVal = OsString;
 #[derive(Debug, Default)]
