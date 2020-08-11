@@ -38,6 +38,8 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
     })
 }
 
+#[cfg(feature = "directories-support")]
+#[cfg(feature = "which-support")]
 #[test]
 fn autoenv() {
     use nu_test_support::fs::Stub::FileWithContent;
