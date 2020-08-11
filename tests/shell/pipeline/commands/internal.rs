@@ -95,15 +95,6 @@ fn autoenv() {
             ),
         ]);
 
-        // If inside a directory with exitscripts, entering a subdirectory should not trigger the exitscripts.
-        let actual = nu!(
-            cwd: dirs.test(),
-            r#"autoenv trust
-               cd foob
-               ls | where name == "bye.txt" | get name"#
-        );
-        assert!(!actual.out.contains("bye.txt"));
-
         // Make sure entry scripts are run
         let actual = nu!(
             cwd: dirs.test(),
@@ -113,6 +104,15 @@ fn autoenv() {
                ls | where name == "hello.txt" | get name"#
         );
         assert!(actual.out.contains("hello.txt"));
+
+        // If inside a directory with exitscripts, entering a subdirectory should not trigger the exitscripts.
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust
+               cd foob
+               ls | where name == "bye.txt" | get name"#
+        );
+        assert!(!actual.out.contains("bye.txt"));
 
         // Make sure entry scripts are run when re-visiting a directory
         let actual = nu!(
