@@ -10,7 +10,7 @@ version = "0.18.0"
 doctest = false
 
 [dependencies]
-nu-cli = {path = "../nu-cli", version = "0.18.0"}
+nu-cli = {path = "../nu-cli", version = "0.18.1"}
 nu-errors = {path = "../nu-errors", version = "0.18.0"}
 nu-plugin = {path = "../nu-plugin", version = "0.18.0"}
 nu-protocol = {path = "../nu-protocol", version = "0.18.0"}
