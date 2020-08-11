@@ -38,9 +38,11 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
     })
 }
 
-#[cfg(feature = "which")]
+#[cfg(feature = "directories-support")]
+#[cfg(feature = "which-support")]
 #[test]
 fn autoenv() {
+    use nu_test_support::fs::Stub::FileWithContent;
     Playground::setup("autoenv_test", |dirs, sandbox| {
         sandbox.mkdir("foo/bar");
         sandbox.mkdir("bizz/buzz");
@@ -104,6 +106,15 @@ fn autoenv() {
                ls | where name == "hello.txt" | get name"#
         );
         assert!(actual.out.contains("hello.txt"));
+
+        // If inside a directory with exitscripts, entering a subdirectory should not trigger the exitscripts.
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust
+               cd foob
+               ls | where name == "bye.txt" | get name"#
+        );
+        assert!(!actual.out.contains("bye.txt"));
 
         // Make sure entry scripts are run when re-visiting a directory
         let actual = nu!(
