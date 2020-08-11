@@ -203,12 +203,28 @@ pub struct History;
 impl History {
     pub fn path() -> PathBuf {
         const FNAME: &str = "history.txt";
-        config::user_data()
+        let default = config::user_data()
             .map(|mut p| {
                 p.push(FNAME);
                 p
             })
-            .unwrap_or_else(|_| PathBuf::from(FNAME))
+            .unwrap_or_else(|_| PathBuf::from(FNAME));
+
+        let cfg = crate::data::config::config(Tag::unknown());
+        if let Ok(c) = cfg {
+            match &c.get("history-path") {
+                Some(Value {
+                    value: UntaggedValue::Primitive(p),
+                    ..
+                }) => match p {
+                    Primitive::String(path) => PathBuf::from(path),
+                    _ => default,
+                },
+                _ => default,
+            }
+        } else {
+            default
+        }
     }
 }
 
