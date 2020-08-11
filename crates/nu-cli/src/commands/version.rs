@@ -51,11 +51,11 @@ pub fn version(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputS
     if let Ok(lgc) = LastGitCommit::new().build() {
         indexmap.insert(
             "short_commit_hash".to_string(),
-            UntaggedValue::string(lgc.id().short().to_string()).into_value(&tag),
+            UntaggedValue::string(lgc.id().short()).into_value(&tag),
         );
         indexmap.insert(
             "long_commit_hash".to_string(),
-            UntaggedValue::string(lgc.id().long().to_string()).into_value(&tag),
+            UntaggedValue::string(lgc.id().long()).into_value(&tag),
         );
     }
 
