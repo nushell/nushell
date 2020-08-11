@@ -12,8 +12,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-
-//Tests exist in /nushell/tests/shell/pipeline/commands/internal.rs
+//Tests reside in /nushell/tests/shell/pipeline/commands/internal.rs
 
 type EnvKey = String;
 type EnvVal = OsString;
@@ -88,42 +87,41 @@ impl DirectorySpecificEnvironment {
         //We note which directories we pass so we can clear unvisited dirs later.
         let mut seen_directories = IndexSet::new();
 
-        //Add all .nu-envs until we reach a dir which we have already added, or we reached the root.
         let mut popped = true;
-        while popped && !self.visited_dirs.contains(&dir) {
+        while popped {
             let nu_env_file = dir.join(".nu-env");
-            if nu_env_file.exists() {
+            if nu_env_file.exists() && !self.visited_dirs.contains(&dir) {
                 let nu_env_doc = self.toml_if_trusted(&nu_env_file)?;
 
-                //add regular variables from the [env section]
-                if let Some(env) = nu_env_doc.env {
-                    for (env_key, env_val) in env {
-                        self.maybe_add_key(&mut added_keys, &dir, &env_key, &env_val);
+                    //add regular variables from the [env section]
+                    if let Some(env) = nu_env_doc.env {
+                        for (env_key, env_val) in env {
+                            self.maybe_add_key(&mut added_keys, &dir, &env_key, &env_val);
+                        }
                     }
-                }
-                self.visited_dirs.insert(dir.clone());
+                    self.visited_dirs.insert(dir.clone());
 
-                //Add variables that need to evaluate scripts to run, from [scriptvars] section
-                if let Some(sv) = nu_env_doc.scriptvars {
-                    for (key, script) in sv {
-                        self.maybe_add_key(
-                            &mut added_keys,
-                            &dir,
-                            &key,
-                            value_from_script(&script)?.as_str(),
-                        );
+                    //Add variables that need to evaluate scripts to run, from [scriptvars] section
+                    if let Some(sv) = nu_env_doc.scriptvars {
+                        for (key, script) in sv {
+                            self.maybe_add_key(
+                                &mut added_keys,
+                                &dir,
+                                &key,
+                                value_from_script(&script)?.as_str(),
+                            );
+                        }
                     }
-                }
 
-                if let Some(es) = nu_env_doc.entryscripts {
-                    for s in es {
-                        run(s.as_str())?;
+                    if let Some(es) = nu_env_doc.entryscripts {
+                        for s in es {
+                            run(s.as_str())?;
+                        }
                     }
-                }
 
-                if let Some(es) = nu_env_doc.exitscripts {
-                    self.exitscripts.insert(dir.clone(), es);
-                }
+                    if let Some(es) = nu_env_doc.exitscripts {
+                        self.exitscripts.insert(dir.clone(), es);
+                    }
             }
             seen_directories.insert(dir.clone());
             popped = dir.pop();
