@@ -1,10 +1,9 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use indexmap::IndexMap;
+use last_git_commit::LastGitCommit;
 use nu_errors::ShellError;
 use nu_protocol::{Dictionary, Signature, UntaggedValue};
-
-const GIT_COMMIT_HASH: &str = include_str!(concat!(env!("OUT_DIR"), "/git_commit_hash"));
 
 pub struct Version;
 
@@ -42,15 +41,24 @@ impl WholeStreamCommand for Version {
 pub fn version(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.args.span;
 
-    let mut indexmap = IndexMap::with_capacity(2);
+    let mut indexmap = IndexMap::with_capacity(3);
 
     indexmap.insert(
         "version".to_string(),
         UntaggedValue::string(clap::crate_version!()).into_value(&tag),
     );
+    let lgc = LastGitCommit::new()
+        .build()
+        .expect("Error instantiating last-git-commit");
+
     indexmap.insert(
-        "commit_hash".to_string(),
-        UntaggedValue::string(GIT_COMMIT_HASH).into_value(&tag),
+        "short_commit_hash".to_string(),
+        UntaggedValue::string(format!("{}", lgc.id().short())).into_value(&tag),
+    );
+
+    indexmap.insert(
+        "long_commit_hash".to_string(),
+        UntaggedValue::string(format!("{}", lgc.id().long())).into_value(&tag),
     );
 
     let value = UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag);
