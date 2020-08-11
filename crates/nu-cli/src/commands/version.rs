@@ -47,19 +47,17 @@ pub fn version(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputS
         "version".to_string(),
         UntaggedValue::string(clap::crate_version!()).into_value(&tag),
     );
-    let lgc = LastGitCommit::new()
-        .build()
-        .expect("Error instantiating last-git-commit");
 
-    indexmap.insert(
-        "short_commit_hash".to_string(),
-        UntaggedValue::string(format!("{}", lgc.id().short())).into_value(&tag),
-    );
-
-    indexmap.insert(
-        "long_commit_hash".to_string(),
-        UntaggedValue::string(format!("{}", lgc.id().long())).into_value(&tag),
-    );
+    if let Ok(lgc) = LastGitCommit::new().build() {
+        indexmap.insert(
+            "short_commit_hash".to_string(),
+            UntaggedValue::string(format!("{}", lgc.id().short())).into_value(&tag),
+        );
+        indexmap.insert(
+            "long_commit_hash".to_string(),
+            UntaggedValue::string(format!("{}", lgc.id().long())).into_value(&tag),
+        );
+    }
 
     let value = UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag);
     Ok(OutputStream::one(value))
