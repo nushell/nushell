@@ -4,7 +4,7 @@ description = "CLI for nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-cli"
-version = "0.18.0"
+version = "0.18.1"
 
 [lib]
 doctest = false
@@ -112,9 +112,6 @@ users = "0.10.0"
 features = ["bundled", "blob"]
 optional = true
 version = "0.23.1"
-
-[build-dependencies]
-git2 = "0.13"
 
 [dev-dependencies]
 quickcheck = "0.9"

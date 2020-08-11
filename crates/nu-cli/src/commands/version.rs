@@ -4,8 +4,6 @@ use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_protocol::{Dictionary, Signature, UntaggedValue};
 
-const GIT_COMMIT_HASH: &str = include_str!(concat!(env!("OUT_DIR"), "/git_commit_hash"));
-
 pub struct Version;
 
 #[async_trait]
@@ -47,10 +45,6 @@ pub fn version(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputS
     indexmap.insert(
         "version".to_string(),
         UntaggedValue::string(clap::crate_version!()).into_value(&tag),
-    );
-    indexmap.insert(
-        "commit_hash".to_string(),
-        UntaggedValue::string(GIT_COMMIT_HASH).into_value(&tag),
     );
 
     let value = UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag);
