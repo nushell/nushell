@@ -114,7 +114,6 @@ fn autoenv() {
         );
         assert!(actual.out.contains("hello.txt"));
 
-
         // Make sure entry scripts are run when re-visiting a directory
         let actual = nu!(
             cwd: dirs.test(),
