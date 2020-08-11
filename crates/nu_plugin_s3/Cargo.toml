@@ -1,0 +1,20 @@
+[package]
+name = "nu_plugin_s3"
+version = "0.18.0"
+authors = ["The Nu Project Contributors"]
+edition = "2018"
+description = "An S3 plugin for Nushell"
+license = "MIT"
+
+[lib]
+doctest = false
+
+[dependencies]
+nu-plugin = { path = "../nu-plugin", version = "0.18.0" }
+nu-protocol = { path = "../nu-protocol", version = "0.18.0" }
+nu-source = { path = "../nu-source", version = "0.18.0" }
+nu-errors = { path = "../nu-errors", version = "0.18.0" }
+futures = { version = "0.3", features = ["compat", "io-compat"] }
+s3handler = "0.5.0"
+
+[build-dependencies]
