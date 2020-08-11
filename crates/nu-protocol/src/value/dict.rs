@@ -188,6 +188,16 @@ impl Dictionary {
     pub fn insert_data_at_key(&mut self, name: &str, value: Value) {
         self.entries.insert(name.to_string(), value);
     }
+
+    /// Remove the key/value pair from the dictionary and return the value
+    pub fn remove_data_at_key_and_return(&mut self, name: &str) -> Option<Value> {
+        self.entries.remove(&name.to_string())
+    }
+
+    /// Returns true if the dictionary is empty
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
 }
 
 /// A helper to help create dictionaries for you. It has the ability to insert values into the dictionary while maintaining the tags that need to be applied to the individual members

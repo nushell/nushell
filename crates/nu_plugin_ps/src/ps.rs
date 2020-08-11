@@ -53,6 +53,7 @@ pub async fn ps(tag: Tag, long: bool) -> Result<Vec<Value>, ShellError> {
             let mut dict = TaggedDictBuilder::new(&tag);
             dict.insert_untagged("pid", UntaggedValue::int(process.pid()));
             if let Ok(name) = process.name().await {
+                dbg!(&name);
                 dict.insert_untagged("name", UntaggedValue::string(name));
             }
             if let Ok(status) = process.status().await {

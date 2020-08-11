@@ -347,6 +347,7 @@ pub fn create_default_context(
             whole_stream_command(Update),
             whole_stream_command(Insert),
             whole_stream_command(SplitBy),
+            whole_stream_command(Flatten),
             // Row manipulation
             whole_stream_command(Reverse),
             whole_stream_command(Append),
