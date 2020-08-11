@@ -99,7 +99,6 @@ fn autoenv() {
         let actual = nu!(
             cwd: dirs.test(),
             r#"cd ..
-               config path | touch $it
                autoenv trust autoenv_test
                cd autoenv_test
                ls | where name == "hello.txt" | get name"#
