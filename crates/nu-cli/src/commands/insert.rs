@@ -73,10 +73,24 @@ async fn process_row(
 
             match result {
                 Ok(mut stream) => {
+                    let values = stream.drain_vec().await;
+
                     let errors = context.get_errors();
                     if let Some(error) = errors.first() {
                         return Err(error.clone());
                     }
+
+                    let result = if values.len() == 1 {
+                        let value = values
+                            .get(0)
+                            .ok_or_else(|| ShellError::unexpected("No value to insert with"))?;
+
+                        value.clone()
+                    } else if values.is_empty() {
+                        UntaggedValue::nothing().into_untagged_value()
+                    } else {
+                        UntaggedValue::table(&values).into_untagged_value()
+                    };
 
                     match input {
                         obj
@@ -84,16 +98,10 @@ async fn process_row(
                         Value {
                             value: UntaggedValue::Row(_),
                             ..
-                        } => {
-                            if let Some(result) = stream.next().await {
-                                match obj.insert_data_at_column_path(&column, result) {
-                                    Ok(v) => OutputStream::one(ReturnSuccess::value(v)),
-                                    Err(e) => OutputStream::one(Err(e)),
-                                }
-                            } else {
-                                OutputStream::empty()
-                            }
-                        }
+                        } => match obj.insert_data_at_column_path(&column, result) {
+                            Ok(v) => OutputStream::one(ReturnSuccess::value(v)),
+                            Err(e) => OutputStream::one(Err(e)),
+                        },
                         Value { tag, .. } => OutputStream::one(Err(ShellError::labeled_error(
                             "Unrecognized type in stream",
                             "original value",
