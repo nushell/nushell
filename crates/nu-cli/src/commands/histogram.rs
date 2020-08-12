@@ -130,6 +130,15 @@ pub async fn histogram(
                 fact.insert_value(&column.item, column_value);
                 fact.insert_untagged("count", UntaggedValue::int(count));
 
+                let percentage = format!(
+                    "{}%",
+                    // Some(2) < the number of digits
+                    // true < group the digits
+                    crate::commands::str_::from::action(&value, &name, Some(2), true)?
+                        .as_string()?
+                );
+                fact.insert_untagged("percentage", UntaggedValue::string(percentage));
+
                 let string = std::iter::repeat("*")
                     .take(value.as_u64().map_err(|_| {
                         ShellError::labeled_error("expected a number", "expected a number", &name)

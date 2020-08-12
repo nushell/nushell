@@ -112,7 +112,7 @@ async fn operate(
 }
 
 // TODO If you're using the with-system-locale feature and you're on Windows, Clang 3.9 or higher is also required.
-fn action(
+pub fn action(
     input: &Value,
     tag: impl Into<Tag>,
     digits: Option<u64>,
