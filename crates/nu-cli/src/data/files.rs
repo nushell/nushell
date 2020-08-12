@@ -39,7 +39,6 @@ pub(crate) fn dir_entry_dict(
     tag: impl Into<Tag>,
     long: bool,
     short_name: bool,
-    with_symlink_targets: bool,
     du: bool,
     ctrl_c: Arc<AtomicBool>,
 ) -> Result<Value, ShellError> {
@@ -71,7 +70,7 @@ pub(crate) fn dir_entry_dict(
         }
     } else {
         for column in ["name", "type", "target", "size", "modified"].iter() {
-            if *column == "target" && !with_symlink_targets {
+            if *column == "target" {
                 continue;
             }
             dict.insert_untagged(*column, UntaggedValue::nothing());
@@ -97,7 +96,7 @@ pub(crate) fn dir_entry_dict(
         dict.insert_untagged("type", get_file_type(md));
     }
 
-    if long || with_symlink_targets {
+    if long {
         if let Some(md) = metadata {
             if md.file_type().is_symlink() {
                 let symlink_target_untagged_value: UntaggedValue;
