@@ -127,13 +127,13 @@ pub async fn histogram(
             .table_entries()
             .map(move |value| {
                 let values = value.table_entries().cloned().collect::<Vec<_>>();
-                let count = values.len();
+                let ocurrences = values.len();
 
-                (count, values[count - 1].clone())
+                (ocurrences, values[ocurrences - 1].clone())
             })
             .collect::<Vec<_>>()
             .into_iter()
-            .map(move |(count, value)| {
+            .map(move |(ocurrences, value)| {
                 let mut fact = TaggedDictBuilder::new(&name);
                 let column_value = labels
                     .get(idx)
@@ -147,7 +147,7 @@ pub async fn histogram(
                     .clone();
 
                 fact.insert_value(&column.item, column_value);
-                fact.insert_untagged("count", UntaggedValue::int(count));
+                fact.insert_untagged("ocurrences", UntaggedValue::int(ocurrences));
 
                 let percentage = format!(
                     "{}%",
