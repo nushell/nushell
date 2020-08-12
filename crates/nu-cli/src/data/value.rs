@@ -62,6 +62,43 @@ fn zero_division_error() -> UntaggedValue {
     UntaggedValue::Error(ShellError::untagged_runtime_error("division by zero"))
 }
 
+pub fn unsafe_compute_values(
+    operator: Operator,
+    left: &UntaggedValue,
+    right: &UntaggedValue,
+) -> Result<UntaggedValue, (&'static str, &'static str)> {
+    let computed = compute_values(operator, left, right);
+
+    if computed.is_ok() {
+        return computed;
+    }
+
+    match (left, right) {
+        (UntaggedValue::Primitive(lhs), UntaggedValue::Primitive(rhs)) => match (lhs, rhs) {
+            (Primitive::Filesize(x), Primitive::Int(y)) => match operator {
+                Operator::Plus => Ok(UntaggedValue::Primitive(Primitive::Int(x + y))),
+                Operator::Minus => Ok(UntaggedValue::Primitive(Primitive::Int(x - y))),
+                Operator::Multiply => Ok(UntaggedValue::Primitive(Primitive::Int(x * y))),
+                Operator::Divide => Ok(UntaggedValue::Primitive(Primitive::Decimal(
+                    bigdecimal::BigDecimal::from(*x) / bigdecimal::BigDecimal::from(y.clone()),
+                ))),
+                _ => Err((left.type_name(), right.type_name())),
+            },
+            (Primitive::Int(x), Primitive::Filesize(y)) => match operator {
+                Operator::Plus => Ok(UntaggedValue::Primitive(Primitive::Int(x + y))),
+                Operator::Minus => Ok(UntaggedValue::Primitive(Primitive::Int(x - y))),
+                Operator::Multiply => Ok(UntaggedValue::Primitive(Primitive::Int(x * y))),
+                Operator::Divide => Ok(UntaggedValue::Primitive(Primitive::Decimal(
+                    bigdecimal::BigDecimal::from(x.clone()) / bigdecimal::BigDecimal::from(*y),
+                ))),
+                _ => Err((left.type_name(), right.type_name())),
+            },
+            _ => Err((left.type_name(), right.type_name())),
+        },
+        _ => Err((left.type_name(), right.type_name())),
+    }
+}
+
 pub fn compute_values(
     operator: Operator,
     left: &UntaggedValue,
