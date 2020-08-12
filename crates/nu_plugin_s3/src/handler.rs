@@ -120,15 +120,15 @@ pub async fn s3_helper(resource: &Value, has_raw: bool, config: &CredentialConfi
         })
     };
 
-    if extension.is_none() {
-        ReturnSuccess::value(UntaggedValue::string(output))
-    } else {
+    if let Some(e) = extension {
         Ok(ReturnSuccess::Action(CommandAction::AutoConvert(
             UntaggedValue::string(output).into_value(Tag {
                 span: resource.tag.span,
                 anchor: Some(AnchorLocation::Url(resource_str)),
             }),
-            extension.unwrap(),
+            e,
         )))
+    } else {
+        ReturnSuccess::value(UntaggedValue::string(output))
     }
 }
