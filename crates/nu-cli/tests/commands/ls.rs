@@ -176,9 +176,14 @@ fn list_all_columns() {
             // Symbolic Links
             let actual = nu!(
                 cwd: dirs.test(),
-                "ls -w | get | to md"
+                "ls -l | get | to md"
             );
-            let expected = ["name", "type", "target", "size", "modified"].join("");
+            let expected = [
+                "name", "type", "target", "readonly", "mode", "uid", "group", "size", "created",
+                "accessed", "modified",
+            ]
+            .join("");
+
             assert_eq!(actual.out, expected, "column names are incorrect for ls -w");
             // Long
             let actual = nu!(
