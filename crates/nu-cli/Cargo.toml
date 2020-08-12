@@ -10,14 +10,14 @@ version = "0.18.1"
 doctest = false
 
 [dependencies]
-nu-errors = {version = "0.18.0", path = "../nu-errors"}
-nu-parser = {version = "0.18.0", path = "../nu-parser"}
-nu-plugin = {version = "0.18.0", path = "../nu-plugin"}
-nu-protocol = {version = "0.18.0", path = "../nu-protocol"}
-nu-source = {version = "0.18.0", path = "../nu-source"}
-nu-table = {version = "0.18.0", path = "../nu-table"}
-nu-test-support = {version = "0.18.0", path = "../nu-test-support"}
-nu-value-ext = {version = "0.18.0", path = "../nu-value-ext"}
+nu-errors = {version = "0.18.1", path = "../nu-errors"}
+nu-parser = {version = "0.18.1", path = "../nu-parser"}
+nu-plugin = {version = "0.18.1", path = "../nu-plugin"}
+nu-protocol = {version = "0.18.1", path = "../nu-protocol"}
+nu-source = {version = "0.18.1", path = "../nu-source"}
+nu-table = {version = "0.18.1", path = "../nu-table"}
+nu-test-support = {version = "0.18.1", path = "../nu-test-support"}
+nu-value-ext = {version = "0.18.1", path = "../nu-value-ext"}
 
 ansi_term = "0.12.1"
 app_dirs = {version = "2", package = "app_dirs2"}
@@ -52,7 +52,6 @@ ical = "0.6.*"
 ichwh = {version = "0.3.4", optional = true}
 indexmap = {version = "1.4.0", features = ["serde-1"]}
 itertools = "0.9.0"
-last-git-commit = "0.2.0"
 log = "0.4.8"
 meval = "0.2"
 natural = "0.5.0"
@@ -115,7 +114,6 @@ optional = true
 version = "0.23.1"
 
 [build-dependencies]
-git2 = "0.13"
 
 [dev-dependencies]
 quickcheck = "0.9"

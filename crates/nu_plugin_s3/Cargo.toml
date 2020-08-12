@@ -1,6 +1,6 @@
 [package]
 name = "nu_plugin_s3"
-version = "0.18.0"
+version = "0.18.1"
 authors = ["The Nu Project Contributors"]
 edition = "2018"
 description = "An S3 plugin for Nushell"
