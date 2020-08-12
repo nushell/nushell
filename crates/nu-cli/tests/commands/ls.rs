@@ -184,7 +184,7 @@ fn list_all_columns() {
             ]
             .join("");
 
-            assert_eq!(actual.out, expected, "column names are incorrect for ls -w");
+            assert_eq!(actual.out, expected, "column names are incorrect for ls -l");
             // Long
             let actual = nu!(
                 cwd: dirs.test(),
