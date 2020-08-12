@@ -173,18 +173,6 @@ fn list_all_columns() {
             );
             let expected = ["name", "type", "size", "modified"].join("");
             assert_eq!(actual.out, expected, "column names are incorrect for ls");
-            // Symbolic Links
-            let actual = nu!(
-                cwd: dirs.test(),
-                "ls -l | get | to md"
-            );
-            let expected = [
-                "name", "type", "target", "readonly", "mode", "uid", "group", "size", "created",
-                "accessed", "modified",
-            ]
-            .join("");
-
-            assert_eq!(actual.out, expected, "column names are incorrect for ls -l");
             // Long
             let actual = nu!(
                 cwd: dirs.test(),
