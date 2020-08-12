@@ -96,9 +96,9 @@ pub async fn histogram(
     let frequency_column_name = if columns.is_empty() {
         "frequency".to_string()
     } else if let Some((key, _)) = columns[0].split_last() {
-            key.as_string()
+        key.as_string()
     } else {
-            "frecuency".to_string()
+        "frecuency".to_string()
     };
 
     let column = if let Some(ref column) = column_grouper {
