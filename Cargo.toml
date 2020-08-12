@@ -40,6 +40,7 @@ nu_plugin_textview = {version = "0.18.1", path = "./crates/nu_plugin_textview", 
 nu_plugin_to_bson = {version = "0.18.1", path = "./crates/nu_plugin_to_bson", optional = true}
 nu_plugin_to_sqlite = {version = "0.18.1", path = "./crates/nu_plugin_to_sqlite", optional = true}
 nu_plugin_tree = {version = "0.18.1", path = "./crates/nu_plugin_tree", optional = true}
+nu_plugin_s3 = { version = "0.18.1", path = "./crates/nu_plugin_s3", optional=true }
 
 crossterm = {version = "0.17.5", optional = true}
 semver = {version = "0.10.0", optional = true}
@@ -76,7 +77,7 @@ default = [
   "term-support",
   "uuid-support",
 ]
-stable = ["default", "binaryview", "match", "tree", "post", "fetch", "clipboard-cli", "trash-support", "start", "starship-prompt", "bson", "sqlite"]
+stable = ["default", "binaryview", "match", "tree", "post", "fetch", "clipboard-cli", "trash-support", "start", "starship-prompt", "bson", "sqlite", "s3"]
 
 # Default
 inc = ["semver", "nu_plugin_inc"]
@@ -94,6 +95,7 @@ sqlite = ["nu_plugin_from_sqlite", "nu_plugin_to_sqlite"]
 start = ["nu_plugin_start"]
 trace = ["nu-parser/trace"]
 tree = ["nu_plugin_tree"]
+s3 = ["nu_plugin_s3"]
 
 clipboard-cli = ["nu-cli/clipboard-cli"]
 ctrlc-support = ["nu-cli/ctrlc"]
@@ -159,6 +161,11 @@ required-features = ["tree"]
 name = "nu_plugin_stable_start"
 path = "src/plugins/nu_plugin_stable_start.rs"
 required-features = ["start"]
+
+[[bin]]
+name = "nu_plugin_stable_s3"
+path = "src/plugins/nu_plugin_stable_s3.rs"
+required-features = ["s3"]
 
 # Main nu binary
 [[bin]]
