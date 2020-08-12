@@ -203,12 +203,28 @@ pub struct History;
 impl History {
     pub fn path() -> PathBuf {
         const FNAME: &str = "history.txt";
-        config::user_data()
+        let default = config::user_data()
             .map(|mut p| {
                 p.push(FNAME);
                 p
             })
-            .unwrap_or_else(|_| PathBuf::from(FNAME))
+            .unwrap_or_else(|_| PathBuf::from(FNAME));
+
+        let cfg = crate::data::config::config(Tag::unknown());
+        if let Ok(c) = cfg {
+            match &c.get("history-path") {
+                Some(Value {
+                    value: UntaggedValue::Primitive(p),
+                    ..
+                }) => match p {
+                    Primitive::String(path) => PathBuf::from(path),
+                    _ => default,
+                },
+                _ => default,
+            }
+        } else {
+            default
+        }
     }
 }
 
@@ -366,6 +382,7 @@ pub fn create_default_context(
             whole_stream_command(Wrap),
             whole_stream_command(Pivot),
             whole_stream_command(Headers),
+            whole_stream_command(Reduce),
             // Data processing
             whole_stream_command(Histogram),
             whole_stream_command(Autoenv),
@@ -560,6 +577,20 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
         Cmd::Move(Movement::ForwardWord(1, At::AfterEnd, Word::Vi)),
     );
 
+    // Let's set the defaults up front and then override them later if the user indicates
+    // defaults taken from here https://github.com/kkawakam/rustyline/blob/2fe886c9576c1ea13ca0e5808053ad491a6fe049/src/config.rs#L150-L167
+    rl.set_max_history_size(100);
+    rl.set_history_ignore_dups(true);
+    rl.set_history_ignore_space(false);
+    rl.set_completion_type(DEFAULT_COMPLETION_MODE);
+    rl.set_completion_prompt_limit(100);
+    rl.set_keyseq_timeout(-1);
+    rl.set_edit_mode(rustyline::config::EditMode::Emacs);
+    rl.set_auto_add_history(false);
+    rl.set_bell_style(rustyline::config::BellStyle::default());
+    rl.set_color_mode(rustyline::ColorMode::Enabled);
+    rl.set_tab_stop(8);
+
     if let Err(e) = crate::keybinding::load_keybindings(&mut rl) {
         println!("Error loading keybindings: {:?}", e);
     }
@@ -584,11 +615,9 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
             for (idx, value) in line_editor_vars.row_entries() {
                 match idx.as_ref() {
                     "max_history_size" => {
-                        let max_history_size = match value.as_u64() {
-                            Ok(n) => n as usize,
-                            _ => 1000 as usize,
-                        };
-                        rl.set_max_history_size(max_history_size as usize);
+                        if let Ok(max_history_size) = value.as_u64() {
+                            rl.set_max_history_size(max_history_size as usize);
+                        }
                     }
                     "history_duplicates" => {
                         // history_duplicates = match value.as_string() {
@@ -600,12 +629,14 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
                         //     }
                         //     _ => rustyline::config::HistoryDuplicates::AlwaysAdd,
                         // };
-                        let history_duplicates = value.as_bool().unwrap_or(true);
-                        rl.set_history_ignore_dups(history_duplicates);
+                        if let Ok(history_duplicates) = value.as_bool() {
+                            rl.set_history_ignore_dups(history_duplicates);
+                        }
                     }
                     "history_ignore_space" => {
-                        let history_ignore_space = value.as_bool().unwrap_or(true);
-                        rl.set_history_ignore_space(history_ignore_space);
+                        if let Ok(history_ignore_space) = value.as_bool() {
+                            rl.set_history_ignore_space(history_ignore_space);
+                        }
                     }
                     "completion_type" => {
                         let completion_type = match value.as_string() {
@@ -624,12 +655,14 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
                         rl.set_completion_type(completion_type);
                     }
                     "completion_prompt_limit" => {
-                        let completion_prompt_limit = value.as_u64().unwrap_or(1) as usize;
-                        rl.set_completion_prompt_limit(completion_prompt_limit);
+                        if let Ok(completion_prompt_limit) = value.as_u64() {
+                            rl.set_completion_prompt_limit(completion_prompt_limit as usize);
+                        }
                     }
                     "keyseq_timeout_ms" => {
-                        let keyseq_timeout_ms = value.as_u64().unwrap_or(500) as i32;
-                        rl.set_keyseq_timeout(keyseq_timeout_ms);
+                        if let Ok(keyseq_timeout_ms) = value.as_u64() {
+                            rl.set_keyseq_timeout(keyseq_timeout_ms as i32);
+                        }
                     }
                     "edit_mode" => {
                         let edit_mode = match value.as_string() {
@@ -640,10 +673,15 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
                             _ => rustyline::config::EditMode::Emacs,
                         };
                         rl.set_edit_mode(edit_mode);
+                        // Note: When edit_mode is Emacs, the keyseq_timeout_ms is set to -1
+                        // no matter what you may have configured. This is so that key chords
+                        // can be applied without having to do them in a given timeout. So,
+                        // it essentially turns off the keyseq timeout.
                     }
                     "auto_add_history" => {
-                        let auto_add_history = value.as_bool().unwrap_or(true);
-                        rl.set_auto_add_history(auto_add_history);
+                        if let Ok(auto_add_history) = value.as_bool() {
+                            rl.set_auto_add_history(auto_add_history);
+                        }
                     }
                     "bell_style" => {
                         let bell_style = match value.as_string() {
@@ -656,7 +694,7 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
                             Ok(s) if s.to_lowercase() == "visible" => {
                                 rustyline::config::BellStyle::Visible
                             }
-                            _ => rustyline::config::BellStyle::None,
+                            _ => rustyline::config::BellStyle::default(),
                         };
                         rl.set_bell_style(bell_style);
                     }
@@ -672,39 +710,14 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
                         rl.set_color_mode(color_mode);
                     }
                     "tab_stop" => {
-                        let tab_stop = value.as_u64().unwrap_or(4) as usize;
-                        rl.set_tab_stop(tab_stop);
+                        if let Ok(tab_stop) = value.as_u64() {
+                            rl.set_tab_stop(tab_stop as usize);
+                        }
                     }
                     _ => (),
                 }
             }
-        } else {
-            // if the line_editor config section doesn't exist, let's set some defaults
-            rl.set_max_history_size(1000);
-            rl.set_history_ignore_dups(true);
-            rl.set_history_ignore_space(true);
-            rl.set_completion_type(DEFAULT_COMPLETION_MODE);
-            rl.set_completion_prompt_limit(1);
-            rl.set_keyseq_timeout(500);
-            rl.set_edit_mode(rustyline::config::EditMode::Vi);
-            rl.set_auto_add_history(true);
-            rl.set_bell_style(rustyline::config::BellStyle::None);
-            rl.set_color_mode(rustyline::ColorMode::Enabled);
-            rl.set_tab_stop(4);
         }
-    } else {
-        // if the config file itself doesn't exist, let's set some defaults
-        rl.set_max_history_size(1000);
-        rl.set_history_ignore_dups(true);
-        rl.set_history_ignore_space(true);
-        rl.set_completion_type(DEFAULT_COMPLETION_MODE);
-        rl.set_completion_prompt_limit(1);
-        rl.set_keyseq_timeout(500);
-        rl.set_edit_mode(rustyline::config::EditMode::Vi);
-        rl.set_auto_add_history(true);
-        rl.set_bell_style(rustyline::config::BellStyle::None);
-        rl.set_color_mode(rustyline::ColorMode::Enabled);
-        rl.set_tab_stop(4);
     }
 
     // we are ok if history does not exist
@@ -721,6 +734,18 @@ pub async fn cli(
     let _ = load_plugins(&mut context);
 
     let (mut rl, config) = set_rustyline_configuration();
+
+    let skip_welcome_message = config
+        .get("skip_welcome_message")
+        .map(|x| x.is_true())
+        .unwrap_or(false);
+    if !skip_welcome_message {
+        println!(
+            "Welcome to Nushell {} (type 'help' for more info)",
+            clap::crate_version!()
+        );
+    }
+
     let use_starship = config
         .get("use_starship")
         .map(|x| x.is_true())

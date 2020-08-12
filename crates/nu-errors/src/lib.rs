@@ -349,6 +349,14 @@ impl ShellError {
         .start()
     }
 
+    pub fn missing_value(span: impl Into<Option<Span>>, reason: impl Into<String>) -> ShellError {
+        ProximateShellError::MissingValue {
+            span: span.into(),
+            reason: reason.into(),
+        }
+        .start()
+    }
+
     pub fn invalid_integer_index(
         subpath: Spanned<impl Into<String>>,
         integer: impl Into<Span>,

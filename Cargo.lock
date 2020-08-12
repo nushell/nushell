@@ -473,6 +473,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e4cec68f03f32e44924783795810fa50a7035d8c8ebe78580ad7e6c703fba38"
 
 [[package]]
+name = "bzip2"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42b7c3cbf0fa9c1b82308d57191728ca0256cb821220f4e2fd410a72ade26e3b"
+dependencies = [
+ "bzip2-sys",
+ "libc",
+]
+
+[[package]]
+name = "bzip2-sys"
+version = "0.1.9+1.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad3b39a260062fca31f7b0b12f207e8f2590a67d32ec7d59c20484b07ea7285e"
+dependencies = [
+ "cc",
+ "libc",
+ "pkg-config",
+]
+
+[[package]]
 name = "cache-padded"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -524,6 +545,16 @@ dependencies = [
  "num-traits 0.2.12",
  "serde 1.0.114",
  "time",
+]
+
+[[package]]
+name = "chrono-tz"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "65d96be7c3e993c9ee4356442db24ba364c924b6b8331866be6b6952bfe74b9d"
+dependencies = [
+ "chrono",
+ "parse-zoneinfo",
 ]
 
 [[package]]
@@ -1049,6 +1080,19 @@ name = "dtoa"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "134951f4028bdadb9b84baf4232681efbf277da25144b9b0ad65df75946c422b"
+
+[[package]]
+name = "dtparse"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9713da7ca51bcd8ecbaedbd6309110eb1ca930d2109ef595a125f84fa1bc608b"
+dependencies = [
+ "chrono",
+ "chrono-tz",
+ "lazy_static 1.4.0",
+ "num-traits 0.2.12",
+ "rust_decimal",
+]
 
 [[package]]
 name = "dunce"
@@ -2541,7 +2585,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.17.0"
+version = "0.18.1"
 dependencies = [
  "clap",
  "crossterm",
@@ -2583,7 +2627,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cli"
-version = "0.17.0"
+version = "0.18.1"
 dependencies = [
  "ansi_term 0.12.1",
  "app_dirs2",
@@ -2603,6 +2647,7 @@ dependencies = [
  "derive-new",
  "directories 2.0.2",
  "dirs 2.0.2",
+ "dtparse",
  "dunce",
  "eml-parser",
  "encoding_rs",
@@ -2647,6 +2692,7 @@ dependencies = [
  "regex",
  "roxmltree",
  "rusqlite",
+ "rust-embed",
  "rustyline",
  "serde 1.0.114",
  "serde-hjson 0.9.1",
@@ -2672,11 +2718,12 @@ dependencies = [
  "users",
  "uuid",
  "which",
+ "zip",
 ]
 
 [[package]]
 name = "nu-errors"
-version = "0.17.0"
+version = "0.18.1"
 dependencies = [
  "ansi_term 0.12.1",
  "bigdecimal",
@@ -2695,7 +2742,7 @@ dependencies = [
 
 [[package]]
 name = "nu-parser"
-version = "0.17.0"
+version = "0.18.1"
 dependencies = [
  "bigdecimal",
  "codespan-reporting",
@@ -2714,7 +2761,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin"
-version = "0.17.0"
+version = "0.18.1"
 dependencies = [
  "bigdecimal",
  "indexmap",
@@ -2729,7 +2776,7 @@ dependencies = [
 
 [[package]]
 name = "nu-protocol"
-version = "0.17.0"
+version = "0.18.1"
 dependencies = [
  "ansi_term 0.12.1",
  "bigdecimal",
@@ -2758,7 +2805,7 @@ dependencies = [
 
 [[package]]
 name = "nu-source"
-version = "0.17.0"
+version = "0.18.1"
 dependencies = [
  "codespan-reporting",
  "derive-new",
@@ -2770,7 +2817,7 @@ dependencies = [
 
 [[package]]
 name = "nu-table"
-version = "0.17.0"
+version = "0.18.1"
 dependencies = [
  "ansi_term 0.12.1",
  "unicode-width",
@@ -2778,7 +2825,7 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support"
-version = "0.17.0"
+version = "0.18.1"
 dependencies = [
  "directories 2.0.2",
  "dunce",
@@ -2793,7 +2840,7 @@ dependencies = [
 
 [[package]]
 name = "nu-value-ext"
-version = "0.17.0"
+version = "0.18.1"
 dependencies = [
  "indexmap",
  "itertools",
@@ -2806,7 +2853,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_binaryview"
-version = "0.17.0"
+version = "0.18.1"
 dependencies = [
  "ansi_term 0.12.1",
  "crossterm",
@@ -2822,7 +2869,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_fetch"
-version = "0.17.0"
+version = "0.18.1"
 dependencies = [
  "base64 0.12.3",
  "futures 0.3.5",
@@ -2836,7 +2883,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_from_bson"
-version = "0.17.0"
+version = "0.18.1"
 dependencies = [
  "bigdecimal",
  "bson",
@@ -2850,7 +2897,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_from_sqlite"
-version = "0.17.0"
+version = "0.18.1"
 dependencies = [
  "bigdecimal",
  "nu-errors",
@@ -2865,7 +2912,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_inc"
-version = "0.17.0"
+version = "0.18.1"
 dependencies = [
  "nu-errors",
  "nu-plugin",
@@ -2877,7 +2924,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_match"
-version = "0.17.0"
+version = "0.18.1"
 dependencies = [
  "futures 0.3.5",
  "nu-errors",
@@ -2889,7 +2936,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_post"
-version = "0.17.0"
+version = "0.18.1"
 dependencies = [
  "base64 0.12.3",
  "futures 0.3.5",
@@ -2905,7 +2952,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_ps"
-version = "0.17.0"
+version = "0.18.1"
 dependencies = [
  "futures 0.3.5",
  "futures-timer",
@@ -2918,7 +2965,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_start"
-version = "0.17.0"
+version = "0.18.1"
 dependencies = [
  "glob",
  "nu-errors",
@@ -2931,7 +2978,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_sys"
-version = "0.17.0"
+version = "0.18.1"
 dependencies = [
  "battery",
  "futures 0.3.5",
@@ -2946,7 +2993,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_textview"
-version = "0.17.0"
+version = "0.18.1"
 dependencies = [
  "ansi_term 0.12.1",
  "bat",
@@ -2963,7 +3010,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_to_bson"
-version = "0.17.0"
+version = "0.18.1"
 dependencies = [
  "bson",
  "nu-errors",
@@ -2976,7 +3023,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_to_sqlite"
-version = "0.17.0"
+version = "0.18.1"
 dependencies = [
  "hex 0.4.2",
  "nu-errors",
@@ -2991,7 +3038,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_tree"
-version = "0.17.0"
+version = "0.18.1"
 dependencies = [
  "derive-new",
  "nu-errors",
@@ -2999,6 +3046,20 @@ dependencies = [
  "nu-protocol",
  "nu-source",
  "ptree",
+]
+
+[[package]]
+name = "num"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8536030f9fea7127f841b45bb6243b27255787fb4eb83958aa1ef9d2fdc0c36"
+dependencies = [
+ "num-bigint",
+ "num-complex",
+ "num-integer",
+ "num-iter",
+ "num-rational",
+ "num-traits 0.2.12",
 ]
 
 [[package]]
@@ -3011,6 +3072,16 @@ dependencies = [
  "num-integer",
  "num-traits 0.2.12",
  "serde 1.0.114",
+]
+
+[[package]]
+name = "num-complex"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6b19411a9719e753aff12e5187b74d60d3dc449ec3f4dc21e3989c3f554bc95"
+dependencies = [
+ "autocfg",
+ "num-traits 0.2.12",
 ]
 
 [[package]]
@@ -3052,6 +3123,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5c000134b5dbf44adc5cb772486d335293351644b801551abe8f75c84cfa4aef"
 dependencies = [
  "autocfg",
+ "num-bigint",
  "num-integer",
  "num-traits 0.2.12",
 ]
@@ -3303,6 +3375,15 @@ dependencies = [
  "redox_syscall",
  "smallvec",
  "winapi 0.3.9",
+]
+
+[[package]]
+name = "parse-zoneinfo"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c705f256449c60da65e11ff6626e0c16a0a0b96aaa348de61376b249bc340f41"
+dependencies = [
+ "regex",
 ]
 
 [[package]]
@@ -3836,6 +3917,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "rust-embed"
+version = "5.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "213acf1bc5a6dfcd70b62db1e9a7d06325c0e73439c312fcb8599d456d9686ee"
+dependencies = [
+ "rust-embed-impl",
+ "rust-embed-utils",
+ "walkdir",
+]
+
+[[package]]
+name = "rust-embed-impl"
+version = "5.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7903c2cf599db8f310b392332f38367ca4acc84420fa1aee3536299f433c10d5"
+dependencies = [
+ "quote",
+ "rust-embed-utils",
+ "syn",
+ "walkdir",
+]
+
+[[package]]
+name = "rust-embed-utils"
+version = "5.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97655158074ccb2d2cfb1ccb4c956ef0f4054e43a2c1e71146d4991e6961e105"
+dependencies = [
+ "walkdir",
+]
+
+[[package]]
 name = "rust-ini"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3849,6 +3962,18 @@ checksum = "e46a2036019fdb888131db7a4c847a1063a7493f971ed94ea82c67eada63ca54"
 dependencies = [
  "serde 1.0.114",
  "serde_derive",
+]
+
+[[package]]
+name = "rust_decimal"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a93c95e3d5c1d997e6e4ba9bda898f4e1d73934cd05510c972f10087d0ef00c1"
+dependencies = [
+ "byteorder",
+ "lazy_static 1.4.0",
+ "num",
+ "serde 1.0.114",
 ]
 
 [[package]]
@@ -4902,9 +5027,9 @@ dependencies = [
 
 [[package]]
 name = "which"
-version = "4.0.1"
+version = "4.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5fe1a9cb33fe7cf77d431070d0223e544b1e4e7f7764bad0a3e691a6678a131"
+checksum = "87c14ef7e1b8b8ecfc75d5eca37949410046e66f15d185c01d70824f1f8111ef"
 dependencies = [
  "libc",
  "thiserror",
@@ -5030,7 +5155,9 @@ version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "58287c28d78507f5f91f2a4cf1e8310e2c76fd4c6932f93ac60fd1ceb402db7d"
 dependencies = [
+ "bzip2",
  "crc32fast",
  "flate2",
  "podio",
+ "time",
 ]

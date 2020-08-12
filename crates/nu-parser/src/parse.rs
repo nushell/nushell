@@ -4,8 +4,8 @@ use log::trace;
 use nu_errors::{ArgumentError, ParseError};
 use nu_protocol::hir::{
     self, Binary, Block, ClassifiedBlock, ClassifiedCommand, ClassifiedPipeline, Commands,
-    Expression, Flag, FlagKind, InternalCommand, Member, NamedArguments, Operator,
-    SpannedExpression, Unit,
+    Expression, ExternalRedirection, Flag, FlagKind, InternalCommand, Member, NamedArguments,
+    Operator, SpannedExpression, Unit,
 };
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPathMember};
 use nu_source::{Span, Spanned, SpannedItem};
@@ -498,7 +498,7 @@ fn parse_interpolated_string(
                     expr: Expression::Synthetic(hir::Synthetic::String("build-string".to_owned())),
                     span: lite_arg.span,
                 }),
-                is_last: false,
+                external_redirection: ExternalRedirection::Stdout,
                 named: None,
                 positional: Some(output),
                 span: lite_arg.span,
@@ -1359,7 +1359,11 @@ fn classify_pipeline(
                     positional: Some(args),
                     named: None,
                     span: Span::unknown(),
-                    is_last: iter.peek().is_none(),
+                    external_redirection: if iter.peek().is_none() {
+                        ExternalRedirection::None
+                    } else {
+                        ExternalRedirection::Stdout
+                    },
                 },
             }))
         } else if lite_cmd.name.item == "=" {
@@ -1387,7 +1391,11 @@ fn classify_pipeline(
                         parse_internal_command(&lite_cmd, registry, &signature, 1);
 
                     error = error.or(err);
-                    internal_command.args.is_last = iter.peek().is_none();
+                    internal_command.args.external_redirection = if iter.peek().is_none() {
+                        ExternalRedirection::None
+                    } else {
+                        ExternalRedirection::Stdout
+                    };
                     commands.push(ClassifiedCommand::Internal(internal_command));
                     continue;
                 }
@@ -1399,7 +1407,11 @@ fn classify_pipeline(
                     parse_internal_command(&lite_cmd, registry, &signature, 0);
 
                 error = error.or(err);
-                internal_command.args.is_last = iter.peek().is_none();
+                internal_command.args.external_redirection = if iter.peek().is_none() {
+                    ExternalRedirection::None
+                } else {
+                    ExternalRedirection::Stdout
+                };
                 commands.push(ClassifiedCommand::Internal(internal_command));
                 continue;
             }
@@ -1437,7 +1449,11 @@ fn classify_pipeline(
                     positional: Some(args),
                     named: None,
                     span: Span::unknown(),
-                    is_last: iter.peek().is_none(),
+                    external_redirection: if iter.peek().is_none() {
+                        ExternalRedirection::None
+                    } else {
+                        ExternalRedirection::Stdout
+                    },
                 },
             }))
         }

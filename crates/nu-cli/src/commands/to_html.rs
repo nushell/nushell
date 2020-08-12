@@ -6,7 +6,79 @@ use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::{AnchorLocation, Tagged};
 use regex::Regex;
+use rust_embed::RustEmbed;
+use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::collections::HashMap;
+use std::error::Error;
+use std::io::Read;
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct HtmlThemes {
+    themes: Vec<HtmlTheme>,
+}
+
+#[allow(non_snake_case)]
+#[derive(Serialize, Deserialize, Debug)]
+pub struct HtmlTheme {
+    name: String,
+    black: String,
+    red: String,
+    green: String,
+    yellow: String,
+    blue: String,
+    purple: String,
+    cyan: String,
+    white: String,
+    brightBlack: String,
+    brightRed: String,
+    brightGreen: String,
+    brightYellow: String,
+    brightBlue: String,
+    brightPurple: String,
+    brightCyan: String,
+    brightWhite: String,
+    background: String,
+    foreground: String,
+}
+
+impl Default for HtmlThemes {
+    fn default() -> Self {
+        HtmlThemes {
+            themes: vec![HtmlTheme::default()],
+        }
+    }
+}
+
+impl Default for HtmlTheme {
+    fn default() -> Self {
+        HtmlTheme {
+            name: "nu_default".to_string(),
+            black: "black".to_string(),
+            red: "red".to_string(),
+            green: "green".to_string(),
+            yellow: "#717100".to_string(),
+            blue: "blue".to_string(),
+            purple: "#c800c8".to_string(),
+            cyan: "#037979".to_string(),
+            white: "white".to_string(),
+            brightBlack: "black".to_string(),
+            brightRed: "red".to_string(),
+            brightGreen: "green".to_string(),
+            brightYellow: "#717100".to_string(),
+            brightBlue: "blue".to_string(),
+            brightPurple: "#c800c8".to_string(),
+            brightCyan: "#037979".to_string(),
+            brightWhite: "white".to_string(),
+            background: "white".to_string(),
+            foreground: "black".to_string(),
+        }
+    }
+}
+
+#[derive(RustEmbed)]
+#[folder = "assets/"]
+struct Assets;
 
 pub struct ToHTML;
 
@@ -17,6 +89,7 @@ pub struct ToHTMLArgs {
     dark: bool,
     partial: bool,
     theme: Option<Tagged<String>>,
+    list: bool,
 }
 
 #[async_trait]
@@ -42,9 +115,10 @@ impl WholeStreamCommand for ToHTML {
             .named(
                 "theme",
                 SyntaxShape::String,
-                "the name of the theme to use (default, campbell, github, blulocolight)",
+                "the name of the theme to use (github, blulocolight, ...)",
                 Some('t'),
             )
+            .switch("list", "list the names of all available themes", Some('l'))
     }
 
     fn usage(&self) -> &str {
@@ -60,183 +134,133 @@ impl WholeStreamCommand for ToHTML {
     }
 }
 
-fn get_campbell_theme(is_dark: bool) -> HashMap<&'static str, String> {
-    // for reference here is Microsoft's Campbell Theme
-    // taken from here
-    // https://docs.microsoft.com/en-us/windows/terminal/customize-settings/color-schemes
-    let mut hm: HashMap<&str, String> = HashMap::new();
-
-    hm.insert("bold_black", "#767676".to_string());
-    hm.insert("bold_red", "#E74856".to_string());
-    hm.insert("bold_green", "#16C60C".to_string());
-    hm.insert("bold_yellow", "#F9F1A5".to_string());
-    hm.insert("bold_blue", "#3B78FF".to_string());
-    hm.insert("bold_magenta", "#B4009E".to_string());
-    hm.insert("bold_cyan", "#61D6D6".to_string());
-    hm.insert("bold_white", "#F2F2F2".to_string());
-
-    hm.insert("black", "#0C0C0C".to_string());
-    hm.insert("red", "#C50F1F".to_string());
-    hm.insert("green", "#13A10E".to_string());
-    hm.insert("yellow", "#C19C00".to_string());
-    hm.insert("blue", "#0037DA".to_string());
-    hm.insert("magenta", "#881798".to_string());
-    hm.insert("cyan", "#3A96DD".to_string());
-    hm.insert("white", "#CCCCCC".to_string());
-
-    // Try to make theme work with light or dark but
-    // flipping the foreground and background but leave
-    // the other colors the same.
-    if is_dark {
-        hm.insert("background", "#0C0C0C".to_string());
-        hm.insert("foreground", "#CCCCCC".to_string());
-    } else {
-        hm.insert("background", "#CCCCCC".to_string());
-        hm.insert("foreground", "#0C0C0C".to_string());
-    }
-
-    hm
-}
-
-fn get_default_theme(is_dark: bool) -> HashMap<&'static str, String> {
-    let mut hm: HashMap<&str, String> = HashMap::new();
-
-    // This theme has different colors for dark and light
-    // so we can't just swap the background colors.
-    if is_dark {
-        hm.insert("bold_black", "black".to_string());
-        hm.insert("bold_red", "red".to_string());
-        hm.insert("bold_green", "green".to_string());
-        hm.insert("bold_yellow", "yellow".to_string());
-        hm.insert("bold_blue", "blue".to_string());
-        hm.insert("bold_magenta", "magenta".to_string());
-        hm.insert("bold_cyan", "cyan".to_string());
-        hm.insert("bold_white", "white".to_string());
-
-        hm.insert("black", "black".to_string());
-        hm.insert("red", "red".to_string());
-        hm.insert("green", "green".to_string());
-        hm.insert("yellow", "yellow".to_string());
-        hm.insert("blue", "blue".to_string());
-        hm.insert("magenta", "magenta".to_string());
-        hm.insert("cyan", "cyan".to_string());
-        hm.insert("white", "white".to_string());
-
-        hm.insert("background", "black".to_string());
-        hm.insert("foreground", "white".to_string());
-    } else {
-        hm.insert("bold_black", "black".to_string());
-        hm.insert("bold_red", "red".to_string());
-        hm.insert("bold_green", "green".to_string());
-        hm.insert("bold_yellow", "#717100".to_string());
-        hm.insert("bold_blue", "blue".to_string());
-        hm.insert("bold_magenta", "#c800c8".to_string());
-        hm.insert("bold_cyan", "#037979".to_string());
-        hm.insert("bold_white", "white".to_string());
-
-        hm.insert("black", "black".to_string());
-        hm.insert("red", "red".to_string());
-        hm.insert("green", "green".to_string());
-        hm.insert("yellow", "#717100".to_string());
-        hm.insert("blue", "blue".to_string());
-        hm.insert("magenta", "#c800c8".to_string());
-        hm.insert("cyan", "#037979".to_string());
-        hm.insert("white", "white".to_string());
-
-        hm.insert("background", "white".to_string());
-        hm.insert("foreground", "black".to_string());
-    }
-
-    hm
-}
-
-fn get_github_theme(is_dark: bool) -> HashMap<&'static str, String> {
-    // Suggested by Jörn for use with demo site
-    // Taken from here https://github.com/mbadolato/iTerm2-Color-Schemes/blob/master/windowsterminal/Github.json
-    // This is a light theme named github, intended for a white background
-    // The next step will be to load these json themes if we ever get to that point
-    let mut hm: HashMap<&str, String> = HashMap::new();
-
-    hm.insert("bold_black", "#666666".to_string());
-    hm.insert("bold_red", "#de0000".to_string());
-    hm.insert("bold_green", "#87d5a2".to_string());
-    hm.insert("bold_yellow", "#f1d007".to_string());
-    hm.insert("bold_blue", "#2e6cba".to_string());
-    hm.insert("bold_magenta", "#ffa29f".to_string());
-    hm.insert("bold_cyan", "#1cfafe".to_string());
-    hm.insert("bold_white", "#ffffff".to_string());
-
-    hm.insert("black", "#3e3e3e".to_string());
-    hm.insert("red", "#970b16".to_string());
-    hm.insert("green", "#07962a".to_string());
-    hm.insert("yellow", "#f8eec7".to_string());
-    hm.insert("blue", "#003e8a".to_string());
-    hm.insert("magenta", "#e94691".to_string());
-    hm.insert("cyan", "#89d1ec".to_string());
-    hm.insert("white", "#ffffff".to_string());
-
-    // Try to make theme work with light or dark but
-    // flipping the foreground and background but leave
-    // the other colors the same.
-    if is_dark {
-        hm.insert("background", "#3e3e3e".to_string());
-        hm.insert("foreground", "#f4f4f4".to_string());
-    } else {
-        hm.insert("background", "#f4f4f4".to_string());
-        hm.insert("foreground", "#3e3e3e".to_string());
-    }
-
-    hm
-}
-
-fn get_blulocolight_theme(is_dark: bool) -> HashMap<&'static str, String> {
-    let mut hm: HashMap<&str, String> = HashMap::new();
-
-    hm.insert("bold_black", "#dedfe8".to_string());
-    hm.insert("bold_red", "#fc4a6d".to_string());
-    hm.insert("bold_green", "#34b354".to_string());
-    hm.insert("bold_yellow", "#b89427".to_string());
-    hm.insert("bold_blue", "#1085d9".to_string());
-    hm.insert("bold_magenta", "#c00db3".to_string());
-    hm.insert("bold_cyan", "#5b80ad".to_string());
-    hm.insert("bold_white", "#1d1d22".to_string());
-
-    hm.insert("black", "#cbccd5".to_string());
-    hm.insert("red", "#c90e42".to_string());
-    hm.insert("green", "#21883a".to_string());
-    hm.insert("yellow", "#d54d17".to_string());
-    hm.insert("blue", "#1e44dd".to_string());
-    hm.insert("magenta", "#6d1bed".to_string());
-    hm.insert("cyan", "#1f4d7a".to_string());
-    hm.insert("white", "#000000".to_string());
-
-    // Try to make theme work with light or dark but
-    // flipping the foreground and background but leave
-    // the other colors the same.
-    if is_dark {
-        hm.insert("background", "#2a2c33".to_string());
-        hm.insert("foreground", "#f7f7f7".to_string());
-    } else {
-        hm.insert("background", "#f7f7f7".to_string());
-        hm.insert("foreground", "#2a2c33".to_string());
-    }
-
-    hm
-}
-
-fn get_colors(is_dark: bool, theme: &Option<Tagged<String>>) -> HashMap<&'static str, String> {
+fn get_theme_from_asset_file(
+    is_dark: bool,
+    theme: &Option<Tagged<String>>,
+    theme_tag: &Tag,
+) -> Result<HashMap<&'static str, String>, ShellError> {
     let theme_name = match theme {
         Some(s) => s.to_string(),
-        None => "default".to_string(),
+        None => "default".to_string(), // There is no theme named "default" so this will be HtmlTheme::default(), which is "nu_default".
     };
 
-    match theme_name.as_ref() {
-        "default" => get_default_theme(is_dark),
-        "campbell" => get_campbell_theme(is_dark),
-        "github" => get_github_theme(is_dark),
-        "blulocolight" => get_blulocolight_theme(is_dark),
-        _ => get_default_theme(is_dark),
+    // 228 themes come from
+    // https://github.com/mbadolato/iTerm2-Color-Schemes/tree/master/windowsterminal
+    // we should find a hit on any name in there
+    let asset = get_asset_by_name_as_html_themes("228_themes.zip", "228_themes.json");
+
+    // If asset doesn't work, make sure to return the default theme
+    let asset = match asset {
+        Ok(a) => a,
+        _ => HtmlThemes::default(),
+    };
+
+    // Find the theme by theme name
+    let th = asset
+        .themes
+        .iter()
+        .find(|&n| n.name.to_lowercase() == *theme_name.to_lowercase().as_str()); // case insensitive search
+
+    // If no theme is found by the name provided, ensure we return the default theme
+    let default_theme = HtmlTheme::default();
+    let th = match th {
+        Some(t) => t,
+        None => &default_theme,
+    };
+
+    // this just means no theme was passed in
+    if th.name.to_lowercase().eq(&"nu_default".to_string())
+        // this means there was a theme passed in
+        && theme.is_some()
+    {
+        return Err(ShellError::labeled_error(
+            "Error finding theme name",
+            "Error finding theme name",
+            theme_tag.span,
+        ));
     }
+
+    Ok(convert_html_theme_to_hash_map(is_dark, th))
+}
+
+fn get_asset_by_name_as_html_themes(
+    zip_name: &str,
+    json_name: &str,
+) -> Result<HtmlThemes, Box<dyn Error>> {
+    match Assets::get(zip_name) {
+        Some(content) => {
+            let asset: Vec<u8> = match content {
+                Cow::Borrowed(bytes) => bytes.into(),
+                Cow::Owned(bytes) => bytes,
+            };
+            let reader = std::io::Cursor::new(asset);
+            let mut archive = zip::ZipArchive::new(reader)?;
+            let mut zip_file = archive.by_name(json_name)?;
+            let mut contents = String::new();
+            zip_file.read_to_string(&mut contents)?;
+            Ok(serde_json::from_str(&contents)?)
+        }
+        None => {
+            let th = HtmlThemes::default();
+            Ok(th)
+        }
+    }
+}
+
+fn convert_html_theme_to_hash_map(
+    is_dark: bool,
+    theme: &HtmlTheme,
+) -> HashMap<&'static str, String> {
+    let mut hm: HashMap<&str, String> = HashMap::new();
+
+    hm.insert("bold_black", theme.brightBlack[..].to_string());
+    hm.insert("bold_red", theme.brightRed[..].to_string());
+    hm.insert("bold_green", theme.brightGreen[..].to_string());
+    hm.insert("bold_yellow", theme.brightYellow[..].to_string());
+    hm.insert("bold_blue", theme.brightBlue[..].to_string());
+    hm.insert("bold_magenta", theme.brightPurple[..].to_string());
+    hm.insert("bold_cyan", theme.brightCyan[..].to_string());
+    hm.insert("bold_white", theme.brightWhite[..].to_string());
+
+    hm.insert("black", theme.black[..].to_string());
+    hm.insert("red", theme.red[..].to_string());
+    hm.insert("green", theme.green[..].to_string());
+    hm.insert("yellow", theme.yellow[..].to_string());
+    hm.insert("blue", theme.blue[..].to_string());
+    hm.insert("magenta", theme.purple[..].to_string());
+    hm.insert("cyan", theme.cyan[..].to_string());
+    hm.insert("white", theme.white[..].to_string());
+
+    // Try to make theme work with light or dark but
+    // flipping the foreground and background but leave
+    // the other colors the same.
+    if is_dark {
+        hm.insert("background", theme.black[..].to_string());
+        hm.insert("foreground", theme.white[..].to_string());
+    } else {
+        hm.insert("background", theme.white[..].to_string());
+        hm.insert("foreground", theme.black[..].to_string());
+    }
+
+    hm
+}
+
+fn get_list_of_theme_names() -> Vec<String> {
+    let asset = get_asset_by_name_as_html_themes("228_themes.zip", "228_themes.json");
+
+    // If asset doesn't work, make sure to return the default theme
+    let html_themes = match asset {
+        Ok(a) => a,
+        _ => HtmlThemes::default(),
+    };
+
+    let theme_names: Vec<String> = html_themes
+        .themes
+        .iter()
+        .map(|n| n.name[..].to_string())
+        .collect();
+
+    theme_names
 }
 
 async fn to_html(
@@ -252,6 +276,7 @@ async fn to_html(
             dark,
             partial,
             theme,
+            list,
         },
         input,
     ) = args.process(&registry).await?;
@@ -261,66 +286,100 @@ async fn to_html(
         .filter(|headers| !headers.is_empty() && (headers.len() > 1 || headers[0] != ""));
     let mut output_string = String::new();
     let mut regex_hm: HashMap<u32, (&str, String)> = HashMap::new();
-    let color_hm = get_colors(dark, &theme);
 
-    // change the color of the page
-    if !partial {
-        output_string.push_str(&format!(
-            r"<html><style>body {{ background-color:{};color:{}; }}</style><body>",
-            color_hm
-                .get("background")
-                .expect("Error getting background color"),
-            color_hm
-                .get("foreground")
-                .expect("Error getting foreground color")
-        ));
+    if list {
+        // Get the list of theme names
+        let theme_names = get_list_of_theme_names();
+
+        // Put that list into the output string
+        for s in theme_names.iter() {
+            output_string.push_str(&format!("{}\n", s));
+        }
+
+        output_string.push_str("\nScreenshots of themes can be found here:\n");
+        output_string.push_str("https://github.com/mbadolato/iTerm2-Color-Schemes\n");
+
+        // Short circuit and return the output_string
+        Ok(OutputStream::one(ReturnSuccess::value(
+            UntaggedValue::string(output_string).into_value(name_tag),
+        )))
     } else {
-        output_string.push_str(&format!(
-            "<div style=\"background-color:{};color:{};\">",
-            color_hm
-                .get("background")
-                .expect("Error getting background color"),
-            color_hm
-                .get("foreground")
-                .expect("Error getting foreground color")
-        ));
-    }
+        let theme_tag = match &theme {
+            Some(v) => &v.tag,
+            None => &name_tag,
+        };
 
-    let inner_value = match input.len() {
-        0 => String::default(),
-        1 => match headers {
-            Some(headers) => html_table(input, headers),
-            None => {
-                let value = &input[0];
-                html_value(value)
+        let color_hm = get_theme_from_asset_file(dark, &theme, &theme_tag);
+        let color_hm = match color_hm {
+            Ok(c) => c,
+            _ => {
+                return Err(ShellError::labeled_error(
+                    "Error finding theme name",
+                    "Error finding theme name",
+                    theme_tag.span,
+                ))
             }
-        },
-        _ => match headers {
-            Some(headers) => html_table(input, headers),
-            None => html_list(input),
-        },
-    };
+        };
 
-    output_string.push_str(&inner_value);
+        // change the color of the page
+        if !partial {
+            output_string.push_str(&format!(
+                r"<html><style>body {{ background-color:{};color:{}; }}</style><body>",
+                color_hm
+                    .get("background")
+                    .expect("Error getting background color"),
+                color_hm
+                    .get("foreground")
+                    .expect("Error getting foreground color")
+            ));
+        } else {
+            output_string.push_str(&format!(
+                "<div style=\"background-color:{};color:{};\">",
+                color_hm
+                    .get("background")
+                    .expect("Error getting background color"),
+                color_hm
+                    .get("foreground")
+                    .expect("Error getting foreground color")
+            ));
+        }
 
-    if !partial {
-        output_string.push_str("</body></html>");
-    } else {
-        output_string.push_str("</div>")
+        let inner_value = match input.len() {
+            0 => String::default(),
+            1 => match headers {
+                Some(headers) => html_table(input, headers),
+                None => {
+                    let value = &input[0];
+                    html_value(value)
+                }
+            },
+            _ => match headers {
+                Some(headers) => html_table(input, headers),
+                None => html_list(input),
+            },
+        };
+
+        output_string.push_str(&inner_value);
+
+        if !partial {
+            output_string.push_str("</body></html>");
+        } else {
+            output_string.push_str("</div>")
+        }
+
+        // Check to see if we want to remove all color or change ansi to html colors
+        if html_color {
+            setup_html_color_regexes(&mut regex_hm, &color_hm);
+            output_string = run_regexes(&regex_hm, &output_string);
+        } else if no_color {
+            setup_no_color_regexes(&mut regex_hm);
+            output_string = run_regexes(&regex_hm, &output_string);
+        }
+
+        Ok(OutputStream::one(ReturnSuccess::value(
+            UntaggedValue::string(output_string).into_value(name_tag),
+        )))
     }
-
-    // Check to see if we want to remove all color or change ansi to html colors
-    if html_color {
-        setup_html_color_regexes(&mut regex_hm, dark, &theme);
-        output_string = run_regexes(&regex_hm, &output_string);
-    } else if no_color {
-        setup_no_color_regexes(&mut regex_hm);
-        output_string = run_regexes(&regex_hm, &output_string);
-    }
-
-    Ok(OutputStream::one(ReturnSuccess::value(
-        UntaggedValue::string(output_string).into_value(name_tag),
-    )))
 }
 
 fn html_list(list: Vec<Value>) -> String {
@@ -438,11 +497,8 @@ fn html_value(value: &Value) -> String {
 
 fn setup_html_color_regexes(
     hash: &mut HashMap<u32, (&'static str, String)>,
-    is_dark: bool,
-    theme: &Option<Tagged<String>>,
+    color_hm: &HashMap<&str, String>,
 ) {
-    let color_hm = get_colors(is_dark, theme);
-
     // All the bold colors
     hash.insert(
         0,
