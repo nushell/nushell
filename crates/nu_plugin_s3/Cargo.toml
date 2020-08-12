@@ -10,10 +10,10 @@ license = "MIT"
 doctest = false
 
 [dependencies]
-nu-plugin = { path = "../nu-plugin", version = "0.18.0" }
-nu-protocol = { path = "../nu-protocol", version = "0.18.0" }
-nu-source = { path = "../nu-source", version = "0.18.0" }
-nu-errors = { path = "../nu-errors", version = "0.18.0" }
+nu-plugin = { path = "../nu-plugin", version = "0.18.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.18.1" }
+nu-source = { path = "../nu-source", version = "0.18.1" }
+nu-errors = { path = "../nu-errors", version = "0.18.1" }
 futures = { version = "0.3", features = ["compat", "io-compat"] }
 s3handler = "0.5.0"
 
