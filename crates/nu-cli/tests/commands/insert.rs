@@ -1,7 +1,7 @@
 use nu_test_support::{nu, pipeline};
 
 #[test]
-fn insert_plugin() {
+fn sets_the_column_from_a_block_run_output() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
@@ -16,25 +16,17 @@ fn insert_plugin() {
 }
 
 #[test]
-fn downcase_upcase() {
+fn sets_the_column_from_a_block_full_stream_output() {
     let actual = nu!(
-        cwd: ".", pipeline(
+        cwd: "tests/fixtures/formats", pipeline(
         r#"
-        echo abcd | wrap downcase | insert upcase { echo $it.downcase | str upcase } | format "{downcase}{upcase}" 
+            wrap _
+            | insert content { open --raw cargo_sample.toml | lines | first 5 }
+            | get content.1
+            | str contains "nu"
+            | echo $it
         "#
     ));
 
-    assert_eq!(actual.out, "abcdABCD");
-}
-
-#[test]
-fn number_and_its_negative_equal_zero() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        echo 1..10 | wrap num | insert neg { = $it.num * -1 } | math sum | = $it.num + $it.neg
-        "#
-    ));
-
-    assert_eq!(actual.out, "0");
+    assert_eq!(actual.out, "true");
 }
