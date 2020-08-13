@@ -2948,7 +2948,6 @@ dependencies = [
  "quick-xml 0.18.1",
  "semver 0.10.0",
  "serde 1.0.115",
- "syntect",
  "toml 0.5.6",
  "url 2.1.1",
 ]
@@ -3342,7 +3341,6 @@ dependencies = [
  "nu-plugin",
  "nu-protocol",
  "nu-source",
- "syntect",
  "term_size",
  "url 2.1.1",
 ]
