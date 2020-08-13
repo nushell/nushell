@@ -79,11 +79,6 @@ fn features_enabled(tag: impl Into<Tag>) -> TaggedListBuilder {
         names.push_untagged(UntaggedValue::string("trash"));
     }
 
-    #[cfg(feature = "starship-prompt")]
-    {
-        names.push_untagged(UntaggedValue::string("starship"));
-    }
-
     names
 }
 
