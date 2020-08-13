@@ -10,7 +10,6 @@ pivot_mode = "auto"
 ctrlc_exit = false
 complete_from_path = true
 rm_always_trash = true
-use_starship = false
 prompt = "echo [ $(ansi gb) $(pwd) $(ansi reset) \"(\" $(ansi cb) $(do -i { git rev-parse --abbrev-ref HEAD | trim }) $(ansi reset) \")\" $(char newline) $(ansi yb) $(date --format \"%m/%d/%Y %I:%M:%S%.3f %p\" --raw) $(ansi reset) \"> \" ] | str collect"
 
 [line_editor]
