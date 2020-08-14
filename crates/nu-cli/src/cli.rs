@@ -228,22 +228,6 @@ impl History {
     }
 }
 
-#[allow(dead_code)]
-fn create_default_starship_config() -> Option<toml::Value> {
-    let mut map = toml::value::Table::new();
-    map.insert("add_newline".into(), toml::Value::Boolean(false));
-
-    let mut git_branch = toml::value::Table::new();
-    git_branch.insert("symbol".into(), toml::Value::String("📙 ".into()));
-    map.insert("git_branch".into(), toml::Value::Table(git_branch));
-
-    let mut git_status = toml::value::Table::new();
-    git_status.insert("disabled".into(), toml::Value::Boolean(true));
-    map.insert("git_status".into(), toml::Value::Table(git_status));
-
-    Some(toml::Value::Table(map))
-}
-
 pub fn create_default_context(
     syncer: &mut crate::EnvironmentSyncer,
     interactive: bool,
@@ -747,11 +731,6 @@ pub async fn cli(
         );
     }
 
-    let use_starship = config
-        .get("use_starship")
-        .map(|x| x.is_true())
-        .unwrap_or(false);
-
     #[cfg(windows)]
     {
         let _ = ansi_term::enable_ansi_support();
@@ -809,37 +788,7 @@ pub async fn cli(
         )));
 
         let colored_prompt = {
-            if use_starship {
-                #[cfg(feature = "starship")]
-                {
-                    std::env::set_var("STARSHIP_SHELL", "");
-                    std::env::set_var("PWD", &cwd);
-                    let mut starship_context =
-                        starship::context::Context::new_with_dir(clap::ArgMatches::default(), cwd);
-
-                    match starship_context.config.config {
-                        None => {
-                            starship_context.config.config = create_default_starship_config();
-                        }
-                        Some(toml::Value::Table(t)) if t.is_empty() => {
-                            starship_context.config.config = create_default_starship_config();
-                        }
-                        _ => {}
-                    };
-                    starship::print::get_prompt(starship_context)
-                }
-                #[cfg(not(feature = "starship"))]
-                {
-                    format!(
-                        "\x1b[32m{}{}\x1b[m> ",
-                        cwd,
-                        match current_branch() {
-                            Some(s) => format!("({})", s),
-                            None => "".to_string(),
-                        }
-                    )
-                }
-            } else if let Some(prompt) = config.get("prompt") {
+            if let Some(prompt) = config.get("prompt") {
                 let prompt_line = prompt.as_string()?;
 
                 match nu_parser::lite_parse(&prompt_line, 0).map_err(ShellError::from) {

@@ -97,7 +97,6 @@ impl Shell for FilesystemShell {
             all,
             long,
             short_names,
-            with_symlink_targets,
             du,
         }: LsArgs,
         name_tag: Tag,
@@ -166,7 +165,6 @@ impl Shell for FilesystemShell {
                 name_tag.clone(),
                 long,
                 short_names,
-                with_symlink_targets,
                 du,
                 ctrl_c.clone(),
             )
