@@ -112,7 +112,7 @@ impl DirectorySpecificEnvironment {
 
                 if let Some(es) = nu_env_doc.entryscripts {
                     for s in es {
-                        run(s.as_str())?;
+                        run(s.as_str(), None)?;
                     }
                 }
 
@@ -147,7 +147,7 @@ impl DirectorySpecificEnvironment {
                 new_exitscripts.insert(dir, scripts);
             } else {
                 for s in scripts {
-                    run(s.as_str())?;
+                    run( s.as_str(), Some(dir.clone()))?;
                 }
             }
         }
@@ -215,11 +215,18 @@ impl DirectorySpecificEnvironment {
     }
 }
 
-fn run(cmd: &str) -> Result<(), ShellError> {
+fn run(cmd: &str, dir: Option<PathBuf>) -> Result<(), ShellError> {
     if cfg!(target_os = "windows") {
         Command::new("cmd").args(&["/C", cmd]).output()?
     } else {
-        Command::new("sh").arg("-c").arg(&cmd).output()?
+        if let Some(dir) = dir {
+            Command::new("sh")
+                .arg("-c")
+                .arg(format!("cd {:?}; {}", dir, cmd))
+                .output()?
+        } else {
+            Command::new("sh").arg("-c").arg(&cmd).output()?
+        }
     };
     Ok(())
 }
