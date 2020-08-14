@@ -103,6 +103,7 @@ fn autoenv() {
             r#"autoenv trust
                cd ..
                cd autoenv_test
+               ls
                ls | where name == "bye.txt" | get name"#
         );
         assert!(actual.out.contains("bye.txt"));
