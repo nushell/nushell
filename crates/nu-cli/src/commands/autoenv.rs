@@ -55,7 +55,7 @@ impl WholeStreamCommand for Autoenv {
 The file can contain several optional sections:
     env: environment variables to set when visiting the directory. The variables are unset after leaving the directory and any overwritten values are restored.
     scriptvars: environment variables that should be set to the return value of a script. After they have been set, they behave in the same way as variables set in the env section.
-    scripts: scripts to run when entering the directory or leaving it. Note that exitscripts are not run in the directory they are declared in."#
+    scripts: scripts to run when entering the directory or leaving it."#
     }
 
     fn signature(&self) -> Signature {

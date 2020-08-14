@@ -97,7 +97,6 @@ fn autoenv() {
             ),
         ]);
 
-
         // Make sure exitscripts are run in the directory they were specified.
         let actual = nu!(
             cwd: dirs.test(),
@@ -199,7 +198,6 @@ fn autoenv() {
             r#"ls | where name == "hello.txt" | get name"#
         );
         assert!(actual.out.contains("hello.txt"));
-
 
         //Variables set in parent directories should be set even if you directly cd to a subdir
         let actual = nu!(

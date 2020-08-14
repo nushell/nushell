@@ -147,7 +147,7 @@ impl DirectorySpecificEnvironment {
                 new_exitscripts.insert(dir, scripts);
             } else {
                 for s in scripts {
-                    run( s.as_str(), Some(dir.clone()))?;
+                    run(s.as_str(), Some(dir.clone()))?;
                 }
             }
         }
