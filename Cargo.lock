@@ -3335,7 +3335,6 @@ version = "0.18.2"
 dependencies = [
  "ansi_term 0.12.1",
  "bat",
- "crossterm",
  "nu-cli",
  "nu-errors",
  "nu-plugin",

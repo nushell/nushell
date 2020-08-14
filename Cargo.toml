@@ -74,8 +74,12 @@ default = [
   "ptree-support",
   "term-support",
   "uuid-support",
+  "match",
+  "post",
+  "fetch"
 ]
-stable = ["default", "binaryview", "match", "tree", "post", "fetch", "clipboard-cli", "trash-support", "start", "bson", "sqlite", "s3"]
+stable = ["default"]
+extra = ["default", "binaryview", "tree", "clipboard-cli", "trash-support", "start", "bson", "sqlite", "s3"]
 
 # Default
 inc = ["semver", "nu_plugin_inc"]
@@ -128,40 +132,41 @@ name = "nu_plugin_core_sys"
 path = "src/plugins/nu_plugin_core_sys.rs"
 required-features = ["sys"]
 
-# Stable plugins
 [[bin]]
-name = "nu_plugin_stable_fetch"
-path = "src/plugins/nu_plugin_stable_fetch.rs"
+name = "nu_plugin_core_fetch"
+path = "src/plugins/nu_plugin_core_fetch.rs"
 required-features = ["fetch"]
 
 [[bin]]
-name = "nu_plugin_stable_binaryview"
-path = "src/plugins/nu_plugin_stable_binaryview.rs"
-required-features = ["binaryview"]
-
-[[bin]]
-name = "nu_plugin_stable_match"
-path = "src/plugins/nu_plugin_stable_match.rs"
+name = "nu_plugin_core_match"
+path = "src/plugins/nu_plugin_core_match.rs"
 required-features = ["match"]
 
 [[bin]]
-name = "nu_plugin_stable_post"
-path = "src/plugins/nu_plugin_stable_post.rs"
+name = "nu_plugin_core_post"
+path = "src/plugins/nu_plugin_core_post.rs"
 required-features = ["post"]
 
+# Extra plugins
+
 [[bin]]
-name = "nu_plugin_stable_tree"
-path = "src/plugins/nu_plugin_stable_tree.rs"
+name = "nu_plugin_extra_binaryview"
+path = "src/plugins/nu_plugin_extra_binaryview.rs"
+required-features = ["binaryview"]
+
+[[bin]]
+name = "nu_plugin_extra_tree"
+path = "src/plugins/nu_plugin_extra_tree.rs"
 required-features = ["tree"]
 
 [[bin]]
-name = "nu_plugin_stable_start"
-path = "src/plugins/nu_plugin_stable_start.rs"
+name = "nu_plugin_extra_start"
+path = "src/plugins/nu_plugin_extra_start.rs"
 required-features = ["start"]
 
 [[bin]]
-name = "nu_plugin_stable_s3"
-path = "src/plugins/nu_plugin_stable_s3.rs"
+name = "nu_plugin_extra_s3"
+path = "src/plugins/nu_plugin_extra_s3.rs"
 required-features = ["s3"]
 
 # Main nu binary
