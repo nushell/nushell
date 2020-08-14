@@ -218,7 +218,7 @@ impl DirectorySpecificEnvironment {
 fn run(cmd: &str, dir: Option<&PathBuf>) -> Result<(), ShellError> {
     if cfg!(target_os = "windows") {
         Command::new("cmd")
-            .args(&["/C", format!("cd {:?}; {}", dir, cmd)])
+            .args(&["/C", format!("cd {:?}; {}", dir, cmd).as_str()])
             .output()?
     } else {
         if let Some(dir) = dir {
