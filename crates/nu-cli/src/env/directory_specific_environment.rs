@@ -217,7 +217,9 @@ impl DirectorySpecificEnvironment {
 
 fn run(cmd: &str, dir: Option<&PathBuf>) -> Result<(), ShellError> {
     if cfg!(target_os = "windows") {
-        Command::new("cmd").args(&["/C", format!("cd {:?}; {}", dir, cmd)]).output()?
+        Command::new("cmd")
+            .args(&["/C", format!("cd {:?}; {}", dir, cmd)])
+            .output()?
     } else {
         if let Some(dir) = dir {
             // FIXME: When nu scripting is added, cding like might not be a good idea. If nu decides to execute entryscripts when entering the dir this way, it will cause troubles.
