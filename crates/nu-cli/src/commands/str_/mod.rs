@@ -5,7 +5,7 @@ mod contains;
 mod downcase;
 mod ends_with;
 mod find_replace;
-mod from;
+pub mod from;
 mod index_of;
 mod length;
 mod reverse;

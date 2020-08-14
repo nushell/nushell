@@ -14,8 +14,6 @@ pub struct LsArgs {
     pub long: bool,
     #[serde(rename = "short-names")]
     pub short_names: bool,
-    #[serde(rename = "with-symlink-targets")]
-    pub with_symlink_targets: bool,
     #[serde(rename = "du")]
     pub du: bool,
 }
@@ -43,12 +41,6 @@ impl WholeStreamCommand for Ls {
                 "short-names",
                 "Only print the file names and not the path",
                 Some('s'),
-            )
-            .switch(
-                // Delete this
-                "with-symlink-targets",
-                "Display the paths to the target files that symlinks point to",
-                Some('w'),
             )
             .switch(
                 "du",

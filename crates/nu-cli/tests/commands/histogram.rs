@@ -54,7 +54,7 @@ fn summarizes_by_values() {
                 | get rusty_at
                 | histogram
                 | where value == "Estados Unidos"
-                | get count
+                | get ocurrences
                 | echo $it
             "#
         ));
@@ -93,20 +93,20 @@ fn help() {
 }
 
 #[test]
-fn count() {
+fn ocurrences() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
             echo "[{"bit":1},{"bit":0},{"bit":0},{"bit":0},{"bit":0},{"bit":0},{"bit":0},{"bit":1}]"
             | from json
             | histogram bit
-            | sort-by count
+            | sort-by ocurrences
             | reject frequency
             | to json
         "#
     ));
 
-    let bit_json = r#"[{"bit":"1","count":2},{"bit":"0","count":6}]"#;
+    let bit_json = r#"[{"bit":"1","ocurrences":2,"percentage":"33.33%"},{"bit":"0","ocurrences":6,"percentage":"100.00%"}]"#;
 
     assert_eq!(actual.out, bit_json);
 }
