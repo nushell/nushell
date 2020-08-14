@@ -48,18 +48,20 @@ fn autoenv() {
         sandbox.mkdir("bizz/buzz");
         sandbox.mkdir("foob");
 
+        let windowscontent = r#"[env]
+                                testkey = "testvalue"
+
+                                [scriptvars]
+                                myscript = "echo myval"
+
+                                [scripts]
+                                entryscripts = ["echo nul > hello.txt"]
+                                exitscripts = ["echo nul > bye.txt"]"#;
+
         let scriptfile = if cfg!(target_os = "windows") {
             FileWithContent(
                 ".nu-env",
-                r#"[env]
-                    testkey = "testvalue"
-
-                    [scriptvars]
-                    myscript = "echo myval"
-
-                    [scripts]
-                    entryscripts = ["echo nul > hello.txt"]
-                    exitscripts = ["echo nul > bye.txt"]"#,
+                windowscontent,
             )
         } else {
             FileWithContent(
@@ -91,9 +93,13 @@ fn autoenv() {
             ),
             FileWithContent(
                 "bizz/.nu-env",
-                r#"[scripts]
+                if cfg!(target_os = "windows") {
+                    windowscontent
+                } else {
+                    r#"[scripts]
                     entryscripts = ["touch hello.txt"]
-                    exitscripts = ["touch bye.txt"]"#,
+                    exitscripts = ["touch bye.txt"]"#
+                }
             ),
         ]);
 
@@ -127,7 +133,7 @@ fn autoenv() {
         );
         assert!(!actual.out.contains("bye.txt"));
 
-        // Make sure entry scripts are run when re-visiting a directory
+        // Make sure entryscripts are run when re-visiting a directory
         let actual = nu!(
             cwd: dirs.test(),
             r#"autoenv trust bizz
