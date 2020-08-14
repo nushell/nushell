@@ -20,7 +20,6 @@ pub fn view_text_value(value: &Value) {
     let mut header = true;
     let mut line_numbers = true;
     let mut grid = true;
-    let mut vcs_modification_markers = true;
     let mut snip = true;
     let mut wrapping_mode = bat::WrappingMode::NoWrapping;
     let mut use_italics = true;
@@ -47,9 +46,6 @@ pub fn view_text_value(value: &Value) {
                     "header" => header = value.as_bool().unwrap_or(true),
                     "line_numbers" => line_numbers = value.as_bool().unwrap_or(true),
                     "grid" => grid = value.as_bool().unwrap_or(true),
-                    "vcs_modification_markers" => {
-                        vcs_modification_markers = value.as_bool().unwrap_or(true)
-                    }
                     "snip" => snip = value.as_bool().unwrap_or(true),
                     "wrapping_mode" => {
                         wrapping_mode = match value.as_string() {
@@ -128,7 +124,6 @@ pub fn view_text_value(value: &Value) {
                         .header(header)
                         .line_numbers(line_numbers)
                         .grid(grid)
-                        .vcs_modification_markers(vcs_modification_markers)
                         .snip(snip)
                         .wrapping_mode(wrapping_mode)
                         .use_italics(use_italics)
@@ -150,7 +145,6 @@ pub fn view_text_value(value: &Value) {
                         .header(header)
                         .line_numbers(line_numbers)
                         .grid(grid)
-                        .vcs_modification_markers(vcs_modification_markers)
                         .snip(snip)
                         .wrapping_mode(wrapping_mode)
                         .use_italics(use_italics)
@@ -173,7 +167,6 @@ pub fn view_text_value(value: &Value) {
                 .header(header)
                 .line_numbers(line_numbers)
                 .grid(grid)
-                .vcs_modification_markers(vcs_modification_markers)
                 .snip(snip)
                 .wrapping_mode(wrapping_mode)
                 .use_italics(use_italics)
