@@ -220,6 +220,8 @@ fn run(cmd: &str, dir: Option<PathBuf>) -> Result<(), ShellError> {
         Command::new("cmd").args(&["/C", cmd]).output()?
     } else {
         if let Some(dir) = dir {
+            // FIXME: When nu scripting is added, cding like might not be a good idea. If nu decides to execute entryscripts when entering the dir this way, it will cause troubles.
+            // For now only standard shell scripts are used, so this is an issue for the future.
             Command::new("sh")
                 .arg("-c")
                 .arg(format!("cd {:?}; {}", dir, cmd))
