@@ -147,7 +147,7 @@ impl DirectorySpecificEnvironment {
                 new_exitscripts.insert(dir, scripts);
             } else {
                 for s in scripts {
-                    run(s.as_str(), Some(dir.clone()))?;
+                    run(s.as_str(), Some(&dir))?;
                 }
             }
         }
@@ -215,7 +215,7 @@ impl DirectorySpecificEnvironment {
     }
 }
 
-fn run(cmd: &str, dir: Option<PathBuf>) -> Result<(), ShellError> {
+fn run(cmd: &str, dir: Option<&PathBuf>) -> Result<(), ShellError> {
     if cfg!(target_os = "windows") {
         Command::new("cmd").args(&["/C", cmd]).output()?
     } else {
