@@ -4,8 +4,14 @@ use crate::commands::UnevaluatedCallInfo;
 use crate::prelude::*;
 use log::{log_enabled, trace};
 use nu_errors::ShellError;
-use nu_protocol::hir::{ExternalRedirection, InternalCommand};
-use nu_protocol::{CommandAction, Primitive, ReturnSuccess, Scope, UntaggedValue, Value};
+use nu_parser::SignatureRegistry;
+use nu_protocol::hir::{
+    ClassifiedCommand, Expression, ExternalRedirection, InternalCommand, NamedValue, Variable,
+};
+use nu_protocol::{
+    CommandAction, NamedType, PositionalType, Primitive, ReturnSuccess, Scope, SyntaxShape,
+    UntaggedValue, Value,
+};
 
 pub(crate) async fn run_internal_command(
     command: InternalCommand,
@@ -195,8 +201,97 @@ pub(crate) async fn run_internal_command(
                                 InputStream::from_stream(futures::stream::iter(vec![]))
                             }
                             CommandAction::AddAlias(name, args, block) => {
+                                let mut arg_shapes: IndexMap<String, SyntaxShape> = args.iter().map(|arg| (arg.clone(), SyntaxShape::Any)).collect();
+                                for pipeline in &block.block {
+                                    for classified in &pipeline.list {
+                                        match classified {
+                                            ClassifiedCommand::Expr(_) => continue, // Box<SpannedExpression>
+                                            ClassifiedCommand::Dynamic(_) => continue, // TODO?
+                                            ClassifiedCommand::Internal(internal) => {
+                                                if let Some(signature) =
+                                                    context.registry.get(&internal.name)
+                                                {
+                                                    if let Some(positional) = &internal.args.positional {
+                                                        for (i, spanned) in positional.iter().enumerate() {
+                                                            if let Expression::Path(path) =
+                                                                &spanned.expr
+                                                            {
+                                                                if let Expression::Variable(
+                                                                    Variable::Other(var, _),
+                                                                ) = &path.head.expr
+                                                                {
+                                                                    if args.contains(var) {
+                                                                        if i >= signature.positional.len() {
+                                                                            if let Some((shape, _)) = &signature.rest_positional {
+                                                                                arg_shapes.insert(var.clone(), shape.clone());
+                                                                            }
+                                                                        } else {
+                                                                            let (pos_type, _) = &signature.positional[i];
+                                                                            match pos_type { // TODO also use mandatory/optional?
+                                                                                PositionalType::Mandatory(_, shape) | PositionalType::Optional(_, shape) => {
+                                                                                    arg_shapes.insert(var.clone(), shape.clone());
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                    if let Some(named) = &internal.args.named {
+                                                        for (name, val) in named.iter() {
+                                                            if let NamedValue::Value(_, spanned) = val {
+                                                                if let Expression::Path(path) =
+                                                                    &spanned.expr // TODO abstract this out?
+                                                                {
+                                                                    if let Expression::Variable(
+                                                                        Variable::Other(var, _),
+                                                                    ) = &path.head.expr
+                                                                    {
+                                                                        if args.contains(var) {
+                                                                            match signature.named.get(name) {
+                                                                                None => continue, // TODO?
+                                                                                Some((named_type, _)) => {
+                                                                                    match named_type {
+                                                                                        NamedType::Mandatory(_, shape) | NamedType::Optional(_, shape) => {
+                                                                                            arg_shapes.insert(var.clone(), shape.clone());
+                                                                                        },
+                                                                                        _ => continue,
+                                                                                    }
+                                                                                },
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                    continue;
+                                                }
+                                            }
+                                            ClassifiedCommand::Error(_) => continue,
+                                        }
+                                    }
+                                }
+
+                                // // TODO subcommands
+                                // if let Some(signature) = context.registry.get(&lite_cmd.name.item) {
+                                //     let (mut internal_command, err) =
+                                //         parse_internal_command(&lite_cmd, registry, &signature, 0);
+                                //
+                                //     error = error.or(err);
+                                //     internal_command.args.external_redirection =
+                                //         if iter.peek().is_none() {
+                                //             ExternalRedirection::None
+                                //         } else {
+                                //             ExternalRedirection::Stdout
+                                //         };
+                                //     commands.push(ClassifiedCommand::Internal(internal_command));
+                                //     continue;
+                                // }
+
                                 context.add_commands(vec![whole_stream_command(
-                                    AliasCommand::new(name, args, block),
+                                    AliasCommand::new(name, arg_shapes.into_iter().collect(), block),
                                 )]);
                                 InputStream::from_stream(futures::stream::iter(vec![]))
                             }
