@@ -188,6 +188,11 @@ impl Dictionary {
     pub fn insert_data_at_key(&mut self, name: &str, value: Value) {
         self.entries.insert(name.to_string(), value);
     }
+
+    /// Return size of dictionary
+    pub fn length(&self) -> usize {
+        self.entries.len()
+    }
 }
 
 /// A helper to help create dictionaries for you. It has the ability to insert values into the dictionary while maintaining the tags that need to be applied to the individual members
