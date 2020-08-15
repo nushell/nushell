@@ -11,4 +11,3 @@ fn count_columns_in_cal_table() {
 
     assert_eq!(actual.out, "7");
 }
-
