@@ -6,6 +6,7 @@ mod autoenv_untrust;
 mod cal;
 mod cd;
 mod compact;
+mod count;
 mod cp;
 mod default;
 mod drop;
