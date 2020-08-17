@@ -139,9 +139,11 @@ pub fn sort(
                 .windows(2)
                 .all(|elem| coerce_compare(&elem[0], &elem[1]).is_ok())
             {
-                return Err(ShellError::labeled_error("Can't reduce all the values to all the values to the same type",
-                                                        "All these values should have some relation between then such that the shell knows how to compare them",
-                                                        tag));
+                return Err(ShellError::labeled_error(
+                    "Not all values can be compared",
+                    "not all values compare",
+                    tag
+                ));
             }
 
             vec.sort_by(|a, b| {
