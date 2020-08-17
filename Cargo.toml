@@ -19,6 +19,7 @@ members = ["crates/*/"]
 
 [dependencies]
 nu-cli = {version = "0.18.2", path = "./crates/nu-cli"}
+nu-data = {version = "0.18.2", path = "./crates/nu-data"}
 nu-errors = {version = "0.18.2", path = "./crates/nu-errors"}
 nu-parser = {version = "0.18.2", path = "./crates/nu-parser"}
 nu-plugin = {version = "0.18.2", path = "./crates/nu-plugin"}

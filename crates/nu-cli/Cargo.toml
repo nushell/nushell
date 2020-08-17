@@ -10,6 +10,7 @@ version = "0.18.2"
 doctest = false
 
 [dependencies]
+nu-data = {version = "0.18.2", path = "../nu-data"}
 nu-errors = {version = "0.18.2", path = "../nu-errors"}
 nu-parser = {version = "0.18.2", path = "../nu-parser"}
 nu-plugin = {version = "0.18.2", path = "../nu-plugin"}

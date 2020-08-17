@@ -1,5 +1,5 @@
 use crate::context::Context;
-use crate::data::config::{Conf, NuConfig};
+use nu_data::config::{Conf, NuConfig};
 
 use crate::env::environment::{Env, Environment};
 use nu_source::Text;
@@ -128,9 +128,9 @@ impl EnvironmentSyncer {
 mod tests {
     use super::EnvironmentSyncer;
     use crate::context::Context;
-    use crate::data::config::tests::FakeConfig;
     use crate::env::environment::Env;
     use indexmap::IndexMap;
+    use nu_data::config::tests::FakeConfig;
     use nu_errors::ShellError;
     use nu_test_support::fs::Stub::FileWithContent;
     use nu_test_support::playground::Playground;

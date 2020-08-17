@@ -3,10 +3,10 @@ pub mod split;
 
 mod internal;
 
-pub use crate::utils::data::group::group;
-pub use crate::utils::data::split::split;
+pub use crate::utils::group::group;
+pub use crate::utils::split::split;
 
-use crate::utils::data::internal::*;
+use crate::utils::internal::*;
 
 use derive_new::new;
 use getset::Getters;
@@ -97,9 +97,8 @@ pub fn report(
     })
 }
 
-#[cfg(test)]
 pub mod helpers {
-    use super::{report, Labels, Model, Operation, Range};
+    use super::Model;
     use bigdecimal::BigDecimal;
     use indexmap::indexmap;
     use nu_errors::ShellError;
@@ -132,7 +131,7 @@ pub mod helpers {
 
     pub fn date(input: impl Into<String>) -> Value {
         let key = input.into().tagged_unknown();
-        crate::data::value::Date::naive_from_str(key.borrow_tagged())
+        crate::value::Date::naive_from_str(key.borrow_tagged())
             .unwrap()
             .into_untagged_value()
     }
@@ -206,7 +205,7 @@ pub mod helpers {
             group_key.format("%Y-%m-%d")
         });
 
-        crate::utils::data::group(&sample, &Some(grouper), Tag::unknown()).unwrap()
+        crate::utils::group(&sample, &Some(grouper), Tag::unknown()).unwrap()
     }
 
     pub fn date_formatter(
@@ -215,13 +214,24 @@ pub mod helpers {
         Box::new(move |date: &Value, _: String| date.format(&fmt))
     }
 
-    fn assert_without_checking_percentages(report_a: Model, report_b: Model) {
+    pub fn assert_without_checking_percentages(report_a: Model, report_b: Model) {
         assert_eq!(report_a.labels.x, report_b.labels.x);
         assert_eq!(report_a.labels.y, report_b.labels.y);
         assert_eq!(report_a.ranges, report_b.ranges);
         assert_eq!(report_a.data, report_b.data);
     }
+}
 
+#[cfg(test)]
+mod tests {
+    use super::helpers::{
+        assert_without_checking_percentages, committers, date_formatter, decimal, int, table,
+    };
+    use super::{report, Labels, Model, Operation, Range};
+    use nu_errors::ShellError;
+    use nu_protocol::Value;
+    use nu_source::{Tag, TaggedItem};
+    use nu_value_ext::ValueExt;
     #[test]
     fn prepares_report_using_accumulating_value() {
         let committers = table(&committers());

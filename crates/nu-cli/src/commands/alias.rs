@@ -1,7 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
-use crate::data::config;
 use crate::prelude::*;
+use nu_data::config;
 use nu_errors::ShellError;
 use nu_protocol::{
     hir::Block, CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
@@ -82,7 +82,7 @@ pub async fn alias(
     let mut processed_args: Vec<String> = vec![];
 
     if let Some(true) = save {
-        let mut result = crate::data::config::read(name.clone().tag, &None)?;
+        let mut result = nu_data::config::read(name.clone().tag, &None)?;
 
         // process the alias to remove the --save flag
         let left_brace = raw_input.find('{').unwrap_or(0);

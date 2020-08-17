@@ -1,6 +1,6 @@
-use crate::data::config::Conf;
 use crate::env::directory_specific_environment::*;
 use indexmap::{indexmap, IndexSet};
+use nu_data::config::Conf;
 use nu_errors::ShellError;
 use nu_protocol::{UntaggedValue, Value};
 use std::env::*;
@@ -154,7 +154,7 @@ impl Env for Environment {
 #[cfg(test)]
 mod tests {
     use super::{Env, Environment};
-    use crate::data::config::{tests::FakeConfig, Conf};
+    use nu_data::config::{tests::FakeConfig, Conf};
     use nu_protocol::UntaggedValue;
     use nu_test_support::fs::Stub::FileWithContent;
     use nu_test_support::playground::Playground;

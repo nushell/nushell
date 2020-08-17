@@ -179,7 +179,7 @@ pub async fn group_by(
                 None => as_string(row),
             });
 
-            crate::utils::data::group(&values, &Some(block), &name)
+            nu_data::utils::group(&values, &Some(block), &name)
         }
         Grouper::ByColumn(column_name) => group(&column_name, &values, name),
     };
@@ -234,12 +234,12 @@ pub fn group(
                 }
             });
 
-            crate::utils::data::group(&values, &Some(block), &name)
+            nu_data::utils::group(&values, &Some(block), &name)
         }
         Grouper::ByColumn(None) => {
             let block = Box::new(move |_, row: &Value| as_string(row));
 
-            crate::utils::data::group(&values, &Some(block), &name)
+            nu_data::utils::group(&values, &Some(block), &name)
         }
         Grouper::ByBlock => Err(ShellError::unimplemented(
             "Block not implemented: This should never happen.",
@@ -250,7 +250,7 @@ pub fn group(
 #[cfg(test)]
 mod tests {
     use super::group;
-    use crate::utils::data::helpers::{committers, date, int, row, string, table};
+    use nu_data::utils::helpers::{committers, date, int, row, string, table};
     use nu_errors::ShellError;
     use nu_source::*;
 

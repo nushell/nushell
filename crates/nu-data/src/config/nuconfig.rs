@@ -1,4 +1,4 @@
-use crate::data::config::{read, Conf};
+use crate::config::{read, Conf};
 use indexmap::IndexMap;
 use nu_protocol::Value;
 use nu_source::Tag;

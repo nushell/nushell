@@ -1,4 +1,3 @@
-pub mod data;
 pub mod test_bins;
 
 use crate::path::canonicalize;
