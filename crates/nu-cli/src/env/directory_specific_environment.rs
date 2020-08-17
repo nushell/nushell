@@ -216,12 +216,20 @@ impl DirectorySpecificEnvironment {
 }
 
 fn run(cmd: &str, dir: Option<&PathBuf>) -> Result<(), ShellError> {
+      let mut file = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .append(true)
+        .open(r#"C:\Users\samhe\Documents\github\output"#).unwrap();
+    use std::io::Write;
+    write!(&mut file, "running {:?} inside {:?}\n", cmd, dir).unwrap();
+
     if cfg!(target_os = "windows") {
         if let Some(dir) = dir {
+            let command = format!("cd {} & {}", dir.to_string_lossy(), cmd);
             Command::new("cmd")
-                .arg("/C")
-                .arg(format!("cd {:?}", dir).as_str())
-                .arg(cmd)
+                .args(&["/C", command.as_str()])
                 .output()?
         } else {
             Command::new("cmd").args(&["/C", cmd]).output()?

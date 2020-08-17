@@ -100,6 +100,14 @@ fn autoenv() {
             ),
         ]);
 
+        //Make sure basic keys are set
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust
+               echo $nu.env.testkey"#
+        );
+        assert!(actual.out.ends_with("testvalue"));
+
         // Make sure exitscripts are run in the directory they were specified.
         let actual = nu!(
             cwd: dirs.test(),
@@ -152,13 +160,6 @@ fn autoenv() {
         );
         assert!(!actual.out.ends_with("hello.txt"));
 
-        //Make sure basic keys are set
-        let actual = nu!(
-            cwd: dirs.test(),
-            r#"autoenv trust
-               echo $nu.env.testkey"#
-        );
-        assert!(actual.out.ends_with("testvalue"));
 
         //Backing out of the directory should unset the keys
         let actual = nu!(
