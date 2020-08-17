@@ -46,6 +46,21 @@ fn by_invalid_column() {
 }
 
 #[test]
+fn by_invalid_types() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            open cargo_sample.toml --raw
+            | echo [1 "foo"]
+            | sort-by
+        "#
+    ));
+
+    assert!(actual.err.contains("Can't reduce all the values to all the values to the same type"));
+    assert!(actual.err.contains("All these values should have some relation between then such that the shell knows how to compare them"));
+}
+
+#[test]
 fn sort_primitive_values() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
