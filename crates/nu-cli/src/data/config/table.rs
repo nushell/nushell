@@ -89,7 +89,10 @@ pub fn table_mode(config: &NuConfig) -> nu_table::Theme {
 
     vars.get("table_mode")
         .map_or(nu_table::Theme::compact(), |mode| match mode.as_string() {
+            Ok(m) if m == "basic" => nu_table::Theme::basic(),
+            Ok(m) if m == "compact" => nu_table::Theme::compact(),
             Ok(m) if m == "light" => nu_table::Theme::light(),
+            Ok(m) if m == "thin" => nu_table::Theme::thin(),
             _ => nu_table::Theme::compact(),
         })
 }
