@@ -56,7 +56,9 @@ fn by_invalid_types() {
         "#
     ));
 
-    assert!(actual.err.contains("Can't reduce all the values to all the values to the same type"));
+    assert!(actual
+        .err
+        .contains("Can't reduce all the values to all the values to the same type"));
     assert!(actual.err.contains("All these values should have some relation between then such that the shell knows how to compare them"));
 }
 
