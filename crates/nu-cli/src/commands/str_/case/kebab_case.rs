@@ -45,7 +45,7 @@ impl WholeStreamCommand for SubCommand {
 
 #[cfg(test)]
 mod tests {
-    use super::{kebab_case, SubCommand};
+    use super::{to_kebab_case, SubCommand};
     use crate::commands::str_::case::action;
     use nu_plugin::test_helpers::value::string;
     use nu_source::Tag;
