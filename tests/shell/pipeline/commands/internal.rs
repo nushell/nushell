@@ -85,10 +85,7 @@ fn autoenv() {
                 r#"[env]
                     overwrite_me = "set_in_bar""#,
             ),
-            FileWithContent(
-                "bizz/.nu-env",
-                full_nu_env
-            ),
+            FileWithContent("bizz/.nu-env", full_nu_env),
         ]);
 
         //Make sure basic keys are set
