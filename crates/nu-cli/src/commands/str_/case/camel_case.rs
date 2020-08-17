@@ -15,9 +15,9 @@ impl WholeStreamCommand for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str camel-case").rest(
-                SyntaxShape::ColumnPath,
-                "optionally convert text to camelCase by column paths",
-            )
+            SyntaxShape::ColumnPath,
+            "optionally convert text to camelCase by column paths",
+        )
     }
 
     fn usage(&self) -> &str {
@@ -33,13 +33,11 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "convert a string to camelCase",
-                example: "echo 'NuShell' | str camel-case",
-                result: Some(vec![Value::from("nuShell")]),
-            }
-        ]
+        vec![Example {
+            description: "convert a string to camelCase",
+            example: "echo 'NuShell' | str camel-case",
+            result: Some(vec![Value::from("nuShell")]),
+        }]
     }
 }
 

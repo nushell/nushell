@@ -15,9 +15,9 @@ impl WholeStreamCommand for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str pascal-case").rest(
-                SyntaxShape::ColumnPath,
-                "optionally convert text to PascalCase by column paths",
-            )
+            SyntaxShape::ColumnPath,
+            "optionally convert text to PascalCase by column paths",
+        )
     }
 
     fn usage(&self) -> &str {
@@ -33,13 +33,11 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "convert a string to PascalCase",
-                example: "echo 'nu-shell' | str pascal-case",
-                result: Some(vec![Value::from("NuShell")]),
-            }
-        ]
+        vec![Example {
+            description: "convert a string to PascalCase",
+            example: "echo 'nu-shell' | str pascal-case",
+            result: Some(vec![Value::from("NuShell")]),
+        }]
     }
 }
 

@@ -8,7 +8,7 @@ use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::ShellTypeName;
 use nu_protocol::{ColumnPath, Primitive, ReturnSuccess, UntaggedValue, Value};
-use nu_source::{Tag};
+use nu_source::Tag;
 use nu_value_ext::ValueExt;
 
 pub use camel_case::SubCommand as CamelCase;

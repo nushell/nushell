@@ -15,9 +15,9 @@ impl WholeStreamCommand for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str snake-case").rest(
-                SyntaxShape::ColumnPath,
-                "optionally convert text to snake_case by column paths",
-            )
+            SyntaxShape::ColumnPath,
+            "optionally convert text to snake_case by column paths",
+        )
     }
 
     fn usage(&self) -> &str {
@@ -33,13 +33,11 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "convert a string to snake_case",
-                example: "echo 'NuShell' | str snake-case",
-                result: Some(vec![Value::from("nu_shell")]),
-            }
-        ]
+        vec![Example {
+            description: "convert a string to snake_case",
+            example: "echo 'NuShell' | str snake-case",
+            result: Some(vec![Value::from("nu_shell")]),
+        }]
     }
 }
 
