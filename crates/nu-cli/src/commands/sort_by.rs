@@ -142,7 +142,7 @@ pub fn sort(
                 return Err(ShellError::labeled_error(
                     "Not all values can be compared",
                     "not all values compare",
-                    tag
+                    tag,
                 ));
             }
 
