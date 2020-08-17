@@ -1,5 +1,6 @@
 mod conf;
 mod nuconfig;
+pub mod table;
 
 #[cfg(test)]
 pub mod tests;
