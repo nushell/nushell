@@ -46,6 +46,21 @@ fn by_invalid_column() {
 }
 
 #[test]
+fn by_invalid_types() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            open cargo_sample.toml --raw
+            | echo [1 "foo"]
+            | sort-by
+        "#
+    ));
+
+    assert!(actual.err.contains("Not all values can be compared"));
+    assert!(actual.err.contains("not all values compare"));
+}
+
+#[test]
 fn sort_primitive_values() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
