@@ -135,6 +135,12 @@ pub fn sort(
         } => {
             let should_sort_case_insensitively = insensitive && vec.iter().all(|x| x.is_string());
 
+            if !vec.windows(2).all(|elem| match coerce_compare(&elem[0], &elem[1]) { Ok(_) => true, Err(_) => false } ) {
+                return Err(ShellError::labeled_error("Can't reduce all the values to all the values to the same type",
+                                                        "All these values should have some relation between then such that the shell knows how to compare them",
+                                                        tag))
+            }
+
             vec.sort_by(|a, b| {
                 if should_sort_case_insensitively {
                     let lowercase_a_string = a.expect_string().to_ascii_lowercase();
