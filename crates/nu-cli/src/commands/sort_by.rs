@@ -140,7 +140,9 @@ pub fn sort(
                 .map(|elem| coerce_compare(&elem[0], &elem[1]))
                 .find(|elem| elem.is_err())
             {
-                let (type_1, type_2) = values.err().unwrap();
+                let (type_1, type_2) = values
+                    .err()
+                    .expect("An error ocourred in the checking of types");
                 return Err(ShellError::labeled_error(
                     "Not all values can be compared",
                     format!(
