@@ -40,3 +40,8 @@ pub use trim::Trim as StrTrim;
 pub use trim::TrimLeft as StrTrimLeft;
 pub use trim::TrimRight as StrTrimRight;
 pub use upcase::SubCommand as StrUpcase;
+pub use case::camel_case::SubCommand as StrCamelCase;
+pub use case::pascal_case::SubCommand as StrPascalCase;
+pub use case::kebab_case::SubCommand as StrKebabCase;
+pub use case::snake_case::SubCommand as StrSnakeCase;
+pub use case::screaming_snake_case::SubCommand as StrScreamingSnakeCase;

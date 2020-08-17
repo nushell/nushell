@@ -234,6 +234,7 @@ pub(crate) use str_::{
     Str, StrCapitalize, StrCollect, StrContains, StrDowncase, StrEndsWith, StrFindReplace, StrFrom,
     StrIndexOf, StrLength, StrReverse, StrSet, StrStartsWith, StrSubstring, StrToDatetime,
     StrToDecimal, StrToInteger, StrTrim, StrTrimLeft, StrTrimRight, StrUpcase,
+    StrCamelCase, StrKebabCase, StrSnakeCase, StrScreamingSnakeCase, StrPascalCase,
 };
 pub(crate) use table::Table;
 pub(crate) use tags::Tags;

@@ -1,7 +1,8 @@
-mod camel_case;
-mod pascal_case;
-mod screaming_snake_case;
-mod snake_case;
+pub mod camel_case;
+pub mod kebab_case;
+pub mod pascal_case;
+pub mod screaming_snake_case;
+pub mod snake_case;
 
 use crate::prelude::*;
 use nu_errors::ShellError;
