@@ -48,8 +48,7 @@ fn autoenv() {
         sandbox.mkdir("bizz/buzz");
         sandbox.mkdir("foob");
 
-        // Windows uses a different command to create an empty file so we just make a windows-specific one here.
-        // It's not used always when running tests on windows, but rather in places where scripts need to be run.
+        // Windows uses a different command to create an empty file so we need to have different content on windows.
         let full_nu_env = if cfg!(target_os = "windows") {
             r#"[env]
                 testkey = "testvalue"
