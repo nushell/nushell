@@ -15,9 +15,9 @@ impl WholeStreamCommand for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str kebab-case").rest(
-                SyntaxShape::ColumnPath,
-                "optionally convert text to kebab-case by column paths",
-            )
+            SyntaxShape::ColumnPath,
+            "optionally convert text to kebab-case by column paths",
+        )
     }
 
     fn usage(&self) -> &str {
@@ -33,13 +33,11 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "convert a string to kebab-case",
-                example: "echo 'NuShell' | str kebab-case",
-                result: Some(vec![Value::from("nu-shell")]),
-            }
-        ]
+        vec![Example {
+            description: "convert a string to kebab-case",
+            example: "echo 'NuShell' | str kebab-case",
+            result: Some(vec![Value::from("nu-shell")]),
+        }]
     }
 }
 
@@ -66,9 +64,9 @@ mod tests {
         assert_eq!(actual, expected);
     }
     #[test]
-    fn kebab_case_from_snake() {
-        let word = string("thisIsTheSecondCase");
-        let expected = string("this_is_the_second_case");
+    fn kebab_case_from_screaming_snake() {
+        let word = string("THIS_IS_THE_SECOND_CASE");
+        let expected = string("this-is-the-second-case");
 
         let actual = action(&word, Tag::unknown(), &to_kebab_case).unwrap();
         assert_eq!(actual, expected);
