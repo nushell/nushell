@@ -160,7 +160,6 @@ fn autoenv() {
         );
         assert!(!actual.out.ends_with("hello.txt"));
 
-
         //Backing out of the directory should unset the keys
         let actual = nu!(
             cwd: dirs.test(),
