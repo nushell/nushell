@@ -135,7 +135,6 @@ pub fn sort(
         } => {
             let should_sort_case_insensitively = insensitive && vec.iter().all(|x| x.is_string());
 
-
             if let Some(values) = vec
                 .windows(2)
                 .map(|elem| coerce_compare(&elem[0], &elem[1]))
