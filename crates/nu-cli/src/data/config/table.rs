@@ -76,6 +76,50 @@ pub fn header_color(config: &NuConfig) -> Option<ansi_term::Color> {
     })
 }
 
+pub fn text_color(config: &NuConfig) -> Option<ansi_term::Color> {
+    let vars = config.vars.lock();
+
+    Some(match vars.get("text_color") {
+        Some(c) => match c.as_string() {
+            Ok(color) => match color.to_lowercase().as_str() {
+                "g" | "green" => ansi_term::Color::Green,
+                "r" | "red" => ansi_term::Color::Red,
+                "u" | "blue" => ansi_term::Color::Blue,
+                "b" | "black" => ansi_term::Color::Black,
+                "y" | "yellow" => ansi_term::Color::Yellow,
+                "p" | "purple" => ansi_term::Color::Purple,
+                "c" | "cyan" => ansi_term::Color::Cyan,
+                "w" | "white" => ansi_term::Color::White,
+                _ => ansi_term::Color::Green,
+            },
+            _ => ansi_term::Color::Green,
+        },
+        _ => ansi_term::Color::Green,
+    })
+}
+
+pub fn line_color(config: &NuConfig) -> Option<ansi_term::Color> {
+    let vars = config.vars.lock();
+
+    Some(match vars.get("line_color") {
+        Some(c) => match c.as_string() {
+            Ok(color) => match color.to_lowercase().as_str() {
+                "g" | "green" => ansi_term::Color::Green,
+                "r" | "red" => ansi_term::Color::Red,
+                "u" | "blue" => ansi_term::Color::Blue,
+                "b" | "black" => ansi_term::Color::Black,
+                "y" | "yellow" => ansi_term::Color::Yellow,
+                "p" | "purple" => ansi_term::Color::Purple,
+                "c" | "cyan" => ansi_term::Color::Cyan,
+                "w" | "white" => ansi_term::Color::White,
+                _ => ansi_term::Color::Green,
+            },
+            _ => ansi_term::Color::Green,
+        },
+        _ => ansi_term::Color::Green,
+    })
+}
+
 pub fn header_bold(config: &NuConfig) -> bool {
     let vars = config.vars.lock();
 
@@ -115,6 +159,14 @@ impl HasTableProperties for NuConfig {
 
     fn header_color(&self) -> Option<ansi_term::Color> {
         header_color(self)
+    }
+
+    fn text_color(&self) -> Option<ansi_term::Color> {
+        text_color(self)
+    }
+
+    fn line_color(&self) -> Option<ansi_term::Color> {
+        line_color(self)
     }
 
     fn header_bold(&self) -> bool {
