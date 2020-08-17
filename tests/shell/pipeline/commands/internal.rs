@@ -50,7 +50,7 @@ fn autoenv() {
 
         // Windows uses a different command to create an empty file so we just make a windows-specific one here.
         // It's not used always when running tests on windows, but rather in places where scripts need to be run.
-        let full_nu_env = if cf!(target_os = "windows") {
+        let full_nu_env = if cfg!(target_os = "windows") {
             r#"[env]
                 testkey = "testvalue"
 
