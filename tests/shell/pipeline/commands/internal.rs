@@ -48,7 +48,9 @@ fn autoenv() {
         sandbox.mkdir("bizz/buzz");
         sandbox.mkdir("foob");
 
-        let windowscontent = r#"[env]
+        // Windows uses a different command to create an empty file so we just make a windows-specific one here.
+        // It's not used always when running tests on windows, but rather in places where scripts need to be run.
+        let windowsfile = r#"[env]
                                 testkey = "testvalue"
 
                                 [scriptvars]
@@ -59,7 +61,7 @@ fn autoenv() {
                                 exitscripts = ["echo nul > bye.txt"]"#;
 
         let scriptfile = if cfg!(target_os = "windows") {
-            FileWithContent(".nu-env", windowscontent)
+            FileWithContent(".nu-env", windowsfile)
         } else {
             FileWithContent(
                 ".nu-env",
@@ -91,7 +93,7 @@ fn autoenv() {
             FileWithContent(
                 "bizz/.nu-env",
                 if cfg!(target_os = "windows") {
-                    windowscontent
+                    windowsfile
                 } else {
                     r#"[scripts]
                     entryscripts = ["touch hello.txt"]
