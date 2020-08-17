@@ -50,35 +50,30 @@ fn autoenv() {
 
         // Windows uses a different command to create an empty file so we just make a windows-specific one here.
         // It's not used always when running tests on windows, but rather in places where scripts need to be run.
-        let windowsfile = r#"[env]
-                                testkey = "testvalue"
+        let full_nu_env = if cf!(target_os = "windows") {
+            r#"[env]
+                testkey = "testvalue"
 
-                                [scriptvars]
-                                myscript = "echo myval"
+                [scriptvars]
+                myscript = "echo myval"
 
-                                [scripts]
-                                entryscripts = ["echo nul > hello.txt"]
-                                exitscripts = ["echo nul > bye.txt"]"#;
-
-        let scriptfile = if cfg!(target_os = "windows") {
-            FileWithContent(".nu-env", windowsfile)
+                [scripts]
+                entryscripts = ["echo nul > hello.txt"]
+                exitscripts = ["echo nul > bye.txt"]"#
         } else {
-            FileWithContent(
-                ".nu-env",
-                r#"[env]
-                    testkey = "testvalue"
+            r#"[env]
+                testkey = "testvalue"
 
-                    [scriptvars]
-                    myscript = "echo myval"
+                [scriptvars]
+                myscript = "echo myval"
 
-                    [scripts]
-                    entryscripts = ["touch hello.txt"]
-                    exitscripts = ["touch bye.txt"]"#,
-            )
+                [scripts]
+                entryscripts = ["touch hello.txt"]
+                exitscripts = ["touch bye.txt"]"#
         };
 
         sandbox.with_files(vec![
-            scriptfile,
+            FileWithContent(".nu-env", full_nu_env),
             FileWithContent(
                 "foo/.nu-env",
                 r#"[env]
@@ -92,13 +87,7 @@ fn autoenv() {
             ),
             FileWithContent(
                 "bizz/.nu-env",
-                if cfg!(target_os = "windows") {
-                    windowsfile
-                } else {
-                    r#"[scripts]
-                    entryscripts = ["touch hello.txt"]
-                    exitscripts = ["touch bye.txt"]"#
-                },
+                full_nu_env
             ),
         ]);
 
