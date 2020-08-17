@@ -59,10 +59,7 @@ fn autoenv() {
                                 exitscripts = ["echo nul > bye.txt"]"#;
 
         let scriptfile = if cfg!(target_os = "windows") {
-            FileWithContent(
-                ".nu-env",
-                windowscontent,
-            )
+            FileWithContent(".nu-env", windowscontent)
         } else {
             FileWithContent(
                 ".nu-env",
@@ -99,7 +96,7 @@ fn autoenv() {
                     r#"[scripts]
                     entryscripts = ["touch hello.txt"]
                     exitscripts = ["touch bye.txt"]"#
-                }
+                },
             ),
         ]);
 
