@@ -1,6 +1,7 @@
 mod capitalize;
 mod collect;
 mod command;
+mod case;
 mod contains;
 mod downcase;
 mod ends_with;
