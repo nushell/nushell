@@ -287,23 +287,17 @@ where
 {
     match expr {
         Expression::Block(b) => find_block_shapes(&b, registry, arg_shapes),
-        Expression::Path(path) => {
-            match &path.head.expr {
-                Expression::Invocation(b) => {
-                    // TODO need to kick it up?
-                    find_block_shapes(&b, registry, arg_shapes)
+        Expression::Path(path) => match &path.head.expr {
+            Expression::Invocation(b) => find_block_shapes(&b, registry, arg_shapes),
+            Expression::Variable(Variable::Other(var, _)) => {
+                if arg_shapes.contains_key(var) {
+                    on_found(var, arg_shapes)
+                } else {
+                    Ok(())
                 }
-                Expression::Variable(Variable::Other(var, _)) => {
-                    if arg_shapes.contains_key(var) {
-                        on_found(var, arg_shapes)
-                    } else {
-                        // TODO better form of this pattern?
-                        Ok(())
-                    }
-                }
-                _ => Ok(()),
             }
-        }
+            _ => Ok(()),
+        },
         _ => Ok(()),
     }
 }
@@ -318,9 +312,24 @@ fn find_block_shapes(
             match classified {
                 ClassifiedCommand::Expr(spanned) => {
                     match &spanned.expr {
-                        // TODO binary
                         // TODO range?
                         // TODO does Invocation ever show up here?
+                        Expression::Binary(bin) => {
+                            find_expr_shapes(
+                                &bin.left.expr,
+                                registry,
+                                arg_shapes,
+                                |_var, _shapes| Ok(()), // TODO kick up??
+                            )
+                            .and_then(|()| {
+                                find_expr_shapes(
+                                    &bin.right.expr,
+                                    registry,
+                                    arg_shapes,
+                                    |_var, _shapes| Ok(()),
+                                )
+                            })
+                        }
                         Expression::Block(b) => find_block_shapes(&b, registry, arg_shapes),
                         Expression::Path(path) => {
                             if let Expression::Invocation(b) = &path.head.expr {
@@ -356,12 +365,12 @@ fn find_block_shapes(
                                     &spanned.expr,
                                     registry,
                                     arg_shapes,
-                                    |var, shapes| {
+                                    |var, arg_shapes| {
                                         if i >= signature.positional.len() {
                                             if let Some((shape, _)) = &signature.rest_positional {
                                                 insert_check(
                                                     var,
-                                                    shapes,
+                                                    arg_shapes,
                                                     shape.clone(),
                                                     spanned.span,
                                                 )
@@ -376,7 +385,7 @@ fn find_block_shapes(
                                                 | PositionalType::Optional(_, shape) => {
                                                     insert_check(
                                                         var,
-                                                        shapes,
+                                                        arg_shapes,
                                                         shape.clone(),
                                                         spanned.span,
                                                     )
@@ -394,7 +403,7 @@ fn find_block_shapes(
                                         &spanned.expr,
                                         registry,
                                         arg_shapes,
-                                        |var, shapes| {
+                                        |var, arg_shapes| {
                                             match signature.named.get(name) {
                                                 None => Ok(()), // TODO?
                                                 Some((named_type, _)) => match named_type {
@@ -402,7 +411,7 @@ fn find_block_shapes(
                                                     | NamedType::Optional(_, shape) => {
                                                         insert_check(
                                                             var,
-                                                            shapes,
+                                                            arg_shapes,
                                                             shape.clone(),
                                                             spanned.span,
                                                         )
