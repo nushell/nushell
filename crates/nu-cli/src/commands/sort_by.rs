@@ -135,13 +135,20 @@ pub fn sort(
         } => {
             let should_sort_case_insensitively = insensitive && vec.iter().all(|x| x.is_string());
 
-            if !vec
+            if let Some(values) = vec
                 .windows(2)
-                .all(|elem| coerce_compare(&elem[0], &elem[1]).is_ok())
+                .map(|elem| coerce_compare(&elem[0], &elem[1]))
+                .find(|elem| elem.is_err())
             {
+                let (type_1, type_2) = values
+                    .err()
+                    .expect("An error ocourred in the checking of types");
                 return Err(ShellError::labeled_error(
                     "Not all values can be compared",
-                    "not all values compare",
+                    format!(
+                        "Unable to sort values, as \"{}\" cannot compare against \"{}\"",
+                        type_1, type_2
+                    ),
                     tag,
                 ));
             }
