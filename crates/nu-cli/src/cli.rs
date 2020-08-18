@@ -275,6 +275,7 @@ pub fn create_default_context(
             whole_stream_command(Alias),
             whole_stream_command(WithEnv),
             whole_stream_command(Do),
+            whole_stream_command(Sleep),
             // Statistics
             whole_stream_command(Size),
             whole_stream_command(Count),
