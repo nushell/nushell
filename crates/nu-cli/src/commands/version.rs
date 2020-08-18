@@ -1,7 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
-use crate::TaggedListBuilder;
 use indexmap::IndexMap;
+use nu_data::TaggedListBuilder;
 use nu_errors::ShellError;
 use nu_protocol::{Dictionary, Signature, UntaggedValue};
 

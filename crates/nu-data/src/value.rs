@@ -1,6 +1,6 @@
-use crate::data::base::coerce_compare;
-use crate::data::base::shape::{Column, InlineShape};
-use crate::data::primitive::style_primitive;
+use crate::base::coerce_compare;
+use crate::base::shape::{Column, InlineShape};
+use crate::primitive::style_primitive;
 use chrono::{DateTime, NaiveDate, Utc};
 use nu_errors::ShellError;
 use nu_protocol::hir::Operator;

@@ -2,7 +2,7 @@ use nu_errors::ShellError;
 use nu_protocol::{SpannedTypeName, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::Tag;
 
-use crate::utils::data::group;
+use crate::utils::group;
 
 #[allow(clippy::type_complexity)]
 pub fn split(

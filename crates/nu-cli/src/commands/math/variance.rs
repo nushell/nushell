@@ -1,7 +1,7 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::value::compute_values;
 use crate::prelude::*;
 use bigdecimal::FromPrimitive;
+use nu_data::value::compute_values;
 use nu_errors::ShellError;
 use nu_protocol::{
     hir::Operator, Dictionary, Primitive, ReturnSuccess, Signature, UntaggedValue, Value,

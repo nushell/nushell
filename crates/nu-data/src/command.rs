@@ -1,22 +1,7 @@
-use crate::commands::command::Command;
-use crate::data::TaggedListBuilder;
-use crate::prelude::*;
+use crate::TaggedListBuilder;
+use nu_source::Tag;
+
 use nu_protocol::{NamedType, PositionalType, Signature, TaggedDictBuilder, UntaggedValue, Value};
-
-pub(crate) fn command_dict(command: Command, tag: impl Into<Tag>) -> Value {
-    let tag = tag.into();
-
-    let mut cmd_dict = TaggedDictBuilder::new(&tag);
-
-    cmd_dict.insert_untagged("name", UntaggedValue::string(command.name()));
-
-    cmd_dict.insert_untagged("type", UntaggedValue::string("Command"));
-
-    cmd_dict.insert_value("signature", signature_dict(command.signature(), tag));
-    cmd_dict.insert_untagged("usage", UntaggedValue::string(command.usage()));
-
-    cmd_dict.into_value()
-}
 
 fn for_spec(name: &str, ty: &str, required: bool, tag: impl Into<Tag>) -> Value {
     let tag = tag.into();
@@ -33,7 +18,7 @@ fn for_spec(name: &str, ty: &str, required: bool, tag: impl Into<Tag>) -> Value 
     spec.into_value()
 }
 
-fn signature_dict(signature: Signature, tag: impl Into<Tag>) -> Value {
+pub fn signature_dict(signature: Signature, tag: impl Into<Tag>) -> Value {
     let tag = tag.into();
     let mut sig = TaggedListBuilder::new(&tag);
 

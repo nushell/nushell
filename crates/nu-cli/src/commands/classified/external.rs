@@ -425,7 +425,7 @@ fn spawn(
             };
 
             if external_failed {
-                let cfg = crate::data::config::config(Tag::unknown());
+                let cfg = nu_data::config::config(Tag::unknown());
                 if let Ok(cfg) = cfg {
                     if cfg.contains_key("nonzero_exit_errors") {
                         let _ = stdout_read_tx.send(Ok(Value {

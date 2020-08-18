@@ -1,4 +1,4 @@
-use crate::data::config::nuconfig::NuConfig;
+use crate::config::nuconfig::NuConfig;
 use std::fmt::Debug;
 
 #[derive(PartialEq, Debug)]
