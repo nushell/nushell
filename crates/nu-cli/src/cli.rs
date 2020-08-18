@@ -26,39 +26,31 @@ use std::io::{BufRead, BufReader, Write};
 use std::iter::Iterator;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
 
 use rayon::prelude::*;
 
 fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), ShellError> {
-    // let mut child = std::process::Command::new(path)
-    //     .stdin(std::process::Stdio::piped())
-    //     .stdout(std::process::Stdio::piped())
-    //     .spawn()
-    //     .expect("Failed to spawn child process");
     let ext = path.extension();
     let ps1_file = match ext {
         Some(ext) => ext == "ps1",
         None => false,
     };
 
-    // println!("Path=[{:?}] ps1_file=[{}]", &path, &ps1_file);
-    let mut child: std::process::Child = if ps1_file {
-            // Command::new("PowerShell")
-            Command::new("pwsh")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            // .stderr(Stdio::piped())
-            .args(&["-NoProfile", "-ExecutionPolicy Bypass", "-Command", "-"])
-            .spawn()
-            .expect("Failed to spawn PowerShell process")
-        } else {
-            Command::new(path)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .spawn()
-            .expect("Failed to spawn child process")
-        };
+    let mut child: Child = if ps1_file {
+        Command::new("pwsh")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .args(&["-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", &path.to_string_lossy()])
+        .spawn()
+        .expect("Failed to spawn PowerShell process")
+    } else {
+        Command::new(path)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("Failed to spawn child process")
+    };
 
     let stdin = child.stdin.as_mut().expect("Failed to open stdin");
     let stdout = child.stdout.as_mut().expect("Failed to open stdout");
