@@ -132,7 +132,7 @@ pub mod helpers {
     pub fn date(input: impl Into<String>) -> Value {
         let key = input.into().tagged_unknown();
         crate::value::Date::naive_from_str(key.borrow_tagged())
-            .unwrap()
+            .expect("date from string failed")
             .into_untagged_value()
     }
 
@@ -200,12 +200,12 @@ pub mod helpers {
 
         let grouper = Box::new(move |_, row: &Value| {
             let key = String::from("date").tagged_unknown();
-            let group_key = row.get_data_by_key(key.borrow_spanned()).unwrap();
+            let group_key = row.get_data_by_key(key.borrow_spanned()).expect("get key failed");
 
             group_key.format("%Y-%m-%d")
         });
 
-        crate::utils::group(&sample, &Some(grouper), Tag::unknown()).unwrap()
+        crate::utils::group(&sample, &Some(grouper), Tag::unknown()).expect("failed to create group")
     }
 
     pub fn date_formatter(
