@@ -11,3 +11,15 @@ fn count_columns_in_cal_table() {
 
     assert_eq!(actual.out, "7");
 }
+
+#[test]
+fn count_columns_regular_values_empty() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        echo [] | count -c
+        "#
+    ));
+
+    assert_eq!(actual.out, "0");
+}
