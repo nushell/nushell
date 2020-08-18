@@ -13,7 +13,7 @@ fn count_columns_in_cal_table() {
 }
 
 #[test]
-fn count_columns_regular_values_empty() {
+fn count_columns_no_rows() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
