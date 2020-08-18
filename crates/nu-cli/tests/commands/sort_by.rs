@@ -57,7 +57,9 @@ fn by_invalid_types() {
     ));
 
     assert!(actual.err.contains("Not all values can be compared"));
-    assert!(actual.err.contains("not all values compare"));
+    assert!(actual
+        .err
+        .contains("Unable to sort values, as \"integer\" cannot compare against \"string\""));
 }
 
 #[test]
