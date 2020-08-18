@@ -15,6 +15,8 @@ pub trait HasTableProperties: Debug + Send {
     fn header_bold(&self) -> bool;
     fn table_mode(&self) -> nu_table::Theme;
     fn disabled_indexes(&self) -> bool;
+    fn text_color(&self) -> Option<ansi_term::Color>;
+    fn line_color(&self) -> Option<ansi_term::Color>;
 }
 
 pub fn pivot_mode(config: &NuConfig) -> AutoPivotMode {
