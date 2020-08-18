@@ -27,7 +27,7 @@ fn latest_commit_hash<P: AsRef<Path>>(dir: P) -> Result<String, Box<dyn std::err
             .head()?
             .peel_to_commit()?
             .id()
-            .to_string())    
+            .to_string())
     }
     #[cfg(not(feature = "git2"))]
     {
