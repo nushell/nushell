@@ -107,9 +107,9 @@ pub async fn histogram(
         "value".to_string().tagged(&name)
     };
 
-    let results = crate::utils::data::report(
+    let results = nu_data::utils::report(
         &UntaggedValue::table(&values).into_value(&name),
-        crate::utils::data::Operation {
+        nu_data::utils::Operation {
             grouper: Some(Box::new(move |_, _| Ok(String::from("frequencies")))),
             splitter: Some(splitter(column_grouper)),
             format: None,

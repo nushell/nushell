@@ -1,4 +1,5 @@
 mod capitalize;
+mod case;
 mod collect;
 mod command;
 mod contains;
@@ -19,6 +20,11 @@ mod trim;
 mod upcase;
 
 pub use capitalize::SubCommand as StrCapitalize;
+pub use case::camel_case::SubCommand as StrCamelCase;
+pub use case::kebab_case::SubCommand as StrKebabCase;
+pub use case::pascal_case::SubCommand as StrPascalCase;
+pub use case::screaming_snake_case::SubCommand as StrScreamingSnakeCase;
+pub use case::snake_case::SubCommand as StrSnakeCase;
 pub use collect::SubCommand as StrCollect;
 pub use command::Command as Str;
 pub use contains::SubCommand as StrContains;

@@ -102,7 +102,7 @@ pub async fn group_by_date(
             (Grouper::ByDate(None), GroupByColumn::Name(None)) => {
                 let block = Box::new(move |_, row: &Value| row.format("%Y-%m-%d"));
 
-                crate::utils::data::group(&values, &Some(block), &name)
+                nu_data::utils::group(&values, &Some(block), &name)
             }
             (Grouper::ByDate(None), GroupByColumn::Name(Some(column_name))) => {
                 let block = Box::new(move |_, row: &Value| {
@@ -113,12 +113,12 @@ pub async fn group_by_date(
                     group_key?.format("%Y-%m-%d")
                 });
 
-                crate::utils::data::group(&values, &Some(block), &name)
+                nu_data::utils::group(&values, &Some(block), &name)
             }
             (Grouper::ByDate(Some(fmt)), GroupByColumn::Name(None)) => {
                 let block = Box::new(move |_, row: &Value| row.format(&fmt));
 
-                crate::utils::data::group(&values, &Some(block), &name)
+                nu_data::utils::group(&values, &Some(block), &name)
             }
             (Grouper::ByDate(Some(fmt)), GroupByColumn::Name(Some(column_name))) => {
                 let block = Box::new(move |_, row: &Value| {
@@ -129,7 +129,7 @@ pub async fn group_by_date(
                     group_key?.format(&fmt)
                 });
 
-                crate::utils::data::group(&values, &Some(block), &name)
+                nu_data::utils::group(&values, &Some(block), &name)
             }
         };
 

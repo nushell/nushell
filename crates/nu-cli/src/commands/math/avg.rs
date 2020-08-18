@@ -118,7 +118,7 @@ pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
             ..
         } => {
             let left = UntaggedValue::from(Primitive::Int(num.into()));
-            let result = crate::data::value::compute_values(Operator::Divide, &left, &total_rows);
+            let result = nu_data::value::compute_values(Operator::Divide, &left, &total_rows);
 
             match result {
                 Ok(UntaggedValue::Primitive(Primitive::Decimal(result))) => {
@@ -142,7 +142,7 @@ pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
             ..
         } => {
             let left = UntaggedValue::from(other);
-            let result = crate::data::value::compute_values(Operator::Divide, &left, &total_rows);
+            let result = nu_data::value::compute_values(Operator::Divide, &left, &total_rows);
 
             match result {
                 Ok(value) => Ok(value.into_value(name)),

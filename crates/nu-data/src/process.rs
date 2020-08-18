@@ -1,4 +1,4 @@
-use crate::data::{TaggedDictBuilder, Value};
+use nu_data::{TaggedDictBuilder, Value};
 use crate::prelude::*;
 use itertools::join;
 use sysinfo::ProcessExt;

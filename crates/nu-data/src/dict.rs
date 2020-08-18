@@ -1,7 +1,6 @@
-use crate::prelude::*;
 use derive_new::new;
-use nu_protocol::{Dictionary, Primitive, UntaggedValue, Value};
-use nu_source::{b, PrettyDebug, Spanned};
+use nu_protocol::{Dictionary, MaybeOwned, Primitive, UntaggedValue, Value};
+use nu_source::{b, DebugDocBuilder, PrettyDebug, Spanned, Tag};
 
 #[derive(Debug, new)]
 struct DebugEntry<'a> {

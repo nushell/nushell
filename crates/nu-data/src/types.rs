@@ -1,8 +1,7 @@
-use crate::prelude::*;
 use log::trace;
 use nu_errors::{CoerceInto, ShellError};
 use nu_protocol::{Primitive, SpannedTypeName, UntaggedValue, Value};
-use nu_source::Tagged;
+use nu_source::{Tagged, TaggedItem};
 
 pub trait ExtractType: Sized {
     fn extract(value: &Value) -> Result<Self, ShellError>;
