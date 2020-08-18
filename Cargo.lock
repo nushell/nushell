@@ -3069,6 +3069,8 @@ dependencies = [
  "byte-unit",
  "chrono",
  "derive-new",
+ "directories 2.0.2",
+ "dirs 2.0.2",
  "getset",
  "indexmap",
  "log 0.4.11",
