@@ -465,13 +465,13 @@ impl Unit {
             Unit::Nanosecond => "ns",
             Unit::Microsecond => "us",
             Unit::Millisecond => "ms",
-            Unit::Second => "s",
-            Unit::Minute => "m",
-            Unit::Hour => "h",
-            Unit::Day => "d",
-            Unit::Week => "w",
-            Unit::Month => "M",
-            Unit::Year => "y",
+            Unit::Second => "sec",
+            Unit::Minute => "min",
+            Unit::Hour => "hr",
+            Unit::Day => "day",
+            Unit::Week => "wk",
+            Unit::Month => "mon",
+            Unit::Year => "yr",
         }
     }
 

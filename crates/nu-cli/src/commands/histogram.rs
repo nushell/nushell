@@ -1,15 +1,12 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value};
+use nu_protocol::{
+    ColumnPath, ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
+};
 use nu_source::Tagged;
 
 pub struct Histogram;
-
-#[derive(Deserialize)]
-pub struct HistogramArgs {
-    rest: Vec<Tagged<String>>,
-}
 
 #[async_trait]
 impl WholeStreamCommand for Histogram {
@@ -18,10 +15,17 @@ impl WholeStreamCommand for Histogram {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("histogram").rest(
-            SyntaxShape::String,
-            "column name to give the histogram's frequency column",
-        )
+        Signature::build("histogram")
+            .named(
+                "use",
+                SyntaxShape::ColumnPath,
+                "Use data at the column path given as valuator",
+                None,
+            )
+            .rest(
+                SyntaxShape::ColumnPath,
+                "column name to give the histogram's frequency column",
+            )
     }
 
     fn usage(&self) -> &str {
@@ -64,22 +68,37 @@ pub async fn histogram(
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let name = args.call_info.name_tag.clone();
+    let (input, args) = args.evaluate_once(&registry).await?.parts();
 
-    let (HistogramArgs { rest: mut columns }, input) = args.process(&registry).await?;
     let values: Vec<Value> = input.collect().await;
 
-    let column_grouper = if !columns.is_empty() {
-        Some(columns.remove(0))
+    let mut columns = args
+        .positional_iter()
+        .map(|c| c.as_column_path())
+        .filter_map(Result::ok)
+        .collect::<Vec<_>>();
+
+    let evaluate_with = if let Some(path) = args.get("use") {
+        Some(evaluator(path.as_column_path()?.item))
     } else {
         None
     };
 
-    let column_names_supplied: Vec<_> = columns.iter().map(|f| f.item.clone()).collect();
-
-    let frequency_column_name = if column_names_supplied.is_empty() {
-        "frequency".to_string()
+    let column_grouper = if !columns.is_empty() {
+        match columns.remove(0).split_last() {
+            Some((key, _)) => Some(key.as_string().tagged(&name)),
+            None => None,
+        }
     } else {
-        column_names_supplied[0].clone()
+        None
+    };
+
+    let frequency_column_name = if columns.is_empty() {
+        "frequency".to_string()
+    } else if let Some((key, _)) = columns[0].split_last() {
+        key.as_string()
+    } else {
+        "frecuency".to_string()
     };
 
     let column = if let Some(ref column) = column_grouper {
@@ -88,13 +107,13 @@ pub async fn histogram(
         "value".to_string().tagged(&name)
     };
 
-    let results = crate::utils::data::report(
+    let results = nu_data::utils::report(
         &UntaggedValue::table(&values).into_value(&name),
-        crate::utils::data::Operation {
+        nu_data::utils::Operation {
             grouper: Some(Box::new(move |_, _| Ok(String::from("frequencies")))),
             splitter: Some(splitter(column_grouper)),
             format: None,
-            eval: &None,
+            eval: &evaluate_with,
         },
         &name,
     )?;
@@ -108,13 +127,13 @@ pub async fn histogram(
             .table_entries()
             .map(move |value| {
                 let values = value.table_entries().cloned().collect::<Vec<_>>();
-                let count = values.len();
+                let occurrences = values.len();
 
-                (count, values[count - 1].clone())
+                (occurrences, values[occurrences - 1].clone())
             })
             .collect::<Vec<_>>()
             .into_iter()
-            .map(move |(count, value)| {
+            .map(move |(occurrences, value)| {
                 let mut fact = TaggedDictBuilder::new(&name);
                 let column_value = labels
                     .get(idx)
@@ -128,7 +147,16 @@ pub async fn histogram(
                     .clone();
 
                 fact.insert_value(&column.item, column_value);
-                fact.insert_untagged("count", UntaggedValue::int(count));
+                fact.insert_untagged("occurrences", UntaggedValue::int(occurrences));
+
+                let percentage = format!(
+                    "{}%",
+                    // Some(2) < the number of digits
+                    // true < group the digits
+                    crate::commands::str_::from::action(&value, &name, Some(2), true)?
+                        .as_string()?
+                );
+                fact.insert_untagged("percentage", UntaggedValue::string(percentage));
 
                 let string = std::iter::repeat("*")
                     .take(value.as_u64().map_err(|_| {
@@ -144,6 +172,23 @@ pub async fn histogram(
             }),
     )
     .to_output_stream())
+}
+
+fn evaluator(by: ColumnPath) -> Box<dyn Fn(usize, &Value) -> Result<Value, ShellError> + Send> {
+    Box::new(move |_: usize, value: &Value| {
+        let path = by.clone();
+
+        let eval = nu_value_ext::get_data_by_column_path(
+            value,
+            &path,
+            Box::new(move |(_, _, error)| error),
+        );
+
+        match eval {
+            Ok(with_value) => Ok(with_value),
+            Err(reason) => Err(reason),
+        }
+    })
 }
 
 fn splitter(

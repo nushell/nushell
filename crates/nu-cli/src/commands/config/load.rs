@@ -50,7 +50,7 @@ pub async fn set(
 
     let configuration = load.item().clone();
 
-    let result = crate::data::config::read(name_span, &Some(configuration))?;
+    let result = nu_data::config::read(name_span, &Some(configuration))?;
 
     Ok(futures::stream::iter(vec![ReturnSuccess::value(
         UntaggedValue::Row(result.into()).into_value(name),

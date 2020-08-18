@@ -13,8 +13,8 @@ use ichwh::{IchwhError, IchwhResult};
 
 use crate::completion::{self, Completer};
 use crate::context;
-use crate::data::config;
 use crate::prelude::*;
+use nu_data::config;
 
 pub(crate) struct NuCompleter {
     file_completer: FilenameCompleter,

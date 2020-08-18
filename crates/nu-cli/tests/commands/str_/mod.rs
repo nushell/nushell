@@ -98,6 +98,26 @@ fn upcases() {
 }
 
 #[test]
+fn camelcases() {
+    Playground::setup("str_test_3", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
+                    [dependency]
+                    name = "THIS_IS_A_TEST"
+                "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "open sample.toml | str camel-case dependency.name | get dependency.name | echo $it"
+        );
+
+        assert_eq!(actual.out, "thisIsATest");
+    })
+}
+
+#[test]
 fn converts_to_int() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(

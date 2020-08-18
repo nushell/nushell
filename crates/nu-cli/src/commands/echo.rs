@@ -102,7 +102,7 @@ impl Iterator for RangeIterator {
         if self.curr != self.end {
             let output = UntaggedValue::Primitive(self.curr.clone()).into_value(self.tag.clone());
 
-            self.curr = match crate::data::value::compute_values(
+            self.curr = match nu_data::value::compute_values(
                 Operator::Plus,
                 &UntaggedValue::Primitive(self.curr.clone()),
                 &UntaggedValue::int(1),

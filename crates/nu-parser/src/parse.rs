@@ -316,13 +316,13 @@ fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseErr
         (Unit::Nanosecond, vec!["ns"]),
         (Unit::Microsecond, vec!["us"]),
         (Unit::Millisecond, vec!["ms"]),
-        (Unit::Second, vec!["s"]),
-        (Unit::Minute, vec!["m"]),
-        (Unit::Hour, vec!["h"]),
-        (Unit::Day, vec!["d"]),
-        (Unit::Week, vec!["w"]),
-        (Unit::Month, vec!["M"]),
-        (Unit::Year, vec!["y"]),
+        (Unit::Second, vec!["sec"]),
+        (Unit::Minute, vec!["min"]),
+        (Unit::Hour, vec!["hr"]),
+        (Unit::Day, vec!["day"]),
+        (Unit::Week, vec!["wk"]),
+        (Unit::Month, vec!["mon"]),
+        (Unit::Year, vec!["yr"]),
     ];
 
     for unit_group in unit_groups.iter() {

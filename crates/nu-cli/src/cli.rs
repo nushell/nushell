@@ -136,7 +136,7 @@ fn search_paths() -> Vec<std::path::PathBuf> {
         }
     }
 
-    if let Ok(config) = crate::data::config::config(Tag::unknown()) {
+    if let Ok(config) = nu_data::config::config(Tag::unknown()) {
         if let Some(plugin_dirs) = config.get("plugin_dirs") {
             if let Value {
                 value: UntaggedValue::Table(pipelines),
@@ -223,29 +223,29 @@ pub struct History;
 impl History {
     pub fn path() -> PathBuf {
         const FNAME: &str = "history.txt";
-        config::user_data()
+        let default = config::user_data()
             .map(|mut p| {
                 p.push(FNAME);
                 p
             })
-            .unwrap_or_else(|_| PathBuf::from(FNAME))
+            .unwrap_or_else(|_| PathBuf::from(FNAME));
+
+        let cfg = nu_data::config::config(Tag::unknown());
+        if let Ok(c) = cfg {
+            match &c.get("history-path") {
+                Some(Value {
+                    value: UntaggedValue::Primitive(p),
+                    ..
+                }) => match p {
+                    Primitive::String(path) => PathBuf::from(path),
+                    _ => default,
+                },
+                _ => default,
+            }
+        } else {
+            default
+        }
     }
-}
-
-#[allow(dead_code)]
-fn create_default_starship_config() -> Option<toml::Value> {
-    let mut map = toml::value::Table::new();
-    map.insert("add_newline".into(), toml::Value::Boolean(false));
-
-    let mut git_branch = toml::value::Table::new();
-    git_branch.insert("symbol".into(), toml::Value::String("📙 ".into()));
-    map.insert("git_branch".into(), toml::Value::Table(git_branch));
-
-    let mut git_status = toml::value::Table::new();
-    git_status.insert("disabled".into(), toml::Value::Boolean(true));
-    map.insert("git_status".into(), toml::Value::Table(git_status));
-
-    Some(toml::Value::Table(map))
 }
 
 pub fn create_default_context(
@@ -340,6 +340,11 @@ pub fn create_default_context(
             whole_stream_command(StrCollect),
             whole_stream_command(StrLength),
             whole_stream_command(StrReverse),
+            whole_stream_command(StrCamelCase),
+            whole_stream_command(StrPascalCase),
+            whole_stream_command(StrKebabCase),
+            whole_stream_command(StrSnakeCase),
+            whole_stream_command(StrScreamingSnakeCase),
             whole_stream_command(BuildString),
             whole_stream_command(Ansi),
             whole_stream_command(Char),
@@ -486,7 +491,7 @@ pub async fn run_vec_of_pipelines(
     }
 
     // before we start up, let's run our startup commands
-    if let Ok(config) = crate::data::config::config(Tag::unknown()) {
+    if let Ok(config) = nu_data::config::config(Tag::unknown()) {
         if let Some(commands) = config.get("startup") {
             match commands {
                 Value {
@@ -750,11 +755,6 @@ pub async fn cli(
         );
     }
 
-    let use_starship = config
-        .get("use_starship")
-        .map(|x| x.is_true())
-        .unwrap_or(false);
-
     #[cfg(windows)]
     {
         let _ = ansi_term::enable_ansi_support();
@@ -772,7 +772,7 @@ pub async fn cli(
     let mut ctrlcbreak = false;
 
     // before we start up, let's run our startup commands
-    if let Ok(config) = crate::data::config::config(Tag::unknown()) {
+    if let Ok(config) = nu_data::config::config(Tag::unknown()) {
         if let Some(commands) = config.get("startup") {
             match commands {
                 Value {
@@ -812,37 +812,7 @@ pub async fn cli(
         )));
 
         let colored_prompt = {
-            if use_starship {
-                #[cfg(feature = "starship")]
-                {
-                    std::env::set_var("STARSHIP_SHELL", "");
-                    std::env::set_var("PWD", &cwd);
-                    let mut starship_context =
-                        starship::context::Context::new_with_dir(clap::ArgMatches::default(), cwd);
-
-                    match starship_context.config.config {
-                        None => {
-                            starship_context.config.config = create_default_starship_config();
-                        }
-                        Some(toml::Value::Table(t)) if t.is_empty() => {
-                            starship_context.config.config = create_default_starship_config();
-                        }
-                        _ => {}
-                    };
-                    starship::print::get_prompt(starship_context)
-                }
-                #[cfg(not(feature = "starship"))]
-                {
-                    format!(
-                        "\x1b[32m{}{}\x1b[m> ",
-                        cwd,
-                        match current_branch() {
-                            Some(s) => format!("({})", s),
-                            None => "".to_string(),
-                        }
-                    )
-                }
-            } else if let Some(prompt) = config.get("prompt") {
+            if let Some(prompt) = config.get("prompt") {
                 let prompt_line = prompt.as_string()?;
 
                 match nu_parser::lite_parse(&prompt_line, 0).map_err(ShellError::from) {
