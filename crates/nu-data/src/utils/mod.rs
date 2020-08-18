@@ -200,12 +200,15 @@ pub mod helpers {
 
         let grouper = Box::new(move |_, row: &Value| {
             let key = String::from("date").tagged_unknown();
-            let group_key = row.get_data_by_key(key.borrow_spanned()).expect("get key failed");
+            let group_key = row
+                .get_data_by_key(key.borrow_spanned())
+                .expect("get key failed");
 
             group_key.format("%Y-%m-%d")
         });
 
-        crate::utils::group(&sample, &Some(grouper), Tag::unknown()).expect("failed to create group")
+        crate::utils::group(&sample, &Some(grouper), Tag::unknown())
+            .expect("failed to create group")
     }
 
     pub fn date_formatter(
