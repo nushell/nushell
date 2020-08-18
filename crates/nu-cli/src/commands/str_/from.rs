@@ -131,7 +131,7 @@ pub fn action(
             _ => {
                 return Err(ShellError::unimplemented(
                     "str from for non-numeric primitives",
-                ))
+                ));
             }
         })
         .into_value(tag)),

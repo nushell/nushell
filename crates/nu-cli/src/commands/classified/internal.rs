@@ -13,6 +13,7 @@ use nu_protocol::{
     CommandAction, NamedType, PositionalType, Primitive, ReturnSuccess, Scope, SyntaxShape,
     UntaggedValue, Value,
 };
+use std::collections::HashMap;
 
 pub(crate) async fn run_internal_command(
     command: InternalCommand,
@@ -202,13 +203,21 @@ pub(crate) async fn run_internal_command(
                                 InputStream::from_stream(futures::stream::iter(vec![]))
                             }
                             CommandAction::AddAlias(name, args, block) => {
-                                let mut arg_shapes: IndexMap<String, SyntaxShape> = args
-                                    .iter()
-                                    .map(|arg| (arg.clone(), SyntaxShape::Any))
-                                    .collect();
-                                match find_block_shapes(&block, &context.registry, &mut arg_shapes)
-                                {
-                                    Ok(_) => {
+                                match find_block_shapes(&block, &context.registry) {
+                                    Ok(found) => {
+                                        let arg_shapes: IndexMap<String, SyntaxShape> = args
+                                            .iter()
+                                            .map(|arg| {
+                                                (
+                                                    arg.clone(),
+                                                    match found.get(arg) {
+                                                        None | Some(None) => SyntaxShape::Any,
+                                                        Some(Some(shape)) => *shape,
+                                                    },
+                                                )
+                                            })
+                                            .collect();
+
                                         context.add_commands(vec![whole_stream_command(
                                             AliasCommand::new(
                                                 name,
@@ -219,7 +228,7 @@ pub(crate) async fn run_internal_command(
                                         InputStream::from_stream(futures::stream::iter(vec![]))
                                     }
                                     Err(err) => InputStream::one(
-                                        UntaggedValue::Error(err.into()).into_untagged_value(),
+                                        UntaggedValue::Error(err).into_untagged_value(),
                                     ),
                                 }
                             }
@@ -276,160 +285,331 @@ pub(crate) async fn run_internal_command(
     ))
 }
 
-fn find_expr_shapes<F>(
+fn check_insert(
+    existing: &mut HashMap<String, Option<SyntaxShape>>,
+    to_add: (String, Option<SyntaxShape>),
+) -> Result<(), ShellError> {
+    match to_add.1 {
+        None => Ok(()),
+        Some(new) => match existing.insert(to_add.0.to_string(), Some(new.clone())) {
+            None => Ok(()),
+            Some(exist) => match exist {
+                None => Ok(()),
+                Some(shape) => {
+                    match shape {
+                        SyntaxShape::Any => Ok(()),
+                        shape if shape == new => Ok(()),
+                        _ => {
+                            return Err(ShellError::untagged_runtime_error(String::from(
+                                "alias syntax shape mismatch",
+                            ))); // TODO .spanned(err_span),
+                                 // ))
+                        }
+                    }
+                }
+            },
+        },
+    }
+}
+
+fn check_merge(
+    // TODO maybe get rid of?
+    existing: &mut HashMap<String, Option<SyntaxShape>>,
+    new: &HashMap<String, Option<SyntaxShape>>,
+) -> Result<(), ShellError> {
+    for (k, v) in new.iter() {
+        check_insert(existing, (k.clone(), v.clone()))?; // TODO cloning?
+    }
+
+    Ok(())
+}
+
+fn find_expr_shapes(
     expr: &Expression,
     registry: &CommandRegistry,
-    arg_shapes: &mut IndexMap<String, SyntaxShape>,
-    mut on_found: F,
-) -> Result<(), ShellError>
-where
-    F: FnMut(&str, &mut IndexMap<String, SyntaxShape>) -> Result<(), ShellError>,
-{
+) -> Result<HashMap<String, Option<SyntaxShape>>, ShellError> {
     match expr {
-        Expression::Block(b) => find_block_shapes(&b, registry, arg_shapes),
+        // TODO range?
+        // TODO does Invocation ever show up here?
+        Expression::Binary(bin) => {
+            find_expr_shapes(&bin.left.expr, registry).and_then(|mut left| {
+                find_expr_shapes(&bin.right.expr, registry)
+                    .and_then(|right| check_merge(&mut left, &right).map(|()| left))
+            })
+        }
+        Expression::Block(b) => find_block_shapes(&b, registry),
         Expression::Path(path) => match &path.head.expr {
-            Expression::Invocation(b) => find_block_shapes(&b, registry, arg_shapes),
+            Expression::Invocation(b) => find_block_shapes(&b, registry),
             Expression::Variable(Variable::Other(var, _)) => {
-                if arg_shapes.contains_key(var) {
-                    on_found(var, arg_shapes)
-                } else {
-                    Ok(())
-                }
+                let mut result = HashMap::new();
+                result.insert(var.to_string(), None);
+                Ok(result)
             }
-            _ => Ok(()),
+            _ => Ok(HashMap::new()),
         },
-        _ => Ok(()),
+        _ => Ok(HashMap::new()),
     }
 }
 
 fn find_block_shapes(
     block: &Block,
     registry: &CommandRegistry,
-    arg_shapes: &mut IndexMap<String, SyntaxShape>,
-) -> Result<(), ShellError> {
+) -> Result<HashMap<String, Option<SyntaxShape>>, ShellError> {
+    let mut arg_shapes = HashMap::new();
     for pipeline in &block.block {
+        // println!("{:#?}", pipeline);
         for classified in &pipeline.list {
             match classified {
                 ClassifiedCommand::Expr(spanned) => {
-                    match &spanned.expr {
-                        // TODO range?
-                        // TODO does Invocation ever show up here?
-                        Expression::Binary(bin) => {
-                            find_expr_shapes(
-                                &bin.left.expr,
-                                registry,
-                                arg_shapes,
-                                |_var, _shapes| Ok(()), // TODO kick up??
-                            )
-                            .and_then(|()| {
-                                find_expr_shapes(
-                                    &bin.right.expr,
-                                    registry,
-                                    arg_shapes,
-                                    |_var, _shapes| Ok(()),
-                                )
-                            })
-                        }
-                        Expression::Block(b) => find_block_shapes(&b, registry, arg_shapes),
-                        Expression::Path(path) => {
-                            if let Expression::Invocation(b) = &path.head.expr {
-                                find_block_shapes(&b, registry, arg_shapes)
-                            } else {
-                                Ok(())
-                            }
-                        }
-                        _ => Ok(()),
-                    }?
+                    let found = find_expr_shapes(&spanned.expr, registry)?;
+                    check_merge(&mut arg_shapes, &found)?
                 }
                 ClassifiedCommand::Internal(internal) => {
                     if let Some(signature) = registry.get(&internal.name) {
-                        let insert_check = |name: &str,
-                                            shp_map: &mut IndexMap<String, SyntaxShape>,
-                                            shp: SyntaxShape,
-                                            err_span: Span|
-                         -> Result<(), ShellError> {
-                            match shp_map
-                                .insert(name.to_string(), shp.clone())
-                                .expect("should have been preloaded in map")
-                            {
-                                SyntaxShape::Any => Ok(()),
-                                other if other == shp => Ok(()),
-                                _ => Err(ShellError::syntax_error(
-                                    String::from("alias syntax shape mismatch").spanned(err_span),
-                                )),
-                            }
-                        };
                         if let Some(positional) = &internal.args.positional {
                             for (i, spanned) in positional.iter().enumerate() {
-                                find_expr_shapes(
-                                    &spanned.expr,
-                                    registry,
-                                    arg_shapes,
-                                    |var, arg_shapes| {
-                                        if i >= signature.positional.len() {
-                                            if let Some((shape, _)) = &signature.rest_positional {
-                                                insert_check(
-                                                    var,
-                                                    arg_shapes,
-                                                    shape.clone(),
-                                                    spanned.span,
-                                                )
-                                            } else {
-                                                Ok(())
-                                            }
-                                        } else {
-                                            let (pos_type, _) = &signature.positional[i];
-                                            match pos_type {
-                                                // TODO also use mandatory/optional?
-                                                PositionalType::Mandatory(_, shape)
-                                                | PositionalType::Optional(_, shape) => {
-                                                    insert_check(
-                                                        var,
-                                                        arg_shapes,
-                                                        shape.clone(),
-                                                        spanned.span,
-                                                    )
-                                                }
-                                            }
+                                // TODO use spanned
+                                let found = find_expr_shapes(&spanned.expr, registry)?;
+                                if i >= signature.positional.len() {
+                                    if let Some((sig_shape, _)) = &signature.rest_positional {
+                                        for (v, sh) in found.iter() {
+                                            match sh {
+                                                None => check_insert(
+                                                    &mut arg_shapes,
+                                                    (v.to_string(), Some(*sig_shape)),
+                                                ),
+                                                Some(shape) => check_insert(
+                                                    // TODO is this a problem?
+                                                    &mut arg_shapes,
+                                                    (v.to_string(), Some(*shape)),
+                                                ),
+                                            };
                                         }
-                                    },
-                                )?;
-                            }
-                        }
-                        if let Some(named) = &internal.args.named {
-                            for (name, val) in named.iter() {
-                                if let NamedValue::Value(_, spanned) = val {
-                                    find_expr_shapes(
-                                        &spanned.expr,
-                                        registry,
-                                        arg_shapes,
-                                        |var, arg_shapes| {
-                                            match signature.named.get(name) {
-                                                None => Ok(()), // TODO?
-                                                Some((named_type, _)) => match named_type {
-                                                    NamedType::Mandatory(_, shape)
-                                                    | NamedType::Optional(_, shape) => {
-                                                        insert_check(
-                                                            var,
-                                                            arg_shapes,
-                                                            shape.clone(),
-                                                            spanned.span,
-                                                        )
+                                    } else {
+                                        return Err(ShellError::unimplemented(
+                                            "TODO too many positionals",
+                                        ));
+                                    }
+                                } else {
+                                    let (pos_type, _) = &signature.positional[i];
+                                    match pos_type {
+                                        // TODO also use mandatory/optional?
+                                        PositionalType::Mandatory(_, sig_shape)
+                                        | PositionalType::Optional(_, sig_shape) => {
+                                            found
+                                                .iter()
+                                                .map(|(v, sh)| {
+                                                    match sh {
+                                                        None => check_insert(
+                                                            &mut arg_shapes,
+                                                            (v.to_string(), Some(*sig_shape)),
+                                                        ),
+                                                        Some(shape) => check_insert(
+                                                            // TODO is this a problem?
+                                                            &mut arg_shapes,
+                                                            (v.to_string(), Some(*shape)),
+                                                        ),
                                                     }
-                                                    _ => Ok(()),
-                                                },
-                                            }
-                                        },
-                                    )?;
+                                                })
+                                                .collect::<Result<Vec<_>, _>>()?;
+                                        }
+                                    }
                                 }
                             }
                         }
+
+                        if let Some(named) = &internal.args.named {
+                            for (name, val) in named.iter() {
+                                if let NamedValue::Value(_, spanned) = val {
+                                    let found = find_expr_shapes(&spanned.expr, registry)?;
+                                    match signature.named.get(name) {
+                                        None => {
+                                            return Err(ShellError::unimplemented(
+                                                "TODO invalid named arg, make a spanned error",
+                                            ))
+                                        }
+                                        Some((named_type, _)) => {
+                                            if let NamedType::Mandatory(_, sig_shape)
+                                            | NamedType::Optional(_, sig_shape) = named_type
+                                            {
+                                                for (v, sh) in found.iter() {
+                                                    match sh {
+                                                        None => check_insert(
+                                                            &mut arg_shapes,
+                                                            (v.to_string(), Some(*sig_shape)),
+                                                        ),
+                                                        Some(shape) => check_insert(
+                                                            // TODO is this a problem?
+                                                            &mut arg_shapes,
+                                                            (v.to_string(), Some(*shape)),
+                                                        ),
+                                                    };
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        // } else {  TODO unreachable (will always be run_external)
+                        //     println!("aint fucking here");
+                        //     return Err(ShellError::unimplemented("TODO same as command not found"));
                     }
                 }
-                ClassifiedCommand::Dynamic(_) | ClassifiedCommand::Error(_) => continue,
+                ClassifiedCommand::Dynamic(_) | ClassifiedCommand::Error(_) => (),
             }
         }
     }
 
-    Ok(())
+    // println!("still gonna return OK");
+    Ok(arg_shapes)
+    // Err(ShellError::unimplemented("TODO"))
 }
+
+// fn find_expr_shapes<F>(
+//     expr: &Expression,
+//     registry: &CommandRegistry,
+//     arg_shapes: &mut IndexMap<String, SyntaxShape>,
+//     mut on_found: F,
+// ) -> Result<(), ShellError>
+// where
+//     F: FnMut(&str, &mut IndexMap<String, SyntaxShape>) -> Result<(), ShellError>,
+// {
+//     match expr {
+//         // TODO range?
+//         // TODO does Invocation ever show up here?
+//         Expression::Binary(bin) => {
+//             find_expr_shapes(
+//                 &bin.left.expr,
+//                 registry,
+//                 arg_shapes,
+//                 |_var, _shapes| Ok(()), // TODO kick up??
+//             )
+//             .and_then(|()| {
+//                 find_expr_shapes(
+//                     &bin.right.expr,
+//                     registry,
+//                     arg_shapes,
+//                     |_var, _shapes| Ok(()),
+//                 )
+//             })
+//         }
+//         Expression::Block(b) => find_block_shapes(&b, registry, arg_shapes),
+//         Expression::Path(path) => match &path.head.expr {
+//             Expression::Invocation(b) => find_block_shapes(&b, registry, arg_shapes),
+//             Expression::Variable(Variable::Other(var, _)) => {
+//                 if arg_shapes.contains_key(var) {
+//                     on_found(var, arg_shapes)
+//                 } else {
+//                     Ok(())
+//                 }
+//             }
+//             _ => Ok(()),
+//         },
+//         _ => Ok(()),
+//     }
+// }
+//
+// fn find_block_shapes(
+//     block: &Block,
+//     registry: &CommandRegistry,
+//     arg_shapes: &mut IndexMap<String, SyntaxShape>,
+// ) -> Result<(), ShellError> {
+//     for pipeline in &block.block {
+//         for classified in &pipeline.list {
+//             match classified {
+//                 ClassifiedCommand::Expr(spanned) => {
+//                     find_expr_shapes(&spanned.expr, registry, arg_shapes, |_var, _shapes| Ok(()))?
+//                 }
+//                 ClassifiedCommand::Internal(internal) => {
+//                     if let Some(signature) = registry.get(&internal.name) {
+//                         let insert_check = |name: &str,
+//                                             shp_map: &mut IndexMap<String, SyntaxShape>,
+//                                             shp: SyntaxShape,
+//                                             err_span: Span|
+//                          -> Result<(), ShellError> {
+//                             match shp_map
+//                                 .insert(name.to_string(), shp.clone())
+//                                 .expect("should have been preloaded in map")
+//                             {
+//                                 SyntaxShape::Any => Ok(()),
+//                                 other if other == shp => Ok(()),
+//                                 _ => Err(ShellError::syntax_error(
+//                                     String::from("alias syntax shape mismatch").spanned(err_span),
+//                                 )),
+//                             }
+//                         };
+//                         if let Some(positional) = &internal.args.positional {
+//                             for (i, spanned) in positional.iter().enumerate() {
+//                                 find_expr_shapes(
+//                                     &spanned.expr,
+//                                     registry,
+//                                     arg_shapes,
+//                                     |var, arg_shapes| {
+//                                         if i >= signature.positional.len() {
+//                                             if let Some((shape, _)) = &signature.rest_positional {
+//                                                 insert_check(
+//                                                     var,
+//                                                     arg_shapes,
+//                                                     shape.clone(),
+//                                                     spanned.span,
+//                                                 )
+//                                             } else {
+//                                                 Ok(())
+//                                             }
+//                                         } else {
+//                                             let (pos_type, _) = &signature.positional[i];
+//                                             match pos_type {
+//                                                 // TODO also use mandatory/optional?
+//                                                 PositionalType::Mandatory(_, shape)
+//                                                 | PositionalType::Optional(_, shape) => {
+//                                                     insert_check(
+//                                                         var,
+//                                                         arg_shapes,
+//                                                         shape.clone(),
+//                                                         spanned.span,
+//                                                     )
+//                                                 }
+//                                             }
+//                                         }
+//                                     },
+//                                 )?;
+//                             }
+//                         }
+//                         if let Some(named) = &internal.args.named {
+//                             for (name, val) in named.iter() {
+//                                 if let NamedValue::Value(_, spanned) = val {
+//                                     find_expr_shapes(
+//                                         &spanned.expr,
+//                                         registry,
+//                                         arg_shapes,
+//                                         |var, arg_shapes| {
+//                                             match signature.named.get(name) {
+//                                                 None => Ok(()), // TODO?
+//                                                 Some((named_type, _)) => match named_type {
+//                                                     NamedType::Mandatory(_, shape)
+//                                                     | NamedType::Optional(_, shape) => {
+//                                                         insert_check(
+//                                                             var,
+//                                                             arg_shapes,
+//                                                             shape.clone(),
+//                                                             spanned.span,
+//                                                         )
+//                                                     }
+//                                                     _ => Ok(()),
+//                                                 },
+//                                             }
+//                                         },
+//                                     )?;
+//                                 }
+//                             }
+//                         }
+//                     }
+//                 }
+//                 ClassifiedCommand::Dynamic(_) | ClassifiedCommand::Error(_) => continue,
+//             }
+//         }
+//     }
+//
+//     Ok(())
+// }
