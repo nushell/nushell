@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::error::Error;
-use std::io::Read;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HtmlThemes {
@@ -183,6 +182,7 @@ fn get_theme_from_asset_file(
     Ok(convert_html_theme_to_hash_map(is_dark, th))
 }
 
+#[allow(unused_variables)]
 fn get_asset_by_name_as_html_themes(
     zip_name: &str,
     json_name: &str,
@@ -194,11 +194,20 @@ fn get_asset_by_name_as_html_themes(
                 Cow::Owned(bytes) => bytes,
             };
             let reader = std::io::Cursor::new(asset);
-            let mut archive = zip::ZipArchive::new(reader)?;
-            let mut zip_file = archive.by_name(json_name)?;
-            let mut contents = String::new();
-            zip_file.read_to_string(&mut contents)?;
-            Ok(serde_json::from_str(&contents)?)
+            #[cfg(feature = "zip")]
+            {
+                use std::io::Read;
+                let mut archive = zip::ZipArchive::new(reader)?;
+                let mut zip_file = archive.by_name(json_name)?;
+                let mut contents = String::new();
+                zip_file.read_to_string(&mut contents)?;
+                Ok(serde_json::from_str(&contents)?)
+            }
+            #[cfg(not(feature = "zip"))]
+            {
+                let th = HtmlThemes::default();
+                Ok(th)
+            }
         }
         None => {
             let th = HtmlThemes::default();
