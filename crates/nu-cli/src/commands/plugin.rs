@@ -8,8 +8,8 @@ use serde::{self, Deserialize, Serialize};
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::io::Write;
-use std::process::{Child, Command, Stdio};
 use std::path::Path;
+use std::process::{Child, Command, Stdio};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JsonRpc<T> {
@@ -95,19 +95,26 @@ pub async fn filter_plugin(
 
     let mut child: Child = if ps1_file {
         Command::new("pwsh")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .args(&["-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", &real_path.to_string_lossy()])
-        .spawn()
-        .expect("Failed to spawn PowerShell process")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .args(&[
+                "-NoLogo",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                &real_path.to_string_lossy(),
+            ])
+            .spawn()
+            .expect("Failed to spawn PowerShell process")
     } else {
         Command::new(path)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
-        .expect("Failed to spawn child process")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn child process")
     };
-    
+
     let call_info = args.call_info.clone();
 
     trace!("filtering :: {:?}", call_info);
@@ -370,18 +377,25 @@ pub async fn sink_plugin(
                 Some(ext) => ext == "ps1",
                 None => false,
             };
-        
+
             // TODO: This sink may not work in powershell, trying to find
             // an example of what CallInfo would look like in this temp file
             let mut child: Child = if ps1_file {
                 Command::new("pwsh")
-                .args(&["-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", &real_path.to_string_lossy(), tmpfile.path()])
-                .spawn()
+                    .args(&[
+                        "-NoLogo",
+                        "-NoProfile",
+                        "-ExecutionPolicy",
+                        "Bypass",
+                        "-File",
+                        &real_path.to_string_lossy(),
+                        tmpfile.path(),
+                    ])
+                    .spawn()
             } else {
-                Command::new(path)
-                .arg(tmpfile.path()).spawn()
+                Command::new(path).arg(tmpfile.path()).spawn()
             };
-        
+
             if let Ok(mut child) = child {
                 let _ = child.wait();
 

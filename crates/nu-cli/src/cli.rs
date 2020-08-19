@@ -25,8 +25,8 @@ use std::error::Error;
 use std::io::{BufRead, BufReader, Write};
 use std::iter::Iterator;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::Ordering;
 use std::process::{Child, Command, Stdio};
+use std::sync::atomic::Ordering;
 
 use rayon::prelude::*;
 
@@ -39,17 +39,24 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
 
     let mut child: Child = if ps1_file {
         Command::new("pwsh")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .args(&["-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", &path.to_string_lossy()])
-        .spawn()
-        .expect("Failed to spawn PowerShell process")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .args(&[
+                "-NoLogo",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                &path.to_string_lossy(),
+            ])
+            .spawn()
+            .expect("Failed to spawn PowerShell process")
     } else {
         Command::new(path)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
-        .expect("Failed to spawn child process")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn child process")
     };
 
     let stdin = child.stdin.as_mut().expect("Failed to open stdin");
