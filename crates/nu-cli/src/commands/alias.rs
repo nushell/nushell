@@ -4,7 +4,7 @@ use crate::prelude::*;
 use nu_data::config;
 use nu_errors::ShellError;
 use nu_parser::SignatureRegistry;
-use nu_protocol::hir::{ClassifiedCommand, Expression, NamedValue, Variable};
+use nu_protocol::hir::{ClassifiedCommand, Expression, NamedValue, SpannedExpression, Variable};
 use nu_protocol::{
     hir::Block, CommandAction, NamedType, PositionalType, ReturnSuccess, Signature, SyntaxShape,
     UntaggedValue, Value,
@@ -146,35 +146,6 @@ pub async fn alias(
     )))
 }
 
-// match find_block_shapes(&block, &context.registry) {
-//     Ok(found) => {
-//         let arg_shapes: IndexMap<String, SyntaxShape> = args
-//             .iter()
-//             .map(|arg| {
-//                 (
-//                     arg.clone(),
-//                     match found.get(arg) {
-//                         None | Some(None) => SyntaxShape::Any,
-//                         Some(Some(shape)) => *shape,
-//                     },
-//                 )
-//             })
-//             .collect();
-//
-//         context.add_commands(vec![whole_stream_command(
-//             AliasCommand::new(
-//                 name,
-//                 arg_shapes.into_iter().collect(),
-//                 block,
-//             ),
-//         )]);
-//         InputStream::from_stream(futures::stream::iter(vec![]))
-//     }
-//     Err(err) => InputStream::one(
-//         UntaggedValue::Error(err).into_untagged_value(),
-//     ),
-// }
-
 fn to_arg_shapes(
     args: Vec<String>,
     block: &Block,
@@ -187,8 +158,8 @@ fn to_arg_shapes(
                 (
                     arg.clone(),
                     match found.get(arg) {
-                        None | Some(None) => SyntaxShape::Any,
-                        Some(Some(shape)) => *shape,
+                        None | Some((_, None)) => SyntaxShape::Any,
+                        Some((_, Some(shape))) => *shape,
                     },
                 )
             })
@@ -197,37 +168,41 @@ fn to_arg_shapes(
     }
 }
 
+type ShapeMap = HashMap<String, (Span, Option<SyntaxShape>)>;
+
 fn check_insert(
-    existing: &mut HashMap<String, Option<SyntaxShape>>,
-    to_add: (String, Option<SyntaxShape>),
+    existing: &mut ShapeMap,
+    to_add: (String, (Span, Option<SyntaxShape>)),
 ) -> Result<(), ShellError> {
-    match to_add.1 {
-        None => Ok(()),
-        Some(new) => match existing.insert(to_add.0.to_string(), Some(new.clone())) {
+    match (to_add.1).1 {
+        None => match existing.get(&to_add.0) {
+            None => {
+                existing.insert(to_add.0, to_add.1);
+                Ok(())
+            }
+            Some(_) => Ok(()),
+        },
+        Some(new) => match existing.insert(to_add.0.clone(), ((to_add.1).0, Some(new.clone()))) {
             None => Ok(()),
-            Some(exist) => match exist {
+            Some(exist) => match exist.1 {
                 None => Ok(()),
-                Some(shape) => {
-                    match shape {
-                        SyntaxShape::Any => Ok(()),
-                        shape if shape == new => Ok(()),
-                        _ => {
-                            return Err(ShellError::untagged_runtime_error(String::from(
-                                "alias syntax shape mismatch",
-                            ))); // TODO .spanned(err_span),
-                                 // ))
-                        }
+                Some(shape) => match shape {
+                    SyntaxShape::Any => Ok(()),
+                    shape if shape == new => Ok(()),
+                    _ => {
+                        return Err(ShellError::labeled_error(
+                            "Type conflict in alias variable use",
+                            "creates type conflict",
+                            (to_add.1).0,
+                        ));
                     }
-                }
+                },
             },
         },
     }
 }
 
-fn check_merge(
-    existing: &mut HashMap<String, Option<SyntaxShape>>,
-    new: &HashMap<String, Option<SyntaxShape>>,
-) -> Result<(), ShellError> {
+fn check_merge(existing: &mut ShapeMap, new: &ShapeMap) -> Result<(), ShellError> {
     for (k, v) in new.iter() {
         check_insert(existing, (k.clone(), v.clone()))?;
     }
@@ -236,24 +211,21 @@ fn check_merge(
 }
 
 fn find_expr_shapes(
-    expr: &Expression,
+    spanned_expr: &SpannedExpression,
     registry: &CommandRegistry,
-) -> Result<HashMap<String, Option<SyntaxShape>>, ShellError> {
-    match expr {
-        // TODO range?
-        // TODO does Invocation ever show up here?
-        Expression::Binary(bin) => {
-            find_expr_shapes(&bin.left.expr, registry).and_then(|mut left| {
-                find_expr_shapes(&bin.right.expr, registry)
-                    .and_then(|right| check_merge(&mut left, &right).map(|()| left))
-            })
-        }
+) -> Result<ShapeMap, ShellError> {
+    match &spanned_expr.expr {
+        // TODO range will need similar if/when invocations can be parsed within range expression
+        Expression::Binary(bin) => find_expr_shapes(&bin.left, registry).and_then(|mut left| {
+            find_expr_shapes(&bin.right, registry)
+                .and_then(|right| check_merge(&mut left, &right).map(|()| left))
+        }),
         Expression::Block(b) => find_block_shapes(&b, registry),
         Expression::Path(path) => match &path.head.expr {
             Expression::Invocation(b) => find_block_shapes(&b, registry),
             Expression::Variable(Variable::Other(var, _)) => {
                 let mut result = HashMap::new();
-                result.insert(var.to_string(), None);
+                result.insert(var.to_string(), (spanned_expr.span, None));
                 Ok(result)
             }
             _ => Ok(HashMap::new()),
@@ -262,44 +234,38 @@ fn find_expr_shapes(
     }
 }
 
-fn find_block_shapes(
-    block: &Block,
-    registry: &CommandRegistry,
-) -> Result<HashMap<String, Option<SyntaxShape>>, ShellError> {
+fn find_block_shapes(block: &Block, registry: &CommandRegistry) -> Result<ShapeMap, ShellError> {
+    let apply_shape = |found: ShapeMap, sig_shape: &SyntaxShape| -> ShapeMap {
+        found
+            .iter()
+            .map(|(v, sh)| match sh.1 {
+                None => (v.clone(), (sh.0, Some(sig_shape.clone()))),
+                Some(shape) => (v.clone(), (sh.0, Some(shape))),
+            })
+            .collect()
+    };
+
     let mut arg_shapes = HashMap::new();
     for pipeline in &block.block {
-        // println!("{:#?}", pipeline);
         for classified in &pipeline.list {
             match classified {
-                ClassifiedCommand::Expr(spanned) => {
-                    let found = find_expr_shapes(&spanned.expr, registry)?;
+                ClassifiedCommand::Expr(spanned_expr) => {
+                    let found = find_expr_shapes(&spanned_expr, registry)?;
                     check_merge(&mut arg_shapes, &found)?
                 }
                 ClassifiedCommand::Internal(internal) => {
                     if let Some(signature) = registry.get(&internal.name) {
                         if let Some(positional) = &internal.args.positional {
-                            for (i, spanned) in positional.iter().enumerate() {
-                                // TODO use spanned
-                                let found = find_expr_shapes(&spanned.expr, registry)?;
+                            for (i, spanned_expr) in positional.iter().enumerate() {
+                                let found = find_expr_shapes(&spanned_expr, registry)?;
                                 if i >= signature.positional.len() {
                                     if let Some((sig_shape, _)) = &signature.rest_positional {
-                                        for (v, sh) in found.iter() {
-                                            match sh {
-                                                None => check_insert(
-                                                    &mut arg_shapes,
-                                                    (v.to_string(), Some(*sig_shape)),
-                                                ),
-                                                Some(shape) => check_insert(
-                                                    // TODO is this a problem?
-                                                    &mut arg_shapes,
-                                                    (v.to_string(), Some(*shape)),
-                                                ),
-                                            };
-                                        }
+                                        check_merge(
+                                            &mut arg_shapes,
+                                            &apply_shape(found, sig_shape),
+                                        )?;
                                     } else {
-                                        return Err(ShellError::unimplemented(
-                                            "TODO too many positionals",
-                                        ));
+                                        unreachable!("already checked by parser");
                                     }
                                 } else {
                                     let (pos_type, _) = &signature.positional[i];
@@ -307,22 +273,10 @@ fn find_block_shapes(
                                         // TODO also use mandatory/optional?
                                         PositionalType::Mandatory(_, sig_shape)
                                         | PositionalType::Optional(_, sig_shape) => {
-                                            found
-                                                .iter()
-                                                .map(|(v, sh)| {
-                                                    match sh {
-                                                        None => check_insert(
-                                                            &mut arg_shapes,
-                                                            (v.to_string(), Some(*sig_shape)),
-                                                        ),
-                                                        Some(shape) => check_insert(
-                                                            // TODO is this a problem?
-                                                            &mut arg_shapes,
-                                                            (v.to_string(), Some(*shape)),
-                                                        ),
-                                                    }
-                                                })
-                                                .collect::<Result<Vec<_>, _>>()?;
+                                            check_merge(
+                                                &mut arg_shapes,
+                                                &apply_shape(found, sig_shape),
+                                            )?;
                                         }
                                     }
                                 }
@@ -331,40 +285,28 @@ fn find_block_shapes(
 
                         if let Some(named) = &internal.args.named {
                             for (name, val) in named.iter() {
-                                if let NamedValue::Value(_, spanned) = val {
-                                    let found = find_expr_shapes(&spanned.expr, registry)?;
+                                if let NamedValue::Value(_, spanned_expr) = val {
+                                    let found = find_expr_shapes(&spanned_expr, registry)?;
                                     match signature.named.get(name) {
                                         None => {
-                                            return Err(ShellError::unimplemented(
-                                                "TODO invalid named arg, make a spanned error",
-                                            ))
+                                            unreachable!("should be checked by parser");
                                         }
                                         Some((named_type, _)) => {
                                             if let NamedType::Mandatory(_, sig_shape)
                                             | NamedType::Optional(_, sig_shape) = named_type
                                             {
-                                                for (v, sh) in found.iter() {
-                                                    match sh {
-                                                        None => check_insert(
-                                                            &mut arg_shapes,
-                                                            (v.to_string(), Some(*sig_shape)),
-                                                        ),
-                                                        Some(shape) => check_insert(
-                                                            // TODO is this a problem?
-                                                            &mut arg_shapes,
-                                                            (v.to_string(), Some(*shape)),
-                                                        ),
-                                                    };
-                                                }
+                                                check_merge(
+                                                    &mut arg_shapes,
+                                                    &apply_shape(found, &sig_shape),
+                                                )?;
                                             }
                                         }
                                     }
                                 }
                             }
                         }
-                        // } else {  TODO unreachable (will always be run_external)
-                        //     println!("aint fucking here");
-                        //     return Err(ShellError::unimplemented("TODO same as command not found"));
+                    } else {
+                        unreachable!("registry has lost name it provided");
                     }
                 }
                 ClassifiedCommand::Dynamic(_) | ClassifiedCommand::Error(_) => (),

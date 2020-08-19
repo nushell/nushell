@@ -17,6 +17,22 @@ fn alias_args_work() {
 }
 
 #[test]
+#[cfg(not(windows))]
+fn alias_parses_path_tilde() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        r#"
+        alias new-cd [dir] { cd $dir }
+        new-cd ~
+        pwd
+        "#
+    );
+
+    // TODO do the CI builds have a home? Let's see
+    assert!(actual.out.contains("home"));
+}
+
+#[test]
 fn error_alias_wrong_shape_shallow() {
     let actual = nu!(
         cwd: ".",
@@ -55,7 +71,6 @@ fn error_alias_wrong_shape_deep_binary() {
     assert!(actual.err.contains("Type"));
 }
 
-// TODO make work? (if binary is always a, a -> a)
 #[test]
 fn error_alias_wrong_shape_deeper_binary() {
     let actual = nu!(
@@ -67,4 +82,16 @@ fn error_alias_wrong_shape_deeper_binary() {
     );
 
     assert!(actual.err.contains("Type"));
+}
+
+#[test]
+fn error_alias_syntax_shape_clash() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        alias clash [a] { echo 1.1 2 3 | each { str from -d $a } | range $a } }
+        "#
+    );
+
+    assert!(actual.err.contains("alias"));
 }
