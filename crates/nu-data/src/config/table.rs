@@ -8,6 +8,13 @@ pub enum AutoPivotMode {
     Never,
 }
 
+#[derive(PartialEq, Debug)]
+pub enum TableElementColor {
+    HeaderColor,
+    LineColor,
+    TextColor,
+}
+
 pub trait HasTableProperties: Debug + Send {
     fn pivot_mode(&self) -> AutoPivotMode;
     fn header_alignment(&self) -> nu_table::Alignment;
@@ -56,10 +63,10 @@ pub fn header_alignment(config: &NuConfig) -> nu_table::Alignment {
     })
 }
 
-pub fn header_color(config: &NuConfig) -> Option<ansi_term::Color> {
+pub fn get_config_key(config: &NuConfig, key: &str) -> Option<ansi_term::Color> {
     let vars = config.vars.lock();
 
-    Some(match vars.get("header_color") {
+    Some(match vars.get(key) {
         Some(c) => match c.as_string() {
             Ok(color) => match color.to_lowercase().as_str() {
                 "g" | "green" => ansi_term::Color::Green,
@@ -78,48 +85,18 @@ pub fn header_color(config: &NuConfig) -> Option<ansi_term::Color> {
     })
 }
 
-pub fn text_color(config: &NuConfig) -> Option<ansi_term::Color> {
-    let vars = config.vars.lock();
-
-    Some(match vars.get("text_color") {
-        Some(c) => match c.as_string() {
-            Ok(color) => match color.to_lowercase().as_str() {
-                "g" | "green" => ansi_term::Color::Green,
-                "r" | "red" => ansi_term::Color::Red,
-                "u" | "blue" => ansi_term::Color::Blue,
-                "b" | "black" => ansi_term::Color::Black,
-                "y" | "yellow" => ansi_term::Color::Yellow,
-                "p" | "purple" => ansi_term::Color::Purple,
-                "c" | "cyan" => ansi_term::Color::Cyan,
-                "w" | "white" => ansi_term::Color::White,
-                _ => ansi_term::Color::Green,
-            },
-            _ => ansi_term::Color::Green,
-        },
-        _ => ansi_term::Color::Green,
-    })
-}
-
-pub fn line_color(config: &NuConfig) -> Option<ansi_term::Color> {
-    let vars = config.vars.lock();
-
-    Some(match vars.get("line_color") {
-        Some(c) => match c.as_string() {
-            Ok(color) => match color.to_lowercase().as_str() {
-                "g" | "green" => ansi_term::Color::Green,
-                "r" | "red" => ansi_term::Color::Red,
-                "u" | "blue" => ansi_term::Color::Blue,
-                "b" | "black" => ansi_term::Color::Black,
-                "y" | "yellow" => ansi_term::Color::Yellow,
-                "p" | "purple" => ansi_term::Color::Purple,
-                "c" | "cyan" => ansi_term::Color::Cyan,
-                "w" | "white" => ansi_term::Color::White,
-                _ => ansi_term::Color::Green,
-            },
-            _ => ansi_term::Color::Green,
-        },
-        _ => ansi_term::Color::Green,
-    })
+pub fn get_table_element_color(config: &NuConfig, element: TableElementColor) -> Option<ansi_term::Color> {
+    match element {
+        TableElementColor::HeaderColor => {
+            get_config_key(config, "header_color")
+        }
+        TableElementColor::LineColor => {
+            get_config_key(config, "line_color")
+        }
+        TableElementColor::TextColor => {
+            get_config_key(config, "text_color")
+        }
+    }
 }
 
 pub fn header_bold(config: &NuConfig) -> bool {
@@ -160,15 +137,15 @@ impl HasTableProperties for NuConfig {
     }
 
     fn header_color(&self) -> Option<ansi_term::Color> {
-        header_color(self)
+        get_table_element_color(self, TableElementColor::HeaderColor)
     }
 
     fn text_color(&self) -> Option<ansi_term::Color> {
-        text_color(self)
+        get_table_element_color(self, TableElementColor::TextColor)
     }
 
     fn line_color(&self) -> Option<ansi_term::Color> {
-        line_color(self)
+        get_table_element_color(self, TableElementColor::LineColor)
     }
 
     fn header_bold(&self) -> bool {
