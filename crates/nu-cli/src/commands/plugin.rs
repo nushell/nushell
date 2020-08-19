@@ -380,7 +380,7 @@ pub async fn sink_plugin(
 
             // TODO: This sink may not work in powershell, trying to find
             // an example of what CallInfo would look like in this temp file
-            let mut child: Child = if ps1_file {
+            let child = if ps1_file {
                 Command::new("pwsh")
                     .args(&[
                         "-NoLogo",
@@ -389,11 +389,14 @@ pub async fn sink_plugin(
                         "Bypass",
                         "-File",
                         &real_path.to_string_lossy(),
-                        tmpfile.path(),
+                        &tmpfile
+                            .path()
+                            .to_str()
+                            .expect("Failed getting tmpfile path"),
                     ])
                     .spawn()
             } else {
-                Command::new(path).arg(tmpfile.path()).spawn()
+                Command::new(path).arg(&tmpfile.path()).spawn()
             };
 
             if let Ok(mut child) = child {
