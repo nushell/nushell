@@ -182,20 +182,18 @@ fn check_insert(
             }
             Some(_) => Ok(()),
         },
-        Some(new) => match existing.insert(to_add.0.clone(), ((to_add.1).0, Some(new.clone()))) {
+        Some(new) => match existing.insert(to_add.0.clone(), ((to_add.1).0, Some(new))) {
             None => Ok(()),
             Some(exist) => match exist.1 {
                 None => Ok(()),
                 Some(shape) => match shape {
                     SyntaxShape::Any => Ok(()),
                     shape if shape == new => Ok(()),
-                    _ => {
-                        return Err(ShellError::labeled_error(
-                            "Type conflict in alias variable use",
-                            "creates type conflict",
-                            (to_add.1).0,
-                        ));
-                    }
+                    _ => Err(ShellError::labeled_error(
+                        "Type conflict in alias variable use",
+                        "creates type conflict",
+                        (to_add.1).0,
+                    )),
                 },
             },
         },
@@ -204,7 +202,7 @@ fn check_insert(
 
 fn check_merge(existing: &mut ShapeMap, new: &ShapeMap) -> Result<(), ShellError> {
     for (k, v) in new.iter() {
-        check_insert(existing, (k.clone(), v.clone()))?;
+        check_insert(existing, (k.clone(), *v))?;
     }
 
     Ok(())
@@ -235,11 +233,11 @@ fn find_expr_shapes(
 }
 
 fn find_block_shapes(block: &Block, registry: &CommandRegistry) -> Result<ShapeMap, ShellError> {
-    let apply_shape = |found: ShapeMap, sig_shape: &SyntaxShape| -> ShapeMap {
+    let apply_shape = |found: ShapeMap, sig_shape: SyntaxShape| -> ShapeMap {
         found
             .iter()
             .map(|(v, sh)| match sh.1 {
-                None => (v.clone(), (sh.0, Some(sig_shape.clone()))),
+                None => (v.clone(), (sh.0, Some(sig_shape))),
                 Some(shape) => (v.clone(), (sh.0, Some(shape))),
             })
             .collect()
@@ -262,20 +260,20 @@ fn find_block_shapes(block: &Block, registry: &CommandRegistry) -> Result<ShapeM
                                     if let Some((sig_shape, _)) = &signature.rest_positional {
                                         check_merge(
                                             &mut arg_shapes,
-                                            &apply_shape(found, sig_shape),
+                                            &apply_shape(found, *sig_shape),
                                         )?;
                                     } else {
-                                        unreachable!("already checked by parser");
+                                        unreachable!("should have error'd in parsing");
                                     }
                                 } else {
                                     let (pos_type, _) = &signature.positional[i];
                                     match pos_type {
-                                        // TODO also use mandatory/optional?
+                                        // TODO pass on mandatory/optional?
                                         PositionalType::Mandatory(_, sig_shape)
                                         | PositionalType::Optional(_, sig_shape) => {
                                             check_merge(
                                                 &mut arg_shapes,
-                                                &apply_shape(found, sig_shape),
+                                                &apply_shape(found, *sig_shape),
                                             )?;
                                         }
                                     }
@@ -289,7 +287,7 @@ fn find_block_shapes(block: &Block, registry: &CommandRegistry) -> Result<ShapeM
                                     let found = find_expr_shapes(&spanned_expr, registry)?;
                                     match signature.named.get(name) {
                                         None => {
-                                            unreachable!("should be checked by parser");
+                                            unreachable!("should have error'd in parsing");
                                         }
                                         Some((named_type, _)) => {
                                             if let NamedType::Mandatory(_, sig_shape)
@@ -297,7 +295,7 @@ fn find_block_shapes(block: &Block, registry: &CommandRegistry) -> Result<ShapeM
                                             {
                                                 check_merge(
                                                     &mut arg_shapes,
-                                                    &apply_shape(found, &sig_shape),
+                                                    &apply_shape(found, *sig_shape),
                                                 )?;
                                             }
                                         }

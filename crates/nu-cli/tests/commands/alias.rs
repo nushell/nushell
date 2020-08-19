@@ -28,8 +28,10 @@ fn alias_parses_path_tilde() {
         "#
     );
 
-    // TODO do the CI builds have a home? Let's see
+    #[cfg(target_os = "linux")]
     assert!(actual.out.contains("home"));
+    #[cfg(target_os = "macos")]
+    assert!(actual.out.contains("Users"));
 }
 
 #[test]
