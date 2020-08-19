@@ -39,23 +39,26 @@ impl WholeStreamCommand for Count {
         let (CountArgs { column }, input) = args.process(&registry).await?;
         let rows: Vec<Value> = input.collect().await;
 
-        if column {
-            if let UntaggedValue::Row(dict) = &rows[0].value {
-                return Ok(OutputStream::one(
-                    UntaggedValue::int(dict.length()).into_value(tag),
-                ));
+        let count = if column {
+            if rows.is_empty() {
+                0
             } else {
-                return Err(ShellError::labeled_error(
-                    "Cannot obtain column count",
-                    "cannot obtain column count",
-                    tag,
-                ));
+                match &rows[0].value {
+                    UntaggedValue::Row(dictionary) => dictionary.length(),
+                    _ => {
+                        return Err(ShellError::labeled_error(
+                            "Cannot obtain column count",
+                            "cannot obtain column count",
+                            tag,
+                        ));
+                    }
+                }
             }
-        }
+        } else {
+            rows.len()
+        };
 
-        Ok(OutputStream::one(
-            UntaggedValue::int(rows.len()).into_value(tag),
-        ))
+        Ok(OutputStream::one(UntaggedValue::int(count).into_value(tag)))
     }
 
     fn examples(&self) -> Vec<Example> {
