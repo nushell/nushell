@@ -8,13 +8,6 @@ pub enum AutoPivotMode {
     Never,
 }
 
-#[derive(PartialEq, Debug)]
-pub enum TableElementColor {
-    HeaderColor,
-    LineColor,
-    TextColor,
-}
-
 pub trait HasTableProperties: Debug + Send {
     fn pivot_mode(&self) -> AutoPivotMode;
     fn header_alignment(&self) -> nu_table::Alignment;
@@ -63,7 +56,7 @@ pub fn header_alignment(config: &NuConfig) -> nu_table::Alignment {
     })
 }
 
-pub fn get_config_key(config: &NuConfig, key: &str) -> Option<ansi_term::Color> {
+pub fn get_color_for_config_key(config: &NuConfig, key: &str) -> Option<ansi_term::Color> {
     let vars = config.vars.lock();
 
     Some(match vars.get(key) {
@@ -83,20 +76,6 @@ pub fn get_config_key(config: &NuConfig, key: &str) -> Option<ansi_term::Color> 
         },
         _ => ansi_term::Color::Green,
     })
-}
-
-pub fn get_table_element_color(config: &NuConfig, element: TableElementColor) -> Option<ansi_term::Color> {
-    match element {
-        TableElementColor::HeaderColor => {
-            get_config_key(config, "header_color")
-        }
-        TableElementColor::LineColor => {
-            get_config_key(config, "line_color")
-        }
-        TableElementColor::TextColor => {
-            get_config_key(config, "text_color")
-        }
-    }
 }
 
 pub fn header_bold(config: &NuConfig) -> bool {
@@ -137,15 +116,15 @@ impl HasTableProperties for NuConfig {
     }
 
     fn header_color(&self) -> Option<ansi_term::Color> {
-        get_table_element_color(self, TableElementColor::HeaderColor)
+        get_color_for_config_key(self, "header_color")
     }
 
     fn text_color(&self) -> Option<ansi_term::Color> {
-        get_table_element_color(self, TableElementColor::TextColor)
+        get_color_for_config_key(self, "text_color")
     }
 
     fn line_color(&self) -> Option<ansi_term::Color> {
-        get_table_element_color(self, TableElementColor::LineColor)
+        get_color_for_config_key(self, "line_color")
     }
 
     fn header_bold(&self) -> bool {
