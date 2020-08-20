@@ -9,7 +9,7 @@ use nu_protocol::{hir::Block, Signature, SyntaxShape};
 #[derive(new, Clone)]
 pub struct AliasCommand {
     name: String,
-    args: Vec<String>,
+    args: Vec<(String, SyntaxShape)>,
     block: Block,
 }
 
@@ -22,8 +22,8 @@ impl WholeStreamCommand for AliasCommand {
     fn signature(&self) -> Signature {
         let mut alias = Signature::build(&self.name);
 
-        for arg in &self.args {
-            alias = alias.optional(arg, SyntaxShape::Any, "");
+        for (arg, shape) in &self.args {
+            alias = alias.optional(arg, *shape, "");
         }
 
         alias
@@ -53,7 +53,7 @@ impl WholeStreamCommand for AliasCommand {
             for (pos, arg) in positional.iter().enumerate() {
                 scope
                     .vars
-                    .insert(alias_command.args[pos].to_string(), arg.clone());
+                    .insert(alias_command.args[pos].0.to_string(), arg.clone());
             }
         }
 

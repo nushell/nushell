@@ -261,7 +261,7 @@ fn is_executable(file: &DirEntry) -> bool {
 }
 
 #[cfg(target_arch = "wasm32")]
-fn is_executable(file: &DirEntry) -> bool {
+fn is_executable(_file: &DirEntry) -> bool {
     false
 }
 
