@@ -263,4 +263,3 @@ fn list_all_columns() {
         },
     );
 }
-
