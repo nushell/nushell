@@ -1,0 +1,48 @@
+[package]
+name = "wasm"
+version = "0.1.0"
+authors = ["Nu authors"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["console_error_panic_hook"]
+
+[dependencies]
+wasm-bindgen = "0.2.63"
+
+# The `console_error_panic_hook` crate provides better debugging of panics by
+# logging them with `console.error`. This is great for development, but requires
+# all the `std::fmt` and `std::panicking` infrastructure, so isn't great for
+# code size when deploying.
+console_error_panic_hook = { version = "0.1.6", optional = true }
+
+# `wee_alloc` is a tiny allocator for wasm that is only ~1K in code size
+# compared to the default allocator's ~10K. It is slower than the default
+# allocator, however.
+#
+# Unfortunately, `wee_alloc` requires nightly Rust when targeting wasm for now.
+wee_alloc = { version = "0.4.5", optional = true }
+
+nu-cli = {path = "../../crates/nu-cli", default-features = false}
+nu-errors = {path = "../../crates/nu-errors", default-features = false}
+nu-protocol = {path = "../../crates/nu-protocol", default-features = false}
+nu-source = {path = "../../crates/nu-source", default-features = false}
+
+async-trait = "0.1.36"
+futures = {version = "0.3", features = ["compat", "io-compat"]}
+futures-util = "0.3.5"
+futures_codec = "0.4"
+web-sys = {version = "0.3.14", features = ["console"]}
+
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.13"
+
+[profile.release]
+# Tell `rustc` to optimize for small code size.
+opt-level = "s"
+
+[workspace]
