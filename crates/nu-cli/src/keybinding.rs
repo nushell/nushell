@@ -406,7 +406,7 @@ pub struct Keybinding {
 type Keybindings = Vec<Keybinding>;
 
 pub(crate) fn keybinding_path() -> Result<std::path::PathBuf, nu_errors::ShellError> {
-    crate::data::config::default_path_for(&Some(std::path::PathBuf::from("keybindings.yml")))
+    nu_data::config::default_path_for(&Some(std::path::PathBuf::from("keybindings.yml")))
 }
 
 pub(crate) fn load_keybindings(

@@ -84,6 +84,7 @@ pub(crate) mod prev;
 pub(crate) mod pwd;
 pub(crate) mod random;
 pub(crate) mod range;
+pub(crate) mod reduce;
 pub(crate) mod reject;
 pub(crate) mod rename;
 pub(crate) mod reverse;
@@ -115,6 +116,7 @@ pub(crate) mod to_yaml;
 pub(crate) mod trim;
 pub(crate) mod uniq;
 pub(crate) mod update;
+pub(crate) mod url_;
 pub(crate) mod version;
 pub(crate) mod what;
 pub(crate) mod where_;
@@ -213,6 +215,7 @@ pub(crate) use pwd::Pwd;
 pub(crate) use random::RandomUUID;
 pub(crate) use random::{Random, RandomBool, RandomDice};
 pub(crate) use range::Range;
+pub(crate) use reduce::Reduce;
 pub(crate) use reject::Reject;
 pub(crate) use rename::Rename;
 pub(crate) use reverse::Reverse;
@@ -228,9 +231,10 @@ pub(crate) use sort_by::SortBy;
 pub(crate) use split::{Split, SplitChars, SplitColumn, SplitRow};
 pub(crate) use split_by::SplitBy;
 pub(crate) use str_::{
-    Str, StrCapitalize, StrCollect, StrDowncase, StrFindReplace, StrFrom, StrLength, StrReverse,
-    StrSet, StrSubstring, StrToDatetime, StrToDecimal, StrToInteger, StrTrim, StrTrimLeft,
-    StrTrimRight, StrUpcase,
+    Str, StrCamelCase, StrCapitalize, StrCollect, StrContains, StrDowncase, StrEndsWith,
+    StrFindReplace, StrFrom, StrIndexOf, StrKebabCase, StrLength, StrPascalCase, StrReverse,
+    StrScreamingSnakeCase, StrSet, StrSnakeCase, StrStartsWith, StrSubstring, StrToDatetime,
+    StrToDecimal, StrToInteger, StrTrim, StrTrimLeft, StrTrimRight, StrUpcase,
 };
 pub(crate) use table::Table;
 pub(crate) use tags::Tags;
@@ -247,6 +251,7 @@ pub(crate) use to_yaml::ToYAML;
 pub(crate) use touch::Touch;
 pub(crate) use trim::Trim;
 pub(crate) use uniq::Uniq;
+pub(crate) use url_::{UrlCommand, UrlHost, UrlPath, UrlQuery, UrlScheme};
 pub(crate) use version::Version;
 pub(crate) use what::What;
 pub(crate) use where_::Where;

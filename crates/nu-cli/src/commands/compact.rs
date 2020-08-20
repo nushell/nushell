@@ -49,7 +49,7 @@ impl WholeStreamCommand for Compact {
             },
             Example {
                 description: "Filter out all directory entries having no 'target'",
-                example: "ls -af | compact target",
+                example: "ls -la | compact target",
                 result: None,
             },
         ]

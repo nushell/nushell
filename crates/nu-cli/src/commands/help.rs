@@ -1,10 +1,10 @@
+use crate::commands::command::Command;
 use crate::commands::WholeStreamCommand;
-use crate::data::command_dict;
 use crate::documentation::{generate_docs, get_documentation, DocumentationConfig};
-
 use crate::prelude::*;
+use nu_data::command::signature_dict;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::{SpannedItem, Tagged};
 use nu_value_ext::get_data_by_key;
 
@@ -36,6 +36,21 @@ impl WholeStreamCommand for Help {
     ) -> Result<OutputStream, ShellError> {
         help(args, registry).await
     }
+}
+
+pub(crate) fn command_dict(command: Command, tag: impl Into<Tag>) -> Value {
+    let tag = tag.into();
+
+    let mut cmd_dict = TaggedDictBuilder::new(&tag);
+
+    cmd_dict.insert_untagged("name", UntaggedValue::string(command.name()));
+
+    cmd_dict.insert_untagged("type", UntaggedValue::string("Command"));
+
+    cmd_dict.insert_value("signature", signature_dict(command.signature(), tag));
+    cmd_dict.insert_untagged("usage", UntaggedValue::string(command.usage()));
+
+    cmd_dict.into_value()
 }
 
 async fn help(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {

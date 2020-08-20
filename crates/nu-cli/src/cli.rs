@@ -111,7 +111,7 @@ fn search_paths() -> Vec<std::path::PathBuf> {
         }
     }
 
-    if let Ok(config) = crate::data::config::config(Tag::unknown()) {
+    if let Ok(config) = nu_data::config::config(Tag::unknown()) {
         if let Some(plugin_dirs) = config.get("plugin_dirs") {
             if let Value {
                 value: UntaggedValue::Table(pipelines),
@@ -203,29 +203,29 @@ pub struct History;
 impl History {
     pub fn path() -> PathBuf {
         const FNAME: &str = "history.txt";
-        config::user_data()
+        let default = config::user_data()
             .map(|mut p| {
                 p.push(FNAME);
                 p
             })
-            .unwrap_or_else(|_| PathBuf::from(FNAME))
+            .unwrap_or_else(|_| PathBuf::from(FNAME));
+
+        let cfg = nu_data::config::config(Tag::unknown());
+        if let Ok(c) = cfg {
+            match &c.get("history-path") {
+                Some(Value {
+                    value: UntaggedValue::Primitive(p),
+                    ..
+                }) => match p {
+                    Primitive::String(path) => PathBuf::from(path),
+                    _ => default,
+                },
+                _ => default,
+            }
+        } else {
+            default
+        }
     }
-}
-
-#[allow(dead_code)]
-fn create_default_starship_config() -> Option<toml::Value> {
-    let mut map = toml::value::Table::new();
-    map.insert("add_newline".into(), toml::Value::Boolean(false));
-
-    let mut git_branch = toml::value::Table::new();
-    git_branch.insert("symbol".into(), toml::Value::String("📙 ".into()));
-    map.insert("git_branch".into(), toml::Value::Table(git_branch));
-
-    let mut git_status = toml::value::Table::new();
-    git_status.insert("disabled".into(), toml::Value::Boolean(true));
-    map.insert("git_status".into(), toml::Value::Table(git_status));
-
-    Some(toml::Value::Table(map))
 }
 
 pub fn create_default_context(
@@ -310,12 +310,21 @@ pub fn create_default_context(
             whole_stream_command(StrSubstring),
             whole_stream_command(StrSet),
             whole_stream_command(StrToDatetime),
+            whole_stream_command(StrContains),
+            whole_stream_command(StrIndexOf),
             whole_stream_command(StrTrim),
             whole_stream_command(StrTrimLeft),
             whole_stream_command(StrTrimRight),
+            whole_stream_command(StrStartsWith),
+            whole_stream_command(StrEndsWith),
             whole_stream_command(StrCollect),
             whole_stream_command(StrLength),
             whole_stream_command(StrReverse),
+            whole_stream_command(StrCamelCase),
+            whole_stream_command(StrPascalCase),
+            whole_stream_command(StrKebabCase),
+            whole_stream_command(StrSnakeCase),
+            whole_stream_command(StrScreamingSnakeCase),
             whole_stream_command(BuildString),
             whole_stream_command(Ansi),
             whole_stream_command(Char),
@@ -362,6 +371,7 @@ pub fn create_default_context(
             whole_stream_command(Wrap),
             whole_stream_command(Pivot),
             whole_stream_command(Headers),
+            whole_stream_command(Reduce),
             // Data processing
             whole_stream_command(Histogram),
             whole_stream_command(Autoenv),
@@ -420,6 +430,12 @@ pub fn create_default_context(
             whole_stream_command(PathExpand),
             whole_stream_command(PathExists),
             whole_stream_command(PathType),
+            // Url
+            whole_stream_command(UrlCommand),
+            whole_stream_command(UrlScheme),
+            whole_stream_command(UrlPath),
+            whole_stream_command(UrlHost),
+            whole_stream_command(UrlQuery),
         ]);
 
         #[cfg(feature = "clipboard")]
@@ -455,7 +471,7 @@ pub async fn run_vec_of_pipelines(
     }
 
     // before we start up, let's run our startup commands
-    if let Ok(config) = crate::data::config::config(Tag::unknown()) {
+    if let Ok(config) = nu_data::config::config(Tag::unknown()) {
         if let Some(commands) = config.get("startup") {
             match commands {
                 Value {
@@ -550,6 +566,20 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
         Cmd::Move(Movement::ForwardWord(1, At::AfterEnd, Word::Vi)),
     );
 
+    // Let's set the defaults up front and then override them later if the user indicates
+    // defaults taken from here https://github.com/kkawakam/rustyline/blob/2fe886c9576c1ea13ca0e5808053ad491a6fe049/src/config.rs#L150-L167
+    rl.set_max_history_size(100);
+    rl.set_history_ignore_dups(true);
+    rl.set_history_ignore_space(false);
+    rl.set_completion_type(DEFAULT_COMPLETION_MODE);
+    rl.set_completion_prompt_limit(100);
+    rl.set_keyseq_timeout(-1);
+    rl.set_edit_mode(rustyline::config::EditMode::Emacs);
+    rl.set_auto_add_history(false);
+    rl.set_bell_style(rustyline::config::BellStyle::default());
+    rl.set_color_mode(rustyline::ColorMode::Enabled);
+    rl.set_tab_stop(8);
+
     if let Err(e) = crate::keybinding::load_keybindings(&mut rl) {
         println!("Error loading keybindings: {:?}", e);
     }
@@ -574,11 +604,9 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
             for (idx, value) in line_editor_vars.row_entries() {
                 match idx.as_ref() {
                     "max_history_size" => {
-                        let max_history_size = match value.as_u64() {
-                            Ok(n) => n as usize,
-                            _ => 1000 as usize,
-                        };
-                        rl.set_max_history_size(max_history_size as usize);
+                        if let Ok(max_history_size) = value.as_u64() {
+                            rl.set_max_history_size(max_history_size as usize);
+                        }
                     }
                     "history_duplicates" => {
                         // history_duplicates = match value.as_string() {
@@ -590,12 +618,14 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
                         //     }
                         //     _ => rustyline::config::HistoryDuplicates::AlwaysAdd,
                         // };
-                        let history_duplicates = value.as_bool().unwrap_or(true);
-                        rl.set_history_ignore_dups(history_duplicates);
+                        if let Ok(history_duplicates) = value.as_bool() {
+                            rl.set_history_ignore_dups(history_duplicates);
+                        }
                     }
                     "history_ignore_space" => {
-                        let history_ignore_space = value.as_bool().unwrap_or(true);
-                        rl.set_history_ignore_space(history_ignore_space);
+                        if let Ok(history_ignore_space) = value.as_bool() {
+                            rl.set_history_ignore_space(history_ignore_space);
+                        }
                     }
                     "completion_type" => {
                         let completion_type = match value.as_string() {
@@ -614,18 +644,14 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
                         rl.set_completion_type(completion_type);
                     }
                     "completion_prompt_limit" => {
-                        let completion_prompt_limit = match value.as_u64() {
-                            Ok(n) => n as usize,
-                            _ => 1 as usize,
-                        };
-                        rl.set_completion_prompt_limit(completion_prompt_limit);
+                        if let Ok(completion_prompt_limit) = value.as_u64() {
+                            rl.set_completion_prompt_limit(completion_prompt_limit as usize);
+                        }
                     }
                     "keyseq_timeout_ms" => {
-                        let keyseq_timeout_ms = match value.as_u64() {
-                            Ok(n) => n as i32,
-                            _ => 500i32,
-                        };
-                        rl.set_keyseq_timeout(keyseq_timeout_ms);
+                        if let Ok(keyseq_timeout_ms) = value.as_u64() {
+                            rl.set_keyseq_timeout(keyseq_timeout_ms as i32);
+                        }
                     }
                     "edit_mode" => {
                         let edit_mode = match value.as_string() {
@@ -633,13 +659,18 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
                             Ok(s) if s.to_lowercase() == "emacs" => {
                                 rustyline::config::EditMode::Emacs
                             }
-                            _ => rustyline::config::EditMode::Vi,
+                            _ => rustyline::config::EditMode::Emacs,
                         };
                         rl.set_edit_mode(edit_mode);
+                        // Note: When edit_mode is Emacs, the keyseq_timeout_ms is set to -1
+                        // no matter what you may have configured. This is so that key chords
+                        // can be applied without having to do them in a given timeout. So,
+                        // it essentially turns off the keyseq timeout.
                     }
                     "auto_add_history" => {
-                        let auto_add_history = value.as_bool().unwrap_or(true);
-                        rl.set_auto_add_history(auto_add_history);
+                        if let Ok(auto_add_history) = value.as_bool() {
+                            rl.set_auto_add_history(auto_add_history);
+                        }
                     }
                     "bell_style" => {
                         let bell_style = match value.as_string() {
@@ -652,7 +683,7 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
                             Ok(s) if s.to_lowercase() == "visible" => {
                                 rustyline::config::BellStyle::Visible
                             }
-                            _ => rustyline::config::BellStyle::None,
+                            _ => rustyline::config::BellStyle::default(),
                         };
                         rl.set_bell_style(bell_style);
                     }
@@ -668,42 +699,14 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
                         rl.set_color_mode(color_mode);
                     }
                     "tab_stop" => {
-                        let tab_stop = match value.as_u64() {
-                            Ok(n) => n as usize,
-                            _ => 4 as usize,
-                        };
-                        rl.set_tab_stop(tab_stop);
+                        if let Ok(tab_stop) = value.as_u64() {
+                            rl.set_tab_stop(tab_stop as usize);
+                        }
                     }
                     _ => (),
                 }
             }
-        } else {
-            // if the line_editor config section doesn't exist, let's set some defaults
-            rl.set_max_history_size(1000);
-            rl.set_history_ignore_dups(true);
-            rl.set_history_ignore_space(true);
-            rl.set_completion_type(DEFAULT_COMPLETION_MODE);
-            rl.set_completion_prompt_limit(1);
-            rl.set_keyseq_timeout(500);
-            rl.set_edit_mode(rustyline::config::EditMode::Vi);
-            rl.set_auto_add_history(true);
-            rl.set_bell_style(rustyline::config::BellStyle::None);
-            rl.set_color_mode(rustyline::ColorMode::Enabled);
-            rl.set_tab_stop(4);
         }
-    } else {
-        // if the config file itself doesn't exist, let's set some defaults
-        rl.set_max_history_size(1000);
-        rl.set_history_ignore_dups(true);
-        rl.set_history_ignore_space(true);
-        rl.set_completion_type(DEFAULT_COMPLETION_MODE);
-        rl.set_completion_prompt_limit(1);
-        rl.set_keyseq_timeout(500);
-        rl.set_edit_mode(rustyline::config::EditMode::Vi);
-        rl.set_auto_add_history(true);
-        rl.set_bell_style(rustyline::config::BellStyle::None);
-        rl.set_color_mode(rustyline::ColorMode::Enabled);
-        rl.set_tab_stop(4);
     }
 
     // we are ok if history does not exist
@@ -720,10 +723,17 @@ pub async fn cli(
     let _ = load_plugins(&mut context);
 
     let (mut rl, config) = set_rustyline_configuration();
-    let use_starship = config
-        .get("use_starship")
+
+    let skip_welcome_message = config
+        .get("skip_welcome_message")
         .map(|x| x.is_true())
         .unwrap_or(false);
+    if !skip_welcome_message {
+        println!(
+            "Welcome to Nushell {} (type 'help' for more info)",
+            clap::crate_version!()
+        );
+    }
 
     #[cfg(windows)]
     {
@@ -742,7 +752,7 @@ pub async fn cli(
     let mut ctrlcbreak = false;
 
     // before we start up, let's run our startup commands
-    if let Ok(config) = crate::data::config::config(Tag::unknown()) {
+    if let Ok(config) = nu_data::config::config(Tag::unknown()) {
         if let Some(commands) = config.get("startup") {
             match commands {
                 Value {
@@ -782,37 +792,7 @@ pub async fn cli(
         )));
 
         let colored_prompt = {
-            if use_starship {
-                #[cfg(feature = "starship")]
-                {
-                    std::env::set_var("STARSHIP_SHELL", "");
-                    std::env::set_var("PWD", &cwd);
-                    let mut starship_context =
-                        starship::context::Context::new_with_dir(clap::ArgMatches::default(), cwd);
-
-                    match starship_context.config.config {
-                        None => {
-                            starship_context.config.config = create_default_starship_config();
-                        }
-                        Some(toml::Value::Table(t)) if t.is_empty() => {
-                            starship_context.config.config = create_default_starship_config();
-                        }
-                        _ => {}
-                    };
-                    starship::print::get_prompt(starship_context)
-                }
-                #[cfg(not(feature = "starship"))]
-                {
-                    format!(
-                        "\x1b[32m{}{}\x1b[m> ",
-                        cwd,
-                        match current_branch() {
-                            Some(s) => format!("({})", s),
-                            None => "".to_string(),
-                        }
-                    )
-                }
-            } else if let Some(prompt) = config.get("prompt") {
+            if let Some(prompt) = config.get("prompt") {
                 let prompt_line = prompt.as_string()?;
 
                 match nu_parser::lite_parse(&prompt_line, 0).map_err(ShellError::from) {
@@ -1126,18 +1106,15 @@ pub async fn process_line(
                 let file = futures::io::AllowStdIo::new(std::io::stdin());
                 let stream = FramedRead::new(file, MaybeTextCodec::default()).map(|line| {
                     if let Ok(line) = line {
-                        match line {
-                            StringOrBinary::String(s) => Ok(Value {
-                                value: UntaggedValue::Primitive(Primitive::String(s)),
-                                tag: Tag::unknown(),
-                            }),
-                            StringOrBinary::Binary(b) => Ok(Value {
-                                value: UntaggedValue::Primitive(Primitive::Binary(
-                                    b.into_iter().collect(),
-                                )),
-                                tag: Tag::unknown(),
-                            }),
-                        }
+                        let primitive = match line {
+                            StringOrBinary::String(s) => Primitive::String(s),
+                            StringOrBinary::Binary(b) => Primitive::Binary(b.into_iter().collect()),
+                        };
+
+                        Ok(Value {
+                            value: UntaggedValue::Primitive(primitive),
+                            tag: Tag::unknown(),
+                        })
                     } else {
                         panic!("Internal error: could not read lines of text from stdin")
                     }

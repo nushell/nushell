@@ -67,7 +67,7 @@ cargo install nu
 You can also build Nu yourself with all the bells and whistles (be sure to have installed the [dependencies](https://www.nushell.sh/book/en/installation.html#dependencies) for your platform), once you have checked out this repo with git:
 
 ```bash
-cargo build --workspace --features=stable
+cargo build --workspace --features=extra
 ```
 
 ### Docker
@@ -194,7 +194,7 @@ For example, you can load a .toml file as structured data and explore it:
 > open Cargo.toml
 ────────────────────┬───────────────────────────
  bin                │ [table 18 rows]
- build-dependencies │ [row nu-build serde toml]
+ build-dependencies │ [row serde toml]
  dependencies       │ [row 29 columns]
  dev-dependencies   │ [row nu-test-support]
  features           │ [row 19 columns]

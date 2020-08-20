@@ -45,7 +45,7 @@ pub async fn clear(
 
     // NOTE: None because we are not loading a new config file, we just want to read from the
     // existing config
-    let mut result = crate::data::config::read(name_span, &None)?;
+    let mut result = nu_data::config::read(name_span, &None)?;
 
     result.clear();
 

@@ -7,8 +7,10 @@ pub mod min;
 pub mod mode;
 pub mod stddev;
 pub mod sum;
-pub mod utils;
 pub mod variance;
+
+mod reducers;
+mod utils;
 
 pub use avg::SubCommand as MathAverage;
 pub use command::Command as Math;

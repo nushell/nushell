@@ -1,0 +1,16 @@
+Id: Nushell.Nushell
+Publisher: Nushell
+Name: Nushell
+Version: 0.17.0
+License: MIT
+LicenseUrl: https://github.com/nushell/nushell/blob/main/LICENSE
+AppMoniker: nushell
+Tags: shell, nu, nushell, functional, data, analysis
+Description: Nushell. A new type of shell.
+Homepage: https://www.nushell.sh/
+InstallerType: msi
+Installers:
+  - Arch: x64
+    Url: https://github.com/nushell/nushell/releases/download/0.17.0/nu_0_17_0_windows.msi
+    Sha256: 3EF3FCE4069510AD78577DC61E29F3DC02F4A384DE5E2CCD9D9862FC7E4D849E
+ManifestVersion: 0.1.0

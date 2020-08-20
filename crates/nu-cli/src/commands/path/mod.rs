@@ -8,6 +8,7 @@ mod r#type;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{ColumnPath, Primitive, ReturnSuccess, ShellTypeName, UntaggedValue, Value};
+use nu_source::Span;
 use std::path::Path;
 
 pub use basename::PathBasename;
@@ -22,7 +23,7 @@ struct DefaultArguments {
     rest: Vec<ColumnPath>,
 }
 
-fn handle_value<F>(action: &F, v: &Value) -> Result<Value, ShellError>
+fn handle_value<F>(action: &F, v: &Value, span: Span) -> Result<Value, ShellError>
 where
     F: Fn(&Path) -> UntaggedValue + Send + 'static,
 {
@@ -32,9 +33,11 @@ where
         | UntaggedValue::Primitive(Primitive::Line(s)) => action(s.as_ref()).into_value(v.tag()),
         other => {
             let got = format!("got {}", other.type_name());
-            return Err(ShellError::labeled_error(
+            return Err(ShellError::labeled_error_with_secondary(
                 "value is not string or path",
                 got,
+                span,
+                "originates from here".to_string(),
                 v.tag().span,
             ));
         }
@@ -46,6 +49,7 @@ async fn operate<F>(
     input: crate::InputStream,
     paths: Vec<ColumnPath>,
     action: &'static F,
+    span: Span,
 ) -> Result<OutputStream, ShellError>
 where
     F: Fn(&Path) -> UntaggedValue + Send + Sync + 'static,
@@ -53,14 +57,14 @@ where
     Ok(input
         .map(move |v| {
             if paths.is_empty() {
-                ReturnSuccess::value(handle_value(&action, &v)?)
+                ReturnSuccess::value(handle_value(&action, &v, span)?)
             } else {
                 let mut ret = v;
 
                 for path in &paths {
                     ret = ret.swap_data_by_column_path(
                         path,
-                        Box::new(move |old| handle_value(&action, &old)),
+                        Box::new(move |old| handle_value(&action, &old, span)),
                     )?;
                 }
 

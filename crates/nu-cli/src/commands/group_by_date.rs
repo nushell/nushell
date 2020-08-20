@@ -100,38 +100,36 @@ pub async fn group_by_date(
 
         let value_result = match (grouper_date, grouper_column) {
             (Grouper::ByDate(None), GroupByColumn::Name(None)) => {
-                let block = Box::new(move |_, row: &Value| row.format("%Y-%b-%d"));
+                let block = Box::new(move |_, row: &Value| row.format("%Y-%m-%d"));
 
-                crate::utils::data::group(&values, &Some(block), &name)
+                nu_data::utils::group(&values, &Some(block), &name)
             }
             (Grouper::ByDate(None), GroupByColumn::Name(Some(column_name))) => {
                 let block = Box::new(move |_, row: &Value| {
-                    let group_key = match row.get_data_by_key(column_name.borrow_spanned()) {
-                        Some(group_key) => Ok(group_key),
-                        None => Err(suggestions(column_name.borrow_tagged(), &row)),
-                    };
+                    let group_key = row
+                        .get_data_by_key(column_name.borrow_spanned())
+                        .ok_or_else(|| suggestions(column_name.borrow_tagged(), &row));
 
-                    group_key?.format("%Y-%b-%d")
+                    group_key?.format("%Y-%m-%d")
                 });
 
-                crate::utils::data::group(&values, &Some(block), &name)
+                nu_data::utils::group(&values, &Some(block), &name)
             }
             (Grouper::ByDate(Some(fmt)), GroupByColumn::Name(None)) => {
                 let block = Box::new(move |_, row: &Value| row.format(&fmt));
 
-                crate::utils::data::group(&values, &Some(block), &name)
+                nu_data::utils::group(&values, &Some(block), &name)
             }
             (Grouper::ByDate(Some(fmt)), GroupByColumn::Name(Some(column_name))) => {
                 let block = Box::new(move |_, row: &Value| {
-                    let group_key = match row.get_data_by_key(column_name.borrow_spanned()) {
-                        Some(group_key) => Ok(group_key),
-                        None => Err(suggestions(column_name.borrow_tagged(), &row)),
-                    };
+                    let group_key = row
+                        .get_data_by_key(column_name.borrow_spanned())
+                        .ok_or_else(|| suggestions(column_name.borrow_tagged(), &row));
 
                     group_key?.format(&fmt)
                 });
 
-                crate::utils::data::group(&values, &Some(block), &name)
+                nu_data::utils::group(&values, &Some(block), &name)
             }
         };
 

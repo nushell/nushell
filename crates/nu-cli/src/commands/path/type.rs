@@ -1,7 +1,7 @@
 use super::{operate, DefaultArguments};
 use crate::commands::WholeStreamCommand;
-use crate::data::files::get_file_type;
 use crate::prelude::*;
+use crate::shell::filesystem_shell::get_file_type;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 use std::path::Path;
@@ -27,8 +27,9 @@ impl WholeStreamCommand for PathType {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
+        let tag = args.call_info.name_tag.clone();
         let (DefaultArguments { rest }, input) = args.process(&registry).await?;
-        operate(input, rest, &action).await
+        operate(input, rest, &action, tag.span).await
     }
 
     fn examples(&self) -> Vec<Example> {

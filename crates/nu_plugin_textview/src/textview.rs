@@ -32,21 +32,15 @@ pub fn view_text_value(value: &Value) {
     let highlight_range_to: u64 = 0;
     let mut theme = "OneHalfDark".to_string();
 
-    if let Ok(config) = nu_cli::data::config::config(Tag::unknown()) {
+    if let Ok(config) = nu_data::config::config(Tag::unknown()) {
         if let Some(batvars) = config.get("textview") {
             for (idx, value) in batvars.row_entries() {
                 match idx.as_ref() {
                     "term_width" => {
-                        term_width = match value.as_u64() {
-                            Ok(n) => n as usize,
-                            _ => term_width as usize,
-                        }
+                        term_width = value.as_u64().unwrap_or(term_width as u64) as usize;
                     }
                     "tab_width" => {
-                        tab_width = match value.as_u64() {
-                            Ok(n) => n,
-                            _ => 4u64,
-                        }
+                        tab_width = value.as_u64().unwrap_or(4 as u64);
                     }
                     "colored_output" => colored_output = value.as_bool().unwrap_or(true),
                     "true_color" => true_color = value.as_bool().unwrap_or(true),

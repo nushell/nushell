@@ -1,9 +1,12 @@
 use crate::commands::UnevaluatedCallInfo;
 use crate::commands::WholeStreamCommand;
-use crate::data::value::format_leaf;
 use crate::prelude::*;
+use nu_data::config::table::AutoPivotMode;
+use nu_data::config::table::HasTableProperties;
+use nu_data::config::NuConfig as Configuration;
+use nu_data::value::format_leaf;
 use nu_errors::ShellError;
-use nu_protocol::{hir, hir::Expression, hir::Literal, hir::SpannedExpression};
+use nu_protocol::hir::{self, Expression, ExternalRedirection, Literal, SpannedExpression};
 use nu_protocol::{Primitive, Scope, Signature, UntaggedValue, Value};
 use parking_lot::Mutex;
 use std::sync::atomic::AtomicBool;
@@ -82,28 +85,13 @@ impl RunnableContextWithoutInput {
 }
 
 pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
+    let configuration = Configuration::new();
+
     let binary = context.get_command("binaryview");
     let text = context.get_command("textview");
     let table = context.get_command("table");
 
-    #[derive(PartialEq)]
-    enum AutoPivotMode {
-        Auto,
-        Always,
-        Never,
-    }
-
-    let pivot_mode = crate::data::config::config(Tag::unknown());
-    let pivot_mode = if let Some(v) = pivot_mode?.get("pivot_mode") {
-        match v.as_string() {
-            Ok(m) if m.to_lowercase() == "auto" => AutoPivotMode::Auto,
-            Ok(m) if m.to_lowercase() == "always" => AutoPivotMode::Always,
-            Ok(m) if m.to_lowercase() == "never" => AutoPivotMode::Never,
-            _ => AutoPivotMode::Always,
-        }
-    } else {
-        AutoPivotMode::Always
-    };
+    let pivot_mode = configuration.pivot_mode();
 
     let (mut input_stream, context) = RunnableContextWithoutInput::convert(context);
     let term_width = context.host.lock().width();
@@ -328,7 +316,7 @@ fn create_default_command_args(context: &RunnableContextWithoutInput) -> RawComm
                 positional: None,
                 named: None,
                 span,
-                is_last: true,
+                external_redirection: ExternalRedirection::Stdout,
             },
             name_tag: context.name.clone(),
             scope: Scope::new(),

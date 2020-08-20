@@ -6,7 +6,7 @@ Syntax: `alias {flags} <name> [<parameters>] {<body>}`
 
 The command expects three parameters:
 
-* The name of alias
+* The name of the alias
 * The parameters as a space-separated list (`[a b ...]`), can be empty (`[]`)
 * The body of the alias as a `{...}` block
 
@@ -51,30 +51,15 @@ flags:
 
 ## Persistent aliases
 
-Aliases are most useful when they are persistent. For that, add them to your startup config:
+Aliases are most useful when they are persistent. For that, use the `--save` flag:
 
 ```shell
-> config set startup ["alias myecho [msg] { echo $msg }"]
+> alias --save myecho [msg] { echo $msg }
 ```
 
-This is fine for the first alias, but since it overwrites the startup config, you need a different approach for additional aliases.
+This will store the alias in your config, under the `startup` key. To edit the saved alias, run it again with the same name, or edit your config file directly. You can find the location of the file using `config path`.
 
-To add a 2nd alias:
-
+For example, to edit your config file in `vi`, run:
 ```shell
-> config get startup | append "alias s [] { git status -sb }" | config set_into startup
-```
-
-This first reads the `startup` config (a table of strings), then appends another alias, then sets the `startup` config with the output of the pipeline.
-
-To make this process easier, you could define another alias:
-
-```shell
-> alias addalias [alias-string] { config get startup | append $alias-string | config set_into startup }
-```
-
-Then use that to add more aliases:
-
-```shell
-> addalias "alias s [] { git status -sb }"
+> vi $(config path)
 ```
