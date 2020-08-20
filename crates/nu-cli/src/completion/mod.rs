@@ -1,3 +1,8 @@
+pub(crate) mod command;
+pub(crate) mod engine;
+pub(crate) mod flag;
+pub(crate) mod path;
+
 use nu_errors::ShellError;
 
 use crate::context;
@@ -35,6 +40,4 @@ pub trait Completer {
         pos: usize,
         ctx: &Context<'_>,
     ) -> Result<(usize, Vec<Suggestion>), ShellError>;
-
-    fn hint(&self, line: &str, pos: usize, ctx: &Context<'_>) -> Option<String>;
 }

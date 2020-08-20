@@ -1358,7 +1358,7 @@ fn classify_pipeline(
                     }),
                     positional: Some(args),
                     named: None,
-                    span: Span::unknown(),
+                    span: name_span,
                     external_redirection: if iter.peek().is_none() {
                         ExternalRedirection::None
                     } else {
@@ -1448,7 +1448,7 @@ fn classify_pipeline(
                     }),
                     positional: Some(args),
                     named: None,
-                    span: Span::unknown(),
+                    span: name_span,
                     external_redirection: if iter.peek().is_none() {
                         ExternalRedirection::None
                     } else {

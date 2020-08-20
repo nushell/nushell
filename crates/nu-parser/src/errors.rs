@@ -4,10 +4,10 @@ use std::fmt::Debug;
 #[derive(Debug)]
 pub struct ParseError<T: Debug> {
     /// An informative cause for this parse error
-    pub(crate) cause: nu_errors::ParseError,
+    pub cause: nu_errors::ParseError,
 
     /// What has been successfully parsed, if anything
-    pub(crate) partial: Option<T>,
+    pub partial: Option<T>,
 }
 
 pub type ParseResult<T> = Result<T, ParseError<T>>;
