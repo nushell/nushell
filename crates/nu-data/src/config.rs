@@ -11,44 +11,45 @@ use indexmap::IndexMap;
 use log::trace;
 use nu_errors::{CoerceInto, ShellError};
 use nu_protocol::{
-    Dictionary, Primitive, ShellTypeName, TaggedDictBuilder, UnspannedPathMember, UntaggedValue,
+    Dictionary, Primitive, TaggedDictBuilder, UnspannedPathMember, UntaggedValue,
     Value,
 };
-use nu_source::{SpannedItem, Tag, TaggedItem};
+use nu_source::{Tag, TaggedItem};
 use std::fs::{self, OpenOptions};
 use std::io;
 use std::path::{Path, PathBuf};
 
-pub fn convert_toml_value_to_nu_value(v: &toml::Value, tag: impl Into<Tag>) -> Value {
-    let tag = tag.into();
+// pub fn convert_toml_value_to_nu_value(v: &toml::Value, tag: impl Into<Tag>) -> Value {
+//     let tag = tag.into();
 
-    match v {
-        toml::Value::Boolean(b) => UntaggedValue::boolean(*b).into_value(tag),
-        toml::Value::Integer(n) => UntaggedValue::int(*n).into_value(tag),
-        toml::Value::Float(n) => UntaggedValue::decimal(*n).into_value(tag),
-        toml::Value::String(s) => {
-            UntaggedValue::Primitive(Primitive::String(String::from(s))).into_value(tag)
-        }
-        toml::Value::Array(a) => UntaggedValue::Table(
-            a.iter()
-                .map(|x| convert_toml_value_to_nu_value(x, &tag))
-                .collect(),
-        )
-        .into_value(tag),
-        toml::Value::Datetime(dt) => {
-            UntaggedValue::Primitive(Primitive::String(dt.to_string())).into_value(tag)
-        }
-        toml::Value::Table(t) => {
-            let mut collected = TaggedDictBuilder::new(&tag);
+//     match v {
+//         toml::Value::Boolean(b) => UntaggedValue::boolean(*b).into_value(tag),
+//         toml::Value::Integer(n) => UntaggedValue::int(*n).into_value(tag),
+//         toml::Value::Float(n) => UntaggedValue::decimal(*n).into_value(tag),
+//         toml::Value::String(s) => {
+//             UntaggedValue::Primitive(Primitive::String(String::from(s))).into_value(tag)
+//         }
+//         toml::Value::Array(a) => UntaggedValue::Table(
+//             a.iter()
+//                 .map(|x| convert_toml_value_to_nu_value(x, &tag))
+//                 .collect(),
+//         )
+//         .into_value(tag),
+//         toml::Value::Datetime(dt) => {
+//             UntaggedValue::Primitive(Primitive::String(dt.to_string())).into_value(tag)
+//         }
+//         toml::Value::Table(t) => {
+//             let mut collected = TaggedDictBuilder::new(&tag);
 
-            for (k, v) in t.iter() {
-                collected.insert_value(k.clone(), convert_toml_value_to_nu_value(v, &tag));
-            }
+//             for (k, v) in t.iter() {
+//                 collected.insert_value(k.clone(), convert_toml_value_to_nu_value(v, &tag));
+//             }
 
-            collected.into_value()
-        }
-    }
-}
+//             collected.into_value()
+//         }
+//     }
+// }
+
 
 fn collect_values(input: &[Value]) -> Result<Vec<toml::Value>, ShellError> {
     let mut out = vec![];
@@ -235,7 +236,26 @@ pub fn read(
             )
         })?;
 
-    let parsed: toml::Value = toml::from_str(&contents).map_err(|err| {
+    // let parsed: toml::Value = toml::from_str(&contents).map_err(|err| {
+    //     ShellError::labeled_error(
+    //         &format!("Couldn't parse config file:\n{}", err),
+    //         "file name",
+    //         &tag,
+    //     )
+    // })?;
+
+    // // let value = convert_toml_value_to_nu_value(&parsed, tag);
+    // let value = convert_toml_value_to_nu_value(&parsed, tag);
+    // let tag = value.tag();
+    // match value.value {
+    //     UntaggedValue::Row(Dictionary { entries }) => Ok(entries),
+    //     other => Err(ShellError::type_error(
+    //         "Dictionary",
+    //         other.type_name().spanned(tag.span),
+    //     )),
+    // }
+
+    let doc = contents.parse::<toml_edit::Document>().map_err(|err| {
         ShellError::labeled_error(
             &format!("Couldn't parse config file:\n{}", err),
             "file name",
@@ -243,14 +263,114 @@ pub fn read(
         )
     })?;
 
-    let value = convert_toml_value_to_nu_value(&parsed, tag);
-    let tag = value.tag();
-    match value.value {
-        UntaggedValue::Row(Dictionary { entries }) => Ok(entries),
-        other => Err(ShellError::type_error(
-            "Dictionary",
-            other.type_name().spanned(tag.span),
-        )),
+    let map = convert_toml_edit_doc_to_indexmap(&doc, tag);
+    println!("config: [{:?}]", map);
+    map
+}
+
+pub fn convert_toml_edit_doc_to_indexmap(doc: &toml_edit::Document, tag: impl Into<Tag>) -> Result<IndexMap<String, Value>, ShellError> {
+    // let value = convert_toml_value_to_nu_value(&parsed, tag);
+    // let tag = value.tag();
+    // match value.value {
+    //     UntaggedValue::Row(Dictionary { entries }) => Ok(entries),
+    //     other => Err(ShellError::type_error(
+    //         "Dictionary",
+    //         other.type_name().spanned(tag.span),
+    //     )),
+    // }
+    let tag = tag.into();
+    let map = &mut IndexMap::new();
+    for (key, val) in doc.iter() {
+        convert_toml_edit_item_to_nu_value(key, &val, map, tag.clone());
+        // let value = convert_toml_edit_item_to_nu_value(key, &val, map, tag.clone());
+        // println!("key: [{}] value: [{:?}]", key, &value);
+        // map.insert(key.to_string(), value);
+    }
+
+    Ok(map.to_owned())
+}
+
+pub fn convert_toml_edit_item_to_nu_value(key: &str, item: &toml_edit::Item, map: &mut IndexMap<String, Value>, tag: impl Into<Tag>) {
+    let tag = tag.into();
+
+    match item {
+        toml_edit::Item::Value(v) => {
+            convert_toml_edit_value_to_nu_value(key, &v, map, tag);
+        }
+        toml_edit::Item::Table(t) => {
+            convert_toml_edit_table_to_nu_value(key, t, map, tag);
+        }
+        // TODO: Deal with ArrayOfTables
+        // toml_edit::Item::ArrayOfTables(a) => convert_toml_table_to_nu_value(t, tag),
+        _ => {
+            map.insert(key.to_string(), UntaggedValue::Primitive(Primitive::String(String::from(""))).into_value(&tag));
+            // UntaggedValue::Primitive(Primitive::String(String::from(""))).into_value(tag)
+        }
+    }
+}
+
+pub fn convert_toml_edit_value_to_nu_value(key: &str, v: &toml_edit::Value, map: &mut IndexMap<String, Value>, tag: impl Into<Tag>) -> Value {
+    let tag = tag.into();
+
+    match v {
+        toml_edit::Value::Boolean(b) => {
+            map.insert(key.to_string(), UntaggedValue::boolean(*b.value()).into_value(&tag));
+            UntaggedValue::boolean(*b.value()).into_value(tag)
+        }
+        toml_edit::Value::Integer(n) => {
+            map.insert(key.to_string(), UntaggedValue::int(*n.value()).into_value(&tag));
+            UntaggedValue::int(*n.value()).into_value(tag)
+        }
+        toml_edit::Value::Float(n) => {
+            map.insert(key.to_string(), UntaggedValue::decimal(*n.value()).into_value(&tag));
+            UntaggedValue::decimal(*n.value()).into_value(tag)
+        }
+        toml_edit::Value::String(s) => {
+            if map.contains_key(key) {
+                let val = map.get(key);
+                if let Some(some_value) = val {
+                    let new_value = format!("{}, {}", some_value.as_string().expect("Error getting string from some_value"), s.value());
+                    map.insert(key.to_string(), UntaggedValue::Primitive(Primitive::String(String::from(new_value))).into_value(&tag));
+                }
+            } else {
+                map.insert(key.to_string(), UntaggedValue::Primitive(Primitive::String(String::from(s.value()))).into_value(&tag));
+            }
+            UntaggedValue::Primitive(Primitive::String(String::from(s.value()))).into_value(tag)
+        }
+        toml_edit::Value::Array(a) => UntaggedValue::Table(
+            a.iter()
+                .map(|x| convert_toml_edit_value_to_nu_value(key, x, map, &tag))
+                .collect(),
+        )
+        .into_value(tag),
+        toml_edit::Value::DateTime(dt) => {
+            map.insert(key.to_string(), UntaggedValue::Primitive(Primitive::String(dt.to_string())).into_value(&tag));
+            UntaggedValue::Primitive(Primitive::String(dt.to_string())).into_value(tag)
+        }
+        toml_edit::Value::InlineTable(t) => {
+            let mut collected = TaggedDictBuilder::new(&tag);
+
+            for (k, v) in t.iter() {
+                collected.insert_value(k.clone(), convert_toml_edit_value_to_nu_value(k, v, map, &tag));
+            }
+
+            collected.into_value()
+        }
+    }
+}
+
+pub fn convert_toml_edit_table_to_nu_value(_key: &str, table: &dyn toml_edit::TableLike, map: &mut IndexMap<String, Value>, tag: impl Into<Tag>) {
+    let tag = tag.into();
+
+    // UntaggedValue::Table(
+    //     table.iter()
+    //         .map(|(k, v)| convert_toml_edit_item_to_nu_value(k, v, map, &tag))
+    //         .collect(),
+    // )
+    // .into_value(tag)
+
+    for (key, value) in table.iter() {
+        convert_toml_edit_item_to_nu_value(key, value, map, &tag)
     }
 }
 

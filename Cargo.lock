@@ -3087,6 +3087,7 @@ dependencies = [
  "query_interface",
  "serde 1.0.115",
  "toml 0.5.6",
+ "toml_edit",
  "umask",
  "users",
 ]
