@@ -3,8 +3,10 @@ use crate::commands::math::utils::run_with_function;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Dictionary, Signature, UntaggedValue, Value};
-use num_traits::identities::One;
+use nu_protocol::{
+    hir::{convert_number_to_u64, Number},
+    Primitive, Signature, UntaggedValue, Value,
+};
 
 pub struct SubCommand;
 
@@ -42,39 +44,85 @@ impl WholeStreamCommand for SubCommand {
         )
         .await
     }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Get the product of a list of numbers",
+            example: "echo [2 3 3 4] | math product",
+            result: Some(vec![UntaggedValue::int(72).into()]),
+        }]
+    }
+}
+
+fn to_byte(value: &Value) -> Option<Value> {
+    match &value.value {
+        UntaggedValue::Primitive(Primitive::Int(num)) => Some(
+            UntaggedValue::Primitive(Primitive::Filesize(convert_number_to_u64(&Number::Int(
+                num.clone(),
+            ))))
+            .into_untagged_value(),
+        ),
+        _ => None,
+    }
 }
 
 /// Calculate product of given values
 pub fn product(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
     let prod = reducer_for(Reduce::Product);
 
-    if values.iter().all(|v| v.is_primitive()) {
-        Ok(prod(Value::one(), values.to_vec())?)
-    } else {
-        let mut column_values = IndexMap::new();
+    let first = values.get(0).ok_or_else(|| {
+        ShellError::unexpected("Cannot perform aggregate math operation on empty data")
+    })?;
 
-        for value in values {
-            if let UntaggedValue::Row(row_dict) = value.value.clone() {
-                for (key, value) in row_dict.entries.iter() {
-                    column_values
-                        .entry(key.clone())
-                        .and_modify(|v: &mut Vec<Value>| v.push(value.clone()))
-                        .or_insert(vec![value.clone()]);
-                }
-            };
-        }
+    match first {
+        v if v.is_filesize() => to_byte(&prod(
+            UntaggedValue::int(1).into_untagged_value(),
+            values
+                .to_vec()
+                .iter()
+                .map(|v| match v {
+                    Value {
+                        value: UntaggedValue::Primitive(Primitive::Filesize(num)),
+                        ..
+                    } => UntaggedValue::int(*num as usize).into_untagged_value(),
+                    other => other.clone(),
+                })
+                .collect::<Vec<_>>(),
+        )?)
+        .ok_or_else(|| {
+            ShellError::labeled_error(
+                "could not convert to big decimal",
+                "could not convert to big decimal",
+                &name.span,
+            )
+        }),
 
-        let mut column_product = IndexMap::new();
+        v if v.is_none() => prod(
+            UntaggedValue::int(1).into_untagged_value(),
+            values
+                .to_vec()
+                .iter()
+                .map(|v| match v {
+                    Value {
+                        value: UntaggedValue::Primitive(Primitive::Nothing),
+                        ..
+                    } => UntaggedValue::int(1).into_untagged_value(),
+                    other => other.clone(),
+                })
+                .collect::<Vec<_>>(),
+        ),
+        _ => prod(UntaggedValue::int(1).into_untagged_value(), values.to_vec()),
+    }
+}
 
-        for (col_name, col_vals) in column_values {
-            let prod = prod(Value::one(), col_vals)?;
+#[cfg(test)]
+mod tests {
+    use super::SubCommand;
 
-            column_product.insert(col_name, prod);
-        }
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
 
-        Ok(UntaggedValue::Row(Dictionary {
-            entries: column_product,
-        })
-        .into_value(name))
+        test_examples(SubCommand {})
     }
 }
