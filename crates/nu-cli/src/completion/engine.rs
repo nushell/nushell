@@ -270,8 +270,13 @@ mod tests {
             registry: &dyn SignatureRegistry,
             pos: usize,
         ) -> Vec<LocationType> {
-            let lite_block = lite_parse(line, 0).expect("lite_parse");
+            let lite_block = match lite_parse(line, 0) {
+                Ok(v) => v,
+                Err(e) => e.partial.expect("lite_parse result"),
+            };
+
             let block = classify_block(&lite_block, registry);
+
             super::completion_location(line, &block.block, pos)
                 .into_iter()
                 .map(|v| v.item)
@@ -335,6 +340,17 @@ mod tests {
             assert_eq!(
                 completion_location(line, &registry, 7),
                 vec![LocationType::Flag("du".to_string())],
+            );
+        }
+
+        #[test]
+        fn completes_incomplete_nested_structure() {
+            let registry: VecRegistry = vec![Signature::build("sys")].into();
+            let line = "echo $(sy";
+
+            assert_eq!(
+                completion_location(line, &registry, 8),
+                vec![LocationType::Command],
             );
         }
 
