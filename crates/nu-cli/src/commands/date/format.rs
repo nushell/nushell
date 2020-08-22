@@ -2,8 +2,8 @@ use crate::prelude::*;
 use chrono::{DateTime, Local};
 use nu_errors::ShellError;
 
+use crate::commands::date::utils::{date_to_value, date_to_value_raw};
 use crate::commands::WholeStreamCommand;
-use crate::commands::date::utils::{date_to_value_raw, date_to_value};
 use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 
@@ -23,12 +23,8 @@ impl WholeStreamCommand for Date {
 
     fn signature(&self) -> Signature {
         Signature::build("date format")
-        .required(
-            "format",
-            SyntaxShape::String,
-            "strftime format",
-        )
-        .switch("raw", "print date without tables", Some('r'))
+            .required("format", SyntaxShape::String, "strftime format")
+            .switch("raw", "print date without tables", Some('r'))
     }
 
     fn usage(&self) -> &str {
@@ -50,7 +46,7 @@ pub async fn format(
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let tag = args.call_info.name_tag.clone();
-    let ( FormatArgs {format, raw}, _ ) = args.process(&registry).await?;
+    let (FormatArgs { format, raw }, _) = args.process(&registry).await?;
 
     let dt_fmt = format.to_string();
 

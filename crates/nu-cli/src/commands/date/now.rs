@@ -2,8 +2,8 @@ use crate::prelude::*;
 use chrono::{DateTime, Local};
 use nu_errors::ShellError;
 
-use crate::commands::WholeStreamCommand;
 use crate::commands::date::utils::date_to_value;
+use crate::commands::WholeStreamCommand;
 use nu_protocol::Signature;
 
 pub struct Date;
