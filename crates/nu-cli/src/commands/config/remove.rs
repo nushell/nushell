@@ -54,7 +54,7 @@ pub async fn remove(
     let name_span = args.call_info.name_tag.clone();
     let (RemoveArgs { remove }, _) = args.process(&registry).await?;
 
-    let mut result = crate::data::config::read(name_span, &None)?;
+    let mut result = nu_data::config::read(name_span, &None)?;
 
     let key = remove.to_string();
 

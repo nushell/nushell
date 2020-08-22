@@ -1,7 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
-use crate::TaggedListBuilder;
 use indexmap::IndexMap;
+use nu_data::TaggedListBuilder;
 use nu_errors::ShellError;
 use nu_protocol::{Dictionary, Signature, UntaggedValue};
 
@@ -50,7 +50,7 @@ pub fn version(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputS
         UntaggedValue::string(clap::crate_version!()).into_value(&tag),
     );
 
-    let commit_hash = Some(GIT_COMMIT_HASH.trim()).filter(|x| x.is_empty());
+    let commit_hash = Some(GIT_COMMIT_HASH.trim()).filter(|x| !x.is_empty());
     if let Some(commit_hash) = commit_hash {
         indexmap.insert(
             "commit_hash".to_string(),

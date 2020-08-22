@@ -1,4 +1,4 @@
-use crate::data::value;
+use nu_data::value;
 use nu_errors::ShellError;
 use nu_protocol::hir::Operator;
 use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};

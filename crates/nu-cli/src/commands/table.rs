@@ -1,9 +1,11 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::value::{format_leaf, style_leaf};
 use crate::prelude::*;
+use nu_data::config::table::HasTableProperties;
+use nu_data::config::NuConfig as TableConfiguration;
+use nu_data::value::{format_leaf, style_leaf};
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
-use nu_table::{draw_table, Alignment, StyledString, TextStyle, Theme};
+use nu_table::{draw_table, Alignment, StyledString, TextStyle};
 use std::time::Instant;
 
 const STREAM_PAGE_SIZE: usize = 1000;
@@ -35,102 +37,42 @@ impl WholeStreamCommand for Table {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        table(args, registry).await
+        table(TableConfiguration::new(), args, registry).await
     }
 }
 
-fn str_to_color(s: String) -> Option<ansi_term::Color> {
-    match s.as_str() {
-        "g" | "green" => Some(ansi_term::Color::Green),
-        "r" | "red" => Some(ansi_term::Color::Red),
-        "u" | "blue" => Some(ansi_term::Color::Blue),
-        "b" | "black" => Some(ansi_term::Color::Black),
-        "y" | "yellow" => Some(ansi_term::Color::Yellow),
-        "p" | "purple" => Some(ansi_term::Color::Purple),
-        "c" | "cyan" => Some(ansi_term::Color::Cyan),
-        "w" | "white" => Some(ansi_term::Color::White),
-        _ => None,
-    }
-}
-
-pub fn from_list(values: &[Value], starting_idx: usize) -> nu_table::Table {
-    let config = crate::data::config::config(Tag::unknown());
-
-    let header_style = if let Ok(config) = &config {
-        let header_align = config.get("header_align").map_or(Alignment::Left, |a| {
-            a.as_string()
-                .map_or(Alignment::Center, |a| match a.to_lowercase().as_str() {
-                    "center" | "c" => Alignment::Center,
-                    "right" | "r" => Alignment::Right,
-                    _ => Alignment::Center,
-                })
-        });
-
-        let header_color = match config.get("header_color") {
-            Some(c) => match c.as_string() {
-                Ok(color) => str_to_color(color.to_lowercase()).unwrap_or(ansi_term::Color::Green),
-                _ => ansi_term::Color::Green,
-            },
-            _ => ansi_term::Color::Green,
-        };
-
-        let header_bold = config
-            .get("header_bold")
-            .map(|x| x.as_bool().unwrap_or(true))
-            .unwrap_or(true);
-
-        TextStyle {
-            alignment: header_align,
-            color: Some(header_color),
-            is_bold: header_bold,
-        }
-    } else {
-        TextStyle::default_header()
+pub fn from_list(
+    values: &[Value],
+    configuration: &TableConfiguration,
+    starting_idx: usize,
+) -> nu_table::Table {
+    let header_style = TextStyle {
+        is_bold: configuration.header_bold(),
+        alignment: configuration.header_alignment(),
+        color: configuration.header_color(),
     };
 
     let mut headers: Vec<StyledString> = nu_protocol::merge_descriptors(values)
         .into_iter()
         .map(|x| StyledString::new(x, header_style.clone()))
         .collect();
-    let entries = values_to_entries(values, &mut headers, starting_idx);
+    let entries = values_to_entries(values, &mut headers, configuration, starting_idx);
 
-    if let Ok(config) = config {
-        if let Some(style) = config.get("table_mode") {
-            if let Ok(table_mode) = style.as_string() {
-                if table_mode == "light" {
-                    return nu_table::Table {
-                        headers,
-                        data: entries,
-                        theme: Theme::light(),
-                    };
-                }
-            }
-        }
-    }
     nu_table::Table {
         headers,
         data: entries,
-        theme: Theme::compact(),
-    }
-}
-
-fn are_table_indexes_disabled() -> bool {
-    let config = crate::data::config::config(Tag::unknown());
-    match config {
-        Ok(config) => {
-            let disable_indexes = config.get("disable_table_indexes");
-            disable_indexes.map_or(false, |x| x.as_bool().unwrap_or(false))
-        }
-        _ => false,
+        theme: configuration.table_mode(),
     }
 }
 
 fn values_to_entries(
     values: &[Value],
     headers: &mut Vec<StyledString>,
+    configuration: &TableConfiguration,
     starting_idx: usize,
 ) -> Vec<Vec<StyledString>> {
-    let disable_indexes = are_table_indexes_disabled();
+    let disable_indexes = configuration.disabled_indexes();
+
     let mut entries = vec![];
 
     if headers.is_empty() {
@@ -212,7 +154,11 @@ fn values_to_entries(
     entries
 }
 
-async fn table(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn table(
+    configuration: TableConfiguration,
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let mut args = args.evaluate_once(&registry).await?;
     let mut finished = false;
@@ -289,7 +235,7 @@ async fn table(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
         let input: Vec<Value> = new_input.into();
 
         if !input.is_empty() {
-            let t = from_list(&input, start_number);
+            let t = from_list(&input, &configuration, start_number);
 
             draw_table(&t, term_width);
         }

@@ -1,8 +1,8 @@
 use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
-use crate::data::value::merge_values;
 use crate::prelude::*;
+use nu_data::value::merge_values;
 
 use indexmap::IndexMap;
 use nu_errors::ShellError;
