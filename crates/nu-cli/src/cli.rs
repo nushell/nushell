@@ -261,6 +261,7 @@ pub fn create_default_context(
             whole_stream_command(Save),
             whole_stream_command(Touch),
             whole_stream_command(Cpy),
+            whole_stream_command(Date),
             whole_stream_command(DateNow),
             whole_stream_command(DateUTC),
             whole_stream_command(DateFormat),
