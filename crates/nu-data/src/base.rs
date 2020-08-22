@@ -49,7 +49,7 @@ impl std::convert::TryFrom<Option<&Value>> for Switch {
     }
 }
 
-pub(crate) fn select_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> Value {
+pub fn select_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> Value {
     let mut out = TaggedDictBuilder::new(tag);
 
     let descs = obj.data_descriptors();
@@ -64,7 +64,7 @@ pub(crate) fn select_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>)
     out.into_value()
 }
 
-pub(crate) fn reject_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> Value {
+pub fn reject_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> Value {
     let mut out = TaggedDictBuilder::new(tag);
 
     let descs = obj.data_descriptors();
@@ -80,7 +80,7 @@ pub(crate) fn reject_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>)
     out.into_value()
 }
 
-pub(crate) enum CompareValues {
+pub enum CompareValues {
     Ints(BigInt, BigInt),
     Decimals(BigDecimal, BigDecimal),
     String(String, String),
@@ -113,7 +113,7 @@ impl CompareValues {
     }
 }
 
-pub(crate) fn coerce_compare(
+pub fn coerce_compare(
     left: &UntaggedValue,
     right: &UntaggedValue,
 ) -> Result<CompareValues, (&'static str, &'static str)> {
@@ -165,7 +165,7 @@ fn coerce_compare_primitive(
 }
 #[cfg(test)]
 mod tests {
-    use indexmap::IndexMap;
+    use indexmap::{indexmap, IndexMap};
     use nu_errors::ShellError;
     use nu_protocol::{ColumnPath as ColumnPathValue, PathMember, UntaggedValue, Value};
     use nu_source::*;
@@ -173,19 +173,19 @@ mod tests {
     use num_bigint::BigInt;
 
     fn string(input: impl Into<String>) -> Value {
-        crate::utils::data::helpers::string(input)
+        crate::utils::helpers::string(input)
     }
 
     fn int(input: impl Into<BigInt>) -> Value {
-        crate::utils::data::helpers::int(input)
+        crate::utils::helpers::int(input)
     }
 
     fn row(entries: IndexMap<String, Value>) -> Value {
-        crate::utils::data::helpers::row(entries)
+        crate::utils::helpers::row(entries)
     }
 
     fn table(list: &[Value]) -> Value {
-        crate::utils::data::helpers::table(list)
+        crate::utils::helpers::table(list)
     }
 
     fn error_callback(

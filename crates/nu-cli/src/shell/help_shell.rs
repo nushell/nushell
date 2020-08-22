@@ -1,12 +1,12 @@
 use crate::commands::cd::CdArgs;
 use crate::commands::command::EvaluatedWholeStreamCommandArgs;
 use crate::commands::cp::CopyArgs;
+use crate::commands::help::command_dict;
 use crate::commands::ls::LsArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::move_::mv::Arguments as MvArgs;
 use crate::commands::rm::RemoveArgs;
 use crate::completion;
-use crate::data::command_dict;
 use crate::prelude::*;
 use crate::shell::shell::Shell;
 
@@ -281,9 +281,5 @@ impl completion::Completer for HelpShell {
             }
         }
         Ok((replace_pos, completions))
-    }
-
-    fn hint(&self, _line: &str, _pos: usize, _ctx: &completion::Context<'_>) -> Option<String> {
-        None
     }
 }

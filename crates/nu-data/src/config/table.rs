@@ -1,4 +1,4 @@
-use crate::data::config::nuconfig::NuConfig;
+use crate::config::nuconfig::NuConfig;
 use std::fmt::Debug;
 
 #[derive(PartialEq, Debug)]
@@ -15,6 +15,8 @@ pub trait HasTableProperties: Debug + Send {
     fn header_bold(&self) -> bool;
     fn table_mode(&self) -> nu_table::Theme;
     fn disabled_indexes(&self) -> bool;
+    fn text_color(&self) -> Option<ansi_term::Color>;
+    fn line_color(&self) -> Option<ansi_term::Color>;
 }
 
 pub fn pivot_mode(config: &NuConfig) -> AutoPivotMode {
@@ -54,10 +56,10 @@ pub fn header_alignment(config: &NuConfig) -> nu_table::Alignment {
     })
 }
 
-pub fn header_color(config: &NuConfig) -> Option<ansi_term::Color> {
+pub fn get_color_for_config_key(config: &NuConfig, key: &str) -> Option<ansi_term::Color> {
     let vars = config.vars.lock();
 
-    Some(match vars.get("header_color") {
+    Some(match vars.get(key) {
         Some(c) => match c.as_string() {
             Ok(color) => match color.to_lowercase().as_str() {
                 "g" | "green" => ansi_term::Color::Green,
@@ -114,7 +116,15 @@ impl HasTableProperties for NuConfig {
     }
 
     fn header_color(&self) -> Option<ansi_term::Color> {
-        header_color(self)
+        get_color_for_config_key(self, "header_color")
+    }
+
+    fn text_color(&self) -> Option<ansi_term::Color> {
+        get_color_for_config_key(self, "text_color")
+    }
+
+    fn line_color(&self) -> Option<ansi_term::Color> {
+        get_color_for_config_key(self, "line_color")
     }
 
     fn header_bold(&self) -> bool {

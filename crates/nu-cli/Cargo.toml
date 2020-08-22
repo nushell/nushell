@@ -10,6 +10,7 @@ version = "0.18.2"
 doctest = false
 
 [dependencies]
+nu-data = {version = "0.18.2", path = "../nu-data"}
 nu-errors = {version = "0.18.2", path = "../nu-errors"}
 nu-parser = {version = "0.18.2", path = "../nu-parser"}
 nu-plugin = {version = "0.18.2", path = "../nu-plugin"}
@@ -89,7 +90,7 @@ umask = "1.0.0"
 unicode-xid = "0.2.1"
 uuid_crate = {package = "uuid", version = "0.8.1", features = ["v4"], optional = true}
 which = {version = "4.0.2", optional = true}
-zip = "0.5.6"
+zip = {version = "0.5.6", optional = true}
 
 clipboard = {version = "0.5", optional = true}
 encoding_rs = "0.8.23"
@@ -114,7 +115,7 @@ optional = true
 version = "0.23.1"
 
 [build-dependencies]
-git2 = "0.13"
+git2 = {version = "0.13", optional = true}
 
 
 [dev-dependencies]

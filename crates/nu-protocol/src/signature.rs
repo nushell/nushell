@@ -293,6 +293,8 @@ impl Signature {
     }
 
     /// Set the type for the "rest" of the positional arguments
+    /// Note: Not naming the field in your struct holding the rest values "rest", can
+    /// cause errors when deserializing
     pub fn rest(mut self, ty: SyntaxShape, desc: impl Into<String>) -> Signature {
         self.rest_positional = Some((ty, desc.into()));
         self

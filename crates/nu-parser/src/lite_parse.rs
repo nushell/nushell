@@ -133,11 +133,6 @@ fn bare(src: &mut Input, span_offset: usize) -> ParseResult<Spanned<String>> {
         // correct information from the non-lite parse.
         bare.push(delimiter);
 
-        let span = Span::new(
-            start_offset + span_offset,
-            start_offset + span_offset + bare.len(),
-        );
-
         return Err(ParseError {
             cause: nu_errors::ParseError::unexpected_eof(delimiter.to_string(), span),
             partial: Some(bare.spanned(span)),

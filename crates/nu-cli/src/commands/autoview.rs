@@ -1,10 +1,10 @@
 use crate::commands::UnevaluatedCallInfo;
 use crate::commands::WholeStreamCommand;
-use crate::data::config::table::AutoPivotMode;
-use crate::data::config::table::HasTableProperties;
-use crate::data::config::NuConfig as Configuration;
-use crate::data::value::format_leaf;
 use crate::prelude::*;
+use nu_data::config::table::AutoPivotMode;
+use nu_data::config::table::HasTableProperties;
+use nu_data::config::NuConfig as Configuration;
+use nu_data::value::format_leaf;
 use nu_errors::ShellError;
 use nu_protocol::hir::{self, Expression, ExternalRedirection, Literal, SpannedExpression};
 use nu_protocol::{Primitive, Scope, Signature, UntaggedValue, Value};

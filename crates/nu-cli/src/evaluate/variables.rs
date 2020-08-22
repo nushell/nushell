@@ -17,7 +17,7 @@ pub fn nu(env: &IndexMap<String, String>, tag: impl Into<Tag>) -> Result<Value, 
     }
     nu_dict.insert_value("env", dict.into_value());
 
-    let config = crate::data::config::read(&tag, &None)?;
+    let config = nu_data::config::read(&tag, &None)?;
     nu_dict.insert_value("config", UntaggedValue::row(config).into_value(&tag));
 
     let mut table = vec![];
@@ -39,7 +39,7 @@ pub fn nu(env: &IndexMap<String, String>, tag: impl Into<Tag>) -> Result<Value, 
     let temp = std::env::temp_dir();
     nu_dict.insert_value("temp-dir", UntaggedValue::path(temp).into_value(&tag));
 
-    let config = crate::data::config::default_path()?;
+    let config = nu_data::config::default_path()?;
     nu_dict.insert_value("config-path", UntaggedValue::path(config).into_value(&tag));
 
     let keybinding_path = crate::keybinding::keybinding_path()?;

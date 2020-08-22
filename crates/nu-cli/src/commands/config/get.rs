@@ -56,7 +56,7 @@ pub async fn get(
 
     // NOTE: None because we are not loading a new config file, we just want to read from the
     // existing config
-    let result = crate::data::config::read(name_span, &None)?;
+    let result = nu_data::config::read(name_span, &None)?;
 
     let key = get.to_string();
     let value = result

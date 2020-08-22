@@ -7,7 +7,6 @@ use crate::context::Context;
 use crate::git::current_branch;
 use crate::path::canonicalize;
 use crate::prelude::*;
-use crate::shell::completer::NuCompleter;
 use crate::shell::Helper;
 use crate::EnvironmentSyncer;
 use futures_codec::FramedRead;
@@ -111,7 +110,7 @@ fn search_paths() -> Vec<std::path::PathBuf> {
         }
     }
 
-    if let Ok(config) = crate::data::config::config(Tag::unknown()) {
+    if let Ok(config) = nu_data::config::config(Tag::unknown()) {
         if let Some(plugin_dirs) = config.get("plugin_dirs") {
             if let Value {
                 value: UntaggedValue::Table(pipelines),
@@ -210,7 +209,7 @@ impl History {
             })
             .unwrap_or_else(|_| PathBuf::from(FNAME));
 
-        let cfg = crate::data::config::config(Tag::unknown());
+        let cfg = nu_data::config::config(Tag::unknown());
         if let Ok(c) = cfg {
             match &c.get("history-path") {
                 Some(Value {
@@ -275,6 +274,7 @@ pub fn create_default_context(
             whole_stream_command(Alias),
             whole_stream_command(WithEnv),
             whole_stream_command(Do),
+            whole_stream_command(Sleep),
             // Statistics
             whole_stream_command(Size),
             whole_stream_command(Count),
@@ -471,7 +471,7 @@ pub async fn run_vec_of_pipelines(
     }
 
     // before we start up, let's run our startup commands
-    if let Ok(config) = crate::data::config::config(Tag::unknown()) {
+    if let Ok(config) = nu_data::config::config(Tag::unknown()) {
         if let Some(commands) = config.get("startup") {
             match commands {
                 Value {
@@ -752,7 +752,7 @@ pub async fn cli(
     let mut ctrlcbreak = false;
 
     // before we start up, let's run our startup commands
-    if let Ok(config) = crate::data::config::config(Tag::unknown()) {
+    if let Ok(config) = nu_data::config::config(Tag::unknown()) {
         if let Some(commands) = config.get("startup") {
             match commands {
                 Value {
@@ -786,10 +786,7 @@ pub async fn cli(
 
         let cwd = context.shell_manager.path();
 
-        rl.set_helper(Some(crate::shell::Helper::new(
-            Box::new(<NuCompleter as Default>::default()),
-            context.clone(),
-        )));
+        rl.set_helper(Some(crate::shell::Helper::new(context.clone())));
 
         let colored_prompt = {
             if let Some(prompt) = config.get("prompt") {

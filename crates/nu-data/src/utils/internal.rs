@@ -1,6 +1,6 @@
 #![allow(clippy::type_complexity)]
 
-use crate::data::value::compute_values;
+use crate::value::compute_values;
 use derive_new::new;
 use nu_errors::ShellError;
 use nu_protocol::hir::Operator;
@@ -138,8 +138,7 @@ pub fn sort_columns(
     if let Some(fmt) = format {
         for k in values.iter() {
             let k = k.clone().tagged_unknown();
-            let v =
-                crate::data::value::Date::naive_from_str(k.borrow_tagged())?.into_untagged_value();
+            let v = crate::value::Date::naive_from_str(k.borrow_tagged())?.into_untagged_value();
             keys.push(fmt(&v, k.to_string())?);
         }
     } else {
