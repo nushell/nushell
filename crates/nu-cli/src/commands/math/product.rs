@@ -78,7 +78,6 @@ pub fn product(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
         v if v.is_filesize() => to_byte(&prod(
             UntaggedValue::int(1).into_untagged_value(),
             values
-                .to_vec()
                 .iter()
                 .map(|v| match v {
                     Value {
@@ -91,8 +90,8 @@ pub fn product(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
         )?)
         .ok_or_else(|| {
             ShellError::labeled_error(
-                "could not convert to big decimal",
-                "could not convert to big decimal",
+                "could not convert to decimal",
+                "could not convert to decimal",
                 &name.span,
             )
         }),
@@ -100,7 +99,6 @@ pub fn product(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
         v if v.is_none() => prod(
             UntaggedValue::int(1).into_untagged_value(),
             values
-                .to_vec()
                 .iter()
                 .map(|v| match v {
                     Value {
