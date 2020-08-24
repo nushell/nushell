@@ -6,6 +6,9 @@ use serde::{Deserialize, Serialize};
 pub enum SyntaxShape {
     /// Any syntactic form is allowed
     Any,
+    /// Multiple times a shape of any syntactic form is allowed
+    /// e.G.: var_args date back to 01.01.1936 76kb
+    // MultipleAny,
     /// Strings and string-like bare words are allowed
     String,
     /// A dotted path to navigate the table

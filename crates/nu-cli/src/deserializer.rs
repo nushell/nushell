@@ -340,7 +340,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
             return visitor.visit_seq(StructDeserializer::new(&mut self, fields));
         }
 
-        let value = self.pop();
+        let mut value = self.stack.pop().expect("No value");
 
         let type_name = std::any::type_name::<V::Value>();
         let tagged_val_name = std::any::type_name::<Value>();
@@ -388,6 +388,23 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
 
             return visit::<ColumnPath, _>(path, name, fields, visitor);
         }
+
+        if let UntaggedValue::Table(values) = value.val.value{
+            trace!("Visiting table for a tagged value");
+            if values.len() == 0{
+                todo!("Error table len 0");
+            }
+            if values.len() > 1{
+                // let new_table =
+                //     ;
+                self.push_val(Value{
+                    value: UntaggedValue::Table(values[1..].to_vec()),
+                    tag: values[1].tag.until(values.last().unwrap().tag.clone()),
+                });
+            }
+            value.val = values[0].clone();
+        }
+
 
         trace!("Extracting {:?} for {:?}", value.val, type_name);
 

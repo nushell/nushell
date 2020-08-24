@@ -64,6 +64,16 @@ impl WholeStreamCommand for Alias {
                 example: "alias l [x] { ls $x }",
                 result: None,
             },
+            Example {
+                description: "An alias with an variable amount of parameter",
+                example: "alias l [x...] { ls $x }",
+                result: None,
+            },
+            Example {
+                description: "An alias with at least 1 parameter",
+                example: "alias l [first, x...] { ls $first $x }",
+                result: None,
+            },
         ]
     }
 }
@@ -103,7 +113,7 @@ pub async fn alias(
         let alias: Value = raw_input.trim().to_string().into();
         let alias_start = raw_input.find('[').unwrap_or(0); // used to check if the same alias already exists
 
-        // add to startup if alias doesn't exist and replce if it does
+        // add to startup if alias doesn't exist and replace if it does
         match result.get_mut("startup") {
             Some(startup) => {
                 if let UntaggedValue::Table(ref mut commands) = startup.value {
@@ -146,24 +156,48 @@ pub async fn alias(
     )))
 }
 
+pub fn var_arg_name(var_name: &str) -> String{
+    let mut name = var_name.to_string();
+    name.truncate(name.len() - 3);
+    name
+}
+pub fn is_var_arg(var_name: &str) -> bool{
+    var_name.ends_with("...")
+}
+
 fn to_arg_shapes(
-    args: Vec<String>,
+    mut args: Vec<String>,
     block: &Block,
     registry: &CommandRegistry,
 ) -> Result<Vec<(String, SyntaxShape)>, ShellError> {
+    let var_arg: Option<String> =
+        if let Some(arg) = args.last(){
+            if is_var_arg(arg) {
+                args.pop()
+            }else{
+                None
+            }
+        }else{
+            None
+        };
     match find_block_shapes(block, registry) {
-        Ok(found) => Ok(args
-            .iter()
-            .map(|arg| {
-                (
-                    arg.clone(),
-                    match found.get(arg) {
-                        None | Some((_, None)) => SyntaxShape::Any,
-                        Some((_, Some(shape))) => *shape,
-                    },
-                )
-            })
-            .collect()),
+        Ok(found) => {
+            let mut var_shape_mappings = args
+                .iter()
+                .map(|arg| {
+                    (
+                        arg.clone(),
+                        match found.get(arg) {
+                            None | Some((_, None)) => SyntaxShape::Any,
+                            Some((_, Some(shape))) => *shape,
+                        },
+                    )
+                }).collect::<Vec<(String, SyntaxShape)>>();
+            if let Some(var_arg) = var_arg{
+                var_shape_mappings.push((var_arg, SyntaxShape::Any));
+            }
+            Ok(var_shape_mappings)
+        }
         Err(err) => Err(err),
     }
 }
