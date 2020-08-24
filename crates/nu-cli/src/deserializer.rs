@@ -39,7 +39,7 @@ impl NumericRange {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DeserializerItem<'de> {
     key_struct_field: Option<(String, &'de str)>,
     val: Value,
@@ -71,7 +71,18 @@ impl<'de> ConfigDeserializer<'de> {
 
     pub fn push(&mut self, name: &'static str) -> Result<(), ShellError> {
         let value: Option<Value> = if name == "rest" {
-            let positional = self.call.args.slice_from(self.position);
+            //Also use any values on stack!
+            // A var arg will push a table with more values on the stack
+            // then positionals will need. Therefore some values in this
+            // table get stuck on the stack
+            let mut positional: Vec<Value> = self
+                .stack
+                .iter()
+                .map(|deserial_item| deserial_item.val.clone())
+                .collect();
+            positional.append(&mut self.call.args.slice_from(self.position));
+
+            //TODO What is self.position good for?
             self.position += positional.len();
             Some(UntaggedValue::Table(positional).into_untagged_value()) // TODO: correct tag
         } else if self.call.args.has(name) {
@@ -363,7 +374,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
             return visitor.visit_seq(StructDeserializer::new(&mut self, fields));
         }
 
-        let value = self.pop();
+        let mut value = self.stack.pop().expect("No value");
 
         let type_name = std::any::type_name::<V::Value>();
         let tagged_val_name = std::any::type_name::<Value>();
@@ -410,6 +421,24 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
             };
 
             return visit::<ColumnPath, _>(path, name, fields, visitor);
+        }
+
+        if let UntaggedValue::Table(values) = value.val.value {
+            trace!("Visiting table for a tagged value");
+            if values.is_empty() {
+                todo!("Error table len 0");
+            }
+            if values.len() > 1 {
+                // let new_table =
+                //     ;
+                self.push_val(Value {
+                    value: UntaggedValue::Table(values[1..].to_vec()),
+                    tag: values[1]
+                        .tag
+                        .until(values.last().unwrap_or(&Value::nothing()).tag.clone()),
+                });
+            }
+            value.val = values[0].clone();
         }
 
         trace!("Extracting {:?} for {:?}", value.val, type_name);

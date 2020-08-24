@@ -112,7 +112,7 @@ pub fn parse_full_column_path(
 
             if head.is_none() && current_part.starts_with("$(") && current_part.ends_with(')') {
                 let (invoc, err) =
-                    parse_invocation(&current_part.clone().spanned(part_span.clone()), registry);
+                    parse_invocation(&current_part.clone().spanned(part_span), registry);
                 if error.is_none() {
                     error = err;
                 }
@@ -147,8 +147,7 @@ pub fn parse_full_column_path(
 
         if head.is_none() {
             if current_part.starts_with("$(") && current_part.ends_with(')') {
-                let (invoc, err) =
-                    parse_invocation(&current_part.clone().spanned(part_span.clone()), registry);
+                let (invoc, err) = parse_invocation(&current_part.spanned(part_span), registry);
                 if error.is_none() {
                     error = err;
                 }
@@ -400,7 +399,7 @@ fn parse_invocation(
     (
         SpannedExpression::new(
             Expression::Invocation(classified_block.block),
-            lite_arg.span.clone(),
+            lite_arg.span,
         ),
         err,
     )
@@ -416,8 +415,8 @@ fn parse_variable(
     } else {
         (
             SpannedExpression::new(
-                Expression::variable(lite_arg.item.clone(), lite_arg.span.clone()),
-                lite_arg.span.clone(),
+                Expression::variable(lite_arg.item.clone(), lite_arg.span),
+                lite_arg.span,
             ),
             None,
         )
@@ -433,19 +432,19 @@ fn parse_dollar_expr(
     trace!("Parsing dollar expression: {:?}", lite_arg.item);
     if lite_arg.item == "$true" {
         (
-            SpannedExpression::new(Expression::boolean(true), lite_arg.span.clone()),
+            SpannedExpression::new(Expression::boolean(true), lite_arg.span),
             None,
         )
     } else if lite_arg.item == "$false" {
         (
-            SpannedExpression::new(Expression::boolean(false), lite_arg.span.clone()),
+            SpannedExpression::new(Expression::boolean(false), lite_arg.span),
             None,
         )
-    } else if lite_arg.item.ends_with(")") {
+    } else if lite_arg.item.ends_with(')') {
         //Return invocation
         trace!("Parsing invocation expression");
         parse_invocation(lite_arg, registry)
-    } else if lite_arg.item.contains(".") {
+    } else if lite_arg.item.contains('.') {
         trace!("Parsing path expression");
         parse_full_column_path(lite_arg, registry)
     } else {
@@ -1350,6 +1349,22 @@ fn parse_positional_argument(
     let mut idx = idx;
     let mut error = None;
     let arg = match positional_type {
+        // PositionalType::Mandatory(_, SyntaxShape::MultipleAny)
+        //     | PositionalType::Optional(_, SyntaxShape::MultipleAny) => {
+        //         let span = lite_cmd.args[idx].span.until(lite_cmd.args.last().expect("No arg present, but expected").span);
+
+        //         let expanded_exprs;
+        //         while idx < lite_cmd.args.len(){
+        //             expanded_exprs.add()
+
+        //         }
+        //         (idx + remaining_positionals, SpannedExpression{
+        //             Expression::List
+        //             span,
+
+        //         }
+
+        //     }
         PositionalType::Mandatory(_, SyntaxShape::Math)
         | PositionalType::Optional(_, SyntaxShape::Math) => {
             // A condition can take up multiple arguments, as we build the operation as <arg> <operator> <arg>

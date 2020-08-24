@@ -63,3 +63,41 @@ For example, to edit your config file in `vi`, run:
 ```shell
 > vi $(config path)
 ```
+
+## Var args
+
+It is possible to pass a variable amount of arguments to an alias by specifying a var arg as the last parameter in the alias definition
+Example:
+```shell
+alias myecho [msg...] { echo $msg }
+```
+The var-arg variable can be used to substitute for a variable amount of positional arguments.
+<!-- The following restriction allows simpler Code. -->
+The var-arg variable is not allowed to substitute beyond his usage
+e.G.
+```shell Example 1: Var arg variable used as named type argument and beyond
+alias mycmd [args...] { cmd --opt=$args }
+mycmd optvalue arg1 arg2
+
+#Instead do:
+alias mycmd [flagOpt, args...] { cmd --opt=$flagOpt $args }
+mycmd optvalue arg1 arg2
+
+```
+```shell Example 2: Var arg variable used as rhs in "+" expression and beyond
+TODO I can't even think of one such usage
+alias mymath [args...] { math $ENV_VAR + $args }
+mymath addVal + 1 + 2
+
+#Instead do:
+alias mysum [args...] { sum $ENV_VAR $args }
+mysum addVal 1 2
+```
+```shell Example 3: Var arg variable used in path and beyond
+alias myget [args...] { get foor.0.$args }
+myget pathVal arg1 arg2
+
+#Instead do:
+alias myget [col, args...] { get foor.0.$col }
+myget 3 arg1 arg2
+```
