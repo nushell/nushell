@@ -4,29 +4,22 @@ use crate::prelude::*;
 
 use derive_new::new;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, Signature, SyntaxShape};
+use nu_protocol::{hir::Block, PositionalType, Signature, UntaggedValue, Value};
 
 #[derive(new, Clone)]
 pub struct AliasCommand {
-    name: String,
-    args: Vec<(String, SyntaxShape)>,
+    sig: Signature,
     block: Block,
 }
 
 #[async_trait]
 impl WholeStreamCommand for AliasCommand {
     fn name(&self) -> &str {
-        &self.name
+        &self.sig.name
     }
 
     fn signature(&self) -> Signature {
-        let mut alias = Signature::build(&self.name);
-
-        for (arg, shape) in &self.args {
-            alias = alias.optional(arg, *shape, "");
-        }
-
-        alias
+        self.sig.clone()
     }
 
     fn usage(&self) -> &str {
@@ -43,17 +36,34 @@ impl WholeStreamCommand for AliasCommand {
         let mut block = self.block.clone();
         block.set_redirect(call_info.args.external_redirection);
 
-        let alias_command = self.clone();
+        // let alias_command = self.clone();
         let mut context = Context::from_args(&args, &registry);
         let input = args.input;
 
         let mut scope = call_info.scope.clone();
         let evaluated = call_info.evaluate(&registry).await?;
+
         if let Some(positional) = &evaluated.args.positional {
-            for (pos, arg) in positional.iter().enumerate() {
-                scope
-                    .vars
-                    .insert(alias_command.args[pos].0.to_string(), arg.clone());
+            for (idx, (pos_type, _)) in self.sig.positional.iter().enumerate() {
+                let arg = &positional[idx];
+                match pos_type {
+                    PositionalType::Mandatory(name, _) | PositionalType::Optional(name, _) => {
+                        scope.vars.insert(name.clone(), arg.clone());
+                    }
+                }
+            }
+            if let Some((_, desc)) = &self.sig.rest_positional {
+                let var_arg_idx = self.sig.positional.len();
+                if var_arg_idx < positional.len() {
+                    let var_arg_val = Value {
+                        value: UntaggedValue::Table(positional[var_arg_idx..].to_vec()),
+                        tag: positional[var_arg_idx]
+                            .tag
+                            .until(&positional.last().unwrap_or(&Value::nothing()).tag),
+                    };
+                    //Use description as name
+                    scope.vars.insert(desc.to_string(), var_arg_val);
+                }
             }
         }
 
@@ -68,5 +78,11 @@ impl WholeStreamCommand for AliasCommand {
         )
         .await?
         .to_output_stream())
+    }
+    fn is_binary(&self) -> bool {
+        false
+    }
+    fn examples(&self) -> Vec<Example> {
+        Vec::new()
     }
 }

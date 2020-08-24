@@ -2,7 +2,7 @@ use nu_source::{b, DebugDocBuilder, PrettyDebug};
 use serde::{Deserialize, Serialize};
 
 /// The syntactic shapes that values must match to be passed into a command. You can think of this as the type-checking that occurs when you call a function.
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum SyntaxShape {
     /// Any syntactic form is allowed
     Any,

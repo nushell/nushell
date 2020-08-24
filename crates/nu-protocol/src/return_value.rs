@@ -1,6 +1,5 @@
 use crate::hir::Block;
-use crate::value::Value;
-use crate::SyntaxShape;
+use crate::{value::Value, Signature};
 use nu_errors::ShellError;
 use nu_source::{b, DebugDocBuilder, PrettyDebug};
 use serde::{Deserialize, Serialize};
@@ -23,7 +22,7 @@ pub enum CommandAction {
     /// Enter the help shell, which allows exploring the help system
     EnterHelpShell(Value),
     /// Enter the help shell, which allows exploring the help system
-    AddAlias(String, Vec<(String, SyntaxShape)>, Block),
+    AddAlias(Signature, Block),
     /// Go to the previous shell in the shell ring buffer
     PreviousShell,
     /// Go to the next shell in the shell ring buffer
