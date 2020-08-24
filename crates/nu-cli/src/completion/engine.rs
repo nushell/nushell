@@ -177,19 +177,35 @@ impl<'s> Flatten<'s> {
 const BEFORE_COMMAND_CHARS: &[char] = &['|', '(', ';'];
 
 /// Determines the completion location for a given block at the given cursor position
-pub fn completion_location(line: &str, block: &Block, pos: usize) -> Option<CompletionLocation> {
+pub fn completion_location(line: &str, block: &Block, pos: usize) -> Vec<CompletionLocation> {
     let completion_engine = Flatten::new(line);
     let locations = completion_engine.completion_locations(block);
 
     if locations.is_empty() {
-        Some(LocationType::Command.spanned(Span::unknown()))
+        vec![LocationType::Command.spanned(Span::unknown())]
     } else {
         let mut prev = None;
         for loc in locations {
             // We don't use span.contains because we want to include the end. This handles the case
             // where the cursor is just after the text (i.e., no space between cursor and text)
             if loc.span.start() <= pos && pos <= loc.span.end() {
-                return Some(loc);
+                // The parser sees the "-" in `cmd -` as an argument, but the user is likely
+                // expecting a flag.
+                return match loc.item {
+                    LocationType::Argument(ref cmd, _) => {
+                        if loc.span.slice(line) == "-" {
+                            let cmd = cmd.clone();
+                            let span = loc.span;
+                            vec![
+                                loc,
+                                LocationType::Flag(cmd.unwrap_or_default()).spanned(span),
+                            ]
+                        } else {
+                            vec![loc]
+                        }
+                    }
+                    _ => vec![loc],
+                };
             } else if pos < loc.span.start() {
                 break;
             }
@@ -202,14 +218,14 @@ pub fn completion_location(line: &str, block: &Block, pos: usize) -> Option<Comp
             // is after some character that would imply we're in the command position.
             let start = prev.span.end();
             if line[start..pos].contains(BEFORE_COMMAND_CHARS) {
-                Some(LocationType::Command.spanned(Span::unknown()))
+                vec![LocationType::Command.spanned(Span::unknown())]
             } else {
                 // TODO this should be able to be mapped to a command
-                Some(LocationType::Argument(None, None).spanned(Span::unknown()))
+                vec![LocationType::Argument(None, None).spanned(Span::unknown())]
             }
         } else {
             // Cursor is before any possible completion location, so must be a command
-            Some(LocationType::Command.spanned(Span::unknown()))
+            vec![LocationType::Command.spanned(Span::unknown())]
         }
     }
 }
@@ -253,10 +269,18 @@ mod tests {
             line: &str,
             registry: &dyn SignatureRegistry,
             pos: usize,
-        ) -> Option<LocationType> {
-            let lite_block = lite_parse(line, 0).expect("lite_parse");
+        ) -> Vec<LocationType> {
+            let lite_block = match lite_parse(line, 0) {
+                Ok(v) => v,
+                Err(e) => e.partial.expect("lite_parse result"),
+            };
+
             let block = classify_block(&lite_block, registry);
-            super::completion_location(line, &block.block, pos).map(|v| v.item)
+
+            super::completion_location(line, &block.block, pos)
+                .into_iter()
+                .map(|v| v.item)
+                .collect()
         }
 
         #[test]
@@ -267,7 +291,7 @@ mod tests {
 
             assert_eq!(
                 completion_location(line, &registry, 10),
-                Some(LocationType::Command),
+                vec![LocationType::Command],
             );
         }
 
@@ -278,7 +302,7 @@ mod tests {
 
             assert_eq!(
                 completion_location(line, &registry, 10),
-                Some(LocationType::Command),
+                vec![LocationType::Command],
             );
         }
 
@@ -289,7 +313,7 @@ mod tests {
 
             assert_eq!(
                 completion_location(line, &registry, 4),
-                Some(LocationType::Command),
+                vec![LocationType::Command],
             );
         }
 
@@ -300,7 +324,7 @@ mod tests {
 
             assert_eq!(
                 completion_location(line, &registry, 13),
-                Some(LocationType::Variable),
+                vec![LocationType::Variable],
             );
         }
 
@@ -315,7 +339,36 @@ mod tests {
 
             assert_eq!(
                 completion_location(line, &registry, 7),
-                Some(LocationType::Flag("du".to_string())),
+                vec![LocationType::Flag("du".to_string())],
+            );
+        }
+
+        #[test]
+        fn completes_incomplete_nested_structure() {
+            let registry: VecRegistry = vec![Signature::build("sys")].into();
+            let line = "echo $(sy";
+
+            assert_eq!(
+                completion_location(line, &registry, 8),
+                vec![LocationType::Command],
+            );
+        }
+
+        #[test]
+        fn completes_flags_with_just_a_single_hyphen() {
+            let registry: VecRegistry = vec![Signature::build("du")
+                .switch("recursive", "the values to echo", None)
+                .rest(SyntaxShape::Any, "blah")]
+            .into();
+
+            let line = "du -";
+
+            assert_eq!(
+                completion_location(line, &registry, 3),
+                vec![
+                    LocationType::Argument(Some("du".to_string()), None),
+                    LocationType::Flag("du".to_string()),
+                ],
             );
         }
 
@@ -327,7 +380,7 @@ mod tests {
 
             assert_eq!(
                 completion_location(line, &registry, 6),
-                Some(LocationType::Argument(Some("echo".to_string()), None)),
+                vec![LocationType::Argument(Some("echo".to_string()), None)],
             );
         }
     }

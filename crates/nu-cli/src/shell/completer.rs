@@ -20,41 +20,44 @@ impl NuCompleter {
             Err(result) => result.partial,
         };
 
-        let location = lite_block
+        let locations = lite_block
             .map(|block| nu_parser::classify_block(&block, &nu_context.registry))
-            .and_then(|block| {
-                crate::completion::engine::completion_location(line, &block.block, pos)
-            });
+            .map(|block| crate::completion::engine::completion_location(line, &block.block, pos))
+            .unwrap_or_default();
 
-        if let Some(location) = location {
-            let partial = location.span.slice(line);
-
-            let suggestions = match location.item {
-                LocationType::Command => {
-                    let command_completer = crate::completion::command::Completer {};
-                    command_completer.complete(context, partial)
-                }
-
-                LocationType::Flag(cmd) => {
-                    let flag_completer = crate::completion::flag::Completer {};
-                    flag_completer.complete(context, cmd, partial)
-                }
-
-                LocationType::Argument(_cmd, _arg_name) => {
-                    // TODO use cmd and arg_name to narrow things down further
-                    let path_completer = crate::completion::path::Completer::new();
-                    path_completer.complete(context, partial)
-                }
-
-                LocationType::Variable => Vec::new(),
-            }
-            .into_iter()
-            .map(requote)
-            .collect();
-
-            (location.span.start(), suggestions)
-        } else {
+        if locations.is_empty() {
             (pos, Vec::new())
+        } else {
+            let pos = locations[0].span.start();
+            let suggestions = locations
+                .into_iter()
+                .flat_map(|location| {
+                    let partial = location.span.slice(line);
+                    match location.item {
+                        LocationType::Command => {
+                            let command_completer = crate::completion::command::Completer {};
+                            command_completer.complete(context, partial)
+                        }
+
+                        LocationType::Flag(cmd) => {
+                            let flag_completer = crate::completion::flag::Completer {};
+                            flag_completer.complete(context, cmd, partial)
+                        }
+
+                        LocationType::Argument(_cmd, _arg_name) => {
+                            // TODO use cmd and arg_name to narrow things down further
+                            let path_completer = crate::completion::path::Completer::new();
+                            path_completer.complete(context, partial)
+                        }
+
+                        LocationType::Variable => Vec::new(),
+                    }
+                    .into_iter()
+                    .map(requote)
+                })
+                .collect();
+
+            (pos, suggestions)
         }
     }
 }

@@ -56,10 +56,21 @@ fn skip_whitespace(src: &mut Input) {
     }
 }
 
+#[derive(Clone, Copy)]
 enum BlockKind {
     Paren,
     CurlyBracket,
     SquareBracket,
+}
+
+impl From<BlockKind> for char {
+    fn from(bk: BlockKind) -> char {
+        match bk {
+            BlockKind::Paren => ')',
+            BlockKind::SquareBracket => ']',
+            BlockKind::CurlyBracket => '}',
+        }
+    }
 }
 
 fn bare(src: &mut Input, span_offset: usize) -> ParseResult<Spanned<String>> {
@@ -114,15 +125,15 @@ fn bare(src: &mut Input, span_offset: usize) -> ParseResult<Spanned<String>> {
     );
 
     if let Some(block) = block_level.last() {
+        let delim: char = (*block).into();
+        let cause = nu_errors::ParseError::unexpected_eof(delim.to_string(), span);
+
+        while let Some(bk) = block_level.pop() {
+            bare.push(bk.into());
+        }
+
         return Err(ParseError {
-            cause: nu_errors::ParseError::unexpected_eof(
-                match block {
-                    BlockKind::Paren => ")",
-                    BlockKind::SquareBracket => "]",
-                    BlockKind::CurlyBracket => "}",
-                },
-                span,
-            ),
+            cause,
             partial: Some(bare.spanned(span)),
         });
     }

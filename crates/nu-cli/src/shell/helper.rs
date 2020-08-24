@@ -45,9 +45,9 @@ impl rustyline::completion::Completer for Helper {
         &self,
         line: &str,
         pos: usize,
-        ctx: &rustyline::Context<'_>,
+        _ctx: &rustyline::Context<'_>,
     ) -> Result<(usize, Vec<Self::Candidate>), rustyline::error::ReadlineError> {
-        let ctx = completion::Context::new(&self.context, ctx);
+        let ctx = completion::Context::new(&self.context);
         Ok(self.completer.complete(line, pos, &ctx))
     }
 }
