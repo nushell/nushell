@@ -191,7 +191,7 @@ fn check_insert(
                     shape if shape == new => Ok(()),
                     _ => Err(ShellError::labeled_error_with_secondary(
                         "Type conflict in alias variable use",
-                        format!("{:?}", (to_add.1).1),
+                        format!("{:?}", new),
                         (to_add.1).0,
                         format!("{:?}", shape),
                         exist.0,
