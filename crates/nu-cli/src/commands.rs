@@ -97,6 +97,7 @@ pub(crate) mod shells;
 pub(crate) mod shuffle;
 pub(crate) mod size;
 pub(crate) mod skip;
+pub(crate) mod sleep;
 pub(crate) mod sort_by;
 pub(crate) mod split;
 pub(crate) mod split_by;
@@ -146,7 +147,7 @@ pub(crate) use config::{
 };
 pub(crate) use count::Count;
 pub(crate) use cp::Cpy;
-pub(crate) use date::Date;
+pub(crate) use date::{Date, DateFormat, DateNow, DateUTC};
 pub(crate) use debug::Debug;
 pub(crate) use default::Default;
 pub(crate) use do_::Do;
@@ -227,12 +228,14 @@ pub(crate) use shells::Shells;
 pub(crate) use shuffle::Shuffle;
 pub(crate) use size::Size;
 pub(crate) use skip::{Skip, SkipUntil, SkipWhile};
+pub(crate) use sleep::Sleep;
 pub(crate) use sort_by::SortBy;
 pub(crate) use split::{Split, SplitChars, SplitColumn, SplitRow};
 pub(crate) use split_by::SplitBy;
 pub(crate) use str_::{
-    Str, StrCapitalize, StrCollect, StrContains, StrDowncase, StrEndsWith, StrFindReplace, StrFrom,
-    StrIndexOf, StrLength, StrReverse, StrSet, StrStartsWith, StrSubstring, StrToDatetime,
+    Str, StrCamelCase, StrCapitalize, StrCollect, StrContains, StrDowncase, StrEndsWith,
+    StrFindReplace, StrFrom, StrIndexOf, StrKebabCase, StrLength, StrPascalCase, StrReverse,
+    StrScreamingSnakeCase, StrSet, StrSnakeCase, StrStartsWith, StrSubstring, StrToDatetime,
     StrToDecimal, StrToInteger, StrTrim, StrTrimLeft, StrTrimRight, StrUpcase,
 };
 pub(crate) use table::Table;

@@ -86,12 +86,12 @@ pub fn split(
                 }
             });
 
-            crate::utils::data::split(&values, &Some(block), &name)
+            nu_data::utils::split(&values, &Some(block), &name)
         }
         Grouper::ByColumn(None) => {
             let block = Box::new(move |_, row: &Value| as_string(row));
 
-            crate::utils::data::split(&values, &Some(block), &name)
+            nu_data::utils::split(&values, &Some(block), &name)
         }
     }
 }
@@ -124,7 +124,7 @@ pub fn suggestions(tried: Tagged<&str>, for_value: &Value) -> ShellError {
 #[cfg(test)]
 mod tests {
     use super::split;
-    use crate::utils::data::helpers::{committers_grouped_by_date, date, int, row, string, table};
+    use nu_data::utils::helpers::{committers_grouped_by_date, date, int, row, string, table};
     use nu_protocol::UntaggedValue;
     use nu_source::*;
 

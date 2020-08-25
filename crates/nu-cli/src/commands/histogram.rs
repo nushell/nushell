@@ -107,9 +107,9 @@ pub async fn histogram(
         "value".to_string().tagged(&name)
     };
 
-    let results = crate::utils::data::report(
+    let results = nu_data::utils::report(
         &UntaggedValue::table(&values).into_value(&name),
-        crate::utils::data::Operation {
+        nu_data::utils::Operation {
             grouper: Some(Box::new(move |_, _| Ok(String::from("frequencies")))),
             splitter: Some(splitter(column_grouper)),
             format: None,
@@ -127,13 +127,13 @@ pub async fn histogram(
             .table_entries()
             .map(move |value| {
                 let values = value.table_entries().cloned().collect::<Vec<_>>();
-                let ocurrences = values.len();
+                let occurrences = values.len();
 
-                (ocurrences, values[ocurrences - 1].clone())
+                (occurrences, values[occurrences - 1].clone())
             })
             .collect::<Vec<_>>()
             .into_iter()
-            .map(move |(ocurrences, value)| {
+            .map(move |(occurrences, value)| {
                 let mut fact = TaggedDictBuilder::new(&name);
                 let column_value = labels
                     .get(idx)
@@ -147,7 +147,7 @@ pub async fn histogram(
                     .clone();
 
                 fact.insert_value(&column.item, column_value);
-                fact.insert_untagged("ocurrences", UntaggedValue::int(ocurrences));
+                fact.insert_untagged("occurrences", UntaggedValue::int(occurrences));
 
                 let percentage = format!(
                     "{}%",

@@ -1,4 +1,3 @@
-use git2::Repository;
 use std::path::Path;
 use std::{env, fs, io};
 
@@ -18,11 +17,20 @@ fn main() -> Result<(), io::Error> {
     Ok(())
 }
 
-fn latest_commit_hash<P: AsRef<Path>>(dir: P) -> Result<String, git2::Error> {
-    let dir = dir.as_ref();
-    Ok(Repository::discover(dir)?
-        .head()?
-        .peel_to_commit()?
-        .id()
-        .to_string())
+#[allow(unused_variables)]
+fn latest_commit_hash<P: AsRef<Path>>(dir: P) -> Result<String, Box<dyn std::error::Error>> {
+    #[cfg(feature = "git2")]
+    {
+        use git2::Repository;
+        let dir = dir.as_ref();
+        Ok(Repository::discover(dir)?
+            .head()?
+            .peel_to_commit()?
+            .id()
+            .to_string())
+    }
+    #[cfg(not(feature = "git2"))]
+    {
+        Ok(String::new())
+    }
 }

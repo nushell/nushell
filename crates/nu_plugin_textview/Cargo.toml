@@ -10,7 +10,7 @@ version = "0.18.2"
 doctest = false
 
 [dependencies]
-nu-cli = {path = "../nu-cli", version = "0.18.2"}
+nu-data = {path = "../nu-data", version = "0.18.2"}
 nu-errors = {path = "../nu-errors", version = "0.18.2"}
 nu-plugin = {path = "../nu-plugin", version = "0.18.2"}
 nu-protocol = {path = "../nu-protocol", version = "0.18.2"}
@@ -18,8 +18,6 @@ nu-source = {path = "../nu-source", version = "0.18.2"}
 
 ansi_term = "0.12.1"
 bat = {version = "0.15.4", features = ["regex-fancy", "paging"]}
-
-crossterm = "0.17.5"
 term_size = "0.3.2"
 url = "2.1.1"
 

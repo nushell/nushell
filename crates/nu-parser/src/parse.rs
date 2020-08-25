@@ -316,13 +316,13 @@ fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseErr
         (Unit::Nanosecond, vec!["ns"]),
         (Unit::Microsecond, vec!["us"]),
         (Unit::Millisecond, vec!["ms"]),
-        (Unit::Second, vec!["s"]),
-        (Unit::Minute, vec!["m"]),
-        (Unit::Hour, vec!["h"]),
-        (Unit::Day, vec!["d"]),
-        (Unit::Week, vec!["w"]),
-        (Unit::Month, vec!["M"]),
-        (Unit::Year, vec!["y"]),
+        (Unit::Second, vec!["sec"]),
+        (Unit::Minute, vec!["min"]),
+        (Unit::Hour, vec!["hr"]),
+        (Unit::Day, vec!["day"]),
+        (Unit::Week, vec!["wk"]),
+        (Unit::Month, vec!["mon"]),
+        (Unit::Year, vec!["yr"]),
     ];
 
     for unit_group in unit_groups.iter() {
@@ -334,7 +334,7 @@ fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseErr
                     lhs.pop();
                 }
 
-                // these units are allowed to signed
+                // these units are allowed to be signed
                 if let Ok(x) = lhs.parse::<i64>() {
                     let lhs_span =
                         Span::new(lite_arg.span.start(), lite_arg.span.start() + lhs.len());
@@ -1358,7 +1358,7 @@ fn classify_pipeline(
                     }),
                     positional: Some(args),
                     named: None,
-                    span: Span::unknown(),
+                    span: name_span,
                     external_redirection: if iter.peek().is_none() {
                         ExternalRedirection::None
                     } else {
@@ -1448,7 +1448,7 @@ fn classify_pipeline(
                     }),
                     positional: Some(args),
                     named: None,
-                    span: Span::unknown(),
+                    span: name_span,
                     external_redirection: if iter.peek().is_none() {
                         ExternalRedirection::None
                     } else {

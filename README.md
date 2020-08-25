@@ -67,7 +67,7 @@ cargo install nu
 You can also build Nu yourself with all the bells and whistles (be sure to have installed the [dependencies](https://www.nushell.sh/book/en/installation.html#dependencies) for your platform), once you have checked out this repo with git:
 
 ```bash
-cargo build --workspace --features=stable
+cargo build --workspace --features=extra
 ```
 
 ### Docker

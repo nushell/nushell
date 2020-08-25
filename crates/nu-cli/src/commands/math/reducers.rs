@@ -1,4 +1,4 @@
-use crate::data::value::{compare_values, compute_values};
+use nu_data::value::{compare_values, compute_values};
 use nu_errors::ShellError;
 use nu_protocol::hir::Operator;
 use nu_protocol::{UntaggedValue, Value};

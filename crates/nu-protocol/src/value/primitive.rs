@@ -302,19 +302,19 @@ pub fn format_duration(duration: &BigInt) -> String {
     let mut output_prep = vec![];
 
     if !days.is_zero() {
-        output_prep.push(format!("{}d", days));
+        output_prep.push(format!("{}day", days));
     }
 
     if !hours.is_zero() {
-        output_prep.push(format!("{}h", hours));
+        output_prep.push(format!("{}hr", hours));
     }
 
     if !mins.is_zero() {
-        output_prep.push(format!("{}m", mins));
+        output_prep.push(format!("{}min", mins));
     }
 
     if !secs.is_zero() {
-        output_prep.push(format!("{}s", secs));
+        output_prep.push(format!("{}sec", secs));
     }
 
     if !millis.is_zero() {
