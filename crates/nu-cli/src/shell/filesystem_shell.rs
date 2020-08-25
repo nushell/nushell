@@ -155,7 +155,7 @@ impl Shell for FilesystemShell {
 
             if !all && !hidden_dir_specified && is_hidden_dir(&path) {
                 if path.is_dir() {
-                    hidden_dirs.push(path.clone());
+                    hidden_dirs.push(path);
                 }
                 return None;
             }
@@ -997,11 +997,12 @@ pub(crate) fn dir_entry_dict(
     Ok(dict.into_value())
 }
 
-fn path_contains_hidden_folder(path: &PathBuf, folders: &Vec<PathBuf>) -> bool {
-    if folders
-        .iter()
-        .any(|p| path.to_str().unwrap().starts_with(&p.to_str().unwrap()))
-    {
+fn path_contains_hidden_folder(path: &PathBuf, folders: &[PathBuf]) -> bool {
+    if folders.iter().any(|p| {
+        path.to_str()
+            .expect("failed to read path")
+            .starts_with(&p.to_str().expect("failed to read hidden paths"))
+    }) {
         return true;
     }
     false
