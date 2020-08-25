@@ -199,7 +199,8 @@ pub fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
 
                     #[cfg(not(windows))]
                     {
-                        bin_name.ends_with('.')
+                        !bin_name.contains('.') 
+                        || (bin_name.ends_with('.')
                         || bin_name.ends_with(".py")
                         || bin_name.ends_with(".rb")
                         || bin_name.ends_with(".sh")
@@ -207,7 +208,7 @@ pub fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
                         || bin_name.ends_with(".zsh")
                         || bin_name.ends_with(".pl")
                         || bin_name.ends_with(".awk")
-                        || bin_name.ends_with(".ps1")
+                        || bin_name.ends_with(".ps1"))
                     }
                 };
 
