@@ -998,7 +998,10 @@ pub(crate) fn dir_entry_dict(
 }
 
 fn path_contains_hidden_folder(path: &PathBuf, folders: &Vec<PathBuf>) -> bool {
-    if folders.iter().any(|p| path.to_str().unwrap().starts_with(&p.to_str().unwrap())) {
+    if folders
+        .iter()
+        .any(|p| path.to_str().unwrap().starts_with(&p.to_str().unwrap()))
+    {
         return true;
     }
     false
