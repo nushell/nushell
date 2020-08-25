@@ -199,7 +199,7 @@ pub fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
 
                     #[cfg(not(windows))]
                     {
-                        bin_name.ends_with(".")
+                        bin_name.ends_with('.')
                         || bin_name.ends_with(".py")
                         || bin_name.ends_with(".rb")
                         || bin_name.ends_with(".sh")
