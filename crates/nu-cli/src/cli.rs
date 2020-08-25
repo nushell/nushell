@@ -789,7 +789,18 @@ pub async fn cli(
 
         let cwd = context.shell_manager.path();
 
-        rl.set_helper(Some(crate::shell::Helper::new(context.clone())));
+        let disable_hinter = config::config(Tag::unknown())?
+            .get("disable_hinter")
+            .map(|s| s.value.expect_string() == "true")
+            .unwrap_or(false);
+
+        let hinter = if disable_hinter {
+            None
+        } else {
+            Some(rustyline::hint::HistoryHinter {})
+        };
+
+        rl.set_helper(Some(crate::shell::Helper::new(context.clone(), hinter)));
 
         let colored_prompt = {
             if let Some(prompt) = config.get("prompt") {
