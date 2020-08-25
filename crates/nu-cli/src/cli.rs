@@ -24,16 +24,39 @@ use std::error::Error;
 use std::io::{BufRead, BufReader, Write};
 use std::iter::Iterator;
 use std::path::{Path, PathBuf};
+use std::process::{Child, Command, Stdio};
 use std::sync::atomic::Ordering;
 
 use rayon::prelude::*;
 
 fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), ShellError> {
-    let mut child = std::process::Command::new(path)
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .spawn()
-        .expect("Failed to spawn child process");
+    let ext = path.extension();
+    let ps1_file = match ext {
+        Some(ext) => ext == "ps1",
+        None => false,
+    };
+
+    let mut child: Child = if ps1_file {
+        Command::new("pwsh")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .args(&[
+                "-NoLogo",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                &path.to_string_lossy(),
+            ])
+            .spawn()
+            .expect("Failed to spawn PowerShell process")
+    } else {
+        Command::new(path)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn child process")
+    };
 
     let stdin = child.stdin.as_mut().expect("Failed to open stdin");
     let stdout = child.stdout.as_mut().expect("Failed to open stdout");
@@ -42,13 +65,14 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
 
     let request = JsonRpc::new("config", Vec::<Value>::new());
     let request_raw = serde_json::to_string(&request)?;
+    trace!(target: "nu::load", "plugin infrastructure config -> path {:#?}, request {:?}", &path, &request_raw);
     stdin.write_all(format!("{}\n", request_raw).as_bytes())?;
     let path = dunce::canonicalize(path)?;
 
     let mut input = String::new();
     let result = match reader.read_line(&mut input) {
         Ok(count) => {
-            trace!(target: "nu::load", "plugin infrastructure -> config response");
+            trace!(target: "nu::load", "plugin infrastructure -> config response for {:#?}", &path);
             trace!(target: "nu::load", "plugin infrastructure -> processing response ({} bytes)", count);
             trace!(target: "nu::load", "plugin infrastructure -> response: {}", input);
 
@@ -175,7 +199,15 @@ pub fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
 
                     #[cfg(not(windows))]
                     {
-                        true
+                        bin_name.ends_with('.')
+                        || bin_name.ends_with(".py")
+                        || bin_name.ends_with(".rb")
+                        || bin_name.ends_with(".sh")
+                        || bin_name.ends_with(".bash")
+                        || bin_name.ends_with(".zsh")
+                        || bin_name.ends_with(".pl")
+                        || bin_name.ends_with(".awk")
+                        || bin_name.ends_with(".ps1")
                     }
                 };
 
