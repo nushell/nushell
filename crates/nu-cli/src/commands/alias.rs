@@ -189,10 +189,12 @@ fn check_insert(
                 Some(shape) => match shape {
                     SyntaxShape::Any => Ok(()),
                     shape if shape == new => Ok(()),
-                    _ => Err(ShellError::labeled_error(
+                    _ => Err(ShellError::labeled_error_with_secondary(
                         "Type conflict in alias variable use",
-                        "creates type conflict",
+                        format!("{:?}", new),
                         (to_add.1).0,
+                        format!("{:?}", shape),
+                        exist.0,
                     )),
                 },
             },
