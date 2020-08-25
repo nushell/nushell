@@ -199,7 +199,7 @@ pub fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
 
                     #[cfg(not(windows))]
                     {
-                        !bin_name.contains('.') 
+                        !bin_name.contains('.')
                         || (bin_name.ends_with('.')
                         || bin_name.ends_with(".py")
                         || bin_name.ends_with(".rb")
