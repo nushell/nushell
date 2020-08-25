@@ -34,7 +34,7 @@ pub(crate) async fn evaluate_baseline_expr(
             Ok(UntaggedValue::string(s).into_untagged_value())
         }
         Expression::Variable(var) => evaluate_reference(&var, it, vars, env, tag),
-        Expression::Command(_) => unimplemented!(),
+        Expression::Command => unimplemented!(),
         Expression::Invocation(block) => evaluate_invocation(block, registry, it, vars, env).await,
         Expression::ExternalCommand(_) => unimplemented!(),
         Expression::Binary(binary) => {
