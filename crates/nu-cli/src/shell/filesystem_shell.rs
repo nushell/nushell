@@ -125,18 +125,7 @@ impl Shell for FilesystemShell {
             }
         };
 
-        
-        let mut all= all;
-        if is_hidden_dir(path.clone()) {
-            all = true;
-        };
-
-        // assert!(glob::Pattern::new("**/*").unwrap().matches_with("target/debug/.fingerprint/", glob::MatchOptions{
-        //     case_sensitive: false,
-        //     require_literal_leading_dot: !all,
-        //     require_literal_separator: false,
-        // }));
-        // assert!(!glob::Pattern::new("**/*").unwrap().matches("target/debug/.fingerprint/"));
+        let hidden_dir_specified = is_hidden_dir(&path);
 
         let mut paths = glob::glob(&path.to_string_lossy())
             .map_err(|e| ShellError::labeled_error(e.to_string(), "invalid pattern", &p_tag))?
@@ -158,7 +147,7 @@ impl Shell for FilesystemShell {
                 Err(err) => return Some(Err(err)),
             };
 
-            if !all && is_hidden_dir(&path) {
+            if !all && !hidden_dir_specified && is_hidden_dir(&path) {
                 return None;
             }
 
