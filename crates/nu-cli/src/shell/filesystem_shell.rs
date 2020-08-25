@@ -998,11 +998,11 @@ pub(crate) fn dir_entry_dict(
 }
 
 fn path_contains_hidden_folder(path: &PathBuf, folders: &[PathBuf]) -> bool {
-    if folders.iter().any(|p| {
-        path.to_str()
-            .expect("failed to read path")
-            .starts_with(&p.to_str().expect("failed to read hidden paths"))
-    }) {
+    let path_str = path.to_str().expect("failed to read path");
+    if folders
+        .iter()
+        .any(|p| path_str.starts_with(&p.to_str().expect("failed to read hidden paths")))
+    {
         return true;
     }
     false
