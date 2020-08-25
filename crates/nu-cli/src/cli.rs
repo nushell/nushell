@@ -200,7 +200,15 @@ pub fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
 
                     #[cfg(not(windows))]
                     {
-                        true
+                        bin_name.ends_with(".")
+                        || bin_name.ends_with(".py")
+                        || bin_name.ends_with(".rb")
+                        || bin_name.ends_with(".sh")
+                        || bin_name.ends_with(".bash")
+                        || bin_name.ends_with(".zsh")
+                        || bin_name.ends_with(".pl")
+                        || bin_name.ends_with(".awk")
+                        || bin_name.ends_with(".ps1")
                     }
                 };
 
