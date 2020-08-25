@@ -9,6 +9,7 @@ use crate::commands::rm::RemoveArgs;
 use crate::completion;
 use crate::prelude::*;
 use crate::shell::shell::Shell;
+use crate::completion::matchers::Matcher;
 
 use std::ffi::OsStr;
 use std::path::PathBuf;
@@ -236,7 +237,8 @@ impl completion::Completer for HelpShell {
         &self,
         line: &str,
         pos: usize,
-        _ctx: &completion::Context<'_>,
+        ctx: &completion::Context<'_>,
+        matcher: &Box<dyn Matcher>,
     ) -> Result<(usize, Vec<completion::Suggestion>), ShellError> {
         let mut possible_completion = vec![];
         let commands = self.commands();

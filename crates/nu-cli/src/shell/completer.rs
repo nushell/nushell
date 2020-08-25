@@ -1,5 +1,8 @@
-use crate::completion::{self, Suggestion};
+use crate::completion::{self, Suggestion, Completer};
 use crate::context;
+use crate::completion::matchers;
+
+use nu_source::Tag;
 
 pub(crate) struct NuCompleter {}
 
@@ -25,6 +28,19 @@ impl NuCompleter {
             .map(|block| crate::completion::engine::completion_location(line, &block.block, pos))
             .unwrap_or_default();
 
+        let mut completion_matcher: Box<dyn matchers::Matcher> = Box::new(matchers::case_sensitive::Matcher);
+        if let Ok(config) = nu_data::config::config(Tag::unknown()) {
+            if let Some(matcher_value) = config.get("completion.matcher") {
+                if let Ok(matcher) = matcher_value.as_string() {
+                    let matcher2 = matcher.as_str();
+                    completion_matcher = match matcher2 {
+                        "naive-case-insensitive"  => Box::new(matchers::naive_case_insensitive::Matcher),
+                        _ => Box::new(matchers::case_sensitive::Matcher)
+                    };
+                }
+            }
+        }
+
         if locations.is_empty() {
             (pos, Vec::new())
         } else {
@@ -36,18 +52,18 @@ impl NuCompleter {
                     match location.item {
                         LocationType::Command => {
                             let command_completer = crate::completion::command::Completer {};
-                            command_completer.complete(context, partial)
+                            command_completer.complete(context, partial, &completion_matcher)
                         }
 
                         LocationType::Flag(cmd) => {
                             let flag_completer = crate::completion::flag::Completer {};
-                            flag_completer.complete(context, cmd, partial)
+                            flag_completer.complete(context, cmd, partial, &completion_matcher)
                         }
 
                         LocationType::Argument(_cmd, _arg_name) => {
                             // TODO use cmd and arg_name to narrow things down further
                             let path_completer = crate::completion::path::Completer::new();
-                            path_completer.complete(context, partial)
+                            path_completer.complete(context, partial, &completion_matcher)
                         }
 
                         LocationType::Variable => Vec::new(),

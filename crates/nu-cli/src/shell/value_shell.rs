@@ -19,6 +19,8 @@ use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, ShellTypeName, UntaggedValue, Value};
 use nu_source::Tagged;
 
+use crate::completion::matchers::Matcher;
+
 #[derive(Clone)]
 pub struct ValueShell {
     pub(crate) path: String,
@@ -261,7 +263,8 @@ impl completion::Completer for ValueShell {
         &self,
         line: &str,
         pos: usize,
-        _ctx: &completion::Context<'_>,
+        ctx: &completion::Context<'_>,
+        matcher: &Box<dyn Matcher>,
     ) -> Result<(usize, Vec<completion::Suggestion>), ShellError> {
         let mut possible_completion = vec![];
         let members = self.members();
