@@ -139,6 +139,8 @@ impl Shell for FilesystemShell {
             ));
         }
 
+        let mut hidden_dirs = vec![];
+
         // Generated stream: impl Stream<Item = Result<ReturnSuccess, ShellError>
 
         Ok(futures::stream::iter(paths.filter_map(move |path| {
@@ -147,7 +149,14 @@ impl Shell for FilesystemShell {
                 Err(err) => return Some(Err(err)),
             };
 
+            if path_contains_hidden_folder(&path, &hidden_dirs) {
+                return None;
+            }
+
             if !all && !hidden_dir_specified && is_hidden_dir(&path) {
+                if path.is_dir() {
+                    hidden_dirs.push(path.clone());
+                }
                 return None;
             }
 
@@ -986,4 +995,11 @@ pub(crate) fn dir_entry_dict(
     }
 
     Ok(dict.into_value())
+}
+
+fn path_contains_hidden_folder(path: &PathBuf, folders: &Vec<PathBuf>) -> bool {
+    if folders.iter().any(|p| path.to_str().unwrap().starts_with(&p.to_str().unwrap())) {
+        return true;
+    }
+    false
 }
