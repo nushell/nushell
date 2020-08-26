@@ -4,6 +4,10 @@ pub(crate) mod macros;
 mod from_delimited_data;
 mod to_delimited_data;
 
+//TODO where to move this?
+pub(crate) mod deduction;
+// pub(crate) use deduction::VarSyntaxShapeDeductor;
+
 pub(crate) mod alias;
 pub(crate) mod ansi;
 pub(crate) mod append;
