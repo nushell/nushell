@@ -60,7 +60,8 @@ pub fn compute_values(
                 Operator::Minus => Ok(UntaggedValue::Primitive(Primitive::Int(x - y))),
                 Operator::Multiply => Ok(UntaggedValue::Primitive(Primitive::Int(x * y))),
                 Operator::Divide => Ok(UntaggedValue::Primitive(Primitive::Decimal(
-                    bigdecimal::BigDecimal::from(*x) / bigdecimal::BigDecimal::from(y.clone()),
+                    bigdecimal::BigDecimal::from(x.clone())
+                        / bigdecimal::BigDecimal::from(y.clone()),
                 ))),
                 _ => Err((left.type_name(), right.type_name())),
             },
