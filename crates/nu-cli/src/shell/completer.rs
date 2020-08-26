@@ -1,4 +1,4 @@
-use std::fs::{read_dir, DirEntry};
+use std::fs::{read_dir, metadata, DirEntry};
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -55,6 +55,10 @@ impl NuCompleter {
             }
         } else {
             completions = self.file_completer.complete(line, pos, context.as_ref())?.1;
+        }
+        
+        if line[..2] == "cd".to_string(){
+            completions = autocomplete_only_folders(completions);
         }
 
         // Only complete executables or commands if the thing we're completing
@@ -175,6 +179,20 @@ impl Default for NuCompleter {
             hinter: HistoryHinter {},
         }
     }
+}
+
+fn autocomplete_only_folders(
+    completions: Vec<rustyline::completion::Pair>,
+) -> Vec<rustyline::completion::Pair> {
+    let mut result = Vec::new();
+    for completion in completions {
+        let filepath = completion.replacement.clone();
+        let md = metadata(filepath).unwrap();
+        if md.is_dir() {
+            result.push(completion);
+        }
+    } 
+    return result;
 }
 
 fn get_matching_arguments(
