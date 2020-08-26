@@ -1156,7 +1156,7 @@ pub async fn process_line(
                     };
 
                     if let Ok(mut output_stream) =
-                        crate::commands::autoview::autoview(context).await
+                        crate::commands::autoview::command::autoview(context).await
                     {
                         loop {
                             match output_stream.try_next().await {
