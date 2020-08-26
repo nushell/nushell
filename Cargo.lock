@@ -3122,6 +3122,7 @@ dependencies = [
  "trash",
  "typetag",
  "umask",
+ "unicase",
  "unicode-xid",
  "url 2.1.1",
  "users",

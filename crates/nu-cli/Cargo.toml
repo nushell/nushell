@@ -88,6 +88,7 @@ toml = "0.5.6"
 typetag = "0.1.5"
 umask = "1.0.0"
 unicode-xid = "0.2.1"
+unicase = "2.6.0"
 uuid_crate = {package = "uuid", version = "0.8.1", features = ["v4"], optional = true}
 which = {version = "4.0.2", optional = true}
 zip = {version = "0.5.6", optional = true}
