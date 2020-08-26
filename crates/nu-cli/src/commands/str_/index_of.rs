@@ -13,6 +13,7 @@ struct Arguments {
     pattern: Tagged<String>,
     rest: Vec<ColumnPath>,
     range: Option<Value>,
+    end: bool,
 }
 
 pub struct SubCommand;
@@ -43,6 +44,7 @@ impl WholeStreamCommand for SubCommand {
                 "optional start and/or end index",
                 Some('r'),
             )
+            .switch("end", "search from the end of the string", Some('e'))
     }
 
     fn usage(&self) -> &str {
@@ -80,9 +82,14 @@ impl WholeStreamCommand for SubCommand {
                 result: Some(vec![UntaggedValue::int(2).into_untagged_value()]),
             },
             Example {
-                description: "Alternativly you can use this form",
+                description: "Alternatively you can use this form",
                 example: "echo '123456' | str index-of '3' -r [1 4]",
                 result: Some(vec![UntaggedValue::int(2).into_untagged_value()]),
+            },
+            Example {
+                description: "Returns index of pattern in string",
+                example: "echo '/this/is/some/path/file.txt' | str index-of '/' -e",
+                result: Some(vec![UntaggedValue::int(18).into_untagged_value()]),
             },
         ]
     }
@@ -99,6 +106,7 @@ async fn operate(
             pattern,
             rest,
             range,
+            end,
         },
         input,
     ) = args.process(&registry).await?;
@@ -110,7 +118,7 @@ async fn operate(
     Ok(input
         .map(move |v| {
             if column_paths.is_empty() {
-                ReturnSuccess::value(action(&v, &pattern, &range, v.tag())?)
+                ReturnSuccess::value(action(&v, &pattern, &range, end, v.tag())?)
             } else {
                 let mut ret = v;
 
@@ -119,7 +127,7 @@ async fn operate(
                     let pattern = pattern.clone();
                     ret = ret.swap_data_by_column_path(
                         path,
-                        Box::new(move |old| action(old, &pattern, &range, old.tag())),
+                        Box::new(move |old| action(old, &pattern, &range, end, old.tag())),
                     )?;
                 }
 
@@ -133,6 +141,7 @@ fn action(
     input: &Value,
     pattern: &str,
     range: &Value,
+    end: bool,
     tag: impl Into<Tag>,
 ) -> Result<Value, ShellError> {
     let r = process_range(&input, &range)?;
@@ -142,7 +151,14 @@ fn action(
             let start_index = r.0 as usize;
             let end_index = r.1 as usize;
 
-            if let Some(result) = s[start_index..end_index].find(pattern) {
+            if end {
+                if let Some(result) = s[start_index..end_index].rfind(pattern) {
+                    Ok(UntaggedValue::int(result + start_index).into_value(tag))
+                } else {
+                    let not_found = -1;
+                    Ok(UntaggedValue::int(not_found).into_value(tag))
+                }
+            } else if let Some(result) = s[start_index..end_index].find(pattern) {
                 Ok(UntaggedValue::int(result + start_index).into_value(tag))
             } else {
                 let not_found = -1;
