@@ -207,7 +207,10 @@ pub(crate) use next::Next;
 pub(crate) use nth::Nth;
 pub(crate) use open::Open;
 pub(crate) use parse::Parse;
-pub(crate) use path::{PathBasename, PathCommand, PathExists, PathExpand, PathExtension, PathType};
+pub(crate) use path::{
+    PathBasename, PathCommand, PathDirname, PathExists, PathExpand, PathExtension, PathFilestem,
+    PathType,
+};
 pub(crate) use pivot::Pivot;
 pub(crate) use prepend::Prepend;
 pub(crate) use prev::Previous;

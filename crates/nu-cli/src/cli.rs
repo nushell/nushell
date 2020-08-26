@@ -427,11 +427,13 @@ pub fn create_default_context(
             #[cfg(feature = "uuid_crate")]
             whole_stream_command(RandomUUID),
             // Path
-            whole_stream_command(PathCommand),
-            whole_stream_command(PathExtension),
             whole_stream_command(PathBasename),
-            whole_stream_command(PathExpand),
+            whole_stream_command(PathCommand),
+            whole_stream_command(PathDirname),
             whole_stream_command(PathExists),
+            whole_stream_command(PathExpand),
+            whole_stream_command(PathExtension),
+            whole_stream_command(PathFilestem),
             whole_stream_command(PathType),
             // Url
             whole_stream_command(UrlCommand),
