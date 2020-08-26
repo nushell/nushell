@@ -7,7 +7,7 @@ use nu_protocol::{
     did_you_mean, ColumnPath, PathMember, Primitive, ReturnSuccess, Signature, SyntaxShape,
     UnspannedPathMember, UntaggedValue, Value,
 };
-use nu_source::span_for_spanned_list;
+use nu_source::HasFallibleSpan;
 use nu_value_ext::get_data_by_column_path;
 
 pub struct Get;
@@ -65,7 +65,7 @@ pub fn get_column_path(path: &ColumnPath, obj: &Value) -> Result<Value, ShellErr
         obj,
         path,
         Box::new(move |(obj_source, column_path_tried, error)| {
-            let path_members_span = span_for_spanned_list(fields.members().iter().map(|p| p.span));
+            let path_members_span = fields.maybe_span().unwrap_or_else(Span::unknown);
 
             match &obj_source.value {
                 UntaggedValue::Table(rows) => match column_path_tried {
