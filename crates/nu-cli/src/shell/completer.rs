@@ -1,5 +1,7 @@
-use crate::completion::{self, Suggestion, Completer};
+use crate::completion::{self, Suggestion};
 use crate::context;
+
+use crate::completion::matchers::{Matcher};
 use crate::completion::matchers;
 
 use nu_source::Tag;
@@ -22,24 +24,27 @@ impl NuCompleter {
             Ok(block) => Some(block),
             Err(result) => result.partial,
         };
-
+                                    
         let locations = lite_block
             .map(|block| nu_parser::classify_block(&block, &nu_context.registry))
             .map(|block| crate::completion::engine::completion_location(line, &block.block, pos))
             .unwrap_or_default();
 
-        let mut completion_matcher: Box<dyn matchers::Matcher> = Box::new(matchers::case_sensitive::Matcher);
-        if let Ok(config) = nu_data::config::config(Tag::unknown()) {
-            if let Some(matcher_value) = config.get("completion.matcher") {
-                if let Ok(matcher) = matcher_value.as_string() {
-                    let matcher2 = matcher.as_str();
-                    completion_matcher = match matcher2 {
-                        "naive-case-insensitive"  => Box::new(matchers::naive_case_insensitive::Matcher),
-                        _ => Box::new(matchers::case_sensitive::Matcher)
-                    };
-                }
-            }
-        }
+        let config = nu_data::config::config_or_empty(Tag::unknown());
+        let matcher_config: String = config.get("completion.matcher")
+            .or_else(|| Some(&nu_protocol::Value::from(String::from("").as_ref())) )
+            .and_then(|value| match value.as_string() {
+                Ok(result) => Some(result),
+                Err(_) => Some(String::from(""))
+            })
+            .unwrap();
+        
+        let matcher_config: &str = matcher_config.as_str();
+        
+        let completion_matcher: Box<dyn Matcher>= match matcher_config {
+            "naive-case-insensitive"  => Box::new(matchers::naive_case_insensitive::Matcher),
+            _ => Box::new(matchers::case_sensitive::Matcher)
+        };
 
         if locations.is_empty() {
             (pos, Vec::new())
