@@ -95,7 +95,7 @@ pub async fn alias(
         let left_brace = raw_input.find('{').unwrap_or(0);
         let right_brace = raw_input.rfind('}').unwrap_or_else(|| raw_input.len());
         let left = raw_input[..left_brace]
-            .replace("--save", "")
+            .replace("--save", "") // TODO using regex (or reconstruct string from AST?)
             .replace("-si", "-i")
             .replace("-s ", "")
             .replace("-is", "-i");

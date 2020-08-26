@@ -367,7 +367,7 @@ dependencies = [
 
 [[package]]
 name = "battery"
-version = "0.7.6"
+version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8775be4956c98c9ac7c11cc383d632636935d3a688dabddb71ac83ba00a3a72f"
 dependencies = [
