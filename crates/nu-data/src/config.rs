@@ -258,13 +258,6 @@ pub fn config(tag: impl Into<Tag>) -> Result<IndexMap<String, Value>, ShellError
     read(tag, &None)
 }
 
-pub fn config_or_empty(tag: impl Into<Tag>) -> IndexMap<String, Value> {
-    match config(tag) {
-        Ok(dictionary) => dictionary,
-        Err(_) => indexmap::IndexMap::new()
-    }
-}
-
 pub fn write(config: &IndexMap<String, Value>, at: &Option<PathBuf>) -> Result<(), ShellError> {
     let filename = &mut default_path()?;
     let filename = match at {

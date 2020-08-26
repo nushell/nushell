@@ -1,3 +1,5 @@
+use indexmap::IndexMap;
+
 use crate::completion::{self, Suggestion};
 use crate::context;
 
@@ -30,15 +32,18 @@ impl NuCompleter {
             .map(|block| crate::completion::engine::completion_location(line, &block.block, pos))
             .unwrap_or_default();
 
-        let config = nu_data::config::config_or_empty(Tag::unknown());
-        let matcher_config: String = config.get("completion.matcher")
-            .or_else(|| Some(&nu_protocol::Value::from(String::from("").as_ref())) )
+        let config = config_or_empty(Tag::unknown());
+        let matcher_config_optional: Option<String> = config.get("completion.matcher")
             .and_then(|value| match value.as_string() {
                 Ok(result) => Some(result),
                 Err(_) => Some(String::from(""))
-            })
-            .unwrap();
-        
+            });
+
+        let matcher_config: String = match matcher_config_optional {
+            Some(value) => value,
+            None => String::from("")
+        };
+    
         let matcher_config: &str = matcher_config.as_str();
         
         let completion_matcher: Box<dyn Matcher>= match matcher_config {
@@ -80,6 +85,13 @@ impl NuCompleter {
 
             (pos, suggestions)
         }
+    }
+}
+
+pub fn config_or_empty(tag: impl Into<Tag>) -> IndexMap<String, nu_protocol::Value> {
+    match nu_data::config::config(tag) {
+        Ok(dictionary) => dictionary,
+        Err(_) => indexmap::IndexMap::new()
     }
 }
 
