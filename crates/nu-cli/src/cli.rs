@@ -789,16 +789,7 @@ pub async fn cli(
 
         let cwd = context.shell_manager.path();
 
-        let disable_hinter = config::config(Tag::unknown())?
-            .get("disable_hinter")
-            .map(|s| s.value.expect_string() == "true")
-            .unwrap_or(false);
-
-        let hinter = if disable_hinter {
-            None
-        } else {
-            Some(rustyline::hint::HistoryHinter {})
-        };
+        let hinter = init_hinter(&config);
 
         rl.set_helper(Some(crate::shell::Helper::new(context.clone(), hinter)));
 
@@ -945,6 +936,18 @@ pub async fn cli(
     let _ = rl.save_history(&History::path());
 
     Ok(())
+}
+
+fn init_hinter(config: &IndexMap<String, Value>) -> Option<rustyline::hint::HistoryHinter> {
+    // Show hints unless explicitly disabled in config
+    if let Some(line_editor_vars) = config.get("line_editor") {
+        for (idx, value) in line_editor_vars.row_entries() {
+            if idx == "show_hints" && value.expect_string() == "false" {
+                return None;
+            }
+        }
+    }
+    Some(rustyline::hint::HistoryHinter {})
 }
 
 fn chomp_newline(s: &str) -> &str {
