@@ -34,7 +34,7 @@ impl Completer {
 // These is_executable/pathext implementations are copied from ichwh and modified
 // to not be async
 
-#[cfg(windows)]
+#[cfg(all(windows, feature = "ichwh"))]
 fn pathext() -> IchwhResult<Vec<String>> {
     Ok(std::env::var_os("PATHEXT")
         .ok_or(IchwhError::PathextNotDefined)?
@@ -43,6 +43,11 @@ fn pathext() -> IchwhResult<Vec<String>> {
         // Cut off the leading '.' character
         .map(|ext| ext[1..].to_string())
         .collect::<Vec<_>>())
+}
+
+#[cfg(all(windows, not(feature = "ichwh")))]
+fn pathext() -> Result<Vec<String>, ()> {
+  Err(())
 }
 
 #[cfg(windows)]
