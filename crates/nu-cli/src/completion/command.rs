@@ -47,7 +47,7 @@ fn pathext() -> IchwhResult<Vec<String>> {
 
 #[cfg(all(windows, not(feature = "ichwh")))]
 fn pathext() -> Result<Vec<String>, ()> {
-  Err(())
+    Err(())
 }
 
 #[cfg(windows)]
