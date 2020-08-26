@@ -9,7 +9,16 @@
 # C#        https://github.com/myty/nu-plugin-lib
 # Ruby      https://github.com/andrasio/nu_plugin
 
-# WIP 8/19/20
+# WIP 8/26/20
+# This is not yet ready for prime time but it could give someone
+# a headstart with writing powershell core plugins for mac/linux/win
+# Most of the comments are TODO's or functions from python plugins
+# meant to be used as a reference.
+#
+# While this length demonstration works, it is filled with debug
+# messages that can be seen during normal operation.
+#
+# This is by no means complete. Good luck!
 
 # def print_good_response(response):
 #     json_response = {"jsonrpc": "2.0", "method": "response", "params": {"Ok": response}}
@@ -53,21 +62,6 @@ function begin_filter {
 
 function run_filter {
     param($input_data)
-    # param(  
-    #     [Parameter(
-    #         # Position = 0, 
-    #         Mandatory = $true, 
-    #         ValueFromPipeline = $true,
-    #         ValueFromPipelineByPropertyName = $true)
-    #     ]
-    #     [Alias('piped')]
-    #     [String]$piped_input
-    # ) 
-
-    # param([string]$params)
-    # {"method":"filter", "params": {"item": {"Primitive": {"String": "oogabooga"}}, \
-    #                                "tag":{"anchor":null,"span":{"end":10,"start":12}}}}
-    # Write-Error $piped_input
     Write-TraceMessage "PIPED" $input_data
 
     $prim = "Primitive"
@@ -103,12 +97,7 @@ function run_filter {
         Default { $len = 0 }
     }
 
-    #Fake it til you make it
-    # $response = '{ "jsonrpc": "2.0", "method": "response", "params": { "Ok": [ { "Ok": { "Value": { "value": { "Primitive": { "Int": 9 } }, "tag": { "anchor": null, "span": { "end": 2, "start": 0 } } } } } ] } }'
-    # Write-Host $response
-    # $response = '{ "jsonrpc": "2.0", "method": "response", "params": { "Ok": [ { "Ok": { "Value": { "value": { "Primitive": { "Int": 3 } }, "tag": { "anchor": null, "span": { "start": 0, "end": 2 } } } } } ] } }'
-    # Write-Host $response
-    
+    # Create a json hash making sure all the child nodes are sorted
     $json_obj = [ordered]@{
         jsonrpc = "2.0"
         method  = "response"
@@ -135,8 +124,7 @@ function run_filter {
             )
         }
     }
-    $response = $json_obj | ConvertTo-Json -Depth 100 -Compress 
-    # Write-TraceMessage "RESULT" $($json_obj | ConvertTo-Json -Depth 100 -Compress)
+    $response = $json_obj | ConvertTo-Json -Depth 100 -Compress
     Write-Host $response
 
     return
@@ -162,16 +150,6 @@ function Write-TraceMessage {
 
 function run_loop {
     param($data)
-    # param(  
-    #     [Parameter(
-    #         Position = 0, 
-    #         Mandatory = $true, 
-    #         ValueFromPipeline = $true,
-    #         ValueFromPipelineByPropertyName = $true)
-    #     ]
-    #     [Alias('thedata')]
-    #     $data
-    # )
     $prim = "Primitive"
     $method = $data | Select-Object "method"
     $params = $data.params
@@ -215,16 +193,16 @@ function run_loop {
 }
 
 function Get-PipedData {
-    param(  
+    param(
         [Parameter(
-            Position = 0, 
-            Mandatory = $true, 
+            Position = 0,
+            Mandatory = $true,
             ValueFromPipeline = $true,
             ValueFromPipelineByPropertyName = $true)
         ]
         [Alias('piped')]
         [String]$piped_input
-    ) 
+    )
 
     process {
         # Write-Error $piped_input
@@ -233,22 +211,6 @@ function Get-PipedData {
         run_loop -data $json
     }
 }
-
-# $Input | % { Write-Host PSInput $_ }
-# $Input | ForEach-Object { 
-#     $json = ConvertFrom-Json $_
-#     $method = $json -replace "`n", ", " | Select-Object "method"
-#     $params = $json -replace "`n", ", " | Select-Object "params"
-#     if ($method[0].method -eq "config") {
-#         config
-#     } elseif ($method[0].method -eq "begin_filter") {
-#         begin_filter
-#     } elseif ($method[0].method -eq "end_filter") {
-#         end_filter
-#     } elseif ($method[0].method -eq "filter") {
-#         run_filter -params $params
-#     }
-# }
 
 # $prim = "Primitive"
 # $j = $json | ConvertFrom-Json
