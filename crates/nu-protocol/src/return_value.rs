@@ -97,6 +97,7 @@ pub enum CommandAction {
     /// Enter the help shell, which allows exploring the help system
     EnterHelpShell(Value),
     /// Enter the help shell, which allows exploring the help system
+    //TODO Vec<VarShapeDeduction> can be Signature!?
     AddAlias(String, Vec<VarShapeDeduction>, Block),
     /// Go to the previous shell in the shell ring buffer
     PreviousShell,
