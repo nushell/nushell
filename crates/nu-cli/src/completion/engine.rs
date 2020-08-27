@@ -27,7 +27,7 @@ impl<'s> Flatten<'s> {
             Expression::Block(block) => self.completion_locations(block),
             Expression::Invocation(block) => self.completion_locations(block),
             Expression::List(exprs) => exprs.iter().flat_map(|v| self.expression(v)).collect(),
-            Expression::Command(span) => vec![LocationType::Command.spanned(*span)],
+            Expression::Command => vec![LocationType::Command.spanned(e.span)],
             Expression::Path(path) => self.expression(&path.head),
             Expression::Variable(_) => vec![LocationType::Variable.spanned(e.span)],
 
@@ -69,7 +69,7 @@ impl<'s> Flatten<'s> {
         let mut result = Vec::new();
 
         match internal.args.head.expr {
-            Expression::Command(_) => {
+            Expression::Command => {
                 result.push(LocationType::Command.spanned(internal.name_span));
             }
             Expression::Literal(Literal::String(_)) => {

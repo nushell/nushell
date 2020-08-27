@@ -47,6 +47,7 @@ pub fn reducer_for(
         )),
         Reduce::Minimum => Box::new(|_, values| min(values)),
         Reduce::Maximum => Box::new(|_, values| max(values)),
+        Reduce::Product => Box::new(|_, values| product(values)),
     }
 }
 
@@ -54,6 +55,7 @@ pub enum Reduce {
     Summation,
     Minimum,
     Maximum,
+    Product,
     Default,
 }
 
@@ -132,4 +134,35 @@ pub fn min(data: Vec<Value>) -> Result<Value, ShellError> {
         value: smallest,
         tag: Tag::unknown(),
     })
+}
+
+pub fn product(data: Vec<Value>) -> Result<Value, ShellError> {
+    if data.is_empty() {
+        return Err(ShellError::unexpected(ERR_EMPTY_DATA));
+    }
+
+    let mut prod = UntaggedValue::int(1).into_untagged_value();
+    for value in data {
+        match value.value {
+            UntaggedValue::Primitive(_) => {
+                prod = match compute_values(Operator::Multiply, &prod, &value) {
+                    Ok(v) => v.into_untagged_value(),
+                    Err((left_type, right_type)) => {
+                        return Err(ShellError::coerce_error(
+                            left_type.spanned_unknown(),
+                            right_type.spanned_unknown(),
+                        ))
+                    }
+                };
+            }
+            _ => {
+                return Err(ShellError::labeled_error(
+                    "Attempted to compute the product of a value that cannot be multiplied.",
+                    "value appears here",
+                    value.tag.span,
+                ))
+            }
+        }
+    }
+    Ok(prod)
 }

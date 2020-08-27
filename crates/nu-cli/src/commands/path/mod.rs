@@ -1,8 +1,10 @@
 mod basename;
 mod command;
+mod dirname;
 mod exists;
 mod expand;
 mod extension;
+mod filestem;
 mod r#type;
 
 use crate::prelude::*;
@@ -13,9 +15,11 @@ use std::path::Path;
 
 pub use basename::PathBasename;
 pub use command::Path as PathCommand;
+pub use dirname::PathDirname;
 pub use exists::PathExists;
 pub use expand::PathExpand;
 pub use extension::PathExtension;
+pub use filestem::PathFilestem;
 pub use r#type::PathType;
 
 #[derive(Deserialize)]

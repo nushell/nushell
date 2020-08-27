@@ -13,6 +13,7 @@ struct Arguments {
     pattern: Tagged<String>,
     rest: Vec<ColumnPath>,
     range: Option<Value>,
+    end: bool,
 }
 
 pub struct SubCommand;
@@ -43,6 +44,7 @@ impl WholeStreamCommand for SubCommand {
                 "optional start and/or end index",
                 Some('r'),
             )
+            .switch("end", "search from the end of the string", Some('e'))
     }
 
     fn usage(&self) -> &str {
@@ -80,9 +82,14 @@ impl WholeStreamCommand for SubCommand {
                 result: Some(vec![UntaggedValue::int(2).into_untagged_value()]),
             },
             Example {
-                description: "Alternativly you can use this form",
+                description: "Alternatively you can use this form",
                 example: "echo '123456' | str index-of '3' -r [1 4]",
                 result: Some(vec![UntaggedValue::int(2).into_untagged_value()]),
+            },
+            Example {
+                description: "Returns index of pattern in string",
+                example: "echo '/this/is/some/path/file.txt' | str index-of '/' -e",
+                result: Some(vec![UntaggedValue::int(18).into_untagged_value()]),
             },
         ]
     }
@@ -99,6 +106,7 @@ async fn operate(
             pattern,
             rest,
             range,
+            end,
         },
         input,
     ) = args.process(&registry).await?;
@@ -110,7 +118,7 @@ async fn operate(
     Ok(input
         .map(move |v| {
             if column_paths.is_empty() {
-                ReturnSuccess::value(action(&v, &pattern, &range, v.tag())?)
+                ReturnSuccess::value(action(&v, &pattern, &range, end, v.tag())?)
             } else {
                 let mut ret = v;
 
@@ -119,7 +127,7 @@ async fn operate(
                     let pattern = pattern.clone();
                     ret = ret.swap_data_by_column_path(
                         path,
-                        Box::new(move |old| action(old, &pattern, &range, old.tag())),
+                        Box::new(move |old| action(old, &pattern, &range, end, old.tag())),
                     )?;
                 }
 
@@ -133,6 +141,7 @@ fn action(
     input: &Value,
     pattern: &str,
     range: &Value,
+    end: bool,
     tag: impl Into<Tag>,
 ) -> Result<Value, ShellError> {
     let r = process_range(&input, &range)?;
@@ -142,7 +151,14 @@ fn action(
             let start_index = r.0 as usize;
             let end_index = r.1 as usize;
 
-            if let Some(result) = s[start_index..end_index].find(pattern) {
+            if end {
+                if let Some(result) = s[start_index..end_index].rfind(pattern) {
+                    Ok(UntaggedValue::int(result + start_index).into_value(tag))
+                } else {
+                    let not_found = -1;
+                    Ok(UntaggedValue::int(not_found).into_value(tag))
+                }
+            } else if let Some(result) = s[start_index..end_index].find(pattern) {
                 Ok(UntaggedValue::int(result + start_index).into_value(tag))
             } else {
                 let not_found = -1;
@@ -246,22 +262,24 @@ mod tests {
     fn returns_index_of_substring() {
         let word = string("Cargo.tomL");
         let pattern = ".tomL";
+        let end = false;
         let index_of_bounds =
             UntaggedValue::Primitive(Primitive::String("".to_string())).into_untagged_value();
         let expected = UntaggedValue::Primitive(Primitive::Int(5.into())).into_untagged_value();
 
-        let actual = action(&word, &pattern, &index_of_bounds, Tag::unknown()).unwrap();
+        let actual = action(&word, &pattern, &index_of_bounds, end, Tag::unknown()).unwrap();
         assert_eq!(actual, expected);
     }
     #[test]
     fn index_of_does_not_exist_in_string() {
         let word = string("Cargo.tomL");
         let pattern = "Lm";
+        let end = false;
         let index_of_bounds =
             UntaggedValue::Primitive(Primitive::String("".to_string())).into_untagged_value();
         let expected = UntaggedValue::Primitive(Primitive::Int((-1).into())).into_untagged_value();
 
-        let actual = action(&word, &pattern, &index_of_bounds, Tag::unknown()).unwrap();
+        let actual = action(&word, &pattern, &index_of_bounds, end, Tag::unknown()).unwrap();
         assert_eq!(actual, expected);
     }
 
@@ -269,22 +287,24 @@ mod tests {
     fn returns_index_of_next_substring() {
         let word = string("Cargo.Cargo");
         let pattern = "Cargo";
+        let end = false;
         let index_of_bounds =
             UntaggedValue::Primitive(Primitive::String("1,".to_string())).into_untagged_value();
         let expected = UntaggedValue::Primitive(Primitive::Int(6.into())).into_untagged_value();
 
-        let actual = action(&word, &pattern, &index_of_bounds, Tag::unknown()).unwrap();
+        let actual = action(&word, &pattern, &index_of_bounds, end, Tag::unknown()).unwrap();
         assert_eq!(actual, expected);
     }
     #[test]
     fn index_does_not_exist_due_to_end_index() {
         let word = string("Cargo.Banana");
         let pattern = "Banana";
+        let end = false;
         let index_of_bounds =
             UntaggedValue::Primitive(Primitive::String(",5".to_string())).into_untagged_value();
         let expected = UntaggedValue::Primitive(Primitive::Int((-1).into())).into_untagged_value();
 
-        let actual = action(&word, &pattern, &index_of_bounds, Tag::unknown()).unwrap();
+        let actual = action(&word, &pattern, &index_of_bounds, end, Tag::unknown()).unwrap();
         assert_eq!(actual, expected);
     }
 
@@ -292,11 +312,12 @@ mod tests {
     fn returns_index_of_nums_in_middle_due_to_index_limit_from_both_ends() {
         let word = string("123123123");
         let pattern = "123";
+        let end = false;
         let index_of_bounds =
             UntaggedValue::Primitive(Primitive::String("2,6".to_string())).into_untagged_value();
         let expected = UntaggedValue::Primitive(Primitive::Int(3.into())).into_untagged_value();
 
-        let actual = action(&word, &pattern, &index_of_bounds, Tag::unknown()).unwrap();
+        let actual = action(&word, &pattern, &index_of_bounds, end, Tag::unknown()).unwrap();
         assert_eq!(actual, expected);
     }
 
@@ -304,11 +325,12 @@ mod tests {
     fn index_does_not_exists_due_to_strict_bounds() {
         let word = string("123456");
         let pattern = "1";
+        let end = false;
         let index_of_bounds =
             UntaggedValue::Primitive(Primitive::String("2,4".to_string())).into_untagged_value();
         let expected = UntaggedValue::Primitive(Primitive::Int((-1).into())).into_untagged_value();
 
-        let actual = action(&word, &pattern, &index_of_bounds, Tag::unknown()).unwrap();
+        let actual = action(&word, &pattern, &index_of_bounds, end, Tag::unknown()).unwrap();
         assert_eq!(actual, expected);
     }
 }

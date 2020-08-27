@@ -35,10 +35,7 @@ impl InternalCommand {
             name,
             name_span,
             args: crate::hir::Call::new(
-                Box::new(SpannedExpression::new(
-                    Expression::Command(name_span),
-                    name_span,
-                )),
+                Box::new(SpannedExpression::new(Expression::Command, name_span)),
                 full_span,
             ),
         }
@@ -724,7 +721,7 @@ impl PrettyDebugWithSource for SpannedExpression {
                 Expression::ExternalCommand(external) => {
                     b::keyword("^") + b::keyword(external.name.span.slice(source))
                 }
-                Expression::Command(command) => b::keyword(command.slice(source)),
+                Expression::Command => b::keyword(self.span.slice(source)),
                 Expression::Boolean(boolean) => match boolean {
                     true => b::primitive("$yes"),
                     false => b::primitive("$no"),
@@ -765,9 +762,7 @@ impl PrettyDebugWithSource for SpannedExpression {
                 "command",
                 b::keyword("^") + b::primitive(external.name.span.slice(source)),
             ),
-            Expression::Command(command) => {
-                b::typed("command", b::primitive(command.slice(source)))
-            }
+            Expression::Command => b::typed("command", b::primitive(self.span.slice(source))),
             Expression::Boolean(boolean) => match boolean {
                 true => b::primitive("$yes"),
                 false => b::primitive("$no"),
@@ -969,7 +964,7 @@ pub enum Expression {
 
     FilePath(PathBuf),
     ExternalCommand(ExternalStringCommand),
-    Command(Span),
+    Command,
     Invocation(hir::Block),
 
     Boolean(bool),
@@ -985,7 +980,7 @@ impl ShellTypeName for Expression {
         match self {
             Expression::Literal(literal) => literal.type_name(),
             Expression::Synthetic(synthetic) => synthetic.type_name(),
-            Expression::Command(..) => "command",
+            Expression::Command => "command",
             Expression::ExternalWord => "external word",
             Expression::FilePath(..) => "file path",
             Expression::Variable(..) => "variable",
