@@ -77,7 +77,7 @@ fn autocomplete_only_folders(completed_paths: Vec<Suggestion>) -> Vec<Suggestion
             result.push(path);
         }
     }
-    return result;
+    result
 }
 
 fn requote(item: Suggestion) -> Suggestion {
