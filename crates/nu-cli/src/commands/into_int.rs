@@ -52,14 +52,25 @@ async fn into_int(
 
     let stream = args.rest.into_iter().map(|i| match i {
         Value {
-            value: UntaggedValue::Primitive(Primitive::Filesize(size)),
+            value: UntaggedValue::Primitive(primitive_val),
             tag,
-        } => OutputStream::one(Ok(ReturnSuccess::Value(Value {
-            value: UntaggedValue::Primitive(Primitive::Int(
-                size.to_bigint().expect("Conversion should never fail."),
-            )),
-            tag,
-        }))),
+        } => match primitive_val {
+            Primitive::Filesize(size) => OutputStream::one(Ok(ReturnSuccess::Value(Value {
+                value: UntaggedValue::Primitive(Primitive::Int(
+                    size.to_bigint().expect("Conversion should never fail."),
+                )),
+                tag,
+            }))),
+            Primitive::Int(_) => OutputStream::one(Ok(ReturnSuccess::Value(Value {
+                value: UntaggedValue::Primitive(primitive_val),
+                tag,
+            }))),
+            _ => OutputStream::one(Err(ShellError::labeled_error(
+                "Could not convert int value",
+                "original value",
+                tag,
+            ))),
+        },
         _ => OutputStream::one(Ok(ReturnSuccess::Value(i))),
     });
 
