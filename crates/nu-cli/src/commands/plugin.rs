@@ -8,6 +8,8 @@ use serde::{self, Deserialize, Serialize};
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::io::Write;
+use std::path::Path;
+use std::process::{Child, Command, Stdio};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JsonRpc<T> {
@@ -84,11 +86,34 @@ pub async fn filter_plugin(
 
     let args = args.evaluate_once_with_scope(&registry, &scope).await?;
 
-    let mut child = std::process::Command::new(path)
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .spawn()
-        .expect("Failed to spawn child process");
+    let real_path = Path::new(&path);
+    let ext = real_path.extension();
+    let ps1_file = match ext {
+        Some(ext) => ext == "ps1",
+        None => false,
+    };
+
+    let mut child: Child = if ps1_file {
+        Command::new("pwsh")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .args(&[
+                "-NoLogo",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                &real_path.to_string_lossy(),
+            ])
+            .spawn()
+            .expect("Failed to spawn PowerShell process")
+    } else {
+        Command::new(path)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn child process")
+    };
 
     let call_info = args.call_info.clone();
 
@@ -111,6 +136,7 @@ pub async fn filter_plugin(
 
                     let request = JsonRpc::new("begin_filter", call_info.clone());
                     let request_raw = serde_json::to_string(&request);
+                    trace!("begin_filter:request {:?}", &request_raw);
 
                     match request_raw {
                         Err(_) => {
@@ -136,6 +162,8 @@ pub async fn filter_plugin(
                     match reader.read_line(&mut input) {
                         Ok(_) => {
                             let response = serde_json::from_str::<NuResult>(&input);
+                            trace!("begin_filter:response {:?}", &response);
+
                             match response {
                                 Ok(NuResult::response { params }) => match params {
                                     Ok(params) => futures::stream::iter(params).to_output_stream(),
@@ -168,6 +196,7 @@ pub async fn filter_plugin(
 
                     let request: JsonRpc<std::vec::Vec<Value>> = JsonRpc::new("end_filter", vec![]);
                     let request_raw = serde_json::to_string(&request);
+                    trace!("end_filter:request {:?}", &request_raw);
 
                     match request_raw {
                         Err(_) => {
@@ -193,6 +222,8 @@ pub async fn filter_plugin(
                     let stream = match reader.read_line(&mut input) {
                         Ok(_) => {
                             let response = serde_json::from_str::<NuResult>(&input);
+                            trace!("end_filter:response {:?}", &response);
+
                             match response {
                                 Ok(NuResult::response { params }) => match params {
                                     Ok(params) => futures::stream::iter(params).to_output_stream(),
@@ -220,6 +251,7 @@ pub async fn filter_plugin(
 
                     let request: JsonRpc<std::vec::Vec<Value>> = JsonRpc::new("quit", vec![]);
                     let request_raw = serde_json::to_string(&request);
+                    trace!("quit:request {:?}", &request_raw);
 
                     match request_raw {
                         Ok(request_raw) => {
@@ -246,6 +278,8 @@ pub async fn filter_plugin(
 
                     let request = JsonRpc::new("filter", v);
                     let request_raw = serde_json::to_string(&request);
+                    trace!("filter:request {:?}", &request_raw);
+
                     match request_raw {
                         Ok(request_raw) => {
                             let _ = stdin.write(format!("{}\n", request_raw).as_bytes());
@@ -262,6 +296,8 @@ pub async fn filter_plugin(
                     match reader.read_line(&mut input) {
                         Ok(_) => {
                             let response = serde_json::from_str::<NuResult>(&input);
+                            trace!("filter:response {:?}", &response);
+
                             match response {
                                 Ok(NuResult::response { params }) => match params {
                                     Ok(params) => futures::stream::iter(params).to_output_stream(),
@@ -335,7 +371,33 @@ pub async fn sink_plugin(
             let _ = writeln!(tmpfile, "{}", request_raw);
             let _ = tmpfile.flush();
 
-            let child = std::process::Command::new(path).arg(tmpfile.path()).spawn();
+            let real_path = Path::new(&path);
+            let ext = real_path.extension();
+            let ps1_file = match ext {
+                Some(ext) => ext == "ps1",
+                None => false,
+            };
+
+            // TODO: This sink may not work in powershell, trying to find
+            // an example of what CallInfo would look like in this temp file
+            let child = if ps1_file {
+                Command::new("pwsh")
+                    .args(&[
+                        "-NoLogo",
+                        "-NoProfile",
+                        "-ExecutionPolicy",
+                        "Bypass",
+                        "-File",
+                        &real_path.to_string_lossy(),
+                        &tmpfile
+                            .path()
+                            .to_str()
+                            .expect("Failed getting tmpfile path"),
+                    ])
+                    .spawn()
+            } else {
+                Command::new(path).arg(&tmpfile.path()).spawn()
+            };
 
             if let Ok(mut child) = child {
                 let _ = child.wait();

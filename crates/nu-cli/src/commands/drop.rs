@@ -22,12 +22,12 @@ impl WholeStreamCommand for Drop {
         Signature::build("drop").optional(
             "rows",
             SyntaxShape::Number,
-            "starting from the back, the number of rows to drop",
+            "starting from the back, the number of rows to remove",
         )
     }
 
     fn usage(&self) -> &str {
-        "Drop the last number of rows."
+        "Remove the last number of rows. If you want to remove columns, try 'reject'."
     }
 
     async fn run(

@@ -97,6 +97,7 @@ pub(crate) mod shells;
 pub(crate) mod shuffle;
 pub(crate) mod size;
 pub(crate) mod skip;
+pub(crate) mod sleep;
 pub(crate) mod sort_by;
 pub(crate) mod split;
 pub(crate) mod split_by;
@@ -146,7 +147,7 @@ pub(crate) use config::{
 };
 pub(crate) use count::Count;
 pub(crate) use cp::Cpy;
-pub(crate) use date::Date;
+pub(crate) use date::{Date, DateFormat, DateNow, DateUTC};
 pub(crate) use debug::Debug;
 pub(crate) use default::Default;
 pub(crate) use do_::Do;
@@ -206,7 +207,10 @@ pub(crate) use next::Next;
 pub(crate) use nth::Nth;
 pub(crate) use open::Open;
 pub(crate) use parse::Parse;
-pub(crate) use path::{PathBasename, PathCommand, PathExists, PathExpand, PathExtension, PathType};
+pub(crate) use path::{
+    PathBasename, PathCommand, PathDirname, PathExists, PathExpand, PathExtension, PathFilestem,
+    PathType,
+};
 pub(crate) use pivot::Pivot;
 pub(crate) use prepend::Prepend;
 pub(crate) use prev::Previous;
@@ -227,6 +231,7 @@ pub(crate) use shells::Shells;
 pub(crate) use shuffle::Shuffle;
 pub(crate) use size::Size;
 pub(crate) use skip::{Skip, SkipUntil, SkipWhile};
+pub(crate) use sleep::Sleep;
 pub(crate) use sort_by::SortBy;
 pub(crate) use split::{Split, SplitChars, SplitColumn, SplitRow};
 pub(crate) use split_by::SplitBy;

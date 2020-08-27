@@ -7,7 +7,6 @@ use crate::context::Context;
 use crate::git::current_branch;
 use crate::path::canonicalize;
 use crate::prelude::*;
-use crate::shell::completer::NuCompleter;
 use crate::shell::Helper;
 use crate::EnvironmentSyncer;
 use futures_codec::FramedRead;
@@ -25,16 +24,39 @@ use std::error::Error;
 use std::io::{BufRead, BufReader, Write};
 use std::iter::Iterator;
 use std::path::{Path, PathBuf};
+use std::process::{Child, Command, Stdio};
 use std::sync::atomic::Ordering;
 
 use rayon::prelude::*;
 
 fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), ShellError> {
-    let mut child = std::process::Command::new(path)
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .spawn()
-        .expect("Failed to spawn child process");
+    let ext = path.extension();
+    let ps1_file = match ext {
+        Some(ext) => ext == "ps1",
+        None => false,
+    };
+
+    let mut child: Child = if ps1_file {
+        Command::new("pwsh")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .args(&[
+                "-NoLogo",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                &path.to_string_lossy(),
+            ])
+            .spawn()
+            .expect("Failed to spawn PowerShell process")
+    } else {
+        Command::new(path)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn child process")
+    };
 
     let stdin = child.stdin.as_mut().expect("Failed to open stdin");
     let stdout = child.stdout.as_mut().expect("Failed to open stdout");
@@ -43,13 +65,14 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
 
     let request = JsonRpc::new("config", Vec::<Value>::new());
     let request_raw = serde_json::to_string(&request)?;
+    trace!(target: "nu::load", "plugin infrastructure config -> path {:#?}, request {:?}", &path, &request_raw);
     stdin.write_all(format!("{}\n", request_raw).as_bytes())?;
     let path = dunce::canonicalize(path)?;
 
     let mut input = String::new();
     let result = match reader.read_line(&mut input) {
         Ok(count) => {
-            trace!(target: "nu::load", "plugin infrastructure -> config response");
+            trace!(target: "nu::load", "plugin infrastructure -> config response for {:#?}", &path);
             trace!(target: "nu::load", "plugin infrastructure -> processing response ({} bytes)", count);
             trace!(target: "nu::load", "plugin infrastructure -> response: {}", input);
 
@@ -157,31 +180,35 @@ pub fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
                     }
                 };
 
+                // allow plugins with extensions on all platforms
                 let is_valid_name = {
-                    #[cfg(windows)]
-                    {
-                        bin_name
-                            .chars()
-                            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
-                    }
-
-                    #[cfg(not(windows))]
-                    {
-                        bin_name
-                            .chars()
-                            .all(|c| c.is_ascii_alphanumeric() || c == '_')
-                    }
+                    bin_name
+                        .chars()
+                        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
                 };
 
                 let is_executable = {
                     #[cfg(windows)]
                     {
-                        bin_name.ends_with(".exe") || bin_name.ends_with(".bat")
+                        bin_name.ends_with(".exe") 
+                        || bin_name.ends_with(".bat")
+                        || bin_name.ends_with(".cmd")
+                        || bin_name.ends_with(".py")
+                        || bin_name.ends_with(".ps1")
                     }
 
                     #[cfg(not(windows))]
                     {
-                        true
+                        !bin_name.contains('.')
+                        || (bin_name.ends_with('.')
+                        || bin_name.ends_with(".py")
+                        || bin_name.ends_with(".rb")
+                        || bin_name.ends_with(".sh")
+                        || bin_name.ends_with(".bash")
+                        || bin_name.ends_with(".zsh")
+                        || bin_name.ends_with(".pl")
+                        || bin_name.ends_with(".awk")
+                        || bin_name.ends_with(".ps1"))
                     }
                 };
 
@@ -263,6 +290,9 @@ pub fn create_default_context(
             whole_stream_command(Touch),
             whole_stream_command(Cpy),
             whole_stream_command(Date),
+            whole_stream_command(DateNow),
+            whole_stream_command(DateUTC),
+            whole_stream_command(DateFormat),
             whole_stream_command(Cal),
             whole_stream_command(Mkdir),
             whole_stream_command(Mv),
@@ -275,6 +305,7 @@ pub fn create_default_context(
             whole_stream_command(Alias),
             whole_stream_command(WithEnv),
             whole_stream_command(Do),
+            whole_stream_command(Sleep),
             // Statistics
             whole_stream_command(Size),
             whole_stream_command(Count),
@@ -424,11 +455,13 @@ pub fn create_default_context(
             #[cfg(feature = "uuid_crate")]
             whole_stream_command(RandomUUID),
             // Path
-            whole_stream_command(PathCommand),
-            whole_stream_command(PathExtension),
             whole_stream_command(PathBasename),
-            whole_stream_command(PathExpand),
+            whole_stream_command(PathCommand),
+            whole_stream_command(PathDirname),
             whole_stream_command(PathExists),
+            whole_stream_command(PathExpand),
+            whole_stream_command(PathExtension),
+            whole_stream_command(PathFilestem),
             whole_stream_command(PathType),
             // Url
             whole_stream_command(UrlCommand),
@@ -786,10 +819,7 @@ pub async fn cli(
 
         let cwd = context.shell_manager.path();
 
-        rl.set_helper(Some(crate::shell::Helper::new(
-            Box::new(<NuCompleter as Default>::default()),
-            context.clone(),
-        )));
+        rl.set_helper(Some(crate::shell::Helper::new(context.clone())));
 
         let colored_prompt = {
             if let Some(prompt) = config.get("prompt") {
@@ -1156,7 +1186,7 @@ pub async fn process_line(
                     };
 
                     if let Ok(mut output_stream) =
-                        crate::commands::autoview::autoview(context).await
+                        crate::commands::autoview::command::autoview(context).await
                     {
                         loop {
                             match output_stream.try_next().await {

@@ -4,7 +4,7 @@ use crate::prelude::*;
 use nu_data::base::select_fields;
 use nu_errors::ShellError;
 use nu_protocol::{ColumnPath, ReturnSuccess, Signature, SyntaxShape, Value};
-use nu_source::span_for_spanned_list;
+use nu_source::HasFallibleSpan;
 
 pub struct SubCommand;
 
@@ -106,7 +106,7 @@ async fn operate(
                     .flatten()
                     .collect::<Vec<&ColumnPath>>();
 
-                let after_span = span_for_spanned_list(after.members().iter().map(|p| p.span));
+                let after_span = after.maybe_span().unwrap_or_else(Span::unknown);
 
                 if after.members().len() == 1 {
                     let keys = column_paths
@@ -154,7 +154,7 @@ async fn operate(
                     .flatten()
                     .collect::<Vec<&ColumnPath>>();
 
-                let before_span = span_for_spanned_list(before.members().iter().map(|p| p.span));
+                let before_span = before.maybe_span().unwrap_or_else(Span::unknown);
 
                 if before.members().len() == 1 {
                     let keys = column_paths
@@ -207,7 +207,7 @@ fn move_after(
     tag: impl Into<Tag>,
 ) -> Result<Value, ShellError> {
     let tag = tag.into();
-    let from_fields = span_for_spanned_list(from.members().iter().map(|p| p.span));
+    let from_fields = from.maybe_span().unwrap_or_else(Span::unknown);
     let from = if let Some((last, _)) = from.split_last() {
         last.as_string()
     } else {
@@ -270,7 +270,7 @@ fn move_before(
     tag: impl Into<Tag>,
 ) -> Result<Value, ShellError> {
     let tag = tag.into();
-    let from_fields = span_for_spanned_list(from.members().iter().map(|p| p.span));
+    let from_fields = from.maybe_span().unwrap_or_else(Span::unknown);
     let from = if let Some((last, _)) = from.split_last() {
         last.as_string()
     } else {
