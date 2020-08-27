@@ -19,7 +19,7 @@ impl WholeStreamCommand for IntoInt {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("into-int").rest(SyntaxShape::Number, "the values to into-int")
+        Signature::build("into-int").rest(SyntaxShape::Any, "the values to into-int")
     }
 
     fn usage(&self) -> &str {
