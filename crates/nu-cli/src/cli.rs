@@ -64,36 +64,6 @@ pub fn search_paths() -> Vec<std::path::PathBuf> {
     search_paths
 }
 
-pub struct History;
-
-impl History {
-    pub fn path() -> PathBuf {
-        const FNAME: &str = "history.txt";
-        let default = config::user_data()
-            .map(|mut p| {
-                p.push(FNAME);
-                p
-            })
-            .unwrap_or_else(|_| PathBuf::from(FNAME));
-
-        let cfg = nu_data::config::config(Tag::unknown());
-        if let Ok(c) = cfg {
-            match &c.get("history-path") {
-                Some(Value {
-                    value: UntaggedValue::Primitive(p),
-                    ..
-                }) => match p {
-                    Primitive::String(path) => PathBuf::from(path),
-                    _ => default,
-                },
-                _ => default,
-            }
-        } else {
-            default
-        }
-    }
-}
-
 pub fn create_default_context(
     syncer: &mut crate::EnvironmentSyncer,
     interactive: bool,
@@ -421,7 +391,7 @@ pub async fn run_pipeline_standalone(
     Ok(())
 }
 
-pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>) {
+pub fn create_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>) {
     #[cfg(windows)]
     const DEFAULT_COMPLETION_MODE: CompletionType = CompletionType::Circular;
     #[cfg(not(windows))]
@@ -583,9 +553,6 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
         }
     }
 
-    // we are ok if history does not exist
-    let _ = rl.load_history(&History::path());
-
     (rl, config)
 }
 
@@ -594,9 +561,15 @@ pub async fn cli(
     mut syncer: EnvironmentSyncer,
     mut context: Context,
 ) -> Result<(), Box<dyn Error>> {
+    let configuration = nu_data::config::NuConfig::new();
+    let history_path = crate::commands::history::history_path(&configuration);
+
     let _ = register_plugins(&mut context);
 
-    let (mut rl, config) = set_rustyline_configuration();
+    let (mut rl, config) = create_rustyline_configuration();
+
+    // we are ok if history does not exist
+    let _ = rl.load_history(&history_path);
 
     let skip_welcome_message = config
         .get("skip_welcome_message")
@@ -761,13 +734,13 @@ pub async fn cli(
         match line {
             LineResult::Success(line) => {
                 rl.add_history_entry(&line);
-                let _ = rl.save_history(&History::path());
+                let _ = rl.save_history(&history_path);
                 context.maybe_print_errors(Text::from(line));
             }
 
             LineResult::Error(line, err) => {
                 rl.add_history_entry(&line);
-                let _ = rl.save_history(&History::path());
+                let _ = rl.save_history(&history_path);
 
                 context.with_host(|_host| {
                     print_err(err, &Text::from(line.clone()));
@@ -787,7 +760,7 @@ pub async fn cli(
                 }
 
                 if ctrlcbreak {
-                    let _ = rl.save_history(&History::path());
+                    let _ = rl.save_history(&history_path);
                     std::process::exit(0);
                 } else {
                     context.with_host(|host| host.stdout("CTRL-C pressed (again to quit)"));
@@ -804,7 +777,7 @@ pub async fn cli(
     }
 
     // we are ok if we can not save history
-    let _ = rl.save_history(&History::path());
+    let _ = rl.save_history(&history_path);
 
     Ok(())
 }
