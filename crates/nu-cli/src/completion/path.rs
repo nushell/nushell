@@ -15,7 +15,12 @@ impl Completer {
         }
     }
 
-    pub fn complete(&self, _ctx: &Context<'_>, partial: &str, matcher: &Box<dyn Matcher>) -> Vec<Suggestion> {
+    pub fn complete(
+        &self,
+        _ctx: &Context<'_>,
+        partial: &str,
+        matcher: &Box<dyn Matcher>,
+    ) -> Vec<Suggestion> {
         let expanded = nu_parser::expand_ndots(partial);
 
         if let Ok((_pos, pairs)) = self.inner.complete_path(&expanded, expanded.len()) {

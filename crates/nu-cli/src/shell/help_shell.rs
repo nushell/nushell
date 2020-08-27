@@ -7,9 +7,9 @@ use crate::commands::mkdir::MkdirArgs;
 use crate::commands::move_::mv::Arguments as MvArgs;
 use crate::commands::rm::RemoveArgs;
 use crate::completion;
+use crate::completion::matchers::Matcher;
 use crate::prelude::*;
 use crate::shell::shell::Shell;
-use crate::completion::matchers::Matcher;
 
 use std::ffi::OsStr;
 use std::path::PathBuf;

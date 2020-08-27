@@ -5,14 +5,19 @@ use std::iter::FromIterator;
 use ichwh::{IchwhError, IchwhResult};
 use indexmap::set::IndexSet;
 
+use crate::completion::matchers::Matcher;
 use crate::completion::{Context, Suggestion};
 use crate::context;
-use crate::completion::matchers::Matcher;
 
 pub struct Completer;
 
 impl Completer {
-    pub fn complete(&self, ctx: &Context<'_>, partial: &str, matcher: &Box<dyn Matcher>) -> Vec<Suggestion> {
+    pub fn complete(
+        &self,
+        ctx: &Context<'_>,
+        partial: &str,
+        matcher: &Box<dyn Matcher>,
+    ) -> Vec<Suggestion> {
         let context: &context::Context = ctx.as_ref();
         let mut commands: IndexSet<String> = IndexSet::from_iter(context.registry.names());
 

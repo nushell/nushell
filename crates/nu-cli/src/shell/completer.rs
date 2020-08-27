@@ -3,8 +3,8 @@ use indexmap::IndexMap;
 use crate::completion::{self, Suggestion};
 use crate::context;
 
-use crate::completion::matchers::{Matcher};
 use crate::completion::matchers;
+use crate::completion::matchers::Matcher;
 
 use nu_source::Tag;
 
@@ -26,30 +26,32 @@ impl NuCompleter {
             Ok(block) => Some(block),
             Err(result) => result.partial,
         };
-                                    
+
         let locations = lite_block
             .map(|block| nu_parser::classify_block(&block, &nu_context.registry))
             .map(|block| crate::completion::engine::completion_location(line, &block.block, pos))
             .unwrap_or_default();
 
         let config = config_or_empty(Tag::unknown());
-        let matcher_config_optional: Option<String> = config.get("completion.matcher")
-            .and_then(|value| match value.as_string() {
-                Ok(result) => Some(result),
-                Err(_) => Some(String::from(""))
-            });
+        let matcher_config_optional: Option<String> =
+            config
+                .get("completion.matcher")
+                .and_then(|value| match value.as_string() {
+                    Ok(result) => Some(result),
+                    Err(_) => Some(String::from("")),
+                });
 
         let matcher_config: String = match matcher_config_optional {
             Some(value) => value,
-            None => String::from("")
+            None => String::from(""),
         };
-    
+
         let matcher_config: &str = matcher_config.as_str();
-        
-        let completion_matcher: Box<dyn Matcher>= match matcher_config {
-            "case-insensitive"  => Box::new(matchers::naive_case_insensitive::Matcher),
+
+        let completion_matcher: Box<dyn Matcher> = match matcher_config {
+            "case-insensitive" => Box::new(matchers::naive_case_insensitive::Matcher),
             "unicode-case-insensitive" => Box::new(matchers::unicode_case_insensitive::Matcher),
-            _ => Box::new(matchers::case_sensitive::Matcher)
+            _ => Box::new(matchers::case_sensitive::Matcher),
         };
 
         if locations.is_empty() {
@@ -92,7 +94,7 @@ impl NuCompleter {
 pub fn config_or_empty(tag: impl Into<Tag>) -> IndexMap<String, nu_protocol::Value> {
     match nu_data::config::config(tag) {
         Ok(dictionary) => dictionary,
-        Err(_) => indexmap::IndexMap::new()
+        Err(_) => indexmap::IndexMap::new(),
     }
 }
 
