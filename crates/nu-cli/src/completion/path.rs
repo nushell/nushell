@@ -19,7 +19,7 @@ impl Completer {
         &self,
         _ctx: &Context<'_>,
         partial: &str,
-        matcher: &Box<dyn Matcher>,
+        _matcher: &Box<dyn Matcher>,
     ) -> Vec<Suggestion> {
         let expanded = nu_parser::expand_ndots(partial);
 

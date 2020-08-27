@@ -237,8 +237,8 @@ impl completion::Completer for HelpShell {
         &self,
         line: &str,
         pos: usize,
-        ctx: &completion::Context<'_>,
-        matcher: &Box<dyn Matcher>,
+        _ctx: &completion::Context<'_>,
+        _matcher: &Box<dyn Matcher>,
     ) -> Result<(usize, Vec<completion::Suggestion>), ShellError> {
         let mut possible_completion = vec![];
         let commands = self.commands();
