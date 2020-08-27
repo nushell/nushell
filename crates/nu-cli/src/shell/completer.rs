@@ -68,9 +68,7 @@ impl NuCompleter {
     }
 }
 
-fn autocomplete_only_folders(
-    completed_paths: Vec<Suggestion>,
-) -> Vec<Suggestion> {
+fn autocomplete_only_folders(completed_paths: Vec<Suggestion>) -> Vec<Suggestion> {
     let mut result = Vec::new();
     for path in completed_paths {
         let filepath = path.replacement.clone();
@@ -78,7 +76,7 @@ fn autocomplete_only_folders(
         if md.is_dir() {
             result.push(path);
         }
-    } 
+    }
     return result;
 }
 
