@@ -13,8 +13,7 @@ mod value;
 
 pub use crate::call_info::{CallInfo, EvaluatedArgs};
 pub use crate::maybe_owned::MaybeOwned;
-//TODO Where to move struct decls?
-pub use crate::return_value::{CommandAction, ReturnSuccess, ReturnValue, VarDeclaration, VarShapeDeduction};
+pub use crate::return_value::{CommandAction, ReturnSuccess, ReturnValue};
 pub use crate::signature::{NamedType, PositionalType, Signature};
 pub use crate::syntax_shape::SyntaxShape;
 pub use crate::type_name::{PrettyType, ShellTypeName, SpannedTypeName};

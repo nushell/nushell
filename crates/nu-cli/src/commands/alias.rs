@@ -4,8 +4,9 @@ use crate::prelude::*;
 use crate::commands::deduction::VarSyntaxShapeDeductor;
 use nu_data::config;
 use nu_errors::ShellError;
-use nu_protocol::{CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value, hir::Block, VarDeclaration, VarShapeDeduction };
+use nu_protocol::{CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value, hir::Block};
 use nu_source::Tagged;
+use super::deduction::{VarShapeDeduction, VarDeclaration};
 
 pub struct Alias;
 
@@ -14,7 +15,7 @@ pub struct AliasArgs {
     pub name: Tagged<String>,
     pub args: Vec<Value>,
     pub block: Block,
-    pub infer: Option<bool>,
+    pub _infer: Option<bool>,
     pub save: Option<bool>,
 }
 
@@ -96,7 +97,7 @@ pub async fn alias(
             name,
             args: list,
             block,
-            infer,
+            _infer,
             save,
         },
         _ctx,
@@ -160,7 +161,7 @@ pub async fn alias(
                 processed_args.push(VarDeclaration{
                     name: dollar_var_name,
                     // type_decl: None,
-                    is_var_arg: is_var_arg,
+                    is_var_arg,
                     span: item.tag.span,
                 });
             }
@@ -174,28 +175,29 @@ pub async fn alias(
         }
     }
 
-    let inferred_shapes = VarSyntaxShapeDeductor::infer_vars(&processed_args, &block, &registry)?;
 
-    let inferred_shapes = processed_args.iter()
-        //Substitute every None with SyntaxShape::Any
-        .map(|decl| {
+    let _inferred_shapes: Vec<(VarDeclaration, VarShapeDeduction)>
+    = VarSyntaxShapeDeductor::infer_vars(&processed_args, &block, &registry)?.into_iter().map(|(decl, deducs)| {
             let default = VarShapeDeduction{
-                var_decl: decl,
                 deduction: SyntaxShape::Any,
-                deducted_from: Span::unknown(),
-                alternative: None,
+                deducted_from: vec![Span::unknown()],
                 many_of_shapes: false,
             };
-            inferred_shapes.get(decl).unwrap_or(&default).clone()
+            match deducs{
+                Some(deduc) => {(decl, deduc[0].clone())}
+                None => {(decl, default.clone())}
+            }
         }).collect();
+
+    //TODO deduced shapes to signature
              Ok(OutputStream::one(ReturnSuccess::action(
         CommandAction::AddAlias(
-            name.to_string(),
-            inferred_shapes,
+            Signature::build("todo build real sig"),
+            //TODO deduced signature
             block,
         ),
     )))
-}
+    }
 
 #[cfg(test)]
 mod tests {

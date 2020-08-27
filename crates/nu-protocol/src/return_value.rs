@@ -1,11 +1,8 @@
 use crate::hir::Block;
-use crate::{SyntaxShape, value::Value, Signature};
+use crate::{value::Value, Signature};
 use nu_errors::ShellError;
-use nu_source::{b, DebugDocBuilder, PrettyDebug, Span};
+use nu_source::{b, DebugDocBuilder, PrettyDebug};
 use serde::{Deserialize, Serialize};
-
-
-
 
 /// The inner set of actions for the command processor. Each denotes a way to change state in the processor without changing it directly from the command itself.
 #[derive(Debug, Clone, Serialize, Deserialize)]
