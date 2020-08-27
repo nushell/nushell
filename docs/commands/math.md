@@ -9,6 +9,7 @@ Currently the following functions are implemented:
 * `math max`: Finds the maximum within a list of numbers or tables
 * `math median`: Finds the median of a list of numbers or tables
 * `math sum`: Finds the sum of a list of numbers or tables
+* `math product`: Finds the product of a list of numbers or tables
 
 However, the mathematical functions like `min` and `max` are more permissive and also work on `Dates`.
 
@@ -88,6 +89,11 @@ To get the average of the file sizes in a directory, simply pipe the size column
 ───┼──────────
  0 │ 143.6 KB
 ───┴──────────
+```
+
+```shell
+> echo [2 3 3 4] | math product
+72
 ```
 
 ### Dates
