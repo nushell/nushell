@@ -1,8 +1,6 @@
 use std::fs::{read_dir, DirEntry};
 use std::iter::FromIterator;
 
-#[cfg(all(windows, feature = "ichwh"))]
-use ichwh::{IchwhError, IchwhResult};
 use indexmap::set::IndexSet;
 
 use crate::completion::{Context, Suggestion};
@@ -31,23 +29,15 @@ impl Completer {
     }
 }
 
-// These is_executable/pathext implementations are copied from ichwh and modified
-// to not be async
-
-#[cfg(all(windows, feature = "ichwh"))]
-fn pathext() -> IchwhResult<Vec<String>> {
-    Ok(std::env::var_os("PATHEXT")
-        .ok_or(IchwhError::PathextNotDefined)?
-        .to_string_lossy()
-        .split(';')
-        // Cut off the leading '.' character
-        .map(|ext| ext[1..].to_string())
-        .collect::<Vec<_>>())
-}
-
-#[cfg(all(windows, not(feature = "ichwh")))]
-fn pathext() -> Result<Vec<String>, ()> {
-    Err(())
+#[cfg(windows)]
+fn pathext() -> Option<Vec<String>> {
+    std::env::var_os("PATHEXT").map(|v| {
+        v.to_string_lossy()
+            .split(';')
+            // Cut off the leading '.' character
+            .map(|ext| ext[1..].to_string())
+            .collect::<Vec<_>>()
+    })
 }
 
 #[cfg(windows)]
@@ -61,7 +51,7 @@ fn is_executable(file: &DirEntry) -> bool {
         }
 
         if let Some(extension) = file.path().extension() {
-            if let Ok(exts) = pathext() {
+            if let Some(exts) = pathext() {
                 exts.iter()
                     .any(|ext| extension.to_string_lossy().eq_ignore_ascii_case(ext))
             } else {
