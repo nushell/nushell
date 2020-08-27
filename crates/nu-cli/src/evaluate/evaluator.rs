@@ -5,7 +5,7 @@ use crate::prelude::*;
 use async_recursion::async_recursion;
 use log::trace;
 use nu_errors::{ArgumentError, ShellError};
-use nu_protocol::hir::{self, Expression, SpannedExpression};
+use nu_protocol::hir::{self, Expression, ExternalRedirection, SpannedExpression};
 use nu_protocol::{
     ColumnPath, Primitive, RangeInclusion, UnspannedPathMember, UntaggedValue, Value,
 };
@@ -34,7 +34,7 @@ pub(crate) async fn evaluate_baseline_expr(
             Ok(UntaggedValue::string(s).into_untagged_value())
         }
         Expression::Variable(var) => evaluate_reference(&var, it, vars, env, tag),
-        Expression::Command(_) => unimplemented!(),
+        Expression::Command => unimplemented!(),
         Expression::Invocation(block) => evaluate_invocation(block, registry, it, vars, env).await,
         Expression::ExternalCommand(_) => unimplemented!(),
         Expression::Binary(binary) => {
@@ -194,10 +194,10 @@ async fn evaluate_invocation(
     let mut context = Context::basic()?;
     context.registry = registry.clone();
 
-    let input = InputStream::empty();
+    let input = InputStream::one(it.clone());
 
     let mut block = block.clone();
-    block.set_is_last(false);
+    block.set_redirect(ExternalRedirection::Stdout);
 
     let result = run_block(&block, &mut context, input, it, vars, env).await?;
 

@@ -240,7 +240,7 @@ async fn to_json(
 
                         ReturnSuccess::value(
                             UntaggedValue::Primitive(Primitive::String(serde_json_string))
-                                .into_value(&name_tag),
+                                .into_value(&value.tag),
                         )
                     }
                     _ => Err(ShellError::labeled_error_with_secondary(

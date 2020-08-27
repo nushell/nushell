@@ -156,6 +156,65 @@ fn list_files_from_two_parents_up_using_multiple_dots() {
 }
 
 #[test]
+fn lists_hidden_file_when_explicitly_specified() {
+    Playground::setup("ls_test_7", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("los.txt"),
+            EmptyFile("tres.txt"),
+            EmptyFile("amigos.txt"),
+            EmptyFile("arepas.clu"),
+            EmptyFile(".testdotfile"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ls .testdotfile
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual.out, "1");
+    })
+}
+
+#[test]
+fn lists_all_hidden_files_when_glob_contains_dot() {
+    Playground::setup("ls_test_8", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![
+                EmptyFile("root1.txt"),
+                EmptyFile("root2.txt"),
+                EmptyFile(".dotfile1"),
+            ])
+            .within("dir_a")
+            .with_files(vec![
+                EmptyFile("yehuda.10.txt"),
+                EmptyFile("jonathan.10.txt"),
+                EmptyFile(".dotfile2"),
+            ])
+            .within("dir_b")
+            .with_files(vec![
+                EmptyFile("andres.10.txt"),
+                EmptyFile("chicken_not_to_be_picked_up.100.txt"),
+                EmptyFile(".dotfile3"),
+            ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ls **/.*
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual.out, "3");
+    })
+}
+
+#[test]
 fn list_all_columns() {
     Playground::setup(
         "ls_test_all_columns",
@@ -173,17 +232,10 @@ fn list_all_columns() {
             );
             let expected = ["name", "type", "size", "modified"].join("");
             assert_eq!(actual.out, expected, "column names are incorrect for ls");
-            // Symbolic Links
+            // Long
             let actual = nu!(
                 cwd: dirs.test(),
-                "ls -w | get | to md"
-            );
-            let expected = ["name", "type", "target", "size", "modified"].join("");
-            assert_eq!(actual.out, expected, "column names are incorrect for ls -w");
-            // Full
-            let actual = nu!(
-                cwd: dirs.test(),
-                "ls -f | get | to md"
+                "ls -l | get | to md"
             );
             let expected = {
                 #[cfg(unix)]
@@ -206,7 +258,7 @@ fn list_all_columns() {
             };
             assert_eq!(
                 actual.out, expected,
-                "column names are incorrect for ls full"
+                "column names are incorrect for ls long"
             );
         },
     );

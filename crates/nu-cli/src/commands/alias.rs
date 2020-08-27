@@ -1,12 +1,16 @@
 use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
-use crate::data::config;
 use crate::prelude::*;
+use nu_data::config;
 use nu_errors::ShellError;
+use nu_parser::SignatureRegistry;
+use nu_protocol::hir::{ClassifiedCommand, Expression, NamedValue, SpannedExpression, Variable};
 use nu_protocol::{
-    hir::Block, CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+    hir::Block, CommandAction, NamedType, PositionalType, ReturnSuccess, Signature, SyntaxShape,
+    UntaggedValue, Value,
 };
 use nu_source::Tagged;
+use std::collections::HashMap;
 
 pub struct Alias;
 
@@ -82,7 +86,7 @@ pub async fn alias(
     let mut processed_args: Vec<String> = vec![];
 
     if let Some(true) = save {
-        let mut result = crate::data::config::read(name.clone().tag, &None)?;
+        let mut result = nu_data::config::read(name.clone().tag, &None)?;
 
         // process the alias to remove the --save flag
         let left_brace = raw_input.find('{').unwrap_or(0);
@@ -134,8 +138,183 @@ pub async fn alias(
     }
 
     Ok(OutputStream::one(ReturnSuccess::action(
-        CommandAction::AddAlias(name.to_string(), processed_args, block),
+        CommandAction::AddAlias(
+            name.to_string(),
+            to_arg_shapes(processed_args, &block, &registry)?,
+            block,
+        ),
     )))
+}
+
+fn to_arg_shapes(
+    args: Vec<String>,
+    block: &Block,
+    registry: &CommandRegistry,
+) -> Result<Vec<(String, SyntaxShape)>, ShellError> {
+    match find_block_shapes(block, registry) {
+        Ok(found) => Ok(args
+            .iter()
+            .map(|arg| {
+                (
+                    arg.clone(),
+                    match found.get(arg) {
+                        None | Some((_, None)) => SyntaxShape::Any,
+                        Some((_, Some(shape))) => *shape,
+                    },
+                )
+            })
+            .collect()),
+        Err(err) => Err(err),
+    }
+}
+
+type ShapeMap = HashMap<String, (Span, Option<SyntaxShape>)>;
+
+fn check_insert(
+    existing: &mut ShapeMap,
+    to_add: (String, (Span, Option<SyntaxShape>)),
+) -> Result<(), ShellError> {
+    match (to_add.1).1 {
+        None => match existing.get(&to_add.0) {
+            None => {
+                existing.insert(to_add.0, to_add.1);
+                Ok(())
+            }
+            Some(_) => Ok(()),
+        },
+        Some(new) => match existing.insert(to_add.0.clone(), ((to_add.1).0, Some(new))) {
+            None => Ok(()),
+            Some(exist) => match exist.1 {
+                None => Ok(()),
+                Some(shape) => match shape {
+                    SyntaxShape::Any => Ok(()),
+                    shape if shape == new => Ok(()),
+                    _ => Err(ShellError::labeled_error_with_secondary(
+                        "Type conflict in alias variable use",
+                        format!("{:?}", new),
+                        (to_add.1).0,
+                        format!("{:?}", shape),
+                        exist.0,
+                    )),
+                },
+            },
+        },
+    }
+}
+
+fn check_merge(existing: &mut ShapeMap, new: &ShapeMap) -> Result<(), ShellError> {
+    for (k, v) in new.iter() {
+        check_insert(existing, (k.clone(), *v))?;
+    }
+
+    Ok(())
+}
+
+fn find_expr_shapes(
+    spanned_expr: &SpannedExpression,
+    registry: &CommandRegistry,
+) -> Result<ShapeMap, ShellError> {
+    match &spanned_expr.expr {
+        // TODO range will need similar if/when invocations can be parsed within range expression
+        Expression::Binary(bin) => find_expr_shapes(&bin.left, registry).and_then(|mut left| {
+            find_expr_shapes(&bin.right, registry)
+                .and_then(|right| check_merge(&mut left, &right).map(|()| left))
+        }),
+        Expression::Block(b) => find_block_shapes(&b, registry),
+        Expression::Path(path) => match &path.head.expr {
+            Expression::Invocation(b) => find_block_shapes(&b, registry),
+            Expression::Variable(Variable::Other(var, _)) => {
+                let mut result = HashMap::new();
+                result.insert(var.to_string(), (spanned_expr.span, None));
+                Ok(result)
+            }
+            _ => Ok(HashMap::new()),
+        },
+        _ => Ok(HashMap::new()),
+    }
+}
+
+fn find_block_shapes(block: &Block, registry: &CommandRegistry) -> Result<ShapeMap, ShellError> {
+    let apply_shape = |found: ShapeMap, sig_shape: SyntaxShape| -> ShapeMap {
+        found
+            .iter()
+            .map(|(v, sh)| match sh.1 {
+                None => (v.clone(), (sh.0, Some(sig_shape))),
+                Some(shape) => (v.clone(), (sh.0, Some(shape))),
+            })
+            .collect()
+    };
+
+    let mut arg_shapes = HashMap::new();
+    for pipeline in &block.block {
+        for classified in &pipeline.list {
+            match classified {
+                ClassifiedCommand::Expr(spanned_expr) => {
+                    let found = find_expr_shapes(&spanned_expr, registry)?;
+                    check_merge(&mut arg_shapes, &found)?
+                }
+                ClassifiedCommand::Internal(internal) => {
+                    if let Some(signature) = registry.get(&internal.name) {
+                        if let Some(positional) = &internal.args.positional {
+                            for (i, spanned_expr) in positional.iter().enumerate() {
+                                let found = find_expr_shapes(&spanned_expr, registry)?;
+                                if i >= signature.positional.len() {
+                                    if let Some((sig_shape, _)) = &signature.rest_positional {
+                                        check_merge(
+                                            &mut arg_shapes,
+                                            &apply_shape(found, *sig_shape),
+                                        )?;
+                                    } else {
+                                        unreachable!("should have error'd in parsing");
+                                    }
+                                } else {
+                                    let (pos_type, _) = &signature.positional[i];
+                                    match pos_type {
+                                        // TODO pass on mandatory/optional?
+                                        PositionalType::Mandatory(_, sig_shape)
+                                        | PositionalType::Optional(_, sig_shape) => {
+                                            check_merge(
+                                                &mut arg_shapes,
+                                                &apply_shape(found, *sig_shape),
+                                            )?;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if let Some(named) = &internal.args.named {
+                            for (name, val) in named.iter() {
+                                if let NamedValue::Value(_, spanned_expr) = val {
+                                    let found = find_expr_shapes(&spanned_expr, registry)?;
+                                    match signature.named.get(name) {
+                                        None => {
+                                            unreachable!("should have error'd in parsing");
+                                        }
+                                        Some((named_type, _)) => {
+                                            if let NamedType::Mandatory(_, sig_shape)
+                                            | NamedType::Optional(_, sig_shape) = named_type
+                                            {
+                                                check_merge(
+                                                    &mut arg_shapes,
+                                                    &apply_shape(found, *sig_shape),
+                                                )?;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        unreachable!("registry has lost name it provided");
+                    }
+                }
+                ClassifiedCommand::Dynamic(_) | ClassifiedCommand::Error(_) => (),
+            }
+        }
+    }
+
+    Ok(arg_shapes)
 }
 
 #[cfg(test)]

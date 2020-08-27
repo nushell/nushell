@@ -5,7 +5,9 @@ use nu_protocol::{
     ColumnPath, MaybeOwned, PathMember, Primitive, ShellTypeName, SpannedTypeName,
     UnspannedPathMember, UntaggedValue, Value,
 };
-use nu_source::{HasSpan, PrettyDebug, Spanned, SpannedItem, Tag, Tagged, TaggedItem};
+use nu_source::{
+    HasFallibleSpan, HasSpan, PrettyDebug, Span, Spanned, SpannedItem, Tag, Tagged, TaggedItem,
+};
 use num_traits::cast::ToPrimitive;
 
 pub trait ValueExt {
@@ -220,8 +222,7 @@ pub fn swap_data_by_column_path(
         &value,
         path,
         Box::new(move |(obj_source, column_path_tried, error)| {
-            let path_members_span =
-                nu_source::span_for_spanned_list(fields.members().iter().map(|p| p.span));
+            let path_members_span = fields.maybe_span().unwrap_or_else(Span::unknown);
 
             match &obj_source.value {
                 UntaggedValue::Table(rows) => match column_path_tried {
@@ -352,14 +353,11 @@ pub fn swap_data_by_column_path(
     let to_replace = to_replace?;
     let replacement = callback(&to_replace)?;
 
-    match value.replace_data_at_column_path(&path, replacement) {
-        Some(replaced) => Ok(replaced),
-        None => Err(ShellError::labeled_error(
-            "missing column-path",
-            "missing column-path",
-            value.tag.span,
-        )),
-    }
+    value
+        .replace_data_at_column_path(&path, replacement)
+        .ok_or_else(|| {
+            ShellError::labeled_error("missing column-path", "missing column-path", value.tag.span)
+        })
 }
 
 pub fn insert_data_at_path(value: &Value, path: &str, new_value: Value) -> Option<Value> {
@@ -559,7 +557,7 @@ pub fn as_path_member(value: &Value) -> Result<PathMember, ShellError> {
 pub fn as_string(value: &Value) -> Result<String, ShellError> {
     match &value.value {
         UntaggedValue::Primitive(Primitive::String(s)) => Ok(s.clone()),
-        UntaggedValue::Primitive(Primitive::Date(dt)) => Ok(dt.format("%Y-%b-%d").to_string()),
+        UntaggedValue::Primitive(Primitive::Date(dt)) => Ok(dt.format("%Y-%m-%d").to_string()),
         UntaggedValue::Primitive(Primitive::Boolean(x)) => Ok(format!("{}", x)),
         UntaggedValue::Primitive(Primitive::Decimal(x)) => Ok(format!("{}", x)),
         UntaggedValue::Primitive(Primitive::Int(x)) => Ok(format!("{}", x)),

@@ -8,6 +8,7 @@ use crate::commands::move_::mv::Arguments as MvArgs;
 use crate::commands::rm::RemoveArgs;
 use crate::prelude::*;
 use crate::stream::OutputStream;
+
 use encoding_rs::Encoding;
 use nu_errors::ShellError;
 use std::path::PathBuf;
@@ -42,13 +43,4 @@ pub trait Shell: std::fmt::Debug {
         contents: &[u8],
         name: Span,
     ) -> Result<OutputStream, ShellError>;
-
-    fn complete(
-        &self,
-        line: &str,
-        pos: usize,
-        ctx: &rustyline::Context<'_>,
-    ) -> Result<(usize, Vec<rustyline::completion::Pair>), rustyline::error::ReadlineError>;
-
-    fn hint(&self, _line: &str, _pos: usize, _ctx: &rustyline::Context<'_>) -> Option<String>;
 }

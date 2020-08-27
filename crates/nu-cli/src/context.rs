@@ -40,30 +40,30 @@ impl CommandRegistry {
 }
 
 impl CommandRegistry {
-    pub(crate) fn get_command(&self, name: &str) -> Option<Command> {
+    pub fn get_command(&self, name: &str) -> Option<Command> {
         let registry = self.registry.lock();
 
         registry.get(name).cloned()
     }
 
-    pub(crate) fn expect_command(&self, name: &str) -> Result<Command, ShellError> {
+    pub fn expect_command(&self, name: &str) -> Result<Command, ShellError> {
         self.get_command(name).ok_or_else(|| {
             ShellError::untagged_runtime_error(format!("Could not load command: {}", name))
         })
     }
 
-    pub(crate) fn has(&self, name: &str) -> bool {
+    pub fn has(&self, name: &str) -> bool {
         let registry = self.registry.lock();
 
         registry.contains_key(name)
     }
 
-    pub(crate) fn insert(&mut self, name: impl Into<String>, command: Command) {
+    pub fn insert(&mut self, name: impl Into<String>, command: Command) {
         let mut registry = self.registry.lock();
         registry.insert(name.into(), command);
     }
 
-    pub(crate) fn names(&self) -> Vec<String> {
+    pub fn names(&self) -> Vec<String> {
         let registry = self.registry.lock();
         registry.keys().cloned().collect()
     }
@@ -150,14 +150,14 @@ impl Context {
         #[cfg(windows)]
         {
             Ok(Context {
-                registry: registry.clone(),
+                registry,
                 host: Arc::new(parking_lot::Mutex::new(Box::new(
                     crate::env::host::BasicHost,
                 ))),
                 current_errors: Arc::new(Mutex::new(vec![])),
                 ctrl_c: Arc::new(AtomicBool::new(false)),
                 user_recently_used_autoenv_untrust: false,
-                shell_manager: ShellManager::basic(registry)?,
+                shell_manager: ShellManager::basic()?,
                 windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
                 raw_input: String::default(),
             })
@@ -166,14 +166,14 @@ impl Context {
         #[cfg(not(windows))]
         {
             Ok(Context {
-                registry: registry.clone(),
+                registry,
                 host: Arc::new(parking_lot::Mutex::new(Box::new(
                     crate::env::host::BasicHost,
                 ))),
                 current_errors: Arc::new(Mutex::new(vec![])),
                 ctrl_c: Arc::new(AtomicBool::new(false)),
                 user_recently_used_autoenv_untrust: false,
-                shell_manager: ShellManager::basic(registry)?,
+                shell_manager: ShellManager::basic()?,
                 raw_input: String::default(),
             })
         }

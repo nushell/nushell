@@ -105,6 +105,14 @@ pub async fn process_row(
     .to_output_stream())
 }
 
+pub(crate) fn make_indexed_item(index: usize, item: Value) -> Value {
+    let mut dict = TaggedDictBuilder::new(item.tag());
+    dict.insert_untagged("index", UntaggedValue::int(index));
+    dict.insert_value("item", item);
+
+    dict.into_value()
+}
+
 async fn each(
     raw_args: CommandArgs,
     registry: &CommandRegistry,
@@ -124,13 +132,10 @@ async fn each(
                 let scope = scope.clone();
                 let head = head.clone();
                 let context = context.clone();
-
-                let mut dict = TaggedDictBuilder::new(input.1.tag());
-                dict.insert_untagged("index", UntaggedValue::int(input.0));
-                dict.insert_value("item", input.1);
+                let row = make_indexed_item(input.0, input.1);
 
                 async {
-                    match process_row(block, scope, head, context, dict.into_value()).await {
+                    match process_row(block, scope, head, context, row).await {
                         Ok(s) => s,
                         Err(e) => OutputStream::one(Err(e)),
                     }

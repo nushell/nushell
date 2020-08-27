@@ -4,7 +4,7 @@ use crate::commands::UnevaluatedCallInfo;
 use crate::prelude::*;
 use log::{log_enabled, trace};
 use nu_errors::ShellError;
-use nu_protocol::hir::InternalCommand;
+use nu_protocol::hir::{ExternalRedirection, InternalCommand};
 use nu_protocol::{CommandAction, Primitive, ReturnSuccess, Scope, UntaggedValue, Value};
 
 pub(crate) async fn run_internal_command(
@@ -87,7 +87,7 @@ pub(crate) async fn run_internal_command(
                                                 positional: None,
                                                 named: None,
                                                 span: Span::unknown(),
-                                                is_last: false,
+                                                external_redirection: ExternalRedirection::Stdout,
                                             },
                                             name_tag: Tag::unknown_anchor(command.name_span),
                                             scope: (&*scope).clone(),
@@ -182,10 +182,7 @@ pub(crate) async fn run_internal_command(
                             }
                             CommandAction::EnterShell(location) => {
                                 context.shell_manager.insert_at_current(Box::new(
-                                    match FilesystemShell::with_location(
-                                        location,
-                                        context.registry().clone(),
-                                    ) {
+                                    match FilesystemShell::with_location(location) {
                                         Ok(v) => v,
                                         Err(err) => {
                                             return InputStream::one(

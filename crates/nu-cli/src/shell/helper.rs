@@ -1,16 +1,18 @@
-use crate::context::Context;
-use crate::shell::palette::{DefaultPalette, Palette};
+use std::borrow::Cow::{self, Owned};
+
 use ansi_term::{Color, Style};
 use nu_parser::SignatureRegistry;
 use nu_protocol::hir::FlatShape;
 use nu_source::{Spanned, Tag, Tagged};
-use rustyline::completion::Completer;
-use rustyline::error::ReadlineError;
-use rustyline::highlight::Highlighter;
-use rustyline::hint::Hinter;
-use std::borrow::Cow::{self, Owned};
 
-pub(crate) struct Helper {
+use crate::completion;
+use crate::context::Context;
+use crate::shell::completer::NuCompleter;
+use crate::shell::palette::{DefaultPalette, Palette};
+
+pub struct Helper {
+    completer: NuCompleter,
+    hinter: rustyline::hint::HistoryHinter,
     context: Context,
     pub colored_prompt: String,
 }
@@ -18,31 +20,45 @@ pub(crate) struct Helper {
 impl Helper {
     pub(crate) fn new(context: Context) -> Helper {
         Helper {
+            completer: NuCompleter {},
+            hinter: rustyline::hint::HistoryHinter {},
             context,
             colored_prompt: String::new(),
         }
     }
 }
 
-impl Completer for Helper {
-    type Candidate = rustyline::completion::Pair;
+impl rustyline::completion::Candidate for completion::Suggestion {
+    fn display(&self) -> &str {
+        &self.display
+    }
+
+    fn replacement(&self) -> &str {
+        &self.replacement
+    }
+}
+
+impl rustyline::completion::Completer for Helper {
+    type Candidate = completion::Suggestion;
+
     fn complete(
         &self,
         line: &str,
         pos: usize,
-        ctx: &rustyline::Context<'_>,
-    ) -> Result<(usize, Vec<rustyline::completion::Pair>), ReadlineError> {
-        self.context.shell_manager.complete(line, pos, ctx)
+        _ctx: &rustyline::Context<'_>,
+    ) -> Result<(usize, Vec<Self::Candidate>), rustyline::error::ReadlineError> {
+        let ctx = completion::Context::new(&self.context);
+        Ok(self.completer.complete(line, pos, &ctx))
     }
 }
 
-impl Hinter for Helper {
+impl rustyline::hint::Hinter for Helper {
     fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
-        self.context.shell_manager.hint(line, pos, ctx)
+        self.hinter.hint(line, pos, &ctx)
     }
 }
 
-impl Highlighter for Helper {
+impl rustyline::highlight::Highlighter for Helper {
     fn highlight_prompt<'b, 's: 'b, 'p: 'b>(
         &'s self,
         prompt: &'p str,

@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::base::coerce_compare;
 use crate::prelude::*;
+use nu_data::base::coerce_compare;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
@@ -11,6 +11,7 @@ pub struct SortBy;
 #[derive(Deserialize)]
 pub struct SortByArgs {
     rest: Vec<Tagged<String>>,
+    insensitive: bool,
 }
 
 #[async_trait]
@@ -20,7 +21,13 @@ impl WholeStreamCommand for SortBy {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("sort-by").rest(SyntaxShape::String, "the column(s) to sort by")
+        Signature::build("sort-by")
+            .switch(
+                "insensitive",
+                "Sort string-based columns case insensitively",
+                Some('i'),
+            )
+            .rest(SyntaxShape::String, "the column(s) to sort by")
     }
 
     fn usage(&self) -> &str {
@@ -57,6 +64,24 @@ impl WholeStreamCommand for SortBy {
                 example: "ls | sort-by type size",
                 result: None,
             },
+            Example {
+                description: "Sort strings (case sensitive)",
+                example: "echo [airplane Truck Car] | sort-by",
+                result: Some(vec![
+                    UntaggedValue::string("Car").into(),
+                    UntaggedValue::string("Truck").into(),
+                    UntaggedValue::string("airplane").into(),
+                ]),
+            },
+            Example {
+                description: "Sort strings (case insensitive)",
+                example: "echo [airplane Truck Car] | sort-by -i",
+                result: Some(vec![
+                    UntaggedValue::string("airplane").into(),
+                    UntaggedValue::string("Car").into(),
+                    UntaggedValue::string("Truck").into(),
+                ]),
+            },
         ]
     }
 }
@@ -68,10 +93,10 @@ async fn sort_by(
     let registry = registry.clone();
     let tag = args.call_info.name_tag.clone();
 
-    let (SortByArgs { rest }, mut input) = args.process(&registry).await?;
+    let (SortByArgs { rest, insensitive }, mut input) = args.process(&registry).await?;
     let mut vec = input.drain_vec().await;
 
-    sort(&mut vec, &rest, &tag)?;
+    sort(&mut vec, &rest, &tag, insensitive)?;
 
     Ok(futures::stream::iter(vec.into_iter()).to_output_stream())
 }
@@ -80,6 +105,7 @@ pub fn sort(
     vec: &mut [Value],
     keys: &[Tagged<String>],
     tag: impl Into<Tag>,
+    insensitive: bool,
 ) -> Result<(), ShellError> {
     let tag = tag.into();
 
@@ -107,12 +133,56 @@ pub fn sort(
             value: UntaggedValue::Primitive(_),
             ..
         } => {
-            vec.sort_by(|a, b| coerce_compare(a, b).expect("Unimplemented BUG: What about primitives that don't have an order defined?").compare());
+            let should_sort_case_insensitively = insensitive && vec.iter().all(|x| x.is_string());
+
+            if let Some(values) = vec
+                .windows(2)
+                .map(|elem| coerce_compare(&elem[0], &elem[1]))
+                .find(|elem| elem.is_err())
+            {
+                let (type_1, type_2) = values
+                    .err()
+                    .expect("An error ocourred in the checking of types");
+                return Err(ShellError::labeled_error(
+                    "Not all values can be compared",
+                    format!(
+                        "Unable to sort values, as \"{}\" cannot compare against \"{}\"",
+                        type_1, type_2
+                    ),
+                    tag,
+                ));
+            }
+
+            vec.sort_by(|a, b| {
+                if should_sort_case_insensitively {
+                    let lowercase_a_string = a.expect_string().to_ascii_lowercase();
+                    let lowercase_b_string = b.expect_string().to_ascii_lowercase();
+
+                    lowercase_a_string.cmp(&lowercase_b_string)
+                } else {
+                    coerce_compare(a, b).expect("Unimplemented BUG: What about primitives that don't have an order defined?").compare()
+                }
+            });
         }
         _ => {
             let calc_key = |item: &Value| {
                 keys.iter()
-                    .map(|f| get_data_by_key(item, f.borrow_spanned()))
+                    .map(|f| {
+                        let mut value_option = get_data_by_key(item, f.borrow_spanned());
+
+                        if insensitive {
+                            if let Some(value) = &value_option {
+                                if let Ok(string_value) = value.as_string() {
+                                    value_option = Some(
+                                        UntaggedValue::string(string_value.to_ascii_lowercase())
+                                            .into_value(value.tag.clone()),
+                                    )
+                                }
+                            }
+                        }
+
+                        value_option
+                    })
                     .collect::<Vec<Option<Value>>>()
             };
             vec.sort_by_cached_key(calc_key);

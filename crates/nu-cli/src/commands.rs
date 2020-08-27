@@ -12,9 +12,9 @@ pub(crate) mod autoenv;
 pub(crate) mod autoenv_trust;
 pub(crate) mod autoenv_untrust;
 pub(crate) mod autoview;
+pub(crate) mod benchmark;
 pub(crate) mod build_string;
 pub(crate) mod cal;
-pub(crate) mod calc;
 pub(crate) mod cd;
 pub(crate) mod char_;
 pub(crate) mod classified;
@@ -77,6 +77,7 @@ pub(crate) mod next;
 pub(crate) mod nth;
 pub(crate) mod open;
 pub(crate) mod parse;
+pub(crate) mod path;
 pub(crate) mod pivot;
 pub(crate) mod plugin;
 pub(crate) mod prepend;
@@ -84,6 +85,7 @@ pub(crate) mod prev;
 pub(crate) mod pwd;
 pub(crate) mod random;
 pub(crate) mod range;
+pub(crate) mod reduce;
 pub(crate) mod reject;
 pub(crate) mod rename;
 pub(crate) mod reverse;
@@ -96,6 +98,7 @@ pub(crate) mod shells;
 pub(crate) mod shuffle;
 pub(crate) mod size;
 pub(crate) mod skip;
+pub(crate) mod sleep;
 pub(crate) mod sort_by;
 pub(crate) mod split;
 pub(crate) mod split_by;
@@ -110,10 +113,12 @@ pub(crate) mod to_md;
 pub(crate) mod to_toml;
 pub(crate) mod to_tsv;
 pub(crate) mod to_url;
+pub(crate) mod to_xml;
 pub(crate) mod to_yaml;
 pub(crate) mod trim;
 pub(crate) mod uniq;
 pub(crate) mod update;
+pub(crate) mod url_;
 pub(crate) mod version;
 pub(crate) mod what;
 pub(crate) mod where_;
@@ -133,9 +138,9 @@ pub(crate) use append::Append;
 pub(crate) use autoenv::Autoenv;
 pub(crate) use autoenv_trust::AutoenvTrust;
 pub(crate) use autoenv_untrust::AutoenvUnTrust;
+pub(crate) use benchmark::Benchmark;
 pub(crate) use build_string::BuildString;
 pub(crate) use cal::Cal;
-pub(crate) use calc::Calc;
 pub(crate) use char_::Char;
 pub(crate) use compact::Compact;
 pub(crate) use config::{
@@ -143,7 +148,7 @@ pub(crate) use config::{
 };
 pub(crate) use count::Count;
 pub(crate) use cp::Cpy;
-pub(crate) use date::Date;
+pub(crate) use date::{Date, DateFormat, DateNow, DateUTC};
 pub(crate) use debug::Debug;
 pub(crate) use default::Default;
 pub(crate) use do_::Do;
@@ -194,8 +199,8 @@ pub(crate) use last::Last;
 pub(crate) use lines::Lines;
 pub(crate) use ls::Ls;
 pub(crate) use math::{
-    Math, MathAverage, MathMaximum, MathMedian, MathMinimum, MathMode, MathStddev, MathSummation,
-    MathVariance,
+    Math, MathAverage, MathEval, MathMaximum, MathMedian, MathMinimum, MathMode, MathStddev,
+    MathSummation, MathVariance,
 };
 pub(crate) use merge::Merge;
 pub(crate) use mkdir::Mkdir;
@@ -204,6 +209,10 @@ pub(crate) use next::Next;
 pub(crate) use nth::Nth;
 pub(crate) use open::Open;
 pub(crate) use parse::Parse;
+pub(crate) use path::{
+    PathBasename, PathCommand, PathDirname, PathExists, PathExpand, PathExtension, PathFilestem,
+    PathType,
+};
 pub(crate) use pivot::Pivot;
 pub(crate) use prepend::Prepend;
 pub(crate) use prev::Previous;
@@ -212,6 +221,7 @@ pub(crate) use pwd::Pwd;
 pub(crate) use random::RandomUUID;
 pub(crate) use random::{Random, RandomBool, RandomDice};
 pub(crate) use range::Range;
+pub(crate) use reduce::Reduce;
 pub(crate) use reject::Reject;
 pub(crate) use rename::Rename;
 pub(crate) use reverse::Reverse;
@@ -223,12 +233,15 @@ pub(crate) use shells::Shells;
 pub(crate) use shuffle::Shuffle;
 pub(crate) use size::Size;
 pub(crate) use skip::{Skip, SkipUntil, SkipWhile};
+pub(crate) use sleep::Sleep;
 pub(crate) use sort_by::SortBy;
 pub(crate) use split::{Split, SplitChars, SplitColumn, SplitRow};
 pub(crate) use split_by::SplitBy;
 pub(crate) use str_::{
-    Str, StrCapitalize, StrCollect, StrDowncase, StrFindReplace, StrFrom, StrLength, StrReverse,
-    StrSet, StrSubstring, StrToDatetime, StrToDecimal, StrToInteger, StrTrim, StrUpcase,
+    Str, StrCamelCase, StrCapitalize, StrCollect, StrContains, StrDowncase, StrEndsWith,
+    StrFindReplace, StrFrom, StrIndexOf, StrKebabCase, StrLength, StrPascalCase, StrReverse,
+    StrScreamingSnakeCase, StrSet, StrSnakeCase, StrStartsWith, StrSubstring, StrToDatetime,
+    StrToDecimal, StrToInteger, StrTrim, StrTrimLeft, StrTrimRight, StrUpcase,
 };
 pub(crate) use table::Table;
 pub(crate) use tags::Tags;
@@ -240,10 +253,12 @@ pub(crate) use to_md::ToMarkdown;
 pub(crate) use to_toml::ToTOML;
 pub(crate) use to_tsv::ToTSV;
 pub(crate) use to_url::ToURL;
+pub(crate) use to_xml::ToXML;
 pub(crate) use to_yaml::ToYAML;
 pub(crate) use touch::Touch;
 pub(crate) use trim::Trim;
 pub(crate) use uniq::Uniq;
+pub(crate) use url_::{UrlCommand, UrlHost, UrlPath, UrlQuery, UrlScheme};
 pub(crate) use version::Version;
 pub(crate) use what::What;
 pub(crate) use where_::Where;

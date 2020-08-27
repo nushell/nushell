@@ -1,7 +1,10 @@
 use crate::commands::{UnevaluatedCallInfo, WholeStreamCommand};
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{
+    hir::ExternalRedirection, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue,
+    Value,
+};
 use nu_source::Tagged;
 use std::path::{Path, PathBuf};
 
@@ -226,7 +229,7 @@ async fn save(
                                 positional: None,
                                 named: None,
                                 span: Span::unknown(),
-                                is_last: false,
+                                external_redirection: ExternalRedirection::Stdout,
                             },
                             name_tag: name_tag.clone(),
                             scope,
@@ -251,10 +254,7 @@ async fn save(
         };
     };
 
-    match content {
-        Ok(save_data) => shell_manager.save(&full_path, &save_data, name.span),
-        Err(e) => Err(e),
-    }
+    shell_manager.save(&full_path, &content?, name.span)
 }
 
 fn string_from(input: &[Value]) -> String {

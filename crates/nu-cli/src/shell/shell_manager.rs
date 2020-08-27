@@ -10,6 +10,7 @@ use crate::prelude::*;
 use crate::shell::filesystem_shell::FilesystemShell;
 use crate::shell::shell::Shell;
 use crate::stream::OutputStream;
+
 use encoding_rs::Encoding;
 use nu_errors::ShellError;
 use parking_lot::Mutex;
@@ -25,12 +26,10 @@ pub struct ShellManager {
 }
 
 impl ShellManager {
-    pub fn basic(commands: CommandRegistry) -> Result<ShellManager, Box<dyn Error>> {
+    pub fn basic() -> Result<ShellManager, Box<dyn Error>> {
         Ok(ShellManager {
             current_shell: Arc::new(AtomicUsize::new(0)),
-            shells: Arc::new(Mutex::new(vec![Box::new(FilesystemShell::basic(
-                commands,
-            )?)])),
+            shells: Arc::new(Mutex::new(vec![Box::new(FilesystemShell::basic()?)])),
         })
     }
 
@@ -100,25 +99,6 @@ impl ShellManager {
         name: Span,
     ) -> Result<OutputStream, ShellError> {
         self.shells.lock()[self.current_shell()].save(full_path, save_data, name)
-    }
-
-    pub fn complete(
-        &self,
-        line: &str,
-        pos: usize,
-        ctx: &rustyline::Context<'_>,
-    ) -> Result<(usize, Vec<rustyline::completion::Pair>), rustyline::error::ReadlineError> {
-        self.shells.lock()[self.current_shell()].complete(line, pos, ctx)
-    }
-
-    pub fn hint(
-        &self,
-        line: &str,
-        pos: usize,
-        ctx: &rustyline::Context<'_>,
-        //context: ExpandContext,
-    ) -> Option<String> {
-        self.shells.lock()[self.current_shell()].hint(line, pos, ctx)
     }
 
     pub fn next(&mut self) {

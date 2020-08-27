@@ -1,18 +1,20 @@
 use std::path::Path;
 
-use crate::lite_parse::{lite_parse, LiteBlock, LiteCommand, LitePipeline};
-use crate::path::expand_path;
-use crate::signature::SignatureRegistry;
 use log::trace;
 use nu_errors::{ArgumentError, ParseError};
 use nu_protocol::hir::{
     self, Binary, Block, ClassifiedBlock, ClassifiedCommand, ClassifiedPipeline, Commands,
-    Expression, Flag, FlagKind, InternalCommand, Member, NamedArguments, Operator,
-    SpannedExpression, Unit,
+    Expression, ExternalRedirection, Flag, FlagKind, InternalCommand, Member, NamedArguments,
+    Operator, SpannedExpression, Unit,
 };
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPathMember};
 use nu_source::{Span, Spanned, SpannedItem};
 use num_bigint::BigInt;
+
+//use crate::errors::{ParseError, ParseResult};
+use crate::lite_parse::{lite_parse, LiteBlock, LiteCommand, LitePipeline};
+use crate::path::expand_path;
+use crate::signature::SignatureRegistry;
 
 /// Parses a simple column path, one without a variable (implied or explicit) at the head
 fn parse_simple_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
@@ -116,7 +118,7 @@ pub fn parse_full_column_path(
                 // We haven't done much with the inner string, so let's go ahead and work with it
                 let lite_block = match lite_parse(&string, lite_arg.span.start() + 2) {
                     Ok(lp) => lp,
-                    Err(e) => return (garbage(lite_arg.span), Some(e)),
+                    Err(e) => return (garbage(lite_arg.span), Some(e.cause)),
                 };
 
                 let classified_block = classify_block(&lite_block, registry);
@@ -166,7 +168,7 @@ pub fn parse_full_column_path(
                 // We haven't done much with the inner string, so let's go ahead and work with it
                 let lite_block = match lite_parse(&string, lite_arg.span.start() + 2) {
                     Ok(lp) => lp,
-                    Err(e) => return (garbage(lite_arg.span), Some(e)),
+                    Err(e) => return (garbage(lite_arg.span), Some(e.cause)),
                 };
 
                 let classified_block = classify_block(&lite_block, registry);
@@ -314,13 +316,13 @@ fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseErr
         (Unit::Nanosecond, vec!["ns"]),
         (Unit::Microsecond, vec!["us"]),
         (Unit::Millisecond, vec!["ms"]),
-        (Unit::Second, vec!["s"]),
-        (Unit::Minute, vec!["m"]),
-        (Unit::Hour, vec!["h"]),
-        (Unit::Day, vec!["d"]),
-        (Unit::Week, vec!["w"]),
-        (Unit::Month, vec!["M"]),
-        (Unit::Year, vec!["y"]),
+        (Unit::Second, vec!["sec"]),
+        (Unit::Minute, vec!["min"]),
+        (Unit::Hour, vec!["hr"]),
+        (Unit::Day, vec!["day"]),
+        (Unit::Week, vec!["wk"]),
+        (Unit::Month, vec!["mon"]),
+        (Unit::Year, vec!["yr"]),
     ];
 
     for unit_group in unit_groups.iter() {
@@ -332,7 +334,7 @@ fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseErr
                     lhs.pop();
                 }
 
-                // these units are allowed to signed
+                // these units are allowed to be signed
                 if let Ok(x) = lhs.parse::<i64>() {
                     let lhs_span =
                         Span::new(lite_arg.span.start(), lite_arg.span.start() + lhs.len());
@@ -496,7 +498,7 @@ fn parse_interpolated_string(
                     expr: Expression::Synthetic(hir::Synthetic::String("build-string".to_owned())),
                     span: lite_arg.span,
                 }),
-                is_last: false,
+                external_redirection: ExternalRedirection::Stdout,
                 named: None,
                 positional: Some(output),
                 span: lite_arg.span,
@@ -647,7 +649,7 @@ fn parse_arg(
                     // We haven't done much with the inner string, so let's go ahead and work with it
                     let lite_block = match lite_parse(&string, lite_arg.span.start() + 1) {
                         Ok(lb) => lb,
-                        Err(e) => return (garbage(lite_arg.span), Some(e)),
+                        Err(e) => return (garbage(lite_arg.span), Some(e.cause)),
                     };
 
                     if lite_block.block.is_empty() {
@@ -707,7 +709,7 @@ fn parse_arg(
                     // We haven't done much with the inner string, so let's go ahead and work with it
                     let lite_block = match lite_parse(&string, lite_arg.span.start() + 1) {
                         Ok(lp) => lp,
-                        Err(e) => return (garbage(lite_arg.span), Some(e)),
+                        Err(e) => return (garbage(lite_arg.span), Some(e.cause)),
                     };
 
                     let classified_block = classify_block(&lite_block, registry);
@@ -734,8 +736,79 @@ fn parse_arg(
     }
 }
 
-/// Match the available flags in a signature with what the user provided. This will check both long-form flags (--full) and shorthand flags (-f)
-/// This also allows users to provide a group of shorthand flags (-af) that correspond to multiple shorthand flags at once.
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[derive(Clone, Debug)]
+    struct MockRegistry {}
+
+    impl MockRegistry {
+        fn new() -> Self {
+            MockRegistry {}
+        }
+    }
+
+    impl SignatureRegistry for MockRegistry {
+        fn has(&self, _name: &str) -> bool {
+            false
+        }
+
+        fn get(&self, _name: &str) -> Option<nu_protocol::Signature> {
+            None
+        }
+
+        fn clone_box(&self) -> Box<dyn SignatureRegistry> {
+            Box::new(self.clone())
+        }
+    }
+
+    #[test]
+    fn parse_integer() -> Result<(), ParseError> {
+        let raw = "32".to_string();
+        let input = raw.clone().spanned(Span::new(0, raw.len()));
+        let registry = MockRegistry::new();
+        let result = parse_arg(SyntaxShape::Int, &registry, &input);
+        assert_eq!(result.1, None);
+        assert_eq!(result.0.expr, Expression::integer(32));
+        Ok(())
+    }
+
+    #[test]
+    fn parse_number() -> Result<(), ParseError> {
+        let raw = "-32.2".to_string();
+        let input = raw.clone().spanned(Span::new(0, raw.len()));
+        let registry = MockRegistry::new();
+        let result = parse_arg(SyntaxShape::Number, &registry, &input);
+        assert_eq!(result.1, None);
+        assert_eq!(result.0.expr, Expression::decimal(-32.2));
+
+        let raw = "32.2".to_string();
+        let input = raw.clone().spanned(Span::new(0, raw.len()));
+        let registry = MockRegistry::new();
+        let result = parse_arg(SyntaxShape::Number, &registry, &input);
+        assert_eq!(result.1, None);
+        assert_eq!(result.0.expr, Expression::decimal(32.2));
+
+        let raw = "-34".to_string();
+        let input = raw.clone().spanned(Span::new(0, raw.len()));
+        let registry = MockRegistry::new();
+        let result = parse_arg(SyntaxShape::Number, &registry, &input);
+        assert_eq!(result.1, None);
+        assert_eq!(result.0.expr, Expression::integer(-34));
+
+        let raw = "34".to_string();
+        let input = raw.clone().spanned(Span::new(0, raw.len()));
+        let registry = MockRegistry::new();
+        let result = parse_arg(SyntaxShape::Number, &registry, &input);
+        assert_eq!(result.1, None);
+        assert_eq!(result.0.expr, Expression::integer(34));
+        Ok(())
+    }
+}
+
+/// Match the available flags in a signature with what the user provided. This will check both long-form flags (--long) and shorthand flags (-l)
+/// This also allows users to provide a group of shorthand flags (-la) that correspond to multiple shorthand flags at once.
 fn get_flags_from_flag(
     signature: &nu_protocol::Signature,
     cmd: &Spanned<String>,
@@ -831,7 +904,7 @@ fn parse_parenthesized_expression(
             // We haven't done much with the inner string, so let's go ahead and work with it
             let lite_block = match lite_parse(&string, lite_arg.span.start() + 1) {
                 Ok(lb) => lb,
-                Err(e) => return (garbage(lite_arg.span), Some(e)),
+                Err(e) => return (garbage(lite_arg.span), Some(e.cause)),
             };
 
             if lite_block.block.len() != 1 {
@@ -1285,8 +1358,12 @@ fn classify_pipeline(
                     }),
                     positional: Some(args),
                     named: None,
-                    span: Span::unknown(),
-                    is_last: iter.peek().is_none(),
+                    span: name_span,
+                    external_redirection: if iter.peek().is_none() {
+                        ExternalRedirection::None
+                    } else {
+                        ExternalRedirection::Stdout
+                    },
                 },
             }))
         } else if lite_cmd.name.item == "=" {
@@ -1310,10 +1387,15 @@ fn classify_pipeline(
                 if let Some(signature) =
                     registry.get(&format!("{} {}", lite_cmd.name.item, lite_cmd.args[0].item))
                 {
-                    let (internal_command, err) =
+                    let (mut internal_command, err) =
                         parse_internal_command(&lite_cmd, registry, &signature, 1);
 
                     error = error.or(err);
+                    internal_command.args.external_redirection = if iter.peek().is_none() {
+                        ExternalRedirection::None
+                    } else {
+                        ExternalRedirection::Stdout
+                    };
                     commands.push(ClassifiedCommand::Internal(internal_command));
                     continue;
                 }
@@ -1321,10 +1403,15 @@ fn classify_pipeline(
 
             // Check if it's an internal command
             if let Some(signature) = registry.get(&lite_cmd.name.item) {
-                let (internal_command, err) =
+                let (mut internal_command, err) =
                     parse_internal_command(&lite_cmd, registry, &signature, 0);
 
                 error = error.or(err);
+                internal_command.args.external_redirection = if iter.peek().is_none() {
+                    ExternalRedirection::None
+                } else {
+                    ExternalRedirection::Stdout
+                };
                 commands.push(ClassifiedCommand::Internal(internal_command));
                 continue;
             }
@@ -1361,8 +1448,12 @@ fn classify_pipeline(
                     }),
                     positional: Some(args),
                     named: None,
-                    span: Span::unknown(),
-                    is_last: iter.peek().is_none(),
+                    span: name_span,
+                    external_redirection: if iter.peek().is_none() {
+                        ExternalRedirection::None
+                    } else {
+                        ExternalRedirection::Stdout
+                    },
                 },
             }))
         }

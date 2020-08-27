@@ -7,6 +7,7 @@ use crate::context::Context;
 use crate::git::current_branch;
 use crate::path::canonicalize;
 use crate::prelude::*;
+use crate::shell::Helper;
 use crate::EnvironmentSyncer;
 use futures_codec::FramedRead;
 use nu_errors::{ProximateShellError, ShellDiagnostic, ShellError};
@@ -16,25 +17,46 @@ use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 use nu_source::Tagged;
 
 use log::{debug, trace};
+use rustyline::config::{ColorMode, CompletionType, Config};
 use rustyline::error::ReadlineError;
-use rustyline::{
-    self, config::Configurer, config::EditMode, At, Cmd, ColorMode, CompletionType, Config, Editor,
-    KeyPress, Movement, Word,
-};
+use rustyline::{self, config::Configurer, At, Cmd, Editor, KeyPress, Movement, Word};
 use std::error::Error;
 use std::io::{BufRead, BufReader, Write};
 use std::iter::Iterator;
 use std::path::{Path, PathBuf};
+use std::process::{Child, Command, Stdio};
 use std::sync::atomic::Ordering;
 
 use rayon::prelude::*;
 
 fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), ShellError> {
-    let mut child = std::process::Command::new(path)
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .spawn()
-        .expect("Failed to spawn child process");
+    let ext = path.extension();
+    let ps1_file = match ext {
+        Some(ext) => ext == "ps1",
+        None => false,
+    };
+
+    let mut child: Child = if ps1_file {
+        Command::new("pwsh")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .args(&[
+                "-NoLogo",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                &path.to_string_lossy(),
+            ])
+            .spawn()
+            .expect("Failed to spawn PowerShell process")
+    } else {
+        Command::new(path)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn child process")
+    };
 
     let stdin = child.stdin.as_mut().expect("Failed to open stdin");
     let stdout = child.stdout.as_mut().expect("Failed to open stdout");
@@ -43,13 +65,14 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
 
     let request = JsonRpc::new("config", Vec::<Value>::new());
     let request_raw = serde_json::to_string(&request)?;
+    trace!(target: "nu::load", "plugin infrastructure config -> path {:#?}, request {:?}", &path, &request_raw);
     stdin.write_all(format!("{}\n", request_raw).as_bytes())?;
     let path = dunce::canonicalize(path)?;
 
     let mut input = String::new();
     let result = match reader.read_line(&mut input) {
         Ok(count) => {
-            trace!(target: "nu::load", "plugin infrastructure -> config response");
+            trace!(target: "nu::load", "plugin infrastructure -> config response for {:#?}", &path);
             trace!(target: "nu::load", "plugin infrastructure -> processing response ({} bytes)", count);
             trace!(target: "nu::load", "plugin infrastructure -> response: {}", input);
 
@@ -111,7 +134,7 @@ fn search_paths() -> Vec<std::path::PathBuf> {
         }
     }
 
-    if let Ok(config) = crate::data::config::config(Tag::unknown()) {
+    if let Ok(config) = nu_data::config::config(Tag::unknown()) {
         if let Some(plugin_dirs) = config.get("plugin_dirs") {
             if let Value {
                 value: UntaggedValue::Table(pipelines),
@@ -157,31 +180,35 @@ pub fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
                     }
                 };
 
+                // allow plugins with extensions on all platforms
                 let is_valid_name = {
-                    #[cfg(windows)]
-                    {
-                        bin_name
-                            .chars()
-                            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
-                    }
-
-                    #[cfg(not(windows))]
-                    {
-                        bin_name
-                            .chars()
-                            .all(|c| c.is_ascii_alphanumeric() || c == '_')
-                    }
+                    bin_name
+                        .chars()
+                        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
                 };
 
                 let is_executable = {
                     #[cfg(windows)]
                     {
-                        bin_name.ends_with(".exe") || bin_name.ends_with(".bat")
+                        bin_name.ends_with(".exe") 
+                        || bin_name.ends_with(".bat")
+                        || bin_name.ends_with(".cmd")
+                        || bin_name.ends_with(".py")
+                        || bin_name.ends_with(".ps1")
                     }
 
                     #[cfg(not(windows))]
                     {
-                        true
+                        !bin_name.contains('.')
+                        || (bin_name.ends_with('.')
+                        || bin_name.ends_with(".py")
+                        || bin_name.ends_with(".rb")
+                        || bin_name.ends_with(".sh")
+                        || bin_name.ends_with(".bash")
+                        || bin_name.ends_with(".zsh")
+                        || bin_name.ends_with(".pl")
+                        || bin_name.ends_with(".awk")
+                        || bin_name.ends_with(".ps1"))
                     }
                 };
 
@@ -203,29 +230,29 @@ pub struct History;
 impl History {
     pub fn path() -> PathBuf {
         const FNAME: &str = "history.txt";
-        config::user_data()
+        let default = config::user_data()
             .map(|mut p| {
                 p.push(FNAME);
                 p
             })
-            .unwrap_or_else(|_| PathBuf::from(FNAME))
+            .unwrap_or_else(|_| PathBuf::from(FNAME));
+
+        let cfg = nu_data::config::config(Tag::unknown());
+        if let Ok(c) = cfg {
+            match &c.get("history-path") {
+                Some(Value {
+                    value: UntaggedValue::Primitive(p),
+                    ..
+                }) => match p {
+                    Primitive::String(path) => PathBuf::from(path),
+                    _ => default,
+                },
+                _ => default,
+            }
+        } else {
+            default
+        }
     }
-}
-
-#[allow(dead_code)]
-fn create_default_starship_config() -> Option<toml::Value> {
-    let mut map = toml::value::Table::new();
-    map.insert("add_newline".into(), toml::Value::Boolean(false));
-
-    let mut git_branch = toml::value::Table::new();
-    git_branch.insert("symbol".into(), toml::Value::String("📙 ".into()));
-    map.insert("git_branch".into(), toml::Value::Table(git_branch));
-
-    let mut git_status = toml::value::Table::new();
-    git_status.insert("disabled".into(), toml::Value::Boolean(true));
-    map.insert("git_status".into(), toml::Value::Table(git_status));
-
-    Some(toml::Value::Table(map))
 }
 
 pub fn create_default_context(
@@ -263,8 +290,10 @@ pub fn create_default_context(
             whole_stream_command(Touch),
             whole_stream_command(Cpy),
             whole_stream_command(Date),
+            whole_stream_command(DateNow),
+            whole_stream_command(DateUTC),
+            whole_stream_command(DateFormat),
             whole_stream_command(Cal),
-            whole_stream_command(Calc),
             whole_stream_command(Mkdir),
             whole_stream_command(Mv),
             whole_stream_command(Kill),
@@ -276,9 +305,11 @@ pub fn create_default_context(
             whole_stream_command(Alias),
             whole_stream_command(WithEnv),
             whole_stream_command(Do),
+            whole_stream_command(Sleep),
             // Statistics
             whole_stream_command(Size),
             whole_stream_command(Count),
+            whole_stream_command(Benchmark),
             // Metadata
             whole_stream_command(Tags),
             // Shells
@@ -310,10 +341,21 @@ pub fn create_default_context(
             whole_stream_command(StrSubstring),
             whole_stream_command(StrSet),
             whole_stream_command(StrToDatetime),
+            whole_stream_command(StrContains),
+            whole_stream_command(StrIndexOf),
             whole_stream_command(StrTrim),
+            whole_stream_command(StrTrimLeft),
+            whole_stream_command(StrTrimRight),
+            whole_stream_command(StrStartsWith),
+            whole_stream_command(StrEndsWith),
             whole_stream_command(StrCollect),
             whole_stream_command(StrLength),
             whole_stream_command(StrReverse),
+            whole_stream_command(StrCamelCase),
+            whole_stream_command(StrPascalCase),
+            whole_stream_command(StrKebabCase),
+            whole_stream_command(StrSnakeCase),
+            whole_stream_command(StrScreamingSnakeCase),
             whole_stream_command(BuildString),
             whole_stream_command(Ansi),
             whole_stream_command(Char),
@@ -361,6 +403,7 @@ pub fn create_default_context(
             whole_stream_command(Wrap),
             whole_stream_command(Pivot),
             whole_stream_command(Headers),
+            whole_stream_command(Reduce),
             // Data processing
             whole_stream_command(Histogram),
             whole_stream_command(Autoenv),
@@ -368,6 +411,7 @@ pub fn create_default_context(
             whole_stream_command(AutoenvUnTrust),
             whole_stream_command(Math),
             whole_stream_command(MathAverage),
+            whole_stream_command(MathEval),
             whole_stream_command(MathMedian),
             whole_stream_command(MathMinimum),
             whole_stream_command(MathMode),
@@ -385,6 +429,7 @@ pub fn create_default_context(
             whole_stream_command(ToTSV),
             whole_stream_command(ToURL),
             whole_stream_command(ToYAML),
+            whole_stream_command(ToXML),
             // File format input
             whole_stream_command(From),
             whole_stream_command(FromCSV),
@@ -410,6 +455,21 @@ pub fn create_default_context(
             whole_stream_command(RandomDice),
             #[cfg(feature = "uuid_crate")]
             whole_stream_command(RandomUUID),
+            // Path
+            whole_stream_command(PathBasename),
+            whole_stream_command(PathCommand),
+            whole_stream_command(PathDirname),
+            whole_stream_command(PathExists),
+            whole_stream_command(PathExpand),
+            whole_stream_command(PathExtension),
+            whole_stream_command(PathFilestem),
+            whole_stream_command(PathType),
+            // Url
+            whole_stream_command(UrlCommand),
+            whole_stream_command(UrlScheme),
+            whole_stream_command(UrlPath),
+            whole_stream_command(UrlHost),
+            whole_stream_command(UrlQuery),
         ]);
 
         #[cfg(feature = "clipboard")]
@@ -445,7 +505,7 @@ pub async fn run_vec_of_pipelines(
     }
 
     // before we start up, let's run our startup commands
-    if let Ok(config) = crate::data::config::config(Tag::unknown()) {
+    if let Ok(config) = nu_data::config::config(Tag::unknown()) {
         if let Some(commands) = config.get("startup") {
             match commands {
                 Value {
@@ -521,17 +581,11 @@ pub async fn run_pipeline_standalone(
     Ok(())
 }
 
-/// The entry point for the CLI. Will register all known internal commands, load experimental commands, load plugins, then prepare the prompt and line reader for input.
-pub async fn cli(
-    mut syncer: EnvironmentSyncer,
-    mut context: Context,
-) -> Result<(), Box<dyn Error>> {
+pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>) {
     #[cfg(windows)]
     const DEFAULT_COMPLETION_MODE: CompletionType = CompletionType::Circular;
     #[cfg(not(windows))]
     const DEFAULT_COMPLETION_MODE: CompletionType = CompletionType::List;
-
-    let _ = load_plugins(&mut context);
 
     let config = Config::builder().color_mode(ColorMode::Forced).build();
     let mut rl: Editor<_> = Editor::with_config(config);
@@ -546,17 +600,179 @@ pub async fn cli(
         Cmd::Move(Movement::ForwardWord(1, At::AfterEnd, Word::Vi)),
     );
 
+    // Let's set the defaults up front and then override them later if the user indicates
+    // defaults taken from here https://github.com/kkawakam/rustyline/blob/2fe886c9576c1ea13ca0e5808053ad491a6fe049/src/config.rs#L150-L167
+    rl.set_max_history_size(100);
+    rl.set_history_ignore_dups(true);
+    rl.set_history_ignore_space(false);
+    rl.set_completion_type(DEFAULT_COMPLETION_MODE);
+    rl.set_completion_prompt_limit(100);
+    rl.set_keyseq_timeout(-1);
+    rl.set_edit_mode(rustyline::config::EditMode::Emacs);
+    rl.set_auto_add_history(false);
+    rl.set_bell_style(rustyline::config::BellStyle::default());
+    rl.set_color_mode(rustyline::ColorMode::Enabled);
+    rl.set_tab_stop(8);
+
     if let Err(e) = crate::keybinding::load_keybindings(&mut rl) {
         println!("Error loading keybindings: {:?}", e);
+    }
+
+    let config = match config::config(Tag::unknown()) {
+        Ok(config) => config,
+        Err(e) => {
+            eprintln!("Config could not be loaded.");
+            if let ShellError {
+                error: ProximateShellError::Diagnostic(ShellDiagnostic { diagnostic }),
+                ..
+            } = e
+            {
+                eprintln!("{}", diagnostic.message);
+            }
+            IndexMap::new()
+        }
+    };
+
+    if let Ok(config) = config::config(Tag::unknown()) {
+        if let Some(line_editor_vars) = config.get("line_editor") {
+            for (idx, value) in line_editor_vars.row_entries() {
+                match idx.as_ref() {
+                    "max_history_size" => {
+                        if let Ok(max_history_size) = value.as_u64() {
+                            rl.set_max_history_size(max_history_size as usize);
+                        }
+                    }
+                    "history_duplicates" => {
+                        // history_duplicates = match value.as_string() {
+                        //     Ok(s) if s.to_lowercase() == "alwaysadd" => {
+                        //         rustyline::config::HistoryDuplicates::AlwaysAdd
+                        //     }
+                        //     Ok(s) if s.to_lowercase() == "ignoreconsecutive" => {
+                        //         rustyline::config::HistoryDuplicates::IgnoreConsecutive
+                        //     }
+                        //     _ => rustyline::config::HistoryDuplicates::AlwaysAdd,
+                        // };
+                        if let Ok(history_duplicates) = value.as_bool() {
+                            rl.set_history_ignore_dups(history_duplicates);
+                        }
+                    }
+                    "history_ignore_space" => {
+                        if let Ok(history_ignore_space) = value.as_bool() {
+                            rl.set_history_ignore_space(history_ignore_space);
+                        }
+                    }
+                    "completion_type" => {
+                        let completion_type = match value.as_string() {
+                            Ok(s) if s.to_lowercase() == "circular" => {
+                                rustyline::config::CompletionType::Circular
+                            }
+                            Ok(s) if s.to_lowercase() == "list" => {
+                                rustyline::config::CompletionType::List
+                            }
+                            #[cfg(all(unix, feature = "with-fuzzy"))]
+                            Ok(s) if s.to_lowercase() == "fuzzy" => {
+                                rustyline::config::CompletionType::Fuzzy
+                            }
+                            _ => DEFAULT_COMPLETION_MODE,
+                        };
+                        rl.set_completion_type(completion_type);
+                    }
+                    "completion_prompt_limit" => {
+                        if let Ok(completion_prompt_limit) = value.as_u64() {
+                            rl.set_completion_prompt_limit(completion_prompt_limit as usize);
+                        }
+                    }
+                    "keyseq_timeout_ms" => {
+                        if let Ok(keyseq_timeout_ms) = value.as_u64() {
+                            rl.set_keyseq_timeout(keyseq_timeout_ms as i32);
+                        }
+                    }
+                    "edit_mode" => {
+                        let edit_mode = match value.as_string() {
+                            Ok(s) if s.to_lowercase() == "vi" => rustyline::config::EditMode::Vi,
+                            Ok(s) if s.to_lowercase() == "emacs" => {
+                                rustyline::config::EditMode::Emacs
+                            }
+                            _ => rustyline::config::EditMode::Emacs,
+                        };
+                        rl.set_edit_mode(edit_mode);
+                        // Note: When edit_mode is Emacs, the keyseq_timeout_ms is set to -1
+                        // no matter what you may have configured. This is so that key chords
+                        // can be applied without having to do them in a given timeout. So,
+                        // it essentially turns off the keyseq timeout.
+                    }
+                    "auto_add_history" => {
+                        if let Ok(auto_add_history) = value.as_bool() {
+                            rl.set_auto_add_history(auto_add_history);
+                        }
+                    }
+                    "bell_style" => {
+                        let bell_style = match value.as_string() {
+                            Ok(s) if s.to_lowercase() == "audible" => {
+                                rustyline::config::BellStyle::Audible
+                            }
+                            Ok(s) if s.to_lowercase() == "none" => {
+                                rustyline::config::BellStyle::None
+                            }
+                            Ok(s) if s.to_lowercase() == "visible" => {
+                                rustyline::config::BellStyle::Visible
+                            }
+                            _ => rustyline::config::BellStyle::default(),
+                        };
+                        rl.set_bell_style(bell_style);
+                    }
+                    "color_mode" => {
+                        let color_mode = match value.as_string() {
+                            Ok(s) if s.to_lowercase() == "enabled" => rustyline::ColorMode::Enabled,
+                            Ok(s) if s.to_lowercase() == "forced" => rustyline::ColorMode::Forced,
+                            Ok(s) if s.to_lowercase() == "disabled" => {
+                                rustyline::ColorMode::Disabled
+                            }
+                            _ => rustyline::ColorMode::Enabled,
+                        };
+                        rl.set_color_mode(color_mode);
+                    }
+                    "tab_stop" => {
+                        if let Ok(tab_stop) = value.as_u64() {
+                            rl.set_tab_stop(tab_stop as usize);
+                        }
+                    }
+                    _ => (),
+                }
+            }
+        }
+    }
+
+    // we are ok if history does not exist
+    let _ = rl.load_history(&History::path());
+
+    (rl, config)
+}
+
+/// The entry point for the CLI. Will register all known internal commands, load experimental commands, load plugins, then prepare the prompt and line reader for input.
+pub async fn cli(
+    mut syncer: EnvironmentSyncer,
+    mut context: Context,
+) -> Result<(), Box<dyn Error>> {
+    let _ = load_plugins(&mut context);
+
+    let (mut rl, config) = set_rustyline_configuration();
+
+    let skip_welcome_message = config
+        .get("skip_welcome_message")
+        .map(|x| x.is_true())
+        .unwrap_or(false);
+    if !skip_welcome_message {
+        println!(
+            "Welcome to Nushell {} (type 'help' for more info)",
+            clap::crate_version!()
+        );
     }
 
     #[cfg(windows)]
     {
         let _ = ansi_term::enable_ansi_support();
     }
-
-    // we are ok if history does not exist
-    let _ = rl.load_history(&History::path());
 
     #[cfg(feature = "ctrlc")]
     {
@@ -570,7 +786,7 @@ pub async fn cli(
     let mut ctrlcbreak = false;
 
     // before we start up, let's run our startup commands
-    if let Ok(config) = crate::data::config::config(Tag::unknown()) {
+    if let Ok(config) = nu_data::config::config(Tag::unknown()) {
         if let Some(commands) = config.get("startup") {
             match commands {
                 Value {
@@ -606,97 +822,8 @@ pub async fn cli(
 
         rl.set_helper(Some(crate::shell::Helper::new(context.clone())));
 
-        let config = match config::config(Tag::unknown()) {
-            Ok(config) => config,
-            Err(e) => {
-                eprintln!("Config could not be loaded.");
-                if let ShellError {
-                    error: ProximateShellError::Diagnostic(ShellDiagnostic { diagnostic }),
-                    ..
-                } = e
-                {
-                    eprintln!("{}", diagnostic.message);
-                }
-                IndexMap::new()
-            }
-        };
-
-        let use_starship = match config.get("use_starship") {
-            Some(b) => match b.as_bool() {
-                Ok(b) => b,
-                _ => false,
-            },
-            _ => false,
-        };
-
-        let edit_mode = config
-            .get("edit_mode")
-            .map(|s| match s.value.expect_string() {
-                "vi" => EditMode::Vi,
-                "emacs" => EditMode::Emacs,
-                _ => EditMode::Emacs,
-            })
-            .unwrap_or(EditMode::Emacs);
-
-        rl.set_edit_mode(edit_mode);
-
-        let max_history_size = config
-            .get("history_size")
-            .map(|i| i.value.expect_int())
-            .unwrap_or(100_000);
-
-        rl.set_max_history_size(max_history_size as usize);
-
-        let key_timeout = config
-            .get("key_timeout")
-            .map(|s| s.value.expect_int())
-            .unwrap_or(1);
-
-        rl.set_keyseq_timeout(key_timeout as i32);
-
-        let completion_mode = config
-            .get("completion_mode")
-            .map(|s| match s.value.expect_string() {
-                "list" => CompletionType::List,
-                "circular" => CompletionType::Circular,
-                _ => DEFAULT_COMPLETION_MODE,
-            })
-            .unwrap_or(DEFAULT_COMPLETION_MODE);
-
-        rl.set_completion_type(completion_mode);
-
         let colored_prompt = {
-            if use_starship {
-                #[cfg(feature = "starship")]
-                {
-                    std::env::set_var("STARSHIP_SHELL", "");
-                    std::env::set_var("PWD", &cwd);
-                    let mut starship_context =
-                        starship::context::Context::new_with_dir(clap::ArgMatches::default(), cwd);
-
-                    match starship_context.config.config {
-                        None => {
-                            starship_context.config.config = create_default_starship_config();
-                        }
-                        Some(toml::Value::Table(t)) if t.is_empty() => {
-                            starship_context.config.config = create_default_starship_config();
-                        }
-                        _ => {}
-                    };
-                    starship::print::get_prompt(starship_context)
-                }
-                #[cfg(not(feature = "starship"))]
-                {
-                    format!(
-                        "\x1b[32m{}{}\x1b[m> ",
-                        cwd,
-                        match current_branch() {
-                            Some(s) => format!("({})", s),
-                            None => "".to_string(),
-                        }
-                    )
-                }
-            } else if let Some(prompt) = config.get("prompt") {
+            if let Some(prompt) = config.get("prompt") {
                 let prompt_line = prompt.as_string()?;
 
                 match nu_parser::lite_parse(&prompt_line, 0).map_err(ShellError::from) {
@@ -1010,18 +1137,15 @@ pub async fn process_line(
                 let file = futures::io::AllowStdIo::new(std::io::stdin());
                 let stream = FramedRead::new(file, MaybeTextCodec::default()).map(|line| {
                     if let Ok(line) = line {
-                        match line {
-                            StringOrBinary::String(s) => Ok(Value {
-                                value: UntaggedValue::Primitive(Primitive::String(s)),
-                                tag: Tag::unknown(),
-                            }),
-                            StringOrBinary::Binary(b) => Ok(Value {
-                                value: UntaggedValue::Primitive(Primitive::Binary(
-                                    b.into_iter().collect(),
-                                )),
-                                tag: Tag::unknown(),
-                            }),
-                        }
+                        let primitive = match line {
+                            StringOrBinary::String(s) => Primitive::String(s),
+                            StringOrBinary::Binary(b) => Primitive::Binary(b.into_iter().collect()),
+                        };
+
+                        Ok(Value {
+                            value: UntaggedValue::Primitive(primitive),
+                            tag: Tag::unknown(),
+                        })
                     } else {
                         panic!("Internal error: could not read lines of text from stdin")
                     }
@@ -1063,7 +1187,7 @@ pub async fn process_line(
                     };
 
                     if let Ok(mut output_stream) =
-                        crate::commands::autoview::autoview(context).await
+                        crate::commands::autoview::command::autoview(context).await
                     {
                         loop {
                             match output_stream.try_next().await {

@@ -249,10 +249,7 @@ impl DebugDocBuilder {
     }
 
     pub fn option(builder: Option<DebugDocBuilder>) -> DebugDocBuilder {
-        match builder {
-            None => DebugDocBuilder::blank(),
-            Some(b) => b,
-        }
+        builder.unwrap_or_else(DebugDocBuilder::blank)
     }
 
     pub fn space() -> DebugDocBuilder {

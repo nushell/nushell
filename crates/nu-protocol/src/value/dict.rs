@@ -64,10 +64,7 @@ impl Ord for Dictionary {
 impl PartialEq<Value> for Dictionary {
     /// Test a dictionary against a Value for equality
     fn eq(&self, other: &Value) -> bool {
-        match &other.value {
-            UntaggedValue::Row(d) => self == d,
-            _ => false,
-        }
+        matches!(&other.value, UntaggedValue::Row(d) if self == d)
     }
 }
 
@@ -190,6 +187,11 @@ impl Dictionary {
     /// Insert a new key/value pair into the dictionary
     pub fn insert_data_at_key(&mut self, name: &str, value: Value) {
         self.entries.insert(name.to_string(), value);
+    }
+
+    /// Return size of dictionary
+    pub fn length(&self) -> usize {
+        self.entries.len()
     }
 }
 

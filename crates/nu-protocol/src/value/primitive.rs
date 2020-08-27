@@ -65,16 +65,22 @@ impl Primitive {
     /// Converts a primitive value to a u64, if possible. Uses a span to build an error if the conversion isn't possible.
     pub fn as_u64(&self, span: Span) -> Result<u64, ShellError> {
         match self {
-            Primitive::Int(int) => match int.to_u64() {
-                None => Err(ShellError::range_error(
+            Primitive::Int(int) => int.to_u64().ok_or_else(|| {
+                ShellError::range_error(
                     ExpectedRange::U64,
                     &format!("{}", int).spanned(span),
                     "converting an integer into a 64-bit integer",
-                )),
-                Some(num) => Ok(num),
-            },
+                )
+            }),
+            Primitive::Decimal(decimal) => decimal.to_u64().ok_or_else(|| {
+                ShellError::range_error(
+                    ExpectedRange::U64,
+                    &format!("{}", decimal).spanned(span),
+                    "converting a decimal into a 64-bit integer",
+                )
+            }),
             other => Err(ShellError::type_error(
-                "integer",
+                "number",
                 other.type_name().spanned(span),
             )),
         }
@@ -102,10 +108,9 @@ impl Primitive {
                 };
                 let nanos = chrono::Duration::nanoseconds(nanos);
                 // This should also never fail since we are adding less than NANOS_PER_SEC.
-                match chrono::Duration::seconds(secs).checked_add(&nanos) {
-                    Some(duration) => Ok(duration),
-                    None => Err(ShellError::unexpected("Unexpected duration overflow")),
-                }
+                chrono::Duration::seconds(secs)
+                    .checked_add(&nanos)
+                    .ok_or_else(|| ShellError::unexpected("Unexpected duration overflow"))
             }
             other => Err(ShellError::type_error(
                 "duration",
@@ -130,81 +135,6 @@ impl Primitive {
             Primitive::Nothing => true,
             Primitive::String(s) => s.is_empty(),
             _ => false,
-        }
-    }
-}
-
-impl num_traits::Zero for Primitive {
-    fn zero() -> Self {
-        Primitive::Int(BigInt::zero())
-    }
-
-    fn is_zero(&self) -> bool {
-        match self {
-            Primitive::Int(int) => int.is_zero(),
-            Primitive::Decimal(decimal) => decimal.is_zero(),
-            Primitive::Filesize(num_bytes) => num_bytes.is_zero(),
-            _ => false,
-        }
-    }
-}
-
-impl std::ops::Add for Primitive {
-    type Output = Primitive;
-
-    fn add(self, rhs: Self) -> Self {
-        match (self, rhs) {
-            (Primitive::Int(left), Primitive::Int(right)) => Primitive::Int(left + right),
-            (Primitive::Int(left), Primitive::Decimal(right)) => {
-                Primitive::Decimal(BigDecimal::from(left) + right)
-            }
-            (Primitive::Decimal(left), Primitive::Decimal(right)) => {
-                Primitive::Decimal(left + right)
-            }
-            (Primitive::Decimal(left), Primitive::Int(right)) => {
-                Primitive::Decimal(left + BigDecimal::from(right))
-            }
-            (Primitive::Filesize(left), right) => match right {
-                Primitive::Filesize(right) => Primitive::Filesize(left + right),
-                Primitive::Int(right) => {
-                    Primitive::Filesize(left + right.to_u64().unwrap_or_else(|| 0 as u64))
-                }
-                Primitive::Decimal(right) => {
-                    Primitive::Filesize(left + right.to_u64().unwrap_or_else(|| 0 as u64))
-                }
-                _ => Primitive::Filesize(left),
-            },
-            (left, Primitive::Filesize(right)) => match left {
-                Primitive::Filesize(left) => Primitive::Filesize(left + right),
-                Primitive::Int(left) => {
-                    Primitive::Filesize(left.to_u64().unwrap_or_else(|| 0 as u64) + right)
-                }
-                Primitive::Decimal(left) => {
-                    Primitive::Filesize(left.to_u64().unwrap_or_else(|| 0 as u64) + right)
-                }
-                _ => Primitive::Filesize(right),
-            },
-            _ => Primitive::zero(),
-        }
-    }
-}
-
-impl std::ops::Mul for Primitive {
-    type Output = Self;
-
-    fn mul(self, rhs: Self) -> Self {
-        match (self, rhs) {
-            (Primitive::Int(left), Primitive::Int(right)) => Primitive::Int(left * right),
-            (Primitive::Int(left), Primitive::Decimal(right)) => {
-                Primitive::Decimal(BigDecimal::from(left) * right)
-            }
-            (Primitive::Decimal(left), Primitive::Decimal(right)) => {
-                Primitive::Decimal(left * right)
-            }
-            (Primitive::Decimal(left), Primitive::Int(right)) => {
-                Primitive::Decimal(left * BigDecimal::from(right))
-            }
-            _ => unimplemented!("Internal error: can't multiply incompatible primitives."),
         }
     }
 }
@@ -372,19 +302,19 @@ pub fn format_duration(duration: &BigInt) -> String {
     let mut output_prep = vec![];
 
     if !days.is_zero() {
-        output_prep.push(format!("{}d", days));
+        output_prep.push(format!("{}day", days));
     }
 
     if !hours.is_zero() {
-        output_prep.push(format!("{}h", hours));
+        output_prep.push(format!("{}hr", hours));
     }
 
     if !mins.is_zero() {
-        output_prep.push(format!("{}m", mins));
+        output_prep.push(format!("{}min", mins));
     }
 
     if !secs.is_zero() {
-        output_prep.push(format!("{}s", secs));
+        output_prep.push(format!("{}sec", secs));
     }
 
     if !millis.is_zero() {

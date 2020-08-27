@@ -40,18 +40,10 @@ impl<'a, T: Plugin> PluginTest<'a, T> {
 
     pub fn test(&mut self) -> Result<Vec<ReturnValue>, ShellError> {
         let return_values = self.plugin.filter(self.input.clone());
-
-        let mut return_values = match return_values {
-            Ok(filtered) => filtered,
-            Err(reason) => return Err(reason),
-        };
-
+        let mut return_values = return_values?;
         let end = self.plugin.end_filter();
 
-        match end {
-            Ok(filter_ended) => return_values.extend(filter_ended),
-            Err(reason) => return Err(reason),
-        }
+        return_values.extend(end?);
 
         self.plugin.quit();
         Ok(return_values)

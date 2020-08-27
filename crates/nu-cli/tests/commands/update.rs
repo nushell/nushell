@@ -30,3 +30,35 @@ fn sets_the_column_from_a_block_run_output() {
 
     assert_eq!(actual.out, "0.7.0");
 }
+
+#[test]
+fn sets_the_column_from_a_block_full_stream_output() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            wrap content
+            | update content { open --raw cargo_sample.toml | lines | first 5 }
+            | get content.1
+            | str contains "nu"
+            | echo $it
+        "#
+    ));
+
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn sets_the_column_from_an_invocation() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            wrap content
+            | update content $(open --raw cargo_sample.toml | lines | first 5)
+            | get content.1
+            | str contains "nu"
+            | echo $it
+        "#
+    ));
+
+    assert_eq!(actual.out, "true");
+}

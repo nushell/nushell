@@ -1,4 +1,3 @@
-use crate::commands::str_::trim::trim_char;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -113,7 +112,7 @@ async fn operate(
 }
 
 // TODO If you're using the with-system-locale feature and you're on Windows, Clang 3.9 or higher is also required.
-fn action(
+pub fn action(
     input: &Value,
     tag: impl Into<Tag>,
     digits: Option<u64>,
@@ -196,7 +195,7 @@ fn format_decimal(mut decimal: BigDecimal, digits: Option<u64>, group_digits: bo
             .take(n as usize)
             .collect()
     } else {
-        trim_char(&dec_part, '0', false, true)
+        String::from(dec_part.trim_end_matches('0'))
     };
 
     let format_default_loc = |int_part: BigInt| {

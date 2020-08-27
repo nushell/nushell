@@ -153,11 +153,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
 
         None => {
-            println!(
-                "Welcome to Nushell {} (type 'help' for more info)",
-                clap::crate_version!()
-            );
-
             let mut syncer = EnvironmentSyncer::new();
             let context = create_default_context(&mut syncer, true)?;
             futures::executor::block_on(nu_cli::cli(syncer, context))?;
