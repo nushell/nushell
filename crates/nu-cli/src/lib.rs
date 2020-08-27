@@ -26,6 +26,7 @@ mod futures;
 mod git;
 mod keybinding;
 mod path;
+mod plugin;
 mod shell;
 mod stream;
 pub mod utils;
@@ -34,8 +35,8 @@ pub mod utils;
 mod examples;
 
 pub use crate::cli::{
-    cli, create_default_context, load_plugins, parse_and_eval, process_line,
-    run_pipeline_standalone, run_vec_of_pipelines, LineResult,
+    cli, create_default_context, parse_and_eval, process_line, run_pipeline_standalone,
+    run_vec_of_pipelines, LineResult,
 };
 pub use crate::commands::command::{
     whole_stream_command, CommandArgs, EvaluatedWholeStreamCommandArgs, Example, WholeStreamCommand,
