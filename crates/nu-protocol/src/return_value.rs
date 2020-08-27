@@ -1,82 +1,10 @@
 use crate::hir::Block;
-use crate::{SyntaxShape, value::Value};
+use crate::{SyntaxShape, value::Value, Signature};
 use nu_errors::ShellError;
 use nu_source::{b, DebugDocBuilder, PrettyDebug, Span};
 use serde::{Deserialize, Serialize};
 
 
-//TODO where to move this?
-#[derive(Eq, Debug, Clone, Serialize, Deserialize, Hash)]
-pub struct VarDeclaration{
-    pub name: String,
-    // type_decl: Option<UntaggedValue>,
-    pub is_var_arg: bool,
-    // scope: ?
-    // pub tag: Tag, ?
-    pub span: Span,
-}
-
-impl VarDeclaration{
-    pub fn new(name: &str, span: Span) -> VarDeclaration{
-        VarDeclaration{
-            name: name.to_string(),
-            is_var_arg: false,
-            span,
-        }
-    }
-}
-
-impl PartialEq<VarDeclaration> for VarDeclaration{
-    // When searching through the expressions, only the name of the
-    // Variable is available. (TODO And their scope). Their full definition is not available.
-    // Therefore the equals relationship is relaxed
-    fn eq(&self, other: &VarDeclaration) -> bool {
-        // TODO when scripting is available scope has to be respected
-        self.name == other.name
-            // && self.scope == other.scope
-    }
-}
-
-//TODO where to move this
-//TODO implement iterator for this to iterate on it like a list
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VarShapeDeduction{
-    var_decl: VarDeclaration,
-    deduction: SyntaxShape,
-    /// Spans pointing to the source of the deduction.
-    /// The spans locate positions within the tag of var_decl
-    deducted_from: Vec<Span>,
-    /// For a command with a signature of:
-    /// cmd [optional1] [optional2] <required>
-    /// the resulting inference must be:
-    /// optional1Shape or optional2Shape or requiredShape
-    /// Thats a list of alternative shapes.
-    /// This field stores a pointer to the possible next deduction
-    alternative: Option<Box<VarShapeDeduction>>,
-    /// Whether the variable can be substituted with the SyntaxShape deduction
-    /// multiple times.
-    /// For example a Var-Arg-Variable must be substituted when used in a cmd with
-    /// a signature of:
-    /// cmd [optionalPaths...] [integers...]
-    /// with 2 SpannedVarShapeDeductions, where each can substitute multiple arguments
-    many_of_shapes: bool
-}
-impl VarShapeDeduction{
-    //TODO better naming
-    pub fn from_usage(var_name: &str, deduced_from: &Span, deduced_shape: &SyntaxShape) -> VarShapeDeduction{
-        VarShapeDeduction{
-            var_decl: VarDeclaration{
-                name: var_name.to_string(),
-                is_var_arg: false,
-                span: Span::unknown(),
-            },
-            deduction: deduced_shape.clone(),
-            deducted_from: vec![deduced_from.clone()],
-            alternative: None,
-            many_of_shapes: false,
-        }
-    }
-}
 
 
 /// The inner set of actions for the command processor. Each denotes a way to change state in the processor without changing it directly from the command itself.
@@ -97,8 +25,7 @@ pub enum CommandAction {
     /// Enter the help shell, which allows exploring the help system
     EnterHelpShell(Value),
     /// Enter the help shell, which allows exploring the help system
-    //TODO Vec<VarShapeDeduction> can be Signature!?
-    AddAlias(String, Vec<VarShapeDeduction>, Block),
+    AddAlias(Signature, Block),
     /// Go to the previous shell in the shell ring buffer
     PreviousShell,
     /// Go to the next shell in the shell ring buffer
