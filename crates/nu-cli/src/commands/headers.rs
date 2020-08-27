@@ -5,7 +5,7 @@ use futures::stream::StreamExt;
 use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_protocol::Dictionary;
-use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value, Primitive};
+use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 
 pub struct Headers;
 
@@ -32,15 +32,18 @@ impl WholeStreamCommand for Headers {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Create headers for a raw string",
-            example: r#"echo "a b c|1 2 3" | split row "|" | split column " " | headers"#,
-            result: None,
-        }, Example {
-            description: "Don't panic on rows with different headers",
-            example: r#"echo "a b c|1 2 3|1 2 3 4" | split row "|" | split column " " | headers"#,
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Create headers for a raw string",
+                example: r#"echo "a b c|1 2 3" | split row "|" | split column " " | headers"#,
+                result: None,
+            },
+            Example {
+                description: "Don't panic on rows with different headers",
+                example: r#"echo "a b c|1 2 3|1 2 3 4" | split row "|" | split column " " | headers"#,
+                result: None,
+            },
+        ]
     }
 }
 
@@ -98,7 +101,8 @@ pub async fn headers(
                     }
                     Ok(ReturnSuccess::Value(
                         UntaggedValue::Row(Dictionary { entries }).into_value(r.tag.clone()),
-                    )) }
+                    ))
+                }
                 _ => Err(ShellError::unexpected_eof(
                     "Couldn't iterate through rows, was the input a properly formatted table?",
                     r.tag.span,
