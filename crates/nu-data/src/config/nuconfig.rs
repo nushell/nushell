@@ -27,6 +27,10 @@ impl Conf for NuConfig {
             vars.extend(variables);
         }
     }
+
+    fn clone_box(&self) -> Box<dyn Conf> {
+        Box::new(self.clone())
+    }
 }
 
 impl NuConfig {
