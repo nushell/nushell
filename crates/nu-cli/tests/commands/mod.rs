@@ -21,6 +21,7 @@ mod group_by;
 mod headers;
 mod histogram;
 mod insert;
+mod into_int;
 mod is_empty;
 mod keep;
 mod last;

@@ -37,8 +37,8 @@ impl WholeStreamCommand for IntoInt {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Convert filesize to integer",
-            example: "ls | into-int $it.size | = $it / 1024",
-            result: None,
+            example: "into-int 1kb | = $it / 1024",
+            result: Some(vec![UntaggedValue::int(1).into()]),
         }]
     }
 }
