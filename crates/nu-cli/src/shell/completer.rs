@@ -49,7 +49,7 @@ impl NuCompleter {
                             // TODO use cmd and arg_name to narrow things down further
                             let path_completer = crate::completion::path::Completer::new();
                             let completed_paths = path_completer.complete(context, partial);
-                            if line[..2] == "cd".to_string() {
+                            if line[..2] == "cd" {
                                 autocomplete_only_folders(completed_paths)
                             } else {
                                 completed_paths
@@ -72,7 +72,7 @@ fn autocomplete_only_folders(completed_paths: Vec<Suggestion>) -> Vec<Suggestion
     let mut result = Vec::new();
     for path in completed_paths {
         let filepath = path.replacement.clone();
-        let md = metadata(filepath).unwrap();
+        let md = metadata(filepath).expect();
         if md.is_dir() {
             result.push(path);
         }
