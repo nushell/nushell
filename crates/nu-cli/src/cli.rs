@@ -820,7 +820,9 @@ pub async fn cli(
 
         let cwd = context.shell_manager.path();
 
-        rl.set_helper(Some(crate::shell::Helper::new(context.clone())));
+        let hinter = init_hinter(&config);
+
+        rl.set_helper(Some(crate::shell::Helper::new(context.clone(), hinter)));
 
         let colored_prompt = {
             if let Some(prompt) = config.get("prompt") {
@@ -965,6 +967,18 @@ pub async fn cli(
     let _ = rl.save_history(&History::path());
 
     Ok(())
+}
+
+fn init_hinter(config: &IndexMap<String, Value>) -> Option<rustyline::hint::HistoryHinter> {
+    // Show hints unless explicitly disabled in config
+    if let Some(line_editor_vars) = config.get("line_editor") {
+        for (idx, value) in line_editor_vars.row_entries() {
+            if idx == "show_hints" && value.expect_string() == "false" {
+                return None;
+            }
+        }
+    }
+    Some(rustyline::hint::HistoryHinter {})
 }
 
 fn chomp_newline(s: &str) -> &str {
