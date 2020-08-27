@@ -19,6 +19,7 @@ pub struct AliasArgs {
     pub name: Tagged<String>,
     pub args: Vec<Value>,
     pub block: Block,
+    pub infer: Option<bool>,
     pub save: Option<bool>,
 }
 
@@ -37,6 +38,7 @@ impl WholeStreamCommand for Alias {
                 SyntaxShape::Block,
                 "the block to run as the body of the alias",
             )
+            .switch("infer", "infer argument types (experimental)", Some('i'))
             .switch("save", "save the alias to your config", Some('s'))
     }
 
@@ -79,6 +81,7 @@ pub async fn alias(
             name,
             args: list,
             block,
+            infer,
             save,
         },
         _ctx,
@@ -92,11 +95,15 @@ pub async fn alias(
         let left_brace = raw_input.find('{').unwrap_or(0);
         let right_brace = raw_input.rfind('}').unwrap_or_else(|| raw_input.len());
         let left = raw_input[..left_brace]
-            .replace("--save", "")
-            .replace("-s", "");
+            .replace("--save", "") // TODO using regex (or reconstruct string from AST?)
+            .replace("-si", "-i")
+            .replace("-s ", "")
+            .replace("-is", "-i");
         let right = raw_input[right_brace..]
             .replace("--save", "")
-            .replace("-s", "");
+            .replace("-si", "-i")
+            .replace("-s ", "")
+            .replace("-is", "-i");
         raw_input = format!("{}{}{}", left, &raw_input[left_brace..right_brace], right);
 
         // create a value from raw_input alias
@@ -137,13 +144,26 @@ pub async fn alias(
         }
     }
 
-    Ok(OutputStream::one(ReturnSuccess::action(
-        CommandAction::AddAlias(
-            name.to_string(),
-            to_arg_shapes(processed_args, &block, &registry)?,
-            block,
-        ),
-    )))
+    if let Some(true) = infer {
+        Ok(OutputStream::one(ReturnSuccess::action(
+            CommandAction::AddAlias(
+                name.to_string(),
+                to_arg_shapes(processed_args, &block, &registry)?,
+                block,
+            ),
+        )))
+    } else {
+        Ok(OutputStream::one(ReturnSuccess::action(
+            CommandAction::AddAlias(
+                name.to_string(),
+                processed_args
+                    .into_iter()
+                    .map(|arg| (arg, SyntaxShape::Any))
+                    .collect(),
+                block,
+            ),
+        )))
+    }
 }
 
 fn to_arg_shapes(
