@@ -1,4 +1,5 @@
 use crate::wrap::{column_width, split_sublines, wrap, Alignment, Subline, WrappedCell};
+use ansi_term::Style;
 
 enum SeparatorPosition {
     Top,
@@ -23,38 +24,236 @@ impl StyledString {
     pub fn new(contents: String, style: TextStyle) -> StyledString {
         StyledString { contents, style }
     }
+
+    pub fn set_style(&mut self, style: TextStyle) {
+        self.style = style;
+    }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct TextStyle {
-    pub is_bold: bool,
     pub alignment: Alignment,
-    pub color: Option<ansi_term::Colour>,
+    pub color_style: Option<ansi_term::Style>,
 }
 
 impl TextStyle {
-    pub fn basic() -> TextStyle {
+    pub fn new() -> TextStyle {
         TextStyle {
-            is_bold: false,
             alignment: Alignment::Left,
-            color: None,
+            color_style: Some(Style::default()),
         }
+    }
+
+    pub fn bold(&self, bool_value: Option<bool>) -> TextStyle {
+        let bv = match bool_value {
+            Some(v) => v,
+            None => false,
+        };
+
+        TextStyle {
+            alignment: self.alignment,
+            color_style: Some(Style {
+                is_bold: bv,
+                ..self.color_style.unwrap_or(Style::default())
+            }),
+        }
+    }
+
+    pub fn is_bold(&self) -> bool {
+        self.color_style.unwrap_or(Style::default()).is_bold
+    }
+
+    pub fn dimmed(&self) -> TextStyle {
+        TextStyle {
+            alignment: self.alignment,
+            color_style: Some(Style {
+                is_dimmed: true,
+                ..self.color_style.unwrap_or(Style::default())
+            }),
+        }
+    }
+
+    pub fn is_dimmed(&self) -> bool {
+        self.color_style.unwrap_or(Style::default()).is_dimmed
+    }
+
+    pub fn italic(&self) -> TextStyle {
+        TextStyle {
+            alignment: self.alignment,
+            color_style: Some(Style {
+                is_italic: true,
+                ..self.color_style.unwrap_or(Style::default())
+            }),
+        }
+    }
+
+    pub fn is_italic(&self) -> bool {
+        self.color_style.unwrap_or(Style::default()).is_italic
+    }
+
+    pub fn underline(&self) -> TextStyle {
+        TextStyle {
+            alignment: self.alignment,
+            color_style: Some(Style {
+                is_underline: true,
+                ..self.color_style.unwrap_or(Style::default())
+            }),
+        }
+    }
+
+    pub fn is_underline(&self) -> bool {
+        self.color_style.unwrap_or(Style::default()).is_underline
+    }
+
+    pub fn blink(&self) -> TextStyle {
+        TextStyle {
+            alignment: self.alignment,
+            color_style: Some(Style {
+                is_blink: true,
+                ..self.color_style.unwrap_or(Style::default())
+            }),
+        }
+    }
+
+    pub fn is_blink(&self) -> bool {
+        self.color_style.unwrap_or(Style::default()).is_blink
+    }
+
+    pub fn reverse(&self) -> TextStyle {
+        TextStyle {
+            alignment: self.alignment,
+            color_style: Some(Style {
+                is_reverse: true,
+                ..self.color_style.unwrap_or(Style::default())
+            }),
+        }
+    }
+
+    pub fn is_reverse(&self) -> bool {
+        self.color_style.unwrap_or(Style::default()).is_reverse
+    }
+
+    pub fn hidden(&self) -> TextStyle {
+        TextStyle {
+            alignment: self.alignment,
+            color_style: Some(Style {
+                is_hidden: true,
+                ..self.color_style.unwrap_or(Style::default())
+            }),
+        }
+    }
+
+    pub fn is_hidden(&self) -> bool {
+        self.color_style.unwrap_or(Style::default()).is_hidden
+    }
+
+    pub fn strikethrough(&self) -> TextStyle {
+        TextStyle {
+            alignment: self.alignment,
+            color_style: Some(Style {
+                is_strikethrough: true,
+                ..self.color_style.unwrap_or(Style::default())
+            }),
+        }
+    }
+
+    pub fn is_strikethrough(&self) -> bool {
+        self.color_style
+            .unwrap_or(Style::default())
+            .is_strikethrough
+    }
+
+    pub fn fg(&self, foregound: ansi_term::Color) -> TextStyle {
+        TextStyle {
+            alignment: self.alignment,
+            color_style: Some(Style {
+                foreground: Some(foregound),
+                ..self.color_style.unwrap_or(Style::default())
+            }),
+        }
+    }
+
+    pub fn on(&self, background: ansi_term::Color) -> TextStyle {
+        TextStyle {
+            alignment: self.alignment,
+            color_style: Some(Style {
+                background: Some(background),
+                ..self.color_style.unwrap_or(Style::default())
+            }),
+        }
+    }
+
+    pub fn bg(&self, background: ansi_term::Color) -> TextStyle {
+        TextStyle {
+            alignment: self.alignment,
+            color_style: Some(Style {
+                background: Some(background),
+                ..self.color_style.unwrap_or(Style::default())
+            }),
+        }
+    }
+
+    pub fn alignment(&self, align: Alignment) -> TextStyle {
+        TextStyle {
+            alignment: align,
+            color_style: self.color_style,
+        }
+    }
+
+    pub fn style(&self, style: Style) -> TextStyle {
+        TextStyle {
+            alignment: self.alignment,
+            color_style: Some(Style {
+                foreground: style.foreground,
+                background: style.background,
+                is_bold: style.is_bold,
+                is_dimmed: style.is_dimmed,
+                is_italic: style.is_italic,
+                is_underline: style.is_underline,
+                is_blink: style.is_blink,
+                is_reverse: style.is_reverse,
+                is_hidden: style.is_hidden,
+                is_strikethrough: style.is_strikethrough,
+            }),
+        }
+    }
+
+    pub fn basic() -> TextStyle {
+        TextStyle::new()
+            .alignment(Alignment::Left)
+            .style(Style::default())
     }
 
     pub fn basic_right() -> TextStyle {
-        TextStyle {
-            is_bold: false,
-            alignment: Alignment::Right,
-            color: None,
-        }
+        TextStyle::new()
+            .alignment(Alignment::Right)
+            .style(Style::default())
     }
 
     pub fn default_header() -> TextStyle {
-        TextStyle {
-            is_bold: true,
-            alignment: Alignment::Center,
-            color: Some(ansi_term::Colour::Green),
-        }
+        TextStyle::new()
+            .alignment(Alignment::Center)
+            .fg(ansi_term::Color::Green)
+            .bold(Some(true))
+    }
+
+    pub fn with_attributes(bo: bool, al: Alignment, co: ansi_term::Color) -> TextStyle {
+        TextStyle::new().alignment(al).fg(co).bold(Some(bo))
+    }
+
+    pub fn with_style(al: Alignment, style: ansi_term::Style) -> TextStyle {
+        TextStyle::new().alignment(al).style(Style {
+            foreground: style.foreground,
+            background: style.background,
+            is_bold: style.is_bold,
+            is_dimmed: style.is_dimmed,
+            is_italic: style.is_italic,
+            is_underline: style.is_underline,
+            is_blink: style.is_blink,
+            is_reverse: style.is_reverse,
+            is_hidden: style.is_hidden,
+            is_strikethrough: style.is_strikethrough,
+        })
     }
 }
 
@@ -326,11 +525,11 @@ impl WrappedTable {
 
                     match column.1.style.alignment {
                         Alignment::Left => {
-                            if let Some(color) = column.1.style.color {
-                                let color = if column.1.style.is_bold {
+                            if let Some(color) = column.1.style.color_style {
+                                let color = if column.1.style.is_bold() {
                                     color.bold()
                                 } else {
-                                    color.normal()
+                                    Style::default()
                                 };
 
                                 output.push_str(&color.paint(&line.line).to_string());
@@ -345,11 +544,11 @@ impl WrappedTable {
                             for _ in 0..remainder / 2 {
                                 output.push(' ');
                             }
-                            if let Some(color) = column.1.style.color {
-                                let color = if column.1.style.is_bold {
+                            if let Some(color) = column.1.style.color_style {
+                                let color = if column.1.style.is_bold() {
                                     color.bold()
                                 } else {
-                                    color.normal()
+                                    Style::default()
                                 };
 
                                 output.push_str(&color.paint(&line.line).to_string());
@@ -364,11 +563,11 @@ impl WrappedTable {
                             for _ in 0..remainder {
                                 output.push(' ');
                             }
-                            if let Some(color) = column.1.style.color {
-                                let color = if column.1.style.is_bold {
+                            if let Some(color) = column.1.style.color_style {
+                                let color = if column.1.style.is_bold() {
                                     color.bold()
                                 } else {
-                                    color.normal()
+                                    Style::default()
                                 };
 
                                 output.push_str(&color.paint(&line.line).to_string());
@@ -445,6 +644,8 @@ fn process_table(table: &Table) -> ProcessedTable {
             out_row.push(ProcessedCell {
                 contents: split_sublines(&column.contents),
                 style: column.style.clone(),
+                // this turns index, name, type, size, modified all blue
+                // style: TextStyle::with_attributes(false, Alignment::Right, ansi_term::Color::Blue),
             });
         }
         processed_data.push(out_row);

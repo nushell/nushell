@@ -76,7 +76,7 @@ impl WholeStreamCommand for Ansi {
     }
 }
 
-fn str_to_ansi_color(s: String) -> Option<String> {
+pub fn str_to_ansi_color(s: String) -> Option<String> {
     match s.as_str() {
         "g" | "green" => Some(ansi_term::Color::Green.prefix().to_string()),
         "gb" | "green_bold" => Some(ansi_term::Color::Green.bold().prefix().to_string()),

@@ -1,6 +1,7 @@
 use crate::commands::table::options::{ConfigExtensions, NuConfig as TableConfiguration};
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
+use crate::primitive::get_primitive_color_config;
 use nu_data::value::{format_leaf, style_leaf};
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
@@ -45,11 +46,9 @@ pub fn from_list(
     configuration: &TableConfiguration,
     starting_idx: usize,
 ) -> nu_table::Table {
-    let header_style = TextStyle {
-        is_bold: configuration.header_bold(),
-        alignment: configuration.header_alignment(),
-        color: configuration.header_color(),
-    };
+    let header_style = TextStyle::new()
+        .alignment(configuration.header_alignment())
+        .fg(ansi_term::Color::Green);
 
     let mut headers: Vec<StyledString> = nu_protocol::merge_descriptors(values)
         .into_iter()
@@ -71,7 +70,7 @@ fn values_to_entries(
     starting_idx: usize,
 ) -> Vec<Vec<StyledString>> {
     let disable_indexes = configuration.disabled_indexes();
-
+    let color_hm = get_primitive_color_config();
     let mut entries = vec![];
 
     if headers.is_empty() {
@@ -89,11 +88,11 @@ fn values_to_entries(
                             ..
                         } => StyledString::new(
                             format_leaf(&UntaggedValue::nothing()).plain_string(100_000),
-                            style_leaf(&UntaggedValue::nothing()),
+                            style_leaf(&UntaggedValue::nothing(), &color_hm),
                         ),
                         _ => StyledString::new(
                             format_leaf(value).plain_string(100_000),
-                            style_leaf(value),
+                            style_leaf(value, &color_hm),
                         ),
                     }
                 } else {
@@ -106,12 +105,12 @@ fn values_to_entries(
 
                             StyledString::new(
                                 format_leaf(data.borrow()).plain_string(100_000),
-                                style_leaf(data.borrow()),
+                                style_leaf(data.borrow(), &color_hm),
                             )
                         }
                         _ => StyledString::new(
                             format_leaf(&UntaggedValue::nothing()).plain_string(100_000),
-                            style_leaf(&UntaggedValue::nothing()),
+                            style_leaf(&UntaggedValue::nothing(), &color_hm),
                         ),
                     }
                 }
@@ -124,11 +123,10 @@ fn values_to_entries(
                 0,
                 StyledString::new(
                     (starting_idx + idx).to_string(),
-                    TextStyle {
-                        alignment: Alignment::Right,
-                        color: Some(ansi_term::Color::Green),
-                        is_bold: true,
-                    },
+                    TextStyle::new()
+                        .alignment(Alignment::Right)
+                        .fg(ansi_term::Color::Green)
+                        .bold(Some(true)),
                 ),
             );
         }
@@ -141,11 +139,10 @@ fn values_to_entries(
             0,
             StyledString::new(
                 "#".to_owned(),
-                TextStyle {
-                    alignment: Alignment::Center,
-                    color: Some(ansi_term::Color::Green),
-                    is_bold: true,
-                },
+                TextStyle::new()
+                    .alignment(Alignment::Center)
+                    .fg(ansi_term::Color::Green)
+                    .bold(Some(true)),
             ),
         );
     }

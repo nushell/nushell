@@ -9,6 +9,7 @@ use nu_protocol::{Primitive, Type, UntaggedValue};
 use nu_source::{DebugDocBuilder, PrettyDebug, Span, Tagged};
 use nu_table::TextStyle;
 use num_traits::Zero;
+use std::collections::HashMap;
 
 pub struct Date;
 
@@ -245,9 +246,12 @@ pub fn format_leaf<'a>(value: impl Into<&'a UntaggedValue>) -> DebugDocBuilder {
     InlineShape::from_value(value.into()).format().pretty()
 }
 
-pub fn style_leaf<'a>(value: impl Into<&'a UntaggedValue>) -> TextStyle {
+pub fn style_leaf<'a>(
+    value: impl Into<&'a UntaggedValue>,
+    color_hash_map: &HashMap<String, ansi_term::Style>,
+) -> TextStyle {
     match value.into() {
-        UntaggedValue::Primitive(p) => style_primitive(p),
+        UntaggedValue::Primitive(p) => style_primitive(p, &color_hash_map),
         _ => TextStyle::basic(),
     }
 }

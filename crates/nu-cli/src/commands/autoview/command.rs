@@ -5,6 +5,7 @@ use nu_data::value::format_leaf;
 use nu_errors::ShellError;
 use nu_protocol::hir::{self, Expression, ExternalRedirection, Literal, SpannedExpression};
 use nu_protocol::{Primitive, Scope, Signature, UntaggedValue, Value};
+use nu_table::TextStyle;
 use parking_lot::Mutex;
 use std::sync::atomic::AtomicBool;
 
@@ -256,11 +257,10 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                             entries.push(vec![
                                 nu_table::StyledString::new(
                                     key.to_string(),
-                                    nu_table::TextStyle {
-                                        alignment: nu_table::Alignment::Left,
-                                        color: Some(ansi_term::Color::Green),
-                                        is_bold: true,
-                                    },
+                                    TextStyle::new()
+                                        .alignment(nu_table::Alignment::Left)
+                                        .fg(ansi_term::Color::Green)
+                                        .bold(Some(true)),
                                 ),
                                 nu_table::StyledString::new(
                                     format_leaf(value).plain_string(100_000),

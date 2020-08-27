@@ -1,14 +1,15 @@
 pub use nu_data::config::NuConfig;
+use nu_table::TextStyle;
 use std::fmt::Debug;
 
 pub trait ConfigExtensions: Debug + Send {
     fn header_alignment(&self) -> nu_table::Alignment;
-    fn header_color(&self) -> Option<ansi_term::Color>;
+    fn header_color(&self) -> Option<TextStyle>;
     fn header_bold(&self) -> bool;
     fn table_mode(&self) -> nu_table::Theme;
     fn disabled_indexes(&self) -> bool;
-    fn text_color(&self) -> Option<ansi_term::Color>;
-    fn line_color(&self) -> Option<ansi_term::Color>;
+    fn text_color(&self) -> Option<TextStyle>;
+    fn line_color(&self) -> Option<TextStyle>;
 }
 
 pub fn header_alignment(config: &NuConfig) -> nu_table::Alignment {
@@ -31,25 +32,25 @@ pub fn header_alignment(config: &NuConfig) -> nu_table::Alignment {
     })
 }
 
-pub fn get_color_for_config_key(config: &NuConfig, key: &str) -> Option<ansi_term::Color> {
+pub fn get_color_for_config_key(config: &NuConfig, key: &str) -> Option<TextStyle> {
     let vars = config.vars.lock();
 
     Some(match vars.get(key) {
         Some(c) => match c.as_string() {
             Ok(color) => match color.to_lowercase().as_str() {
-                "g" | "green" => ansi_term::Color::Green,
-                "r" | "red" => ansi_term::Color::Red,
-                "u" | "blue" => ansi_term::Color::Blue,
-                "b" | "black" => ansi_term::Color::Black,
-                "y" | "yellow" => ansi_term::Color::Yellow,
-                "p" | "purple" => ansi_term::Color::Purple,
-                "c" | "cyan" => ansi_term::Color::Cyan,
-                "w" | "white" => ansi_term::Color::White,
-                _ => ansi_term::Color::Green,
+                "g" | "green" => TextStyle::new().fg(ansi_term::Color::Green),
+                "r" | "red" => TextStyle::new().fg(ansi_term::Color::Red),
+                "u" | "blue" => TextStyle::new().fg(ansi_term::Color::Blue),
+                "b" | "black" => TextStyle::new().fg(ansi_term::Color::Black),
+                "y" | "yellow" => TextStyle::new().fg(ansi_term::Color::Yellow),
+                "p" | "purple" => TextStyle::new().fg(ansi_term::Color::Purple),
+                "c" | "cyan" => TextStyle::new().fg(ansi_term::Color::Cyan),
+                "w" | "white" => TextStyle::new().fg(ansi_term::Color::White),
+                _ => TextStyle::new().fg(ansi_term::Color::Green),
             },
-            _ => ansi_term::Color::Green,
+            _ => TextStyle::new().fg(ansi_term::Color::Green),
         },
-        _ => ansi_term::Color::Green,
+        _ => TextStyle::new().fg(ansi_term::Color::Green),
     })
 }
 
@@ -86,17 +87,21 @@ impl ConfigExtensions for NuConfig {
         header_alignment(self)
     }
 
-    fn header_color(&self) -> Option<ansi_term::Color> {
+    fn header_color(&self) -> Option<TextStyle> {
         get_color_for_config_key(self, "header_color")
     }
 
-    fn text_color(&self) -> Option<ansi_term::Color> {
+    fn text_color(&self) -> Option<TextStyle> {
         get_color_for_config_key(self, "text_color")
     }
 
-    fn line_color(&self) -> Option<ansi_term::Color> {
+    fn line_color(&self) -> Option<TextStyle> {
         get_color_for_config_key(self, "line_color")
     }
+
+    // fn header_style(&self) -> ansi_term::Style {
+
+    // }
 
     fn header_bold(&self) -> bool {
         header_bold(self)
