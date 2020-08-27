@@ -1,4 +1,4 @@
-use std::fs::{read_dir, metadata, DirEntry};
+use std::fs::{metadata, read_dir, DirEntry};
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
