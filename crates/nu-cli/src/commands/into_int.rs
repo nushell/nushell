@@ -37,7 +37,7 @@ impl WholeStreamCommand for IntoInt {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Convert filesize to integer",
-            example: "into-int 1kb | = $it / 1024",
+            example: "echo 1kb | into-int $it | = $it / 1024",
             result: Some(vec![UntaggedValue::int(1).into()]),
         }]
     }
@@ -56,9 +56,7 @@ async fn into_int(
             tag,
         } => match primitive_val {
             Primitive::Filesize(size) => OutputStream::one(Ok(ReturnSuccess::Value(Value {
-                value: UntaggedValue::Primitive(Primitive::Int(
-                    size.to_bigint().expect("Conversion should never fail."),
-                )),
+                value: UntaggedValue::int(size.to_bigint().expect("Conversion should never fail.")),
                 tag,
             }))),
             Primitive::Int(_) => OutputStream::one(Ok(ReturnSuccess::Value(Value {
