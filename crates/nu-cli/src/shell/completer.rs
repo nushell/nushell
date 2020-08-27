@@ -49,8 +49,7 @@ impl NuCompleter {
         let matcher_config: &str = matcher_config.as_str();
 
         let completion_matcher: Box<dyn Matcher> = match matcher_config {
-            "case-insensitive" => Box::new(matchers::naive_case_insensitive::Matcher),
-            "unicode-case-insensitive" => Box::new(matchers::unicode_case_insensitive::Matcher),
+            "case-insensitive" => Box::new(matchers::case_insensitive::Matcher),
             _ => Box::new(matchers::case_sensitive::Matcher),
         };
 
