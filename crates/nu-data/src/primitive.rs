@@ -1,9 +1,7 @@
-use nu_protocol::{hir::Number, Primitive};
+use nu_protocol::{hir::Number, Primitive, Value};
 use nu_source::Tag;
 use nu_table::{Alignment, TextStyle};
 use std::collections::HashMap;
-// use nu_errors::{ProximateShellError, ShellDiagnostic, ShellError};
-// use indexmap::IndexMap;
 
 pub fn number(number: impl Into<Number>) -> Primitive {
     let number = number.into();
@@ -14,7 +12,7 @@ pub fn number(number: impl Into<Number>) -> Primitive {
     }
 }
 
-pub fn lookup_ansi_color(s: String) -> ansi_term::Style {
+pub fn lookup_ansi_color_style(s: String) -> ansi_term::Style {
     match s.as_str() {
         "g" | "green" => ansi_term::Color::Green.normal(),
         "gb" | "green_bold" => ansi_term::Color::Green.bold(),
@@ -69,138 +67,117 @@ pub fn lookup_ansi_color(s: String) -> ansi_term::Style {
     }
 }
 
-pub fn text_primitive_to_primitive(str_prim: &str) -> String {
+pub fn string_to_lookup_value(str_prim: &str) -> String {
     match str_prim {
-        "prim_int" => "Primitive::Int".to_string(),
-        "prim_decimal" => "Primitive::Decimal".to_string(),
-        "prim_filesize" => "Primitive::Filesize".to_string(),
-        "prim_string" => "Primitive::String".to_string(),
-        "prim_line" => "Primitive::Line".to_string(),
-        "prim_columnpath" => "Primitive::ColumnPath".to_string(),
-        "prim_pattern" => "Primitive::Pattern".to_string(),
-        "prim_boolean" => "Primitive::Boolean".to_string(),
-        "prim_date" => "Primitive::Date".to_string(),
-        "prim_duration" => "Primitive::Duration".to_string(),
-        "prim_range" => "Primitive::Range".to_string(),
-        "prim_path" => "Primitive::Path".to_string(),
-        "prim_binary" => "Primitive::Binary".to_string(),
+        "primitive_int" => "Primitive::Int".to_string(),
+        "primitive_decimal" => "Primitive::Decimal".to_string(),
+        "primitive_filesize" => "Primitive::Filesize".to_string(),
+        "primitive_string" => "Primitive::String".to_string(),
+        "primitive_line" => "Primitive::Line".to_string(),
+        "primitive_columnpath" => "Primitive::ColumnPath".to_string(),
+        "primitive_pattern" => "Primitive::Pattern".to_string(),
+        "primitive_boolean" => "Primitive::Boolean".to_string(),
+        "primitive_date" => "Primitive::Date".to_string(),
+        "primitive_duration" => "Primitive::Duration".to_string(),
+        "primitive_range" => "Primitive::Range".to_string(),
+        "primitive_path" => "Primitive::Path".to_string(),
+        "primitive_binary" => "Primitive::Binary".to_string(),
+        "separator" => "separator".to_string(),
+        "header_align" => "header_align".to_string(),
+        "header_color" => "header_color".to_string(),
+        "header_bold" => "header_bold".to_string(),
         _ => "Primitive::Nothing".to_string(),
     }
 }
 
-pub fn get_primitive_color_config() -> HashMap<String, ansi_term::Style> {
-    let mut hm: HashMap<String, ansi_term::Style> = HashMap::new();
-    // let mut hm: IndexMap<String, ansi_term::Style> = IndexMap::new();
-    // let config = match crate::config::config(Tag::unknown()) {
-    //     Ok(config) => config,
-    //     Err(e) => {
-    //         eprintln!("Config could not be loaded.");
-    //         if let ShellError {
-    //             error: ProximateShellError::Diagnostic(ShellDiagnostic { diagnostic }),
-    //             ..
-    //         } = e
-    //         {
-    //             eprintln!("{}", diagnostic.message);
-    //         }
-    //         IndexMap::new()
-    //     }
-    // };
+fn update_hashmap(key: &String, val: &Value, hm: &mut HashMap<String, ansi_term::Style>) {
+    if let Ok(var) = val.as_string() {
+        let color = lookup_ansi_color_style(var);
+        let prim = string_to_lookup_value(&key);
+        if let Some(v) = hm.get_mut(&prim) {
+            *v = color;
+        } else {
+            hm.insert(prim, color);
+        }
+    }
+}
 
-    // Set default colors
+pub fn get_color_config() -> HashMap<String, ansi_term::Style> {
+    // create the hashmap
+    let mut hm: HashMap<String, ansi_term::Style> = HashMap::new();
+    // set some default
+    hm.insert("primitive_int".to_string(), ansi_term::Color::White.normal());
+    hm.insert("primitive_decimal".to_string(), ansi_term::Color::White.normal());
+    hm.insert("primitive_filesize".to_string(), ansi_term::Color::White.normal());
+    hm.insert("primitive_string".to_string(), ansi_term::Color::White.normal());
+    hm.insert("primitive_line".to_string(), ansi_term::Color::White.normal());
+    hm.insert("primitive_columnpath".to_string(), ansi_term::Color::White.normal());
+    hm.insert("primitive_pattern".to_string(), ansi_term::Color::White.normal());
+    hm.insert("primitive_boolean".to_string(), ansi_term::Color::White.normal());
+    hm.insert("primitive_date".to_string(), ansi_term::Color::White.normal());
+    hm.insert("primitive_duration".to_string(), ansi_term::Color::White.normal());
+    hm.insert("primitive_range".to_string(), ansi_term::Color::White.normal());
+    hm.insert("primitive_path".to_string(), ansi_term::Color::White.normal());
+    hm.insert("primitive_binary".to_string(), ansi_term::Color::White.normal());
+    hm.insert("separator".to_string(), ansi_term::Color::White.normal());
+    hm.insert("header_align".to_string(), ansi_term::Color::White.normal());
+    hm.insert("header_color".to_string(), ansi_term::Color::White.normal());
+    hm.insert("header_bold".to_string(), ansi_term::Color::White.normal());
+
     if let Ok(config) = crate::config::config(Tag::unknown()) {
-        if let Some(primitive_color_vars) = config.get("primitive_colors") {
-            for (idx, value) in primitive_color_vars.row_entries() {
-                match idx.as_ref() {
-                    "prim_int" => {
-                        if let Ok(var) = value.as_string() {
-                            let color = lookup_ansi_color(var);
-                            let prim = text_primitive_to_primitive(&idx);
-                            hm.insert(prim, color);
-                        }
+        if let Some(primitive_color_vars) = config.get("color_config") {
+            for (key, value) in primitive_color_vars.row_entries() {
+                match key.as_ref() {
+                    "primitive_int" => {
+                        update_hashmap(&key, &value, &mut hm);
                     }
-                    "prim_decimal" => {
-                        if let Ok(var) = value.as_string() {
-                            let color = lookup_ansi_color(var);
-                            let prim = text_primitive_to_primitive(&idx);
-                            hm.insert(prim, color);
-                        }
+                    "primitive_decimal" => {
+                        update_hashmap(&key, &value, &mut hm);
                     }
-                    "prim_filesize" => {
-                        if let Ok(var) = value.as_string() {
-                            let color = lookup_ansi_color(var);
-                            let prim = text_primitive_to_primitive(&idx);
-                            hm.insert(prim, color);
-                        }
+                    "primitive_filesize" => {
+                        update_hashmap(&key, &value, &mut hm);
                     }
-                    "prim_string" => {
-                        if let Ok(var) = value.as_string() {
-                            let color = lookup_ansi_color(var);
-                            let prim = text_primitive_to_primitive(&idx);
-                            hm.insert(prim, color);
-                        }
+                    "primitive_string" => {
+                        update_hashmap(&key, &value, &mut hm);
                     }
-                    "prim_line" => {
-                        if let Ok(var) = value.as_string() {
-                            let color = lookup_ansi_color(var);
-                            let prim = text_primitive_to_primitive(&idx);
-                            hm.insert(prim, color);
-                        }
+                    "primitive_line" => {
+                        update_hashmap(&key, &value, &mut hm);
                     }
-                    "prim_columnpath" => {
-                        if let Ok(var) = value.as_string() {
-                            let color = lookup_ansi_color(var);
-                            let prim = text_primitive_to_primitive(&idx);
-                            hm.insert(prim, color);
-                        }
+                    "primitive_columnpath" => {
+                        update_hashmap(&key, &value, &mut hm);
                     }
-                    "prim_pattern" => {
-                        if let Ok(var) = value.as_string() {
-                            let color = lookup_ansi_color(var);
-                            let prim = text_primitive_to_primitive(&idx);
-                            hm.insert(prim, color);
-                        }
+                    "primitive_pattern" => {
+                        update_hashmap(&key, &value, &mut hm);
                     }
-                    "prim_boolean" => {
-                        if let Ok(var) = value.as_string() {
-                            let color = lookup_ansi_color(var);
-                            let prim = text_primitive_to_primitive(&idx);
-                            hm.insert(prim, color);
-                        }
+                    "primitive_boolean" => {
+                        update_hashmap(&key, &value, &mut hm);
                     }
-                    "prim_date" => {
-                        if let Ok(var) = value.as_string() {
-                            let color = lookup_ansi_color(var);
-                            let prim = text_primitive_to_primitive(&idx);
-                            hm.insert(prim, color);
-                        }
+                    "primitive_date" => {
+                        update_hashmap(&key, &value, &mut hm);
                     }
-                    "prim_duration" => {
-                        if let Ok(var) = value.as_string() {
-                            let color = lookup_ansi_color(var);
-                            let prim = text_primitive_to_primitive(&idx);
-                            hm.insert(prim, color);
-                        }
+                    "primitive_duration" => {
+                        update_hashmap(&key, &value, &mut hm);
                     }
-                    "prim_range" => {
-                        if let Ok(var) = value.as_string() {
-                            let color = lookup_ansi_color(var);
-                            let prim = text_primitive_to_primitive(&idx);
-                            hm.insert(prim, color);
-                        }
+                    "primitive_range" => {
+                        update_hashmap(&key, &value, &mut hm);
                     }
-                    "prim_path" => {
-                        if let Ok(var) = value.as_string() {
-                            let color = lookup_ansi_color(var);
-                            let prim = text_primitive_to_primitive(&idx);
-                            hm.insert(prim, color);
-                        }
+                    "primitive_path" => {
+                        update_hashmap(&key, &value, &mut hm);
                     }
-                    "prim_binary" => {
-                        if let Ok(var) = value.as_string() {
-                            let color = lookup_ansi_color(var);
-                            let prim = text_primitive_to_primitive(&idx);
-                            hm.insert(prim, color);
-                        }
+                    "primitive_binary" => {
+                        update_hashmap(&key, &value, &mut hm);
+                    }
+                    "separator" => {
+                        update_hashmap(&key, &value, &mut hm);
+                    }
+                    "header_align" => {
+                        update_hashmap(&key, &value, &mut hm);
+                    }
+                    "header_color" => {
+                        update_hashmap(&key, &value, &mut hm);
+                    }
+                    "header_bold" => {
+                        update_hashmap(&key, &value, &mut hm);
                     }
                     _ => (),
                 }
@@ -211,136 +188,306 @@ pub fn get_primitive_color_config() -> HashMap<String, ansi_term::Style> {
     hm
 }
 
+// pub fn style_primitive(
+//     primitive: &Primitive,
+//     color_hm: &HashMap<String, ansi_term::Style>,
+// ) -> TextStyle {
+//     match primitive {
+//         Primitive::Int(_) => {
+//             let style = color_hm.get("Primitive::Int");
+//             match style {
+//                 Some(s) => TextStyle::with_style(Alignment::Right, *s),
+//                 None => TextStyle::basic_right(),
+//             }
+//         }
+//         Primitive::Decimal(_) => {
+//             let style = color_hm.get("Primitive::Decimal");
+//             match style {
+//                 Some(s) => TextStyle::with_style(Alignment::Right, *s),
+//                 None => TextStyle::basic_right(),
+//             }
+//         }
+//         Primitive::Filesize(_) => {
+//             let style = color_hm.get("Primitive::Filesize");
+//             match style {
+//                 Some(s) => TextStyle::with_style(Alignment::Right, *s),
+//                 None => TextStyle::basic_right(),
+//             }
+//         }
+//         Primitive::String(_) => {
+//             let style = color_hm.get("Primitive::String");
+//             match style {
+//                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
+//                 None => TextStyle::basic_right(),
+//             }
+//         }
+//         Primitive::Line(_) => {
+//             let style = color_hm.get("Primitive::Line");
+//             match style {
+//                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
+//                 None => TextStyle::basic_right(),
+//             }
+//         }
+//         Primitive::ColumnPath(_) => {
+//             let style = color_hm.get("Primitive::ColumnPath");
+//             match style {
+//                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
+//                 None => TextStyle::basic_right(),
+//             }
+//         }
+//         Primitive::Pattern(_) => {
+//             let style = color_hm.get("Primitive::Pattern");
+//             match style {
+//                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
+//                 None => TextStyle::basic_right(),
+//             }
+//         }
+//         Primitive::Boolean(_) => {
+//             let style = color_hm.get("Primitive::Boolean");
+//             match style {
+//                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
+//                 None => TextStyle::basic_right(),
+//             }
+//         }
+//         Primitive::Date(_) => {
+//             let style = color_hm.get("Primitive::Date");
+//             match style {
+//                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
+//                 None => TextStyle::basic_right(),
+//             }
+//         }
+//         Primitive::Duration(_) => {
+//             let style = color_hm.get("Primitive::Duration");
+//             match style {
+//                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
+//                 None => TextStyle::basic_right(),
+//             }
+//         }
+//         Primitive::Range(_) => {
+//             let style = color_hm.get("Primitive::Range");
+//             match style {
+//                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
+//                 None => TextStyle::basic_right(),
+//             }
+//         }
+//         Primitive::Path(_) => {
+//             let style = color_hm.get("Primitive::Path");
+//             match style {
+//                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
+//                 None => TextStyle::basic_right(),
+//             }
+//         }
+//         Primitive::Binary(_) => {
+//             let style = color_hm.get("Primitive::Binary");
+//             match style {
+//                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
+//                 None => TextStyle::basic_right(),
+//             }
+//         }
+//         Primitive::BeginningOfStream => {
+//             let style = color_hm.get("Primitive::BeginningOfStream");
+//             match style {
+//                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
+//                 None => TextStyle::basic_right(),
+//             }
+//         }
+//         Primitive::EndOfStream => {
+//             let style = color_hm.get("Primitive::EndOfStream");
+//             match style {
+//                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
+//                 None => TextStyle::basic_right(),
+//             }
+//         }
+//         Primitive::Nothing => {
+//             let style = color_hm.get("Primitive::Nothing");
+//             match style {
+//                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
+//                 None => TextStyle::basic_right(),
+//             }
+//         }
+//         // Primitive::Nothing => {
+//         //     let style = color_hm.get("Primitive::Nothing");
+//         //     match style {
+//         //         Some(s) => TextStyle::with_style(Alignment::Left, *s),
+//         //         None => TextStyle::basic_right(),
+//         //     }
+//         // }
+//         // Primitive::Nothing => {
+//         //     let style = color_hm.get("Primitive::Nothing");
+//         //     match style {
+//         //         Some(s) => TextStyle::with_style(Alignment::Left, *s),
+//         //         None => TextStyle::basic_right(),
+//         //     }
+//         // }
+//         // Primitive::Nothing => {
+//         //     let style = color_hm.get("Primitive::Nothing");
+//         //     match style {
+//         //         Some(s) => TextStyle::with_style(Alignment::Left, *s),
+//         //         None => TextStyle::basic_right(),
+//         //     }
+//         // }
+//         // Primitive::Nothing => {
+//         //     let style = color_hm.get("Primitive::Nothing");
+//         //     match style {
+//         //         Some(s) => TextStyle::with_style(Alignment::Left, *s),
+//         //         None => TextStyle::basic_right(),
+//         //     }
+//         // }
+//         // _ => {
+//         //     println!("Prim=[{:?}]", &primitive);
+//         //     TextStyle::basic()
+//         // }
+//     }
+// }
+
 pub fn style_primitive(
-    primitive: &Primitive,
+    primitive: &String,
     color_hm: &HashMap<String, ansi_term::Style>,
 ) -> TextStyle {
-    // let hm = get_primitive_color_config();
-    // println!("HashMap=[{:?}", hm);
-    // match primitive {
-    //     Primitive::Int(_) | Primitive::Filesize(_) | Primitive::Decimal(_) => {
-    //         //TextStyle::basic_right()
-    //         TextStyle::with_attributes(false, Alignment::Right, ansi_term::Color::Yellow)
-    //     }
-    //     Primitive::Date(_) => {
-    //         TextStyle::with_attributes(false, Alignment::Left, ansi_term::Color::RGB(255,165,0))
-    //     }
-    //     //_ => TextStyle::basic(),
-    //     _ => TextStyle::with_attributes(false, Alignment::Left, ansi_term::Color::Purple)
-    // }
-
-    match primitive {
-        Primitive::Int(_) => {
+    // println!("{}", &primitive);
+    match primitive.as_ref() {
+        "Int" => {
             let style = color_hm.get("Primitive::Int");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Right, *s),
                 None => TextStyle::basic_right(),
             }
         }
-        Primitive::Decimal(_) => {
+        "Decimal" => {
             let style = color_hm.get("Primitive::Decimal");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Right, *s),
                 None => TextStyle::basic_right(),
             }
         }
-        Primitive::Filesize(_) => {
+        "Filesize" => {
             let style = color_hm.get("Primitive::Filesize");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Right, *s),
                 None => TextStyle::basic_right(),
             }
         }
-        Primitive::String(_) => {
+        "String" => {
             let style = color_hm.get("Primitive::String");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
                 None => TextStyle::basic_right(),
             }
         }
-        Primitive::Line(_) => {
+        "Line" => {
             let style = color_hm.get("Primitive::Line");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
                 None => TextStyle::basic_right(),
             }
         }
-        Primitive::ColumnPath(_) => {
+        "ColumnPath" => {
             let style = color_hm.get("Primitive::ColumnPath");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
                 None => TextStyle::basic_right(),
             }
         }
-        Primitive::Pattern(_) => {
+        "Pattern" => {
             let style = color_hm.get("Primitive::Pattern");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
                 None => TextStyle::basic_right(),
             }
         }
-        Primitive::Boolean(_) => {
+        "Boolean" => {
             let style = color_hm.get("Primitive::Boolean");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
                 None => TextStyle::basic_right(),
             }
         }
-        Primitive::Date(_) => {
+        "Date" => {
             let style = color_hm.get("Primitive::Date");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
                 None => TextStyle::basic_right(),
             }
         }
-        Primitive::Duration(_) => {
+        "Duration" => {
             let style = color_hm.get("Primitive::Duration");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
                 None => TextStyle::basic_right(),
             }
         }
-        Primitive::Range(_) => {
+        "Range" => {
             let style = color_hm.get("Primitive::Range");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
                 None => TextStyle::basic_right(),
             }
         }
-        Primitive::Path(_) => {
+        "Path" => {
             let style = color_hm.get("Primitive::Path");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
                 None => TextStyle::basic_right(),
             }
         }
-        Primitive::Binary(_) => {
+        "Binary" => {
             let style = color_hm.get("Primitive::Binary");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
                 None => TextStyle::basic_right(),
             }
         }
-        Primitive::BeginningOfStream => {
+        "BeginningOfStream" => {
             let style = color_hm.get("Primitive::BeginningOfStream");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
                 None => TextStyle::basic_right(),
             }
         }
-        Primitive::EndOfStream => {
+        "EndOfStream" => {
             let style = color_hm.get("Primitive::EndOfStream");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
                 None => TextStyle::basic_right(),
             }
         }
-        Primitive::Nothing => {
+        "Nothing" => {
             let style = color_hm.get("Primitive::Nothing");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
                 None => TextStyle::basic_right(),
             }
+        }
+        "separator" => {
+            let style = color_hm.get("separator");
+            match style {
+                Some(s) => TextStyle::with_style(Alignment::Left, *s),
+                None => TextStyle::basic_right(),
+            }
+        }
+        "header_align" => {
+            let style = color_hm.get("header_align");
+            match style {
+                Some(s) => TextStyle::with_style(Alignment::Left, *s),
+                None => TextStyle::basic_right(),
+            }
+        }
+        "header_color" => {
+            let style = color_hm.get("header_color");
+            match style {
+                Some(s) => TextStyle::with_style(Alignment::Left, *s),
+                None => TextStyle::basic_right(),
+            }
+        }
+        "header_bold" => {
+            let style = color_hm.get("header_bold");
+            match style {
+                Some(s) => TextStyle::with_style(Alignment::Left, *s),
+                None => TextStyle::basic_right(),
+            }
+        }
+        _ => {
+            TextStyle::basic()
         }
     }
 }

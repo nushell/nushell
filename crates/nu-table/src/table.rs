@@ -523,15 +523,17 @@ impl WrappedTable {
                     let remainder = self.column_widths[column.0] - line.width;
                     output.push(' ');
 
+                    // println!("Column1: [{:?}]", column.1.style);
                     match column.1.style.alignment {
                         Alignment::Left => {
                             if let Some(color) = column.1.style.color_style {
-                                let color = if column.1.style.is_bold() {
-                                    color.bold()
-                                } else {
-                                    Style::default()
-                                };
+                                // let color = if column.1.style.is_bold() {
+                                //     color.bold()
+                                // } else {
+                                //     Style::default()
+                                // };
 
+                                // println!("L color=[{:?}] line=[{}]", &color, &line.line);
                                 output.push_str(&color.paint(&line.line).to_string());
                             } else {
                                 output.push_str(&line.line);
@@ -545,12 +547,13 @@ impl WrappedTable {
                                 output.push(' ');
                             }
                             if let Some(color) = column.1.style.color_style {
-                                let color = if column.1.style.is_bold() {
-                                    color.bold()
-                                } else {
-                                    Style::default()
-                                };
+                                // let color = if column.1.style.is_bold() {
+                                //     color.bold()
+                                // } else {
+                                //     Style::default()
+                                // };
 
+                                // println!("C color=[{:?}] line=[{}]", &color, &line.line);
                                 output.push_str(&color.paint(&line.line).to_string());
                             } else {
                                 output.push_str(&line.line);
@@ -564,12 +567,13 @@ impl WrappedTable {
                                 output.push(' ');
                             }
                             if let Some(color) = column.1.style.color_style {
-                                let color = if column.1.style.is_bold() {
-                                    color.bold()
-                                } else {
-                                    Style::default()
-                                };
+                                // let color = if column.1.style.is_bold() {
+                                //     color.bold()
+                                // } else {
+                                //     Style::default()
+                                // };
 
+                                // println!("R color=[{:?}] line=[{}]", &color, &line.line);
                                 output.push_str(&color.paint(&line.line).to_string());
                             } else {
                                 output.push_str(&line.line);

@@ -251,7 +251,14 @@ pub fn style_leaf<'a>(
     color_hash_map: &HashMap<String, ansi_term::Style>,
 ) -> TextStyle {
     match value.into() {
-        UntaggedValue::Primitive(p) => style_primitive(p, &color_hash_map),
+        // UntaggedValue::Primitive(p) => style_primitive(p, &color_hash_map),
+        UntaggedValue::Primitive(p) => {
+            let str: &str = &p.to_string();
+            let str_len = str.len();
+            let paren_index = str.find('(').unwrap_or(str_len-1);
+            let prim_type = str[0..paren_index].to_string();
+            style_primitive(&prim_type, &color_hash_map)
+        }
         _ => TextStyle::basic(),
     }
 }

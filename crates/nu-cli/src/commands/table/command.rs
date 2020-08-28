@@ -1,7 +1,7 @@
 use crate::commands::table::options::{ConfigExtensions, NuConfig as TableConfiguration};
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
-use crate::primitive::get_primitive_color_config;
+use crate::primitive::get_color_config;
 use nu_data::value::{format_leaf, style_leaf};
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
@@ -56,6 +56,7 @@ pub fn from_list(
         .collect();
     let entries = values_to_entries(values, &mut headers, configuration, starting_idx);
 
+    println!("Entries=[{:?}", &entries);
     nu_table::Table {
         headers,
         data: entries,
@@ -70,7 +71,7 @@ fn values_to_entries(
     starting_idx: usize,
 ) -> Vec<Vec<StyledString>> {
     let disable_indexes = configuration.disabled_indexes();
-    let color_hm = get_primitive_color_config();
+    let color_hm = get_color_config();
     let mut entries = vec![];
 
     if headers.is_empty() {
