@@ -23,6 +23,10 @@ impl Conf for FakeConfig {
     fn reload(&self) {
         // no-op
     }
+
+    fn clone_box(&self) -> Box<dyn Conf> {
+        self.config.clone_box()
+    }
 }
 
 impl FakeConfig {

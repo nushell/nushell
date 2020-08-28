@@ -1,8 +1,9 @@
-use crate::commands::WholeStreamCommand;
+use crate::commands::command::{whole_stream_command, WholeStreamCommand};
 use crate::prelude::*;
 use derive_new::new;
 use log::trace;
 use nu_errors::ShellError;
+use nu_plugin::jsonrpc::JsonRpc;
 use nu_protocol::{Primitive, ReturnValue, Signature, UntaggedValue, Value};
 use serde::{self, Deserialize, Serialize};
 use std::io::prelude::*;
@@ -10,23 +11,6 @@ use std::io::BufReader;
 use std::io::Write;
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct JsonRpc<T> {
-    jsonrpc: String,
-    pub method: String,
-    pub params: T,
-}
-
-impl<T> JsonRpc<T> {
-    pub fn new<U: Into<String>>(method: U, params: T) -> Self {
-        JsonRpc {
-            jsonrpc: "2.0".into(),
-            method: method.into(),
-            params,
-        }
-    }
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "method")]
@@ -37,15 +21,77 @@ pub enum NuResult {
     },
 }
 
+enum PluginCommand {
+    Filter(PluginFilter),
+    Sink(PluginSink),
+}
+
+impl PluginCommand {
+    fn command(self) -> Result<crate::commands::Command, ShellError> {
+        match self {
+            PluginCommand::Filter(cmd) => Ok(whole_stream_command(cmd)),
+            PluginCommand::Sink(cmd) => Ok(whole_stream_command(cmd)),
+        }
+    }
+}
+
+enum PluginMode {
+    Filter,
+    Sink,
+}
+
+pub struct PluginCommandBuilder {
+    mode: PluginMode,
+    name: String,
+    path: String,
+    config: Signature,
+}
+
+impl PluginCommandBuilder {
+    pub fn new(
+        name: impl Into<String>,
+        path: impl Into<String>,
+        config: impl Into<Signature>,
+    ) -> Self {
+        let config = config.into();
+
+        PluginCommandBuilder {
+            mode: if config.is_filter {
+                PluginMode::Filter
+            } else {
+                PluginMode::Sink
+            },
+            name: name.into(),
+            path: path.into(),
+            config,
+        }
+    }
+
+    pub fn build(&self) -> Result<crate::commands::Command, ShellError> {
+        let mode = &self.mode;
+
+        let name = self.name.clone();
+        let path = self.path.clone();
+        let config = self.config.clone();
+
+        let cmd = match mode {
+            PluginMode::Filter => PluginCommand::Filter(PluginFilter { name, path, config }),
+            PluginMode::Sink => PluginCommand::Sink(PluginSink { name, path, config }),
+        };
+
+        cmd.command()
+    }
+}
+
 #[derive(new)]
-pub struct PluginCommand {
+pub struct PluginFilter {
     name: String,
     path: String,
     config: Signature,
 }
 
 #[async_trait]
-impl WholeStreamCommand for PluginCommand {
+impl WholeStreamCommand for PluginFilter {
     fn name(&self) -> &str {
         &self.name
     }
@@ -63,11 +109,11 @@ impl WholeStreamCommand for PluginCommand {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        filter_plugin(self.path.clone(), args, registry).await
+        run_filter(self.path.clone(), args, registry).await
     }
 }
 
-pub async fn filter_plugin(
+async fn run_filter(
     path: String,
     args: CommandArgs,
     registry: &CommandRegistry,
@@ -349,11 +395,11 @@ impl WholeStreamCommand for PluginSink {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        sink_plugin(self.path.clone(), args, registry).await
+        run_sink(self.path.clone(), args, registry).await
     }
 }
 
-pub async fn sink_plugin(
+async fn run_sink(
     path: String,
     args: CommandArgs,
     registry: &CommandRegistry,

@@ -1334,8 +1334,7 @@ fn classify_pipeline(
     lite_pipeline: &LitePipeline,
     registry: &dyn SignatureRegistry,
 ) -> (ClassifiedPipeline, Option<ParseError>) {
-    // FIXME: fake span
-    let mut commands = Commands::new(Span::new(0, 0));
+    let mut commands = Commands::new(lite_pipeline.span());
     let mut error = None;
 
     let mut iter = lite_pipeline.commands.iter().peekable();
@@ -1540,8 +1539,7 @@ fn expand_shorthand_forms(
 }
 
 pub fn classify_block(lite_block: &LiteBlock, registry: &dyn SignatureRegistry) -> ClassifiedBlock {
-    // FIXME: fake span
-    let mut block = Block::new(Span::new(0, 0));
+    let mut block = Block::new(lite_block.span());
 
     let mut error = None;
     for lite_pipeline in &lite_block.block {

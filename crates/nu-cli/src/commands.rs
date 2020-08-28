@@ -83,7 +83,6 @@ pub(crate) mod open;
 pub(crate) mod parse;
 pub(crate) mod path;
 pub(crate) mod pivot;
-pub(crate) mod plugin;
 pub(crate) mod prepend;
 pub(crate) mod prev;
 pub(crate) mod pwd;

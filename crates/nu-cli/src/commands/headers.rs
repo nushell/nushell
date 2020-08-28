@@ -5,7 +5,7 @@ use futures::stream::StreamExt;
 use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_protocol::Dictionary;
-use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
+use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 
 pub struct Headers;
 
@@ -32,11 +32,18 @@ impl WholeStreamCommand for Headers {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Create headers for a raw string",
-            example: r#"echo "a b c|1 2 3" | split row "|" | split column " " | headers"#,
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Create headers for a raw string",
+                example: r#"echo "a b c|1 2 3" | split row "|" | split column " " | headers"#,
+                result: None,
+            },
+            Example {
+                description: "Don't panic on rows with different headers",
+                example: r#"echo "a b c|1 2 3|1 2 3 4" | split row "|" | split column " " | headers"#,
+                result: None,
+            },
+        ]
     }
 }
 
@@ -84,8 +91,13 @@ pub async fn headers(
             match &r.value {
                 UntaggedValue::Row(d) => {
                     let mut entries = IndexMap::new();
-                    for (i, (_, v)) in d.entries.iter().enumerate() {
-                        entries.insert(headers[i].clone(), v.clone());
+                    for (i, header) in headers.iter().enumerate() {
+                        let value = match d.entries.get_index(i) {
+                            Some((_, value)) => value.clone(),
+                            None => UntaggedValue::Primitive(Primitive::Nothing).into(),
+                        };
+
+                        entries.insert(header.clone(), value);
                     }
                     Ok(ReturnSuccess::Value(
                         UntaggedValue::Row(Dictionary { entries }).into_value(r.tag.clone()),

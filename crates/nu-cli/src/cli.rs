@@ -1,8 +1,5 @@
 use crate::commands::classified::block::run_block;
 use crate::commands::classified::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
-use crate::commands::plugin::JsonRpc;
-use crate::commands::plugin::{PluginCommand, PluginSink};
-use crate::commands::whole_stream_command;
 use crate::context::Context;
 use crate::git::current_branch;
 use crate::path::canonicalize;
@@ -12,117 +9,31 @@ use crate::EnvironmentSyncer;
 use futures_codec::FramedRead;
 use nu_errors::{ProximateShellError, ShellDiagnostic, ShellError};
 use nu_protocol::hir::{ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments};
-use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
-#[allow(unused)]
-use nu_source::Tagged;
+use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue, Value};
 
 use log::{debug, trace};
 use rustyline::config::{ColorMode, CompletionType, Config};
 use rustyline::error::ReadlineError;
 use rustyline::{self, config::Configurer, At, Cmd, Editor, KeyPress, Movement, Word};
 use std::error::Error;
-use std::io::{BufRead, BufReader, Write};
 use std::iter::Iterator;
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
 use std::sync::atomic::Ordering;
 
-use rayon::prelude::*;
+fn register_plugins(context: &mut Context) -> Result<(), ShellError> {
+    if let Ok(plugins) = crate::plugin::scan() {
+        context.add_commands(
+            plugins
+                .into_iter()
+                .filter(|p| !context.is_command_registered(p.name()))
+                .collect(),
+        );
+    }
 
-fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), ShellError> {
-    let ext = path.extension();
-    let ps1_file = match ext {
-        Some(ext) => ext == "ps1",
-        None => false,
-    };
-
-    let mut child: Child = if ps1_file {
-        Command::new("pwsh")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .args(&[
-                "-NoLogo",
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                &path.to_string_lossy(),
-            ])
-            .spawn()
-            .expect("Failed to spawn PowerShell process")
-    } else {
-        Command::new(path)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .spawn()
-            .expect("Failed to spawn child process")
-    };
-
-    let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-    let stdout = child.stdout.as_mut().expect("Failed to open stdout");
-
-    let mut reader = BufReader::new(stdout);
-
-    let request = JsonRpc::new("config", Vec::<Value>::new());
-    let request_raw = serde_json::to_string(&request)?;
-    trace!(target: "nu::load", "plugin infrastructure config -> path {:#?}, request {:?}", &path, &request_raw);
-    stdin.write_all(format!("{}\n", request_raw).as_bytes())?;
-    let path = dunce::canonicalize(path)?;
-
-    let mut input = String::new();
-    let result = match reader.read_line(&mut input) {
-        Ok(count) => {
-            trace!(target: "nu::load", "plugin infrastructure -> config response for {:#?}", &path);
-            trace!(target: "nu::load", "plugin infrastructure -> processing response ({} bytes)", count);
-            trace!(target: "nu::load", "plugin infrastructure -> response: {}", input);
-
-            let response = serde_json::from_str::<JsonRpc<Result<Signature, ShellError>>>(&input);
-            match response {
-                Ok(jrpc) => match jrpc.params {
-                    Ok(params) => {
-                        let fname = path.to_string_lossy();
-
-                        trace!(target: "nu::load", "plugin infrastructure -> processing {:?}", params);
-
-                        let name = params.name.clone();
-                        let fname = fname.to_string();
-
-                        if context.get_command(&name).is_some() {
-                            trace!(target: "nu::load", "plugin infrastructure -> {:?} already loaded.", &name);
-                        } else if params.is_filter {
-                            context.add_commands(vec![whole_stream_command(PluginCommand::new(
-                                name, fname, params,
-                            ))]);
-                        } else {
-                            context.add_commands(vec![whole_stream_command(PluginSink::new(
-                                name, fname, params,
-                            ))]);
-                        }
-                        Ok(())
-                    }
-                    Err(e) => Err(e),
-                },
-                Err(e) => {
-                    trace!(target: "nu::load", "plugin infrastructure -> incompatible {:?}", input);
-                    Err(ShellError::untagged_runtime_error(format!(
-                        "Error: {:?}",
-                        e
-                    )))
-                }
-            }
-        }
-        Err(e) => Err(ShellError::untagged_runtime_error(format!(
-            "Error: {:?}",
-            e
-        ))),
-    };
-
-    let _ = child.wait();
-
-    result
+    Ok(())
 }
 
-fn search_paths() -> Vec<std::path::PathBuf> {
+pub fn search_paths() -> Vec<std::path::PathBuf> {
     use std::env;
 
     let mut search_paths = Vec::new();
@@ -151,108 +62,6 @@ fn search_paths() -> Vec<std::path::PathBuf> {
     }
 
     search_paths
-}
-
-pub fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
-    let opts = glob::MatchOptions {
-        case_sensitive: false,
-        require_literal_separator: false,
-        require_literal_leading_dot: false,
-    };
-
-    for path in search_paths() {
-        let mut pattern = path.to_path_buf();
-
-        pattern.push(std::path::Path::new("nu_plugin_[a-z0-9][a-z0-9]*"));
-
-        let plugs: Vec<_> = glob::glob_with(&pattern.to_string_lossy(), opts)?
-            .filter_map(|x| x.ok())
-            .collect();
-
-        let _failures: Vec<_> = plugs
-            .par_iter()
-            .map(|path| {
-                let bin_name = {
-                    if let Some(name) = path.file_name() {
-                        name.to_str().unwrap_or("")
-                    } else {
-                        ""
-                    }
-                };
-
-                // allow plugins with extensions on all platforms
-                let is_valid_name = {
-                    bin_name
-                        .chars()
-                        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
-                };
-
-                let is_executable = {
-                    #[cfg(windows)]
-                    {
-                        bin_name.ends_with(".exe") 
-                        || bin_name.ends_with(".bat")
-                        || bin_name.ends_with(".cmd")
-                        || bin_name.ends_with(".py")
-                        || bin_name.ends_with(".ps1")
-                    }
-
-                    #[cfg(not(windows))]
-                    {
-                        !bin_name.contains('.')
-                        || (bin_name.ends_with('.')
-                        || bin_name.ends_with(".py")
-                        || bin_name.ends_with(".rb")
-                        || bin_name.ends_with(".sh")
-                        || bin_name.ends_with(".bash")
-                        || bin_name.ends_with(".zsh")
-                        || bin_name.ends_with(".pl")
-                        || bin_name.ends_with(".awk")
-                        || bin_name.ends_with(".ps1"))
-                    }
-                };
-
-                if is_valid_name && is_executable {
-                    trace!(target: "nu::load", "plugin infrastructure -> Trying {:?}", path.display());
-
-                    // we are ok if this plugin load fails
-                    let _ = load_plugin(&path, &mut context.clone());
-                }
-            })
-            .collect();
-    }
-
-    Ok(())
-}
-
-pub struct History;
-
-impl History {
-    pub fn path() -> PathBuf {
-        const FNAME: &str = "history.txt";
-        let default = config::user_data()
-            .map(|mut p| {
-                p.push(FNAME);
-                p
-            })
-            .unwrap_or_else(|_| PathBuf::from(FNAME));
-
-        let cfg = nu_data::config::config(Tag::unknown());
-        if let Ok(c) = cfg {
-            match &c.get("history-path") {
-                Some(Value {
-                    value: UntaggedValue::Primitive(p),
-                    ..
-                }) => match p {
-                    Primitive::String(path) => PathBuf::from(path),
-                    _ => default,
-                },
-                _ => default,
-            }
-        } else {
-            default
-        }
-    }
 }
 
 pub fn create_default_context(
@@ -489,7 +298,7 @@ pub async fn run_vec_of_pipelines(
     let mut syncer = crate::EnvironmentSyncer::new();
     let mut context = create_default_context(&mut syncer, false)?;
 
-    let _ = crate::load_plugins(&mut context);
+    let _ = register_plugins(&mut context);
 
     #[cfg(feature = "ctrlc")]
     {
@@ -582,7 +391,7 @@ pub async fn run_pipeline_standalone(
     Ok(())
 }
 
-pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>) {
+pub fn create_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>) {
     #[cfg(windows)]
     const DEFAULT_COMPLETION_MODE: CompletionType = CompletionType::Circular;
     #[cfg(not(windows))]
@@ -744,9 +553,6 @@ pub fn set_rustyline_configuration() -> (Editor<Helper>, IndexMap<String, Value>
         }
     }
 
-    // we are ok if history does not exist
-    let _ = rl.load_history(&History::path());
-
     (rl, config)
 }
 
@@ -755,9 +561,15 @@ pub async fn cli(
     mut syncer: EnvironmentSyncer,
     mut context: Context,
 ) -> Result<(), Box<dyn Error>> {
-    let _ = load_plugins(&mut context);
+    let configuration = nu_data::config::NuConfig::new();
+    let history_path = crate::commands::history::history_path(&configuration);
 
-    let (mut rl, config) = set_rustyline_configuration();
+    let _ = register_plugins(&mut context);
+
+    let (mut rl, config) = create_rustyline_configuration();
+
+    // we are ok if history does not exist
+    let _ = rl.load_history(&history_path);
 
     let skip_welcome_message = config
         .get("skip_welcome_message")
@@ -922,13 +734,13 @@ pub async fn cli(
         match line {
             LineResult::Success(line) => {
                 rl.add_history_entry(&line);
-                let _ = rl.save_history(&History::path());
+                let _ = rl.save_history(&history_path);
                 context.maybe_print_errors(Text::from(line));
             }
 
             LineResult::Error(line, err) => {
                 rl.add_history_entry(&line);
-                let _ = rl.save_history(&History::path());
+                let _ = rl.save_history(&history_path);
 
                 context.with_host(|_host| {
                     print_err(err, &Text::from(line.clone()));
@@ -948,7 +760,7 @@ pub async fn cli(
                 }
 
                 if ctrlcbreak {
-                    let _ = rl.save_history(&History::path());
+                    let _ = rl.save_history(&history_path);
                     std::process::exit(0);
                 } else {
                     context.with_host(|host| host.stdout("CTRL-C pressed (again to quit)"));
@@ -965,7 +777,7 @@ pub async fn cli(
     }
 
     // we are ok if we can not save history
-    let _ = rl.save_history(&History::path());
+    let _ = rl.save_history(&history_path);
 
     Ok(())
 }
