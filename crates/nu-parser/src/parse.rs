@@ -517,13 +517,18 @@ fn parse_interpolated_string(
     (call, error)
 }
 
+// TODO this comment is copied from parse_arg and wrong here
 /// Parses the given argument using the shape as a guide for how to correctly parse the argument
 fn parse_external_arg(
     registry: &dyn SignatureRegistry,
     lite_arg: &Spanned<String>,
 ) -> (SpannedExpression, Option<ParseError>) {
     if lite_arg.item.starts_with('$') {
-        return parse_full_column_path(&lite_arg, registry);
+        if !lite_arg.item.contains('.'){
+            return (SpannedExpression::new(Expression::variable(lite_arg.item.clone(), lite_arg.span.clone()), lite_arg.span), None);
+        }else{
+            return parse_full_column_path(&lite_arg, registry);
+        }
     }
 
     if lite_arg.item.starts_with('`') && lite_arg.item.len() > 1 && lite_arg.item.ends_with('`') {
@@ -544,7 +549,11 @@ fn parse_arg(
     lite_arg: &Spanned<String>,
 ) -> (SpannedExpression, Option<ParseError>) {
     if lite_arg.item.starts_with('$') {
-        return parse_full_column_path(&lite_arg, registry);
+        if !lite_arg.item.contains('.'){
+            return (SpannedExpression::new(Expression::variable(lite_arg.item.clone(), lite_arg.span.clone()), lite_arg.span), None);
+        }else{
+            return parse_full_column_path(&lite_arg, registry);
+        }
     }
 
     match expected_type {
