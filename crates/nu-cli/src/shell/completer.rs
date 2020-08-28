@@ -49,7 +49,7 @@ impl NuCompleter {
                             let path_completer = crate::completion::path::Completer::new();
                             let completed_paths = path_completer.complete(context, partial);
                             match cmd.as_deref().unwrap_or("") {
-                                "cd" => autocomplete_only_folders(completed_paths),
+                                "cd" => select_directory_suggestions(completed_paths),
                                 _ => completed_paths,
                             }
                         }
@@ -66,7 +66,7 @@ impl NuCompleter {
     }
 }
 
-fn autocomplete_only_folders(completed_paths: Vec<Suggestion>) -> Vec<Suggestion> {
+fn select_directory_suggestions(completed_paths: Vec<Suggestion>) -> Vec<Suggestion> {
     completed_paths
         .into_iter()
         .filter(|suggestion| {
