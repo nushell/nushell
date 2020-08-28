@@ -7,6 +7,8 @@ use nu_errors::ShellError;
 use nu_protocol::{CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value, hir::Block};
 use nu_source::Tagged;
 use super::deduction::{VarShapeDeduction, VarDeclaration};
+use deduction_to_signature::DeductionToSignature;
+use log::trace;
 
 pub struct Alias;
 
@@ -174,9 +176,10 @@ pub async fn alias(
                 }
         }
     }
+    trace!("Found vars: {:?}", processed_args);
 
 
-    let _inferred_shapes: Vec<(VarDeclaration, VarShapeDeduction)>
+    let inferred_shapes: Vec<(VarDeclaration, VarShapeDeduction)>
     = VarSyntaxShapeDeductor::infer_vars(&processed_args, &block, &registry)?.into_iter().map(|(decl, deducs)| {
             let default = VarShapeDeduction{
                 deduction: SyntaxShape::Any,
@@ -189,10 +192,13 @@ pub async fn alias(
             }
         }).collect();
 
+    use DeductionToSignature;
+    let signature = DeductionToSignature::get(&name.item, &inferred_shapes);
+
     //TODO deduced shapes to signature
              Ok(OutputStream::one(ReturnSuccess::action(
         CommandAction::AddAlias(
-            Signature::build("todo build real sig"),
+            signature,
             //TODO deduced signature
             block,
         ),
@@ -208,5 +214,27 @@ mod tests {
         use crate::examples::test as test_examples;
 
         test_examples(Alias {})
+    }
+}
+
+//TODO better naming
+mod deduction_to_signature{
+    use nu_protocol::{PositionalType, Signature};
+    use crate::commands::deduction::{VarDeclaration, VarShapeDeduction};
+
+    pub struct DeductionToSignature{
+    }
+    impl DeductionToSignature{
+        pub fn get(cmd_name: &str, deductions: &Vec<(VarDeclaration, VarShapeDeduction)>) -> Signature{
+            let mut sig = Signature::build(cmd_name);
+            for (var_decl, shape) in deductions{
+                //TODO pick every shape over SyntaxShape::Any
+                //Build signature with alternative in place
+                //TODO pass in better description
+                sig.positional.push((PositionalType::mandatory(&var_decl.name, shape.deduction), "".to_string()));
+            }
+
+            sig
+        }
     }
 }

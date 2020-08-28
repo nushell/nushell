@@ -570,7 +570,8 @@ impl VarSyntaxShapeDeductor{
         let (insert_k, insert_v) =
             match self.inferences.get_key_value(&var_usage) {
                 Some((k, existing_deductions)) => {
-                    //As deductions are sorted by shape, this returns early or searches through whole vec
+                    // If there is one any in one deduction, this deduction is capable of representing the other
+                    // deduction and vice versa
                     let (any_in_new, new_vec) =
                         (new_deductions.iter().any(|deduc| deduc.deduction == SyntaxShape::Any), &new_deductions);
                     let (any_in_existing, existing_vec) =
@@ -618,7 +619,8 @@ impl VarSyntaxShapeDeductor{
                         }
                         //No any's intersection of both is result
                         ((false, a), (false, b)) => {
-                            merge_join_by(a, b, |a,b|(a.deduction as i32).cmp(&(b.deduction as i32)))
+                            let intersection: Vec<VarShapeDeduction> =
+                                merge_join_by(a, b, |a,b|(a.deduction as i32).cmp(&(b.deduction as i32)))
                                 .map(|either_or|
                                      match either_or{
                                          //Left is a, right is b
@@ -632,7 +634,15 @@ impl VarSyntaxShapeDeductor{
                                          }
                                      }
                                 ).filter_map(|elem|elem)
-                                .collect()
+                                .collect();
+                            if intersection.len() == 0{
+                                //TODO obay coercion rules
+                                todo!("Contrary needs for variable: What to return here?");
+                                // return ShellError::argument_error(command, kind)
+
+                            }else{
+                                intersection
+                            }
                         }
                     };
                     (k.clone(), combined_deductions)
