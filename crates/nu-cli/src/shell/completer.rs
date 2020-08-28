@@ -45,14 +45,12 @@ impl NuCompleter {
                             flag_completer.complete(context, cmd, partial)
                         }
 
-                        LocationType::Argument(_cmd, _arg_name) => {
-                            // TODO use cmd and arg_name to narrow things down further
+                        LocationType::Argument(cmd, _arg_name) => {
                             let path_completer = crate::completion::path::Completer::new();
                             let completed_paths = path_completer.complete(context, partial);
-                            if &line[..2] == "cd" {
-                                autocomplete_only_folders(completed_paths)
-                            } else {
-                                completed_paths
+                            match cmd.as_deref().unwrap_or("") {
+                                "cd" => select_directory_suggestions(completed_paths),
+                                _ => completed_paths,
                             }
                         }
 
@@ -68,16 +66,15 @@ impl NuCompleter {
     }
 }
 
-fn autocomplete_only_folders(completed_paths: Vec<Suggestion>) -> Vec<Suggestion> {
-    let mut result = Vec::new();
-    for path in completed_paths {
-        let filepath = path.replacement.clone();
-        let md = metadata(filepath).expect("Expect filepath");
-        if md.is_dir() {
-            result.push(path);
-        }
-    }
-    result
+fn select_directory_suggestions(completed_paths: Vec<Suggestion>) -> Vec<Suggestion> {
+    completed_paths
+        .into_iter()
+        .filter(|suggestion| {
+            metadata(&suggestion.replacement)
+                .map(|md| md.is_dir())
+                .unwrap_or(false)
+        })
+        .collect()
 }
 
 fn requote(item: Suggestion) -> Suggestion {

@@ -184,6 +184,7 @@ pub fn completion_location(line: &str, block: &Block, pos: usize) -> Vec<Complet
     if locations.is_empty() {
         vec![LocationType::Command.spanned(Span::unknown())]
     } else {
+        let mut command = None;
         let mut prev = None;
         for loc in locations {
             // We don't use span.contains because we want to include the end. This handles the case
@@ -210,6 +211,10 @@ pub fn completion_location(line: &str, block: &Block, pos: usize) -> Vec<Complet
                 break;
             }
 
+            if let LocationType::Command = loc.item {
+                command = Some(String::from(loc.span.slice(line)));
+            }
+
             prev = Some(loc);
         }
 
@@ -221,7 +226,7 @@ pub fn completion_location(line: &str, block: &Block, pos: usize) -> Vec<Complet
                 vec![LocationType::Command.spanned(Span::unknown())]
             } else {
                 // TODO this should be able to be mapped to a command
-                vec![LocationType::Argument(None, None).spanned(Span::unknown())]
+                vec![LocationType::Argument(command, None).spanned(Span::unknown())]
             }
         } else {
             // Cursor is before any possible completion location, so must be a command
@@ -351,6 +356,17 @@ mod tests {
             assert_eq!(
                 completion_location(line, &registry, 8),
                 vec![LocationType::Command],
+            );
+        }
+
+        #[test]
+        fn has_correct_command_name_for_argument() {
+            let registry: VecRegistry = vec![Signature::build("cd")].into();
+            let line = "cd ";
+
+            assert_eq!(
+                completion_location(line, &registry, 3),
+                vec![LocationType::Argument(Some("cd".to_string()), None)],
             );
         }
 
