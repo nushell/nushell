@@ -67,15 +67,14 @@ impl NuCompleter {
 }
 
 fn autocomplete_only_folders(completed_paths: Vec<Suggestion>) -> Vec<Suggestion> {
-    let mut result = Vec::new();
-    for path in completed_paths {
-        let filepath = path.replacement.clone();
-        let md = metadata(filepath).expect("Expect filepath");
-        if md.is_dir() {
-            result.push(path);
-        }
-    }
-    result
+    completed_paths
+        .into_iter()
+        .filter(|suggestion| {
+            metadata(&suggestion.replacement)
+                .map(|md| md.is_dir())
+                .unwrap_or(false)
+        })
+        .collect()
 }
 
 fn requote(item: Suggestion) -> Suggestion {
