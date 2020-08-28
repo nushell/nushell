@@ -45,14 +45,12 @@ impl NuCompleter {
                             flag_completer.complete(context, cmd, partial)
                         }
 
-                        LocationType::Argument(_cmd, _arg_name) => {
-                            // TODO use cmd and arg_name to narrow things down further
+                        LocationType::Argument(cmd, _arg_name) => {
                             let path_completer = crate::completion::path::Completer::new();
                             let completed_paths = path_completer.complete(context, partial);
-                            if &line[..2] == "cd" {
-                                autocomplete_only_folders(completed_paths)
-                            } else {
-                                completed_paths
+                            match cmd.as_deref().unwrap_or("") {
+                                "cd" => autocomplete_only_folders(completed_paths),
+                                _ => completed_paths,
                             }
                         }
 
