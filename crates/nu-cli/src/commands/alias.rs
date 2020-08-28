@@ -92,6 +92,7 @@ pub async fn alias(
     args: CommandArgs,
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
+    trace!("Hi from alias");
     let registry = registry.clone();
     let mut raw_input = args.raw_input.clone();
     let (

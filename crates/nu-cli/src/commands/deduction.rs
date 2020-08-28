@@ -7,6 +7,7 @@ use nu_errors::ShellError;
 use nu_parser::SignatureRegistry;
 
 use itertools::{merge_join_by, EitherOrBoth};
+use log::trace;
 
 //TODO where to move this?
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -154,6 +155,7 @@ impl VarSyntaxShapeDeductor{
         block: &Block,
         registry: &CommandRegistry,
     ) -> Result<Vec<(VarDeclaration, Option<Vec<VarShapeDeduction>>)>, ShellError> {
+        trace!("Deducing shapes for vars: {:?}", vars_to_find);
 
         let mut deducer = VarSyntaxShapeDeductor{
             var_declarations: vars_to_find.clone(),
@@ -162,6 +164,8 @@ impl VarSyntaxShapeDeductor{
         };
         deducer.infer_shape(block, registry)?;
         //Solve dependencies
+        trace!("Found shapes for vars: {:?}", deducer.inferences);
+
 
         //Remove unwanted vars
         Ok(deducer.var_declarations.iter().map(|decl| {
@@ -179,6 +183,7 @@ impl VarSyntaxShapeDeductor{
         block: &Block,
         registry: &CommandRegistry,
     )-> Result<(), ShellError>{
+        trace!("Infering vars in shape");
         for pipeline in &block.block {
             self.infer_pipeline(pipeline, registry)?;
         }
@@ -190,6 +195,7 @@ impl VarSyntaxShapeDeductor{
         pipeline: &Commands,
         registry: &CommandRegistry,
     )->Result<(), ShellError>{
+        trace!("Infering vars in pipeline");
         for (cmd_pipeline_idx, classified) in pipeline.list.iter().enumerate() {
             match &classified {
                 ClassifiedCommand::Internal(internal) => {
@@ -210,8 +216,13 @@ impl VarSyntaxShapeDeductor{
                         }
                     }
                     if let Some(positional) = &internal.args.positional {
-                        //Infer shapes in positional
+                        trace!("Infering vars in positional exprs");
                         for (_pos_idx, pos_expr) in positional.iter().enumerate() {
+                            if let Expression::Variable(Variable::Other(_, _ )) = &pos_expr.expr{
+                                trace!("Skipping handled var");
+                                //Should have been handled above!
+                                continue;
+                            }
                             self.infer_shapes_in_expr(
                                 (cmd_pipeline_idx, pipeline),
                                 pos_expr,
@@ -219,7 +230,7 @@ impl VarSyntaxShapeDeductor{
                         }
                     }
                     if let Some(named) = &internal.args.named {
-                        //Infer shapes in named
+                        trace!("Infering vars in named exprs");
                         for (_name, val) in named.iter() {
                             if let NamedValue::Value(_, named_expr) = val {
                                 self.infer_shapes_in_expr(
@@ -248,9 +259,12 @@ impl VarSyntaxShapeDeductor{
         positionals: &Vec<SpannedExpression>,
         signature: &Signature,
     )-> Result<(), ShellError>{
+        trace!("Infering vars in positionals");
         // todo!("If current pos is optional check that all expr behind cur_pos are shiftable by 1");
         //Currently we assume var is fitting optional parameter
+        trace!("Positionals len: {:?}", positionals.len());
         for (pos_idx, positional) in positionals.iter().enumerate().rev(){
+            trace!("Handling pos_idx: {:?} of type: {:?}", pos_idx, positional);
             if let Expression::Variable(Variable::Other(var_name, _)) = &positional.expr{
                 let deduced_shape = {
                     if pos_idx >= signature.positional.len(){
@@ -266,6 +280,7 @@ impl VarSyntaxShapeDeductor{
                         }
                     }
                 };
+                trace!("Found var: {:?} in positional_idx: {:?} of shape: {:?}", var_name, pos_idx, deduced_shape);
                 if let Some(shape) = deduced_shape{
                     self.checked_insert(
                         &VarUsage::new(var_name, &positional.span),
@@ -282,11 +297,13 @@ impl VarSyntaxShapeDeductor{
         named: &NamedArguments,
         signature: &Signature,
     )-> Result<(), ShellError>{
+        trace!("Infering vars in named");
         for (name, val) in named.iter() {
             if let NamedValue::Value(span, spanned_expr) = &val {
                 if let Expression::Variable(Variable::Other(var_name, _)) = &spanned_expr.expr{
                     if let Some((named_type, _)) = signature.named.get(name){
                         if let NamedType::Mandatory(_, shape) | NamedType::Optional(_, shape) = named_type{
+                            trace!("Found var: {:?} in named: {:?} of shape: {:?}", var_name, name, shape);
                             self.checked_insert(&VarUsage::new(var_name, span),
                                 vec![VarShapeDeduction::from_usage(span, shape)])?;
                         }
@@ -556,10 +573,13 @@ impl VarSyntaxShapeDeductor{
     //     (a.deduction as i32).cmp(b.deduction as i32)
     // }
 
-    /// Inserts the new deductions.
+    /// Inserts the new deductions. Each VarShapeDeduction represents one alternative for
+    /// the variable described by var_usage
+
     /// Each of the deductions is assumed to be for the same variable
     /// Each of the deductions is assumed to be unique of shape
     fn checked_insert(&mut self, var_usage: &VarUsage, new_deductions: Vec<VarShapeDeduction>) -> Result<(), ShellError> {
+        trace!("Trying to insert for: {:?} possible shapes:{:?}", var_usage.name, new_deductions.iter().map(|d|d.deduction).collect::<Vec<_>>());
 
         //Every insertion is sorted by shape!
         //Everything within self.inferences is sorted by shape!
