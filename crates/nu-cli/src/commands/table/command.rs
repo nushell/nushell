@@ -1,7 +1,6 @@
+use crate::commands::table::options::{ConfigExtensions, NuConfig as TableConfiguration};
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
-use nu_data::config::table::HasTableProperties;
-use nu_data::config::NuConfig as TableConfiguration;
 use nu_data::value::{format_leaf, style_leaf};
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
@@ -11,10 +10,10 @@ use std::time::Instant;
 const STREAM_PAGE_SIZE: usize = 1000;
 const STREAM_TIMEOUT_CHECK_INTERVAL: usize = 100;
 
-pub struct Table;
+pub struct Command;
 
 #[async_trait]
-impl WholeStreamCommand for Table {
+impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "table"
     }

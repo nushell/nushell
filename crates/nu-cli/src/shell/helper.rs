@@ -12,16 +12,16 @@ use crate::shell::palette::{DefaultPalette, Palette};
 
 pub struct Helper {
     completer: NuCompleter,
-    hinter: rustyline::hint::HistoryHinter,
+    hinter: Option<rustyline::hint::HistoryHinter>,
     context: Context,
     pub colored_prompt: String,
 }
 
 impl Helper {
-    pub(crate) fn new(context: Context) -> Helper {
+    pub(crate) fn new(context: Context, hinter: Option<rustyline::hint::HistoryHinter>) -> Helper {
         Helper {
             completer: NuCompleter {},
-            hinter: rustyline::hint::HistoryHinter {},
+            hinter,
             context,
             colored_prompt: String::new(),
         }
@@ -54,7 +54,7 @@ impl rustyline::completion::Completer for Helper {
 
 impl rustyline::hint::Hinter for Helper {
     fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
-        self.hinter.hint(line, pos, &ctx)
+        self.hinter.as_ref().and_then(|h| h.hint(line, pos, &ctx))
     }
 }
 

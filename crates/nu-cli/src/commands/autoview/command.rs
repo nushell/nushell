@@ -1,9 +1,6 @@
-use crate::commands::UnevaluatedCallInfo;
-use crate::commands::WholeStreamCommand;
+use crate::commands::autoview::options::{ConfigExtensions, NuConfig as AutoViewConfiguration};
+use crate::commands::{UnevaluatedCallInfo, WholeStreamCommand};
 use crate::prelude::*;
-use nu_data::config::table::AutoPivotMode;
-use nu_data::config::table::HasTableProperties;
-use nu_data::config::NuConfig as Configuration;
 use nu_data::value::format_leaf;
 use nu_errors::ShellError;
 use nu_protocol::hir::{self, Expression, ExternalRedirection, Literal, SpannedExpression};
@@ -11,10 +8,10 @@ use nu_protocol::{Primitive, Scope, Signature, UntaggedValue, Value};
 use parking_lot::Mutex;
 use std::sync::atomic::AtomicBool;
 
-pub struct Autoview;
+pub struct Command;
 
 #[async_trait]
-impl WholeStreamCommand for Autoview {
+impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "autoview"
     }
@@ -85,7 +82,7 @@ impl RunnableContextWithoutInput {
 }
 
 pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
-    let configuration = Configuration::new();
+    let configuration = AutoViewConfiguration::new();
 
     let binary = context.get_command("binaryview");
     let text = context.get_command("textview");
@@ -242,8 +239,8 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                     Value {
                         value: UntaggedValue::Row(row),
                         ..
-                    } if pivot_mode == AutoPivotMode::Always
-                        || (pivot_mode == AutoPivotMode::Auto
+                    } if pivot_mode.is_always()
+                        || (pivot_mode.is_auto()
                             && (row
                                 .entries
                                 .iter()
@@ -326,12 +323,12 @@ fn create_default_command_args(context: &RunnableContextWithoutInput) -> RawComm
 
 #[cfg(test)]
 mod tests {
-    use super::Autoview;
+    use super::Command;
 
     #[test]
     fn examples_work_as_expected() {
         use crate::examples::test as test_examples;
 
-        test_examples(Autoview {})
+        test_examples(Command {})
     }
 }

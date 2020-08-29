@@ -2,11 +2,13 @@ use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
-use futures::stream::once;
 use nu_errors::ShellError;
-use nu_protocol::{ColumnPath, ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{
+    ColumnPath, Primitive, ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue, Value,
+};
 use nu_value_ext::ValueExt;
 
+use futures::stream::once;
 pub struct Insert;
 
 #[derive(Deserialize)]
@@ -49,14 +51,14 @@ async fn process_row(
     mut context: Arc<Context>,
     input: Value,
     mut value: Arc<Value>,
-    column: Arc<ColumnPath>,
+    field: Arc<ColumnPath>,
 ) -> Result<OutputStream, ShellError> {
     let value = Arc::make_mut(&mut value);
 
     Ok(match value {
         Value {
             value: UntaggedValue::Block(block),
-            ..
+            tag: block_tag,
         } => {
             let for_block = input.clone();
             let input_stream = once(async { Ok(for_block) }).to_input_stream();
@@ -98,35 +100,32 @@ async fn process_row(
                         Value {
                             value: UntaggedValue::Row(_),
                             ..
-                        } => match obj.insert_data_at_column_path(&column, result) {
+                        } => match obj.insert_data_at_column_path(&field, result) {
                             Ok(v) => OutputStream::one(ReturnSuccess::value(v)),
                             Err(e) => OutputStream::one(Err(e)),
                         },
-                        Value { tag, .. } => OutputStream::one(Err(ShellError::labeled_error(
+                        _ => OutputStream::one(Err(ShellError::labeled_error(
                             "Unrecognized type in stream",
                             "original value",
-                            tag,
+                            block_tag.clone(),
                         ))),
                     }
                 }
                 Err(e) => OutputStream::one(Err(e)),
             }
         }
-        _ => match input {
-            obj
-            @
+        value => match input {
             Value {
-                value: UntaggedValue::Row(_),
+                value: UntaggedValue::Primitive(Primitive::Nothing),
                 ..
-            } => match obj.insert_data_at_column_path(&column, value.clone()) {
+            } => match scope.it.insert_data_at_column_path(&field, value.clone()) {
                 Ok(v) => OutputStream::one(ReturnSuccess::value(v)),
                 Err(e) => OutputStream::one(Err(e)),
             },
-            Value { tag, .. } => OutputStream::one(Err(ShellError::labeled_error(
-                "Unrecognized type in stream",
-                "original value",
-                tag,
-            ))),
+            _ => match input.insert_data_at_column_path(&field, value.clone()) {
+                Ok(v) => OutputStream::one(ReturnSuccess::value(v)),
+                Err(e) => OutputStream::one(Err(e)),
+            },
         },
     })
 }
