@@ -1,5 +1,3 @@
-use indexmap::IndexMap;
-
 use crate::completion::{self, Suggestion};
 use crate::context;
 
@@ -32,21 +30,13 @@ impl NuCompleter {
             .map(|block| crate::completion::engine::completion_location(line, &block.block, pos))
             .unwrap_or_default();
 
-        let config = config_or_empty(Tag::unknown());
-        let matcher_config_optional: Option<String> =
-            config
-                .get("completion.matcher")
-                .and_then(|value| match value.as_string() {
-                    Ok(result) => Some(result),
-                    Err(_) => Some(String::from("")),
-                });
+        let matcher_config = &nu_data::config::config(Tag::unknown())
+            .ok()
+            .and_then(|cfg| cfg.get("completion.matcher").cloned())
+            .and_then(|v| v.as_string().ok())
+            .unwrap_or_else(|| "".to_string());
 
-        let matcher_config: String = match matcher_config_optional {
-            Some(value) => value,
-            None => String::from(""),
-        };
-
-        let matcher_config: &str = matcher_config.as_str();
+        let matcher_config = matcher_config.as_str();
 
         let completion_matcher: Box<dyn Matcher> = match matcher_config {
             "case-insensitive" => Box::new(matchers::case_insensitive::Matcher),
@@ -87,13 +77,6 @@ impl NuCompleter {
 
             (pos, suggestions)
         }
-    }
-}
-
-pub fn config_or_empty(tag: impl Into<Tag>) -> IndexMap<String, nu_protocol::Value> {
-    match nu_data::config::config(tag) {
-        Ok(dictionary) => dictionary,
-        Err(_) => indexmap::IndexMap::new(),
     }
 }
 
