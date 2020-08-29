@@ -86,6 +86,7 @@ pub fn string_to_lookup_value(str_prim: &str) -> String {
         "header_align" => "header_align".to_string(),
         "header_color" => "header_color".to_string(),
         "header_bold" => "header_bold".to_string(),
+        "header_style" => "header_style".to_string(),
         _ => "Primitive::Nothing".to_string(),
     }
 }
@@ -105,7 +106,7 @@ fn update_hashmap(key: &String, val: &Value, hm: &mut HashMap<String, ansi_term:
 pub fn get_color_config() -> HashMap<String, ansi_term::Style> {
     // create the hashmap
     let mut hm: HashMap<String, ansi_term::Style> = HashMap::new();
-    // set some default
+    // set some defaults
     hm.insert("primitive_int".to_string(), ansi_term::Color::White.normal());
     hm.insert("primitive_decimal".to_string(), ansi_term::Color::White.normal());
     hm.insert("primitive_filesize".to_string(), ansi_term::Color::White.normal());
@@ -123,7 +124,9 @@ pub fn get_color_config() -> HashMap<String, ansi_term::Style> {
     hm.insert("header_align".to_string(), ansi_term::Color::White.normal());
     hm.insert("header_color".to_string(), ansi_term::Color::White.normal());
     hm.insert("header_bold".to_string(), ansi_term::Color::White.normal());
+    hm.insert("header_style".to_string(), ansi_term::Style::default());
 
+    // populate hashmap from config values
     if let Ok(config) = crate::config::config(Tag::unknown()) {
         if let Some(primitive_color_vars) = config.get("color_config") {
             for (key, value) in primitive_color_vars.row_entries() {
@@ -177,6 +180,9 @@ pub fn get_color_config() -> HashMap<String, ansi_term::Style> {
                         update_hashmap(&key, &value, &mut hm);
                     }
                     "header_bold" => {
+                        update_hashmap(&key, &value, &mut hm);
+                    }
+                    "header_style" => {
                         update_hashmap(&key, &value, &mut hm);
                     }
                     _ => (),
@@ -481,6 +487,13 @@ pub fn style_primitive(
         }
         "header_bold" => {
             let style = color_hm.get("header_bold");
+            match style {
+                Some(s) => TextStyle::with_style(Alignment::Left, *s),
+                None => TextStyle::basic_right(),
+            }
+        }
+        "header_style" => {
+            let style = color_hm.get("header_style");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
                 None => TextStyle::basic_right(),

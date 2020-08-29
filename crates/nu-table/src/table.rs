@@ -527,12 +527,6 @@ impl WrappedTable {
                     match column.1.style.alignment {
                         Alignment::Left => {
                             if let Some(color) = column.1.style.color_style {
-                                // let color = if column.1.style.is_bold() {
-                                //     color.bold()
-                                // } else {
-                                //     Style::default()
-                                // };
-
                                 // println!("L color=[{:?}] line=[{}]", &color, &line.line);
                                 output.push_str(&color.paint(&line.line).to_string());
                             } else {
@@ -547,12 +541,6 @@ impl WrappedTable {
                                 output.push(' ');
                             }
                             if let Some(color) = column.1.style.color_style {
-                                // let color = if column.1.style.is_bold() {
-                                //     color.bold()
-                                // } else {
-                                //     Style::default()
-                                // };
-
                                 // println!("C color=[{:?}] line=[{}]", &color, &line.line);
                                 output.push_str(&color.paint(&line.line).to_string());
                             } else {
@@ -567,12 +555,6 @@ impl WrappedTable {
                                 output.push(' ');
                             }
                             if let Some(color) = column.1.style.color_style {
-                                // let color = if column.1.style.is_bold() {
-                                //     color.bold()
-                                // } else {
-                                //     Style::default()
-                                // };
-
                                 // println!("R color=[{:?}] line=[{}]", &color, &line.line);
                                 output.push_str(&color.paint(&line.line).to_string());
                             } else {

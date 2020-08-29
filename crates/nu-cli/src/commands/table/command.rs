@@ -1,7 +1,7 @@
 use crate::commands::table::options::{ConfigExtensions, NuConfig as TableConfiguration};
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
-use crate::primitive::get_color_config;
+use crate::primitive::{get_color_config, style_primitive};
 use nu_data::value::{format_leaf, style_leaf};
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
@@ -46,16 +46,14 @@ pub fn from_list(
     configuration: &TableConfiguration,
     starting_idx: usize,
 ) -> nu_table::Table {
-    let header_style = TextStyle::new()
-        .alignment(configuration.header_alignment())
-        .fg(ansi_term::Color::Green);
-
+    let header_style = configuration.header_style();
+    println!("Header_Style=[{:?}]", &header_style);
     let mut headers: Vec<StyledString> = nu_protocol::merge_descriptors(values)
         .into_iter()
         .map(|x| StyledString::new(x, header_style.clone()))
         .collect();
     let entries = values_to_entries(values, &mut headers, configuration, starting_idx);
-
+    println!("Headers=[{:?}]", &headers);
     println!("Entries=[{:?}", &entries);
     nu_table::Table {
         headers,
@@ -72,7 +70,10 @@ fn values_to_entries(
 ) -> Vec<Vec<StyledString>> {
     let disable_indexes = configuration.disabled_indexes();
     let color_hm = get_color_config();
+    style_primitive(&"header_style".to_string(), &color_hm);
+
     let mut entries = vec![];
+    println!("HashMap = [{:?}]", &color_hm);
 
     if headers.is_empty() {
         headers.push(StyledString::new("".to_string(), TextStyle::basic()));
