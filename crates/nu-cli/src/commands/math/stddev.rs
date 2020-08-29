@@ -83,30 +83,32 @@ impl WholeStreamCommand for SubCommand {
                 entries: column_totals,
             })
             .into_untagged_value())
-        };
+        }?;
 
-        match res {
-            Ok(v) => {
-                if v.value.is_table() {
-                    Ok(OutputStream::from(
-                        v.table_entries()
-                            .map(|v| ReturnSuccess::value(v.clone()))
-                            .collect::<Vec<_>>(),
-                    ))
-                } else {
-                    Ok(OutputStream::one(ReturnSuccess::value(v)))
-                }
-            }
-            Err(e) => Err(e),
+        if res.value.is_table() {
+            Ok(OutputStream::from(
+                res.table_entries()
+                    .map(|v| ReturnSuccess::value(v.clone()))
+                    .collect::<Vec<_>>(),
+            ))
+        } else {
+            Ok(OutputStream::one(ReturnSuccess::value(res)))
         }
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Get the stddev of a list of numbers",
-            example: "echo [1 2 3 4 5] | math stddev",
-            result: Some(vec![UntaggedValue::decimal(BigDecimal::from_str("1.414213562373095048801688724209698078569671875376948073176679737990732478462107038850387534327641573").expect("Could not convert to decimal from string")).into()]),
-        }]
+        vec![
+            Example {
+                description: "Get the stddev of a list of numbers",
+                example: "echo [1 2 3 4 5] | math stddev",
+                result: Some(vec![UntaggedValue::decimal(BigDecimal::from_str("1.414213562373095048801688724209698078569671875376948073176679737990732478462107038850387534327641573").expect("Could not convert to decimal from string")).into()]),
+            },
+            Example {
+                description: "Get the sample stddev of a list of numbers",
+                example: "echo [1 2 3 4 5] | math stddev -s",
+                result: Some(vec![UntaggedValue::decimal(BigDecimal::from_str("1.581138830084189665999446772216359266859777569662608413428752426396297219319619110672124054189650148").expect("Could not convert to decimal from string")).into()]),
+            },
+        ]
     }
 }
 
