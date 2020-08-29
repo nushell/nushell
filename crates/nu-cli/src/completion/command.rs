@@ -1,5 +1,5 @@
-use std::fs::Metadata;
 use std::iter::FromIterator;
+use std::path::Path;
 
 use indexmap::set::IndexSet;
 
@@ -36,16 +36,17 @@ impl Completer {
             let path_completer = crate::completion::path::Completer::new();
             let path_results = path_completer.complete(ctx, partial);
             suggestions.extend(path_results.into_iter().filter(|suggestion| {
-                std::fs::metadata(&suggestion.replacement)
-                    .ok()
-                    .map(|metadata| metadata.is_dir() || is_executable(metadata))
-                    .unwrap_or(false)
+                let path = Path::new(&suggestion.replacement);
+                path.is_dir() || is_executable(&path)
             }));
         }
 
         suggestions
     }
 }
+
+// TODO create a struct for "is executable" and store this information in it so we don't recompute
+//      on every dir entry
 
 #[cfg(windows)]
 fn pathext() -> Option<Vec<String>> {
@@ -59,18 +60,22 @@ fn pathext() -> Option<Vec<String>> {
 }
 
 #[cfg(windows)]
-fn is_executable(metadata: Metadata) -> bool {
-    let file_type = metadata.file_type();
+fn is_executable(path: &Path) -> bool {
+    if let Ok(metadata) = path.metadata() {
+        let file_type = metadata.file_type();
 
-    // If the entry isn't a file, it cannot be executable
-    if !(file_type.is_file() || file_type.is_symlink()) {
-        return false;
-    }
+        // If the entry isn't a file, it cannot be executable
+        if !(file_type.is_file() || file_type.is_symlink()) {
+            return false;
+        }
 
-    if let Some(extension) = file.path().extension() {
-        if let Some(exts) = pathext() {
-            exts.iter()
-                .any(|ext| extension.to_string_lossy().eq_ignore_ascii_case(ext))
+        if let Some(extension) = path.extension() {
+            if let Some(exts) = pathext() {
+                exts.iter()
+                    .any(|ext| extension.to_string_lossy().eq_ignore_ascii_case(ext))
+            } else {
+                false
+            }
         } else {
             false
         }
@@ -80,20 +85,24 @@ fn is_executable(metadata: Metadata) -> bool {
 }
 
 #[cfg(target_arch = "wasm32")]
-fn is_executable(_metadata: Metadata) -> bool {
+fn is_executable(_path: &Path) -> bool {
     false
 }
 
 #[cfg(unix)]
-fn is_executable(metadata: Metadata) -> bool {
+fn is_executable(path: &Path) -> bool {
     use std::os::unix::fs::PermissionsExt;
 
-    let filetype = metadata.file_type();
-    let permissions = metadata.permissions();
+    if let Ok(metadata) = path.metadata() {
+        let filetype = metadata.file_type();
+        let permissions = metadata.permissions();
 
-    // The file is executable if it is a directory or a symlink and the permissions are set for
-    // owner, group, or other
-    (filetype.is_file() || filetype.is_symlink()) && (permissions.mode() & 0o111 != 0)
+        // The file is executable if it is a directory or a symlink and the permissions are set for
+        // owner, group, or other
+        (filetype.is_file() || filetype.is_symlink()) && (permissions.mode() & 0o111 != 0)
+    } else {
+        false
+    }
 }
 
 // TODO cache these, but watch for changes to PATH
@@ -105,11 +114,9 @@ fn find_path_executables() -> Option<IndexSet<String>> {
     for path in paths {
         if let Ok(mut contents) = std::fs::read_dir(path) {
             while let Some(Ok(item)) = contents.next() {
-                if let Ok(metadata) = item.metadata() {
-                    if is_executable(metadata) {
-                        if let Ok(name) = item.file_name().into_string() {
-                            executables.insert(name);
-                        }
+                if is_executable(&item.path()) {
+                    if let Ok(name) = item.file_name().into_string() {
+                        executables.insert(name);
                     }
                 }
             }
