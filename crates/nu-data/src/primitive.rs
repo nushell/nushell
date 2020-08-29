@@ -82,11 +82,12 @@ pub fn string_to_lookup_value(str_prim: &str) -> String {
         "primitive_range" => "Primitive::Range".to_string(),
         "primitive_path" => "Primitive::Path".to_string(),
         "primitive_binary" => "Primitive::Binary".to_string(),
-        "separator" => "separator".to_string(),
+        "separator_color" => "separator_color".to_string(),
         "header_align" => "header_align".to_string(),
         "header_color" => "header_color".to_string(),
         "header_bold" => "header_bold".to_string(),
         "header_style" => "header_style".to_string(),
+        "index_color" => "index_color".to_string(),
         _ => "Primitive::Nothing".to_string(),
     }
 }
@@ -120,11 +121,12 @@ pub fn get_color_config() -> HashMap<String, ansi_term::Style> {
     hm.insert("primitive_range".to_string(), ansi_term::Color::White.normal());
     hm.insert("primitive_path".to_string(), ansi_term::Color::White.normal());
     hm.insert("primitive_binary".to_string(), ansi_term::Color::White.normal());
-    hm.insert("separator".to_string(), ansi_term::Color::White.normal());
+    hm.insert("separator_color".to_string(), ansi_term::Color::White.normal());
     hm.insert("header_align".to_string(), ansi_term::Color::White.normal());
     hm.insert("header_color".to_string(), ansi_term::Color::White.normal());
     hm.insert("header_bold".to_string(), ansi_term::Color::White.normal());
     hm.insert("header_style".to_string(), ansi_term::Style::default());
+    hm.insert("index_color".to_string(), ansi_term::Color::Green.normal());
 
     // populate hashmap from config values
     if let Ok(config) = crate::config::config(Tag::unknown()) {
@@ -170,7 +172,7 @@ pub fn get_color_config() -> HashMap<String, ansi_term::Style> {
                     "primitive_binary" => {
                         update_hashmap(&key, &value, &mut hm);
                     }
-                    "separator" => {
+                    "separator_color" => {
                         update_hashmap(&key, &value, &mut hm);
                     }
                     "header_align" => {
@@ -185,6 +187,9 @@ pub fn get_color_config() -> HashMap<String, ansi_term::Style> {
                     "header_style" => {
                         update_hashmap(&key, &value, &mut hm);
                     }
+                    "index_color" => {
+                        update_hashmap(&key, &value, &mut hm);
+                    }
                     _ => (),
                 }
             }
@@ -194,158 +199,8 @@ pub fn get_color_config() -> HashMap<String, ansi_term::Style> {
     hm
 }
 
-// pub fn style_primitive(
-//     primitive: &Primitive,
-//     color_hm: &HashMap<String, ansi_term::Style>,
-// ) -> TextStyle {
-//     match primitive {
-//         Primitive::Int(_) => {
-//             let style = color_hm.get("Primitive::Int");
-//             match style {
-//                 Some(s) => TextStyle::with_style(Alignment::Right, *s),
-//                 None => TextStyle::basic_right(),
-//             }
-//         }
-//         Primitive::Decimal(_) => {
-//             let style = color_hm.get("Primitive::Decimal");
-//             match style {
-//                 Some(s) => TextStyle::with_style(Alignment::Right, *s),
-//                 None => TextStyle::basic_right(),
-//             }
-//         }
-//         Primitive::Filesize(_) => {
-//             let style = color_hm.get("Primitive::Filesize");
-//             match style {
-//                 Some(s) => TextStyle::with_style(Alignment::Right, *s),
-//                 None => TextStyle::basic_right(),
-//             }
-//         }
-//         Primitive::String(_) => {
-//             let style = color_hm.get("Primitive::String");
-//             match style {
-//                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-//                 None => TextStyle::basic_right(),
-//             }
-//         }
-//         Primitive::Line(_) => {
-//             let style = color_hm.get("Primitive::Line");
-//             match style {
-//                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-//                 None => TextStyle::basic_right(),
-//             }
-//         }
-//         Primitive::ColumnPath(_) => {
-//             let style = color_hm.get("Primitive::ColumnPath");
-//             match style {
-//                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-//                 None => TextStyle::basic_right(),
-//             }
-//         }
-//         Primitive::Pattern(_) => {
-//             let style = color_hm.get("Primitive::Pattern");
-//             match style {
-//                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-//                 None => TextStyle::basic_right(),
-//             }
-//         }
-//         Primitive::Boolean(_) => {
-//             let style = color_hm.get("Primitive::Boolean");
-//             match style {
-//                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-//                 None => TextStyle::basic_right(),
-//             }
-//         }
-//         Primitive::Date(_) => {
-//             let style = color_hm.get("Primitive::Date");
-//             match style {
-//                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-//                 None => TextStyle::basic_right(),
-//             }
-//         }
-//         Primitive::Duration(_) => {
-//             let style = color_hm.get("Primitive::Duration");
-//             match style {
-//                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-//                 None => TextStyle::basic_right(),
-//             }
-//         }
-//         Primitive::Range(_) => {
-//             let style = color_hm.get("Primitive::Range");
-//             match style {
-//                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-//                 None => TextStyle::basic_right(),
-//             }
-//         }
-//         Primitive::Path(_) => {
-//             let style = color_hm.get("Primitive::Path");
-//             match style {
-//                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-//                 None => TextStyle::basic_right(),
-//             }
-//         }
-//         Primitive::Binary(_) => {
-//             let style = color_hm.get("Primitive::Binary");
-//             match style {
-//                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-//                 None => TextStyle::basic_right(),
-//             }
-//         }
-//         Primitive::BeginningOfStream => {
-//             let style = color_hm.get("Primitive::BeginningOfStream");
-//             match style {
-//                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-//                 None => TextStyle::basic_right(),
-//             }
-//         }
-//         Primitive::EndOfStream => {
-//             let style = color_hm.get("Primitive::EndOfStream");
-//             match style {
-//                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-//                 None => TextStyle::basic_right(),
-//             }
-//         }
-//         Primitive::Nothing => {
-//             let style = color_hm.get("Primitive::Nothing");
-//             match style {
-//                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-//                 None => TextStyle::basic_right(),
-//             }
-//         }
-//         // Primitive::Nothing => {
-//         //     let style = color_hm.get("Primitive::Nothing");
-//         //     match style {
-//         //         Some(s) => TextStyle::with_style(Alignment::Left, *s),
-//         //         None => TextStyle::basic_right(),
-//         //     }
-//         // }
-//         // Primitive::Nothing => {
-//         //     let style = color_hm.get("Primitive::Nothing");
-//         //     match style {
-//         //         Some(s) => TextStyle::with_style(Alignment::Left, *s),
-//         //         None => TextStyle::basic_right(),
-//         //     }
-//         // }
-//         // Primitive::Nothing => {
-//         //     let style = color_hm.get("Primitive::Nothing");
-//         //     match style {
-//         //         Some(s) => TextStyle::with_style(Alignment::Left, *s),
-//         //         None => TextStyle::basic_right(),
-//         //     }
-//         // }
-//         // Primitive::Nothing => {
-//         //     let style = color_hm.get("Primitive::Nothing");
-//         //     match style {
-//         //         Some(s) => TextStyle::with_style(Alignment::Left, *s),
-//         //         None => TextStyle::basic_right(),
-//         //     }
-//         // }
-//         // _ => {
-//         //     println!("Prim=[{:?}]", &primitive);
-//         //     TextStyle::basic()
-//         // }
-//     }
-// }
-
+// This function will assign a text style to a primitive, or really any string that's
+// in the hashmap. The hashmap actually contains the style to be applied.
 pub fn style_primitive(
     primitive: &String,
     color_hm: &HashMap<String, ansi_term::Style>,
@@ -464,7 +319,7 @@ pub fn style_primitive(
                 None => TextStyle::basic_right(),
             }
         }
-        "separator" => {
+        "separator_color" => {
             let style = color_hm.get("separator");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
@@ -494,6 +349,13 @@ pub fn style_primitive(
         }
         "header_style" => {
             let style = color_hm.get("header_style");
+            match style {
+                Some(s) => TextStyle::with_style(Alignment::Left, *s),
+                None => TextStyle::basic_right(),
+            }
+        }
+        "index_color" => {
+            let style = color_hm.get("index_color");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
                 None => TextStyle::basic_right(),

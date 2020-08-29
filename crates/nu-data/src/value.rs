@@ -251,8 +251,9 @@ pub fn style_leaf<'a>(
     color_hash_map: &HashMap<String, ansi_term::Style>,
 ) -> TextStyle {
     match value.into() {
-        // UntaggedValue::Primitive(p) => style_primitive(p, &color_hash_map),
         UntaggedValue::Primitive(p) => {
+            // This is just to return the name of the type so that style_primitive
+            // can work on a string versus a type like String("some_text")
             let str: &str = &p.to_string();
             let str_len = str.len();
             let paren_index = str.find('(').unwrap_or(str_len-1);

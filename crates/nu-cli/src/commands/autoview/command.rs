@@ -8,6 +8,7 @@ use nu_protocol::{Primitive, Scope, Signature, UntaggedValue, Value};
 use nu_table::TextStyle;
 use parking_lot::Mutex;
 use std::sync::atomic::AtomicBool;
+use crate::primitive::get_color_config;
 
 pub struct Command;
 
@@ -93,6 +94,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
 
     let (mut input_stream, context) = RunnableContextWithoutInput::convert(context);
     let term_width = context.host.lock().width();
+    let color_hm = get_color_config();
 
     if let Some(x) = input_stream.next().await {
         match input_stream.next().await {
@@ -272,7 +274,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                         let table =
                             nu_table::Table::new(vec![], entries, nu_table::Theme::compact());
 
-                        nu_table::draw_table(&table, term_width);
+                        nu_table::draw_table(&table, term_width, &color_hm);
                     }
 
                     Value {

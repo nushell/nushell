@@ -1,5 +1,6 @@
 use crate::wrap::{column_width, split_sublines, wrap, Alignment, Subline, WrappedCell};
 use ansi_term::Style;
+use std::collections::HashMap;
 
 enum SeparatorPosition {
     Top,
@@ -436,71 +437,82 @@ pub struct WrappedTable {
 }
 
 impl WrappedTable {
-    fn print_separator(&self, separator_position: SeparatorPosition) {
+    fn print_separator(&self, separator_position: SeparatorPosition, color_hm: &HashMap<String, ansi_term::Style>) {
         let column_count = self.column_widths.len();
         let mut output = String::new();
+        let sep_color = color_hm.get("separator_color").unwrap_or(&ansi_term::Style::default()).to_owned();
+        // let sep_color = Style::default().fg(ansi_term::Color::Yellow).on(ansi_term::Color::Purple);
+
+        // println!("SepColor = [{:?}]", &sep_color);
+        // println!("{}",&sep_color.paint(self.theme.top_left.to_string()));
+
+        // let mut test = String::new();
+        // test.push_str(&sep_color.paint(self.theme.top_left.to_string()));
+        // test.push_str(&sep_color.paint(self.theme.top_horizontal.to_string()));
+        // test.push_str(&sep_color.paint(self.theme.top_right.to_string()));
+        // println!("{}", test);
 
         match separator_position {
             SeparatorPosition::Top => {
                 for column in self.column_widths.iter().enumerate() {
                     if column.0 == 0 && self.theme.print_left_border {
-                        output.push(self.theme.top_left);
+                        output.push_str(&sep_color.paint(self.theme.top_left.to_string()));
                     }
 
                     for _ in 0..*column.1 {
-                        output.push(self.theme.top_horizontal);
+                        output.push_str(&sep_color.paint(self.theme.top_horizontal.to_string()));
                     }
 
-                    output.push(self.theme.top_horizontal);
-                    output.push(self.theme.top_horizontal);
+                    output.push_str(&sep_color.paint(self.theme.top_horizontal.to_string()));
+                    output.push_str(&sep_color.paint(self.theme.top_horizontal.to_string()));
                     if column.0 == column_count - 1 {
                         if self.theme.print_right_border {
-                            output.push(self.theme.top_right);
+                            output.push_str(&sep_color.paint(self.theme.top_right.to_string()));
                         }
                     } else {
-                        output.push(self.theme.top_center);
+                        output.push_str(&sep_color.paint(self.theme.top_center.to_string()));
                     }
                 }
             }
             SeparatorPosition::Middle => {
                 for column in self.column_widths.iter().enumerate() {
                     if column.0 == 0 && self.theme.print_left_border {
-                        output.push(self.theme.middle_left);
+                        output.push_str(&sep_color.paint(self.theme.middle_left.to_string()));
                     }
 
                     for _ in 0..*column.1 {
-                        output.push(self.theme.middle_horizontal);
+                        output.push_str(&sep_color.paint(self.theme.middle_horizontal.to_string()));
                     }
 
-                    output.push(self.theme.middle_horizontal);
-                    output.push(self.theme.middle_horizontal);
+                    output.push_str(&sep_color.paint(self.theme.middle_horizontal.to_string()));
+                    output.push_str(&sep_color.paint(self.theme.middle_horizontal.to_string()));
 
                     if column.0 == column_count - 1 {
                         if self.theme.print_right_border {
-                            output.push(self.theme.middle_right);
+                            output.push_str(&sep_color.paint(self.theme.middle_right.to_string()));
                         }
                     } else {
-                        output.push(self.theme.center);
+                        output.push_str(&sep_color.paint(self.theme.center.to_string()));
                     }
                 }
             }
             SeparatorPosition::Bottom => {
                 for column in self.column_widths.iter().enumerate() {
                     if column.0 == 0 && self.theme.print_left_border {
-                        output.push(self.theme.bottom_left);
+                        output.push_str(&sep_color.paint(self.theme.bottom_left.to_string()));
                     }
                     for _ in 0..*column.1 {
-                        output.push(self.theme.bottom_horizontal);
+                        output.push_str(&sep_color.paint(self.theme.bottom_horizontal.to_string()));
                     }
-                    output.push(self.theme.bottom_horizontal);
-                    output.push(self.theme.bottom_horizontal);
+                    output.push_str(&sep_color.paint(self.theme.bottom_horizontal.to_string()));
+                    output.push_str(&sep_color.paint(self.theme.bottom_horizontal.to_string()));
 
                     if column.0 == column_count - 1 {
                         if self.theme.print_right_border {
-                            output.push(self.theme.bottom_right);
+                            output.push_str(&sep_color.paint(self.theme.bottom_right.to_string()));
                         }
                     } else {
-                        output.push(self.theme.bottom_center);
+                        output.push_str(&sep_color.paint(self.theme.bottom_center.to_string()));
                     }
                 }
             }
@@ -509,15 +521,17 @@ impl WrappedTable {
         println!("{}", output);
     }
 
-    fn print_cell_contents(&self, cells: &[WrappedCell]) {
+    fn print_cell_contents(&self, cells: &[WrappedCell], color_hm: &HashMap<String, ansi_term::Style>) {
+        let sep_color = color_hm.get("separator_color").unwrap_or(&ansi_term::Style::default()).to_owned();
+
         for current_line in 0.. {
             let mut lines_printed = 0;
 
-            let mut output = if self.theme.print_left_border {
-                self.theme.left_vertical.to_string()
-            } else {
-                String::new()
-            };
+            let mut output = String::new();
+            if self.theme.print_left_border {
+                output.push_str(&sep_color.paint(self.theme.left_vertical.to_string()));
+            }
+
             for column in cells.iter().enumerate() {
                 if let Some(line) = (column.1).lines.get(current_line) {
                     let remainder = self.column_widths[column.0] - line.width;
@@ -570,9 +584,9 @@ impl WrappedTable {
                     }
                 }
                 if column.0 < cells.len() - 1 {
-                    output.push(self.theme.center_vertical);
+                    output.push_str(&sep_color.paint(self.theme.center_vertical.to_string()));
                 } else if self.theme.print_right_border {
-                    output.push(self.theme.right_vertical);
+                    output.push_str(&sep_color.paint(self.theme.right_vertical.to_string()));
                 }
             }
             if lines_printed == 0 {
@@ -582,20 +596,21 @@ impl WrappedTable {
             }
         }
     }
-    fn new_print_table(&self) {
+
+    fn new_print_table(&self, color_hm: &HashMap<String, ansi_term::Style>) {
         if self.data.is_empty() {
             return;
         }
 
         if self.theme.print_top_border {
-            self.print_separator(SeparatorPosition::Top);
+            self.print_separator(SeparatorPosition::Top, &color_hm);
         }
 
         let skip_headers = (self.headers.len() == 2 && self.headers[1].max_width == 0)
             || (self.headers.len() == 1 && self.headers[0].max_width == 0);
 
         if !self.headers.is_empty() && !skip_headers {
-            self.print_cell_contents(&self.headers);
+            self.print_cell_contents(&self.headers, &color_hm);
         }
 
         let mut first_row = true;
@@ -603,21 +618,21 @@ impl WrappedTable {
         for row in &self.data {
             if !first_row {
                 if self.theme.separate_rows {
-                    self.print_separator(SeparatorPosition::Middle);
+                    self.print_separator(SeparatorPosition::Middle, &color_hm);
                 }
             } else {
                 first_row = false;
 
                 if self.theme.separate_header && !self.headers.is_empty() && !skip_headers {
-                    self.print_separator(SeparatorPosition::Middle);
+                    self.print_separator(SeparatorPosition::Middle, &color_hm);
                 }
             }
 
-            self.print_cell_contents(row);
+            self.print_cell_contents(row, &color_hm);
         }
 
         if self.theme.print_bottom_border {
-            self.print_separator(SeparatorPosition::Bottom);
+            self.print_separator(SeparatorPosition::Bottom, &color_hm);
         }
     }
 }
@@ -630,8 +645,6 @@ fn process_table(table: &Table) -> ProcessedTable {
             out_row.push(ProcessedCell {
                 contents: split_sublines(&column.contents),
                 style: column.style.clone(),
-                // this turns index, name, type, size, modified all blue
-                // style: TextStyle::with_attributes(false, Alignment::Right, ansi_term::Color::Blue),
             });
         }
         processed_data.push(out_row);
@@ -678,7 +691,7 @@ fn get_max_column_widths(processed_table: &ProcessedTable) -> Vec<usize> {
     output
 }
 
-pub fn draw_table(table: &Table, termwidth: usize) {
+pub fn draw_table(table: &Table, termwidth: usize, color_hm: &HashMap<String, ansi_term::Style>) {
     // Remove the edges, if used
     let termwidth = if table.theme.print_left_border && table.theme.print_right_border {
         termwidth - 2
@@ -727,7 +740,7 @@ pub fn draw_table(table: &Table, termwidth: usize) {
 
     let wrapped_table = wrap_cells(processed_table, max_column_width);
 
-    wrapped_table.new_print_table();
+    wrapped_table.new_print_table(&color_hm);
 }
 
 fn wrap_cells(processed_table: ProcessedTable, max_column_width: usize) -> WrappedTable {

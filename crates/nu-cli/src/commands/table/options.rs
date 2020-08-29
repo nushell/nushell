@@ -165,8 +165,8 @@ impl ConfigExtensions for NuConfig {
         let head_bold_bool = header_bold_from_value(Some(&head_bold));
         let head_align = get_color_from_key_and_subkey(self, "color_config", "header_align");
         let head_alignment = header_alignment_from_value(Some(&head_align));
-        println!("Header Color = [{:?}]\nHead Color Style = [{:?}]\nBold = [{:?}]\nBold B = [{:?}]\nAlign = [{:?}]\nAlignment = [{:?}]",
-            &head_color, &head_color_style, &head_bold, &head_bold_bool, &head_align, &head_alignment);
+        // println!("Header Color = [{:?}]\nHead Color Style = [{:?}]\nBold = [{:?}]\nBold B = [{:?}]\nAlign = [{:?}]\nAlignment = [{:?}]",
+            // &head_color, &head_color_style, &head_bold, &head_bold_bool, &head_align, &head_alignment);
 
         TextStyle::new()
             .alignment(head_alignment)

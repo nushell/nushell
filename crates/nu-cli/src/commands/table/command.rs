@@ -1,12 +1,13 @@
 use crate::commands::table::options::{ConfigExtensions, NuConfig as TableConfiguration};
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
-use crate::primitive::{get_color_config, style_primitive};
+use crate::primitive::get_color_config;
 use nu_data::value::{format_leaf, style_leaf};
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_table::{draw_table, Alignment, StyledString, TextStyle};
 use std::time::Instant;
+use std::collections::HashMap;
 
 const STREAM_PAGE_SIZE: usize = 1000;
 const STREAM_TIMEOUT_CHECK_INTERVAL: usize = 100;
@@ -45,16 +46,17 @@ pub fn from_list(
     values: &[Value],
     configuration: &TableConfiguration,
     starting_idx: usize,
+    color_hm: &HashMap<String, ansi_term::Style>,
 ) -> nu_table::Table {
     let header_style = configuration.header_style();
-    println!("Header_Style=[{:?}]", &header_style);
+    // println!("Header_Style=[{:?}]", &header_style);
     let mut headers: Vec<StyledString> = nu_protocol::merge_descriptors(values)
         .into_iter()
         .map(|x| StyledString::new(x, header_style.clone()))
         .collect();
-    let entries = values_to_entries(values, &mut headers, configuration, starting_idx);
-    println!("Headers=[{:?}]", &headers);
-    println!("Entries=[{:?}", &entries);
+    let entries = values_to_entries(values, &mut headers, configuration, starting_idx, &color_hm);
+    // println!("Headers=[{:?}]", &headers);
+    // println!("Entries=[{:?}", &entries);
     nu_table::Table {
         headers,
         data: entries,
@@ -67,13 +69,10 @@ fn values_to_entries(
     headers: &mut Vec<StyledString>,
     configuration: &TableConfiguration,
     starting_idx: usize,
+    color_hm: &HashMap<String, ansi_term::Style>,
 ) -> Vec<Vec<StyledString>> {
     let disable_indexes = configuration.disabled_indexes();
-    let color_hm = get_color_config();
-    style_primitive(&"header_style".to_string(), &color_hm);
-
     let mut entries = vec![];
-    println!("HashMap = [{:?}]", &color_hm);
 
     if headers.is_empty() {
         headers.push(StyledString::new("".to_string(), TextStyle::basic()));
@@ -120,6 +119,7 @@ fn values_to_entries(
             .collect();
 
         // Indices are green, bold, right-aligned:
+        // unless we change them :)
         if !disable_indexes {
             row.insert(
                 0,
@@ -127,8 +127,7 @@ fn values_to_entries(
                     (starting_idx + idx).to_string(),
                     TextStyle::new()
                         .alignment(Alignment::Right)
-                        .fg(ansi_term::Color::Green)
-                        .bold(Some(true)),
+                        .style(color_hm.get("index_color").unwrap_or(&ansi_term::Style::default().bold().fg(ansi_term::Color::Green)).to_owned()),
                 ),
             );
         }
@@ -160,6 +159,15 @@ async fn table(
     let registry = registry.clone();
     let mut args = args.evaluate_once(&registry).await?;
     let mut finished = false;
+    // Ideally, get_color_config would get all the colors configured in the config.toml
+    // and create a style based on those settings. However, there are few places where
+    // this just won't work right now, like header styling, because a style needs to know
+    // more than just color, it needs fg & bg color, bold, dimmed, italic, underline,
+    // blink, reverse, hidden, strikethrough and most of those aren't available in the
+    // config.toml.... yet.
+    let color_hm = get_color_config();
+    // style_primitive(&"header_style".to_string(), &color_hm);
+    // println!("HashMap = [{:?}]", &color_hm);
 
     // let host = args.host.clone();
     let mut start_number = match args.get("start_number") {
@@ -233,9 +241,9 @@ async fn table(
         let input: Vec<Value> = new_input.into();
 
         if !input.is_empty() {
-            let t = from_list(&input, &configuration, start_number);
+            let t = from_list(&input, &configuration, start_number, &color_hm);
 
-            draw_table(&t, term_width);
+            draw_table(&t, term_width, &color_hm);
         }
 
         start_number += input.len();
