@@ -55,7 +55,7 @@ pub async fn format(
         if let Some(true) = raw {
             UntaggedValue::string(date_to_value_raw(local, dt_fmt)).into_untagged_value()
         } else {
-            date_to_value(local, tag, dt_fmt)
+            date_to_value(local, tag, dt_fmt)?
         }
     };
 

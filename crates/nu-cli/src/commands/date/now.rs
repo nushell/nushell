@@ -43,7 +43,7 @@ pub async fn now(
 
     let value = {
         let local: DateTime<Local> = Local::now();
-        date_to_value(local, tag, no_fmt)
+        date_to_value(local, tag, no_fmt)?
     };
 
     Ok(OutputStream::one(value))

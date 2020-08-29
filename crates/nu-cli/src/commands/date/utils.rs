@@ -1,9 +1,11 @@
+use core::fmt::{Display, Write};
+
 use crate::prelude::*;
 use chrono::DateTime;
+use nu_errors::ShellError;
 use nu_protocol::{Dictionary, Value};
 
 use chrono::{Datelike, TimeZone, Timelike};
-use core::fmt::Display;
 use indexmap::IndexMap;
 use nu_protocol::UntaggedValue;
 
@@ -15,7 +17,11 @@ where
     format!("{}", result)
 }
 
-pub fn date_to_value<T: TimeZone>(dt: DateTime<T>, tag: Tag, dt_format: String) -> Value
+pub fn date_to_value<T: TimeZone>(
+    dt: DateTime<T>,
+    tag: Tag,
+    dt_format: String,
+) -> Result<Value, ShellError>
 where
     T::Offset: Display,
 {
@@ -48,17 +54,29 @@ where
         );
 
         let tz = dt.offset();
+        let mut tz_formatted = String::new();
+
+        tz_formatted
+            .write_fmt(format_args!("{}", tz))
+            .map_err(|e| ShellError::untagged_runtime_error(format!("{}", e)))?;
+
         indexmap.insert(
             "timezone".to_string(),
-            UntaggedValue::string(format!("{}", tz)).into_value(&tag),
+            UntaggedValue::string(tz_formatted).into_value(&tag),
         );
     } else {
         let result = dt.format(&dt_format);
+        let mut result_formatted = String::new();
+
+        result_formatted
+            .write_fmt(format_args!("{}", result))
+            .map_err(|e| ShellError::untagged_runtime_error(format!("{}", e)))?;
+
         indexmap.insert(
             "formatted".to_string(),
-            UntaggedValue::string(format!("{}", result)).into_value(&tag),
+            UntaggedValue::string(result_formatted).into_value(&tag),
         );
     }
 
-    UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag)
+    Ok(UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag))
 }
