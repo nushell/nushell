@@ -65,7 +65,7 @@ impl NuCompleter {
 
                         LocationType::Argument(cmd, _arg_name) => {
                             let path_completer = crate::completion::path::Completer::new();
-                            let completed_paths = path_completer.complete(context, partial);
+                            let completed_paths = path_completer.complete(context, partial, &completion_matcher);
                             match cmd.as_deref().unwrap_or("") {
                                 "cd" => select_directory_suggestions(completed_paths),
                                 _ => completed_paths,
