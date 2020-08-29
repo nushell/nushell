@@ -1,5 +1,6 @@
 use crate::completion::{self, Suggestion};
 use crate::context;
+use std::fs::metadata;
 
 pub(crate) struct NuCompleter {}
 
@@ -44,10 +45,13 @@ impl NuCompleter {
                             flag_completer.complete(context, cmd, partial)
                         }
 
-                        LocationType::Argument(_cmd, _arg_name) => {
-                            // TODO use cmd and arg_name to narrow things down further
+                        LocationType::Argument(cmd, _arg_name) => {
                             let path_completer = crate::completion::path::Completer::new();
-                            path_completer.complete(context, partial)
+                            let completed_paths = path_completer.complete(context, partial);
+                            match cmd.as_deref().unwrap_or("") {
+                                "cd" => select_directory_suggestions(completed_paths),
+                                _ => completed_paths,
+                            }
                         }
 
                         LocationType::Variable => Vec::new(),
@@ -60,6 +64,17 @@ impl NuCompleter {
             (pos, suggestions)
         }
     }
+}
+
+fn select_directory_suggestions(completed_paths: Vec<Suggestion>) -> Vec<Suggestion> {
+    completed_paths
+        .into_iter()
+        .filter(|suggestion| {
+            metadata(&suggestion.replacement)
+                .map(|md| md.is_dir())
+                .unwrap_or(false)
+        })
+        .collect()
 }
 
 fn requote(item: Suggestion) -> Suggestion {
