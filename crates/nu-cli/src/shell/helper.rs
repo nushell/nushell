@@ -116,14 +116,10 @@ impl rustyline::validate::Validator for NuValidator {
 
         let lite_result = nu_parser::lite_parse(src, 0);
 
-        match lite_result {
-            Err(err) => match err.cause.reason() {
-                nu_errors::ParseErrorReason::Eof { .. } => {
-                    return Ok(rustyline::validate::ValidationResult::Incomplete)
-                }
-                _ => {}
-            },
-            _ => {}
+        if let Err(err) = lite_result {
+            if let nu_errors::ParseErrorReason::Eof { .. } = err.cause.reason() {
+                return Ok(rustyline::validate::ValidationResult::Incomplete);
+            }
         }
 
         Ok(rustyline::validate::ValidationResult::Valid(None))
