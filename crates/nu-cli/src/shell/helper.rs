@@ -15,6 +15,7 @@ pub struct Helper {
     hinter: Option<rustyline::hint::HistoryHinter>,
     context: Context,
     pub colored_prompt: String,
+    validator: NuValidator,
 }
 
 impl Helper {
@@ -24,6 +25,7 @@ impl Helper {
             hinter,
             context,
             colored_prompt: String::new(),
+            validator: NuValidator {},
         }
     }
 }
@@ -87,6 +89,40 @@ impl rustyline::highlight::Highlighter for Helper {
 
     fn highlight_char(&self, _line: &str, _pos: usize) -> bool {
         true
+    }
+}
+
+impl rustyline::validate::Validator for Helper {
+    fn validate(
+        &self,
+        ctx: &mut rustyline::validate::ValidationContext,
+    ) -> rustyline::Result<rustyline::validate::ValidationResult> {
+        self.validator.validate(ctx)
+    }
+
+    fn validate_while_typing(&self) -> bool {
+        self.validator.validate_while_typing()
+    }
+}
+
+struct NuValidator {}
+
+impl rustyline::validate::Validator for NuValidator {
+    fn validate(
+        &self,
+        ctx: &mut rustyline::validate::ValidationContext,
+    ) -> rustyline::Result<rustyline::validate::ValidationResult> {
+        let src = ctx.input();
+
+        let lite_result = nu_parser::lite_parse(src, 0);
+
+        if let Err(err) = lite_result {
+            if let nu_errors::ParseErrorReason::Eof { .. } = err.cause.reason() {
+                return Ok(rustyline::validate::ValidationResult::Incomplete);
+            }
+        }
+
+        Ok(rustyline::validate::ValidationResult::Valid(None))
     }
 }
 
@@ -189,7 +225,3 @@ impl Painter {
 }
 
 impl rustyline::Helper for Helper {}
-
-// Use default validator for normal single line behaviour
-// In the future we can implement this for custom multi-line support
-impl rustyline::validate::Validator for Helper {}

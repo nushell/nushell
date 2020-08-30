@@ -36,7 +36,7 @@ impl NuCompleter {
                     let partial = location.span.slice(line);
                     match location.item {
                         LocationType::Command => {
-                            let command_completer = crate::completion::command::Completer {};
+                            let command_completer = crate::completion::command::Completer;
                             command_completer.complete(context, partial)
                         }
 
