@@ -442,6 +442,30 @@ fn table_literals2() {
     assert_eq!(actual.out, "33");
 }
 
+#[test]
+fn list_with_commas() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo [1, 2, 3] | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "6");
+}
+
+#[test]
+fn table_with_commas() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo [[name, age, height]; [JT, 42, 185] [Unknown, 99, 99]] | get age | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "141");
+}
+
 mod parse {
     use nu_test_support::nu;
 
