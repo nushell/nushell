@@ -543,7 +543,7 @@ fn parse_list(
 ) -> (Vec<SpannedExpression>, Option<ParseError>) {
     let mut error = None;
 
-    if lite_block.block.len() == 0 {
+    if lite_block.block.is_empty() {
         return (vec![], None);
     }
     let lite_pipeline = &lite_block.block[0];
