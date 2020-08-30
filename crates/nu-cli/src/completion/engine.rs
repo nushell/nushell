@@ -27,6 +27,15 @@ impl<'s> Flatten<'s> {
             Expression::Block(block) => self.completion_locations(block),
             Expression::Invocation(block) => self.completion_locations(block),
             Expression::List(exprs) => exprs.iter().flat_map(|v| self.expression(v)).collect(),
+            Expression::Table(headers, cells) => headers
+                .iter()
+                .flat_map(|v| self.expression(v))
+                .chain(
+                    cells
+                        .iter()
+                        .flat_map(|v| v.iter().flat_map(|v| self.expression(v))),
+                )
+                .collect(),
             Expression::Command => vec![LocationType::Command.spanned(e.span)],
             Expression::Path(path) => self.expression(&path.head),
             Expression::Variable(_) => vec![LocationType::Variable.spanned(e.span)],

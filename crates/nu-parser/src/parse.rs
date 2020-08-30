@@ -537,6 +537,129 @@ fn parse_external_arg(
     }
 }
 
+fn parse_list(
+    lite_block: &LiteBlock,
+    registry: &dyn SignatureRegistry,
+) -> (Vec<SpannedExpression>, Option<ParseError>) {
+    let mut error = None;
+
+    if lite_block.block.is_empty() {
+        return (vec![], None);
+    }
+    let lite_pipeline = &lite_block.block[0];
+    let mut output = vec![];
+    for lite_inner in &lite_pipeline.commands {
+        let (arg, err) = parse_arg(SyntaxShape::Any, registry, &lite_inner.name);
+
+        output.push(arg);
+        if error.is_none() {
+            error = err;
+        }
+
+        for arg in &lite_inner.args {
+            let (arg, err) = parse_arg(SyntaxShape::Any, registry, &arg);
+            output.push(arg);
+
+            if error.is_none() {
+                error = err;
+            }
+        }
+    }
+
+    (output, error)
+}
+
+fn verify_and_strip(
+    contents: &Spanned<String>,
+    left: char,
+    right: char,
+) -> (String, Option<ParseError>) {
+    let mut chars = contents.item.chars();
+
+    match (chars.next(), chars.next_back()) {
+        (Some(l), Some(r)) if l == left && r == right => {
+            let output: String = chars.collect();
+            (output, None)
+        }
+        _ => (
+            String::new(),
+            Some(ParseError::mismatch(
+                format!("value in {} {}", left, right),
+                contents.clone(),
+            )),
+        ),
+    }
+}
+
+fn parse_table(
+    lite_block: &LiteBlock,
+    registry: &dyn SignatureRegistry,
+    span: Span,
+) -> (SpannedExpression, Option<ParseError>) {
+    let mut error = None;
+    let mut output = vec![];
+
+    // Header
+    let lite_pipeline = &lite_block.block[0];
+    let lite_inner = &lite_pipeline.commands[0];
+
+    let (string, err) = verify_and_strip(&lite_inner.name, '[', ']');
+    if error.is_none() {
+        error = err;
+    }
+
+    let lite_header = match lite_parse(&string, lite_inner.name.span.start() + 1) {
+        Ok(lb) => lb,
+        Err(e) => return (garbage(lite_inner.name.span), Some(e.cause)),
+    };
+
+    let (headers, err) = parse_list(&lite_header, registry);
+    if error.is_none() {
+        error = err;
+    }
+
+    // Cells
+    let lite_rows = &lite_block.block[1];
+    let lite_cells = &lite_rows.commands[0];
+
+    let (string, err) = verify_and_strip(&lite_cells.name, '[', ']');
+    if error.is_none() {
+        error = err;
+    }
+
+    let lite_cell = match lite_parse(&string, lite_cells.name.span.start() + 1) {
+        Ok(lb) => lb,
+        Err(e) => return (garbage(lite_cells.name.span), Some(e.cause)),
+    };
+
+    let (inner_cell, err) = parse_list(&lite_cell, registry);
+    if error.is_none() {
+        error = err;
+    }
+    output.push(inner_cell);
+
+    for arg in &lite_cells.args {
+        let (string, err) = verify_and_strip(&arg, '[', ']');
+        if error.is_none() {
+            error = err;
+        }
+        let lite_cell = match lite_parse(&string, arg.span.start() + 1) {
+            Ok(lb) => lb,
+            Err(e) => return (garbage(arg.span), Some(e.cause)),
+        };
+        let (inner_cell, err) = parse_list(&lite_cell, registry);
+        if error.is_none() {
+            error = err;
+        }
+        output.push(inner_cell);
+    }
+
+    (
+        SpannedExpression::new(Expression::Table(headers, output), span),
+        error,
+    )
+}
+
 /// Parses the given argument using the shape as a guide for how to correctly parse the argument
 fn parse_arg(
     expected_type: SyntaxShape,
@@ -644,7 +767,6 @@ fn parse_arg(
                 (Some('['), Some(']')) => {
                     // We have a literal row
                     let string: String = chars.collect();
-                    let mut error = None;
 
                     // We haven't done much with the inner string, so let's go ahead and work with it
                     let lite_block = match lite_parse(&string, lite_arg.span.start() + 1) {
@@ -655,40 +777,26 @@ fn parse_arg(
                     if lite_block.block.is_empty() {
                         return (
                             SpannedExpression::new(Expression::List(vec![]), lite_arg.span),
-                            error,
+                            None,
                         );
                     }
-                    if lite_block.block.len() > 1 {
-                        return (
+                    if lite_block.block.len() == 1 {
+                        let (items, err) = parse_list(&lite_block, registry);
+                        (
+                            SpannedExpression::new(Expression::List(items), lite_arg.span),
+                            err,
+                        )
+                    } else if lite_block.block.len() == 2 {
+                        parse_table(&lite_block, registry, lite_arg.span)
+                    } else {
+                        (
                             garbage(lite_arg.span),
-                            Some(ParseError::mismatch("table", lite_arg.clone())),
-                        );
+                            Some(ParseError::mismatch(
+                                "list or table",
+                                "unknown".to_string().spanned(lite_arg.span),
+                            )),
+                        )
                     }
-
-                    let lite_pipeline = lite_block.block[0].clone();
-                    let mut output = vec![];
-                    for lite_inner in &lite_pipeline.commands {
-                        let (arg, err) = parse_arg(SyntaxShape::Any, registry, &lite_inner.name);
-
-                        output.push(arg);
-                        if error.is_none() {
-                            error = err;
-                        }
-
-                        for arg in &lite_inner.args {
-                            let (arg, err) = parse_arg(SyntaxShape::Any, registry, &arg);
-                            output.push(arg);
-
-                            if error.is_none() {
-                                error = err;
-                            }
-                        }
-                    }
-
-                    (
-                        SpannedExpression::new(Expression::List(output), lite_arg.span),
-                        error,
-                    )
                 }
                 _ => (
                     garbage(lite_arg.span),
