@@ -549,7 +549,18 @@ fn parse_list(
     let lite_pipeline = &lite_block.block[0];
     let mut output = vec![];
     for lite_inner in &lite_pipeline.commands {
-        let (arg, err) = parse_arg(SyntaxShape::Any, registry, &lite_inner.name);
+        let item = if lite_inner.name.ends_with(',') {
+            let mut str: String = lite_inner.name.item.clone();
+            str.pop();
+            str.spanned(Span::new(
+                lite_inner.name.span.start(),
+                lite_inner.name.span.end() - 1,
+            ))
+        } else {
+            lite_inner.name.clone()
+        };
+
+        let (arg, err) = parse_arg(SyntaxShape::Any, registry, &item);
 
         output.push(arg);
         if error.is_none() {
@@ -557,7 +568,14 @@ fn parse_list(
         }
 
         for arg in &lite_inner.args {
-            let (arg, err) = parse_arg(SyntaxShape::Any, registry, &arg);
+            let item = if arg.ends_with(',') {
+                let mut str: String = arg.item.clone();
+                str.pop();
+                str.spanned(Span::new(arg.span.start(), arg.span.end() - 1))
+            } else {
+                arg.clone()
+            };
+            let (arg, err) = parse_arg(SyntaxShape::Any, registry, &item);
             output.push(arg);
 
             if error.is_none() {
