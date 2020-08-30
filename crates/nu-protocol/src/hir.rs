@@ -610,6 +610,22 @@ impl SpannedExpression {
                 }
                 false
             }
+            Expression::Table(headers, cells) => {
+                for l in headers {
+                    if l.has_shallow_it_usage() {
+                        return true;
+                    }
+                }
+
+                for row in cells {
+                    for cell in row {
+                        if cell.has_shallow_it_usage() {
+                            return true;
+                        }
+                    }
+                }
+                false
+            }
             Expression::Invocation(block) => {
                 for commands in block.block.iter() {
                     for command in commands.list.iter() {
@@ -644,6 +660,20 @@ impl SpannedExpression {
             } => {
                 for item in list.iter_mut() {
                     item.expand_it_usage();
+                }
+            }
+            SpannedExpression {
+                expr: Expression::Table(headers, cells),
+                ..
+            } => {
+                for header in headers.iter_mut() {
+                    header.expand_it_usage();
+                }
+
+                for row in cells.iter_mut() {
+                    for cell in row {
+                        cell.expand_it_usage()
+                    }
                 }
             }
             SpannedExpression {
