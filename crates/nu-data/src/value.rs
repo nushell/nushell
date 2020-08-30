@@ -256,7 +256,7 @@ pub fn style_leaf<'a>(
             // can work on a string versus a type like String("some_text")
             let str: &str = &p.to_string();
             let str_len = str.len();
-            let paren_index = str.find('(').unwrap_or(str_len-1);
+            let paren_index = str.find('(').unwrap_or(str_len - 1);
             let prim_type = str[0..paren_index].to_string();
             style_primitive(&prim_type, &color_hash_map)
         }

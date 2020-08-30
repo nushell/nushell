@@ -55,13 +55,13 @@ impl TextStyle {
             alignment: self.alignment,
             color_style: Some(Style {
                 is_bold: bv,
-                ..self.color_style.unwrap_or(Style::default())
+                ..self.color_style.unwrap_or_default()
             }),
         }
     }
 
     pub fn is_bold(&self) -> bool {
-        self.color_style.unwrap_or(Style::default()).is_bold
+        self.color_style.unwrap_or_default().is_bold
     }
 
     pub fn dimmed(&self) -> TextStyle {
@@ -69,13 +69,13 @@ impl TextStyle {
             alignment: self.alignment,
             color_style: Some(Style {
                 is_dimmed: true,
-                ..self.color_style.unwrap_or(Style::default())
+                ..self.color_style.unwrap_or_default()
             }),
         }
     }
 
     pub fn is_dimmed(&self) -> bool {
-        self.color_style.unwrap_or(Style::default()).is_dimmed
+        self.color_style.unwrap_or_default().is_dimmed
     }
 
     pub fn italic(&self) -> TextStyle {
@@ -83,13 +83,13 @@ impl TextStyle {
             alignment: self.alignment,
             color_style: Some(Style {
                 is_italic: true,
-                ..self.color_style.unwrap_or(Style::default())
+                ..self.color_style.unwrap_or_default()
             }),
         }
     }
 
     pub fn is_italic(&self) -> bool {
-        self.color_style.unwrap_or(Style::default()).is_italic
+        self.color_style.unwrap_or_default().is_italic
     }
 
     pub fn underline(&self) -> TextStyle {
@@ -97,13 +97,13 @@ impl TextStyle {
             alignment: self.alignment,
             color_style: Some(Style {
                 is_underline: true,
-                ..self.color_style.unwrap_or(Style::default())
+                ..self.color_style.unwrap_or_default()
             }),
         }
     }
 
     pub fn is_underline(&self) -> bool {
-        self.color_style.unwrap_or(Style::default()).is_underline
+        self.color_style.unwrap_or_default().is_underline
     }
 
     pub fn blink(&self) -> TextStyle {
@@ -111,13 +111,13 @@ impl TextStyle {
             alignment: self.alignment,
             color_style: Some(Style {
                 is_blink: true,
-                ..self.color_style.unwrap_or(Style::default())
+                ..self.color_style.unwrap_or_default()
             }),
         }
     }
 
     pub fn is_blink(&self) -> bool {
-        self.color_style.unwrap_or(Style::default()).is_blink
+        self.color_style.unwrap_or_default().is_blink
     }
 
     pub fn reverse(&self) -> TextStyle {
@@ -125,13 +125,13 @@ impl TextStyle {
             alignment: self.alignment,
             color_style: Some(Style {
                 is_reverse: true,
-                ..self.color_style.unwrap_or(Style::default())
+                ..self.color_style.unwrap_or_default()
             }),
         }
     }
 
     pub fn is_reverse(&self) -> bool {
-        self.color_style.unwrap_or(Style::default()).is_reverse
+        self.color_style.unwrap_or_default().is_reverse
     }
 
     pub fn hidden(&self) -> TextStyle {
@@ -139,13 +139,13 @@ impl TextStyle {
             alignment: self.alignment,
             color_style: Some(Style {
                 is_hidden: true,
-                ..self.color_style.unwrap_or(Style::default())
+                ..self.color_style.unwrap_or_default()
             }),
         }
     }
 
     pub fn is_hidden(&self) -> bool {
-        self.color_style.unwrap_or(Style::default()).is_hidden
+        self.color_style.unwrap_or_default().is_hidden
     }
 
     pub fn strikethrough(&self) -> TextStyle {
@@ -153,15 +153,13 @@ impl TextStyle {
             alignment: self.alignment,
             color_style: Some(Style {
                 is_strikethrough: true,
-                ..self.color_style.unwrap_or(Style::default())
+                ..self.color_style.unwrap_or_default()
             }),
         }
     }
 
     pub fn is_strikethrough(&self) -> bool {
-        self.color_style
-            .unwrap_or(Style::default())
-            .is_strikethrough
+        self.color_style.unwrap_or_default().is_strikethrough
     }
 
     pub fn fg(&self, foregound: ansi_term::Color) -> TextStyle {
@@ -169,7 +167,7 @@ impl TextStyle {
             alignment: self.alignment,
             color_style: Some(Style {
                 foreground: Some(foregound),
-                ..self.color_style.unwrap_or(Style::default())
+                ..self.color_style.unwrap_or_default()
             }),
         }
     }
@@ -179,7 +177,7 @@ impl TextStyle {
             alignment: self.alignment,
             color_style: Some(Style {
                 background: Some(background),
-                ..self.color_style.unwrap_or(Style::default())
+                ..self.color_style.unwrap_or_default()
             }),
         }
     }
@@ -189,7 +187,7 @@ impl TextStyle {
             alignment: self.alignment,
             color_style: Some(Style {
                 background: Some(background),
-                ..self.color_style.unwrap_or(Style::default())
+                ..self.color_style.unwrap_or_default()
             }),
         }
     }
@@ -255,6 +253,12 @@ impl TextStyle {
             is_hidden: style.is_hidden,
             is_strikethrough: style.is_strikethrough,
         })
+    }
+}
+
+impl Default for TextStyle {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -437,10 +441,17 @@ pub struct WrappedTable {
 }
 
 impl WrappedTable {
-    fn print_separator(&self, separator_position: SeparatorPosition, color_hm: &HashMap<String, ansi_term::Style>) {
+    fn print_separator(
+        &self,
+        separator_position: SeparatorPosition,
+        color_hm: &HashMap<String, ansi_term::Style>,
+    ) {
         let column_count = self.column_widths.len();
         let mut output = String::new();
-        let sep_color = color_hm.get("separator_color").unwrap_or(&ansi_term::Style::default()).to_owned();
+        let sep_color = color_hm
+            .get("separator_color")
+            .unwrap_or(&ansi_term::Style::default())
+            .to_owned();
         // let sep_color = Style::default().fg(ansi_term::Color::Yellow).on(ansi_term::Color::Purple);
 
         // println!("SepColor = [{:?}]", &sep_color);
@@ -521,8 +532,15 @@ impl WrappedTable {
         println!("{}", output);
     }
 
-    fn print_cell_contents(&self, cells: &[WrappedCell], color_hm: &HashMap<String, ansi_term::Style>) {
-        let sep_color = color_hm.get("separator_color").unwrap_or(&ansi_term::Style::default()).to_owned();
+    fn print_cell_contents(
+        &self,
+        cells: &[WrappedCell],
+        color_hm: &HashMap<String, ansi_term::Style>,
+    ) {
+        let sep_color = color_hm
+            .get("separator_color")
+            .unwrap_or(&ansi_term::Style::default())
+            .to_owned();
 
         for current_line in 0.. {
             let mut lines_printed = 0;
@@ -644,7 +662,7 @@ fn process_table(table: &Table) -> ProcessedTable {
         for column in row {
             out_row.push(ProcessedCell {
                 contents: split_sublines(&column.contents),
-                style: column.style.clone(),
+                style: column.style,
             });
         }
         processed_data.push(out_row);
@@ -654,7 +672,7 @@ fn process_table(table: &Table) -> ProcessedTable {
     for header in &table.headers {
         processed_headers.push(ProcessedCell {
             contents: split_sublines(&header.contents),
-            style: header.style.clone(),
+            style: header.style,
         });
     }
 

@@ -6,8 +6,8 @@ use nu_data::value::{format_leaf, style_leaf};
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_table::{draw_table, Alignment, StyledString, TextStyle};
-use std::time::Instant;
 use std::collections::HashMap;
+use std::time::Instant;
 
 const STREAM_PAGE_SIZE: usize = 1000;
 const STREAM_TIMEOUT_CHECK_INTERVAL: usize = 100;
@@ -52,7 +52,7 @@ pub fn from_list(
     // println!("Header_Style=[{:?}]", &header_style);
     let mut headers: Vec<StyledString> = nu_protocol::merge_descriptors(values)
         .into_iter()
-        .map(|x| StyledString::new(x, header_style.clone()))
+        .map(|x| StyledString::new(x, header_style))
         .collect();
     let entries = values_to_entries(values, &mut headers, configuration, starting_idx, &color_hm);
     // println!("Headers=[{:?}]", &headers);
@@ -125,9 +125,16 @@ fn values_to_entries(
                 0,
                 StyledString::new(
                     (starting_idx + idx).to_string(),
-                    TextStyle::new()
-                        .alignment(Alignment::Right)
-                        .style(color_hm.get("index_color").unwrap_or(&ansi_term::Style::default().bold().fg(ansi_term::Color::Green)).to_owned()),
+                    TextStyle::new().alignment(Alignment::Right).style(
+                        color_hm
+                            .get("index_color")
+                            .unwrap_or(
+                                &ansi_term::Style::default()
+                                    .bold()
+                                    .fg(ansi_term::Color::Green),
+                            )
+                            .to_owned(),
+                    ),
                 ),
             );
         }

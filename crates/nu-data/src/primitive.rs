@@ -92,7 +92,7 @@ pub fn string_to_lookup_value(str_prim: &str) -> String {
     }
 }
 
-fn update_hashmap(key: &String, val: &Value, hm: &mut HashMap<String, ansi_term::Style>) {
+fn update_hashmap(key: &str, val: &Value, hm: &mut HashMap<String, ansi_term::Style>) {
     if let Ok(var) = val.as_string() {
         let color = lookup_ansi_color_style(var);
         let prim = string_to_lookup_value(&key);
@@ -108,20 +108,62 @@ pub fn get_color_config() -> HashMap<String, ansi_term::Style> {
     // create the hashmap
     let mut hm: HashMap<String, ansi_term::Style> = HashMap::new();
     // set some defaults
-    hm.insert("primitive_int".to_string(), ansi_term::Color::White.normal());
-    hm.insert("primitive_decimal".to_string(), ansi_term::Color::White.normal());
-    hm.insert("primitive_filesize".to_string(), ansi_term::Color::White.normal());
-    hm.insert("primitive_string".to_string(), ansi_term::Color::White.normal());
-    hm.insert("primitive_line".to_string(), ansi_term::Color::White.normal());
-    hm.insert("primitive_columnpath".to_string(), ansi_term::Color::White.normal());
-    hm.insert("primitive_pattern".to_string(), ansi_term::Color::White.normal());
-    hm.insert("primitive_boolean".to_string(), ansi_term::Color::White.normal());
-    hm.insert("primitive_date".to_string(), ansi_term::Color::White.normal());
-    hm.insert("primitive_duration".to_string(), ansi_term::Color::White.normal());
-    hm.insert("primitive_range".to_string(), ansi_term::Color::White.normal());
-    hm.insert("primitive_path".to_string(), ansi_term::Color::White.normal());
-    hm.insert("primitive_binary".to_string(), ansi_term::Color::White.normal());
-    hm.insert("separator_color".to_string(), ansi_term::Color::White.normal());
+    hm.insert(
+        "primitive_int".to_string(),
+        ansi_term::Color::White.normal(),
+    );
+    hm.insert(
+        "primitive_decimal".to_string(),
+        ansi_term::Color::White.normal(),
+    );
+    hm.insert(
+        "primitive_filesize".to_string(),
+        ansi_term::Color::White.normal(),
+    );
+    hm.insert(
+        "primitive_string".to_string(),
+        ansi_term::Color::White.normal(),
+    );
+    hm.insert(
+        "primitive_line".to_string(),
+        ansi_term::Color::White.normal(),
+    );
+    hm.insert(
+        "primitive_columnpath".to_string(),
+        ansi_term::Color::White.normal(),
+    );
+    hm.insert(
+        "primitive_pattern".to_string(),
+        ansi_term::Color::White.normal(),
+    );
+    hm.insert(
+        "primitive_boolean".to_string(),
+        ansi_term::Color::White.normal(),
+    );
+    hm.insert(
+        "primitive_date".to_string(),
+        ansi_term::Color::White.normal(),
+    );
+    hm.insert(
+        "primitive_duration".to_string(),
+        ansi_term::Color::White.normal(),
+    );
+    hm.insert(
+        "primitive_range".to_string(),
+        ansi_term::Color::White.normal(),
+    );
+    hm.insert(
+        "primitive_path".to_string(),
+        ansi_term::Color::White.normal(),
+    );
+    hm.insert(
+        "primitive_binary".to_string(),
+        ansi_term::Color::White.normal(),
+    );
+    hm.insert(
+        "separator_color".to_string(),
+        ansi_term::Color::White.normal(),
+    );
     hm.insert("header_align".to_string(), ansi_term::Color::White.normal());
     hm.insert("header_color".to_string(), ansi_term::Color::White.normal());
     hm.insert("header_bold".to_string(), ansi_term::Color::White.normal());
@@ -201,12 +243,9 @@ pub fn get_color_config() -> HashMap<String, ansi_term::Style> {
 
 // This function will assign a text style to a primitive, or really any string that's
 // in the hashmap. The hashmap actually contains the style to be applied.
-pub fn style_primitive(
-    primitive: &String,
-    color_hm: &HashMap<String, ansi_term::Style>,
-) -> TextStyle {
+pub fn style_primitive(primitive: &str, color_hm: &HashMap<String, ansi_term::Style>) -> TextStyle {
     // println!("{}", &primitive);
-    match primitive.as_ref() {
+    match primitive {
         "Int" => {
             let style = color_hm.get("Primitive::Int");
             match style {
@@ -361,8 +400,6 @@ pub fn style_primitive(
                 None => TextStyle::basic_right(),
             }
         }
-        _ => {
-            TextStyle::basic()
-        }
+        _ => TextStyle::basic(),
     }
 }
