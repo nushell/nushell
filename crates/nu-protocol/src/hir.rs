@@ -716,6 +716,20 @@ impl PrettyDebugWithSource for SpannedExpression {
                     ),
                     "]",
                 ),
+                Expression::Table(_headers, cells) => b::delimit(
+                    "[",
+                    b::intersperse(
+                        cells
+                            .iter()
+                            .map(|row| {
+                                row.iter()
+                                    .map(|item| item.refined_pretty_debug(refine, source))
+                            })
+                            .flatten(),
+                        b::space(),
+                    ),
+                    "]",
+                ),
                 Expression::Path(path) => path.pretty_debug(source),
                 Expression::FilePath(path) => b::typed("path", b::primitive(path.display())),
                 Expression::ExternalCommand(external) => {
@@ -752,6 +766,17 @@ impl PrettyDebugWithSource for SpannedExpression {
                 "[",
                 b::intersperse(
                     list.iter().map(|item| item.pretty_debug(source)),
+                    b::space(),
+                ),
+                "]",
+            ),
+            Expression::Table(_headers, cells) => b::delimit(
+                "[",
+                b::intersperse(
+                    cells
+                        .iter()
+                        .map(|row| row.iter().map(|item| item.pretty_debug(source)))
+                        .flatten(),
                     b::space(),
                 ),
                 "]",
@@ -960,6 +985,7 @@ pub enum Expression {
     Range(Box<Range>),
     Block(hir::Block),
     List(Vec<SpannedExpression>),
+    Table(Vec<SpannedExpression>, Vec<Vec<SpannedExpression>>),
     Path(Box<Path>),
 
     FilePath(PathBuf),
@@ -985,6 +1011,7 @@ impl ShellTypeName for Expression {
             Expression::FilePath(..) => "file path",
             Expression::Variable(..) => "variable",
             Expression::List(..) => "list",
+            Expression::Table(..) => "table",
             Expression::Binary(..) => "binary",
             Expression::Range(..) => "range",
             Expression::Block(..) => "block",

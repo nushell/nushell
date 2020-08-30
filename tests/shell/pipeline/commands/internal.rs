@@ -418,6 +418,30 @@ fn echoing_ranges() {
     assert_eq!(actual.out, "6");
 }
 
+#[test]
+fn table_literals1() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            echo [[name age]; [foo 13]] | get age
+        "#
+    );
+
+    assert_eq!(actual.out, "13");
+}
+
+#[test]
+fn table_literals2() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo [[name age] ; [bob 13] [sally 20]] | get age | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "33");
+}
+
 mod parse {
     use nu_test_support::nu;
 
