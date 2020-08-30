@@ -455,6 +455,18 @@ fn list_with_commas() {
 }
 
 #[test]
+fn it_expansion_of_tables() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo foo | echo [[`foo {{$it}} bar`]; [`{{$it}} foo`]] | get "foo foo bar"
+        "#
+    );
+
+    assert_eq!(actual.out, "foo foo");
+}
+
+#[test]
 fn table_with_commas() {
     let actual = nu!(
         cwd: ".",
