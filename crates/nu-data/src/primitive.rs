@@ -2,6 +2,7 @@ use nu_protocol::{hir::Number, Primitive, Value};
 use nu_source::Tag;
 use nu_table::{Alignment, TextStyle};
 use std::collections::HashMap;
+use ansi_term::{Color, Style};
 
 pub fn number(number: impl Into<Number>) -> Primitive {
     let number = number.into();
@@ -12,58 +13,58 @@ pub fn number(number: impl Into<Number>) -> Primitive {
     }
 }
 
-pub fn lookup_ansi_color_style(s: String) -> ansi_term::Style {
+pub fn lookup_ansi_color_style(s: String) -> Style {
     match s.as_str() {
-        "g" | "green" => ansi_term::Color::Green.normal(),
-        "gb" | "green_bold" => ansi_term::Color::Green.bold(),
-        "gu" | "green_underline" => ansi_term::Color::Green.underline(),
-        "gi" | "green_italic" => ansi_term::Color::Green.italic(),
-        "gd" | "green_dimmed" => ansi_term::Color::Green.dimmed(),
-        "gr" | "green_reverse" => ansi_term::Color::Green.reverse(),
-        "r" | "red" => ansi_term::Color::Red.normal(),
-        "rb" | "red_bold" => ansi_term::Color::Red.bold(),
-        "ru" | "red_underline" => ansi_term::Color::Red.underline(),
-        "ri" | "red_italic" => ansi_term::Color::Red.italic(),
-        "rd" | "red_dimmed" => ansi_term::Color::Red.dimmed(),
-        "rr" | "red_reverse" => ansi_term::Color::Red.reverse(),
-        "u" | "blue" => ansi_term::Color::Blue.normal(),
-        "ub" | "blue_bold" => ansi_term::Color::Blue.bold(),
-        "uu" | "blue_underline" => ansi_term::Color::Blue.underline(),
-        "ui" | "blue_italic" => ansi_term::Color::Blue.italic(),
-        "ud" | "blue_dimmed" => ansi_term::Color::Blue.dimmed(),
-        "ur" | "blue_reverse" => ansi_term::Color::Blue.reverse(),
-        "b" | "black" => ansi_term::Color::Black.normal(),
-        "bb" | "black_bold" => ansi_term::Color::Black.bold(),
-        "bu" | "black_underline" => ansi_term::Color::Black.underline(),
-        "bi" | "black_italic" => ansi_term::Color::Black.italic(),
-        "bd" | "black_dimmed" => ansi_term::Color::Black.dimmed(),
-        "br" | "black_reverse" => ansi_term::Color::Black.reverse(),
-        "y" | "yellow" => ansi_term::Color::Yellow.normal(),
-        "yb" | "yellow_bold" => ansi_term::Color::Yellow.bold(),
-        "yu" | "yellow_underline" => ansi_term::Color::Yellow.underline(),
-        "yi" | "yellow_italic" => ansi_term::Color::Yellow.italic(),
-        "yd" | "yellow_dimmed" => ansi_term::Color::Yellow.dimmed(),
-        "yr" | "yellow_reverse" => ansi_term::Color::Yellow.reverse(),
-        "p" | "purple" => ansi_term::Color::Purple.normal(),
-        "pb" | "purple_bold" => ansi_term::Color::Purple.bold(),
-        "pu" | "purple_underline" => ansi_term::Color::Purple.underline(),
-        "pi" | "purple_italic" => ansi_term::Color::Purple.italic(),
-        "pd" | "purple_dimmed" => ansi_term::Color::Purple.dimmed(),
-        "pr" | "purple_reverse" => ansi_term::Color::Purple.reverse(),
-        "c" | "cyan" => ansi_term::Color::Cyan.normal(),
-        "cb" | "cyan_bold" => ansi_term::Color::Cyan.bold(),
-        "cu" | "cyan_underline" => ansi_term::Color::Cyan.underline(),
-        "ci" | "cyan_italic" => ansi_term::Color::Cyan.italic(),
-        "cd" | "cyan_dimmed" => ansi_term::Color::Cyan.dimmed(),
-        "cr" | "cyan_reverse" => ansi_term::Color::Cyan.reverse(),
-        "w" | "white" => ansi_term::Color::White.normal(),
-        "wb" | "white_bold" => ansi_term::Color::White.bold(),
-        "wu" | "white_underline" => ansi_term::Color::White.underline(),
-        "wi" | "white_italic" => ansi_term::Color::White.italic(),
-        "wd" | "white_dimmed" => ansi_term::Color::White.dimmed(),
-        "wr" | "white_reverse" => ansi_term::Color::White.reverse(),
+        "g" | "green" => Color::Green.normal(),
+        "gb" | "green_bold" => Color::Green.bold(),
+        "gu" | "green_underline" => Color::Green.underline(),
+        "gi" | "green_italic" => Color::Green.italic(),
+        "gd" | "green_dimmed" => Color::Green.dimmed(),
+        "gr" | "green_reverse" => Color::Green.reverse(),
+        "r" | "red" => Color::Red.normal(),
+        "rb" | "red_bold" => Color::Red.bold(),
+        "ru" | "red_underline" => Color::Red.underline(),
+        "ri" | "red_italic" => Color::Red.italic(),
+        "rd" | "red_dimmed" => Color::Red.dimmed(),
+        "rr" | "red_reverse" => Color::Red.reverse(),
+        "u" | "blue" => Color::Blue.normal(),
+        "ub" | "blue_bold" => Color::Blue.bold(),
+        "uu" | "blue_underline" => Color::Blue.underline(),
+        "ui" | "blue_italic" => Color::Blue.italic(),
+        "ud" | "blue_dimmed" => Color::Blue.dimmed(),
+        "ur" | "blue_reverse" => Color::Blue.reverse(),
+        "b" | "black" => Color::Black.normal(),
+        "bb" | "black_bold" => Color::Black.bold(),
+        "bu" | "black_underline" => Color::Black.underline(),
+        "bi" | "black_italic" => Color::Black.italic(),
+        "bd" | "black_dimmed" => Color::Black.dimmed(),
+        "br" | "black_reverse" => Color::Black.reverse(),
+        "y" | "yellow" => Color::Yellow.normal(),
+        "yb" | "yellow_bold" => Color::Yellow.bold(),
+        "yu" | "yellow_underline" => Color::Yellow.underline(),
+        "yi" | "yellow_italic" => Color::Yellow.italic(),
+        "yd" | "yellow_dimmed" => Color::Yellow.dimmed(),
+        "yr" | "yellow_reverse" => Color::Yellow.reverse(),
+        "p" | "purple" => Color::Purple.normal(),
+        "pb" | "purple_bold" => Color::Purple.bold(),
+        "pu" | "purple_underline" => Color::Purple.underline(),
+        "pi" | "purple_italic" => Color::Purple.italic(),
+        "pd" | "purple_dimmed" => Color::Purple.dimmed(),
+        "pr" | "purple_reverse" => Color::Purple.reverse(),
+        "c" | "cyan" => Color::Cyan.normal(),
+        "cb" | "cyan_bold" => Color::Cyan.bold(),
+        "cu" | "cyan_underline" => Color::Cyan.underline(),
+        "ci" | "cyan_italic" => Color::Cyan.italic(),
+        "cd" | "cyan_dimmed" => Color::Cyan.dimmed(),
+        "cr" | "cyan_reverse" => Color::Cyan.reverse(),
+        "w" | "white" => Color::White.normal(),
+        "wb" | "white_bold" => Color::White.bold(),
+        "wu" | "white_underline" => Color::White.underline(),
+        "wi" | "white_italic" => Color::White.italic(),
+        "wd" | "white_dimmed" => Color::White.dimmed(),
+        "wr" | "white_reverse" => Color::White.reverse(),
         // "reset" => "\x1b[0m".to_owned(),
-        _ => ansi_term::Color::White.normal(),
+        _ => Color::White.normal(),
     }
 }
 
@@ -92,7 +93,7 @@ pub fn string_to_lookup_value(str_prim: &str) -> String {
     }
 }
 
-fn update_hashmap(key: &str, val: &Value, hm: &mut HashMap<String, ansi_term::Style>) {
+fn update_hashmap(key: &str, val: &Value, hm: &mut HashMap<String, Style>) {
     if let Ok(var) = val.as_string() {
         let color = lookup_ansi_color_style(var);
         let prim = string_to_lookup_value(&key);
@@ -104,71 +105,29 @@ fn update_hashmap(key: &str, val: &Value, hm: &mut HashMap<String, ansi_term::St
     }
 }
 
-pub fn get_color_config() -> HashMap<String, ansi_term::Style> {
+pub fn get_color_config() -> HashMap<String, Style> {
     // create the hashmap
-    let mut hm: HashMap<String, ansi_term::Style> = HashMap::new();
+    let mut hm: HashMap<String, Style> = HashMap::new();
     // set some defaults
-    hm.insert(
-        "primitive_int".to_string(),
-        ansi_term::Color::White.normal(),
-    );
-    hm.insert(
-        "primitive_decimal".to_string(),
-        ansi_term::Color::White.normal(),
-    );
-    hm.insert(
-        "primitive_filesize".to_string(),
-        ansi_term::Color::White.normal(),
-    );
-    hm.insert(
-        "primitive_string".to_string(),
-        ansi_term::Color::White.normal(),
-    );
-    hm.insert(
-        "primitive_line".to_string(),
-        ansi_term::Color::White.normal(),
-    );
-    hm.insert(
-        "primitive_columnpath".to_string(),
-        ansi_term::Color::White.normal(),
-    );
-    hm.insert(
-        "primitive_pattern".to_string(),
-        ansi_term::Color::White.normal(),
-    );
-    hm.insert(
-        "primitive_boolean".to_string(),
-        ansi_term::Color::White.normal(),
-    );
-    hm.insert(
-        "primitive_date".to_string(),
-        ansi_term::Color::White.normal(),
-    );
-    hm.insert(
-        "primitive_duration".to_string(),
-        ansi_term::Color::White.normal(),
-    );
-    hm.insert(
-        "primitive_range".to_string(),
-        ansi_term::Color::White.normal(),
-    );
-    hm.insert(
-        "primitive_path".to_string(),
-        ansi_term::Color::White.normal(),
-    );
-    hm.insert(
-        "primitive_binary".to_string(),
-        ansi_term::Color::White.normal(),
-    );
-    hm.insert(
-        "separator_color".to_string(),
-        ansi_term::Color::White.normal(),
-    );
-    hm.insert("header_align".to_string(), ansi_term::Color::White.normal());
-    hm.insert("header_color".to_string(), ansi_term::Color::White.normal());
-    hm.insert("header_bold".to_string(), ansi_term::Color::White.normal());
-    hm.insert("header_style".to_string(), ansi_term::Style::default());
-    hm.insert("index_color".to_string(), ansi_term::Color::Green.normal());
+    hm.insert("primitive_int".to_string(), Color::White.normal());
+    hm.insert("primitive_decimal".to_string(), Color::White.normal());
+    hm.insert("primitive_filesize".to_string(), Color::White.normal());
+    hm.insert("primitive_string".to_string(), Color::White.normal());
+    hm.insert("primitive_line".to_string(), Color::White.normal());
+    hm.insert("primitive_columnpath".to_string(), Color::White.normal());
+    hm.insert("primitive_pattern".to_string(), Color::White.normal());
+    hm.insert("primitive_boolean".to_string(), Color::White.normal());
+    hm.insert("primitive_date".to_string(), Color::White.normal());
+    hm.insert("primitive_duration".to_string(), Color::White.normal());
+    hm.insert("primitive_range".to_string(), Color::White.normal());
+    hm.insert("primitive_path".to_string(), Color::White.normal());
+    hm.insert("primitive_binary".to_string(), Color::White.normal());
+    hm.insert("separator_color".to_string(), Color::White.normal());
+    hm.insert("header_align".to_string(), Color::White.normal());
+    hm.insert("header_color".to_string(), Color::White.normal());
+    hm.insert("header_bold".to_string(), Color::White.normal());
+    hm.insert("header_style".to_string(), Style::default());
+    hm.insert("index_color".to_string(), Color::Green.normal());
 
     // populate hashmap from config values
     if let Ok(config) = crate::config::config(Tag::unknown()) {
@@ -243,7 +202,7 @@ pub fn get_color_config() -> HashMap<String, ansi_term::Style> {
 
 // This function will assign a text style to a primitive, or really any string that's
 // in the hashmap. The hashmap actually contains the style to be applied.
-pub fn style_primitive(primitive: &str, color_hm: &HashMap<String, ansi_term::Style>) -> TextStyle {
+pub fn style_primitive(primitive: &str, color_hm: &HashMap<String, Style>) -> TextStyle {
     // println!("{}", &primitive);
     match primitive {
         "Int" => {
