@@ -63,7 +63,6 @@ pub fn lookup_ansi_color_style(s: String) -> Style {
         "wi" | "white_italic" => Color::White.italic(),
         "wd" | "white_dimmed" => Color::White.dimmed(),
         "wr" | "white_reverse" => Color::White.reverse(),
-        // "reset" => "\x1b[0m".to_owned(),
         _ => Color::White.normal(),
     }
 }
@@ -203,7 +202,6 @@ pub fn get_color_config() -> HashMap<String, Style> {
 // This function will assign a text style to a primitive, or really any string that's
 // in the hashmap. The hashmap actually contains the style to be applied.
 pub fn style_primitive(primitive: &str, color_hm: &HashMap<String, Style>) -> TextStyle {
-    // println!("{}", &primitive);
     match primitive {
         "Int" => {
             let style = color_hm.get("Primitive::Int");
