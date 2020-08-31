@@ -172,7 +172,9 @@ pub(crate) async fn evaluate_baseline_expr(
 
             Ok(item.value.into_value(tag))
         }
-        Expression::Boolean(_boolean) => unimplemented!(),
+        Expression::Boolean(_boolean) => {
+            Ok(UntaggedValue::boolean(_boolean.clone()).into_value(tag))
+        }
         Expression::Garbage => unimplemented!(),
     }
 }
