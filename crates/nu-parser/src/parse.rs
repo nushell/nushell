@@ -111,26 +111,12 @@ pub fn parse_full_column_path(
             );
 
             if head.is_none() && current_part.starts_with("$(") && current_part.ends_with(')') {
-                // We have a command invocation
-                let string: String = current_part
-                    .chars()
-                    .skip(2)
-                    .take(current_part.len() - 3)
-                    .collect();
-
-                // We haven't done much with the inner string, so let's go ahead and work with it
-                let lite_block = match lite_parse(&string, lite_arg.span.start() + 2) {
-                    Ok(lp) => lp,
-                    Err(e) => return (garbage(lite_arg.span), Some(e.cause)),
-                };
-
-                let classified_block = classify_block(&lite_block, registry);
-                let err = classified_block.failed;
-
+                let (invoc, err) =
+                    parse_invocation(&current_part.clone().spanned(part_span.clone()), registry);
                 if error.is_none() {
                     error = err;
                 }
-                head = Some(Expression::Invocation(classified_block.block))
+                head = Some(invoc.expr);
             } else if head.is_none() && current_part.starts_with('$') {
                 // We have the variable head
                 head = Some(Expression::variable(current_part.clone(), part_span))
@@ -161,28 +147,13 @@ pub fn parse_full_column_path(
 
         if head.is_none() {
             if current_part.starts_with("$(") && current_part.ends_with(')') {
-                // We have a command invocation
-                let string: String = current_part
-                    .chars()
-                    .skip(2)
-                    .take(current_part.len() - 3)
-                    .collect();
-
-                // We haven't done much with the inner string, so let's go ahead and work with it
-                let lite_block = match lite_parse(&string, lite_arg.span.start() + 2) {
-                    Ok(lp) => lp,
-                    Err(e) => return (garbage(lite_arg.span), Some(e.cause)),
-                };
-
-                let classified_block = classify_block(&lite_block, registry);
-                let err = classified_block.failed;
-
+                let (invoc, err) =
+                    parse_invocation(&current_part.clone().spanned(part_span.clone()), registry);
                 if error.is_none() {
                     error = err;
                 }
-                head = Some(Expression::Invocation(classified_block.block));
+                head = Some(invoc.expr);
             } else if current_part.starts_with('$') {
-                // We have the variable head
                 head = Some(Expression::variable(current_part, lite_arg.span));
             } else if let Ok(row_number) = current_part.parse::<u64>() {
                 output.push(
@@ -409,9 +380,30 @@ fn parse_invocation(
     lite_arg: &Spanned<String>,
     registry: &dyn SignatureRegistry,
 ) -> (SpannedExpression, Option<ParseError>) {
-    //TODO move parse invocation expr logic from parse_column_path to here
-    //and return real invocation here
-    parse_full_column_path(lite_arg, registry)
+    // We have a command invocation
+    let string: String = lite_arg
+        .item
+        .chars()
+        .skip(2)
+        .take(lite_arg.item.len() - 3)
+        .collect();
+
+    // We haven't done much with the inner string, so let's go ahead and work with it
+    let lite_block = match lite_parse(&string, lite_arg.span.start() + 2) {
+        Ok(lp) => lp,
+        Err(e) => return (garbage(lite_arg.span), Some(e.cause)),
+    };
+
+    let classified_block = classify_block(&lite_block, registry);
+    let err = classified_block.failed;
+
+    (
+        SpannedExpression::new(
+            Expression::Invocation(classified_block.block),
+            lite_arg.span.clone(),
+        ),
+        err,
+    )
 }
 
 fn parse_variable(
@@ -439,7 +431,17 @@ fn parse_dollar_expr(
     registry: &dyn SignatureRegistry,
 ) -> (SpannedExpression, Option<ParseError>) {
     trace!("Parsing dollar expression: {:?}", lite_arg.item);
-    if lite_arg.item.ends_with(")") {
+    if lite_arg.item == "$true" {
+        (
+            SpannedExpression::new(Expression::boolean(true), lite_arg.span.clone()),
+            None,
+        )
+    } else if lite_arg.item == "$false" {
+        (
+            SpannedExpression::new(Expression::boolean(false), lite_arg.span.clone()),
+            None,
+        )
+    } else if lite_arg.item.ends_with(")") {
         //Return invocation
         trace!("Parsing invocation expression");
         parse_invocation(lite_arg, registry)

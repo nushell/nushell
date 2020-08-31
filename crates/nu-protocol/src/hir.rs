@@ -1154,6 +1154,10 @@ impl Expression {
             Expression::Variable(Variable::Other(v, span))
         }
     }
+
+    pub fn boolean(b: bool) -> Expression {
+        Expression::Boolean(b)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
