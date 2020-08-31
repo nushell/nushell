@@ -41,12 +41,12 @@ impl NuCompleter {
                         }
 
                         LocationType::Flag(cmd) => {
-                            let flag_completer = crate::completion::flag::Completer {};
+                            let flag_completer = crate::completion::flag::Completer;
                             flag_completer.complete(context, cmd, partial)
                         }
 
                         LocationType::Argument(cmd, _arg_name) => {
-                            let path_completer = crate::completion::path::Completer::new();
+                            let path_completer = crate::completion::path::Completer;
                             let completed_paths = path_completer.complete(context, partial);
                             match cmd.as_deref().unwrap_or("") {
                                 "cd" => select_directory_suggestions(completed_paths),

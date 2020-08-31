@@ -33,7 +33,7 @@ impl Completer {
             .collect();
 
         if partial != "" {
-            let path_completer = crate::completion::path::Completer::new();
+            let path_completer = crate::completion::path::Completer;
             let path_results = path_completer.complete(ctx, partial);
             suggestions.extend(path_results.into_iter().filter(|suggestion| {
                 let path = Path::new(&suggestion.replacement);
