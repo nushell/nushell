@@ -47,6 +47,30 @@ impl NuCompleter {
 
                         LocationType::Argument(cmd, _arg_name) => {
                             let path_completer = crate::completion::path::Completer;
+
+                            const QUOTE_CHARS: &[char] = &['\'', '"', '`'];
+
+                            // TODO Find a better way to deal with quote chars. Can the completion
+                            //      engine relay this back to us? Maybe have two spans: inner and
+                            //      outer. The former is what we want to complete, the latter what
+                            //      we'd need to replace.
+                            let (quote_char, partial) = if partial.starts_with(QUOTE_CHARS) {
+                                let (head, tail) = partial.split_at(1);
+                                (Some(head), tail)
+                            } else {
+                                (None, partial)
+                            };
+
+                            let partial = if let Some(quote_char) = quote_char {
+                                if partial.ends_with(quote_char) {
+                                    &partial[..partial.len()]
+                                } else {
+                                    partial
+                                }
+                            } else {
+                                partial
+                            };
+
                             let completed_paths = path_completer.complete(context, partial);
                             match cmd.as_deref().unwrap_or("") {
                                 "cd" => select_directory_suggestions(completed_paths),
@@ -57,7 +81,10 @@ impl NuCompleter {
                         LocationType::Variable => Vec::new(),
                     }
                     .into_iter()
-                    .map(requote)
+                })
+                .map(|suggestion| Suggestion {
+                    replacement: requote(suggestion.replacement),
+                    display: suggestion.display,
                 })
                 .collect();
 
@@ -77,14 +104,30 @@ fn select_directory_suggestions(completed_paths: Vec<Suggestion>) -> Vec<Suggest
         .collect()
 }
 
-fn requote(item: Suggestion) -> Suggestion {
-    let unescaped = rustyline::completion::unescape(&item.replacement, Some('\\'));
-    if unescaped != item.replacement {
-        Suggestion {
-            display: item.display,
-            replacement: format!("\"{}\"", unescaped),
+fn requote(value: String) -> String {
+    let value = rustyline::completion::unescape(&value, Some('\\'));
+
+    let mut quotes = vec!['"', '\'', '`'];
+    let mut should_quote = false;
+    for c in value.chars() {
+        if c.is_whitespace() {
+            should_quote = true;
+        } else if let Some(index) = quotes.iter().position(|q| *q == c) {
+            should_quote = true;
+            quotes.swap_remove(index);
+        }
+    }
+
+    if should_quote {
+        if quotes.is_empty() {
+            // TODO we don't really have an escape character, so there isn't a great option right
+            //      now. One possibility is `{{$(char backtick)}}`
+            value.to_string()
+        } else {
+            let quote = quotes[0];
+            format!("{}{}{}", quote, value, quote)
         }
     } else {
-        item
+        value.to_string()
     }
 }
