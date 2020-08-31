@@ -154,7 +154,7 @@ impl Shell for FilesystemShell {
             let metadata = match std::fs::symlink_metadata(&path) {
                 Ok(metadata) => Some(metadata),
                 Err(e) => {
-                    if e.kind() == ErrorKind::PermissionDenied {
+                    if e.kind() == ErrorKind::PermissionDenied || e.kind() == ErrorKind::Other {
                         None
                     } else {
                         return Some(Err(e.into()));
