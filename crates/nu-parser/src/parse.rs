@@ -405,6 +405,53 @@ fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseErr
     )
 }
 
+fn parse_invocation(
+    lite_arg: &Spanned<String>,
+    registry: &dyn SignatureRegistry,
+) -> (SpannedExpression, Option<ParseError>) {
+    //TODO move parse invocation expr logic from parse_column_path to here
+    //and return real invocation here
+    parse_full_column_path(lite_arg, registry)
+}
+
+fn parse_variable(
+    lite_arg: &Spanned<String>,
+    registry: &dyn SignatureRegistry,
+) -> (SpannedExpression, Option<ParseError>) {
+    if lite_arg.item == "$it" {
+        trace!("parsin $it");
+        parse_full_column_path(lite_arg, registry)
+    } else {
+        (
+            SpannedExpression::new(
+                Expression::variable(lite_arg.item.clone(), lite_arg.span.clone()),
+                lite_arg.span.clone(),
+            ),
+            None,
+        )
+    }
+}
+/// Parses the given lite_arg starting with dollar returning
+/// a expression starting with $
+/// Currently either Variable, Invocation, FullColumnPath
+fn parse_dollar_expr(
+    lite_arg: &Spanned<String>,
+    registry: &dyn SignatureRegistry,
+) -> (SpannedExpression, Option<ParseError>) {
+    trace!("Parsing dollar expression: {:?}", lite_arg.item);
+    if lite_arg.item.ends_with(")") {
+        //Return invocation
+        trace!("Parsing invocation expression");
+        parse_invocation(lite_arg, registry)
+    } else if lite_arg.item.contains(".") {
+        trace!("Parsing path expression");
+        parse_full_column_path(lite_arg, registry)
+    } else {
+        trace!("Parsing variable expression");
+        parse_variable(lite_arg, registry)
+    }
+}
+
 #[derive(Debug)]
 enum FormatCommand {
     Text(Spanned<String>),
@@ -506,6 +553,7 @@ fn parse_interpolated_string(
     registry: &dyn SignatureRegistry,
     lite_arg: &Spanned<String>,
 ) -> (SpannedExpression, Option<ParseError>) {
+    trace!("Parse_interpolated_string");
     let inner_string = trim_quotes(&lite_arg.item);
     let mut error = None;
 
@@ -570,7 +618,7 @@ fn parse_external_arg(
     lite_arg: &Spanned<String>,
 ) -> (SpannedExpression, Option<ParseError>) {
     if lite_arg.item.starts_with('$') {
-        return parse_full_column_path(&lite_arg, registry);
+        return parse_dollar_expr(&lite_arg, registry);
     }
 
     if lite_arg.item.starts_with('`') && lite_arg.item.len() > 1 && lite_arg.item.ends_with('`') {
@@ -731,9 +779,8 @@ fn parse_arg(
     registry: &dyn SignatureRegistry,
     lite_arg: &Spanned<String>,
 ) -> (SpannedExpression, Option<ParseError>) {
-    // If this is a full column path (and not a range), just parse it here
-    if lite_arg.item.starts_with('$') && !lite_arg.item.contains("..") {
-        return parse_full_column_path(&lite_arg, registry);
+    if lite_arg.item.starts_with('$') {
+        return parse_dollar_expr(&lite_arg, registry);
     }
 
     match expected_type {
