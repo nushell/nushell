@@ -1,8 +1,8 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
+use ansi_term::Color;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
-use ansi_term::Color;
 
 pub struct Ansi;
 
@@ -105,17 +105,13 @@ pub fn str_to_ansi_color(s: String) -> Option<String> {
         "br" | "black_reverse" => Some(Color::Black.reverse().prefix().to_string()),
         "y" | "yellow" => Some(Color::Yellow.prefix().to_string()),
         "yb" | "yellow_bold" => Some(Color::Yellow.bold().prefix().to_string()),
-        "yu" | "yellow_underline" => {
-            Some(Color::Yellow.underline().prefix().to_string())
-        }
+        "yu" | "yellow_underline" => Some(Color::Yellow.underline().prefix().to_string()),
         "yi" | "yellow_italic" => Some(Color::Yellow.italic().prefix().to_string()),
         "yd" | "yellow_dimmed" => Some(Color::Yellow.dimmed().prefix().to_string()),
         "yr" | "yellow_reverse" => Some(Color::Yellow.reverse().prefix().to_string()),
         "p" | "purple" => Some(Color::Purple.prefix().to_string()),
         "pb" | "purple_bold" => Some(Color::Purple.bold().prefix().to_string()),
-        "pu" | "purple_underline" => {
-            Some(Color::Purple.underline().prefix().to_string())
-        }
+        "pu" | "purple_underline" => Some(Color::Purple.underline().prefix().to_string()),
         "pi" | "purple_italic" => Some(Color::Purple.italic().prefix().to_string()),
         "pd" | "purple_dimmed" => Some(Color::Purple.dimmed().prefix().to_string()),
         "pr" | "purple_reverse" => Some(Color::Purple.reverse().prefix().to_string()),

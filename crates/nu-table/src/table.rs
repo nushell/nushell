@@ -496,63 +496,132 @@ impl WrappedTable {
             SeparatorPosition::Top => {
                 for column in self.column_widths.iter().enumerate() {
                     if column.0 == 0 && self.theme.print_left_border {
-                        output.push_str(&sep_color.paint(&self.theme.top_left.to_string()).to_string());
+                        output.push_str(
+                            &sep_color
+                                .paint(&self.theme.top_left.to_string())
+                                .to_string(),
+                        );
                     }
 
                     for _ in 0..*column.1 {
-                        output.push_str(&sep_color.paint(&self.theme.top_horizontal.to_string()).to_string());
+                        output.push_str(
+                            &sep_color
+                                .paint(&self.theme.top_horizontal.to_string())
+                                .to_string(),
+                        );
                     }
 
-                    output.push_str(&sep_color.paint(&self.theme.top_horizontal.to_string()).to_string());
-                    output.push_str(&sep_color.paint(&self.theme.top_horizontal.to_string()).to_string());
+                    output.push_str(
+                        &sep_color
+                            .paint(&self.theme.top_horizontal.to_string())
+                            .to_string(),
+                    );
+                    output.push_str(
+                        &sep_color
+                            .paint(&self.theme.top_horizontal.to_string())
+                            .to_string(),
+                    );
                     if column.0 == column_count - 1 {
                         if self.theme.print_right_border {
-                            output.push_str(&sep_color.paint(&self.theme.top_right.to_string()).to_string());
+                            output.push_str(
+                                &sep_color
+                                    .paint(&self.theme.top_right.to_string())
+                                    .to_string(),
+                            );
                         }
                     } else {
-                        output.push_str(&sep_color.paint(&self.theme.top_center.to_string()).to_string());
+                        output.push_str(
+                            &sep_color
+                                .paint(&self.theme.top_center.to_string())
+                                .to_string(),
+                        );
                     }
                 }
             }
             SeparatorPosition::Middle => {
                 for column in self.column_widths.iter().enumerate() {
                     if column.0 == 0 && self.theme.print_left_border {
-                        output.push_str(&sep_color.paint(&self.theme.middle_left.to_string()).to_string());
+                        output.push_str(
+                            &sep_color
+                                .paint(&self.theme.middle_left.to_string())
+                                .to_string(),
+                        );
                     }
 
                     for _ in 0..*column.1 {
-                        output.push_str(&sep_color.paint(&self.theme.middle_horizontal.to_string()).to_string());
+                        output.push_str(
+                            &sep_color
+                                .paint(&self.theme.middle_horizontal.to_string())
+                                .to_string(),
+                        );
                     }
 
-                    output.push_str(&sep_color.paint(&self.theme.middle_horizontal.to_string()).to_string());
-                    output.push_str(&sep_color.paint(&self.theme.middle_horizontal.to_string()).to_string());
+                    output.push_str(
+                        &sep_color
+                            .paint(&self.theme.middle_horizontal.to_string())
+                            .to_string(),
+                    );
+                    output.push_str(
+                        &sep_color
+                            .paint(&self.theme.middle_horizontal.to_string())
+                            .to_string(),
+                    );
 
                     if column.0 == column_count - 1 {
                         if self.theme.print_right_border {
-                            output.push_str(&sep_color.paint(&self.theme.middle_right.to_string()).to_string());
+                            output.push_str(
+                                &sep_color
+                                    .paint(&self.theme.middle_right.to_string())
+                                    .to_string(),
+                            );
                         }
                     } else {
-                        output.push_str(&sep_color.paint(&self.theme.center.to_string()).to_string());
+                        output
+                            .push_str(&sep_color.paint(&self.theme.center.to_string()).to_string());
                     }
                 }
             }
             SeparatorPosition::Bottom => {
                 for column in self.column_widths.iter().enumerate() {
                     if column.0 == 0 && self.theme.print_left_border {
-                        output.push_str(&sep_color.paint(&self.theme.bottom_left.to_string()).to_string());
+                        output.push_str(
+                            &sep_color
+                                .paint(&self.theme.bottom_left.to_string())
+                                .to_string(),
+                        );
                     }
                     for _ in 0..*column.1 {
-                        output.push_str(&sep_color.paint(&self.theme.bottom_horizontal.to_string()).to_string());
+                        output.push_str(
+                            &sep_color
+                                .paint(&self.theme.bottom_horizontal.to_string())
+                                .to_string(),
+                        );
                     }
-                    output.push_str(&sep_color.paint(&self.theme.bottom_horizontal.to_string()).to_string());
-                    output.push_str(&sep_color.paint(&self.theme.bottom_horizontal.to_string()).to_string());
+                    output.push_str(
+                        &sep_color
+                            .paint(&self.theme.bottom_horizontal.to_string())
+                            .to_string(),
+                    );
+                    output.push_str(
+                        &sep_color
+                            .paint(&self.theme.bottom_horizontal.to_string())
+                            .to_string(),
+                    );
 
                     if column.0 == column_count - 1 {
                         if self.theme.print_right_border {
-                            output.push_str(&sep_color.paint(&self.theme.bottom_right.to_string()).to_string());
+                            output.push_str(
+                                &sep_color
+                                    .paint(&self.theme.bottom_right.to_string())
+                                    .to_string(),
+                            );
                         }
                     } else {
-                        output.push_str(&sep_color.paint(&self.theme.bottom_center.to_string()).to_string());
+                        output.push_str(
+                            &sep_color
+                                .paint(&self.theme.bottom_center.to_string())
+                                .to_string(),
+                        );
                     }
                 }
             }
@@ -562,11 +631,7 @@ impl WrappedTable {
         // println!("{:#?}", output);
     }
 
-    fn print_cell_contents(
-        &self,
-        cells: &[WrappedCell],
-        color_hm: &HashMap<String, Style>,
-    ) {
+    fn print_cell_contents(&self, cells: &[WrappedCell], color_hm: &HashMap<String, Style>) {
         let sep_color = color_hm
             .get("separator_color")
             .unwrap_or(&Style::default())
@@ -577,7 +642,11 @@ impl WrappedTable {
 
             let mut output = String::new();
             if self.theme.print_left_border {
-                output.push_str(&sep_color.paint(&self.theme.left_vertical.to_string()).to_string());
+                output.push_str(
+                    &sep_color
+                        .paint(&self.theme.left_vertical.to_string())
+                        .to_string(),
+                );
             }
 
             for column in cells.iter().enumerate() {
@@ -632,9 +701,17 @@ impl WrappedTable {
                     }
                 }
                 if column.0 < cells.len() - 1 {
-                    output.push_str(&sep_color.paint(&self.theme.center_vertical.to_string()).to_string());
+                    output.push_str(
+                        &sep_color
+                            .paint(&self.theme.center_vertical.to_string())
+                            .to_string(),
+                    );
                 } else if self.theme.print_right_border {
-                    output.push_str(&sep_color.paint(&self.theme.right_vertical.to_string()).to_string());
+                    output.push_str(
+                        &sep_color
+                            .paint(&self.theme.right_vertical.to_string())
+                            .to_string(),
+                    );
                 }
             }
             if lines_printed == 0 {

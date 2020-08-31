@@ -1,8 +1,8 @@
+use ansi_term::{Color, Style};
 use nu_protocol::{hir::Number, Primitive, Value};
 use nu_source::Tag;
 use nu_table::{Alignment, TextStyle};
 use std::collections::HashMap;
-use ansi_term::{Color, Style};
 
 pub fn number(number: impl Into<Number>) -> Primitive {
     let number = number.into();
