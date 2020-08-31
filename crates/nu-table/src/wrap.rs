@@ -2,7 +2,7 @@ use crate::table::TextStyle;
 use std::{fmt::Display, iter::Iterator};
 use unicode_width::UnicodeWidthStr;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum Alignment {
     Left,
     Center,

@@ -192,6 +192,12 @@ impl From<chrono::Duration> for Primitive {
     }
 }
 
+impl std::fmt::Display for Primitive {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 impl ShellTypeName for Primitive {
     /// Get the name of the type of a Primitive value
     fn type_name(&self) -> &'static str {
