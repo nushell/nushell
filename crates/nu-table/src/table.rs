@@ -318,6 +318,7 @@ impl Theme {
             print_bottom_border: true,
         }
     }
+
     #[allow(unused)]
     pub fn thin() -> Theme {
         Theme {
@@ -348,6 +349,7 @@ impl Theme {
             print_bottom_border: true,
         }
     }
+
     #[allow(unused)]
     pub fn light() -> Theme {
         Theme {
@@ -378,6 +380,7 @@ impl Theme {
             print_bottom_border: true,
         }
     }
+
     #[allow(unused)]
     pub fn compact() -> Theme {
         Theme {
@@ -407,6 +410,37 @@ impl Theme {
             print_bottom_border: true,
         }
     }
+
+    #[allow(unused)]
+    pub fn with_love() -> Theme {
+        Theme {
+            top_left: '❤',
+            middle_left: '❤',
+            bottom_left: '❤',
+            top_center: '❤',
+            center: '❤',
+            bottom_center: '❤',
+            top_right: '❤',
+            middle_right: '❤',
+            bottom_right: '❤',
+            top_horizontal: '❤',
+            middle_horizontal: '❤',
+            bottom_horizontal: '❤',
+
+            left_vertical: ' ',
+            center_vertical: '❤',
+            right_vertical: ' ',
+
+            separate_header: true,
+            separate_rows: false,
+
+            print_left_border: false,
+            print_right_border: false,
+            print_top_border: true,
+            print_bottom_border: true,
+        }
+    }
+
     #[allow(unused)]
     pub fn compact_double() -> Theme {
         Theme {
