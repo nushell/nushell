@@ -70,6 +70,7 @@ pub fn table_mode(config: &NuConfig) -> nu_table::Theme {
             Ok(m) if m == "compact" => nu_table::Theme::compact(),
             Ok(m) if m == "light" => nu_table::Theme::light(),
             Ok(m) if m == "thin" => nu_table::Theme::thin(),
+            Ok(m) if m == "with_love" => nu_table::Theme::with_love(),
             _ => nu_table::Theme::compact(),
         })
 }
