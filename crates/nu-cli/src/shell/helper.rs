@@ -54,7 +54,7 @@ impl rustyline::completion::Completer for Helper {
     }
 
     fn update(&self, line: &mut rustyline::line_buffer::LineBuffer, start: usize, elected: &str) {
-        let end = (start + elected.len()).min(line.len());
+        let end = line.pos();
         line.replace(start..end, elected)
     }
 }
