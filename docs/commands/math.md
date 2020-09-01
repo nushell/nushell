@@ -134,7 +134,7 @@ To get the average of the file sizes in a directory, simply pipe the size column
 ```shell
 >  pwd | split row / | size
 ───┬───────┬───────┬───────┬────────────
- # │ lines │ words │ chars │ max length
+ # │ lines │ words │ chars │ bytes
 ───┼───────┼───────┼───────┼────────────
  0 │     0 │     1 │     5 │          5
  1 │     0 │     1 │    11 │         11
@@ -151,7 +151,7 @@ To get the average of the file sizes in a directory, simply pipe the size column
  lines      │ 0
  words      │ 2
  chars      │ 12
- max length │ 12
+ bytes │ 12
 ────────────┴────
 ```
 
@@ -161,7 +161,7 @@ To get the average of the file sizes in a directory, simply pipe the size column
  lines      │ 0.0000
  words      │ 1.1666
  chars      │ 8.3333
- max length │ 8.3333
+ bytes │ 8.3333
 ────────────┴────────
 ```
 

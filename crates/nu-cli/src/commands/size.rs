@@ -36,7 +36,7 @@ impl WholeStreamCommand for Size {
                 "lines".to_string() => UntaggedValue::int(0).into(),
                 "words".to_string() => UntaggedValue::int(7).into(),
                 "chars".to_string() => UntaggedValue::int(38).into(),
-                "max length".to_string() => UntaggedValue::int(38).into(),
+                "bytes".to_string() => UntaggedValue::int(38).into(),
             })
             .into()]),
         }]
@@ -96,7 +96,7 @@ fn count(contents: &str, tag: impl Into<Tag>) -> Value {
     dict.insert_untagged("lines", UntaggedValue::int(lines));
     dict.insert_untagged("words", UntaggedValue::int(words));
     dict.insert_untagged("chars", UntaggedValue::int(chars));
-    dict.insert_untagged("max length", UntaggedValue::int(bytes));
+    dict.insert_untagged("bytes", UntaggedValue::int(bytes));
 
     dict.into_value()
 }
