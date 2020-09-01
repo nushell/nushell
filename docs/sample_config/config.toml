@@ -14,6 +14,26 @@ complete_from_path = true
 rm_always_trash = true
 prompt = "echo [ $(ansi gb) $(pwd) $(ansi reset) \"(\" $(ansi cb) $(do -i { git rev-parse --abbrev-ref HEAD | trim }) $(ansi reset) \")\" $(char newline) $(ansi yb) $(date --format \"%m/%d/%Y %I:%M:%S%.3f %p\" --raw) $(ansi reset) \"> \" ] | str collect"
 
+# for each of the options in the color_config section, you are able to set
+# the color alone or with one of the following attributes.
+# color, abbreviation
+# green  g
+# red    r
+# blue   u
+# black  b
+# yellow y
+# purple p
+# cyan   c
+# white  w
+# attribute, abbreviation
+# bold       b
+# underline  u
+# italic     i
+# dimmed     d
+# reverse    r
+# abbreviated: green bold = gb, red underline = ru, blue dimmed = ud
+# or verbose: green_bold, red_underline, blue_dimmed
+
 [color_config]
 primitive_int = "green"
 primitive_decimal = "red"
@@ -32,7 +52,6 @@ separator_color = "purple"
 header_align = "l" # left|l, right|r, center|c
 header_color = "c" # green|g, red|r, blue|u, black|b, yellow|y, purple|p, cyan|c, white|w
 header_bold = true
-header_style = "cb"
 index_color = "rd"
 
 [line_editor]
