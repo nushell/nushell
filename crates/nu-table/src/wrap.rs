@@ -135,7 +135,6 @@ pub fn wrap<'a>(
     let mut first = true;
     let mut max_width = 0;
     loop {
-        // println!("{:?}", current_line);
         match input.next() {
             Some(item) => {
                 if !first {

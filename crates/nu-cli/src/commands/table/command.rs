@@ -49,14 +49,11 @@ pub fn from_list(
     color_hm: &HashMap<String, ansi_term::Style>,
 ) -> nu_table::Table {
     let header_style = configuration.header_style();
-    // println!("Header_Style=[{:?}]", &header_style);
     let mut headers: Vec<StyledString> = nu_protocol::merge_descriptors(values)
         .into_iter()
         .map(|x| StyledString::new(x, header_style))
         .collect();
     let entries = values_to_entries(values, &mut headers, configuration, starting_idx, &color_hm);
-    // println!("Headers=[{:?}]", &headers);
-    // println!("Entries=[{:?}", &entries);
     nu_table::Table {
         headers,
         data: entries,
@@ -173,10 +170,7 @@ async fn table(
     // blink, reverse, hidden, strikethrough and most of those aren't available in the
     // config.toml.... yet.
     let color_hm = get_color_config();
-    // style_primitive(&"header_style".to_string(), &color_hm);
-    // println!("HashMap = [{:?}]", &color_hm);
 
-    // let host = args.host.clone();
     let mut start_number = match args.get("start_number") {
         Some(Value {
             value: UntaggedValue::Primitive(Primitive::Int(i)),

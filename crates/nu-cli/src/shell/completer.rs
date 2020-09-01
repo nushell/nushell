@@ -63,7 +63,7 @@ impl NuCompleter {
 
                             let partial = if let Some(quote_char) = quote_char {
                                 if partial.ends_with(quote_char) {
-                                    &partial[..partial.len()]
+                                    &partial[..partial.len() - 1]
                                 } else {
                                     partial
                                 }
@@ -76,15 +76,16 @@ impl NuCompleter {
                                 "cd" => select_directory_suggestions(completed_paths),
                                 _ => completed_paths,
                             }
+                            .into_iter()
+                            .map(|suggestion| Suggestion {
+                                replacement: requote(suggestion.replacement),
+                                display: suggestion.display,
+                            })
+                            .collect()
                         }
 
                         LocationType::Variable => Vec::new(),
                     }
-                    .into_iter()
-                })
-                .map(|suggestion| Suggestion {
-                    replacement: requote(suggestion.replacement),
-                    display: suggestion.display,
                 })
                 .collect();
 

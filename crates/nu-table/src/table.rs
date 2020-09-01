@@ -515,16 +515,6 @@ impl WrappedTable {
             .get("separator_color")
             .unwrap_or(&Style::default())
             .to_owned();
-        // let sep_color = Style::default().fg(Color::Yellow).bold().on(Color::Purple);
-
-        // println!("SepColor = [{:?}]", &sep_color);
-        // println!("{}",&sep_color.paint(self.theme.top_left.to_string()));
-
-        // let mut test = String::new();
-        // test.push_str(&sep_color.paint(self.theme.top_left.to_string()));
-        // test.push_str(&sep_color.paint(self.theme.top_horizontal.to_string()));
-        // test.push_str(&sep_color.paint(self.theme.top_right.to_string()));
-        // println!("{}", test);
 
         match separator_position {
             SeparatorPosition::Top => {
@@ -692,7 +682,6 @@ impl WrappedTable {
                     match column.1.style.alignment {
                         Alignment::Left => {
                             if let Some(color) = column.1.style.color_style {
-                                // println!("L color=[{:?}] line=[{}]", &color, &line.line);
                                 output.push_str(&color.paint(&line.line).to_string());
                             } else {
                                 output.push_str(&line.line);
@@ -706,7 +695,6 @@ impl WrappedTable {
                                 output.push(' ');
                             }
                             if let Some(color) = column.1.style.color_style {
-                                // println!("C color=[{:?}] line=[{}]", &color, &line.line);
                                 output.push_str(&color.paint(&line.line).to_string());
                             } else {
                                 output.push_str(&line.line);
@@ -720,7 +708,6 @@ impl WrappedTable {
                                 output.push(' ');
                             }
                             if let Some(color) = column.1.style.color_style {
-                                // println!("R color=[{:?}] line=[{}]", &color, &line.line);
                                 output.push_str(&color.paint(&line.line).to_string());
                             } else {
                                 output.push_str(&line.line);
