@@ -1,5 +1,5 @@
 use std::iter::FromIterator;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use indexmap::set::IndexSet;
 
@@ -36,7 +36,24 @@ impl Completer {
             let path_completer = crate::completion::path::Completer;
             let path_results = path_completer.complete(ctx, partial);
             suggestions.extend(path_results.into_iter().filter(|suggestion| {
-                let path = Path::new(&suggestion.replacement);
+                // TODO better path abstractions to avoid a mess like this
+                let path = {
+                    #[cfg(feature = "directories")]
+                    {
+                        let home_prefix = format!("~{}", std::path::MAIN_SEPARATOR);
+                        if let Some(mut home) = dirs::home_dir() {
+                            home.push(suggestion.replacement.replacen(&home_prefix, "", 1));
+                            home
+                        } else {
+                            PathBuf::from(&suggestion.replacement)
+                        }
+                    }
+                    #[cfg(not(feature = "directories"))]
+                    {
+                        PathBuf::from(&suggestion.replacement)
+                    }
+                };
+
                 path.is_dir() || is_executable(&path)
             }));
         }
