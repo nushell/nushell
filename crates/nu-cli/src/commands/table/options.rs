@@ -1,8 +1,7 @@
 pub use nu_data::config::NuConfig;
 use nu_data::primitive::lookup_ansi_color_style;
-use nu_protocol::{UntaggedValue, Value};
-use nu_source::Tag;
-use nu_table::TextStyle;
+use nu_protocol::Value;
+use nu_table::{Alignment, TextStyle};
 use std::fmt::Debug;
 
 pub trait ConfigExtensions: Debug + Send {
@@ -27,21 +26,18 @@ pub fn header_alignment_from_value(align_value: Option<&Value>) -> nu_table::Ali
     }
 }
 
-pub fn get_color_from_key_and_subkey(config: &NuConfig, key: &str, subkey: &str) -> Value {
+pub fn get_color_from_key_and_subkey(config: &NuConfig, key: &str, subkey: &str) -> Option<Value> {
     let vars = config.vars.lock();
 
-    let mut v: Value =
-        UntaggedValue::Primitive(nu_protocol::Primitive::String("nocolor".to_string()))
-            .into_value(Tag::unknown());
     if let Some(config_vars) = vars.get(key) {
         for (kee, value) in config_vars.row_entries() {
             if kee == subkey {
-                v = value.to_owned();
+                return Some(value.clone())
             }
         }
     }
 
-    v
+    None
 }
 
 pub fn header_bold_from_value(bold_value: Option<&Value>) -> bool {
@@ -76,15 +72,22 @@ impl ConfigExtensions for NuConfig {
     fn header_style(&self) -> TextStyle {
         // FIXME: I agree, this is the long way around, please suggest and alternative.
         let head_color = get_color_from_key_and_subkey(self, "color_config", "header_color");
-        let head_color_style = lookup_ansi_color_style(
-            head_color
-                .as_string()
-                .unwrap_or_else(|_| "green".to_string()),
-        );
+        let head_color_style = match head_color {
+            Some(s) => {
+                lookup_ansi_color_style(s.as_string().unwrap_or_else(|_| "green".to_string()))
+            }
+            None => ansi_term::Color::Green.normal(),
+        };
         let head_bold = get_color_from_key_and_subkey(self, "color_config", "header_bold");
-        let head_bold_bool = header_bold_from_value(Some(&head_bold));
+        let head_bold_bool = match head_bold {
+            Some(b) => header_bold_from_value(Some(&b)),
+            None => true,
+        };
         let head_align = get_color_from_key_and_subkey(self, "color_config", "header_align");
-        let head_alignment = header_alignment_from_value(Some(&head_align));
+        let head_alignment = match head_align {
+            Some(a) => header_alignment_from_value(Some(&a)),
+            None => Alignment::Left,
+        };
 
         TextStyle::new()
             .alignment(head_alignment)
