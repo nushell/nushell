@@ -1,6 +1,6 @@
+use crate::jsonrpc::{send_response, NuCommand};
 use nu_errors::ShellError;
-use nu_protocol::{outln, CallInfo, ReturnValue, Signature, Value};
-use serde::{Deserialize, Serialize};
+use nu_protocol::{CallInfo, ReturnValue, Signature, Value};
 use std::io;
 
 /// The `Plugin` trait defines the API which plugins may use to "hook" into nushell.
@@ -133,41 +133,4 @@ pub fn serve_plugin(plugin: &mut dyn Plugin) {
             }
         }
     }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct JsonRpc<T> {
-    jsonrpc: String,
-    pub method: String,
-    pub params: T,
-}
-impl<T> JsonRpc<T> {
-    pub fn new<U: Into<String>>(method: U, params: T) -> Self {
-        JsonRpc {
-            jsonrpc: "2.0".into(),
-            method: method.into(),
-            params,
-        }
-    }
-}
-
-fn send_response<T: Serialize>(result: T) {
-    let response = JsonRpc::new("response", result);
-    let response_raw = serde_json::to_string(&response);
-
-    match response_raw {
-        Ok(response) => outln!("{}", response),
-        Err(err) => outln!("{}", err),
-    }
-}
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "method")]
-#[allow(non_camel_case_types)]
-pub enum NuCommand {
-    config,
-    begin_filter { params: CallInfo },
-    filter { params: Value },
-    end_filter,
-    sink { params: (CallInfo, Vec<Value>) },
-    quit,
 }

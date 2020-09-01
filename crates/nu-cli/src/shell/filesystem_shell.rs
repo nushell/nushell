@@ -125,6 +125,8 @@ impl Shell for FilesystemShell {
             }
         };
 
+        let hidden_dir_specified = is_hidden_dir(&path);
+
         let mut paths = glob::glob(&path.to_string_lossy())
             .map_err(|e| ShellError::labeled_error(e.to_string(), "invalid pattern", &p_tag))?
             .peekable();
@@ -145,14 +147,14 @@ impl Shell for FilesystemShell {
                 Err(err) => return Some(Err(err)),
             };
 
-            if !all && is_hidden_dir(&path) {
+            if !all && !hidden_dir_specified && is_hidden_dir(&path) {
                 return None;
             }
 
             let metadata = match std::fs::symlink_metadata(&path) {
                 Ok(metadata) => Some(metadata),
                 Err(e) => {
-                    if e.kind() == ErrorKind::PermissionDenied {
+                    if e.kind() == ErrorKind::PermissionDenied || e.kind() == ErrorKind::Other {
                         None
                     } else {
                         return Some(Err(e.into()));

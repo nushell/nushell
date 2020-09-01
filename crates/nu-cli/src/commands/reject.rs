@@ -23,7 +23,7 @@ impl WholeStreamCommand for Reject {
     }
 
     fn usage(&self) -> &str {
-        "Remove the given columns from the table."
+        "Remove the given columns from the table. If you want to remove rows, try 'drop'."
     }
 
     async fn run(

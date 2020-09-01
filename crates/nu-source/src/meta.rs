@@ -526,10 +526,11 @@ impl Span {
     /// let span = Span::new(2, 8);
     ///
     /// assert_eq!(span.contains(5), true);
+    /// assert_eq!(span.contains(8), false);
     /// assert_eq!(span.contains(100), false);
     /// ```
     pub fn contains(&self, pos: usize) -> bool {
-        self.start <= pos && self.end >= pos
+        self.start <= pos && pos < self.end
     }
 
     /// Returns a new Span by merging an earlier Span with the current Span.

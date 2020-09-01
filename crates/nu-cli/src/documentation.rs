@@ -131,13 +131,13 @@ pub fn get_documentation(
     long_desc.push_str(&cmd.usage());
     long_desc.push_str("\n");
 
-    let mut subcommands = String::new();
+    let mut subcommands = vec![];
     if !config.no_subcommands {
         for name in registry.names() {
             if name.starts_with(&format!("{} ", cmd_name)) {
                 let subcommand = registry.get_command(&name).expect("This shouldn't happen");
 
-                subcommands.push_str(&format!("  {} - {}\n", name, subcommand.usage()));
+                subcommands.push(format!("  {} - {}", name, subcommand.usage()));
             }
         }
     }
@@ -173,7 +173,9 @@ pub fn get_documentation(
 
     if !subcommands.is_empty() {
         long_desc.push_str("\nSubcommands:\n");
-        long_desc.push_str(&subcommands);
+        subcommands.sort();
+        long_desc.push_str(&subcommands.join("\n"));
+        long_desc.push_str("\n");
     }
 
     if !signature.positional.is_empty() || signature.rest_positional.is_some() {

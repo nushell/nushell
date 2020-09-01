@@ -1,26 +1,31 @@
-use crate::completion::{self, Completer};
-use crate::context::Context;
-use crate::shell::palette::{DefaultPalette, Palette};
+use std::borrow::Cow::{self, Owned};
 
 use ansi_term::{Color, Style};
 use nu_parser::SignatureRegistry;
 use nu_protocol::hir::FlatShape;
 use nu_source::{Spanned, Tag, Tagged};
-use rustyline::hint::Hinter;
-use std::borrow::Cow::{self, Owned};
+
+use crate::completion;
+use crate::context::Context;
+use crate::shell::completer::NuCompleter;
+use crate::shell::palette::{DefaultPalette, Palette};
 
 pub struct Helper {
-    completer: Box<dyn Completer>,
+    completer: NuCompleter,
+    hinter: Option<rustyline::hint::HistoryHinter>,
     context: Context,
     pub colored_prompt: String,
+    validator: NuValidator,
 }
 
 impl Helper {
-    pub(crate) fn new(completer: Box<dyn Completer>, context: Context) -> Helper {
+    pub(crate) fn new(context: Context, hinter: Option<rustyline::hint::HistoryHinter>) -> Helper {
         Helper {
-            completer,
+            completer: NuCompleter {},
+            hinter,
             context,
             colored_prompt: String::new(),
+            validator: NuValidator {},
         }
     }
 }
@@ -42,19 +47,21 @@ impl rustyline::completion::Completer for Helper {
         &self,
         line: &str,
         pos: usize,
-        ctx: &rustyline::Context<'_>,
+        _ctx: &rustyline::Context<'_>,
     ) -> Result<(usize, Vec<Self::Candidate>), rustyline::error::ReadlineError> {
-        let ctx = completion::Context::new(&self.context, ctx);
-        self.completer
-            .complete(line, pos, &ctx)
-            .map_err(|_| rustyline::error::ReadlineError::Eof)
+        let ctx = completion::Context::new(&self.context);
+        Ok(self.completer.complete(line, pos, &ctx))
+    }
+
+    fn update(&self, line: &mut rustyline::line_buffer::LineBuffer, start: usize, elected: &str) {
+        let end = line.pos();
+        line.replace(start..end, elected)
     }
 }
 
-impl Hinter for Helper {
+impl rustyline::hint::Hinter for Helper {
     fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
-        let ctx = completion::Context::new(&self.context, ctx);
-        self.completer.hint(line, pos, &ctx)
+        self.hinter.as_ref().and_then(|h| h.hint(line, pos, &ctx))
     }
 }
 
@@ -87,6 +94,40 @@ impl rustyline::highlight::Highlighter for Helper {
 
     fn highlight_char(&self, _line: &str, _pos: usize) -> bool {
         true
+    }
+}
+
+impl rustyline::validate::Validator for Helper {
+    fn validate(
+        &self,
+        ctx: &mut rustyline::validate::ValidationContext,
+    ) -> rustyline::Result<rustyline::validate::ValidationResult> {
+        self.validator.validate(ctx)
+    }
+
+    fn validate_while_typing(&self) -> bool {
+        self.validator.validate_while_typing()
+    }
+}
+
+struct NuValidator {}
+
+impl rustyline::validate::Validator for NuValidator {
+    fn validate(
+        &self,
+        ctx: &mut rustyline::validate::ValidationContext,
+    ) -> rustyline::Result<rustyline::validate::ValidationResult> {
+        let src = ctx.input();
+
+        let lite_result = nu_parser::lite_parse(src, 0);
+
+        if let Err(err) = lite_result {
+            if let nu_errors::ParseErrorReason::Eof { .. } = err.cause.reason() {
+                return Ok(rustyline::validate::ValidationResult::Incomplete);
+            }
+        }
+
+        Ok(rustyline::validate::ValidationResult::Valid(None))
     }
 }
 
@@ -189,7 +230,3 @@ impl Painter {
 }
 
 impl rustyline::Helper for Helper {}
-
-// Use default validator for normal single line behaviour
-// In the future we can implement this for custom multi-line support
-impl rustyline::validate::Validator for Helper {}

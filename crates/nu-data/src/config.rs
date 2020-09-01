@@ -1,6 +1,5 @@
 mod conf;
 mod nuconfig;
-pub mod table;
 
 pub mod tests;
 

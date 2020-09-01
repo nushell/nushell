@@ -142,8 +142,8 @@ impl PrettyDebug for FormatInlineShape {
                 let (right, right_inclusion) = &range.to;
 
                 let op = match (left_inclusion, right_inclusion) {
-                    (RangeInclusion::Inclusive, RangeInclusion::Exclusive) => "..",
-                    _ => unimplemented!("No syntax for ranges that aren't inclusive on the left and exclusive on the right")
+                    (RangeInclusion::Inclusive, RangeInclusion::Inclusive) => "..",
+                    _ => unimplemented!("No syntax for ranges that aren't inclusive on the left and inclusive on the right")
                 };
 
                 left.clone().format().pretty() + b::operator(op) + right.clone().format().pretty()

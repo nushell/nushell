@@ -5,6 +5,7 @@ pub trait Conf: Debug + Send {
     fn env(&self) -> Option<Value>;
     fn path(&self) -> Option<Value>;
     fn reload(&self);
+    fn clone_box(&self) -> Box<dyn Conf>;
 }
 
 impl Conf for Box<dyn Conf> {
@@ -18,5 +19,9 @@ impl Conf for Box<dyn Conf> {
 
     fn reload(&self) {
         (**self).reload();
+    }
+
+    fn clone_box(&self) -> Box<dyn Conf> {
+        (**self).clone_box()
     }
 }

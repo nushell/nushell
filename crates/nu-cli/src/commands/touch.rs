@@ -10,7 +10,8 @@ pub struct Touch;
 
 #[derive(Deserialize)]
 pub struct TouchArgs {
-    pub target: Tagged<PathBuf>,
+    target: Tagged<PathBuf>,
+    rest: Vec<Tagged<PathBuf>>,
 }
 
 #[async_trait]
@@ -19,14 +20,16 @@ impl WholeStreamCommand for Touch {
         "touch"
     }
     fn signature(&self) -> Signature {
-        Signature::build("touch").required(
-            "filename",
-            SyntaxShape::Path,
-            "the path of the file you want to create",
-        )
+        Signature::build("touch")
+            .required(
+                "filename",
+                SyntaxShape::Path,
+                "the path of the file you want to create",
+            )
+            .rest(SyntaxShape::Path, "additional files to create")
     }
     fn usage(&self) -> &str {
-        "creates a file"
+        "creates one or more files"
     }
     async fn run(
         &self,
@@ -37,26 +40,39 @@ impl WholeStreamCommand for Touch {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Creates \"fixture.json\"",
-            example: "touch fixture.json",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Creates \"fixture.json\"",
+                example: "touch fixture.json",
+                result: None,
+            },
+            Example {
+                description: "Creates files a, b and c",
+                example: "touch a b c",
+                result: None,
+            },
+        ]
     }
 }
 
 async fn touch(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let (TouchArgs { target }, _) = args.process(&registry).await?;
+    let (TouchArgs { target, rest }, _) = args.process(&registry).await?;
 
-    match OpenOptions::new().write(true).create(true).open(&target) {
-        Ok(_) => Ok(OutputStream::empty()),
-        Err(err) => Err(ShellError::labeled_error(
-            "File Error",
-            err.to_string(),
-            &target.tag,
-        )),
+    for item in vec![target].into_iter().chain(rest.into_iter()) {
+        match OpenOptions::new().write(true).create(true).open(&item) {
+            Ok(_) => continue,
+            Err(err) => {
+                return Err(ShellError::labeled_error(
+                    "File Error",
+                    err.to_string(),
+                    &item.tag,
+                ))
+            }
+        }
     }
+
+    Ok(OutputStream::empty())
 }
 
 #[cfg(test)]

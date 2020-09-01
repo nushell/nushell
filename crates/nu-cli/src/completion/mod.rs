@@ -1,3 +1,8 @@
+pub(crate) mod command;
+pub(crate) mod engine;
+pub(crate) mod flag;
+pub(crate) mod path;
+
 use nu_errors::ShellError;
 
 use crate::context;
@@ -8,23 +13,17 @@ pub struct Suggestion {
     pub replacement: String,
 }
 
-pub struct Context<'a>(&'a context::Context, &'a rustyline::Context<'a>);
+pub struct Context<'a>(&'a context::Context);
 
 impl<'a> Context<'a> {
-    pub fn new(a: &'a context::Context, b: &'a rustyline::Context<'a>) -> Context<'a> {
-        Context(a, b)
+    pub fn new(a: &'a context::Context) -> Context<'a> {
+        Context(a)
     }
 }
 
 impl<'a> AsRef<context::Context> for Context<'a> {
     fn as_ref(&self) -> &context::Context {
         self.0
-    }
-}
-
-impl<'a> AsRef<rustyline::Context<'a>> for Context<'a> {
-    fn as_ref(&self) -> &rustyline::Context<'a> {
-        self.1
     }
 }
 
@@ -35,6 +34,4 @@ pub trait Completer {
         pos: usize,
         ctx: &Context<'_>,
     ) -> Result<(usize, Vec<Suggestion>), ShellError>;
-
-    fn hint(&self, line: &str, pos: usize, ctx: &Context<'_>) -> Option<String>;
 }
