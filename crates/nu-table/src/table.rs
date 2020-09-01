@@ -652,6 +652,7 @@ impl WrappedTable {
         }
 
         println!("{}", output);
+        // println!("{:#?}", output);
     }
 
     fn print_cell_contents(&self, cells: &[WrappedCell], color_hm: &HashMap<String, Style>) {
@@ -677,6 +678,7 @@ impl WrappedTable {
                     let remainder = self.column_widths[column.0] - line.width;
                     output.push(' ');
 
+                    // println!("Column1: [{:?}]", column.1.style);
                     match column.1.style.alignment {
                         Alignment::Left => {
                             if let Some(color) = column.1.style.color_style {
