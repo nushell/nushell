@@ -76,15 +76,16 @@ impl NuCompleter {
                                 "cd" => select_directory_suggestions(completed_paths),
                                 _ => completed_paths,
                             }
+                            .into_iter()
+                            .map(|suggestion| Suggestion {
+                                replacement: requote(suggestion.replacement),
+                                display: suggestion.display,
+                            })
+                            .collect()
                         }
 
                         LocationType::Variable => Vec::new(),
                     }
-                    .into_iter()
-                })
-                .map(|suggestion| Suggestion {
-                    replacement: requote(suggestion.replacement),
-                    display: suggestion.display,
                 })
                 .collect();
 
