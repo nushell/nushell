@@ -1,4 +1,5 @@
 use nu_table::{draw_table, StyledString, Table, TextStyle, Theme};
+use std::collections::HashMap;
 
 fn main() {
     let args: Vec<_> = std::env::args().collect();
@@ -23,5 +24,7 @@ fn main() {
         Theme::compact(),
     );
 
-    draw_table(&t, width);
+    // FIXME: Config isn't available from here so just put these here to compile
+    let color_hm: HashMap<String, ansi_term::Style> = HashMap::new();
+    draw_table(&t, width, &color_hm);
 }
