@@ -32,7 +32,7 @@ pub fn get_color_from_key_and_subkey(config: &NuConfig, key: &str, subkey: &str)
     if let Some(config_vars) = vars.get(key) {
         for (kee, value) in config_vars.row_entries() {
             if kee == subkey {
-                return Some(value.clone())
+                return Some(value.clone());
             }
         }
     }
