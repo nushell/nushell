@@ -52,6 +52,11 @@ impl rustyline::completion::Completer for Helper {
         let ctx = completion::Context::new(&self.context);
         Ok(self.completer.complete(line, pos, &ctx))
     }
+
+    fn update(&self, line: &mut rustyline::line_buffer::LineBuffer, start: usize, elected: &str) {
+        let end = (start + elected.len()).min(line.len());
+        line.replace(start..end, elected)
+    }
 }
 
 impl rustyline::hint::Hinter for Helper {
