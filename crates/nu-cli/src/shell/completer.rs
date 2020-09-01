@@ -63,7 +63,7 @@ impl NuCompleter {
 
                             let partial = if let Some(quote_char) = quote_char {
                                 if partial.ends_with(quote_char) {
-                                    &partial[..partial.len()]
+                                    &partial[..partial.len() - 1]
                                 } else {
                                     partial
                                 }
