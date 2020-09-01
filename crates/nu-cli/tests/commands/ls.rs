@@ -215,6 +215,9 @@ fn lists_all_hidden_files_when_glob_contains_dot() {
 }
 
 #[test]
+// TODO Remove this cfg value when we have an OS-agnostic way
+// of creating hidden files using the playground.
+#[cfg(unix)]
 fn lists_all_hidden_files_when_glob_does_not_contain_dot() {
     Playground::setup("ls_test_8", |dirs, sandbox| {
         sandbox
