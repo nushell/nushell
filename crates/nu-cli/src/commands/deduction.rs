@@ -17,6 +17,7 @@ use std::{
 
 use codespan_reporting::diagnostic::Diagnostic;
 use itertools::{merge_join_by, EitherOrBoth};
+use log::trace;
 
 //TODO move all of this to nu_cli/src/types/deduction.rs
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -233,7 +234,7 @@ impl VarSyntaxShapeDeductor {
                         }
                     }
                     if let Some(named) = &internal.args.named {
-                        //Infer shapes in named
+                        trace!("Infering vars in named exprs");
                         for (_name, val) in named.iter() {
                             if let NamedValue::Value(_, named_expr) = val {
                                 self.infer_shapes_in_expr(
@@ -685,7 +686,9 @@ impl VarSyntaxShapeDeductor {
         // If $var2 is of type Unit, $var1 has to be the same
     }
 
-    /// Inserts the new deductions.
+    /// Inserts the new deductions. Each VarShapeDeduction represents one alternative for
+    /// the variable described by var_usage
+
     /// Each of the deductions is assumed to be for the same variable
     /// Each of the deductions is assumed to be unique of shape
     fn checked_insert(
