@@ -122,11 +122,11 @@ pub fn get_color_config() -> HashMap<String, Style> {
     hm.insert("primitive_path".to_string(), Color::White.normal());
     hm.insert("primitive_binary".to_string(), Color::White.normal());
     hm.insert("separator_color".to_string(), Color::White.normal());
-    hm.insert("header_align".to_string(), Color::White.normal());
-    hm.insert("header_color".to_string(), Color::White.normal());
-    hm.insert("header_bold".to_string(), Color::White.normal());
+    hm.insert("header_align".to_string(), Color::Green.bold());
+    hm.insert("header_color".to_string(), Color::Green.bold());
+    hm.insert("header_bold".to_string(), Color::Green.bold());
     hm.insert("header_style".to_string(), Style::default());
-    hm.insert("index_color".to_string(), Color::Green.normal());
+    hm.insert("index_color".to_string(), Color::Green.bold());
 
     // populate hashmap from config values
     if let Ok(config) = crate::config::config(Tag::unknown()) {
@@ -228,135 +228,138 @@ pub fn style_primitive(primitive: &str, color_hm: &HashMap<String, Style>) -> Te
             let style = color_hm.get("Primitive::String");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_right(),
+                None => TextStyle::basic_left(),
             }
         }
         "Line" => {
             let style = color_hm.get("Primitive::Line");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_right(),
+                None => TextStyle::basic_left(),
             }
         }
         "ColumnPath" => {
             let style = color_hm.get("Primitive::ColumnPath");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_right(),
+                None => TextStyle::basic_left(),
             }
         }
         "Pattern" => {
             let style = color_hm.get("Primitive::Pattern");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_right(),
+                None => TextStyle::basic_left(),
             }
         }
         "Boolean" => {
             let style = color_hm.get("Primitive::Boolean");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_right(),
+                None => TextStyle::basic_left(),
             }
         }
         "Date" => {
             let style = color_hm.get("Primitive::Date");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_right(),
+                None => TextStyle::basic_left(),
             }
         }
         "Duration" => {
             let style = color_hm.get("Primitive::Duration");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_right(),
+                None => TextStyle::basic_left(),
             }
         }
         "Range" => {
             let style = color_hm.get("Primitive::Range");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_right(),
+                None => TextStyle::basic_left(),
             }
         }
         "Path" => {
             let style = color_hm.get("Primitive::Path");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_right(),
+                None => TextStyle::basic_left(),
             }
         }
         "Binary" => {
             let style = color_hm.get("Primitive::Binary");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_right(),
+                None => TextStyle::basic_left(),
             }
         }
         "BeginningOfStream" => {
             let style = color_hm.get("Primitive::BeginningOfStream");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_right(),
+                None => TextStyle::basic_left(),
             }
         }
         "EndOfStream" => {
             let style = color_hm.get("Primitive::EndOfStream");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_right(),
+                None => TextStyle::basic_left(),
             }
         }
         "Nothing" => {
             let style = color_hm.get("Primitive::Nothing");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_right(),
+                None => TextStyle::basic_left(),
             }
         }
         "separator_color" => {
             let style = color_hm.get("separator");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_right(),
+                None => TextStyle::basic_left(),
             }
         }
         "header_align" => {
             let style = color_hm.get("header_align");
             match style {
-                Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_right(),
+                Some(s) => TextStyle::with_style(Alignment::Center, *s),
+                None => TextStyle::default_header(),
             }
         }
         "header_color" => {
             let style = color_hm.get("header_color");
             match style {
-                Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_right(),
+                Some(s) => TextStyle::with_style(Alignment::Center, *s),
+                None => TextStyle::default_header(),
             }
         }
         "header_bold" => {
             let style = color_hm.get("header_bold");
             match style {
-                Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_right(),
+                Some(s) => TextStyle::with_style(Alignment::Center, *s),
+                None => TextStyle::default_header(),
             }
         }
         "header_style" => {
             let style = color_hm.get("header_style");
             match style {
-                Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_right(),
+                Some(s) => TextStyle::with_style(Alignment::Center, *s),
+                None => TextStyle::default_header(),
             }
         }
         "index_color" => {
             let style = color_hm.get("index_color");
             match style {
-                Some(s) => TextStyle::with_style(Alignment::Left, *s),
-                None => TextStyle::basic_right(),
+                Some(s) => TextStyle::with_style(Alignment::Right, *s),
+                None => TextStyle::new()
+                    .alignment(Alignment::Right)
+                    .fg(Color::Green)
+                    .bold(Some(true)),
             }
         }
-        _ => TextStyle::basic(),
+        _ => TextStyle::basic_center(),
     }
 }
