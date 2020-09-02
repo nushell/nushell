@@ -72,7 +72,7 @@ fn values_to_entries(
     let mut entries = vec![];
 
     if headers.is_empty() {
-        headers.push(StyledString::new("".to_string(), TextStyle::basic()));
+        headers.push(StyledString::new("".to_string(), TextStyle::basic_left()));
     }
 
     for (idx, value) in values.iter().enumerate() {

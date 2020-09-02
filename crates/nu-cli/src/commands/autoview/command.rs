@@ -266,7 +266,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                                 ),
                                 nu_table::StyledString::new(
                                     format_leaf(value).plain_string(100_000),
-                                    nu_table::TextStyle::basic(),
+                                    nu_table::TextStyle::basic_left(),
                                 ),
                             ]);
                         }

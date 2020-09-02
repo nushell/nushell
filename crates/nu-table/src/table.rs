@@ -217,15 +217,21 @@ impl TextStyle {
         }
     }
 
-    pub fn basic() -> TextStyle {
+    pub fn basic_center() -> TextStyle {
         TextStyle::new()
-            .alignment(Alignment::Left)
+            .alignment(Alignment::Center)
             .style(Style::default())
     }
 
     pub fn basic_right() -> TextStyle {
         TextStyle::new()
             .alignment(Alignment::Right)
+            .style(Style::default())
+    }
+
+    pub fn basic_left() -> TextStyle {
+        TextStyle::new()
+            .alignment(Alignment::Left)
             .style(Style::default())
     }
 

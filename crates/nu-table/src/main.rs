@@ -7,7 +7,7 @@ fn main() {
     let width = args[1].parse::<usize>().expect("Need a width in columns");
     let msg = args[2..]
         .iter()
-        .map(|x| StyledString::new(x.to_owned(), TextStyle::basic()))
+        .map(|x| StyledString::new(x.to_owned(), TextStyle::basic_left()))
         .collect();
 
     let t = Table::new(
