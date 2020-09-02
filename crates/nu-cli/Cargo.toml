@@ -41,6 +41,7 @@ dtparse = "1.1.0"
 dunce = "1.0.1"
 eml-parser = "0.1.0"
 filesize = "0.2.0"
+fs_extra = "1.2.0"
 futures = {version = "0.3", features = ["compat", "io-compat"]}
 futures-util = "0.3.5"
 futures_codec = "0.4"
