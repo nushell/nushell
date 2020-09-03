@@ -5,7 +5,9 @@ use nu_protocol::{
     ColumnPath, MaybeOwned, PathMember, Primitive, ShellTypeName, SpannedTypeName,
     UnspannedPathMember, UntaggedValue, Value,
 };
-use nu_source::{HasSpan, PrettyDebug, Spanned, SpannedItem, Tag, Tagged, TaggedItem};
+use nu_source::{
+    HasFallibleSpan, HasSpan, PrettyDebug, Span, Spanned, SpannedItem, Tag, Tagged, TaggedItem,
+};
 use num_traits::cast::ToPrimitive;
 
 pub trait ValueExt {
@@ -220,8 +222,7 @@ pub fn swap_data_by_column_path(
         &value,
         path,
         Box::new(move |(obj_source, column_path_tried, error)| {
-            let path_members_span =
-                nu_source::span_for_spanned_list(fields.members().iter().map(|p| p.span));
+            let path_members_span = fields.maybe_span().unwrap_or_else(Span::unknown);
 
             match &obj_source.value {
                 UntaggedValue::Table(rows) => match column_path_tried {

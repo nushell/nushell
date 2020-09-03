@@ -228,8 +228,13 @@ impl Context {
         }
     }
 
+    #[allow(unused)]
     pub(crate) fn get_command(&self, name: &str) -> Option<Command> {
         self.registry.get_command(name)
+    }
+
+    pub(crate) fn is_command_registered(&self, name: &str) -> bool {
+        self.registry.has(name)
     }
 
     pub(crate) fn expect_command(&self, name: &str) -> Result<Command, ShellError> {

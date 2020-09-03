@@ -35,10 +35,7 @@ impl InternalCommand {
             name,
             name_span,
             args: crate::hir::Call::new(
-                Box::new(SpannedExpression::new(
-                    Expression::Command(name_span),
-                    name_span,
-                )),
+                Box::new(SpannedExpression::new(Expression::Command, name_span)),
                 full_span,
             ),
         }
@@ -613,6 +610,22 @@ impl SpannedExpression {
                 }
                 false
             }
+            Expression::Table(headers, cells) => {
+                for l in headers {
+                    if l.has_shallow_it_usage() {
+                        return true;
+                    }
+                }
+
+                for row in cells {
+                    for cell in row {
+                        if cell.has_shallow_it_usage() {
+                            return true;
+                        }
+                    }
+                }
+                false
+            }
             Expression::Invocation(block) => {
                 for commands in block.block.iter() {
                     for command in commands.list.iter() {
@@ -647,6 +660,20 @@ impl SpannedExpression {
             } => {
                 for item in list.iter_mut() {
                     item.expand_it_usage();
+                }
+            }
+            SpannedExpression {
+                expr: Expression::Table(headers, cells),
+                ..
+            } => {
+                for header in headers.iter_mut() {
+                    header.expand_it_usage();
+                }
+
+                for row in cells.iter_mut() {
+                    for cell in row {
+                        cell.expand_it_usage()
+                    }
                 }
             }
             SpannedExpression {
@@ -719,12 +746,26 @@ impl PrettyDebugWithSource for SpannedExpression {
                     ),
                     "]",
                 ),
+                Expression::Table(_headers, cells) => b::delimit(
+                    "[",
+                    b::intersperse(
+                        cells
+                            .iter()
+                            .map(|row| {
+                                row.iter()
+                                    .map(|item| item.refined_pretty_debug(refine, source))
+                            })
+                            .flatten(),
+                        b::space(),
+                    ),
+                    "]",
+                ),
                 Expression::Path(path) => path.pretty_debug(source),
                 Expression::FilePath(path) => b::typed("path", b::primitive(path.display())),
                 Expression::ExternalCommand(external) => {
                     b::keyword("^") + b::keyword(external.name.span.slice(source))
                 }
-                Expression::Command(command) => b::keyword(command.slice(source)),
+                Expression::Command => b::keyword(self.span.slice(source)),
                 Expression::Boolean(boolean) => match boolean {
                     true => b::primitive("$yes"),
                     false => b::primitive("$no"),
@@ -759,15 +800,24 @@ impl PrettyDebugWithSource for SpannedExpression {
                 ),
                 "]",
             ),
+            Expression::Table(_headers, cells) => b::delimit(
+                "[",
+                b::intersperse(
+                    cells
+                        .iter()
+                        .map(|row| row.iter().map(|item| item.pretty_debug(source)))
+                        .flatten(),
+                    b::space(),
+                ),
+                "]",
+            ),
             Expression::Path(path) => path.pretty_debug(source),
             Expression::FilePath(path) => b::typed("path", b::primitive(path.display())),
             Expression::ExternalCommand(external) => b::typed(
                 "command",
                 b::keyword("^") + b::primitive(external.name.span.slice(source)),
             ),
-            Expression::Command(command) => {
-                b::typed("command", b::primitive(command.slice(source)))
-            }
+            Expression::Command => b::typed("command", b::primitive(self.span.slice(source))),
             Expression::Boolean(boolean) => match boolean {
                 true => b::primitive("$yes"),
                 false => b::primitive("$no"),
@@ -965,11 +1015,12 @@ pub enum Expression {
     Range(Box<Range>),
     Block(hir::Block),
     List(Vec<SpannedExpression>),
+    Table(Vec<SpannedExpression>, Vec<Vec<SpannedExpression>>),
     Path(Box<Path>),
 
     FilePath(PathBuf),
     ExternalCommand(ExternalStringCommand),
-    Command(Span),
+    Command,
     Invocation(hir::Block),
 
     Boolean(bool),
@@ -985,11 +1036,12 @@ impl ShellTypeName for Expression {
         match self {
             Expression::Literal(literal) => literal.type_name(),
             Expression::Synthetic(synthetic) => synthetic.type_name(),
-            Expression::Command(..) => "command",
+            Expression::Command => "command",
             Expression::ExternalWord => "external word",
             Expression::FilePath(..) => "file path",
             Expression::Variable(..) => "variable",
             Expression::List(..) => "list",
+            Expression::Table(..) => "table",
             Expression::Binary(..) => "binary",
             Expression::Range(..) => "range",
             Expression::Block(..) => "block",

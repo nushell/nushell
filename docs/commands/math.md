@@ -5,10 +5,14 @@ Currently the following functions are implemented:
 
 * `math avg`: Finds the average of a list of numbers or tables
 * [`math eval`](math-eval.md): Evaluates a list of math expressions into numbers
-* `math min`: Finds the minimum within a list of numbers or tables
 * `math max`: Finds the maximum within a list of numbers or tables
 * `math median`: Finds the median of a list of numbers or tables
+* `math min`: Finds the minimum within a list of numbers or tables
+* `math mode`: Finds the most frequent element(s) within a list of numbers or tables
+* `math stddev`: Finds the standard deviation of a list of numbers or tables
 * `math sum`: Finds the sum of a list of numbers or tables
+* `math product`: Finds the product of a list of numbers or tables
+* `math variance`: Finds the variance of a list of numbers or tables
 
 However, the mathematical functions like `min` and `max` are more permissive and also work on `Dates`.
 
@@ -90,6 +94,29 @@ To get the average of the file sizes in a directory, simply pipe the size column
 ───┴──────────
 ```
 
+```shell
+> echo [3 3 9 12 12 15] | math mode
+───┬────
+ 0 │  3
+ 1 │ 12
+───┴────
+```
+
+```shell
+> echo [2 3 3 4] | math product
+72
+```
+
+```shell
+> echo [1 4 6 10 50] | math stddev
+18.1372
+```
+
+```shell
+> echo [1 4 6 10 50] | math variance
+328.96
+```
+
 ### Dates
 
 ```shell
@@ -107,7 +134,7 @@ To get the average of the file sizes in a directory, simply pipe the size column
 ```shell
 >  pwd | split row / | size
 ───┬───────┬───────┬───────┬────────────
- # │ lines │ words │ chars │ max length
+ # │ lines │ words │ chars │ bytes
 ───┼───────┼───────┼───────┼────────────
  0 │     0 │     1 │     5 │          5
  1 │     0 │     1 │    11 │         11
@@ -124,7 +151,7 @@ To get the average of the file sizes in a directory, simply pipe the size column
  lines      │ 0
  words      │ 2
  chars      │ 12
- max length │ 12
+ bytes │ 12
 ────────────┴────
 ```
 
@@ -134,7 +161,7 @@ To get the average of the file sizes in a directory, simply pipe the size column
  lines      │ 0.0000
  words      │ 1.1666
  chars      │ 8.3333
- max length │ 8.3333
+ bytes │ 8.3333
 ────────────┴────────
 ```
 

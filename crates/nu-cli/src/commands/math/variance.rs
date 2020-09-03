@@ -81,30 +81,32 @@ impl WholeStreamCommand for SubCommand {
                 entries: column_totals,
             })
             .into_untagged_value())
-        };
+        }?;
 
-        match res {
-            Ok(v) => {
-                if v.value.is_table() {
-                    Ok(OutputStream::from(
-                        v.table_entries()
-                            .map(|v| ReturnSuccess::value(v.clone()))
-                            .collect::<Vec<_>>(),
-                    ))
-                } else {
-                    Ok(OutputStream::one(ReturnSuccess::value(v)))
-                }
-            }
-            Err(e) => Err(e),
+        if res.value.is_table() {
+            Ok(OutputStream::from(
+                res.table_entries()
+                    .map(|v| ReturnSuccess::value(v.clone()))
+                    .collect::<Vec<_>>(),
+            ))
+        } else {
+            Ok(OutputStream::one(ReturnSuccess::value(res)))
         }
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Get the variance of a list of numbers",
-            example: "echo [1 2 3 4 5] | math variance",
-            result: Some(vec![UntaggedValue::decimal(2).into()]),
-        }]
+        vec![
+            Example {
+                description: "Get the variance of a list of numbers",
+                example: "echo [1 2 3 4 5] | math variance",
+                result: Some(vec![UntaggedValue::decimal(2).into()]),
+            },
+            Example {
+                description: "Get the sample variance of a list of numbers",
+                example: "echo [1 2 3 4 5] | math variance -s",
+                result: Some(vec![UntaggedValue::decimal(2.5).into()]),
+            },
+        ]
     }
 }
 

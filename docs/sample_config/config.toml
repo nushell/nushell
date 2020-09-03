@@ -1,9 +1,11 @@
+skip_welcome_message = true
 disable_table_indexes = false
-header_align = "l"
-header_color = "c"
-header_bold = true
 nonzero_exit_errors = true
-startup = ["alias la [path] {ls --long $path}", "alias nudown [] {fetch https://api.github.com/repos/nushell/nushell/releases | get assets | select name download_count}"]
+startup = [
+    "alias la [path] {ls --long $path}",
+    "alias nudown [] {fetch https://api.github.com/repos/nushell/nushell/releases | get assets | select name download_count}",
+    "alias nuver [] {version | insert nushell_features {get features | str collect ', '} | reject features}",
+    ]
 table_mode = "other"
 plugin_dirs = ["D:\\Src\\GitHub\\nu-plugin-lib\\samples\\Nu.Plugin.Len\\bin\\Debug\\netcoreapp3.1"]
 pivot_mode = "auto"
@@ -12,14 +14,54 @@ complete_from_path = true
 rm_always_trash = true
 prompt = "echo [ $(ansi gb) $(pwd) $(ansi reset) \"(\" $(ansi cb) $(do -i { git rev-parse --abbrev-ref HEAD | trim }) $(ansi reset) \")\" $(char newline) $(ansi yb) $(date --format \"%m/%d/%Y %I:%M:%S%.3f %p\" --raw) $(ansi reset) \"> \" ] | str collect"
 
+# for each of the options in the color_config section, you are able to set
+# the color alone or with one of the following attributes.
+# color, abbreviation
+# green  g
+# red    r
+# blue   u
+# black  b
+# yellow y
+# purple p
+# cyan   c
+# white  w
+# attribute, abbreviation
+# bold       b
+# underline  u
+# italic     i
+# dimmed     d
+# reverse    r
+# abbreviated: green bold = gb, red underline = ru, blue dimmed = ud
+# or verbose: green_bold, red_underline, blue_dimmed
+
+[color_config]
+primitive_int = "green"
+primitive_decimal = "red"
+primitive_filesize = "ur"
+primitive_string = "pb"
+primitive_line = "yellow"
+primitive_columnpath = "cyan"
+primitive_pattern = "white"
+primitive_boolean = "green"
+primitive_date = "ru"
+primitive_duration = "blue"
+primitive_range = "purple"
+primitive_path = "yellow"
+primitive_binary = "cyan"
+separator_color = "purple"
+header_align = "l" # left|l, right|r, center|c
+header_color = "c" # green|g, red|r, blue|u, black|b, yellow|y, purple|p, cyan|c, white|w
+header_bold = true
+index_color = "rd"
+
 [line_editor]
 max_history_size = 100000
-history_duplicates = "alwaysadd" # alwaysadd,ignoreconsecutive
-history_ignore_space = true
+history_duplicates = "ignoreconsecutive" # alwaysadd,ignoreconsecutive
+history_ignore_space = false
 completion_type = "circular" # circular, list, fuzzy
-completion_prompt_limit = 1
+completion_prompt_limit = 100
 keyseq_timeout_ms = 500 # ms
-edit_mode = "vi" # vi, emacs
+edit_mode = "emacs" # vi, emacs
 auto_add_history = true
 bell_style = "audible" # audible, none, visible
 color_mode = "enabled" # enabled, forced, disabled
