@@ -154,6 +154,7 @@ pub(crate) use do_::Do;
 pub(crate) use drop::Drop;
 pub(crate) use du::Du;
 pub(crate) use each::Each;
+pub(crate) use each::EachGroup;
 pub(crate) use echo::Echo;
 pub(crate) use if_::If;
 pub(crate) use is_empty::IsEmpty;
