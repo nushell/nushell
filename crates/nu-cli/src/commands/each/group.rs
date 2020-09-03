@@ -10,8 +10,8 @@ pub struct EachGroup;
 
 #[derive(Deserialize)]
 pub struct EachGroupArgs {
-    block: Block,
     group_size: Tagged<usize>,
+    block: Block,
     //numbered: Tagged<bool>,
 }
 
@@ -23,12 +23,12 @@ impl WholeStreamCommand for EachGroup {
 
     fn signature(&self) -> Signature {
         Signature::build("each group")
+            .required("group_size", SyntaxShape::Int, "the size of each group")
             .required(
                 "block",
                 SyntaxShape::Block,
                 "the block to run on each group",
             )
-            .required("group_size", SyntaxShape::Int, "the size of each group")
     }
 
     fn usage(&self) -> &str {
@@ -62,18 +62,33 @@ impl WholeStreamCommand for EachGroup {
 
                 async {
                     match process_row(block, scope, head, context, value).await {
-                        Ok(s) => s,
-                        //Ok(s) => {
-                        //let vec = s
-                        //.filter_map(|x| async { x.unwrap().raw_value() })
-                        //.collect::<Vec<Value>>()
-                        //.await;
-                        //let val = Value {
-                        //value: UntaggedValue::Table(vec),
-                        //tag: Tag::unknown(),
-                        //};
-                        //OutputStream::one(Ok(ReturnSuccess::Value(val)))
-                        //}
+                        Ok(s) => {
+                            let vec = s
+                                //.filter_map(|x| async { x.unwrap().raw_value() })
+                                .collect::<Vec<_>>()
+                                .await;
+
+                            if vec.len() == 1 {
+                                return OutputStream::one(vec.into_iter().next().unwrap());
+                            }
+
+                            let result = vec.into_iter().collect::<Result<Vec<ReturnSuccess>, _>>();
+                            let result_table = match result {
+                                Ok(t) => t,
+                                Err(e) => return OutputStream::one(Err(e)),
+                            };
+
+                            let table = result_table
+                                .into_iter()
+                                .filter_map(|x| x.raw_value())
+                                .collect();
+
+                            let val = Value {
+                                value: UntaggedValue::Table(table),
+                                tag: Tag::unknown(),
+                            };
+                            OutputStream::one(Ok(ReturnSuccess::Value(val)))
+                        }
                         Err(e) => OutputStream::one(Err(e)),
                     }
                 }
