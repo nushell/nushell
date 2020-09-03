@@ -282,7 +282,7 @@ pub fn create_default_context(
             whole_stream_command(UrlQuery),
         ]);
 
-        #[cfg(feature = "clipboard")]
+        #[cfg(feature = "clipboard-cli")]
         {
             context.add_commands(vec![whole_stream_command(crate::commands::clip::Clip)]);
         }
