@@ -360,7 +360,10 @@ pub fn convert_toml_edit_value_to_nu_value(
             let mut collected = TaggedDictBuilder::new(&tag);
 
             for (k, v) in t.iter() {
-                collected.insert_value(<&str>::clone(&k), convert_toml_edit_value_to_nu_value(k, v, &tag));
+                collected.insert_value(
+                    <&str>::clone(&k),
+                    convert_toml_edit_value_to_nu_value(k, v, &tag),
+                );
             }
 
             collected.into_value()

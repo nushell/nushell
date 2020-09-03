@@ -1,9 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{
-    Primitive, ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value,
-};
+use nu_protocol::{Primitive, ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
 
 pub struct FromTOML;
 
