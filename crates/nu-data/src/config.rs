@@ -260,9 +260,10 @@ pub fn read(
         )
     })?;
 
-    let map = convert_toml_edit_doc_to_indexmap(&doc, tag);
-    // println!("config: [{:?}]", map);
-    map
+    // let map = convert_toml_edit_doc_to_indexmap(&doc, tag);
+    // // println!("config: [{:?}]", map);
+    // map
+    convert_toml_edit_doc_to_indexmap(&doc, tag)
 }
 
 pub fn convert_toml_edit_doc_to_indexmap(
@@ -300,9 +301,10 @@ pub fn convert_toml_edit_item_to_nu_value(
 
     match item {
         toml_edit::Item::Value(v) => {
-            let val = convert_toml_edit_value_to_nu_value(key, &v, tag);
-            // map.insert(key.to_string(), &val);
-            val
+            // let val = convert_toml_edit_value_to_nu_value(key, &v, tag);
+            // // map.insert(key.to_string(), &val);
+            // val
+            convert_toml_edit_value_to_nu_value(key, &v, tag)
         }
         // toml_edit::Item::Table(t) => {
         //     convert_toml_edit_table_to_nu_value(key, t, map, tag);
@@ -312,7 +314,7 @@ pub fn convert_toml_edit_item_to_nu_value(
 
             for (k, v) in t.iter() {
                 let val = convert_toml_edit_item_to_nu_value(k, v, &tag);
-                collected.insert_value(k.clone(), val);
+                collected.insert_value(<&str>::clone(&k), val);
             }
 
             // collected.into_value();
@@ -358,7 +360,7 @@ pub fn convert_toml_edit_value_to_nu_value(
             let mut collected = TaggedDictBuilder::new(&tag);
 
             for (k, v) in t.iter() {
-                collected.insert_value(k.clone(), convert_toml_edit_value_to_nu_value(k, v, &tag));
+                collected.insert_value(<&str>::clone(&k), convert_toml_edit_value_to_nu_value(k, v, &tag));
             }
 
             collected.into_value()
