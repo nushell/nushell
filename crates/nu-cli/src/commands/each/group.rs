@@ -35,6 +35,14 @@ impl WholeStreamCommand for EachGroup {
         "Runs a block on groups of `group_size` rows of a table at a time."
     }
 
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Echo the sum of each pair",
+            example: "echo [1 2 3 4] | each group 2 { echo $it | math sum }",
+            result: None,
+        }
+    }
+
     async fn run(
         &self,
         raw_args: CommandArgs,
@@ -63,15 +71,17 @@ impl WholeStreamCommand for EachGroup {
                 async {
                     match process_row(block, scope, head, context, value).await {
                         Ok(s) => {
-                            let vec = s
-                                //.filter_map(|x| async { x.unwrap().raw_value() })
-                                .collect::<Vec<_>>()
-                                .await;
+                            // We need to handle this differently depending on whether process_row
+                            // returned just 1 value or if it returned multiple as a stream.
+                            let vec = s.collect::<Vec<_>>().await;
 
+                            // If it returned just one value, just take that value
                             if vec.len() == 1 {
                                 return OutputStream::one(vec.into_iter().next().unwrap());
                             }
 
+                            // If it returned multiple values, we need to put them into a table and
+                            // return that.
                             let result = vec.into_iter().collect::<Result<Vec<ReturnSuccess>, _>>();
                             let result_table = match result {
                                 Ok(t) => t,
@@ -83,11 +93,9 @@ impl WholeStreamCommand for EachGroup {
                                 .filter_map(|x| x.raw_value())
                                 .collect();
 
-                            let val = Value {
-                                value: UntaggedValue::Table(table),
-                                tag: Tag::unknown(),
-                            };
-                            OutputStream::one(Ok(ReturnSuccess::Value(val)))
+                            OutputStream::one(Ok(ReturnSuccess::Value(
+                                UntaggedValue::Table(table).into(),
+                            )))
                         }
                         Err(e) => OutputStream::one(Err(e)),
                     }
@@ -95,5 +103,17 @@ impl WholeStreamCommand for EachGroup {
             })
             .flatten()
             .to_output_stream())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::EachGroup;
+
+    #[test]
+    fn examples_work_as_expected() {
+        use crate::examples::test as test_examples;
+
+        test_examples(EachGroup {})
     }
 }
