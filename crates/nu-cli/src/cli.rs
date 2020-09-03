@@ -265,6 +265,7 @@ pub fn create_default_context(
             whole_stream_command(RandomDice),
             #[cfg(feature = "uuid_crate")]
             whole_stream_command(RandomUUID),
+            whole_stream_command(RandomInteger),
             // Path
             whole_stream_command(PathBasename),
             whole_stream_command(PathCommand),
