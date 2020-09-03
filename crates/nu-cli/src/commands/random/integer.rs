@@ -45,6 +45,16 @@ impl WholeStreamCommand for SubCommand {
                 result: None,
             },
             Example {
+                description: "Generate a random integer less than or equal to 500",
+                example: "random integer --max 500",
+                result: None,
+            },
+            Example {
+                description: "Generate a random integer greater than or equal to 100000",
+                example: "random integer --min 100000",
+                result: None,
+            },
+            Example {
                 description: "Generate a random integer between 1 and 10",
                 example: "random integer --min 1 --max 10",
                 result: None,
