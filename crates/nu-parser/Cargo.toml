@@ -4,7 +4,7 @@ description = "Nushell parser"
 edition = "2018"
 license = "MIT"
 name = "nu-parser"
-version = "0.18.2"
+version = "0.19.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -20,9 +20,9 @@ parking_lot = "0.11.0"
 serde = "1.0.114"
 shellexpand = "2.0.0"
 
-nu-errors = {version = "0.18.2", path = "../nu-errors"}
-nu-protocol = {version = "0.18.2", path = "../nu-protocol"}
-nu-source = {version = "0.18.2", path = "../nu-source"}
+nu-errors = {version = "0.19.0", path = "../nu-errors"}
+nu-protocol = {version = "0.19.0", path = "../nu-protocol"}
+nu-source = {version = "0.19.0", path = "../nu-source"}
 
 [features]
 stable = []

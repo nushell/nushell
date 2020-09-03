@@ -4,15 +4,15 @@ description = "A source string characterizer for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-test-support"
-version = "0.18.2"
+version = "0.19.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-parser = {path = "../nu-parser", version = "0.18.2"}
-nu-protocol = {path = "../nu-protocol", version = "0.18.2"}
-nu-source = {path = "../nu-source", version = "0.18.2"}
+nu-parser = {path = "../nu-parser", version = "0.19.0"}
+nu-protocol = {path = "../nu-protocol", version = "0.19.0"}
+nu-source = {path = "../nu-source", version = "0.19.0"}
 
 directories = "2.0.2"
 dunce = "1.0.1"

@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::PathBuf;
 
 use crate::completion::{Context, Suggestion};
 
@@ -17,9 +17,18 @@ impl Completer {
         };
 
         let base_dir = if base_dir_name == "" {
-            Path::new(".")
+            PathBuf::from(".")
+        } else if base_dir_name == format!("~{}", SEP) {
+            #[cfg(feature = "directories")]
+            {
+                dirs::home_dir().unwrap_or_else(|| PathBuf::from("~"))
+            }
+            #[cfg(not(feature = "directories"))]
+            {
+                PathBuf::from("~")
+            }
         } else {
-            Path::new(base_dir_name)
+            PathBuf::from(base_dir_name)
         };
 
         if let Ok(result) = base_dir.read_dir() {

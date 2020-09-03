@@ -1,8 +1,11 @@
+extern crate unicode_segmentation;
+
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use indexmap::indexmap;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
+use unicode_segmentation::UnicodeSegmentation;
 
 pub struct Size;
 
@@ -29,17 +32,30 @@ impl WholeStreamCommand for Size {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Count the number of words in a string",
-            example: r#"echo "There are seven words in this sentence" | size"#,
-            result: Some(vec![UntaggedValue::row(indexmap! {
-                "lines".to_string() => UntaggedValue::int(0).into(),
-                "words".to_string() => UntaggedValue::int(7).into(),
-                "chars".to_string() => UntaggedValue::int(38).into(),
-                "bytes".to_string() => UntaggedValue::int(38).into(),
-            })
-            .into()]),
-        }]
+        vec![
+            Example {
+                description: "Count the number of words in a string",
+                example: r#"echo "There are seven words in this sentence" | size"#,
+                result: Some(vec![UntaggedValue::row(indexmap! {
+                        "lines".to_string() => UntaggedValue::int(0).into(),
+                        "words".to_string() => UntaggedValue::int(7).into(),
+                        "chars".to_string() => UntaggedValue::int(38).into(),
+                        "bytes".to_string() => UntaggedValue::int(38).into(),
+                })
+                .into()]),
+            },
+            Example {
+                description: "Counts unicode characters correctly in a string",
+                example: r#"echo "Amélie Amelie" | size"#,
+                result: Some(vec![UntaggedValue::row(indexmap! {
+                        "lines".to_string() => UntaggedValue::int(0).into(),
+                        "words".to_string() => UntaggedValue::int(2).into(),
+                        "chars".to_string() => UntaggedValue::int(13).into(),
+                        "bytes".to_string() => UntaggedValue::int(15).into(),
+                })
+                .into()]),
+            },
+        ]
     }
 }
 
@@ -72,15 +88,15 @@ fn count(contents: &str, tag: impl Into<Tag>) -> Value {
     let bytes = contents.len() as i64;
     let mut end_of_word = true;
 
-    for c in contents.chars() {
+    for c in UnicodeSegmentation::graphemes(contents, true) {
         chars += 1;
 
         match c {
-            '\n' => {
+            "\n" => {
                 lines += 1;
                 end_of_word = true;
             }
-            ' ' => end_of_word = true,
+            " " => end_of_word = true,
             _ => {
                 if end_of_word {
                     words += 1;

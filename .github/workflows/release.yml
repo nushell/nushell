@@ -26,7 +26,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --all --features=stable
+          args: --release --all --features=extra
 
       - name: Create output directory
         run: mkdir output
@@ -38,7 +38,7 @@ jobs:
           cp LICENSE output/LICENSE
           rm output/*.d
           rm output/nu_plugin_core_*
-          rm output/nu_plugin_stable_*
+          rm output/nu_plugin_extra_*
 
       # Note: If OpenSSL changes, this path will need to be updated
       - name: Copy OpenSSL to output
@@ -68,7 +68,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --all --features=stable
+          args: --release --all --features=extra
 
       - name: Create output directory
         run: mkdir output
@@ -80,7 +80,7 @@ jobs:
           cp LICENSE output/LICENSE
           rm output/*.d
           rm output/nu_plugin_core_*
-          rm output/nu_plugin_stable_*
+          rm output/nu_plugin_extra_*
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
@@ -112,7 +112,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --all --features=stable
+          args: --release --all --features=extra
 
       - name: Create output directory
         run: mkdir output
@@ -129,7 +129,7 @@ jobs:
           cp LICENSE output\
           cp target\release\LICENSE-for-less.txt output\
           rm target\release\nu_plugin_core_*.exe
-          rm target\release\nu_plugin_stable_*.exe
+          rm target\release\nu_plugin_extra_*.exe
           cp target\release\nu_plugin_*.exe output\
           cp README.build.txt output\README.txt
           cp target\release\less.exe output\

@@ -260,7 +260,7 @@ pub fn style_leaf<'a>(
             let prim_type = str[0..paren_index].to_string();
             style_primitive(&prim_type, &color_hash_map)
         }
-        _ => TextStyle::basic(),
+        _ => TextStyle::basic_left(),
     }
 }
 
