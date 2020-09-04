@@ -79,6 +79,7 @@ pub fn create_default_context(
 
         context.add_commands(vec![
             // System/file operations
+            whole_stream_command(Du),
             whole_stream_command(Pwd),
             whole_stream_command(Ls),
             whole_stream_command(Du),
@@ -282,6 +283,11 @@ pub fn create_default_context(
             whole_stream_command(UrlHost),
             whole_stream_command(UrlQuery),
         ]);
+
+        #[cfg(unix)]
+        {
+            context.add_commands(vec![whole_stream_command(crate::commands::exec::Exec)]);
+        }
 
         #[cfg(feature = "clipboard-cli")]
         {

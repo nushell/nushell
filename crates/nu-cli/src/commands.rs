@@ -36,6 +36,8 @@ pub(crate) mod each;
 pub(crate) mod echo;
 pub(crate) mod enter;
 pub(crate) mod every;
+#[cfg(unix)]
+pub(crate) mod exec;
 pub(crate) mod exit;
 pub(crate) mod first;
 pub(crate) mod format;
