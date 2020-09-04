@@ -18,7 +18,7 @@ pub(crate) mod cal;
 pub(crate) mod cd;
 pub(crate) mod char_;
 pub(crate) mod classified;
-#[cfg(feature = "clipboard")]
+#[cfg(feature = "clipboard-cli")]
 pub(crate) mod clip;
 pub(crate) mod command;
 pub(crate) mod compact;
@@ -218,7 +218,7 @@ pub(crate) use prev::Previous;
 pub(crate) use pwd::Pwd;
 #[cfg(feature = "uuid_crate")]
 pub(crate) use random::RandomUUID;
-pub(crate) use random::{Random, RandomBool, RandomDice};
+pub(crate) use random::{Random, RandomBool, RandomDice, RandomInteger};
 pub(crate) use range::Range;
 pub(crate) use reduce::Reduce;
 pub(crate) use reject::Reject;
