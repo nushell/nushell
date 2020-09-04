@@ -750,6 +750,11 @@ impl WrappedTable {
     }
 
     fn new_print_table(&self, color_hm: &HashMap<String, Style>) {
+        #[cfg(windows)]
+        {
+            let _ = ansi_term::enable_ansi_support();
+        }
+
         if self.data.is_empty() {
             return;
         }
