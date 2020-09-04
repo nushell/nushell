@@ -36,7 +36,6 @@ pub(crate) mod each;
 pub(crate) mod echo;
 pub(crate) mod enter;
 pub(crate) mod every;
-#[cfg(unix)]
 pub(crate) mod exec;
 pub(crate) mod exit;
 pub(crate) mod first;
@@ -167,6 +166,7 @@ pub(crate) use clear::Clear;
 pub(crate) mod touch;
 pub(crate) use enter::Enter;
 pub(crate) use every::Every;
+pub(crate) use exec::Exec;
 pub(crate) use exit::Exit;
 pub(crate) use first::First;
 pub(crate) use format::Format;

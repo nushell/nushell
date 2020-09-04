@@ -41,12 +41,12 @@ impl WholeStreamCommand for Exec {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Execute `ps aux`",
+                description: "Execute 'ps aux'",
                 example: "exec ps aux",
                 result: None,
             },
             Example {
-                description: "Execute nautilus",
+                description: "Execute 'nautilus'",
                 example: "exec nautilus",
                 result: None,
             },
@@ -54,12 +54,16 @@ impl WholeStreamCommand for Exec {
     }
 }
 
+#[cfg(unix)]
 async fn exec(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    use std::os::unix::process::CommandExt;
+    use std::process::Command;
+
     let registry = registry.clone();
     let name = args.call_info.name_tag.clone();
     let (args, _): (ExecArgs, _) = args.process(&registry).await?;
 
-    let mut command = exec::Command::new(args.command.item);
+    let mut command = Command::new(args.command.item);
     for tagged_arg in args.rest {
         command.arg(tagged_arg.item);
     }
@@ -67,20 +71,17 @@ async fn exec(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
     let err = command.exec(); // this replaces our process, should not return
 
     Err(ShellError::labeled_error(
-        "Error executing command",
+        "Error on exec",
         format!("{}", err),
         &name,
     ))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::Exec;
-
-    #[test]
-    fn examples_work_as_expected() {
-        use crate::examples::test as test_examples;
-
-        test_examples(Exec {})
-    }
+#[cfg(not(unix))]
+async fn exec(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    Err(ShellError::labeled_error(
+        "Error on exec",
+        "exec is not supported on your platform",
+        &name,
+    ))
 }
