@@ -865,8 +865,18 @@ pub(crate) fn dir_entry_dict(
         #[cfg(unix)]
         {
             for column in [
-                "name", "type", "target", "readonly", "mode", "uid", "group", "size", "created",
-                "accessed", "modified",
+                "name",
+                "type",
+                "target",
+                "num_links",
+                "readonly",
+                "mode",
+                "uid",
+                "group",
+                "size",
+                "created",
+                "accessed",
+                "modified",
             ]
             .iter()
             {
@@ -932,6 +942,9 @@ pub(crate) fn dir_entry_dict(
                     "mode",
                     UntaggedValue::string(umask::Mode::from(mode).to_string()),
                 );
+
+                let nlinks = md.nlink();
+                dict.insert_untagged("num_links", UntaggedValue::string(nlinks.to_string()));
 
                 if let Some(user) = users::get_user_by_uid(md.uid()) {
                     dict.insert_untagged(
