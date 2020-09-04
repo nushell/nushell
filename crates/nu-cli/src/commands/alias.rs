@@ -1,8 +1,8 @@
-use super::deduction::VarDeclaration;
-use crate::commands::deduction::VarSyntaxShapeDeductor;
-use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
+use crate::WholeStreamCommand;
+
+use crate::types::deduction::{VarDeclaration, VarSyntaxShapeDeductor};
 use deduction_to_signature::DeductionToSignature;
 use log::trace;
 use nu_data::config;
@@ -210,7 +210,7 @@ mod tests {
 
 //TODO better naming
 mod deduction_to_signature {
-    use crate::commands::deduction::{VarDeclaration, VarShapeDeduction};
+    use crate::types::deduction::{VarDeclaration, VarShapeDeduction};
     use nu_protocol::{PositionalType, Signature, SyntaxShape};
     use nu_source::Span;
 
