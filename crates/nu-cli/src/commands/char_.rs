@@ -109,16 +109,6 @@ fn str_to_character(s: &str) -> Option<String> {
     }
 }
 
-// sun=$(get_config "sun" || echo "\033[33;1m\xe2\x98\x80")
-// moon=$(get_config "moon" || echo "\033[36m\xe2\x98\xbd")
-// clouds=$(get_config "clouds" || echo "\033[37;1m\xe2\x98\x81")
-// rain=$(get_config "rain" || echo "\033[37;1m\xe2\x98\x94")
-// fog=$(get_config "fog" || echo "\033[37;1m\xe2\x96\x92")
-// mist=$(get_config "mist" || echo "\033[34m\xe2\x96\x91")
-// haze=$(get_config "haze" || echo "\033[33m\xe2\x96\x91")
-// snow=$(get_config "snow" || echo "\033[37;1m\xe2\x9d\x84")
-// thunderstorm=$(get_config "thunderstorm" || echo "\033[33;1m\xe2\x9a\xa1")
-
 #[cfg(test)]
 mod tests {
     use super::Char;
