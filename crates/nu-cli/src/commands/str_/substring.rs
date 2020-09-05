@@ -146,11 +146,7 @@ fn action(input: &Value, options: &Substring, tag: impl Into<Tag>) -> Result<Val
                 options.0
             };
             let end: isize = if options.1 < 0 {
-                if options.1 < len {
-                    len + options.1
-                } else {
-                    len
-                }
+                std::cmp::max(len + options.1, 0)
             } else {
                 options.1
             };
