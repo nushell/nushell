@@ -6,8 +6,13 @@ const SEP: char = std::path::MAIN_SEPARATOR;
 
 pub struct Completer;
 
+pub struct PathSuggestion {
+    pub(crate) path: PathBuf,
+    pub(crate) suggestion: Suggestion,
+}
+
 impl Completer {
-    pub fn complete(&self, _ctx: &Context<'_>, partial: &str) -> Vec<Suggestion> {
+    pub fn path_suggestions(&self, _ctx: &Context<'_>, partial: &str) -> Vec<PathSuggestion> {
         let expanded = nu_parser::expand_ndots(partial);
         let expanded = expanded.as_ref();
 
@@ -43,9 +48,12 @@ impl Completer {
                                 file_name.push(std::path::MAIN_SEPARATOR);
                             }
 
-                            Some(Suggestion {
-                                replacement: path,
-                                display: file_name,
+                            Some(PathSuggestion {
+                                path: entry.path(),
+                                suggestion: Suggestion {
+                                    replacement: path,
+                                    display: file_name,
+                                },
                             })
                         } else {
                             None
@@ -56,5 +64,12 @@ impl Completer {
         } else {
             Vec::new()
         }
+    }
+
+    pub fn complete(&self, ctx: &Context<'_>, partial: &str) -> Vec<Suggestion> {
+        self.path_suggestions(ctx, partial)
+            .into_iter()
+            .map(|v| v.suggestion)
+            .collect()
     }
 }
