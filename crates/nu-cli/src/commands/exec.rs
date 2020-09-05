@@ -79,6 +79,8 @@ async fn exec(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
 
 #[cfg(not(unix))]
 async fn exec(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let name = args.call_info.name_tag.clone();
+
     Err(ShellError::labeled_error(
         "Error on exec",
         "exec is not supported on your platform",
