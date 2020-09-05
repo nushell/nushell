@@ -94,9 +94,30 @@ fn str_to_character(s: &str) -> Option<String> {
         "high_voltage_sign" | "elevated" => Some('\u{26a1}'.to_string()),           // ⚡
         "tilde" | "twiddle" | "squiggly" | "home" => Some("~".into()),              // ~
         "hash" | "hashtag" | "pound_sign" | "sharp" | "root" => Some("#".into()),   // #
+
+        // Weather symbols
+        "sun" => Some("\x1b[33;1m\u{2600}\x1b[0m".to_string()), // Yellow Bold ☀
+        "moon" => Some("\x1b[36m\u{263d}\x1b[0m".to_string()),  // Cyan ☽
+        "clouds" => Some("\x1b[37;1m\u{2601}\x1b[0m".to_string()), // White Bold ☁
+        "rain" => Some("\x1b[37;1m\u{2614}\x1b[0m".to_string()), // White Bold ☔
+        "fog" => Some("\x1b[37;1m\u{2592}\x1b[0m".to_string()), // White Bold ▒
+        "mist" => Some("\x1b[34m\u{2591}\x1b[0m".to_string()),  // Blue ░
+        "haze" => Some("\x1b[33m\u{2591}\x1b[0m".to_string()),  // Yellow ░
+        "snow" => Some("\x1b[37;1m\u{2744}\x1b[0m".to_string()), // White Bold ❄
+        "thunderstorm" => Some("\x1b[33;1m\u{26a1}\x1b[0m".to_string()), // Yellow Bold ⚡
         _ => None,
     }
 }
+
+// sun=$(get_config "sun" || echo "\033[33;1m\xe2\x98\x80")
+// moon=$(get_config "moon" || echo "\033[36m\xe2\x98\xbd")
+// clouds=$(get_config "clouds" || echo "\033[37;1m\xe2\x98\x81")
+// rain=$(get_config "rain" || echo "\033[37;1m\xe2\x98\x94")
+// fog=$(get_config "fog" || echo "\033[37;1m\xe2\x96\x92")
+// mist=$(get_config "mist" || echo "\033[34m\xe2\x96\x91")
+// haze=$(get_config "haze" || echo "\033[33m\xe2\x96\x91")
+// snow=$(get_config "snow" || echo "\033[37;1m\xe2\x9d\x84")
+// thunderstorm=$(get_config "thunderstorm" || echo "\033[33;1m\xe2\x9a\xa1")
 
 #[cfg(test)]
 mod tests {
