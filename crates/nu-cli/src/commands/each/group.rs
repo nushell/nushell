@@ -2,7 +2,10 @@ use crate::commands::each::process_row;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{
+    hir::Block, hir::SpannedExpression, ReturnSuccess, Scope, Signature, SyntaxShape,
+    UntaggedValue, Value,
+};
 use nu_source::Tagged;
 use serde::Deserialize;
 
@@ -40,7 +43,7 @@ impl WholeStreamCommand for EachGroup {
             description: "Echo the sum of each pair",
             example: "echo [1 2 3 4] | each group 2 { echo $it | math sum }",
             result: None,
-        }
+        }]
     }
 
     async fn run(
@@ -58,51 +61,65 @@ impl WholeStreamCommand for EachGroup {
         Ok(input
             .chunks(each_args.group_size.item)
             .then(move |input| {
-                let block = block.clone();
-                let scope = scope.clone();
-                let head = head.clone();
-                let context = context.clone();
-
-                let value = Value {
-                    value: UntaggedValue::Table(input),
-                    tag: Tag::unknown(),
-                };
-
-                async {
-                    match process_row(block, scope, head, context, value).await {
-                        Ok(s) => {
-                            // We need to handle this differently depending on whether process_row
-                            // returned just 1 value or if it returned multiple as a stream.
-                            let vec = s.collect::<Vec<_>>().await;
-
-                            // If it returned just one value, just take that value
-                            if vec.len() == 1 {
-                                return OutputStream::one(vec.into_iter().next().unwrap());
-                            }
-
-                            // If it returned multiple values, we need to put them into a table and
-                            // return that.
-                            let result = vec.into_iter().collect::<Result<Vec<ReturnSuccess>, _>>();
-                            let result_table = match result {
-                                Ok(t) => t,
-                                Err(e) => return OutputStream::one(Err(e)),
-                            };
-
-                            let table = result_table
-                                .into_iter()
-                                .filter_map(|x| x.raw_value())
-                                .collect();
-
-                            OutputStream::one(Ok(ReturnSuccess::Value(
-                                UntaggedValue::Table(table).into(),
-                            )))
-                        }
-                        Err(e) => OutputStream::one(Err(e)),
-                    }
-                }
+                run_block_on_vec(
+                    input,
+                    block.clone(),
+                    scope.clone(),
+                    head.clone(),
+                    context.clone(),
+                )
             })
             .flatten()
             .to_output_stream())
+    }
+}
+
+pub(crate) fn run_block_on_vec(
+    input: Vec<Value>,
+    block: Arc<Block>,
+    scope: Arc<Scope>,
+    head: Arc<Box<SpannedExpression>>,
+    context: Arc<Context>,
+) -> impl Future<Output = OutputStream> {
+    let block = block.clone();
+    let scope = scope.clone();
+    let head = head.clone();
+    let context = context.clone();
+
+    let value = Value {
+        value: UntaggedValue::Table(input),
+        tag: Tag::unknown(),
+    };
+
+    async {
+        match process_row(block, scope, head, context, value).await {
+            Ok(s) => {
+                // We need to handle this differently depending on whether process_row
+                // returned just 1 value or if it returned multiple as a stream.
+                let vec = s.collect::<Vec<_>>().await;
+
+                // If it returned just one value, just take that value
+                if vec.len() == 1 {
+                    return OutputStream::one(vec.into_iter().next().unwrap());
+                }
+
+                // If it returned multiple values, we need to put them into a table and
+                // return that.
+                let result = vec.into_iter().collect::<Result<Vec<ReturnSuccess>, _>>();
+                let result_table = match result {
+                    Ok(t) => t,
+                    Err(e) => return OutputStream::one(Err(e)),
+                };
+
+                let table = result_table
+                    .into_iter()
+                    .filter_map(|x| x.raw_value())
+                    .collect();
+
+                OutputStream::one(Ok(ReturnSuccess::Value(UntaggedValue::Table(table).into())))
+            }
+            Err(e) => OutputStream::one(Err(e)),
+        }
     }
 }
 
