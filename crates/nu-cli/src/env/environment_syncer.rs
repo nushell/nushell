@@ -30,6 +30,10 @@ impl EnvironmentSyncer {
         self.config = Arc::new(config);
     }
 
+    pub fn get_config(&self) -> Box<dyn Conf> {
+        self.config.clone().clone_box()
+    }
+
     pub fn load_environment(&mut self) {
         let config = self.config.clone();
 

@@ -1,4 +1,3 @@
-use crate::cli::History;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
@@ -48,7 +47,7 @@ pub fn nu(env: &IndexMap<String, String>, tag: impl Into<Tag>) -> Result<Value, 
         UntaggedValue::path(keybinding_path).into_value(&tag),
     );
 
-    let history = History::path();
+    let history = crate::commands::history::history_path(&nu_data::config::NuConfig::new());
     nu_dict.insert_value(
         "history-path",
         UntaggedValue::path(history).into_value(&tag),

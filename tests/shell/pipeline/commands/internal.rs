@@ -418,6 +418,66 @@ fn echoing_ranges() {
     assert_eq!(actual.out, "6");
 }
 
+#[test]
+fn table_literals1() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            echo [[name age]; [foo 13]] | get age
+        "#
+    );
+
+    assert_eq!(actual.out, "13");
+}
+
+#[test]
+fn table_literals2() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo [[name age] ; [bob 13] [sally 20]] | get age | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "33");
+}
+
+#[test]
+fn list_with_commas() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo [1, 2, 3] | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "6");
+}
+
+#[test]
+fn it_expansion_of_tables() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo foo | echo [[`foo {{$it}} bar`]; [`{{$it}} foo`]] | get "foo foo bar"
+        "#
+    );
+
+    assert_eq!(actual.out, "foo foo");
+}
+
+#[test]
+fn table_with_commas() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo [[name, age, height]; [JT, 42, 185] [Unknown, 99, 99]] | get age | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "141");
+}
+
 mod parse {
     use nu_test_support::nu;
 

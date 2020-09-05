@@ -16,6 +16,18 @@ pub fn expression_to_flat_shape(e: &SpannedExpression) -> Vec<Spanned<FlatShape>
             }
             output
         }
+        Expression::Table(headers, cells) => {
+            let mut output = vec![];
+            for header in headers.iter() {
+                output.append(&mut expression_to_flat_shape(header));
+            }
+            for row in cells {
+                for cell in row {
+                    output.append(&mut expression_to_flat_shape(&cell));
+                }
+            }
+            output
+        }
         Expression::Path(exprs) => {
             let mut output = vec![];
             output.append(&mut expression_to_flat_shape(&exprs.head));

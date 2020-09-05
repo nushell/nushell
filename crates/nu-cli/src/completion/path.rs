@@ -1,31 +1,75 @@
-use rustyline::completion::FilenameCompleter;
+use std::path::PathBuf;
 
 use crate::completion::{Context, Suggestion};
 
-pub struct Completer {
-    inner: FilenameCompleter,
+const SEP: char = std::path::MAIN_SEPARATOR;
+
+pub struct Completer;
+
+pub struct PathSuggestion {
+    pub(crate) path: PathBuf,
+    pub(crate) suggestion: Suggestion,
 }
 
 impl Completer {
-    pub fn new() -> Completer {
-        Completer {
-            inner: FilenameCompleter::new(),
-        }
-    }
-
-    pub fn complete(&self, _ctx: &Context<'_>, partial: &str) -> Vec<Suggestion> {
+    pub fn path_suggestions(&self, _ctx: &Context<'_>, partial: &str) -> Vec<PathSuggestion> {
         let expanded = nu_parser::expand_ndots(partial);
+        let expanded = expanded.as_ref();
 
-        if let Ok((_pos, pairs)) = self.inner.complete_path(&expanded, expanded.len()) {
-            pairs
-                .into_iter()
-                .map(|v| Suggestion {
-                    replacement: v.replacement,
-                    display: v.display,
+        let (base_dir_name, partial) = match expanded.rfind(SEP) {
+            Some(pos) => expanded.split_at(pos + SEP.len_utf8()),
+            None => ("", expanded),
+        };
+
+        let base_dir = if base_dir_name == "" {
+            PathBuf::from(".")
+        } else if base_dir_name == format!("~{}", SEP) {
+            #[cfg(feature = "directories")]
+            {
+                dirs::home_dir().unwrap_or_else(|| PathBuf::from("~"))
+            }
+            #[cfg(not(feature = "directories"))]
+            {
+                PathBuf::from("~")
+            }
+        } else {
+            PathBuf::from(base_dir_name)
+        };
+
+        if let Ok(result) = base_dir.read_dir() {
+            result
+                .filter_map(|entry| {
+                    entry.ok().and_then(|entry| {
+                        let mut file_name = entry.file_name().to_string_lossy().into_owned();
+                        if file_name.starts_with(partial) {
+                            let mut path = format!("{}{}", base_dir_name, file_name);
+                            if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
+                                path.push(std::path::MAIN_SEPARATOR);
+                                file_name.push(std::path::MAIN_SEPARATOR);
+                            }
+
+                            Some(PathSuggestion {
+                                path: entry.path(),
+                                suggestion: Suggestion {
+                                    replacement: path,
+                                    display: file_name,
+                                },
+                            })
+                        } else {
+                            None
+                        }
+                    })
                 })
                 .collect()
         } else {
             Vec::new()
         }
+    }
+
+    pub fn complete(&self, ctx: &Context<'_>, partial: &str) -> Vec<Suggestion> {
+        self.path_suggestions(ctx, partial)
+            .into_iter()
+            .map(|v| v.suggestion)
+            .collect()
     }
 }

@@ -163,7 +163,7 @@ impl Shell for FilesystemShell {
             let metadata = match std::fs::symlink_metadata(&path) {
                 Ok(metadata) => Some(metadata),
                 Err(e) => {
-                    if e.kind() == ErrorKind::PermissionDenied {
+                    if e.kind() == ErrorKind::PermissionDenied || e.kind() == ErrorKind::Other {
                         None
                     } else {
                         return Some(Err(e.into()));
@@ -760,17 +760,31 @@ fn move_file(from: TaggedPathBuf, to: TaggedPathBuf) -> Result<(), ShellError> {
         to.push(from_file_name);
     }
 
+    move_item(&from, from_tag, &to)
+}
+
+fn move_item(from: &Path, from_tag: &Tag, to: &Path) -> Result<(), ShellError> {
     // We first try a rename, which is a quick operation. If that doesn't work, we'll try a copy
-    // and remove the old file. This is necessary if we're moving across filesystems.
-    std::fs::rename(&from, &to)
-        .or_else(|_| std::fs::copy(&from, &to).and_then(|_| std::fs::remove_file(&from)))
-        .map_err(|e| {
-            ShellError::labeled_error(
+    // and remove the old file/folder. This is necessary if we're moving across filesystems or devices.
+    std::fs::rename(&from, &to).or_else(|_| {
+        match if from.is_file() {
+            let mut options = fs_extra::file::CopyOptions::new();
+            options.overwrite = true;
+            fs_extra::file::move_file(from, to, &options)
+        } else {
+            let mut options = fs_extra::dir::CopyOptions::new();
+            options.overwrite = true;
+            options.copy_inside = true;
+            fs_extra::dir::move_dir(from, to, &options)
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(ShellError::labeled_error(
                 format!("Could not move {:?} to {:?}. {:}", from, to, e.to_string()),
                 "could not move",
                 from_tag,
-            )
-        })
+            )),
+        }
+    })
 }
 
 fn is_empty_dir(dir: impl AsRef<Path>) -> bool {

@@ -2,7 +2,7 @@ use nu_test_support::{nu, pipeline};
 
 const TEST_CWD: &str = "tests/fixtures/formats";
 
-// The To field in this email is just "username@domain.com", which gets parsed out as the Address. The Name is empty.
+// The To field in this email is just "to@example.com", which gets parsed out as the Address. The Name is empty.
 #[test]
 fn from_eml_get_to_field() {
     let actual = nu!(
@@ -17,7 +17,7 @@ fn from_eml_get_to_field() {
         )
     );
 
-    assert_eq!(actual.out, "username@domain.com");
+    assert_eq!(actual.out, "to@example.com");
 
     let actual = nu!(
         cwd: TEST_CWD,
@@ -34,7 +34,7 @@ fn from_eml_get_to_field() {
     assert_eq!(actual.out, "");
 }
 
-// The Reply-To field in this email is "aw-confirm@ebay.com" <aw-confirm@ebay.com>, meaning both the Name and Address values are identical.
+// The Reply-To field in this email is "replyto@example.com" <replyto@example.com>, meaning both the Name and Address values are identical.
 #[test]
 fn from_eml_get_replyto_field() {
     let actual = nu!(
@@ -49,7 +49,7 @@ fn from_eml_get_replyto_field() {
         )
     );
 
-    assert_eq!(actual.out, "aw-confirm@ebay.com");
+    assert_eq!(actual.out, "replyto@example.com");
 
     let actual = nu!(
         cwd: TEST_CWD,
@@ -63,10 +63,9 @@ fn from_eml_get_replyto_field() {
         )
     );
 
-    assert_eq!(actual.out, "aw-confirm@ebay.com");
+    assert_eq!(actual.out, "replyto@example.com");
 }
 
-// The Reply-To field in this email is "aw-confirm@ebay.com" <aw-confirm@ebay.com>, meaning both the Name and Address values are identical.
 #[test]
 fn from_eml_get_subject_field() {
     let actual = nu!(
@@ -80,5 +79,21 @@ fn from_eml_get_subject_field() {
         )
     );
 
-    assert_eq!(actual.out, "Billing Issues");
+    assert_eq!(actual.out, "Test Message");
+}
+
+#[test]
+fn from_eml_get_another_header_field() {
+    let actual = nu!(
+        cwd: TEST_CWD,
+        pipeline(
+            r#"
+            open sample.eml
+            | get MIME-Version
+            | echo $it
+        "#
+        )
+    );
+
+    assert_eq!(actual.out, "1.0");
 }

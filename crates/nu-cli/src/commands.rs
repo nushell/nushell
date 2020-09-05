@@ -18,7 +18,7 @@ pub(crate) mod cal;
 pub(crate) mod cd;
 pub(crate) mod char_;
 pub(crate) mod classified;
-#[cfg(feature = "clipboard")]
+#[cfg(feature = "clipboard-cli")]
 pub(crate) mod clip;
 pub(crate) mod command;
 pub(crate) mod compact;
@@ -36,6 +36,7 @@ pub(crate) mod each;
 pub(crate) mod echo;
 pub(crate) mod enter;
 pub(crate) mod every;
+pub(crate) mod exec;
 pub(crate) mod exit;
 pub(crate) mod first;
 pub(crate) mod format;
@@ -63,6 +64,7 @@ pub(crate) mod histogram;
 pub(crate) mod history;
 pub(crate) mod if_;
 pub(crate) mod insert;
+pub(crate) mod into_int;
 pub(crate) mod is_empty;
 pub(crate) mod keep;
 pub(crate) mod last;
@@ -78,7 +80,6 @@ pub(crate) mod open;
 pub(crate) mod parse;
 pub(crate) mod path;
 pub(crate) mod pivot;
-pub(crate) mod plugin;
 pub(crate) mod prepend;
 pub(crate) mod prev;
 pub(crate) mod pwd;
@@ -165,6 +166,7 @@ pub(crate) use clear::Clear;
 pub(crate) mod touch;
 pub(crate) use enter::Enter;
 pub(crate) use every::Every;
+pub(crate) use exec::Exec;
 pub(crate) use exit::Exit;
 pub(crate) use first::First;
 pub(crate) use format::Format;
@@ -192,13 +194,14 @@ pub(crate) use help::Help;
 pub(crate) use histogram::Histogram;
 pub(crate) use history::History;
 pub(crate) use insert::Insert;
+pub(crate) use into_int::IntoInt;
 pub(crate) use keep::{Keep, KeepUntil, KeepWhile};
 pub(crate) use last::Last;
 pub(crate) use lines::Lines;
 pub(crate) use ls::Ls;
 pub(crate) use math::{
-    Math, MathAverage, MathEval, MathMaximum, MathMedian, MathMinimum, MathMode, MathStddev,
-    MathSummation, MathVariance,
+    Math, MathAverage, MathEval, MathMaximum, MathMedian, MathMinimum, MathMode, MathProduct,
+    MathStddev, MathSummation, MathVariance,
 };
 pub(crate) use merge::Merge;
 pub(crate) use mkdir::Mkdir;
@@ -207,14 +210,17 @@ pub(crate) use next::Next;
 pub(crate) use nth::Nth;
 pub(crate) use open::Open;
 pub(crate) use parse::Parse;
-pub(crate) use path::{PathBasename, PathCommand, PathExists, PathExpand, PathExtension, PathType};
+pub(crate) use path::{
+    PathBasename, PathCommand, PathDirname, PathExists, PathExpand, PathExtension, PathFilestem,
+    PathType,
+};
 pub(crate) use pivot::Pivot;
 pub(crate) use prepend::Prepend;
 pub(crate) use prev::Previous;
 pub(crate) use pwd::Pwd;
 #[cfg(feature = "uuid_crate")]
 pub(crate) use random::RandomUUID;
-pub(crate) use random::{Random, RandomBool, RandomDice};
+pub(crate) use random::{Random, RandomBool, RandomDice, RandomInteger};
 pub(crate) use range::Range;
 pub(crate) use reduce::Reduce;
 pub(crate) use reject::Reject;

@@ -27,6 +27,15 @@ impl<'s> Flatten<'s> {
             Expression::Block(block) => self.completion_locations(block),
             Expression::Invocation(block) => self.completion_locations(block),
             Expression::List(exprs) => exprs.iter().flat_map(|v| self.expression(v)).collect(),
+            Expression::Table(headers, cells) => headers
+                .iter()
+                .flat_map(|v| self.expression(v))
+                .chain(
+                    cells
+                        .iter()
+                        .flat_map(|v| v.iter().flat_map(|v| self.expression(v))),
+                )
+                .collect(),
             Expression::Command => vec![LocationType::Command.spanned(e.span)],
             Expression::Path(path) => self.expression(&path.head),
             Expression::Variable(_) => vec![LocationType::Variable.spanned(e.span)],
@@ -184,6 +193,7 @@ pub fn completion_location(line: &str, block: &Block, pos: usize) -> Vec<Complet
     if locations.is_empty() {
         vec![LocationType::Command.spanned(Span::unknown())]
     } else {
+        let mut command = None;
         let mut prev = None;
         for loc in locations {
             // We don't use span.contains because we want to include the end. This handles the case
@@ -210,6 +220,10 @@ pub fn completion_location(line: &str, block: &Block, pos: usize) -> Vec<Complet
                 break;
             }
 
+            if let LocationType::Command = loc.item {
+                command = Some(String::from(loc.span.slice(line)));
+            }
+
             prev = Some(loc);
         }
 
@@ -218,10 +232,10 @@ pub fn completion_location(line: &str, block: &Block, pos: usize) -> Vec<Complet
             // is after some character that would imply we're in the command position.
             let start = prev.span.end();
             if line[start..pos].contains(BEFORE_COMMAND_CHARS) {
-                vec![LocationType::Command.spanned(Span::unknown())]
+                vec![LocationType::Command.spanned(Span::new(pos, pos))]
             } else {
                 // TODO this should be able to be mapped to a command
-                vec![LocationType::Argument(None, None).spanned(Span::unknown())]
+                vec![LocationType::Argument(command, None).spanned(Span::new(pos, pos))]
             }
         } else {
             // Cursor is before any possible completion location, so must be a command
@@ -351,6 +365,17 @@ mod tests {
             assert_eq!(
                 completion_location(line, &registry, 8),
                 vec![LocationType::Command],
+            );
+        }
+
+        #[test]
+        fn has_correct_command_name_for_argument() {
+            let registry: VecRegistry = vec![Signature::build("cd")].into();
+            let line = "cd ";
+
+            assert_eq!(
+                completion_location(line, &registry, 3),
+                vec![LocationType::Argument(Some("cd".to_string()), None)],
             );
         }
 
