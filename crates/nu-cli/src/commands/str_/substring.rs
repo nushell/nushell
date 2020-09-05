@@ -8,7 +8,6 @@ use nu_protocol::{
 use nu_source::Tag;
 use nu_value_ext::{as_string, ValueExt};
 
-use std::cmp;
 use std::cmp::Ordering;
 use std::convert::TryInto;
 
@@ -64,9 +63,9 @@ impl WholeStreamCommand for SubCommand {
                 result: Some(vec![Value::from("nushell")]),
             },
             Example {
-                description: "Get the last characters from the string",
+                description: "Drop the last `n` characters from the string",
                 example: "echo 'good nushell' | str substring ',-5'",
-                result: Some(vec![Value::from("shell")]),
+                result: Some(vec![Value::from("good nu")]),
             },
             Example {
                 description: "Get the remaining characters from a starting index",
@@ -141,8 +140,20 @@ fn action(input: &Value, options: &Substring, tag: impl Into<Tag>) -> Result<Val
                 )
             })?;
 
-            let start: isize = options.0;
-            let end: isize = options.1;
+            let start: isize = if options.0 < 0 {
+                options.0 + len
+            } else {
+                options.0
+            };
+            let end: isize = if options.1 < 0 {
+                if options.1 < len {
+                    len + options.1
+                } else {
+                    len
+                }
+            } else {
+                options.1
+            };
 
             if start < len && end >= 0 {
                 match start.cmp(&end) {
@@ -152,42 +163,14 @@ fn action(input: &Value, options: &Substring, tag: impl Into<Tag>) -> Result<Val
                         "End must be greater than or equal to Start",
                         tag.span,
                     )),
-                    Ordering::Less => {
-                        let end: isize = cmp::min(options.1, len);
-
-                        Ok(UntaggedValue::string(
-                            s.chars()
-                                .skip(start as usize)
-                                .take((end - start) as usize)
-                                .collect::<String>(),
-                        )
-                        .into_value(tag))
-                    }
+                    Ordering::Less => Ok(UntaggedValue::string(
+                        s.chars()
+                            .skip(start as usize)
+                            .take((end - start) as usize)
+                            .collect::<String>(),
+                    )
+                    .into_value(tag)),
                 }
-            } else if start >= 0 && end <= 0 {
-                let end = options.1.abs();
-                let reversed = s
-                    .chars()
-                    .skip(start as usize)
-                    .take((len - start) as usize)
-                    .collect::<String>();
-
-                let reversed = if start == 0 {
-                    reversed
-                } else {
-                    s.chars().take(start as usize).collect::<String>()
-                };
-
-                let reversed = reversed
-                    .chars()
-                    .rev()
-                    .take(end as usize)
-                    .collect::<String>();
-
-                Ok(
-                    UntaggedValue::string(reversed.chars().rev().collect::<String>())
-                        .into_value(tag),
-                )
             } else {
                 Ok(UntaggedValue::string("").into_value(tag))
             }
@@ -344,19 +327,20 @@ mod tests {
             expectation("andr", (0, 4)),
             expectation("andre", (0, 5)),
             expectation("andres", (0, 6)),
-            expectation("andres", (0, -6)),
-            expectation("ndres", (0, -5)),
-            expectation("dres", (0, -4)),
-            expectation("res", (0, -3)),
-            expectation("es", (0, -2)),
-            expectation("s", (0, -1)),
+            expectation("", (0, -6)),
+            expectation("a", (0, -5)),
+            expectation("an", (0, -4)),
+            expectation("and", (0, -3)),
+            expectation("andr", (0, -2)),
+            expectation("andre", (0, -1)),
+            expectation("", (0, -110)),
             expectation("", (6, 0)),
-            expectation("s", (6, -1)),
-            expectation("es", (6, -2)),
-            expectation("res", (6, -3)),
-            expectation("dres", (6, -4)),
-            expectation("ndres", (6, -5)),
-            expectation("andres", (6, -6)),
+            expectation("", (6, -1)),
+            expectation("", (6, -2)),
+            expectation("", (6, -3)),
+            expectation("", (6, -4)),
+            expectation("", (6, -5)),
+            expectation("", (6, -6)),
         ];
 
         for expectation in cases.iter() {
