@@ -27,7 +27,7 @@ impl Completer {
             .into_iter()
             .filter(|v| v.starts_with(partial))
             .map(|v| Suggestion {
-                replacement: format!("{} ", v),
+                replacement: v.clone(),
                 display: v,
             })
             .collect();
