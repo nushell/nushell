@@ -9,7 +9,7 @@ mod tests {
         let actual = nu!(
             cwd: ".",
             r#"
-            alias e [] {^echo hi nushell | to json}
+            alias -i e [] {^echo hi nushell | to json}
             e
         "#
         );
@@ -25,7 +25,7 @@ mod tests {
             let actual = nu!(
                 cwd: dirs.root(),
                 r#"
-                 alias double_echo [b] {echo $b | to json}
+                 alias -i double_echo [b] {echo $b | to json}
                  double_echo 1kb
              "#
             );
@@ -40,7 +40,7 @@ mod tests {
             let actual = nu!(
                 cwd: dirs.root(),
                 r#"
-                alias double_echo [a b] {echo $a $b}
+                alias -i double_echo [a b] {echo $a $b}
                 double_echo 1 2 | to json
             "#
             );
@@ -148,6 +148,7 @@ mod tests {
         assert!(actual.err.contains("alias"));
     }
 
+    //Doesn't work also not on main
     // #[test]
     // fn alias_with_math_var() {
     //     let actual = nu!(
@@ -179,7 +180,7 @@ mod tests {
         let actual = nu!(
             cwd: ".",
             r#"
-        alias is_empty [a] {if $(echo $a | empty?) == $true { echo $true } { echo $false }}
+        alias -i is_empty [a] {if $(echo $a | empty?) == $true { echo $true } { echo $false }}
         is_empty ""
         "#
         );
@@ -192,7 +193,7 @@ mod tests {
         let actual = nu!(
             cwd: ".",
             r#"
-            alias e [args] {echo $args}
+            alias -i e [args] {echo $args}
             e 1 2 3 | to json
         "#
         );
@@ -218,7 +219,7 @@ mod tests {
         let actual = nu!(
             cwd: ".",
             r#"
-            alias e [args...] {sleep $args; kill $args}
+            alias -i e [args...] {sleep $args; kill $args}
             e 1sec 1
         "#
         );
@@ -231,7 +232,7 @@ mod tests {
         let actual = nu!(
             cwd: ".",
             r#"
-            alias e [args...] {^echo $args | to json}
+            alias -i e [args...] {^echo $args | to json}
             e hi mom
         "#
         );
@@ -247,12 +248,25 @@ mod tests {
         let actual = nu!(
             cwd: ".",
             r#"
-            alias set-env [name value] { echo $nu.env | insert $name $value | get SHELL | to json }
+            alias -i set-env [name value] { echo $nu.env | insert $name $value | get SHELL | to json }
             set-env SHELL /bin/nu
         "#
         );
         assert_eq!(actual.out, "\"/bin/nu\"");
     }
+
+    //This also fails on master
+    // #[test]
+    // fn alias_with_math_arg() {
+    //     let actual = nu!(
+    //         cwd: ".",
+    //         r#"
+    //         alias -i lswh [math] { echo 1 2 3 | where $math | to json }
+    //         lswh $it > 2
+    //     "#
+    //     );
+    //     assert_eq!(actual.out, "3");
+    // }
 
     #[test]
     #[cfg(not(windows))]
@@ -262,7 +276,7 @@ mod tests {
             cwd: ".",
             r#"
             touch ~/VIRUS.EXE.NOSCAM
-            alias l [x] { ls $x }
+            alias -i l [x] { ls $x }
             l ~ | to json
         "#
         );
