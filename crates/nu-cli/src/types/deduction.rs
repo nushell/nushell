@@ -3,23 +3,19 @@ use nu_errors::ShellError;
 use nu_parser::SignatureRegistry;
 use nu_protocol::{
     hir::{
-        Block, ClassifiedCommand, Commands, Expression, Literal, NamedArguments, NamedValue,
-        Operator, SpannedExpression, Variable,
+        Binary, Block, ClassifiedCommand, Commands, Expression, Literal, NamedArguments,
+        NamedValue, Operator, SpannedExpression, Variable,
     },
     NamedType, PositionalType, Signature, SyntaxShape,
 };
 use nu_source::Span;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::{HashMap, HashSet},
-    hash::Hash,
-};
+use std::{collections::HashMap, hash::Hash};
 
 use codespan_reporting::diagnostic::Diagnostic;
 use itertools::{merge_join_by, EitherOrBoth};
 use log::trace;
 
-//TODO move all of this to nu_cli/src/types/deduction.rs
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VarDeclaration {
     pub name: String,
@@ -55,7 +51,6 @@ pub struct VarShapeDeduction {
 }
 
 impl VarShapeDeduction {
-    //TODO better naming
     pub fn from_usage(usage: &Span, deduced_shape: &SyntaxShape) -> VarShapeDeduction {
         VarShapeDeduction {
             deduction: *deduced_shape,
@@ -74,6 +69,32 @@ impl VarShapeDeduction {
             .collect()
     }
 }
+struct FakeVarGen {
+    counter: usize,
+    fake_var_prefix: String,
+}
+impl FakeVarGen {
+    pub fn new() -> Self {
+        FakeVarGen {
+            counter: 0,
+            fake_var_prefix: "$DFSasfjqiDFJSnSbwbqWF".to_string(),
+        }
+    }
+    pub fn next(&mut self) -> String {
+        let mut fake_var = self.fake_var_prefix.clone();
+        fake_var.push_str(&self.counter.to_string());
+        self.counter += 1;
+        fake_var
+    }
+
+    pub fn next_as_expr(&mut self) -> (VarUsage, Expression) {
+        let var = self.next();
+        (
+            VarUsage::new(&var, &Span::unknown()),
+            Expression::Variable(Variable::Other(var, Span::unknown())),
+        )
+    }
+}
 
 pub struct VarSyntaxShapeDeductor {
     //Initial set of caller provided var declarations
@@ -83,9 +104,16 @@ pub struct VarSyntaxShapeDeductor {
     // block: &'a SpannedExpression,
     //var binary var
     dependencies: Vec<(VarUsage, SpannedExpression, VarUsage)>,
+    //A var depending on the result type of a spanned_expr
+    //First argument is var,
+    //Second is binary containing var op and result_bin_expr
+    //Third is binary expr, which result shape var depends on
+    //This list is populated for binaries like: $var + $baz * $bar
+    dependencies_on_result_type: Vec<(VarUsage, Operator, SpannedExpression)>,
+
+    fake_var_generator: FakeVarGen,
 }
 
-//TODO Where to put this
 #[derive(Clone, Debug, Eq)]
 pub struct VarUsage {
     pub name: String,
@@ -132,22 +160,196 @@ impl From<&VarDeclaration> for VarUsage {
     }
 }
 
-//TODO Where to put these
+//REVIEW these 4 functions if correct types are returned
+fn get_shapes_allowed_in_table_header() -> Vec<SyntaxShape> {
+    vec![SyntaxShape::String]
+}
+
 fn get_shapes_allowed_in_path() -> Vec<SyntaxShape> {
     vec![SyntaxShape::Int, SyntaxShape::String]
 }
 
 fn get_shapes_decay_able_to_bool() -> Vec<SyntaxShape> {
-    // todo!("What types are decay able to bool?");
-    vec![SyntaxShape::Int, SyntaxShape::Math]
+    vec![SyntaxShape::Int]
 }
 
 fn get_shapes_allowed_in_range() -> Vec<SyntaxShape> {
     vec![SyntaxShape::Int]
 }
 
+fn op_of(bin: &SpannedExpression) -> Operator {
+    match &bin.expr {
+        Expression::Binary(bin) => match bin.op.expr {
+            Expression::Literal(Literal::Operator(oper)) => oper,
+            _ => unreachable!(),
+        },
+        _ => unreachable!(),
+    }
+}
+fn change_op_to_assignment(mut bin: SpannedExpression) -> SpannedExpression {
+    match &mut bin.expr {
+        Expression::Binary(bin) => {
+            match &mut bin.op.expr {
+                Expression::Literal(Literal::Operator(op)) => {
+                    //Currently there is no assignment operator.
+                    //Plus does the same thing
+                    *op = Operator::Plus;
+                }
+                _ => unreachable!(),
+            }
+        }
+        _ => unreachable!(),
+    }
+    bin
+}
+
+//TODO in the future there should be a unit interface
+//which offers this functionality; SyntaxShape::Unit would then be
+//SyntaxShape::Unit(UnitType)
+/// Get the resulting type if op is applied to l_shape and r_shape
+/// Throws error if types are not coerceable
+///
+fn get_result_shape_of(
+    l_shape: SyntaxShape,
+    op_expr: &SpannedExpression,
+    r_shape: SyntaxShape,
+) -> Result<SyntaxShape, ShellError> {
+    let op = match op_expr.expr {
+        Expression::Literal(Literal::Operator(op)) => op,
+        _ => unreachable!("Passing anything but the op expr is invalid"),
+    };
+    //TODO one should check that the types are coerceable.
+    //There is some code for that in the evaluator already.
+    //One might reuse it. The uncommentend code doesn't compile and is untested
+    //let l_value = match l_shape {
+    //    let x = 1;
+    //    SyntaxShape::Unit => UntaggedValue::unit(x.spanned_unknown(), Unit::Byte.spanned_unknown())
+    //        .into_untagged_value(),
+    //    SyntaxShape::Number => UntaggedValue::number(1).into_untagged_value(),
+    //    SyntaxShape::Range => UntaggedValue::range(
+    //        (42.spanned_unknown(), RangeInclusion::Inclusive),
+    //        (1337.spanned_unknown(), RangeInclusion::Exclusive),
+    //    )
+    //    .into_untagged_value(),
+    //    SyntaxShape::Int => UntaggedValue::number(1).into_untagged_value(),
+    //    SyntaxShape::Table => UntaggedValue::table(&vec![]).into_untagged_value(),
+    //    SyntaxShape::String => UntaggedValue::string("/dev/null"),
+    //    SyntaxShape::Path
+    //    | SyntaxShape::ColumnPath
+    //    | SyntaxShape::FullColumnPath
+    //    | SyntaxShape::Pattern
+    //    | SyntaxShape::Block
+    //    | SyntaxShape::Operator
+    //    | SyntaxShape::Math
+    //    | SyntaxShape::Any => unimplemented!(""),
+    //};
+    //let r_value = match r_shape {
+    //    SyntaxShape::Unit => {
+    //        UntaggedValue::unit(1.spanned_unknown(), Byte.spanned_unknown()).into_untagged_value()
+    //    }
+    //    SyntaxShape::Number => UntaggedValue::number(1).into_untagged_value(),
+    //    SyntaxShape::Range => UntaggedValue::range(
+    //        (42.spanned_unknown(), RangeInclusion::Inclusive),
+    //        (1337.spanned_unknown(), RangeInclusion::Exclusive),
+    //    )
+    //    .into_untagged_value(),
+    //    SyntaxShape::Int => UntaggedValue::number(1).into_untagged_value(),
+    //    SyntaxShape::Table => UntaggedValue::table(&vec![]).into_untagged_value(),
+    //    SyntaxShape::String => UntaggedValue::string("/dev/null"),
+    //    SyntaxShape::Path
+    //    | SyntaxShape::ColumnPath
+    //    | SyntaxShape::FullColumnPath
+    //    | SyntaxShape::Pattern
+    //    | SyntaxShape::Block
+    //    | SyntaxShape::Operator
+    //    | SyntaxShape::Math
+    //    | SyntaxShape::Any => unimplemented!(""),
+    //};
+    ////Check that types are coerceable
+    //match apply_operator(op, l_value, r_value) {
+    //    Err(str1, str2) => {
+    //        return ShellError::coerce_error(str1.spanned_unknown(), str2.spanned_unknown())
+    //    }
+    //    _ => {}
+    //}
+
+    Ok(match op {
+        Operator::Equal
+        | Operator::NotEqual
+        | Operator::LessThan
+        | Operator::GreaterThan
+        | Operator::In
+        | Operator::NotIn
+        | Operator::And
+        | Operator::Or
+        | Operator::LessThanOrEqual
+        | Operator::GreaterThanOrEqual
+        | Operator::Contains
+        | Operator::NotContains => {
+            //TODO introduce syntaxshape boolean
+            SyntaxShape::Int
+        }
+        Operator::Plus | Operator::Minus => {
+            //l_type +/- r_type gives l_type again (if no weird coercion)
+            l_shape
+        }
+        Operator::Multiply => {
+            if l_shape == SyntaxShape::Unit || r_shape == SyntaxShape::Unit {
+                SyntaxShape::Unit
+            } else {
+                SyntaxShape::Number
+            }
+        }
+        Operator::Divide => {
+            if l_shape == r_shape {
+                SyntaxShape::Number
+            } else if l_shape == SyntaxShape::Unit {
+                l_shape
+            } else {
+                SyntaxShape::Number
+            }
+        }
+    })
+}
+
 type AlternativeDeductions = Vec<VarShapeDeduction>;
 impl VarSyntaxShapeDeductor {
+    fn substitute_right_with_fake_var_and_insert_dependencies(
+        &mut self,
+        //Bin in which to substitute
+        bin: &Binary,
+        //The var with which to substitute (as usage and expr)
+        r_fake_var_expr: &Expression,
+        //The source bin having var on one side and above bin on other
+        (source_bin, var): (&SpannedExpression, &VarUsage),
+    ) {
+        let mut fake_bin = Box::new(bin.clone());
+        fake_bin.right.expr = r_fake_var_expr.clone();
+        let op = op_of(source_bin);
+        self.dependencies_on_result_type.push((
+            var.clone(),
+            op,
+            SpannedExpression::new(Expression::Binary(fake_bin), source_bin.span),
+        ));
+    }
+    fn substitute_left_with_fake_var_and_insert_dependencies(
+        &mut self,
+        //Bin in which to substitute
+        bin: &Binary,
+        //The var with which to substitute (as usage and expr)
+        l_fake_var_expr: &Expression,
+        //The source bin having var on one side and above bin on other
+        (source_bin, var): (&SpannedExpression, &VarUsage),
+    ) {
+        let mut fake_bin = Box::new(bin.clone());
+        fake_bin.left.expr = l_fake_var_expr.clone();
+        let op = op_of(source_bin);
+        self.dependencies_on_result_type.push((
+            var.clone(),
+            op,
+            SpannedExpression::new(Expression::Binary(fake_bin), source_bin.span),
+        ));
+    }
     /// Deduce vars_to_find in block.
     /// Returns: Mapping from var_to_find -> Vec<shape_deduction>
     /// in which each shape_deduction is one possible deduction for the variable
@@ -168,6 +370,8 @@ impl VarSyntaxShapeDeductor {
             inferences: HashMap::new(),
             // block,
             dependencies: Vec::new(),
+            dependencies_on_result_type: Vec::new(),
+            fake_var_generator: FakeVarGen::new(),
         };
         deducer.infer_shape(block, registry)?;
 
@@ -269,8 +473,10 @@ impl VarSyntaxShapeDeductor {
         signature: &Signature,
     ) -> Result<(), ShellError> {
         trace!("Infering vars in positionals");
-        // todo!("If current pos is optional check that all expr behind cur_pos are shiftable by 1");
-        //Currently we assume var is fitting optional parameter
+        //TODO currently correct inference for optional positionals is not implemented.
+        // See https://github.com/nushell/nushell/pull/2486 for a discussion about this
+        // For now we assume every variable in an optional positional is used as this optional
+        // argument
         trace!("Positionals len: {:?}", positionals.len());
         for (pos_idx, positional) in positionals.iter().enumerate().rev() {
             trace!("Handling pos_idx: {:?} of type: {:?}", pos_idx, positional);
@@ -355,9 +561,8 @@ impl VarSyntaxShapeDeductor {
             Expression::Path(path) => {
                 trace!("Infering vars in path");
                 match &path.head.expr {
-                    //PathMember can't be var?
-                    //TODO Iterate over path parts and find var
-                    //Currently no vars in path allowed???
+                    //PathMember can't be var yet (?)
+                    //TODO Iterate over path parts and find var when implemented
                     Expression::Invocation(b) => self.infer_shape(&b, registry)?,
                     Expression::Variable(Variable::Other(var_name, span)) => {
                         self.checked_insert(
@@ -403,9 +608,9 @@ impl VarSyntaxShapeDeductor {
                 trace!("Infering vars in invocation: {:?}", invoc);
                 self.infer_shape(invoc, registry)?;
             }
-            Expression::Table(_header, rows) => {
-                //TODO infer shapes in table header? But any can be allowed there?
-                self.infer_shapes_in_rows(rows);
+            Expression::Table(header, rows) => {
+                self.infer_shapes_in_table_header(header)?;
+                self.infer_shapes_in_rows(rows)?;
             }
             Expression::Variable(_) => {}
             Expression::Literal(_) => {}
@@ -421,15 +626,107 @@ impl VarSyntaxShapeDeductor {
         Ok(())
     }
 
-    fn infer_shapes_in_rows(&mut self, rows: &[Vec<SpannedExpression>]) {
-        for (_row_idx, _row) in rows.iter().enumerate() {
-            for (_col_idx, _cell) in _row.iter().enumerate() {
-                todo!("deduce types in table")
+    fn infer_shapes_in_table_header(
+        &mut self,
+        header: &[SpannedExpression],
+    ) -> Result<(), ShellError> {
+        for expr in header {
+            if let Expression::Variable(Variable::Other(name, _)) = &expr.expr {
+                let var = VarUsage::new(name, &expr.span);
+                self.checked_insert(
+                    &var,
+                    VarShapeDeduction::from_usage_with_alternatives(
+                        &var.span,
+                        &get_shapes_allowed_in_table_header(),
+                    ),
+                )?;
             }
+        }
+        Ok(())
+    }
+
+    fn infer_shape_in_column(
+        &mut self,
+        var: &VarUsage,
+        col_idx: usize,
+        rows: &[Vec<SpannedExpression>],
+    ) -> Result<(), ShellError> {
+        rows.iter()
+            .filter_map(|r| r.get(col_idx))
+            .filter_map(|cell| self.get_shape_of_expr_or_insert_dependency(var, cell))
+            .next()
+            .map_or(Ok(()), |shape| {
+                self.checked_insert(var, vec![VarShapeDeduction::from_usage(&var.span, &shape)])?;
+                Ok(())
+            })
+    }
+
+    fn infer_shapes_in_rows(&mut self, rows: &[Vec<SpannedExpression>]) -> Result<(), ShellError> {
+        //Iterate over all cells
+        for (_row_idx, _row) in rows.iter().enumerate() {
+            for (col_idx, cell) in _row.iter().enumerate() {
+                //if cell is var
+                if let Expression::Variable(Variable::Other(name, span)) = &cell.expr {
+                    let var = VarUsage::new(name, span);
+                    self.infer_shape_in_column(&var, col_idx, rows)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn get_shape_of_expr_or_insert_dependency(
+        &mut self,
+        var: &VarUsage,
+        expr: &SpannedExpression,
+    ) -> Option<SyntaxShape> {
+        match &expr.expr {
+            Expression::Variable(Variable::Other(name, _)) => {
+                self.dependencies.push((
+                    var.clone(),
+                    expr.clone(),
+                    VarUsage::new(name, &expr.span),
+                ));
+                None
+            }
+            Expression::Variable(Variable::It(_)) => {
+                //TODO infer tpye of $it
+                None
+            }
+            Expression::Literal(literal) => {
+                match literal {
+                    nu_protocol::hir::Literal::Number(_) => Some(SyntaxShape::Number),
+                    nu_protocol::hir::Literal::Size(_, _) => Some(SyntaxShape::Unit),
+                    nu_protocol::hir::Literal::String(_) => Some(SyntaxShape::String),
+                    //Rest should have failed at parsing stage?
+                    nu_protocol::hir::Literal::GlobPattern(_) => Some(SyntaxShape::String),
+                    nu_protocol::hir::Literal::Operator(_) => Some(SyntaxShape::Operator),
+                    nu_protocol::hir::Literal::ColumnPath(_) => Some(SyntaxShape::ColumnPath),
+                    nu_protocol::hir::Literal::Bare(_) => Some(SyntaxShape::String),
+                }
+            }
+            //Synthetic are expressions that are generated by the parser and not inputed by the user
+            //ExternalWord is anything sent to external commands (?)
+            Expression::ExternalWord => Some(SyntaxShape::String),
+            Expression::Synthetic(_) => Some(SyntaxShape::String),
+
+            Expression::Binary(_) => Some(SyntaxShape::Math),
+            Expression::Range(_) => Some(SyntaxShape::Range),
+            Expression::List(_) => Some(SyntaxShape::Table),
+            Expression::Boolean(_) => Some(SyntaxShape::String),
+
+            Expression::Path(_) => Some(SyntaxShape::ColumnPath),
+            Expression::FilePath(_) => Some(SyntaxShape::Path),
+            Expression::Block(_) => Some(SyntaxShape::Block),
+            Expression::ExternalCommand(_) => Some(SyntaxShape::String),
+            Expression::Table(_, _) => Some(SyntaxShape::Table),
+            Expression::Command => Some(SyntaxShape::String),
+            Expression::Invocation(_) => Some(SyntaxShape::Block),
+            Expression::Garbage => unreachable!("Should have failed at parsing stage"),
         }
     }
 
-    fn get_shape_of_binary_arg(
+    fn get_shape_of_binary_arg_or_insert_dependency(
         &mut self,
         //var depending on shape of expr (arg)
         (var, expr): (&VarUsage, &SpannedExpression),
@@ -437,126 +734,222 @@ impl VarSyntaxShapeDeductor {
         source_bin: &SpannedExpression,
         (pipeline_idx, pipeline): (usize, &Commands),
         registry: &CommandRegistry,
-    ) -> Option<Vec<SyntaxShape>> {
-        match &expr.expr {
-            //If both are variable
-            Expression::Variable(_) => {
-                trace!("Expr is unexpected var: {:?}", expr);
-                unreachable!("case that both sides are var is handled on caller side")
-            }
-            Expression::Literal(literal) => {
-                match literal {
-                    nu_protocol::hir::Literal::Number(_) => Some(vec![SyntaxShape::Number]),
-                    nu_protocol::hir::Literal::Size(_, _) => Some(vec![SyntaxShape::Unit]),
-                    nu_protocol::hir::Literal::String(_) => Some(vec![SyntaxShape::String]),
-                    //Rest should have failed at parsing stage?
-                    nu_protocol::hir::Literal::GlobPattern(_) => Some(vec![SyntaxShape::String]),
-                    nu_protocol::hir::Literal::Operator(_) => Some(vec![SyntaxShape::Operator]),
-                    nu_protocol::hir::Literal::ColumnPath(_) => Some(vec![SyntaxShape::ColumnPath]),
-                    nu_protocol::hir::Literal::Bare(_) => Some(vec![SyntaxShape::String]),
-                }
-            }
-            //What do these both mean?
-            Expression::ExternalWord => Some(vec![SyntaxShape::String]),
-            Expression::Synthetic(_) => Some(vec![SyntaxShape::String]),
-
-            Expression::Binary(bin) => {
-                //if both sides of bin are variables, no deduction will be possible, therefore
-                // dependend_var depends on both these vars
-                match (&bin.left.expr, &bin.right.expr) {
-                    (
-                        Expression::Variable(Variable::Other(l_name, l_span)),
-                        Expression::Variable(Variable::Other(r_name, r_span)),
-                    ) => {
-                        //Example of this case is: $foo + $bar * $baz
-                        //foo = var (depending of shape of arg (bar * baz))
-                        //
-                        //TODO depending on the operators between var and this binary
-                        // there might or might not be dependencies.
-                        // e.G. $var * ($baz < $bar) (As of time of this writing its disallowed)
-                        // $var is not dependend on the types of baz or bar.
-                        // For e.G. $var * $baz + $bar all types have to coerce into each other
-                        //
-                        // For now we build all dependencies
-                        self.dependencies.push((
-                            var.clone(),
-                            source_bin.clone(),
-                            VarUsage::new(l_name, l_span),
-                        ));
-                        self.dependencies.push((
-                            var.clone(),
-                            source_bin.clone(),
-                            VarUsage::new(r_name, r_span),
-                        ));
-                        None
-                    }
-                    (
-                        Expression::Variable(Variable::It(_it_span)),
-                        Expression::Variable(Variable::Other(_var_name, _var_span)),
-                    )
-                    | (
-                        Expression::Variable(Variable::Other(_var_name, _var_span)),
-                        Expression::Variable(Variable::It(_it_span)),
-                    ) => {
-                        //TODO deduce type of $it and its usage based on operator and return it
-                        None
-                    }
-                    (
-                        Expression::Variable(Variable::It(_l_it)),
-                        Expression::Variable(Variable::It(_r_it)),
-                    ) => {
-                        //TODO deduce type of $it and return it (based on operator)
-                        None
-                    }
-                    _ => {
-                        let lhs_shape = self.get_shape_of_binary_arg(
-                            (var, &bin.left),
-                            source_bin,
-                            (pipeline_idx, pipeline),
-                            registry,
-                        );
-                        let rhs_shape = self.get_shape_of_binary_arg(
-                            (var, &bin.right),
-                            source_bin,
-                            (pipeline_idx, pipeline),
-                            registry,
-                        );
-                        match (lhs_shape, rhs_shape) {
-                            (None, None) => None,
-                            (None, Some(shapes)) | (Some(shapes), None) => Some(shapes),
-                            (Some(lhs_shapes), Some(rhs_shapes)) => {
-                                let lhs_shapes: HashSet<_> = lhs_shapes.into_iter().collect();
-                                let rhs_shapes: HashSet<_> = rhs_shapes.into_iter().collect();
-                                //TODO obay coercion
-                                let intersection: Vec<SyntaxShape> =
-                                    lhs_shapes.intersection(&rhs_shapes).cloned().collect();
-                                if intersection.is_empty() {
-                                    //TODO throw nice error describing that both sides had
-                                    //different types
-                                    //e.G. $var * 1kb + $true
-                                    unimplemented!("Intersection err");
-                                // Err(ShellError::coerce_error)
-                                } else {
-                                    Some(intersection)
+    ) -> Result<Option<SyntaxShape>, ShellError> {
+        if let Some(shape) = self.get_shape_of_expr_or_insert_dependency(var, expr) {
+            Ok(match shape {
+                SyntaxShape::Math => {
+                    //If execution happens here, the situation is as follows:
+                    //There is an Binary expression (source_bin) with a variable on one side 
+                    //and a binary (lets call it "deep binary") on the other:
+                    //e.G. $var + 1 * 1
+                    //Now we try to infer the shapes inside the deep binary, compute the resulting
+                    //shape based on the operator (see get_result_shape_of) and return that.
+                    //That won't work if one of the deeper binary left/right expr is a variable.
+                    //Then we insert an element into
+                    //VarSyntaxShapeDeductor.dependencies_on_result_type
+                    //
+                    //If the deeper binary contains a binary on one side, we check if that binary
+                    //has a computable result type (e.G. has no variable in it) by recursively
+                    //calling this function and if so return it. 
+                    //If the result type is not computable (the deep deep binary had a variable), we substitute 
+                    //the deep deep binary side of the deep binary with a variable (fake_var) and
+                    //insert a dependency from the fake_var to the deep deep binary in
+                    //VarSyntaxShapeDeductor.dependencies_on_result_type
+                    //The $var on the source_bin will then (as described above) depend on the deep
+                    //binary (as it has a variable (fake_var)) on one side.
+                    //
+                    //The dependencies gets resolved at the end, when most information about all
+                    //variables is accessable.
+                    //
+                    //
+                    //
+                    //
+                    //Expression is of type binary
+                    //We have to descend deeper into tree
+                    //And compute result shape based on operator
+                    let bin = match &expr.expr {
+                        Expression::Binary(bin) => bin,
+                        _ => unreachable!("SyntaxShape::Math means expression binary"),
+                    };
+                    match (&bin.left.expr, &bin.right.expr) {
+                        //$it should give shape in get_shape_of_expr_or_insert_dependency
+                        //Therefore the following code is not correct!
+                            ////Substitute
+                            //(
+                            //    Expression::Variable(Variable::It(_it_span)),
+                            //    Expression::Variable(Variable::Other(_var_name, _var_span)),
+                            //)
+                            //    | (
+                            //        Expression::Variable(Variable::Other(_var_name, _var_span)),
+                            //        Expression::Variable(Variable::It(_it_span)),
+                            //    ) => {
+                            //        //TODO deduce type of $it and insert into
+                            //        //dependencies_on_result_type
+                            //        None
+                            //    }
+                            //(
+                            //    Expression::Variable(Variable::It(_l_it)),
+                            //    Expression::Variable(Variable::It(_r_it)),
+                            //) => {
+                            //    //TODO deduce type of $it and return it (based on operator)
+                            //    None
+                            //}
+                        (
+                            Expression::Variable(Variable::Other(_, _)),
+                            Expression::Variable(Variable::Other(_, _)),
+                        )
+                        | (Expression::Variable(Variable::Other(_, _)), _)
+                        | (_, Expression::Variable(Variable::Other(_, _))) => {
+                            //Example of this case is: $foo + $bar * $baz
+                            //foo = var (depending of shape of arg (bar * baz))
+                            self.dependencies_on_result_type.push((
+                                var.clone(),
+                                op_of(source_bin),
+                                expr.clone(),
+                            ));
+                            None
+                        }
+                        (Expression::Binary(_), Expression::Binary(_)) => {
+                            let (l_fake_var, l_fake_var_expr) =
+                                self.fake_var_generator.next_as_expr();
+                            let (r_fake_var, r_fake_var_expr) =
+                                self.fake_var_generator.next_as_expr();
+                            let fake_bin = change_op_to_assignment(expr.clone());
+                            match (
+                                self.get_shape_of_binary_arg_or_insert_dependency(
+                                    (&l_fake_var, &bin.left),
+                                    &fake_bin,
+                                    (pipeline_idx, pipeline),
+                                    registry,
+                                )?,
+                                self.get_shape_of_binary_arg_or_insert_dependency(
+                                    (&r_fake_var, &bin.right),
+                                    &fake_bin,
+                                    (pipeline_idx, pipeline),
+                                    registry,
+                                )?,
+                            ) {
+                                (Some(l_shape), Some(r_shape)) => {
+                                    //Both sides could be evaluated
+                                    Some(get_result_shape_of(l_shape, &bin.op, r_shape)?)
+                                }
+                                (None, Some(_)) => {
+                                    self.substitute_left_with_fake_var_and_insert_dependencies(
+                                        bin,
+                                        &l_fake_var_expr,
+                                        (source_bin, var),
+                                    );
+                                    None
+                                }
+                                (Some(_), None) => {
+                                    self.substitute_right_with_fake_var_and_insert_dependencies(
+                                        bin,
+                                        &r_fake_var_expr,
+                                        (source_bin, var),
+                                    );
+                                    None
+                                }
+                                (None, None) => {
+                                    //Substitute both with fake var and insert dependencies
+                                    let mut fake_bin = bin.clone();
+                                    fake_bin.right.expr = r_fake_var_expr;
+                                    fake_bin.left.expr = l_fake_var_expr;
+                                    let op = op_of(source_bin);
+                                    self.dependencies_on_result_type.push((
+                                        var.clone(),
+                                        op,
+                                        SpannedExpression::new(
+                                            Expression::Binary(fake_bin),
+                                            source_bin.span,
+                                        ),
+                                    ));
+                                    None
                                 }
                             }
                         }
+                        //After here every invocation on get_shape_of_expr_or_insert_dependency(expr) should
+                        //give a result shape
+                        (Expression::Binary(_), _) => {
+                            let (l_fake_var, l_fake_var_expr) =
+                                self.fake_var_generator.next_as_expr();
+                            let (r_fake_var, _) =
+                                self.fake_var_generator.next_as_expr();
+                            let fake_bin = change_op_to_assignment(expr.clone());
+                            match (
+                                self.get_shape_of_binary_arg_or_insert_dependency(
+                                    (&l_fake_var, &bin.left),
+                                    &fake_bin,
+                                    (pipeline_idx, pipeline),
+                                    registry,
+                                )?,
+                                self.get_shape_of_expr_or_insert_dependency(
+                                    &r_fake_var, &bin.right,
+                                ),
+                            ) {
+                                (Some(l_shape), Some(r_shape)) => {
+                                    Some(get_result_shape_of(l_shape, &bin.op, r_shape)?)
+                                }
+                                (None, _) => {
+                                    self.substitute_left_with_fake_var_and_insert_dependencies(
+                                        bin,
+                                        &l_fake_var_expr,
+                                        (source_bin, var),
+                                    );
+                                    None
+                                }
+                                (Some(_), None) => unreachable!("At this point shape should be deducable!")
+                            }
+                        }
+                        (_, Expression::Binary(_)) => {
+                            let (l_fake_var, _) =
+                                self.fake_var_generator.next_as_expr();
+                            let (r_fake_var, r_fake_var_expr) =
+                                self.fake_var_generator.next_as_expr();
+                            let fake_bin = change_op_to_assignment(expr.clone());
+                            match (
+                                self.get_shape_of_expr_or_insert_dependency(
+                                    &l_fake_var, &bin.left,
+                                ),
+                                self.get_shape_of_binary_arg_or_insert_dependency(
+                                    (&r_fake_var, &bin.right),
+                                    &fake_bin,
+                                    (pipeline_idx, pipeline),
+                                    registry,
+                                )?,
+                            ) {
+                                (Some(l_shape), Some(r_shape)) => {
+                                    Some(get_result_shape_of(l_shape, &bin.op, r_shape)?)
+                                }
+                                (_, None) => {
+                                    self.substitute_right_with_fake_var_and_insert_dependencies(
+                                        bin,
+                                        &r_fake_var_expr,
+                                        (source_bin, var),
+                                    );
+                                    None
+                                }
+                                (None, Some(_)) => unreachable!("At this point shape should be deducable!")
+                            }
+                        }
+                        (_, _) => {
+                            let (l_fake_var, _) = self.fake_var_generator.next_as_expr();
+                            let (r_fake_var, _) = self.fake_var_generator.next_as_expr();
+                            match 
+                                (self.get_shape_of_expr_or_insert_dependency( &l_fake_var, &bin.left),
+                                self.get_shape_of_expr_or_insert_dependency(&r_fake_var, &bin.right)) {
+                                    ( Some(l_shape), Some(r_shape) ) => {
+                                        Some(get_result_shape_of(l_shape, &bin.op, r_shape)?)
+                                    }
+                                    _ => unreachable!("This should be unreachable as neither expr is real var or binary")
+
+                                }
+                        }
                     }
                 }
-            }
-            Expression::Range(_) => Some(vec![SyntaxShape::Range]),
-            Expression::List(_) => todo!("List of inner shapes"),
-            Expression::Boolean(_) => todo!("What to return here? Is $var + true valid?"),
-
-            //Rest should have failed at parsing stage? Realy? Also invocation? Old code says so...
-            Expression::Path(_)
-            | Expression::FilePath(_)
-            | Expression::Block(_)
-            | Expression::ExternalCommand(_)
-            | Expression::Table(_, _)
-            | Expression::Command
-            | Expression::Invocation(_)
-            | Expression::Garbage => unreachable!("Should have failed at parsing stage"),
+                _ => Some(shape),
+            })
+        } else {
+            Ok(None)
         }
     }
 
@@ -587,29 +980,75 @@ impl VarSyntaxShapeDeductor {
                     todo!("Implement in, notin, contains... for type deduction");
                 }
                 Operator::Equal
-                | Operator::NotEqual
-                | Operator::LessThan
-                | Operator::GreaterThan
-                | Operator::LessThanOrEqual
-                | Operator::GreaterThanOrEqual
-                | Operator::Plus
-                | Operator::Minus
-                | Operator::Multiply
-                | Operator::Divide => {
-                    if let Some(possible_shapes) = self.get_shape_of_binary_arg(
+                    | Operator::NotEqual
+                    | Operator::LessThan
+                    | Operator::GreaterThan
+                    | Operator::LessThanOrEqual
+                    | Operator::GreaterThanOrEqual
+                    | Operator::Plus
+                    | Operator::Minus => {
+                        if let Some(shape) = self.get_shape_of_binary_arg_or_insert_dependency(
+                            (var, expr),
+                            bin_spanned,
+                            (pipeline_idx, pipeline),
+                            registry,
+                        )? {
+                            self.checked_insert(
+                                var,
+                                vec![VarShapeDeduction::from_usage(&var.span, &shape)],
+                            )?;
+                        }
+                    }
+                Operator::Multiply => {
+                    if let Some(shape) = self.get_shape_of_binary_arg_or_insert_dependency(
                         (var, expr),
                         bin_spanned,
                         (pipeline_idx, pipeline),
                         registry,
-                    ) {
-                        // possible_shapes.push(SyntaxShape::Math);
-                        self.checked_insert(
-                            var,
-                            VarShapeDeduction::from_usage_with_alternatives(
-                                &var.span,
-                                &possible_shapes,
-                            ),
-                        )?;
+                    )? {
+                        if shape == SyntaxShape::Unit {
+                            //TODO at the moment unit * unit is not possible
+                            //As soon as more complex units land this changes!
+                            self.checked_insert(
+                                var,
+                                vec![VarShapeDeduction::from_usage(
+                                    &var.span,
+                                    &SyntaxShape::Number,
+                                )],
+                            )?;
+                        } else if shape == SyntaxShape::Number || shape == SyntaxShape::Int {
+                            self.checked_insert(
+                                var,
+                                VarShapeDeduction::from_usage_with_alternatives(
+                                    &var.span,
+                                    &[SyntaxShape::Number, SyntaxShape::Unit],
+                                ),
+                            )?;
+                        } else {
+                            unreachable!("Only int or number or unit in binary with op = * allowed")
+                        }
+                    }
+                }
+                Operator::Divide => {
+                    if let Some(shape) = self.get_shape_of_binary_arg_or_insert_dependency(
+                        (var, expr),
+                        bin_spanned,
+                        (pipeline_idx, pipeline),
+                        registry,
+                    )? {
+                        //TODO pass left or right parameter to check side
+                        if shape == SyntaxShape::Int || shape == SyntaxShape::Number {
+                            //TODO at the moment number / unit is not possible
+                            //As soon as more complex units land this changes!
+                            //TODO if side == left
+                            self.checked_insert(
+                                var,
+                                VarShapeDeduction::from_usage_with_alternatives(
+                                    &var.span,
+                                    &[SyntaxShape::Number, SyntaxShape::Unit],
+                                ),
+                            )?;
+                        }
                     }
                 }
             }
@@ -633,9 +1072,9 @@ impl VarSyntaxShapeDeductor {
                 if left_var_name != right_var_name {
                     //type can't be deduced out of this, so add it to resolve it later
                     self.dependencies.push((
-                        VarUsage::new(left_var_name, l_span),
-                        bin_spanned.clone(),
-                        VarUsage::new(right_var_name, r_span),
+                            VarUsage::new(left_var_name, l_span),
+                            bin_spanned.clone(),
+                            VarUsage::new(right_var_name, r_span),
                     ));
                 }
                 //No further inference possible
@@ -684,6 +1123,16 @@ impl VarSyntaxShapeDeductor {
         // Solves dependencies between variables
         // e.G. $var1 < $var2
         // If $var2 is of type Unit, $var1 has to be the same
+        // TODO impl this
+        //
+        // I would check for global/environment variables.
+        // Lookup their types. 
+        // Then check each node not pointing to others
+        // These are free variables - no inference can be made for them
+        //
+        // Variables having cycles between them (eg. a -> b and b -> a) have to be of the same type
+        //
+        // Then try to inference the variables depending on the result types again.
     }
 
     /// Inserts the new deductions. Each VarShapeDeduction represents one alternative for
@@ -700,9 +1149,9 @@ impl VarSyntaxShapeDeductor {
             "Trying to insert for: {:?} possible shapes:{:?}",
             var_usage.name,
             new_deductions
-                .iter()
-                .map(|d| d.deduction)
-                .collect::<Vec<_>>()
+            .iter()
+            .map(|d| d.deduction)
+            .collect::<Vec<_>>()
         );
 
         //Every insertion is sorted by shape!
@@ -717,14 +1166,14 @@ impl VarSyntaxShapeDeductor {
                 // deduction and vice versa
                 let (any_in_new, new_vec) = (
                     new_deductions
-                        .iter()
-                        .any(|deduc| deduc.deduction == SyntaxShape::Any),
+                    .iter()
+                    .any(|deduc| deduc.deduction == SyntaxShape::Any),
                     &new_deductions,
                 );
                 let (any_in_existing, existing_vec) = (
                     existing_deductions
-                        .iter()
-                        .any(|deduc| deduc.deduction == SyntaxShape::Any),
+                    .iter()
+                    .any(|deduc| deduc.deduction == SyntaxShape::Any),
                     existing_deductions,
                 );
 
@@ -749,7 +1198,7 @@ impl VarSyntaxShapeDeductor {
                                     combination
                                 }
                             })
-                            .collect()
+                        .collect()
                     }
                     ((false, a), (true, b)) | ((true, b), (false, a)) => {
                         //B has an any. So A can be applied as a whole
@@ -770,7 +1219,7 @@ impl VarSyntaxShapeDeductor {
                                     Some(combination)
                                 }
                             })
-                            .filter_map(|elem| elem)
+                        .filter_map(|elem| elem)
                             .collect()
                     }
                     //No any's intersection of both is result
@@ -793,7 +1242,7 @@ impl VarSyntaxShapeDeductor {
                             }
                         })
                         .filter_map(|elem| elem)
-                        .collect();
+                            .collect();
                         if intersection.is_empty() {
                             // let labels = a
                             //     .iter()
@@ -814,11 +1263,11 @@ impl VarSyntaxShapeDeductor {
                                     // How can you make spanned_expr to code?
                                     // .with_code(self.block.clone())
                                     .with_message(format!("Contrary types for variable {}. Variable can't be one of {:#?} and one of {:#?}", k.name,
-                                        a.iter().map(|deduction| deduction.deduction).collect::<Vec<_>>(),
-                                        b.iter().map(|deduction| deduction.deduction).collect::<Vec<_>>()
+                                            a.iter().map(|deduction| deduction.deduction).collect::<Vec<_>>(),
+                                            b.iter().map(|deduction| deduction.deduction).collect::<Vec<_>>()
                                     ))
                                     // .with_labels( labels)
-                                    ));
+                            ));
                         } else {
                             intersection
                         }
