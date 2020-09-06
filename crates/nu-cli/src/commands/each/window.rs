@@ -13,7 +13,7 @@ pub struct EachWindow;
 pub struct EachWindowArgs {
     window_size: Tagged<usize>,
     block: Block,
-    //stride: Option<Tagged<usize>>,
+    stride: Option<Tagged<usize>>,
 }
 
 #[async_trait]
@@ -25,12 +25,12 @@ impl WholeStreamCommand for EachWindow {
     fn signature(&self) -> Signature {
         Signature::build("each window")
             .required("window_size", SyntaxShape::Int, "the size of each window")
-            //.named(
-            //"stride",
-            //SyntaxShape::Int,
-            //"the number of rows to skip between windows",
-            //Some('s'),
-            //)
+            .named(
+                "stride",
+                SyntaxShape::Int,
+                "the number of rows to skip between windows",
+                Some('s'),
+            )
             .required(
                 "block",
                 SyntaxShape::Block,
@@ -69,23 +69,32 @@ impl WholeStreamCommand for EachWindow {
             .await;
 
         // `window` must start with dummy values, which will be removed on the first iteration
+        let stride = each_args.stride.map(|x| *x).unwrap_or(1);
         window.insert(0, UntaggedValue::Primitive(Primitive::Nothing).into());
 
         Ok(input
-            .then(move |input| {
+            .enumerate()
+            .then(move |(i, input)| {
                 // This would probably be more efficient if `last` was a VecDeque
                 // But we can't have that because it needs to be put into a Table
                 window.remove(0);
                 window.push(input.clone());
 
-                run_block_on_vec(
-                    window.clone(),
-                    block.clone(),
-                    scope.clone(),
-                    head.clone(),
-                    context.clone(),
-                )
+                let block = block.clone();
+                let scope = scope.clone();
+                let head = head.clone();
+                let context = context.clone();
+                let local_window = window.clone();
+
+                async move {
+                    if i % stride == 0 {
+                        Some(run_block_on_vec(local_window, block, scope, head, context).await)
+                    } else {
+                        None
+                    }
+                }
             })
+            .filter_map(|x| async { x })
             .flatten()
             .to_output_stream())
     }
