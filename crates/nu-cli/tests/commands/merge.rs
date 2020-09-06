@@ -31,7 +31,7 @@ fn row() {
             r#"
                 open caballeros.csv
                 | merge { open new_caballeros.csv }
-                | where country in: ["Guayaquil Ecuador" "New Zealand"]
+                | where country in ["Guayaquil Ecuador" "New Zealand"]
                 | get luck
                 | math sum
                 | echo $it

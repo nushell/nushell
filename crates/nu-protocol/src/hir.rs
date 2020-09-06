@@ -575,7 +575,7 @@ impl SpannedExpression {
                 // Higher precedence binds tighter
 
                 match operator {
-                    Operator::Multiply | Operator::Divide => 100,
+                    Operator::Multiply | Operator::Divide | Operator::Modulo => 100,
                     Operator::Plus | Operator::Minus => 90,
                     Operator::NotContains
                     | Operator::Contains
@@ -848,6 +848,7 @@ pub enum Operator {
     Divide,
     In,
     NotIn,
+    Modulo,
     And,
     Or,
 }
