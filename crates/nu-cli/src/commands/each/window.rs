@@ -28,7 +28,7 @@ impl WholeStreamCommand for EachWindow {
             .named(
                 "stride",
                 SyntaxShape::Int,
-                "the number of rows to skip between windows",
+                "the number of rows to slide over between windows",
                 Some('s'),
             )
             .required(
@@ -39,13 +39,13 @@ impl WholeStreamCommand for EachWindow {
     }
 
     fn usage(&self) -> &str {
-        "Runs a block on groups of `group_size` rows of a table at a time."
+        "Runs a block on sliding windows of `window_size` rows of a table at a time."
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Echo the sum of each pair",
-            example: "echo [1 2 3 4] | each group 2 { echo $it | math sum }",
+            description: "Echo the sum of each window",
+            example: "echo [1 2 3 4] | each window 2 { echo $it | math sum }",
             result: None,
         }]
     }
