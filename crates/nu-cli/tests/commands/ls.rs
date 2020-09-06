@@ -279,8 +279,18 @@ fn list_all_columns() {
                 #[cfg(unix)]
                 {
                     [
-                        "name", "type", "target", "readonly", "mode", "uid", "group", "size",
-                        "created", "accessed", "modified",
+                        "name",
+                        "type",
+                        "target",
+                        "num_links",
+                        "readonly",
+                        "mode",
+                        "uid",
+                        "group",
+                        "size",
+                        "created",
+                        "accessed",
+                        "modified",
                     ]
                     .join("")
                 }
