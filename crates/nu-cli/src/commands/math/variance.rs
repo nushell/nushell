@@ -152,6 +152,7 @@ fn sum_of_squares(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
                         return Err(ShellError::coerce_error(
                             left_type.spanned(name.span),
                             right_type.spanned(name.span),
+                            Operator::Plus,
                         ))
                     }
                 };
@@ -160,6 +161,7 @@ fn sum_of_squares(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
                 return Err(ShellError::coerce_error(
                     left_type.spanned(value.tag.span),
                     right_type.spanned(value.tag.span),
+                    Operator::Multiply,
                 ))
             }
         };
@@ -169,6 +171,7 @@ fn sum_of_squares(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
                 return Err(ShellError::coerce_error(
                     left_type.spanned(name.span),
                     right_type.spanned(name.span),
+                    Operator::Plus,
                 ))
             }
         };
@@ -180,6 +183,7 @@ fn sum_of_squares(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
             return Err(ShellError::coerce_error(
                 left_type.spanned(name.span),
                 right_type.spanned(name.span),
+                Operator::Multiply,
             ))
         }
     };
@@ -189,6 +193,7 @@ fn sum_of_squares(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
             return Err(ShellError::coerce_error(
                 left_type.spanned(name.span),
                 right_type.spanned(name.span),
+                Operator::Divide,
             ))
         }
     };
@@ -198,6 +203,7 @@ fn sum_of_squares(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
             return Err(ShellError::coerce_error(
                 left_type.spanned(name.span),
                 right_type.spanned(name.span),
+                Operator::Minus,
             ))
         }
     };

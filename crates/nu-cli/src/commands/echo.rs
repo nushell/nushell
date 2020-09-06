@@ -119,6 +119,7 @@ impl Iterator for RangeIterator {
                     return Some(Err(ShellError::coerce_error(
                         left_type.spanned(self.tag.span),
                         right_type.spanned(self.tag.span),
+                        Operator::Plus,
                     )));
                 }
             };

@@ -852,6 +852,12 @@ pub enum Operator {
     Or,
 }
 
+impl Into<String> for Operator {
+    fn into(self) -> String {
+        format!("{:?}", self)
+    }
+}
+
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize, new)]
 pub struct Binary {
     pub left: SpannedExpression,

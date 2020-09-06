@@ -57,6 +57,7 @@ fn formula(
                 return Err(ShellError::coerce_error(
                     left_type.spanned_unknown(),
                     right_type.spanned_unknown(),
+                    Operator::Multiply,
                 ))
             }
         };
@@ -68,6 +69,7 @@ fn formula(
                     return Err(ShellError::coerce_error(
                         left_type.spanned_unknown(),
                         right_type.spanned_unknown(),
+                        Operator::Plus,
                     ))
                 }
             }),
@@ -113,6 +115,7 @@ pub fn sum(data: Vec<&Value>) -> Result<Value, ShellError> {
                         return Err(ShellError::coerce_error(
                             left_type.spanned_unknown(),
                             right_type.spanned_unknown(),
+                            Operator::Plus,
                         ))
                     }
                 };

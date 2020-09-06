@@ -68,6 +68,13 @@ fn correctly_escape_external_arguments() {
     assert_eq!(actual.out, "$0");
 }
 
+#[test]
+fn my_new_test() {
+    let actual = nu!(cwd: ".", r#"= 1min + 1kb"#);
+
+    assert_eq!(actual.out, "$0");
+}
+
 mod it_evaluation {
     use super::nu;
     use nu_test_support::fs::Stub::{EmptyFile, FileWithContent, FileWithContentToBeTrimmed};

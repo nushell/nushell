@@ -74,6 +74,7 @@ macro_rules! nu {
     }};
 }
 
+#[derive(Debug)]
 pub struct Outcome {
     pub out: String,
     pub err: String,

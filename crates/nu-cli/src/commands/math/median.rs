@@ -154,6 +154,7 @@ fn compute_average(values: &[Value], name: impl Into<Tag>) -> Result<Value, Shel
                 Err((left_type, right_type)) => Err(ShellError::coerce_error(
                     left_type.spanned(name.span),
                     right_type.spanned(name.span),
+                    Operator::Divide,
                 )),
             }
         }
@@ -169,6 +170,7 @@ fn compute_average(values: &[Value], name: impl Into<Tag>) -> Result<Value, Shel
                 Err((left_type, right_type)) => Err(ShellError::coerce_error(
                     left_type.spanned(name.span),
                     right_type.spanned(name.span),
+                    Operator::Divide,
                 )),
             }
         }

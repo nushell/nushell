@@ -284,7 +284,12 @@ impl PrettyDebug for ShellError {
                     )
             }
             ProximateShellError::Diagnostic(_) => b::error("diagnostic"),
-            ProximateShellError::CoerceError { left, right } => {
+            ProximateShellError::CoerceError {
+                left,
+                right,
+                operation,
+            } => {
+                // TODO: use operation
                 b::error("Coercion Error")
                     + b::space()
                     + b::delimit(
@@ -406,10 +411,12 @@ impl ShellError {
     pub fn coerce_error(
         left: Spanned<impl Into<String>>,
         right: Spanned<impl Into<String>>,
+        operation: impl Into<String>,
     ) -> ShellError {
         ProximateShellError::CoerceError {
             left: left.map(|l| l.into()),
             right: right.map(|r| r.into()),
+            operation: operation.into(),
         }
         .start()
     }
@@ -588,8 +595,13 @@ impl ShellError {
             }
 
             ProximateShellError::Diagnostic(diag) => Some(diag.diagnostic),
-            ProximateShellError::CoerceError { left, right } => {
-                Some(Diagnostic::error().with_message("Coercion error")
+            ProximateShellError::CoerceError { left, right, operation } => {
+                Some(Diagnostic::error().with_message(format!(
+                    "math error: cannot perform operation `{}` on incompatible types, {} and {}",
+                    operation,
+                    left.item,
+                    right.item)
+                )
                     .with_labels(vec![Label::primary(0, left.span).with_message(left.item),
                     Label::secondary(0, right.span).with_message(right.item)]))
             }
@@ -738,6 +750,7 @@ pub enum ProximateShellError {
     CoerceError {
         left: Spanned<String>,
         right: Spanned<String>,
+        operation: String,
     },
     UntaggedRuntimeError {
         reason: String,
@@ -772,7 +785,7 @@ impl HasFallibleSpan for ProximateShellError {
             ProximateShellError::ArgumentError { command, .. } => command.span,
             ProximateShellError::RangeError { actual_kind, .. } => actual_kind.span,
             ProximateShellError::Diagnostic(_) => return None,
-            ProximateShellError::CoerceError { left, right } => left.span.until(right.span),
+            ProximateShellError::CoerceError { left, right, .. } => left.span.until(right.span),
             ProximateShellError::UntaggedRuntimeError { .. } => return None,
             ProximateShellError::ExternalPlaceholderError => return None,
         })

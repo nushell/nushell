@@ -54,6 +54,7 @@ pub(crate) async fn evaluate_baseline_expr(
                         Err((left_type, right_type)) => Err(ShellError::coerce_error(
                             left_type.spanned(binary.left.span),
                             right_type.spanned(binary.right.span),
+                            op,
                         )),
                     }
                 }

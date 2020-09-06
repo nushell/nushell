@@ -134,6 +134,7 @@ pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
                 Err((left_type, right_type)) => Err(ShellError::coerce_error(
                     left_type.spanned(name.span),
                     right_type.spanned(name.span),
+                    Operator::Divide,
                 )),
             }
         }
@@ -149,6 +150,7 @@ pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
                 Err((left_type, right_type)) => Err(ShellError::coerce_error(
                     left_type.spanned(name.span),
                     right_type.spanned(name.span),
+                    Operator::Divide,
                 )),
             }
         }
