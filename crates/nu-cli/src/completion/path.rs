@@ -23,17 +23,22 @@ impl Completer {
 
         let base_dir = if base_dir_name == "" {
             PathBuf::from(".")
-        } else if base_dir_name == format!("~{}", SEP) {
+        } else {
             #[cfg(feature = "directories")]
             {
-                dirs::home_dir().unwrap_or_else(|| PathBuf::from("~"))
+                let home_prefix = format!("~{}", SEP);
+                if base_dir_name.starts_with(&home_prefix) {
+                    let mut home_dir = dirs::home_dir().unwrap_or_else(|| PathBuf::from("~"));
+                    home_dir.push(&base_dir_name[2..]);
+                    home_dir
+                } else {
+                    PathBuf::from(base_dir_name)
+                }
             }
             #[cfg(not(feature = "directories"))]
             {
-                PathBuf::from("~")
+                PathBuf::from(base_dir_name)
             }
-        } else {
-            PathBuf::from(base_dir_name)
         };
 
         if let Ok(result) = base_dir.read_dir() {
