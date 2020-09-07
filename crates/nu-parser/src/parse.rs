@@ -268,28 +268,24 @@ fn parse_range(
 
     let left = if left_hand_open {
         None
+    } else if let (left, None) = parse_arg(SyntaxShape::Number, registry, &lhs) {
+        Some(left)
     } else {
-        if let (left, None) = parse_arg(SyntaxShape::Number, registry, &lhs) {
-            Some(left)
-        } else {
-            return (
-                garbage(lite_arg.span),
-                Some(ParseError::mismatch("range", lhs)),
-            );
-        }
+        return (
+            garbage(lite_arg.span),
+            Some(ParseError::mismatch("range", lhs)),
+        );
     };
 
     let right = if right_hand_open {
         None
+    } else if let (right, None) = parse_arg(SyntaxShape::Number, registry, &rhs) {
+        Some(right)
     } else {
-        if let (right, None) = parse_arg(SyntaxShape::Number, registry, &rhs) {
-            Some(right)
-        } else {
-            return (
-                garbage(lite_arg.span),
-                Some(ParseError::mismatch("range", rhs)),
-            );
-        }
+        return (
+            garbage(lite_arg.span),
+            Some(ParseError::mismatch("range", rhs)),
+        );
     };
 
     (
