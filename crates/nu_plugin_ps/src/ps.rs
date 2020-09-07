@@ -1,11 +1,13 @@
 use futures::{StreamExt, TryStreamExt};
 use heim::process::{self as process, Process, ProcessResult};
-use heim::units::{information, ratio, Ratio};
+use heim::units::{information, ratio, time, Ratio};
 use std::usize;
 
 use nu_errors::ShellError;
 use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::Tag;
+
+use num_bigint::BigInt;
 
 use std::time::Duration;
 
@@ -68,6 +70,15 @@ pub async fn ps(tag: Tag, long: bool) -> Result<Vec<Value>, ShellError> {
                 UntaggedValue::filesize(memory.vms().get::<information::byte>()),
             );
             if long {
+                if let Ok(cpu_time) = process.cpu_time().await {
+                    let user_time = cpu_time.user().get::<time::nanosecond>().round() as i64;
+                    let system_time = cpu_time.system().get::<time::nanosecond>().round() as i64;
+
+                    dict.insert_untagged(
+                        "cpu_time",
+                        UntaggedValue::duration(BigInt::from(user_time + system_time)),
+                    )
+                }
                 if let Ok(parent_pid) = process.parent_pid().await {
                     dict.insert_untagged("parent", UntaggedValue::int(parent_pid))
                 }
