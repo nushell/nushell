@@ -15,6 +15,8 @@ nu-plugin = {path = "../nu-plugin", version = "0.19.0"}
 nu-protocol = {path = "../nu-protocol", version = "0.19.0"}
 nu-source = {path = "../nu-source", version = "0.19.0"}
 
+num-bigint = "0.2.6"
+
 futures = {version = "0.3", features = ["compat", "io-compat"]}
 futures-timer = "3.0.2"
 

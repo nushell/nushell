@@ -3379,6 +3379,7 @@ dependencies = [
  "nu-plugin",
  "nu-protocol",
  "nu-source",
+ "num-bigint",
 ]
 
 [[package]]
