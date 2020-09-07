@@ -503,6 +503,18 @@ fn range_with_open_right() {
 }
 
 #[test]
+fn range_with_mixed_types() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo 1..10.5 | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "55");
+}
+
+#[test]
 fn it_expansion_of_tables() {
     let actual = nu!(
         cwd: ".",
