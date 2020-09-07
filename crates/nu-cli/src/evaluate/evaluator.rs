@@ -61,11 +61,18 @@ pub(crate) async fn evaluate_baseline_expr(
             }
         }
         Expression::Range(range) => {
-            let left = &range.left;
-            let right = &range.right;
+            let left = if let Some(left) = &range.left {
+                evaluate_baseline_expr(&left, registry, it, vars, env).await?
+            } else {
+                Value::nothing()
+            };
 
-            let left = evaluate_baseline_expr(&left, registry, it, vars, env).await?;
-            let right = evaluate_baseline_expr(&right, registry, it, vars, env).await?;
+            let right = if let Some(right) = &range.right {
+                evaluate_baseline_expr(&right, registry, it, vars, env).await?
+            } else {
+                Value::nothing()
+            };
+
             let left_span = left.tag.span;
             let right_span = right.tag.span;
 

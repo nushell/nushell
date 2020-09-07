@@ -575,7 +575,7 @@ impl SpannedExpression {
                 // Higher precedence binds tighter
 
                 match operator {
-                    Operator::Multiply | Operator::Divide => 100,
+                    Operator::Multiply | Operator::Divide | Operator::Modulo => 100,
                     Operator::Plus | Operator::Minus => 90,
                     Operator::NotContains
                     | Operator::Contains
@@ -599,6 +599,21 @@ impl SpannedExpression {
         match &self.expr {
             Expression::Binary(binary) => {
                 binary.left.has_shallow_it_usage() || binary.right.has_shallow_it_usage()
+            }
+            Expression::Range(range) => {
+                let left = if let Some(left) = &range.left {
+                    left.has_shallow_it_usage()
+                } else {
+                    false
+                };
+
+                let right = if let Some(right) = &range.right {
+                    right.has_shallow_it_usage()
+                } else {
+                    false
+                };
+
+                left || right
             }
             Expression::Variable(Variable::It(_)) => true,
             Expression::Path(path) => path.head.has_shallow_it_usage(),
@@ -848,6 +863,7 @@ pub enum Operator {
     Divide,
     In,
     NotIn,
+    Modulo,
     And,
     Or,
 }
@@ -889,20 +905,27 @@ impl ShellTypeName for Synthetic {
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
 pub struct Range {
-    pub left: SpannedExpression,
+    pub left: Option<SpannedExpression>,
     pub dotdot: Span,
-    pub right: SpannedExpression,
+    pub right: Option<SpannedExpression>,
 }
 
 impl PrettyDebugWithSource for Range {
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         b::delimit(
             "<",
-            self.left.pretty_debug(source)
-                + b::space()
+            (if let Some(left) = &self.left {
+                left.pretty_debug(source)
+            } else {
+                DebugDocBuilder::blank()
+            }) + b::space()
                 + b::keyword(self.dotdot.slice(source))
                 + b::space()
-                + self.right.pretty_debug(source),
+                + (if let Some(right) = &self.right {
+                    right.pretty_debug(source)
+                } else {
+                    DebugDocBuilder::blank()
+                }),
             ">",
         )
         .group()
@@ -1082,7 +1105,11 @@ impl Expression {
         Expression::Literal(Literal::Operator(operator))
     }
 
-    pub fn range(left: SpannedExpression, dotdot: Span, right: SpannedExpression) -> Expression {
+    pub fn range(
+        left: Option<SpannedExpression>,
+        dotdot: Span,
+        right: Option<SpannedExpression>,
+    ) -> Expression {
         Expression::Range(Box::new(Range {
             left,
             dotdot,

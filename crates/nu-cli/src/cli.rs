@@ -79,6 +79,7 @@ pub fn create_default_context(
 
         context.add_commands(vec![
             // System/file operations
+            whole_stream_command(Exec),
             whole_stream_command(Pwd),
             whole_stream_command(Ls),
             whole_stream_command(Du),

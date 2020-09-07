@@ -455,6 +455,54 @@ fn list_with_commas() {
 }
 
 #[test]
+fn range_with_left_var() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo [[size]; [3]] | echo $it.size..10 | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "52");
+}
+
+#[test]
+fn range_with_right_var() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo [[size]; [30]] | echo 4..$it.size | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "459");
+}
+
+#[test]
+fn range_with_open_left() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo ..30 | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "465");
+}
+
+#[test]
+fn range_with_open_right() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo 5.. | first 10 | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "95");
+}
+
+#[test]
 fn it_expansion_of_tables() {
     let actual = nu!(
         cwd: ".",

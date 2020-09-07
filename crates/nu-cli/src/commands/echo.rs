@@ -86,8 +86,13 @@ struct RangeIterator {
 
 impl RangeIterator {
     pub fn new(range: Range, tag: Tag) -> RangeIterator {
+        let start = match range.from.0.item {
+            Primitive::Nothing => Primitive::Int(0.into()),
+            x => x,
+        };
+
         RangeIterator {
-            curr: range.from.0.item,
+            curr: start,
             end: range.to.0.item,
             tag,
             is_end_inclusive: matches!(range.to.1, RangeInclusion::Inclusive),
