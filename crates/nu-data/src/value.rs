@@ -131,6 +131,13 @@ pub fn compute_values(
                         )))
                     }
                 }
+                Operator::Modulo => {
+                    if y.is_zero() {
+                        Ok(zero_division_error())
+                    } else {
+                        Ok(UntaggedValue::Primitive(Primitive::Int(x % y)))
+                    }
+                }
                 _ => Err((left.type_name(), right.type_name())),
             },
             (Primitive::Decimal(x), Primitive::Int(y)) => {
