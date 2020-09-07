@@ -95,7 +95,9 @@ pub(crate) fn run_block_on_vec(
 
                 // If it returned just one value, just take that value
                 if vec.len() == 1 {
-                    return OutputStream::one(vec.into_iter().next().unwrap());
+                    return OutputStream::one(vec.into_iter().next().expect(
+                        "This should be impossible, we just checked that vec.len() == 1.",
+                    ));
                 }
 
                 // If it returned multiple values, we need to put them into a table and
