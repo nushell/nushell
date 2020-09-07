@@ -65,9 +65,13 @@ pub fn expression_to_flat_shape(e: &SpannedExpression) -> Vec<Spanned<FlatShape>
         }
         Expression::Range(range) => {
             let mut output = vec![];
-            output.append(&mut expression_to_flat_shape(&range.left));
+            if let Some(left) = &range.left {
+                output.append(&mut expression_to_flat_shape(left));
+            }
             output.push(FlatShape::DotDot.spanned(range.dotdot));
-            output.append(&mut expression_to_flat_shape(&range.right));
+            if let Some(right) = &range.right {
+                output.append(&mut expression_to_flat_shape(right));
+            }
             output
         }
         Expression::Boolean(_) => vec![FlatShape::Keyword.spanned(e.span)],

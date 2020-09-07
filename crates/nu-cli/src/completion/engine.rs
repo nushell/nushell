@@ -60,8 +60,12 @@ impl<'s> Flatten<'s> {
             }
             Expression::Range(range) => {
                 let mut result = Vec::new();
-                result.append(&mut self.expression(&range.left));
-                result.append(&mut self.expression(&range.right));
+                if let Some(left) = &range.left {
+                    result.append(&mut self.expression(left));
+                }
+                if let Some(right) = &range.right {
+                    result.append(&mut self.expression(right));
+                }
                 result
             }
 

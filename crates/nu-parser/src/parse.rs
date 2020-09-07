@@ -236,39 +236,72 @@ fn trim_quotes(input: &str) -> String {
 }
 
 /// Parse a numeric range
-fn parse_range(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
+fn parse_range(
+    lite_arg: &Spanned<String>,
+    registry: &dyn SignatureRegistry,
+) -> (SpannedExpression, Option<ParseError>) {
+    let lite_arg_span_start = lite_arg.span.start();
+    let lite_arg_len = lite_arg.item.len();
+    let dotdot_pos = lite_arg.item.find("..");
     let numbers: Vec<_> = lite_arg.item.split("..").collect();
 
     if numbers.len() != 2 {
-        (
+        return (
             garbage(lite_arg.span),
             Some(ParseError::mismatch("range", lite_arg.clone())),
-        )
-    } else if let Ok(lhs) = numbers[0].parse::<i64>() {
-        if let Ok(rhs) = numbers[1].parse::<i64>() {
-            (
-                SpannedExpression::new(
-                    Expression::range(
-                        SpannedExpression::new(Expression::integer(lhs), lite_arg.span),
-                        lite_arg.span,
-                        SpannedExpression::new(Expression::integer(rhs), lite_arg.span),
-                    ),
-                    lite_arg.span,
-                ),
-                None,
-            )
-        } else {
-            (
-                garbage(lite_arg.span),
-                Some(ParseError::mismatch("range", lite_arg.clone())),
-            )
-        }
-    } else {
-        (
-            garbage(lite_arg.span),
-            Some(ParseError::mismatch("range", lite_arg.clone())),
-        )
+        );
     }
+
+    let dotdot_pos = dotdot_pos.expect("Internal error: range .. can't be found but should be");
+
+    let lhs = numbers[0].to_string().spanned(Span::new(
+        lite_arg_span_start,
+        lite_arg_span_start + dotdot_pos,
+    ));
+    let rhs = numbers[1].to_string().spanned(Span::new(
+        lite_arg_span_start + dotdot_pos + 2,
+        lite_arg_span_start + lite_arg_len,
+    ));
+
+    let left_hand_open = dotdot_pos == 0;
+    let right_hand_open = dotdot_pos == lite_arg_len - 2;
+
+    let left = if left_hand_open {
+        None
+    } else if let (left, None) = parse_arg(SyntaxShape::Number, registry, &lhs) {
+        Some(left)
+    } else {
+        return (
+            garbage(lite_arg.span),
+            Some(ParseError::mismatch("range", lhs)),
+        );
+    };
+
+    let right = if right_hand_open {
+        None
+    } else if let (right, None) = parse_arg(SyntaxShape::Number, registry, &rhs) {
+        Some(right)
+    } else {
+        return (
+            garbage(lite_arg.span),
+            Some(ParseError::mismatch("range", rhs)),
+        );
+    };
+
+    (
+        SpannedExpression::new(
+            Expression::range(
+                left,
+                Span::new(
+                    lite_arg_span_start + dotdot_pos,
+                    lite_arg_span_start + dotdot_pos + 2,
+                ),
+                right,
+            ),
+            lite_arg.span,
+        ),
+        None,
+    )
 }
 
 /// Parse any allowed operator, including word-based operators
@@ -685,7 +718,8 @@ fn parse_arg(
     registry: &dyn SignatureRegistry,
     lite_arg: &Spanned<String>,
 ) -> (SpannedExpression, Option<ParseError>) {
-    if lite_arg.item.starts_with('$') {
+    // If this is a full column path (and not a range), just parse it here
+    if lite_arg.item.starts_with('$') && !lite_arg.item.contains("..") {
         return parse_full_column_path(&lite_arg, registry);
     }
 
@@ -745,7 +779,7 @@ fn parse_arg(
             )
         }
 
-        SyntaxShape::Range => parse_range(&lite_arg),
+        SyntaxShape::Range => parse_range(&lite_arg, registry),
         SyntaxShape::Operator => parse_operator(&lite_arg),
         SyntaxShape::Unit => parse_unit(&lite_arg),
         SyntaxShape::Path => {
