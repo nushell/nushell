@@ -81,11 +81,6 @@ pub(crate) fn run_block_on_vec(
     head: Arc<Box<SpannedExpression>>,
     context: Arc<Context>,
 ) -> impl Future<Output = OutputStream> {
-    let block = block.clone();
-    let scope = scope.clone();
-    let head = head.clone();
-    let context = context.clone();
-
     let value = Value {
         value: UntaggedValue::Table(input),
         tag: Tag::unknown(),

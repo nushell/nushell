@@ -78,7 +78,7 @@ impl WholeStreamCommand for EachWindow {
                 // This would probably be more efficient if `last` was a VecDeque
                 // But we can't have that because it needs to be put into a Table
                 window.remove(0);
-                window.push(input.clone());
+                window.push(input);
 
                 let block = block.clone();
                 let scope = scope.clone();
