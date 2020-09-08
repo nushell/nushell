@@ -15,6 +15,6 @@ nu-errors = {path = "../nu-errors", version = "0.19.0"}
 nu-plugin = {path = "../nu-plugin", version = "0.19.0"}
 nu-protocol = {path = "../nu-protocol", version = "0.19.0"}
 nu-source = {path = "../nu-source", version = "0.19.0"}
-ptree = {version = "0.2"}
+ptree = "0.3.0"
 
 [build-dependencies]

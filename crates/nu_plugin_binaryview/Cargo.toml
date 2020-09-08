@@ -11,14 +11,14 @@ doctest = false
 
 [dependencies]
 ansi_term = "0.12.1"
-crossterm = {version = "0.17.5"}
-image = {version = "0.22.4", default_features = false, features = ["png_codec", "jpeg"]}
+crossterm = "0.17.8"
+image = { version = "0.22.4", default_features = false, features = ["png_codec", "jpeg"] }
 neso = "0.5.0"
 nu-errors = {path = "../nu-errors", version = "0.19.0"}
 nu-plugin = {path = "../nu-plugin", version = "0.19.0"}
 nu-protocol = {path = "../nu-protocol", version = "0.19.0"}
 nu-source = {path = "../nu-source", version = "0.19.0"}
-pretty-hex = "0.1.1"
+pretty-hex = "0.2.0"
 rawkey = "0.1.2"
 
 [build-dependencies]

@@ -13,4 +13,4 @@ path = "src/main.rs"
 
 [dependencies]
 ansi_term = "0.12.1"
-unicode-width = "0.1.7"
+unicode-width = "0.1.8"
