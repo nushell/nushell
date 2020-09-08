@@ -190,6 +190,7 @@ pub async fn alias(
 
     let inferred_shapes = VarSyntaxShapeDeductor::infer_vars(&processed_args, &block, &registry)?;
     let signature = DeductionToSignature::get(&name.item, &inferred_shapes);
+    trace!("Inferred signature: {:?}", signature);
 
     Ok(OutputStream::one(ReturnSuccess::action(
         CommandAction::AddAlias(signature, block),
@@ -210,68 +211,49 @@ mod tests {
 
 //TODO better naming
 mod deduction_to_signature {
-    use crate::types::deduction::{VarDeclaration, VarShapeDeduction};
+    use crate::types::deduction::{Deduction, VarDeclaration};
     use nu_protocol::{PositionalType, Signature, SyntaxShape};
-    use nu_source::Span;
 
     pub struct DeductionToSignature {}
     impl DeductionToSignature {
         pub fn get(
             cmd_name: &str,
-            deductions: &[(VarDeclaration, Option<Vec<VarShapeDeduction>>)],
+            deductions: &[(VarDeclaration, Option<Deduction>)],
         ) -> Signature {
-            let deductions: Vec<(VarDeclaration, VarShapeDeduction)> = deductions
-                .iter()
-                .map(|(decl, deducs)| {
-                    let default = VarShapeDeduction {
-                        deduction: SyntaxShape::Any,
-                        deducted_from: vec![Span::unknown()],
-                        many_of_shapes: false,
-                    };
-                    let decl = decl.clone();
-                    match deducs {
-                        Some(deduc) => {
-                            //Pick more general shapes over other shapes
-
-                            //Pick any over anything
-                            if let Some(any_shape) = deduc
-                                .iter()
-                                .find(|deduc| deduc.deduction == SyntaxShape::Any)
-                            {
-                                (decl, any_shape.clone())
-                            }
-                            //Pick math over other shapes
-                            else if let Some(math_shape) = deduc
-                                .iter()
-                                .find(|deduc| deduc.deduction == SyntaxShape::Math)
-                            {
-                                (decl, math_shape.clone())
-                            } else {
-                                //Pick first shape
-                                (decl, deduc[0].clone())
+            let mut signature = Signature::build(cmd_name);
+            for (decl, deduction) in deductions {
+                match deduction {
+                    None => signature.positional.push((
+                        PositionalType::mandatory(&decl.name, SyntaxShape::Any),
+                        decl.name.clone(),
+                    )),
+                    Some(deduction) => match deduction {
+                        Deduction::VarShapeDeduction(normal_var_deduction) => {
+                            signature.positional.push((
+                                PositionalType::mandatory(
+                                    &decl.name,
+                                    normal_var_deduction[0].deduction,
+                                ),
+                                decl.name.clone(),
+                            ))
+                        }
+                        Deduction::VarArgShapeDeduction(var_arg_deduction) => {
+                            signature
+                                .positional
+                                .extend(var_arg_deduction.pos_shapes.clone());
+                            //THIS IS ABSOLUTLY CRITICAL We need to pass the var arg name somehow
+                            //For now we do it in the description
+                            if let Some((shape, desc)) = &var_arg_deduction.rest_shape {
+                                let mut name_and_desc = decl.name.clone();
+                                name_and_desc.push_str(": ");
+                                name_and_desc.push_str(&desc);
+                                signature = signature.rest(*shape, name_and_desc);
                             }
                         }
-                        None => (decl, default),
-                    }
-                })
-                .collect();
-
-            let mut sig = Signature::build(cmd_name);
-            for (var_decl, shape) in &deductions {
-                //TODO pass in better description
-                sig.positional.push((
-                    PositionalType::mandatory(&var_decl.name, shape.deduction),
-                    "".to_string(),
-                ));
-            }
-            if let Some(last_arg) = deductions.last() {
-                if last_arg.0.is_var_arg {
-                    sig.positional.pop();
-                    sig = sig.rest(last_arg.1.deduction, last_arg.0.name.clone());
+                    },
                 }
             }
-
-            sig
+            signature
         }
     }
 }

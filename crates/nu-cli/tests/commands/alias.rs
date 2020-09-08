@@ -208,7 +208,7 @@ mod tests {
             e 1sec 1
         "#
         );
-        assert!(actual.err.contains("Contrary types for variable"));
+        assert!(actual.err.contains("Contrary types for var arg"));
     }
 
     #[test]

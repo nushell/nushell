@@ -26,7 +26,7 @@ impl NamedType {
 }
 
 /// The type of positional arguments
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum PositionalType {
     /// A mandatory positional argument with the expected shape of the value
     Mandatory(String, SyntaxShape),

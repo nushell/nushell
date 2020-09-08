@@ -35,19 +35,52 @@ impl VarDeclaration {
     // }
 }
 
+#[derive(Debug, Clone)]
+pub enum Deduction {
+    VarShapeDeduction(Vec<VarShapeDeduction>),
+    VarArgShapeDeduction(VarArgShapeDeduction),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VarArgShapeDeduction {
+    /// Spans pointing to the source of the deduction.
+    /// The spans locate positions within the tag of var_decl
+    pub deduced_from: Vec<Span>,
+    pub pos_shapes: Vec<(PositionalType, String)>,
+    pub rest_shape: Option<(SyntaxShape, String)>,
+}
+
+impl VarArgShapeDeduction {
+    pub fn new(
+        deduced_from: Vec<Span>,
+        pos_shapes: Vec<(PositionalType, String)>,
+        rest_shape: Option<(SyntaxShape, String)>,
+    ) -> Self {
+        VarArgShapeDeduction {
+            deduced_from,
+            pos_shapes,
+            rest_shape,
+        }
+    }
+    pub fn from_usage(
+        usage: Span,
+        pos_shapes: Vec<(PositionalType, String)>,
+        rest_shape: Option<(SyntaxShape, String)>,
+    ) -> VarArgShapeDeduction {
+        VarArgShapeDeduction {
+            deduced_from: vec![usage.clone()],
+            pos_shapes: pos_shapes.clone(),
+            rest_shape: rest_shape.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VarShapeDeduction {
     pub deduction: SyntaxShape,
     /// Spans pointing to the source of the deduction.
     /// The spans locate positions within the tag of var_decl
     pub deducted_from: Vec<Span>,
-    /// Whether the variable can be substituted with the SyntaxShape deduction
-    /// multiple times.
-    /// For example a Var-Arg-Variable must be substituted when used in a cmd with
-    /// a signature of:
-    /// cmd [optionalPaths...] [integers...]
-    /// with 2 SpannedVarShapeDeductions, where each can substitute multiple arguments
-    pub many_of_shapes: bool,
 }
 
 impl VarShapeDeduction {
@@ -55,7 +88,6 @@ impl VarShapeDeduction {
         VarShapeDeduction {
             deduction: *deduced_shape,
             deducted_from: vec![*usage],
-            many_of_shapes: false,
         }
     }
 
@@ -69,6 +101,7 @@ impl VarShapeDeduction {
             .collect()
     }
 }
+
 struct FakeVarGen {
     counter: usize,
     fake_var_prefix: String,
@@ -99,10 +132,12 @@ impl FakeVarGen {
 pub struct VarSyntaxShapeDeductor {
     //Initial set of caller provided var declarations
     var_declarations: Vec<VarDeclaration>,
-    inferences: HashMap<VarUsage, Vec<VarShapeDeduction>>,
-    //The block which is analysed.
-    // block: &'a SpannedExpression,
-    //var binary var
+    //Inferences for variables
+    inferences: HashMap<VarUsage, Deduction>,
+    //Var depending on another var via a operator
+    //First is a variable
+    //Second is a operator
+    //Third is a variable
     dependencies: Vec<(VarUsage, SpannedExpression, VarUsage)>,
     //A var depending on the result type of a spanned_expr
     //First argument is var,
@@ -312,7 +347,6 @@ fn get_result_shape_of(
     })
 }
 
-type AlternativeDeductions = Vec<VarShapeDeduction>;
 impl VarSyntaxShapeDeductor {
     fn substitute_right_with_fake_var_and_insert_dependencies(
         &mut self,
@@ -362,7 +396,7 @@ impl VarSyntaxShapeDeductor {
         vars_to_find: &[VarDeclaration],
         block: &Block,
         registry: &CommandRegistry,
-    ) -> Result<Vec<(VarDeclaration, Option<AlternativeDeductions>)>, ShellError> {
+    ) -> Result<Vec<(VarDeclaration, Option<Deduction>)>, ShellError> {
         trace!("Deducing shapes for vars: {:?}", vars_to_find);
 
         let mut deducer = VarSyntaxShapeDeductor {
@@ -384,11 +418,11 @@ impl VarSyntaxShapeDeductor {
             .iter()
             .map(|decl| {
                 let usage: VarUsage = decl.into();
-                let deductions = match deducer.inferences.get(&usage) {
+                let deduction = match deducer.inferences.get(&usage) {
                     Some(vec) => Some(vec.clone()),
                     None => None,
                 };
-                (decl.clone(), deductions)
+                (decl.clone(), deduction.clone())
             })
             .collect())
     }
@@ -481,6 +515,27 @@ impl VarSyntaxShapeDeductor {
         for (pos_idx, positional) in positionals.iter().enumerate().rev() {
             trace!("Handling pos_idx: {:?} of type: {:?}", pos_idx, positional);
             if let Expression::Variable(Variable::Other(var_name, _)) = &positional.expr {
+                if let Some(var_decl) = self
+                    .var_declarations
+                    .iter()
+                    .find(|decl| decl.name == *var_name)
+                {
+                    if var_decl.is_var_arg {
+                        //If this variable is a var arg we copy from current positional in signature till end
+                        let shapes = if pos_idx < signature.positional.len() {
+                            signature.positional[pos_idx..].to_vec()
+                        } else {
+                            Vec::new()
+                        };
+                        let rest = signature.rest_positional.clone();
+                        self.checked_var_arg_insert(
+                            VarUsage::new(var_name, &positional.span),
+                            shapes,
+                            rest,
+                        )?;
+                        continue;
+                    }
+                }
                 let deduced_shape = {
                     if pos_idx >= signature.positional.len() {
                         if let Some((shape, _)) = &signature.rest_positional {
@@ -739,7 +794,7 @@ impl VarSyntaxShapeDeductor {
             Ok(match shape {
                 SyntaxShape::Math => {
                     //If execution happens here, the situation is as follows:
-                    //There is an Binary expression (source_bin) with a variable on one side 
+                    //There is an Binary expression (source_bin) with a variable on one side
                     //and a binary (lets call it "deep binary") on the other:
                     //e.G. $var + 1 * 1
                     //Now we try to infer the shapes inside the deep binary, compute the resulting
@@ -750,8 +805,8 @@ impl VarSyntaxShapeDeductor {
                     //
                     //If the deeper binary contains a binary on one side, we check if that binary
                     //has a computable result type (e.G. has no variable in it) by recursively
-                    //calling this function and if so return it. 
-                    //If the result type is not computable (the deep deep binary had a variable), we substitute 
+                    //calling this function and if so return it.
+                    //If the result type is not computable (the deep deep binary had a variable), we substitute
                     //the deep deep binary side of the deep binary with a variable (fake_var) and
                     //insert a dependency from the fake_var to the deep deep binary in
                     //VarSyntaxShapeDeductor.dependencies_on_result_type
@@ -774,26 +829,26 @@ impl VarSyntaxShapeDeductor {
                     match (&bin.left.expr, &bin.right.expr) {
                         //$it should give shape in get_shape_of_expr_or_insert_dependency
                         //Therefore the following code is not correct!
-                            ////Substitute
-                            //(
-                            //    Expression::Variable(Variable::It(_it_span)),
-                            //    Expression::Variable(Variable::Other(_var_name, _var_span)),
-                            //)
-                            //    | (
-                            //        Expression::Variable(Variable::Other(_var_name, _var_span)),
-                            //        Expression::Variable(Variable::It(_it_span)),
-                            //    ) => {
-                            //        //TODO deduce type of $it and insert into
-                            //        //dependencies_on_result_type
-                            //        None
-                            //    }
-                            //(
-                            //    Expression::Variable(Variable::It(_l_it)),
-                            //    Expression::Variable(Variable::It(_r_it)),
-                            //) => {
-                            //    //TODO deduce type of $it and return it (based on operator)
-                            //    None
-                            //}
+                        ////Substitute
+                        //(
+                        //    Expression::Variable(Variable::It(_it_span)),
+                        //    Expression::Variable(Variable::Other(_var_name, _var_span)),
+                        //)
+                        //    | (
+                        //        Expression::Variable(Variable::Other(_var_name, _var_span)),
+                        //        Expression::Variable(Variable::It(_it_span)),
+                        //    ) => {
+                        //        //TODO deduce type of $it and insert into
+                        //        //dependencies_on_result_type
+                        //        None
+                        //    }
+                        //(
+                        //    Expression::Variable(Variable::It(_l_it)),
+                        //    Expression::Variable(Variable::It(_r_it)),
+                        //) => {
+                        //    //TODO deduce type of $it and return it (based on operator)
+                        //    None
+                        //}
                         (
                             Expression::Variable(Variable::Other(_, _)),
                             Expression::Variable(Variable::Other(_, _)),
@@ -872,8 +927,7 @@ impl VarSyntaxShapeDeductor {
                         (Expression::Binary(_), _) => {
                             let (l_fake_var, l_fake_var_expr) =
                                 self.fake_var_generator.next_as_expr();
-                            let (r_fake_var, _) =
-                                self.fake_var_generator.next_as_expr();
+                            let (r_fake_var, _) = self.fake_var_generator.next_as_expr();
                             let fake_bin = change_op_to_assignment(expr.clone());
                             match (
                                 self.get_shape_of_binary_arg_or_insert_dependency(
@@ -883,7 +937,8 @@ impl VarSyntaxShapeDeductor {
                                     registry,
                                 )?,
                                 self.get_shape_of_expr_or_insert_dependency(
-                                    &r_fake_var, &bin.right,
+                                    &r_fake_var,
+                                    &bin.right,
                                 ),
                             ) {
                                 (Some(l_shape), Some(r_shape)) => {
@@ -897,19 +952,18 @@ impl VarSyntaxShapeDeductor {
                                     );
                                     None
                                 }
-                                (Some(_), None) => unreachable!("At this point shape should be deducable!")
+                                (Some(_), None) => {
+                                    unreachable!("At this point shape should be deducable!")
+                                }
                             }
                         }
                         (_, Expression::Binary(_)) => {
-                            let (l_fake_var, _) =
-                                self.fake_var_generator.next_as_expr();
+                            let (l_fake_var, _) = self.fake_var_generator.next_as_expr();
                             let (r_fake_var, r_fake_var_expr) =
                                 self.fake_var_generator.next_as_expr();
                             let fake_bin = change_op_to_assignment(expr.clone());
                             match (
-                                self.get_shape_of_expr_or_insert_dependency(
-                                    &l_fake_var, &bin.left,
-                                ),
+                                self.get_shape_of_expr_or_insert_dependency(&l_fake_var, &bin.left),
                                 self.get_shape_of_binary_arg_or_insert_dependency(
                                     (&r_fake_var, &bin.right),
                                     &fake_bin,
@@ -928,21 +982,24 @@ impl VarSyntaxShapeDeductor {
                                     );
                                     None
                                 }
-                                (None, Some(_)) => unreachable!("At this point shape should be deducable!")
+                                (None, Some(_)) => {
+                                    unreachable!("At this point shape should be deducable!")
+                                }
                             }
                         }
                         (_, _) => {
                             let (l_fake_var, _) = self.fake_var_generator.next_as_expr();
                             let (r_fake_var, _) = self.fake_var_generator.next_as_expr();
-                            match 
-                                (self.get_shape_of_expr_or_insert_dependency( &l_fake_var, &bin.left),
-                                self.get_shape_of_expr_or_insert_dependency(&r_fake_var, &bin.right)) {
-                                    ( Some(l_shape), Some(r_shape) ) => {
-                                        Some(get_result_shape_of(l_shape, &bin.op, r_shape)?)
-                                    }
-                                    _ => unreachable!("This should be unreachable as neither expr is real var or binary")
-
+                            match (
+                                self.get_shape_of_expr_or_insert_dependency(&l_fake_var, &bin.left),
+                                self.get_shape_of_expr_or_insert_dependency(&r_fake_var, &bin.right)
+                            ) {
+                                ( Some(l_shape), Some(r_shape) ) => {
+                                    Some(get_result_shape_of(l_shape, &bin.op, r_shape)?)
                                 }
+                                _ => unreachable!("This should be unreachable as neither expr is real var or binary")
+
+                            }
                         }
                     }
                 }
@@ -980,25 +1037,25 @@ impl VarSyntaxShapeDeductor {
                     todo!("Implement in, notin, contains... for type deduction");
                 }
                 Operator::Equal
-                    | Operator::NotEqual
-                    | Operator::LessThan
-                    | Operator::GreaterThan
-                    | Operator::LessThanOrEqual
-                    | Operator::GreaterThanOrEqual
-                    | Operator::Plus
-                    | Operator::Minus => {
-                        if let Some(shape) = self.get_shape_of_binary_arg_or_insert_dependency(
-                            (var, expr),
-                            bin_spanned,
-                            (pipeline_idx, pipeline),
-                            registry,
-                        )? {
-                            self.checked_insert(
-                                var,
-                                vec![VarShapeDeduction::from_usage(&var.span, &shape)],
-                            )?;
-                        }
+                | Operator::NotEqual
+                | Operator::LessThan
+                | Operator::GreaterThan
+                | Operator::LessThanOrEqual
+                | Operator::GreaterThanOrEqual
+                | Operator::Plus
+                | Operator::Minus => {
+                    if let Some(shape) = self.get_shape_of_binary_arg_or_insert_dependency(
+                        (var, expr),
+                        bin_spanned,
+                        (pipeline_idx, pipeline),
+                        registry,
+                    )? {
+                        self.checked_insert(
+                            var,
+                            vec![VarShapeDeduction::from_usage(&var.span, &shape)],
+                        )?;
                     }
+                }
                 Operator::Multiply => {
                     if let Some(shape) = self.get_shape_of_binary_arg_or_insert_dependency(
                         (var, expr),
@@ -1072,9 +1129,9 @@ impl VarSyntaxShapeDeductor {
                 if left_var_name != right_var_name {
                     //type can't be deduced out of this, so add it to resolve it later
                     self.dependencies.push((
-                            VarUsage::new(left_var_name, l_span),
-                            bin_spanned.clone(),
-                            VarUsage::new(right_var_name, r_span),
+                        VarUsage::new(left_var_name, l_span),
+                        bin_spanned.clone(),
+                        VarUsage::new(right_var_name, r_span),
                     ));
                 }
                 //No further inference possible
@@ -1126,13 +1183,80 @@ impl VarSyntaxShapeDeductor {
         // TODO impl this
         //
         // I would check for global/environment variables.
-        // Lookup their types. 
+        // Lookup their types.
         // Then check each node not pointing to others
         // These are free variables - no inference can be made for them
         //
         // Variables having cycles between them (eg. a -> b and b -> a) have to be of the same type
         //
         // Then try to inference the variables depending on the result types again.
+    }
+
+    fn checked_var_arg_insert(
+        &mut self,
+        usage: VarUsage,
+        pos_shapes: Vec<(PositionalType, String)>,
+        rest_shape: Option<(SyntaxShape, String)>,
+    ) -> Result<(), ShellError> {
+        trace!(
+            "Inserting for var arg: {:?}, pos_shapes: {:?}, rest_shape: {:?}",
+            usage.name,
+            pos_shapes,
+            rest_shape
+        );
+        let new_deduction = VarArgShapeDeduction::from_usage(usage.span, pos_shapes, rest_shape);
+        let (k, v) = match self.inferences.get_key_value(&usage) {
+            Some((_, existing_deduction)) => {
+                let existing_deduction = match existing_deduction {
+                    Deduction::VarShapeDeduction(_) => {
+                        unreachable!("This method is only called for var args");
+                    }
+                    Deduction::VarArgShapeDeduction(d) => d,
+                };
+                let deduced_shapes = if existing_deduction
+                    .pos_shapes
+                    .starts_with(&new_deduction.pos_shapes)
+                {
+                    //Nothing new to add
+                    existing_deduction.pos_shapes.clone()
+                } else if new_deduction
+                    .pos_shapes
+                    .starts_with(&existing_deduction.pos_shapes)
+                {
+                    new_deduction.pos_shapes.clone()
+                } else {
+                    return Err(ShellError::labeled_error_with_secondary(
+                            format!("Contrary types for var arg: {:?}. First used as: {:?}, then used as: {:?}",
+                                usage.name, existing_deduction.pos_shapes, new_deduction.pos_shapes),
+                                "First usage", existing_deduction.deduced_from[0],
+                                "Second usage", new_deduction.deduced_from[0]));
+                };
+                let deduced_rest = match (&existing_deduction.rest_shape, &new_deduction.rest_shape)
+                {
+                    (Some((cur_rest_shape, _)), Some((new_rest_shape, _))) => {
+                        if cur_rest_shape != new_rest_shape {
+                            todo!("Throw nice error")
+                        } else {
+                            existing_deduction.rest_shape.clone()
+                        }
+                    }
+                    (Some((_, _)), None) => existing_deduction.rest_shape.clone(),
+                    (None, Some((_, _))) => new_deduction.rest_shape.clone(),
+                    (None, None) => None,
+                };
+                let mut combined_usages = existing_deduction.deduced_from.clone();
+                combined_usages.push(usage.span);
+                (
+                    usage,
+                    VarArgShapeDeduction::new(combined_usages, deduced_shapes, deduced_rest),
+                )
+            }
+            None => (usage, new_deduction),
+        };
+        self.inferences
+            .insert(k, Deduction::VarArgShapeDeduction(v));
+
+        Ok(())
     }
 
     /// Inserts the new deductions. Each VarShapeDeduction represents one alternative for
@@ -1149,9 +1273,9 @@ impl VarSyntaxShapeDeductor {
             "Trying to insert for: {:?} possible shapes:{:?}",
             var_usage.name,
             new_deductions
-            .iter()
-            .map(|d| d.deduction)
-            .collect::<Vec<_>>()
+                .iter()
+                .map(|d| d.deduction)
+                .collect::<Vec<_>>()
         );
 
         //Every insertion is sorted by shape!
@@ -1159,21 +1283,27 @@ impl VarSyntaxShapeDeductor {
         let mut new_deductions = new_deductions;
         new_deductions.sort_unstable_by(|a, b| (a.deduction as i32).cmp(&(b.deduction as i32)));
 
-        //TODO Check special for var arg
         let (insert_k, insert_v) = match self.inferences.get_key_value(&var_usage) {
             Some((k, existing_deductions)) => {
+                let existing_deductions = match existing_deductions {
+                    Deduction::VarShapeDeduction(d) => d,
+                    Deduction::VarArgShapeDeduction(_) => {
+                        todo!("throw shell error var arg used somewhere else than positionals");
+                    }
+                };
+
                 // If there is one any in one deduction, this deduction is capable of representing the other
                 // deduction and vice versa
                 let (any_in_new, new_vec) = (
                     new_deductions
-                    .iter()
-                    .any(|deduc| deduc.deduction == SyntaxShape::Any),
+                        .iter()
+                        .any(|deduc| deduc.deduction == SyntaxShape::Any),
                     &new_deductions,
                 );
                 let (any_in_existing, existing_vec) = (
                     existing_deductions
-                    .iter()
-                    .any(|deduc| deduc.deduction == SyntaxShape::Any),
+                        .iter()
+                        .any(|deduc| deduc.deduction == SyntaxShape::Any),
                     existing_deductions,
                 );
 
@@ -1193,12 +1323,10 @@ impl VarSyntaxShapeDeductor {
                                 EitherOrBoth::Both(a_elem, b_elem) => {
                                     let mut combination = a_elem.clone();
                                     combination.deducted_from.extend(&b_elem.deducted_from);
-                                    combination.many_of_shapes =
-                                        combination.many_of_shapes && b_elem.many_of_shapes;
                                     combination
                                 }
                             })
-                        .collect()
+                            .collect()
                     }
                     ((false, a), (true, b)) | ((true, b), (false, a)) => {
                         //B has an any. So A can be applied as a whole
@@ -1214,12 +1342,10 @@ impl VarSyntaxShapeDeductor {
                                 EitherOrBoth::Both(a_elem, b_elem) => {
                                     let mut combination = a_elem.clone();
                                     combination.deducted_from.extend(&b_elem.deducted_from);
-                                    combination.many_of_shapes =
-                                        combination.many_of_shapes && b_elem.many_of_shapes;
                                     Some(combination)
                                 }
                             })
-                        .filter_map(|elem| elem)
+                            .filter_map(|elem| elem)
                             .collect()
                     }
                     //No any's intersection of both is result
@@ -1236,13 +1362,11 @@ impl VarSyntaxShapeDeductor {
                                 combination
                                     .deducted_from
                                     .extend(b_elem.deducted_from.clone());
-                                combination.many_of_shapes =
-                                    combination.many_of_shapes && b_elem.many_of_shapes;
                                 Some(combination)
                             }
                         })
                         .filter_map(|elem| elem)
-                            .collect();
+                        .collect();
                         if intersection.is_empty() {
                             // let labels = a
                             //     .iter()
@@ -1273,9 +1397,23 @@ impl VarSyntaxShapeDeductor {
                         }
                     }
                 };
-                (k.clone(), combined_deductions)
+                (k.clone(), Deduction::VarShapeDeduction(combined_deductions))
             }
-            None => (var_usage.clone(), new_deductions),
+            None => {
+                if let Some(decl) = self
+                    .var_declarations
+                    .iter()
+                    .find(|decl| decl.name == var_usage.name)
+                {
+                    if decl.is_var_arg {
+                        todo!("Throw error var arg usage not in pos");
+                    }
+                }
+                (
+                    var_usage.clone(),
+                    Deduction::VarShapeDeduction(new_deductions),
+                )
+            }
         };
 
         self.inferences.insert(insert_k, insert_v);
