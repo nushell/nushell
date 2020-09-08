@@ -62,9 +62,9 @@ impl WholeStreamCommand for AliasCommand {
                             .tag
                             .until(&positional.last().unwrap_or(&Value::nothing()).tag),
                     };
-                    trace!("Inserting for var arg: {:?}", var_arg_val);
                     //For now description contains name. This is a little hacky :(
                     let name = desc.split(": ").next().unwrap_or("$args");
+                    trace!("Inserting for var arg: {:?} value: {:?}", name, var_arg_val);
                     scope.vars.insert(name.to_string(), var_arg_val);
                 }
             }

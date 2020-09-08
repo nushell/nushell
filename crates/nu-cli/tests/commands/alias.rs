@@ -5,7 +5,6 @@ mod tests {
 
     #[test]
     fn alias_without_args() {
-        //https://github.com/nushell/nushell/issues/2416
         let actual = nu!(
             cwd: ".",
             r#"
@@ -126,11 +125,11 @@ mod tests {
         let actual = nu!(
             cwd: ".",
             r#"
-        alias -i clash [a] { echo 1.1 2 3 | each { str from -d $a } | range $a } }
+        alias -i clash [a] { echo 1.1 2 3 | each { str from -d $a } | range $a }
         "#
         );
 
-        assert!(actual.err.contains("alias"));
+        assert!(actual.err.contains("Contrary types for variable $a"));
     }
 
     //Doesn't work also not on main
@@ -174,7 +173,6 @@ mod tests {
 
     #[test]
     fn alias_without_var_arg_and_var_arg_usage() {
-        //https://github.com/nushell/nushell/issues/2416
         let actual = nu!(
             cwd: ".",
             r#"
@@ -187,7 +185,6 @@ mod tests {
 
     #[test]
     fn alias_with_var_arg_and_var_arg_usage() {
-        //https://github.com/nushell/nushell/issues/2416
         let actual = nu!(
             cwd: ".",
             r#"
@@ -199,8 +196,19 @@ mod tests {
     }
 
     #[test]
+    fn alias_with_var_arg_and_var_arg_used_as_normal_var() {
+        let actual = nu!(
+            cwd: ".",
+            r#"
+            alias -i e [args...] {ls | where 1kb < $args}
+            e /dev/null
+        "#
+        );
+        assert!(actual.err.contains("Wrong var arg usage"));
+    }
+
+    #[test]
     fn alias_with_var_arg_and_conflicting_var_arg_usage() {
-        //https://github.com/nushell/nushell/issues/2416
         let actual = nu!(
             cwd: ".",
             r#"
@@ -213,7 +221,6 @@ mod tests {
 
     #[test]
     fn alias_with_var_arg_and_external_cmd() {
-        //https://github.com/nushell/nushell/issues/2416
         let actual = nu!(
             cwd: ".",
             r#"
@@ -225,6 +232,18 @@ mod tests {
         assert_eq!(actual.out, "\"hi mom\\n\"");
         #[cfg(windows)]
         assert_eq!(actual.out, "\"hi mom\\r\\n\"");
+    }
+
+    #[test]
+    fn alias_with_double_var_arg_extended_usage() {
+        let actual = nu!(
+            cwd: ".",
+            r#"
+            alias -i e [args...] {^echo $args | to json}
+            e hi mom
+        "#
+        );
+        assert_eq!(actual.out, "\"hi mom\\n\"");
     }
 
     #[test]
