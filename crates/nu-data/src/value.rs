@@ -9,6 +9,7 @@ use nu_protocol::{Primitive, Type, UntaggedValue};
 use nu_source::{DebugDocBuilder, PrettyDebug, Span, Tagged};
 use nu_table::TextStyle;
 use num_traits::Zero;
+use std::collections::HashMap;
 
 pub struct Date;
 
@@ -130,6 +131,13 @@ pub fn compute_values(
                         )))
                     }
                 }
+                Operator::Modulo => {
+                    if y.is_zero() {
+                        Ok(zero_division_error())
+                    } else {
+                        Ok(UntaggedValue::Primitive(Primitive::Int(x % y)))
+                    }
+                }
                 _ => Err((left.type_name(), right.type_name())),
             },
             (Primitive::Decimal(x), Primitive::Int(y)) => {
@@ -245,10 +253,21 @@ pub fn format_leaf<'a>(value: impl Into<&'a UntaggedValue>) -> DebugDocBuilder {
     InlineShape::from_value(value.into()).format().pretty()
 }
 
-pub fn style_leaf<'a>(value: impl Into<&'a UntaggedValue>) -> TextStyle {
+pub fn style_leaf<'a>(
+    value: impl Into<&'a UntaggedValue>,
+    color_hash_map: &HashMap<String, ansi_term::Style>,
+) -> TextStyle {
     match value.into() {
-        UntaggedValue::Primitive(p) => style_primitive(p),
-        _ => TextStyle::basic(),
+        UntaggedValue::Primitive(p) => {
+            // This is just to return the name of the type so that style_primitive
+            // can work on a string versus a type like String("some_text")
+            let str: &str = &p.to_string();
+            let str_len = str.len();
+            let paren_index = str.find('(').unwrap_or(str_len - 1);
+            let prim_type = str[0..paren_index].to_string();
+            style_primitive(&prim_type, &color_hash_map)
+        }
+        _ => TextStyle::basic_left(),
     }
 }
 

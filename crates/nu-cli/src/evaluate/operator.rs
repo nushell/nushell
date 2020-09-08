@@ -33,6 +33,14 @@ pub fn apply_operator(
             )),
             _ => res,
         }),
+        Operator::Modulo => value::compute_values(op, left, right).map(|res| match res {
+            UntaggedValue::Error(_) => UntaggedValue::Error(ShellError::labeled_error(
+                "Evaluation error",
+                "division by zero",
+                &right.tag.span,
+            )),
+            _ => res,
+        }),
         Operator::In => table_contains(left, right).map(UntaggedValue::boolean),
         Operator::NotIn => table_contains(left, right).map(|x| UntaggedValue::boolean(!x)),
         Operator::And => match (left.as_bool(), right.as_bool()) {

@@ -79,6 +79,7 @@ pub fn create_default_context(
 
         context.add_commands(vec![
             // System/file operations
+            whole_stream_command(Exec),
             whole_stream_command(Pwd),
             whole_stream_command(Ls),
             whole_stream_command(Du),
@@ -204,6 +205,8 @@ pub fn create_default_context(
             whole_stream_command(Rename),
             whole_stream_command(Uniq),
             whole_stream_command(Each),
+            whole_stream_command(EachGroup),
+            whole_stream_command(EachWindow),
             whole_stream_command(IsEmpty),
             // Table manipulation
             whole_stream_command(Move),
@@ -265,6 +268,7 @@ pub fn create_default_context(
             whole_stream_command(RandomDice),
             #[cfg(feature = "uuid_crate")]
             whole_stream_command(RandomUUID),
+            whole_stream_command(RandomInteger),
             // Path
             whole_stream_command(PathBasename),
             whole_stream_command(PathCommand),
@@ -282,7 +286,7 @@ pub fn create_default_context(
             whole_stream_command(UrlQuery),
         ]);
 
-        #[cfg(feature = "clipboard")]
+        #[cfg(feature = "clipboard-cli")]
         {
             context.add_commands(vec![whole_stream_command(crate::commands::clip::Clip)]);
         }

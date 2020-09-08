@@ -236,39 +236,72 @@ fn trim_quotes(input: &str) -> String {
 }
 
 /// Parse a numeric range
-fn parse_range(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
+fn parse_range(
+    lite_arg: &Spanned<String>,
+    registry: &dyn SignatureRegistry,
+) -> (SpannedExpression, Option<ParseError>) {
+    let lite_arg_span_start = lite_arg.span.start();
+    let lite_arg_len = lite_arg.item.len();
+    let dotdot_pos = lite_arg.item.find("..");
     let numbers: Vec<_> = lite_arg.item.split("..").collect();
 
     if numbers.len() != 2 {
-        (
+        return (
             garbage(lite_arg.span),
             Some(ParseError::mismatch("range", lite_arg.clone())),
-        )
-    } else if let Ok(lhs) = numbers[0].parse::<i64>() {
-        if let Ok(rhs) = numbers[1].parse::<i64>() {
-            (
-                SpannedExpression::new(
-                    Expression::range(
-                        SpannedExpression::new(Expression::integer(lhs), lite_arg.span),
-                        lite_arg.span,
-                        SpannedExpression::new(Expression::integer(rhs), lite_arg.span),
-                    ),
-                    lite_arg.span,
-                ),
-                None,
-            )
-        } else {
-            (
-                garbage(lite_arg.span),
-                Some(ParseError::mismatch("range", lite_arg.clone())),
-            )
-        }
-    } else {
-        (
-            garbage(lite_arg.span),
-            Some(ParseError::mismatch("range", lite_arg.clone())),
-        )
+        );
     }
+
+    let dotdot_pos = dotdot_pos.expect("Internal error: range .. can't be found but should be");
+
+    let lhs = numbers[0].to_string().spanned(Span::new(
+        lite_arg_span_start,
+        lite_arg_span_start + dotdot_pos,
+    ));
+    let rhs = numbers[1].to_string().spanned(Span::new(
+        lite_arg_span_start + dotdot_pos + 2,
+        lite_arg_span_start + lite_arg_len,
+    ));
+
+    let left_hand_open = dotdot_pos == 0;
+    let right_hand_open = dotdot_pos == lite_arg_len - 2;
+
+    let left = if left_hand_open {
+        None
+    } else if let (left, None) = parse_arg(SyntaxShape::Number, registry, &lhs) {
+        Some(left)
+    } else {
+        return (
+            garbage(lite_arg.span),
+            Some(ParseError::mismatch("range", lhs)),
+        );
+    };
+
+    let right = if right_hand_open {
+        None
+    } else if let (right, None) = parse_arg(SyntaxShape::Number, registry, &rhs) {
+        Some(right)
+    } else {
+        return (
+            garbage(lite_arg.span),
+            Some(ParseError::mismatch("range", rhs)),
+        );
+    };
+
+    (
+        SpannedExpression::new(
+            Expression::range(
+                left,
+                Span::new(
+                    lite_arg_span_start + dotdot_pos,
+                    lite_arg_span_start + dotdot_pos + 2,
+                ),
+                right,
+            ),
+            lite_arg.span,
+        ),
+        None,
+    )
 }
 
 /// Parse any allowed operator, including word-based operators
@@ -286,8 +319,9 @@ fn parse_operator(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<Pars
         "-" => Operator::Minus,
         "*" => Operator::Multiply,
         "/" => Operator::Divide,
-        "in:" => Operator::In,
-        "not-in:" => Operator::NotIn,
+        "in" => Operator::In,
+        "not-in" => Operator::NotIn,
+        "mod" => Operator::Modulo,
         "&&" => Operator::And,
         "||" => Operator::Or,
         _ => {
@@ -537,13 +571,155 @@ fn parse_external_arg(
     }
 }
 
+fn parse_list(
+    lite_block: &LiteBlock,
+    registry: &dyn SignatureRegistry,
+) -> (Vec<SpannedExpression>, Option<ParseError>) {
+    let mut error = None;
+
+    if lite_block.block.is_empty() {
+        return (vec![], None);
+    }
+    let lite_pipeline = &lite_block.block[0];
+    let mut output = vec![];
+    for lite_inner in &lite_pipeline.commands {
+        let item = if lite_inner.name.ends_with(',') {
+            let mut str: String = lite_inner.name.item.clone();
+            str.pop();
+            str.spanned(Span::new(
+                lite_inner.name.span.start(),
+                lite_inner.name.span.end() - 1,
+            ))
+        } else {
+            lite_inner.name.clone()
+        };
+
+        let (arg, err) = parse_arg(SyntaxShape::Any, registry, &item);
+
+        output.push(arg);
+        if error.is_none() {
+            error = err;
+        }
+
+        for arg in &lite_inner.args {
+            let item = if arg.ends_with(',') {
+                let mut str: String = arg.item.clone();
+                str.pop();
+                str.spanned(Span::new(arg.span.start(), arg.span.end() - 1))
+            } else {
+                arg.clone()
+            };
+            let (arg, err) = parse_arg(SyntaxShape::Any, registry, &item);
+            output.push(arg);
+
+            if error.is_none() {
+                error = err;
+            }
+        }
+    }
+
+    (output, error)
+}
+
+fn verify_and_strip(
+    contents: &Spanned<String>,
+    left: char,
+    right: char,
+) -> (String, Option<ParseError>) {
+    let mut chars = contents.item.chars();
+
+    match (chars.next(), chars.next_back()) {
+        (Some(l), Some(r)) if l == left && r == right => {
+            let output: String = chars.collect();
+            (output, None)
+        }
+        _ => (
+            String::new(),
+            Some(ParseError::mismatch(
+                format!("value in {} {}", left, right),
+                contents.clone(),
+            )),
+        ),
+    }
+}
+
+fn parse_table(
+    lite_block: &LiteBlock,
+    registry: &dyn SignatureRegistry,
+    span: Span,
+) -> (SpannedExpression, Option<ParseError>) {
+    let mut error = None;
+    let mut output = vec![];
+
+    // Header
+    let lite_pipeline = &lite_block.block[0];
+    let lite_inner = &lite_pipeline.commands[0];
+
+    let (string, err) = verify_and_strip(&lite_inner.name, '[', ']');
+    if error.is_none() {
+        error = err;
+    }
+
+    let lite_header = match lite_parse(&string, lite_inner.name.span.start() + 1) {
+        Ok(lb) => lb,
+        Err(e) => return (garbage(lite_inner.name.span), Some(e.cause)),
+    };
+
+    let (headers, err) = parse_list(&lite_header, registry);
+    if error.is_none() {
+        error = err;
+    }
+
+    // Cells
+    let lite_rows = &lite_block.block[1];
+    let lite_cells = &lite_rows.commands[0];
+
+    let (string, err) = verify_and_strip(&lite_cells.name, '[', ']');
+    if error.is_none() {
+        error = err;
+    }
+
+    let lite_cell = match lite_parse(&string, lite_cells.name.span.start() + 1) {
+        Ok(lb) => lb,
+        Err(e) => return (garbage(lite_cells.name.span), Some(e.cause)),
+    };
+
+    let (inner_cell, err) = parse_list(&lite_cell, registry);
+    if error.is_none() {
+        error = err;
+    }
+    output.push(inner_cell);
+
+    for arg in &lite_cells.args {
+        let (string, err) = verify_and_strip(&arg, '[', ']');
+        if error.is_none() {
+            error = err;
+        }
+        let lite_cell = match lite_parse(&string, arg.span.start() + 1) {
+            Ok(lb) => lb,
+            Err(e) => return (garbage(arg.span), Some(e.cause)),
+        };
+        let (inner_cell, err) = parse_list(&lite_cell, registry);
+        if error.is_none() {
+            error = err;
+        }
+        output.push(inner_cell);
+    }
+
+    (
+        SpannedExpression::new(Expression::Table(headers, output), span),
+        error,
+    )
+}
+
 /// Parses the given argument using the shape as a guide for how to correctly parse the argument
 fn parse_arg(
     expected_type: SyntaxShape,
     registry: &dyn SignatureRegistry,
     lite_arg: &Spanned<String>,
 ) -> (SpannedExpression, Option<ParseError>) {
-    if lite_arg.item.starts_with('$') {
+    // If this is a full column path (and not a range), just parse it here
+    if lite_arg.item.starts_with('$') && !lite_arg.item.contains("..") {
         return parse_full_column_path(&lite_arg, registry);
     }
 
@@ -603,7 +779,7 @@ fn parse_arg(
             )
         }
 
-        SyntaxShape::Range => parse_range(&lite_arg),
+        SyntaxShape::Range => parse_range(&lite_arg, registry),
         SyntaxShape::Operator => parse_operator(&lite_arg),
         SyntaxShape::Unit => parse_unit(&lite_arg),
         SyntaxShape::Path => {
@@ -644,7 +820,6 @@ fn parse_arg(
                 (Some('['), Some(']')) => {
                     // We have a literal row
                     let string: String = chars.collect();
-                    let mut error = None;
 
                     // We haven't done much with the inner string, so let's go ahead and work with it
                     let lite_block = match lite_parse(&string, lite_arg.span.start() + 1) {
@@ -655,40 +830,26 @@ fn parse_arg(
                     if lite_block.block.is_empty() {
                         return (
                             SpannedExpression::new(Expression::List(vec![]), lite_arg.span),
-                            error,
+                            None,
                         );
                     }
-                    if lite_block.block.len() > 1 {
-                        return (
+                    if lite_block.block.len() == 1 {
+                        let (items, err) = parse_list(&lite_block, registry);
+                        (
+                            SpannedExpression::new(Expression::List(items), lite_arg.span),
+                            err,
+                        )
+                    } else if lite_block.block.len() == 2 {
+                        parse_table(&lite_block, registry, lite_arg.span)
+                    } else {
+                        (
                             garbage(lite_arg.span),
-                            Some(ParseError::mismatch("table", lite_arg.clone())),
-                        );
+                            Some(ParseError::mismatch(
+                                "list or table",
+                                "unknown".to_string().spanned(lite_arg.span),
+                            )),
+                        )
                     }
-
-                    let lite_pipeline = lite_block.block[0].clone();
-                    let mut output = vec![];
-                    for lite_inner in &lite_pipeline.commands {
-                        let (arg, err) = parse_arg(SyntaxShape::Any, registry, &lite_inner.name);
-
-                        output.push(arg);
-                        if error.is_none() {
-                            error = err;
-                        }
-
-                        for arg in &lite_inner.args {
-                            let (arg, err) = parse_arg(SyntaxShape::Any, registry, &arg);
-                            output.push(arg);
-
-                            if error.is_none() {
-                                error = err;
-                            }
-                        }
-                    }
-
-                    (
-                        SpannedExpression::new(Expression::List(output), lite_arg.span),
-                        error,
-                    )
                 }
                 _ => (
                     garbage(lite_arg.span),

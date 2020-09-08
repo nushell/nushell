@@ -61,11 +61,18 @@ pub(crate) async fn evaluate_baseline_expr(
             }
         }
         Expression::Range(range) => {
-            let left = &range.left;
-            let right = &range.right;
+            let left = if let Some(left) = &range.left {
+                evaluate_baseline_expr(&left, registry, it, vars, env).await?
+            } else {
+                Value::nothing()
+            };
 
-            let left = evaluate_baseline_expr(&left, registry, it, vars, env).await?;
-            let right = evaluate_baseline_expr(&right, registry, it, vars, env).await?;
+            let right = if let Some(right) = &range.right {
+                evaluate_baseline_expr(&right, registry, it, vars, env).await?
+            } else {
+                Value::nothing()
+            };
+
             let left_span = left.tag.span;
             let right_span = right.tag.span;
 
@@ -79,6 +86,46 @@ pub(crate) async fn evaluate_baseline_expr(
             );
 
             Ok(UntaggedValue::range(left, right).into_value(tag))
+        }
+        Expression::Table(headers, cells) => {
+            let mut output_headers = vec![];
+
+            for expr in headers {
+                let val = evaluate_baseline_expr(&expr, registry, it, vars, env).await?;
+
+                let header = val.as_string()?;
+                output_headers.push(header);
+            }
+
+            let mut output_table = vec![];
+
+            for row in cells {
+                if row.len() != headers.len() {
+                    match (row.first(), row.last()) {
+                        (Some(first), Some(last)) => {
+                            return Err(ShellError::labeled_error(
+                                "Cell count doesn't match header count",
+                                format!("expected {} columns", headers.len()),
+                                Span::new(first.span.start(), last.span.end()),
+                            ));
+                        }
+                        _ => {
+                            return Err(ShellError::untagged_runtime_error(
+                                "Cell count doesn't match header count",
+                            ));
+                        }
+                    }
+                }
+
+                let mut row_output = IndexMap::new();
+                for cell in output_headers.iter().zip(row.iter()) {
+                    let val = evaluate_baseline_expr(&cell.1, registry, it, vars, env).await?;
+                    row_output.insert(cell.0.clone(), val);
+                }
+                output_table.push(UntaggedValue::row(row_output).into_value(tag.clone()));
+            }
+
+            Ok(UntaggedValue::Table(output_table).into_value(tag))
         }
         Expression::List(list) => {
             let mut exprs = vec![];

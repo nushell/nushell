@@ -88,3 +88,34 @@ true
 > random uuid
 8af4de39-acbc-42f0-94d1-7cfad6c01f8b
 ```
+
+## integer
+
+* `random integer`: Generate a random integer
+
+### integer Flags
+
+* `m`, `--min` \<integer>: The minimum value to generate
+* `x`, `--max` \<integer>: The maximum value to generate
+
+### integer Examples
+
+```shell
+> random integer
+42
+```
+
+```shell
+> random integer --min 5000
+8700890823
+```
+
+```shell
+> random integer --max 100
+73
+```
+
+```shell
+> random integer --min 100000 --max 200000
+173400
+```

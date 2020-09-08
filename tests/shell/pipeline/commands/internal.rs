@@ -418,6 +418,126 @@ fn echoing_ranges() {
     assert_eq!(actual.out, "6");
 }
 
+#[test]
+fn table_literals1() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            echo [[name age]; [foo 13]] | get age
+        "#
+    );
+
+    assert_eq!(actual.out, "13");
+}
+
+#[test]
+fn table_literals2() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo [[name age] ; [bob 13] [sally 20]] | get age | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "33");
+}
+
+#[test]
+fn list_with_commas() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo [1, 2, 3] | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "6");
+}
+
+#[test]
+fn range_with_left_var() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo [[size]; [3]] | echo $it.size..10 | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "52");
+}
+
+#[test]
+fn range_with_right_var() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo [[size]; [30]] | echo 4..$it.size | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "459");
+}
+
+#[test]
+fn range_with_open_left() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo ..30 | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "465");
+}
+
+#[test]
+fn range_with_open_right() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo 5.. | first 10 | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "95");
+}
+
+#[test]
+fn range_with_mixed_types() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo 1..10.5 | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "55");
+}
+
+#[test]
+fn it_expansion_of_tables() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo foo | echo [[`foo {{$it}} bar`]; [`{{$it}} foo`]] | get "foo foo bar"
+        "#
+    );
+
+    assert_eq!(actual.out, "foo foo");
+}
+
+#[test]
+fn table_with_commas() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo [[name, age, height]; [JT, 42, 185] [Unknown, 99, 99]] | get age | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "141");
+}
+
 mod parse {
     use nu_test_support::nu;
 

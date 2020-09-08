@@ -162,6 +162,18 @@ fn parens_precedence() {
 }
 
 #[test]
+fn modulo() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            = 9 mod 2
+        "#
+    ));
+
+    assert_eq!(actual.out, "1");
+}
+
+#[test]
 fn duration_math() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(

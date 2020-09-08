@@ -44,13 +44,13 @@ pub fn pivot_mode(config: &NuConfig) -> AutoPivotMode {
             Ok(m) if m.to_lowercase() == "auto" => AutoPivotMode::Auto,
             Ok(m) if m.to_lowercase() == "always" => AutoPivotMode::Always,
             Ok(m) if m.to_lowercase() == "never" => AutoPivotMode::Never,
-            _ => AutoPivotMode::Always,
+            _ => AutoPivotMode::Never,
         };
 
         return mode;
     }
 
-    AutoPivotMode::Always
+    AutoPivotMode::Never
 }
 
 impl ConfigExtensions for NuConfig {

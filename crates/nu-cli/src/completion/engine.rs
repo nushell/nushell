@@ -27,6 +27,15 @@ impl<'s> Flatten<'s> {
             Expression::Block(block) => self.completion_locations(block),
             Expression::Invocation(block) => self.completion_locations(block),
             Expression::List(exprs) => exprs.iter().flat_map(|v| self.expression(v)).collect(),
+            Expression::Table(headers, cells) => headers
+                .iter()
+                .flat_map(|v| self.expression(v))
+                .chain(
+                    cells
+                        .iter()
+                        .flat_map(|v| v.iter().flat_map(|v| self.expression(v))),
+                )
+                .collect(),
             Expression::Command => vec![LocationType::Command.spanned(e.span)],
             Expression::Path(path) => self.expression(&path.head),
             Expression::Variable(_) => vec![LocationType::Variable.spanned(e.span)],
@@ -51,8 +60,12 @@ impl<'s> Flatten<'s> {
             }
             Expression::Range(range) => {
                 let mut result = Vec::new();
-                result.append(&mut self.expression(&range.left));
-                result.append(&mut self.expression(&range.right));
+                if let Some(left) = &range.left {
+                    result.append(&mut self.expression(left));
+                }
+                if let Some(right) = &range.right {
+                    result.append(&mut self.expression(right));
+                }
                 result
             }
 
@@ -223,10 +236,10 @@ pub fn completion_location(line: &str, block: &Block, pos: usize) -> Vec<Complet
             // is after some character that would imply we're in the command position.
             let start = prev.span.end();
             if line[start..pos].contains(BEFORE_COMMAND_CHARS) {
-                vec![LocationType::Command.spanned(Span::unknown())]
+                vec![LocationType::Command.spanned(Span::new(pos, pos))]
             } else {
                 // TODO this should be able to be mapped to a command
-                vec![LocationType::Argument(command, None).spanned(Span::unknown())]
+                vec![LocationType::Argument(command, None).spanned(Span::new(pos, pos))]
             }
         } else {
             // Cursor is before any possible completion location, so must be a command

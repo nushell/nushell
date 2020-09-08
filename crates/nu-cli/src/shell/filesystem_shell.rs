@@ -139,6 +139,8 @@ impl Shell for FilesystemShell {
             ));
         }
 
+        let mut hidden_dirs = vec![];
+
         // Generated stream: impl Stream<Item = Result<ReturnSuccess, ShellError>
 
         Ok(futures::stream::iter(paths.filter_map(move |path| {
@@ -147,14 +149,21 @@ impl Shell for FilesystemShell {
                 Err(err) => return Some(Err(err)),
             };
 
+            if path_contains_hidden_folder(&path, &hidden_dirs) {
+                return None;
+            }
+
             if !all && !hidden_dir_specified && is_hidden_dir(&path) {
+                if path.is_dir() {
+                    hidden_dirs.push(path);
+                }
                 return None;
             }
 
             let metadata = match std::fs::symlink_metadata(&path) {
                 Ok(metadata) => Some(metadata),
                 Err(e) => {
-                    if e.kind() == ErrorKind::PermissionDenied {
+                    if e.kind() == ErrorKind::PermissionDenied || e.kind() == ErrorKind::Other {
                         None
                     } else {
                         return Some(Err(e.into()));
@@ -751,17 +760,31 @@ fn move_file(from: TaggedPathBuf, to: TaggedPathBuf) -> Result<(), ShellError> {
         to.push(from_file_name);
     }
 
+    move_item(&from, from_tag, &to)
+}
+
+fn move_item(from: &Path, from_tag: &Tag, to: &Path) -> Result<(), ShellError> {
     // We first try a rename, which is a quick operation. If that doesn't work, we'll try a copy
-    // and remove the old file. This is necessary if we're moving across filesystems.
-    std::fs::rename(&from, &to)
-        .or_else(|_| std::fs::copy(&from, &to).and_then(|_| std::fs::remove_file(&from)))
-        .map_err(|e| {
-            ShellError::labeled_error(
+    // and remove the old file/folder. This is necessary if we're moving across filesystems or devices.
+    std::fs::rename(&from, &to).or_else(|_| {
+        match if from.is_file() {
+            let mut options = fs_extra::file::CopyOptions::new();
+            options.overwrite = true;
+            fs_extra::file::move_file(from, to, &options)
+        } else {
+            let mut options = fs_extra::dir::CopyOptions::new();
+            options.overwrite = true;
+            options.copy_inside = true;
+            fs_extra::dir::move_dir(from, to, &options)
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(ShellError::labeled_error(
                 format!("Could not move {:?} to {:?}. {:}", from, to, e.to_string()),
                 "could not move",
                 from_tag,
-            )
-        })
+            )),
+        }
+    })
 }
 
 fn is_empty_dir(dir: impl AsRef<Path>) -> bool {
@@ -851,8 +874,18 @@ pub(crate) fn dir_entry_dict(
         #[cfg(unix)]
         {
             for column in [
-                "name", "type", "target", "readonly", "mode", "uid", "group", "size", "created",
-                "accessed", "modified",
+                "name",
+                "type",
+                "target",
+                "num_links",
+                "readonly",
+                "mode",
+                "uid",
+                "group",
+                "size",
+                "created",
+                "accessed",
+                "modified",
             ]
             .iter()
             {
@@ -918,6 +951,9 @@ pub(crate) fn dir_entry_dict(
                     "mode",
                     UntaggedValue::string(umask::Mode::from(mode).to_string()),
                 );
+
+                let nlinks = md.nlink();
+                dict.insert_untagged("num_links", UntaggedValue::string(nlinks.to_string()));
 
                 if let Some(user) = users::get_user_by_uid(md.uid()) {
                     dict.insert_untagged(
@@ -986,4 +1022,15 @@ pub(crate) fn dir_entry_dict(
     }
 
     Ok(dict.into_value())
+}
+
+fn path_contains_hidden_folder(path: &PathBuf, folders: &[PathBuf]) -> bool {
+    let path_str = path.to_str().expect("failed to read path");
+    if folders
+        .iter()
+        .any(|p| path_str.starts_with(&p.to_str().expect("failed to read hidden paths")))
+    {
+        return true;
+    }
+    false
 }

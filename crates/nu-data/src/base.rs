@@ -126,7 +126,7 @@ pub fn coerce_compare(
     }
 }
 
-fn coerce_compare_primitive(
+pub fn coerce_compare_primitive(
     left: &Primitive,
     right: &Primitive,
 ) -> Result<CompareValues, (&'static str, &'static str)> {
