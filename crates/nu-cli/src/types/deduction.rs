@@ -137,7 +137,7 @@ pub struct VarSyntaxShapeDeductor {
     //First is a variable
     //Second is a operator
     //Third is a variable
-    dependencies: Vec<(VarUsage, SpannedExpression, VarUsage)>,
+    dependencies: Vec<(VarUsage, (Operator, Span), VarUsage)>,
     //A var depending on the result type of a spanned_expr
     //First argument is var,
     //Second is binary containing var op and result_bin_expr
@@ -227,7 +227,7 @@ fn change_op_to_assignment(mut bin: SpannedExpression) -> SpannedExpression {
                 Expression::Literal(Literal::Operator(op)) => {
                     //Currently there is no assignment operator.
                     //Plus does the same thing
-                    *op = Operator::Plus;
+                    *op = Operator::Equal;
                 }
                 _ => unreachable!(),
             }
@@ -343,7 +343,13 @@ fn get_result_shape_of(
                 SyntaxShape::Number
             }
         }
+        Operator::Modulo => SyntaxShape::Number,
     })
+}
+
+enum BinarySide {
+    Left,
+    Right,
 }
 
 impl VarSyntaxShapeDeductor {
@@ -632,24 +638,28 @@ impl VarSyntaxShapeDeductor {
             }
             Expression::Range(range) => {
                 trace!("Infering vars in range");
-                if let Expression::Variable(Variable::Other(var_name, _)) = &range.left.expr {
-                    self.checked_insert(
-                        &VarUsage::new(var_name, &spanned_expr.span),
-                        VarShapeDeduction::from_usage_with_alternatives(
-                            &spanned_expr.span,
-                            &get_shapes_allowed_in_range(),
-                        ),
-                    )?;
-                } else if let Expression::Variable(Variable::Other(var_name, span)) =
-                    &range.right.expr
-                {
-                    self.checked_insert(
-                        &VarUsage::new(var_name, &spanned_expr.span),
-                        VarShapeDeduction::from_usage_with_alternatives(
-                            span,
-                            &get_shapes_allowed_in_range(),
-                        ),
-                    )?;
+                if let Some(range_left) = &range.left {
+                    if let Expression::Variable(Variable::Other(var_name, _)) = &range_left.expr {
+                        self.checked_insert(
+                            &VarUsage::new(var_name, &spanned_expr.span),
+                            VarShapeDeduction::from_usage_with_alternatives(
+                                &spanned_expr.span,
+                                &get_shapes_allowed_in_range(),
+                            ),
+                        )?;
+                    }
+                }
+                if let Some(range_right) = &range.right {
+                    if let Expression::Variable(Variable::Other(var_name, span)) = &range_right.expr
+                    {
+                        self.checked_insert(
+                            &VarUsage::new(&var_name, &spanned_expr.span),
+                            VarShapeDeduction::from_usage_with_alternatives(
+                                &span,
+                                &get_shapes_allowed_in_range(),
+                            ),
+                        )?;
+                    }
                 }
             }
             Expression::List(inner_exprs) => {
@@ -705,9 +715,11 @@ impl VarSyntaxShapeDeductor {
         col_idx: usize,
         rows: &[Vec<SpannedExpression>],
     ) -> Result<(), ShellError> {
+        //Within a col there is equal type forcing
+        let (op, span) = (Operator::Equal, rows[col_idx][0].span);
         rows.iter()
             .filter_map(|r| r.get(col_idx))
-            .filter_map(|cell| self.get_shape_of_expr_or_insert_dependency(var, cell))
+            .filter_map(|cell| self.get_shape_of_expr_or_insert_dependency(var, (op, span), cell))
             .next()
             .map_or(Ok(()), |shape| {
                 self.checked_insert(var, vec![VarShapeDeduction::from_usage(&var.span, &shape)])?;
@@ -732,24 +744,26 @@ impl VarSyntaxShapeDeductor {
     fn get_shape_of_expr_or_insert_dependency(
         &mut self,
         var: &VarUsage,
+        (op, span): (Operator, Span),
         expr: &SpannedExpression,
     ) -> Option<SyntaxShape> {
         match &expr.expr {
             Expression::Variable(Variable::Other(name, _)) => {
-                self.dependencies.push((
-                    var.clone(),
-                    expr.clone(),
-                    VarUsage::new(name, &expr.span),
-                ));
+                self.dependencies
+                    .push((var.clone(), (op, span), VarUsage::new(name, &expr.span)));
                 None
             }
             Expression::Variable(Variable::It(_)) => {
                 //TODO infer tpye of $it
+                //therefore pipeline idx, pipeline and registry has to be passed here
                 None
             }
             Expression::Literal(literal) => {
                 match literal {
-                    nu_protocol::hir::Literal::Number(_) => Some(SyntaxShape::Number),
+                    nu_protocol::hir::Literal::Number(number) => match number {
+                        nu_protocol::hir::Number::Int(_) => Some(SyntaxShape::Int),
+                        nu_protocol::hir::Number::Decimal(_) => Some(SyntaxShape::Number),
+                    },
                     nu_protocol::hir::Literal::Size(_, _) => Some(SyntaxShape::Unit),
                     nu_protocol::hir::Literal::String(_) => Some(SyntaxShape::String),
                     //Rest should have failed at parsing stage?
@@ -789,7 +803,13 @@ impl VarSyntaxShapeDeductor {
         (pipeline_idx, pipeline): (usize, &Commands),
         registry: &CommandRegistry,
     ) -> Result<Option<SyntaxShape>, ShellError> {
-        if let Some(shape) = self.get_shape_of_expr_or_insert_dependency(var, expr) {
+        trace!("Getting shape of binary arg {:?} for var {:?}", expr, var);
+        if let Some(shape) = self.get_shape_of_expr_or_insert_dependency(
+            var,
+            (op_of(source_bin), source_bin.span),
+            expr,
+        ) {
+            trace!("> Found shape: {:?}", shape);
             Ok(match shape {
                 SyntaxShape::Math => {
                     //If execution happens here, the situation is as follows:
@@ -937,6 +957,7 @@ impl VarSyntaxShapeDeductor {
                                 )?,
                                 self.get_shape_of_expr_or_insert_dependency(
                                     &r_fake_var,
+                                    (Operator::Equal, source_bin.span),
                                     &bin.right,
                                 ),
                             ) {
@@ -962,7 +983,11 @@ impl VarSyntaxShapeDeductor {
                                 self.fake_var_generator.next_as_expr();
                             let fake_bin = change_op_to_assignment(expr.clone());
                             match (
-                                self.get_shape_of_expr_or_insert_dependency(&l_fake_var, &bin.left),
+                                self.get_shape_of_expr_or_insert_dependency(
+                                    &l_fake_var,
+                                    (Operator::Equal, source_bin.span),
+                                    &bin.left,
+                                ),
                                 self.get_shape_of_binary_arg_or_insert_dependency(
                                     (&r_fake_var, &bin.right),
                                     &fake_bin,
@@ -990,8 +1015,12 @@ impl VarSyntaxShapeDeductor {
                             let (l_fake_var, _) = self.fake_var_generator.next_as_expr();
                             let (r_fake_var, _) = self.fake_var_generator.next_as_expr();
                             match (
-                                self.get_shape_of_expr_or_insert_dependency(&l_fake_var, &bin.left),
-                                self.get_shape_of_expr_or_insert_dependency(&r_fake_var, &bin.right)
+                                self.get_shape_of_expr_or_insert_dependency(&l_fake_var,
+                                    (Operator::Equal, source_bin.span),
+                                    &bin.left),
+                                self.get_shape_of_expr_or_insert_dependency(&r_fake_var,
+                                    (Operator::Equal, source_bin.span),
+                                    &bin.right)
                             ) {
                                 ( Some(l_shape), Some(r_shape) ) => {
                                     Some(get_result_shape_of(l_shape, &bin.op, r_shape)?)
@@ -1005,18 +1034,46 @@ impl VarSyntaxShapeDeductor {
                 _ => Some(shape),
             })
         } else {
+            trace!("> Could not deduce shape in expr");
             Ok(None)
+        }
+    }
+
+    fn get_shapes_in_list_or_insert_dependency(
+        &mut self,
+        var: &VarUsage,
+        bin_spanned: &SpannedExpression,
+        list: &[SpannedExpression],
+        (_pipeline_idx, _pipeline): (usize, &Commands),
+        _registry: &CommandRegistry,
+    ) -> Option<Vec<SyntaxShape>> {
+        let shapes_in_list = list
+            .iter()
+            .filter_map(|expr| {
+                self.get_shape_of_expr_or_insert_dependency(
+                    var,
+                    (Operator::Equal, bin_spanned.span),
+                    expr,
+                )
+            })
+            .collect_vec();
+        if shapes_in_list.is_empty() {
+            None
+        } else {
+            Some(shapes_in_list)
         }
     }
 
     fn infer_shapes_between_var_and_expr(
         &mut self,
         (var, expr): (&VarUsage, &SpannedExpression),
+        var_side: BinarySide,
         //Binary having expr on one side and var on other
         bin_spanned: &SpannedExpression,
         (pipeline_idx, pipeline): (usize, &Commands),
         registry: &CommandRegistry,
     ) -> Result<(), ShellError> {
+        trace!("Infering shapes between var {:?} and expr {:?}", var, expr);
         let bin = match &bin_spanned.expr {
             Expression::Binary(bin) => bin,
             _ => unreachable!(),
@@ -1032,8 +1089,79 @@ impl VarSyntaxShapeDeductor {
                         VarShapeDeduction::from_usage_with_alternatives(&var.span, &shapes),
                     )?;
                 }
+                //TODO are there differences between those?
                 Operator::In | Operator::NotIn | Operator::Contains | Operator::NotContains => {
-                    todo!("Implement in, notin, contains... for type deduction");
+                    match var_side {
+                        BinarySide::Left => match &expr.expr {
+                            Expression::List(list) => {
+                                if !list.is_empty() {
+                                    let shapes_in_list = self
+                                        .get_shapes_in_list_or_insert_dependency(
+                                            var,
+                                            bin_spanned,
+                                            &list,
+                                            (pipeline_idx, pipeline),
+                                            registry,
+                                        );
+                                    match shapes_in_list {
+                                        None => {}
+                                        Some(shapes_in_list) => {
+                                            self.checked_insert(
+                                                var,
+                                                VarShapeDeduction::from_usage_with_alternatives(
+                                                    &var.span,
+                                                    &shapes_in_list,
+                                                ),
+                                            )?;
+                                        }
+                                    }
+                                }
+                            }
+                            Expression::Literal(Literal::String(_)) => {
+                                self.checked_insert(
+                                    var,
+                                    vec![VarShapeDeduction::from_usage(
+                                        &var.span,
+                                        &SyntaxShape::String,
+                                    )],
+                                )?;
+                            }
+                            //REVIEW is var in table legal?
+                            Expression::Table(_, _) => {}
+                            Expression::Literal(_)
+                            | Expression::ExternalWord
+                            | Expression::Synthetic(_)
+                            | Expression::Variable(_)
+                            | Expression::Binary(_)
+                            | Expression::Range(_)
+                            | Expression::Block(_)
+                            | Expression::Path(_)
+                            | Expression::FilePath(_)
+                            | Expression::ExternalCommand(_)
+                            | Expression::Command
+                            | Expression::Invocation(_)
+                            | Expression::Boolean(_)
+                            | Expression::Garbage => {}
+                        },
+                        BinarySide::Right => {
+                            self.checked_insert(
+                                var,
+                                VarShapeDeduction::from_usage_with_alternatives(
+                                    &var.span,
+                                    &[SyntaxShape::Table, SyntaxShape::String],
+                                ),
+                            )?;
+                        }
+                    }
+                }
+                Operator::Modulo => {
+                    self.checked_insert(
+                        var,
+                        VarShapeDeduction::from_usage_with_alternatives(
+                            &var.span,
+                            &[SyntaxShape::Int, SyntaxShape::Number],
+                        ),
+                    )?;
                 }
                 Operator::Equal
                 | Operator::NotEqual
@@ -1049,10 +1177,30 @@ impl VarSyntaxShapeDeductor {
                         (pipeline_idx, pipeline),
                         registry,
                     )? {
-                        self.checked_insert(
-                            var,
-                            vec![VarShapeDeduction::from_usage(&var.span, &shape)],
-                        )?;
+                        match shape {
+                            SyntaxShape::Int | SyntaxShape::Number => {
+                                self.checked_insert(
+                                    var,
+                                    VarShapeDeduction::from_usage_with_alternatives(
+                                        &var.span,
+                                        &[SyntaxShape::Number, SyntaxShape::Int],
+                                    ),
+                                )?;
+                            }
+                            SyntaxShape::Unit => {
+                                self.checked_insert(
+                                    var,
+                                    VarShapeDeduction::from_usage_with_alternatives(
+                                        &var.span,
+                                        &[SyntaxShape::Unit],
+                                    ),
+                                )?;
+                            }
+                            s => unreachable!(format!(
+                                "Shape of {:?} should have failed at parsing stage",
+                                s
+                            )),
+                        }
                     }
                 }
                 Operator::Multiply => {
@@ -1092,18 +1240,69 @@ impl VarSyntaxShapeDeductor {
                         (pipeline_idx, pipeline),
                         registry,
                     )? {
-                        //TODO pass left or right parameter to check side
-                        if shape == SyntaxShape::Int || shape == SyntaxShape::Number {
-                            //TODO at the moment number / unit is not possible
-                            //As soon as more complex units land this changes!
-                            //TODO if side == left
-                            self.checked_insert(
-                                var,
-                                VarShapeDeduction::from_usage_with_alternatives(
-                                    &var.span,
-                                    &[SyntaxShape::Number, SyntaxShape::Unit],
-                                ),
-                            )?;
+                        match shape {
+                            SyntaxShape::Int | SyntaxShape::Number => {
+                                match var_side {
+                                    BinarySide::Left => {
+                                        //Binary is on left, number / int on right
+                                        self.checked_insert(
+                                            var,
+                                            VarShapeDeduction::from_usage_with_alternatives(
+                                                &var.span,
+                                                &[
+                                                    SyntaxShape::Number,
+                                                    SyntaxShape::Int,
+                                                    SyntaxShape::Unit,
+                                                ],
+                                            ),
+                                        )?;
+                                    }
+                                    BinarySide::Right => {
+                                        //TODO currently no unit type is supports 1/unit. This
+                                        //changes if there would be ever more complex unit types
+                                        //e.G. Frequency
+                                        self.checked_insert(
+                                            var,
+                                            VarShapeDeduction::from_usage_with_alternatives(
+                                                &var.span,
+                                                &[SyntaxShape::Number, SyntaxShape::Int],
+                                            ),
+                                        )?;
+                                    }
+                                }
+                            }
+                            SyntaxShape::Unit => {
+                                match var_side {
+                                    BinarySide::Left => {
+                                        //Must be unit / unit
+                                        self.checked_insert(
+                                            var,
+                                            vec![VarShapeDeduction::from_usage(
+                                                &var.span,
+                                                &SyntaxShape::Unit,
+                                            )],
+                                        )?;
+                                    }
+                                    BinarySide::Right => {
+                                        //Unit / var
+                                        self.checked_insert(
+                                            var,
+                                            VarShapeDeduction::from_usage_with_alternatives(
+                                                &var.span,
+                                                &[
+                                                    SyntaxShape::Number,
+                                                    SyntaxShape::Int,
+                                                    SyntaxShape::Unit,
+                                                ],
+                                            ),
+                                        )?;
+                                    }
+                                }
+                            }
+                            s => unreachable!(format!(
+                                "Shape of {:?} should have failed at parsing stage",
+                                s
+                            )),
                         }
                     }
                 }
@@ -1129,7 +1328,7 @@ impl VarSyntaxShapeDeductor {
                     //type can't be deduced out of this, so add it to resolve it later
                     self.dependencies.push((
                         VarUsage::new(left_var_name, l_span),
-                        bin_spanned.clone(),
+                        (op_of(bin_spanned), bin_spanned.span),
                         VarUsage::new(right_var_name, r_span),
                     ));
                 }
@@ -1154,6 +1353,7 @@ impl VarSyntaxShapeDeductor {
         if let Expression::Variable(Variable::Other(left_var_name, l_span)) = &bin.left.expr {
             self.infer_shapes_between_var_and_expr(
                 (&VarUsage::new(left_var_name, l_span), &bin.right),
+                BinarySide::Left,
                 bin_spanned,
                 (pipeline_idx, pipeline),
                 registry,
@@ -1162,6 +1362,7 @@ impl VarSyntaxShapeDeductor {
         if let Expression::Variable(Variable::Other(right_var_name, r_span)) = &bin.right.expr {
             self.infer_shapes_between_var_and_expr(
                 (&VarUsage::new(right_var_name, r_span), &bin.left),
+                BinarySide::Right,
                 bin_spanned,
                 (pipeline_idx, pipeline),
                 registry,
