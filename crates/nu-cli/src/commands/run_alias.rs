@@ -3,6 +3,7 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 
 use derive_new::new;
+use log::trace;
 use nu_errors::ShellError;
 use nu_protocol::{hir::Block, PositionalType, Scope, Signature, UntaggedValue, Value};
 
@@ -61,8 +62,10 @@ impl WholeStreamCommand for AliasCommand {
                             .tag
                             .until(&positional.last().unwrap_or(&Value::nothing()).tag),
                     };
-                    //Use description as name
-                    scope.vars.insert(desc.to_string(), var_arg_val);
+                    trace!("Inserting for var arg: {:?}", var_arg_val);
+                    //For now description contains name. This is a little hacky :(
+                    let name = desc.split(": ").next().unwrap_or("$args");
+                    scope.vars.insert(name.to_string(), var_arg_val);
                 }
             }
         }
