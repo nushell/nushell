@@ -77,7 +77,12 @@ impl Completer {
         }
     }
 
-    pub fn complete(&self, ctx: &Context<'_>, partial: &str, matcher: &Box<dyn Matcher>) -> Vec<Suggestion> {
+    pub fn complete(
+        &self,
+        ctx: &Context<'_>,
+        partial: &str,
+        matcher: &Box<dyn Matcher>,
+    ) -> Vec<Suggestion> {
         self.path_suggestions(ctx, partial, matcher)
             .into_iter()
             .map(|v| v.suggestion)
