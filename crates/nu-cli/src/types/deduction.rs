@@ -10,10 +10,9 @@ use nu_protocol::{
 };
 use nu_source::Span;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, hash::Hash};
+use std::{cmp::max, collections::HashMap, hash::Hash};
 
-use codespan_reporting::diagnostic::Diagnostic;
-use itertools::{merge_join_by, EitherOrBoth};
+use itertools::{merge_join_by, EitherOrBoth, Itertools};
 use log::trace;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -68,9 +67,9 @@ impl VarArgShapeDeduction {
         rest_shape: Option<(SyntaxShape, String)>,
     ) -> VarArgShapeDeduction {
         VarArgShapeDeduction {
-            deduced_from: vec![usage.clone()],
-            pos_shapes: pos_shapes.clone(),
-            rest_shape: rest_shape.clone(),
+            deduced_from: vec![usage],
+            pos_shapes,
+            rest_shape,
         }
     }
 }
@@ -422,7 +421,7 @@ impl VarSyntaxShapeDeductor {
                     Some(vec) => Some(vec.clone()),
                     None => None,
                 };
-                (decl.clone(), deduction.clone())
+                (decl.clone(), deduction)
             })
             .collect())
     }
@@ -1192,6 +1191,96 @@ impl VarSyntaxShapeDeductor {
         // Then try to inference the variables depending on the result types again.
     }
 
+    fn merge_with_coercion(
+        &self,
+        a: SyntaxShape,
+        a_span: Span,
+        b: SyntaxShape,
+        b_span: Span,
+        var_name: &str,
+        custom_err: Option<&str>,
+    ) -> Result<SyntaxShape, ShellError> {
+        match (a, b) {
+            //TODO add more coercion rules
+            (SyntaxShape::Any, other) | (other, SyntaxShape::Any) => Ok(other),
+            (SyntaxShape::Number, SyntaxShape::Int) | (SyntaxShape::Int, SyntaxShape::Number) => {
+                Ok(SyntaxShape::Int)
+            }
+            (a, b) => {
+                if a != b {
+                    let custom_err = custom_err.unwrap_or("Contrary types for variable:");
+                    Err(ShellError::labeled_error_with_secondary(
+                        format!(
+                            "{} {:?}. First used as: {:?}, then used as: {:?}",
+                            custom_err, var_name, a, b
+                        ),
+                        "First usage",
+                        a_span,
+                        "Second usage",
+                        b_span,
+                    ))
+                } else {
+                    Ok(a)
+                }
+            }
+        }
+    }
+
+    fn merge_positionals_with_coercion(
+        &self,
+        a: &[(PositionalType, String)],
+        a_span: Span,
+        b: &[(PositionalType, String)],
+        b_span: Span,
+        var_name: &str,
+    ) -> Result<Vec<(PositionalType, String)>, ShellError> {
+        let result: Vec<(PositionalType, String)> = Vec::with_capacity(max(a.len(), b.len()));
+        a.iter()
+            .zip_longest(b.iter())
+            .map(
+                |left_right| -> Result<(PositionalType, String), ShellError> {
+                    match left_right {
+                        EitherOrBoth::Left(pos) | EitherOrBoth::Right(pos) => Ok(pos.clone()),
+                        EitherOrBoth::Both((a_pos, a_name), (b_pos, b_name)) => {
+                            let shape = self.merge_with_coercion(
+                                a_pos.syntax_type(),
+                                a_span,
+                                b_pos.syntax_type(),
+                                b_span,
+                                var_name,
+                                Some("Contrary types for var arg positional: "),
+                            )?;
+                            let pos_name = format!("{} | {}", a_pos.name(), b_pos.name());
+                            let desc = format!("{} | {}", a_name, b_name);
+                            let pos = match (a_pos, b_pos) {
+                                (
+                                    PositionalType::Mandatory(_, _),
+                                    PositionalType::Mandatory(_, _),
+                                )
+                                | (
+                                    PositionalType::Optional(_, _),
+                                    PositionalType::Mandatory(_, _),
+                                )
+                                | (
+                                    PositionalType::Mandatory(_, _),
+                                    PositionalType::Optional(_, _),
+                                ) => PositionalType::Mandatory(pos_name, shape),
+                                (
+                                    PositionalType::Optional(_, _),
+                                    PositionalType::Optional(_, _),
+                                ) => PositionalType::Optional(pos_name, shape),
+                            };
+                            Ok((pos, desc))
+                        }
+                    }
+                },
+            )
+            .fold_results(result, |mut result, val| {
+                result.push(val);
+                result
+            })
+    }
+
     fn checked_var_arg_insert(
         &mut self,
         usage: VarUsage,
@@ -1213,35 +1302,34 @@ impl VarSyntaxShapeDeductor {
                     }
                     Deduction::VarArgShapeDeduction(d) => d,
                 };
-                let deduced_shapes = if existing_deduction
-                    .pos_shapes
-                    .starts_with(&new_deduction.pos_shapes)
-                {
-                    //Nothing new to add
-                    existing_deduction.pos_shapes.clone()
-                } else if new_deduction
-                    .pos_shapes
-                    .starts_with(&existing_deduction.pos_shapes)
-                {
-                    new_deduction.pos_shapes.clone()
-                } else {
-                    return Err(ShellError::labeled_error_with_secondary(
-                            format!("Contrary types for var arg: {:?}. First used as: {:?}, then used as: {:?}",
-                                usage.name, existing_deduction.pos_shapes, new_deduction.pos_shapes),
-                                "First usage", existing_deduction.deduced_from[0],
-                                "Second usage", new_deduction.deduced_from[0]));
-                };
+                let deduced_shapes = self.merge_positionals_with_coercion(
+                    &existing_deduction.pos_shapes,
+                    existing_deduction.deduced_from[0],
+                    &new_deduction.pos_shapes,
+                    new_deduction.deduced_from[0],
+                    &usage.name,
+                )?;
                 let deduced_rest = match (&existing_deduction.rest_shape, &new_deduction.rest_shape)
                 {
-                    (Some((cur_rest_shape, _)), Some((new_rest_shape, _))) => {
-                        if cur_rest_shape != new_rest_shape {
-                            todo!("Throw nice error")
-                        } else {
-                            existing_deduction.rest_shape.clone()
-                        }
+                    (Some((cur_rest_shape, cur_name)), Some((new_rest_shape, new_name))) => {
+                        let rest_shape = self.merge_with_coercion(
+                            *cur_rest_shape,
+                            existing_deduction.deduced_from[0],
+                            *new_rest_shape,
+                            new_deduction.deduced_from[0],
+                            &usage.name,
+                            Some("Contrary rest types for var arg"),
+                        )?;
+                        let combined_name = format!("{} | {}", cur_name, new_name);
+                        Some((rest_shape, combined_name))
                     }
-                    (Some((_, _)), None) => existing_deduction.rest_shape.clone(),
-                    (None, Some((_, _))) => new_deduction.rest_shape.clone(),
+                    //TODO returning a rest shape here means, that the user could pass in shapes
+                    //which one usage of the var arg doesn't allow.
+                    //However, throwing an error would dissallow legal usages.
+                    //We should pass a note to the user somehow, that one rest shape got thrown
+                    //away maybe?
+                    (Some((_, _)), None) => None,
+                    (None, Some((_, _))) => None,
                     (None, None) => None,
                 };
                 let mut combined_usages = existing_deduction.deduced_from.clone();
@@ -1259,6 +1347,16 @@ impl VarSyntaxShapeDeductor {
         Ok(())
     }
 
+    fn err_var_arg_used_as_normal_var(&self, var_usage: &VarUsage) -> ShellError {
+        ShellError::labeled_error(
+            format!(
+                "Used var arg variable {:?} as a normal variable. Use a normal variable instead!",
+                var_usage.name
+            ),
+            "Wrong var arg usage",
+            var_usage.span,
+        )
+    }
     /// Inserts the new deductions. Each VarShapeDeduction represents one alternative for
     /// the variable described by var_usage
 
@@ -1288,7 +1386,7 @@ impl VarSyntaxShapeDeductor {
                 let existing_deductions = match existing_deductions {
                     Deduction::VarShapeDeduction(d) => d,
                     Deduction::VarArgShapeDeduction(_) => {
-                        todo!("throw shell error var arg used somewhere else than positionals");
+                        return Err(self.err_var_arg_used_as_normal_var(var_usage));
                     }
                 };
 
@@ -1307,15 +1405,15 @@ impl VarSyntaxShapeDeductor {
                     existing_deductions,
                 );
 
-                let combined_deductions = match (
-                    (any_in_new, new_vec),
-                    (any_in_existing, existing_vec),
-                ) {
-                    ((true, a), (true, b)) => {
-                        //In each alternative there is any
-                        //complete merge each set |
-                        //TODO move closure into function. But the compiler sheds tears to much for me :F
-                        merge_join_by(a, b, |a, b| (a.deduction as i32).cmp(&(b.deduction as i32)))
+                let combined_deductions =
+                    match ((any_in_new, new_vec), (any_in_existing, existing_vec)) {
+                        ((true, a), (true, b)) => {
+                            //In each alternative there is any
+                            //complete merge each set |
+                            //TODO move closure into function. But the compiler sheds tears to much for me :F
+                            merge_join_by(a, b, |a, b| {
+                                (a.deduction as i32).cmp(&(b.deduction as i32))
+                            })
                             .map(|either_or| match either_or {
                                 EitherOrBoth::Left(deduc) | EitherOrBoth::Right(deduc) => {
                                     deduc.clone()
@@ -1327,11 +1425,13 @@ impl VarSyntaxShapeDeductor {
                                 }
                             })
                             .collect()
-                    }
-                    ((false, a), (true, b)) | ((true, b), (false, a)) => {
-                        //B has an any. So A can be applied as a whole
-                        // So result is intersection(b,a) + a
-                        merge_join_by(a, b, |a, b| (a.deduction as i32).cmp(&(b.deduction as i32)))
+                        }
+                        ((false, a), (true, b)) | ((true, b), (false, a)) => {
+                            //B has an any. So A can be applied as a whole
+                            // So result is intersection(b,a) + a
+                            merge_join_by(a, b, |a, b| {
+                                (a.deduction as i32).cmp(&(b.deduction as i32))
+                            })
                             .map(|either_or| match either_or {
                                 //Left is a, right is b
                                 //(a + none) + a is a
@@ -1347,56 +1447,63 @@ impl VarSyntaxShapeDeductor {
                             })
                             .filter_map(|elem| elem)
                             .collect()
-                    }
-                    //No any's intersection of both is result
-                    ((false, a), (false, b)) => {
-                        let intersection: Vec<VarShapeDeduction> = merge_join_by(a, b, |a, b| {
-                            (a.deduction as i32).cmp(&(b.deduction as i32))
-                        })
-                        .map(|either_or| match either_or {
-                            //Left is a, right is b
-                            EitherOrBoth::Left(_) => None,
-                            EitherOrBoth::Right(_) => None,
-                            EitherOrBoth::Both(a_elem, b_elem) => {
-                                let mut combination = a_elem.clone();
-                                combination
-                                    .deducted_from
-                                    .extend(b_elem.deducted_from.clone());
-                                Some(combination)
-                            }
-                        })
-                        .filter_map(|elem| elem)
-                        .collect();
-                        if intersection.is_empty() {
-                            // let labels = a
-                            //     .iter()
-                            //     .chain(b.iter())
-                            //     .map(|decl| {
-                            //         decl.deducted_from.iter().map(|span| (decl.deduction, span))
-                            //     })
-                            //     .flatten()
-                            //     .map(|(shape, span)| {
-                            //         Label::primary("AliasBlock", span)
-                            //             .with_message(format!("{}", shape))
-                            //     })
-                            //     .collect();
-                            //TODO obay coercion rules
-                            return Err(ShellError::diagnostic(
-                                    Diagnostic::error()
-                                    //TODO pass block and spans
-                                    // How can you make spanned_expr to code?
-                                    // .with_code(self.block.clone())
-                                    .with_message(format!("Contrary types for variable {}. Variable can't be one of {:#?} and one of {:#?}", k.name,
-                                            a.iter().map(|deduction| deduction.deduction).collect::<Vec<_>>(),
-                                            b.iter().map(|deduction| deduction.deduction).collect::<Vec<_>>()
-                                    ))
-                                    // .with_labels( labels)
-                            ));
-                        } else {
-                            intersection
                         }
-                    }
-                };
+                        //No any's intersection of both is result
+                        ((false, a), (false, b)) => {
+                            let intersection: Vec<VarShapeDeduction> =
+                                merge_join_by(a, b, |a, b| {
+                                    (a.deduction as i32).cmp(&(b.deduction as i32))
+                                })
+                                .map(|either_or| match either_or {
+                                    //Left is a, right is b
+                                    EitherOrBoth::Left(_) => None,
+                                    EitherOrBoth::Right(_) => None,
+                                    EitherOrBoth::Both(a_elem, b_elem) => {
+                                        let mut combination = a_elem.clone();
+                                        combination
+                                            .deducted_from
+                                            .extend(b_elem.deducted_from.clone());
+                                        Some(combination)
+                                    }
+                                })
+                                .filter_map(|elem| elem)
+                                .collect();
+                            if intersection.is_empty() {
+                                // let labels = a
+                                //     .iter()
+                                //     .chain(b.iter())
+                                //     .map(|decl| {
+                                //         decl.deducted_from.iter().map(|span| (decl.deduction, span))
+                                //     })
+                                //     .flatten()
+                                //     .map(|(shape, span)| {
+                                //         Label::primary("AliasBlock", span)
+                                //             .with_message(format!("{}", shape))
+                                //     })
+                                //     .collect();
+                                //TODO pass all labels somehow
+                                return Err(ShellError::labeled_error_with_secondary(
+                                    format!("Contrary types for variable {}", k.name),
+                                    format!(
+                                        "Deduction: {:?}",
+                                        a.iter()
+                                            .map(|deduction| deduction.deduction)
+                                            .collect::<Vec<_>>()
+                                    ),
+                                    a[0].deducted_from[0],
+                                    format!(
+                                        "Deduction: {:?}",
+                                        b.iter()
+                                            .map(|deduction| deduction.deduction)
+                                            .collect::<Vec<_>>()
+                                    ),
+                                    b[0].deducted_from[0],
+                                ));
+                            } else {
+                                intersection
+                            }
+                        }
+                    };
                 (k.clone(), Deduction::VarShapeDeduction(combined_deductions))
             }
             None => {
@@ -1406,7 +1513,7 @@ impl VarSyntaxShapeDeductor {
                     .find(|decl| decl.name == var_usage.name)
                 {
                     if decl.is_var_arg {
-                        todo!("Throw error var arg usage not in pos");
+                        return Err(self.err_var_arg_used_as_normal_var(var_usage));
                     }
                 }
                 (
