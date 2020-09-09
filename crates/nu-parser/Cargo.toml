@@ -16,7 +16,7 @@ indexmap = { version = "1.6.0", features = ["serde-1"] }
 log = "0.4.11"
 num-bigint = { version = "0.2.6", features = ["serde"] }
 num-traits = "0.2.12"
-parking_lot = "0.11.0"
+# parking_lot = "0.11.0"
 serde = "1.0.115"
 shellexpand = "2.0.0"
 
