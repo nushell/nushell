@@ -386,11 +386,11 @@ mod tests {
         let actual = nu!(
             cwd: ".",
             r#"
-            touch ~/VIRUS.EXE.NOSCAM
+            touch /tmp/nushell_alias_test
             alias -i l [x] { ls $x }
-            l ~ | to json
+            l /tmp | to json
         "#
         );
-        assert!(actual.out.contains("VIRUS.EXE.NOSCAM"));
+        assert!(actual.out.contains("nushell_alias_test"));
     }
 }

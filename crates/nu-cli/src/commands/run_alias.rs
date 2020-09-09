@@ -44,12 +44,13 @@ impl WholeStreamCommand for AliasCommand {
         let scope = call_info.scope.clone();
         let evaluated = call_info.evaluate(&registry).await?;
 
+        let mut vars = IndexMap::new();
         if let Some(positional) = &evaluated.args.positional {
             for (idx, (pos_type, _)) in self.sig.positional.iter().enumerate() {
                 let arg = &positional[idx];
                 match pos_type {
                     PositionalType::Mandatory(name, _) | PositionalType::Optional(name, _) => {
-                        scope.vars.insert(name.clone(), arg.clone());
+                        vars.insert(name.clone(), arg.clone());
                     }
                 }
             }
@@ -65,7 +66,7 @@ impl WholeStreamCommand for AliasCommand {
                     //For now description contains name. This is a little hacky :(
                     let name = desc.split(": ").next().unwrap_or("$args");
                     trace!("Inserting for var arg: {:?} value: {:?}", name, var_arg_val);
-                    scope.vars.insert(name.to_string(), var_arg_val);
+                    vars.insert(name.to_string(), var_arg_val);
                 }
             }
         }
