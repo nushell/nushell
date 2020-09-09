@@ -70,11 +70,4 @@ impl Completer {
             Vec::new()
         }
     }
-
-    pub fn complete(&self, ctx: &Context<'_>, partial: &str) -> Vec<Suggestion> {
-        self.path_suggestions(ctx, partial)
-            .into_iter()
-            .map(|v| v.suggestion)
-            .collect()
-    }
 }
