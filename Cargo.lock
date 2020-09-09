@@ -2955,6 +2955,7 @@ dependencies = [
  "termcolor",
  "toml",
  "trash",
+ "umask",
  "unicode-segmentation",
  "url 2.1.1",
  "users",
@@ -5497,6 +5498,12 @@ name = "ucd-util"
 version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c85f514e095d348c279b1e5cd76795082cf15bd59b93207832abe0b1d8fed236"
+
+[[package]]
+name = "umask"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "982efbf70ec4d28f7862062c03dd1a4def601a5079e0faf1edc55f2ad0f6fe46"
 
 [[package]]
 name = "unicase"

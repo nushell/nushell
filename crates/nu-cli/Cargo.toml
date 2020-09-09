@@ -87,7 +87,6 @@ term_size = "0.3.2"
 termcolor = "1.1.0"
 toml = "0.5.6"
 # typetag = "0.1.5"
-# umask = "1.0.0"
 unicode-segmentation = "1.6.0"
 # unicode-xid = "0.2.1"
 uuid_crate = { package = "uuid", version = "0.8.1", features = ["v4"], optional = true }
@@ -104,6 +103,7 @@ Inflector = "0.11"
 
 [target.'cfg(unix)'.dependencies]
 users = "0.10.0"
+umask = "1.0.0"
 
 # TODO this will be possible with new dependency resolver
 #   (currently on nightly behind -Zfeatures=itarget):
