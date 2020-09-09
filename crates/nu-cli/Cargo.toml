@@ -99,7 +99,7 @@ quick-xml = "0.18.1"
 rayon = "1.4.0"
 trash = { version = "1.1.1", optional = true }
 url = "2.1.1"
-inflector = "0.11"
+Inflector = "0.11"
 
 [target.'cfg(unix)'.dependencies]
 users = "0.10.0"
