@@ -5,7 +5,11 @@ use crate::prelude::*;
 use derive_new::new;
 use log::trace;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, PositionalType, Signature, UntaggedValue, Value};
+use nu_protocol::{
+    hir::ClassifiedCommand,
+    hir::{Block, NamedArguments},
+    PositionalType, Signature, UntaggedValue, Value,
+};
 
 #[derive(new, Clone)]
 pub struct AliasCommand {
@@ -42,6 +46,9 @@ impl WholeStreamCommand for AliasCommand {
         let input = args.input;
 
         let mut scope = call_info.scope.clone();
+
+        //Saved for below
+        let call_info_named = call_info.args.named.clone();
         let evaluated = call_info.evaluate(&registry).await?;
 
         if let Some(positional) = &evaluated.args.positional {
@@ -66,6 +73,23 @@ impl WholeStreamCommand for AliasCommand {
                     let name = desc.split(": ").next().unwrap_or("$args");
                     trace!("Inserting for var arg: {:?} value: {:?}", name, var_arg_val);
                     scope.vars.insert(name.to_string(), var_arg_val);
+                }
+            }
+        }
+
+        //Add the named arguments to the command
+        if block.block.len() == 1 && block.block[0].list.len() == 1 {
+            if let ClassifiedCommand::Internal(cmd) = &mut block.block[0].list[0] {
+                cmd.args.named = match (cmd.args.named.clone(), call_info_named) {
+                    (Some(a_named), Some(b_named)) => Some(NamedArguments {
+                        named: a_named
+                            .named
+                            .into_iter()
+                            .chain(b_named.named.into_iter())
+                            .collect(),
+                    }),
+                    (Some(named), None) | (None, Some(named)) => Some(named),
+                    (None, None) => None,
                 }
             }
         }

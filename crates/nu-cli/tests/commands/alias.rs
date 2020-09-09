@@ -378,4 +378,18 @@ mod tests {
         );
         assert!(actual.out.contains("nushell_alias_test"));
     }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn alias_with_passing_of_named_arg() {
+        let actual = nu!(
+            cwd: ".",
+            r#"
+            touch /tmp/.nushell_alias_with_arg_test
+            alias l [x] { ls $x }
+            l -a /tmp | to json
+        "#
+        );
+        assert!(actual.out.contains(".nushell_alias_with_arg_test"));
+    }
 }

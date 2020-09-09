@@ -8,7 +8,8 @@ use log::trace;
 use nu_data::config;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::Block, CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+    hir::Block, hir::ClassifiedCommand, CommandAction, ReturnSuccess, Signature, SyntaxShape,
+    UntaggedValue, Value,
 };
 use nu_source::Tagged;
 
@@ -189,7 +190,39 @@ pub async fn alias(
     trace!("Found vars: {:?}", processed_args);
 
     let inferred_shapes = VarSyntaxShapeDeductor::infer_vars(&processed_args, &block, &registry)?;
-    let signature = DeductionToSignature::get(&name.item, &inferred_shapes);
+    let mut signature = DeductionToSignature::get(&name.item, &inferred_shapes);
+    trace!("Block is : {:?}", block);
+    if block.block.len() == 1 && block.block[0].list.len() == 1 {
+        if let ClassifiedCommand::Internal(cmd) = &block.block[0].list[0] {
+            signature.named = registry
+                .get_command(&cmd.name)
+                .map(|cmd| cmd.signature().named)
+                .map(|all_named| match &cmd.args.named {
+                    None => all_named,
+                    Some(already_passed) => {
+                        trace!(
+                            "all_named: {:?}, \n already_passed {:?}",
+                            all_named,
+                            already_passed
+                        );
+                        all_named
+                            .into_iter()
+                            .filter_map(|(k, v)| match &already_passed.named.get(&k) {
+                                Some(named_arg) => match named_arg {
+                                    nu_protocol::hir::NamedValue::AbsentSwitch
+                                    | nu_protocol::hir::NamedValue::AbsentValue => Some((k, v)),
+                                    nu_protocol::hir::NamedValue::PresentSwitch(_)
+                                    | nu_protocol::hir::NamedValue::Value(_, _) => None,
+                                },
+                                None => Some((k, v)),
+                            })
+                            .collect()
+                    }
+                })
+                .unwrap_or_else(IndexMap::new);
+            trace!("Inserted {:?} as named args for alias", signature.named);
+        }
+    }
     trace!("Inferred signature: {:?}", signature);
 
     Ok(OutputStream::one(ReturnSuccess::action(
