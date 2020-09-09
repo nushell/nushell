@@ -1310,22 +1310,6 @@ fn parse_positional_argument(
     let mut idx = idx;
     let mut error = None;
     let arg = match positional_type {
-        // PositionalType::Mandatory(_, SyntaxShape::MultipleAny)
-        //     | PositionalType::Optional(_, SyntaxShape::MultipleAny) => {
-        //         let span = lite_cmd.args[idx].span.until(lite_cmd.args.last().expect("No arg present, but expected").span);
-
-        //         let expanded_exprs;
-        //         while idx < lite_cmd.args.len(){
-        //             expanded_exprs.add()
-
-        //         }
-        //         (idx + remaining_positionals, SpannedExpression{
-        //             Expression::List
-        //             span,
-
-        //         }
-
-        //     }
         PositionalType::Mandatory(_, SyntaxShape::Math)
         | PositionalType::Optional(_, SyntaxShape::Math) => {
             // A condition can take up multiple arguments, as we build the operation as <arg> <operator> <arg>
