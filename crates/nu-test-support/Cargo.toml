@@ -10,11 +10,9 @@ version = "0.19.0"
 doctest = false
 
 [dependencies]
-nu-parser = {path = "../nu-parser", version = "0.19.0"}
 nu-protocol = {path = "../nu-protocol", version = "0.19.0"}
 nu-source = {path = "../nu-source", version = "0.19.0"}
 
-directories = "3.0.1"
 dunce = "1.0.1"
 getset = "0.1.1"
 glob = "0.3.0"

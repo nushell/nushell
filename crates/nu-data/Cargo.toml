@@ -22,13 +22,11 @@ getset = "0.1.1"
 indexmap = { version = "1.6.0", features = ["serde-1"] }
 log = "0.4.11"
 num-bigint = { version = "0.2.6", features = ["serde"] }
-num-format = { version = "0.4.0", features = ["with-num-bigint"] }
 num-traits = "0.2.12"
 parking_lot = "0.11.0"
 query_interface = "0.3.5"
 serde = { version = "1.0.115", features = ["derive"] }
 toml = "0.5.6"
-umask = "1.0.0"
 
 nu-errors = {version = "0.19.0", path = "../nu-errors"}
 nu-protocol = {version = "0.19.0", path = "../nu-protocol"}
