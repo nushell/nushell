@@ -1,6 +1,6 @@
+use crate::completion::path::PathSuggestion;
 use crate::completion::{self, Suggestion};
 use crate::context;
-use std::fs::metadata;
 
 pub(crate) struct NuCompleter {}
 
@@ -71,15 +71,15 @@ impl NuCompleter {
                                 partial
                             };
 
-                            let completed_paths = path_completer.complete(context, partial);
+                            let completed_paths = path_completer.path_suggestions(context, partial);
                             match cmd.as_deref().unwrap_or("") {
                                 "cd" => select_directory_suggestions(completed_paths),
                                 _ => completed_paths,
                             }
                             .into_iter()
-                            .map(|suggestion| Suggestion {
-                                replacement: requote(suggestion.replacement),
-                                display: suggestion.display,
+                            .map(|s| Suggestion {
+                                replacement: requote(s.suggestion.replacement),
+                                display: s.suggestion.display,
                             })
                             .collect()
                         }
@@ -94,11 +94,13 @@ impl NuCompleter {
     }
 }
 
-fn select_directory_suggestions(completed_paths: Vec<Suggestion>) -> Vec<Suggestion> {
+fn select_directory_suggestions(completed_paths: Vec<PathSuggestion>) -> Vec<PathSuggestion> {
     completed_paths
         .into_iter()
         .filter(|suggestion| {
-            metadata(&suggestion.replacement)
+            suggestion
+                .path
+                .metadata()
                 .map(|md| md.is_dir())
                 .unwrap_or(false)
         })
