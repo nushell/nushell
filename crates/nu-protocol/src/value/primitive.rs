@@ -14,10 +14,10 @@ use num_traits::sign::Signed;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-const NANOS_PER_SEC: u32 = 1000000000;
+const NANOS_PER_SEC: u32 = 1_000_000_000;
 
-/// The most fundamental of structured values in Nu are the Primitive values. These values represent types like integers, strings, booleans, dates, etc that are then used
-/// as the buildig blocks to build up more complex structures.
+/// The most fundamental of structured values in Nu are the Primitive values. These values represent types like integers, strings, booleans, dates, etc
+/// that are then used as the building blocks of more complex structures.
 ///
 /// Primitives also include marker values BeginningOfStream and EndOfStream which denote a change of condition in the stream
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Deserialize, Serialize)]
@@ -90,6 +90,7 @@ impl Primitive {
     pub fn into_chrono_duration(self, span: Span) -> Result<chrono::Duration, ShellError> {
         match self {
             Primitive::Duration(duration) => {
+                // Divide into seconds because BigInt can be larger than i64
                 let (secs, nanos) = duration.div_rem(&BigInt::from(NANOS_PER_SEC));
                 let secs = match secs.to_i64() {
                     Some(secs) => secs,
@@ -101,15 +102,11 @@ impl Primitive {
                         ))
                     }
                 };
-                // This should never fail since nanos < 10^9.
-                let nanos = match nanos.to_i64() {
-                    Some(nanos) => nanos,
-                    None => return Err(ShellError::unexpected("Unexpected i64 overflow")),
-                };
-                let nanos = chrono::Duration::nanoseconds(nanos);
+                // This should never fail since NANOS_PER_SEC won't overflow
+                let nanos = nanos.to_i64().expect("Unexpected i64 overflow");
                 // This should also never fail since we are adding less than NANOS_PER_SEC.
                 chrono::Duration::seconds(secs)
-                    .checked_add(&nanos)
+                    .checked_add(&chrono::Duration::nanoseconds(nanos))
                     .ok_or_else(|| ShellError::unexpected("Unexpected duration overflow"))
             }
             other => Err(ShellError::type_error(
@@ -292,7 +289,7 @@ pub fn format_duration(duration: &BigInt) -> String {
     let big_int_1000 = BigInt::from(1000);
     let big_int_60 = BigInt::from(60);
     let big_int_24 = BigInt::from(24);
-    // We only want the biggest subvidision to have the negative sign.
+    // We only want the biggest subdivision to have the negative sign.
     let (sign, duration) = if duration.is_zero() || duration.is_positive() {
         (1, duration.clone())
     } else {
