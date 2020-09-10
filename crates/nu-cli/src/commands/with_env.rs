@@ -3,7 +3,6 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{hir::Block, Signature, SpannedTypeName, SyntaxShape, UntaggedValue, Value};
-use nu_source::Tagged;
 
 pub struct WithEnv;
 
