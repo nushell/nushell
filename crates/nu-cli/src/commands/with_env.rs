@@ -65,7 +65,7 @@ impl WholeStreamCommand for WithEnv {
                 description: "Set by row(e.g. `open x.json` or `from json`)",
                 example: r#"echo '{"X":"Y","W":"Z"}'|from json|with-env $it { echo $nu.env.X $nu.env.W }"#,
                 result: None,
-            }
+            },
         ]
     }
 }
