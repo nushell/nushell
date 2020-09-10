@@ -73,10 +73,8 @@ fn to_byte(value: &Value) -> Option<Value> {
 fn to_duration(value: &Value) -> Option<Value> {
     match &value.value {
         UntaggedValue::Primitive(Primitive::Int(duration)) => Some(
-            UntaggedValue::Primitive(Primitive::Duration(
-                BigInt::from((*duration).clone())
-            ))
-            .into_untagged_value(),
+            UntaggedValue::Primitive(Primitive::Duration(BigInt::from((*duration).clone())))
+                .into_untagged_value(),
         ),
         _ => None,
     }

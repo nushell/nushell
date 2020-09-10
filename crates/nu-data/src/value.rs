@@ -220,7 +220,7 @@ pub fn compute_values(
                         }
                         let y = y.as_bigint_and_exponent();
                         Ok(x / y.0)
-                    },
+                    }
                     _ => Err((left.type_name(), right.type_name())),
                 }?;
 
