@@ -73,7 +73,7 @@ fn to_byte(value: &Value) -> Option<Value> {
 fn to_duration(value: &Value) -> Option<Value> {
     match &value.value {
         UntaggedValue::Primitive(Primitive::Int(duration)) => Some(
-            UntaggedValue::Primitive(Primitive::Duration(BigInt::from((*duration).clone())))
+            UntaggedValue::Primitive(Primitive::Duration((*duration).clone()))
                 .into_untagged_value(),
         ),
         _ => None,
@@ -180,7 +180,7 @@ pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
             value: UntaggedValue::Primitive(Primitive::Duration(duration)),
             ..
         } => {
-            let left = UntaggedValue::from(Primitive::Duration(duration.into()));
+            let left = UntaggedValue::from(Primitive::Duration(duration));
             let result = nu_data::value::compute_values(Operator::Divide, &left, &total_rows);
 
             match result {
