@@ -70,6 +70,18 @@ fn to_byte(value: &Value) -> Option<Value> {
     }
 }
 
+fn to_duration(value: &Value) -> Option<Value> {
+    match &value.value {
+        UntaggedValue::Primitive(Primitive::Int(duration)) => Some(
+            UntaggedValue::Primitive(Primitive::Duration(
+                BigInt::from((*duration).clone())
+            ))
+            .into_untagged_value(),
+        ),
+        _ => None,
+    }
+}
+
 pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
     let sum = reducer_for(Reduce::Summation);
 
@@ -86,6 +98,13 @@ pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
         })?
         .is_filesize();
 
+    let is_duration = values
+        .get(0)
+        .ok_or_else(|| {
+            ShellError::unexpected("Cannot perform aggregate math operation on empty data")
+        })?
+        .is_duration();
+
     let total = if are_bytes {
         to_byte(&sum(
             UntaggedValue::int(0).into_untagged_value(),
@@ -97,6 +116,28 @@ pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
                         value: UntaggedValue::Primitive(Primitive::Filesize(num)),
                         ..
                     } => UntaggedValue::int(*num as usize).into_untagged_value(),
+                    other => other.clone(),
+                })
+                .collect::<Vec<_>>(),
+        )?)
+        .ok_or_else(|| {
+            ShellError::labeled_error(
+                "could not convert to big decimal",
+                "could not convert to big decimal",
+                &name.span,
+            )
+        })
+    } else if is_duration {
+        to_duration(&sum(
+            UntaggedValue::int(0).into_untagged_value(),
+            values
+                .to_vec()
+                .iter()
+                .map(|v| match v {
+                    Value {
+                        value: UntaggedValue::Primitive(Primitive::Duration(duration)),
+                        ..
+                    } => UntaggedValue::int((*duration).clone()).into_untagged_value(),
                     other => other.clone(),
                 })
                 .collect::<Vec<_>>(),
@@ -125,6 +166,28 @@ pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
                     let number = Number::Decimal(result);
                     let number = convert_number_to_u64(&number);
                     Ok(UntaggedValue::filesize(number).into_value(name))
+                }
+                Ok(_) => Err(ShellError::labeled_error(
+                    "could not calculate average of non-integer or unrelated types",
+                    "source",
+                    name,
+                )),
+                Err((left_type, right_type)) => Err(ShellError::coerce_error(
+                    left_type.spanned(name.span),
+                    right_type.spanned(name.span),
+                )),
+            }
+        }
+        Value {
+            value: UntaggedValue::Primitive(Primitive::Duration(duration)),
+            ..
+        } => {
+            let left = UntaggedValue::from(Primitive::Duration(duration.into()));
+            let result = nu_data::value::compute_values(Operator::Divide, &left, &total_rows);
+
+            match result {
+                Ok(UntaggedValue::Primitive(Primitive::Duration(result))) => {
+                    Ok(UntaggedValue::duration(result).into_value(name))
                 }
                 Ok(_) => Err(ShellError::labeled_error(
                     "could not calculate average of non-integer or unrelated types",

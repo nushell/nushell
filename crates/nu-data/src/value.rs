@@ -212,6 +212,20 @@ pub fn compute_values(
 
                 Ok(UntaggedValue::Primitive(Primitive::Duration(result)))
             }
+            (Primitive::Duration(x), Primitive::Decimal(y)) => {
+                let result = match operator {
+                    Operator::Divide => {
+                        if y.is_zero() {
+                            return Ok(zero_division_error());
+                        }
+                        let y = y.as_bigint_and_exponent();
+                        Ok(x / y.0)
+                    },
+                    _ => Err((left.type_name(), right.type_name())),
+                }?;
+
+                Ok(UntaggedValue::Primitive(Primitive::Duration(result)))
+            }
             _ => Err((left.type_name(), right.type_name())),
         },
         _ => Err((left.type_name(), right.type_name())),
