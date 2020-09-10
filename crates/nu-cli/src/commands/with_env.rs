@@ -9,7 +9,7 @@ pub struct WithEnv;
 
 #[derive(Deserialize, Debug)]
 struct WithEnvArgs {
-    variable: (Tagged<String>, Tagged<String>),
+    variable: Vec<Tagged<String>>,
     block: Block,
 }
 
@@ -46,11 +46,18 @@ impl WholeStreamCommand for WithEnv {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Set the MYENV environment variable",
-            example: r#"with-env [MYENV "my env value"] { echo $nu.env.MYENV }"#,
-            result: Some(vec![Value::from("my env value")]),
-        }]
+        vec![
+            Example {
+                description: "Set the MYENV environment variable",
+                example: r#"with-env [MYENV "my env value"] { echo $nu.env.MYENV }"#,
+                result: Some(vec![Value::from("my env value")]),
+            },
+            Example {
+                description: "Set multiple environment variables",
+                example: r#"with-env [X Y W Z] { echo $nu.env.X $nu.env.W }"#,
+                result: Some(vec![Value::from("Y"), Value::from("Z")]),
+            },
+        ]
     }
 }
 
@@ -64,7 +71,11 @@ async fn with_env(
     let mut scope = raw_args.call_info.scope.clone();
     let (WithEnvArgs { variable, block }, input) = raw_args.process(&registry).await?;
 
-    scope.env.insert(variable.0.item, variable.1.item);
+    for v in variable.chunks(2) {
+        if v.len() == 2 {
+            scope.env.insert(v[0].item.clone(), v[1].item.clone());
+        }
+    }
 
     let result = run_block(
         &block,
