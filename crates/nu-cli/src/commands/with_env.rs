@@ -46,16 +46,18 @@ impl WholeStreamCommand for WithEnv {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Set the MYENV environment variable",
-            example: r#"with-env [MYENV "my env value"] { echo $nu.env.MYENV }"#,
-            result: Some(vec![Value::from("my env value")]),
-        },
-        Example {
-            description: "Set multiple environment variables",
-            example: r#"with-env [X Y W Z] { echo $nu.env.X $nu.env.W }"#,
-            result: Some(vec![Value::from("Y"), Value::from("Z")]),
-        }]
+        vec![
+            Example {
+                description: "Set the MYENV environment variable",
+                example: r#"with-env [MYENV "my env value"] { echo $nu.env.MYENV }"#,
+                result: Some(vec![Value::from("my env value")]),
+            },
+            Example {
+                description: "Set multiple environment variables",
+                example: r#"with-env [X Y W Z] { echo $nu.env.X $nu.env.W }"#,
+                result: Some(vec![Value::from("Y"), Value::from("Z")]),
+            },
+        ]
     }
 }
 
