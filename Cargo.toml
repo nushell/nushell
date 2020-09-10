@@ -78,6 +78,7 @@ default = [
   "match",
   "post",
   "fetch",
+  "rustyline-support",
 ]
 extra = ["default", "binaryview", "tree", "clipboard-cli", "trash-support", "start", "bson", "sqlite", "s3"]
 stable = ["default"]
@@ -109,6 +110,7 @@ term-support = ["nu-cli/term"]
 trash-support = ["nu-cli/trash-support"]
 uuid-support = ["nu-cli/uuid_crate"]
 which-support = ["nu-cli/ichwh", "nu-cli/which"]
+rustyline-support = ["nu-cli/rustyline"]
 
 # Core plugins that ship with `cargo install nu` by default
 # Currently, Cargo limits us to installing only one binary
