@@ -2,14 +2,13 @@ use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, Signature, SyntaxShape, Value};
-use nu_source::Tagged;
+use nu_protocol::{hir::Block, Signature, SpannedTypeName, SyntaxShape, UntaggedValue, Value};
 
 pub struct WithEnv;
 
 #[derive(Deserialize, Debug)]
 struct WithEnvArgs {
-    variable: Vec<Tagged<String>>,
+    variable: Value,
     block: Block,
 }
 
@@ -53,9 +52,19 @@ impl WholeStreamCommand for WithEnv {
                 result: Some(vec![Value::from("my env value")]),
             },
             Example {
-                description: "Set multiple environment variables",
+                description: "Set by primitive value list",
                 example: r#"with-env [X Y W Z] { echo $nu.env.X $nu.env.W }"#,
                 result: Some(vec![Value::from("Y"), Value::from("Z")]),
+            },
+            Example {
+                description: "Set by single row table",
+                example: r#"with-env [[X W]; [Y Z]] { echo $nu.env.X $nu.env.W }"#,
+                result: Some(vec![Value::from("Y"), Value::from("Z")]),
+            },
+            Example {
+                description: "Set by row(e.g. `open x.json` or `from json`)",
+                example: r#"echo '{"X":"Y","W":"Z"}'|from json|with-env $it { echo $nu.env.X $nu.env.W }"#,
+                result: None,
             },
         ]
     }
@@ -71,11 +80,37 @@ async fn with_env(
     let mut scope = raw_args.call_info.scope.clone();
     let (WithEnvArgs { variable, block }, input) = raw_args.process(&registry).await?;
 
-    for v in variable.chunks(2) {
-        if v.len() == 2 {
-            scope.env.insert(v[0].item.clone(), v[1].item.clone());
+    match &variable.value {
+        UntaggedValue::Table(table) => {
+            if table.len() == 1 {
+                // single row([[X W]; [Y Z]])
+                for (k, v) in table[0].row_entries() {
+                    scope.env.insert(k.clone(), v.convert_to_string());
+                }
+            } else {
+                // primitive values([X Y W Z])
+                for row in table.chunks(2) {
+                    if row.len() == 2 && row[0].is_primitive() && row[1].is_primitive() {
+                        scope
+                            .env
+                            .insert(row[0].convert_to_string(), row[1].convert_to_string());
+                    }
+                }
+            }
         }
-    }
+        // when get object by `open x.json` or `from json`
+        UntaggedValue::Row(row) => {
+            for (k, v) in &row.entries {
+                scope.env.insert(k.clone(), v.convert_to_string());
+            }
+        }
+        _ => {
+            return Err(ShellError::type_error(
+                "string list or single row",
+                variable.spanned_type_name(),
+            ));
+        }
+    };
 
     let result = run_block(
         &block,
