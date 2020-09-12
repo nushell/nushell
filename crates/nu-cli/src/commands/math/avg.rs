@@ -138,6 +138,28 @@ pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
             }
         }
         Value {
+            value: UntaggedValue::Primitive(Primitive::Duration(duration)),
+            ..
+        } => {
+            let left = UntaggedValue::from(Primitive::Duration(duration));
+            let result = nu_data::value::compute_values(Operator::Divide, &left, &total_rows);
+
+            match result {
+                Ok(UntaggedValue::Primitive(Primitive::Duration(result))) => {
+                    Ok(UntaggedValue::duration(result).into_value(name))
+                }
+                Ok(_) => Err(ShellError::labeled_error(
+                    "could not calculate average of non-integer or unrelated types",
+                    "source",
+                    name,
+                )),
+                Err((left_type, right_type)) => Err(ShellError::coerce_error(
+                    left_type.spanned(name.span),
+                    right_type.spanned(name.span),
+                )),
+            }
+        }
+        Value {
             value: UntaggedValue::Primitive(other),
             ..
         } => {
