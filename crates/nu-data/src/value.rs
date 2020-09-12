@@ -212,6 +212,15 @@ pub fn compute_values(
 
                 Ok(UntaggedValue::Primitive(Primitive::Duration(result)))
             }
+            (Primitive::Int(x), Primitive::Duration(y)) => {
+                let result = match operator {
+                    Operator::Plus => Ok(x + y),
+                    Operator::Minus => Ok(x - y),
+                    _ => Err((left.type_name(), right.type_name())),
+                }?;
+
+                Ok(UntaggedValue::Primitive(Primitive::Duration(result)))
+            }
             (Primitive::Duration(x), Primitive::Decimal(y)) => {
                 let result = match operator {
                     Operator::Divide => {

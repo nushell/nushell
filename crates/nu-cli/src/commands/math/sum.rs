@@ -74,16 +74,6 @@ fn to_byte(value: &Value) -> Option<Value> {
     }
 }
 
-fn to_duration(value: &Value) -> Option<Value> {
-    match &value.value {
-        UntaggedValue::Primitive(Primitive::Int(duration)) => Some(
-            UntaggedValue::Primitive(Primitive::Duration((*duration).clone()))
-                .into_untagged_value(),
-        ),
-        _ => None,
-    }
-}
-
 pub fn summation(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
     let sum = reducer_for(Reduce::Summation);
 
@@ -113,27 +103,10 @@ pub fn summation(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
                 &name.span,
             )
         }),
-        v if v.is_duration() => to_duration(&sum(
+        v if v.is_duration() => sum(
             UntaggedValue::int(0).into_untagged_value(),
-            values
-                .to_vec()
-                .iter()
-                .map(|v| match v {
-                    Value {
-                        value: UntaggedValue::Primitive(Primitive::Duration(duration)),
-                        ..
-                    } => UntaggedValue::int((*duration).clone()).into_untagged_value(),
-                    other => other.clone(),
-                })
-                .collect::<Vec<_>>(),
-        )?)
-        .ok_or_else(|| {
-            ShellError::labeled_error(
-                "could not convert to big decimal",
-                "could not convert to big decimal",
-                &name.span,
-            )
-        }),
+            values.to_vec(),
+        ),
         // v is nothing primitive
         v if v.is_none() => sum(
             UntaggedValue::int(0).into_untagged_value(),
