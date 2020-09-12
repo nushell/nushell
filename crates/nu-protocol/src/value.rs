@@ -385,12 +385,10 @@ impl Value {
                 value: UntaggedValue::Primitive(p),
                 ..
             } => p.is_empty(),
-            t
-            @
             Value {
-                value: UntaggedValue::Table(_),
+                value: UntaggedValue::Table(rows),
                 ..
-            } => t.table_entries().all(|row| row.is_empty()),
+            } => rows.is_empty(),
             r
             @
             Value {
