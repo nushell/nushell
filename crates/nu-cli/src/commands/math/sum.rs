@@ -103,10 +103,7 @@ pub fn summation(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
                 &name.span,
             )
         }),
-        v if v.is_duration() => sum(
-            UntaggedValue::int(0).into_untagged_value(),
-            values.to_vec(),
-        ),
+        v if v.is_duration() => sum(UntaggedValue::int(0).into_untagged_value(), values.to_vec()),
         // v is nothing primitive
         v if v.is_none() => sum(
             UntaggedValue::int(0).into_untagged_value(),
