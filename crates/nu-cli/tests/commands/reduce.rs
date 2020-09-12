@@ -63,6 +63,26 @@ fn reduce_numbered_example() {
 }
 
 #[test]
+fn folding_with_tables() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        echo [10 20 30 40]
+        | reduce -f [] {
+            with-env [value $it] {
+              echo $acc | append $(= 10 * $(= $nu.env.value | str to-int))
+            }
+          }
+        | math sum
+        | echo $it
+        "#
+        )
+    );
+
+    assert_eq!(actual.out, "1000");
+}
+
+#[test]
 fn error_reduce_fold_type_mismatch() {
     let actual = nu!(
         cwd: ".", pipeline(
