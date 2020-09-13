@@ -80,3 +80,28 @@ where
 
     Ok(UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Local;
+
+    #[test]
+    fn invalid_format_returns_err() {
+        let result = date_to_value(Local::now(), Tag::default(), "%q".to_string());
+
+        assert_eq!(
+            result,
+            Err(ShellError::untagged_runtime_error(
+                "an error occurred when formatting an argument"
+            ),)
+        );
+    }
+
+    #[test]
+    fn correct_format_returns_formatted_date() {
+        let result = date_to_value(Local::now(), Tag::default(), "%y".to_string());
+
+        assert_eq!(true, result.is_ok());
+    }
+}
