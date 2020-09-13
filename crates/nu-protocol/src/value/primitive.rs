@@ -254,9 +254,9 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
             "{}..{}{}",
             format_primitive(&range.from.0.item, None),
             if range.to.1 == RangeInclusion::Exclusive {
-                ""
+                "<"
             } else {
-                "="
+                ""
             },
             format_primitive(&range.to.0.item, None)
         ),

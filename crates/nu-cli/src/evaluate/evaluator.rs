@@ -83,8 +83,8 @@ pub(crate) async fn evaluate_baseline_expr(
             let right = (
                 right.as_primitive()?.spanned(right_span),
                 match &range.operator.item {
-                    RangeOperator::DotDot => RangeInclusion::Exclusive,
-                    RangeOperator::DotDotEquals => RangeInclusion::Inclusive,
+                    RangeOperator::Inclusive => RangeInclusion::Inclusive,
+                    RangeOperator::RightExclusive => RangeInclusion::Exclusive,
                 },
             );
 

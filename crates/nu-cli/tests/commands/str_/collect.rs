@@ -5,7 +5,7 @@ fn test_1() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo 1..=5 | str from | str collect 
+        echo 1..5 | str from | str collect 
         "#
         )
     );
@@ -44,7 +44,7 @@ fn sum_one_to_four() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo 1..=4 | str from | str collect "+" | math eval
+        echo 1..4 | str from | str collect "+" | math eval
         "#
         )
     );

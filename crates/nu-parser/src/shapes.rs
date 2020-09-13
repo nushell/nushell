@@ -70,8 +70,8 @@ pub fn expression_to_flat_shape(e: &SpannedExpression) -> Vec<Spanned<FlatShape>
             }
             output.push(
                 match &range.operator.item {
-                    RangeOperator::DotDot => FlatShape::DotDot,
-                    RangeOperator::DotDotEquals => FlatShape::DotDotEquals,
+                    RangeOperator::Inclusive => FlatShape::DotDot,
+                    RangeOperator::RightExclusive => FlatShape::DotDotLeftAngleBracket,
                 }
                 .spanned(&range.operator.span),
             );

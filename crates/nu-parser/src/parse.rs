@@ -242,10 +242,10 @@ fn parse_range(
 ) -> (SpannedExpression, Option<ParseError>) {
     let lite_arg_span_start = lite_arg.span.start();
     let lite_arg_len = lite_arg.item.len();
-    let (dotdot_pos, operator_str, operator) = if let Some(pos) = lite_arg.item.find("..=") {
-        (pos, "..=", RangeOperator::DotDotEquals)
+    let (dotdot_pos, operator_str, operator) = if let Some(pos) = lite_arg.item.find("..<") {
+        (pos, "..<", RangeOperator::RightExclusive)
     } else if let Some(pos) = lite_arg.item.find("..") {
-        (pos, "..", RangeOperator::DotDot)
+        (pos, "..", RangeOperator::Inclusive)
     } else {
         return (
             garbage(lite_arg.span),

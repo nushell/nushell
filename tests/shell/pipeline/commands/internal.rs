@@ -411,7 +411,7 @@ fn echoing_ranges() {
     let actual = nu!(
         cwd: ".",
         r#"
-            echo 1..=3 | math sum
+            echo 1..3 | math sum
         "#
     );
 
@@ -423,7 +423,7 @@ fn echoing_exclusive_ranges() {
     let actual = nu!(
         cwd: ".",
         r#"
-            echo 1..4 | math sum
+            echo 1..<4 | math sum
         "#
     );
 
@@ -471,7 +471,7 @@ fn range_with_left_var() {
     let actual = nu!(
         cwd: ".",
         r#"
-        echo [[size]; [3]] | echo $it.size..=10 | math sum
+        echo [[size]; [3]] | echo $it.size..10 | math sum
         "#
     );
 
@@ -483,7 +483,7 @@ fn range_with_right_var() {
     let actual = nu!(
         cwd: ".",
         r#"
-        echo [[size]; [30]] | echo 4..=$it.size | math sum
+        echo [[size]; [30]] | echo 4..$it.size | math sum
         "#
     );
 
@@ -495,7 +495,7 @@ fn range_with_open_left() {
     let actual = nu!(
         cwd: ".",
         r#"
-        echo ..=30 | math sum
+        echo ..30 | math sum
         "#
     );
 
@@ -507,7 +507,7 @@ fn exclusive_range_with_open_left() {
     let actual = nu!(
         cwd: ".",
         r#"
-        echo ..31 | math sum
+        echo ..<31 | math sum
         "#
     );
 
@@ -519,7 +519,7 @@ fn range_with_open_right() {
     let actual = nu!(
         cwd: ".",
         r#"
-        echo 5..= | first 10 | math sum
+        echo 5.. | first 10 | math sum
         "#
     );
 
@@ -531,7 +531,7 @@ fn exclusive_range_with_open_right() {
     let actual = nu!(
         cwd: ".",
         r#"
-        echo 5.. | first 10 | math sum
+        echo 5..< | first 10 | math sum
         "#
     );
 
@@ -543,7 +543,7 @@ fn range_with_mixed_types() {
     let actual = nu!(
         cwd: ".",
         r#"
-        echo 1..=10.5 | math sum
+        echo 1..10.5 | math sum
         "#
     );
 
@@ -555,7 +555,7 @@ fn exclusive_range_with_mixed_types() {
     let actual = nu!(
         cwd: ".",
         r#"
-        echo 1..10.5 | math sum
+        echo 1..<10.5 | math sum
         "#
     );
 

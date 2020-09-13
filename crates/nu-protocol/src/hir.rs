@@ -934,8 +934,8 @@ impl PrettyDebugWithSource for Range {
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
 pub enum RangeOperator {
-    DotDot,
-    DotDotEquals,
+    Inclusive,
+    RightExclusive,
 }
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
@@ -1297,7 +1297,7 @@ pub enum FlatShape {
     Operator,
     Dot,
     DotDot,
-    DotDotEquals,
+    DotDotLeftAngleBracket,
     InternalCommand,
     ExternalCommand,
     ExternalWord,
