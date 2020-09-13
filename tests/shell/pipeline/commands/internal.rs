@@ -419,6 +419,18 @@ fn echoing_ranges() {
 }
 
 #[test]
+fn echoing_exclusive_ranges() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            echo 1..<4 | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "6");
+}
+
+#[test]
 fn table_literals1() {
     let actual = nu!(
         cwd: ".",
@@ -491,6 +503,18 @@ fn range_with_open_left() {
 }
 
 #[test]
+fn exclusive_range_with_open_left() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo ..<31 | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "465");
+}
+
+#[test]
 fn range_with_open_right() {
     let actual = nu!(
         cwd: ".",
@@ -503,11 +527,35 @@ fn range_with_open_right() {
 }
 
 #[test]
+fn exclusive_range_with_open_right() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo 5..< | first 10 | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "95");
+}
+
+#[test]
 fn range_with_mixed_types() {
     let actual = nu!(
         cwd: ".",
         r#"
         echo 1..10.5 | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "55");
+}
+
+#[test]
+fn exclusive_range_with_mixed_types() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo 1..<10.5 | math sum
         "#
     );
 
