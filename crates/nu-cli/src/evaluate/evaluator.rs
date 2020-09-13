@@ -5,7 +5,7 @@ use crate::prelude::*;
 use async_recursion::async_recursion;
 use log::trace;
 use nu_errors::{ArgumentError, ShellError};
-use nu_protocol::hir::{self, Expression, ExternalRedirection, SpannedExpression};
+use nu_protocol::hir::{self, Expression, ExternalRedirection, RangeOperator, SpannedExpression};
 use nu_protocol::{
     ColumnPath, Primitive, RangeInclusion, UnspannedPathMember, UntaggedValue, Value,
 };
@@ -82,7 +82,10 @@ pub(crate) async fn evaluate_baseline_expr(
             );
             let right = (
                 right.as_primitive()?.spanned(right_span),
-                RangeInclusion::Inclusive,
+                match &range.operator.item {
+                    RangeOperator::Inclusive => RangeInclusion::Inclusive,
+                    RangeOperator::RightExclusive => RangeInclusion::Exclusive,
+                },
             );
 
             Ok(UntaggedValue::range(left, right).into_value(tag))

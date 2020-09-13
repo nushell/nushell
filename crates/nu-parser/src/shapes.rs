@@ -68,7 +68,13 @@ pub fn expression_to_flat_shape(e: &SpannedExpression) -> Vec<Spanned<FlatShape>
             if let Some(left) = &range.left {
                 output.append(&mut expression_to_flat_shape(left));
             }
-            output.push(FlatShape::DotDot.spanned(range.dotdot));
+            output.push(
+                match &range.operator.item {
+                    RangeOperator::Inclusive => FlatShape::DotDot,
+                    RangeOperator::RightExclusive => FlatShape::DotDotLeftAngleBracket,
+                }
+                .spanned(&range.operator.span),
+            );
             if let Some(right) = &range.right {
                 output.append(&mut expression_to_flat_shape(right));
             }
