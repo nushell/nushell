@@ -136,6 +136,13 @@ impl Primitive {
     }
 }
 
+impl From<bool> for Primitive {
+    /// Helper to convert from boolean to a primitive
+    fn from(b: bool) -> Primitive {
+        Primitive::Boolean(b)
+    }
+}
+
 impl From<&str> for Primitive {
     /// Helper to convert from string slices to a primitive
     fn from(s: &str) -> Primitive {
