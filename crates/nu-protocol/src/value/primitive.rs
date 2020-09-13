@@ -1,6 +1,6 @@
 use crate::type_name::ShellTypeName;
 use crate::value::column_path::ColumnPath;
-use crate::value::range::Range;
+use crate::value::range::{Range, RangeInclusion};
 use crate::value::{serde_bigdecimal, serde_bigint};
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
@@ -251,8 +251,13 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
         Primitive::Int(i) => i.to_string(),
         Primitive::Decimal(decimal) => format!("{:.4}", decimal),
         Primitive::Range(range) => format!(
-            "{}..{}",
+            "{}..{}{}",
             format_primitive(&range.from.0.item, None),
+            if &range.to.1 == &RangeInclusion::Exclusive {
+                ""
+            } else {
+                "="
+            },
             format_primitive(&range.to.0.item, None)
         ),
         Primitive::Pattern(s) => s.to_string(),

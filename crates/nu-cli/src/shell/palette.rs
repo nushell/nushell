@@ -26,6 +26,7 @@ impl Palette for DefaultPalette {
             }
             FlatShape::Type => single_style_span(Color::Blue.bold(), shape.span),
             FlatShape::Operator => single_style_span(Color::Yellow.normal(), shape.span),
+            FlatShape::DotDotEquals => single_style_span(Color::Yellow.bold(), shape.span),
             FlatShape::DotDot => single_style_span(Color::Yellow.bold(), shape.span),
             FlatShape::Dot => single_style_span(Style::new().fg(Color::White), shape.span),
             FlatShape::InternalCommand => single_style_span(Color::Cyan.bold(), shape.span),
@@ -91,6 +92,7 @@ impl Palette for ThemedPalette {
             FlatShape::Identifier => single_style_span(self.theme.identifier.normal(), shape.span),
             FlatShape::Type => single_style_span(self.theme.r#type.bold(), shape.span),
             FlatShape::Operator => single_style_span(self.theme.operator.normal(), shape.span),
+            FlatShape::DotDotEquals => single_style_span(self.theme.dot_dot.bold(), shape.span),
             FlatShape::DotDot => single_style_span(self.theme.dot_dot.bold(), shape.span),
             FlatShape::Dot => single_style_span(Style::new().fg(*self.theme.dot), shape.span),
             FlatShape::InternalCommand => {

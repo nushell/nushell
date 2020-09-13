@@ -906,7 +906,7 @@ impl ShellTypeName for Synthetic {
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
 pub struct Range {
     pub left: Option<SpannedExpression>,
-    pub dotdot: Span,
+    pub operator: Spanned<RangeOperator>,
     pub right: Option<SpannedExpression>,
 }
 
@@ -919,7 +919,7 @@ impl PrettyDebugWithSource for Range {
             } else {
                 DebugDocBuilder::blank()
             }) + b::space()
-                + b::keyword(self.dotdot.slice(source))
+                + b::keyword(self.operator.span().slice(source))
                 + b::space()
                 + (if let Some(right) = &self.right {
                     right.pretty_debug(source)
@@ -930,6 +930,12 @@ impl PrettyDebugWithSource for Range {
         )
         .group()
     }
+}
+
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
+pub enum RangeOperator {
+    DotDot,
+    DotDotEquals,
 }
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
@@ -1107,12 +1113,12 @@ impl Expression {
 
     pub fn range(
         left: Option<SpannedExpression>,
-        dotdot: Span,
+        operator: Spanned<RangeOperator>,
         right: Option<SpannedExpression>,
     ) -> Expression {
         Expression::Range(Box::new(Range {
             left,
-            dotdot,
+            operator,
             right,
         }))
     }
@@ -1291,6 +1297,7 @@ pub enum FlatShape {
     Operator,
     Dot,
     DotDot,
+    DotDotEquals,
     InternalCommand,
     ExternalCommand,
     ExternalWord,
