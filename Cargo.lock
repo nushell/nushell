@@ -1439,16 +1439,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fs2"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9564fc758e15025b46aa6643b1b77d047d1a56a1aea6e01002ac0c7026876213"
-dependencies = [
- "libc",
- "winapi 0.3.9",
-]
-
-[[package]]
 name = "fs_extra"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4525,12 +4515,12 @@ dependencies = [
 
 [[package]]
 name = "rustyline"
-version = "6.2.0"
-source = "git+https://github.com/kkawakam/rustyline.git#31ce98cd05bd5f345fc50de1ad376993fedcd0a3"
+version = "6.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f0d5e7b0219a3eadd5439498525d4765c59b7c993ef0c12244865cd2d988413"
 dependencies = [
  "cfg-if",
  "dirs-next",
- "fs2",
  "libc",
  "log 0.4.11",
  "memchr",
