@@ -93,7 +93,7 @@ pub fn build_plugin_command(
     result
 }
 
-pub fn scan() -> Result<Vec<crate::commands::Command>, ShellError> {
+pub fn scan(paths: Vec<std::path::PathBuf>) -> Result<Vec<crate::commands::Command>, ShellError> {
     let mut plugins = vec![];
 
     let opts = glob::MatchOptions {
@@ -102,7 +102,7 @@ pub fn scan() -> Result<Vec<crate::commands::Command>, ShellError> {
         require_literal_leading_dot: false,
     };
 
-    for path in crate::cli::search_paths() {
+    for path in paths {
         let mut pattern = path.to_path_buf();
 
         pattern.push(std::path::Path::new("nu_plugin_[a-z0-9][a-z0-9]*"));
