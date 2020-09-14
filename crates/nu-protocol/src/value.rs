@@ -207,8 +207,8 @@ impl UntaggedValue {
     }
 
     /// Helper for creating boolean values
-    pub fn boolean(s: impl Into<bool>) -> UntaggedValue {
-        UntaggedValue::Primitive(Primitive::Boolean(s.into()))
+    pub fn boolean(b: impl Into<bool>) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Boolean(b.into()))
     }
 
     /// Helper for creating date duration values
