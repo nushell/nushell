@@ -89,7 +89,9 @@ impl SleepFuture {
         let thread_shared_state = shared_state.clone();
         thread::spawn(move || {
             thread::sleep(duration);
-            let mut shared_state = thread_shared_state.lock().unwrap();
+            let mut shared_state = thread_shared_state
+                .lock()
+                .expect("A mutex in the `sleep` internal command has been poisoned.");
             // Signal that the timer has completed and wake up the last
             // task on which the future was polled, if one exists.
             if !shared_state.done {
@@ -105,7 +107,10 @@ impl SleepFuture {
         thread::spawn(move || {
             loop {
                 {
-                    let mut shared_state = thread_shared_state.lock().unwrap();
+                    let mut shared_state = thread_shared_state
+                        .lock()
+                        .expect("A mutex in the `sleep` internal command has been poisoned.");
+
                     // exit if the main thread is done
                     if shared_state.done {
                         return;
@@ -138,7 +143,11 @@ impl Future for SleepFuture {
 
     fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
         // Look at the shared state to see if the timer has already completed.
-        let mut shared_state = self.shared_state.lock().unwrap();
+        let mut shared_state = self
+            .shared_state
+            .lock()
+            .expect("A mutex in the `sleep` internal command has been poisoned.");
+
         if shared_state.done {
             Poll::Ready(Ok(OutputStream::empty()))
         } else {
