@@ -4196,9 +4196,9 @@ dependencies = [
 
 [[package]]
 name = "rawkey"
-version = "0.1.2"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33ec17a493dcb820725c002bc253f6f3ba4e4dc635e72c238540691b05e43897"
+checksum = "7ad6efac35ef044d565b23f0d111d76aa21ab2e86934b1225f7071d42e58ebad"
 dependencies = [
  "readkey",
  "user32-sys",
