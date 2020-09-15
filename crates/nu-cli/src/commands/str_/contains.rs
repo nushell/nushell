@@ -130,7 +130,7 @@ fn action(
 mod tests {
     use super::{action, SubCommand};
     use nu_plugin::test_helpers::value::string;
-    use nu_protocol::{Primitive, UntaggedValue};
+    use nu_protocol::UntaggedValue;
     use nu_source::Tag;
 
     #[test]
@@ -145,8 +145,7 @@ mod tests {
         let word = string("Cargo.tomL");
         let pattern = ".tomL";
         let insensitive = false;
-        let expected =
-            UntaggedValue::Primitive(Primitive::Boolean(true.into())).into_untagged_value();
+        let expected = UntaggedValue::boolean(true).into_untagged_value();
 
         let actual = action(&word, &pattern, insensitive, Tag::unknown()).unwrap();
         assert_eq!(actual, expected);
@@ -157,8 +156,7 @@ mod tests {
         let word = string("Cargo.tomL");
         let pattern = "Lomt.";
         let insensitive = false;
-        let expected =
-            UntaggedValue::Primitive(Primitive::Boolean(false.into())).into_untagged_value();
+        let expected = UntaggedValue::boolean(false).into_untagged_value();
 
         let actual = action(&word, &pattern, insensitive, Tag::unknown()).unwrap();
         assert_eq!(actual, expected);
@@ -169,8 +167,7 @@ mod tests {
         let word = string("Cargo.ToMl");
         let pattern = ".TOML";
         let insensitive = true;
-        let expected =
-            UntaggedValue::Primitive(Primitive::Boolean(true.into())).into_untagged_value();
+        let expected = UntaggedValue::boolean(true).into_untagged_value();
 
         let actual = action(&word, &pattern, insensitive, Tag::unknown()).unwrap();
         assert_eq!(actual, expected);
@@ -181,8 +178,7 @@ mod tests {
         let word = string("Cargo.tOml");
         let pattern = "lomt.";
         let insensitive = true;
-        let expected =
-            UntaggedValue::Primitive(Primitive::Boolean(false.into())).into_untagged_value();
+        let expected = UntaggedValue::boolean(false).into_untagged_value();
 
         let actual = action(&word, &pattern, insensitive, Tag::unknown()).unwrap();
         assert_eq!(actual, expected);

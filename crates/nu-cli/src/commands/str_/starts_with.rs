@@ -104,7 +104,7 @@ fn action(input: &Value, pattern: &str, tag: impl Into<Tag>) -> Result<Value, Sh
 mod tests {
     use super::{action, SubCommand};
     use nu_plugin::test_helpers::value::string;
-    use nu_protocol::{Primitive, UntaggedValue};
+    use nu_protocol::UntaggedValue;
     use nu_source::Tag;
 
     #[test]
@@ -118,8 +118,7 @@ mod tests {
     fn str_starts_with_pattern() {
         let word = string("Cargo.toml");
         let pattern = "Car";
-        let expected =
-            UntaggedValue::Primitive(Primitive::Boolean(true.into())).into_untagged_value();
+        let expected = UntaggedValue::boolean(true).into_untagged_value();
 
         let actual = action(&word, &pattern, Tag::unknown()).unwrap();
         assert_eq!(actual, expected);
@@ -129,8 +128,7 @@ mod tests {
     fn str_does_not_start_with_pattern() {
         let word = string("Cargo.toml");
         let pattern = ".toml";
-        let expected =
-            UntaggedValue::Primitive(Primitive::Boolean(false.into())).into_untagged_value();
+        let expected = UntaggedValue::boolean(false).into_untagged_value();
 
         let actual = action(&word, &pattern, Tag::unknown()).unwrap();
         assert_eq!(actual, expected);

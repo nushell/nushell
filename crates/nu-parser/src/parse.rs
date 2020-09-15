@@ -5,7 +5,7 @@ use nu_errors::{ArgumentError, ParseError};
 use nu_protocol::hir::{
     self, Binary, Block, ClassifiedBlock, ClassifiedCommand, ClassifiedPipeline, Commands,
     Expression, ExternalRedirection, Flag, FlagKind, InternalCommand, Member, NamedArguments,
-    Operator, SpannedExpression, Unit,
+    Operator, RangeOperator, SpannedExpression, Unit,
 };
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPathMember};
 use nu_source::{Span, Spanned, SpannedItem};
@@ -242,8 +242,18 @@ fn parse_range(
 ) -> (SpannedExpression, Option<ParseError>) {
     let lite_arg_span_start = lite_arg.span.start();
     let lite_arg_len = lite_arg.item.len();
-    let dotdot_pos = lite_arg.item.find("..");
-    let numbers: Vec<_> = lite_arg.item.split("..").collect();
+    let (dotdot_pos, operator_str, operator) = if let Some(pos) = lite_arg.item.find("..<") {
+        (pos, "..<", RangeOperator::RightExclusive)
+    } else if let Some(pos) = lite_arg.item.find("..") {
+        (pos, "..", RangeOperator::Inclusive)
+    } else {
+        return (
+            garbage(lite_arg.span),
+            Some(ParseError::mismatch("range", lite_arg.clone())),
+        );
+    };
+
+    let numbers: Vec<_> = lite_arg.item.split(operator_str).collect();
 
     if numbers.len() != 2 {
         return (
@@ -252,19 +262,19 @@ fn parse_range(
         );
     }
 
-    let dotdot_pos = dotdot_pos.expect("Internal error: range .. can't be found but should be");
+    let right_number_offset = operator_str.len();
 
     let lhs = numbers[0].to_string().spanned(Span::new(
         lite_arg_span_start,
         lite_arg_span_start + dotdot_pos,
     ));
     let rhs = numbers[1].to_string().spanned(Span::new(
-        lite_arg_span_start + dotdot_pos + 2,
+        lite_arg_span_start + dotdot_pos + right_number_offset,
         lite_arg_span_start + lite_arg_len,
     ));
 
     let left_hand_open = dotdot_pos == 0;
-    let right_hand_open = dotdot_pos == lite_arg_len - 2;
+    let right_hand_open = dotdot_pos == lite_arg_len - right_number_offset;
 
     let left = if left_hand_open {
         None
@@ -292,10 +302,10 @@ fn parse_range(
         SpannedExpression::new(
             Expression::range(
                 left,
-                Span::new(
+                operator.spanned(Span::new(
                     lite_arg_span_start + dotdot_pos,
-                    lite_arg_span_start + dotdot_pos + 2,
-                ),
+                    lite_arg_span_start + dotdot_pos + right_number_offset,
+                )),
                 right,
             ),
             lite_arg.span,

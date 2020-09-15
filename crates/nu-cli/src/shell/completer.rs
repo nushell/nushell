@@ -55,12 +55,12 @@ impl NuCompleter {
                     match location.item {
                         LocationType::Command => {
                             let command_completer = crate::completion::command::Completer;
-                            command_completer.complete(context, partial, &completion_matcher)
+                            command_completer.complete(context, partial)
                         }
 
                         LocationType::Flag(cmd) => {
                             let flag_completer = crate::completion::flag::Completer;
-                            flag_completer.complete(context, cmd, partial, &completion_matcher)
+                            flag_completer.complete(context, cmd, partial)
                         }
 
                         LocationType::Argument(cmd, _arg_name) => {
@@ -96,9 +96,9 @@ impl NuCompleter {
                                 _ => completed_paths,
                             }
                             .into_iter()
-                            .map(|suggestion| Suggestion {
-                                replacement: requote(suggestion.replacement),
-                                display: suggestion.display,
+                            .map(|s| Suggestion {
+                                replacement: requote(s.suggestion.replacement),
+                                display: s.suggestion.display,
                             })
                             .collect()
                         }
@@ -113,11 +113,13 @@ impl NuCompleter {
     }
 }
 
-fn select_directory_suggestions(completed_paths: Vec<Suggestion>) -> Vec<Suggestion> {
+fn select_directory_suggestions(completed_paths: Vec<PathSuggestion>) -> Vec<PathSuggestion> {
     completed_paths
         .into_iter()
         .filter(|suggestion| {
-            metadata(&suggestion.replacement)
+            suggestion
+                .path
+                .metadata()
                 .map(|md| md.is_dir())
                 .unwrap_or(false)
         })

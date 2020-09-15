@@ -50,8 +50,15 @@ async fn is_empty(
     args: CommandArgs,
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
+    let name_tag = args.call_info.name_tag.clone();
     let registry = registry.clone();
     let (IsEmptyArgs { rest }, input) = args.process(&registry).await?;
+
+    if input.is_empty() {
+        return Ok(OutputStream::one(ReturnSuccess::value(
+            UntaggedValue::boolean(true).into_value(name_tag),
+        )));
+    }
 
     Ok(input
         .map(move |value| {
@@ -72,7 +79,6 @@ async fn is_empty(
                     (_, _) => IsEmptyFor::Value,
                 }
             } else {
-                // let no_args = vec![];
                 let mut arguments = rest.iter().rev();
                 let replacement_if_true = match arguments.next() {
                     Some(arg) => arg.clone(),

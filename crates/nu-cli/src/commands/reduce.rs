@@ -138,7 +138,19 @@ async fn reduce(
                 let row = each::make_indexed_item(input.0 + ioffset, input.1);
 
                 async {
-                    let f = acc?.into_vec().await[0].clone();
+                    let values = acc?.drain_vec().await;
+
+                    let f = if values.len() == 1 {
+                        let value = values
+                            .get(0)
+                            .ok_or_else(|| ShellError::unexpected("No value to update with"))?;
+                        value.clone()
+                    } else if values.is_empty() {
+                        UntaggedValue::nothing().into_untagged_value()
+                    } else {
+                        UntaggedValue::table(&values).into_untagged_value()
+                    };
+
                     scope.vars.insert(String::from("$acc"), f);
                     process_row(block, Arc::new(scope), context, row).await
                 }
@@ -154,9 +166,20 @@ async fn reduce(
                 let context = Arc::clone(&context);
 
                 async {
-                    scope
-                        .vars
-                        .insert(String::from("$acc"), acc?.into_vec().await[0].clone());
+                    let values = acc?.drain_vec().await;
+
+                    let f = if values.len() == 1 {
+                        let value = values
+                            .get(0)
+                            .ok_or_else(|| ShellError::unexpected("No value to update with"))?;
+                        value.clone()
+                    } else if values.is_empty() {
+                        UntaggedValue::nothing().into_untagged_value()
+                    } else {
+                        UntaggedValue::table(&values).into_untagged_value()
+                    };
+
+                    scope.vars.insert(String::from("$acc"), f);
                     process_row(block, Arc::new(scope), context, row).await
                 }
             })

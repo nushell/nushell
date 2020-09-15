@@ -83,6 +83,10 @@ impl UntaggedValue {
         matches!(self, UntaggedValue::Primitive(Primitive::Filesize(_)))
     }
 
+    pub fn is_duration(&self) -> bool {
+        matches!(self, UntaggedValue::Primitive(Primitive::Duration(_)))
+    }
+
     /// Returns true if this value represents a table
     pub fn is_table(&self) -> bool {
         matches!(self, UntaggedValue::Table(_))
@@ -203,8 +207,8 @@ impl UntaggedValue {
     }
 
     /// Helper for creating boolean values
-    pub fn boolean(s: impl Into<bool>) -> UntaggedValue {
-        UntaggedValue::Primitive(Primitive::Boolean(s.into()))
+    pub fn boolean(b: impl Into<bool>) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Boolean(b.into()))
     }
 
     /// Helper for creating date duration values
@@ -385,12 +389,10 @@ impl Value {
                 value: UntaggedValue::Primitive(p),
                 ..
             } => p.is_empty(),
-            t
-            @
             Value {
-                value: UntaggedValue::Table(_),
+                value: UntaggedValue::Table(rows),
                 ..
-            } => t.table_entries().all(|row| row.is_empty()),
+            } => rows.is_empty(),
             r
             @
             Value {

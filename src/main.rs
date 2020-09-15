@@ -18,6 +18,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .takes_value(true),
         )
         .arg(
+            Arg::with_name("skip-plugins")
+                .hidden(true)
+                .long("skip-plugins")
+                .multiple(false)
+                .takes_value(false),
+        )
+        .arg(
             Arg::with_name("testbin")
                 .hidden(true)
                 .long("testbin")
@@ -154,7 +161,12 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         None => {
             let mut syncer = EnvironmentSyncer::new();
-            let context = create_default_context(&mut syncer, true)?;
+            let mut context = create_default_context(&mut syncer, true)?;
+
+            if !matches.is_present("skip-plugins") {
+                let _ = nu_cli::register_plugins(&mut context);
+            }
+
             futures::executor::block_on(nu_cli::cli(syncer, context))?;
         }
     }

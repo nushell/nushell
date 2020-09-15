@@ -17,7 +17,7 @@ nu-protocol = {path = "../nu-protocol", version = "0.19.0"}
 nu-source = {path = "../nu-source", version = "0.19.0"}
 
 ansi_term = "0.12.1"
-bat = {version = "0.15.4", features = ["regex-fancy", "paging"]}
+bat = { version = "0.15.4", features = ["regex-fancy", "paging"] }
 term_size = "0.3.2"
 url = "2.1.1"
 

@@ -40,8 +40,7 @@ fn adds_value_provided_for_columns_that_are_empty() {
                 [
                     {"boost": 1, "check": []},
                     {"boost": 1, "check": ""},
-                    {"boost": 1, "check": {}},
-                    {"boost": null, "check": ["" {} [] ""]}
+                    {"boost": 1, "check": {}}
                 ]
 
             "#,
@@ -58,7 +57,7 @@ fn adds_value_provided_for_columns_that_are_empty() {
             "#
         ));
 
-        assert_eq!(actual.out, "8");
+        assert_eq!(actual.out, "6");
     })
 }
 
@@ -72,8 +71,7 @@ fn value_emptiness_check() {
                     "are_empty": [
                         {"check": []},
                         {"check": ""},
-                        {"check": {}},
-                        {"check": ["" {} [] ""]}
+                        {"check": {}}
                     ]
                 }
             "#,
@@ -91,6 +89,6 @@ fn value_emptiness_check() {
             "#
         ));
 
-        assert_eq!(actual.out, "4");
+        assert_eq!(actual.out, "3");
     })
 }

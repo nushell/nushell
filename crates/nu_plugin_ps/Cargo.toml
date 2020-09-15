@@ -17,7 +17,7 @@ nu-source = {path = "../nu-source", version = "0.19.0"}
 
 num-bigint = "0.2.6"
 
-futures = {version = "0.3", features = ["compat", "io-compat"]}
+futures = { version = "0.3.5", features = ["compat", "io-compat"] }
 futures-timer = "3.0.2"
 
 [dependencies.heim]

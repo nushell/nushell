@@ -15,10 +15,10 @@ nu-protocol = {path = "../nu-protocol", version = "0.19.0"}
 nu-source = {path = "../nu-source", version = "0.19.0"}
 nu-value-ext = {path = "../nu-value-ext", version = "0.19.0"}
 
-bigdecimal = {version = "0.1.2", features = ["serde"]}
-indexmap = {version = "1.4.0", features = ["serde-1"]}
-num-bigint = {version = "0.2.6", features = ["serde"]}
-serde = {version = "1.0.114", features = ["derive"]}
-serde_json = "1.0.55"
+bigdecimal = { version = "0.1.2", features = ["serde"] }
+indexmap = { version = "1.6.0", features = ["serde-1"] }
+num-bigint = { version = "0.2.6", features = ["serde"] }
+serde = { version = "1.0.115", features = ["derive"] }
+serde_json = "1.0.57"
 
 [build-dependencies]
