@@ -7,3 +7,18 @@ impl matchers::Matcher for Matcher {
         from.starts_with(partial)
     }
 }
+
+#[cfg(test)]
+#[test]
+fn completes_case_sensitive() {
+    let matcher: Box<dyn matchers::Matcher> = Box::new(Matcher);
+
+    //Should match
+    assert!(matcher.matches("shouldmatch", "shouldmatch"));
+    assert!(matcher.matches("shouldm", "shouldmatch"));
+    assert!(matcher.matches("--also-should-m", "--also-should-match"));
+    assert!(matcher.matches("-also-should-m", "-also-should-match"));
+
+    // Should not match
+    assert!(!matcher.matches("--Shouldnot", "--shouldnotmatch"));
+}
