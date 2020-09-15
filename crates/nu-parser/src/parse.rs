@@ -360,13 +360,13 @@ fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseErr
         (Unit::Nanosecond, vec!["ns"]),
         (Unit::Microsecond, vec!["us"]),
         (Unit::Millisecond, vec!["ms"]),
-        (Unit::Second, vec!["sec"]),
-        (Unit::Minute, vec!["min"]),
-        (Unit::Hour, vec!["hr"]),
-        (Unit::Day, vec!["day"]),
-        (Unit::Week, vec!["wk"]),
-        (Unit::Month, vec!["mon"]),
-        (Unit::Year, vec!["yr"]),
+        (Unit::Second, vec!["sec", "s"]),
+        (Unit::Minute, vec!["min", "m"]),
+        (Unit::Hour, vec!["hr", "h"]),
+        (Unit::Day, vec!["day", "d"]),
+        (Unit::Week, vec!["wk", "w"]),
+        (Unit::Month, vec!["mon", "mo"]),
+        (Unit::Year, vec!["yr", "y"]),
     ];
 
     for unit_group in unit_groups.iter() {
@@ -1767,7 +1767,7 @@ pub fn garbage(span: Span) -> SpannedExpression {
 }
 
 #[test]
-fn unit_parse_byte_units() -> Result<(), ParseError> {
+fn unit_parse_units() -> Result<(), ParseError> {
     struct TestCase {
         string: String,
         value: i64,
@@ -1844,6 +1844,91 @@ fn unit_parse_byte_units() -> Result<(), ParseError> {
             string: String::from("27pB"),
             value: 27,
             unit: Unit::Petabyte,
+        },
+        TestCase {
+            string: String::from("500ns"),
+            value: 500,
+            unit: Unit::Nanosecond,
+        },
+        TestCase {
+            string: String::from("500us"),
+            value: 500,
+            unit: Unit::Microsecond,
+        },
+        TestCase {
+            string: String::from("500ms"),
+            value: 500,
+            unit: Unit::Millisecond,
+        },
+        TestCase {
+            string: String::from("100s"),
+            value: 100,
+            unit: Unit::Second,
+        },
+        TestCase {
+            string: String::from("100sec"),
+            value: 100,
+            unit: Unit::Second,
+        },
+        TestCase {
+            string: String::from("5min"),
+            value: 5,
+            unit: Unit::Minute,
+        },
+        TestCase {
+            string: String::from("5m"),
+            value: 5,
+            unit: Unit::Minute,
+        },
+        TestCase {
+            string: String::from("3h"),
+            value: 3,
+            unit: Unit::Hour,
+        },
+        TestCase {
+            string: String::from("3hr"),
+            value: 3,
+            unit: Unit::Hour,
+        },
+        TestCase {
+            string: String::from("31d"),
+            value: 31,
+            unit: Unit::Day,
+        },
+        TestCase {
+            string: String::from("31day"),
+            value: 31,
+            unit: Unit::Day,
+        },
+        TestCase {
+            string: String::from("9mon"),
+            value: 9,
+            unit: Unit::Month,
+        },
+        TestCase {
+            string: String::from("9mo"),
+            value: 9,
+            unit: Unit::Month,
+        },
+        TestCase {
+            string: String::from("3w"),
+            value: 3,
+            unit: Unit::Week,
+        },
+        TestCase {
+            string: String::from("3wk"),
+            value: 3,
+            unit: Unit::Week,
+        },
+        TestCase {
+            string: String::from("2020y"),
+            value: 2020,
+            unit: Unit::Year,
+        },
+        TestCase {
+            string: String::from("2020yr"),
+            value: 2020,
+            unit: Unit::Year,
         },
     ];
 
