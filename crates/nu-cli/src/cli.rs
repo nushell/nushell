@@ -20,8 +20,8 @@ use std::iter::Iterator;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 
-fn register_plugins(context: &mut Context) -> Result<(), ShellError> {
-    if let Ok(plugins) = crate::plugin::scan() {
+pub fn register_plugins(context: &mut Context) -> Result<(), ShellError> {
+    if let Ok(plugins) = crate::plugin::scan(search_paths()) {
         context.add_commands(
             plugins
                 .into_iter()
@@ -78,6 +78,7 @@ pub fn create_default_context(
         use crate::commands::*;
 
         context.add_commands(vec![
+            whole_stream_command(NuPlugin),
             // System/file operations
             whole_stream_command(Exec),
             whole_stream_command(Pwd),
@@ -567,8 +568,6 @@ pub async fn cli(
 ) -> Result<(), Box<dyn Error>> {
     let configuration = nu_data::config::NuConfig::new();
     let history_path = crate::commands::history::history_path(&configuration);
-
-    let _ = register_plugins(&mut context);
 
     let (mut rl, config) = create_rustyline_configuration();
 

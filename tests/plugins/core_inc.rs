@@ -1,10 +1,10 @@
 use nu_test_support::fs::Stub::FileWithContent;
-use nu_test_support::nu;
+use nu_test_support::nu_with_plugins;
 use nu_test_support::playground::Playground;
 
 #[test]
 fn can_only_apply_one() {
-    let actual = nu!(
+    let actual = nu_with_plugins!(
         cwd: "tests/fixtures/formats",
         "open cargo_sample.toml | first 1 | inc package.version --major --minor"
     );
@@ -25,7 +25,7 @@ fn by_one_with_field_passed() {
                 "#,
         )]);
 
-        let actual = nu!(
+        let actual = nu_with_plugins!(
             cwd: dirs.test(),
             "open sample.toml | inc package.edition | get package.edition | echo $it"
         );
@@ -45,7 +45,7 @@ fn by_one_with_no_field_passed() {
                 "#,
         )]);
 
-        let actual = nu!(
+        let actual = nu_with_plugins!(
             cwd: dirs.test(),
             "open sample.toml | get package.contributors | inc | echo $it"
         );
@@ -65,7 +65,7 @@ fn semversion_major_inc() {
                 "#,
         )]);
 
-        let actual = nu!(
+        let actual = nu_with_plugins!(
             cwd: dirs.test(),
             "open sample.toml | inc package.version -M | get package.version | echo $it"
         );
@@ -85,7 +85,7 @@ fn semversion_minor_inc() {
                 "#,
         )]);
 
-        let actual = nu!(
+        let actual = nu_with_plugins!(
             cwd: dirs.test(),
             "open sample.toml | inc package.version --minor | get package.version | echo $it"
         );
@@ -105,7 +105,7 @@ fn semversion_patch_inc() {
                 "#,
         )]);
 
-        let actual = nu!(
+        let actual = nu_with_plugins!(
             cwd: dirs.test(),
             "open sample.toml | inc package.version --patch | get package.version | echo $it"
         );
@@ -125,7 +125,7 @@ fn semversion_without_passing_field() {
                 "#,
         )]);
 
-        let actual = nu!(
+        let actual = nu_with_plugins!(
             cwd: dirs.test(),
             "open sample.toml | get package.version | inc --patch | echo $it"
         );
