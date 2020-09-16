@@ -133,6 +133,12 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                         }
                     }
                     Value {
+                        value: UntaggedValue::Primitive(Primitive::Nothing),
+                        ..
+                    } => {
+                        // ignore Nothing
+                    }
+                    Value {
                         value: UntaggedValue::Primitive(Primitive::String(s)),
                         ..
                     } => {
