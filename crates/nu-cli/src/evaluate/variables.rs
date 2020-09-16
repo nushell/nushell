@@ -47,7 +47,8 @@ pub fn nu(env: &IndexMap<String, String>, tag: impl Into<Tag>) -> Result<Value, 
         UntaggedValue::path(keybinding_path).into_value(&tag),
     );
 
-    let history = crate::commands::history::history_path(&nu_data::config::NuConfig::new());
+    let config: Box<dyn nu_data::config::Conf> = Box::new(nu_data::config::NuConfig::new());
+    let history = crate::commands::history::history_path(&config);
     nu_dict.insert_value(
         "history-path",
         UntaggedValue::path(history).into_value(&tag),

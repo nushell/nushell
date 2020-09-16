@@ -1,7 +1,7 @@
 use clap::{App, Arg};
 use log::LevelFilter;
+use nu_cli::create_default_context;
 use nu_cli::utils::test_bins as binaries;
-use nu_cli::{create_default_context, EnvironmentSyncer};
 use std::error::Error;
 use std::fs::File;
 use std::io::{prelude::*, BufReader};
@@ -160,14 +160,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
 
         None => {
-            let mut syncer = EnvironmentSyncer::new();
-            let mut context = create_default_context(&mut syncer, true)?;
+            let mut context = create_default_context(true)?;
 
             if !matches.is_present("skip-plugins") {
                 let _ = nu_cli::register_plugins(&mut context);
             }
 
-            futures::executor::block_on(nu_cli::cli(syncer, context))?;
+            futures::executor::block_on(nu_cli::cli(context))?;
         }
     }
 

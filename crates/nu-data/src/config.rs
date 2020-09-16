@@ -204,6 +204,33 @@ pub fn user_data() -> Result<PathBuf, ShellError> {
     Ok(std::path::PathBuf::from("/"))
 }
 
+#[derive(Debug, Clone)]
+pub enum Status {
+    LastModified(std::time::SystemTime),
+    Unavailable,
+}
+
+impl Default for Status {
+    fn default() -> Self {
+        Status::Unavailable
+    }
+}
+
+pub fn last_modified(at: &Option<PathBuf>) -> Result<Status, Box<dyn std::error::Error>> {
+    let filename = default_path()?;
+
+    let filename = match at {
+        None => filename,
+        Some(ref file) => file.clone(),
+    };
+
+    if let Ok(time) = filename.metadata()?.modified() {
+        return Ok(Status::LastModified(time));
+    }
+
+    Ok(Status::Unavailable)
+}
+
 pub fn read(
     tag: impl Into<Tag>,
     at: &Option<PathBuf>,
