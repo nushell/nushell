@@ -33,7 +33,7 @@ impl NuCompleter {
 
         let matcher = nu_data::config::config(Tag::unknown())
             .ok()
-            .and_then(|cfg| cfg.get("completion.style").cloned())
+            .and_then(|cfg| cfg.get("completion_style").cloned())
             .and_then(|v| v.as_string().ok())
             .unwrap_or_else(|| "".to_string());
         let matcher = matcher.as_str();
