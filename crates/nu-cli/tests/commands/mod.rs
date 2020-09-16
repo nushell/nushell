@@ -50,7 +50,6 @@ mod split_column;
 mod split_row;
 mod str_;
 mod touch;
-mod trim;
 mod uniq;
 mod update;
 mod where_;

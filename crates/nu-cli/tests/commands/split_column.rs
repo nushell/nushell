@@ -17,7 +17,7 @@ fn to_column() {
             r#"
                 open sample.txt
                 | lines
-                | trim
+                | str trim
                 | split column ","
                 | get Column2
                 | echo $it
