@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 use parking_lot::Mutex;
 use std::{
@@ -20,7 +20,7 @@ pub struct Sleep;
 
 #[derive(Deserialize)]
 pub struct SleepArgs {
-    pub dur: Tagged<u64>,
+    pub duration: Tagged<u64>,
     pub rest: Vec<Tagged<u64>>,
 }
 
@@ -48,12 +48,23 @@ impl WholeStreamCommand for Sleep {
         let registry = registry.clone();
         let ctrl_c = args.ctrl_c().clone();
 
-        let (SleepArgs { dur, rest }, ..) = args.process(&registry).await?;
+        let (SleepArgs { duration, rest }, input) = args.process(&registry).await?;
 
-        let total_dur = dur.item + rest.iter().map(|val| val.item).sum::<u64>();
-        let total_dur = Duration::from_nanos(total_dur);
+        let total_dur = Duration::from_nanos(duration.item)
+            + rest
+                .iter()
+                .map(|val| Duration::from_nanos(val.item))
+                .sum::<Duration>();
 
-        SleepFuture::new(total_dur, ctrl_c).await
+        SleepFuture::new(total_dur, ctrl_c).await;
+        // this is necessary because the following 2 commands gave different results:
+        // `echo | sleep 1sec` - nothing
+        // `sleep 1sec`        - table with 0 elements
+        if input.is_empty() {
+            Ok(OutputStream::empty())
+        } else {
+            Ok(input.into())
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -67,6 +78,14 @@ impl WholeStreamCommand for Sleep {
                 description: "Sleep for 3sec",
                 example: "sleep 1sec 1sec 1sec",
                 result: None,
+            },
+            Example {
+                description: "Delay the output of another command by 1sec",
+                example: "echo [55 120] | sleep 1sec",
+                result: Some(vec![
+                    UntaggedValue::int(55).into(),
+                    UntaggedValue::int(120).into(),
+                ]),
             },
         ]
     }
@@ -134,13 +153,13 @@ struct SharedState {
 }
 
 impl Future for SleepFuture {
-    type Output = Result<OutputStream, ShellError>;
+    type Output = ();
 
     fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
         // Look at the shared state to see if the timer has already completed.
         let mut shared_state = self.shared_state.lock();
         if shared_state.done {
-            Poll::Ready(Ok(OutputStream::empty()))
+            Poll::Ready(())
         } else {
             // Set the waker if necessary
             if shared_state
@@ -162,7 +181,6 @@ mod tests {
     use std::time::Instant;
 
     #[test]
-    #[ignore]
     fn examples_work_as_expected() {
         use crate::examples::test as test_examples;
 
@@ -170,6 +188,8 @@ mod tests {
         test_examples(Sleep {});
         let elapsed = start.elapsed();
         println!("{:?}", elapsed);
-        assert!(elapsed >= std::time::Duration::from_secs(4));
+        // only examples with actual output are run
+        assert!(elapsed >= std::time::Duration::from_secs(1));
+        assert!(elapsed < std::time::Duration::from_secs(2));
     }
 }
