@@ -78,7 +78,7 @@ impl Completer for PathCompleter {
         &self,
         _ctx: &Context<'_>,
         partial: &str,
-        _matcher: &Box<dyn Matcher>,
+        _matcher: Box<&dyn Matcher>,
     ) -> Vec<Suggestion> {
         self.path_suggestions(partial)
             .into_iter()

@@ -37,10 +37,11 @@ impl NuCompleter {
             .and_then(|v| v.as_string().ok())
             .unwrap_or_else(|| "".to_string());
         let matcher = matcher.as_str();
-        let matcher: Box<dyn Matcher> = match matcher {
-            "case-insensitive" => Box::new(matchers::case_insensitive::Matcher),
-            _ => Box::new(matchers::case_sensitive::Matcher),
+        let matcher: &dyn Matcher = match matcher {
+            "case-insensitive" => &matchers::case_insensitive::Matcher,
+            _ => &matchers::case_sensitive::Matcher,
         };
+        let matcher = &Box::new(matcher);
 
         if locations.is_empty() {
             (pos, Vec::new())
@@ -53,12 +54,12 @@ impl NuCompleter {
                     match location.item {
                         LocationType::Command => {
                             let command_completer = CommandCompleter;
-                            command_completer.complete(context, partial, &matcher)
+                            command_completer.complete(context, partial, matcher.to_owned())
                         }
 
                         LocationType::Flag(cmd) => {
                             let flag_completer = FlagCompleter { cmd };
-                            flag_completer.complete(context, partial, &matcher)
+                            flag_completer.complete(context, partial, matcher.to_owned())
                         }
 
                         LocationType::Argument(cmd, _arg_name) => {

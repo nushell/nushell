@@ -32,6 +32,6 @@ pub trait Completer {
         &self,
         ctx: &Context<'_>,
         partial: &str,
-        matcher: &Box<dyn Matcher>,
+        matcher: Box<&dyn Matcher>,
     ) -> Vec<Suggestion>;
 }
