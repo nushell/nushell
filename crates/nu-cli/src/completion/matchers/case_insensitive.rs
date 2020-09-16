@@ -9,33 +9,37 @@ impl matchers::Matcher for Matcher {
 }
 
 #[cfg(test)]
-// TODO: check some unicode matches if this becomes relevant
+mod tests {
+    use super::*;
 
-// FIXME: could work exhaustively through ['-', '--'. ''] in a loop for each test
-#[test]
-fn completes_exact_matches() {
-    let matcher: Box<dyn matchers::Matcher> = Box::new(Matcher);
+    // TODO: check some unicode matches if this becomes relevant
 
-    assert!(matcher.matches("shouldmatch", "shouldmatch"));
-    assert!(matcher.matches("shouldm", "shouldmatch"));
-    assert!(matcher.matches("--also-should-m", "--also-should-match"));
-    assert!(matcher.matches("-also-should-m", "-also-should-match"));
-}
+    // FIXME: could work exhaustively through ['-', '--'. ''] in a loop for each test
+    #[test]
+    fn completes_exact_matches() {
+        let matcher: Box<dyn matchers::Matcher> = Box::new(Matcher);
 
-#[test]
-fn completes_case_insensitive_matches() {
-    let matcher: Box<dyn matchers::Matcher> = Box::new(Matcher);
+        assert!(matcher.matches("shouldmatch", "shouldmatch"));
+        assert!(matcher.matches("shouldm", "shouldmatch"));
+        assert!(matcher.matches("--also-should-m", "--also-should-match"));
+        assert!(matcher.matches("-also-should-m", "-also-should-match"));
+    }
 
-    assert!(matcher.matches("thisshould", "Thisshouldmatch"));
-    assert!(matcher.matches("--Shouldm", "--shouldmatch"));
-    assert!(matcher.matches("-Shouldm", "-shouldmatch"));
-}
+    #[test]
+    fn completes_case_insensitive_matches() {
+        let matcher: Box<dyn matchers::Matcher> = Box::new(Matcher);
 
-#[test]
-fn should_not_match_when_unequal() {
-    let matcher: Box<dyn matchers::Matcher> = Box::new(Matcher);
+        assert!(matcher.matches("thisshould", "Thisshouldmatch"));
+        assert!(matcher.matches("--Shouldm", "--shouldmatch"));
+        assert!(matcher.matches("-Shouldm", "-shouldmatch"));
+    }
 
-    assert!(!matcher.matches("ashouldmatch", "Shouldnotmatch"));
-    assert!(!matcher.matches("--ashouldnotmatch", "--Shouldnotmatch"));
-    assert!(!matcher.matches("-ashouldnotmatch", "-Shouldnotmatch"));
+    #[test]
+    fn should_not_match_when_unequal() {
+        let matcher: Box<dyn matchers::Matcher> = Box::new(Matcher);
+
+        assert!(!matcher.matches("ashouldmatch", "Shouldnotmatch"));
+        assert!(!matcher.matches("--ashouldnotmatch", "--Shouldnotmatch"));
+        assert!(!matcher.matches("-ashouldnotmatch", "-Shouldnotmatch"));
+    }
 }
