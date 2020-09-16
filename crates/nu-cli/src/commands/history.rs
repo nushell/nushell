@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
-use nu_data::config::NuConfig;
+use nu_data::config::{Conf, NuConfig};
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 use std::fs::File;
@@ -9,9 +9,7 @@ use std::path::PathBuf;
 
 const DEFAULT_LOCATION: &str = "history.txt";
 
-pub fn history_path(config: &NuConfig) -> PathBuf {
-    let vars = config.vars.lock();
-
+pub fn history_path(config: &dyn Conf) -> PathBuf {
     let default_path = nu_data::config::user_data()
         .map(|mut p| {
             p.push(DEFAULT_LOCATION);
@@ -19,7 +17,8 @@ pub fn history_path(config: &NuConfig) -> PathBuf {
         })
         .unwrap_or_else(|_| PathBuf::from(DEFAULT_LOCATION));
 
-    vars.get("history-path")
+    config
+        .var("history-path")
         .map_or(default_path.clone(), |custom_path| {
             match custom_path.as_string() {
                 Ok(path) => PathBuf::from(path),
@@ -54,7 +53,7 @@ impl WholeStreamCommand for History {
 }
 
 fn history(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let config = NuConfig::new();
+    let config: Box<dyn Conf> = Box::new(NuConfig::new());
     let tag = args.call_info.name_tag;
     let path = history_path(&config);
     let file = File::open(path);

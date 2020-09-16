@@ -37,7 +37,7 @@ pub trait ConfigExtensions: Debug + Send {
 }
 
 pub fn pivot_mode(config: &NuConfig) -> AutoPivotMode {
-    let vars = config.vars.lock();
+    let vars = &config.vars;
 
     if let Some(mode) = vars.get("pivot_mode") {
         let mode = match mode.as_string() {

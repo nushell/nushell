@@ -27,7 +27,7 @@ pub fn header_alignment_from_value(align_value: Option<&Value>) -> nu_table::Ali
 }
 
 pub fn get_color_from_key_and_subkey(config: &NuConfig, key: &str, subkey: &str) -> Option<Value> {
-    let vars = config.vars.lock();
+    let vars = &config.vars;
 
     if let Some(config_vars) = vars.get(key) {
         for (kee, value) in config_vars.row_entries() {
@@ -47,7 +47,7 @@ pub fn header_bold_from_value(bold_value: Option<&Value>) -> bool {
 }
 
 pub fn table_mode(config: &NuConfig) -> nu_table::Theme {
-    let vars = config.vars.lock();
+    let vars = &config.vars;
 
     vars.get("table_mode")
         .map_or(nu_table::Theme::compact(), |mode| match mode.as_string() {
@@ -62,7 +62,7 @@ pub fn table_mode(config: &NuConfig) -> nu_table::Theme {
 }
 
 pub fn disabled_indexes(config: &NuConfig) -> bool {
-    let vars = config.vars.lock();
+    let vars = &config.vars;
 
     vars.get("disable_table_indexes")
         .map_or(false, |x| x.as_bool().unwrap_or(false))
