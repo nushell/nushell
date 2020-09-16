@@ -18,7 +18,7 @@ pub trait ValueExt {
     fn get_data_by_column_path(
         &self,
         path: &ColumnPath,
-        callback: Box<dyn FnOnce((&Value, &PathMember, ShellError)) -> ShellError>,
+        callback: Box<dyn FnOnce(&Value, &PathMember, ShellError) -> ShellError>,
     ) -> Result<Value, ShellError>;
     fn swap_data_by_column_path(
         &self,
@@ -66,9 +66,9 @@ impl ValueExt for Value {
     fn get_data_by_column_path(
         &self,
         path: &ColumnPath,
-        callback: Box<dyn FnOnce((&Value, &PathMember, ShellError)) -> ShellError>,
+        get_error: Box<dyn FnOnce(&Value, &PathMember, ShellError) -> ShellError>,
     ) -> Result<Value, ShellError> {
-        get_data_by_column_path(self, path, callback)
+        get_data_by_column_path(self, path, get_error)
     }
 
     fn swap_data_by_column_path(
@@ -192,11 +192,14 @@ pub fn get_data_by_member(value: &Value, name: &PathMember) -> Result<Value, She
     }
 }
 
-pub fn get_data_by_column_path(
+pub fn get_data_by_column_path<F>(
     value: &Value,
     path: &ColumnPath,
-    callback: Box<dyn FnOnce((&Value, &PathMember, ShellError)) -> ShellError>,
-) -> Result<Value, ShellError> {
+    get_error: F,
+) -> Result<Value, ShellError>
+where
+    F: FnOnce(&Value, &PathMember, ShellError) -> ShellError,
+{
     let mut current = value.clone();
 
     for p in path.iter() {
@@ -204,24 +207,25 @@ pub fn get_data_by_column_path(
 
         match value {
             Ok(v) => current = v.clone(),
-            Err(e) => return Err(callback((&current, &p.clone(), e))),
+            Err(e) => return Err(get_error(&current, &p, e)),
         }
     }
 
     Ok(current)
 }
 
-pub fn swap_data_by_column_path(
+pub fn swap_data_by_column_path<F>(
     value: &Value,
     path: &ColumnPath,
-    callback: Box<dyn FnOnce(&Value) -> Result<Value, ShellError>>,
-) -> Result<Value, ShellError> {
+    get_replacement: F,
+) -> Result<Value, ShellError>
+where
+    F: FnOnce(&Value) -> Result<Value, ShellError>,
+{
     let fields = path.clone();
 
-    let to_replace = get_data_by_column_path(
-        &value,
-        path,
-        Box::new(move |(obj_source, column_path_tried, error)| {
+    let to_replace =
+        get_data_by_column_path(&value, path, move |obj_source, column_path_tried, error| {
             let path_members_span = fields.maybe_span().unwrap_or_else(Span::unknown);
 
             match &obj_source.value {
@@ -304,7 +308,7 @@ pub fn swap_data_by_column_path(
                         let primary_label = format!("There isn't a column named '{}'", &column);
 
                         if let Some(suggestions) =
-                            nu_protocol::did_you_mean(&obj_source, column_path_tried)
+                            nu_protocol::did_you_mean(&obj_source, &column_path_tried)
                         {
                             return ShellError::labeled_error_with_secondary(
                                 "Unknown column",
@@ -338,7 +342,7 @@ pub fn swap_data_by_column_path(
                 _ => {}
             }
 
-            if let Some(suggestions) = nu_protocol::did_you_mean(&obj_source, column_path_tried) {
+            if let Some(suggestions) = nu_protocol::did_you_mean(&obj_source, &column_path_tried) {
                 return ShellError::labeled_error(
                     "Unknown column",
                     format!("did you mean '{}'?", suggestions[0].1),
@@ -347,11 +351,10 @@ pub fn swap_data_by_column_path(
             }
 
             error
-        }),
-    );
+        });
 
     let to_replace = to_replace?;
-    let replacement = callback(&to_replace)?;
+    let replacement = get_replacement(&to_replace)?;
 
     value
         .replace_data_at_column_path(&path, replacement)
