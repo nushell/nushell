@@ -14,7 +14,7 @@ impl Completer for CommandCompleter {
         &self,
         ctx: &Context<'_>,
         partial: &str,
-        matcher: Box<&dyn Matcher>,
+        matcher: &dyn Matcher,
     ) -> Vec<Suggestion> {
         let context: &context::Context = ctx.as_ref();
         let mut commands: IndexSet<String> = IndexSet::from_iter(context.registry.names());

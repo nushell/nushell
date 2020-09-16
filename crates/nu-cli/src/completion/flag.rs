@@ -11,7 +11,7 @@ impl Completer for FlagCompleter {
         &self,
         ctx: &Context<'_>,
         partial: &str,
-        matcher: Box<&dyn Matcher>,
+        matcher: &dyn Matcher,
     ) -> Vec<Suggestion> {
         let context: &context::Context = ctx.as_ref();
 

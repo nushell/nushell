@@ -41,7 +41,6 @@ impl NuCompleter {
             "case-insensitive" => &matchers::case_insensitive::Matcher,
             _ => &matchers::case_sensitive::Matcher,
         };
-        let matcher = &Box::new(matcher);
 
         if locations.is_empty() {
             (pos, Vec::new())
