@@ -3,8 +3,6 @@ pub(crate) mod engine;
 pub(crate) mod flag;
 pub(crate) mod path;
 
-use nu_errors::ShellError;
-
 use crate::context;
 
 #[derive(Debug, Eq, PartialEq)]
@@ -28,10 +26,5 @@ impl<'a> AsRef<context::Context> for Context<'a> {
 }
 
 pub trait Completer {
-    fn complete(
-        &self,
-        line: &str,
-        pos: usize,
-        ctx: &Context<'_>,
-    ) -> Result<(usize, Vec<Suggestion>), ShellError>;
+    fn complete(&self, ctx: &Context<'_>, partial: &str) -> Vec<Suggestion>;
 }

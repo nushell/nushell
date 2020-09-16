@@ -1,18 +1,18 @@
 use std::path::PathBuf;
 
-use crate::completion::{Context, Suggestion};
+use crate::completion::{Completer, Context, Suggestion};
 
 const SEP: char = std::path::MAIN_SEPARATOR;
 
-pub struct Completer;
+pub struct PathCompleter;
 
 pub struct PathSuggestion {
     pub(crate) path: PathBuf,
     pub(crate) suggestion: Suggestion,
 }
 
-impl Completer {
-    pub fn path_suggestions(&self, _ctx: &Context<'_>, partial: &str) -> Vec<PathSuggestion> {
+impl PathCompleter {
+    pub fn path_suggestions(&self, partial: &str) -> Vec<PathSuggestion> {
         let expanded = nu_parser::expand_ndots(partial);
         let expanded = expanded.as_ref();
 
@@ -69,5 +69,14 @@ impl Completer {
         } else {
             Vec::new()
         }
+    }
+}
+
+impl Completer for PathCompleter {
+    fn complete(&self, _ctx: &Context<'_>, partial: &str) -> Vec<Suggestion> {
+        self.path_suggestions(partial)
+            .into_iter()
+            .map(|ps| ps.suggestion)
+            .collect()
     }
 }

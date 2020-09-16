@@ -3,13 +3,13 @@ use std::path::Path;
 
 use indexmap::set::IndexSet;
 
-use crate::completion::{Context, Suggestion};
+use crate::completion::{Completer, Context, Suggestion};
 use crate::context;
 
-pub struct Completer;
+pub struct CommandCompleter;
 
-impl Completer {
-    pub fn complete(&self, ctx: &Context<'_>, partial: &str) -> Vec<Suggestion> {
+impl Completer for CommandCompleter {
+    fn complete(&self, ctx: &Context<'_>, partial: &str) -> Vec<Suggestion> {
         let context: &context::Context = ctx.as_ref();
         let mut commands: IndexSet<String> = IndexSet::from_iter(context.registry.names());
 
@@ -33,8 +33,8 @@ impl Completer {
             .collect();
 
         if partial != "" {
-            let path_completer = crate::completion::path::Completer;
-            let path_results = path_completer.path_suggestions(ctx, partial);
+            let path_completer = crate::completion::path::PathCompleter;
+            let path_results = path_completer.path_suggestions(partial);
             let iter = path_results.into_iter().filter_map(|path_suggestion| {
                 let path = path_suggestion.path;
                 if path.is_dir() || is_executable(&path) {
