@@ -1,5 +1,7 @@
-use crate::completion::path::PathSuggestion;
-use crate::completion::{self, Suggestion};
+use crate::completion::command::CommandCompleter;
+use crate::completion::flag::FlagCompleter;
+use crate::completion::path::{PathCompleter, PathSuggestion};
+use crate::completion::{self, Completer, Suggestion};
 use crate::context;
 
 pub(crate) struct NuCompleter {}
@@ -13,7 +15,7 @@ impl NuCompleter {
         pos: usize,
         context: &completion::Context,
     ) -> (usize, Vec<Suggestion>) {
-        use crate::completion::engine::LocationType;
+        use completion::engine::LocationType;
 
         let nu_context: &context::Context = context.as_ref();
         let lite_block = match nu_parser::lite_parse(line, 0) {
@@ -23,7 +25,7 @@ impl NuCompleter {
 
         let locations = lite_block
             .map(|block| nu_parser::classify_block(&block, &nu_context.registry))
-            .map(|block| crate::completion::engine::completion_location(line, &block.block, pos))
+            .map(|block| completion::engine::completion_location(line, &block.block, pos))
             .unwrap_or_default();
 
         if locations.is_empty() {
@@ -36,17 +38,17 @@ impl NuCompleter {
                     let partial = location.span.slice(line);
                     match location.item {
                         LocationType::Command => {
-                            let command_completer = crate::completion::command::Completer;
+                            let command_completer = CommandCompleter;
                             command_completer.complete(context, partial)
                         }
 
                         LocationType::Flag(cmd) => {
-                            let flag_completer = crate::completion::flag::Completer;
-                            flag_completer.complete(context, cmd, partial)
+                            let flag_completer = FlagCompleter { cmd };
+                            flag_completer.complete(context, partial)
                         }
 
                         LocationType::Argument(cmd, _arg_name) => {
-                            let path_completer = crate::completion::path::Completer;
+                            let path_completer = PathCompleter;
 
                             const QUOTE_CHARS: &[char] = &['\'', '"', '`'];
 
@@ -71,7 +73,7 @@ impl NuCompleter {
                                 partial
                             };
 
-                            let completed_paths = path_completer.path_suggestions(context, partial);
+                            let completed_paths = path_completer.path_suggestions(partial);
                             match cmd.as_deref().unwrap_or("") {
                                 "cd" => select_directory_suggestions(completed_paths),
                                 _ => completed_paths,
