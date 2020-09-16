@@ -31,11 +31,19 @@ impl NuCompleter {
             .map(|block| completion::engine::completion_location(line, &block.block, pos))
             .unwrap_or_default();
 
+        // let matcher = nu_data::config::config(Tag::unknown())
+        //     .ok()
+        //     .and_then(|cfg| cfg.get("line_editor").cloned())
+        //     .and_then(|le| le.row_entries().find(|(idx, _value)| idx.as_str() == "completion_match_method"))
+        //     .and_then(|(_idx, value)| value.as_string().ok())
+        //     .unwrap_or_else(|| "".to_string());
+
         let matcher = nu_data::config::config(Tag::unknown())
             .ok()
-            .and_then(|cfg| cfg.get("completion_matches").cloned())
+            .and_then(|cfg| cfg.get("completion_match_method").cloned())
             .and_then(|v| v.as_string().ok())
             .unwrap_or_else(|| "".to_string());
+
         let matcher = matcher.as_str();
         let matcher: &dyn Matcher = match matcher {
             "case-insensitive" => &matchers::case_insensitive::Matcher,
