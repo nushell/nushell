@@ -57,7 +57,14 @@ impl WholeStreamCommand for Sleep {
                 .sum::<Duration>();
 
         SleepFuture::new(total_dur, ctrl_c).await;
-        Ok(input.into())
+        // this is necessary because the following 2 commands gave different results:
+        // `echo | sleep 1sec` - nothing
+        // `sleep 1sec`        - table with 0 elements
+        if input.is_empty() {
+            Ok(OutputStream::empty())
+        } else {
+            Ok(input.into())
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
