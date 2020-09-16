@@ -10,12 +10,7 @@ use crate::context;
 pub struct CommandCompleter;
 
 impl Completer for CommandCompleter {
-    fn complete(
-        &self,
-        ctx: &Context<'_>,
-        partial: &str,
-        matcher: &dyn Matcher,
-    ) -> Vec<Suggestion> {
+    fn complete(&self, ctx: &Context<'_>, partial: &str, matcher: &dyn Matcher) -> Vec<Suggestion> {
         let context: &context::Context = ctx.as_ref();
         let mut commands: IndexSet<String> = IndexSet::from_iter(context.registry.names());
 

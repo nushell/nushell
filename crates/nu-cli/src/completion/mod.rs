@@ -28,10 +28,5 @@ impl<'a> AsRef<context::Context> for Context<'a> {
 }
 
 pub trait Completer {
-    fn complete(
-        &self,
-        ctx: &Context<'_>,
-        partial: &str,
-        matcher: &dyn Matcher,
-    ) -> Vec<Suggestion>;
+    fn complete(&self, ctx: &Context<'_>, partial: &str, matcher: &dyn Matcher) -> Vec<Suggestion>;
 }

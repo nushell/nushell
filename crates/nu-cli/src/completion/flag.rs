@@ -7,12 +7,7 @@ pub struct FlagCompleter {
 }
 
 impl Completer for FlagCompleter {
-    fn complete(
-        &self,
-        ctx: &Context<'_>,
-        partial: &str,
-        matcher: &dyn Matcher,
-    ) -> Vec<Suggestion> {
+    fn complete(&self, ctx: &Context<'_>, partial: &str, matcher: &dyn Matcher) -> Vec<Suggestion> {
         let context: &context::Context = ctx.as_ref();
 
         if let Some(cmd) = context.registry.get_command(&self.cmd) {
