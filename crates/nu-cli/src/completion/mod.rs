@@ -1,9 +1,11 @@
 pub(crate) mod command;
 pub(crate) mod engine;
 pub(crate) mod flag;
+pub(crate) mod matchers;
 pub(crate) mod path;
 
 use crate::context;
+use matchers::Matcher;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Suggestion {
@@ -26,5 +28,10 @@ impl<'a> AsRef<context::Context> for Context<'a> {
 }
 
 pub trait Completer {
-    fn complete(&self, ctx: &Context<'_>, partial: &str) -> Vec<Suggestion>;
+    fn complete(
+        &self,
+        ctx: &Context<'_>,
+        partial: &str,
+        matcher: &Box<dyn Matcher>,
+    ) -> Vec<Suggestion>;
 }

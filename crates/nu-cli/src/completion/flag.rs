@@ -1,3 +1,4 @@
+use super::matchers::Matcher;
 use crate::completion::{Completer, Context, Suggestion};
 use crate::context;
 
@@ -6,7 +7,12 @@ pub struct FlagCompleter {
 }
 
 impl Completer for FlagCompleter {
-    fn complete(&self, ctx: &Context<'_>, partial: &str) -> Vec<Suggestion> {
+    fn complete(
+        &self,
+        ctx: &Context<'_>,
+        partial: &str,
+        matcher: &Box<dyn Matcher>,
+    ) -> Vec<Suggestion> {
         let context: &context::Context = ctx.as_ref();
 
         if let Some(cmd) = context.registry.get_command(&self.cmd) {
@@ -22,7 +28,7 @@ impl Completer for FlagCompleter {
 
             suggestions
                 .into_iter()
-                .filter(|v| v.starts_with(partial))
+                .filter(|v| matcher.matches(partial, v))
                 .map(|v| Suggestion {
                     replacement: format!("{} ", v),
                     display: v,
