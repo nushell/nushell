@@ -12,7 +12,7 @@ fn lines() {
             | first 1
             | split column "="
             | get Column1
-            | trim
+            | str trim
             | echo $it
         "#
     ));

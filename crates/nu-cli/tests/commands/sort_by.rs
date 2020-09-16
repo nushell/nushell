@@ -14,7 +14,7 @@ fn by_column() {
             | skip 1
             | first 1
             | get Column1
-            | trim
+            | str trim
             | echo $it
         "#
     ));
@@ -36,7 +36,7 @@ fn by_invalid_column() {
             | skip 1
             | first 1
             | get Column1
-            | trim
+            | str trim
             | echo $it
         "#
     ));
