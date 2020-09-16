@@ -35,7 +35,7 @@ impl Completer for CommandCompleter {
 
         if partial != "" {
             let path_completer = crate::completion::path::PathCompleter;
-            let path_results = path_completer.path_suggestions(partial);
+            let path_results = path_completer.path_suggestions(partial, matcher);
             let iter = path_results.into_iter().filter_map(|path_suggestion| {
                 let path = path_suggestion.path;
                 if path.is_dir() || is_executable(&path) {

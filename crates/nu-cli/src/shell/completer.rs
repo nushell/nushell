@@ -87,7 +87,7 @@ impl NuCompleter {
                                 partial
                             };
 
-                            let completed_paths = path_completer.path_suggestions(partial);
+                            let completed_paths = path_completer.path_suggestions(partial, matcher);
                             match cmd.as_deref().unwrap_or("") {
                                 "cd" => select_directory_suggestions(completed_paths),
                                 _ => completed_paths,
