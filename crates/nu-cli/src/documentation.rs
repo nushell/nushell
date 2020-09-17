@@ -213,7 +213,7 @@ pub fn get_documentation(
             long_desc.push_str(&format!("\n  > {}\n", example.example));
         } else {
             let colored_example =
-                crate::shell::helper::Painter::paint_string(example.example, registry, &palette);
+                crate::shell::painter::Painter::paint_string(example.example, registry, &palette);
             long_desc.push_str(&format!("\n  > {}\n", colored_example));
         }
     }

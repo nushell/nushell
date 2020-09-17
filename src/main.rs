@@ -166,7 +166,15 @@ fn main() -> Result<(), Box<dyn Error>> {
                 let _ = nu_cli::register_plugins(&mut context);
             }
 
-            futures::executor::block_on(nu_cli::cli(context))?;
+            #[cfg(feature = "rustyline-support")]
+            {
+                futures::executor::block_on(nu_cli::cli(context))?;
+            }
+
+            #[cfg(not(feature = "rustyline-support"))]
+            {
+                println!("Nushell needs the 'rustyline-support' feature for CLI support");
+            }
         }
     }
 
