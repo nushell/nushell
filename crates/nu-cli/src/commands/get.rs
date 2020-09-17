@@ -96,11 +96,8 @@ fn get_output(item: &Value, path: &ColumnPath) -> Vec<Result<ReturnSuccess, Shel
         Ok(Value {
             value: UntaggedValue::Table(rows),
             ..
-        }) => rows
-            .iter()
-            .map(|item| ReturnSuccess::value(item.clone()))
-            .collect(),
-        Ok(other) => vec![ReturnSuccess::value(other.clone())],
+        }) => rows.into_iter().map(ReturnSuccess::value).collect(),
+        Ok(other) => vec![ReturnSuccess::value(other)],
         Err(reason) => vec![ReturnSuccess::value(
             UntaggedValue::Error(reason).into_untagged_value(),
         )],
@@ -145,7 +142,7 @@ pub fn get_column_path(path: &ColumnPath, obj: &Value) -> Result<Value, ShellErr
 }
 
 pub fn get_column_path_from_table_error(
-    rows: &Vec<Value>,
+    rows: &[Value],
     column_path_tried: &PathMember,
     path_members_span: &Span,
 ) -> ShellError {
@@ -174,15 +171,15 @@ pub fn get_column_path_from_table_error(
             }
 
             if names.is_empty() {
-                return ShellError::labeled_error_with_secondary(
+                ShellError::labeled_error_with_secondary(
                     "Unknown column",
                     primary_label,
                     column_path_tried.span,
                     "Appears to contain rows. Try indexing instead.",
                     column_path_tried.span.since(path_members_span),
-                );
+                )
             } else {
-                return ShellError::labeled_error_with_secondary(
+                ShellError::labeled_error_with_secondary(
                     "Unknown column",
                     primary_label,
                     column_path_tried.span,
@@ -196,8 +193,8 @@ pub fn get_column_path_from_table_error(
                         names.join(",")
                     ),
                     column_path_tried.span.since(path_members_span),
-                );
-            };
+                )
+            }
         }
         PathMember {
             unspanned: UnspannedPathMember::Int(idx),
@@ -211,13 +208,13 @@ pub fn get_column_path_from_table_error(
                 format!("The table only has {} rows (0 to {})", total, total - 1)
             };
 
-            return ShellError::labeled_error_with_secondary(
+            ShellError::labeled_error_with_secondary(
                 "Row not found",
                 format!("There isn't a row indexed at {}", idx),
                 column_path_tried.span,
                 secondary_label,
                 column_path_tried.span.since(path_members_span),
-            );
+            )
         }
     }
 }
