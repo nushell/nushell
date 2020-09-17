@@ -1,9 +1,14 @@
 use crate::completion::command::CommandCompleter;
 use crate::completion::flag::FlagCompleter;
+use crate::completion::matchers;
+use crate::completion::matchers::Matcher;
 use crate::completion::path::{PathCompleter, PathSuggestion};
 use crate::completion::{self, Completer, Suggestion};
 use crate::context;
+use nu_source::Tag;
+
 use std::borrow::Cow;
+
 pub(crate) struct NuCompleter {}
 
 impl NuCompleter {}
@@ -28,6 +33,22 @@ impl NuCompleter {
             .map(|block| completion::engine::completion_location(line, &block.block, pos))
             .unwrap_or_default();
 
+        let matcher = nu_data::config::config(Tag::unknown())
+            .ok()
+            .and_then(|cfg| cfg.get("line_editor").cloned())
+            .and_then(|le| {
+                le.row_entries()
+                    .find(|(idx, _value)| idx.as_str() == "completion_match_method")
+                    .and_then(|(_idx, value)| value.as_string().ok())
+            })
+            .unwrap_or_else(String::new);
+
+        let matcher = matcher.as_str();
+        let matcher: &dyn Matcher = match matcher {
+            "case-insensitive" => &matchers::case_insensitive::Matcher,
+            _ => &matchers::case_sensitive::Matcher,
+        };
+
         if locations.is_empty() {
             (pos, Vec::new())
         } else {
@@ -39,12 +60,12 @@ impl NuCompleter {
                     match location.item {
                         LocationType::Command => {
                             let command_completer = CommandCompleter;
-                            command_completer.complete(context, partial)
+                            command_completer.complete(context, partial, matcher.to_owned())
                         }
 
                         LocationType::Flag(cmd) => {
                             let flag_completer = FlagCompleter { cmd };
-                            flag_completer.complete(context, partial)
+                            flag_completer.complete(context, partial, matcher.to_owned())
                         }
 
                         LocationType::Argument(cmd, _arg_name) => {
@@ -73,7 +94,7 @@ impl NuCompleter {
                                 partial
                             };
 
-                            let completed_paths = path_completer.path_suggestions(partial);
+                            let completed_paths = path_completer.path_suggestions(partial, matcher);
                             match cmd.as_deref().unwrap_or("") {
                                 "cd" => select_directory_suggestions(completed_paths),
                                 _ => completed_paths,

@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use super::matchers::Matcher;
 use crate::completion::{Completer, Context, Suggestion};
 
 const SEP: char = std::path::MAIN_SEPARATOR;
@@ -12,7 +13,7 @@ pub struct PathSuggestion {
 }
 
 impl PathCompleter {
-    pub fn path_suggestions(&self, partial: &str) -> Vec<PathSuggestion> {
+    pub fn path_suggestions(&self, partial: &str, matcher: &dyn Matcher) -> Vec<PathSuggestion> {
         let expanded = nu_parser::expand_ndots(partial);
         let expanded = expanded.as_ref();
 
@@ -46,7 +47,7 @@ impl PathCompleter {
                 .filter_map(|entry| {
                     entry.ok().and_then(|entry| {
                         let mut file_name = entry.file_name().to_string_lossy().into_owned();
-                        if file_name.starts_with(partial) {
+                        if matcher.matches(partial, file_name.as_str()) {
                             let mut path = format!("{}{}", base_dir_name, file_name);
                             if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
                                 path.push(std::path::MAIN_SEPARATOR);
@@ -73,8 +74,13 @@ impl PathCompleter {
 }
 
 impl Completer for PathCompleter {
-    fn complete(&self, _ctx: &Context<'_>, partial: &str) -> Vec<Suggestion> {
-        self.path_suggestions(partial)
+    fn complete(
+        &self,
+        _ctx: &Context<'_>,
+        partial: &str,
+        matcher: &dyn Matcher,
+    ) -> Vec<Suggestion> {
+        self.path_suggestions(partial, matcher)
             .into_iter()
             .map(|ps| ps.suggestion)
             .collect()
