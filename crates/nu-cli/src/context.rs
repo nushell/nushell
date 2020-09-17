@@ -210,6 +210,14 @@ impl Context {
         }
     }
 
+    pub(crate) fn configure<T>(
+        &mut self,
+        config: &dyn nu_data::config::Conf,
+        block: impl FnOnce(&dyn nu_data::config::Conf, &mut Self) -> T,
+    ) {
+        block(config, &mut *self);
+    }
+
     pub(crate) fn with_host<T>(&mut self, block: impl FnOnce(&mut dyn Host) -> T) -> T {
         let mut host = self.host.lock();
 

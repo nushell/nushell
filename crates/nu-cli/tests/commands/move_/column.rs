@@ -25,7 +25,7 @@ fn moves_a_column_before() {
                 | move column column99 --before column1
                 | rename chars
                 | get chars
-                | trim
+                | str trim
                 | str collect
                 | echo $it
             "#
@@ -60,7 +60,7 @@ fn moves_columns_before() {
                 | move column column99 column3 --before column2
                 | rename _ chars_1 chars_2
                 | get chars_2 chars_1
-                | trim
+                | str trim
                 | str collect
                 | echo $it
             "#
@@ -96,7 +96,7 @@ fn moves_a_column_after() {
                 | move column letters and_more --before column2
                 | rename _ chars_1 chars_2
                 | get chars_1 chars_2
-                | trim
+                | str trim
                 | str collect
                 | echo $it
             "#

@@ -7,6 +7,8 @@ use crate::completion::{self, Completer, Suggestion};
 use crate::context;
 use nu_source::Tag;
 
+use std::borrow::Cow;
+
 pub(crate) struct NuCompleter {}
 
 impl NuCompleter {}
@@ -128,8 +130,8 @@ fn select_directory_suggestions(completed_paths: Vec<PathSuggestion>) -> Vec<Pat
         .collect()
 }
 
-fn requote(value: String) -> String {
-    let value = rustyline::completion::unescape(&value, Some('\\'));
+fn requote(orig_value: String) -> String {
+    let value: Cow<str> = rustyline::completion::unescape(&orig_value, Some('\\'));
 
     let mut quotes = vec!['"', '\'', '`'];
     let mut should_quote = false;

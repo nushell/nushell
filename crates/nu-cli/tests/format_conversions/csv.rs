@@ -29,7 +29,7 @@ fn table_to_csv_text() {
             r#"
                 open csv_text_sample.txt
                 | lines
-                | trim
+                | str trim
                 | split column "," a b c d origin
                 | last 1
                 | to csv
@@ -62,7 +62,7 @@ fn table_to_csv_text_skipping_headers_after_conversion() {
             r#"
                 open csv_text_sample.txt
                 | lines
-                | trim
+                | str trim
                 | split column "," a b c d origin
                 | last 1
                 | to csv --headerless

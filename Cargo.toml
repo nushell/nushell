@@ -75,6 +75,7 @@ default = [
   "ptree-support",
   "term-support",
   "uuid-support",
+  "rustyline-support",
   "match",
   "post",
   "fetch",
@@ -105,6 +106,7 @@ ctrlc-support = ["nu-cli/ctrlc"]
 directories-support = ["nu-cli/directories", "nu-cli/dirs", "nu-data/directories", "nu-data/dirs"]
 git-support = ["nu-cli/git2"]
 ptree-support = ["nu-cli/ptree"]
+rustyline-support = ["nu-cli/rustyline-support"]
 term-support = ["nu-cli/term"]
 trash-support = ["nu-cli/trash-support"]
 uuid-support = ["nu-cli/uuid_crate"]

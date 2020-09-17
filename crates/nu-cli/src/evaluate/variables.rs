@@ -41,13 +41,17 @@ pub fn nu(env: &IndexMap<String, String>, tag: impl Into<Tag>) -> Result<Value, 
     let config = nu_data::config::default_path()?;
     nu_dict.insert_value("config-path", UntaggedValue::path(config).into_value(&tag));
 
-    let keybinding_path = crate::keybinding::keybinding_path()?;
-    nu_dict.insert_value(
-        "keybinding-path",
-        UntaggedValue::path(keybinding_path).into_value(&tag),
-    );
+    #[cfg(feature = "rustyline-support")]
+    {
+        let keybinding_path = crate::keybinding::keybinding_path()?;
+        nu_dict.insert_value(
+            "keybinding-path",
+            UntaggedValue::path(keybinding_path).into_value(&tag),
+        );
+    }
 
-    let history = crate::commands::history::history_path(&nu_data::config::NuConfig::new());
+    let config: Box<dyn nu_data::config::Conf> = Box::new(nu_data::config::NuConfig::new());
+    let history = crate::commands::history::history_path(&config);
     nu_dict.insert_value(
         "history-path",
         UntaggedValue::path(history).into_value(&tag),
