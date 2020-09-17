@@ -15,6 +15,7 @@ extern crate quickcheck_macros;
 
 mod cli;
 mod commands;
+#[cfg(feature = "rustyline-support")]
 mod completion;
 mod context;
 mod deserializer;
@@ -23,7 +24,9 @@ mod env;
 mod evaluate;
 mod format;
 mod futures;
+#[cfg(feature = "rustyline-support")]
 mod git;
+#[cfg(feature = "rustyline-support")]
 mod keybinding;
 mod path;
 mod plugin;
@@ -34,8 +37,11 @@ pub mod utils;
 #[cfg(test)]
 mod examples;
 
+#[cfg(feature = "rustyline-support")]
+pub use crate::cli::cli;
+
 pub use crate::cli::{
-    cli, create_default_context, parse_and_eval, process_line, register_plugins,
+    create_default_context, parse_and_eval, process_line, register_plugins,
     run_pipeline_standalone, run_vec_of_pipelines, LineResult,
 };
 pub use crate::commands::command::{
