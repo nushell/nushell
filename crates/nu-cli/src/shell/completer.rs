@@ -32,14 +32,14 @@ impl NuCompleter {
             .unwrap_or_default();
 
         let matcher = nu_data::config::config(Tag::unknown())
-        .ok()
-        .and_then(|cfg| cfg.get("line_editor").cloned())
-        .and_then(|le| {
-            le.row_entries()
-                .find(|(idx, _value)| idx.as_str() == "completion_match_method")
-                .and_then(|(_idx, value)| value.as_string().ok())
-        })
-        .unwrap_or_else(String::new);
+            .ok()
+            .and_then(|cfg| cfg.get("line_editor").cloned())
+            .and_then(|le| {
+                le.row_entries()
+                    .find(|(idx, _value)| idx.as_str() == "completion_match_method")
+                    .and_then(|(_idx, value)| value.as_string().ok())
+            })
+            .unwrap_or_else(String::new);
 
         let matcher = matcher.as_str();
         let matcher: &dyn Matcher = match matcher {
