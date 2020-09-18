@@ -682,21 +682,56 @@ impl Shell for FilesystemShell {
         name: Span,
         with_encoding: Option<&'static Encoding>,
     ) -> Result<BoxStream<'static, Result<StringOrBinary, ShellError>>, ShellError> {
-        let f = std::fs::File::open(&path).map_err(|e| {
-            ShellError::labeled_error(
-                format!("Error opening file: {:?}", e),
-                "Error opening file",
-                name,
-            )
-        })?;
-        let async_reader = futures::io::AllowStdIo::new(f);
-        let sob_stream = FramedRead::new(async_reader, MaybeTextCodec::new(with_encoding))
-            .map_err(|e| {
-                ShellError::unexpected(format!("AsyncRead failed in open function: {:?}", e))
-            })
-            .into_stream();
+        let metadata = std::fs::metadata(&path);
 
-        Ok(sob_stream.boxed())
+        let read_full = if let Ok(metadata) = metadata {
+            // Arbitrarily capping the file at 32 megs, so we don't try to read large files in all at once
+            metadata.is_file() && metadata.len() < (1024 * 1024 * 32)
+        } else {
+            false
+        };
+
+        if read_full {
+            use futures_codec::Decoder;
+
+            // We should, in theory, be able to read in the whole file as one chunk
+            let buffer = std::fs::read(&path).map_err(|e| {
+                ShellError::labeled_error(
+                    format!("Error opening file: {:?}", e),
+                    "Error opening file",
+                    name,
+                )
+            })?;
+
+            let mut bytes_mut = bytes::BytesMut::from(&buffer[..]);
+
+            let mut codec = MaybeTextCodec::new(with_encoding);
+
+            match codec.decode(&mut bytes_mut).map_err(|e| {
+                ShellError::unexpected(format!("AsyncRead failed in open function: {:?}", e))
+            })? {
+                Some(sb) => Ok(futures::stream::iter(vec![Ok(sb)].into_iter()).boxed()),
+                None => Ok(futures::stream::iter(vec![].into_iter()).boxed()),
+            }
+        } else {
+            // We don't know that this is a finite file, so treat it as a stream
+
+            let f = std::fs::File::open(&path).map_err(|e| {
+                ShellError::labeled_error(
+                    format!("Error opening file: {:?}", e),
+                    "Error opening file",
+                    name,
+                )
+            })?;
+            let async_reader = futures::io::AllowStdIo::new(f);
+            let sob_stream = FramedRead::new(async_reader, MaybeTextCodec::new(with_encoding))
+                .map_err(|e| {
+                    ShellError::unexpected(format!("AsyncRead failed in open function: {:?}", e))
+                })
+                .into_stream();
+
+            Ok(sob_stream.boxed())
+        }
     }
 
     fn save(
