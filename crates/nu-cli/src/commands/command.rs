@@ -303,6 +303,11 @@ pub trait WholeStreamCommand: Send + Sync {
         false
     }
 
+    // Commands that are not meant to be run by users
+    fn is_internal(&self) -> bool {
+        false
+    }
+
     fn examples(&self) -> Vec<Example> {
         Vec::new()
     }
@@ -365,6 +370,10 @@ impl Command {
 
     pub fn is_binary(&self) -> bool {
         self.0.is_binary()
+    }
+
+    pub fn is_internal(&self) -> bool {
+        self.0.is_internal()
     }
 
     pub fn stream_command(&self) -> &dyn WholeStreamCommand {

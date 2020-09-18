@@ -59,6 +59,10 @@ impl WholeStreamCommand for RunExternalCommand {
         }]
     }
 
+    fn is_internal(&self) -> bool {
+        true
+    }
+
     async fn run(
         &self,
         args: CommandArgs,
