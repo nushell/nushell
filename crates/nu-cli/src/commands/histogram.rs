@@ -178,11 +178,7 @@ fn evaluator(by: ColumnPath) -> Box<dyn Fn(usize, &Value) -> Result<Value, Shell
     Box::new(move |_: usize, value: &Value| {
         let path = by.clone();
 
-        let eval = nu_value_ext::get_data_by_column_path(
-            value,
-            &path,
-            Box::new(move |(_, _, error)| error),
-        );
+        let eval = nu_value_ext::get_data_by_column_path(value, &path, move |_, _, error| error);
 
         match eval {
             Ok(with_value) => Ok(with_value),
