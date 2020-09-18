@@ -64,17 +64,27 @@ async fn help(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
             sorted_names.sort();
 
             Ok(
-                futures::stream::iter(sorted_names.into_iter().filter_map(move |cmd| {
+                futures::stream::iter(sorted_names.into_iter().filter_map(move |cmd_name| {
                     // If it's a subcommand, don't list it during the commands list
-                    if cmd.contains(' ') {
+                    if cmd_name.contains(' ') {
                         return None;
                     }
+
+                    // Internal only commands shouldn't be displayed
+                    let command = match registry.get_command(&cmd_name) {
+                        Some(c) => c,
+                        None => return None,
+                    };
+                    if command.is_internal() {
+                        return None;
+                    };
+
                     let mut short_desc = TaggedDictBuilder::new(name.clone());
                     let document_tag = rest[0].tag.clone();
                     let value = command_dict(
-                        match registry.get_command(&cmd).ok_or_else(|| {
+                        match registry.get_command(&cmd_name).ok_or_else(|| {
                             ShellError::labeled_error(
-                                format!("Could not load {}", cmd),
+                                format!("Could not load {}", cmd_name),
                                 "could not load command",
                                 document_tag,
                             )
@@ -85,7 +95,7 @@ async fn help(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
                         name.clone(),
                     );
 
-                    short_desc.insert_untagged("name", cmd);
+                    short_desc.insert_untagged("name", cmd_name);
                     short_desc.insert_untagged(
                         "description",
                         match match get_data_by_key(&value, "usage".spanned_unknown()).ok_or_else(
