@@ -1,6 +1,7 @@
 use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
+#[cfg(feature = "rich-benchmark")]
 use heim::cpu::time;
 use nu_errors::ShellError;
 use nu_protocol::{hir::Block, Dictionary, Signature, SyntaxShape, UntaggedValue, Value};
@@ -61,6 +62,8 @@ async fn benchmark(
     let (BenchmarkArgs { block }, input) = raw_args.process(&registry).await?;
 
     let start_time = Instant::now();
+
+    #[cfg(feature = "rich-benchmark")]
     let start = time().await;
 
     let result = run_block(
@@ -74,7 +77,9 @@ async fn benchmark(
     .await;
     let _ = result?.drain_vec().await;
 
+    #[cfg(feature = "rich-benchmark")]
     let end = time().await;
+
     let end_time = Instant::now();
     context.clear_errors();
 
@@ -90,15 +95,20 @@ async fn benchmark(
         }
 
         let real_time = into_value(end_time - start_time, &tag);
-        let user_time = into_value(end.user() - start.user(), &tag);
-        let system_time = into_value(end.system() - start.system(), &tag);
-        let idle_time = into_value(end.idle() - start.idle(), &tag);
 
         let mut indexmap = IndexMap::with_capacity(4);
         indexmap.insert("real time".to_string(), real_time);
-        indexmap.insert("user time".to_string(), user_time);
-        indexmap.insert("system time".to_string(), system_time);
-        indexmap.insert("idle time".to_string(), idle_time);
+
+        #[cfg(feature = "rich-benchmark")]
+        {
+            let user_time = into_value(end.user() - start.user(), &tag);
+            let system_time = into_value(end.system() - start.system(), &tag);
+            let idle_time = into_value(end.idle() - start.idle(), &tag);
+
+            indexmap.insert("user time".to_string(), user_time);
+            indexmap.insert("system time".to_string(), system_time);
+            indexmap.insert("idle time".to_string(), idle_time);
+        }
 
         let value = UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag);
         Ok(OutputStream::one(value))
