@@ -94,19 +94,20 @@ async fn benchmark(
             .into_value(tag)
         }
 
-        let real_time = into_value(end_time - start_time, &tag);
-
         let mut indexmap = IndexMap::with_capacity(4);
+
+        let real_time = into_value(end_time - start_time, &tag);
         indexmap.insert("real time".to_string(), real_time);
 
         #[cfg(feature = "rich-benchmark")]
         {
             let user_time = into_value(end.user() - start.user(), &tag);
-            let system_time = into_value(end.system() - start.system(), &tag);
-            let idle_time = into_value(end.idle() - start.idle(), &tag);
-
             indexmap.insert("user time".to_string(), user_time);
+
+            let system_time = into_value(end.system() - start.system(), &tag);
             indexmap.insert("system time".to_string(), system_time);
+
+            let idle_time = into_value(end.idle() - start.idle(), &tag);
             indexmap.insert("idle time".to_string(), idle_time);
         }
 
