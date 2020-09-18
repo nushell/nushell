@@ -30,7 +30,7 @@ impl WholeStreamCommand for Benchmark {
     }
 
     fn usage(&self) -> &str {
-        "Runs a block and return the time it took to do execute it. Eg) benchmark { echo $nu.env.NAME }"
+        "Runs a block and returns the time it took to execute it"
     }
 
     async fn run(
@@ -39,6 +39,14 @@ impl WholeStreamCommand for Benchmark {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         benchmark(args, registry).await
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Benchmarks a command within a block",
+            example: "benchmark { sleep 500ms }",
+            result: None,
+        }]
     }
 }
 

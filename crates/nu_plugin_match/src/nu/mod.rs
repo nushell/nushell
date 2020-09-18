@@ -10,7 +10,7 @@ use regex::Regex;
 impl Plugin for Match {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("match")
-            .desc("filter rows by regex")
+            .desc("Filter rows by Regex pattern")
             .required("member", SyntaxShape::String, "the column name to match")
             .required("regex", SyntaxShape::String, "the regex to match with")
             .filter())

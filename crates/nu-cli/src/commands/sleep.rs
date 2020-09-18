@@ -37,7 +37,7 @@ impl WholeStreamCommand for Sleep {
     }
 
     fn usage(&self) -> &str {
-        "delay for a specified amount of time"
+        "Delay for a specified amount of time"
     }
 
     async fn run(

@@ -48,7 +48,15 @@ impl WholeStreamCommand for RunExternalCommand {
     }
 
     fn usage(&self) -> &str {
-        ""
+        "Runs external command (not a nushell builtin)"
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Run the external echo command",
+            example: "run_external echo 'nushell'",
+            result: None,
+        }]
     }
 
     async fn run(

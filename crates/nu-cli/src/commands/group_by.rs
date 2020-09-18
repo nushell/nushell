@@ -28,7 +28,7 @@ impl WholeStreamCommand for GroupBy {
     }
 
     fn usage(&self) -> &str {
-        "create a new table grouped."
+        "Create a new table grouped."
     }
 
     async fn run(
