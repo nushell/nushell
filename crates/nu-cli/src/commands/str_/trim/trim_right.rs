@@ -64,7 +64,7 @@ fn trim_right(s: &str, char_: Option<char>) -> String {
 #[cfg(test)]
 mod tests {
     use super::{trim_right, SubCommand};
-    use crate::commands::str_::trim::action;
+    use crate::commands::str_::trim::{action, ActionMode};
     use nu_plugin::test_helpers::value::string;
     use nu_source::Tag;
 
@@ -80,7 +80,7 @@ mod tests {
         let word = string(" andres ");
         let expected = string(" andres");
 
-        let actual = action(&word, Tag::unknown(), None, &trim_right).unwrap();
+        let actual = action(&word, Tag::unknown(), None, &trim_right, ActionMode::Local).unwrap();
         assert_eq!(actual, expected);
     }
 
@@ -89,7 +89,14 @@ mod tests {
         let word = string("#@! andres !@#");
         let expected = string("#@! andres !@");
 
-        let actual = action(&word, Tag::unknown(), Some('#'), &trim_right).unwrap();
+        let actual = action(
+            &word,
+            Tag::unknown(),
+            Some('#'),
+            &trim_right,
+            ActionMode::Local,
+        )
+        .unwrap();
         assert_eq!(actual, expected);
     }
 }
