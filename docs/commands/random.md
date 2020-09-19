@@ -106,16 +106,16 @@ true
 ```
 
 ```shell
-> random integer --min 5000
+> random integer 5000..
 8700890823
 ```
 
 ```shell
-> random integer --max 100
+> random integer ..100
 73
 ```
 
 ```shell
-> random integer --min 100000 --max 200000
+> random integer 100000..200000
 173400
 ```

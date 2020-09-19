@@ -12,22 +12,29 @@ use std::path::PathBuf;
 
 #[derive(Copy, Clone, Deserialize, Serialize)]
 pub struct NumericRange {
-    pub from: (Spanned<u64>, RangeInclusion),
-    pub to: (Spanned<u64>, RangeInclusion),
+    pub from: (Option<Spanned<u64>>, RangeInclusion),
+    pub to: (Option<Spanned<u64>>, RangeInclusion),
 }
 
 impl NumericRange {
-    pub fn min(self) -> Option<u64> {
+    pub fn min(self) -> u64 {
         match self.from.1 {
-            RangeInclusion::Inclusive => Some(*self.from.0),
-            RangeInclusion::Exclusive => self.from.0.checked_add(1),
+            RangeInclusion::Inclusive => self.from.0.map(|from| *from).unwrap_or(0),
+            RangeInclusion::Exclusive => {
+                self.from.0.map(|from| *from).unwrap_or(0).saturating_add(1)
+            }
         }
     }
 
-    pub fn max(self) -> Option<u64> {
+    pub fn max(self) -> u64 {
         match self.to.1 {
-            RangeInclusion::Inclusive => Some(*self.to.0),
-            RangeInclusion::Exclusive => self.to.0.checked_sub(1),
+            RangeInclusion::Inclusive => self.to.0.map(|to| *to).unwrap_or(u64::MAX),
+            RangeInclusion::Exclusive => self
+                .to
+                .0
+                .map(|to| *to)
+                .unwrap_or(u64::MAX)
+                .saturating_sub(1),
         }
     }
 }
@@ -459,12 +466,21 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
                 let left_span = left.span;
                 let right_span = right.span;
 
-                let left = left.as_u64(left_span)?;
-                let right = right.as_u64(right_span)?;
+                let left = match left.item {
+                    Primitive::Nothing => None,
+                    _ => Some(left.as_u64(left_span)?),
+                };
+                let right = match right.item {
+                    Primitive::Nothing => None,
+                    _ => Some(right.as_u64(right_span)?),
+                };
 
                 let numeric_range = NumericRange {
-                    from: (left.spanned(left_span), left_inclusion),
-                    to: (right.spanned(right_span), right_inclusion),
+                    from: (left.map(|left| left.spanned(left_span)), left_inclusion),
+                    to: (
+                        right.map(|right| right.spanned(right_span)),
+                        right_inclusion,
+                    ),
                 };
 
                 visit::<Tagged<NumericRange>, _>(numeric_range.tagged(tag), name, fields, visitor)

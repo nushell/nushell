@@ -69,10 +69,7 @@ pub async fn integer(
     let (IntegerArgs { range }, _) = args.process(&registry).await?;
 
     let (min, max) = if let Some(range) = &range {
-        (
-            range.item.min().unwrap_or(0),
-            range.item.max().unwrap_or(u64::MAX),
-        )
+        (range.item.min(), range.item.max())
     } else {
         (0, u64::MAX)
     };
@@ -92,7 +89,7 @@ pub async fn integer(
         _ => {
             let mut thread_rng = thread_rng();
             // add 1 to max, because gen_range is right-exclusive
-            let max = max.checked_add(1).unwrap_or(u64::MAX);
+            let max = max.saturating_add(1);
             let result: u64 = thread_rng.gen_range(min, max);
 
             let untagged_result = UntaggedValue::int(result).into_value(Tag::unknown());
