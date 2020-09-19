@@ -16,6 +16,22 @@ pub struct NumericRange {
     pub to: (Spanned<u64>, RangeInclusion),
 }
 
+impl NumericRange {
+    pub fn min(self) -> Option<u64> {
+        match self.from.1 {
+            RangeInclusion::Inclusive => Some(*self.from.0),
+            RangeInclusion::Exclusive => self.from.0.checked_add(1),
+        }
+    }
+
+    pub fn max(self) -> Option<u64> {
+        match self.to.1 {
+            RangeInclusion::Inclusive => Some(*self.to.0),
+            RangeInclusion::Exclusive => self.to.0.checked_sub(1),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct DeserializerItem<'de> {
     key_struct_field: Option<(String, &'de str)>,
