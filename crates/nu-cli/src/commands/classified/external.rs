@@ -19,7 +19,7 @@ use nu_source::Tag;
 
 pub(crate) async fn run_external_command(
     command: ExternalCommand,
-    context: &mut Context,
+    context: &mut EvaluationContext,
     input: InputStream,
     scope: &Scope,
     external_redirection: ExternalRedirection,
@@ -39,7 +39,7 @@ pub(crate) async fn run_external_command(
 
 async fn run_with_stdin(
     command: ExternalCommand,
-    context: &mut Context,
+    context: &mut EvaluationContext,
     input: InputStream,
     scope: &Scope,
     external_redirection: ExternalRedirection,
@@ -543,7 +543,7 @@ mod tests {
         add_quotes, argument_contains_whitespace, argument_is_quoted, expand_tilde, remove_quotes,
     };
     #[cfg(feature = "which")]
-    use super::{run_external_command, Context, InputStream};
+    use super::{run_external_command, EvaluationContext, InputStream};
 
     #[cfg(feature = "which")]
     use futures::executor::block_on;
@@ -573,7 +573,8 @@ mod tests {
         let cmd = ExternalBuilder::for_name("i_dont_exist.exe").build();
 
         let input = InputStream::empty();
-        let mut ctx = Context::basic().expect("There was a problem creating a basic context.");
+        let mut ctx =
+            EvaluationContext::basic().expect("There was a problem creating a basic context.");
 
         assert!(run_external_command(
             cmd,
@@ -591,7 +592,7 @@ mod tests {
     // async fn failure_run() -> Result<(), ShellError> {
     //     let cmd = ExternalBuilder::for_name("fail").build();
 
-    //     let mut ctx = Context::basic().expect("There was a problem creating a basic context.");
+    //     let mut ctx = EvaluationContext::basic().expect("There was a problem creating a basic context.");
     //     let stream = run_external_command(cmd, &mut ctx, None, false)
     //         .await?
     //         .expect("There was a problem running the external command.");

@@ -44,7 +44,7 @@ impl WholeStreamCommand for AliasCommand {
         block.set_redirect(call_info.args.external_redirection);
 
         let alias_command = self.clone();
-        let mut context = Context::from_args(&args, &registry);
+        let mut context = EvaluationContext::from_args(&args, &registry);
         let input = args.input;
 
         let mut scope = call_info.scope.clone();

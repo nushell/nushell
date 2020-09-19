@@ -1,5 +1,5 @@
 // TODO: Temporary redirect
-use crate::context::CommandRegistry;
+use crate::command_registry::CommandRegistry;
 use crate::evaluate::evaluate_baseline_expr;
 use indexmap::IndexMap;
 use nu_errors::ShellError;

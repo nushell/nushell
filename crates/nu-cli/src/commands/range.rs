@@ -1,5 +1,5 @@
+use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
-use crate::context::CommandRegistry;
 use crate::deserializer::NumericRange;
 use crate::prelude::*;
 use nu_errors::ShellError;

@@ -76,7 +76,7 @@ async fn with_env(
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
 
-    let mut context = Context::from_raw(&raw_args, &registry);
+    let mut context = EvaluationContext::from_raw(&raw_args, &registry);
     let mut scope = raw_args.call_info.scope.clone();
     let (WithEnvArgs { variable, block }, input) = raw_args.process(&registry).await?;
 
