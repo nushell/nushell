@@ -4,7 +4,7 @@ pub(crate) mod flag;
 pub(crate) mod matchers;
 pub(crate) mod path;
 
-use crate::context;
+use crate::evaluation_context::EvaluationContext;
 use matchers::Matcher;
 
 #[derive(Debug, Eq, PartialEq)]
@@ -13,20 +13,25 @@ pub struct Suggestion {
     pub replacement: String,
 }
 
-pub struct Context<'a>(&'a context::Context);
+pub struct CompletionContext<'a>(&'a EvaluationContext);
 
-impl<'a> Context<'a> {
-    pub fn new(a: &'a context::Context) -> Context<'a> {
-        Context(a)
+impl<'a> CompletionContext<'a> {
+    pub fn new(a: &'a EvaluationContext) -> CompletionContext<'a> {
+        CompletionContext(a)
     }
 }
 
-impl<'a> AsRef<context::Context> for Context<'a> {
-    fn as_ref(&self) -> &context::Context {
+impl<'a> AsRef<EvaluationContext> for CompletionContext<'a> {
+    fn as_ref(&self) -> &EvaluationContext {
         self.0
     }
 }
 
 pub trait Completer {
-    fn complete(&self, ctx: &Context<'_>, partial: &str, matcher: &dyn Matcher) -> Vec<Suggestion>;
+    fn complete(
+        &self,
+        ctx: &CompletionContext<'_>,
+        partial: &str,
+        matcher: &dyn Matcher,
+    ) -> Vec<Suggestion>;
 }

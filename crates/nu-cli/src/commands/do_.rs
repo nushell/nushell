@@ -65,7 +65,7 @@ async fn do_(
     let registry = registry.clone();
     let external_redirection = raw_args.call_info.args.external_redirection;
 
-    let mut context = Context::from_raw(&raw_args, &registry);
+    let mut context = EvaluationContext::from_raw(&raw_args, &registry);
     let scope = raw_args.call_info.scope.clone();
     let (
         DoArgs {

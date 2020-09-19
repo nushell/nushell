@@ -4,7 +4,7 @@ use nu_parser::SignatureRegistry;
 use nu_source::{Tag, Tagged};
 
 use crate::completion;
-use crate::context::Context;
+use crate::evaluation_context::EvaluationContext;
 use crate::shell::completer::NuCompleter;
 use crate::shell::painter::Painter;
 use crate::shell::palette::DefaultPalette;
@@ -12,13 +12,16 @@ use crate::shell::palette::DefaultPalette;
 pub struct Helper {
     completer: NuCompleter,
     hinter: Option<rustyline::hint::HistoryHinter>,
-    context: Context,
+    context: EvaluationContext,
     pub colored_prompt: String,
     validator: NuValidator,
 }
 
 impl Helper {
-    pub(crate) fn new(context: Context, hinter: Option<rustyline::hint::HistoryHinter>) -> Helper {
+    pub(crate) fn new(
+        context: EvaluationContext,
+        hinter: Option<rustyline::hint::HistoryHinter>,
+    ) -> Helper {
         Helper {
             completer: NuCompleter {},
             hinter,
@@ -48,7 +51,7 @@ impl rustyline::completion::Completer for Helper {
         pos: usize,
         _ctx: &rustyline::Context<'_>,
     ) -> Result<(usize, Vec<Self::Candidate>), rustyline::error::ReadlineError> {
-        let ctx = completion::Context::new(&self.context);
+        let ctx = completion::CompletionContext::new(&self.context);
         Ok(self.completer.complete(line, pos, &ctx))
     }
 

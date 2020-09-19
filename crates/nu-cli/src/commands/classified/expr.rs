@@ -10,7 +10,7 @@ use nu_protocol::Value;
 
 pub(crate) async fn run_expression_block(
     expr: SpannedExpression,
-    context: &mut Context,
+    context: &mut EvaluationContext,
     it: &Value,
     vars: &IndexMap<String, Value>,
     env: &IndexMap<String, String>,

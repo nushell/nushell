@@ -81,7 +81,7 @@ impl WholeStreamCommand for Reduce {
 async fn process_row(
     block: Arc<Block>,
     scope: Arc<Scope>,
-    mut context: Arc<Context>,
+    mut context: Arc<EvaluationContext>,
     row: Value,
 ) -> Result<InputStream, ShellError> {
     let row_clone = row.clone();
@@ -104,7 +104,7 @@ async fn reduce(
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let base_scope = raw_args.call_info.scope.clone();
-    let context = Arc::new(Context::from_raw(&raw_args, &registry));
+    let context = Arc::new(EvaluationContext::from_raw(&raw_args, &registry));
     let (reduce_args, mut input): (ReduceArgs, _) = raw_args.process(&registry).await?;
     let block = Arc::new(reduce_args.block);
     let (ioffset, start) = match reduce_args.fold {

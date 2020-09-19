@@ -1,6 +1,6 @@
 use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
-use crate::context::CommandRegistry;
+use crate::command_registry::CommandRegistry;
 use crate::prelude::*;
 
 use futures::stream::once;
@@ -84,7 +84,7 @@ pub async fn process_row(
     block: Arc<Block>,
     scope: Arc<Scope>,
     head: Arc<Box<SpannedExpression>>,
-    mut context: Arc<Context>,
+    mut context: Arc<EvaluationContext>,
     input: Value,
 ) -> Result<OutputStream, ShellError> {
     let input_clone = input.clone();
@@ -120,7 +120,7 @@ async fn each(
     let registry = registry.clone();
     let head = Arc::new(raw_args.call_info.args.head.clone());
     let scope = Arc::new(raw_args.call_info.scope.clone());
-    let context = Arc::new(Context::from_raw(&raw_args, &registry));
+    let context = Arc::new(EvaluationContext::from_raw(&raw_args, &registry));
     let (each_args, input): (EachArgs, _) = raw_args.process(&registry).await?;
     let block = Arc::new(each_args.block);
 

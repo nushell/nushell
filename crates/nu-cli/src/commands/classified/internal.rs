@@ -9,7 +9,7 @@ use nu_protocol::{CommandAction, Primitive, ReturnSuccess, Scope, UntaggedValue,
 
 pub(crate) async fn run_internal_command(
     command: InternalCommand,
-    context: &mut Context,
+    context: &mut EvaluationContext,
     input: InputStream,
     it: &Value,
     vars: &IndexMap<String, Value>,

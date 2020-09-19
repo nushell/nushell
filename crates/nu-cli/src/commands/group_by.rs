@@ -96,7 +96,7 @@ pub async fn group_by(
     let registry = registry.clone();
     let head = Arc::new(args.call_info.args.head.clone());
     let scope = Arc::new(args.call_info.scope.clone());
-    let context = Arc::new(Context::from_raw(&args, &registry));
+    let context = Arc::new(EvaluationContext::from_raw(&args, &registry));
     let (GroupByArgs { grouper }, input) = args.process(&registry).await?;
 
     let values: Vec<Value> = input.collect().await;
