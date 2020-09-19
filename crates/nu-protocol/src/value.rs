@@ -83,6 +83,7 @@ impl UntaggedValue {
         matches!(self, UntaggedValue::Primitive(Primitive::Filesize(_)))
     }
 
+    /// Returns true if this value represents a duration
     pub fn is_duration(&self) -> bool {
         matches!(self, UntaggedValue::Primitive(Primitive::Duration(_)))
     }
