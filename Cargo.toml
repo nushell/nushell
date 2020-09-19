@@ -79,6 +79,7 @@ default = [
   "match",
   "post",
   "fetch",
+  "rich-benchmark",
 ]
 extra = ["default", "binaryview", "tree", "clipboard-cli", "trash-support", "start", "bson", "sqlite", "s3"]
 stable = ["default"]
@@ -106,6 +107,7 @@ ctrlc-support = ["nu-cli/ctrlc"]
 directories-support = ["nu-cli/directories", "nu-cli/dirs", "nu-data/directories", "nu-data/dirs"]
 git-support = ["nu-cli/git2"]
 ptree-support = ["nu-cli/ptree"]
+rich-benchmark = ["nu-cli/rich-benchmark"]
 rustyline-support = ["nu-cli/rustyline-support"]
 term-support = ["nu-cli/term"]
 trash-support = ["nu-cli/trash-support"]

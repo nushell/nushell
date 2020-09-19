@@ -1,12 +1,12 @@
 use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
+#[cfg(feature = "rich-benchmark")]
+use heim::cpu::time;
 use nu_errors::ShellError;
-use nu_protocol::{
-    hir::Block, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
-};
-
-use chrono::prelude::*;
+use nu_protocol::{hir::Block, Dictionary, Signature, SyntaxShape, UntaggedValue, Value};
+use std::convert::TryInto;
+use std::time::{Duration, Instant};
 
 pub struct Benchmark;
 
@@ -50,17 +50,21 @@ impl WholeStreamCommand for Benchmark {
     }
 }
 
+#[cfg(feature = "rich-benchmark")]
 async fn benchmark(
     raw_args: CommandArgs,
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
 
+    let tag = raw_args.call_info.args.span;
     let mut context = Context::from_raw(&raw_args, &registry);
     let scope = raw_args.call_info.scope.clone();
     let (BenchmarkArgs { block }, input) = raw_args.process(&registry).await?;
 
-    let start_time: chrono::DateTime<_> = Utc::now();
+    let start_time = Instant::now();
+
+    let start = time().await;
 
     let result = run_block(
         &block,
@@ -71,16 +75,80 @@ async fn benchmark(
         &scope.env,
     )
     .await;
-
     let _ = result?.drain_vec().await;
-    let run_duration: chrono::Duration = Utc::now().signed_duration_since(start_time);
 
+    let end = time().await;
+
+    let end_time = Instant::now();
     context.clear_errors();
 
-    let output = Ok(ReturnSuccess::Value(Value {
-        value: UntaggedValue::Primitive(Primitive::from(run_duration)),
-        tag: Tag::from(block.span),
-    }));
+    if let (Ok(start), Ok(end)) = (start, end) {
+        let mut indexmap = IndexMap::with_capacity(4);
 
-    Ok(OutputStream::from(vec![output]))
+        let real_time = into_value(end_time - start_time, &tag);
+        indexmap.insert("real time".to_string(), real_time);
+
+        let user_time = into_value(end.user() - start.user(), &tag);
+        indexmap.insert("user time".to_string(), user_time);
+
+        let system_time = into_value(end.system() - start.system(), &tag);
+        indexmap.insert("system time".to_string(), system_time);
+
+        let idle_time = into_value(end.idle() - start.idle(), &tag);
+        indexmap.insert("idle time".to_string(), idle_time);
+
+        let value = UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag);
+        Ok(OutputStream::one(value))
+    } else {
+        Err(ShellError::untagged_runtime_error(
+            "Could not retreive CPU time",
+        ))
+    }
+}
+
+#[cfg(not(feature = "rich-benchmark"))]
+async fn benchmark(
+    raw_args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
+    let registry = registry.clone();
+
+    let tag = raw_args.call_info.args.span;
+    let mut context = Context::from_raw(&raw_args, &registry);
+    let scope = raw_args.call_info.scope.clone();
+    let (BenchmarkArgs { block }, input) = raw_args.process(&registry).await?;
+
+    let start_time = Instant::now();
+
+    let result = run_block(
+        &block,
+        &mut context,
+        input,
+        &scope.it,
+        &scope.vars,
+        &scope.env,
+    )
+    .await;
+    let _ = result?.drain_vec().await;
+
+    let end_time = Instant::now();
+    context.clear_errors();
+
+    let mut indexmap = IndexMap::with_capacity(4);
+
+    let real_time = into_value(end_time - start_time, &tag);
+    indexmap.insert("real time".to_string(), real_time);
+
+    let value = UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag);
+    Ok(OutputStream::one(value))
+}
+
+fn into_value<T: TryInto<Duration>>(time: T, tag: &Span) -> Value {
+    UntaggedValue::duration(
+        time.try_into()
+            .unwrap_or_else(|_| Duration::new(0, 0))
+            .as_nanos()
+            .into(),
+    )
+    .into_value(tag)
 }
