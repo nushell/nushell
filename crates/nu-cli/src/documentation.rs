@@ -77,7 +77,7 @@ pub fn generate_docs(registry: &CommandRegistry) -> Value {
         };
     }
     // Return documentation for each command
-    // Sub-commands are nested under there respective parent commands
+    // Sub-commands are nested under their respective parent commands
     let mut table = Vec::new();
     for name in sorted_names.iter() {
         // Must be a sub-command, skip since it's being handled underneath when we hit the parent command
