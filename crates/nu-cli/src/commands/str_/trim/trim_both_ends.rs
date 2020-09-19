@@ -64,7 +64,10 @@ fn trim(s: &str, char_: Option<char>) -> String {
 mod tests {
     use super::{trim, SubCommand};
     use crate::commands::str_::trim::{action, ActionMode};
-    use nu_plugin::test_helpers::value::string;
+    use nu_plugin::{
+        row,
+        test_helpers::value::{int, string, table},
+    };
     use nu_source::Tag;
 
     #[test]
@@ -80,6 +83,42 @@ mod tests {
         let expected = string("andres");
 
         let actual = action(&word, Tag::unknown(), None, &trim, ActionMode::Local).unwrap();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn trims_global() {
+        let word = string(" global   ");
+        let expected = string("global");
+
+        let actual = action(&word, Tag::unknown(), None, &trim, ActionMode::Global).unwrap();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn global_trim_ignores_numbers() {
+        let number = int(2020);
+        let expected = int(2020);
+
+        let actual = action(&number, Tag::unknown(), None, &trim, ActionMode::Global).unwrap();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn global_trim_row() {
+        let row = row!["a".to_string() => string("    c "), " b ".to_string() => string("  d   ")];
+        let expected = row!["a".to_string() => string("c"), " b ".to_string() => string("d")];
+
+        let actual = action(&row, Tag::unknown(), None, &trim, ActionMode::Global).unwrap();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn global_trim_table() {
+        let row = table(&[string("  a  "), int(65), string(" d")]);
+        let expected = table(&[string("a"), int(65), string("d")]);
+
+        let actual = action(&row, Tag::unknown(), None, &trim, ActionMode::Global).unwrap();
         assert_eq!(actual, expected);
     }
 
