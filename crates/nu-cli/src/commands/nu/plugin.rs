@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use crate::commands::WholeStreamCommand;
 use crate::command_registry::CommandRegistry;
+use crate::commands::WholeStreamCommand;
 use crate::path::canonicalize;
 use crate::prelude::*;
 

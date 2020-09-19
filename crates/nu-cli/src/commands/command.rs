@@ -1,5 +1,5 @@
-use crate::commands::help::get_help;
 use crate::command_registry::CommandRegistry;
+use crate::commands::help::get_help;
 use crate::deserializer::ConfigDeserializer;
 use crate::evaluate::evaluate_args::evaluate_args;
 use crate::prelude::*;
