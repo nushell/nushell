@@ -476,6 +476,66 @@ impl Theme {
             print_bottom_border: true,
         }
     }
+
+    #[allow(unused)]
+    pub fn rounded() -> Theme {
+        Theme {
+            top_left: '╭',
+            middle_left: '├',
+            bottom_left: '╰',
+            top_center: '┬',
+            center: '┼',
+            bottom_center: '┴',
+            top_right: '╮',
+            middle_right: '┤',
+            bottom_right: '╯',
+            top_horizontal: '─',
+            middle_horizontal: '─',
+            bottom_horizontal: '─',
+
+            left_vertical: '│',
+            center_vertical: '│',
+            right_vertical: '│',
+
+            separate_header: true,
+            separate_rows: false,
+
+            print_left_border: true,
+            print_right_border: true,
+            print_top_border: true,
+            print_bottom_border: true,
+        }
+    }
+
+    #[allow(unused)]
+    pub fn reinforced() -> Theme {
+        Theme {
+            top_left: '┏',
+            middle_left: '├',
+            bottom_left: '┗',
+            top_center: '┬',
+            center: '┼',
+            bottom_center: '┴',
+            top_right: '┓',
+            middle_right: '┤',
+            bottom_right: '┛',
+            top_horizontal: '─',
+            middle_horizontal: '─',
+            bottom_horizontal: '─',
+
+            left_vertical: '│',
+            center_vertical: '│',
+            right_vertical: '│',
+
+            separate_header: true,
+            separate_rows: false,
+
+            print_left_border: true,
+            print_right_border: true,
+            print_top_border: true,
+            print_bottom_border: true,
+        }
+    }
 }
 
 impl Table {
