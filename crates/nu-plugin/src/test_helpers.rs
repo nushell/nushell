@@ -206,9 +206,9 @@ pub mod value {
     #[macro_export]
     macro_rules! row {
         ($( $key: expr => $val: expr ),*) => {{
-             let mut map = indexmap::IndexMap::new();
+             let mut map = ::indexmap::IndexMap::new();
              $( map.insert($key, $val); )*
-             UntaggedValue::row(map).into_untagged_value()
+             ::nu_protocol::UntaggedValue::row(map).into_untagged_value()
         }}
     }
 }
