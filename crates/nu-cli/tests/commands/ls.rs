@@ -253,6 +253,30 @@ fn lists_all_hidden_files_when_glob_does_not_contain_dot() {
 }
 
 #[test]
+fn lists_files_including_starting_with_dot() {
+    Playground::setup("ls_test_9", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("yehuda.txt"),
+            EmptyFile("jonathan.txt"),
+            EmptyFile("andres.txt"),
+            EmptyFile(".hidden1.txt"),
+            EmptyFile(".hidden2.txt"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ls -a
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual.out, "5");
+    })
+}
+
+#[test]
 fn list_all_columns() {
     Playground::setup(
         "ls_test_all_columns",
