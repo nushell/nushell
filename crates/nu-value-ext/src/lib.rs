@@ -273,7 +273,7 @@ where
                                         .map(|x| x.to_owned())
                                         .collect::<Vec<String>>()
                                         .join(","),
-                                    names.join(",")
+                                    names.join(", ")
                                 ),
                                 column_path_tried.span.since(path_members_span),
                             );
