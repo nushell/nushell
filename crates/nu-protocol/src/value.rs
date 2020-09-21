@@ -192,7 +192,7 @@ impl UntaggedValue {
 
     /// Helper for creating decimal values
     pub fn decimal(s: BigDecimal) -> UntaggedValue {
-        UntaggedValue::Primitive(Primitive::Decimal(s.into()))
+        UntaggedValue::Primitive(Primitive::Decimal(s))
     }
 
     /// Helper for creating decimal values
