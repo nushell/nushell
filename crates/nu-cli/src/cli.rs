@@ -315,7 +315,7 @@ fn convert_rustyline_result_to_string(input: Result<String, ReadlineError>) -> L
     match input {
         Ok(s) => LineResult::Success(s),
         Err(ReadlineError::Interrupted) => LineResult::CtrlC,
-        Err(ReadlineError::Eof) => LineResult::Break,
+        Err(ReadlineError::Eof) => LineResult::CtrlD,
         Err(err) => {
             outln!("Error: {:?}", err);
             LineResult::Break
@@ -522,6 +522,13 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
                     context.with_host(|host| host.stdout("CTRL-C pressed (again to quit)"));
                     ctrlcbreak = true;
                     continue;
+                }
+            }
+
+            LineResult::CtrlD => {
+                context.shell_manager.remove_at_current();
+                if context.shell_manager.is_empty() {
+                    break;
                 }
             }
 
@@ -830,8 +837,9 @@ fn chomp_newline(s: &str) -> &str {
 pub enum LineResult {
     Success(String),
     Error(String, ShellError),
-    CtrlC,
     Break,
+    CtrlC,
+    CtrlD,
 }
 
 pub async fn parse_and_eval(line: &str, ctx: &mut EvaluationContext) -> Result<String, ShellError> {
