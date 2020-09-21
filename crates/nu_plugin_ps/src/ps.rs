@@ -60,7 +60,10 @@ pub async fn ps(tag: Tag, long: bool) -> Result<Vec<Value>, ShellError> {
             if let Ok(status) = process.status().await {
                 dict.insert_untagged("status", UntaggedValue::string(format!("{:?}", status)));
             }
-            dict.insert_untagged("cpu", UntaggedValue::decimal(usage.get::<ratio::percent>()));
+            dict.insert_untagged(
+                "cpu",
+                UntaggedValue::decimal_from_float(usage.get::<ratio::percent>() as f64, tag.span),
+            );
             dict.insert_untagged(
                 "mem",
                 UntaggedValue::filesize(memory.rss().get::<information::byte>()),

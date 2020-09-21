@@ -10,7 +10,7 @@ version = "0.19.0"
 doctest = false
 
 [dependencies]
-bigdecimal = "0.1.2"
+bigdecimal = "0.2.0"
 nu-errors = {path = "../nu-errors", version = "0.19.0"}
 nu-plugin = {path = "../nu-plugin", version = "0.19.0"}
 nu-protocol = {path = "../nu-protocol", version = "0.19.0"}
@@ -21,6 +21,6 @@ tempfile = "3.1.0"
 
 [dependencies.rusqlite]
 features = ["bundled", "blob"]
-version = "0.23.1"
+version = "0.24.0"
 
 [build-dependencies]

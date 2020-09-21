@@ -10,8 +10,8 @@ version = "0.19.0"
 doctest = false
 
 [dependencies]
-bigdecimal = "0.1.2"
-bson = { version = "0.14.1", features = ["decimal128"] }
+bigdecimal = "0.2.0"
+bson = {version = "0.14.1", features = ["decimal128"]}
 nu-errors = {path = "../nu-errors", version = "0.19.0"}
 nu-plugin = {path = "../nu-plugin", version = "0.19.0"}
 nu-protocol = {path = "../nu-protocol", version = "0.19.0"}

@@ -14,6 +14,7 @@ fn from_delimited_string_to_value(
         .delimiter(separator as u8)
         .from_reader(s.as_bytes());
     let tag = tag.into();
+    let span = tag.span;
 
     let headers = if headerless {
         (1..=reader.headers()?.len())
@@ -30,7 +31,10 @@ fn from_delimited_string_to_value(
             if let Ok(i) = value.parse::<i64>() {
                 tagged_row.insert_value(header, UntaggedValue::int(i).into_value(&tag))
             } else if let Ok(f) = value.parse::<f64>() {
-                tagged_row.insert_value(header, UntaggedValue::decimal(f).into_value(&tag))
+                tagged_row.insert_value(
+                    header,
+                    UntaggedValue::decimal_from_float(f, span).into_value(&tag),
+                )
             } else {
                 tagged_row.insert_value(header, UntaggedValue::string(value).into_value(&tag))
             }

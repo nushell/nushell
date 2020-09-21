@@ -253,7 +253,7 @@ pub fn percentages(
                 &split
                     .table_entries()
                     .filter_map(|s| {
-                        let hundred = UntaggedValue::decimal(100);
+                        let hundred = UntaggedValue::decimal_from_float(100.0, tag.span);
 
                         match compute_values(Operator::Divide, &hundred, &maxima) {
                             Ok(v) => match compute_values(Operator::Multiply, &s, &v) {

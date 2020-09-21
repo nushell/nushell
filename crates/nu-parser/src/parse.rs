@@ -741,10 +741,14 @@ fn parse_arg(
                     None,
                 )
             } else if let Ok(x) = lite_arg.item.parse::<f64>() {
-                (
-                    SpannedExpression::new(Expression::decimal(x), lite_arg.span),
-                    None,
-                )
+                if let Ok(x) = Expression::decimal(x) {
+                    (SpannedExpression::new(x, lite_arg.span), None)
+                } else {
+                    (
+                        garbage(lite_arg.span),
+                        Some(ParseError::mismatch("number", lite_arg.clone())),
+                    )
+                }
             } else {
                 (
                     garbage(lite_arg.span),
@@ -952,14 +956,14 @@ mod test {
         let registry = MockRegistry::new();
         let result = parse_arg(SyntaxShape::Number, &registry, &input);
         assert_eq!(result.1, None);
-        assert_eq!(result.0.expr, Expression::decimal(-32.2));
+        assert_eq!(result.0.expr, Expression::decimal(-32.2)?);
 
         let raw = "32.2".to_string();
         let input = raw.clone().spanned(Span::new(0, raw.len()));
         let registry = MockRegistry::new();
         let result = parse_arg(SyntaxShape::Number, &registry, &input);
         assert_eq!(result.1, None);
-        assert_eq!(result.0.expr, Expression::decimal(32.2));
+        assert_eq!(result.0.expr, Expression::decimal(32.2)?);
 
         let raw = "-34".to_string();
         let input = raw.clone().spanned(Span::new(0, raw.len()));

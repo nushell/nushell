@@ -30,11 +30,12 @@ impl WholeStreamCommand for FromTOML {
 
 pub fn convert_toml_value_to_nu_value(v: &toml::Value, tag: impl Into<Tag>) -> Value {
     let tag = tag.into();
+    let span = tag.span;
 
     match v {
         toml::Value::Boolean(b) => UntaggedValue::boolean(*b).into_value(tag),
         toml::Value::Integer(n) => UntaggedValue::int(*n).into_value(tag),
-        toml::Value::Float(n) => UntaggedValue::decimal(*n).into_value(tag),
+        toml::Value::Float(n) => UntaggedValue::decimal_from_float(*n, span).into_value(tag),
         toml::Value::String(s) => {
             UntaggedValue::Primitive(Primitive::String(String::from(s))).into_value(tag)
         }

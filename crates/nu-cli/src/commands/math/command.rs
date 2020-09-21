@@ -39,7 +39,7 @@ mod tests {
         sum::summation, utils::calculate, utils::MathFunction, variance::variance,
     };
     use nu_plugin::row;
-    use nu_plugin::test_helpers::value::{decimal, int, table};
+    use nu_plugin::test_helpers::value::{decimal, decimal_from_float, int, table};
     use nu_protocol::Value;
     use std::str::FromStr;
 
@@ -98,17 +98,17 @@ mod tests {
             },
             TestCase {
                 description: "Mixed Values",
-                values: vec![int(10), decimal(26.5), decimal(26.5)],
+                values: vec![int(10), decimal_from_float(26.5), decimal_from_float(26.5)],
                 expected_err: None,
                 expected_res: vec![
                     Ok(decimal(21)),
                     Ok(int(10)),
-                    Ok(decimal(26.5)),
-                    Ok(decimal(26.5)),
-                    Ok(table(&[decimal(26.5)])),
+                    Ok(decimal_from_float(26.5)),
+                    Ok(decimal_from_float(26.5)),
+                    Ok(table(&[decimal_from_float(26.5)])),
                     Ok(decimal(BigDecimal::from_str("7.77817459305202276840928798315333943213319531457321440247173855894902863154158871367713143880202865").expect("Could not convert to decimal from string"))),
                     Ok(decimal(63)),
-                    Ok(decimal(60.5)),
+                    Ok(decimal_from_float(60.5)),
                 ],
             },
             TestCase {
@@ -128,14 +128,14 @@ mod tests {
             },
             TestCase {
                 description: "Mixed Negative Values",
-                values: vec![decimal(-13.5), decimal(-11.5), int(10)],
+                values: vec![decimal_from_float(-13.5), decimal_from_float(-11.5), int(10)],
                 expected_err: None,
                 expected_res: vec![
                     Ok(decimal(-5)),
-                    Ok(decimal(-13.5)),
+                    Ok(decimal_from_float(-13.5)),
                     Ok(int(10)),
-                    Ok(decimal(-11.5)),
-                    Ok(table(&[decimal(-13.5), decimal(-11.5), int(10)])),
+                    Ok(decimal_from_float(-11.5)),
+                    Ok(table(&[decimal_from_float(-13.5), decimal_from_float(-11.5), int(10)])),
                     Ok(decimal(BigDecimal::from_str("10.63798226482196513098036125801342585449179971588207816421068645273754903468375890632981926875247027").expect("Could not convert to decimal from string"))),
                     Ok(decimal(-15)),
                     Ok(decimal(BigDecimal::from_str("113.1666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666667").expect("Could not convert to decimal from string"))),
@@ -151,10 +151,10 @@ mod tests {
                 ],
                 expected_err: None,
                 expected_res: vec![
-                    Ok(row!["col1".to_owned() => decimal(2.5), "col2".to_owned() => decimal(6.5)]),
+                    Ok(row!["col1".to_owned() => decimal_from_float(2.5), "col2".to_owned() => decimal_from_float(6.5)]),
                     Ok(row!["col1".to_owned() => int(1), "col2".to_owned() => int(5)]),
                     Ok(row!["col1".to_owned() => int(4), "col2".to_owned() => int(8)]),
-                    Ok(row!["col1".to_owned() => decimal(2.5), "col2".to_owned() => decimal(6.5)]),
+                    Ok(row!["col1".to_owned() => decimal_from_float(2.5), "col2".to_owned() => decimal_from_float(6.5)]),
                     Ok(row![
                         "col1".to_owned() => table(&[int(1), int(2), int(3), int(4)]),
                         "col2".to_owned() => table(&[int(5), int(6), int(7), int(8)])
@@ -164,7 +164,7 @@ mod tests {
                         "col2".to_owned() => decimal(BigDecimal::from_str("1.118033988749894848204586834365638117720309179805762862135448622705260462818902449707207204189391137").expect("Could not convert to decimal from string"))
                     ]),
                     Ok(row!["col1".to_owned() => int(10), "col2".to_owned() => int(26)]),
-                    Ok(row!["col1".to_owned() => decimal(1.25), "col2".to_owned() => decimal(1.25)]),
+                    Ok(row!["col1".to_owned() => decimal_from_float(1.25), "col2".to_owned() => decimal_from_float(1.25)]),
                 ],
             },
             // TODO-Uncomment once Issue: https://github.com/nushell/nushell/issues/1883 is resolved
