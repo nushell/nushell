@@ -5,7 +5,8 @@ use crate::prelude::*;
 use heim::cpu::time;
 use nu_errors::ShellError;
 use nu_protocol::{
-    format_duration, hir::Block, Dictionary, Signature, SyntaxShape, UntaggedValue, Value,
+    hir::{Block, ClassifiedCommand, Commands, InternalCommand},
+    Dictionary, Scope, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use std::convert::TryInto;
 use std::time::{Duration, Instant};
@@ -15,7 +16,7 @@ pub struct Benchmark;
 #[derive(Deserialize, Debug)]
 struct BenchmarkArgs {
     block: Block,
-    passthrough: bool,
+    passthrough: Option<Block>,
 }
 
 #[async_trait]
@@ -31,8 +32,9 @@ impl WholeStreamCommand for Benchmark {
                 SyntaxShape::Block,
                 "the block to run and benchmark",
             )
-            .switch(
+            .named(
                 "passthrough",
+                SyntaxShape::Block,
                 "Display the benchmark results and pass through the block's output",
                 Some('p'),
             )
@@ -59,7 +61,7 @@ impl WholeStreamCommand for Benchmark {
             },
             Example {
                 description: "Benchmarks a command within a block and passes its output through",
-                example: "echo 45 | benchmark --passthrough { sleep 500ms }",
+                example: "echo 45 | benchmark { sleep 500ms } --passthrough {}",
                 result: Some(vec![UntaggedValue::int(45).into()]),
             },
         ]
@@ -73,7 +75,7 @@ async fn benchmark(
     let registry = registry.clone();
 
     let tag = raw_args.call_info.args.span;
-    let mut context = Context::from_raw(&raw_args, &registry);
+    let mut context = EvaluationContext::from_raw(&raw_args, &registry);
     let scope = raw_args.call_info.scope.clone();
     let (BenchmarkArgs { block, passthrough }, input) = raw_args.process(&registry).await?;
 
@@ -106,7 +108,7 @@ async fn benchmark(
 
         let real_time = into_big_int(end_time - start_time);
         indexmap.insert("real time".to_string(), real_time);
-        benchmark_output(indexmap, output, passthrough, &tag)
+        benchmark_output(indexmap, output, passthrough, &tag, &mut context, &scope).await
     }
     // return advanced stats
     #[cfg(feature = "rich-benchmark")]
@@ -125,7 +127,7 @@ async fn benchmark(
         let idle_time = into_big_int(end.idle() - start.idle());
         indexmap.insert("idle time".to_string(), idle_time);
 
-        benchmark_output(indexmap, output, passthrough, &tag)
+        benchmark_output(indexmap, output, passthrough, &tag, &mut context, &scope).await
     } else {
         Err(ShellError::untagged_runtime_error(
             "Could not retreive CPU time",
@@ -133,36 +135,68 @@ async fn benchmark(
     }
 }
 
-fn into_big_int<T: TryInto<Duration>>(time: T) -> BigInt {
-    time.try_into()
-        .unwrap_or_else(|_| Duration::new(0, 0))
-        .as_nanos()
-        .into()
-}
-
-fn benchmark_output<T, Output>(
+async fn benchmark_output<T, Output>(
     indexmap: IndexMap<String, BigInt>,
     block_output: Output,
-    passthrough: bool,
+    passthrough: Option<Block>,
     tag: T,
+    context: &mut EvaluationContext,
+    scope: &Scope,
 ) -> Result<OutputStream, ShellError>
 where
     T: Into<Tag> + Copy,
     Output: Into<OutputStream>,
 {
-    if passthrough {
-        for (key, time) in indexmap {
-            println!("{}:\t{}", key, format_duration(&time));
-        }
+    let value = UntaggedValue::Row(Dictionary::from(
+        indexmap
+            .into_iter()
+            .map(|(k, v)| (k, UntaggedValue::duration(v).into_value(tag)))
+            .collect::<IndexMap<String, Value>>(),
+    ))
+    .into_value(tag);
+
+    if let Some(time_block) = passthrough {
+        let benchmark_output = InputStream::one(value);
+
+        // add autoview for an empty block
+        let time_block = add_implicit_autoview(time_block);
+
+        let _ = run_block(
+            &time_block,
+            context,
+            benchmark_output,
+            &scope.it,
+            &scope.vars,
+            &scope.env,
+        )
+        .await?;
+        context.clear_errors();
+
         Ok(block_output.into())
     } else {
-        let value = UntaggedValue::Row(Dictionary::from(
-            indexmap
-                .into_iter()
-                .map(|(k, v)| (k, UntaggedValue::duration(v).into_value(tag)))
-                .collect::<IndexMap<String, Value>>(),
-        ))
-        .into_value(tag);
-        Ok(OutputStream::one(value))
+        let benchmark_output = OutputStream::one(value);
+        Ok(benchmark_output)
     }
+}
+
+fn add_implicit_autoview(mut block: Block) -> Block {
+    if block.block.is_empty() {
+        block.push({
+            let mut commands = Commands::new(block.span);
+            commands.push(ClassifiedCommand::Internal(InternalCommand::new(
+                "autoview".to_string(),
+                block.span,
+                block.span,
+            )));
+            commands
+        });
+    }
+    block
+}
+
+fn into_big_int<T: TryInto<Duration>>(time: T) -> BigInt {
+    time.try_into()
+        .unwrap_or_else(|_| Duration::new(0, 0))
+        .as_nanos()
+        .into()
 }
