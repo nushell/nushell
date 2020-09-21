@@ -107,7 +107,6 @@ async fn help(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
                         .as_string()?,
                 );
 
-                //ReturnSuccess::value(dict.into_value())
                 Ok(())
             }
 
@@ -118,9 +117,10 @@ async fn help(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
                 rest: Vec<Tagged<String>>,
                 name: Tag,
             ) -> Result<Value, ShellError> {
-                let (matching, not_matching) = subcommand_names
-                    .drain(..)
-                    .partition(|subcommand_name| subcommand_name.starts_with(cmd_name));
+                let (matching, not_matching) =
+                    subcommand_names.drain(..).partition(|subcommand_name| {
+                        subcommand_name.starts_with(&format!("{} ", cmd_name))
+                    });
                 *subcommand_names = not_matching;
                 Ok(if !matching.is_empty() {
                     UntaggedValue::table(
