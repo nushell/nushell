@@ -64,8 +64,11 @@ fn trim_left(s: &str, char_: Option<char>) -> String {
 #[cfg(test)]
 mod tests {
     use super::{trim_left, SubCommand};
-    use crate::commands::str_::trim::action;
-    use nu_plugin::test_helpers::value::string;
+    use crate::commands::str_::trim::{action, ActionMode};
+    use nu_plugin::{
+        row,
+        test_helpers::value::{int, string, table},
+    };
     use nu_source::Tag;
 
     #[test]
@@ -80,15 +83,66 @@ mod tests {
         let word = string(" andres ");
         let expected = string("andres ");
 
-        let actual = action(&word, Tag::unknown(), None, &trim_left).unwrap();
+        let actual = action(&word, Tag::unknown(), None, &trim_left, ActionMode::Local).unwrap();
         assert_eq!(actual, expected);
     }
+
+    #[test]
+    fn trims_left_global() {
+        let word = string(" global   ");
+        let expected = string("global   ");
+
+        let actual = action(&word, Tag::unknown(), None, &trim_left, ActionMode::Global).unwrap();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn global_trim_left_ignores_numbers() {
+        let number = int(2020);
+        let expected = int(2020);
+
+        let actual = action(
+            &number,
+            Tag::unknown(),
+            None,
+            &trim_left,
+            ActionMode::Global,
+        )
+        .unwrap();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn global_trim_left_row() {
+        let row = row!["a".to_string() => string("    c "), " b ".to_string() => string("  d   ")];
+        let expected = row!["a".to_string() => string("c "), " b ".to_string() => string("d   ")];
+
+        let actual = action(&row, Tag::unknown(), None, &trim_left, ActionMode::Global).unwrap();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn global_trim_left_table() {
+        let row = table(&[string("  a  "), int(65), string(" d")]);
+        let expected = table(&[string("a  "), int(65), string("d")]);
+
+        let actual = action(&row, Tag::unknown(), None, &trim_left, ActionMode::Global).unwrap();
+        assert_eq!(actual, expected);
+    }
+
     #[test]
     fn trims_custom_chars_from_left() {
         let word = string("!!! andres !!!");
         let expected = string(" andres !!!");
 
-        let actual = action(&word, Tag::unknown(), Some('!'), &trim_left).unwrap();
+        let actual = action(
+            &word,
+            Tag::unknown(),
+            Some('!'),
+            &trim_left,
+            ActionMode::Local,
+        )
+        .unwrap();
         assert_eq!(actual, expected);
     }
 }

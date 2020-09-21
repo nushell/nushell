@@ -4,7 +4,7 @@ use crate::completion::matchers;
 use crate::completion::matchers::Matcher;
 use crate::completion::path::{PathCompleter, PathSuggestion};
 use crate::completion::{self, Completer, Suggestion};
-use crate::context;
+use crate::evaluation_context::EvaluationContext;
 use nu_source::Tag;
 
 use std::borrow::Cow;
@@ -18,11 +18,11 @@ impl NuCompleter {
         &self,
         line: &str,
         pos: usize,
-        context: &completion::Context,
+        context: &completion::CompletionContext,
     ) -> (usize, Vec<Suggestion>) {
         use completion::engine::LocationType;
 
-        let nu_context: &context::Context = context.as_ref();
+        let nu_context: &EvaluationContext = context.as_ref();
         let lite_block = match nu_parser::lite_parse(line, 0) {
             Ok(block) => Some(block),
             Err(result) => result.partial,

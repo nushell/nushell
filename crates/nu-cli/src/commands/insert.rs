@@ -1,6 +1,6 @@
+use crate::command_registry::CommandRegistry;
 use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
-use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{
@@ -48,7 +48,7 @@ impl WholeStreamCommand for Insert {
 
 async fn process_row(
     scope: Arc<Scope>,
-    mut context: Arc<Context>,
+    mut context: Arc<EvaluationContext>,
     input: Value,
     mut value: Arc<Value>,
     field: Arc<ColumnPath>,
@@ -136,7 +136,7 @@ async fn insert(
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let scope = Arc::new(raw_args.call_info.scope.clone());
-    let context = Arc::new(Context::from_raw(&raw_args, &registry));
+    let context = Arc::new(EvaluationContext::from_raw(&raw_args, &registry));
     let (InsertArgs { column, value }, input) = raw_args.process(&registry).await?;
     let value = Arc::new(value);
     let column = Arc::new(column);

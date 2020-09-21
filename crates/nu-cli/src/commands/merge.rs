@@ -1,6 +1,6 @@
+use crate::command_registry::CommandRegistry;
 use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
-use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_data::value::merge_values;
 
@@ -55,7 +55,7 @@ async fn merge(
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let scope = raw_args.call_info.scope.clone();
-    let mut context = Context::from_raw(&raw_args, &registry);
+    let mut context = EvaluationContext::from_raw(&raw_args, &registry);
     let name_tag = raw_args.call_info.name_tag.clone();
     let (merge_args, input): (MergeArgs, _) = raw_args.process(&registry).await?;
     let block = merge_args.block;

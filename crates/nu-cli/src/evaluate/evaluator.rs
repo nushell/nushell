@@ -1,5 +1,5 @@
+use crate::command_registry::CommandRegistry;
 use crate::commands::classified::block::run_block;
-use crate::context::CommandRegistry;
 use crate::evaluate::operator::apply_operator;
 use crate::prelude::*;
 use async_recursion::async_recursion;
@@ -241,7 +241,7 @@ async fn evaluate_invocation(
     env: &IndexMap<String, String>,
 ) -> Result<Value, ShellError> {
     // FIXME: we should use a real context here
-    let mut context = Context::basic()?;
+    let mut context = EvaluationContext::basic()?;
     context.registry = registry.clone();
 
     let input = InputStream::one(it.clone());

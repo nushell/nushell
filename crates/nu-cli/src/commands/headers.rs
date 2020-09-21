@@ -1,5 +1,5 @@
+use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
-use crate::context::CommandRegistry;
 use crate::prelude::*;
 use futures::stream::StreamExt;
 use indexmap::IndexMap;

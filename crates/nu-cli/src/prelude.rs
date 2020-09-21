@@ -71,10 +71,10 @@ macro_rules! trace_out_stream {
 pub(crate) use nu_protocol::{errln, out, outln};
 use nu_source::HasFallibleSpan;
 
+pub(crate) use crate::command_registry::CommandRegistry;
 pub(crate) use crate::commands::command::{CommandArgs, RawCommandArgs, RunnableContext};
 pub(crate) use crate::commands::Example;
-pub(crate) use crate::context::CommandRegistry;
-pub(crate) use crate::context::Context;
+pub(crate) use crate::evaluation_context::EvaluationContext;
 pub(crate) use nu_data::config;
 pub(crate) use nu_data::value;
 // pub(crate) use crate::env::host::handle_unexpected;

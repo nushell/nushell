@@ -4,14 +4,19 @@ use std::path::Path;
 use indexmap::set::IndexSet;
 
 use super::matchers::Matcher;
-use crate::completion::{Completer, Context, Suggestion};
-use crate::context;
+use crate::completion::{Completer, CompletionContext, Suggestion};
+use crate::evaluation_context::EvaluationContext;
 
 pub struct CommandCompleter;
 
 impl Completer for CommandCompleter {
-    fn complete(&self, ctx: &Context<'_>, partial: &str, matcher: &dyn Matcher) -> Vec<Suggestion> {
-        let context: &context::Context = ctx.as_ref();
+    fn complete(
+        &self,
+        ctx: &CompletionContext<'_>,
+        partial: &str,
+        matcher: &dyn Matcher,
+    ) -> Vec<Suggestion> {
+        let context: &EvaluationContext = ctx.as_ref();
         let mut commands: IndexSet<String> = IndexSet::from_iter(context.registry.names());
 
         // Command suggestions can come from three possible sets:

@@ -1,14 +1,19 @@
 use super::matchers::Matcher;
-use crate::completion::{Completer, Context, Suggestion};
-use crate::context;
+use crate::completion::{Completer, CompletionContext, Suggestion};
+use crate::evaluation_context::EvaluationContext;
 
 pub struct FlagCompleter {
     pub(crate) cmd: String,
 }
 
 impl Completer for FlagCompleter {
-    fn complete(&self, ctx: &Context<'_>, partial: &str, matcher: &dyn Matcher) -> Vec<Suggestion> {
-        let context: &context::Context = ctx.as_ref();
+    fn complete(
+        &self,
+        ctx: &CompletionContext<'_>,
+        partial: &str,
+        matcher: &dyn Matcher,
+    ) -> Vec<Suggestion> {
+        let context: &EvaluationContext = ctx.as_ref();
 
         if let Some(cmd) = context.registry.get_command(&self.cmd) {
             let sig = cmd.signature();

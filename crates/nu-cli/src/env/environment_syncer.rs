@@ -1,5 +1,5 @@
-use crate::context::Context;
 use crate::env::environment::{Env, Environment};
+use crate::evaluation_context::EvaluationContext;
 use nu_data::config::{Conf, NuConfig};
 use nu_errors::ShellError;
 use parking_lot::Mutex;
@@ -61,14 +61,14 @@ impl EnvironmentSyncer {
         environment.morph(&*config);
     }
 
-    pub fn autoenv(&self, ctx: &mut Context) -> Result<(), ShellError> {
+    pub fn autoenv(&self, ctx: &mut EvaluationContext) -> Result<(), ShellError> {
         let mut environment = self.env.lock();
         let auto = environment.autoenv(ctx.user_recently_used_autoenv_untrust);
         ctx.user_recently_used_autoenv_untrust = false;
         auto
     }
 
-    pub fn sync_env_vars(&mut self, ctx: &mut Context) {
+    pub fn sync_env_vars(&mut self, ctx: &mut EvaluationContext) {
         let mut environment = self.env.lock();
 
         if environment.env().is_some() {
@@ -99,7 +99,7 @@ impl EnvironmentSyncer {
         }
     }
 
-    pub fn sync_path_vars(&mut self, ctx: &mut Context) {
+    pub fn sync_path_vars(&mut self, ctx: &mut EvaluationContext) {
         let mut environment = self.env.lock();
 
         if environment.path().is_some() {
@@ -131,7 +131,7 @@ impl EnvironmentSyncer {
     }
 
     #[cfg(test)]
-    pub fn clear_env_vars(&mut self, ctx: &mut Context) {
+    pub fn clear_env_vars(&mut self, ctx: &mut EvaluationContext) {
         for (key, _value) in ctx.with_host(|host| host.vars()) {
             if key != "path" && key != "PATH" {
                 ctx.with_host(|host| host.env_rm(std::ffi::OsString::from(key)));
@@ -140,7 +140,7 @@ impl EnvironmentSyncer {
     }
 
     #[cfg(test)]
-    pub fn clear_path_var(&mut self, ctx: &mut Context) {
+    pub fn clear_path_var(&mut self, ctx: &mut EvaluationContext) {
         ctx.with_host(|host| host.env_rm(std::ffi::OsString::from("PATH")));
     }
 }
@@ -148,8 +148,8 @@ impl EnvironmentSyncer {
 #[cfg(test)]
 mod tests {
     use super::EnvironmentSyncer;
-    use crate::context::Context;
     use crate::env::environment::Env;
+    use crate::evaluation_context::EvaluationContext;
     use indexmap::IndexMap;
     use nu_data::config::tests::FakeConfig;
     use nu_errors::ShellError;
@@ -166,7 +166,7 @@ mod tests {
     #[test]
     fn syncs_env_if_new_env_entry_is_added_to_an_existing_configuration() -> Result<(), ShellError>
     {
-        let mut ctx = Context::basic()?;
+        let mut ctx = EvaluationContext::basic()?;
         ctx.host = Arc::new(Mutex::new(Box::new(crate::env::host::FakeHost::new())));
 
         let mut expected = IndexMap::new();
@@ -269,7 +269,7 @@ mod tests {
     #[test]
     fn syncs_env_if_new_env_entry_in_session_is_not_in_configuration_file() -> Result<(), ShellError>
     {
-        let mut ctx = Context::basic()?;
+        let mut ctx = EvaluationContext::basic()?;
         ctx.host = Arc::new(Mutex::new(Box::new(crate::env::host::FakeHost::new())));
 
         let mut expected = IndexMap::new();
@@ -368,7 +368,7 @@ mod tests {
 
     #[test]
     fn nu_envs_have_higher_priority_and_does_not_get_overwritten() -> Result<(), ShellError> {
-        let mut ctx = Context::basic()?;
+        let mut ctx = EvaluationContext::basic()?;
         ctx.host = Arc::new(Mutex::new(Box::new(crate::env::host::FakeHost::new())));
 
         let mut expected = IndexMap::new();
@@ -444,7 +444,7 @@ mod tests {
     #[test]
     fn syncs_path_if_new_path_entry_in_session_is_not_in_configuration_file(
     ) -> Result<(), ShellError> {
-        let mut ctx = Context::basic()?;
+        let mut ctx = EvaluationContext::basic()?;
         ctx.host = Arc::new(Mutex::new(Box::new(crate::env::host::FakeHost::new())));
 
         let expected = std::env::join_paths(vec![
@@ -531,7 +531,7 @@ mod tests {
     #[test]
     fn nu_paths_have_higher_priority_and_new_paths_get_appended_to_the_end(
     ) -> Result<(), ShellError> {
-        let mut ctx = Context::basic()?;
+        let mut ctx = EvaluationContext::basic()?;
         ctx.host = Arc::new(Mutex::new(Box::new(crate::env::host::FakeHost::new())));
 
         let expected = std::env::join_paths(vec![

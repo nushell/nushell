@@ -1,5 +1,5 @@
+use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
-use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_data::base::select_fields;
 use nu_errors::ShellError;

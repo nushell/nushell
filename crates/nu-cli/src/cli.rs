@@ -1,6 +1,6 @@
 use crate::commands::classified::block::run_block;
 use crate::commands::classified::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
-use crate::context::Context;
+use crate::evaluation_context::EvaluationContext;
 use crate::path::canonicalize;
 use crate::prelude::*;
 #[cfg(feature = "rustyline-support")]
@@ -56,8 +56,8 @@ pub fn search_paths() -> Vec<std::path::PathBuf> {
     search_paths
 }
 
-pub fn create_default_context(interactive: bool) -> Result<Context, Box<dyn Error>> {
-    let mut context = Context::basic()?;
+pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Box<dyn Error>> {
+    let mut context = EvaluationContext::basic()?;
 
     {
         use crate::commands::*;
@@ -315,7 +315,7 @@ fn convert_rustyline_result_to_string(input: Result<String, ReadlineError>) -> L
     match input {
         Ok(s) => LineResult::Success(s),
         Err(ReadlineError::Interrupted) => LineResult::CtrlC,
-        Err(ReadlineError::Eof) => LineResult::Break,
+        Err(ReadlineError::Eof) => LineResult::CtrlD,
         Err(err) => {
             outln!("Error: {:?}", err);
             LineResult::Break
@@ -325,7 +325,7 @@ fn convert_rustyline_result_to_string(input: Result<String, ReadlineError>) -> L
 
 /// The entry point for the CLI. Will register all known internal commands, load experimental commands, load plugins, then prepare the prompt and line reader for input.
 #[cfg(feature = "rustyline-support")]
-pub async fn cli(mut context: Context) -> Result<(), Box<dyn Error>> {
+pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
     let mut syncer = EnvironmentSyncer::new();
     let configuration = syncer.get_config();
 
@@ -525,6 +525,13 @@ pub async fn cli(mut context: Context) -> Result<(), Box<dyn Error>> {
                 }
             }
 
+            LineResult::CtrlD => {
+                context.shell_manager.remove_at_current();
+                if context.shell_manager.is_empty() {
+                    break;
+                }
+            }
+
             LineResult::Break => {
                 break;
             }
@@ -538,7 +545,7 @@ pub async fn cli(mut context: Context) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub fn register_plugins(context: &mut Context) -> Result<(), ShellError> {
+pub fn register_plugins(context: &mut EvaluationContext) -> Result<(), ShellError> {
     if let Ok(plugins) = crate::plugin::scan(search_paths()) {
         context.add_commands(
             plugins
@@ -551,7 +558,7 @@ pub fn register_plugins(context: &mut Context) -> Result<(), ShellError> {
     Ok(())
 }
 
-fn configure_ctrl_c(_context: &mut Context) -> Result<(), Box<dyn Error>> {
+fn configure_ctrl_c(_context: &mut EvaluationContext) -> Result<(), Box<dyn Error>> {
     #[cfg(feature = "ctrlc")]
     {
         let cc = _context.ctrl_c.clone();
@@ -569,7 +576,7 @@ fn configure_ctrl_c(_context: &mut Context) -> Result<(), Box<dyn Error>> {
 }
 
 async fn run_startup_commands(
-    context: &mut Context,
+    context: &mut EvaluationContext,
     config: &dyn nu_data::config::Conf,
 ) -> Result<(), ShellError> {
     if let Some(commands) = config.var("startup") {
@@ -599,7 +606,7 @@ async fn run_startup_commands(
 pub async fn run_pipeline_standalone(
     pipeline: String,
     redirect_stdin: bool,
-    context: &mut Context,
+    context: &mut EvaluationContext,
     exit_on_error: bool,
 ) -> Result<(), Box<dyn Error>> {
     let line = process_line(&pipeline, context, redirect_stdin, false).await;
@@ -798,7 +805,7 @@ fn configure_rustyline_editor(
 
 #[cfg(feature = "rustyline-support")]
 fn nu_line_editor_helper(
-    context: &mut Context,
+    context: &mut EvaluationContext,
     config: &dyn nu_data::config::Conf,
 ) -> crate::shell::Helper {
     let hinter = rustyline_hinter(config);
@@ -830,11 +837,12 @@ fn chomp_newline(s: &str) -> &str {
 pub enum LineResult {
     Success(String),
     Error(String, ShellError),
-    CtrlC,
     Break,
+    CtrlC,
+    CtrlD,
 }
 
-pub async fn parse_and_eval(line: &str, ctx: &mut Context) -> Result<String, ShellError> {
+pub async fn parse_and_eval(line: &str, ctx: &mut EvaluationContext) -> Result<String, ShellError> {
     let line = if line.ends_with('\n') {
         &line[..line.len() - 1]
     } else {
@@ -867,7 +875,7 @@ pub async fn parse_and_eval(line: &str, ctx: &mut Context) -> Result<String, She
 /// Process the line by parsing the text to turn it into commands, classify those commands so that we understand what is being called in the pipeline, and then run this pipeline
 pub async fn process_line(
     line: &str,
-    ctx: &mut Context,
+    ctx: &mut EvaluationContext,
     redirect_stdin: bool,
     cli_mode: bool,
 ) -> LineResult {
@@ -1085,7 +1093,7 @@ mod tests {
     #[quickcheck]
     fn quickcheck_parse(data: String) -> bool {
         if let Ok(lite_block) = nu_parser::lite_parse(&data, 0) {
-            let context = crate::context::Context::basic().unwrap();
+            let context = crate::evaluation_context::EvaluationContext::basic().unwrap();
             let _ = nu_parser::classify_block(&lite_block, context.registry());
         }
         true
