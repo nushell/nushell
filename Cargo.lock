@@ -359,11 +359,11 @@ dependencies = [
 
 [[package]]
 name = "bigdecimal"
-version = "0.1.2"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1374191e2dd25f9ae02e3aa95041ed5d747fc77b3c102b49fe2dd9a8117a6244"
+checksum = "cc403c26e6b03005522e6e8053384c4e881dfe5b2bf041c0c2c49be33d64a539"
 dependencies = [
- "num-bigint",
+ "num-bigint 0.3.0",
  "num-integer",
  "num-traits 0.2.12",
  "serde 1.0.115",
@@ -2378,9 +2378,9 @@ dependencies = [
 
 [[package]]
 name = "libsqlite3-sys"
-version = "0.18.0"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e704a02bcaecd4a08b93a23f6be59d0bd79cd161e0963e9499165a0a35df7bd"
+checksum = "e3a245984b1b06c291f46e27ebda9f369a94a1ab8461d0e845e23f9ced01f5db"
 dependencies = [
  "cc",
  "pkg-config",
@@ -2934,7 +2934,7 @@ dependencies = [
  "nu-table",
  "nu-test-support",
  "nu-value-ext",
- "num-bigint",
+ "num-bigint 0.3.0",
  "num-format",
  "num-traits 0.2.12",
  "parking_lot 0.11.0",
@@ -2997,7 +2997,7 @@ dependencies = [
  "nu-source",
  "nu-table",
  "nu-value-ext",
- "num-bigint",
+ "num-bigint 0.3.0",
  "num-traits 0.2.12",
  "parking_lot 0.11.0",
  "query_interface",
@@ -3017,7 +3017,7 @@ dependencies = [
  "getset",
  "glob",
  "nu-source",
- "num-bigint",
+ "num-bigint 0.3.0",
  "num-traits 0.2.12",
  "serde 1.0.115",
  "serde_json",
@@ -3037,7 +3037,7 @@ dependencies = [
  "nu-errors",
  "nu-protocol",
  "nu-source",
- "num-bigint",
+ "num-bigint 0.3.0",
  "num-traits 0.2.12",
  "serde 1.0.115",
  "shellexpand",
@@ -3053,7 +3053,7 @@ dependencies = [
  "nu-protocol",
  "nu-source",
  "nu-value-ext",
- "num-bigint",
+ "num-bigint 0.3.0",
  "serde 1.0.115",
  "serde_json",
 ]
@@ -3075,7 +3075,7 @@ dependencies = [
  "natural",
  "nu-errors",
  "nu-source",
- "num-bigint",
+ "num-bigint 0.3.0",
  "num-integer",
  "num-traits 0.2.12",
  "serde 1.0.115",
@@ -3238,7 +3238,7 @@ dependencies = [
  "nu-plugin",
  "nu-protocol",
  "nu-source",
- "num-bigint",
+ "num-bigint 0.3.0",
 ]
 
 [[package]]
@@ -3278,7 +3278,7 @@ dependencies = [
  "nu-plugin",
  "nu-protocol",
  "nu-source",
- "num-bigint",
+ "num-bigint 0.3.0",
 ]
 
 [[package]]
@@ -3342,7 +3342,7 @@ version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8536030f9fea7127f841b45bb6243b27255787fb4eb83958aa1ef9d2fdc0c36"
 dependencies = [
- "num-bigint",
+ "num-bigint 0.2.6",
  "num-complex",
  "num-integer",
  "num-iter",
@@ -3355,6 +3355,17 @@ name = "num-bigint"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "090c7f9998ee0ff65aa5b723e4009f7b217707f1fb5ea551329cc4d6231fb304"
+dependencies = [
+ "autocfg 1.0.1",
+ "num-integer",
+ "num-traits 0.2.12",
+]
+
+[[package]]
+name = "num-bigint"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b7f3fc75e3697059fb1bc465e3d8cca6cf92f56854f201158b3f9c77d5a3cfa0"
 dependencies = [
  "autocfg 1.0.1",
  "num-integer",
@@ -3380,7 +3391,7 @@ checksum = "bafe4179722c2894288ee77a9f044f02811c86af699344c498b0840c698a2465"
 dependencies = [
  "arrayvec 0.4.12",
  "itoa",
- "num-bigint",
+ "num-bigint 0.2.6",
 ]
 
 [[package]]
@@ -3411,7 +3422,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5c000134b5dbf44adc5cb772486d335293351644b801551abe8f75c84cfa4aef"
 dependencies = [
  "autocfg 1.0.1",
- "num-bigint",
+ "num-bigint 0.2.6",
  "num-integer",
  "num-traits 0.2.12",
 ]
@@ -4395,9 +4406,9 @@ dependencies = [
 
 [[package]]
 name = "rusqlite"
-version = "0.23.1"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45d0fd62e1df63d254714e6cb40d0a0e82e7a1623e7a27f679d851af092ae58b"
+checksum = "4c78c3275d9d6eb684d2db4b2388546b32fdae0586c20a82f3905d21ea78b9ef"
 dependencies = [
  "bitflags",
  "fallible-iterator",
@@ -4406,7 +4417,6 @@ dependencies = [
  "lru-cache",
  "memchr",
  "smallvec 1.4.2",
- "time",
 ]
 
 [[package]]

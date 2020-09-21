@@ -53,7 +53,11 @@ impl WholeStreamCommand for SubCommand {
         vec![Example {
             description: "Get the average of a list of numbers",
             example: "echo [-50 100.0 25] | math avg",
-            result: Some(vec![UntaggedValue::decimal(25).into()]),
+            result: Some(vec![UntaggedValue::decimal_from_float(
+                25.0,
+                Span::unknown(),
+            )
+            .into()]),
         }]
     }
 }

@@ -45,6 +45,7 @@ async fn from_ods(
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
+    let span = tag.span;
     let registry = registry.clone();
 
     let (
@@ -73,7 +74,7 @@ async fn from_ods(
                     let value = match cell {
                         DataType::Empty => UntaggedValue::nothing(),
                         DataType::String(s) => UntaggedValue::string(s),
-                        DataType::Float(f) => UntaggedValue::decimal(*f),
+                        DataType::Float(f) => UntaggedValue::decimal_from_float(*f, span),
                         DataType::Int(i) => UntaggedValue::int(*i),
                         DataType::Bool(b) => UntaggedValue::boolean(*b),
                         _ => UntaggedValue::nothing(),

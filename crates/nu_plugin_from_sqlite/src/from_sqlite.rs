@@ -1,3 +1,4 @@
+use bigdecimal::FromPrimitive;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, ReturnValue, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::Tag;
@@ -58,9 +59,9 @@ fn convert_sqlite_row_to_nu_value(
     tag: impl Into<Tag> + Clone,
 ) -> Result<Value, rusqlite::Error> {
     let mut collected = TaggedDictBuilder::new(tag.clone());
-    for (i, c) in row.columns().iter().enumerate() {
+    for (i, c) in row.column_names().iter().enumerate() {
         collected.insert_value(
-            c.name().to_string(),
+            c.to_string(),
             convert_sqlite_value_to_nu_value(row.get_raw(i), tag.clone()),
         );
     }
@@ -73,7 +74,20 @@ fn convert_sqlite_value_to_nu_value(value: ValueRef, tag: impl Into<Tag> + Clone
             UntaggedValue::Primitive(Primitive::String(String::from(""))).into_value(tag)
         }
         ValueRef::Integer(i) => UntaggedValue::int(i).into_value(tag),
-        ValueRef::Real(f) => UntaggedValue::decimal(f).into_value(tag),
+        ValueRef::Real(f) => {
+            let f = bigdecimal::BigDecimal::from_f64(f);
+            let tag = tag.into();
+            let span = tag.span;
+            match f {
+                Some(d) => UntaggedValue::decimal(d).into_value(tag),
+                None => UntaggedValue::Error(ShellError::labeled_error(
+                    "Can not convert f64 to big decimal",
+                    "can not convert to decimal",
+                    span,
+                ))
+                .into_value(tag),
+            }
+        }
         ValueRef::Text(s) => {
             // this unwrap is safe because we know the ValueRef is Text.
             UntaggedValue::Primitive(Primitive::String(String::from_utf8_lossy(s).to_string()))

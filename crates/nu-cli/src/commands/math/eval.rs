@@ -41,7 +41,11 @@ impl WholeStreamCommand for SubCommand {
         vec![Example {
             description: "Evalulate math in the pipeline",
             example: "echo '10 / 4' | math eval",
-            result: Some(vec![UntaggedValue::decimal(2.5).into()]),
+            result: Some(vec![UntaggedValue::decimal_from_float(
+                2.5,
+                Span::unknown(),
+            )
+            .into()]),
         }]
     }
 }

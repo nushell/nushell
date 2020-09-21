@@ -99,12 +99,20 @@ impl WholeStreamCommand for SubCommand {
             Example {
                 description: "Get the variance of a list of numbers",
                 example: "echo [1 2 3 4 5] | math variance",
-                result: Some(vec![UntaggedValue::decimal(2).into()]),
+                result: Some(vec![UntaggedValue::decimal_from_float(
+                    2.0,
+                    Span::unknown(),
+                )
+                .into()]),
             },
             Example {
                 description: "Get the sample variance of a list of numbers",
                 example: "echo [1 2 3 4 5] | math variance -s",
-                result: Some(vec![UntaggedValue::decimal(2.5).into()]),
+                result: Some(vec![UntaggedValue::decimal_from_float(
+                    2.5,
+                    Span::unknown(),
+                )
+                .into()]),
             },
         ]
     }

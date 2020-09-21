@@ -24,7 +24,7 @@ ansi_term = "0.12.1"
 async-recursion = "0.3.1"
 async-trait = "0.1.40"
 base64 = "0.12.3"
-bigdecimal = {version = "0.1.2", features = ["serde"]}
+bigdecimal = {version = "0.2.0", features = ["serde"]}
 byte-unit = "4.0.9"
 bytes = "0.5.6"
 calamine = "0.16.1"
@@ -47,7 +47,7 @@ futures_codec = "0.4.1"
 getset = "0.1.1"
 git2 = {version = "0.13.11", default_features = false, optional = true}
 glob = "0.3.0"
-heim = {version = "0.1.0-beta.3", optional = true }
+heim = {version = "0.1.0-beta.3", optional = true}
 htmlescape = "0.3.1"
 ical = "0.6.0"
 ichwh = {version = "0.3.4", optional = true}
@@ -56,7 +56,7 @@ itertools = "0.9.0"
 log = "0.4.11"
 meval = "0.2.0"
 natural = "0.5.0"
-num-bigint = {version = "0.2.6", features = ["serde"]}
+num-bigint = {version = "0.3.0", features = ["serde"]}
 num-format = {version = "0.4.0", features = ["with-num-bigint"]}
 num-traits = "0.2.12"
 parking_lot = "0.11.0"
@@ -111,7 +111,7 @@ users = "0.10.0"
 [dependencies.rusqlite]
 features = ["bundled", "blob"]
 optional = true
-version = "0.23.1"
+version = "0.24.0"
 
 [build-dependencies]
 git2 = {version = "0.13.11", optional = true}
@@ -122,7 +122,7 @@ quickcheck_macros = "0.9.1"
 
 [features]
 clipboard-cli = ["clipboard"]
+rich-benchmark = ["heim"]
 rustyline-support = ["rustyline"]
 stable = []
 trash-support = ["trash"]
-rich-benchmark = ["heim"]

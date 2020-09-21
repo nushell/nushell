@@ -17,6 +17,7 @@ use crate::value::primitive::Primitive;
 use crate::value::range::{Range, RangeInclusion};
 use crate::{ColumnPath, PathMember, UnspannedPathMember};
 use bigdecimal::BigDecimal;
+use bigdecimal::FromPrimitive;
 use chrono::{DateTime, Utc};
 use indexmap::IndexMap;
 use itertools::Itertools;
@@ -190,8 +191,22 @@ impl UntaggedValue {
     }
 
     /// Helper for creating decimal values
-    pub fn decimal(s: impl Into<BigDecimal>) -> UntaggedValue {
+    pub fn decimal(s: BigDecimal) -> UntaggedValue {
         UntaggedValue::Primitive(Primitive::Decimal(s.into()))
+    }
+
+    /// Helper for creating decimal values
+    pub fn decimal_from_float(f: f64, span: Span) -> UntaggedValue {
+        let dec = BigDecimal::from_f64(f);
+
+        match dec {
+            Some(dec) => UntaggedValue::Primitive(Primitive::Decimal(dec)),
+            None => UntaggedValue::Error(ShellError::labeled_error(
+                "Can not convert f64 to big decimal",
+                "can not create decimal",
+                span,
+            )),
+        }
     }
 
     /// Helper for creating binary (non-text) buffer values

@@ -103,7 +103,7 @@ pub mod helpers {
     use indexmap::indexmap;
     use nu_errors::ShellError;
     use nu_protocol::{UntaggedValue, Value};
-    use nu_source::{Tag, TaggedItem};
+    use nu_source::{Span, Tag, TaggedItem};
     use nu_value_ext::ValueExt;
     use num_bigint::BigInt;
 
@@ -115,6 +115,10 @@ pub mod helpers {
 
     pub fn decimal(f: impl Into<BigDecimal>) -> Value {
         UntaggedValue::decimal(f.into()).into_untagged_value()
+    }
+
+    pub fn decimal_from_float(f: f64, span: Span) -> Value {
+        UntaggedValue::decimal_from_float(f, span).into_untagged_value()
     }
 
     pub fn string(input: impl Into<String>) -> Value {
@@ -228,12 +232,13 @@ pub mod helpers {
 #[cfg(test)]
 mod tests {
     use super::helpers::{
-        assert_without_checking_percentages, committers, date_formatter, decimal, int, table,
+        assert_without_checking_percentages, committers, date_formatter, decimal,
+        decimal_from_float, int, table,
     };
     use super::{report, Labels, Model, Operation, Range};
     use nu_errors::ShellError;
     use nu_protocol::Value;
-    use nu_source::{Tag, TaggedItem};
+    use nu_source::{Span, Tag, TaggedItem};
     use nu_value_ext::ValueExt;
     #[test]
     fn prepares_report_using_accumulating_value() {
@@ -299,9 +304,21 @@ mod tests {
                     table(&[int(2), int(6), int(12)]),
                 ]),
                 percentages: table(&[
-                    table(&[decimal(16.66), decimal(50), decimal(100)]),
-                    table(&[decimal(8.33), decimal(25), decimal(50)]),
-                    table(&[decimal(3.33), decimal(10), decimal(20)]),
+                    table(&[
+                        decimal_from_float(16.66, Span::unknown()),
+                        decimal(50),
+                        decimal(100),
+                    ]),
+                    table(&[
+                        decimal_from_float(8.33, Span::unknown()),
+                        decimal(25),
+                        decimal(50),
+                    ]),
+                    table(&[
+                        decimal_from_float(3.33, Span::unknown()),
+                        decimal(10),
+                        decimal(20),
+                    ]),
                 ]),
             },
         );
