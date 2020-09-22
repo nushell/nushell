@@ -38,7 +38,7 @@ impl WholeStreamCommand for Remove {
                 Some('p'),
             )
             .switch("recursive", "delete subdirectories recursively", Some('r'))
-            .switch("force", "supress error when no file", Some('f'))
+            .switch("force", "suppress error when no file", Some('f'))
             .rest(SyntaxShape::Pattern, "the file path(s) to remove")
     }
 
@@ -72,7 +72,7 @@ impl WholeStreamCommand for Remove {
                 result: None,
             },
             Example {
-                description: "Delete a file, and supress errors if no file is found",
+                description: "Delete a file, and suppress errors if no file is found",
                 example: "rm --force file.txt",
                 result: None,
             }
