@@ -125,7 +125,6 @@ fn removes_directory_contents_with_recursive_flag() {
 fn errors_if_attempting_to_delete_a_directory_with_content_without_recursive_flag() {
     Playground::setup("rm_test_6", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("some_empty_file.txt")]);
-
         let actual = nu!(
             cwd: dirs.root(),
             "rm rm_test_6"
