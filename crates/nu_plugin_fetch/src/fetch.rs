@@ -190,6 +190,15 @@ async fn helper(
                         )
                         .into_value(tag),
                     )),
+                    (mime::TEXT, mime::CSV) => Ok((
+                        Some("csv".to_string()),
+                        UntaggedValue::string(
+                            r.body_string()
+                                .await
+                                .map_err(|e| generate_error("text", e, &span))?,
+                        )
+                        .into_value(tag),
+                    )),
                     (mime::TEXT, mime::PLAIN) => {
                         let path_extension = url::Url::parse(location)
                             .map_err(|_| {
