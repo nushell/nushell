@@ -12,14 +12,21 @@ pub struct CommandRegistry {
 }
 
 impl SignatureRegistry for CommandRegistry {
+    fn names(&self) -> Vec<String> {
+        let registry = self.registry.lock();
+        registry.keys().map(Clone::clone).collect()
+    }
+
     fn has(&self, name: &str) -> bool {
         let registry = self.registry.lock();
         registry.contains_key(name)
     }
+
     fn get(&self, name: &str) -> Option<Signature> {
         let registry = self.registry.lock();
         registry.get(name).map(|command| command.signature())
     }
+
     fn clone_box(&self) -> Box<dyn SignatureRegistry> {
         Box::new(self.clone())
     }

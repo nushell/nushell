@@ -925,6 +925,10 @@ mod test {
     }
 
     impl SignatureRegistry for MockRegistry {
+        fn names(&self) -> Vec<String> {
+            Vec::new()
+        }
+
         fn has(&self, _name: &str) -> bool {
             false
         }

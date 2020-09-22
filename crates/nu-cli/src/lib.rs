@@ -16,8 +16,6 @@ extern crate quickcheck_macros;
 mod cli;
 mod command_registry;
 mod commands;
-#[cfg(feature = "rustyline-support")]
-mod completion;
 mod deserializer;
 mod documentation;
 mod env;

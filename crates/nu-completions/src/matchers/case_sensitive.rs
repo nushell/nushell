@@ -1,4 +1,4 @@
-use crate::completion::matchers;
+use crate::matchers;
 
 pub struct Matcher;
 

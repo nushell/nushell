@@ -1,11 +1,10 @@
 use std::borrow::Cow::{self, Owned};
 
+use nu_completions::NuCompleter;
 use nu_parser::SignatureRegistry;
 use nu_source::{Tag, Tagged};
 
-use crate::completion;
 use crate::evaluation_context::EvaluationContext;
-use crate::shell::completer::NuCompleter;
 use crate::shell::painter::Painter;
 use crate::shell::palette::DefaultPalette;
 
@@ -32,18 +31,28 @@ impl Helper {
     }
 }
 
-impl rustyline::completion::Candidate for completion::Suggestion {
+struct CompletionContext<'a>(&'a EvaluationContext);
+
+impl<'a> nu_completions::CompletionContext for CompletionContext<'a> {
+    fn signature_registry(&self) -> &dyn nu_parser::SignatureRegistry {
+        &self.0.registry
+    }
+}
+
+pub struct CompletionSuggestion(nu_completions::Suggestion);
+
+impl rustyline::completion::Candidate for CompletionSuggestion {
     fn display(&self) -> &str {
-        &self.display
+        &self.0.display
     }
 
     fn replacement(&self) -> &str {
-        &self.replacement
+        &self.0.replacement
     }
 }
 
 impl rustyline::completion::Completer for Helper {
-    type Candidate = completion::Suggestion;
+    type Candidate = CompletionSuggestion;
 
     fn complete(
         &self,
@@ -51,8 +60,10 @@ impl rustyline::completion::Completer for Helper {
         pos: usize,
         _ctx: &rustyline::Context<'_>,
     ) -> Result<(usize, Vec<Self::Candidate>), rustyline::error::ReadlineError> {
-        let ctx = completion::CompletionContext::new(&self.context);
-        Ok(self.completer.complete(line, pos, &ctx))
+        let ctx = CompletionContext(&self.context);
+        let (position, suggestions) = self.completer.complete(line, pos, &ctx);
+        let suggestions = suggestions.into_iter().map(CompletionSuggestion).collect();
+        Ok((position, suggestions))
     }
 
     fn update(&self, line: &mut rustyline::line_buffer::LineBuffer, start: usize, elected: &str) {

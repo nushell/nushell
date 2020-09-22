@@ -2851,6 +2851,7 @@ dependencies = [
  "futures 0.3.5",
  "log 0.4.11",
  "nu-cli",
+ "nu-completions",
  "nu-data",
  "nu-errors",
  "nu-parser",
@@ -2925,6 +2926,7 @@ dependencies = [
  "log 0.4.11",
  "meval",
  "natural",
+ "nu-completions",
  "nu-data",
  "nu-errors",
  "nu-parser",
@@ -2976,6 +2978,20 @@ dependencies = [
  "uuid 0.8.1",
  "which",
  "zip",
+]
+
+[[package]]
+name = "nu-completions"
+version = "0.20.0"
+dependencies = [
+ "dirs 3.0.1",
+ "indexmap",
+ "nu-data",
+ "nu-errors",
+ "nu-parser",
+ "nu-protocol",
+ "nu-source",
+ "rustyline",
 ]
 
 [[package]]

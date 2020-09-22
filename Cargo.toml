@@ -19,6 +19,7 @@ members = ["crates/*/"]
 
 [dependencies]
 nu-cli = {version = "0.20.0", path = "./crates/nu-cli"}
+nu-completions = {version = "0.20.0", path = "./crates/nu-completions"}
 nu-data = {version = "0.20.0", path = "./crates/nu-data"}
 nu-errors = {version = "0.20.0", path = "./crates/nu-errors"}
 nu-parser = {version = "0.20.0", path = "./crates/nu-parser"}
@@ -104,11 +105,11 @@ tree = ["nu_plugin_tree"]
 
 clipboard-cli = ["nu-cli/clipboard-cli"]
 ctrlc-support = ["nu-cli/ctrlc"]
-directories-support = ["nu-cli/directories", "nu-cli/dirs", "nu-data/directories", "nu-data/dirs"]
+directories-support = ["nu-cli/directories", "nu-cli/dirs", "nu-completions/dirs", "nu-data/directories", "nu-data/dirs"]
 git-support = ["nu-cli/git2"]
 ptree-support = ["nu-cli/ptree"]
 rich-benchmark = ["nu-cli/rich-benchmark"]
-rustyline-support = ["nu-cli/rustyline-support"]
+rustyline-support = ["nu-cli/rustyline-support", "nu-completions/rustyline-support"]
 term-support = ["nu-cli/term"]
 trash-support = ["nu-cli/trash-support"]
 uuid-support = ["nu-cli/uuid_crate"]

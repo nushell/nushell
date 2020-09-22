@@ -1,7 +1,5 @@
 #![allow(clippy::module_inception)]
 
-#[cfg(feature = "rustyline-support")]
-pub(crate) mod completer;
 pub(crate) mod filesystem_shell;
 pub(crate) mod help_shell;
 #[cfg(feature = "rustyline-support")]

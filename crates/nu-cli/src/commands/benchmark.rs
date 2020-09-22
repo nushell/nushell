@@ -112,26 +112,28 @@ async fn benchmark(
     }
     // return advanced stats
     #[cfg(feature = "rich-benchmark")]
-    if let (Ok(start), Ok(end)) = (start, end) {
-        let mut indexmap = IndexMap::with_capacity(4);
+    {
+        if let (Ok(start), Ok(end)) = (start, end) {
+            let mut indexmap = IndexMap::with_capacity(4);
 
-        let real_time = into_big_int(end_time - start_time);
-        indexmap.insert("real time".to_string(), real_time);
+            let real_time = into_big_int(end_time - start_time);
+            indexmap.insert("real time".to_string(), real_time);
 
-        let user_time = into_big_int(end.user() - start.user());
-        indexmap.insert("user time".to_string(), user_time);
+            let user_time = into_big_int(end.user() - start.user());
+            indexmap.insert("user time".to_string(), user_time);
 
-        let system_time = into_big_int(end.system() - start.system());
-        indexmap.insert("system time".to_string(), system_time);
+            let system_time = into_big_int(end.system() - start.system());
+            indexmap.insert("system time".to_string(), system_time);
 
-        let idle_time = into_big_int(end.idle() - start.idle());
-        indexmap.insert("idle time".to_string(), idle_time);
+            let idle_time = into_big_int(end.idle() - start.idle());
+            indexmap.insert("idle time".to_string(), idle_time);
 
-        benchmark_output(indexmap, output, passthrough, &tag, &mut context, &scope).await
-    } else {
-        Err(ShellError::untagged_runtime_error(
-            "Could not retreive CPU time",
-        ))
+            benchmark_output(indexmap, output, passthrough, &tag, &mut context, &scope).await
+        } else {
+            Err(ShellError::untagged_runtime_error(
+                "Could not retreive CPU time",
+            ))
+        }
     }
 }
 

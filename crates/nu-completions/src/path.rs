@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use super::matchers::Matcher;
-use crate::completion::{Completer, CompletionContext, Suggestion};
+use crate::{Completer, CompletionContext, Suggestion};
 
 const SEP: char = std::path::MAIN_SEPARATOR;
 
@@ -25,7 +25,7 @@ impl PathCompleter {
         let base_dir = if base_dir_name == "" {
             PathBuf::from(".")
         } else {
-            #[cfg(feature = "directories")]
+            #[cfg(feature = "dirs")]
             {
                 let home_prefix = format!("~{}", SEP);
                 if base_dir_name.starts_with(&home_prefix) {
@@ -36,7 +36,7 @@ impl PathCompleter {
                     PathBuf::from(base_dir_name)
                 }
             }
-            #[cfg(not(feature = "directories"))]
+            #[cfg(not(feature = "dirs"))]
             {
                 PathBuf::from(base_dir_name)
             }
@@ -73,13 +73,11 @@ impl PathCompleter {
     }
 }
 
-impl Completer for PathCompleter {
-    fn complete(
-        &self,
-        _ctx: &CompletionContext<'_>,
-        partial: &str,
-        matcher: &dyn Matcher,
-    ) -> Vec<Suggestion> {
+impl<Context> Completer<Context> for PathCompleter
+where
+    Context: CompletionContext,
+{
+    fn complete(&self, _ctx: &Context, partial: &str, matcher: &dyn Matcher) -> Vec<Suggestion> {
         self.path_suggestions(partial, matcher)
             .into_iter()
             .map(|ps| ps.suggestion)

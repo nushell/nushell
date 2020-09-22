@@ -265,6 +265,10 @@ mod tests {
     }
 
     impl SignatureRegistry for VecRegistry {
+        fn names(&self) -> Vec<String> {
+            self.0.iter().map(|s| s.name.clone()).collect()
+        }
+
         fn has(&self, name: &str) -> bool {
             self.0.iter().any(|v| &v.name == name)
         }
