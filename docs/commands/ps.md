@@ -22,3 +22,26 @@ Syntax: `ps`
  69 │  8972 │ nu_plugin_ps.exe                                                   │ Running │ 58.00986000000000
 ━━━━┷━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━
 ```
+
+Find processes with the highest cpu time
+```shell
+> ps -l | sort-by cpu_time | last 2
+ # │ pid │       name       │ status  │  cpu   │   mem    │ virtual │     cpu_time      │ parent │         exe          │       command
+───┼─────┼──────────────────┼─────────┼────────┼──────────┼─────────┼───────────────────┼────────┼──────────────────────┼──────────────────────
+ 0 │ 396 │ Google Chrome    │ Running │ 0.0000 │ 271.6 MB │  5.8 GB │ 6hr 20min 28sec   │      1 │ /Applications/Google │ /Applications/Google
+   │     │                  │         │        │          │         │ 173ms 641us 315ns │        │ Chrome.app/Contents/ │ Chrome.app/Contents/
+   │     │                  │         │        │          │         │                   │        │ MacOS/Google         │ MacOS/Google
+   │     │                  │         │        │          │         │                   │        │ Chrome               │ Chrome
+ 1 │ 444 │ Google Chrome He │ Running │ 0.0000 │ 398.9 MB │  5.3 GB │ 10hr 36min 17sec  │    396 │ /Applications/Google │ /Applications/Google
+   │     │                  │         │        │          │         │ 304ms 66us 889ns  │        │ Chrome.app/Contents/ │ Chrome.app/Contents/
+   │     │                  │         │        │          │         │                   │        │ Frameworks/Google    │ Frameworks/Google
+   │     │                  │         │        │          │         │                   │        │ Chrome               │ Chrome
+   │     │                  │         │        │          │         │                   │        │ Framework.framework/ │ Framework.framework/
+   │     │                  │         │        │          │         │                   │        │ Versions/84.0.4147.1 │ Versions/84.0.4147.1
+   │     │                  │         │        │          │         │                   │        │ 25/Helpers/Google    │ 25/Helpers/Google
+   │     │                  │         │        │          │         │                   │        │ Chrome Helper        │ Chrome Helper
+   │     │                  │         │        │          │         │                   │        │ (GPU).app/Contents/M │ (GPU).app/Contents/M
+   │     │                  │         │        │          │         │                   │        │ acOS/Google          │ acOS/Google
+   │     │                  │         │        │          │         │                   │        │ Chrome Helper (GPU)  │ Chrome Helper (GPU)
+───┴─────┴──────────────────┴─────────┴────────┴──────────┴─────────┴───────────────────┴────────┴──────────────────────┴──────────────────────
+```

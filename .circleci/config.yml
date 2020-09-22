@@ -73,7 +73,7 @@ workflows:
             branches:
               ignore: /.*/
             tags:
-              only: /^v.*/
+              only: /^\d+\.\d+\.\d+$/
           before_build:
             - run: docker pull quay.io/nushell/nu:latest
             - run: docker pull quay.io/nushell/nu-base:latest

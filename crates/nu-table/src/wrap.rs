@@ -2,7 +2,7 @@ use crate::table::TextStyle;
 use std::{fmt::Display, iter::Iterator};
 use unicode_width::UnicodeWidthStr;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum Alignment {
     Left,
     Center,
@@ -135,7 +135,6 @@ pub fn wrap<'a>(
     let mut first = true;
     let mut max_width = 0;
     loop {
-        // println!("{:?}", current_line);
         match input.next() {
             Some(item) => {
                 if !first {

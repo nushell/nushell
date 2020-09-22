@@ -1,13 +1,21 @@
-use crate::completion::{Context, Suggestion};
-use crate::context;
+use super::matchers::Matcher;
+use crate::completion::{Completer, CompletionContext, Suggestion};
+use crate::evaluation_context::EvaluationContext;
 
-pub struct Completer;
+pub struct FlagCompleter {
+    pub(crate) cmd: String,
+}
 
-impl Completer {
-    pub fn complete(&self, ctx: &Context<'_>, cmd: String, partial: &str) -> Vec<Suggestion> {
-        let context: &context::Context = ctx.as_ref();
+impl Completer for FlagCompleter {
+    fn complete(
+        &self,
+        ctx: &CompletionContext<'_>,
+        partial: &str,
+        matcher: &dyn Matcher,
+    ) -> Vec<Suggestion> {
+        let context: &EvaluationContext = ctx.as_ref();
 
-        if let Some(cmd) = context.registry.get_command(&cmd) {
+        if let Some(cmd) = context.registry.get_command(&self.cmd) {
             let sig = cmd.signature();
             let mut suggestions = Vec::new();
             for (name, (named_type, _desc)) in sig.named.iter() {
@@ -20,7 +28,7 @@ impl Completer {
 
             suggestions
                 .into_iter()
-                .filter(|v| v.starts_with(partial))
+                .filter(|v| matcher.matches(partial, v))
                 .map(|v| Suggestion {
                     replacement: format!("{} ", v),
                     display: v,

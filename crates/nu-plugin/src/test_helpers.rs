@@ -162,7 +162,7 @@ pub mod value {
     use bigdecimal::BigDecimal;
     use nu_errors::ShellError;
     use nu_protocol::{Primitive, TaggedDictBuilder, UntaggedValue, Value};
-    use nu_source::Tag;
+    use nu_source::{Span, Tag};
     use nu_value_ext::ValueExt;
     use num_bigint::BigInt;
 
@@ -175,7 +175,11 @@ pub mod value {
     }
 
     pub fn decimal(f: impl Into<BigDecimal>) -> Value {
-        UntaggedValue::Primitive(Primitive::Decimal(f.into())).into_untagged_value()
+        UntaggedValue::decimal(f.into()).into_untagged_value()
+    }
+
+    pub fn decimal_from_float(f: f64) -> Value {
+        UntaggedValue::decimal_from_float(f, Span::unknown()).into_untagged_value()
     }
 
     pub fn string(input: impl Into<String>) -> Value {
@@ -206,9 +210,9 @@ pub mod value {
     #[macro_export]
     macro_rules! row {
         ($( $key: expr => $val: expr ),*) => {{
-             let mut map = indexmap::IndexMap::new();
+             let mut map = ::indexmap::IndexMap::new();
              $( map.insert($key, $val); )*
-             UntaggedValue::row(map).into_untagged_value()
+             ::nu_protocol::UntaggedValue::row(map).into_untagged_value()
         }}
     }
 }

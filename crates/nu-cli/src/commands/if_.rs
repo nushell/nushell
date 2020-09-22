@@ -1,6 +1,6 @@
+use crate::command_registry::CommandRegistry;
 use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
-use crate::context::CommandRegistry;
 use crate::evaluate::evaluate_baseline_expr;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -74,7 +74,7 @@ async fn if_command(
     let registry = Arc::new(registry.clone());
     let scope = Arc::new(raw_args.call_info.scope.clone());
     let tag = raw_args.call_info.name_tag.clone();
-    let context = Arc::new(Context::from_raw(&raw_args, &registry));
+    let context = Arc::new(EvaluationContext::from_raw(&raw_args, &registry));
 
     let (
         IfArgs {

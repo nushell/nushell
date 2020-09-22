@@ -17,6 +17,7 @@ use crate::value::primitive::Primitive;
 use crate::value::range::{Range, RangeInclusion};
 use crate::{ColumnPath, PathMember, UnspannedPathMember};
 use bigdecimal::BigDecimal;
+use bigdecimal::FromPrimitive;
 use chrono::{DateTime, Utc};
 use indexmap::IndexMap;
 use itertools::Itertools;
@@ -81,6 +82,11 @@ impl UntaggedValue {
     /// Returns true if this value represents a filesize
     pub fn is_filesize(&self) -> bool {
         matches!(self, UntaggedValue::Primitive(Primitive::Filesize(_)))
+    }
+
+    /// Returns true if this value represents a duration
+    pub fn is_duration(&self) -> bool {
+        matches!(self, UntaggedValue::Primitive(Primitive::Duration(_)))
     }
 
     /// Returns true if this value represents a table
@@ -185,8 +191,22 @@ impl UntaggedValue {
     }
 
     /// Helper for creating decimal values
-    pub fn decimal(s: impl Into<BigDecimal>) -> UntaggedValue {
-        UntaggedValue::Primitive(Primitive::Decimal(s.into()))
+    pub fn decimal(s: BigDecimal) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Decimal(s))
+    }
+
+    /// Helper for creating decimal values
+    pub fn decimal_from_float(f: f64, span: Span) -> UntaggedValue {
+        let dec = BigDecimal::from_f64(f);
+
+        match dec {
+            Some(dec) => UntaggedValue::Primitive(Primitive::Decimal(dec)),
+            None => UntaggedValue::Error(ShellError::labeled_error(
+                "Can not convert f64 to big decimal",
+                "can not create decimal",
+                span,
+            )),
+        }
     }
 
     /// Helper for creating binary (non-text) buffer values
@@ -203,8 +223,8 @@ impl UntaggedValue {
     }
 
     /// Helper for creating boolean values
-    pub fn boolean(s: impl Into<bool>) -> UntaggedValue {
-        UntaggedValue::Primitive(Primitive::Boolean(s.into()))
+    pub fn boolean(b: impl Into<bool>) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Boolean(b.into()))
     }
 
     /// Helper for creating date duration values
@@ -385,12 +405,10 @@ impl Value {
                 value: UntaggedValue::Primitive(p),
                 ..
             } => p.is_empty(),
-            t
-            @
             Value {
-                value: UntaggedValue::Table(_),
+                value: UntaggedValue::Table(rows),
                 ..
-            } => t.table_entries().all(|row| row.is_empty()),
+            } => rows.is_empty(),
             r
             @
             Value {

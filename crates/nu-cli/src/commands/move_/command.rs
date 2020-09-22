@@ -17,7 +17,7 @@ impl WholeStreamCommand for Command {
     }
 
     fn usage(&self) -> &str {
-        "moves across desired subcommand."
+        "Moves across desired subcommand."
     }
 
     async fn run(

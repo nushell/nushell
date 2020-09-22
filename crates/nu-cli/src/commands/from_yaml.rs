@@ -58,6 +58,7 @@ fn convert_yaml_value_to_nu_value(
     tag: impl Into<Tag>,
 ) -> Result<Value, ShellError> {
     let tag = tag.into();
+    let span = tag.span;
 
     let err_not_compatible_number = ShellError::labeled_error(
         "Expected a compatible number",
@@ -69,10 +70,11 @@ fn convert_yaml_value_to_nu_value(
         serde_yaml::Value::Number(n) if n.is_i64() => {
             UntaggedValue::int(n.as_i64().ok_or_else(|| err_not_compatible_number)?).into_value(tag)
         }
-        serde_yaml::Value::Number(n) if n.is_f64() => {
-            UntaggedValue::decimal(n.as_f64().ok_or_else(|| err_not_compatible_number)?)
-                .into_value(tag)
-        }
+        serde_yaml::Value::Number(n) if n.is_f64() => UntaggedValue::decimal_from_float(
+            n.as_f64().ok_or_else(|| err_not_compatible_number)?,
+            span,
+        )
+        .into_value(tag),
         serde_yaml::Value::String(s) => UntaggedValue::string(s).into_value(tag),
         serde_yaml::Value::Sequence(a) => {
             let result: Result<Vec<Value>, ShellError> = a

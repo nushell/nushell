@@ -7,7 +7,7 @@ use nu_test_support::pipeline;
 fn filters_by_unit_size_comparison() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "ls | where size > 1kb | sort-by size | get name | first 1 | trim | echo $it"
+        "ls | where size > 1kb | sort-by size | get name | first 1 | str trim | echo $it"
     );
 
     assert_eq!(actual.out, "cargo_sample.toml");
@@ -27,7 +27,7 @@ fn filters_with_nothing_comparison() {
 fn where_in_table() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        r#"echo '[{"name": "foo", "size": 3}, {"name": "foo", "size": 2}, {"name": "bar", "size": 4}]' | from json | where name in: ["foo"] | get size | math sum | echo $it"#
+        r#"echo '[{"name": "foo", "size": 3}, {"name": "foo", "size": 2}, {"name": "bar", "size": 4}]' | from json | where name in ["foo"] | get size | math sum | echo $it"#
     );
 
     assert_eq!(actual.out, "5");
@@ -37,7 +37,7 @@ fn where_in_table() {
 fn where_not_in_table() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        r#"echo '[{"name": "foo", "size": 3}, {"name": "foo", "size": 2}, {"name": "bar", "size": 4}]' | from json | where name not-in: ["foo"] | get size | math sum | echo $it"#
+        r#"echo '[{"name": "foo", "size": 3}, {"name": "foo", "size": 2}, {"name": "bar", "size": 4}]' | from json | where name not-in ["foo"] | get size | math sum | echo $it"#
     );
 
     assert_eq!(actual.out, "4");

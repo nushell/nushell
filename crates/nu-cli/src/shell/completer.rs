@@ -1,5 +1,13 @@
-use crate::completion::{self, Suggestion};
-use crate::context;
+use crate::completion::command::CommandCompleter;
+use crate::completion::flag::FlagCompleter;
+use crate::completion::matchers;
+use crate::completion::matchers::Matcher;
+use crate::completion::path::{PathCompleter, PathSuggestion};
+use crate::completion::{self, Completer, Suggestion};
+use crate::evaluation_context::EvaluationContext;
+use nu_source::Tag;
+
+use std::borrow::Cow;
 
 pub(crate) struct NuCompleter {}
 
@@ -10,63 +18,142 @@ impl NuCompleter {
         &self,
         line: &str,
         pos: usize,
-        context: &completion::Context,
+        context: &completion::CompletionContext,
     ) -> (usize, Vec<Suggestion>) {
-        use crate::completion::engine::LocationType;
+        use completion::engine::LocationType;
 
-        let nu_context: &context::Context = context.as_ref();
+        let nu_context: &EvaluationContext = context.as_ref();
         let lite_block = match nu_parser::lite_parse(line, 0) {
             Ok(block) => Some(block),
             Err(result) => result.partial,
         };
 
-        let location = lite_block
+        let locations = lite_block
             .map(|block| nu_parser::classify_block(&block, &nu_context.registry))
-            .and_then(|block| {
-                crate::completion::engine::completion_location(line, &block.block, pos)
-            });
+            .map(|block| completion::engine::completion_location(line, &block.block, pos))
+            .unwrap_or_default();
 
-        if let Some(location) = location {
-            let partial = location.span.slice(line);
+        let matcher = nu_data::config::config(Tag::unknown())
+            .ok()
+            .and_then(|cfg| cfg.get("line_editor").cloned())
+            .and_then(|le| {
+                le.row_entries()
+                    .find(|(idx, _value)| idx.as_str() == "completion_match_method")
+                    .and_then(|(_idx, value)| value.as_string().ok())
+            })
+            .unwrap_or_else(String::new);
 
-            let suggestions = match location.item {
-                LocationType::Command => {
-                    let command_completer = crate::completion::command::Completer {};
-                    command_completer.complete(context, partial)
-                }
+        let matcher = matcher.as_str();
+        let matcher: &dyn Matcher = match matcher {
+            "case-insensitive" => &matchers::case_insensitive::Matcher,
+            _ => &matchers::case_sensitive::Matcher,
+        };
 
-                LocationType::Flag(cmd) => {
-                    let flag_completer = crate::completion::flag::Completer {};
-                    flag_completer.complete(context, cmd, partial)
-                }
-
-                LocationType::Argument(_cmd, _arg_name) => {
-                    // TODO use cmd and arg_name to narrow things down further
-                    let path_completer = crate::completion::path::Completer::new();
-                    path_completer.complete(context, partial)
-                }
-
-                LocationType::Variable => Vec::new(),
-            }
-            .into_iter()
-            .map(requote)
-            .collect();
-
-            (location.span.start(), suggestions)
-        } else {
+        if locations.is_empty() {
             (pos, Vec::new())
+        } else {
+            let pos = locations[0].span.start();
+            let suggestions = locations
+                .into_iter()
+                .flat_map(|location| {
+                    let partial = location.span.slice(line);
+                    match location.item {
+                        LocationType::Command => {
+                            let command_completer = CommandCompleter;
+                            command_completer.complete(context, partial, matcher.to_owned())
+                        }
+
+                        LocationType::Flag(cmd) => {
+                            let flag_completer = FlagCompleter { cmd };
+                            flag_completer.complete(context, partial, matcher.to_owned())
+                        }
+
+                        LocationType::Argument(cmd, _arg_name) => {
+                            let path_completer = PathCompleter;
+
+                            const QUOTE_CHARS: &[char] = &['\'', '"', '`'];
+
+                            // TODO Find a better way to deal with quote chars. Can the completion
+                            //      engine relay this back to us? Maybe have two spans: inner and
+                            //      outer. The former is what we want to complete, the latter what
+                            //      we'd need to replace.
+                            let (quote_char, partial) = if partial.starts_with(QUOTE_CHARS) {
+                                let (head, tail) = partial.split_at(1);
+                                (Some(head), tail)
+                            } else {
+                                (None, partial)
+                            };
+
+                            let partial = if let Some(quote_char) = quote_char {
+                                if partial.ends_with(quote_char) {
+                                    &partial[..partial.len() - 1]
+                                } else {
+                                    partial
+                                }
+                            } else {
+                                partial
+                            };
+
+                            let completed_paths = path_completer.path_suggestions(partial, matcher);
+                            match cmd.as_deref().unwrap_or("") {
+                                "cd" => select_directory_suggestions(completed_paths),
+                                _ => completed_paths,
+                            }
+                            .into_iter()
+                            .map(|s| Suggestion {
+                                replacement: requote(s.suggestion.replacement),
+                                display: s.suggestion.display,
+                            })
+                            .collect()
+                        }
+
+                        LocationType::Variable => Vec::new(),
+                    }
+                })
+                .collect();
+
+            (pos, suggestions)
         }
     }
 }
 
-fn requote(item: Suggestion) -> Suggestion {
-    let unescaped = rustyline::completion::unescape(&item.replacement, Some('\\'));
-    if unescaped != item.replacement {
-        Suggestion {
-            display: item.display,
-            replacement: format!("\"{}\"", unescaped),
+fn select_directory_suggestions(completed_paths: Vec<PathSuggestion>) -> Vec<PathSuggestion> {
+    completed_paths
+        .into_iter()
+        .filter(|suggestion| {
+            suggestion
+                .path
+                .metadata()
+                .map(|md| md.is_dir())
+                .unwrap_or(false)
+        })
+        .collect()
+}
+
+fn requote(orig_value: String) -> String {
+    let value: Cow<str> = rustyline::completion::unescape(&orig_value, Some('\\'));
+
+    let mut quotes = vec!['"', '\'', '`'];
+    let mut should_quote = false;
+    for c in value.chars() {
+        if c.is_whitespace() {
+            should_quote = true;
+        } else if let Some(index) = quotes.iter().position(|q| *q == c) {
+            should_quote = true;
+            quotes.swap_remove(index);
+        }
+    }
+
+    if should_quote {
+        if quotes.is_empty() {
+            // TODO we don't really have an escape character, so there isn't a great option right
+            //      now. One possibility is `{{$(char backtick)}}`
+            value.to_string()
+        } else {
+            let quote = quotes[0];
+            format!("{}{}{}", quote, value, quote)
         }
     } else {
-        item
+        value.to_string()
     }
 }

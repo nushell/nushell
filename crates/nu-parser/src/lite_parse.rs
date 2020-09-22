@@ -35,9 +35,41 @@ pub struct LitePipeline {
     pub commands: Vec<LiteCommand>,
 }
 
+impl LitePipeline {
+    pub(crate) fn span(&self) -> Span {
+        let start = if !self.commands.is_empty() {
+            self.commands[0].name.span.start()
+        } else {
+            0
+        };
+
+        if let Some((last, _)) = self.commands[..].split_last() {
+            Span::new(start, last.span().end())
+        } else {
+            Span::new(start, 0)
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct LiteBlock {
     pub block: Vec<LitePipeline>,
+}
+
+impl LiteBlock {
+    pub(crate) fn span(&self) -> Span {
+        let start = if !self.block.is_empty() {
+            self.block[0].span().start()
+        } else {
+            0
+        };
+
+        if let Some((last, _)) = self.block[..].split_last() {
+            Span::new(start, last.span().end())
+        } else {
+            Span::new(start, 0)
+        }
+    }
 }
 
 impl From<Spanned<String>> for LiteCommand {
@@ -56,10 +88,21 @@ fn skip_whitespace(src: &mut Input) {
     }
 }
 
+#[derive(Clone, Copy)]
 enum BlockKind {
     Paren,
     CurlyBracket,
     SquareBracket,
+}
+
+impl From<BlockKind> for char {
+    fn from(bk: BlockKind) -> char {
+        match bk {
+            BlockKind::Paren => ')',
+            BlockKind::SquareBracket => ']',
+            BlockKind::CurlyBracket => '}',
+        }
+    }
 }
 
 fn bare(src: &mut Input, span_offset: usize) -> ParseResult<Spanned<String>> {
@@ -114,15 +157,15 @@ fn bare(src: &mut Input, span_offset: usize) -> ParseResult<Spanned<String>> {
     );
 
     if let Some(block) = block_level.last() {
+        let delim: char = (*block).into();
+        let cause = nu_errors::ParseError::unexpected_eof(delim.to_string(), span);
+
+        while let Some(bk) = block_level.pop() {
+            bare.push(bk.into());
+        }
+
         return Err(ParseError {
-            cause: nu_errors::ParseError::unexpected_eof(
-                match block {
-                    BlockKind::Paren => ")",
-                    BlockKind::SquareBracket => "]",
-                    BlockKind::CurlyBracket => "}",
-                },
-                span,
-            ),
+            cause,
             partial: Some(bare.spanned(span)),
         });
     }
@@ -266,6 +309,10 @@ pub fn lite_parse(src: &str, span_offset: usize) -> ParseResult<LiteBlock> {
 mod tests {
     use super::*;
 
+    fn span(left: usize, right: usize) -> Span {
+        Span::new(left, right)
+    }
+
     mod bare {
         use super::*;
 
@@ -276,8 +323,7 @@ mod tests {
             let input = &mut input.char_indices().peekable();
             let result = bare(input, 0).unwrap();
 
-            assert_eq!(result.span.start(), 0);
-            assert_eq!(result.span.end(), 3);
+            assert_eq!(result.span, span(0, 3));
         }
 
         #[test]
@@ -287,8 +333,7 @@ mod tests {
             let input = &mut input.char_indices().peekable();
             let result = bare(input, 0).unwrap();
 
-            assert_eq!(result.span.start(), 0);
-            assert_eq!(result.span.end(), 9);
+            assert_eq!(result.span, span(0, 9));
         }
 
         #[test]
@@ -298,8 +343,7 @@ mod tests {
             let input = &mut input.char_indices().peekable();
             let result = bare(input, 0).unwrap();
 
-            assert_eq!(result.span.start(), 0);
-            assert_eq!(result.span.end(), 10);
+            assert_eq!(result.span, span(0, 10));
         }
 
         #[test]
@@ -309,8 +353,7 @@ mod tests {
             let input = &mut input.char_indices().peekable();
             let result = bare(input, 0).unwrap();
 
-            assert_eq!(result.span.start(), 0);
-            assert_eq!(result.span.end(), 9);
+            assert_eq!(result.span, span(0, 9));
         }
 
         #[test]
@@ -320,8 +363,7 @@ mod tests {
             let input = &mut input.char_indices().peekable();
             let result = bare(input, 0).unwrap();
 
-            assert_eq!(result.span.start(), 0);
-            assert_eq!(result.span.end(), 9);
+            assert_eq!(result.span, span(0, 9));
         }
 
         #[test]
@@ -331,8 +373,7 @@ mod tests {
             let input = &mut input.char_indices().peekable();
             let result = bare(input, 0).unwrap();
 
-            assert_eq!(result.span.start(), 0);
-            assert_eq!(result.span.end(), 5);
+            assert_eq!(result.span, span(0, 5));
         }
 
         #[test]
@@ -342,8 +383,7 @@ mod tests {
             let input = &mut input.char_indices().peekable();
             let result = bare(input, 0).unwrap();
 
-            assert_eq!(result.span.start(), 0);
-            assert_eq!(result.span.end(), 2);
+            assert_eq!(result.span, span(0, 2));
         }
 
         #[test]
@@ -353,8 +393,7 @@ mod tests {
             let input = &mut input.char_indices().peekable();
             let result = bare(input, 0).unwrap();
 
-            assert_eq!(result.span.start(), 1);
-            assert_eq!(result.span.end(), 3);
+            assert_eq!(result.span, span(1, 3));
         }
 
         #[test]
@@ -364,8 +403,17 @@ mod tests {
             let input = &mut input.char_indices().peekable();
             let result = bare(input, 0).unwrap();
 
-            assert_eq!(result.span.start(), 1);
-            assert_eq!(result.span.end(), 6);
+            assert_eq!(result.span, span(1, 6));
+        }
+
+        #[test]
+        fn simple_10() {
+            let input = "[foo, bar]";
+
+            let input = &mut input.char_indices().peekable();
+            let result = bare(input, 0).unwrap();
+
+            assert_eq!(result.span, span(0, 10));
         }
 
         #[test]
@@ -375,8 +423,7 @@ mod tests {
             let input = &mut input.char_indices().peekable();
             let result = bare(input, 0).unwrap();
 
-            assert_eq!(result.span.start(), 0);
-            assert_eq!(result.span.end(), 3);
+            assert_eq!(result.span, span(0, 3));
         }
 
         #[test]
@@ -414,12 +461,19 @@ mod tests {
         use super::*;
 
         #[test]
+        fn pipeline() {
+            let result = lite_parse("cmd1 | cmd2 ; deploy", 0).unwrap();
+            assert_eq!(result.span(), span(0, 20));
+            assert_eq!(result.block[0].span(), span(0, 11));
+            assert_eq!(result.block[1].span(), span(14, 20));
+        }
+
+        #[test]
         fn simple_1() {
             let result = lite_parse("foo", 0).unwrap();
             assert_eq!(result.block.len(), 1);
             assert_eq!(result.block[0].commands.len(), 1);
-            assert_eq!(result.block[0].commands[0].name.span.start(), 0);
-            assert_eq!(result.block[0].commands[0].name.span.end(), 3);
+            assert_eq!(result.block[0].commands[0].name.span, span(0, 3));
         }
 
         #[test]
@@ -427,8 +481,7 @@ mod tests {
             let result = lite_parse("foo", 10).unwrap();
             assert_eq!(result.block.len(), 1);
             assert_eq!(result.block[0].commands.len(), 1);
-            assert_eq!(result.block[0].commands[0].name.span.start(), 10);
-            assert_eq!(result.block[0].commands[0].name.span.end(), 13);
+            assert_eq!(result.block[0].commands[0].name.span, span(10, 13));
         }
 
         #[test]

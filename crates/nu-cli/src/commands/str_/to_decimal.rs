@@ -113,7 +113,7 @@ fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
 #[cfg(test)]
 mod tests {
     use super::{action, SubCommand};
-    use nu_plugin::test_helpers::value::{decimal, string};
+    use nu_plugin::test_helpers::value::{decimal_from_float, string};
     use nu_source::Tag;
 
     #[test]
@@ -127,7 +127,7 @@ mod tests {
     #[allow(clippy::approx_constant)]
     fn turns_to_integer() {
         let word = string("3.1415");
-        let expected = decimal(3.1415);
+        let expected = decimal_from_float(3.1415);
 
         let actual = action(&word, Tag::unknown()).unwrap();
         assert_eq!(actual, expected);

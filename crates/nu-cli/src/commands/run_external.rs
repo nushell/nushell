@@ -48,7 +48,19 @@ impl WholeStreamCommand for RunExternalCommand {
     }
 
     fn usage(&self) -> &str {
-        ""
+        "Runs external command (not a nushell builtin)"
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Run the external echo command",
+            example: "run_external echo 'nushell'",
+            result: None,
+        }]
+    }
+
+    fn is_internal(&self) -> bool {
+        true
     }
 
     async fn run(
@@ -72,32 +84,15 @@ impl WholeStreamCommand for RunExternalCommand {
             .and_then(spanned_expression_to_string)?;
 
         let mut external_context = {
-            #[cfg(windows)]
-            {
-                Context {
-                    registry: registry.clone(),
-                    host: args.host.clone(),
-                    user_recently_used_autoenv_untrust: false,
-                    shell_manager: args.shell_manager.clone(),
-                    ctrl_c: args.ctrl_c.clone(),
-                    current_errors: Arc::new(Mutex::new(vec![])),
-                    windows_drives_previous_cwd: Arc::new(Mutex::new(
-                        std::collections::HashMap::new(),
-                    )),
-                    raw_input: String::default(),
-                }
-            }
-            #[cfg(not(windows))]
-            {
-                Context {
-                    registry: registry.clone(),
-                    user_recently_used_autoenv_untrust: false,
-                    host: args.host.clone(),
-                    shell_manager: args.shell_manager.clone(),
-                    ctrl_c: args.ctrl_c.clone(),
-                    current_errors: Arc::new(Mutex::new(vec![])),
-                    raw_input: String::default(),
-                }
+            EvaluationContext {
+                registry: registry.clone(),
+                host: args.host.clone(),
+                user_recently_used_autoenv_untrust: false,
+                shell_manager: args.shell_manager.clone(),
+                ctrl_c: args.ctrl_c.clone(),
+                current_errors: Arc::new(Mutex::new(vec![])),
+                windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
+                raw_input: String::default(),
             }
         };
 
@@ -148,7 +143,10 @@ impl WholeStreamCommand for RunExternalCommand {
 }
 
 #[allow(unused_variables)]
-async fn maybe_autocd_dir<'a>(cmd: &ExternalCommand, ctx: &mut Context) -> Option<String> {
+async fn maybe_autocd_dir<'a>(
+    cmd: &ExternalCommand,
+    ctx: &mut EvaluationContext,
+) -> Option<String> {
     // We will "auto cd" if
     //   - the command name ends in a path separator, or
     //   - it's not a command on the path and no arguments were given.

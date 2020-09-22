@@ -18,7 +18,7 @@ pub(crate) mod cal;
 pub(crate) mod cd;
 pub(crate) mod char_;
 pub(crate) mod classified;
-#[cfg(feature = "clipboard")]
+#[cfg(feature = "clipboard-cli")]
 pub(crate) mod clip;
 pub(crate) mod command;
 pub(crate) mod compact;
@@ -36,6 +36,7 @@ pub(crate) mod each;
 pub(crate) mod echo;
 pub(crate) mod enter;
 pub(crate) mod every;
+pub(crate) mod exec;
 pub(crate) mod exit;
 pub(crate) mod first;
 pub(crate) mod format;
@@ -63,6 +64,7 @@ pub(crate) mod histogram;
 pub(crate) mod history;
 pub(crate) mod if_;
 pub(crate) mod insert;
+pub(crate) mod into_int;
 pub(crate) mod is_empty;
 pub(crate) mod keep;
 pub(crate) mod last;
@@ -74,11 +76,11 @@ pub(crate) mod mkdir;
 pub(crate) mod move_;
 pub(crate) mod next;
 pub(crate) mod nth;
+pub(crate) mod nu;
 pub(crate) mod open;
 pub(crate) mod parse;
 pub(crate) mod path;
 pub(crate) mod pivot;
-pub(crate) mod plugin;
 pub(crate) mod prepend;
 pub(crate) mod prev;
 pub(crate) mod pwd;
@@ -114,7 +116,6 @@ pub(crate) mod to_tsv;
 pub(crate) mod to_url;
 pub(crate) mod to_xml;
 pub(crate) mod to_yaml;
-pub(crate) mod trim;
 pub(crate) mod uniq;
 pub(crate) mod update;
 pub(crate) mod url_;
@@ -147,16 +148,19 @@ pub(crate) use config::{
 };
 pub(crate) use count::Count;
 pub(crate) use cp::Cpy;
-pub(crate) use date::Date;
+pub(crate) use date::{Date, DateFormat, DateNow, DateUTC};
 pub(crate) use debug::Debug;
 pub(crate) use default::Default;
 pub(crate) use do_::Do;
 pub(crate) use drop::Drop;
 pub(crate) use du::Du;
 pub(crate) use each::Each;
+pub(crate) use each::EachGroup;
+pub(crate) use each::EachWindow;
 pub(crate) use echo::Echo;
 pub(crate) use if_::If;
 pub(crate) use is_empty::IsEmpty;
+pub(crate) use nu::NuPlugin;
 pub(crate) use update::Update;
 pub(crate) mod kill;
 pub(crate) use kill::Kill;
@@ -165,6 +169,7 @@ pub(crate) use clear::Clear;
 pub(crate) mod touch;
 pub(crate) use enter::Enter;
 pub(crate) use every::Every;
+pub(crate) use exec::Exec;
 pub(crate) use exit::Exit;
 pub(crate) use first::First;
 pub(crate) use format::Format;
@@ -192,13 +197,14 @@ pub(crate) use help::Help;
 pub(crate) use histogram::Histogram;
 pub(crate) use history::History;
 pub(crate) use insert::Insert;
+pub(crate) use into_int::IntoInt;
 pub(crate) use keep::{Keep, KeepUntil, KeepWhile};
 pub(crate) use last::Last;
 pub(crate) use lines::Lines;
 pub(crate) use ls::Ls;
 pub(crate) use math::{
-    Math, MathAverage, MathEval, MathMaximum, MathMedian, MathMinimum, MathMode, MathStddev,
-    MathSummation, MathVariance,
+    Math, MathAverage, MathEval, MathMaximum, MathMedian, MathMinimum, MathMode, MathProduct,
+    MathStddev, MathSummation, MathVariance,
 };
 pub(crate) use merge::Merge;
 pub(crate) use mkdir::Mkdir;
@@ -207,14 +213,17 @@ pub(crate) use next::Next;
 pub(crate) use nth::Nth;
 pub(crate) use open::Open;
 pub(crate) use parse::Parse;
-pub(crate) use path::{PathBasename, PathCommand, PathExists, PathExpand, PathExtension, PathType};
+pub(crate) use path::{
+    PathBasename, PathCommand, PathDirname, PathExists, PathExpand, PathExtension, PathFilestem,
+    PathType,
+};
 pub(crate) use pivot::Pivot;
 pub(crate) use prepend::Prepend;
 pub(crate) use prev::Previous;
 pub(crate) use pwd::Pwd;
 #[cfg(feature = "uuid_crate")]
 pub(crate) use random::RandomUUID;
-pub(crate) use random::{Random, RandomBool, RandomDice};
+pub(crate) use random::{Random, RandomBool, RandomDice, RandomInteger};
 pub(crate) use range::Range;
 pub(crate) use reduce::Reduce;
 pub(crate) use reject::Reject;
@@ -251,7 +260,6 @@ pub(crate) use to_url::ToURL;
 pub(crate) use to_xml::ToXML;
 pub(crate) use to_yaml::ToYAML;
 pub(crate) use touch::Touch;
-pub(crate) use trim::Trim;
 pub(crate) use uniq::Uniq;
 pub(crate) use url_::{UrlCommand, UrlHost, UrlPath, UrlQuery, UrlScheme};
 pub(crate) use version::Version;

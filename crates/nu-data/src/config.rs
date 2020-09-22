@@ -1,6 +1,5 @@
 mod conf;
 mod nuconfig;
-pub mod table;
 
 pub mod tests;
 
@@ -25,7 +24,7 @@ pub fn convert_toml_value_to_nu_value(v: &toml::Value, tag: impl Into<Tag>) -> V
     match v {
         toml::Value::Boolean(b) => UntaggedValue::boolean(*b).into_value(tag),
         toml::Value::Integer(n) => UntaggedValue::int(*n).into_value(tag),
-        toml::Value::Float(n) => UntaggedValue::decimal(*n).into_value(tag),
+        toml::Value::Float(n) => UntaggedValue::decimal_from_float(*n, tag.span).into_value(tag),
         toml::Value::String(s) => {
             UntaggedValue::Primitive(Primitive::String(String::from(s))).into_value(tag)
         }
@@ -203,6 +202,33 @@ pub fn user_data() -> Result<PathBuf, ShellError> {
     // FIXME: unsure if this should be error or a simple default
 
     Ok(std::path::PathBuf::from("/"))
+}
+
+#[derive(Debug, Clone)]
+pub enum Status {
+    LastModified(std::time::SystemTime),
+    Unavailable,
+}
+
+impl Default for Status {
+    fn default() -> Self {
+        Status::Unavailable
+    }
+}
+
+pub fn last_modified(at: &Option<PathBuf>) -> Result<Status, Box<dyn std::error::Error>> {
+    let filename = default_path()?;
+
+    let filename = match at {
+        None => filename,
+        Some(ref file) => file.clone(),
+    };
+
+    if let Ok(time) = filename.metadata()?.modified() {
+        return Ok(Status::LastModified(time));
+    }
+
+    Ok(Status::Unavailable)
 }
 
 pub fn read(

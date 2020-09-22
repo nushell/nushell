@@ -1,5 +1,5 @@
+use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
-use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
@@ -22,12 +22,12 @@ impl WholeStreamCommand for Drop {
         Signature::build("drop").optional(
             "rows",
             SyntaxShape::Number,
-            "starting from the back, the number of rows to drop",
+            "starting from the back, the number of rows to remove",
         )
     }
 
     fn usage(&self) -> &str {
-        "Drop the last number of rows."
+        "Remove the last number of rows. If you want to remove columns, try 'reject'."
     }
 
     async fn run(

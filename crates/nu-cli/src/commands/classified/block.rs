@@ -1,6 +1,6 @@
 use crate::commands::classified::expr::run_expression_block;
 use crate::commands::classified::internal::run_internal_command;
-use crate::context::Context;
+use crate::evaluation_context::EvaluationContext;
 use crate::prelude::*;
 use crate::stream::InputStream;
 use futures::stream::TryStreamExt;
@@ -11,7 +11,7 @@ use std::sync::atomic::Ordering;
 
 pub(crate) async fn run_block(
     block: &Block,
-    ctx: &mut Context,
+    ctx: &mut EvaluationContext,
     mut input: InputStream,
     it: &Value,
     vars: &IndexMap<String, Value>,
@@ -64,7 +64,7 @@ pub(crate) async fn run_block(
 
 async fn run_pipeline(
     commands: &Commands,
-    ctx: &mut Context,
+    ctx: &mut EvaluationContext,
     mut input: InputStream,
     it: &Value,
     vars: &IndexMap<String, Value>,

@@ -156,6 +156,127 @@ fn list_files_from_two_parents_up_using_multiple_dots() {
 }
 
 #[test]
+fn lists_hidden_file_when_explicitly_specified() {
+    Playground::setup("ls_test_7", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("los.txt"),
+            EmptyFile("tres.txt"),
+            EmptyFile("amigos.txt"),
+            EmptyFile("arepas.clu"),
+            EmptyFile(".testdotfile"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ls .testdotfile
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual.out, "1");
+    })
+}
+
+#[test]
+fn lists_all_hidden_files_when_glob_contains_dot() {
+    Playground::setup("ls_test_8", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![
+                EmptyFile("root1.txt"),
+                EmptyFile("root2.txt"),
+                EmptyFile(".dotfile1"),
+            ])
+            .within("dir_a")
+            .with_files(vec![
+                EmptyFile("yehuda.10.txt"),
+                EmptyFile("jonathan.10.txt"),
+                EmptyFile(".dotfile2"),
+            ])
+            .within("dir_b")
+            .with_files(vec![
+                EmptyFile("andres.10.txt"),
+                EmptyFile("chicken_not_to_be_picked_up.100.txt"),
+                EmptyFile(".dotfile3"),
+            ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ls **/.*
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual.out, "3");
+    })
+}
+
+#[test]
+// TODO Remove this cfg value when we have an OS-agnostic way
+// of creating hidden files using the playground.
+#[cfg(unix)]
+fn lists_all_hidden_files_when_glob_does_not_contain_dot() {
+    Playground::setup("ls_test_8", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![
+                EmptyFile("root1.txt"),
+                EmptyFile("root2.txt"),
+                EmptyFile(".dotfile1"),
+            ])
+            .within("dir_a")
+            .with_files(vec![
+                EmptyFile("yehuda.10.txt"),
+                EmptyFile("jonathan.10.txt"),
+                EmptyFile(".dotfile2"),
+            ])
+            .within(".dir_b")
+            .with_files(vec![
+                EmptyFile("andres.10.txt"),
+                EmptyFile("chicken_not_to_be_picked_up.100.txt"),
+                EmptyFile(".dotfile3"),
+            ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ls **/*
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual.out, "5");
+    })
+}
+
+#[test]
+fn lists_files_including_starting_with_dot() {
+    Playground::setup("ls_test_9", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("yehuda.txt"),
+            EmptyFile("jonathan.txt"),
+            EmptyFile("andres.txt"),
+            EmptyFile(".hidden1.txt"),
+            EmptyFile(".hidden2.txt"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ls -a
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual.out, "5");
+    })
+}
+
+#[test]
 fn list_all_columns() {
     Playground::setup(
         "ls_test_all_columns",
@@ -182,8 +303,18 @@ fn list_all_columns() {
                 #[cfg(unix)]
                 {
                     [
-                        "name", "type", "target", "readonly", "mode", "uid", "group", "size",
-                        "created", "accessed", "modified",
+                        "name",
+                        "type",
+                        "target",
+                        "num_links",
+                        "readonly",
+                        "mode",
+                        "uid",
+                        "group",
+                        "size",
+                        "created",
+                        "accessed",
+                        "modified",
                     ]
                     .join("")
                 }

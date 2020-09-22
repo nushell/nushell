@@ -40,7 +40,7 @@
 
 ```shell
 > open --raw Cargo.toml | size | debug
-(lines=139 words=560 chars=4607 max length=4607)
+(lines=139 words=560 chars=4607 bytes=4607)
 ```
 
 ```shell

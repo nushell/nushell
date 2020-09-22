@@ -1,9 +1,10 @@
+use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
-use crate::context::CommandRegistry;
 use crate::prelude::*;
+use indexmap::indexmap;
 use indexmap::map::IndexMap;
 use nu_errors::ShellError;
-use nu_protocol::Signature;
+use nu_protocol::{Signature, UntaggedValue};
 
 pub struct Uniq;
 
@@ -28,6 +29,36 @@ impl WholeStreamCommand for Uniq {
     ) -> Result<OutputStream, ShellError> {
         uniq(args, registry).await
     }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Remove duplicate rows of a list/table",
+                example: "echo [2 3 3 4] | uniq",
+                result: Some(vec![
+                    UntaggedValue::int(2).into(),
+                    UntaggedValue::int(3).into(),
+                    UntaggedValue::int(4).into(),
+                ]),
+            },
+            Example {
+                description: "Remove duplicate rows and show counts of a list/table",
+                example: "echo [1 2 2] | uniq -c",
+                result: Some(vec![
+                    UntaggedValue::row(indexmap! {
+                    "value".to_string() => UntaggedValue::int(1).into(),
+                    "count".to_string() => UntaggedValue::int(1).into(),
+                    })
+                    .into(),
+                    UntaggedValue::row(indexmap! {
+                    "value".to_string() => UntaggedValue::int(2).into(),
+                    "count".to_string() => UntaggedValue::int(2).into(),
+                    })
+                    .into(),
+                ]),
+            },
+        ]
+    }
 }
 
 async fn uniq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
@@ -46,7 +77,7 @@ async fn uniq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
 
     if should_show_count {
         for item in uniq_values {
-            use nu_protocol::{UntaggedValue, Value};
+            use nu_protocol::Value;
             let value = {
                 match item.0.value {
                     UntaggedValue::Row(mut row) => {

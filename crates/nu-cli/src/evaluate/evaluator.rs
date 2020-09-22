@@ -1,11 +1,11 @@
+use crate::command_registry::CommandRegistry;
 use crate::commands::classified::block::run_block;
-use crate::context::CommandRegistry;
 use crate::evaluate::operator::apply_operator;
 use crate::prelude::*;
 use async_recursion::async_recursion;
 use log::trace;
 use nu_errors::{ArgumentError, ShellError};
-use nu_protocol::hir::{self, Expression, ExternalRedirection, SpannedExpression};
+use nu_protocol::hir::{self, Expression, ExternalRedirection, RangeOperator, SpannedExpression};
 use nu_protocol::{
     ColumnPath, Primitive, RangeInclusion, UnspannedPathMember, UntaggedValue, Value,
 };
@@ -34,7 +34,7 @@ pub(crate) async fn evaluate_baseline_expr(
             Ok(UntaggedValue::string(s).into_untagged_value())
         }
         Expression::Variable(var) => evaluate_reference(&var, it, vars, env, tag),
-        Expression::Command(_) => unimplemented!(),
+        Expression::Command => unimplemented!(),
         Expression::Invocation(block) => evaluate_invocation(block, registry, it, vars, env).await,
         Expression::ExternalCommand(_) => unimplemented!(),
         Expression::Binary(binary) => {
@@ -61,11 +61,18 @@ pub(crate) async fn evaluate_baseline_expr(
             }
         }
         Expression::Range(range) => {
-            let left = &range.left;
-            let right = &range.right;
+            let left = if let Some(left) = &range.left {
+                evaluate_baseline_expr(&left, registry, it, vars, env).await?
+            } else {
+                Value::nothing()
+            };
 
-            let left = evaluate_baseline_expr(&left, registry, it, vars, env).await?;
-            let right = evaluate_baseline_expr(&right, registry, it, vars, env).await?;
+            let right = if let Some(right) = &range.right {
+                evaluate_baseline_expr(&right, registry, it, vars, env).await?
+            } else {
+                Value::nothing()
+            };
+
             let left_span = left.tag.span;
             let right_span = right.tag.span;
 
@@ -75,10 +82,53 @@ pub(crate) async fn evaluate_baseline_expr(
             );
             let right = (
                 right.as_primitive()?.spanned(right_span),
-                RangeInclusion::Inclusive,
+                match &range.operator.item {
+                    RangeOperator::Inclusive => RangeInclusion::Inclusive,
+                    RangeOperator::RightExclusive => RangeInclusion::Exclusive,
+                },
             );
 
             Ok(UntaggedValue::range(left, right).into_value(tag))
+        }
+        Expression::Table(headers, cells) => {
+            let mut output_headers = vec![];
+
+            for expr in headers {
+                let val = evaluate_baseline_expr(&expr, registry, it, vars, env).await?;
+
+                let header = val.as_string()?;
+                output_headers.push(header);
+            }
+
+            let mut output_table = vec![];
+
+            for row in cells {
+                if row.len() != headers.len() {
+                    match (row.first(), row.last()) {
+                        (Some(first), Some(last)) => {
+                            return Err(ShellError::labeled_error(
+                                "Cell count doesn't match header count",
+                                format!("expected {} columns", headers.len()),
+                                Span::new(first.span.start(), last.span.end()),
+                            ));
+                        }
+                        _ => {
+                            return Err(ShellError::untagged_runtime_error(
+                                "Cell count doesn't match header count",
+                            ));
+                        }
+                    }
+                }
+
+                let mut row_output = IndexMap::new();
+                for cell in output_headers.iter().zip(row.iter()) {
+                    let val = evaluate_baseline_expr(&cell.1, registry, it, vars, env).await?;
+                    row_output.insert(cell.0.clone(), val);
+                }
+                output_table.push(UntaggedValue::row(row_output).into_value(tag.clone()));
+            }
+
+            Ok(UntaggedValue::Table(output_table).into_value(tag))
         }
         Expression::List(list) => {
             let mut exprs = vec![];
@@ -191,7 +241,7 @@ async fn evaluate_invocation(
     env: &IndexMap<String, String>,
 ) -> Result<Value, ShellError> {
     // FIXME: we should use a real context here
-    let mut context = Context::basic()?;
+    let mut context = EvaluationContext::basic()?;
     context.registry = registry.clone();
 
     let input = InputStream::one(it.clone());

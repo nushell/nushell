@@ -1,7 +1,7 @@
 use nu_errors::ShellError;
 use nu_protocol::{did_you_mean, ColumnPath, Primitive, ShellTypeName, UntaggedValue, Value};
 use nu_source::{span_for_spanned_list, HasSpan, SpannedItem, Tagged};
-use nu_value_ext::ValueExt;
+use nu_value_ext::{get_data_by_column_path, ValueExt};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Action {
@@ -100,22 +100,24 @@ impl Inc {
                 Some(ref f) => {
                     let fields = f.clone();
 
-                    let replace_for = value.get_data_by_column_path(
+                    let replace_for = get_data_by_column_path(
+                        &value,
                         &f,
-                        Box::new(move |(obj_source, column_path_tried, _)| {
-                            match did_you_mean(&obj_source, &column_path_tried) {
-                                Some(suggestions) => ShellError::labeled_error(
-                                    "Unknown column",
-                                    format!("did you mean '{}'?", suggestions[0].1),
-                                    span_for_spanned_list(fields.iter().map(|p| p.span)),
-                                ),
-                                None => ShellError::labeled_error(
-                                    "Unknown column",
-                                    "row does not contain this column",
-                                    span_for_spanned_list(fields.iter().map(|p| p.span)),
-                                ),
-                            }
-                        }),
+                        move |obj_source, column_path_tried, _| match did_you_mean(
+                            &obj_source,
+                            &column_path_tried,
+                        ) {
+                            Some(suggestions) => ShellError::labeled_error(
+                                "Unknown column",
+                                format!("did you mean '{}'?", suggestions[0].1),
+                                span_for_spanned_list(fields.iter().map(|p| p.span)),
+                            ),
+                            None => ShellError::labeled_error(
+                                "Unknown column",
+                                "row does not contain this column",
+                                span_for_spanned_list(fields.iter().map(|p| p.span)),
+                            ),
+                        },
                     );
 
                     let got = replace_for?;

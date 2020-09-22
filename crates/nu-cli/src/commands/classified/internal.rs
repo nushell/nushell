@@ -9,7 +9,7 @@ use nu_protocol::{CommandAction, Primitive, ReturnSuccess, Scope, UntaggedValue,
 
 pub(crate) async fn run_internal_command(
     command: InternalCommand,
-    context: &mut Context,
+    context: &mut EvaluationContext,
     input: InputStream,
     it: &Value,
     vars: &IndexMap<String, Value>,
@@ -199,6 +199,28 @@ pub(crate) async fn run_internal_command(
                                     AliasCommand::new(name, args, block),
                                 )]);
                                 InputStream::from_stream(futures::stream::iter(vec![]))
+                            }
+                            CommandAction::AddPlugins(path) => {
+                                match crate::plugin::scan(vec![std::path::PathBuf::from(path)]) {
+                                    Ok(plugins) => {
+                                        context.add_commands(
+                                            plugins
+                                                .into_iter()
+                                                .filter(|p| {
+                                                    !context.is_command_registered(p.name())
+                                                })
+                                                .collect(),
+                                        );
+
+                                        InputStream::from_stream(futures::stream::iter(vec![]))
+                                    }
+                                    Err(reason) => {
+                                        context.error(reason.clone());
+                                        InputStream::one(
+                                            UntaggedValue::Error(reason).into_untagged_value(),
+                                        )
+                                    }
+                                }
                             }
                             CommandAction::PreviousShell => {
                                 context.shell_manager.prev();

@@ -50,7 +50,11 @@ impl WholeStreamCommand for SubCommand {
         vec![Example {
             description: "Get the median of a list of numbers",
             example: "echo [3 8 9 12 12 15] | math median",
-            result: Some(vec![UntaggedValue::decimal(10.5).into()]),
+            result: Some(vec![UntaggedValue::decimal_from_float(
+                10.5,
+                Span::unknown(),
+            )
+            .into()]),
         }]
     }
 }

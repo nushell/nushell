@@ -6,18 +6,19 @@ use nu_protocol::hir::ClassifiedBlock;
 use nu_protocol::{ShellTypeName, Value};
 
 use crate::commands::classified::block::run_block;
-use crate::commands::{whole_stream_command, BuildString, Echo, StrCollect};
-use crate::context::Context;
+use crate::commands::{whole_stream_command, BuildString, Each, Echo, StrCollect};
+use crate::evaluation_context::EvaluationContext;
 use crate::stream::InputStream;
 use crate::WholeStreamCommand;
 
 pub fn test(cmd: impl WholeStreamCommand + 'static) {
     let examples = cmd.examples();
-    let mut base_context = Context::basic().expect("could not create basic context");
+    let mut base_context = EvaluationContext::basic().expect("could not create basic context");
 
     base_context.add_commands(vec![
         whole_stream_command(Echo {}),
         whole_stream_command(BuildString {}),
+        whole_stream_command(Each {}),
         whole_stream_command(cmd),
         whole_stream_command(StrCollect),
     ]);
@@ -57,7 +58,10 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) {
 }
 
 /// Parse and run a nushell pipeline
-fn parse_line(line: &'static str, ctx: &mut Context) -> Result<ClassifiedBlock, ShellError> {
+fn parse_line(
+    line: &'static str,
+    ctx: &mut EvaluationContext,
+) -> Result<ClassifiedBlock, ShellError> {
     let line = if line.ends_with('\n') {
         &line[..line.len() - 1]
     } else {
@@ -74,7 +78,7 @@ fn parse_line(line: &'static str, ctx: &mut Context) -> Result<ClassifiedBlock, 
 
 async fn evaluate_block(
     block: ClassifiedBlock,
-    ctx: &mut Context,
+    ctx: &mut EvaluationContext,
 ) -> Result<Vec<Value>, ShellError> {
     let input_stream = InputStream::empty();
     let env = ctx.get_env();

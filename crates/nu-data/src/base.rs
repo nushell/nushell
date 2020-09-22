@@ -126,7 +126,7 @@ pub fn coerce_compare(
     }
 }
 
-fn coerce_compare_primitive(
+pub fn coerce_compare_primitive(
     left: &Primitive,
     right: &Primitive,
 ) -> Result<CompareValues, (&'static str, &'static str)> {
@@ -190,8 +190,8 @@ mod tests {
 
     fn error_callback(
         reason: &'static str,
-    ) -> impl FnOnce((&Value, &PathMember, ShellError)) -> ShellError {
-        move |(_obj_source, _column_path_tried, _err)| ShellError::unimplemented(reason)
+    ) -> impl FnOnce(&Value, &PathMember, ShellError) -> ShellError {
+        move |_obj_source, _column_path_tried, _err| ShellError::unimplemented(reason)
     }
 
     fn column_path(paths: &[Value]) -> Result<Tagged<ColumnPathValue>, ShellError> {

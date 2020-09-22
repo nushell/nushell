@@ -53,7 +53,11 @@ impl WholeStreamCommand for SubCommand {
         vec![Example {
             description: "Get the average of a list of numbers",
             example: "echo [-50 100.0 25] | math avg",
-            result: Some(vec![UntaggedValue::decimal(25).into()]),
+            result: Some(vec![UntaggedValue::decimal_from_float(
+                25.0,
+                Span::unknown(),
+            )
+            .into()]),
         }]
     }
 }
@@ -125,6 +129,28 @@ pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
                     let number = Number::Decimal(result);
                     let number = convert_number_to_u64(&number);
                     Ok(UntaggedValue::filesize(number).into_value(name))
+                }
+                Ok(_) => Err(ShellError::labeled_error(
+                    "could not calculate average of non-integer or unrelated types",
+                    "source",
+                    name,
+                )),
+                Err((left_type, right_type)) => Err(ShellError::coerce_error(
+                    left_type.spanned(name.span),
+                    right_type.spanned(name.span),
+                )),
+            }
+        }
+        Value {
+            value: UntaggedValue::Primitive(Primitive::Duration(duration)),
+            ..
+        } => {
+            let left = UntaggedValue::from(Primitive::Duration(duration));
+            let result = nu_data::value::compute_values(Operator::Divide, &left, &total_rows);
+
+            match result {
+                Ok(UntaggedValue::Primitive(Primitive::Duration(result))) => {
+                    Ok(UntaggedValue::duration(result).into_value(name))
                 }
                 Ok(_) => Err(ShellError::labeled_error(
                     "could not calculate average of non-integer or unrelated types",

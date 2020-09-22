@@ -77,7 +77,7 @@ pub fn generate_docs(registry: &CommandRegistry) -> Value {
         };
     }
     // Return documentation for each command
-    // Sub-commands are nested under there respective parent commands
+    // Sub-commands are nested under their respective parent commands
     let mut table = Vec::new();
     for name in sorted_names.iter() {
         // Must be a sub-command, skip since it's being handled underneath when we hit the parent command
@@ -131,13 +131,13 @@ pub fn get_documentation(
     long_desc.push_str(&cmd.usage());
     long_desc.push_str("\n");
 
-    let mut subcommands = String::new();
+    let mut subcommands = vec![];
     if !config.no_subcommands {
         for name in registry.names() {
             if name.starts_with(&format!("{} ", cmd_name)) {
                 let subcommand = registry.get_command(&name).expect("This shouldn't happen");
 
-                subcommands.push_str(&format!("  {} - {}\n", name, subcommand.usage()));
+                subcommands.push(format!("  {} - {}", name, subcommand.usage()));
             }
         }
     }
@@ -173,7 +173,9 @@ pub fn get_documentation(
 
     if !subcommands.is_empty() {
         long_desc.push_str("\nSubcommands:\n");
-        long_desc.push_str(&subcommands);
+        subcommands.sort();
+        long_desc.push_str(&subcommands.join("\n"));
+        long_desc.push_str("\n");
     }
 
     if !signature.positional.is_empty() || signature.rest_positional.is_some() {
@@ -211,7 +213,7 @@ pub fn get_documentation(
             long_desc.push_str(&format!("\n  > {}\n", example.example));
         } else {
             let colored_example =
-                crate::shell::helper::Painter::paint_string(example.example, registry, &palette);
+                crate::shell::painter::Painter::paint_string(example.example, registry, &palette);
             long_desc.push_str(&format!("\n  > {}\n", colored_example));
         }
     }

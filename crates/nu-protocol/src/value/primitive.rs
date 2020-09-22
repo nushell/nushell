@@ -1,6 +1,6 @@
 use crate::type_name::ShellTypeName;
 use crate::value::column_path::ColumnPath;
-use crate::value::range::Range;
+use crate::value::range::{Range, RangeInclusion};
 use crate::value::{serde_bigdecimal, serde_bigint};
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
@@ -14,10 +14,10 @@ use num_traits::sign::Signed;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-const NANOS_PER_SEC: u32 = 1000000000;
+const NANOS_PER_SEC: u32 = 1_000_000_000;
 
-/// The most fundamental of structured values in Nu are the Primitive values. These values represent types like integers, strings, booleans, dates, etc that are then used
-/// as the buildig blocks to build up more complex structures.
+/// The most fundamental of structured values in Nu are the Primitive values. These values represent types like integers, strings, booleans, dates, etc
+/// that are then used as the building blocks of more complex structures.
 ///
 /// Primitives also include marker values BeginningOfStream and EndOfStream which denote a change of condition in the stream
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Deserialize, Serialize)]
@@ -90,6 +90,7 @@ impl Primitive {
     pub fn into_chrono_duration(self, span: Span) -> Result<chrono::Duration, ShellError> {
         match self {
             Primitive::Duration(duration) => {
+                // Divide into seconds because BigInt can be larger than i64
                 let (secs, nanos) = duration.div_rem(&BigInt::from(NANOS_PER_SEC));
                 let secs = match secs.to_i64() {
                     Some(secs) => secs,
@@ -101,15 +102,11 @@ impl Primitive {
                         ))
                     }
                 };
-                // This should never fail since nanos < 10^9.
-                let nanos = match nanos.to_i64() {
-                    Some(nanos) => nanos,
-                    None => return Err(ShellError::unexpected("Unexpected i64 overflow")),
-                };
-                let nanos = chrono::Duration::nanoseconds(nanos);
+                // This should never fail since NANOS_PER_SEC won't overflow
+                let nanos = nanos.to_i64().expect("Unexpected i64 overflow");
                 // This should also never fail since we are adding less than NANOS_PER_SEC.
                 chrono::Duration::seconds(secs)
-                    .checked_add(&nanos)
+                    .checked_add(&chrono::Duration::nanoseconds(nanos))
                     .ok_or_else(|| ShellError::unexpected("Unexpected duration overflow"))
             }
             other => Err(ShellError::type_error(
@@ -136,6 +133,13 @@ impl Primitive {
             Primitive::String(s) => s.is_empty(),
             _ => false,
         }
+    }
+}
+
+impl From<bool> for Primitive {
+    /// Helper to convert from boolean to a primitive
+    fn from(b: bool) -> Primitive {
+        Primitive::Boolean(b)
     }
 }
 
@@ -192,6 +196,12 @@ impl From<chrono::Duration> for Primitive {
     }
 }
 
+impl std::fmt::Display for Primitive {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 impl ShellTypeName for Primitive {
     /// Get the name of the type of a Primitive value
     fn type_name(&self) -> &'static str {
@@ -241,8 +251,13 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
         Primitive::Int(i) => i.to_string(),
         Primitive::Decimal(decimal) => format!("{:.4}", decimal),
         Primitive::Range(range) => format!(
-            "{}..{}",
+            "{}..{}{}",
             format_primitive(&range.from.0.item, None),
+            if range.to.1 == RangeInclusion::Exclusive {
+                "<"
+            } else {
+                ""
+            },
             format_primitive(&range.to.0.item, None)
         ),
         Primitive::Pattern(s) => s.to_string(),
@@ -282,11 +297,12 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
 
 /// Format a duration in nanoseconds into a string
 pub fn format_duration(duration: &BigInt) -> String {
+    let is_zero = duration.is_zero();
     // FIXME: This involves a lot of allocation, but it seems inevitable with BigInt.
     let big_int_1000 = BigInt::from(1000);
     let big_int_60 = BigInt::from(60);
     let big_int_24 = BigInt::from(24);
-    // We only want the biggest subvidision to have the negative sign.
+    // We only want the biggest subdivision to have the negative sign.
     let (sign, duration) = if duration.is_zero() || duration.is_positive() {
         (1, duration.clone())
     } else {
@@ -312,8 +328,8 @@ pub fn format_duration(duration: &BigInt) -> String {
     if !mins.is_zero() {
         output_prep.push(format!("{}min", mins));
     }
-
-    if !secs.is_zero() {
+    // output 0sec for zero duration
+    if is_zero || !secs.is_zero() {
         output_prep.push(format!("{}sec", secs));
     }
 

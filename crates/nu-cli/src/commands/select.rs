@@ -1,5 +1,5 @@
+use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
-use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{
@@ -83,7 +83,7 @@ async fn select(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputS
             let fetcher = get_data_by_column_path(
                 &value,
                 &path,
-                Box::new(move |(obj_source, path_member_tried, error)| {
+                move |obj_source, path_member_tried, error| {
                     if let PathMember {
                         unspanned: UnspannedPathMember::String(column),
                         ..
@@ -98,7 +98,7 @@ async fn select(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputS
                     }
 
                     error
-                }),
+                },
             );
 
             let field = path.clone();
