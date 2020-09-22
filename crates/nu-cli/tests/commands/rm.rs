@@ -265,3 +265,16 @@ fn remove_files_from_two_parents_up_using_multiple_dots_and_glob() {
         ));
     })
 }
+
+#[test]
+fn no_errors_if_attempting_to_delete_non_existent_file_with_f_flag() {
+    Playground::setup("rm_test_14", |dirs, _| {
+
+        let actual = nu!(
+            cwd: dirs.root(),
+            "rm -f non_existent_file.txt"
+        );
+        println!("{}", actual.err);
+        assert!(!actual.err.contains("no valid path"));
+    })
+}

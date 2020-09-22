@@ -496,6 +496,7 @@ impl Shell for FilesystemShell {
             recursive,
             trash: _trash,
             permanent: _permanent,
+            force: _force,
         }: RemoveArgs,
         name: Tag,
         path: &str,
@@ -556,7 +557,7 @@ impl Shell for FilesystemShell {
             };
         }
 
-        if all_targets.is_empty() {
+        if all_targets.is_empty() && !_force.item {
             return Err(ShellError::labeled_error(
                 "No valid paths",
                 "no valid paths",
