@@ -190,7 +190,7 @@ pub fn get_column_path_from_table_error(
                             .map(|x| x.to_owned())
                             .collect::<Vec<String>>()
                             .join(","),
-                        names.join(",")
+                        names.join(", ")
                     ),
                     column_path_tried.span.since(path_members_span),
                 )
@@ -240,7 +240,7 @@ pub fn get_column_from_row_error(
                     format!(
                         "Perhaps you meant '{}'? Columns available: {}",
                         suggestions[0].1,
-                        &obj_source.data_descriptors().join(",")
+                        &obj_source.data_descriptors().join(", ")
                     ),
                     column_path_tried.span.since(path_members_span),
                 ))
@@ -257,7 +257,7 @@ pub fn get_column_from_row_error(
             column_path_tried.span,
             format!(
                 "Appears to contain columns. Columns available: {}",
-                columns.keys().join(",")
+                columns.keys().join(", ")
             ),
             column_path_tried.span.since(path_members_span),
         )),

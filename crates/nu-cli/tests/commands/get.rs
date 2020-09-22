@@ -143,6 +143,8 @@ fn errors_fetching_by_column_not_present() {
             r#"
                 [taconushell]
                 sentence_words = ["Yo", "quiero", "taconushell"]
+                [pizzanushell]
+                sentence-words = ["I", "want", "pizza"]
             "#,
         )]);
 
@@ -165,7 +167,13 @@ fn errors_fetching_by_column_not_present() {
         assert!(
             actual.err.contains("Perhaps you meant 'taconushell'?"),
             format!("actual: {:?}", actual.err)
-        )
+        );
+        assert!(
+            actual
+                .err
+                .contains("Columns available: pizzanushell, taconushell"),
+            format!("actual: {:?}", actual.err)
+        );
     })
 }
 
