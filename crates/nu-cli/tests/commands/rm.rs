@@ -272,7 +272,7 @@ fn no_errors_if_attempting_to_delete_non_existent_file_with_f_flag() {
             cwd: dirs.root(),
             "rm -f non_existent_file.txt"
         );
-        println!("{}", actual.err);
+
         assert!(!actual.err.contains("no valid path"));
     })
 }
