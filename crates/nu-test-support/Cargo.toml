@@ -4,19 +4,19 @@ description = "A source string characterizer for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-test-support"
-version = "0.19.0"
+version = "0.20.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-protocol = {path = "../nu-protocol", version = "0.19.0"}
-nu-source = {path = "../nu-source", version = "0.19.0"}
+nu-protocol = {path = "../nu-protocol", version = "0.20.0"}
+nu-source = {path = "../nu-source", version = "0.20.0"}
 
 dunce = "1.0.1"
 getset = "0.1.1"
 glob = "0.3.0"
-indexmap = { version = "1.6.0", features = ["serde-1"] }
+indexmap = {version = "1.6.0", features = ["serde-1"]}
 tempfile = "3.1.0"
 
 [build-dependencies]
