@@ -16,6 +16,7 @@ pub struct RemoveArgs {
     pub trash: Tagged<bool>,
     #[allow(unused)]
     pub permanent: Tagged<bool>,
+    pub force: Tagged<bool>,
 }
 
 #[async_trait]
@@ -37,6 +38,7 @@ impl WholeStreamCommand for Remove {
                 Some('p'),
             )
             .switch("recursive", "delete subdirectories recursively", Some('r'))
+            .switch("force", "suppress error when no file", Some('f'))
             .rest(SyntaxShape::Pattern, "the file path(s) to remove")
     }
 
@@ -69,6 +71,11 @@ impl WholeStreamCommand for Remove {
                 example: "rm --permanent file.txt",
                 result: None,
             },
+            Example {
+                description: "Delete a file, and suppress errors if no file is found",
+                example: "rm --force file.txt",
+                result: None,
+            }
         ]
     }
 }
