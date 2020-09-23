@@ -132,7 +132,7 @@ pub fn get_column_path(path: &ColumnPath, obj: &Value) -> Result<Value, ShellErr
         if let Some(suggestions) = did_you_mean(&obj_source, column_path_tried) {
             ShellError::labeled_error(
                 "Unknown column",
-                format!("did you mean '{}'?", suggestions[0].1),
+                format!("did you mean '{}'?", suggestions[0]),
                 column_path_tried.span.since(path_members_span),
             )
         } else {
@@ -156,7 +156,7 @@ pub fn get_column_path_from_table_error(
             let suggestions: IndexSet<_> = rows
                 .iter()
                 .filter_map(|r| did_you_mean(&r, &column_path_tried))
-                .map(|s| s[0].1.to_owned())
+                .map(|s| s[0].to_owned())
                 .collect();
             let mut existing_columns: IndexSet<_> = IndexSet::default();
             let mut names: Vec<String> = vec![];
@@ -239,7 +239,7 @@ pub fn get_column_from_row_error(
                     column_path_tried.span,
                     format!(
                         "Perhaps you meant '{}'? Columns available: {}",
-                        suggestions[0].1,
+                        suggestions[0],
                         &obj_source.data_descriptors().join(", ")
                     ),
                     column_path_tried.span.since(path_members_span),
