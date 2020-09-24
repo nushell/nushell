@@ -114,12 +114,7 @@ impl PathMember {
 }
 
 /// Prepares a list of "sounds like" matches (using edit distance) for the string you're trying to find
-pub fn did_you_mean(obj_source: &Value, field_tried: &PathMember) -> Option<Vec<String>> {
-    let field_tried = match &field_tried.unspanned {
-        UnspannedPathMember::String(string) => string.clone(),
-        UnspannedPathMember::Int(int) => format!("{}", int),
-    };
-
+pub fn did_you_mean(obj_source: &Value, field_tried: String) -> Option<Vec<String>> {
     let possibilities = obj_source.data_descriptors();
 
     let mut possible_matches: Vec<_> = possibilities
@@ -159,18 +154,13 @@ mod test {
             value,
         };
 
-        let guess = PathMember {
-            unspanned: UnspannedPathMember::String("hat".to_string()),
-            span: Default::default(),
-        };
-
         assert_eq!(
             Some(vec![
                 "cat".to_string(),
                 "alt".to_string(),
                 "dog".to_string()
             ]),
-            did_you_mean(&source, &guess)
+            did_you_mean(&source, "hat".to_string())
         )
     }
 
@@ -181,11 +171,6 @@ mod test {
             value: UntaggedValue::row(indexmap! {}),
         };
 
-        let guess = PathMember {
-            unspanned: UnspannedPathMember::String("hat".to_string()),
-            span: Default::default(),
-        };
-
-        assert_eq!(None, did_you_mean(&empty_source, &guess))
+        assert_eq!(None, did_you_mean(&empty_source, "hat".to_string()))
     }
 }

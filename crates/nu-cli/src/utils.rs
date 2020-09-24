@@ -1,3 +1,4 @@
+pub mod suggestions;
 pub mod test_bins;
 
 use crate::path::canonicalize;
