@@ -239,7 +239,7 @@ where
                         let suggestions: IndexSet<_> = rows
                             .iter()
                             .filter_map(|r| nu_protocol::did_you_mean(&r, &column_path_tried))
-                            .map(|s| s[0].1.to_owned())
+                            .map(|s| s[0].to_owned())
                             .collect();
                         let mut existing_columns: IndexSet<_> = IndexSet::default();
                         let mut names: Vec<String> = vec![];
@@ -316,7 +316,7 @@ where
                                 column_path_tried.span,
                                 format!(
                                     "Perhaps you meant '{}'? Columns available: {}",
-                                    suggestions[0].1,
+                                    suggestions[0],
                                     &obj_source.data_descriptors().join(",")
                                 ),
                                 column_path_tried.span.since(path_members_span),
@@ -345,7 +345,7 @@ where
             if let Some(suggestions) = nu_protocol::did_you_mean(&obj_source, &column_path_tried) {
                 return ShellError::labeled_error(
                     "Unknown column",
-                    format!("did you mean '{}'?", suggestions[0].1),
+                    format!("did you mean '{}'?", suggestions[0]),
                     column_path_tried.span.since(path_members_span),
                 );
             }

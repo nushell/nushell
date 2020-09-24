@@ -109,7 +109,7 @@ impl Inc {
                         ) {
                             Some(suggestions) => ShellError::labeled_error(
                                 "Unknown column",
-                                format!("did you mean '{}'?", suggestions[0].1),
+                                format!("did you mean '{}'?", suggestions[0]),
                                 span_for_spanned_list(fields.iter().map(|p| p.span)),
                             ),
                             None => ShellError::labeled_error(

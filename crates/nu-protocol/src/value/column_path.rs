@@ -113,8 +113,8 @@ impl PathMember {
     }
 }
 
-/// Prepares a list of "sounds like" matches for the string you're trying to find
-pub fn did_you_mean(obj_source: &Value, field_tried: &PathMember) -> Option<Vec<(usize, String)>> {
+/// Prepares a list of "sounds like" matches (using edit distance) for the string you're trying to find
+pub fn did_you_mean(obj_source: &Value, field_tried: &PathMember) -> Option<Vec<String>> {
     let field_tried = match &field_tried.unspanned {
         UnspannedPathMember::String(string) => string.clone(),
         UnspannedPathMember::Int(int) => format!("{}", int),
@@ -124,18 +124,68 @@ pub fn did_you_mean(obj_source: &Value, field_tried: &PathMember) -> Option<Vec<
 
     let mut possible_matches: Vec<_> = possibilities
         .into_iter()
-        .map(|x| {
-            let word = x;
-            let distance = natural::distance::levenshtein_distance(&word, &field_tried);
-
-            (distance, word)
+        .map(|word| {
+            let edit_distance = natural::distance::levenshtein_distance(&word, &field_tried);
+            (edit_distance, word)
         })
         .collect();
 
     if !possible_matches.is_empty() {
         possible_matches.sort();
-        Some(possible_matches)
+        let words_matched: Vec<String> = possible_matches.into_iter().map(|m| m.1).collect();
+        Some(words_matched)
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::UntaggedValue;
+    use indexmap::indexmap;
+    use nu_source::Tag;
+
+    #[test]
+    fn did_you_mean_returns_possible_column_matches() {
+        let value = UntaggedValue::row(indexmap! {
+           "dog".to_string() => UntaggedValue::int(1).into(),
+           "cat".to_string() => UntaggedValue::int(1).into(),
+           "alt".to_string() => UntaggedValue::int(1).into(),
+        });
+
+        let source = Value {
+            tag: Tag::unknown(),
+            value,
+        };
+
+        let guess = PathMember {
+            unspanned: UnspannedPathMember::String("hat".to_string()),
+            span: Default::default(),
+        };
+
+        assert_eq!(
+            Some(vec![
+                "cat".to_string(),
+                "alt".to_string(),
+                "dog".to_string()
+            ]),
+            did_you_mean(&source, &guess)
+        )
+    }
+
+    #[test]
+    fn did_you_mean_returns_no_matches_when_empty() {
+        let empty_source = Value {
+            tag: Tag::unknown(),
+            value: UntaggedValue::row(indexmap! {}),
+        };
+
+        let guess = PathMember {
+            unspanned: UnspannedPathMember::String("hat".to_string()),
+            span: Default::default(),
+        };
+
+        assert_eq!(None, did_you_mean(&empty_source, &guess))
     }
 }
