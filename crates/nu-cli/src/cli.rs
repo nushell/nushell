@@ -388,6 +388,8 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
 
                         let env = context.get_env();
 
+                        prompt_block.block.expand_it_usage();
+
                         match run_block(
                             &prompt_block.block,
                             &mut context,
