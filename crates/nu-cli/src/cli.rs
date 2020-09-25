@@ -384,7 +384,8 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
 
                 match nu_parser::lite_parse(&prompt_line, 0).map_err(ShellError::from) {
                     Ok(result) => {
-                        let prompt_block = nu_parser::classify_block(&result, context.registry());
+                        let mut prompt_block =
+                            nu_parser::classify_block(&result, context.registry());
 
                         let env = context.get_env();
 
