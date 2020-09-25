@@ -163,7 +163,7 @@ impl EvaluationContext {
         UnevaluatedCallInfo {
             args,
             name_tag,
-            scope: scope.clone(),
+            scope,
         }
     }
 

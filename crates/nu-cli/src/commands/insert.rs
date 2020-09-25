@@ -114,7 +114,7 @@ async fn process_row(
                 ..
             } => match scope
                 .it()
-                .unwrap_or(UntaggedValue::nothing().into_untagged_value())
+                .unwrap_or_else(|| UntaggedValue::nothing().into_untagged_value())
                 .insert_data_at_column_path(&field, value.clone())
             {
                 Ok(v) => OutputStream::one(ReturnSuccess::value(v)),

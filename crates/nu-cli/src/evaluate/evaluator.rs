@@ -250,7 +250,7 @@ async fn evaluate_invocation(
     context.registry = registry.clone();
 
     let input = match scope.it() {
-        Some(it) => InputStream::one(it.clone()),
+        Some(it) => InputStream::one(it),
         None => InputStream::empty(),
     };
 
