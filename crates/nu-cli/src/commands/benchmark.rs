@@ -83,16 +83,18 @@ async fn benchmark(
     let scope = raw_args.call_info.scope.clone();
     let (BenchmarkArgs { block, passthrough }, input) = raw_args.process(&registry).await?;
 
-    let mut env = scope.env.clone();
+    let env = scope.env();
     let name = generate_free_name(&env);
+    let mut env = IndexMap::new();
     env.insert(name, generate_random_env_value());
+    let scope = Scope::append_env(scope, env);
 
     let start_time = Instant::now();
 
     #[cfg(feature = "rich-benchmark")]
     let start = time().await;
 
-    let result = run_block(&block, &mut context, input, &scope.it, &scope.vars, &env).await;
+    let result = run_block(&block, &mut context, input, scope.clone()).await;
     let output = result?.into_vec().await;
 
     #[cfg(feature = "rich-benchmark")]
@@ -108,7 +110,7 @@ async fn benchmark(
 
         let real_time = into_big_int(end_time - start_time);
         indexmap.insert("real time".to_string(), real_time);
-        benchmark_output(indexmap, output, passthrough, &tag, &mut context, &scope).await
+        benchmark_output(indexmap, output, passthrough, &tag, &mut context, scope).await
     }
     // return advanced stats
     #[cfg(feature = "rich-benchmark")]
@@ -127,7 +129,7 @@ async fn benchmark(
         let idle_time = into_big_int(end.idle() - start.idle());
         indexmap.insert("idle time".to_string(), idle_time);
 
-        benchmark_output(indexmap, output, passthrough, &tag, &mut context, &scope).await
+        benchmark_output(indexmap, output, passthrough, &tag, &mut context, scope).await
     } else {
         Err(ShellError::untagged_runtime_error(
             "Could not retreive CPU time",
@@ -141,7 +143,7 @@ async fn benchmark_output<T, Output>(
     passthrough: Option<Block>,
     tag: T,
     context: &mut EvaluationContext,
-    scope: &Scope,
+    scope: Arc<Scope>,
 ) -> Result<OutputStream, ShellError>
 where
     T: Into<Tag> + Copy,
@@ -161,15 +163,7 @@ where
         // add autoview for an empty block
         let time_block = add_implicit_autoview(time_block);
 
-        let _ = run_block(
-            &time_block,
-            context,
-            benchmark_output,
-            &scope.it,
-            &scope.vars,
-            &scope.env,
-        )
-        .await?;
+        let _ = run_block(&time_block, context, benchmark_output, scope).await?;
         context.clear_errors();
 
         Ok(block_output.into())

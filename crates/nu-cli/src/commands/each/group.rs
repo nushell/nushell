@@ -53,7 +53,7 @@ impl WholeStreamCommand for EachGroup {
     ) -> Result<OutputStream, ShellError> {
         let registry = registry.clone();
         let head = Arc::new(raw_args.call_info.args.head.clone());
-        let scope = Arc::new(raw_args.call_info.scope.clone());
+        let scope = raw_args.call_info.scope.clone();
         let context = Arc::new(EvaluationContext::from_raw(&raw_args, &registry));
         let (each_args, input): (EachGroupArgs, _) = raw_args.process(&registry).await?;
         let block = Arc::new(each_args.block);

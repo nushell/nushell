@@ -11,20 +11,13 @@ pub(crate) async fn run_internal_command(
     command: InternalCommand,
     context: &mut EvaluationContext,
     input: InputStream,
-    it: &Value,
-    vars: &IndexMap<String, Value>,
-    env: &IndexMap<String, String>,
+    scope: Arc<Scope>,
 ) -> Result<InputStream, ShellError> {
     if log_enabled!(log::Level::Trace) {
         trace!(target: "nu::run::internal", "->");
         trace!(target: "nu::run::internal", "{}", command.name);
     }
 
-    let scope = Scope {
-        it: it.clone(),
-        vars: vars.clone(),
-        env: env.clone(),
-    };
     let objects: InputStream = trace_stream!(target: "nu::trace_stream::internal", "input" = input);
     let internal_command = context.expect_command(&command.name);
 
@@ -38,7 +31,7 @@ pub(crate) async fn run_internal_command(
                 internal_command?,
                 Tag::unknown_anchor(command.name_span),
                 command.args.clone(),
-                &scope,
+                scope.clone(),
                 objects,
             )
             .await?
@@ -48,8 +41,6 @@ pub(crate) async fn run_internal_command(
     //let context = Arc::new(context.clone());
     let context = context.clone();
     let command = Arc::new(command);
-    let scope = Arc::new(scope);
-    // let scope = scope.clone();
 
     Ok(InputStream::from_stream(
         result
@@ -90,7 +81,7 @@ pub(crate) async fn run_internal_command(
                                                 external_redirection: ExternalRedirection::Stdout,
                                             },
                                             name_tag: Tag::unknown_anchor(command.name_span),
-                                            scope: (&*scope).clone(),
+                                            scope,
                                         },
                                     };
                                     let result = converter

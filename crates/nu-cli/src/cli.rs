@@ -9,7 +9,7 @@ use crate::EnvironmentSyncer;
 use futures_codec::FramedRead;
 use nu_errors::ShellError;
 use nu_protocol::hir::{ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments};
-use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue, Value};
+use nu_protocol::{Primitive, ReturnSuccess, Scope, UntaggedValue, Value};
 
 use log::{debug, trace};
 #[cfg(feature = "rustyline-support")]
@@ -395,9 +395,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
                             &prompt_block.block,
                             &mut context,
                             InputStream::empty(),
-                            &Value::nothing(),
-                            &IndexMap::new(),
-                            &env,
+                            Scope::from_env(env),
                         )
                         .await
                         {
@@ -862,9 +860,7 @@ pub async fn parse_and_eval(line: &str, ctx: &mut EvaluationContext) -> Result<S
         &classified_block.block,
         ctx,
         input_stream,
-        &Value::nothing(),
-        &IndexMap::new(),
-        &env,
+        Scope::from_env(env),
     )
     .await?
     .collect_string(Tag::unknown())
@@ -1021,9 +1017,7 @@ pub async fn process_line(
             &classified_block.block,
             ctx,
             input_stream,
-            &Value::nothing(),
-            &IndexMap::new(),
-            &env,
+            Scope::from_env(env),
         )
         .await
         {

@@ -7,16 +7,14 @@ use log::trace;
 use nu_errors::{ArgumentError, ShellError};
 use nu_protocol::hir::{self, Expression, ExternalRedirection, RangeOperator, SpannedExpression};
 use nu_protocol::{
-    ColumnPath, Primitive, RangeInclusion, UnspannedPathMember, UntaggedValue, Value,
+    ColumnPath, Primitive, RangeInclusion, Scope, UnspannedPathMember, UntaggedValue, Value,
 };
 
 #[async_recursion]
 pub(crate) async fn evaluate_baseline_expr(
     expr: &SpannedExpression,
     registry: &CommandRegistry,
-    it: &Value,
-    vars: &IndexMap<String, Value>,
-    env: &IndexMap<String, String>,
+    scope: Arc<Scope>,
 ) -> Result<Value, ShellError> {
     let tag = Tag {
         span: expr.span,
@@ -33,14 +31,14 @@ pub(crate) async fn evaluate_baseline_expr(
         Expression::Synthetic(hir::Synthetic::String(s)) => {
             Ok(UntaggedValue::string(s).into_untagged_value())
         }
-        Expression::Variable(var) => evaluate_reference(&var, it, vars, env, tag),
+        Expression::Variable(var) => evaluate_reference(&var, scope, tag),
         Expression::Command => unimplemented!(),
-        Expression::Invocation(block) => evaluate_invocation(block, registry, it, vars, env).await,
+        Expression::Invocation(block) => evaluate_invocation(block, registry, scope).await,
         Expression::ExternalCommand(_) => unimplemented!(),
         Expression::Binary(binary) => {
             // TODO: If we want to add short-circuiting, we'll need to move these down
-            let left = evaluate_baseline_expr(&binary.left, registry, it, vars, env).await?;
-            let right = evaluate_baseline_expr(&binary.right, registry, it, vars, env).await?;
+            let left = evaluate_baseline_expr(&binary.left, registry, scope.clone()).await?;
+            let right = evaluate_baseline_expr(&binary.right, registry, scope).await?;
 
             trace!("left={:?} right={:?}", left.value, right.value);
 
@@ -62,13 +60,13 @@ pub(crate) async fn evaluate_baseline_expr(
         }
         Expression::Range(range) => {
             let left = if let Some(left) = &range.left {
-                evaluate_baseline_expr(&left, registry, it, vars, env).await?
+                evaluate_baseline_expr(&left, registry, scope.clone()).await?
             } else {
                 Value::nothing()
             };
 
             let right = if let Some(right) = &range.right {
-                evaluate_baseline_expr(&right, registry, it, vars, env).await?
+                evaluate_baseline_expr(&right, registry, scope).await?
             } else {
                 Value::nothing()
             };
@@ -94,7 +92,7 @@ pub(crate) async fn evaluate_baseline_expr(
             let mut output_headers = vec![];
 
             for expr in headers {
-                let val = evaluate_baseline_expr(&expr, registry, it, vars, env).await?;
+                let val = evaluate_baseline_expr(&expr, registry, scope.clone()).await?;
 
                 let header = val.as_string()?;
                 output_headers.push(header);
@@ -122,7 +120,7 @@ pub(crate) async fn evaluate_baseline_expr(
 
                 let mut row_output = IndexMap::new();
                 for cell in output_headers.iter().zip(row.iter()) {
-                    let val = evaluate_baseline_expr(&cell.1, registry, it, vars, env).await?;
+                    let val = evaluate_baseline_expr(&cell.1, registry, scope.clone()).await?;
                     row_output.insert(cell.0.clone(), val);
                 }
                 output_table.push(UntaggedValue::row(row_output).into_value(tag.clone()));
@@ -134,7 +132,7 @@ pub(crate) async fn evaluate_baseline_expr(
             let mut exprs = vec![];
 
             for expr in list {
-                let expr = evaluate_baseline_expr(&expr, registry, it, vars, env).await?;
+                let expr = evaluate_baseline_expr(&expr, registry, scope.clone()).await?;
                 exprs.push(expr);
             }
 
@@ -142,7 +140,7 @@ pub(crate) async fn evaluate_baseline_expr(
         }
         Expression::Block(block) => Ok(UntaggedValue::Block(block.clone()).into_value(&tag)),
         Expression::Path(path) => {
-            let value = evaluate_baseline_expr(&path.head, registry, it, vars, env).await?;
+            let value = evaluate_baseline_expr(&path.head, registry, scope).await?;
             let mut item = value;
 
             for member in &path.tail {
@@ -208,15 +206,20 @@ fn evaluate_literal(literal: &hir::Literal, span: Span) -> Value {
 
 fn evaluate_reference(
     name: &hir::Variable,
-    it: &Value,
-    vars: &IndexMap<String, Value>,
-    env: &IndexMap<String, String>,
+    scope: Arc<Scope>,
     tag: Tag,
 ) -> Result<Value, ShellError> {
     match name {
-        hir::Variable::It(_) => Ok(it.clone()),
+        hir::Variable::It(_) => match scope.it() {
+            Some(v) => Ok(v),
+            None => Err(ShellError::labeled_error(
+                "$it variable not in scope",
+                "not in scope (are you missing an 'each'?)",
+                tag.span,
+            )),
+        },
         hir::Variable::Other(name, _) => match name {
-            x if x == "$nu" => crate::evaluate::variables::nu(env, tag),
+            x if x == "$nu" => crate::evaluate::variables::nu(&scope.env(), tag),
             x if x == "$true" => Ok(Value {
                 value: UntaggedValue::boolean(true),
                 tag,
@@ -225,10 +228,14 @@ fn evaluate_reference(
                 value: UntaggedValue::boolean(false),
                 tag,
             }),
-            x => Ok(vars
-                .get(x)
-                .cloned()
-                .unwrap_or_else(|| UntaggedValue::nothing().into_value(tag))),
+            x => match scope.var(x) {
+                Some(v) => Ok(v),
+                None => Err(ShellError::labeled_error(
+                    "Variable not in scope",
+                    "unknown variable",
+                    tag.span,
+                )),
+            },
         },
     }
 }
@@ -236,20 +243,21 @@ fn evaluate_reference(
 async fn evaluate_invocation(
     block: &hir::Block,
     registry: &CommandRegistry,
-    it: &Value,
-    vars: &IndexMap<String, Value>,
-    env: &IndexMap<String, String>,
+    scope: Arc<Scope>,
 ) -> Result<Value, ShellError> {
     // FIXME: we should use a real context here
     let mut context = EvaluationContext::basic()?;
     context.registry = registry.clone();
 
-    let input = InputStream::one(it.clone());
+    let input = match scope.it() {
+        Some(it) => InputStream::one(it),
+        None => InputStream::empty(),
+    };
 
     let mut block = block.clone();
     block.set_redirect(ExternalRedirection::Stdout);
 
-    let result = run_block(&block, &mut context, input, it, vars, env).await?;
+    let result = run_block(&block, &mut context, input, scope).await?;
 
     let output = result.into_vec().await;
 

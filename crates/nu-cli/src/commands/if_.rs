@@ -4,7 +4,9 @@ use crate::commands::WholeStreamCommand;
 use crate::evaluate::evaluate_baseline_expr;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, hir::ClassifiedCommand, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{
+    hir::Block, hir::ClassifiedCommand, Scope, Signature, SyntaxShape, UntaggedValue,
+};
 
 pub struct If;
 
@@ -72,7 +74,7 @@ async fn if_command(
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
     let registry = Arc::new(registry.clone());
-    let scope = Arc::new(raw_args.call_info.scope.clone());
+    let scope = raw_args.call_info.scope.clone();
     let tag = raw_args.call_info.name_tag.clone();
     let context = Arc::new(EvaluationContext::from_raw(&raw_args, &registry));
 
@@ -119,14 +121,12 @@ async fn if_command(
             let then_case = then_case.clone();
             let else_case = else_case.clone();
             let registry = registry.clone();
-            let scope = scope.clone();
+            let scope = Scope::append_it(scope.clone(), input);
             let mut context = context.clone();
 
             async move {
                 //FIXME: should we use the scope that's brought in as well?
-                let condition =
-                    evaluate_baseline_expr(&condition, &*registry, &input, &scope.vars, &scope.env)
-                        .await;
+                let condition = evaluate_baseline_expr(&condition, &*registry, scope.clone()).await;
 
                 match condition {
                     Ok(condition) => match condition.as_bool() {
@@ -136,9 +136,7 @@ async fn if_command(
                                     &then_case,
                                     Arc::make_mut(&mut context),
                                     InputStream::empty(),
-                                    &input,
-                                    &scope.vars,
-                                    &scope.env,
+                                    scope,
                                 )
                                 .await
                                 {
@@ -151,9 +149,7 @@ async fn if_command(
                                     &else_case,
                                     Arc::make_mut(&mut context),
                                     InputStream::empty(),
-                                    &input,
-                                    &scope.vars,
-                                    &scope.env,
+                                    scope,
                                 )
                                 .await
                                 {

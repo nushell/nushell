@@ -1,9 +1,8 @@
 use futures::executor::block_on;
 
-use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::hir::ClassifiedBlock;
-use nu_protocol::{ShellTypeName, Value};
+use nu_protocol::{Scope, ShellTypeName, Value};
 
 use crate::commands::classified::block::run_block;
 use crate::commands::{whole_stream_command, BuildString, Each, Echo, StrCollect};
@@ -83,17 +82,12 @@ async fn evaluate_block(
     let input_stream = InputStream::empty();
     let env = ctx.get_env();
 
-    Ok(run_block(
-        &block.block,
-        ctx,
-        input_stream,
-        &Value::nothing(),
-        &IndexMap::new(),
-        &env,
-    )
-    .await?
-    .into_vec()
-    .await)
+    let scope = Scope::from_env(env);
+
+    Ok(run_block(&block.block, ctx, input_stream, scope)
+        .await?
+        .into_vec()
+        .await)
 }
 
 // TODO probably something already available to do this

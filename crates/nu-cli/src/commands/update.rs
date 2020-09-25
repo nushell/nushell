@@ -70,15 +70,9 @@ async fn process_row(
             let for_block = input.clone();
             let input_stream = once(async { Ok(for_block) }).to_input_stream();
 
-            let result = run_block(
-                &block,
-                Arc::make_mut(&mut context),
-                input_stream,
-                &input,
-                &scope.vars,
-                &scope.env,
-            )
-            .await;
+            let scope = Scope::append_it(scope, input.clone());
+
+            let result = run_block(&block, Arc::make_mut(&mut context), input_stream, scope).await;
 
             match result {
                 Ok(mut stream) => {
@@ -130,7 +124,8 @@ async fn process_row(
                 value: UntaggedValue::Primitive(Primitive::Nothing),
                 ..
             } => match scope
-                .it
+                .it()
+                .unwrap_or_else(|| UntaggedValue::nothing().into_untagged_value())
                 .replace_data_at_column_path(&field, replacement.clone())
             {
                 Some(v) => OutputStream::one(ReturnSuccess::value(v)),
@@ -160,7 +155,7 @@ async fn update(
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let name_tag = Arc::new(raw_args.call_info.name_tag.clone());
-    let scope = Arc::new(raw_args.call_info.scope.clone());
+    let scope = raw_args.call_info.scope.clone();
     let context = Arc::new(EvaluationContext::from_raw(&raw_args, &registry));
     let (UpdateArgs { field, replacement }, input) = raw_args.process(&registry).await?;
     let replacement = Arc::new(replacement);

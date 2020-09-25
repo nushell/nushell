@@ -3,7 +3,7 @@ use crate::evaluate::evaluate_baseline_expr;
 use crate::prelude::*;
 use log::trace;
 use nu_errors::ShellError;
-use nu_protocol::{hir::ClassifiedCommand, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{hir::ClassifiedCommand, Scope, Signature, SyntaxShape, UntaggedValue, Value};
 
 pub struct SubCommand;
 
@@ -33,7 +33,7 @@ impl WholeStreamCommand for SubCommand {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         let registry = Arc::new(registry.clone());
-        let scope = Arc::new(args.call_info.scope.clone());
+        let scope = args.call_info.scope.clone();
         let call_info = args.evaluate_once(&registry).await?;
 
         let block = call_info.args.expect_nth(0)?.clone();
@@ -84,20 +84,11 @@ impl WholeStreamCommand for SubCommand {
             .take_while(move |item| {
                 let condition = condition.clone();
                 let registry = registry.clone();
-                let scope = scope.clone();
-                let item = item.clone();
-
+                let scope = Scope::append_it(scope.clone(), item.clone());
                 trace!("ITEM = {:?}", item);
 
                 async move {
-                    let result = evaluate_baseline_expr(
-                        &*condition,
-                        &registry,
-                        &item,
-                        &scope.vars,
-                        &scope.env,
-                    )
-                    .await;
+                    let result = evaluate_baseline_expr(&*condition, &registry, scope).await;
                     trace!("RESULT = {:?}", result);
 
                     matches!(result, Ok(ref v) if v.is_true())
