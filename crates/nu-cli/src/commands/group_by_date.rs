@@ -1,5 +1,6 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
+use crate::utils::suggestions::suggestions;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
@@ -134,31 +135,6 @@ pub async fn group_by_date(
         };
 
         Ok(OutputStream::one(ReturnSuccess::value(value_result?)))
-    }
-}
-
-pub fn suggestions(tried: Tagged<&str>, for_value: &Value) -> ShellError {
-    let possibilities = for_value.data_descriptors();
-
-    let mut possible_matches: Vec<_> = possibilities
-        .iter()
-        .map(|x| (natural::distance::levenshtein_distance(x, &tried), x))
-        .collect();
-
-    possible_matches.sort();
-
-    if !possible_matches.is_empty() {
-        ShellError::labeled_error(
-            "Unknown column",
-            format!("did you mean '{}'?", possible_matches[0].1),
-            tried.tag(),
-        )
-    } else {
-        ShellError::labeled_error(
-            "Unknown column",
-            "row does not contain this column",
-            tried.tag(),
-        )
     }
 }
 

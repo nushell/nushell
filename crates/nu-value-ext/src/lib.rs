@@ -238,7 +238,9 @@ where
 
                         let suggestions: IndexSet<_> = rows
                             .iter()
-                            .filter_map(|r| nu_protocol::did_you_mean(&r, &column_path_tried))
+                            .filter_map(|r| {
+                                nu_protocol::did_you_mean(&r, column_path_tried.as_string())
+                            })
                             .map(|s| s[0].to_owned())
                             .collect();
                         let mut existing_columns: IndexSet<_> = IndexSet::default();
@@ -308,7 +310,7 @@ where
                         let primary_label = format!("There isn't a column named '{}'", &column);
 
                         if let Some(suggestions) =
-                            nu_protocol::did_you_mean(&obj_source, &column_path_tried)
+                            nu_protocol::did_you_mean(&obj_source, column_path_tried.as_string())
                         {
                             return ShellError::labeled_error_with_secondary(
                                 "Unknown column",
@@ -342,7 +344,9 @@ where
                 _ => {}
             }
 
-            if let Some(suggestions) = nu_protocol::did_you_mean(&obj_source, &column_path_tried) {
+            if let Some(suggestions) =
+                nu_protocol::did_you_mean(&obj_source, column_path_tried.as_string())
+            {
                 return ShellError::labeled_error(
                     "Unknown column",
                     format!("did you mean '{}'?", suggestions[0]),
