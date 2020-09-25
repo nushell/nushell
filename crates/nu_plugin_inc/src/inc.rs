@@ -105,7 +105,7 @@ impl Inc {
                         &f,
                         move |obj_source, column_path_tried, _| match did_you_mean(
                             &obj_source,
-                            &column_path_tried,
+                            column_path_tried.as_string(),
                         ) {
                             Some(suggestions) => ShellError::labeled_error(
                                 "Unknown column",
