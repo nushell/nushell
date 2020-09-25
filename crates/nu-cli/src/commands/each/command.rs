@@ -97,9 +97,7 @@ pub async fn process_row(
         &block,
         Arc::make_mut(&mut context),
         input_stream,
-        &input,
-        &scope.vars,
-        &scope.env,
+        Scope::append_it(scope, input),
     )
     .await?
     .to_output_stream())
@@ -119,7 +117,7 @@ async fn each(
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let head = Arc::new(raw_args.call_info.args.head.clone());
-    let scope = Arc::new(raw_args.call_info.scope.clone());
+    let scope = raw_args.call_info.scope.clone();
     let context = Arc::new(EvaluationContext::from_raw(&raw_args, &registry));
     let (each_args, input): (EachArgs, _) = raw_args.process(&registry).await?;
     let block = Arc::new(each_args.block);

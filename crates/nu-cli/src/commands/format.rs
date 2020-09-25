@@ -3,7 +3,7 @@ use crate::commands::WholeStreamCommand;
 use crate::evaluate::evaluate_baseline_expr;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 use std::borrow::Borrow;
 
@@ -54,7 +54,7 @@ async fn format_command(
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
     let registry = Arc::new(registry.clone());
-    let scope = Arc::new(args.call_info.scope.clone());
+    let scope = args.call_info.scope.clone();
     let (FormatArgs { pattern }, input) = args.process(&registry).await?;
 
     let format_pattern = format(&pattern);
@@ -83,9 +83,7 @@ async fn format_command(
                             let result = evaluate_baseline_expr(
                                 &full_column_path.0,
                                 &registry,
-                                &value,
-                                &scope.vars,
-                                &scope.env,
+                                Scope::append_it(scope.clone(), value.clone()),
                             )
                             .await;
 

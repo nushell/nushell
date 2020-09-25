@@ -63,15 +63,9 @@ async fn process_row(
             let for_block = input.clone();
             let input_stream = once(async { Ok(for_block) }).to_input_stream();
 
-            let result = run_block(
-                &block,
-                Arc::make_mut(&mut context),
-                input_stream,
-                &input,
-                &scope.vars,
-                &scope.env,
-            )
-            .await;
+            let scope = Scope::append_it(scope, input.clone());
+
+            let result = run_block(&block, Arc::make_mut(&mut context), input_stream, scope).await;
 
             match result {
                 Ok(mut stream) => {
@@ -118,7 +112,11 @@ async fn process_row(
             Value {
                 value: UntaggedValue::Primitive(Primitive::Nothing),
                 ..
-            } => match scope.it.insert_data_at_column_path(&field, value.clone()) {
+            } => match scope
+                .it()
+                .unwrap_or(UntaggedValue::nothing().into_untagged_value())
+                .insert_data_at_column_path(&field, value.clone())
+            {
                 Ok(v) => OutputStream::one(ReturnSuccess::value(v)),
                 Err(e) => OutputStream::one(Err(e)),
             },
@@ -135,7 +133,7 @@ async fn insert(
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let scope = Arc::new(raw_args.call_info.scope.clone());
+    let scope = raw_args.call_info.scope.clone();
     let context = Arc::new(EvaluationContext::from_raw(&raw_args, &registry));
     let (InsertArgs { column, value }, input) = raw_args.process(&registry).await?;
     let value = Arc::new(value);

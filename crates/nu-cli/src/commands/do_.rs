@@ -95,15 +95,7 @@ async fn do_(
 
     block.set_redirect(block_redirection);
 
-    let result = run_block(
-        &block,
-        &mut context,
-        input,
-        &scope.it,
-        &scope.vars,
-        &scope.env,
-    )
-    .await;
+    let result = run_block(&block, &mut context, input, scope).await;
 
     if ignore_errors {
         // To properly ignore errors we need to redirect stderr, consume it, and remove

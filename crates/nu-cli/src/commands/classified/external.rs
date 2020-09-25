@@ -21,7 +21,7 @@ pub(crate) async fn run_external_command(
     command: ExternalCommand,
     context: &mut EvaluationContext,
     input: InputStream,
-    scope: &Scope,
+    scope: Arc<Scope>,
     external_redirection: ExternalRedirection,
 ) -> Result<InputStream, ShellError> {
     trace!(target: "nu::run::external", "-> {}", command.name);
@@ -41,7 +41,7 @@ async fn run_with_stdin(
     command: ExternalCommand,
     context: &mut EvaluationContext,
     input: InputStream,
-    scope: &Scope,
+    scope: Arc<Scope>,
     external_redirection: ExternalRedirection,
 ) -> Result<InputStream, ShellError> {
     let path = context.shell_manager.path();
@@ -50,9 +50,7 @@ async fn run_with_stdin(
 
     let mut command_args = vec![];
     for arg in command.args.iter() {
-        let value =
-            evaluate_baseline_expr(arg, &context.registry, &scope.it, &scope.vars, &scope.env)
-                .await?;
+        let value = evaluate_baseline_expr(arg, &context.registry, scope.clone()).await?;
 
         // Skip any arguments that don't really exist, treating them as optional
         // FIXME: we may want to preserve the gap in the future, though it's hard to say
@@ -138,7 +136,7 @@ fn spawn(
     args: &[String],
     input: InputStream,
     external_redirection: ExternalRedirection,
-    scope: &Scope,
+    scope: Arc<Scope>,
 ) -> Result<InputStream, ShellError> {
     let command = command.clone();
 
@@ -169,7 +167,7 @@ fn spawn(
     trace!(target: "nu::run::external", "cwd = {:?}", &path);
 
     process.env_clear();
-    process.envs(scope.env.iter());
+    process.envs(scope.env());
 
     // We want stdout regardless of what
     // we are doing ($it case or pipe stdin)
@@ -580,7 +578,7 @@ mod tests {
             cmd,
             &mut ctx,
             input,
-            &Scope::new(),
+            Scope::create(),
             ExternalRedirection::Stdout
         )
         .await

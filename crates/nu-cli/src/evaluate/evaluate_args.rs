@@ -4,18 +4,18 @@ use crate::evaluate::evaluate_baseline_expr;
 use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_protocol::{hir, EvaluatedArgs, Scope, UntaggedValue, Value};
+use std::sync::Arc;
 
 pub(crate) async fn evaluate_args(
     call: &hir::Call,
     registry: &CommandRegistry,
-    scope: &Scope,
+    scope: Arc<Scope>,
 ) -> Result<EvaluatedArgs, ShellError> {
     let mut positional_args: Vec<Value> = vec![];
 
     if let Some(positional) = &call.positional {
         for pos in positional {
-            let result =
-                evaluate_baseline_expr(pos, registry, &scope.it, &scope.vars, &scope.env).await?;
+            let result = evaluate_baseline_expr(pos, registry, scope.clone()).await?;
             positional_args.push(result);
         }
     }
@@ -37,8 +37,7 @@ pub(crate) async fn evaluate_args(
                 hir::NamedValue::Value(_, expr) => {
                     named_args.insert(
                         name.clone(),
-                        evaluate_baseline_expr(expr, registry, &scope.it, &scope.vars, &scope.env)
-                            .await?,
+                        evaluate_baseline_expr(expr, registry, scope.clone()).await?,
                     );
                 }
                 _ => {}

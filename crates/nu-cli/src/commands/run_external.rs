@@ -133,7 +133,7 @@ impl WholeStreamCommand for RunExternalCommand {
             command,
             &mut external_context,
             input,
-            &scope,
+            scope,
             external_redirection,
         )
         .await;
