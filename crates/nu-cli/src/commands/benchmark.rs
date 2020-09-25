@@ -8,6 +8,10 @@ use nu_protocol::{
     hir::{Block, ClassifiedCommand, Commands, InternalCommand},
     Dictionary, Scope, Signature, SyntaxShape, UntaggedValue, Value,
 };
+use rand::{
+    distributions::Alphanumeric,
+    prelude::{thread_rng, Rng},
+};
 use std::convert::TryInto;
 use std::time::{Duration, Instant};
 
@@ -79,20 +83,16 @@ async fn benchmark(
     let scope = raw_args.call_info.scope.clone();
     let (BenchmarkArgs { block, passthrough }, input) = raw_args.process(&registry).await?;
 
+    let mut env = scope.env.clone();
+    let name = generate_free_name(&env);
+    env.insert(name, generate_random_env_value());
+
     let start_time = Instant::now();
 
     #[cfg(feature = "rich-benchmark")]
     let start = time().await;
 
-    let result = run_block(
-        &block,
-        &mut context,
-        input,
-        &scope.it,
-        &scope.vars,
-        &scope.env,
-    )
-    .await;
+    let result = run_block(&block, &mut context, input, &scope.it, &scope.vars, &env).await;
     let output = result?.into_vec().await;
 
     #[cfg(feature = "rich-benchmark")]
@@ -199,4 +199,20 @@ fn into_big_int<T: TryInto<Duration>>(time: T) -> BigInt {
         .unwrap_or_else(|_| Duration::new(0, 0))
         .as_nanos()
         .into()
+}
+
+fn generate_random_env_value() -> String {
+    let mut thread_rng = thread_rng();
+    let len = thread_rng.gen_range(1, 16 * 1024);
+    thread_rng.sample_iter(&Alphanumeric).take(len).collect()
+}
+
+fn generate_free_name(env: &indexmap::IndexMap<String, String>) -> String {
+    let mut thread_rng = thread_rng();
+    loop {
+        let candidate_name = format!("NU_RANDOM_VALUE_{}", thread_rng.gen::<usize>());
+        if !env.contains_key(&candidate_name) {
+            return candidate_name;
+        }
+    }
 }
