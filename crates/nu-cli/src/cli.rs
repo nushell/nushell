@@ -384,12 +384,9 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
 
                 match nu_parser::lite_parse(&prompt_line, 0).map_err(ShellError::from) {
                     Ok(result) => {
-                        let mut prompt_block =
-                            nu_parser::classify_block(&result, context.registry());
+                        let prompt_block = nu_parser::classify_block(&result, context.registry());
 
                         let env = context.get_env();
-
-                        prompt_block.block.expand_it_usage();
 
                         match run_block(
                             &prompt_block.block,
@@ -850,8 +847,7 @@ pub async fn parse_and_eval(line: &str, ctx: &mut EvaluationContext) -> Result<S
     let lite_result = nu_parser::lite_parse(&line, 0)?;
 
     // TODO ensure the command whose examples we're testing is actually in the pipeline
-    let mut classified_block = nu_parser::classify_block(&lite_result, ctx.registry());
-    classified_block.block.expand_it_usage();
+    let classified_block = nu_parser::classify_block(&lite_result, ctx.registry());
 
     let input_stream = InputStream::empty();
     let env = ctx.get_env();
@@ -892,7 +888,7 @@ pub async fn process_line(
         debug!("=== Parsed ===");
         debug!("{:#?}", result);
 
-        let mut classified_block = nu_parser::classify_block(&result, ctx.registry());
+        let classified_block = nu_parser::classify_block(&result, ctx.registry());
 
         debug!("{:#?}", classified_block);
         //println!("{:#?}", pipeline);
@@ -1008,8 +1004,6 @@ pub async fn process_line(
         } else {
             InputStream::empty()
         };
-
-        classified_block.block.expand_it_usage();
 
         trace!("{:#?}", classified_block);
         let env = ctx.get_env();

@@ -6,8 +6,7 @@ use crate::prelude::*;
 use futures::stream::once;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::Block, hir::Expression, hir::SpannedExpression, hir::Synthetic, Scope, Signature,
-    SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
+    hir::Block, Scope, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
 };
 use nu_source::Tagged;
 
@@ -73,26 +72,14 @@ impl WholeStreamCommand for Each {
     }
 }
 
-fn is_expanded_it_usage(head: &SpannedExpression) -> bool {
-    matches!(&*head, SpannedExpression {
-        expr: Expression::Synthetic(Synthetic::String(s)),
-        ..
-    } if s == "expanded-each")
-}
-
 pub async fn process_row(
     block: Arc<Block>,
     scope: Arc<Scope>,
-    head: Arc<Box<SpannedExpression>>,
     mut context: Arc<EvaluationContext>,
     input: Value,
 ) -> Result<OutputStream, ShellError> {
     let input_clone = input.clone();
-    let input_stream = if is_expanded_it_usage(&head) {
-        InputStream::empty()
-    } else {
-        once(async { Ok(input_clone) }).to_input_stream()
-    };
+    let input_stream = once(async { Ok(input_clone) }).to_input_stream();
     Ok(run_block(
         &block,
         Arc::make_mut(&mut context),
@@ -116,7 +103,6 @@ async fn each(
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
-    let head = Arc::new(raw_args.call_info.args.head.clone());
     let scope = raw_args.call_info.scope.clone();
     let context = Arc::new(EvaluationContext::from_raw(&raw_args, &registry));
     let (each_args, input): (EachArgs, _) = raw_args.process(&registry).await?;
@@ -128,12 +114,11 @@ async fn each(
             .then(move |input| {
                 let block = block.clone();
                 let scope = scope.clone();
-                let head = head.clone();
                 let context = context.clone();
                 let row = make_indexed_item(input.0, input.1);
 
                 async {
-                    match process_row(block, scope, head, context, row).await {
+                    match process_row(block, scope, context, row).await {
                         Ok(s) => s,
                         Err(e) => OutputStream::one(Err(e)),
                     }
@@ -146,11 +131,10 @@ async fn each(
             .then(move |input| {
                 let block = block.clone();
                 let scope = scope.clone();
-                let head = head.clone();
                 let context = context.clone();
 
                 async {
-                    match process_row(block, scope, head, context, input).await {
+                    match process_row(block, scope, context, input).await {
                         Ok(s) => s,
                         Err(e) => OutputStream::one(Err(e)),
                     }

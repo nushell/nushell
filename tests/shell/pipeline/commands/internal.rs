@@ -1,4 +1,3 @@
-use nu_test_support::fs::Stub::EmptyFile;
 #[cfg(feature = "which")]
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
@@ -25,11 +24,8 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
         r#"
             open nu_times.csv
             | get origin
-            | ^echo $it
-            | nu --testbin chop
-            | lines
+            | each { ^echo $it | nu --testbin chop | lines }
             | nth 2
-            | echo $it
             "#
         ));
 
@@ -225,54 +221,6 @@ fn autoenv() {
 }
 
 #[test]
-fn proper_it_expansion() {
-    Playground::setup("ls_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            EmptyFile("andres.txt"),
-            EmptyFile("gedge.txt"),
-            EmptyFile("jonathan.txt"),
-            EmptyFile("yehuda.txt"),
-        ]);
-
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                    ls | sort-by name | group-by type | each { get File.name | echo $it } | to json
-                "#
-        ));
-
-        assert_eq!(
-            actual.out,
-            r#"["andres.txt","gedge.txt","jonathan.txt","yehuda.txt"]"#
-        );
-    })
-}
-
-#[test]
-fn it_expansion_of_list() {
-    let actual = nu!(
-        cwd: ".",
-        r#"
-            echo "foo" | echo [bar $it] | to json
-        "#
-    );
-
-    assert_eq!(actual.out, "[\"bar\",\"foo\"]");
-}
-
-#[test]
-fn it_expansion_of_invocation() {
-    let actual = nu!(
-        cwd: ".",
-        r#"
-            echo $(echo "4" | echo $it | str to-int )
-        "#
-    );
-
-    assert_eq!(actual.out, "4");
-}
-
-#[test]
 fn invocation_properly_redirects() {
     let actual = nu!(
         cwd: ".",
@@ -289,7 +237,7 @@ fn argument_invocation() {
     let actual = nu!(
         cwd: ".",
         r#"
-            echo "foo" | echo $(echo $it)
+            echo "foo" | each { echo $(echo $it) }
         "#
     );
 
@@ -315,9 +263,8 @@ fn invocation_handles_dot() {
         r#"
             echo $(open nu_times.csv)
             | get name
-            | nu --testbin chop $it
+            | each { nu --testbin chop $it | lines }
             | nth 3
-            | echo $it
             "#
         ));
 
@@ -560,18 +507,6 @@ fn exclusive_range_with_mixed_types() {
     );
 
     assert_eq!(actual.out, "55");
-}
-
-#[test]
-fn it_expansion_of_tables() {
-    let actual = nu!(
-        cwd: ".",
-        r#"
-        echo foo | echo [[`foo {{$it}} bar`]; [`{{$it}} foo`]] | get "foo foo bar"
-        "#
-    );
-
-    assert_eq!(actual.out, "foo foo");
 }
 
 #[test]

@@ -53,7 +53,7 @@ fn automatically_change_directory_with_trailing_slash_and_same_name_as_command()
             cwd: dirs.test(),
             r#"
                 cd/
-                pwd | echo $it
+                pwd
             "#
         );
 
@@ -87,10 +87,8 @@ mod it_evaluation {
                 ls
                 | sort-by name
                 | get name
-                | nu --testbin cococo $it
-                | lines
+                | each { nu --testbin cococo $it | lines }
                 | nth 1
-                | echo $it
                 "#
             ));
 
@@ -114,10 +112,8 @@ mod it_evaluation {
             r#"
                 open nu_candies.txt
                 | lines
-                | nu --testbin chop $it
-                | lines
+                | each { nu --testbin chop $it | lines }
                 | nth 1
-                | echo $it
                 "#
             ));
 
@@ -139,8 +135,7 @@ mod it_evaluation {
                 cwd: dirs.test(), pipeline(
                 r#"
                     open sample.toml
-                    | nu --testbin cococo $it.nu_party_venue
-                    | echo $it
+                    | each { nu --testbin cococo $it.nu_party_venue }
                 "#
             ));
 
