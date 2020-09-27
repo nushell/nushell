@@ -102,6 +102,8 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(WithEnv),
             whole_stream_command(Do),
             whole_stream_command(Sleep),
+            whole_stream_command(Collect),
+            whole_stream_command(OnlyOne),
             // Statistics
             whole_stream_command(Size),
             whole_stream_command(Count),
@@ -389,7 +391,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
 
                         let env = context.get_env();
 
-                        prompt_block.block.expand_it_usage();
+                        prompt_block.block.expand_all_special_var_usage();
 
                         match run_block(
                             &prompt_block.block,
@@ -851,7 +853,7 @@ pub async fn parse_and_eval(line: &str, ctx: &mut EvaluationContext) -> Result<S
 
     // TODO ensure the command whose examples we're testing is actually in the pipeline
     let mut classified_block = nu_parser::classify_block(&lite_result, ctx.registry());
-    classified_block.block.expand_it_usage();
+    classified_block.block.expand_all_special_var_usage();
 
     let input_stream = InputStream::empty();
     let env = ctx.get_env();
@@ -1009,7 +1011,7 @@ pub async fn process_line(
             InputStream::empty()
         };
 
-        classified_block.block.expand_it_usage();
+        classified_block.block.expand_all_special_var_usage();
 
         trace!("{:#?}", classified_block);
         let env = ctx.get_env();

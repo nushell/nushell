@@ -68,14 +68,14 @@ fn correctly_escape_external_arguments() {
     assert_eq!(actual.out, "$0");
 }
 
-mod it_evaluation {
+mod row_evaluation {
     use super::nu;
     use nu_test_support::fs::Stub::{EmptyFile, FileWithContent, FileWithContentToBeTrimmed};
     use nu_test_support::{pipeline, playground::Playground};
 
     #[test]
     fn takes_rows_of_nu_value_strings() {
-        Playground::setup("it_argument_test_1", |dirs, sandbox| {
+        Playground::setup("row_argument_test_1", |dirs, sandbox| {
             sandbox.with_files(vec![
                 EmptyFile("jonathan_likes_cake.txt"),
                 EmptyFile("andres_likes_arepas.txt"),
@@ -87,7 +87,7 @@ mod it_evaluation {
                 ls
                 | sort-by name
                 | get name
-                | nu --testbin cococo $it
+                | nu --testbin cococo $row
                 | lines
                 | nth 1
                 | echo $it
@@ -114,7 +114,7 @@ mod it_evaluation {
             r#"
                 open nu_candies.txt
                 | lines
-                | nu --testbin chop $it
+                | nu --testbin chop $row
                 | lines
                 | nth 1
                 | echo $it

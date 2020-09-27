@@ -219,33 +219,13 @@ fn spawn(
                         UntaggedValue::Primitive(Primitive::Nothing) => continue,
                         UntaggedValue::Primitive(Primitive::String(s))
                         | UntaggedValue::Primitive(Primitive::Line(s)) => {
-                            if let Err(e) = stdin_write.write(s.as_bytes()) {
-                                let message = format!("Unable to write to stdin (error = {})", e);
-
-                                let _ = stdin_write_tx.send(Ok(Value {
-                                    value: UntaggedValue::Error(ShellError::labeled_error(
-                                        message,
-                                        "application may have closed before completing pipeline",
-                                        &stdin_name_tag,
-                                    )),
-                                    tag: stdin_name_tag,
-                                }));
-                                return Err(());
+                            if stdin_write.write(s.as_bytes()).is_err() {
+                                break;
                             }
                         }
                         UntaggedValue::Primitive(Primitive::Binary(b)) => {
-                            if let Err(e) = stdin_write.write(b) {
-                                let message = format!("Unable to write to stdin (error = {})", e);
-
-                                let _ = stdin_write_tx.send(Ok(Value {
-                                    value: UntaggedValue::Error(ShellError::labeled_error(
-                                        message,
-                                        "application may have closed before completing pipeline",
-                                        &stdin_name_tag,
-                                    )),
-                                    tag: stdin_name_tag,
-                                }));
-                                return Err(());
+                            if stdin_write.write(b).is_err() {
+                                break;
                             }
                         }
                         unsupported => {

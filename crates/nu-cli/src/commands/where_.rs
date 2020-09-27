@@ -106,7 +106,7 @@ async fn where_command(
         .filter_map(move |input| {
             let condition = condition.clone();
             let registry = registry.clone();
-            let scope = Scope::append_it(scope.clone(), input.clone());
+            let scope = Scope::append_var(scope.clone(), "$it".into(), input.clone());
 
             async move {
                 //FIXME: should we use the scope that's brought in as well?

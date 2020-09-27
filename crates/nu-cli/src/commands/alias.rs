@@ -243,9 +243,9 @@ fn find_expr_shapes(
         Expression::Block(b) => find_block_shapes(&b, registry),
         Expression::Path(path) => match &path.head.expr {
             Expression::Invocation(b) => find_block_shapes(&b, registry),
-            Expression::Variable(Variable::Other(var, _)) => {
+            Expression::Variable(Variable { name, .. }) => {
                 let mut result = HashMap::new();
-                result.insert(var.to_string(), (spanned_expr.span, None));
+                result.insert(name.to_string(), (spanned_expr.span, None));
                 Ok(result)
             }
             _ => Ok(HashMap::new()),

@@ -210,15 +210,15 @@ fn evaluate_reference(
     tag: Tag,
 ) -> Result<Value, ShellError> {
     match name {
-        hir::Variable::It(_) => match scope.it() {
-            Some(v) => Ok(v),
-            None => Err(ShellError::labeled_error(
-                "$it variable not in scope",
-                "not in scope (are you missing an 'each'?)",
-                tag.span,
-            )),
-        },
-        hir::Variable::Other(name, _) => match name {
+        hir::Variable { name, .. } => match name {
+            // x if x == "$it" => match scope.it() {
+            //     Some(v) => Ok(v),
+            //     None => Err(ShellError::labeled_error(
+            //         "$it variable not in scope",
+            //         "not in scope (are you missing an 'each'?)",
+            //         tag.span,
+            //     )),
+            // },
             x if x == "$nu" => crate::evaluate::variables::nu(&scope.env(), tag),
             x if x == "$true" => Ok(Value {
                 value: UntaggedValue::boolean(true),

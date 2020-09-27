@@ -51,12 +51,12 @@ impl WholeStreamCommand for Each {
         vec![
             Example {
                 description: "Echo the sum of each row",
-                example: "echo [[1 2] [3 4]] | each { echo $it | math sum }",
+                example: "echo [[1 2] [3 4]] | each { echo $row | math sum }",
                 result: None,
             },
             Example {
                 description: "Echo the square of each integer",
-                example: "echo [1 2 3] | each { echo $(= $it * $it) }",
+                example: "echo [1 2 3] | each { echo $(= $row * $row) }",
                 result: Some(vec![
                     UntaggedValue::int(1).into(),
                     UntaggedValue::int(4).into(),
@@ -66,14 +66,14 @@ impl WholeStreamCommand for Each {
             Example {
                 description: "Number each item and echo a message",
                 example:
-                    "echo ['bob' 'fred'] | each --numbered { echo `{{$it.index}} is {{$it.item}}` }",
+                    "echo ['bob' 'fred'] | each --numbered { echo `{{$row.index}} is {{$row.item}}` }",
                 result: Some(vec![Value::from("0 is bob"), Value::from("1 is fred")]),
             },
         ]
     }
 }
 
-fn is_expanded_it_usage(head: &SpannedExpression) -> bool {
+fn is_expanded_row_usage(head: &SpannedExpression) -> bool {
     matches!(&*head, SpannedExpression {
         expr: Expression::Synthetic(Synthetic::String(s)),
         ..
@@ -88,7 +88,7 @@ pub async fn process_row(
     input: Value,
 ) -> Result<OutputStream, ShellError> {
     let input_clone = input.clone();
-    let input_stream = if is_expanded_it_usage(&head) {
+    let input_stream = if is_expanded_row_usage(&head) {
         InputStream::empty()
     } else {
         once(async { Ok(input_clone) }).to_input_stream()
@@ -97,7 +97,7 @@ pub async fn process_row(
         &block,
         Arc::make_mut(&mut context),
         input_stream,
-        Scope::append_it(scope, input),
+        Scope::append_var(scope, "$row".into(), input),
     )
     .await?
     .to_output_stream())

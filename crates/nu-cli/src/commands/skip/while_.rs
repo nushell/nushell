@@ -85,7 +85,7 @@ impl WholeStreamCommand for SubCommand {
                 let item = item.clone();
                 let condition = condition.clone();
                 let registry = registry.clone();
-                let scope = Scope::append_it(scope.clone(), item.clone());
+                let scope = Scope::append_var(scope.clone(), "$it".into(), item.clone());
                 trace!("ITEM = {:?}", item);
 
                 async move {

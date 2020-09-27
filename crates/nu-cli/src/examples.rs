@@ -5,7 +5,9 @@ use nu_protocol::hir::ClassifiedBlock;
 use nu_protocol::{Scope, ShellTypeName, Value};
 
 use crate::commands::classified::block::run_block;
-use crate::commands::{whole_stream_command, BuildString, Each, Echo, StrCollect};
+use crate::commands::{
+    whole_stream_command, BuildString, Collect, Each, Echo, OnlyOne, StrCollect,
+};
 use crate::evaluation_context::EvaluationContext;
 use crate::stream::InputStream;
 use crate::WholeStreamCommand;
@@ -18,6 +20,8 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) {
         whole_stream_command(Echo {}),
         whole_stream_command(BuildString {}),
         whole_stream_command(Each {}),
+        whole_stream_command(OnlyOne {}),
+        whole_stream_command(Collect {}),
         whole_stream_command(cmd),
         whole_stream_command(StrCollect),
     ]);
@@ -71,7 +75,7 @@ fn parse_line(
 
     // TODO ensure the command whose examples we're testing is actually in the pipeline
     let mut classified_block = nu_parser::classify_block(&lite_result, ctx.registry());
-    classified_block.block.expand_it_usage();
+    classified_block.block.expand_all_special_var_usage();
     Ok(classified_block)
 }
 

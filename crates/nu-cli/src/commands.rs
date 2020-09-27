@@ -20,6 +20,7 @@ pub(crate) mod char_;
 pub(crate) mod classified;
 #[cfg(feature = "clipboard-cli")]
 pub(crate) mod clip;
+pub(crate) mod collect;
 pub(crate) mod command;
 pub(crate) mod compact;
 pub(crate) mod config;
@@ -78,6 +79,7 @@ pub(crate) mod move_;
 pub(crate) mod next;
 pub(crate) mod nth;
 pub(crate) mod nu;
+pub(crate) mod only_one;
 pub(crate) mod open;
 pub(crate) mod parse;
 pub(crate) mod path;
@@ -142,6 +144,7 @@ pub(crate) use benchmark::Benchmark;
 pub(crate) use build_string::BuildString;
 pub(crate) use cal::Cal;
 pub(crate) use char_::Char;
+pub(crate) use collect::Collect;
 pub(crate) use compact::Compact;
 pub(crate) use config::{
     Config, ConfigClear, ConfigGet, ConfigLoad, ConfigPath, ConfigRemove, ConfigSet, ConfigSetInto,
@@ -212,6 +215,7 @@ pub(crate) use mkdir::Mkdir;
 pub(crate) use move_::{Move, MoveColumn, Mv};
 pub(crate) use next::Next;
 pub(crate) use nth::Nth;
+pub(crate) use only_one::OnlyOne;
 pub(crate) use open::Open;
 pub(crate) use parse::Parse;
 pub(crate) use path::{

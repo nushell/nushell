@@ -75,16 +75,6 @@ impl Scope {
         })
     }
 
-    pub fn append_it(this: Arc<Self>, it: Value) -> Arc<Scope> {
-        let mut vars = IndexMap::new();
-        vars.insert("$it".into(), it);
-        Arc::new(Scope {
-            vars,
-            env: IndexMap::new(),
-            parent: Some(this),
-        })
-    }
-
     pub fn append_var(this: Arc<Self>, name: String, value: Value) -> Arc<Scope> {
         let mut vars = IndexMap::new();
         vars.insert(name, value);

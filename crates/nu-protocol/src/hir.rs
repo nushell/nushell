@@ -41,10 +41,10 @@ impl InternalCommand {
         }
     }
 
-    pub fn expand_it_usage(&mut self) {
+    pub fn expand_special_var_usage(&mut self, var: SpecialVariable) {
         if let Some(positionals) = &mut self.args.positional {
             for arg in positionals {
-                arg.expand_it_usage();
+                arg.expand_special_var_usage(var);
             }
         }
     }
@@ -84,37 +84,44 @@ pub enum ClassifiedCommand {
     Error(ParseError),
 }
 
+#[derive(Clone, Copy)]
+pub enum SpecialVariable {
+    It,
+    Table,
+    Row,
+}
+
 impl ClassifiedCommand {
-    pub fn has_it_iteration(&self) -> bool {
+    pub fn uses_special_var(&self, var: SpecialVariable) -> bool {
         match self {
             ClassifiedCommand::Internal(command) => {
-                let mut result = command.args.head.has_shallow_it_usage();
+                let mut result = command.args.head.uses_special_var(var);
 
                 if let Some(positionals) = &command.args.positional {
                     for arg in positionals {
-                        result = result || arg.has_shallow_it_usage();
+                        result = result || arg.uses_special_var(var);
                     }
                 }
 
                 if let Some(named) = &command.args.named {
                     for arg in named.iter() {
                         if let NamedValue::Value(_, value) = arg.1 {
-                            result = result || value.has_shallow_it_usage();
+                            result = result || value.uses_special_var(var);
                         }
                     }
                 }
 
                 result
             }
-            ClassifiedCommand::Expr(expr) => expr.has_shallow_it_usage(),
+            ClassifiedCommand::Expr(expr) => expr.uses_special_var(var),
             _ => false,
         }
     }
 
-    pub fn expand_it_usage(&mut self) {
+    pub fn expand_special_var_usage(&mut self, var: SpecialVariable) {
         match self {
-            ClassifiedCommand::Internal(command) => command.expand_it_usage(),
-            ClassifiedCommand::Expr(expr) => expr.expand_it_usage(),
+            ClassifiedCommand::Internal(command) => command.expand_special_var_usage(var),
+            ClassifiedCommand::Expr(expr) => expr.expand_special_var_usage(var),
             _ => {}
         }
     }
@@ -136,37 +143,104 @@ impl Commands {
     }
 
     /// Convert all shallow uses of $it to `each { use of $it }`, converting each to a per-row command
-    pub fn expand_it_usage(&mut self) {
+    pub fn expand_special_var_usage(&mut self, var: SpecialVariable) {
         for idx in 0..self.list.len() {
-            self.list[idx].expand_it_usage();
+            self.list[idx].expand_special_var_usage(var);
         }
-        for idx in 1..self.list.len() {
-            if self.list[idx].has_it_iteration() {
-                self.list[idx] = ClassifiedCommand::Internal(InternalCommand {
-                    name: "each".to_string(),
-                    name_span: self.span,
-                    args: hir::Call {
-                        head: Box::new(SpannedExpression {
-                            expr: Expression::Synthetic(Synthetic::String(
-                                "expanded-each".to_string(),
-                            )),
-                            span: self.span,
-                        }),
-                        named: None,
-                        span: self.span,
-                        positional: Some(vec![SpannedExpression {
-                            expr: Expression::Block(Block {
-                                block: vec![Commands {
-                                    list: vec![self.list[idx].clone()],
+
+        match var {
+            SpecialVariable::Row => {
+                for idx in 1..self.list.len() {
+                    if self.list[idx].uses_special_var(var) {
+                        self.list[idx] = ClassifiedCommand::Internal(InternalCommand {
+                            name: "each".to_string(),
+                            name_span: self.span,
+                            args: hir::Call {
+                                head: Box::new(SpannedExpression {
+                                    expr: Expression::Synthetic(Synthetic::String(
+                                        "expanded-each".to_string(),
+                                    )),
                                     span: self.span,
-                                }],
+                                }),
+                                named: None,
                                 span: self.span,
-                            }),
-                            span: self.span,
-                        }]),
-                        external_redirection: ExternalRedirection::Stdout, // FIXME
-                    },
-                })
+                                positional: Some(vec![SpannedExpression {
+                                    expr: Expression::Block(Block {
+                                        block: vec![Commands {
+                                            list: vec![self.list[idx].clone()],
+                                            span: self.span,
+                                        }],
+                                        span: self.span,
+                                    }),
+                                    span: self.span,
+                                }]),
+                                external_redirection: ExternalRedirection::Stdout, // FIXME
+                            },
+                        })
+                    }
+                }
+            }
+            SpecialVariable::Table => {
+                for idx in 1..self.list.len() {
+                    if self.list[idx].uses_special_var(var) {
+                        self.list[idx] = ClassifiedCommand::Internal(InternalCommand {
+                            name: "collect".to_string(),
+                            name_span: self.span,
+                            args: hir::Call {
+                                head: Box::new(SpannedExpression {
+                                    expr: Expression::Synthetic(Synthetic::String(
+                                        "expanded-collect".to_string(),
+                                    )),
+                                    span: self.span,
+                                }),
+                                named: None,
+                                span: self.span,
+                                positional: Some(vec![SpannedExpression {
+                                    expr: Expression::Block(Block {
+                                        block: vec![Commands {
+                                            list: vec![self.list[idx].clone()],
+                                            span: self.span,
+                                        }],
+                                        span: self.span,
+                                    }),
+                                    span: self.span,
+                                }]),
+                                external_redirection: ExternalRedirection::Stdout, // FIXME
+                            },
+                        })
+                    }
+                }
+            }
+            SpecialVariable::It => {
+                for idx in 1..self.list.len() {
+                    if self.list[idx].uses_special_var(var) {
+                        self.list[idx] = ClassifiedCommand::Internal(InternalCommand {
+                            name: "only-one".to_string(),
+                            name_span: self.span,
+                            args: hir::Call {
+                                head: Box::new(SpannedExpression {
+                                    expr: Expression::Synthetic(Synthetic::String(
+                                        "expanded-only-one".to_string(),
+                                    )),
+                                    span: self.span,
+                                }),
+                                named: None,
+                                span: self.span,
+                                positional: Some(vec![SpannedExpression {
+                                    expr: Expression::Block(Block {
+                                        block: vec![Commands {
+                                            list: vec![self.list[idx].clone()],
+                                            span: self.span,
+                                        }],
+                                        span: self.span,
+                                    }),
+                                    span: self.span,
+                                }]),
+                                external_redirection: ExternalRedirection::Stdout, // FIXME
+                            },
+                        })
+                    }
+                }
             }
         }
     }
@@ -190,10 +264,19 @@ impl Block {
         self.block.push(commands);
     }
 
-    /// Convert all shallow uses of $it to `each { use of $it }`, converting each to a per-row command
-    pub fn expand_it_usage(&mut self) {
+    /// Convert all shallow uses of special variables to command forms
+    pub fn expand_all_special_var_usage(&mut self) {
         for commands in &mut self.block {
-            commands.expand_it_usage();
+            commands.expand_special_var_usage(SpecialVariable::It);
+            commands.expand_special_var_usage(SpecialVariable::Table);
+            commands.expand_special_var_usage(SpecialVariable::Row);
+        }
+    }
+
+    /// Convert all shallow uses of special variables to command forms
+    pub fn expand_special_var_usage(&mut self, var: SpecialVariable) {
+        for commands in &mut self.block {
+            commands.expand_special_var_usage(var);
         }
     }
 
@@ -243,14 +326,24 @@ pub struct ExternalCommand {
 }
 
 impl ExternalCommand {
-    pub fn has_it_argument(&self) -> bool {
+    pub fn has_special_var_usage(&self, var: SpecialVariable) -> bool {
         self.args.iter().any(|arg| match arg {
             SpannedExpression {
                 expr: Expression::Path(path),
                 ..
             } => {
                 let Path { head, .. } = &**path;
-                matches!(head, SpannedExpression{expr: Expression::Variable(Variable::It(_)), ..})
+                match head {
+                    SpannedExpression {
+                        expr: Expression::Variable(Variable { name, .. }),
+                        ..
+                    } => match var {
+                        SpecialVariable::It => name == "$it",
+                        SpecialVariable::Row => name == "$row",
+                        SpecialVariable::Table => name == "$table",
+                    },
+                    _ => false,
+                }
             }
             _ => false,
         })
@@ -595,31 +688,35 @@ impl SpannedExpression {
         }
     }
 
-    pub fn has_shallow_it_usage(&self) -> bool {
+    pub fn uses_special_var(&self, var: SpecialVariable) -> bool {
         match &self.expr {
             Expression::Binary(binary) => {
-                binary.left.has_shallow_it_usage() || binary.right.has_shallow_it_usage()
+                binary.left.uses_special_var(var) || binary.right.uses_special_var(var)
             }
             Expression::Range(range) => {
                 let left = if let Some(left) = &range.left {
-                    left.has_shallow_it_usage()
+                    left.uses_special_var(var)
                 } else {
                     false
                 };
 
                 let right = if let Some(right) = &range.right {
-                    right.has_shallow_it_usage()
+                    right.uses_special_var(var)
                 } else {
                     false
                 };
 
                 left || right
             }
-            Expression::Variable(Variable::It(_)) => true,
-            Expression::Path(path) => path.head.has_shallow_it_usage(),
+            Expression::Variable(v) => match var {
+                SpecialVariable::It => v.name == "$it",
+                SpecialVariable::Row => v.name == "$row",
+                SpecialVariable::Table => v.name == "$table",
+            },
+            Expression::Path(path) => path.head.uses_special_var(var),
             Expression::List(list) => {
                 for l in list {
-                    if l.has_shallow_it_usage() {
+                    if l.uses_special_var(var) {
                         return true;
                     }
                 }
@@ -627,14 +724,14 @@ impl SpannedExpression {
             }
             Expression::Table(headers, cells) => {
                 for l in headers {
-                    if l.has_shallow_it_usage() {
+                    if l.uses_special_var(var) {
                         return true;
                     }
                 }
 
                 for row in cells {
                     for cell in row {
-                        if cell.has_shallow_it_usage() {
+                        if cell.uses_special_var(var) {
                             return true;
                         }
                     }
@@ -644,7 +741,7 @@ impl SpannedExpression {
             Expression::Invocation(block) => {
                 for commands in block.block.iter() {
                     for command in commands.list.iter() {
-                        if command.has_it_iteration() {
+                        if command.uses_special_var(var) {
                             return true;
                         }
                     }
@@ -655,26 +752,26 @@ impl SpannedExpression {
         }
     }
 
-    pub fn expand_it_usage(&mut self) {
+    pub fn expand_special_var_usage(&mut self, var: SpecialVariable) {
         match self {
             SpannedExpression {
                 expr: Expression::Block(block),
                 ..
             } => {
-                block.expand_it_usage();
+                block.expand_special_var_usage(var);
             }
             SpannedExpression {
                 expr: Expression::Invocation(block),
                 ..
             } => {
-                block.expand_it_usage();
+                block.expand_special_var_usage(var);
             }
             SpannedExpression {
                 expr: Expression::List(list),
                 ..
             } => {
                 for item in list.iter_mut() {
-                    item.expand_it_usage();
+                    item.expand_special_var_usage(var);
                 }
             }
             SpannedExpression {
@@ -682,12 +779,12 @@ impl SpannedExpression {
                 ..
             } => {
                 for header in headers.iter_mut() {
-                    header.expand_it_usage();
+                    header.expand_special_var_usage(var);
                 }
 
                 for row in cells.iter_mut() {
                     for cell in row {
-                        cell.expand_it_usage()
+                        cell.expand_special_var_usage(var)
                     }
                 }
             }
@@ -700,7 +797,7 @@ impl SpannedExpression {
                     ..
                 } = &mut path.head
                 {
-                    block.expand_it_usage();
+                    block.expand_special_var_usage(var);
                 }
             }
             _ => {}
@@ -745,8 +842,7 @@ impl PrettyDebugWithSource for SpannedExpression {
                         b::delimit("s\"", b::primitive(self.span.slice(source)), "\"").group()
                     }
                 },
-                Expression::Variable(Variable::Other(_, _)) => b::keyword(self.span.slice(source)),
-                Expression::Variable(Variable::It(_)) => b::keyword("$it"),
+                Expression::Variable(_) => b::keyword(self.span.slice(source)),
                 Expression::Binary(binary) => binary.pretty_debug(source),
                 Expression::Range(range) => range.pretty_debug(source),
                 Expression::Block(_) => b::opaque("block"),
@@ -800,8 +896,7 @@ impl PrettyDebugWithSource for SpannedExpression {
             Expression::Synthetic(s) => match s {
                 Synthetic::String(s) => b::typed("synthetic", b::primitive(format!("{:?}", s))),
             },
-            Expression::Variable(Variable::Other(_, _)) => b::keyword(self.span.slice(source)),
-            Expression::Variable(Variable::It(_)) => b::keyword("$it"),
+            Expression::Variable(_) => b::keyword(self.span.slice(source)),
             Expression::Binary(binary) => binary.pretty_debug(source),
             Expression::Range(range) => range.pretty_debug(source),
             Expression::Block(_) => b::opaque("block"),
@@ -842,9 +937,9 @@ impl PrettyDebugWithSource for SpannedExpression {
 }
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
-pub enum Variable {
-    It(Span),
-    Other(String, Span),
+pub struct Variable {
+    pub name: String,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, Eq, Hash, PartialEq, Deserialize, Serialize)]
@@ -1158,11 +1253,7 @@ impl Expression {
     }
 
     pub fn variable(v: String, span: Span) -> Expression {
-        if v == "$it" {
-            Expression::Variable(Variable::It(span))
-        } else {
-            Expression::Variable(Variable::Other(v, span))
-        }
+        Expression::Variable(Variable { name: v, span })
     }
 }
 

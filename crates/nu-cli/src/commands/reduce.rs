@@ -87,7 +87,7 @@ async fn process_row(
     let row_clone = row.clone();
     let input_stream = once(async { Ok(row_clone) }).to_input_stream();
 
-    let scope = Scope::append_it(scope, row);
+    let scope = Scope::append_var(scope, "$it".into(), row);
 
     Ok(run_block(&block, Arc::make_mut(&mut context), input_stream, scope).await?)
 }

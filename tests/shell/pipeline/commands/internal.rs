@@ -25,7 +25,7 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
         r#"
             open nu_times.csv
             | get origin
-            | ^echo $it
+            | ^echo $row
             | nu --testbin chop
             | lines
             | nth 2
@@ -225,7 +225,7 @@ fn autoenv() {
 }
 
 #[test]
-fn proper_it_expansion() {
+fn proper_row_expansion() {
     Playground::setup("ls_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("andres.txt"),
@@ -237,7 +237,7 @@ fn proper_it_expansion() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                    ls | sort-by name | group-by type | each { get File.name | echo $it } | to json
+                    ls | sort-by name | group-by type | each { get File.name | echo $row } | to json
                 "#
         ));
 
@@ -315,9 +315,9 @@ fn invocation_handles_dot() {
         r#"
             echo $(open nu_times.csv)
             | get name
-            | nu --testbin chop $it
+            | nu --testbin chop $row
             | nth 3
-            | echo $it
+            | echo $row
             "#
         ));
 
