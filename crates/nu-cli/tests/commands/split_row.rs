@@ -20,7 +20,7 @@ fn to_row() {
                 | str trim
                 | split row ","
                 | count
-                | echo $it
+                
             "#
         ));
 

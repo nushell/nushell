@@ -23,7 +23,7 @@ fn removes_duplicate_rows() {
                 open los_tres_caballeros.csv
                 | uniq
                 | count
-                | echo $it
+                
             "#
         ));
 
@@ -53,7 +53,7 @@ fn uniq_values() {
                 | select type
                 | uniq
                 | count
-                | echo $it
+                
             "#
         ));
 
@@ -118,7 +118,7 @@ fn nested_json_structures() {
                 open nested_json_structures.json
                 | uniq
                 | count
-                | echo $it
+                
             "#
         ));
         assert_eq!(actual.out, "3");
@@ -134,7 +134,7 @@ fn uniq_when_keys_out_of_order() {
             | from json
             | uniq
             | count
-            | echo $it
+            
         "#
     ));
 

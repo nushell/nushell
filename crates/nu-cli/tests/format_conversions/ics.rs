@@ -49,7 +49,7 @@ fn infers_types() {
                 open calendar.ics
                 | get events
                 | count
-                | echo $it
+                
             "#
         ));
 
@@ -92,7 +92,7 @@ fn from_ics_text_to_table() {
                 | where name == "SUMMARY"
                 | first
                 | get value
-                | echo $it
+                
             "#
         ));
 

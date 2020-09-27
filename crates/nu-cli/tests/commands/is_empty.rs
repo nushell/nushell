@@ -23,7 +23,7 @@ fn adds_value_provided_if_column_is_empty() {
                 | empty? likes 1
                 | get likes
                 | math sum
-                | echo $it
+                
             "#
         ));
 
@@ -53,7 +53,7 @@ fn adds_value_provided_for_columns_that_are_empty() {
                 | empty? boost check 1
                 | get boost check
                 | math sum
-                | echo $it
+                
             "#
         ));
 
@@ -85,7 +85,7 @@ fn value_emptiness_check() {
                 | empty?
                 | where $it
                 | count
-                | echo $it
+                
             "#
         ));
 

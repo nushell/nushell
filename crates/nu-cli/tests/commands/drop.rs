@@ -4,7 +4,7 @@ use nu_test_support::{nu, pipeline};
 fn drop_rows() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        r#"echo '[{"foo": 3}, {"foo": 8}, {"foo": 4}]' | from json | drop 2 | get foo | math sum | echo $it"#
+        r#"echo '[{"foo": 3}, {"foo": 8}, {"foo": 4}]' | from json | drop 2 | get foo | math sum "#
     );
 
     assert_eq!(actual.out, "3");

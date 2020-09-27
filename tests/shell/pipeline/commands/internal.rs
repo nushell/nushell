@@ -7,31 +7,14 @@ use nu_test_support::playground::Playground;
 
 #[test]
 fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
-    Playground::setup("internal_to_external_pipe_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "nu_times.csv",
-            r#"
-                name,rusty_luck,origin
-                Jason,1,Canada
-                Jonathan,1,New Zealand
-                Andrés,1,Ecuador
-                AndKitKatz,1,Estados Unidos
-            "#,
-        )]);
-
-        let actual = nu!(
-        cwd: dirs.test(), pipeline(
+    let actual = nu!(
+        cwd: ".",
         r#"
-            open nu_times.csv
-            | get origin
-            | each { ^echo $it | nu --testbin chop | lines }
-            | nth 2
-            "#
-        ));
+        echo [foo bar baz] | each { nu --testbin cococo $it | nu --testbin chop | lines } | nth 2
+        "#
+    );
 
-        // chop will remove the last escaped double quote from \"Estados Unidos\"
-        assert_eq!(actual.out, "Ecuado");
-    })
+    assert_eq!(actual.out, "ba");
 }
 
 #[cfg(feature = "directories-support")]
@@ -277,7 +260,7 @@ fn string_interpolation_with_it() {
     let actual = nu!(
         cwd: ".",
         r#"
-                    echo "foo" | echo `{{$it}}`
+                    echo "foo" | each { echo `{{$it}}` }
             "#
     );
 
@@ -289,8 +272,8 @@ fn string_interpolation_with_column() {
     let actual = nu!(
         cwd: ".",
         r#"
-                    echo '{"name": "bob"}' | from json | echo `{{name}} is cool`
-            "#
+            echo '{"name": "bob"}' | from json | each { echo `{{name}} is cool` }
+        "#
     );
 
     assert_eq!(actual.out, "bob is cool");
@@ -301,7 +284,7 @@ fn string_interpolation_with_column2() {
     let actual = nu!(
         cwd: ".",
         r#"
-                    echo '{"name": "fred"}' | from json | echo `also {{name}} is cool`
+                    echo '{"name": "fred"}' | from json | each { echo `also {{name}} is cool` }
             "#
     );
 
@@ -313,7 +296,7 @@ fn string_interpolation_with_column3() {
     let actual = nu!(
         cwd: ".",
         r#"
-                    echo '{"name": "sally"}' | from json | echo `also {{name}}`
+                    echo '{"name": "sally"}' | from json | each { echo `also {{name}}` }
             "#
     );
 
@@ -325,7 +308,7 @@ fn string_interpolation_with_it_column_path() {
     let actual = nu!(
         cwd: ".",
         r#"
-                    echo '{"name": "sammie"}' | from json | echo `{{$it.name}}`
+                    echo '{"name": "sammie"}' | from json | each { echo `{{$it.name}}` }
         "#
     );
 
@@ -418,7 +401,7 @@ fn range_with_left_var() {
     let actual = nu!(
         cwd: ".",
         r#"
-        echo [[size]; [3]] | echo $it.size..10 | math sum
+        echo [[size]; [3]] | each { echo $it.size..10 } | math sum
         "#
     );
 
@@ -430,7 +413,7 @@ fn range_with_right_var() {
     let actual = nu!(
         cwd: ".",
         r#"
-        echo [[size]; [30]] | echo 4..$it.size | math sum
+        echo [[size]; [30]] | each { echo 4..$it.size } | math sum
         "#
     );
 

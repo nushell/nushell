@@ -23,7 +23,7 @@ fn splits() {
                 | split-by type
                 | get A."10/11/2013"
                 | count
-                | echo $it
+                
             "#
         ));
 

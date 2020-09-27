@@ -11,7 +11,7 @@ fn table_to_json_text_and_from_json_text_back_into_table() {
             | to json
             | from json
             | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee
-            | echo $it
+            
         "#
     ));
 
@@ -37,7 +37,7 @@ fn from_json_text_to_table() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "open katz.txt | from json | get katz | get rusty_luck | count | echo $it"
+            "open katz.txt | from json | get katz | get rusty_luck | count "
         );
 
         assert_eq!(actual.out, "4");
@@ -64,7 +64,7 @@ fn from_json_text_recognizing_objects_independently_to_table() {
                 | from json -o
                 | where name == "GorbyPuff"
                 | get rusty_luck
-                | echo $it
+                
             "#
         ));
 
@@ -94,7 +94,7 @@ fn table_to_json_text() {
                 | from json
                 | nth 0
                 | get name
-                | echo $it
+                
             "#
         ));
 

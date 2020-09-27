@@ -21,7 +21,7 @@ fn adds_a_row_to_the_end() {
                 | lines
                 | append "pollo loco"
                 | nth 3
-                | echo $it
+                
             "#
         ));
 

@@ -34,7 +34,7 @@ fn automatically_change_directory() {
             cwd: dirs.test(),
             r#"
                 autodir
-                pwd | echo $it
+                pwd 
             "#
         );
 

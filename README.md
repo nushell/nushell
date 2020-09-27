@@ -226,7 +226,7 @@ We can pipeline this into a command that gets the contents of one of the columns
 Finally, we can use commands outside of Nu once we have the data we want:
 
 ```shell
-> open Cargo.toml | get package.version | echo $it
+> open Cargo.toml | get package.version 
 0.15.1
 ```
 

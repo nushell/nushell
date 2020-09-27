@@ -17,7 +17,7 @@ fn trims() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "open sample.toml | str trim dependency.name | get dependency.name | echo $it"
+            "open sample.toml | str trim dependency.name | get dependency.name "
         );
 
         assert_eq!(actual.out, "nu");
@@ -50,7 +50,7 @@ fn capitalizes() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "open sample.toml | str capitalize dependency.name | get dependency.name | echo $it"
+            "open sample.toml | str capitalize dependency.name | get dependency.name "
         );
 
         assert_eq!(actual.out, "Nu");
@@ -70,7 +70,7 @@ fn downcases() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "open sample.toml | str downcase dependency.name | get dependency.name | echo $it"
+            "open sample.toml | str downcase dependency.name | get dependency.name "
         );
 
         assert_eq!(actual.out, "light");
@@ -90,7 +90,7 @@ fn upcases() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "open sample.toml | str upcase package.name | get package.name | echo $it"
+            "open sample.toml | str upcase package.name | get package.name "
         );
 
         assert_eq!(actual.out, "NUSHELL");
@@ -110,7 +110,7 @@ fn camelcases() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "open sample.toml | str camel-case dependency.name | get dependency.name | echo $it"
+            "open sample.toml | str camel-case dependency.name | get dependency.name "
         );
 
         assert_eq!(actual.out, "thisIsATest");
@@ -128,7 +128,7 @@ fn converts_to_int() {
             | rename number
             | where number == 1
             | get number
-            | echo $it
+            
         "#
     ));
 
@@ -167,7 +167,7 @@ fn sets() {
                  open sample.toml
                  | str set wykittenshell package.name
                  | get package.name
-                 | echo $it
+                 
              "#
         ));
 
@@ -192,7 +192,7 @@ fn find_and_replaces() {
                  open sample.toml
                  | str find-replace KATZ "5289" fortune.teller.phone
                  | get fortune.teller.phone
-                 | echo $it
+                 
              "#
         ));
 
@@ -217,7 +217,7 @@ fn find_and_replaces_without_passing_field() {
                  open sample.toml
                  | get fortune.teller.phone
                  | str find-replace KATZ "5289"
-                 | echo $it
+                 
              "#
         ));
 
@@ -242,7 +242,7 @@ fn substrings_the_input() {
                  open sample.toml
                  | str substring 6,14 fortune.teller.phone
                  | get fortune.teller.phone
-                 | echo $it
+                 
              "#
         ));
 
@@ -266,7 +266,7 @@ fn substring_errors_if_start_index_is_greater_than_end_index() {
             r#"
                  open sample.toml
                  | str substring 6,5 fortune.teller.phone
-                 | echo $it
+                 
              "#
         ));
 
@@ -293,7 +293,7 @@ fn substrings_the_input_and_returns_the_string_if_end_index_exceeds_length() {
                  open sample.toml
                  | str substring 0,999 package.name
                  | get package.name
-                 | echo $it
+                 
              "#
         ));
 
@@ -318,7 +318,7 @@ fn substrings_the_input_and_returns_blank_if_start_index_exceeds_length() {
                  open sample.toml
                  | str substring 50,999 package.name
                  | get package.name
-                 | echo $it
+                 
              "#
         ));
 
@@ -343,7 +343,7 @@ fn substrings_the_input_and_treats_start_index_as_zero_if_blank_start_index_give
                  open sample.toml
                  | str substring ,2 package.name
                  | get package.name
-                 | echo $it
+                 
              "#
         ));
 
@@ -368,7 +368,7 @@ fn substrings_the_input_and_treats_end_index_as_length_if_blank_end_index_given(
                  open sample.toml
                  | str substring 3, package.name
                  | get package.name
-                 | echo $it
+                 
              "#
         ));
 
