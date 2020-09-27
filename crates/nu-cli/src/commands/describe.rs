@@ -4,13 +4,13 @@ use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 
-pub struct What;
+pub struct Describe;
 
 #[derive(Deserialize)]
-pub struct WhatArgs {}
+pub struct DescribeArgs {}
 
 #[async_trait]
-impl WholeStreamCommand for What {
+impl WholeStreamCommand for Describe {
     fn name(&self) -> &str {
         "describe"
     }
@@ -28,11 +28,11 @@ impl WholeStreamCommand for What {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        what(args, registry).await
+        describe(args, registry).await
     }
 }
 
-pub async fn what(
+pub async fn describe(
     args: CommandArgs,
     _registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
@@ -49,12 +49,12 @@ pub async fn what(
 
 #[cfg(test)]
 mod tests {
-    use super::What;
+    use super::Describe;
 
     #[test]
     fn examples_work_as_expected() {
         use crate::examples::test as test_examples;
 
-        test_examples(What {})
+        test_examples(Describe {})
     }
 }
