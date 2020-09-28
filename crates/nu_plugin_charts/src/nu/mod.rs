@@ -22,17 +22,6 @@ use crossterm::{
 
 use tui::{backend::CrosstermBackend, Terminal};
 
-use tui::{
-    layout::{Constraint, Direction, Layout},
-    style::{Color, Modifier, Style},
-    //widgets::{BarChart, Block, Borders},
-    symbols,
-    text::Span,
-    widgets::{
-        Axis, BarChart as TuiBarChart, Block, Borders, Chart as TuiChart, Dataset, GraphType,
-    },
-};
-
 enum Event<I> {
     Input(I),
     Tick,
@@ -127,16 +116,12 @@ impl Plugin for Chart {
     }
 
     fn sink(&mut self, call_info: CallInfo, input: Vec<Value>) {
-        if let Some(accumulate) = call_info.args.get("acc") {
+        if let Some(_accumulate) = call_info.args.get("acc") {
             self.reduction = Reduction::Accumulate;
             println!("reduccion puesta");
         }
 
-        if let Some(per_month) = call_info.args.get("monthly") {
-            self.format = Some("%b-%Y".to_string());
-        }
-
-        self.run(call_info, input);
+        let _ = self.run(call_info, input);
     }
 }
 
@@ -147,6 +132,12 @@ impl Chart {
 
         self.eval = if let Some(path) = args.get("use") {
             Some(evaluator(path.as_column_path()?.item))
+        } else {
+            None
+        };
+
+        self.format = if let Some(fmt) = args.get("format") {
+            Some(fmt.as_string()?)
         } else {
             None
         };
@@ -238,10 +229,18 @@ impl Chart {
                     }
                 });
 
-                let col2 = col2.clone();
+                let key = col2.clone();
                 let splitter = Box::new(move |_: usize, row: &Value| {
-                    let key = row.get_data_by_key(col2.borrow_spanned()).unwrap();
-                    nu_value_ext::as_string(&key)
+                    let key = key.clone();
+
+                    match row.get_data_by_key(key.borrow_spanned()) {
+                        Some(key) => nu_value_ext::as_string(&key),
+                        None => Err(ShellError::labeled_error(
+                            "unknown column",
+                            "unknown column",
+                            key.tag(),
+                        ))
+                    }
                 });
 
                 let options = nu_data::utils::Operation {
@@ -252,7 +251,6 @@ impl Chart {
                 };
 
                 let model = nu_data::utils::report(&data, options, &name).unwrap();
-                println!("{:#?}", model);
                 let _ = display(&model);
             }
             Columns::One(col) => {
@@ -280,11 +278,16 @@ impl Chart {
                     }
                 });
 
-                let formatter = if self.format.is_some() {
-                    /*Some(nu_data::utils::helpers::date_formatter(
-                        self.format.as_ref().unwrap().clone(),
-                    ))*/
+                let formatter = if let Some(_per_month) = args.get("monthly") {
+                    Some("%b-%Y".to_string())
+                } else {
                     None
+                };
+
+                let formatter = if self.format.is_some() {
+                    Some(nu_data::utils::helpers::date_formatter(
+                        self.format.as_ref().unwrap().clone(),
+                    ))
                 } else {
                     None
                 };
@@ -297,7 +300,8 @@ impl Chart {
                 };
 
                 let model = nu_data::utils::report(&data, options, &name).unwrap();
-                //let _ = display(&model);
+                //println!("{:#?}", model);
+                let _ = display(&model);
             }
             _ => {}
         }

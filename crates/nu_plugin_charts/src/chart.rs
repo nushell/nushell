@@ -5,11 +5,8 @@ use nu_source::Tagged;
 use tui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
-    //widgets::{BarChart, Block, Borders},
-    symbols,
-    text::Span,
     widgets::{
-        Axis, BarChart as TuiBarChart, Block, Borders, Chart as TuiChart, Dataset, GraphType,
+        BarChart as TuiBarChart, Block, Borders,
     },
 };
 
@@ -55,7 +52,7 @@ impl<'a> BarChart<'a> {
     pub fn from_model(model: &'a nu_data::utils::Model) -> Result<BarChart<'a>, ShellError> {
         let mut data = Vec::new();
 
-        for (idx, split) in model.percentages.table_entries().enumerate() {
+        for (_idx, split) in model.percentages.table_entries().enumerate() {
             for (idxx, group) in split.table_entries().enumerate() {
                 data.push((
                     model
@@ -105,6 +102,7 @@ impl<'a> BarChart<'a> {
         })
     }
 
+    #[allow(unused)]
     pub fn on_key(&mut self, c: char) {
         match c {
             'q' => {

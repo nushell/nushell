@@ -19,7 +19,7 @@ mod format;
 mod get;
 mod group_by;
 mod headers;
-mod histogram;
+//mod histogram;
 mod insert;
 mod into_int;
 mod is_empty;

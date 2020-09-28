@@ -58,10 +58,11 @@ pub fn report(
     y.sort();
 
     let planes = Labels { x, y };
-    println!("{:#?}", planes);
+    //println!("{:#?}", planes);
 
 
     let sorted = sort(&planes, &splitted, &tag)?;
+    //println!("OREDERED {:#?}", sorted);
 
     let evaluated = evaluate(
         &sorted,
@@ -72,14 +73,16 @@ pub fn report(
         },
         &tag,
     )?;
+    //println!("EVALUATED {:#?}", evaluated);
 
     let group_labels = planes.grouping_total();
     let split_labels = planes.splits_total();
 
     let reduced = reduce(&evaluated, &tag)?;
-    //println!("{:#?}", reduced);
+    //println!("REDUCED {:#?}", reduced);
 
     let max = max(&reduced, &tag)?.clone();
+    //println!("{:#?}", max);
     let maxima = max.clone();
 
     let percents = percentages(&maxima, &reduced, &tag)?;
@@ -304,84 +307,6 @@ mod tests {
                     Range {
                         start: int(0),
                         end: int(3),
-                    },
-                ),
-                data: table(&[
-                    table(&[int(10), int(30), int(60)]),
-                    table(&[int(5), int(15), int(30)]),
-                    table(&[int(2), int(6), int(12)]),
-                ]),
-                percentages: table(&[
-                    table(&[
-                        decimal_from_float(16.66, Span::unknown()),
-                        decimal(50),
-                        decimal(100),
-                    ]),
-                    table(&[
-                        decimal_from_float(8.33, Span::unknown()),
-                        decimal(25),
-                        decimal(50),
-                    ]),
-                    table(&[
-                        decimal_from_float(3.33, Span::unknown()),
-                        decimal(10),
-                        decimal(20),
-                    ]),
-                ]),
-            },
-        );
-    }
-
-    #[test]
-    fn prepares_report_using_accumulating_value_with_no_splitting() {
-        let committers = table(&committers());
-
-        let by_date = Box::new(move |_, row: &Value| {
-            let key = String::from("date").tagged_unknown();
-            let key = row.get_data_by_key(key.borrow_spanned()).unwrap();
-
-            let callback = date_formatter("%Y-%m-%d".to_string());
-            callback(&key, "nothing".to_string())
-        });
-
-        let options = Operation {
-            grouper: Some(by_date),
-            splitter: None,
-            format: &Some(date_formatter("%Y-%m-%d".to_string())),
-            eval: /* value to be used for accumulation */ &Some(Box::new(move |_, value: &Value| {
-                let chickens_key = String::from("chickens").tagged_unknown();
-
-                value
-                    .get_data_by_key(chickens_key.borrow_spanned())
-                    .ok_or_else(|| {
-                        ShellError::labeled_error(
-                            "unknown column",
-                            "unknown column",
-                            chickens_key.span(),
-                        )
-                    })
-            })),
-        };
-
-        assert_without_checking_percentages(
-            report(&committers, options, Tag::unknown()).unwrap(),
-            Model {
-                labels: Labels {
-                    x: vec![
-                        String::from("2019-07-23"),
-                        String::from("2019-09-24"),
-                        String::from("2019-10-10"),
-                    ],
-                    y: vec![String::from("table")],
-                },
-                ranges: (
-                    Range {
-                        start: int(0),
-                        end: int(3),
-                    },
-                    Range {
-                        start: int(0),
-                        end: int(1),
                     },
                 ),
                 data: table(&[
