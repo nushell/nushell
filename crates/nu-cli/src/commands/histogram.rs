@@ -40,6 +40,8 @@ impl WholeStreamCommand for Histogram {
         histogram(args, registry).await
     }
 
+    //open datos_crudos/defunciones/provincias.json | where provincia == "Guayas" | shuffle | first 5 | select provincia total created_at | insert dt_created_at { get created_at | parse '{d}/{m}/{y}' | format "{y}-{m}-{d}" | str to-datetime } | chart dt_created_at --format "%y-%b" --monthly --use total
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
@@ -112,7 +114,7 @@ pub async fn histogram(
         nu_data::utils::Operation {
             grouper: Some(Box::new(move |_, _| Ok(String::from("frequencies")))),
             splitter: Some(splitter(column_grouper)),
-            format: None,
+            format: &None,
             eval: &evaluate_with,
         },
         &name,

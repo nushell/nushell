@@ -1,6 +1,6 @@
 #![allow(clippy::type_complexity)]
 
-use crate::value::compute_values;
+use crate::value::unsafe_compute_values;
 use derive_new::new;
 use nu_errors::ShellError;
 use nu_protocol::hir::Operator;
@@ -51,7 +51,7 @@ fn formula(
     calculator: Box<dyn Fn(Vec<&Value>) -> Result<Value, ShellError> + Send + Sync + 'static>,
 ) -> Box<dyn Fn(&Value, Vec<&Value>) -> Result<Value, ShellError> + Send + Sync + 'static> {
     Box::new(move |acc, datax| -> Result<Value, ShellError> {
-        let result = match compute_values(Operator::Multiply, &acc, &acc_begin) {
+        let result = match unsafe_compute_values(Operator::Multiply, &acc, &acc_begin) {
             Ok(v) => v.into_untagged_value(),
             Err((left_type, right_type)) => {
                 return Err(ShellError::coerce_error(
@@ -62,15 +62,17 @@ fn formula(
         };
 
         match calculator(datax) {
-            Ok(total) => Ok(match compute_values(Operator::Plus, &result, &total) {
-                Ok(v) => v.into_untagged_value(),
-                Err((left_type, right_type)) => {
-                    return Err(ShellError::coerce_error(
-                        left_type.spanned_unknown(),
-                        right_type.spanned_unknown(),
-                    ))
-                }
-            }),
+            Ok(total) => Ok(
+                match unsafe_compute_values(Operator::Plus, &result, &total) {
+                    Ok(v) => v.into_untagged_value(),
+                    Err((left_type, right_type)) => {
+                        return Err(ShellError::coerce_error(
+                            left_type.spanned_unknown(),
+                            right_type.spanned_unknown(),
+                        ))
+                    }
+                },
+            ),
             Err(reason) => Err(reason),
         }
     })
@@ -107,7 +109,7 @@ pub fn sum(data: Vec<&Value>) -> Result<Value, ShellError> {
     for value in data {
         match value.value {
             UntaggedValue::Primitive(_) => {
-                acc = match compute_values(Operator::Plus, &acc, &value) {
+                acc = match unsafe_compute_values(Operator::Plus, &acc, &value) {
                     Ok(v) => v,
                     Err((left_type, right_type)) => {
                         return Err(ShellError::coerce_error(
@@ -142,7 +144,7 @@ pub fn sort_columns(
             keys.push(fmt(&v, k.to_string())?);
         }
     } else {
-        keys = values.to_vec();
+    keys = values.to_vec();
     }
 
     keys.sort();
@@ -196,6 +198,21 @@ pub fn evaluate(
 
         for (idx, subset) in split.table_entries().enumerate() {
             let mut set = vec![];
+            /*
+                        if let Some(ref evaluator) = evaluator {
+                            if let Ok(value) = evaluator(idx, subset) {
+                                set.push(value);
+                            } else {
+                                set.push(UntaggedValue::Table(vec![]).into_value(&tag));
+                            }
+
+                        //let value = UntaggedValue::Table(vec![evaluator(idx, subset)?]).into_value(&tag);
+
+                        //set.push(value);
+                        } else {
+                            set.push(UntaggedValue::int(1).into_value(&tag));
+                        }
+            */
 
             if let Some(ref evaluator) = evaluator {
                 let value = evaluator(idx, subset)?;
@@ -255,8 +272,8 @@ pub fn percentages(
                     .filter_map(|s| {
                         let hundred = UntaggedValue::decimal_from_float(100.0, tag.span);
 
-                        match compute_values(Operator::Divide, &hundred, &maxima) {
-                            Ok(v) => match compute_values(Operator::Multiply, &s, &v) {
+                        match unsafe_compute_values(Operator::Divide, &hundred, &maxima) {
+                            Ok(v) => match unsafe_compute_values(Operator::Multiply, &s, &v) {
                                 Ok(v) => Some(v.into_untagged_value()),
                                 Err(_) => None,
                             },

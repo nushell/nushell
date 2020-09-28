@@ -27,7 +27,7 @@ pub struct Model {
 pub struct Operation<'a> {
     pub grouper: Option<Box<dyn Fn(usize, &Value) -> Result<String, ShellError> + Send>>,
     pub splitter: Option<Box<dyn Fn(usize, &Value) -> Result<String, ShellError> + Send>>,
-    pub format: Option<Box<dyn Fn(&Value, String) -> Result<String, ShellError>>>,
+    pub format: &'a Option<Box<dyn Fn(&Value, String) -> Result<String, ShellError>>>,
     pub eval: &'a Option<Box<dyn Fn(usize, &Value) -> Result<Value, ShellError> + Send>>,
 }
 
@@ -40,25 +40,27 @@ pub fn report(
 
     let grouped = group(&values, &options.grouper, &tag)?;
     let splitted = split(&grouped, &options.splitter, &tag)?;
+    //println!("{:#?}", grouped);
+    //println!("{:#?}", splitted);
 
     let x = grouped
         .row_entries()
         .map(|(key, _)| key.clone())
         .collect::<Vec<_>>();
 
-    let x = if options.format.is_some() {
-        sort_columns(&x, &options.format)
-    } else {
-        sort_columns(&x, &None)
-    }?;
+    let x = sort_columns(&x, &options.format)?;
 
     let mut y = splitted
         .row_entries()
         .map(|(key, _)| key.clone())
         .collect::<Vec<_>>();
+
     y.sort();
 
     let planes = Labels { x, y };
+    println!("{:#?}", planes);
+
+
     let sorted = sort(&planes, &splitted, &tag)?;
 
     let evaluated = evaluate(
@@ -72,8 +74,10 @@ pub fn report(
     )?;
 
     let group_labels = planes.grouping_total();
+    let split_labels = planes.splits_total();
 
     let reduced = reduce(&evaluated, &tag)?;
+    //println!("{:#?}", reduced);
 
     let max = max(&reduced, &tag)?.clone();
     let maxima = max.clone();
@@ -89,7 +93,7 @@ pub fn report(
             },
             Range {
                 start: UntaggedValue::int(0).into_untagged_value(),
-                end: max,
+                end: split_labels,
             },
         ),
         data: reduced,
@@ -216,9 +220,12 @@ pub mod helpers {
     }
 
     pub fn date_formatter(
-        fmt: &'static str,
+        fmt: String,
     ) -> Box<dyn Fn(&Value, String) -> Result<String, ShellError>> {
-        Box::new(move |date: &Value, _: String| date.format(&fmt))
+        Box::new(move |date: &Value, _: String| {
+            let fmt = fmt.clone();
+            date.format(&fmt)
+        })
     }
 
     pub fn assert_without_checking_percentages(report_a: Model, report_b: Model) {
@@ -240,6 +247,7 @@ mod tests {
     use nu_protocol::Value;
     use nu_source::{Span, Tag, TaggedItem};
     use nu_value_ext::ValueExt;
+
     #[test]
     fn prepares_report_using_accumulating_value() {
         let committers = table(&committers());
@@ -248,7 +256,7 @@ mod tests {
             let key = String::from("date").tagged_unknown();
             let key = row.get_data_by_key(key.borrow_spanned()).unwrap();
 
-            let callback = date_formatter("%Y-%m-%d");
+            let callback = date_formatter("%Y-%m-%d".to_string());
             callback(&key, "nothing".to_string())
         });
 
@@ -261,7 +269,7 @@ mod tests {
         let options = Operation {
             grouper: Some(by_date),
             splitter: Some(by_country),
-            format: Some(date_formatter("%Y-%m-%d")),
+            format: &Some(date_formatter("%Y-%m-%d".to_string())),
             eval: /* value to be used for accumulation */ &Some(Box::new(move |_, value: &Value| {
                 let chickens_key = String::from("chickens").tagged_unknown();
 
@@ -295,7 +303,85 @@ mod tests {
                     },
                     Range {
                         start: int(0),
-                        end: int(60),
+                        end: int(3),
+                    },
+                ),
+                data: table(&[
+                    table(&[int(10), int(30), int(60)]),
+                    table(&[int(5), int(15), int(30)]),
+                    table(&[int(2), int(6), int(12)]),
+                ]),
+                percentages: table(&[
+                    table(&[
+                        decimal_from_float(16.66, Span::unknown()),
+                        decimal(50),
+                        decimal(100),
+                    ]),
+                    table(&[
+                        decimal_from_float(8.33, Span::unknown()),
+                        decimal(25),
+                        decimal(50),
+                    ]),
+                    table(&[
+                        decimal_from_float(3.33, Span::unknown()),
+                        decimal(10),
+                        decimal(20),
+                    ]),
+                ]),
+            },
+        );
+    }
+
+    #[test]
+    fn prepares_report_using_accumulating_value_with_no_splitting() {
+        let committers = table(&committers());
+
+        let by_date = Box::new(move |_, row: &Value| {
+            let key = String::from("date").tagged_unknown();
+            let key = row.get_data_by_key(key.borrow_spanned()).unwrap();
+
+            let callback = date_formatter("%Y-%m-%d".to_string());
+            callback(&key, "nothing".to_string())
+        });
+
+        let options = Operation {
+            grouper: Some(by_date),
+            splitter: None,
+            format: &Some(date_formatter("%Y-%m-%d".to_string())),
+            eval: /* value to be used for accumulation */ &Some(Box::new(move |_, value: &Value| {
+                let chickens_key = String::from("chickens").tagged_unknown();
+
+                value
+                    .get_data_by_key(chickens_key.borrow_spanned())
+                    .ok_or_else(|| {
+                        ShellError::labeled_error(
+                            "unknown column",
+                            "unknown column",
+                            chickens_key.span(),
+                        )
+                    })
+            })),
+        };
+
+        assert_without_checking_percentages(
+            report(&committers, options, Tag::unknown()).unwrap(),
+            Model {
+                labels: Labels {
+                    x: vec![
+                        String::from("2019-07-23"),
+                        String::from("2019-09-24"),
+                        String::from("2019-10-10"),
+                    ],
+                    y: vec![String::from("table")],
+                },
+                ranges: (
+                    Range {
+                        start: int(0),
+                        end: int(3),
+                    },
+                    Range {
+                        start: int(0),
+                        end: int(1),
                     },
                 ),
                 data: table(&[
