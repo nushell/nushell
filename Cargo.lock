@@ -2750,15 +2750,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "natural"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65e6b44f8ddc659cde3555e0140d3441ad26cb03a1410774af1f9a19097c1867"
-dependencies = [
- "rust-stemmers",
-]
-
-[[package]]
 name = "neso"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2920,7 +2911,6 @@ dependencies = [
  "itertools",
  "log 0.4.11",
  "meval",
- "natural",
  "nu-data",
  "nu-errors",
  "nu-parser",
@@ -3068,7 +3058,6 @@ dependencies = [
  "indexmap",
  "itertools",
  "log 0.4.11",
- "natural",
  "nu-errors",
  "nu-source",
  "num-bigint 0.3.0",
@@ -4477,16 +4466,6 @@ name = "rust-ini"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3e52c148ef37f8c375d49d5a73aa70713125b7f19095948a923f80afdeb22ec2"
-
-[[package]]
-name = "rust-stemmers"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e46a2036019fdb888131db7a4c847a1063a7493f971ed94ea82c67eada63ca54"
-dependencies = [
- "serde 1.0.115",
- "serde_derive",
-]
 
 [[package]]
 name = "rust_decimal"

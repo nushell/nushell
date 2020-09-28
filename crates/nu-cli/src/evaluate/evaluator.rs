@@ -1,5 +1,6 @@
 use crate::command_registry::CommandRegistry;
 use crate::commands::classified::block::run_block;
+use crate::did_you_mean;
 use crate::evaluate::operator::apply_operator;
 use crate::prelude::*;
 use async_recursion::async_recursion;
@@ -148,24 +149,18 @@ pub(crate) async fn evaluate_baseline_expr(
 
                 match next {
                     Err(err) => {
-                        let possibilities = item.data_descriptors();
+                        if let UnspannedPathMember::String(_name) = &member.unspanned {
+                            let possible_matches = did_you_mean(&item, member.as_string());
 
-                        if let UnspannedPathMember::String(name) = &member.unspanned {
-                            let mut possible_matches: Vec<_> = possibilities
-                                .iter()
-                                .map(|x| (natural::distance::levenshtein_distance(x, &name), x))
-                                .collect();
-
-                            possible_matches.sort();
-
-                            if !possible_matches.is_empty() {
-                                return Err(ShellError::labeled_error(
-                                    "Unknown column",
-                                    format!("did you mean '{}'?", possible_matches[0].1),
-                                    &member.span,
-                                ));
-                            } else {
-                                return Err(err);
+                            match possible_matches {
+                                Some(p) => {
+                                    return Err(ShellError::labeled_error(
+                                        "Unknown column",
+                                        format!("did you mean '{}'?", p[0]),
+                                        &member.span,
+                                    ));
+                                }
+                                None => return Err(err),
                             }
                         }
                     }

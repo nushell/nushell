@@ -1,4 +1,3 @@
-use crate::Value;
 use derive_new::new;
 use getset::Getters;
 use nu_source::{b, span_for_spanned_list, DebugDocBuilder, HasFallibleSpan, PrettyDebug, Span};
@@ -110,67 +109,5 @@ impl PathMember {
             UnspannedPathMember::String(string) => string.clone(),
             UnspannedPathMember::Int(int) => format!("{}", int),
         }
-    }
-}
-
-/// Prepares a list of "sounds like" matches (using edit distance) for the string you're trying to find
-pub fn did_you_mean(obj_source: &Value, field_tried: String) -> Option<Vec<String>> {
-    let possibilities = obj_source.data_descriptors();
-
-    let mut possible_matches: Vec<_> = possibilities
-        .into_iter()
-        .map(|word| {
-            let edit_distance = natural::distance::levenshtein_distance(&word, &field_tried);
-            (edit_distance, word)
-        })
-        .collect();
-
-    if !possible_matches.is_empty() {
-        possible_matches.sort();
-        let words_matched: Vec<String> = possible_matches.into_iter().map(|m| m.1).collect();
-        Some(words_matched)
-    } else {
-        None
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use crate::UntaggedValue;
-    use indexmap::indexmap;
-    use nu_source::Tag;
-
-    #[test]
-    fn did_you_mean_returns_possible_column_matches() {
-        let value = UntaggedValue::row(indexmap! {
-           "dog".to_string() => UntaggedValue::int(1).into(),
-           "cat".to_string() => UntaggedValue::int(1).into(),
-           "alt".to_string() => UntaggedValue::int(1).into(),
-        });
-
-        let source = Value {
-            tag: Tag::unknown(),
-            value,
-        };
-
-        assert_eq!(
-            Some(vec![
-                "cat".to_string(),
-                "alt".to_string(),
-                "dog".to_string()
-            ]),
-            did_you_mean(&source, "hat".to_string())
-        )
-    }
-
-    #[test]
-    fn did_you_mean_returns_no_matches_when_empty() {
-        let empty_source = Value {
-            tag: Tag::unknown(),
-            value: UntaggedValue::row(indexmap! {}),
-        };
-
-        assert_eq!(None, did_you_mean(&empty_source, "hat".to_string()))
     }
 }
