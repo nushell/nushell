@@ -20,7 +20,6 @@ use bigdecimal::BigDecimal;
 use bigdecimal::FromPrimitive;
 use chrono::{DateTime, Utc};
 use indexmap::IndexMap;
-use itertools::Itertools;
 use nu_errors::ShellError;
 use nu_source::{AnchorLocation, HasSpan, Span, Spanned, Tag};
 use num_bigint::BigInt;

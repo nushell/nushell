@@ -3058,11 +3058,9 @@ dependencies = [
 name = "nu-protocol"
 version = "0.20.0"
 dependencies = [
- "ansi_term 0.12.1",
  "bigdecimal",
  "byte-unit",
  "chrono",
- "codespan-reporting",
  "derive-new",
  "getset",
  "indexmap",
