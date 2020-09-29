@@ -3048,15 +3048,12 @@ dependencies = [
 name = "nu-protocol"
 version = "0.20.0"
 dependencies = [
- "ansi_term 0.12.1",
  "bigdecimal",
  "byte-unit",
  "chrono",
- "codespan-reporting",
  "derive-new",
  "getset",
  "indexmap",
- "itertools",
  "log 0.4.11",
  "nu-errors",
  "nu-source",
