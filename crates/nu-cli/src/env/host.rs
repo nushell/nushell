@@ -76,6 +76,7 @@ impl Host for BasicHost {
         }
     }
 
+    #[allow(unused_variables)]
     fn vars(&mut self) -> Vec<(String, String)> {
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -88,6 +89,7 @@ impl Host for BasicHost {
         }
     }
 
+    #[allow(unused_variables)]
     fn env_get(&mut self, key: OsString) -> Option<OsString> {
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -99,6 +101,7 @@ impl Host for BasicHost {
         }
     }
 
+    #[allow(unused_variables)]
     fn env_set(&mut self, key: OsString, value: OsString) {
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -106,6 +109,7 @@ impl Host for BasicHost {
         }
     }
 
+    #[allow(unused_variables)]
     fn env_rm(&mut self, key: OsString) {
         #[cfg(not(target_arch = "wasm32"))]
         {

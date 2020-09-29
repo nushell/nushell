@@ -4,18 +4,16 @@ description = "A source string characterizer for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-source"
-version = "0.16.1"
+version = "0.20.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-codespan-reporting = "0.9.5"
 derive-new = "0.5.8"
 getset = "0.1.1"
 pretty = "0.5.2"
-serde = {version = "1.0.114", features = ["derive"]}
+serde = {version = "1.0.115", features = ["derive"]}
 termcolor = "1.1.0"
 
 [build-dependencies]
-nu-build = {version = "0.16.1", path = "../nu-build"}

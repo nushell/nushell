@@ -2,6 +2,7 @@ pub mod column_path;
 mod convert;
 mod debug;
 pub mod dict;
+pub mod did_you_mean;
 pub mod evaluate;
 pub mod iter;
 pub mod primitive;
@@ -15,11 +16,11 @@ use crate::value::dict::Dictionary;
 use crate::value::iter::{RowValueIter, TableValueIter};
 use crate::value::primitive::Primitive;
 use crate::value::range::{Range, RangeInclusion};
-use crate::{ColumnPath, PathMember, UnspannedPathMember};
+use crate::{ColumnPath, PathMember};
 use bigdecimal::BigDecimal;
+use bigdecimal::FromPrimitive;
 use chrono::{DateTime, Utc};
 use indexmap::IndexMap;
-use itertools::Itertools;
 use nu_errors::ShellError;
 use nu_source::{AnchorLocation, HasSpan, Span, Spanned, Tag};
 use num_bigint::BigInt;
@@ -28,6 +29,7 @@ use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use std::time::SystemTime;
+
 /// The core structured values that flow through a pipeline
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub enum UntaggedValue {
@@ -51,11 +53,8 @@ impl UntaggedValue {
     /// Get the corresponding descriptors (column names) associated with this value
     pub fn data_descriptors(&self) -> Vec<String> {
         match self {
-            UntaggedValue::Primitive(_) => vec![],
             UntaggedValue::Row(columns) => columns.entries.keys().map(|x| x.to_string()).collect(),
-            UntaggedValue::Block(_) => vec![],
-            UntaggedValue::Table(_) => vec![],
-            UntaggedValue::Error(_) => vec![],
+            _ => vec![],
         }
     }
 
@@ -78,6 +77,16 @@ impl UntaggedValue {
     /// Returns true if this value represents boolean true
     pub fn is_true(&self) -> bool {
         matches!(self, UntaggedValue::Primitive(Primitive::Boolean(true)))
+    }
+
+    /// Returns true if this value represents a filesize
+    pub fn is_filesize(&self) -> bool {
+        matches!(self, UntaggedValue::Primitive(Primitive::Filesize(_)))
+    }
+
+    /// Returns true if this value represents a duration
+    pub fn is_duration(&self) -> bool {
+        matches!(self, UntaggedValue::Primitive(Primitive::Duration(_)))
     }
 
     /// Returns true if this value represents a table
@@ -182,8 +191,22 @@ impl UntaggedValue {
     }
 
     /// Helper for creating decimal values
-    pub fn decimal(s: impl Into<BigDecimal>) -> UntaggedValue {
-        UntaggedValue::Primitive(Primitive::Decimal(s.into()))
+    pub fn decimal(s: BigDecimal) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Decimal(s))
+    }
+
+    /// Helper for creating decimal values
+    pub fn decimal_from_float(f: f64, span: Span) -> UntaggedValue {
+        let dec = BigDecimal::from_f64(f);
+
+        match dec {
+            Some(dec) => UntaggedValue::Primitive(Primitive::Decimal(dec)),
+            None => UntaggedValue::Error(ShellError::labeled_error(
+                "Can not convert f64 to big decimal",
+                "can not create decimal",
+                span,
+            )),
+        }
     }
 
     /// Helper for creating binary (non-text) buffer values
@@ -200,8 +223,8 @@ impl UntaggedValue {
     }
 
     /// Helper for creating boolean values
-    pub fn boolean(s: impl Into<bool>) -> UntaggedValue {
-        UntaggedValue::Primitive(Primitive::Boolean(s.into()))
+    pub fn boolean(b: impl Into<bool>) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Boolean(b.into()))
     }
 
     /// Helper for creating date duration values
@@ -283,19 +306,17 @@ impl Value {
     pub fn convert_to_string(&self) -> String {
         match &self.value {
             UntaggedValue::Primitive(Primitive::String(s)) => s.clone(),
-            UntaggedValue::Primitive(Primitive::Date(dt)) => dt.format("%Y-%b-%d").to_string(),
+            UntaggedValue::Primitive(Primitive::Date(dt)) => dt.format("%Y-%m-%d").to_string(),
             UntaggedValue::Primitive(Primitive::Boolean(x)) => format!("{}", x),
             UntaggedValue::Primitive(Primitive::Decimal(x)) => format!("{}", x),
             UntaggedValue::Primitive(Primitive::Int(x)) => format!("{}", x),
             UntaggedValue::Primitive(Primitive::Filesize(x)) => format!("{}", x),
             UntaggedValue::Primitive(Primitive::Path(x)) => format!("{}", x.display()),
             UntaggedValue::Primitive(Primitive::ColumnPath(path)) => {
-                let joined = path
+                let joined: String = path
                     .iter()
-                    .map(|member| match &member.unspanned {
-                        UnspannedPathMember::String(name) => name.to_string(),
-                        UnspannedPathMember::Int(n) => format!("{}", n),
-                    })
+                    .map(|member| member.as_string())
+                    .collect::<Vec<String>>()
                     .join(".");
 
                 if joined.contains(' ') {
@@ -382,12 +403,10 @@ impl Value {
                 value: UntaggedValue::Primitive(p),
                 ..
             } => p.is_empty(),
-            t
-            @
             Value {
-                value: UntaggedValue::Table(_),
+                value: UntaggedValue::Table(rows),
                 ..
-            } => t.table_entries().all(|row| row.is_empty()),
+            } => rows.is_empty(),
             r
             @
             Value {
@@ -492,61 +511,6 @@ impl ShellTypeName for UntaggedValue {
             UntaggedValue::Table(_) => "table",
             UntaggedValue::Error(_) => "error",
             UntaggedValue::Block(_) => "block",
-        }
-    }
-}
-
-impl num_traits::Zero for Value {
-    fn zero() -> Self {
-        Value {
-            value: UntaggedValue::Primitive(Primitive::zero()),
-            tag: Tag::unknown(),
-        }
-    }
-
-    fn is_zero(&self) -> bool {
-        match &self.value {
-            UntaggedValue::Primitive(primitive) => primitive.is_zero(),
-            UntaggedValue::Row(row) => row.entries.is_empty(),
-            UntaggedValue::Table(rows) => rows.is_empty(),
-            _ => false,
-        }
-    }
-}
-
-impl std::ops::Mul for Value {
-    type Output = Self;
-
-    fn mul(self, rhs: Self) -> Self {
-        let tag = self.tag.clone();
-
-        match (&*self, &*rhs) {
-            (UntaggedValue::Primitive(left), UntaggedValue::Primitive(right)) => {
-                let left = left.clone();
-                let right = right.clone();
-
-                UntaggedValue::from(left.mul(right)).into_value(tag)
-            }
-            (_, _) => unimplemented!("Internal error: can't multiply non-primitives."),
-        }
-    }
-}
-
-impl std::ops::Add for Value {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self {
-        let tag = self.tag.clone();
-
-        match (&*self, &*rhs) {
-            (UntaggedValue::Primitive(left), UntaggedValue::Primitive(right)) => {
-                let left = left.clone();
-                let right = right.clone();
-
-                UntaggedValue::from(left.add(right)).into_value(tag)
-            }
-            (_, _) => UntaggedValue::Error(ShellError::unimplemented("Can't add non-primitives."))
-                .into_value(tag),
         }
     }
 }

@@ -17,6 +17,7 @@ impl Sys {
 }
 
 async fn cpu(tag: Tag) -> Option<Value> {
+    let span = tag.span;
     match futures::future::try_join(heim::cpu::logical_count(), heim::cpu::frequency()).await {
         Ok((num_cpu, cpu_speed)) => {
             let mut cpu_idx = TaggedDictBuilder::with_capacity(tag, 4);
@@ -26,20 +27,29 @@ async fn cpu(tag: Tag) -> Option<Value> {
                 (cpu_speed.current().get::<frequency::hertz>() as f64 / 1_000_000_000.0 * 100.0)
                     .round()
                     / 100.0;
-            cpu_idx.insert_untagged("current ghz", UntaggedValue::decimal(current_speed));
+            cpu_idx.insert_untagged(
+                "current ghz",
+                UntaggedValue::decimal_from_float(current_speed, span),
+            );
 
             if let Some(min_speed) = cpu_speed.min() {
                 let min_speed =
                     (min_speed.get::<frequency::hertz>() as f64 / 1_000_000_000.0 * 100.0).round()
                         / 100.0;
-                cpu_idx.insert_untagged("min ghz", UntaggedValue::decimal(min_speed));
+                cpu_idx.insert_untagged(
+                    "min ghz",
+                    UntaggedValue::decimal_from_float(min_speed, span),
+                );
             }
 
             if let Some(max_speed) = cpu_speed.max() {
                 let max_speed =
                     (max_speed.get::<frequency::hertz>() as f64 / 1_000_000_000.0 * 100.0).round()
                         / 100.0;
-                cpu_idx.insert_untagged("max ghz", UntaggedValue::decimal(max_speed));
+                cpu_idx.insert_untagged(
+                    "max ghz",
+                    UntaggedValue::decimal_from_float(max_speed, span),
+                );
             }
 
             Some(cpu_idx.into_value())
@@ -185,6 +195,7 @@ async fn disks(tag: Tag) -> Result<Option<UntaggedValue>, ShellError> {
 
 async fn battery(tag: Tag) -> Option<UntaggedValue> {
     let mut output = vec![];
+    let span = tag.span;
 
     if let Ok(manager) = battery::Manager::new() {
         if let Ok(batteries) = manager.batteries() {
@@ -203,16 +214,18 @@ async fn battery(tag: Tag) -> Option<UntaggedValue> {
                     if let Some(time_to_full) = battery.time_to_full() {
                         dict.insert_untagged(
                             "mins to full",
-                            UntaggedValue::decimal(
-                                time_to_full.get::<battery::units::time::minute>(),
+                            UntaggedValue::decimal_from_float(
+                                time_to_full.get::<battery::units::time::minute>() as f64,
+                                span,
                             ),
                         );
                     }
                     if let Some(time_to_empty) = battery.time_to_empty() {
                         dict.insert_untagged(
                             "mins to empty",
-                            UntaggedValue::decimal(
-                                time_to_empty.get::<battery::units::time::minute>(),
+                            UntaggedValue::decimal_from_float(
+                                time_to_empty.get::<battery::units::time::minute>() as f64,
+                                span,
                             ),
                         );
                     }
@@ -231,6 +244,7 @@ async fn battery(tag: Tag) -> Option<UntaggedValue> {
 
 async fn temp(tag: Tag) -> Option<UntaggedValue> {
     let mut output = vec![];
+    let span = tag.span;
 
     let sensors = sensors::temperatures();
 
@@ -245,23 +259,29 @@ async fn temp(tag: Tag) -> Option<UntaggedValue> {
             }
             dict.insert_untagged(
                 "temp",
-                UntaggedValue::decimal(
+                UntaggedValue::decimal_from_float(
                     sensor
                         .current()
-                        .get::<thermodynamic_temperature::degree_celsius>(),
+                        .get::<thermodynamic_temperature::degree_celsius>()
+                        as f64,
+                    span,
                 ),
             );
             if let Some(high) = sensor.high() {
                 dict.insert_untagged(
                     "high",
-                    UntaggedValue::decimal(high.get::<thermodynamic_temperature::degree_celsius>()),
+                    UntaggedValue::decimal_from_float(
+                        high.get::<thermodynamic_temperature::degree_celsius>() as f64,
+                        span,
+                    ),
                 );
             }
             if let Some(critical) = sensor.critical() {
                 dict.insert_untagged(
                     "critical",
-                    UntaggedValue::decimal(
-                        critical.get::<thermodynamic_temperature::degree_celsius>(),
+                    UntaggedValue::decimal_from_float(
+                        critical.get::<thermodynamic_temperature::degree_celsius>() as f64,
+                        span,
                     ),
                 );
             }

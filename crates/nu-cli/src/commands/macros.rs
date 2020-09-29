@@ -266,7 +266,7 @@ macro_rules! command {
 
             Extract {
                 $($extract:tt)* {
-                    use $crate::data::types::ExtractType;
+                    use $nu_data::types::ExtractType;
                     let value = $args.expect_nth($($positional_count)*)?;
                     Block::extract(value)?
                 }
@@ -321,7 +321,7 @@ macro_rules! command {
 
             Extract {
                 $($extract:tt)* {
-                    use $crate::data::types::ExtractType;
+                    use $nu_data::types::ExtractType;
                     let value = $args.expect_nth($($positional_count)*)?;
                     <$param_kind>::extract(&value)?
                 }

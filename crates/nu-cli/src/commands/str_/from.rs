@@ -1,4 +1,3 @@
-use crate::commands::str_::trim::trim_char;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -9,7 +8,7 @@ use nu_source::Tagged;
 use num_bigint::{BigInt, BigUint, ToBigInt};
 
 // TODO num_format::SystemLocale once platform-specific dependencies are stable (see Cargo.toml)
-use num_format::{Locale, ToFormattedString};
+use num_format::Locale;
 use num_traits::{Pow, Signed};
 use std::iter;
 
@@ -41,12 +40,15 @@ impl WholeStreamCommand for SubCommand {
                 "decimal digits to which to round",
                 Some('d'),
             )
-            .switch(
-                "group-digits",
-                // TODO according to system localization
-                "group digits, currently by thousand with commas",
-                Some('g'),
-            )
+        /*
+        FIXME: this isn't currently supported because of num_format being out of date. Once it's updated, re-enable this
+        .switch(
+            "group-digits",
+            // TODO according to system localization
+            "group digits, currently by thousand with commas",
+            Some('g'),
+        )
+        */
     }
 
     fn usage(&self) -> &str {
@@ -68,6 +70,8 @@ impl WholeStreamCommand for SubCommand {
                 example: "= 1.7 | str from -d 0",
                 result: Some(vec![UntaggedValue::string("2").into_untagged_value()]),
             },
+            /*
+            FIXME: this isn't currently supported because of num_format being out of date. Once it's updated, re-enable this
             Example {
                 description: "format large number with localized digit grouping",
                 example: "= 1000000.2 | str from -g",
@@ -75,6 +79,7 @@ impl WholeStreamCommand for SubCommand {
                     UntaggedValue::string("1,000,000.2").into_untagged_value()
                 ]),
             },
+            */
         ]
     }
 }
@@ -113,7 +118,7 @@ async fn operate(
 }
 
 // TODO If you're using the with-system-locale feature and you're on Windows, Clang 3.9 or higher is also required.
-fn action(
+pub fn action(
     input: &Value,
     tag: impl Into<Tag>,
     digits: Option<u64>,
@@ -148,7 +153,7 @@ fn action(
 }
 
 fn format_bigint(int: &BigInt) -> String {
-    int.to_formatted_string(&Locale::en)
+    format!("{}", int)
 
     // TODO once platform-specific dependencies are stable (see Cargo.toml)
     // #[cfg(windows)]
@@ -196,15 +201,13 @@ fn format_decimal(mut decimal: BigDecimal, digits: Option<u64>, group_digits: bo
             .take(n as usize)
             .collect()
     } else {
-        trim_char(&dec_part, '0', false, true)
+        String::from(dec_part.trim_end_matches('0'))
     };
 
     let format_default_loc = |int_part: BigInt| {
         let loc = Locale::en;
-        let (int_str, sep) = (
-            int_part.to_formatted_string(&loc),
-            String::from(loc.decimal()),
-        );
+        //TODO: when num_format is available for recent bigint, replace this with the locale-based format
+        let (int_str, sep) = (format!("{}", int_part), String::from(loc.decimal()));
 
         format!("{}{}{}", int_str, sep, dec_str)
     };

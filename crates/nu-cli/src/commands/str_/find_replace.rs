@@ -7,7 +7,6 @@ use nu_protocol::{
 };
 use nu_source::{Tag, Tagged};
 use nu_value_ext::ValueExt;
-
 use regex::Regex;
 
 #[derive(Deserialize)]
@@ -15,6 +14,7 @@ struct Arguments {
     find: Tagged<String>,
     replace: Tagged<String>,
     rest: Vec<ColumnPath>,
+    all: bool,
 }
 
 pub struct SubCommand;
@@ -33,6 +33,7 @@ impl WholeStreamCommand for SubCommand {
                 SyntaxShape::ColumnPath,
                 "optionally find and replace text by column paths",
             )
+            .switch("all", "replace all occurences of find string", Some('a'))
     }
 
     fn usage(&self) -> &str {
@@ -48,11 +49,18 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Find and replace contents with capture group",
-            example: "echo 'my_library.rb' | str find-replace '(.+).rb' '$1.nu'",
-            result: Some(vec![Value::from("my_library.nu")]),
-        }]
+        vec![
+            Example {
+                description: "Find and replace contents with capture group",
+                example: "echo 'my_library.rb' | str find-replace '(.+).rb' '$1.nu'",
+                result: Some(vec![Value::from("my_library.nu")]),
+            },
+            Example {
+                description: "Find and replace all occurrences of find string",
+                example: "echo 'abc abc abc' | str find-replace -a 'b' 'z'",
+                result: Some(vec![Value::from("azc azc azc")]),
+            },
+        ]
     }
 }
 
@@ -70,17 +78,17 @@ async fn operate(
             find,
             replace,
             rest,
+            all,
         },
         input,
     ) = args.process(&registry).await?;
     let options = FindReplace(find.item, replace.item);
-
     let column_paths: Vec<_> = rest;
 
     Ok(input
         .map(move |v| {
             if column_paths.is_empty() {
-                ReturnSuccess::value(action(&v, &options, v.tag())?)
+                ReturnSuccess::value(action(&v, &options, v.tag(), all)?)
             } else {
                 let mut ret = v;
 
@@ -89,7 +97,7 @@ async fn operate(
 
                     ret = ret.swap_data_by_column_path(
                         path,
-                        Box::new(move |old| action(old, &options, old.tag())),
+                        Box::new(move |old| action(old, &options, old.tag(), all)),
                     )?;
                 }
 
@@ -99,7 +107,12 @@ async fn operate(
         .to_output_stream())
 }
 
-fn action(input: &Value, options: &FindReplace, tag: impl Into<Tag>) -> Result<Value, ShellError> {
+fn action(
+    input: &Value,
+    options: &FindReplace,
+    tag: impl Into<Tag>,
+    all: bool,
+) -> Result<Value, ShellError> {
     match &input.value {
         UntaggedValue::Primitive(Primitive::Line(s))
         | UntaggedValue::Primitive(Primitive::String(s)) => {
@@ -109,7 +122,13 @@ fn action(input: &Value, options: &FindReplace, tag: impl Into<Tag>) -> Result<V
             let regex = Regex::new(find.as_str());
 
             let out = match regex {
-                Ok(re) => UntaggedValue::string(re.replace(s, replacement.as_str()).to_owned()),
+                Ok(re) => {
+                    if all {
+                        UntaggedValue::string(re.replace_all(s, replacement.as_str()).to_owned())
+                    } else {
+                        UntaggedValue::string(re.replace(s, replacement.as_str()).to_owned())
+                    }
+                }
                 Err(_) => UntaggedValue::string(s),
             };
 
@@ -143,10 +162,10 @@ mod tests {
     fn can_have_capture_groups() {
         let word = string("Cargo.toml");
         let expected = string("Carga.toml");
-
+        let all = false;
         let find_replace_options = FindReplace("Cargo.(.+)".to_string(), "Carga.$1".to_string());
 
-        let actual = action(&word, &find_replace_options, Tag::unknown()).unwrap();
+        let actual = action(&word, &find_replace_options, Tag::unknown(), all).unwrap();
         assert_eq!(actual, expected);
     }
 }

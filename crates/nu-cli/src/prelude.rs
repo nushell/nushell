@@ -71,12 +71,12 @@ macro_rules! trace_out_stream {
 pub(crate) use nu_protocol::{errln, out, outln};
 use nu_source::HasFallibleSpan;
 
+pub(crate) use crate::command_registry::CommandRegistry;
 pub(crate) use crate::commands::command::{CommandArgs, RawCommandArgs, RunnableContext};
 pub(crate) use crate::commands::Example;
-pub(crate) use crate::context::CommandRegistry;
-pub(crate) use crate::context::Context;
-pub(crate) use crate::data::config;
-pub(crate) use crate::data::value;
+pub(crate) use crate::evaluation_context::EvaluationContext;
+pub(crate) use nu_data::config;
+pub(crate) use nu_data::value;
 // pub(crate) use crate::env::host::handle_unexpected;
 pub(crate) use crate::env::Host;
 pub(crate) use crate::shell::filesystem_shell::FilesystemShell;
@@ -87,7 +87,6 @@ pub(crate) use crate::stream::{InputStream, InterruptibleStream, OutputStream};
 pub(crate) use bigdecimal::BigDecimal;
 pub(crate) use futures::stream::BoxStream;
 pub(crate) use futures::{Stream, StreamExt};
-pub(crate) use nu_protocol::MaybeOwned;
 pub(crate) use nu_source::{
     b, AnchorLocation, DebugDocBuilder, PrettyDebug, PrettyDebugWithSource, Span, SpannedItem, Tag,
     TaggedItem, Text,

@@ -1,4 +1,4 @@
-use crate::data::value;
+use nu_data::value;
 use nu_errors::ShellError;
 use nu_protocol::hir::Operator;
 use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
@@ -26,6 +26,14 @@ pub fn apply_operator(
         Operator::Minus => value::compute_values(op, left, right),
         Operator::Multiply => value::compute_values(op, left, right),
         Operator::Divide => value::compute_values(op, left, right).map(|res| match res {
+            UntaggedValue::Error(_) => UntaggedValue::Error(ShellError::labeled_error(
+                "Evaluation error",
+                "division by zero",
+                &right.tag.span,
+            )),
+            _ => res,
+        }),
+        Operator::Modulo => value::compute_values(op, left, right).map(|res| match res {
             UntaggedValue::Error(_) => UntaggedValue::Error(ShellError::labeled_error(
                 "Evaluation error",
                 "division by zero",

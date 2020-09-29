@@ -1,7 +1,7 @@
 use clap::{App, Arg};
 use log::LevelFilter;
+use nu_cli::create_default_context;
 use nu_cli::utils::test_bins as binaries;
-use nu_cli::{create_default_context, EnvironmentSyncer};
 use std::error::Error;
 use std::fs::File;
 use std::io::{prelude::*, BufReader};
@@ -16,6 +16,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .value_name("LEVEL")
                 .possible_values(&["error", "warn", "info", "debug", "trace"])
                 .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("skip-plugins")
+                .hidden(true)
+                .long("skip-plugins")
+                .multiple(false)
+                .takes_value(false),
         )
         .arg(
             Arg::with_name("testbin")
@@ -153,14 +160,21 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
 
         None => {
-            println!(
-                "Welcome to Nushell {} (type 'help' for more info)",
-                clap::crate_version!()
-            );
+            let mut context = create_default_context(true)?;
 
-            let mut syncer = EnvironmentSyncer::new();
-            let context = create_default_context(&mut syncer, true)?;
-            futures::executor::block_on(nu_cli::cli(syncer, context))?;
+            if !matches.is_present("skip-plugins") {
+                let _ = nu_cli::register_plugins(&mut context);
+            }
+
+            #[cfg(feature = "rustyline-support")]
+            {
+                futures::executor::block_on(nu_cli::cli(context))?;
+            }
+
+            #[cfg(not(feature = "rustyline-support"))]
+            {
+                println!("Nushell needs the 'rustyline-support' feature for CLI support");
+            }
         }
     }
 

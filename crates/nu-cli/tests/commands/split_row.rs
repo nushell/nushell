@@ -17,7 +17,7 @@ fn to_row() {
             r#"
                 open sample.txt
                 | lines
-                | trim
+                | str trim
                 | split row ","
                 | count
                 | echo $it

@@ -1,4 +1,3 @@
-use crate::Value;
 use derive_new::new;
 use getset::Getters;
 use nu_source::{b, span_for_spanned_list, DebugDocBuilder, HasFallibleSpan, PrettyDebug, Span};
@@ -110,32 +109,5 @@ impl PathMember {
             UnspannedPathMember::String(string) => string.clone(),
             UnspannedPathMember::Int(int) => format!("{}", int),
         }
-    }
-}
-
-/// Prepares a list of "sounds like" matches for the string you're trying to find
-pub fn did_you_mean(obj_source: &Value, field_tried: &PathMember) -> Option<Vec<(usize, String)>> {
-    let field_tried = match &field_tried.unspanned {
-        UnspannedPathMember::String(string) => string.clone(),
-        UnspannedPathMember::Int(int) => format!("{}", int),
-    };
-
-    let possibilities = obj_source.data_descriptors();
-
-    let mut possible_matches: Vec<_> = possibilities
-        .into_iter()
-        .map(|x| {
-            let word = x;
-            let distance = natural::distance::levenshtein_distance(&word, &field_tried);
-
-            (distance, word)
-        })
-        .collect();
-
-    if !possible_matches.is_empty() {
-        possible_matches.sort();
-        Some(possible_matches)
-    } else {
-        None
     }
 }

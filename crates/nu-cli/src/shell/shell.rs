@@ -6,7 +6,6 @@ use crate::commands::ls::LsArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::move_::mv::Arguments as MvArgs;
 use crate::commands::rm::RemoveArgs;
-use crate::completion;
 use crate::prelude::*;
 use crate::stream::OutputStream;
 
@@ -14,7 +13,7 @@ use encoding_rs::Encoding;
 use nu_errors::ShellError;
 use std::path::PathBuf;
 
-pub trait Shell: completion::Completer + std::fmt::Debug {
+pub trait Shell: std::fmt::Debug {
     fn name(&self) -> String;
     fn homedir(&self) -> Option<PathBuf>;
 

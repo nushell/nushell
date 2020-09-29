@@ -1,5 +1,5 @@
+use crate::command_registry::CommandRegistry;
 use crate::commands::help::get_help;
-use crate::context::CommandRegistry;
 use crate::deserializer::ConfigDeserializer;
 use crate::evaluate::evaluate_args::evaluate_args;
 use crate::prelude::*;
@@ -17,27 +17,12 @@ use std::sync::atomic::AtomicBool;
 pub struct UnevaluatedCallInfo {
     pub args: hir::Call,
     pub name_tag: Tag,
-    pub scope: Scope,
+    pub scope: Arc<Scope>,
 }
 
 impl UnevaluatedCallInfo {
     pub async fn evaluate(self, registry: &CommandRegistry) -> Result<CallInfo, ShellError> {
-        let args = evaluate_args(&self.args, registry, &self.scope).await?;
-
-        Ok(CallInfo {
-            args,
-            name_tag: self.name_tag,
-        })
-    }
-
-    pub async fn evaluate_with_new_it(
-        self,
-        registry: &CommandRegistry,
-        it: &Value,
-    ) -> Result<CallInfo, ShellError> {
-        let mut scope = self.scope.clone();
-        scope.it = it.clone();
-        let args = evaluate_args(&self.args, registry, &scope).await?;
+        let args = evaluate_args(&self.args, registry, self.scope.clone()).await?;
 
         Ok(CallInfo {
             args,
@@ -115,7 +100,7 @@ impl CommandArgs {
     pub async fn evaluate_once_with_scope(
         self,
         registry: &CommandRegistry,
-        scope: &Scope,
+        scope: Arc<Scope>,
     ) -> Result<EvaluatedWholeStreamCommandArgs, ShellError> {
         let host = self.host.clone();
         let ctrl_c = self.ctrl_c.clone();
@@ -215,37 +200,6 @@ impl EvaluatedWholeStreamCommandArgs {
     }
 }
 
-#[derive(Getters)]
-#[get = "pub"]
-pub struct EvaluatedFilterCommandArgs {
-    args: EvaluatedCommandArgs,
-}
-
-impl Deref for EvaluatedFilterCommandArgs {
-    type Target = EvaluatedCommandArgs;
-    fn deref(&self) -> &Self::Target {
-        &self.args
-    }
-}
-
-impl EvaluatedFilterCommandArgs {
-    pub fn new(
-        host: Arc<parking_lot::Mutex<dyn Host>>,
-        ctrl_c: Arc<AtomicBool>,
-        shell_manager: ShellManager,
-        call_info: CallInfo,
-    ) -> EvaluatedFilterCommandArgs {
-        EvaluatedFilterCommandArgs {
-            args: EvaluatedCommandArgs {
-                host,
-                ctrl_c,
-                shell_manager,
-                call_info,
-            },
-        }
-    }
-}
-
 #[derive(Getters, new)]
 #[get = "pub(crate)"]
 pub struct EvaluatedCommandArgs {
@@ -262,10 +216,10 @@ impl EvaluatedCommandArgs {
 
     /// Get the nth positional argument, error if not possible
     pub fn expect_nth(&self, pos: usize) -> Result<&Value, ShellError> {
-        match self.call_info.args.nth(pos) {
-            None => Err(ShellError::unimplemented("Better error: expect_nth")),
-            Some(item) => Ok(item),
-        }
+        self.call_info
+            .args
+            .nth(pos)
+            .ok_or_else(|| ShellError::unimplemented("Better error: expect_nth"))
     }
 
     pub fn get(&self, name: &str) -> Option<&Value> {
@@ -300,6 +254,11 @@ pub trait WholeStreamCommand: Send + Sync {
     ) -> Result<OutputStream, ShellError>;
 
     fn is_binary(&self) -> bool {
+        false
+    }
+
+    // Commands that are not meant to be run by users
+    fn is_internal(&self) -> bool {
         false
     }
 
@@ -367,71 +326,12 @@ impl Command {
         self.0.is_binary()
     }
 
+    pub fn is_internal(&self) -> bool {
+        self.0.is_internal()
+    }
+
     pub fn stream_command(&self) -> &dyn WholeStreamCommand {
         &*self.0
-    }
-}
-
-pub struct FnFilterCommand {
-    name: String,
-    func: fn(EvaluatedFilterCommandArgs) -> Result<OutputStream, ShellError>,
-}
-
-#[async_trait]
-impl WholeStreamCommand for FnFilterCommand {
-    fn name(&self) -> &str {
-        &self.name
-    }
-
-    fn usage(&self) -> &str {
-        "usage"
-    }
-
-    async fn run(
-        &self,
-        CommandArgs {
-            host,
-            ctrl_c,
-            shell_manager,
-            call_info,
-            input,
-            ..
-        }: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        let registry = Arc::new(registry.clone());
-        let func = self.func;
-
-        Ok(input
-            .then(move |it| {
-                let host = host.clone();
-                let registry = registry.clone();
-                let ctrl_c = ctrl_c.clone();
-                let shell_manager = shell_manager.clone();
-                let call_info = call_info.clone();
-                async move {
-                    let call_info = match call_info.evaluate_with_new_it(&*registry, &it).await {
-                        Err(err) => {
-                            return OutputStream::one(Err(err));
-                        }
-                        Ok(args) => args,
-                    };
-
-                    let args = EvaluatedFilterCommandArgs::new(
-                        host.clone(),
-                        ctrl_c.clone(),
-                        shell_manager.clone(),
-                        call_info,
-                    );
-
-                    match func(args) {
-                        Err(err) => return OutputStream::one(Err(err)),
-                        Ok(stream) => stream,
-                    }
-                }
-            })
-            .flatten()
-            .to_output_stream())
     }
 }
 

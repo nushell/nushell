@@ -27,7 +27,7 @@ fn shorthand_doesnt_reorder_arguments() {
         "FOO=BARRRR nu --testbin cococo first second"
     );
 
-    assert_eq!(actual.out, "firstsecond");
+    assert_eq!(actual.out, "first second");
 }
 
 #[test]

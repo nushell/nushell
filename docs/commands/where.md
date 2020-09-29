@@ -35,7 +35,7 @@ Dates can also be compared using the duration types. For example, `where accesse
 
 ## Boolean check
 
-Where with the form `| where readonly` is used to check boolean values. For example, the command `ls --full | where readonly` will list only those files that are readonly.
+Where with the form `| where readonly` is used to check boolean values. For example, the command `ls --long | where readonly` will list only those files that are readonly.
 
 ## Usage
 
@@ -76,7 +76,7 @@ Where with the form `| where readonly` is used to check boolean values. For exam
 ```
 
 ```shell
-> ls -f | where accessed <= 1w
+> ls -l | where accessed <= 1w
 ───┬────────────────────┬──────┬────────┬──────────┬───────────┬─────────────┬───────┬──────────┬──────────────┬─────────────┬─────────────
  # │ name               │ type │ target │ readonly │ mode      │ uid         │ group │ size     │ created      │ accessed    │ modified
 ───┼────────────────────┼──────┼────────┼──────────┼───────────┼─────────────┼───────┼──────────┼──────────────┼─────────────┼─────────────

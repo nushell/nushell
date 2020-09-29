@@ -1,5 +1,5 @@
+use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
-use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
@@ -58,9 +58,9 @@ pub async fn set_into(
 
     // NOTE: None because we are not loading a new config file, we just want to read from the
     // existing config
-    let mut result = crate::data::config::read(name_span, &None)?;
+    let mut result = nu_data::config::read(name_span, &None)?;
 
-    // In the original code, this is set to `Some` if the `--load flag is set`
+    // In the original code, this is set to `Some` if the `load flag is set`
     let configuration = None;
 
     let rows: Vec<Value> = input.collect().await;

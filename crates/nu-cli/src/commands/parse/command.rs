@@ -41,6 +41,17 @@ impl WholeStreamCommand for Command {
     ) -> Result<OutputStream, ShellError> {
         operate(args, registry).await
     }
+
+    fn examples(&self) -> Vec<Example> {
+        let mut row = IndexMap::new();
+        row.insert("foo".to_string(), Value::from("hi"));
+        row.insert("bar".to_string(), Value::from("there"));
+        vec![Example {
+            description: "Parse a string into two named columns",
+            example: "echo \"hi there\" | parse \"{foo} {bar}\"",
+            result: Some(vec![UntaggedValue::row(row).into()]),
+        }]
+    }
 }
 
 pub async fn operate(

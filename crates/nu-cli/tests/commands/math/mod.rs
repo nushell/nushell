@@ -162,15 +162,27 @@ fn parens_precedence() {
 }
 
 #[test]
+fn modulo() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            = 9 mod 2
+        "#
+    ));
+
+    assert_eq!(actual.out, "1");
+}
+
+#[test]
 fn duration_math() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            = 1w + 1d
+            = 1wk + 1day
         "#
     ));
 
-    assert_eq!(actual.out, "8d");
+    assert_eq!(actual.out, "8day");
 }
 
 #[test]
@@ -178,11 +190,11 @@ fn duration_math_with_nanoseconds() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            = 1w + 10ns
+            = 1wk + 10ns
         "#
     ));
 
-    assert_eq!(actual.out, "7d 10ns");
+    assert_eq!(actual.out, "7day 10ns");
 }
 
 #[test]
@@ -190,11 +202,11 @@ fn duration_math_with_negative() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            = 1d - 1w
+            = 1day - 1wk
         "#
     ));
 
-    assert_eq!(actual.out, "-6d");
+    assert_eq!(actual.out, "-6day");
 }
 
 #[test]

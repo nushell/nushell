@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::base::coerce_compare;
 use crate::prelude::*;
+use nu_data::base::coerce_compare;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
@@ -134,6 +134,24 @@ pub fn sort(
             ..
         } => {
             let should_sort_case_insensitively = insensitive && vec.iter().all(|x| x.is_string());
+
+            if let Some(values) = vec
+                .windows(2)
+                .map(|elem| coerce_compare(&elem[0], &elem[1]))
+                .find(|elem| elem.is_err())
+            {
+                let (type_1, type_2) = values
+                    .err()
+                    .expect("An error ocourred in the checking of types");
+                return Err(ShellError::labeled_error(
+                    "Not all values can be compared",
+                    format!(
+                        "Unable to sort values, as \"{}\" cannot compare against \"{}\"",
+                        type_1, type_2
+                    ),
+                    tag,
+                ));
+            }
 
             vec.sort_by(|a, b| {
                 if should_sort_case_insensitively {

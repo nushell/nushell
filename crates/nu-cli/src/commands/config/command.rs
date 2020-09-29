@@ -27,7 +27,7 @@ impl WholeStreamCommand for Command {
     ) -> Result<OutputStream, ShellError> {
         let name_span = args.call_info.name_tag.clone();
         let name = args.call_info.name_tag;
-        let result = crate::data::config::read(name_span, &None)?;
+        let result = nu_data::config::read(name_span, &None)?;
 
         Ok(futures::stream::iter(vec![ReturnSuccess::value(
             UntaggedValue::Row(result.into()).into_value(name),

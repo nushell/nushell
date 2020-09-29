@@ -1,9 +1,9 @@
+use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
-use crate::context::CommandRegistry;
 use crate::deserializer::NumericRange;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape};
+use nu_protocol::{RangeInclusion, ReturnSuccess, Signature, SyntaxShape};
 use nu_source::Tagged;
 
 #[derive(Deserialize)]
@@ -44,11 +44,23 @@ async fn range(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
     let registry = registry.clone();
     let (RangeArgs { area }, input) = args.process(&registry).await?;
     let range = area.item;
-    let (from, _) = range.from;
-    let (to, _) = range.to;
-
-    let from = *from as usize;
-    let to = *to as usize;
+    let (from, left_inclusive) = range.from;
+    let (to, right_inclusive) = range.to;
+    let from = from.map(|from| *from as usize).unwrap_or(0).saturating_add(
+        if left_inclusive == RangeInclusion::Inclusive {
+            0
+        } else {
+            1
+        },
+    );
+    let to = to
+        .map(|to| *to as usize)
+        .unwrap_or(usize::MAX)
+        .saturating_sub(if right_inclusive == RangeInclusion::Inclusive {
+            0
+        } else {
+            1
+        });
 
     Ok(input
         .skip(from)

@@ -1,8 +1,8 @@
+use crate::command_registry::CommandRegistry;
 use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
-use crate::context::CommandRegistry;
-use crate::data::value::merge_values;
 use crate::prelude::*;
+use nu_data::value::merge_values;
 
 use indexmap::IndexMap;
 use nu_errors::ShellError;
@@ -55,26 +55,18 @@ async fn merge(
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let scope = raw_args.call_info.scope.clone();
-    let mut context = Context::from_raw(&raw_args, &registry);
+    let mut context = EvaluationContext::from_raw(&raw_args, &registry);
     let name_tag = raw_args.call_info.name_tag.clone();
     let (merge_args, input): (MergeArgs, _) = raw_args.process(&registry).await?;
     let block = merge_args.block;
 
-    let table: Option<Vec<Value>> = match run_block(
-        &block,
-        &mut context,
-        InputStream::empty(),
-        &scope.it,
-        &scope.vars,
-        &scope.env,
-    )
-    .await
-    {
-        Ok(mut stream) => Some(stream.drain_vec().await),
-        Err(err) => {
-            return Err(err);
-        }
-    };
+    let table: Option<Vec<Value>> =
+        match run_block(&block, &mut context, InputStream::empty(), scope).await {
+            Ok(mut stream) => Some(stream.drain_vec().await),
+            Err(err) => {
+                return Err(err);
+            }
+        };
 
     let table = table.unwrap_or_else(|| {
         vec![Value {

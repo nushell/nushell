@@ -6,7 +6,14 @@ where
     P: AsRef<Path>,
     Q: AsRef<Path>,
 {
-    let path = relative_to.as_ref().join(path);
+    let path = if path.as_ref() == Path::new(".") {
+        // Joining a Path with '.' appends a '.' at the end, making the prompt
+        // more ugly - so we don't do anything, which should result in an equal
+        // path on all supported systems.
+        relative_to.as_ref().to_owned()
+    } else {
+        relative_to.as_ref().join(path)
+    };
 
     let (relative_to, path) = {
         let components: Vec<_> = path.components().collect();

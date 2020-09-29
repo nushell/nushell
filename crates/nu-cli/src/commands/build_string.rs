@@ -2,7 +2,7 @@ use crate::prelude::*;
 use nu_errors::ShellError;
 
 use crate::commands::WholeStreamCommand;
-use crate::data::value::format_leaf;
+use nu_data::value::format_leaf;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 
 #[derive(Deserialize)]

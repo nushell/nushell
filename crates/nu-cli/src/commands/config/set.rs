@@ -1,5 +1,5 @@
+use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
-use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
@@ -39,8 +39,8 @@ impl WholeStreamCommand for SubCommand {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Set completion_mode to circular",
-            example: "config set [completion_mode circular]",
+            description: "Set nonzero_exit_errors to true",
+            example: "config set nonzero_exit_errors $true",
             result: None,
         }]
     }
@@ -55,7 +55,7 @@ pub async fn set(
 
     // NOTE: None because we are not loading a new config file, we just want to read from the
     // existing config
-    let mut result = crate::data::config::read(name_span, &None)?;
+    let mut result = nu_data::config::read(name_span, &None)?;
 
     result.insert(key.to_string(), value.clone());
 

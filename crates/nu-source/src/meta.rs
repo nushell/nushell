@@ -465,10 +465,7 @@ impl From<&Span> for Span {
 
 impl From<Option<Span>> for Span {
     fn from(input: Option<Span>) -> Span {
-        match input {
-            None => Span::new(0, 0),
-            Some(span) => span,
-        }
+        input.unwrap_or_else(|| Span::new(0, 0))
     }
 }
 
@@ -529,10 +526,11 @@ impl Span {
     /// let span = Span::new(2, 8);
     ///
     /// assert_eq!(span.contains(5), true);
+    /// assert_eq!(span.contains(8), false);
     /// assert_eq!(span.contains(100), false);
     /// ```
     pub fn contains(&self, pos: usize) -> bool {
-        self.start <= pos && self.end >= pos
+        self.start <= pos && pos < self.end
     }
 
     /// Returns a new Span by merging an earlier Span with the current Span.
@@ -635,9 +633,9 @@ impl Span {
     /// //  make clean
     /// //  ----
     /// //  (0,4)
-    /// //  
+    /// //
     /// //       ^(5,5)
-    ///    
+    ///
     /// let make_span = Span::new(0,4);
     /// let clean_span = Span::new(5,5);
     ///

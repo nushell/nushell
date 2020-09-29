@@ -51,12 +51,12 @@ To build Nu, you will need to use the **latest stable (1.41 or later)** version 
 Required dependencies:
 
 * pkg-config and libssl (only needed on Linux)
-  * on Debian/Ubuntu: `apt install pkg-config libssl-dev`
+  * On Debian/Ubuntu: `apt install pkg-config libssl-dev`
 
 Optional dependencies:
 
 * To use Nu with all possible optional features enabled, you'll also need the following:
-  * on Linux (on Debian/Ubuntu): `apt install libxcb-composite0-dev libx11-dev`
+  * On Linux (on Debian/Ubuntu): `apt install libxcb-composite0-dev libx11-dev`
 
 To install Nu via cargo (make sure you have installed [rustup](https://rustup.rs/) and the latest stable compiler via `rustup install stable`):
 
@@ -67,7 +67,7 @@ cargo install nu
 You can also build Nu yourself with all the bells and whistles (be sure to have installed the [dependencies](https://www.nushell.sh/book/en/installation.html#dependencies) for your platform), once you have checked out this repo with git:
 
 ```bash
-cargo build --workspace --features=stable
+cargo build --workspace --features=extra
 ```
 
 ### Docker
@@ -194,7 +194,7 @@ For example, you can load a .toml file as structured data and explore it:
 > open Cargo.toml
 ────────────────────┬───────────────────────────
  bin                │ [table 18 rows]
- build-dependencies │ [row nu-build serde toml]
+ build-dependencies │ [row serde toml]
  dependencies       │ [row 29 columns]
  dev-dependencies   │ [row nu-test-support]
  features           │ [row 19 columns]
@@ -236,11 +236,11 @@ Here we use the variable `$it` to refer to the value being piped to the external
 
 Nu has early support for configuring the shell. You can refer to the book for a list of [all supported variables](https://www.nushell.sh/book/en/configuration.html).
 
-To set one of these variables, you can use `config --set`. For example:
+To set one of these variables, you can use `config set`. For example:
 
 ```shell
-> config --set [edit_mode "vi"]
-> config --set [path $nu.path]
+> config set edit_mode "vi"
+> config set path $nu.path
 ```
 
 ### Shells

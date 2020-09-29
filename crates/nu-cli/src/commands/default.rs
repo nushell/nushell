@@ -1,5 +1,5 @@
+use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
-use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
@@ -45,7 +45,7 @@ impl WholeStreamCommand for Default {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Give a default 'target' to all file entries",
-            example: "ls -af | default target 'nothing'",
+            example: "ls -la | default target 'nothing'",
             result: None,
         }]
     }
@@ -60,13 +60,13 @@ async fn default(
 
     Ok(input
         .map(move |item| {
-            let should_add = match item {
+            let should_add = matches!(
+                item,
                 Value {
                     value: UntaggedValue::Row(ref r),
                     ..
-                } => r.get_data(&column.item).borrow().is_none(),
-                _ => false,
-            };
+                } if r.get_data(&column.item).borrow().is_none()
+            );
 
             if should_add {
                 match item.insert_data_at_path(&column.item, value.clone()) {

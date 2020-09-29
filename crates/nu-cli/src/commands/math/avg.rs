@@ -1,13 +1,16 @@
+use crate::prelude::*;
+
+use crate::commands::math::reducers::{reducer_for, Reduce};
 use crate::commands::math::utils::run_with_function;
 use crate::commands::WholeStreamCommand;
-use crate::prelude::*;
-use crate::utils::data_processing::{reducer_for, Reduce};
-use bigdecimal::{FromPrimitive, Zero};
+
 use nu_errors::ShellError;
 use nu_protocol::{
     hir::{convert_number_to_u64, Number, Operator},
     Primitive, Signature, UntaggedValue, Value,
 };
+
+use bigdecimal::FromPrimitive;
 
 pub struct SubCommand;
 
@@ -50,8 +53,24 @@ impl WholeStreamCommand for SubCommand {
         vec![Example {
             description: "Get the average of a list of numbers",
             example: "echo [-50 100.0 25] | math avg",
-            result: Some(vec![UntaggedValue::decimal(25).into()]),
+            result: Some(vec![UntaggedValue::decimal_from_float(
+                25.0,
+                Span::unknown(),
+            )
+            .into()]),
         }]
+    }
+}
+
+fn to_byte(value: &Value) -> Option<Value> {
+    match &value.value {
+        UntaggedValue::Primitive(Primitive::Int(num)) => Some(
+            UntaggedValue::Primitive(Primitive::Filesize(convert_number_to_u64(&Number::Int(
+                num.clone(),
+            ))))
+            .into_untagged_value(),
+        ),
+        _ => None,
     }
 }
 
@@ -59,15 +78,43 @@ pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
     let sum = reducer_for(Reduce::Summation);
 
     let number = BigDecimal::from_usize(values.len()).ok_or_else(|| {
-        ShellError::labeled_error(
-            "could not convert to big decimal",
-            "could not convert to big decimal",
-            &name.span,
-        )
+        ShellError::labeled_error("nothing to average", "nothing to average", &name.span)
     })?;
 
     let total_rows = UntaggedValue::decimal(number);
-    let total = sum(Value::zero(), values.to_vec())?;
+
+    let are_bytes = values
+        .get(0)
+        .ok_or_else(|| {
+            ShellError::unexpected("Cannot perform aggregate math operation on empty data")
+        })?
+        .is_filesize();
+
+    let total = if are_bytes {
+        to_byte(&sum(
+            UntaggedValue::int(0).into_untagged_value(),
+            values
+                .to_vec()
+                .iter()
+                .map(|v| match v {
+                    Value {
+                        value: UntaggedValue::Primitive(Primitive::Filesize(num)),
+                        ..
+                    } => UntaggedValue::int(*num as usize).into_untagged_value(),
+                    other => other.clone(),
+                })
+                .collect::<Vec<_>>(),
+        )?)
+        .ok_or_else(|| {
+            ShellError::labeled_error(
+                "could not convert to big decimal",
+                "could not convert to big decimal",
+                &name.span,
+            )
+        })
+    } else {
+        sum(UntaggedValue::int(0).into_untagged_value(), values.to_vec())
+    }?;
 
     match total {
         Value {
@@ -75,7 +122,7 @@ pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
             ..
         } => {
             let left = UntaggedValue::from(Primitive::Int(num.into()));
-            let result = crate::data::value::compute_values(Operator::Divide, &left, &total_rows);
+            let result = nu_data::value::compute_values(Operator::Divide, &left, &total_rows);
 
             match result {
                 Ok(UntaggedValue::Primitive(Primitive::Decimal(result))) => {
@@ -95,11 +142,33 @@ pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
             }
         }
         Value {
+            value: UntaggedValue::Primitive(Primitive::Duration(duration)),
+            ..
+        } => {
+            let left = UntaggedValue::from(Primitive::Duration(duration));
+            let result = nu_data::value::compute_values(Operator::Divide, &left, &total_rows);
+
+            match result {
+                Ok(UntaggedValue::Primitive(Primitive::Duration(result))) => {
+                    Ok(UntaggedValue::duration(result).into_value(name))
+                }
+                Ok(_) => Err(ShellError::labeled_error(
+                    "could not calculate average of non-integer or unrelated types",
+                    "source",
+                    name,
+                )),
+                Err((left_type, right_type)) => Err(ShellError::coerce_error(
+                    left_type.spanned(name.span),
+                    right_type.spanned(name.span),
+                )),
+            }
+        }
+        Value {
             value: UntaggedValue::Primitive(other),
             ..
         } => {
             let left = UntaggedValue::from(other);
-            let result = crate::data::value::compute_values(Operator::Divide, &left, &total_rows);
+            let result = nu_data::value::compute_values(Operator::Divide, &left, &total_rows);
 
             match result {
                 Ok(value) => Ok(value.into_value(name)),

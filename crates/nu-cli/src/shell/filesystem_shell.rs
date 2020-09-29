@@ -1,20 +1,17 @@
 use crate::commands::cd::CdArgs;
 use crate::commands::command::EvaluatedWholeStreamCommandArgs;
 use crate::commands::cp::CopyArgs;
+use crate::commands::du::{DirBuilder, DirInfo};
 use crate::commands::ls::LsArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::move_::mv::Arguments as MvArgs;
 use crate::commands::rm::RemoveArgs;
-use crate::completion;
-use crate::data::dir_entry_dict;
 use crate::path::canonicalize;
 use crate::prelude::*;
-use crate::shell::completer::NuCompleter;
 use crate::shell::shell::Shell;
 use crate::utils::FileStructure;
+use nu_protocol::{TaggedDictBuilder, Value};
 
-use rustyline::completion::FilenameCompleter;
-use rustyline::hint::{Hinter, HistoryHinter};
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
@@ -28,15 +25,12 @@ use futures_util::TryStreamExt;
 use std::os::unix::fs::PermissionsExt;
 
 use nu_errors::ShellError;
-use nu_parser::expand_ndots;
 use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue};
 use nu_source::Tagged;
 
 pub struct FilesystemShell {
     pub(crate) path: String,
     pub(crate) last_path: String,
-    completer: NuCompleter,
-    hinter: HistoryHinter,
 }
 
 impl std::fmt::Debug for FilesystemShell {
@@ -50,18 +44,12 @@ impl Clone for FilesystemShell {
         FilesystemShell {
             path: self.path.clone(),
             last_path: self.path.clone(),
-            completer: NuCompleter {
-                file_completer: FilenameCompleter::new(),
-                commands: self.completer.commands.clone(),
-                homedir: self.homedir(),
-            },
-            hinter: HistoryHinter {},
         }
     }
 }
 
 impl FilesystemShell {
-    pub fn basic(commands: CommandRegistry) -> Result<FilesystemShell, Error> {
+    pub fn basic() -> Result<FilesystemShell, Error> {
         let path = match std::env::current_dir() {
             Ok(path) => path,
             Err(_) => PathBuf::from("/"),
@@ -70,33 +58,15 @@ impl FilesystemShell {
         Ok(FilesystemShell {
             path: path.to_string_lossy().to_string(),
             last_path: path.to_string_lossy().to_string(),
-            completer: NuCompleter {
-                file_completer: FilenameCompleter::new(),
-                commands,
-                homedir: homedir_if_possible(),
-            },
-            hinter: HistoryHinter {},
         })
     }
 
-    pub fn with_location(
-        path: String,
-        commands: CommandRegistry,
-    ) -> Result<FilesystemShell, std::io::Error> {
+    pub fn with_location(path: String) -> Result<FilesystemShell, std::io::Error> {
         let path = canonicalize(std::env::current_dir()?, &path)?;
         let path = path.display().to_string();
         let last_path = path.clone();
 
-        Ok(FilesystemShell {
-            path,
-            last_path,
-            completer: NuCompleter {
-                file_completer: FilenameCompleter::new(),
-                commands,
-                homedir: homedir_if_possible(),
-            },
-            hinter: HistoryHinter {},
-        })
+        Ok(FilesystemShell { path, last_path })
     }
 }
 
@@ -126,9 +96,8 @@ impl Shell for FilesystemShell {
         LsArgs {
             path,
             all,
-            full,
+            long,
             short_names,
-            with_symlink_targets,
             du,
         }: LsArgs,
         name_tag: Tag,
@@ -156,6 +125,8 @@ impl Shell for FilesystemShell {
             }
         };
 
+        let hidden_dir_specified = is_hidden_dir(&path);
+
         let mut paths = glob::glob(&path.to_string_lossy())
             .map_err(|e| ShellError::labeled_error(e.to_string(), "invalid pattern", &p_tag))?
             .peekable();
@@ -168,6 +139,8 @@ impl Shell for FilesystemShell {
             ));
         }
 
+        let mut hidden_dirs = vec![];
+
         // Generated stream: impl Stream<Item = Result<ReturnSuccess, ShellError>
 
         Ok(futures::stream::iter(paths.filter_map(move |path| {
@@ -176,14 +149,21 @@ impl Shell for FilesystemShell {
                 Err(err) => return Some(Err(err)),
             };
 
-            if !all && is_hidden_dir(&path) {
+            if path_contains_hidden_folder(&path, &hidden_dirs) {
+                return None;
+            }
+
+            if !all && !hidden_dir_specified && is_hidden_dir(&path) {
+                if path.is_dir() {
+                    hidden_dirs.push(path);
+                }
                 return None;
             }
 
             let metadata = match std::fs::symlink_metadata(&path) {
                 Ok(metadata) => Some(metadata),
                 Err(e) => {
-                    if e.kind() == ErrorKind::PermissionDenied {
+                    if e.kind() == ErrorKind::PermissionDenied || e.kind() == ErrorKind::Other {
                         None
                     } else {
                         return Some(Err(e.into()));
@@ -195,9 +175,8 @@ impl Shell for FilesystemShell {
                 &path,
                 metadata.as_ref(),
                 name_tag.clone(),
-                full,
+                long,
                 short_names,
-                with_symlink_targets,
                 du,
                 ctrl_c.clone(),
             )
@@ -323,10 +302,7 @@ impl Shell for FilesystemShell {
             ));
         }
 
-        let any_source_is_dir = sources.iter().any(|f| match f {
-            Ok(f) => f.is_dir(),
-            Err(_) => false,
-        });
+        let any_source_is_dir = sources.iter().any(|f| matches!(f, Ok(f) if f.is_dir()));
 
         if any_source_is_dir && !recursive.item {
             return Err(ShellError::labeled_error(
@@ -520,6 +496,7 @@ impl Shell for FilesystemShell {
             recursive,
             trash: _trash,
             permanent: _permanent,
+            force: _force,
         }: RemoveArgs,
         name: Tag,
         path: &str,
@@ -580,7 +557,7 @@ impl Shell for FilesystemShell {
             };
         }
 
-        if all_targets.is_empty() {
+        if all_targets.is_empty() && !_force.item {
             return Err(ShellError::labeled_error(
                 "No valid paths",
                 "no valid paths",
@@ -706,21 +683,56 @@ impl Shell for FilesystemShell {
         name: Span,
         with_encoding: Option<&'static Encoding>,
     ) -> Result<BoxStream<'static, Result<StringOrBinary, ShellError>>, ShellError> {
-        let f = std::fs::File::open(&path).map_err(|e| {
-            ShellError::labeled_error(
-                format!("Error opening file: {:?}", e),
-                "Error opening file",
-                name,
-            )
-        })?;
-        let async_reader = futures::io::AllowStdIo::new(f);
-        let sob_stream = FramedRead::new(async_reader, MaybeTextCodec::new(with_encoding))
-            .map_err(|e| {
-                ShellError::unexpected(format!("AsyncRead failed in open function: {:?}", e))
-            })
-            .into_stream();
+        let metadata = std::fs::metadata(&path);
 
-        Ok(sob_stream.boxed())
+        let read_full = if let Ok(metadata) = metadata {
+            // Arbitrarily capping the file at 32 megs, so we don't try to read large files in all at once
+            metadata.is_file() && metadata.len() < (1024 * 1024 * 32)
+        } else {
+            false
+        };
+
+        if read_full {
+            use futures_codec::Decoder;
+
+            // We should, in theory, be able to read in the whole file as one chunk
+            let buffer = std::fs::read(&path).map_err(|e| {
+                ShellError::labeled_error(
+                    format!("Error opening file: {:?}", e),
+                    "Error opening file",
+                    name,
+                )
+            })?;
+
+            let mut bytes_mut = bytes::BytesMut::from(&buffer[..]);
+
+            let mut codec = MaybeTextCodec::new(with_encoding);
+
+            match codec.decode(&mut bytes_mut).map_err(|e| {
+                ShellError::unexpected(format!("AsyncRead failed in open function: {:?}", e))
+            })? {
+                Some(sb) => Ok(futures::stream::iter(vec![Ok(sb)].into_iter()).boxed()),
+                None => Ok(futures::stream::iter(vec![].into_iter()).boxed()),
+            }
+        } else {
+            // We don't know that this is a finite file, so treat it as a stream
+
+            let f = std::fs::File::open(&path).map_err(|e| {
+                ShellError::labeled_error(
+                    format!("Error opening file: {:?}", e),
+                    "Error opening file",
+                    name,
+                )
+            })?;
+            let async_reader = futures::io::AllowStdIo::new(f);
+            let sob_stream = FramedRead::new(async_reader, MaybeTextCodec::new(with_encoding))
+                .map_err(|e| {
+                    ShellError::unexpected(format!("AsyncRead failed in open function: {:?}", e))
+                })
+                .into_stream();
+
+            Ok(sob_stream.boxed())
+        }
     }
 
     fn save(
@@ -737,56 +749,6 @@ impl Shell for FilesystemShell {
                 name,
             )),
         }
-    }
-}
-
-impl completion::Completer for FilesystemShell {
-    fn complete(
-        &self,
-        line: &str,
-        pos: usize,
-        ctx: &completion::Context<'_>,
-    ) -> Result<(usize, Vec<completion::Suggestion>), ShellError> {
-        let expanded = expand_ndots(&line);
-
-        // Find the first not-matching char position, if there is one
-        let differ_pos = line
-            .chars()
-            .zip(expanded.chars())
-            .enumerate()
-            .find(|(_index, (a, b))| a != b)
-            .map(|(differ_pos, _)| differ_pos);
-
-        let pos = if let Some(differ_pos) = differ_pos {
-            if differ_pos < pos {
-                pos + (expanded.len() - line.len())
-            } else {
-                pos
-            }
-        } else {
-            pos
-        };
-
-        self.completer
-            .complete(&expanded, pos, ctx.as_ref())
-            .map_err(|e| ShellError::untagged_runtime_error(format!("{}", e)))
-            .map(requote)
-            .map(|(pos, completions)| {
-                (
-                    pos,
-                    completions
-                        .into_iter()
-                        .map(|pair| completion::Suggestion {
-                            display: pair.display,
-                            replacement: pair.replacement,
-                        })
-                        .collect(),
-                )
-            })
-    }
-
-    fn hint(&self, line: &str, pos: usize, ctx: &completion::Context<'_>) -> Option<String> {
-        self.hinter.hint(line, pos, ctx.as_ref())
     }
 }
 
@@ -834,17 +796,31 @@ fn move_file(from: TaggedPathBuf, to: TaggedPathBuf) -> Result<(), ShellError> {
         to.push(from_file_name);
     }
 
+    move_item(&from, from_tag, &to)
+}
+
+fn move_item(from: &Path, from_tag: &Tag, to: &Path) -> Result<(), ShellError> {
     // We first try a rename, which is a quick operation. If that doesn't work, we'll try a copy
-    // and remove the old file. This is necessary if we're moving across filesystems.
-    std::fs::rename(&from, &to)
-        .or_else(|_| std::fs::copy(&from, &to).and_then(|_| std::fs::remove_file(&from)))
-        .map_err(|e| {
-            ShellError::labeled_error(
+    // and remove the old file/folder. This is necessary if we're moving across filesystems or devices.
+    std::fs::rename(&from, &to).or_else(|_| {
+        match if from.is_file() {
+            let mut options = fs_extra::file::CopyOptions::new();
+            options.overwrite = true;
+            fs_extra::file::move_file(from, to, &options)
+        } else {
+            let mut options = fs_extra::dir::CopyOptions::new();
+            options.overwrite = true;
+            options.copy_inside = true;
+            fs_extra::dir::move_dir(from, to, &options)
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(ShellError::labeled_error(
                 format!("Could not move {:?} to {:?}. {:}", from, to, e.to_string()),
                 "could not move",
                 from_tag,
-            )
-        })
+            )),
+        }
+    })
 }
 
 fn is_empty_dir(dir: impl AsRef<Path>) -> bool {
@@ -877,24 +853,220 @@ fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
     }
 }
 
-fn requote(
-    items: (usize, Vec<rustyline::completion::Pair>),
-) -> (usize, Vec<rustyline::completion::Pair>) {
-    let mut new_items = Vec::with_capacity(items.1.len());
+#[cfg(unix)]
+use std::os::unix::fs::FileTypeExt;
 
-    for item in items.1 {
-        let unescaped = rustyline::completion::unescape(&item.replacement, Some('\\'));
-        let maybe_quote = if unescaped != item.replacement {
-            "\""
-        } else {
-            ""
-        };
+pub(crate) fn get_file_type(md: &std::fs::Metadata) -> &str {
+    let ft = md.file_type();
+    let mut file_type = "Unknown";
+    if ft.is_dir() {
+        file_type = "Dir";
+    } else if ft.is_file() {
+        file_type = "File";
+    } else if ft.is_symlink() {
+        file_type = "Symlink";
+    } else {
+        #[cfg(unix)]
+        {
+            if ft.is_block_device() {
+                file_type = "Block device";
+            } else if ft.is_char_device() {
+                file_type = "Char device";
+            } else if ft.is_fifo() {
+                file_type = "Pipe";
+            } else if ft.is_socket() {
+                file_type = "Socket";
+            }
+        }
+    }
+    file_type
+}
 
-        new_items.push(rustyline::completion::Pair {
-            display: item.display,
-            replacement: format!("{}{}{}", maybe_quote, unescaped, maybe_quote),
-        });
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn dir_entry_dict(
+    filename: &std::path::Path,
+    metadata: Option<&std::fs::Metadata>,
+    tag: impl Into<Tag>,
+    long: bool,
+    short_name: bool,
+    du: bool,
+    ctrl_c: Arc<AtomicBool>,
+) -> Result<Value, ShellError> {
+    let tag = tag.into();
+    let mut dict = TaggedDictBuilder::new(&tag);
+    // Insert all columns first to maintain proper table alignment if we can't find (or are not allowed to view) any information
+    if long {
+        #[cfg(windows)]
+        {
+            for column in [
+                "name", "type", "target", "readonly", "size", "created", "accessed", "modified",
+            ]
+            .iter()
+            {
+                dict.insert_untagged(*column, UntaggedValue::nothing());
+            }
+        }
+
+        #[cfg(unix)]
+        {
+            for column in [
+                "name",
+                "type",
+                "target",
+                "num_links",
+                "readonly",
+                "mode",
+                "uid",
+                "group",
+                "size",
+                "created",
+                "accessed",
+                "modified",
+            ]
+            .iter()
+            {
+                dict.insert_untagged(&(*column.to_owned()), UntaggedValue::nothing());
+            }
+        }
+    } else {
+        for column in ["name", "type", "target", "size", "modified"].iter() {
+            if *column == "target" {
+                continue;
+            }
+            dict.insert_untagged(*column, UntaggedValue::nothing());
+        }
     }
 
-    (items.0, new_items)
+    let name = if short_name {
+        filename.file_name().and_then(|s| s.to_str())
+    } else {
+        filename.to_str()
+    }
+    .ok_or_else(|| {
+        ShellError::labeled_error(
+            format!("Invalid file name: {:}", filename.to_string_lossy()),
+            "invalid file name",
+            tag,
+        )
+    })?;
+
+    dict.insert_untagged("name", UntaggedValue::string(name));
+
+    if let Some(md) = metadata {
+        dict.insert_untagged("type", get_file_type(md));
+    }
+
+    if long {
+        if let Some(md) = metadata {
+            if md.file_type().is_symlink() {
+                let symlink_target_untagged_value: UntaggedValue;
+                if let Ok(path_to_link) = filename.read_link() {
+                    symlink_target_untagged_value =
+                        UntaggedValue::string(path_to_link.to_string_lossy());
+                } else {
+                    symlink_target_untagged_value =
+                        UntaggedValue::string("Could not obtain target file's path");
+                }
+                dict.insert_untagged("target", symlink_target_untagged_value);
+            }
+        }
+    }
+
+    if long {
+        if let Some(md) = metadata {
+            dict.insert_untagged(
+                "readonly",
+                UntaggedValue::boolean(md.permissions().readonly()),
+            );
+
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::MetadataExt;
+                let mode = md.permissions().mode();
+                dict.insert_untagged(
+                    "mode",
+                    UntaggedValue::string(umask::Mode::from(mode).to_string()),
+                );
+
+                let nlinks = md.nlink();
+                dict.insert_untagged("num_links", UntaggedValue::string(nlinks.to_string()));
+
+                if let Some(user) = users::get_user_by_uid(md.uid()) {
+                    dict.insert_untagged(
+                        "uid",
+                        UntaggedValue::string(user.name().to_string_lossy()),
+                    );
+                }
+
+                if let Some(group) = users::get_group_by_gid(md.gid()) {
+                    dict.insert_untagged(
+                        "group",
+                        UntaggedValue::string(group.name().to_string_lossy()),
+                    );
+                }
+            }
+        }
+    }
+
+    if let Some(md) = metadata {
+        let mut size_untagged_value: UntaggedValue = UntaggedValue::nothing();
+
+        if md.is_dir() {
+            let dir_size: u64 = if du {
+                let params = DirBuilder::new(
+                    Tag {
+                        anchor: None,
+                        span: Span::new(0, 2),
+                    },
+                    None,
+                    false,
+                    None,
+                    false,
+                );
+
+                DirInfo::new(filename, &params, None, ctrl_c).get_size()
+            } else {
+                md.len()
+            };
+
+            size_untagged_value = UntaggedValue::filesize(dir_size);
+        } else if md.is_file() {
+            size_untagged_value = UntaggedValue::filesize(md.len());
+        } else if md.file_type().is_symlink() {
+            if let Ok(symlink_md) = filename.symlink_metadata() {
+                size_untagged_value = UntaggedValue::filesize(symlink_md.len() as u64);
+            }
+        }
+
+        dict.insert_untagged("size", size_untagged_value);
+    }
+
+    if let Some(md) = metadata {
+        if long {
+            if let Ok(c) = md.created() {
+                dict.insert_untagged("created", UntaggedValue::system_date(c));
+            }
+
+            if let Ok(a) = md.accessed() {
+                dict.insert_untagged("accessed", UntaggedValue::system_date(a));
+            }
+        }
+
+        if let Ok(m) = md.modified() {
+            dict.insert_untagged("modified", UntaggedValue::system_date(m));
+        }
+    }
+
+    Ok(dict.into_value())
+}
+
+fn path_contains_hidden_folder(path: &PathBuf, folders: &[PathBuf]) -> bool {
+    let path_str = path.to_str().expect("failed to read path");
+    if folders
+        .iter()
+        .any(|p| path_str.starts_with(&p.to_str().expect("failed to read hidden paths")))
+    {
+        return true;
+    }
+    false
 }

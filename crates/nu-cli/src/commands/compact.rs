@@ -1,5 +1,5 @@
+use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
-use crate::context::CommandRegistry;
 use crate::prelude::*;
 use futures::future;
 use futures::stream::StreamExt;
@@ -37,22 +37,11 @@ impl WholeStreamCommand for Compact {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Filter out all null entries in a list",
-                example: "echo [1 2 $null 3 $null $null] | compact",
-                result: Some(vec![
-                    UntaggedValue::int(1).into(),
-                    UntaggedValue::int(2).into(),
-                    UntaggedValue::int(3).into(),
-                ]),
-            },
-            Example {
-                description: "Filter out all directory entries having no 'target'",
-                example: "ls -af | compact target",
-                result: None,
-            },
-        ]
+        vec![Example {
+            description: "Filter out all directory entries having no 'target'",
+            example: "ls -la | compact target",
+            result: None,
+        }]
     }
 }
 

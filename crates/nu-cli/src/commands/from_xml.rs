@@ -135,7 +135,6 @@ async fn from_xml(
 
 #[cfg(test)]
 mod tests {
-
     use crate::commands::from_xml;
     use indexmap::IndexMap;
     use nu_protocol::{UntaggedValue, Value};

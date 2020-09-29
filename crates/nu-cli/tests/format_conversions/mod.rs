@@ -13,4 +13,5 @@ mod tsv;
 mod url;
 mod vcf;
 mod xlsx;
+mod xml;
 mod yaml;

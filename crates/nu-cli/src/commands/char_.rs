@@ -94,6 +94,35 @@ fn str_to_character(s: &str) -> Option<String> {
         "high_voltage_sign" | "elevated" => Some('\u{26a1}'.to_string()),           // ⚡
         "tilde" | "twiddle" | "squiggly" | "home" => Some("~".into()),              // ~
         "hash" | "hashtag" | "pound_sign" | "sharp" | "root" => Some("#".into()),   // #
+
+        // Weather symbols
+        "sun" => Some("\x1b[33;1m\u{2600}\x1b[0m".to_string()), // Yellow Bold ☀
+        "moon" => Some("\x1b[36m\u{263d}\x1b[0m".to_string()),  // Cyan ☽
+        "clouds" => Some("\x1b[37;1m\u{2601}\x1b[0m".to_string()), // White Bold ☁
+        "rain" => Some("\x1b[37;1m\u{2614}\x1b[0m".to_string()), // White Bold ☔
+        "fog" => Some("\x1b[37;1m\u{2592}\x1b[0m".to_string()), // White Bold ▒
+        "mist" => Some("\x1b[34m\u{2591}\x1b[0m".to_string()),  // Blue ░
+        "haze" => Some("\x1b[33m\u{2591}\x1b[0m".to_string()),  // Yellow ░
+        "snow" => Some("\x1b[37;1m\u{2744}\x1b[0m".to_string()), // White Bold ❄
+        "thunderstorm" => Some("\x1b[33;1m\u{26a1}\x1b[0m".to_string()), // Yellow Bold ⚡
+
+        // Reference for ansi codes https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
+        // Another good reference http://ascii-table.com/ansi-escape-sequences.php
+
+        // For setting title like `echo [$(char title) $(pwd) $(char bel)] | str collect`
+        "title" => Some("\x1b]2;".to_string()), // ESC]2; xterm sets window title
+        "bel" => Some('\x07'.to_string()),      // Terminal Bell
+        "backspace" => Some('\x08'.to_string()), // Backspace
+
+        // Ansi Erase Sequences
+        "clear_screen" => Some("\x1b[J".to_string()), // clears the screen
+        "clear_screen_from_cursor_to_end" => Some("\x1b[0J".to_string()), // clears from cursor until end of screen
+        "clear_screen_from_cursor_to_beginning" => Some("\x1b[1J".to_string()), // clears from cursor to beginning of screen
+        "cls" | "clear_entire_screen" => Some("\x1b[2J".to_string()), // clears the entire screen
+        "erase_line" => Some("\x1b[K".to_string()),                   // clears the current line
+        "erase_line_from_cursor_to_end" => Some("\x1b[0K".to_string()), // clears from cursor to end of line
+        "erase_line_from_cursor_to_beginning" => Some("\x1b[1K".to_string()), // clears from cursor to start of line
+        "erase_entire_line" => Some("\x1b[2K".to_string()),                   // clears entire line
         _ => None,
     }
 }

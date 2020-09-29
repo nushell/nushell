@@ -4,21 +4,21 @@ description = "A system info plugin for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu_plugin_sys"
-version = "0.16.1"
+version = "0.20.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-errors = {path = "../nu-errors", version = "0.16.1"}
-nu-plugin = {path = "../nu-plugin", version = "0.16.1"}
-nu-protocol = {path = "../nu-protocol", version = "0.16.1"}
-nu-source = {path = "../nu-source", version = "0.16.1"}
+nu-errors = {path = "../nu-errors", version = "0.20.0"}
+nu-plugin = {path = "../nu-plugin", version = "0.20.0"}
+nu-protocol = {path = "../nu-protocol", version = "0.20.0"}
+nu-source = {path = "../nu-source", version = "0.20.0"}
 
-battery = "0.7.5"
-futures = {version = "0.3", features = ["compat", "io-compat"]}
+battery = "0.7.6"
+futures = {version = "0.3.5", features = ["compat", "io-compat"]}
 futures-util = "0.3.5"
-num-bigint = "0.2.6"
+num-bigint = "0.3.0"
 
 [dependencies.heim]
 default-features = false
@@ -27,4 +27,3 @@ version = "0.1.0-beta.3"
 features = ["host", "cpu", "memory", "disk", "net", "sensors"]
 
 [build-dependencies]
-nu-build = {version = "0.16.1", path = "../nu-build"}

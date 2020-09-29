@@ -14,7 +14,7 @@ fn by_column() {
             | skip 1
             | first 1
             | get Column1
-            | trim
+            | str trim
             | echo $it
         "#
     ));
@@ -36,13 +36,30 @@ fn by_invalid_column() {
             | skip 1
             | first 1
             | get Column1
-            | trim
+            | str trim
             | echo $it
         "#
     ));
 
     assert!(actual.err.contains("Can not find column to sort by"));
     assert!(actual.err.contains("invalid column"));
+}
+
+#[test]
+fn by_invalid_types() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            open cargo_sample.toml --raw
+            | echo [1 "foo"]
+            | sort-by
+        "#
+    ));
+
+    assert!(actual.err.contains("Not all values can be compared"));
+    assert!(actual
+        .err
+        .contains("Unable to sort values, as \"integer\" cannot compare against \"string\""));
 }
 
 #[test]

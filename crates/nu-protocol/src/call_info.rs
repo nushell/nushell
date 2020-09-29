@@ -69,10 +69,7 @@ impl EvaluatedArgs {
 
     /// Return true if the set of named arguments contains the name provided
     pub fn has(&self, name: &str) -> bool {
-        match &self.named {
-            None => false,
-            Some(named) => named.contains_key(name),
-        }
+        matches!(&self.named, Some(named) if named.contains_key(name))
     }
 
     /// Gets the corresponding Value for the named argument given, if possible

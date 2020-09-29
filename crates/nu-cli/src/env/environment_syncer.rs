@@ -1,14 +1,13 @@
-use crate::context::Context;
-use crate::data::config::{Conf, NuConfig};
-
 use crate::env::environment::{Env, Environment};
-use nu_source::Text;
+use crate::evaluation_context::EvaluationContext;
+use nu_data::config::{Conf, NuConfig};
+use nu_errors::ShellError;
 use parking_lot::Mutex;
 use std::sync::Arc;
 
 pub struct EnvironmentSyncer {
     pub env: Arc<Mutex<Box<Environment>>>,
-    pub config: Arc<Box<dyn Conf>>,
+    pub config: Arc<Mutex<Box<dyn Conf>>>,
 }
 
 impl Default for EnvironmentSyncer {
@@ -18,38 +17,60 @@ impl Default for EnvironmentSyncer {
 }
 
 impl EnvironmentSyncer {
+    pub fn with_config(config: Box<dyn Conf>) -> Self {
+        EnvironmentSyncer {
+            env: Arc::new(Mutex::new(Box::new(Environment::new()))),
+            config: Arc::new(Mutex::new(config)),
+        }
+    }
+
     pub fn new() -> EnvironmentSyncer {
         EnvironmentSyncer {
             env: Arc::new(Mutex::new(Box::new(Environment::new()))),
-            config: Arc::new(Box::new(NuConfig::new())),
+            config: Arc::new(Mutex::new(Box::new(NuConfig::new()))),
         }
     }
 
     #[cfg(test)]
     pub fn set_config(&mut self, config: Box<dyn Conf>) {
-        self.config = Arc::new(config);
+        self.config = Arc::new(Mutex::new(config));
+    }
+
+    pub fn get_config(&self) -> Box<dyn Conf> {
+        let config = self.config.lock();
+
+        config.clone_box()
     }
 
     pub fn load_environment(&mut self) {
-        let config = self.config.clone();
+        let config = self.config.lock();
 
         self.env = Arc::new(Mutex::new(Box::new(Environment::from_config(&*config))));
     }
 
-    pub fn reload(&mut self) {
-        self.config.reload();
-
-        let mut environment = self.env.lock();
-        environment.morph(&*self.config);
+    pub fn did_config_change(&mut self) -> bool {
+        let config = self.config.lock();
+        config.is_modified().unwrap_or_else(|_| false)
     }
 
-    pub fn sync_env_vars(&mut self, ctx: &mut Context) {
+    pub fn reload(&mut self) {
+        let mut config = self.config.lock();
+        config.reload();
+
+        let mut environment = self.env.lock();
+        environment.morph(&*config);
+    }
+
+    pub fn autoenv(&self, ctx: &mut EvaluationContext) -> Result<(), ShellError> {
+        let mut environment = self.env.lock();
+        let auto = environment.autoenv(ctx.user_recently_used_autoenv_untrust);
+        ctx.user_recently_used_autoenv_untrust = false;
+        auto
+    }
+
+    pub fn sync_env_vars(&mut self, ctx: &mut EvaluationContext) {
         let mut environment = self.env.lock();
 
-        if let Err(e) = environment.autoenv(ctx.user_recently_used_autoenv_untrust) {
-            crate::cli::print_err(e, &Text::from(""));
-        }
-        ctx.user_recently_used_autoenv_untrust = false;
         if environment.env().is_some() {
             for (name, value) in ctx.with_host(|host| host.vars()) {
                 if name != "path" && name != "PATH" {
@@ -78,7 +99,7 @@ impl EnvironmentSyncer {
         }
     }
 
-    pub fn sync_path_vars(&mut self, ctx: &mut Context) {
+    pub fn sync_path_vars(&mut self, ctx: &mut EvaluationContext) {
         let mut environment = self.env.lock();
 
         if environment.path().is_some() {
@@ -110,7 +131,7 @@ impl EnvironmentSyncer {
     }
 
     #[cfg(test)]
-    pub fn clear_env_vars(&mut self, ctx: &mut Context) {
+    pub fn clear_env_vars(&mut self, ctx: &mut EvaluationContext) {
         for (key, _value) in ctx.with_host(|host| host.vars()) {
             if key != "path" && key != "PATH" {
                 ctx.with_host(|host| host.env_rm(std::ffi::OsString::from(key)));
@@ -119,7 +140,7 @@ impl EnvironmentSyncer {
     }
 
     #[cfg(test)]
-    pub fn clear_path_var(&mut self, ctx: &mut Context) {
+    pub fn clear_path_var(&mut self, ctx: &mut EvaluationContext) {
         ctx.with_host(|host| host.env_rm(std::ffi::OsString::from("PATH")));
     }
 }
@@ -127,10 +148,10 @@ impl EnvironmentSyncer {
 #[cfg(test)]
 mod tests {
     use super::EnvironmentSyncer;
-    use crate::context::Context;
-    use crate::data::config::tests::FakeConfig;
     use crate::env::environment::Env;
+    use crate::evaluation_context::EvaluationContext;
     use indexmap::IndexMap;
+    use nu_data::config::tests::FakeConfig;
     use nu_errors::ShellError;
     use nu_test_support::fs::Stub::FileWithContent;
     use nu_test_support::playground::Playground;
@@ -138,10 +159,117 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::Arc;
 
+    // This test fails on Linux.
+    // It's possible it has something to do with the fake configuration
+    // TODO: More tests.
+    #[cfg(not(target_os = "linux"))]
+    #[test]
+    fn syncs_env_if_new_env_entry_is_added_to_an_existing_configuration() -> Result<(), ShellError>
+    {
+        let mut ctx = EvaluationContext::basic()?;
+        ctx.host = Arc::new(Mutex::new(Box::new(crate::env::host::FakeHost::new())));
+
+        let mut expected = IndexMap::new();
+        expected.insert(
+            "SHELL".to_string(),
+            "/usr/bin/you_already_made_the_nu_choice".to_string(),
+        );
+
+        Playground::setup("syncs_env_from_config_updated_test_1", |dirs, sandbox| {
+            sandbox.with_files(vec![
+                FileWithContent(
+                    "configuration.toml",
+                    r#"
+                    [env]
+                    SHELL = "/usr/bin/you_already_made_the_nu_choice"
+                "#,
+                ),
+                FileWithContent(
+                    "updated_configuration.toml",
+                    r#"
+                    [env]
+                    SHELL = "/usr/bin/you_already_made_the_nu_choice"
+                    USER = "NUNO"
+                "#,
+                ),
+            ]);
+
+            let file = dirs.test().join("configuration.toml");
+            let new_file = dirs.test().join("updated_configuration.toml");
+
+            let fake_config = FakeConfig::new(&file);
+            let mut actual = EnvironmentSyncer::with_config(Box::new(fake_config.clone()));
+
+            // Here, the environment variables from the current session
+            // are cleared since we will load and set them from the
+            // configuration file
+            actual.clear_env_vars(&mut ctx);
+
+            // Nu loads the environment variables from the configuration file
+            actual.load_environment();
+            actual.sync_env_vars(&mut ctx);
+
+            {
+                let environment = actual.env.lock();
+                let mut vars = IndexMap::new();
+                environment
+                    .env()
+                    .expect("No variables in the environment.")
+                    .row_entries()
+                    .for_each(|(name, value)| {
+                        vars.insert(
+                            name.to_string(),
+                            value.as_string().expect("Couldn't convert to string"),
+                        );
+                    });
+
+                for k in expected.keys() {
+                    assert!(vars.contains_key(k));
+                }
+            }
+
+            assert!(!actual.did_config_change());
+
+            // Replacing the newer configuration file to the existing one.
+            let new_config_contents = std::fs::read_to_string(new_file).expect("Failed");
+            std::fs::write(&file, &new_config_contents).expect("Failed");
+
+            // A change has happened
+            assert!(actual.did_config_change());
+
+            // Syncer should reload and add new envs
+            actual.reload();
+            actual.sync_env_vars(&mut ctx);
+
+            expected.insert("USER".to_string(), "NUNO".to_string());
+
+            {
+                let environment = actual.env.lock();
+                let mut vars = IndexMap::new();
+                environment
+                    .env()
+                    .expect("No variables in the environment.")
+                    .row_entries()
+                    .for_each(|(name, value)| {
+                        vars.insert(
+                            name.to_string(),
+                            value.as_string().expect("Couldn't convert to string"),
+                        );
+                    });
+
+                for k in expected.keys() {
+                    assert!(vars.contains_key(k));
+                }
+            }
+        });
+
+        Ok(())
+    }
+
     #[test]
     fn syncs_env_if_new_env_entry_in_session_is_not_in_configuration_file() -> Result<(), ShellError>
     {
-        let mut ctx = Context::basic()?;
+        let mut ctx = EvaluationContext::basic()?;
         ctx.host = Arc::new(Mutex::new(Box::new(crate::env::host::FakeHost::new())));
 
         let mut expected = IndexMap::new();
@@ -240,7 +368,7 @@ mod tests {
 
     #[test]
     fn nu_envs_have_higher_priority_and_does_not_get_overwritten() -> Result<(), ShellError> {
-        let mut ctx = Context::basic()?;
+        let mut ctx = EvaluationContext::basic()?;
         ctx.host = Arc::new(Mutex::new(Box::new(crate::env::host::FakeHost::new())));
 
         let mut expected = IndexMap::new();
@@ -316,7 +444,7 @@ mod tests {
     #[test]
     fn syncs_path_if_new_path_entry_in_session_is_not_in_configuration_file(
     ) -> Result<(), ShellError> {
-        let mut ctx = Context::basic()?;
+        let mut ctx = EvaluationContext::basic()?;
         ctx.host = Arc::new(Mutex::new(Box::new(crate::env::host::FakeHost::new())));
 
         let expected = std::env::join_paths(vec![
@@ -403,7 +531,7 @@ mod tests {
     #[test]
     fn nu_paths_have_higher_priority_and_new_paths_get_appended_to_the_end(
     ) -> Result<(), ShellError> {
-        let mut ctx = Context::basic()?;
+        let mut ctx = EvaluationContext::basic()?;
         ctx.host = Arc::new(Mutex::new(Box::new(crate::env::host::FakeHost::new())));
 
         let expected = std::env::join_paths(vec![

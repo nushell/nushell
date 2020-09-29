@@ -1,105 +1,31 @@
 use crate::commands::classified::block::run_block;
 use crate::commands::classified::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
-use crate::commands::plugin::JsonRpc;
-use crate::commands::plugin::{PluginCommand, PluginSink};
-use crate::commands::whole_stream_command;
-use crate::context::Context;
-use crate::git::current_branch;
+use crate::evaluation_context::EvaluationContext;
 use crate::path::canonicalize;
 use crate::prelude::*;
+#[cfg(feature = "rustyline-support")]
+use crate::shell::Helper;
 use crate::EnvironmentSyncer;
 use futures_codec::FramedRead;
-use nu_errors::{ProximateShellError, ShellDiagnostic, ShellError};
+use nu_errors::ShellError;
 use nu_protocol::hir::{ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments};
-use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
-#[allow(unused)]
-use nu_source::Tagged;
+use nu_protocol::{Primitive, ReturnSuccess, Scope, UntaggedValue, Value};
 
 use log::{debug, trace};
-use rustyline::error::ReadlineError;
+#[cfg(feature = "rustyline-support")]
 use rustyline::{
-    self, config::Configurer, config::EditMode, At, Cmd, ColorMode, CompletionType, Config, Editor,
-    KeyPress, Movement, Word,
+    self,
+    config::Configurer,
+    config::{ColorMode, CompletionType, Config},
+    error::ReadlineError,
+    At, Cmd, Editor, KeyPress, Movement, Word,
 };
 use std::error::Error;
-use std::io::{BufRead, BufReader, Write};
 use std::iter::Iterator;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 
-use rayon::prelude::*;
-
-fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), ShellError> {
-    let mut child = std::process::Command::new(path)
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .spawn()
-        .expect("Failed to spawn child process");
-
-    let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-    let stdout = child.stdout.as_mut().expect("Failed to open stdout");
-
-    let mut reader = BufReader::new(stdout);
-
-    let request = JsonRpc::new("config", Vec::<Value>::new());
-    let request_raw = serde_json::to_string(&request)?;
-    stdin.write_all(format!("{}\n", request_raw).as_bytes())?;
-    let path = dunce::canonicalize(path)?;
-
-    let mut input = String::new();
-    let result = match reader.read_line(&mut input) {
-        Ok(count) => {
-            trace!(target: "nu::load", "plugin infrastructure -> config response");
-            trace!(target: "nu::load", "plugin infrastructure -> processing response ({} bytes)", count);
-            trace!(target: "nu::load", "plugin infrastructure -> response: {}", input);
-
-            let response = serde_json::from_str::<JsonRpc<Result<Signature, ShellError>>>(&input);
-            match response {
-                Ok(jrpc) => match jrpc.params {
-                    Ok(params) => {
-                        let fname = path.to_string_lossy();
-
-                        trace!(target: "nu::load", "plugin infrastructure -> processing {:?}", params);
-
-                        let name = params.name.clone();
-                        let fname = fname.to_string();
-
-                        if context.get_command(&name).is_some() {
-                            trace!(target: "nu::load", "plugin infrastructure -> {:?} already loaded.", &name);
-                        } else if params.is_filter {
-                            context.add_commands(vec![whole_stream_command(PluginCommand::new(
-                                name, fname, params,
-                            ))]);
-                        } else {
-                            context.add_commands(vec![whole_stream_command(PluginSink::new(
-                                name, fname, params,
-                            ))]);
-                        }
-                        Ok(())
-                    }
-                    Err(e) => Err(e),
-                },
-                Err(e) => {
-                    trace!(target: "nu::load", "plugin infrastructure -> incompatible {:?}", input);
-                    Err(ShellError::untagged_runtime_error(format!(
-                        "Error: {:?}",
-                        e
-                    )))
-                }
-            }
-        }
-        Err(e) => Err(ShellError::untagged_runtime_error(format!(
-            "Error: {:?}",
-            e
-        ))),
-    };
-
-    let _ = child.wait();
-
-    result
-}
-
-fn search_paths() -> Vec<std::path::PathBuf> {
+pub fn search_paths() -> Vec<std::path::PathBuf> {
     use std::env;
 
     let mut search_paths = Vec::new();
@@ -111,7 +37,7 @@ fn search_paths() -> Vec<std::path::PathBuf> {
         }
     }
 
-    if let Ok(config) = crate::data::config::config(Tag::unknown()) {
+    if let Ok(config) = nu_data::config::config(Tag::unknown()) {
         if let Some(plugin_dirs) = config.get("plugin_dirs") {
             if let Value {
                 value: UntaggedValue::Table(pipelines),
@@ -130,119 +56,16 @@ fn search_paths() -> Vec<std::path::PathBuf> {
     search_paths
 }
 
-pub fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
-    let opts = glob::MatchOptions {
-        case_sensitive: false,
-        require_literal_separator: false,
-        require_literal_leading_dot: false,
-    };
-
-    for path in search_paths() {
-        let mut pattern = path.to_path_buf();
-
-        pattern.push(std::path::Path::new("nu_plugin_[a-z0-9][a-z0-9]*"));
-
-        let plugs: Vec<_> = glob::glob_with(&pattern.to_string_lossy(), opts)?
-            .filter_map(|x| x.ok())
-            .collect();
-
-        let _failures: Vec<_> = plugs
-            .par_iter()
-            .map(|path| {
-                let bin_name = {
-                    if let Some(name) = path.file_name() {
-                        name.to_str().unwrap_or("")
-                    } else {
-                        ""
-                    }
-                };
-
-                let is_valid_name = {
-                    #[cfg(windows)]
-                    {
-                        bin_name
-                            .chars()
-                            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
-                    }
-
-                    #[cfg(not(windows))]
-                    {
-                        bin_name
-                            .chars()
-                            .all(|c| c.is_ascii_alphanumeric() || c == '_')
-                    }
-                };
-
-                let is_executable = {
-                    #[cfg(windows)]
-                    {
-                        bin_name.ends_with(".exe") || bin_name.ends_with(".bat")
-                    }
-
-                    #[cfg(not(windows))]
-                    {
-                        true
-                    }
-                };
-
-                if is_valid_name && is_executable {
-                    trace!(target: "nu::load", "plugin infrastructure -> Trying {:?}", path.display());
-
-                    // we are ok if this plugin load fails
-                    let _ = load_plugin(&path, &mut context.clone());
-                }
-            })
-            .collect();
-    }
-
-    Ok(())
-}
-
-pub struct History;
-
-impl History {
-    pub fn path() -> PathBuf {
-        const FNAME: &str = "history.txt";
-        config::user_data()
-            .map(|mut p| {
-                p.push(FNAME);
-                p
-            })
-            .unwrap_or_else(|_| PathBuf::from(FNAME))
-    }
-}
-
-#[allow(dead_code)]
-fn create_default_starship_config() -> Option<toml::Value> {
-    let mut map = toml::value::Table::new();
-    map.insert("add_newline".into(), toml::Value::Boolean(false));
-
-    let mut git_branch = toml::value::Table::new();
-    git_branch.insert("symbol".into(), toml::Value::String("📙 ".into()));
-    map.insert("git_branch".into(), toml::Value::Table(git_branch));
-
-    let mut git_status = toml::value::Table::new();
-    git_status.insert("disabled".into(), toml::Value::Boolean(true));
-    map.insert("git_status".into(), toml::Value::Table(git_status));
-
-    Some(toml::Value::Table(map))
-}
-
-pub fn create_default_context(
-    syncer: &mut crate::EnvironmentSyncer,
-    interactive: bool,
-) -> Result<Context, Box<dyn Error>> {
-    syncer.load_environment();
-
-    let mut context = Context::basic()?;
-    syncer.sync_env_vars(&mut context);
-    syncer.sync_path_vars(&mut context);
+pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Box<dyn Error>> {
+    let mut context = EvaluationContext::basic()?;
 
     {
         use crate::commands::*;
 
         context.add_commands(vec![
+            whole_stream_command(NuPlugin),
             // System/file operations
+            whole_stream_command(Exec),
             whole_stream_command(Pwd),
             whole_stream_command(Ls),
             whole_stream_command(Du),
@@ -263,18 +86,22 @@ pub fn create_default_context(
             whole_stream_command(Touch),
             whole_stream_command(Cpy),
             whole_stream_command(Date),
+            whole_stream_command(DateNow),
+            whole_stream_command(DateUTC),
+            whole_stream_command(DateFormat),
             whole_stream_command(Cal),
             whole_stream_command(Mkdir),
             whole_stream_command(Mv),
             whole_stream_command(Kill),
             whole_stream_command(Version),
             whole_stream_command(Clear),
-            whole_stream_command(What),
+            whole_stream_command(Describe),
             whole_stream_command(Which),
             whole_stream_command(Debug),
             whole_stream_command(Alias),
             whole_stream_command(WithEnv),
             whole_stream_command(Do),
+            whole_stream_command(Sleep),
             // Statistics
             whole_stream_command(Size),
             whole_stream_command(Count),
@@ -296,7 +123,6 @@ pub fn create_default_context(
             whole_stream_command(SplitRow),
             whole_stream_command(SplitChars),
             whole_stream_command(Lines),
-            whole_stream_command(Trim),
             whole_stream_command(Echo),
             whole_stream_command(Parse),
             whole_stream_command(Str),
@@ -310,10 +136,21 @@ pub fn create_default_context(
             whole_stream_command(StrSubstring),
             whole_stream_command(StrSet),
             whole_stream_command(StrToDatetime),
+            whole_stream_command(StrContains),
+            whole_stream_command(StrIndexOf),
             whole_stream_command(StrTrim),
+            whole_stream_command(StrTrimLeft),
+            whole_stream_command(StrTrimRight),
+            whole_stream_command(StrStartsWith),
+            whole_stream_command(StrEndsWith),
             whole_stream_command(StrCollect),
             whole_stream_command(StrLength),
             whole_stream_command(StrReverse),
+            whole_stream_command(StrCamelCase),
+            whole_stream_command(StrPascalCase),
+            whole_stream_command(StrKebabCase),
+            whole_stream_command(StrSnakeCase),
+            whole_stream_command(StrScreamingSnakeCase),
             whole_stream_command(BuildString),
             whole_stream_command(Ansi),
             whole_stream_command(Char),
@@ -324,6 +161,7 @@ pub fn create_default_context(
             whole_stream_command(Get),
             whole_stream_command(Update),
             whole_stream_command(Insert),
+            whole_stream_command(IntoInt),
             whole_stream_command(SplitBy),
             // Row manipulation
             whole_stream_command(Reverse),
@@ -352,6 +190,8 @@ pub fn create_default_context(
             whole_stream_command(Rename),
             whole_stream_command(Uniq),
             whole_stream_command(Each),
+            whole_stream_command(EachGroup),
+            whole_stream_command(EachWindow),
             whole_stream_command(IsEmpty),
             // Table manipulation
             whole_stream_command(Move),
@@ -360,6 +200,7 @@ pub fn create_default_context(
             whole_stream_command(Wrap),
             whole_stream_command(Pivot),
             whole_stream_command(Headers),
+            whole_stream_command(Reduce),
             // Data processing
             whole_stream_command(Histogram),
             whole_stream_command(Autoenv),
@@ -375,6 +216,7 @@ pub fn create_default_context(
             whole_stream_command(MathStddev),
             whole_stream_command(MathSummation),
             whole_stream_command(MathVariance),
+            whole_stream_command(MathProduct),
             // File format output
             whole_stream_command(To),
             whole_stream_command(ToCSV),
@@ -385,6 +227,7 @@ pub fn create_default_context(
             whole_stream_command(ToTSV),
             whole_stream_command(ToURL),
             whole_stream_command(ToYAML),
+            whole_stream_command(ToXML),
             // File format input
             whole_stream_command(From),
             whole_stream_command(FromCSV),
@@ -410,9 +253,25 @@ pub fn create_default_context(
             whole_stream_command(RandomDice),
             #[cfg(feature = "uuid_crate")]
             whole_stream_command(RandomUUID),
+            whole_stream_command(RandomInteger),
+            // Path
+            whole_stream_command(PathBasename),
+            whole_stream_command(PathCommand),
+            whole_stream_command(PathDirname),
+            whole_stream_command(PathExists),
+            whole_stream_command(PathExpand),
+            whole_stream_command(PathExtension),
+            whole_stream_command(PathFilestem),
+            whole_stream_command(PathType),
+            // Url
+            whole_stream_command(UrlCommand),
+            whole_stream_command(UrlScheme),
+            whole_stream_command(UrlPath),
+            whole_stream_command(UrlHost),
+            whole_stream_command(UrlQuery),
         ]);
 
-        #[cfg(feature = "clipboard")]
+        #[cfg(feature = "clipboard-cli")]
         {
             context.add_commands(vec![whole_stream_command(crate::commands::clip::Clip)]);
         }
@@ -425,129 +284,83 @@ pub async fn run_vec_of_pipelines(
     pipelines: Vec<String>,
     redirect_stdin: bool,
 ) -> Result<(), Box<dyn Error>> {
-    let mut syncer = crate::EnvironmentSyncer::new();
-    let mut context = create_default_context(&mut syncer, false)?;
+    let mut syncer = EnvironmentSyncer::new();
+    let mut context = create_default_context(false)?;
+    let config = syncer.get_config();
 
-    let _ = crate::load_plugins(&mut context);
+    context.configure(&config, |_, ctx| {
+        syncer.load_environment();
+        syncer.sync_env_vars(ctx);
+        syncer.sync_path_vars(ctx);
 
-    #[cfg(feature = "ctrlc")]
-    {
-        let cc = context.ctrl_c.clone();
-
-        ctrlc::set_handler(move || {
-            cc.store(true, Ordering::SeqCst);
-        })
-        .expect("Error setting Ctrl-C handler");
-
-        if context.ctrl_c.load(Ordering::SeqCst) {
-            context.ctrl_c.store(false, Ordering::SeqCst);
+        if let Err(reason) = syncer.autoenv(ctx) {
+            print_err(reason, &Text::from(""));
         }
-    }
 
-    // before we start up, let's run our startup commands
-    if let Ok(config) = crate::data::config::config(Tag::unknown()) {
-        if let Some(commands) = config.get("startup") {
-            match commands {
-                Value {
-                    value: UntaggedValue::Table(pipelines),
-                    ..
-                } => {
-                    for pipeline in pipelines {
-                        if let Ok(pipeline_string) = pipeline.as_string() {
-                            let _ = run_pipeline_standalone(
-                                pipeline_string,
-                                false,
-                                &mut context,
-                                false,
-                            )
-                            .await;
-                        }
-                    }
-                }
-                _ => {
-                    println!("warning: expected a table of pipeline strings as startup commands");
-                }
-            }
-        }
-    }
+        let _ = register_plugins(ctx);
+        let _ = configure_ctrl_c(ctx);
+    });
+
+    let _ = run_startup_commands(&mut context, &config).await;
 
     for pipeline in pipelines {
         run_pipeline_standalone(pipeline, redirect_stdin, &mut context, true).await?;
     }
+
     Ok(())
 }
 
-pub async fn run_pipeline_standalone(
-    pipeline: String,
-    redirect_stdin: bool,
-    context: &mut Context,
-    exit_on_error: bool,
-) -> Result<(), Box<dyn Error>> {
-    let line = process_line(Ok(pipeline), context, redirect_stdin, false).await;
-
-    match line {
-        LineResult::Success(line) => {
-            let error_code = {
-                let errors = context.current_errors.clone();
-                let errors = errors.lock();
-
-                if errors.len() > 0 {
-                    1
-                } else {
-                    0
-                }
-            };
-
-            context.maybe_print_errors(Text::from(line));
-            if error_code != 0 && exit_on_error {
-                std::process::exit(error_code);
-            }
+#[cfg(feature = "rustyline-support")]
+fn convert_rustyline_result_to_string(input: Result<String, ReadlineError>) -> LineResult {
+    match input {
+        Ok(s) => LineResult::Success(s),
+        Err(ReadlineError::Interrupted) => LineResult::CtrlC,
+        Err(ReadlineError::Eof) => LineResult::CtrlD,
+        Err(err) => {
+            outln!("Error: {:?}", err);
+            LineResult::Break
         }
-
-        LineResult::Error(line, err) => {
-            context.with_host(|_host| {
-                print_err(err, &Text::from(line.clone()));
-            });
-
-            context.maybe_print_errors(Text::from(line));
-            if exit_on_error {
-                std::process::exit(1);
-            }
-        }
-
-        _ => {}
     }
-
-    Ok(())
 }
 
 /// The entry point for the CLI. Will register all known internal commands, load experimental commands, load plugins, then prepare the prompt and line reader for input.
-pub async fn cli(
-    mut syncer: EnvironmentSyncer,
-    mut context: Context,
-) -> Result<(), Box<dyn Error>> {
-    #[cfg(windows)]
-    const DEFAULT_COMPLETION_MODE: CompletionType = CompletionType::Circular;
-    #[cfg(not(windows))]
-    const DEFAULT_COMPLETION_MODE: CompletionType = CompletionType::List;
+#[cfg(feature = "rustyline-support")]
+pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
+    let mut syncer = EnvironmentSyncer::new();
+    let configuration = syncer.get_config();
 
-    let _ = load_plugins(&mut context);
+    let mut rl = default_rustyline_editor_configuration();
 
-    let config = Config::builder().color_mode(ColorMode::Forced).build();
-    let mut rl: Editor<_> = Editor::with_config(config);
+    context.configure(&configuration, |config, ctx| {
+        syncer.load_environment();
+        syncer.sync_env_vars(ctx);
+        syncer.sync_path_vars(ctx);
 
-    // add key bindings to move over a whole word with Ctrl+ArrowLeft and Ctrl+ArrowRight
-    rl.bind_sequence(
-        KeyPress::ControlLeft,
-        Cmd::Move(Movement::BackwardWord(1, Word::Vi)),
-    );
-    rl.bind_sequence(
-        KeyPress::ControlRight,
-        Cmd::Move(Movement::ForwardWord(1, At::AfterEnd, Word::Vi)),
-    );
+        if let Err(reason) = syncer.autoenv(ctx) {
+            print_err(reason, &Text::from(""));
+        }
 
-    if let Err(e) = crate::keybinding::load_keybindings(&mut rl) {
-        println!("Error loading keybindings: {:?}", e);
+        let _ = configure_ctrl_c(ctx);
+        let _ = configure_rustyline_editor(&mut rl, config);
+
+        let helper = Some(nu_line_editor_helper(ctx, config));
+        rl.set_helper(helper);
+    });
+
+    let _ = run_startup_commands(&mut context, &configuration).await;
+
+    let history_path = crate::commands::history::history_path(&configuration);
+    let _ = rl.load_history(&history_path);
+
+    let skip_welcome_message = configuration
+        .var("skip_welcome_message")
+        .map(|x| x.is_true())
+        .unwrap_or(false);
+    if !skip_welcome_message {
+        println!(
+            "Welcome to Nushell {} (type 'help' for more info)",
+            clap::crate_version!()
+        );
     }
 
     #[cfg(windows)]
@@ -555,43 +368,7 @@ pub async fn cli(
         let _ = ansi_term::enable_ansi_support();
     }
 
-    #[cfg(feature = "ctrlc")]
-    {
-        let cc = context.ctrl_c.clone();
-
-        ctrlc::set_handler(move || {
-            cc.store(true, Ordering::SeqCst);
-        })
-        .expect("Error setting Ctrl-C handler");
-    }
     let mut ctrlcbreak = false;
-
-    // before we start up, let's run our startup commands
-    if let Ok(config) = crate::data::config::config(Tag::unknown()) {
-        if let Some(commands) = config.get("startup") {
-            match commands {
-                Value {
-                    value: UntaggedValue::Table(pipelines),
-                    ..
-                } => {
-                    for pipeline in pipelines {
-                        if let Ok(pipeline_string) = pipeline.as_string() {
-                            let _ = run_pipeline_standalone(
-                                pipeline_string,
-                                false,
-                                &mut context,
-                                false,
-                            )
-                            .await;
-                        }
-                    }
-                }
-                _ => {
-                    println!("warning: expected a table of pipeline strings as startup commands");
-                }
-            }
-        }
-    }
 
     loop {
         if context.ctrl_c.load(Ordering::SeqCst) {
@@ -601,104 +378,8 @@ pub async fn cli(
 
         let cwd = context.shell_manager.path();
 
-        rl.set_helper(Some(crate::shell::Helper::new(context.clone())));
-
-        let config = match config::config(Tag::unknown()) {
-            Ok(config) => config,
-            Err(e) => {
-                eprintln!("Config could not be loaded.");
-                if let ShellError {
-                    error: ProximateShellError::Diagnostic(ShellDiagnostic { diagnostic }),
-                    ..
-                } = e
-                {
-                    eprintln!("{}", diagnostic.message);
-                }
-                IndexMap::new()
-            }
-        };
-
-        let use_starship = match config.get("use_starship") {
-            Some(b) => match b.as_bool() {
-                Ok(b) => b,
-                _ => false,
-            },
-            _ => false,
-        };
-
-        let edit_mode = config
-            .get("edit_mode")
-            .map(|s| match s.value.expect_string() {
-                "vi" => EditMode::Vi,
-                "emacs" => EditMode::Emacs,
-                _ => EditMode::Emacs,
-            })
-            .unwrap_or(EditMode::Emacs);
-
-        rl.set_edit_mode(edit_mode);
-
-        let max_history_size = config
-            .get("history_size")
-            .map(|i| i.value.expect_int())
-            .unwrap_or(100_000);
-
-        rl.set_max_history_size(max_history_size as usize);
-        // rustyline::config::Configurer::set_max_history_size(&mut rl, max_history_size as usize);
-        // rustyline::Editor::set_max_history_size(&mut rl, max_history_size as usize);
-
-        // we are ok if history does not exist
-        let _ = rl.load_history(&History::path());
-
-        let key_timeout = config
-            .get("key_timeout")
-            .map(|s| s.value.expect_int())
-            .unwrap_or(1);
-
-        rl.set_keyseq_timeout(key_timeout as i32);
-
-        let completion_mode = config
-            .get("completion_mode")
-            .map(|s| match s.value.expect_string() {
-                "list" => CompletionType::List,
-                "circular" => CompletionType::Circular,
-                _ => DEFAULT_COMPLETION_MODE,
-            })
-            .unwrap_or(DEFAULT_COMPLETION_MODE);
-
-        rl.set_completion_type(completion_mode);
-
         let colored_prompt = {
-            if use_starship {
-                #[cfg(feature = "starship")]
-                {
-                    std::env::set_var("STARSHIP_SHELL", "");
-                    std::env::set_var("PWD", &cwd);
-                    let mut starship_context =
-                        starship::context::Context::new_with_dir(clap::ArgMatches::default(), cwd);
-
-                    match starship_context.config.config {
-                        None => {
-                            starship_context.config.config = create_default_starship_config();
-                        }
-                        Some(toml::Value::Table(t)) if t.is_empty() => {
-                            starship_context.config.config = create_default_starship_config();
-                        }
-                        _ => {}
-                    };
-                    starship::print::get_prompt(starship_context)
-                }
-                #[cfg(not(feature = "starship"))]
-                {
-                    format!(
-                        "\x1b[32m{}{}\x1b[m> ",
-                        cwd,
-                        match current_branch() {
-                            Some(s) => format!("({})", s),
-                            None => "".to_string(),
-                        }
-                    )
-                }
-            } else if let Some(prompt) = config.get("prompt") {
+            if let Some(prompt) = configuration.var("prompt") {
                 let prompt_line = prompt.as_string()?;
 
                 match nu_parser::lite_parse(&prompt_line, 0).map_err(ShellError::from) {
@@ -714,9 +395,7 @@ pub async fn cli(
                             &prompt_block.block,
                             &mut context,
                             InputStream::empty(),
-                            &Value::nothing(),
-                            &IndexMap::new(),
-                            &env,
+                            Scope::from_env(env),
                         )
                         .await
                         {
@@ -755,6 +434,7 @@ pub async fn cli(
                     }
                 }
             } else {
+                use crate::git::current_branch;
                 format!(
                     "\x1b[32m{}{}\x1b[m> ",
                     cwd,
@@ -782,25 +462,39 @@ pub async fn cli(
             initial_command = None;
         }
 
-        let line = process_line(readline, &mut context, false, true).await;
+        let line = match convert_rustyline_result_to_string(readline) {
+            LineResult::Success(s) => process_line(&s, &mut context, false, true).await,
+            x => x,
+        };
 
         // Check the config to see if we need to update the path
         // TODO: make sure config is cached so we don't path this load every call
         // FIXME: we probably want to be a bit more graceful if we can't set the environment
-        syncer.reload();
-        syncer.sync_env_vars(&mut context);
-        syncer.sync_path_vars(&mut context);
+
+        context.configure(&configuration, |config, ctx| {
+            if syncer.did_config_change() {
+                syncer.reload();
+                syncer.sync_env_vars(ctx);
+                syncer.sync_path_vars(ctx);
+            }
+
+            if let Err(reason) = syncer.autoenv(ctx) {
+                print_err(reason, &Text::from(""));
+            }
+
+            let _ = configure_rustyline_editor(&mut rl, config);
+        });
 
         match line {
             LineResult::Success(line) => {
                 rl.add_history_entry(&line);
-                let _ = rl.save_history(&History::path());
+                let _ = rl.save_history(&history_path);
                 context.maybe_print_errors(Text::from(line));
             }
 
             LineResult::Error(line, err) => {
                 rl.add_history_entry(&line);
-                let _ = rl.save_history(&History::path());
+                let _ = rl.save_history(&history_path);
 
                 context.with_host(|_host| {
                     print_err(err, &Text::from(line.clone()));
@@ -812,7 +506,7 @@ pub async fn cli(
             LineResult::CtrlC => {
                 let config_ctrlc_exit = config::config(Tag::unknown())?
                     .get("ctrlc_exit")
-                    .map(|s| s.value.expect_string() == "true")
+                    .map(|s| s.value.is_true())
                     .unwrap_or(false); // default behavior is to allow CTRL-C spamming similar to other shells
 
                 if !config_ctrlc_exit {
@@ -820,12 +514,19 @@ pub async fn cli(
                 }
 
                 if ctrlcbreak {
-                    let _ = rl.save_history(&History::path());
+                    let _ = rl.save_history(&history_path);
                     std::process::exit(0);
                 } else {
                     context.with_host(|host| host.stdout("CTRL-C pressed (again to quit)"));
                     ctrlcbreak = true;
                     continue;
+                }
+            }
+
+            LineResult::CtrlD => {
+                context.shell_manager.remove_at_current();
+                if context.shell_manager.is_empty() {
+                    break;
                 }
             }
 
@@ -837,9 +538,289 @@ pub async fn cli(
     }
 
     // we are ok if we can not save history
-    let _ = rl.save_history(&History::path());
+    let _ = rl.save_history(&history_path);
 
     Ok(())
+}
+
+pub fn register_plugins(context: &mut EvaluationContext) -> Result<(), ShellError> {
+    if let Ok(plugins) = crate::plugin::scan(search_paths()) {
+        context.add_commands(
+            plugins
+                .into_iter()
+                .filter(|p| !context.is_command_registered(p.name()))
+                .collect(),
+        );
+    }
+
+    Ok(())
+}
+
+fn configure_ctrl_c(_context: &mut EvaluationContext) -> Result<(), Box<dyn Error>> {
+    #[cfg(feature = "ctrlc")]
+    {
+        let cc = _context.ctrl_c.clone();
+
+        ctrlc::set_handler(move || {
+            cc.store(true, Ordering::SeqCst);
+        })?;
+
+        if _context.ctrl_c.load(Ordering::SeqCst) {
+            _context.ctrl_c.store(false, Ordering::SeqCst);
+        }
+    }
+
+    Ok(())
+}
+
+async fn run_startup_commands(
+    context: &mut EvaluationContext,
+    config: &dyn nu_data::config::Conf,
+) -> Result<(), ShellError> {
+    if let Some(commands) = config.var("startup") {
+        match commands {
+            Value {
+                value: UntaggedValue::Table(pipelines),
+                ..
+            } => {
+                for pipeline in pipelines {
+                    if let Ok(pipeline_string) = pipeline.as_string() {
+                        let _ =
+                            run_pipeline_standalone(pipeline_string, false, context, false).await;
+                    }
+                }
+            }
+            _ => {
+                return Err(ShellError::untagged_runtime_error(
+                    "expected a table of pipeline strings as startup commands",
+                ))
+            }
+        }
+    }
+
+    Ok(())
+}
+
+pub async fn run_pipeline_standalone(
+    pipeline: String,
+    redirect_stdin: bool,
+    context: &mut EvaluationContext,
+    exit_on_error: bool,
+) -> Result<(), Box<dyn Error>> {
+    let line = process_line(&pipeline, context, redirect_stdin, false).await;
+
+    match line {
+        LineResult::Success(line) => {
+            let error_code = {
+                let errors = context.current_errors.clone();
+                let errors = errors.lock();
+
+                if errors.len() > 0 {
+                    1
+                } else {
+                    0
+                }
+            };
+
+            context.maybe_print_errors(Text::from(line));
+            if error_code != 0 && exit_on_error {
+                std::process::exit(error_code);
+            }
+        }
+
+        LineResult::Error(line, err) => {
+            context.with_host(|_host| {
+                print_err(err, &Text::from(line.clone()));
+            });
+
+            context.maybe_print_errors(Text::from(line));
+            if exit_on_error {
+                std::process::exit(1);
+            }
+        }
+
+        _ => {}
+    }
+
+    Ok(())
+}
+
+#[cfg(feature = "rustyline-support")]
+fn default_rustyline_editor_configuration() -> Editor<Helper> {
+    #[cfg(windows)]
+    const DEFAULT_COMPLETION_MODE: CompletionType = CompletionType::Circular;
+    #[cfg(not(windows))]
+    const DEFAULT_COMPLETION_MODE: CompletionType = CompletionType::List;
+
+    let config = Config::builder().color_mode(ColorMode::Forced).build();
+    let mut rl: Editor<_> = Editor::with_config(config);
+
+    // add key bindings to move over a whole word with Ctrl+ArrowLeft and Ctrl+ArrowRight
+    rl.bind_sequence(
+        KeyPress::ControlLeft,
+        Cmd::Move(Movement::BackwardWord(1, Word::Vi)),
+    );
+    rl.bind_sequence(
+        KeyPress::ControlRight,
+        Cmd::Move(Movement::ForwardWord(1, At::AfterEnd, Word::Vi)),
+    );
+
+    // Let's set the defaults up front and then override them later if the user indicates
+    // defaults taken from here https://github.com/kkawakam/rustyline/blob/2fe886c9576c1ea13ca0e5808053ad491a6fe049/src/config.rs#L150-L167
+    rl.set_max_history_size(100);
+    rl.set_history_ignore_dups(true);
+    rl.set_history_ignore_space(false);
+    rl.set_completion_type(DEFAULT_COMPLETION_MODE);
+    rl.set_completion_prompt_limit(100);
+    rl.set_keyseq_timeout(-1);
+    rl.set_edit_mode(rustyline::config::EditMode::Emacs);
+    rl.set_auto_add_history(false);
+    rl.set_bell_style(rustyline::config::BellStyle::default());
+    rl.set_color_mode(rustyline::ColorMode::Enabled);
+    rl.set_tab_stop(8);
+
+    if let Err(e) = crate::keybinding::load_keybindings(&mut rl) {
+        println!("Error loading keybindings: {:?}", e);
+    }
+
+    rl
+}
+
+#[cfg(feature = "rustyline-support")]
+fn configure_rustyline_editor(
+    rl: &mut Editor<Helper>,
+    config: &dyn nu_data::config::Conf,
+) -> Result<(), ShellError> {
+    #[cfg(windows)]
+    const DEFAULT_COMPLETION_MODE: CompletionType = CompletionType::Circular;
+    #[cfg(not(windows))]
+    const DEFAULT_COMPLETION_MODE: CompletionType = CompletionType::List;
+
+    if let Some(line_editor_vars) = config.var("line_editor") {
+        for (idx, value) in line_editor_vars.row_entries() {
+            match idx.as_ref() {
+                "max_history_size" => {
+                    if let Ok(max_history_size) = value.as_u64() {
+                        rl.set_max_history_size(max_history_size as usize);
+                    }
+                }
+                "history_duplicates" => {
+                    // history_duplicates = match value.as_string() {
+                    //     Ok(s) if s.to_lowercase() == "alwaysadd" => {
+                    //         rustyline::config::HistoryDuplicates::AlwaysAdd
+                    //     }
+                    //     Ok(s) if s.to_lowercase() == "ignoreconsecutive" => {
+                    //         rustyline::config::HistoryDuplicates::IgnoreConsecutive
+                    //     }
+                    //     _ => rustyline::config::HistoryDuplicates::AlwaysAdd,
+                    // };
+                    if let Ok(history_duplicates) = value.as_bool() {
+                        rl.set_history_ignore_dups(history_duplicates);
+                    }
+                }
+                "history_ignore_space" => {
+                    if let Ok(history_ignore_space) = value.as_bool() {
+                        rl.set_history_ignore_space(history_ignore_space);
+                    }
+                }
+                "completion_type" => {
+                    let completion_type = match value.as_string() {
+                        Ok(s) if s.to_lowercase() == "circular" => {
+                            rustyline::config::CompletionType::Circular
+                        }
+                        Ok(s) if s.to_lowercase() == "list" => {
+                            rustyline::config::CompletionType::List
+                        }
+                        #[cfg(all(unix, feature = "with-fuzzy"))]
+                        Ok(s) if s.to_lowercase() == "fuzzy" => {
+                            rustyline::config::CompletionType::Fuzzy
+                        }
+                        _ => DEFAULT_COMPLETION_MODE,
+                    };
+                    rl.set_completion_type(completion_type);
+                }
+                "completion_prompt_limit" => {
+                    if let Ok(completion_prompt_limit) = value.as_u64() {
+                        rl.set_completion_prompt_limit(completion_prompt_limit as usize);
+                    }
+                }
+                "keyseq_timeout_ms" => {
+                    if let Ok(keyseq_timeout_ms) = value.as_u64() {
+                        rl.set_keyseq_timeout(keyseq_timeout_ms as i32);
+                    }
+                }
+                "edit_mode" => {
+                    let edit_mode = match value.as_string() {
+                        Ok(s) if s.to_lowercase() == "vi" => rustyline::config::EditMode::Vi,
+                        Ok(s) if s.to_lowercase() == "emacs" => rustyline::config::EditMode::Emacs,
+                        _ => rustyline::config::EditMode::Emacs,
+                    };
+                    rl.set_edit_mode(edit_mode);
+                    // Note: When edit_mode is Emacs, the keyseq_timeout_ms is set to -1
+                    // no matter what you may have configured. This is so that key chords
+                    // can be applied without having to do them in a given timeout. So,
+                    // it essentially turns off the keyseq timeout.
+                }
+                "auto_add_history" => {
+                    if let Ok(auto_add_history) = value.as_bool() {
+                        rl.set_auto_add_history(auto_add_history);
+                    }
+                }
+                "bell_style" => {
+                    let bell_style = match value.as_string() {
+                        Ok(s) if s.to_lowercase() == "audible" => {
+                            rustyline::config::BellStyle::Audible
+                        }
+                        Ok(s) if s.to_lowercase() == "none" => rustyline::config::BellStyle::None,
+                        Ok(s) if s.to_lowercase() == "visible" => {
+                            rustyline::config::BellStyle::Visible
+                        }
+                        _ => rustyline::config::BellStyle::default(),
+                    };
+                    rl.set_bell_style(bell_style);
+                }
+                "color_mode" => {
+                    let color_mode = match value.as_string() {
+                        Ok(s) if s.to_lowercase() == "enabled" => rustyline::ColorMode::Enabled,
+                        Ok(s) if s.to_lowercase() == "forced" => rustyline::ColorMode::Forced,
+                        Ok(s) if s.to_lowercase() == "disabled" => rustyline::ColorMode::Disabled,
+                        _ => rustyline::ColorMode::Enabled,
+                    };
+                    rl.set_color_mode(color_mode);
+                }
+                "tab_stop" => {
+                    if let Ok(tab_stop) = value.as_u64() {
+                        rl.set_tab_stop(tab_stop as usize);
+                    }
+                }
+                _ => (),
+            }
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(feature = "rustyline-support")]
+fn nu_line_editor_helper(
+    context: &mut EvaluationContext,
+    config: &dyn nu_data::config::Conf,
+) -> crate::shell::Helper {
+    let hinter = rustyline_hinter(config);
+    crate::shell::Helper::new(context.clone(), hinter)
+}
+
+#[cfg(feature = "rustyline-support")]
+fn rustyline_hinter(config: &dyn nu_data::config::Conf) -> Option<rustyline::hint::HistoryHinter> {
+    if let Some(line_editor_vars) = config.var("line_editor") {
+        for (idx, value) in line_editor_vars.row_entries() {
+            if idx == "show_hints" && value.expect_string() == "false" {
+                return None;
+            }
+        }
+    }
+
+    Some(rustyline::hint::HistoryHinter {})
 }
 
 fn chomp_newline(s: &str) -> &str {
@@ -854,11 +835,12 @@ fn chomp_newline(s: &str) -> &str {
 pub enum LineResult {
     Success(String),
     Error(String, ShellError),
-    CtrlC,
     Break,
+    CtrlC,
+    CtrlD,
 }
 
-pub async fn parse_and_eval(line: &str, ctx: &mut Context) -> Result<String, ShellError> {
+pub async fn parse_and_eval(line: &str, ctx: &mut EvaluationContext) -> Result<String, ShellError> {
     let line = if line.ends_with('\n') {
         &line[..line.len() - 1]
     } else {
@@ -878,9 +860,7 @@ pub async fn parse_and_eval(line: &str, ctx: &mut Context) -> Result<String, She
         &classified_block.block,
         ctx,
         input_stream,
-        &Value::nothing(),
-        &IndexMap::new(),
-        &env,
+        Scope::from_env(env),
     )
     .await?
     .collect_string(Tag::unknown())
@@ -890,210 +870,197 @@ pub async fn parse_and_eval(line: &str, ctx: &mut Context) -> Result<String, She
 
 /// Process the line by parsing the text to turn it into commands, classify those commands so that we understand what is being called in the pipeline, and then run this pipeline
 pub async fn process_line(
-    readline: Result<String, ReadlineError>,
-    ctx: &mut Context,
+    line: &str,
+    ctx: &mut EvaluationContext,
     redirect_stdin: bool,
     cli_mode: bool,
 ) -> LineResult {
-    match &readline {
-        Ok(line) if line.trim() == "" => LineResult::Success(line.clone()),
+    if line.trim() == "" {
+        LineResult::Success(line.to_string())
+    } else {
+        let line = chomp_newline(line);
+        ctx.raw_input = line.to_string();
 
-        Ok(line) => {
-            let line = chomp_newline(line);
-            ctx.raw_input = line.to_string();
-
-            let result = match nu_parser::lite_parse(&line, 0) {
-                Err(err) => {
-                    return LineResult::Error(line.to_string(), err.into());
-                }
-
-                Ok(val) => val,
-            };
-
-            debug!("=== Parsed ===");
-            debug!("{:#?}", result);
-
-            let mut classified_block = nu_parser::classify_block(&result, ctx.registry());
-
-            debug!("{:#?}", classified_block);
-            //println!("{:#?}", pipeline);
-
-            if let Some(failure) = classified_block.failed {
-                return LineResult::Error(line.to_string(), failure.into());
+        let result = match nu_parser::lite_parse(&line, 0) {
+            Err(err) => {
+                return LineResult::Error(line.to_string(), err.into());
             }
 
-            // There's a special case to check before we process the pipeline:
-            // If we're giving a path by itself
-            // ...and it's not a command in the path
-            // ...and it doesn't have any arguments
-            // ...and we're in the CLI
-            // ...then change to this directory
-            if cli_mode
-                && classified_block.block.block.len() == 1
-                && classified_block.block.block[0].list.len() == 1
+            Ok(val) => val,
+        };
+
+        debug!("=== Parsed ===");
+        debug!("{:#?}", result);
+
+        let mut classified_block = nu_parser::classify_block(&result, ctx.registry());
+
+        debug!("{:#?}", classified_block);
+        //println!("{:#?}", pipeline);
+
+        if let Some(failure) = classified_block.failed {
+            return LineResult::Error(line.to_string(), failure.into());
+        }
+
+        // There's a special case to check before we process the pipeline:
+        // If we're giving a path by itself
+        // ...and it's not a command in the path
+        // ...and it doesn't have any arguments
+        // ...and we're in the CLI
+        // ...then change to this directory
+        if cli_mode
+            && classified_block.block.block.len() == 1
+            && classified_block.block.block[0].list.len() == 1
+        {
+            if let ClassifiedCommand::Internal(InternalCommand {
+                ref name, ref args, ..
+            }) = classified_block.block.block[0].list[0]
             {
-                if let ClassifiedCommand::Internal(InternalCommand {
-                    ref name, ref args, ..
-                }) = classified_block.block.block[0].list[0]
-                {
-                    let internal_name = name;
-                    let name = args
+                let internal_name = name;
+                let name = args
+                    .positional
+                    .as_ref()
+                    .and_then(|potionals| {
+                        potionals.get(0).map(|e| {
+                            if let Expression::Literal(Literal::String(ref s)) = e.expr {
+                                &s
+                            } else {
+                                ""
+                            }
+                        })
+                    })
+                    .unwrap_or("");
+
+                if internal_name == "run_external"
+                    && args
                         .positional
                         .as_ref()
-                        .and_then(|potionals| {
-                            potionals.get(0).map(|e| {
-                                if let Expression::Literal(Literal::String(ref s)) = e.expr {
-                                    &s
-                                } else {
-                                    ""
-                                }
-                            })
-                        })
-                        .unwrap_or("");
-
-                    if internal_name == "run_external"
-                        && args
-                            .positional
-                            .as_ref()
-                            .map(|ref v| v.len() == 1)
-                            .unwrap_or(true)
-                        && args
-                            .named
-                            .as_ref()
-                            .map(NamedArguments::is_empty)
-                            .unwrap_or(true)
-                        && canonicalize(ctx.shell_manager.path(), name).is_ok()
-                        && Path::new(&name).is_dir()
-                        && !crate::commands::classified::external::did_find_command(&name)
+                        .map(|ref v| v.len() == 1)
+                        .unwrap_or(true)
+                    && args
+                        .named
+                        .as_ref()
+                        .map(NamedArguments::is_empty)
+                        .unwrap_or(true)
+                    && canonicalize(ctx.shell_manager.path(), name).is_ok()
+                    && Path::new(&name).is_dir()
+                    && !crate::commands::classified::external::did_find_command(&name)
+                {
+                    // Here we work differently if we're in Windows because of the expected Windows behavior
+                    #[cfg(windows)]
                     {
-                        // Here we work differently if we're in Windows because of the expected Windows behavior
-                        #[cfg(windows)]
-                        {
-                            if name.ends_with(':') {
-                                // This looks like a drive shortcut. We need to a) switch drives and b) go back to the previous directory we were viewing on that drive
-                                // But first, we need to save where we are now
-                                let current_path = ctx.shell_manager.path();
+                        if name.ends_with(':') {
+                            // This looks like a drive shortcut. We need to a) switch drives and b) go back to the previous directory we were viewing on that drive
+                            // But first, we need to save where we are now
+                            let current_path = ctx.shell_manager.path();
 
-                                let split_path: Vec<_> = current_path.split(':').collect();
-                                if split_path.len() > 1 {
-                                    ctx.windows_drives_previous_cwd
-                                        .lock()
-                                        .insert(split_path[0].to_string(), current_path);
-                                }
+                            let split_path: Vec<_> = current_path.split(':').collect();
+                            if split_path.len() > 1 {
+                                ctx.windows_drives_previous_cwd
+                                    .lock()
+                                    .insert(split_path[0].to_string(), current_path);
+                            }
 
-                                let name = name.to_uppercase();
-                                let new_drive: Vec<_> = name.split(':').collect();
+                            let name = name.to_uppercase();
+                            let new_drive: Vec<_> = name.split(':').collect();
 
-                                if let Some(val) =
-                                    ctx.windows_drives_previous_cwd.lock().get(new_drive[0])
-                                {
-                                    ctx.shell_manager.set_path(val.to_string());
-                                    return LineResult::Success(line.to_string());
-                                } else {
-                                    ctx.shell_manager
-                                        .set_path(format!("{}\\", name.to_string()));
-                                    return LineResult::Success(line.to_string());
-                                }
+                            if let Some(val) =
+                                ctx.windows_drives_previous_cwd.lock().get(new_drive[0])
+                            {
+                                ctx.shell_manager.set_path(val.to_string());
+                                return LineResult::Success(line.to_string());
                             } else {
-                                ctx.shell_manager.set_path(name.to_string());
+                                ctx.shell_manager
+                                    .set_path(format!("{}\\", name.to_string()));
                                 return LineResult::Success(line.to_string());
                             }
-                        }
-                        #[cfg(not(windows))]
-                        {
+                        } else {
                             ctx.shell_manager.set_path(name.to_string());
                             return LineResult::Success(line.to_string());
                         }
                     }
-                }
-            }
-
-            let input_stream = if redirect_stdin {
-                let file = futures::io::AllowStdIo::new(std::io::stdin());
-                let stream = FramedRead::new(file, MaybeTextCodec::default()).map(|line| {
-                    if let Ok(line) = line {
-                        match line {
-                            StringOrBinary::String(s) => Ok(Value {
-                                value: UntaggedValue::Primitive(Primitive::String(s)),
-                                tag: Tag::unknown(),
-                            }),
-                            StringOrBinary::Binary(b) => Ok(Value {
-                                value: UntaggedValue::Primitive(Primitive::Binary(
-                                    b.into_iter().collect(),
-                                )),
-                                tag: Tag::unknown(),
-                            }),
-                        }
-                    } else {
-                        panic!("Internal error: could not read lines of text from stdin")
-                    }
-                });
-                stream.to_input_stream()
-            } else {
-                InputStream::empty()
-            };
-
-            classified_block.block.expand_it_usage();
-
-            trace!("{:#?}", classified_block);
-            let env = ctx.get_env();
-            match run_block(
-                &classified_block.block,
-                ctx,
-                input_stream,
-                &Value::nothing(),
-                &IndexMap::new(),
-                &env,
-            )
-            .await
-            {
-                Ok(input) => {
-                    // Running a pipeline gives us back a stream that we can then
-                    // work through. At the top level, we just want to pull on the
-                    // values to compute them.
-                    use futures::stream::TryStreamExt;
-
-                    let context = RunnableContext {
-                        input,
-                        shell_manager: ctx.shell_manager.clone(),
-                        host: ctx.host.clone(),
-                        ctrl_c: ctx.ctrl_c.clone(),
-                        current_errors: ctx.current_errors.clone(),
-                        registry: ctx.registry.clone(),
-                        name: Tag::unknown(),
-                        raw_input: line.to_string(),
-                    };
-
-                    if let Ok(mut output_stream) =
-                        crate::commands::autoview::autoview(context).await
+                    #[cfg(not(windows))]
                     {
-                        loop {
-                            match output_stream.try_next().await {
-                                Ok(Some(ReturnSuccess::Value(Value {
-                                    value: UntaggedValue::Error(e),
-                                    ..
-                                }))) => return LineResult::Error(line.to_string(), e),
-                                Ok(Some(_item)) => {
-                                    if ctx.ctrl_c.load(Ordering::SeqCst) {
-                                        break;
-                                    }
-                                }
-                                Ok(None) => break,
-                                Err(e) => return LineResult::Error(line.to_string(), e),
-                            }
-                        }
+                        ctx.shell_manager.set_path(name.to_string());
+                        return LineResult::Success(line.to_string());
                     }
-
-                    LineResult::Success(line.to_string())
                 }
-                Err(err) => LineResult::Error(line.to_string(), err),
             }
         }
-        Err(ReadlineError::Interrupted) => LineResult::CtrlC,
-        Err(ReadlineError::Eof) => LineResult::Break,
-        Err(err) => {
-            outln!("Error: {:?}", err);
-            LineResult::Break
+
+        let input_stream = if redirect_stdin {
+            let file = futures::io::AllowStdIo::new(std::io::stdin());
+            let stream = FramedRead::new(file, MaybeTextCodec::default()).map(|line| {
+                if let Ok(line) = line {
+                    let primitive = match line {
+                        StringOrBinary::String(s) => Primitive::String(s),
+                        StringOrBinary::Binary(b) => Primitive::Binary(b.into_iter().collect()),
+                    };
+
+                    Ok(Value {
+                        value: UntaggedValue::Primitive(primitive),
+                        tag: Tag::unknown(),
+                    })
+                } else {
+                    panic!("Internal error: could not read lines of text from stdin")
+                }
+            });
+            stream.to_input_stream()
+        } else {
+            InputStream::empty()
+        };
+
+        classified_block.block.expand_it_usage();
+
+        trace!("{:#?}", classified_block);
+        let env = ctx.get_env();
+        match run_block(
+            &classified_block.block,
+            ctx,
+            input_stream,
+            Scope::from_env(env),
+        )
+        .await
+        {
+            Ok(input) => {
+                // Running a pipeline gives us back a stream that we can then
+                // work through. At the top level, we just want to pull on the
+                // values to compute them.
+                use futures::stream::TryStreamExt;
+
+                let context = RunnableContext {
+                    input,
+                    shell_manager: ctx.shell_manager.clone(),
+                    host: ctx.host.clone(),
+                    ctrl_c: ctx.ctrl_c.clone(),
+                    current_errors: ctx.current_errors.clone(),
+                    registry: ctx.registry.clone(),
+                    name: Tag::unknown(),
+                    raw_input: line.to_string(),
+                };
+
+                if let Ok(mut output_stream) =
+                    crate::commands::autoview::command::autoview(context).await
+                {
+                    loop {
+                        match output_stream.try_next().await {
+                            Ok(Some(ReturnSuccess::Value(Value {
+                                value: UntaggedValue::Error(e),
+                                ..
+                            }))) => return LineResult::Error(line.to_string(), e),
+                            Ok(Some(_item)) => {
+                                if ctx.ctrl_c.load(Ordering::SeqCst) {
+                                    break;
+                                }
+                            }
+                            Ok(None) => break,
+                            Err(e) => return LineResult::Error(line.to_string(), e),
+                        }
+                    }
+                }
+
+                LineResult::Success(line.to_string())
+            }
+            Err(err) => LineResult::Error(line.to_string(), err),
         }
     }
 }
@@ -1120,7 +1087,7 @@ mod tests {
     #[quickcheck]
     fn quickcheck_parse(data: String) -> bool {
         if let Ok(lite_block) = nu_parser::lite_parse(&data, 0) {
-            let context = crate::context::Context::basic().unwrap();
+            let context = crate::evaluation_context::EvaluationContext::basic().unwrap();
             let _ = nu_parser::classify_block(&lite_block, context.registry());
         }
         true

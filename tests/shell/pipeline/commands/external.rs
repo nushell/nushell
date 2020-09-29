@@ -271,3 +271,34 @@ mod tilde_expansion {
         assert_eq!(actual.out, "1~1");
     }
 }
+
+mod external_command_arguments {
+    use super::nu;
+    use nu_test_support::fs::Stub::EmptyFile;
+    use nu_test_support::{pipeline, playground::Playground};
+    #[test]
+    fn expands_table_of_primitives_to_positional_arguments() {
+        Playground::setup(
+            "expands_table_of_primitives_to_positional_arguments",
+            |dirs, sandbox| {
+                sandbox.with_files(vec![
+                    EmptyFile("jonathan_likes_cake.txt"),
+                    EmptyFile("andres_likes_arepas.txt"),
+                    EmptyFile("ferris_not_here.txt"),
+                ]);
+
+                let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                    nu --testbin cococo $(ls | get name)
+                "#
+                ));
+
+                assert_eq!(
+                    actual.out,
+                    "andres_likes_arepas.txt ferris_not_here.txt jonathan_likes_cake.txt"
+                );
+            },
+        )
+    }
+}

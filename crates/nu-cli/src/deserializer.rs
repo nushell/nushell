@@ -12,8 +12,31 @@ use std::path::PathBuf;
 
 #[derive(Copy, Clone, Deserialize, Serialize)]
 pub struct NumericRange {
-    pub from: (Spanned<u64>, RangeInclusion),
-    pub to: (Spanned<u64>, RangeInclusion),
+    pub from: (Option<Spanned<u64>>, RangeInclusion),
+    pub to: (Option<Spanned<u64>>, RangeInclusion),
+}
+
+impl NumericRange {
+    pub fn min(self) -> u64 {
+        match self.from.1 {
+            RangeInclusion::Inclusive => self.from.0.map(|from| *from).unwrap_or(0),
+            RangeInclusion::Exclusive => {
+                self.from.0.map(|from| *from).unwrap_or(0).saturating_add(1)
+            }
+        }
+    }
+
+    pub fn max(self) -> u64 {
+        match self.to.1 {
+            RangeInclusion::Inclusive => self.to.0.map(|to| *to).unwrap_or(u64::MAX),
+            RangeInclusion::Exclusive => self
+                .to
+                .0
+                .map(|to| *to)
+                .unwrap_or(u64::MAX)
+                .saturating_sub(1),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -413,6 +436,15 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
                 visit::<Tagged<i64>, _>(i.tagged(tag), name, fields, visitor)
             }
             Value {
+                value: UntaggedValue::Primitive(Primitive::Duration(big_int)),
+                ..
+            } => {
+                let u_int: u64 = big_int
+                    .tagged(value.val.tag)
+                    .coerce_into("converting to u64")?;
+                visit::<Tagged<u64>, _>(u_int.tagged(tag), name, fields, visitor)
+            }
+            Value {
                 value: UntaggedValue::Primitive(Primitive::Decimal(decimal)),
                 ..
             } => {
@@ -434,12 +466,21 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
                 let left_span = left.span;
                 let right_span = right.span;
 
-                let left = left.as_u64(left_span)?;
-                let right = right.as_u64(right_span)?;
+                let left = match left.item {
+                    Primitive::Nothing => None,
+                    _ => Some(left.as_u64(left_span)?),
+                };
+                let right = match right.item {
+                    Primitive::Nothing => None,
+                    _ => Some(right.as_u64(right_span)?),
+                };
 
                 let numeric_range = NumericRange {
-                    from: (left.spanned(left_span), left_inclusion),
-                    to: (right.spanned(right_span), right_inclusion),
+                    from: (left.map(|left| left.spanned(left_span)), left_inclusion),
+                    to: (
+                        right.map(|right| right.spanned(right_span)),
+                        right_inclusion,
+                    ),
                 };
 
                 visit::<Tagged<NumericRange>, _>(numeric_range.tagged(tag), name, fields, visitor)

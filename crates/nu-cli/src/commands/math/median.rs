@@ -1,8 +1,8 @@
+use crate::commands::math::reducers::{reducer_for, Reduce};
 use crate::commands::math::utils::run_with_function;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
-use crate::utils::data_processing::{reducer_for, Reduce};
-use bigdecimal::{FromPrimitive, Zero};
+use bigdecimal::FromPrimitive;
 use nu_errors::ShellError;
 use nu_protocol::{
     hir::{convert_number_to_u64, Number, Operator},
@@ -50,7 +50,11 @@ impl WholeStreamCommand for SubCommand {
         vec![Example {
             description: "Get the median of a list of numbers",
             example: "echo [3 8 9 12 12 15] | math median",
-            result: Some(vec![UntaggedValue::decimal(10.5).into()]),
+            result: Some(vec![UntaggedValue::decimal_from_float(
+                10.5,
+                Span::unknown(),
+            )
+            .into()]),
         }]
     }
 }
@@ -130,7 +134,7 @@ fn compute_average(values: &[Value], name: impl Into<Tag>) -> Result<Value, Shel
         )
     })?;
     let total_rows = UntaggedValue::decimal(number);
-    let total = sum(Value::zero(), values.to_vec())?;
+    let total = sum(UntaggedValue::int(0).into_untagged_value(), values.to_vec())?;
 
     match total {
         Value {
@@ -138,7 +142,7 @@ fn compute_average(values: &[Value], name: impl Into<Tag>) -> Result<Value, Shel
             ..
         } => {
             let left = UntaggedValue::from(Primitive::Int(num.into()));
-            let result = crate::data::value::compute_values(Operator::Divide, &left, &total_rows);
+            let result = nu_data::value::compute_values(Operator::Divide, &left, &total_rows);
 
             match result {
                 Ok(UntaggedValue::Primitive(Primitive::Decimal(result))) => {
@@ -162,7 +166,7 @@ fn compute_average(values: &[Value], name: impl Into<Tag>) -> Result<Value, Shel
             ..
         } => {
             let left = UntaggedValue::from(other);
-            let result = crate::data::value::compute_values(Operator::Divide, &left, &total_rows);
+            let result = nu_data::value::compute_values(Operator::Divide, &left, &total_rows);
 
             match result {
                 Ok(value) => Ok(value.into_value(name)),

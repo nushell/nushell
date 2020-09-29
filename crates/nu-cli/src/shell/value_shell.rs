@@ -5,7 +5,6 @@ use crate::commands::ls::LsArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::move_::mv::Arguments as MvArgs;
 use crate::commands::rm::RemoveArgs;
-use crate::completion;
 use crate::prelude::*;
 use crate::shell::shell::Shell;
 use crate::utils::ValueStructure;
@@ -76,6 +75,8 @@ impl ValueShell {
         shell_entries
     }
 
+    // TODO make use of this in the new completion engine
+    #[allow(dead_code)]
     fn members(&self) -> VecDeque<Value> {
         self.members_under(Path::new("."))
     }
@@ -253,62 +254,5 @@ impl Shell for ValueShell {
         Err(ShellError::unimplemented(
             "save on help shell is not supported",
         ))
-    }
-}
-
-impl completion::Completer for ValueShell {
-    fn complete(
-        &self,
-        line: &str,
-        pos: usize,
-        _ctx: &completion::Context<'_>,
-    ) -> Result<(usize, Vec<completion::Suggestion>), ShellError> {
-        let mut possible_completion = vec![];
-        let members = self.members();
-        for member in members {
-            let Value { value, .. } = member;
-            for desc in value.data_descriptors() {
-                possible_completion.push(desc);
-            }
-        }
-
-        let line_chars: Vec<_> = line.chars().collect();
-        let mut replace_pos = pos;
-        while replace_pos > 0 {
-            if line_chars[replace_pos - 1] == ' ' {
-                break;
-            }
-            replace_pos -= 1;
-        }
-
-        let mut completions = vec![];
-        for command in possible_completion.iter() {
-            let mut pos = replace_pos;
-            let mut matched = true;
-            if pos < line_chars.len() {
-                for chr in command.chars() {
-                    if line_chars[pos] != chr {
-                        matched = false;
-                        break;
-                    }
-                    pos += 1;
-                    if pos == line_chars.len() {
-                        break;
-                    }
-                }
-            }
-
-            if matched {
-                completions.push(completion::Suggestion {
-                    display: command.to_string(),
-                    replacement: command.to_string(),
-                });
-            }
-        }
-        Ok((replace_pos, completions))
-    }
-
-    fn hint(&self, _line: &str, _pos: usize, _context: &completion::Context<'_>) -> Option<String> {
-        None
     }
 }

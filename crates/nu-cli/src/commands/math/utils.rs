@@ -13,6 +13,7 @@ pub async fn run_with_function(
     mf: MathFunction,
 ) -> Result<OutputStream, ShellError> {
     let values: Vec<Value> = input.drain_vec().await;
+
     let res = calculate(&values, &name, mf);
     match res {
         Ok(v) => {
@@ -50,7 +51,17 @@ pub fn calculate(values: &[Value], name: &Tag, mf: MathFunction) -> Result<Value
         // The mathematical function operates over the columns of the table
         let mut column_totals = IndexMap::new();
         for (col_name, col_vals) in column_values {
-            column_totals.insert(col_name, mf(&col_vals, &name)?);
+            if let Ok(out) = mf(&col_vals, &name) {
+                column_totals.insert(col_name, out);
+            }
+        }
+
+        if column_totals.keys().len() == 0 {
+            return Err(ShellError::labeled_error(
+                "Attempted to compute values that can't be operated on",
+                "value appears here",
+                name.span,
+            ));
         }
 
         Ok(UntaggedValue::Row(Dictionary {

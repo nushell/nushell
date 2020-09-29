@@ -1,10 +1,10 @@
+use crate::commands::command::Command;
 use crate::commands::WholeStreamCommand;
-use crate::data::command_dict;
 use crate::documentation::{generate_docs, get_documentation, DocumentationConfig};
-
 use crate::prelude::*;
+use nu_data::command::signature_dict;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::{SpannedItem, Tagged};
 use nu_value_ext::get_data_by_key;
 
@@ -38,6 +38,21 @@ impl WholeStreamCommand for Help {
     }
 }
 
+pub(crate) fn command_dict(command: Command, tag: impl Into<Tag>) -> Value {
+    let tag = tag.into();
+
+    let mut cmd_dict = TaggedDictBuilder::new(&tag);
+
+    cmd_dict.insert_untagged("name", UntaggedValue::string(command.name()));
+
+    cmd_dict.insert_untagged("type", UntaggedValue::string("Command"));
+
+    cmd_dict.insert_value("signature", signature_dict(command.signature(), tag));
+    cmd_dict.insert_untagged("usage", UntaggedValue::string(command.usage()));
+
+    cmd_dict.into_value()
+}
+
 async fn help(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let name = args.call_info.name_tag.clone();
@@ -48,54 +63,114 @@ async fn help(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
             let mut sorted_names = registry.names();
             sorted_names.sort();
 
-            Ok(
-                futures::stream::iter(sorted_names.into_iter().filter_map(move |cmd| {
-                    // If it's a subcommand, don't list it during the commands list
-                    if cmd.contains(' ') {
-                        return None;
-                    }
-                    let mut short_desc = TaggedDictBuilder::new(name.clone());
-                    let document_tag = rest[0].tag.clone();
-                    let value = command_dict(
-                        match registry.get_command(&cmd).ok_or_else(|| {
+            let (mut subcommand_names, command_names) = sorted_names
+                .into_iter()
+                // Internal only commands shouldn't be displayed
+                .filter(|cmd_name| {
+                    registry
+                        .get_command(&cmd_name)
+                        .filter(|command| !command.is_internal())
+                        .is_some()
+                })
+                .partition::<Vec<_>, _>(|cmd_name| cmd_name.contains(' '));
+
+            fn process_name(
+                dict: &mut TaggedDictBuilder,
+                cmd_name: &str,
+                registry: CommandRegistry,
+                rest: Vec<Tagged<String>>,
+                name: Tag,
+            ) -> Result<(), ShellError> {
+                let document_tag = rest[0].tag.clone();
+                let value = command_dict(
+                    registry.get_command(&cmd_name).ok_or_else(|| {
+                        ShellError::labeled_error(
+                            format!("Could not load {}", cmd_name),
+                            "could not load command",
+                            document_tag,
+                        )
+                    })?,
+                    name,
+                );
+
+                dict.insert_untagged("name", cmd_name);
+                dict.insert_untagged(
+                    "description",
+                    get_data_by_key(&value, "usage".spanned_unknown())
+                        .ok_or_else(|| {
                             ShellError::labeled_error(
-                                format!("Could not load {}", cmd),
-                                "could not load command",
-                                document_tag,
+                                "Expected a usage key",
+                                "expected a 'usage' key",
+                                &value.tag,
                             )
-                        }) {
-                            Ok(ok) => ok,
-                            Err(err) => return Some(Err(err)),
-                        },
-                        name.clone(),
-                    );
+                        })?
+                        .as_string()?,
+                );
 
-                    short_desc.insert_untagged("name", cmd);
-                    short_desc.insert_untagged(
-                        "description",
-                        match match get_data_by_key(&value, "usage".spanned_unknown()).ok_or_else(
-                            || {
-                                ShellError::labeled_error(
-                                    "Expected a usage key",
-                                    "expected a 'usage' key",
-                                    &value.tag,
-                                )
-                            },
-                        ) {
-                            Ok(ok) => ok,
-                            Err(err) => return Some(Err(err)),
-                        }
-                        .as_string()
-                        {
-                            Ok(ok) => ok,
-                            Err(err) => return Some(Err(err)),
-                        },
-                    );
+                Ok(())
+            }
 
-                    Some(ReturnSuccess::value(short_desc.into_value()))
-                }))
-                .to_output_stream(),
-            )
+            fn make_subcommands_table(
+                subcommand_names: &mut Vec<String>,
+                cmd_name: &str,
+                registry: CommandRegistry,
+                rest: Vec<Tagged<String>>,
+                name: Tag,
+            ) -> Result<Value, ShellError> {
+                let (matching, not_matching) =
+                    subcommand_names.drain(..).partition(|subcommand_name| {
+                        subcommand_name.starts_with(&format!("{} ", cmd_name))
+                    });
+                *subcommand_names = not_matching;
+                Ok(if !matching.is_empty() {
+                    UntaggedValue::table(
+                        &(matching
+                            .into_iter()
+                            .map(|cmd_name: String| -> Result<_, ShellError> {
+                                let mut short_desc = TaggedDictBuilder::new(name.clone());
+                                process_name(
+                                    &mut short_desc,
+                                    &cmd_name,
+                                    registry.clone(),
+                                    rest.clone(),
+                                    name.clone(),
+                                )?;
+                                Ok(short_desc.into_value())
+                            })
+                            .collect::<Result<Vec<_>, _>>()?[..]),
+                    )
+                    .into_value(name)
+                } else {
+                    UntaggedValue::nothing().into_value(name)
+                })
+            }
+
+            let iterator =
+                command_names
+                    .into_iter()
+                    .map(move |cmd_name| -> Result<_, ShellError> {
+                        let mut short_desc = TaggedDictBuilder::new(name.clone());
+                        process_name(
+                            &mut short_desc,
+                            &cmd_name,
+                            registry.clone(),
+                            rest.clone(),
+                            name.clone(),
+                        )?;
+                        short_desc.insert_value(
+                            "subcommands",
+                            make_subcommands_table(
+                                &mut subcommand_names,
+                                &cmd_name,
+                                registry.clone(),
+                                rest.clone(),
+                                name.clone(),
+                            )?,
+                        );
+                        ReturnSuccess::value(short_desc.into_value())
+                    });
+
+            Ok(futures::stream::iter(iterator).to_output_stream())
         } else if rest[0].item == "generate_docs" {
             Ok(OutputStream::one(ReturnSuccess::value(generate_docs(
                 &registry,

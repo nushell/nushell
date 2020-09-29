@@ -4,27 +4,20 @@ use crate::commands::UnevaluatedCallInfo;
 use crate::prelude::*;
 use log::{log_enabled, trace};
 use nu_errors::ShellError;
-use nu_protocol::hir::InternalCommand;
+use nu_protocol::hir::{ExternalRedirection, InternalCommand};
 use nu_protocol::{CommandAction, Primitive, ReturnSuccess, Scope, UntaggedValue, Value};
 
 pub(crate) async fn run_internal_command(
     command: InternalCommand,
-    context: &mut Context,
+    context: &mut EvaluationContext,
     input: InputStream,
-    it: &Value,
-    vars: &IndexMap<String, Value>,
-    env: &IndexMap<String, String>,
+    scope: Arc<Scope>,
 ) -> Result<InputStream, ShellError> {
     if log_enabled!(log::Level::Trace) {
         trace!(target: "nu::run::internal", "->");
         trace!(target: "nu::run::internal", "{}", command.name);
     }
 
-    let scope = Scope {
-        it: it.clone(),
-        vars: vars.clone(),
-        env: env.clone(),
-    };
     let objects: InputStream = trace_stream!(target: "nu::trace_stream::internal", "input" = input);
     let internal_command = context.expect_command(&command.name);
 
@@ -38,7 +31,7 @@ pub(crate) async fn run_internal_command(
                 internal_command?,
                 Tag::unknown_anchor(command.name_span),
                 command.args.clone(),
-                &scope,
+                scope.clone(),
                 objects,
             )
             .await?
@@ -48,8 +41,6 @@ pub(crate) async fn run_internal_command(
     //let context = Arc::new(context.clone());
     let context = context.clone();
     let command = Arc::new(command);
-    let scope = Arc::new(scope);
-    // let scope = scope.clone();
 
     Ok(InputStream::from_stream(
         result
@@ -87,10 +78,10 @@ pub(crate) async fn run_internal_command(
                                                 positional: None,
                                                 named: None,
                                                 span: Span::unknown(),
-                                                is_last: false,
+                                                external_redirection: ExternalRedirection::Stdout,
                                             },
                                             name_tag: Tag::unknown_anchor(command.name_span),
-                                            scope: (&*scope).clone(),
+                                            scope,
                                         },
                                     };
                                     let result = converter
@@ -182,10 +173,7 @@ pub(crate) async fn run_internal_command(
                             }
                             CommandAction::EnterShell(location) => {
                                 context.shell_manager.insert_at_current(Box::new(
-                                    match FilesystemShell::with_location(
-                                        location,
-                                        context.registry().clone(),
-                                    ) {
+                                    match FilesystemShell::with_location(location) {
                                         Ok(v) => v,
                                         Err(err) => {
                                             return InputStream::one(
@@ -202,6 +190,28 @@ pub(crate) async fn run_internal_command(
                                     AliasCommand::new(name, args, block),
                                 )]);
                                 InputStream::from_stream(futures::stream::iter(vec![]))
+                            }
+                            CommandAction::AddPlugins(path) => {
+                                match crate::plugin::scan(vec![std::path::PathBuf::from(path)]) {
+                                    Ok(plugins) => {
+                                        context.add_commands(
+                                            plugins
+                                                .into_iter()
+                                                .filter(|p| {
+                                                    !context.is_command_registered(p.name())
+                                                })
+                                                .collect(),
+                                        );
+
+                                        InputStream::from_stream(futures::stream::iter(vec![]))
+                                    }
+                                    Err(reason) => {
+                                        context.error(reason.clone());
+                                        InputStream::one(
+                                            UntaggedValue::Error(reason).into_untagged_value(),
+                                        )
+                                    }
+                                }
                             }
                             CommandAction::PreviousShell => {
                                 context.shell_manager.prev();

@@ -13,16 +13,16 @@ use futures_codec::FramedRead;
 use log::trace;
 
 use nu_errors::ShellError;
-use nu_protocol::hir::ExternalCommand;
+use nu_protocol::hir::{ExternalCommand, ExternalRedirection};
 use nu_protocol::{Primitive, Scope, ShellTypeName, UntaggedValue, Value};
 use nu_source::Tag;
 
 pub(crate) async fn run_external_command(
     command: ExternalCommand,
-    context: &mut Context,
+    context: &mut EvaluationContext,
     input: InputStream,
-    scope: &Scope,
-    is_last: bool,
+    scope: Arc<Scope>,
+    external_redirection: ExternalRedirection,
 ) -> Result<InputStream, ShellError> {
     trace!(target: "nu::run::external", "-> {}", command.name);
 
@@ -34,15 +34,15 @@ pub(crate) async fn run_external_command(
         ));
     }
 
-    run_with_stdin(command, context, input, scope, is_last).await
+    run_with_stdin(command, context, input, scope, external_redirection).await
 }
 
 async fn run_with_stdin(
     command: ExternalCommand,
-    context: &mut Context,
+    context: &mut EvaluationContext,
     input: InputStream,
-    scope: &Scope,
-    is_last: bool,
+    scope: Arc<Scope>,
+    external_redirection: ExternalRedirection,
 ) -> Result<InputStream, ShellError> {
     let path = context.shell_manager.path();
 
@@ -50,9 +50,7 @@ async fn run_with_stdin(
 
     let mut command_args = vec![];
     for arg in command.args.iter() {
-        let value =
-            evaluate_baseline_expr(arg, &context.registry, &scope.it, &scope.vars, &scope.env)
-                .await?;
+        let value = evaluate_baseline_expr(arg, &context.registry, scope.clone()).await?;
 
         // Skip any arguments that don't really exist, treating them as optional
         // FIXME: we may want to preserve the gap in the future, though it's hard to say
@@ -62,9 +60,29 @@ async fn run_with_stdin(
         }
 
         // Do the cleanup that we need to do on any argument going out:
-        let trimmed_value_string = value.as_string()?.trim_end_matches('\n').to_string();
-
-        command_args.push(trimmed_value_string);
+        match &value.value {
+            UntaggedValue::Table(table) => {
+                for t in table {
+                    match &t.value {
+                        UntaggedValue::Primitive(_) => {
+                            command_args
+                                .push(t.convert_to_string().trim_end_matches('\n').to_string());
+                        }
+                        _ => {
+                            return Err(ShellError::labeled_error(
+                                "Could not convert to positional arguments",
+                                "could not convert to positional arguments",
+                                value.tag(),
+                            ));
+                        }
+                    }
+                }
+            }
+            _ => {
+                let trimmed_value_string = value.as_string()?.trim_end_matches('\n').to_string();
+                command_args.push(trimmed_value_string);
+            }
+        }
     }
 
     let process_args = command_args
@@ -102,7 +120,14 @@ async fn run_with_stdin(
         })
         .collect::<Vec<String>>();
 
-    spawn(&command, &path, &process_args[..], input, is_last, scope)
+    spawn(
+        &command,
+        &path,
+        &process_args[..],
+        input,
+        external_redirection,
+        scope,
+    )
 }
 
 fn spawn(
@@ -110,8 +135,8 @@ fn spawn(
     path: &str,
     args: &[String],
     input: InputStream,
-    is_last: bool,
-    scope: &Scope,
+    external_redirection: ExternalRedirection,
+    scope: Arc<Scope>,
 ) -> Result<InputStream, ShellError> {
     let command = command.clone();
 
@@ -142,16 +167,26 @@ fn spawn(
     trace!(target: "nu::run::external", "cwd = {:?}", &path);
 
     process.env_clear();
-    process.envs(scope.env.iter());
+    process.envs(scope.env());
 
     // We want stdout regardless of what
     // we are doing ($it case or pipe stdin)
-    if !is_last {
-        process.stdout(Stdio::piped());
-        trace!(target: "nu::run::external", "set up stdout pipe");
-
-        process.stderr(Stdio::piped());
-        trace!(target: "nu::run::external", "set up stderr pipe");
+    match external_redirection {
+        ExternalRedirection::Stdout => {
+            process.stdout(Stdio::piped());
+            trace!(target: "nu::run::external", "set up stdout pipe");
+        }
+        ExternalRedirection::Stderr => {
+            process.stderr(Stdio::piped());
+            trace!(target: "nu::run::external", "set up stderr pipe");
+        }
+        ExternalRedirection::StdoutAndStderr => {
+            process.stdout(Stdio::piped());
+            trace!(target: "nu::run::external", "set up stdout pipe");
+            process.stderr(Stdio::piped());
+            trace!(target: "nu::run::external", "set up stderr pipe");
+        }
+        _ => {}
     }
 
     // open since we have some contents for stdin
@@ -235,7 +270,9 @@ fn spawn(
         });
 
         std::thread::spawn(move || {
-            if !is_last {
+            if external_redirection == ExternalRedirection::Stdout
+                || external_redirection == ExternalRedirection::StdoutAndStderr
+            {
                 let stdout = if let Some(stdout) = child.stdout.take() {
                     stdout
                 } else {
@@ -243,20 +280,6 @@ fn spawn(
                         value: UntaggedValue::Error(ShellError::labeled_error(
                             "Can't redirect the stdout for external command",
                             "can't redirect stdout",
-                            &stdout_name_tag,
-                        )),
-                        tag: stdout_name_tag,
-                    }));
-                    return Err(());
-                };
-
-                let stderr = if let Some(stderr) = child.stderr.take() {
-                    stderr
-                } else {
-                    let _ = stdout_read_tx.send(Ok(Value {
-                        value: UntaggedValue::Error(ShellError::labeled_error(
-                            "Can't redirect the stderr for external command",
-                            "can't redirect stderr",
                             &stdout_name_tag,
                         )),
                         tag: stdout_name_tag,
@@ -317,17 +340,34 @@ fn spawn(
                         }
                     }
                 }
+            }
+            if external_redirection == ExternalRedirection::Stderr
+                || external_redirection == ExternalRedirection::StdoutAndStderr
+            {
+                let stderr = if let Some(stderr) = child.stderr.take() {
+                    stderr
+                } else {
+                    let _ = stdout_read_tx.send(Ok(Value {
+                        value: UntaggedValue::Error(ShellError::labeled_error(
+                            "Can't redirect the stderr for external command",
+                            "can't redirect stderr",
+                            &stdout_name_tag,
+                        )),
+                        tag: stdout_name_tag,
+                    }));
+                    return Err(());
+                };
 
                 let file = futures::io::AllowStdIo::new(stderr);
-                let err_stream = FramedRead::new(file, MaybeTextCodec::default());
+                let stream = FramedRead::new(file, MaybeTextCodec::default());
 
-                for err_line in block_on_stream(err_stream) {
-                    match err_line {
+                for line in block_on_stream(stream) {
+                    match line {
                         Ok(line) => match line {
                             StringOrBinary::String(s) => {
                                 let result = stdout_read_tx.send(Ok(Value {
                                     value: UntaggedValue::Error(
-                                        ShellError::untagged_runtime_error(s.clone()),
+                                        ShellError::untagged_runtime_error(s),
                                     ),
                                     tag: stdout_name_tag.clone(),
                                 }));
@@ -339,9 +379,7 @@ fn spawn(
                             StringOrBinary::Binary(_) => {
                                 let result = stdout_read_tx.send(Ok(Value {
                                     value: UntaggedValue::Error(
-                                        ShellError::untagged_runtime_error(
-                                            "Binary in stderr output",
-                                        ),
+                                        ShellError::untagged_runtime_error("<binary stderr>"),
                                     ),
                                     tag: stdout_name_tag.clone(),
                                 }));
@@ -363,8 +401,8 @@ fn spawn(
                             if should_error {
                                 let _ = stdout_read_tx.send(Ok(Value {
                                     value: UntaggedValue::Error(ShellError::labeled_error(
-                                        format!("Unable to read from stderr ({})", e),
-                                        "unable to read from stderr",
+                                        format!("Unable to read from stdout ({})", e),
+                                        "unable to read from stdout",
                                         &stdout_name_tag,
                                     )),
                                     tag: stdout_name_tag.clone(),
@@ -385,7 +423,7 @@ fn spawn(
             };
 
             if external_failed {
-                let cfg = crate::data::config::config(Tag::unknown());
+                let cfg = nu_data::config::config(Tag::unknown());
                 if let Ok(cfg) = cfg {
                     if cfg.contains_key("nonzero_exit_errors") {
                         let _ = stdout_read_tx.send(Ok(Value {
@@ -435,10 +473,11 @@ pub fn did_find_command(#[allow(unused)] name: &str) -> bool {
         if which::which(name).is_ok() {
             true
         } else {
+            // Reference: https://ss64.com/nt/syntax-internal.html
             let cmd_builtins = [
-                "call", "cls", "color", "date", "dir", "echo", "find", "hostname", "pause",
-                "start", "time", "title", "ver", "copy", "mkdir", "rename", "rd", "rmdir", "type",
-                "mklink",
+                "assoc", "break", "color", "copy", "date", "del", "dir", "dpath", "echo", "erase",
+                "for", "ftype", "md", "mkdir", "mklink", "move", "path", "ren", "rename", "rd",
+                "rmdir", "set", "start", "time", "title", "type", "ver", "verify", "vol",
             ];
 
             cmd_builtins.contains(&name)
@@ -502,7 +541,7 @@ mod tests {
         add_quotes, argument_contains_whitespace, argument_is_quoted, expand_tilde, remove_quotes,
     };
     #[cfg(feature = "which")]
-    use super::{run_external_command, Context, InputStream};
+    use super::{run_external_command, EvaluationContext, InputStream};
 
     #[cfg(feature = "which")]
     use futures::executor::block_on;
@@ -528,16 +567,22 @@ mod tests {
 
     #[cfg(feature = "which")]
     async fn non_existent_run() -> Result<(), ShellError> {
+        use nu_protocol::hir::ExternalRedirection;
         let cmd = ExternalBuilder::for_name("i_dont_exist.exe").build();
 
         let input = InputStream::empty();
-        let mut ctx = Context::basic().expect("There was a problem creating a basic context.");
+        let mut ctx =
+            EvaluationContext::basic().expect("There was a problem creating a basic context.");
 
-        assert!(
-            run_external_command(cmd, &mut ctx, input, &Scope::new(), false)
-                .await
-                .is_err()
-        );
+        assert!(run_external_command(
+            cmd,
+            &mut ctx,
+            input,
+            Scope::create(),
+            ExternalRedirection::Stdout
+        )
+        .await
+        .is_err());
 
         Ok(())
     }
@@ -545,7 +590,7 @@ mod tests {
     // async fn failure_run() -> Result<(), ShellError> {
     //     let cmd = ExternalBuilder::for_name("fail").build();
 
-    //     let mut ctx = Context::basic().expect("There was a problem creating a basic context.");
+    //     let mut ctx = EvaluationContext::basic().expect("There was a problem creating a basic context.");
     //     let stream = run_external_command(cmd, &mut ctx, None, false)
     //         .await?
     //         .expect("There was a problem running the external command.");

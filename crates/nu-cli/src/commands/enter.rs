@@ -1,8 +1,9 @@
+use crate::command_registry::CommandRegistry;
 use crate::commands::UnevaluatedCallInfo;
 use crate::commands::WholeStreamCommand;
-use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
+use nu_protocol::hir::ExternalRedirection;
 use nu_protocol::{
     CommandAction, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
 };
@@ -145,7 +146,7 @@ async fn enter(
                                     positional: None,
                                     named: None,
                                     span: Span::unknown(),
-                                    is_last: false,
+                                    external_redirection: ExternalRedirection::Stdout,
                                 },
                                 name_tag: tag.clone(),
                                 scope: scope.clone(),

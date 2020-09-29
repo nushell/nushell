@@ -1,21 +1,19 @@
 use crate::commands::classified::expr::run_expression_block;
 use crate::commands::classified::internal::run_internal_command;
-use crate::context::Context;
+use crate::evaluation_context::EvaluationContext;
 use crate::prelude::*;
 use crate::stream::InputStream;
 use futures::stream::TryStreamExt;
 use nu_errors::ShellError;
 use nu_protocol::hir::{Block, ClassifiedCommand, Commands};
-use nu_protocol::{ReturnSuccess, UntaggedValue, Value};
+use nu_protocol::{ReturnSuccess, Scope, UntaggedValue, Value};
 use std::sync::atomic::Ordering;
 
 pub(crate) async fn run_block(
     block: &Block,
-    ctx: &mut Context,
+    ctx: &mut EvaluationContext,
     mut input: InputStream,
-    it: &Value,
-    vars: &IndexMap<String, Value>,
-    env: &IndexMap<String, String>,
+    scope: Arc<Scope>,
 ) -> Result<InputStream, ShellError> {
     let mut output: Result<InputStream, ShellError> = Ok(InputStream::empty());
     for pipeline in &block.block {
@@ -54,7 +52,7 @@ pub(crate) async fn run_block(
                 return Err(e);
             }
         }
-        output = run_pipeline(pipeline, ctx, input, it, vars, env).await;
+        output = run_pipeline(pipeline, ctx, input, scope.clone()).await;
 
         input = InputStream::empty();
     }
@@ -64,33 +62,25 @@ pub(crate) async fn run_block(
 
 async fn run_pipeline(
     commands: &Commands,
-    ctx: &mut Context,
+    ctx: &mut EvaluationContext,
     mut input: InputStream,
-    it: &Value,
-    vars: &IndexMap<String, Value>,
-    env: &IndexMap<String, String>,
+    scope: Arc<Scope>,
 ) -> Result<InputStream, ShellError> {
-    let mut iter = commands.list.clone().into_iter().peekable();
-    loop {
-        let item: Option<ClassifiedCommand> = iter.next();
-        let next: Option<&ClassifiedCommand> = iter.peek();
-
-        input = match (item, next) {
-            (Some(ClassifiedCommand::Dynamic(_)), _) | (_, Some(ClassifiedCommand::Dynamic(_))) => {
+    for item in commands.list.clone() {
+        input = match item {
+            ClassifiedCommand::Dynamic(_) => {
                 return Err(ShellError::unimplemented("Dynamic commands"))
             }
 
-            (Some(ClassifiedCommand::Expr(expr)), _) => {
-                run_expression_block(*expr, ctx, it, vars, env).await?
-            }
-            (Some(ClassifiedCommand::Error(err)), _) => return Err(err.into()),
-            (_, Some(ClassifiedCommand::Error(err))) => return Err(err.clone().into()),
-
-            (Some(ClassifiedCommand::Internal(left)), _) => {
-                run_internal_command(left, ctx, input, it, vars, env).await?
+            ClassifiedCommand::Expr(expr) => {
+                run_expression_block(*expr, ctx, scope.clone()).await?
             }
 
-            (None, _) => break,
+            ClassifiedCommand::Error(err) => return Err(err.into()),
+
+            ClassifiedCommand::Internal(left) => {
+                run_internal_command(left, ctx, input, scope.clone()).await?
+            }
         };
     }
 

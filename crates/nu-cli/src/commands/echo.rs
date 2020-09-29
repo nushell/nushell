@@ -81,17 +81,20 @@ struct RangeIterator {
     end: Primitive,
     tag: Tag,
     is_end_inclusive: bool,
-    is_done: bool,
 }
 
 impl RangeIterator {
     pub fn new(range: Range, tag: Tag) -> RangeIterator {
+        let start = match range.from.0.item {
+            Primitive::Nothing => Primitive::Int(0.into()),
+            x => x,
+        };
+
         RangeIterator {
-            curr: range.from.0.item,
+            curr: start,
             end: range.to.0.item,
             tag,
             is_end_inclusive: matches!(range.to.1, RangeInclusion::Inclusive),
-            is_done: false,
         }
     }
 }
@@ -99,14 +102,40 @@ impl RangeIterator {
 impl Iterator for RangeIterator {
     type Item = Result<ReturnSuccess, ShellError>;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.curr != self.end {
+        let ordering = if self.end == Primitive::Nothing {
+            Ordering::Less
+        } else {
+            let result =
+                nu_data::base::coerce_compare_primitive(&self.curr, &self.end).map_err(|_| {
+                    ShellError::labeled_error(
+                        "Cannot create range",
+                        "unsupported range",
+                        self.tag.span,
+                    )
+                });
+
+            if let Err(result) = result {
+                return Some(Err(result));
+            }
+
+            let result = result
+                .expect("Internal error: the error case was already protected, but that failed");
+
+            result.compare()
+        };
+
+        use std::cmp::Ordering;
+
+        if (ordering == Ordering::Less) || (self.is_end_inclusive && ordering == Ordering::Equal) {
             let output = UntaggedValue::Primitive(self.curr.clone()).into_value(self.tag.clone());
 
-            self.curr = match crate::data::value::compute_values(
+            let next_value = nu_data::value::compute_values(
                 Operator::Plus,
                 &UntaggedValue::Primitive(self.curr.clone()),
                 &UntaggedValue::int(1),
-            ) {
+            );
+
+            self.curr = match next_value {
                 Ok(result) => match result {
                     UntaggedValue::Primitive(p) => p,
                     _ => {
@@ -123,11 +152,6 @@ impl Iterator for RangeIterator {
                 }
             };
             Some(ReturnSuccess::value(output))
-        } else if self.is_end_inclusive && !self.is_done {
-            self.is_done = true;
-            Some(ReturnSuccess::value(
-                UntaggedValue::Primitive(self.curr.clone()).into_value(self.tag.clone()),
-            ))
         } else {
             // TODO: add inclusive/exclusive ranges
             None

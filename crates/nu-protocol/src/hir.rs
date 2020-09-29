@@ -35,10 +35,7 @@ impl InternalCommand {
             name,
             name_span,
             args: crate::hir::Call::new(
-                Box::new(SpannedExpression::new(
-                    Expression::Command(name_span),
-                    name_span,
-                )),
+                Box::new(SpannedExpression::new(Expression::Command, name_span)),
                 full_span,
             ),
         }
@@ -167,7 +164,7 @@ impl Commands {
                             }),
                             span: self.span,
                         }]),
-                        is_last: false, // FIXME
+                        external_redirection: ExternalRedirection::Stdout, // FIXME
                     },
                 })
             }
@@ -200,26 +197,14 @@ impl Block {
         }
     }
 
-    pub fn set_is_last(&mut self, is_last: bool) {
+    pub fn set_redirect(&mut self, external_redirection: ExternalRedirection) {
         if let Some(pipeline) = self.block.last_mut() {
             if let Some(command) = pipeline.list.last_mut() {
                 if let ClassifiedCommand::Internal(internal) = command {
-                    internal.args.is_last = is_last;
+                    internal.args.external_redirection = external_redirection;
                 }
             }
         }
-    }
-
-    pub fn get_is_last(&mut self) -> Option<bool> {
-        if let Some(pipeline) = self.block.last_mut() {
-            if let Some(command) = pipeline.list.last_mut() {
-                if let ClassifiedCommand::Internal(internal) = command {
-                    return Some(internal.args.is_last);
-                }
-            }
-        }
-
-        None
     }
 }
 
@@ -477,13 +462,13 @@ impl Unit {
             Unit::Nanosecond => "ns",
             Unit::Microsecond => "us",
             Unit::Millisecond => "ms",
-            Unit::Second => "s",
-            Unit::Minute => "m",
-            Unit::Hour => "h",
-            Unit::Day => "d",
-            Unit::Week => "w",
-            Unit::Month => "M",
-            Unit::Year => "y",
+            Unit::Second => "sec",
+            Unit::Minute => "min",
+            Unit::Hour => "hr",
+            Unit::Day => "day",
+            Unit::Week => "wk",
+            Unit::Month => "mon",
+            Unit::Year => "yr",
         }
     }
 
@@ -590,7 +575,7 @@ impl SpannedExpression {
                 // Higher precedence binds tighter
 
                 match operator {
-                    Operator::Multiply | Operator::Divide => 100,
+                    Operator::Multiply | Operator::Divide | Operator::Modulo => 100,
                     Operator::Plus | Operator::Minus => 90,
                     Operator::NotContains
                     | Operator::Contains
@@ -615,12 +600,43 @@ impl SpannedExpression {
             Expression::Binary(binary) => {
                 binary.left.has_shallow_it_usage() || binary.right.has_shallow_it_usage()
             }
+            Expression::Range(range) => {
+                let left = if let Some(left) = &range.left {
+                    left.has_shallow_it_usage()
+                } else {
+                    false
+                };
+
+                let right = if let Some(right) = &range.right {
+                    right.has_shallow_it_usage()
+                } else {
+                    false
+                };
+
+                left || right
+            }
             Expression::Variable(Variable::It(_)) => true,
             Expression::Path(path) => path.head.has_shallow_it_usage(),
             Expression::List(list) => {
                 for l in list {
                     if l.has_shallow_it_usage() {
                         return true;
+                    }
+                }
+                false
+            }
+            Expression::Table(headers, cells) => {
+                for l in headers {
+                    if l.has_shallow_it_usage() {
+                        return true;
+                    }
+                }
+
+                for row in cells {
+                    for cell in row {
+                        if cell.has_shallow_it_usage() {
+                            return true;
+                        }
                     }
                 }
                 false
@@ -659,6 +675,20 @@ impl SpannedExpression {
             } => {
                 for item in list.iter_mut() {
                     item.expand_it_usage();
+                }
+            }
+            SpannedExpression {
+                expr: Expression::Table(headers, cells),
+                ..
+            } => {
+                for header in headers.iter_mut() {
+                    header.expand_it_usage();
+                }
+
+                for row in cells.iter_mut() {
+                    for cell in row {
+                        cell.expand_it_usage()
+                    }
                 }
             }
             SpannedExpression {
@@ -731,12 +761,26 @@ impl PrettyDebugWithSource for SpannedExpression {
                     ),
                     "]",
                 ),
+                Expression::Table(_headers, cells) => b::delimit(
+                    "[",
+                    b::intersperse(
+                        cells
+                            .iter()
+                            .map(|row| {
+                                row.iter()
+                                    .map(|item| item.refined_pretty_debug(refine, source))
+                            })
+                            .flatten(),
+                        b::space(),
+                    ),
+                    "]",
+                ),
                 Expression::Path(path) => path.pretty_debug(source),
                 Expression::FilePath(path) => b::typed("path", b::primitive(path.display())),
                 Expression::ExternalCommand(external) => {
                     b::keyword("^") + b::keyword(external.name.span.slice(source))
                 }
-                Expression::Command(command) => b::keyword(command.slice(source)),
+                Expression::Command => b::keyword(self.span.slice(source)),
                 Expression::Boolean(boolean) => match boolean {
                     true => b::primitive("$yes"),
                     false => b::primitive("$no"),
@@ -771,15 +815,24 @@ impl PrettyDebugWithSource for SpannedExpression {
                 ),
                 "]",
             ),
+            Expression::Table(_headers, cells) => b::delimit(
+                "[",
+                b::intersperse(
+                    cells
+                        .iter()
+                        .map(|row| row.iter().map(|item| item.pretty_debug(source)))
+                        .flatten(),
+                    b::space(),
+                ),
+                "]",
+            ),
             Expression::Path(path) => path.pretty_debug(source),
             Expression::FilePath(path) => b::typed("path", b::primitive(path.display())),
             Expression::ExternalCommand(external) => b::typed(
                 "command",
                 b::keyword("^") + b::primitive(external.name.span.slice(source)),
             ),
-            Expression::Command(command) => {
-                b::typed("command", b::primitive(command.slice(source)))
-            }
+            Expression::Command => b::typed("command", b::primitive(self.span.slice(source))),
             Expression::Boolean(boolean) => match boolean {
                 true => b::primitive("$yes"),
                 false => b::primitive("$no"),
@@ -810,6 +863,7 @@ pub enum Operator {
     Divide,
     In,
     NotIn,
+    Modulo,
     And,
     Or,
 }
@@ -851,24 +905,37 @@ impl ShellTypeName for Synthetic {
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
 pub struct Range {
-    pub left: SpannedExpression,
-    pub dotdot: Span,
-    pub right: SpannedExpression,
+    pub left: Option<SpannedExpression>,
+    pub operator: Spanned<RangeOperator>,
+    pub right: Option<SpannedExpression>,
 }
 
 impl PrettyDebugWithSource for Range {
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         b::delimit(
             "<",
-            self.left.pretty_debug(source)
+            (if let Some(left) = &self.left {
+                left.pretty_debug(source)
+            } else {
+                DebugDocBuilder::blank()
+            }) + b::space()
+                + b::keyword(self.operator.span().slice(source))
                 + b::space()
-                + b::keyword(self.dotdot.slice(source))
-                + b::space()
-                + self.right.pretty_debug(source),
+                + (if let Some(right) = &self.right {
+                    right.pretty_debug(source)
+                } else {
+                    DebugDocBuilder::blank()
+                }),
             ">",
         )
         .group()
     }
+}
+
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
+pub enum RangeOperator {
+    Inclusive,
+    RightExclusive,
 }
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
@@ -977,11 +1044,12 @@ pub enum Expression {
     Range(Box<Range>),
     Block(hir::Block),
     List(Vec<SpannedExpression>),
+    Table(Vec<SpannedExpression>, Vec<Vec<SpannedExpression>>),
     Path(Box<Path>),
 
     FilePath(PathBuf),
     ExternalCommand(ExternalStringCommand),
-    Command(Span),
+    Command,
     Invocation(hir::Block),
 
     Boolean(bool),
@@ -997,11 +1065,12 @@ impl ShellTypeName for Expression {
         match self {
             Expression::Literal(literal) => literal.type_name(),
             Expression::Synthetic(synthetic) => synthetic.type_name(),
-            Expression::Command(..) => "command",
+            Expression::Command => "command",
             Expression::ExternalWord => "external word",
             Expression::FilePath(..) => "file path",
             Expression::Variable(..) => "variable",
             Expression::List(..) => "list",
+            Expression::Table(..) => "table",
             Expression::Binary(..) => "binary",
             Expression::Range(..) => "range",
             Expression::Block(..) => "block",
@@ -1030,8 +1099,18 @@ impl Expression {
         Expression::Literal(Literal::Number(Number::Int(BigInt::from(i))))
     }
 
-    pub fn decimal(f: f64) -> Expression {
-        Expression::Literal(Literal::Number(Number::Decimal(BigDecimal::from(f))))
+    pub fn decimal(f: f64) -> Result<Expression, ParseError> {
+        let dec = BigDecimal::from_f64(f);
+
+        let dec = match dec {
+            Some(x) => Ok(x),
+            None => Err(ParseError::internal_error(
+                "Can not convert f64 to big decimal"
+                    .to_string()
+                    .spanned_unknown(),
+            )),
+        }?;
+        Ok(Expression::Literal(Literal::Number(Number::Decimal(dec))))
     }
 
     pub fn string(s: String) -> Expression {
@@ -1042,10 +1121,14 @@ impl Expression {
         Expression::Literal(Literal::Operator(operator))
     }
 
-    pub fn range(left: SpannedExpression, dotdot: Span, right: SpannedExpression) -> Expression {
+    pub fn range(
+        left: Option<SpannedExpression>,
+        operator: Spanned<RangeOperator>,
+        right: Option<SpannedExpression>,
+    ) -> Expression {
         Expression::Range(Box::new(Range {
             left,
-            dotdot,
+            operator,
             right,
         }))
     }
@@ -1114,13 +1197,21 @@ impl PrettyDebugWithSource for NamedValue {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
+pub enum ExternalRedirection {
+    None,
+    Stdout,
+    Stderr,
+    StdoutAndStderr,
+}
+
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct Call {
     pub head: Box<SpannedExpression>,
     pub positional: Option<Vec<SpannedExpression>>,
     pub named: Option<NamedArguments>,
     pub span: Span,
-    pub is_last: bool,
+    pub external_redirection: ExternalRedirection,
 }
 
 impl Call {
@@ -1193,7 +1284,7 @@ impl Call {
             positional: None,
             named: None,
             span,
-            is_last: false,
+            external_redirection: ExternalRedirection::Stdout,
         }
     }
 }
@@ -1216,6 +1307,7 @@ pub enum FlatShape {
     Operator,
     Dot,
     DotDot,
+    DotDotLeftAngleBracket,
     InternalCommand,
     ExternalCommand,
     ExternalWord,

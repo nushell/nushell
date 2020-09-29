@@ -1,6 +1,6 @@
 use crate::type_name::ShellTypeName;
 use crate::value::column_path::ColumnPath;
-use crate::value::range::Range;
+use crate::value::range::{Range, RangeInclusion};
 use crate::value::{serde_bigdecimal, serde_bigint};
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
@@ -14,10 +14,10 @@ use num_traits::sign::Signed;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-const NANOS_PER_SEC: u32 = 1000000000;
+const NANOS_PER_SEC: u32 = 1_000_000_000;
 
-/// The most fundamental of structured values in Nu are the Primitive values. These values represent types like integers, strings, booleans, dates, etc that are then used
-/// as the buildig blocks to build up more complex structures.
+/// The most fundamental of structured values in Nu are the Primitive values. These values represent types like integers, strings, booleans, dates, etc
+/// that are then used as the building blocks of more complex structures.
 ///
 /// Primitives also include marker values BeginningOfStream and EndOfStream which denote a change of condition in the stream
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Deserialize, Serialize)]
@@ -65,16 +65,22 @@ impl Primitive {
     /// Converts a primitive value to a u64, if possible. Uses a span to build an error if the conversion isn't possible.
     pub fn as_u64(&self, span: Span) -> Result<u64, ShellError> {
         match self {
-            Primitive::Int(int) => match int.to_u64() {
-                None => Err(ShellError::range_error(
+            Primitive::Int(int) => int.to_u64().ok_or_else(|| {
+                ShellError::range_error(
                     ExpectedRange::U64,
                     &format!("{}", int).spanned(span),
                     "converting an integer into a 64-bit integer",
-                )),
-                Some(num) => Ok(num),
-            },
+                )
+            }),
+            Primitive::Decimal(decimal) => decimal.to_u64().ok_or_else(|| {
+                ShellError::range_error(
+                    ExpectedRange::U64,
+                    &format!("{}", decimal).spanned(span),
+                    "converting a decimal into a 64-bit integer",
+                )
+            }),
             other => Err(ShellError::type_error(
-                "integer",
+                "number",
                 other.type_name().spanned(span),
             )),
         }
@@ -84,6 +90,7 @@ impl Primitive {
     pub fn into_chrono_duration(self, span: Span) -> Result<chrono::Duration, ShellError> {
         match self {
             Primitive::Duration(duration) => {
+                // Divide into seconds because BigInt can be larger than i64
                 let (secs, nanos) = duration.div_rem(&BigInt::from(NANOS_PER_SEC));
                 let secs = match secs.to_i64() {
                     Some(secs) => secs,
@@ -95,17 +102,12 @@ impl Primitive {
                         ))
                     }
                 };
-                // This should never fail since nanos < 10^9.
-                let nanos = match nanos.to_i64() {
-                    Some(nanos) => nanos,
-                    None => return Err(ShellError::unexpected("Unexpected i64 overflow")),
-                };
-                let nanos = chrono::Duration::nanoseconds(nanos);
+                // This should never fail since NANOS_PER_SEC won't overflow
+                let nanos = nanos.to_i64().expect("Unexpected i64 overflow");
                 // This should also never fail since we are adding less than NANOS_PER_SEC.
-                match chrono::Duration::seconds(secs).checked_add(&nanos) {
-                    Some(duration) => Ok(duration),
-                    None => Err(ShellError::unexpected("Unexpected duration overflow")),
-                }
+                chrono::Duration::seconds(secs)
+                    .checked_add(&chrono::Duration::nanoseconds(nanos))
+                    .ok_or_else(|| ShellError::unexpected("Unexpected duration overflow"))
             }
             other => Err(ShellError::type_error(
                 "duration",
@@ -134,78 +136,10 @@ impl Primitive {
     }
 }
 
-impl num_traits::Zero for Primitive {
-    fn zero() -> Self {
-        Primitive::Int(BigInt::zero())
-    }
-
-    fn is_zero(&self) -> bool {
-        match self {
-            Primitive::Int(int) => int.is_zero(),
-            Primitive::Decimal(decimal) => decimal.is_zero(),
-            Primitive::Filesize(num_bytes) => num_bytes.is_zero(),
-            _ => false,
-        }
-    }
-}
-
-impl std::ops::Add for Primitive {
-    type Output = Primitive;
-
-    fn add(self, rhs: Self) -> Self {
-        match (self, rhs) {
-            (Primitive::Int(left), Primitive::Int(right)) => Primitive::Int(left + right),
-            (Primitive::Int(left), Primitive::Decimal(right)) => {
-                Primitive::Decimal(BigDecimal::from(left) + right)
-            }
-            (Primitive::Decimal(left), Primitive::Decimal(right)) => {
-                Primitive::Decimal(left + right)
-            }
-            (Primitive::Decimal(left), Primitive::Int(right)) => {
-                Primitive::Decimal(left + BigDecimal::from(right))
-            }
-            (Primitive::Filesize(left), right) => match right {
-                Primitive::Filesize(right) => Primitive::Filesize(left + right),
-                Primitive::Int(right) => {
-                    Primitive::Filesize(left + right.to_u64().unwrap_or_else(|| 0 as u64))
-                }
-                Primitive::Decimal(right) => {
-                    Primitive::Filesize(left + right.to_u64().unwrap_or_else(|| 0 as u64))
-                }
-                _ => Primitive::Filesize(left),
-            },
-            (left, Primitive::Filesize(right)) => match left {
-                Primitive::Filesize(left) => Primitive::Filesize(left + right),
-                Primitive::Int(left) => {
-                    Primitive::Filesize(left.to_u64().unwrap_or_else(|| 0 as u64) + right)
-                }
-                Primitive::Decimal(left) => {
-                    Primitive::Filesize(left.to_u64().unwrap_or_else(|| 0 as u64) + right)
-                }
-                _ => Primitive::Filesize(right),
-            },
-            _ => Primitive::zero(),
-        }
-    }
-}
-
-impl std::ops::Mul for Primitive {
-    type Output = Self;
-
-    fn mul(self, rhs: Self) -> Self {
-        match (self, rhs) {
-            (Primitive::Int(left), Primitive::Int(right)) => Primitive::Int(left * right),
-            (Primitive::Int(left), Primitive::Decimal(right)) => {
-                Primitive::Decimal(BigDecimal::from(left) * right)
-            }
-            (Primitive::Decimal(left), Primitive::Decimal(right)) => {
-                Primitive::Decimal(left * right)
-            }
-            (Primitive::Decimal(left), Primitive::Int(right)) => {
-                Primitive::Decimal(left * BigDecimal::from(right))
-            }
-            _ => unimplemented!("Internal error: can't multiply incompatible primitives."),
-        }
+impl From<bool> for Primitive {
+    /// Helper to convert from boolean to a primitive
+    fn from(b: bool) -> Primitive {
+        Primitive::Boolean(b)
     }
 }
 
@@ -262,6 +196,12 @@ impl From<chrono::Duration> for Primitive {
     }
 }
 
+impl std::fmt::Display for Primitive {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 impl ShellTypeName for Primitive {
     /// Get the name of the type of a Primitive value
     fn type_name(&self) -> &'static str {
@@ -311,8 +251,13 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
         Primitive::Int(i) => i.to_string(),
         Primitive::Decimal(decimal) => format!("{:.4}", decimal),
         Primitive::Range(range) => format!(
-            "{}..{}",
+            "{}..{}{}",
             format_primitive(&range.from.0.item, None),
+            if range.to.1 == RangeInclusion::Exclusive {
+                "<"
+            } else {
+                ""
+            },
             format_primitive(&range.to.0.item, None)
         ),
         Primitive::Pattern(s) => s.to_string(),
@@ -352,11 +297,12 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
 
 /// Format a duration in nanoseconds into a string
 pub fn format_duration(duration: &BigInt) -> String {
+    let is_zero = duration.is_zero();
     // FIXME: This involves a lot of allocation, but it seems inevitable with BigInt.
     let big_int_1000 = BigInt::from(1000);
     let big_int_60 = BigInt::from(60);
     let big_int_24 = BigInt::from(24);
-    // We only want the biggest subvidision to have the negative sign.
+    // We only want the biggest subdivision to have the negative sign.
     let (sign, duration) = if duration.is_zero() || duration.is_positive() {
         (1, duration.clone())
     } else {
@@ -372,19 +318,19 @@ pub fn format_duration(duration: &BigInt) -> String {
     let mut output_prep = vec![];
 
     if !days.is_zero() {
-        output_prep.push(format!("{}d", days));
+        output_prep.push(format!("{}day", days));
     }
 
     if !hours.is_zero() {
-        output_prep.push(format!("{}h", hours));
+        output_prep.push(format!("{}hr", hours));
     }
 
     if !mins.is_zero() {
-        output_prep.push(format!("{}m", mins));
+        output_prep.push(format!("{}min", mins));
     }
-
-    if !secs.is_zero() {
-        output_prep.push(format!("{}s", secs));
+    // output 0sec for zero duration
+    if is_zero || !secs.is_zero() {
+        output_prep.push(format!("{}sec", secs));
     }
 
     if !millis.is_zero() {

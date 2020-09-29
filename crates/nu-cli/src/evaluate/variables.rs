@@ -1,4 +1,3 @@
-use crate::cli::History;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
@@ -17,7 +16,7 @@ pub fn nu(env: &IndexMap<String, String>, tag: impl Into<Tag>) -> Result<Value, 
     }
     nu_dict.insert_value("env", dict.into_value());
 
-    let config = crate::data::config::read(&tag, &None)?;
+    let config = nu_data::config::read(&tag, &None)?;
     nu_dict.insert_value("config", UntaggedValue::row(config).into_value(&tag));
 
     let mut table = vec![];
@@ -39,16 +38,20 @@ pub fn nu(env: &IndexMap<String, String>, tag: impl Into<Tag>) -> Result<Value, 
     let temp = std::env::temp_dir();
     nu_dict.insert_value("temp-dir", UntaggedValue::path(temp).into_value(&tag));
 
-    let config = crate::data::config::default_path()?;
+    let config = nu_data::config::default_path()?;
     nu_dict.insert_value("config-path", UntaggedValue::path(config).into_value(&tag));
 
-    let keybinding_path = crate::keybinding::keybinding_path()?;
-    nu_dict.insert_value(
-        "keybinding-path",
-        UntaggedValue::path(keybinding_path).into_value(&tag),
-    );
+    #[cfg(feature = "rustyline-support")]
+    {
+        let keybinding_path = crate::keybinding::keybinding_path()?;
+        nu_dict.insert_value(
+            "keybinding-path",
+            UntaggedValue::path(keybinding_path).into_value(&tag),
+        );
+    }
 
-    let history = History::path();
+    let config: Box<dyn nu_data::config::Conf> = Box::new(nu_data::config::NuConfig::new());
+    let history = crate::commands::history::history_path(&config);
     nu_dict.insert_value(
         "history-path",
         UntaggedValue::path(history).into_value(&tag),

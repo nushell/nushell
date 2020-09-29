@@ -1,10 +1,13 @@
+use crate::commands::math::reducers::{reducer_for, Reduce};
 use crate::commands::math::utils::run_with_function;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
-use crate::utils::data_processing::{reducer_for, Reduce};
 use nu_errors::ShellError;
-use nu_protocol::{Dictionary, Signature, UntaggedValue, Value};
-use num_traits::identities::Zero;
+
+use nu_protocol::{
+    hir::{convert_number_to_u64, Number},
+    Primitive, Signature, UntaggedValue, Value,
+};
 
 pub struct SubCommand;
 
@@ -59,37 +62,64 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
+fn to_byte(value: &Value) -> Option<Value> {
+    match &value.value {
+        UntaggedValue::Primitive(Primitive::Int(num)) => Some(
+            UntaggedValue::Primitive(Primitive::Filesize(convert_number_to_u64(&Number::Int(
+                num.clone(),
+            ))))
+            .into_untagged_value(),
+        ),
+        _ => None,
+    }
+}
+
 pub fn summation(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
     let sum = reducer_for(Reduce::Summation);
 
-    if values.iter().all(|v| v.is_primitive()) {
-        Ok(sum(Value::zero(), values.to_vec())?)
-    } else {
-        let mut column_values = IndexMap::new();
+    let first = values.get(0).ok_or_else(|| {
+        ShellError::unexpected("Cannot perform aggregate math operation on empty data")
+    })?;
 
-        for value in values {
-            if let UntaggedValue::Row(row_dict) = value.value.clone() {
-                for (key, value) in row_dict.entries.iter() {
-                    column_values
-                        .entry(key.clone())
-                        .and_modify(|v: &mut Vec<Value>| v.push(value.clone()))
-                        .or_insert(vec![value.clone()]);
-                }
-            };
-        }
-
-        let mut column_totals = IndexMap::new();
-
-        for (col_name, col_vals) in column_values {
-            let sum = sum(Value::zero(), col_vals)?;
-
-            column_totals.insert(col_name, sum);
-        }
-
-        Ok(UntaggedValue::Row(Dictionary {
-            entries: column_totals,
-        })
-        .into_value(name))
+    match first {
+        v if v.is_filesize() => to_byte(&sum(
+            UntaggedValue::int(0).into_untagged_value(),
+            values
+                .to_vec()
+                .iter()
+                .map(|v| match v {
+                    Value {
+                        value: UntaggedValue::Primitive(Primitive::Filesize(num)),
+                        ..
+                    } => UntaggedValue::int(*num as usize).into_untagged_value(),
+                    other => other.clone(),
+                })
+                .collect::<Vec<_>>(),
+        )?)
+        .ok_or_else(|| {
+            ShellError::labeled_error(
+                "could not convert to big decimal",
+                "could not convert to big decimal",
+                &name.span,
+            )
+        }),
+        v if v.is_duration() => sum(UntaggedValue::int(0).into_untagged_value(), values.to_vec()),
+        // v is nothing primitive
+        v if v.is_none() => sum(
+            UntaggedValue::int(0).into_untagged_value(),
+            values
+                .to_vec()
+                .iter()
+                .map(|v| match v {
+                    Value {
+                        value: UntaggedValue::Primitive(Primitive::Nothing),
+                        ..
+                    } => UntaggedValue::int(0).into_untagged_value(),
+                    other => other.clone(),
+                })
+                .collect::<Vec<_>>(),
+        ),
+        _ => sum(UntaggedValue::int(0).into_untagged_value(), values.to_vec()),
     }
 }
 

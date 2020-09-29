@@ -11,11 +11,9 @@ pub struct Ls;
 pub struct LsArgs {
     pub path: Option<Tagged<PathBuf>>,
     pub all: bool,
-    pub full: bool,
+    pub long: bool,
     #[serde(rename = "short-names")]
     pub short_names: bool,
-    #[serde(rename = "with-symlink-targets")]
-    pub with_symlink_targets: bool,
     #[serde(rename = "du")]
     pub du: bool,
 }
@@ -33,25 +31,20 @@ impl WholeStreamCommand for Ls {
                 SyntaxShape::Pattern,
                 "a path to get the directory contents from",
             )
-            .switch("all", "also show hidden files", Some('a'))
+            .switch("all", "Show hidden files", Some('a'))
             .switch(
-                "full",
-                "list all available columns for each entry",
-                Some('f'),
+                "long",
+                "List all available columns for each entry",
+                Some('l'),
             )
             .switch(
                 "short-names",
-                "only print the file names and not the path",
+                "Only print the file names and not the path",
                 Some('s'),
             )
             .switch(
-                "with-symlink-targets",
-                "display the paths to the target files that symlinks point to",
-                Some('w'),
-            )
-            .switch(
                 "du",
-                "display the apparent directory size in place of the directory metadata size",
+                "Display the apparent directory size in place of the directory metadata size",
                 Some('d'),
             )
     }

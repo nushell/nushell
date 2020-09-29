@@ -38,44 +38,41 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
     })
 }
 
-#[cfg(feature = "which")]
+#[cfg(feature = "directories-support")]
+#[cfg(feature = "which-support")]
 #[test]
 fn autoenv() {
+    use nu_test_support::fs::Stub::FileWithContent;
     Playground::setup("autoenv_test", |dirs, sandbox| {
         sandbox.mkdir("foo/bar");
         sandbox.mkdir("bizz/buzz");
         sandbox.mkdir("foob");
 
-        let scriptfile = if cfg!(target_os = "windows") {
-            FileWithContent(
-                ".nu-env",
-                r#"[env]
-                    testkey = "testvalue"
+        // Windows uses a different command to create an empty file so we need to have different content on windows.
+        let full_nu_env = if cfg!(target_os = "windows") {
+            r#"[env]
+                testkey = "testvalue"
 
-                    [scriptvars]
-                    myscript = "echo myval"
+                [scriptvars]
+                myscript = "echo myval"
 
-                    [scripts]
-                    entryscripts = ["echo nul > hello.txt"]
-                    exitscripts = ["echo nul > bye.txt"]"#,
-            )
+                [scripts]
+                entryscripts = ["echo nul > hello.txt"]
+                exitscripts = ["echo nul > bye.txt"]"#
         } else {
-            FileWithContent(
-                ".nu-env",
-                r#"[env]
-                    testkey = "testvalue"
+            r#"[env]
+                testkey = "testvalue"
 
-                    [scriptvars]
-                    myscript = "echo myval"
+                [scriptvars]
+                myscript = "echo myval"
 
-                    [scripts]
-                    entryscripts = ["touch hello.txt"]
-                    exitscripts = ["touch bye.txt"]"#,
-            )
+                [scripts]
+                entryscripts = ["touch hello.txt"]
+                exitscripts = ["touch bye.txt"]"#
         };
 
         sandbox.with_files(vec![
-            scriptfile,
+            FileWithContent(".nu-env", full_nu_env),
             FileWithContent(
                 "foo/.nu-env",
                 r#"[env]
@@ -87,13 +84,27 @@ fn autoenv() {
                 r#"[env]
                     overwrite_me = "set_in_bar""#,
             ),
-            FileWithContent(
-                "bizz/.nu-env",
-                r#"[scripts]
-                    entryscripts = ["touch hello.txt"]
-                    exitscripts = ["touch bye.txt"]"#,
-            ),
+            FileWithContent("bizz/.nu-env", full_nu_env),
         ]);
+
+        //Make sure basic keys are set
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust
+               echo $nu.env.testkey"#
+        );
+        assert!(actual.out.ends_with("testvalue"));
+
+        // Make sure exitscripts are run in the directory they were specified.
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust
+               cd ..
+               cd autoenv_test
+               ls
+               ls | where name == "bye.txt" | get name"#
+        );
+        assert!(actual.out.contains("bye.txt"));
 
         // Make sure entry scripts are run
         let actual = nu!(
@@ -105,7 +116,16 @@ fn autoenv() {
         );
         assert!(actual.out.contains("hello.txt"));
 
-        // Make sure entry scripts are run when re-visiting a directory
+        // If inside a directory with exitscripts, entering a subdirectory should not trigger the exitscripts.
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust
+               cd foob
+               ls | where name == "bye.txt" | get name"#
+        );
+        assert!(!actual.out.contains("bye.txt"));
+
+        // Make sure entryscripts are run when re-visiting a directory
         let actual = nu!(
             cwd: dirs.test(),
             r#"autoenv trust bizz
@@ -126,14 +146,6 @@ fn autoenv() {
                ls | where name == hello.txt | get name"#
         );
         assert!(!actual.out.ends_with("hello.txt"));
-
-        //Make sure basic keys are set
-        let actual = nu!(
-            cwd: dirs.test(),
-            r#"autoenv trust
-               echo $nu.env.testkey"#
-        );
-        assert!(actual.out.ends_with("testvalue"));
 
         //Backing out of the directory should unset the keys
         let actual = nu!(
@@ -177,14 +189,6 @@ fn autoenv() {
             r#"ls | where name == "hello.txt" | get name"#
         );
         assert!(actual.out.contains("hello.txt"));
-
-        // Make sure exit scripts are run
-        let actual = nu!(
-            cwd: dirs.test(),
-            r#"cd ..
-               ls | where name == "bye.txt" | get name"#
-        );
-        assert!(actual.out.contains("bye.txt"));
 
         //Variables set in parent directories should be set even if you directly cd to a subdir
         let actual = nu!(
@@ -412,6 +416,174 @@ fn echoing_ranges() {
     );
 
     assert_eq!(actual.out, "6");
+}
+
+#[test]
+fn echoing_exclusive_ranges() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            echo 1..<4 | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "6");
+}
+
+#[test]
+fn table_literals1() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            echo [[name age]; [foo 13]] | get age
+        "#
+    );
+
+    assert_eq!(actual.out, "13");
+}
+
+#[test]
+fn table_literals2() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo [[name age] ; [bob 13] [sally 20]] | get age | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "33");
+}
+
+#[test]
+fn list_with_commas() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo [1, 2, 3] | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "6");
+}
+
+#[test]
+fn range_with_left_var() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo [[size]; [3]] | echo $it.size..10 | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "52");
+}
+
+#[test]
+fn range_with_right_var() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo [[size]; [30]] | echo 4..$it.size | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "459");
+}
+
+#[test]
+fn range_with_open_left() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo ..30 | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "465");
+}
+
+#[test]
+fn exclusive_range_with_open_left() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo ..<31 | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "465");
+}
+
+#[test]
+fn range_with_open_right() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo 5.. | first 10 | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "95");
+}
+
+#[test]
+fn exclusive_range_with_open_right() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo 5..< | first 10 | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "95");
+}
+
+#[test]
+fn range_with_mixed_types() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo 1..10.5 | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "55");
+}
+
+#[test]
+fn exclusive_range_with_mixed_types() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo 1..<10.5 | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "55");
+}
+
+#[test]
+fn it_expansion_of_tables() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo foo | echo [[`foo {{$it}} bar`]; [`{{$it}} foo`]] | get "foo foo bar"
+        "#
+    );
+
+    assert_eq!(actual.out, "foo foo");
+}
+
+#[test]
+fn table_with_commas() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        echo [[name, age, height]; [JT, 42, 185] [Unknown, 99, 99]] | get age | math sum
+        "#
+    );
+
+    assert_eq!(actual.out, "141");
 }
 
 mod parse {

@@ -1,7 +1,7 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::value::format_leaf;
 use crate::prelude::*;
 use futures::StreamExt;
+use nu_data::value::format_leaf;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
 

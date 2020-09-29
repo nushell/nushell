@@ -1,6 +1,6 @@
 # touch
 
-Create a file in the current or an already existent directory.
+Create one or more files in the current or an already existent directory.
 It has no effect on existing files.
 Unlike GNU touch, the access time and the modified time are not updated.
 
@@ -41,3 +41,15 @@ Create a file within an already existent folder.
  modified │ 0 secs ago
 ──────────┴───────────
 ```
+
+Create three files at oince
+```shell
+> touch a b c
+> ls
+────┬────────────────────┬──────┬──────────┬──────────────
+ #  │        name        │ type │   size   │   modified
+────┼────────────────────┼──────┼──────────┼──────────────
+  0 │ a                  │ File │      0 B │ 0 sec ago
+  1 │ b                  │ File │      0 B │ 0 sec ago
+  2 │ c                  │ File │      0 B │ 0 sec ago
+────┴────────────────────┴──────┴──────────┴──────────────

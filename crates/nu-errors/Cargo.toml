@@ -4,28 +4,27 @@ description = "Core error subsystem for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-errors"
-version = "0.16.1"
+version = "0.20.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-source = {path = "../nu-source", version = "0.16.1"}
+nu-source = {path = "../nu-source", version = "0.20.0"}
 
 ansi_term = "0.12.1"
-bigdecimal = {version = "0.1.2", features = ["serde"]}
+bigdecimal = {version = "0.2.0", features = ["serde"]}
 codespan-reporting = {version = "0.9.5", features = ["serialization"]}
 derive-new = "0.5.8"
 getset = "0.1.1"
-num-bigint = {version = "0.2.6", features = ["serde"]}
+num-bigint = {version = "0.3.0", features = ["serde"]}
 num-traits = "0.2.12"
-serde = {version = "1.0.114", features = ["derive"]}
+serde = {version = "1.0.115", features = ["derive"]}
 
 # implement conversions
 glob = "0.3.0"
-serde_json = "1.0.55"
-serde_yaml = "0.8"
+serde_json = "1.0.57"
+serde_yaml = "0.8.13"
 toml = "0.5.6"
 
 [build-dependencies]
-nu-build = {version = "0.16.1", path = "../nu-build"}

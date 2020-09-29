@@ -1,9 +1,15 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_source::Tagged;
 
 pub struct SubCommand;
+
+#[derive(Deserialize)]
+pub struct SubCommandArgs {
+    separator: Option<Tagged<String>>,
+}
 
 #[async_trait]
 impl WholeStreamCommand for SubCommand {
@@ -12,7 +18,11 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("str collect")
+        Signature::build("str collect").desc(self.usage()).optional(
+            "separator",
+            SyntaxShape::String,
+            "the separator to put between the different values",
+        )
     }
 
     fn usage(&self) -> &str {
@@ -22,16 +32,9 @@ impl WholeStreamCommand for SubCommand {
     async fn run(
         &self,
         args: CommandArgs,
-        _registry: &CommandRegistry,
+        registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        let output = args
-            .input
-            .collect_string(args.call_info.name_tag.clone())
-            .await?;
-
-        Ok(OutputStream::one(ReturnSuccess::value(
-            UntaggedValue::string(output.item).into_value(output.tag),
-        )))
+        collect(args, registry).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -41,6 +44,24 @@ impl WholeStreamCommand for SubCommand {
             result: Some(vec![Value::from("abc")]),
         }]
     }
+}
+
+pub async fn collect(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
+    let tag = args.call_info.name_tag.clone();
+    let (SubCommandArgs { separator }, input) = args.process(registry).await?;
+    let separator = separator.map(|tagged| tagged.item).unwrap_or_default();
+
+    let strings: Vec<Result<String, ShellError>> =
+        input.map(|value| value.as_string()).collect().await;
+    let strings: Vec<String> = strings.into_iter().collect::<Result<_, _>>()?;
+    let output = strings.join(&separator);
+
+    Ok(OutputStream::one(ReturnSuccess::value(
+        UntaggedValue::string(output).into_value(tag),
+    )))
 }
 
 #[cfg(test)]

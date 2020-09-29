@@ -1,293 +1,159 @@
-use crate::context::CommandRegistry;
+use crate::completion::command::CommandCompleter;
+use crate::completion::flag::FlagCompleter;
+use crate::completion::matchers;
+use crate::completion::matchers::Matcher;
+use crate::completion::path::{PathCompleter, PathSuggestion};
+use crate::completion::{self, Completer, Suggestion};
+use crate::evaluation_context::EvaluationContext;
+use nu_source::Tag;
 
-use crate::data::config;
-use crate::prelude::*;
-use derive_new::new;
-#[cfg(all(windows, feature = "ichwh"))]
-use ichwh::IchwhError;
-#[cfg(all(windows, feature = "ichwh"))]
-use ichwh::IchwhResult;
-use indexmap::set::IndexSet;
-use rustyline::completion::{Completer, FilenameCompleter};
-use std::fs::{read_dir, DirEntry};
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
+use std::borrow::Cow;
 
-#[derive(new)]
-pub(crate) struct NuCompleter {
-    pub file_completer: FilenameCompleter,
-    pub commands: CommandRegistry,
-    pub homedir: Option<PathBuf>,
-}
+pub(crate) struct NuCompleter {}
 
-#[derive(PartialEq, Eq, Debug)]
-enum ReplacementLocation {
-    Command,
-    Other,
-}
+impl NuCompleter {}
 
 impl NuCompleter {
     pub fn complete(
         &self,
         line: &str,
         pos: usize,
-        context: &rustyline::Context,
-    ) -> rustyline::Result<(usize, Vec<rustyline::completion::Pair>)> {
-        let commands: Vec<String> = self.commands.names();
+        context: &completion::CompletionContext,
+    ) -> (usize, Vec<Suggestion>) {
+        use completion::engine::LocationType;
 
-        let line_chars: Vec<_> = line[..pos].chars().collect();
+        let nu_context: &EvaluationContext = context.as_ref();
+        let lite_block = match nu_parser::lite_parse(line, 0) {
+            Ok(block) => Some(block),
+            Err(result) => result.partial,
+        };
 
-        let (replace_pos, replace_loc) = self.get_replace_pos(line, pos);
+        let locations = lite_block
+            .map(|block| nu_parser::classify_block(&block, &nu_context.registry))
+            .map(|block| completion::engine::completion_location(line, &block.block, pos))
+            .unwrap_or_default();
 
-        let mut completions;
+        let matcher = nu_data::config::config(Tag::unknown())
+            .ok()
+            .and_then(|cfg| cfg.get("line_editor").cloned())
+            .and_then(|le| {
+                le.row_entries()
+                    .find(|(idx, _value)| idx.as_str() == "completion_match_method")
+                    .and_then(|(_idx, value)| value.as_string().ok())
+            })
+            .unwrap_or_else(String::new);
 
-        // See if we're a flag
-        if pos > 0 && replace_pos < line_chars.len() && line_chars[replace_pos] == '-' {
-            if let Ok(lite_block) = nu_parser::lite_parse(line, 0) {
-                completions =
-                    self.get_matching_arguments(&lite_block, &line_chars, line, replace_pos, pos);
-            } else {
-                completions = self.file_completer.complete(line, pos, context)?.1;
-            }
+        let matcher = matcher.as_str();
+        let matcher: &dyn Matcher = match matcher {
+            "case-insensitive" => &matchers::case_insensitive::Matcher,
+            _ => &matchers::case_sensitive::Matcher,
+        };
+
+        if locations.is_empty() {
+            (pos, Vec::new())
         } else {
-            completions = self.file_completer.complete(line, pos, context)?.1;
-
-            for completion in &mut completions {
-                if completion.replacement.contains("\\ ") {
-                    completion.replacement = completion.replacement.replace("\\ ", " ");
-                }
-                if completion.replacement.contains("\\(") {
-                    completion.replacement = completion.replacement.replace("\\(", "(");
-                }
-
-                if completion.replacement.contains(' ') || completion.replacement.contains('(') {
-                    if !completion.replacement.starts_with('\"') {
-                        completion.replacement = format!("\"{}", completion.replacement);
-                    }
-                    if !completion.replacement.ends_with('\"') {
-                        completion.replacement = format!("{}\"", completion.replacement);
-                    }
-                }
-            }
-        };
-
-        let complete_from_path = match config::config(Tag::unknown()) {
-            Ok(conf) => match conf.get("complete_from_path") {
-                Some(val) => val.is_true(),
-                _ => true,
-            },
-            _ => true,
-        };
-
-        // Only complete executables or commands if the thing we're completing
-        // is syntactically a command
-        if replace_loc == ReplacementLocation::Command {
-            let mut all_executables: IndexSet<_> = commands.iter().map(|x| x.to_string()).collect();
-            if complete_from_path {
-                let path_executables = self.find_path_executables().unwrap_or_default();
-                for path_exe in path_executables {
-                    all_executables.insert(path_exe);
-                }
-            };
-            for exe in all_executables.iter() {
-                let mut pos = replace_pos;
-                let mut matched = false;
-                if pos < line_chars.len() {
-                    for chr in exe.chars() {
-                        if line_chars[pos] != chr {
-                            break;
+            let pos = locations[0].span.start();
+            let suggestions = locations
+                .into_iter()
+                .flat_map(|location| {
+                    let partial = location.span.slice(line);
+                    match location.item {
+                        LocationType::Command => {
+                            let command_completer = CommandCompleter;
+                            command_completer.complete(context, partial, matcher.to_owned())
                         }
-                        pos += 1;
-                        if pos == line_chars.len() {
-                            matched = true;
-                            break;
+
+                        LocationType::Flag(cmd) => {
+                            let flag_completer = FlagCompleter { cmd };
+                            flag_completer.complete(context, partial, matcher.to_owned())
                         }
-                    }
-                }
 
-                if matched {
-                    completions.push(rustyline::completion::Pair {
-                        display: exe.to_string(),
-                        replacement: exe.to_string(),
-                    });
-                }
-            }
-        }
+                        LocationType::Argument(cmd, _arg_name) => {
+                            let path_completer = PathCompleter;
 
-        for completion in &mut completions {
-            // If the cursor is at a double-quote, remove the double-quote in the replacement
-            // This prevents duplicate quotes
-            let cursor_char = line.chars().nth(pos);
-            if cursor_char.unwrap_or(' ') == '"' && completion.replacement.ends_with('"') {
-                completion.replacement.pop();
-            }
-        }
+                            const QUOTE_CHARS: &[char] = &['\'', '"', '`'];
 
-        Ok((replace_pos, completions))
-    }
+                            // TODO Find a better way to deal with quote chars. Can the completion
+                            //      engine relay this back to us? Maybe have two spans: inner and
+                            //      outer. The former is what we want to complete, the latter what
+                            //      we'd need to replace.
+                            let (quote_char, partial) = if partial.starts_with(QUOTE_CHARS) {
+                                let (head, tail) = partial.split_at(1);
+                                (Some(head), tail)
+                            } else {
+                                (None, partial)
+                            };
 
-    fn get_replace_pos(&self, line: &str, pos: usize) -> (usize, ReplacementLocation) {
-        let line_chars: Vec<_> = line[..pos].chars().collect();
-        let mut replace_pos = line_chars.len();
-        let mut parsed_pos = false;
-        let mut loc = ReplacementLocation::Other;
-        if let Ok(lite_block) = nu_parser::lite_parse(line, 0) {
-            'outer: for pipeline in lite_block.block.iter() {
-                for command in pipeline.commands.iter() {
-                    let name_span = command.name.span;
-                    if name_span.start() <= pos && name_span.end() >= pos {
-                        replace_pos = name_span.start();
-                        parsed_pos = true;
-                        loc = ReplacementLocation::Command;
-                        break 'outer;
-                    }
-
-                    for arg in command.args.iter() {
-                        if arg.span.start() <= pos && arg.span.end() >= pos {
-                            replace_pos = arg.span.start();
-                            parsed_pos = true;
-                            break 'outer;
-                        }
-                    }
-                }
-            }
-        }
-
-        if !parsed_pos {
-            // If the command won't parse, naively detect the completion start point
-            while replace_pos > 0 {
-                if line_chars[replace_pos - 1] == ' ' {
-                    break;
-                }
-                replace_pos -= 1;
-            }
-        }
-
-        (replace_pos, loc)
-    }
-
-    fn get_matching_arguments(
-        &self,
-        lite_block: &nu_parser::LiteBlock,
-        line_chars: &[char],
-        line: &str,
-        replace_pos: usize,
-        pos: usize,
-    ) -> Vec<rustyline::completion::Pair> {
-        let mut matching_arguments = vec![];
-
-        let mut line_copy = line.to_string();
-        let substring = line_chars[replace_pos..pos].iter().collect::<String>();
-        let replace_string = (replace_pos..pos).map(|_| " ").collect::<String>();
-        line_copy.replace_range(replace_pos..pos, &replace_string);
-
-        let result = nu_parser::classify_block(&lite_block, &self.commands);
-
-        for pipeline in &result.block.block {
-            for command in &pipeline.list {
-                if let nu_protocol::hir::ClassifiedCommand::Internal(
-                    nu_protocol::hir::InternalCommand { args, .. },
-                ) = command
-                {
-                    if replace_pos >= args.span.start() && replace_pos <= args.span.end() {
-                        if let Some(named) = &args.named {
-                            for (name, _) in named.iter() {
-                                let full_flag = format!("--{}", name);
-
-                                if full_flag.starts_with(&substring) {
-                                    matching_arguments.push(rustyline::completion::Pair {
-                                        display: full_flag.clone(),
-                                        replacement: full_flag,
-                                    });
+                            let partial = if let Some(quote_char) = quote_char {
+                                if partial.ends_with(quote_char) {
+                                    &partial[..partial.len() - 1]
+                                } else {
+                                    partial
                                 }
+                            } else {
+                                partial
+                            };
+
+                            let completed_paths = path_completer.path_suggestions(partial, matcher);
+                            match cmd.as_deref().unwrap_or("") {
+                                "cd" => select_directory_suggestions(completed_paths),
+                                _ => completed_paths,
                             }
+                            .into_iter()
+                            .map(|s| Suggestion {
+                                replacement: requote(s.suggestion.replacement),
+                                display: s.suggestion.display,
+                            })
+                            .collect()
                         }
+
+                        LocationType::Variable => Vec::new(),
                     }
-                }
-            }
+                })
+                .collect();
+
+            (pos, suggestions)
         }
+    }
+}
 
-        matching_arguments
+fn select_directory_suggestions(completed_paths: Vec<PathSuggestion>) -> Vec<PathSuggestion> {
+    completed_paths
+        .into_iter()
+        .filter(|suggestion| {
+            suggestion
+                .path
+                .metadata()
+                .map(|md| md.is_dir())
+                .unwrap_or(false)
+        })
+        .collect()
+}
+
+fn requote(orig_value: String) -> String {
+    let value: Cow<str> = rustyline::completion::unescape(&orig_value, Some('\\'));
+
+    let mut quotes = vec!['"', '\'', '`'];
+    let mut should_quote = false;
+    for c in value.chars() {
+        if c.is_whitespace() {
+            should_quote = true;
+        } else if let Some(index) = quotes.iter().position(|q| *q == c) {
+            should_quote = true;
+            quotes.swap_remove(index);
+        }
     }
 
-    // These is_executable/pathext implementations are copied from ichwh and modified
-    // to not be async
-
-    #[cfg(windows)]
-    fn pathext(&self) -> IchwhResult<Vec<String>> {
-        Ok(std::env::var_os("PATHEXT")
-            .ok_or(IchwhError::PathextNotDefined)?
-            .to_string_lossy()
-            .split(';')
-            // Cut off the leading '.' character
-            .map(|ext| ext[1..].to_string())
-            .collect::<Vec<_>>())
-    }
-
-    #[cfg(windows)]
-    fn is_executable(&self, file: &DirEntry) -> bool {
-        if let Ok(metadata) = file.metadata() {
-            let file_type = metadata.file_type();
-
-            // If the entry isn't a file, it cannot be executable
-            if !(file_type.is_file() || file_type.is_symlink()) {
-                return false;
-            }
-
-            if let Some(extension) = file.path().extension() {
-                if let Ok(exts) = self.pathext() {
-                    exts.iter()
-                        .any(|ext| extension.to_string_lossy().eq_ignore_ascii_case(ext))
-                } else {
-                    false
-                }
-            } else {
-                false
-            }
+    if should_quote {
+        if quotes.is_empty() {
+            // TODO we don't really have an escape character, so there isn't a great option right
+            //      now. One possibility is `{{$(char backtick)}}`
+            value.to_string()
         } else {
-            false
+            let quote = quotes[0];
+            format!("{}{}{}", quote, value, quote)
         }
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    fn is_executable(&self, file: &DirEntry) -> bool {
-        false
-    }
-
-    #[cfg(unix)]
-    fn is_executable(&self, file: &DirEntry) -> bool {
-        let metadata = file.metadata();
-
-        if let Ok(metadata) = metadata {
-            let filetype = metadata.file_type();
-            let permissions = metadata.permissions();
-
-            // The file is executable if it is a directory or a symlink and the permissions are set for
-            // owner, group, or other
-            (filetype.is_file() || filetype.is_symlink()) && (permissions.mode() & 0o111 != 0)
-        } else {
-            false
-        }
-    }
-
-    fn find_path_executables(&self) -> Option<IndexSet<String>> {
-        let path_var = std::env::var_os("PATH")?;
-        let paths: Vec<_> = std::env::split_paths(&path_var).collect();
-
-        let mut executables: IndexSet<String> = IndexSet::new();
-        for path in paths {
-            if let Ok(mut contents) = read_dir(path) {
-                while let Some(Ok(item)) = contents.next() {
-                    if self.is_executable(&item) {
-                        if let Ok(name) = item.file_name().into_string() {
-                            executables.insert(name);
-                        }
-                    }
-                }
-            }
-        }
-
-        Some(executables)
+    } else {
+        value.to_string()
     }
 }

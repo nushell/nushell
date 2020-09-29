@@ -4,22 +4,21 @@ description = "Nushell Plugin"
 edition = "2018"
 license = "MIT"
 name = "nu-plugin"
-version = "0.16.1"
+version = "0.20.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-errors = {path = "../nu-errors", version = "0.16.1"}
-nu-protocol = {path = "../nu-protocol", version = "0.16.1"}
-nu-source = {path = "../nu-source", version = "0.16.1"}
-nu-value-ext = {path = "../nu-value-ext", version = "0.16.1"}
+nu-errors = {path = "../nu-errors", version = "0.20.0"}
+nu-protocol = {path = "../nu-protocol", version = "0.20.0"}
+nu-source = {path = "../nu-source", version = "0.20.0"}
+nu-value-ext = {path = "../nu-value-ext", version = "0.20.0"}
 
-bigdecimal = {version = "0.1.2", features = ["serde"]}
-indexmap = {version = "1.4.0", features = ["serde-1"]}
-num-bigint = {version = "0.2.6", features = ["serde"]}
-serde = {version = "1.0.114", features = ["derive"]}
-serde_json = "1.0.55"
+bigdecimal = {version = "0.2.0", features = ["serde"]}
+indexmap = {version = "1.6.0", features = ["serde-1"]}
+num-bigint = {version = "0.3.0", features = ["serde"]}
+serde = {version = "1.0.115", features = ["derive"]}
+serde_json = "1.0.57"
 
 [build-dependencies]
-nu-build = {version = "0.16.1", path = "../nu-build"}

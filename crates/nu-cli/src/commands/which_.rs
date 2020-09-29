@@ -42,7 +42,7 @@ fn entry(arg: impl Into<String>, path: Value, builtin: bool, tag: Tag) -> Value 
     map.insert("path".to_string(), path);
     map.insert(
         "builtin".to_string(),
-        UntaggedValue::Primitive(Primitive::Boolean(builtin)).into_value(tag.clone()),
+        UntaggedValue::boolean(builtin).into_value(tag.clone()),
     );
 
     UntaggedValue::row(map).into_value(tag)
