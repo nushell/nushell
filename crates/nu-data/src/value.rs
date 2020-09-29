@@ -195,9 +195,10 @@ pub fn compute_values(
                 let result = match operator {
                     Operator::Plus => {
                         // FIXME: Not sure if I could do something better with the Span.
-                        let y = Primitive::into_chrono_duration(rhs.clone(), Span::unknown())
-                            .expect("Could not convert nushell Duration into chrono Duration.");
-                        Ok(x.checked_add_signed(y).expect("Data overflow."))
+                        match Primitive::into_chrono_duration(rhs.clone(), Span::unknown()) {
+                            Ok(y) => Ok(x.checked_add_signed(y).expect("Data overflow.")),
+                            Err(_) => Err(("Date", "Duration overflow")),
+                        }
                     }
                     _ => Err((left.type_name(), right.type_name())),
                 }?;
