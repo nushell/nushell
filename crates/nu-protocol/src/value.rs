@@ -2,6 +2,7 @@ pub mod column_path;
 mod convert;
 mod debug;
 pub mod dict;
+pub mod did_you_mean;
 pub mod evaluate;
 pub mod iter;
 pub mod primitive;
