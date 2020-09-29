@@ -3064,7 +3064,6 @@ dependencies = [
  "derive-new",
  "getset",
  "indexmap",
- "itertools",
  "log 0.4.11",
  "natural",
  "nu-errors",

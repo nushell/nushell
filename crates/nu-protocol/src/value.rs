@@ -15,7 +15,7 @@ use crate::value::dict::Dictionary;
 use crate::value::iter::{RowValueIter, TableValueIter};
 use crate::value::primitive::Primitive;
 use crate::value::range::{Range, RangeInclusion};
-use crate::{ColumnPath, PathMember, UnspannedPathMember};
+use crate::{ColumnPath, PathMember};
 use bigdecimal::BigDecimal;
 use bigdecimal::FromPrimitive;
 use chrono::{DateTime, Utc};
@@ -312,12 +312,10 @@ impl Value {
             UntaggedValue::Primitive(Primitive::Filesize(x)) => format!("{}", x),
             UntaggedValue::Primitive(Primitive::Path(x)) => format!("{}", x.display()),
             UntaggedValue::Primitive(Primitive::ColumnPath(path)) => {
-                let joined = path
+                let joined: String = path
                     .iter()
-                    .map(|member| match &member.unspanned {
-                        UnspannedPathMember::String(name) => name.to_string(),
-                        UnspannedPathMember::Int(n) => format!("{}", n),
-                    })
+                    .map(|member| member.as_string())
+                    .collect::<Vec<String>>()
                     .join(".");
 
                 if joined.contains(' ') {
