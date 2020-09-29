@@ -99,3 +99,29 @@ fn allows_if_given_unknown_column_name_is_missing() {
         assert_eq!(actual.out, "3");
     })
 }
+
+#[test]
+fn column_names_with_spaces() {
+    Playground::setup("select_test_4", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "test_data.csv",
+            r#"
+                    first name,last name
+                    Jonathan,Turner
+                    Jonathan,Arns
+                "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open test_data.csv
+                | select "last name"
+                | to json
+            "#
+        ));
+
+        let expected_output = r#"[{"last name":"Turner"},{"last name":"Arns"}]"#;
+        assert_eq!(actual.out, expected_output);
+    })
+}

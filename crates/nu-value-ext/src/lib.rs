@@ -570,21 +570,13 @@ pub fn as_string(value: &Value) -> Result<String, ShellError> {
         UntaggedValue::Primitive(Primitive::Int(x)) => Ok(format!("{}", x)),
         UntaggedValue::Primitive(Primitive::Filesize(x)) => Ok(format!("{}", x)),
         UntaggedValue::Primitive(Primitive::Path(x)) => Ok(format!("{}", x.display())),
-        UntaggedValue::Primitive(Primitive::ColumnPath(path)) => {
-            let joined = path
-                .iter()
-                .map(|member| match &member.unspanned {
-                    UnspannedPathMember::String(name) => name.to_string(),
-                    UnspannedPathMember::Int(n) => format!("{}", n),
-                })
-                .join(".");
-
-            if joined.contains(' ') {
-                Ok(format!("\"{}\"", joined))
-            } else {
-                Ok(joined)
-            }
-        }
+        UntaggedValue::Primitive(Primitive::ColumnPath(path)) => Ok(path
+            .iter()
+            .map(|member| match &member.unspanned {
+                UnspannedPathMember::String(name) => name.to_string(),
+                UnspannedPathMember::Int(n) => format!("{}", n),
+            })
+            .join(".")),
 
         // TODO: this should definitely be more general with better errors
         other => Err(ShellError::labeled_error(
