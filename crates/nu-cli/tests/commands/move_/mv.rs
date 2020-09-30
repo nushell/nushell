@@ -260,9 +260,7 @@ fn errors_if_renaming_directory_to_an_existing_file() {
 #[test]
 fn errors_if_moving_to_itself() {
     Playground::setup("mv_test_10_4", |dirs, sandbox| {
-        sandbox
-            .mkdir("mydir")
-            .mkdir("mydir/mydir_2");
+        sandbox.mkdir("mydir").mkdir("mydir/mydir_2");
 
         let actual = nu!(
             cwd: dirs.test(),
@@ -351,9 +349,7 @@ fn move_file_from_two_parents_up_using_multiple_dots_to_current_dir() {
 #[test]
 fn does_not_error_when_some_file_is_moving_into_itself() {
     Playground::setup("mv_test_13", |dirs, sandbox| {
-        sandbox
-            .mkdir("11")
-            .mkdir("12");
+        sandbox.mkdir("11").mkdir("12");
 
         let original_dir = dirs.test().join("11");
         let expected = dirs.test().join("12/11");
