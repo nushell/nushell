@@ -493,10 +493,12 @@ impl Shell for FilesystemShell {
             }
         }
 
-        sources = sources
-            .into_iter()
-            .filter(|f| matches!(f, Ok(f) if !destination.starts_with(f)))
-            .collect();
+        if let Some(Ok(_filename)) = some_if_source_is_destination {
+            sources = sources
+                .into_iter()
+                .filter(|f| matches!(f, Ok(f) if !destination.starts_with(f)))
+                .collect();
+        }
 
         for entry in sources {
             if let Ok(entry) = entry {
