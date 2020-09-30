@@ -44,20 +44,16 @@ nu_plugin_to_bson = {version = "0.20.0", path = "./crates/nu_plugin_to_bson", op
 nu_plugin_to_sqlite = {version = "0.20.0", path = "./crates/nu_plugin_to_sqlite", optional = true}
 nu_plugin_tree = {version = "0.20.0", path = "./crates/nu_plugin_tree", optional = true}
 
-crossterm = {version = "0.17", optional = true}
-semver = {version = "0.10.0", optional = true}
-url = {version = "2.1.1", optional = true}
-
+# Required to bootstrap the main binary
 clap = "2.33.3"
 ctrlc = "3.1.6"
-dunce = "1.0.1"
 futures = {version = "0.3.5", features = ["compat", "io-compat"]}
 log = "0.4.11"
 pretty_env_logger = "0.4.0"
-quick-xml = "0.18.1"
 
 [dev-dependencies]
 nu-test-support = {version = "0.20.0", path = "./crates/nu-test-support"}
+dunce = "1.0.1"
 
 [build-dependencies]
 serde = {version = "1.0.115", features = ["derive"]}
@@ -98,17 +94,17 @@ stable = ["default"]
 trace = ["nu-parser/trace"]
 
 # Stable (Default)
-inc = ["semver", "nu_plugin_inc"]
+inc = ["nu_plugin_inc"]
 ps = ["nu_plugin_ps"]
 sys = ["nu_plugin_sys"]
-textview = ["crossterm", "url", "nu_plugin_textview"]
+textview = ["nu_plugin_textview"]
 fetch = ["nu_plugin_fetch"]
 match = ["nu_plugin_match"]
 post = ["nu_plugin_post"]
 
 # Extra
 bson = ["nu_plugin_from_bson", "nu_plugin_to_bson"]
-chart = ["crossterm", "nu_plugin_chart"]
+chart = ["nu_plugin_chart"]
 binaryview = ["nu_plugin_binaryview"]
 clipboard-cli = ["nu-cli/clipboard-cli"]
 trash-support = ["nu-cli/trash-support"]

@@ -10,17 +10,13 @@ version = "0.20.0"
 doctest = false
 
 [dependencies]
-ansi_term = "0.12.1"
 bigdecimal = {version = "0.2.0", features = ["serde"]}
 byte-unit = "4.0.9"
 chrono = {version = "0.4.15", features = ["serde"]}
-codespan-reporting = "0.9.5"
 derive-new = "0.5.8"
 getset = "0.1.1"
 indexmap = {version = "1.6.0", features = ["serde-1"]}
-itertools = "0.9.0"
 log = "0.4.11"
-natural = "0.5.0"
 nu-errors = {path = "../nu-errors", version = "0.20.0"}
 nu-source = {path = "../nu-source", version = "0.20.0"}
 num-bigint = {version = "0.3.0", features = ["serde"]}

@@ -95,7 +95,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Kill),
             whole_stream_command(Version),
             whole_stream_command(Clear),
-            whole_stream_command(What),
+            whole_stream_command(Describe),
             whole_stream_command(Which),
             whole_stream_command(Debug),
             whole_stream_command(Alias),

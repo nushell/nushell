@@ -947,6 +947,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "crossterm"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2fcdc3c9cf8ee446222e8ee8691a6d21b563b8fe1a64b1873080db7b5b23cf0"
+dependencies = [
+ "bitflags",
+ "crossterm_winapi",
+ "lazy_static 1.4.0",
+ "libc",
+ "mio 0.7.0",
+ "parking_lot 0.11.0",
+ "signal-hook",
+ "winapi 0.3.9",
+]
+
+[[package]]
 name = "crossterm_winapi"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2756,15 +2772,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "natural"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65e6b44f8ddc659cde3555e0140d3441ad26cb03a1410774af1f9a19097c1867"
-dependencies = [
- "rust-stemmers",
-]
-
-[[package]]
 name = "neso"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2851,7 +2858,6 @@ name = "nu"
 version = "0.20.0"
 dependencies = [
  "clap",
- "crossterm",
  "ctrlc",
  "dunce",
  "futures 0.3.5",
@@ -2882,11 +2888,8 @@ dependencies = [
  "nu_plugin_to_sqlite",
  "nu_plugin_tree",
  "pretty_env_logger",
- "quick-xml 0.18.1",
- "semver 0.10.0",
  "serde 1.0.115",
  "toml",
- "url 2.1.1",
 ]
 
 [[package]]
@@ -2931,7 +2934,6 @@ dependencies = [
  "itertools",
  "log 0.4.11",
  "meval",
- "natural",
  "nu-data",
  "nu-errors",
  "nu-parser",
@@ -3069,17 +3071,13 @@ dependencies = [
 name = "nu-protocol"
 version = "0.20.0"
 dependencies = [
- "ansi_term 0.12.1",
  "bigdecimal",
  "byte-unit",
  "chrono",
- "codespan-reporting",
  "derive-new",
  "getset",
  "indexmap",
- "itertools",
  "log 0.4.11",
- "natural",
  "nu-errors",
  "nu-source",
  "num-bigint 0.3.0",
@@ -3141,7 +3139,7 @@ name = "nu_plugin_binaryview"
 version = "0.20.0"
 dependencies = [
  "ansi_term 0.12.1",
- "crossterm",
+ "crossterm 0.18.0",
  "image",
  "neso",
  "nu-errors",
@@ -3156,7 +3154,7 @@ dependencies = [
 name = "nu_plugin_chart"
 version = "0.20.0"
 dependencies = [
- "crossterm",
+ "crossterm 0.18.0",
  "nu-cli",
  "nu-data",
  "nu-errors",
@@ -4505,16 +4503,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3e52c148ef37f8c375d49d5a73aa70713125b7f19095948a923f80afdeb22ec2"
 
 [[package]]
-name = "rust-stemmers"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e46a2036019fdb888131db7a4c847a1063a7493f971ed94ea82c67eada63ca54"
-dependencies = [
- "serde 1.0.115",
- "serde_derive",
-]
-
-[[package]]
 name = "rust_decimal"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5523,13 +5511,13 @@ dependencies = [
 
 [[package]]
 name = "tui"
-version = "0.10.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a977b0bb2e2033a6fef950f218f13622c3c34e59754b704ce3492dedab1dfe95"
+checksum = "c2eaeee894a1e9b90f80aa466fe59154fdb471980b5e104d8836fcea309ae17e"
 dependencies = [
  "bitflags",
  "cassowary",
- "crossterm",
+ "crossterm 0.17.8",
  "unicode-segmentation",
  "unicode-width",
 ]

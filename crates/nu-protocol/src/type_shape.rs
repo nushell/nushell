@@ -9,11 +9,12 @@ use crate::value::primitive::Primitive;
 use crate::value::range::RangeInclusion;
 use crate::value::{UntaggedValue, Value};
 use derive_new::new;
+use indexmap::map::IndexMap;
 use nu_source::{b, DebugDoc, DebugDocBuilder, PrettyDebug};
-use serde::{Deserialize, Deserializer, Serialize};
-use std::collections::BTreeMap;
+use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 use std::fmt::Debug;
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 
 /// Representation of the type of ranges
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize, new)]
@@ -71,53 +72,52 @@ pub enum Type {
 }
 
 /// A shape representation of the type of a row
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, new)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Row {
-    #[new(default)]
-    map: BTreeMap<Column, Type>,
+    map: IndexMap<Column, Type>,
 }
 
-impl Serialize for Row {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.collect_map(self.map.iter())
+#[allow(clippy::derive_hash_xor_eq)]
+impl Hash for Row {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let mut entries = self.map.clone();
+        entries.sort_keys();
+        entries.keys().collect::<Vec<&Column>>().hash(state);
+        entries.values().collect::<Vec<&Type>>().hash(state);
     }
 }
 
-impl<'de> Deserialize<'de> for Row {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct RowVisitor;
+impl PartialOrd for Row {
+    /// Compare two dictionaries for sort ordering
+    fn partial_cmp(&self, other: &Row) -> Option<Ordering> {
+        let this: Vec<&Column> = self.map.keys().collect();
+        let that: Vec<&Column> = other.map.keys().collect();
 
-        impl<'de> serde::de::Visitor<'de> for RowVisitor {
-            type Value = Row;
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                write!(formatter, "a row")
-            }
-
-            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
-            where
-                A: serde::de::MapAccess<'de>,
-            {
-                let mut new_map = BTreeMap::new();
-
-                loop {
-                    let entry = map.next_entry()?;
-
-                    match entry {
-                        None => return Ok(Row { map: new_map }),
-                        Some((key, value)) => {
-                            new_map.insert(key, value);
-                        }
-                    }
-                }
-            }
+        if this != that {
+            return this.partial_cmp(&that);
         }
-        deserializer.deserialize_map(RowVisitor)
+
+        let this: Vec<&Type> = self.map.values().collect();
+        let that: Vec<&Type> = self.map.values().collect();
+
+        this.partial_cmp(&that)
+    }
+}
+
+impl Ord for Row {
+    /// Compare two dictionaries for ordering
+    fn cmp(&self, other: &Row) -> Ordering {
+        let this: Vec<&Column> = self.map.keys().collect();
+        let that: Vec<&Column> = other.map.keys().collect();
+
+        if this != that {
+            return this.cmp(&that);
+        }
+
+        let this: Vec<&Type> = self.map.values().collect();
+        let that: Vec<&Type> = self.map.values().collect();
+
+        this.cmp(&that)
     }
 }
 
@@ -155,7 +155,7 @@ impl Type {
 
     /// Convert a dictionary into its corresponding row Type
     pub fn from_dictionary(dictionary: &Dictionary) -> Type {
-        let mut map = BTreeMap::new();
+        let mut map = IndexMap::new();
 
         for (key, value) in dictionary.entries.iter() {
             let column = Column::String(key.clone());
