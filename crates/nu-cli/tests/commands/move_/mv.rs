@@ -258,6 +258,22 @@ fn errors_if_renaming_directory_to_an_existing_file() {
 }
 
 #[test]
+fn errors_if_moving_to_itself() {
+    Playground::setup("mv_test_10_4", |dirs, sandbox| {
+        sandbox
+            .mkdir("mydir")
+            .mkdir("mydir/mydir_2");
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "mv mydir mydir/mydir_2/"
+        );
+
+        assert!(actual.err.contains("cannot move to itself"));
+    })
+}
+
+#[test]
 fn does_not_error_on_relative_parent_path() {
     Playground::setup("mv_test_11", |dirs, sandbox| {
         sandbox
@@ -329,5 +345,21 @@ fn move_file_from_two_parents_up_using_multiple_dots_to_current_dir() {
 
         assert!(expected.exists());
         assert!(!original.exists());
+    })
+}
+
+#[test]
+fn does_not_error_when_some_file_is_moving_into_itself() {
+    Playground::setup("mv_test_13", |dirs, sandbox| {
+        sandbox
+            .mkdir("11")
+            .mkdir("12");
+
+        let original_dir = dirs.test().join("11");
+        let expected = dirs.test().join("12/11");
+        nu!(cwd: dirs.test(), "mv 1* 12");
+
+        assert!(!original_dir.exists());
+        assert!(expected.exists());
     })
 }

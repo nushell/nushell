@@ -446,7 +446,7 @@ impl Shell for FilesystemShell {
         let source = path.join(&src.item);
         let destination = path.join(&dst.item);
 
-        let sources =
+        let mut sources =
             glob::glob(&source.to_string_lossy()).map_or_else(|_| Vec::new(), Iterator::collect);
 
         if sources.is_empty() {
@@ -476,6 +476,20 @@ impl Shell for FilesystemShell {
                 dst.tag,
             ));
         }
+
+        let some_if_source_is_destination = sources.iter().find(|f| matches!(f, Ok(f) if destination.starts_with(f)));
+        if destination.exists() && destination.is_dir() && sources.len() == 1 {
+                if let Some(Ok(filename)) = some_if_source_is_destination {
+                        return Err(ShellError::labeled_error(
+                            format!("Not possible to move {:?} to itself", filename.file_name().expect("Invalid file name")),
+                            "cannot move to itself",
+                            dst.tag,
+                        ));
+                }
+
+        }
+
+        sources = sources.into_iter().filter(|f| matches!(f, Ok(f) if !destination.starts_with(f))).collect();
 
         for entry in sources {
             if let Ok(entry) = entry {
