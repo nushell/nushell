@@ -6,6 +6,7 @@ mod internal;
 pub use crate::utils::group::group;
 pub use crate::utils::split::split;
 
+pub use crate::utils::internal::Reduction;
 use crate::utils::internal::*;
 
 use derive_new::new;
@@ -29,6 +30,7 @@ pub struct Operation<'a> {
     pub splitter: Option<Box<dyn Fn(usize, &Value) -> Result<String, ShellError> + Send>>,
     pub format: &'a Option<Box<dyn Fn(&Value, String) -> Result<String, ShellError>>>,
     pub eval: &'a Option<Box<dyn Fn(usize, &Value) -> Result<Value, ShellError> + Send>>,
+    pub reduction: &'a Reduction,
 }
 
 pub fn report(
@@ -40,8 +42,6 @@ pub fn report(
 
     let grouped = group(&values, &options.grouper, &tag)?;
     let splitted = split(&grouped, &options.splitter, &tag)?;
-    //println!("{:#?}", grouped);
-    //println!("{:#?}", splitted);
 
     let x = grouped
         .row_entries()
@@ -58,11 +58,8 @@ pub fn report(
     y.sort();
 
     let planes = Labels { x, y };
-    //println!("{:#?}", planes);
-
 
     let sorted = sort(&planes, &splitted, &tag)?;
-    //println!("OREDERED {:#?}", sorted);
 
     let evaluated = evaluate(
         &sorted,
@@ -73,17 +70,13 @@ pub fn report(
         },
         &tag,
     )?;
-    //println!("EVALUATED {:#?}", evaluated);
 
     let group_labels = planes.grouping_total();
     let split_labels = planes.splits_total();
 
-    let reduced = reduce(&evaluated, &tag)?;
-    //println!("REDUCED {:#?}", reduced);
+    let reduced = reduce(&evaluated, options.reduction, &tag)?;
 
-    let max = max(&reduced, &tag)?.clone();
-    //println!("{:#?}", max);
-    let maxima = max.clone();
+    let maxima = max(&reduced, &tag)?;
 
     let percents = percentages(&maxima, &reduced, &tag)?;
 
@@ -106,7 +99,6 @@ pub fn report(
 
 pub mod helpers {
     use super::Model;
-    use bigdecimal::BigDecimal;
     use indexmap::indexmap;
     use nu_errors::ShellError;
     use nu_protocol::{UntaggedValue, Value};
@@ -118,10 +110,6 @@ pub mod helpers {
 
     pub fn int(s: impl Into<BigInt>) -> Value {
         UntaggedValue::int(s).into_untagged_value()
-    }
-
-    pub fn decimal(f: impl Into<BigDecimal>) -> Value {
-        UntaggedValue::decimal(f.into()).into_untagged_value()
     }
 
     pub fn decimal_from_float(f: f64, span: Span) -> Value {
@@ -242,17 +230,17 @@ pub mod helpers {
 #[cfg(test)]
 mod tests {
     use super::helpers::{
-        assert_without_checking_percentages, committers, date_formatter, decimal,
-        decimal_from_float, int, table,
+        assert_without_checking_percentages, committers, date_formatter, decimal_from_float, int,
+        table,
     };
-    use super::{report, Labels, Model, Operation, Range};
+    use super::{report, Labels, Model, Operation, Range, Reduction};
     use nu_errors::ShellError;
     use nu_protocol::Value;
     use nu_source::{Span, Tag, TaggedItem};
     use nu_value_ext::ValueExt;
 
     #[test]
-    fn prepares_report_using_accumulating_value() {
+    fn prepares_report_using_counting_value() {
         let committers = table(&committers());
 
         let by_date = Box::new(move |_, row: &Value| {
@@ -272,7 +260,7 @@ mod tests {
         let options = Operation {
             grouper: Some(by_date),
             splitter: Some(by_country),
-            format: &Some(date_formatter("%Y-%m-%d".to_string())),
+            format: &None,
             eval: /* value to be used for accumulation */ &Some(Box::new(move |_, value: &Value| {
                 let chickens_key = String::from("chickens").tagged_unknown();
 
@@ -286,6 +274,7 @@ mod tests {
                         )
                     })
             })),
+            reduction: &Reduction::Count
         };
 
         assert_without_checking_percentages(
@@ -310,25 +299,25 @@ mod tests {
                     },
                 ),
                 data: table(&[
-                    table(&[int(10), int(30), int(60)]),
-                    table(&[int(5), int(15), int(30)]),
-                    table(&[int(2), int(6), int(12)]),
+                    table(&[int(10), int(20), int(30)]),
+                    table(&[int(5), int(10), int(15)]),
+                    table(&[int(2), int(4), int(6)]),
                 ]),
                 percentages: table(&[
                     table(&[
+                        decimal_from_float(33.33, Span::unknown()),
+                        decimal_from_float(66.66, Span::unknown()),
+                        decimal_from_float(99.99, Span::unknown()),
+                    ]),
+                    table(&[
                         decimal_from_float(16.66, Span::unknown()),
-                        decimal(50),
-                        decimal(100),
+                        decimal_from_float(33.33, Span::unknown()),
+                        decimal_from_float(49.99, Span::unknown()),
                     ]),
                     table(&[
-                        decimal_from_float(8.33, Span::unknown()),
-                        decimal(25),
-                        decimal(50),
-                    ]),
-                    table(&[
-                        decimal_from_float(3.33, Span::unknown()),
-                        decimal(10),
-                        decimal(20),
+                        decimal_from_float(6.66, Span::unknown()),
+                        decimal_from_float(13.33, Span::unknown()),
+                        decimal_from_float(19.99, Span::unknown()),
                     ]),
                 ]),
             },

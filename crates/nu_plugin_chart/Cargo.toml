@@ -3,7 +3,7 @@ authors = ["The Nu Project Contributors"]
 description = "A plugin to display charts"
 edition = "2018"
 license = "MIT"
-name = "nu_plugin_charts"
+name = "nu_plugin_chart"
 version = "0.20.0"
 
 [lib]

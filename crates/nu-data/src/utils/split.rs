@@ -16,7 +16,7 @@ pub fn split(
     let mut out = TaggedDictBuilder::new(&tag);
 
     if splitter.is_none() {
-        out.insert_untagged("table", UntaggedValue::Table(vec![value.clone()]));
+        out.insert_untagged("table", value.clone());
         return Ok(out.into_value());
     }
 

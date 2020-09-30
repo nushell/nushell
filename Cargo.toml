@@ -27,7 +27,7 @@ nu-protocol = {version = "0.20.0", path = "./crates/nu-protocol"}
 nu-source = {version = "0.20.0", path = "./crates/nu-source"}
 nu-value-ext = {version = "0.20.0", path = "./crates/nu-value-ext"}
 
-nu_plugin_charts = {version = "0.20.0", path = "./crates/nu_plugin_charts", optional = true}
+nu_plugin_chart = {version = "0.20.0", path = "./crates/nu_plugin_chart", optional = true}
 nu_plugin_binaryview = {version = "0.20.0", path = "./crates/nu_plugin_binaryview", optional = true}
 nu_plugin_fetch = {version = "0.20.0", path = "./crates/nu_plugin_fetch", optional = true}
 nu_plugin_from_bson = {version = "0.20.0", path = "./crates/nu_plugin_from_bson", optional = true}
@@ -91,9 +91,8 @@ default = [
   "post",
   "fetch",
   "rich-benchmark",
-  "charts"
 ]
-extra = ["default", "binaryview", "tree", "clipboard-cli", "trash-support", "start", "bson", "sqlite", "s3"]
+extra = ["default", "binaryview", "tree", "clipboard-cli", "trash-support", "start", "bson", "sqlite", "s3", "chart"]
 stable = ["default"]
 
 trace = ["nu-parser/trace"]
@@ -109,7 +108,7 @@ post = ["nu_plugin_post"]
 
 # Extra
 bson = ["nu_plugin_from_bson", "nu_plugin_to_bson"]
-charts = ["crossterm", "nu_plugin_charts"]
+chart = ["crossterm", "nu_plugin_chart"]
 binaryview = ["nu_plugin_binaryview"]
 clipboard-cli = ["nu-cli/clipboard-cli"]
 trash-support = ["nu-cli/trash-support"]
@@ -177,6 +176,11 @@ required-features = ["start"]
 name = "nu_plugin_extra_s3"
 path = "src/plugins/nu_plugin_extra_s3.rs"
 required-features = ["s3"]
+
+[[bin]]
+name = "nu_plugin_extra_chart"
+path = "src/plugins/nu_plugin_extra_chart.rs"
+required-features = ["chart"]
 
 # Main nu binary
 [[bin]]

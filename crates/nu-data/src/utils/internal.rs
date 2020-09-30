@@ -23,6 +23,14 @@ impl Labels {
         }
     }
 
+    pub fn at_split(&self, idx: usize) -> Option<&str> {
+        if let Some(k) = self.y.get(idx) {
+            Some(&k[..])
+        } else {
+            None
+        }
+    }
+
     pub fn grouped(&self) -> impl Iterator<Item = &String> {
         self.x.iter()
     }
@@ -79,14 +87,14 @@ fn formula(
 }
 
 pub fn reducer_for(
-    command: Reduction,
+    command: &Reduction,
 ) -> Box<dyn Fn(&Value, Vec<&Value>) -> Result<Value, ShellError> + Send + Sync + 'static> {
     match command {
         Reduction::Accumulate => Box::new(formula(
             UntaggedValue::int(1).into_untagged_value(),
             Box::new(sum),
         )),
-        _ => Box::new(formula(
+        Reduction::Count => Box::new(formula(
             UntaggedValue::int(0).into_untagged_value(),
             Box::new(sum),
         )),
@@ -99,32 +107,31 @@ pub fn max(values: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
     let mut x = UntaggedValue::int(0);
 
     for split in values.table_entries() {
-        //for subset in split.table_entries() {
-            match split.value {
-                UntaggedValue::Table(ref values) => {
-                    let inner = inner_max(values)?;
+        match split.value {
+            UntaggedValue::Table(ref values) => {
+                let inner = inner_max(values)?;
 
-                    if let Ok(greater_than) = crate::value::compare_values(Operator::GreaterThan, &inner.value, &x) {
-                        if greater_than {
-                            x = inner.value.clone();
-                        }
-                    } else {
-                        return Err(ShellError::unexpected(format!(
-                            "Could not compare\nleft: {:?}\nright: {:?}",
-                            inner.value, x
-                        )));
+                if let Ok(greater_than) =
+                    crate::value::compare_values(Operator::GreaterThan, &inner.value, &x)
+                {
+                    if greater_than {
+                        x = inner.value.clone();
                     }
-                }
-                _ => {
-                    return Err(ShellError::labeled_error(
-                        "Attempted to compute the sum of a value that cannot be summed.",
-                        "value appears here",
-                        split.tag.span,
-                    ))
+                } else {
+                    return Err(ShellError::unexpected(format!(
+                        "Could not compare\nleft: {:?}\nright: {:?}",
+                        inner.value, x
+                    )));
                 }
             }
-
-        //}
+            _ => {
+                return Err(ShellError::labeled_error(
+                    "Attempted to compute the sum of a value that cannot be summed.",
+                    "value appears here",
+                    split.tag.span,
+                ))
+            }
+        }
     }
 
     Ok(x.into_value(&tag))
@@ -133,12 +140,16 @@ pub fn max(values: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
 pub fn inner_max(data: &[Value]) -> Result<Value, ShellError> {
     let mut biggest = data
         .first()
-        .ok_or_else(|| ShellError::unexpected("Cannot perform aggregate math operation on empty data"))?
+        .ok_or_else(|| {
+            ShellError::unexpected("Cannot perform aggregate math operation on empty data")
+        })?
         .value
         .clone();
 
     for value in data.iter() {
-        if let Ok(greater_than) = crate::value::compare_values(Operator::GreaterThan, &value.value, &biggest) {
+        if let Ok(greater_than) =
+            crate::value::compare_values(Operator::GreaterThan, &value.value, &biggest)
+        {
             if greater_than {
                 biggest = value.value.clone();
             }
@@ -187,17 +198,9 @@ pub fn sort_columns(
     values: &[String],
     format: &Option<Box<dyn Fn(&Value, String) -> Result<String, ShellError>>>,
 ) -> Result<Vec<String>, ShellError> {
-    let mut keys = vec![];
+    let mut keys = values.to_vec();
 
-    if let Some(fmt) = format {
-        /*for k in values.iter() {
-            let k = k.clone().tagged_unknown();
-            let v = crate::value::Date::naive_from_str(k.borrow_tagged())?.into_untagged_value();
-            keys.push(fmt(&v, k.to_string())?);
-        }*/
-        keys = values.to_vec();
-    } else {
-        keys = values.to_vec();
+    if format.is_none() {
         keys.sort();
     }
 
@@ -222,17 +225,13 @@ pub fn sort(planes: &Labels, values: &Value, tag: impl Into<Tag>) -> Result<Valu
             let grouped = groups.get_data_by_key(key.borrow_spanned());
 
             if let Some(grouped) = grouped {
-                y.push(grouped.table_entries().cloned().collect::<Vec<_>>());
+                y.push(grouped);
             } else {
-                let empty = UntaggedValue::table(&[]).into_value(&tag);
-                y.push(empty.table_entries().cloned().collect::<Vec<_>>());
+                y.push(UntaggedValue::Table(vec![]).into_value(&tag));
             }
         }
 
-        x.push(
-            UntaggedValue::table(&y.iter().cloned().flatten().collect::<Vec<Value>>())
-                .into_value(&tag),
-        );
+        x.push(UntaggedValue::table(&y).into_value(&tag));
     }
 
     Ok(UntaggedValue::table(&x).into_value(&tag))
@@ -250,22 +249,26 @@ pub fn evaluate(
         let mut y = vec![];
 
         for (idx, subset) in split.table_entries().enumerate() {
+            if let UntaggedValue::Table(values) = &subset.value {
+                if let Some(ref evaluator) = evaluator {
+                    let mut evaluations = vec![];
 
-            match &subset.value {
-                UntaggedValue::Table(values) => {
-                    if let Some(ref evaluator) = evaluator {
-                        let mut evaluations = vec![];
-
-                        for set in values.iter() {
-                            evaluations.push(evaluator(idx, set)?);
-                        }
-
-                        y.push(UntaggedValue::Table(evaluations).into_value(&tag));
-                    } else {
-                        y.push(UntaggedValue::Table(values.iter().map(|_| UntaggedValue::int(1).into_value(&tag)).collect::<Vec<_>>()).into_value(&tag));
+                    for set in values.iter() {
+                        evaluations.push(evaluator(idx, set)?);
                     }
-                },
-                _ => {}
+
+                    y.push(UntaggedValue::Table(evaluations).into_value(&tag));
+                } else {
+                    y.push(
+                        UntaggedValue::Table(
+                            values
+                                .iter()
+                                .map(|_| UntaggedValue::int(1).into_value(&tag))
+                                .collect::<Vec<_>>(),
+                        )
+                        .into_value(&tag),
+                    );
+                }
             }
         }
 
@@ -276,14 +279,17 @@ pub fn evaluate(
 }
 
 pub enum Reduction {
-    #[allow(dead_code)]
     Count,
     Accumulate,
 }
 
-pub fn reduce(values: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
+pub fn reduce(
+    values: &Value,
+    reduction_with: &Reduction,
+    tag: impl Into<Tag>,
+) -> Result<Value, ShellError> {
     let tag = tag.into();
-    let reduce_with = reducer_for(Reduction::Count);
+    let reduce_with = reducer_for(reduction_with);
 
     let mut datasets = vec![];
     for dataset in values.table_entries() {

@@ -2866,7 +2866,7 @@ dependencies = [
  "nu-test-support",
  "nu-value-ext",
  "nu_plugin_binaryview",
- "nu_plugin_charts",
+ "nu_plugin_chart",
  "nu_plugin_fetch",
  "nu_plugin_from_bson",
  "nu_plugin_from_sqlite",
@@ -3153,7 +3153,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "nu_plugin_charts"
+name = "nu_plugin_chart"
 version = "0.20.0"
 dependencies = [
  "crossterm",

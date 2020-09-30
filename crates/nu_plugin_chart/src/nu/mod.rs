@@ -4,7 +4,7 @@ use nu_protocol::{CallInfo, ColumnPath, Primitive, Signature, SyntaxShape, Untag
 use nu_source::TaggedItem;
 use nu_value_ext::ValueExt;
 
-use crate::chart::{BarChart, Chart, Columns, Reduction};
+use crate::chart::{BarChart, Chart, Columns};
 
 use std::{
     error::Error,
@@ -45,13 +45,13 @@ fn display(model: &nu_data::utils::Model) -> Result<(), Box<dyn Error>> {
     thread::spawn(move || {
         let mut last_tick = Instant::now();
         loop {
-            if event::poll(tick_rate - last_tick.elapsed()).unwrap() {
-                if let CEvent::Key(key) = event::read().unwrap() {
-                    tx.send(Event::Input(key)).unwrap();
+            if event::poll(tick_rate - last_tick.elapsed()).is_ok() {
+                if let Ok(CEvent::Key(key)) = event::read() {
+                    let _ = tx.send(Event::Input(key));
                 }
             }
             if last_tick.elapsed() >= tick_rate {
-                tx.send(Event::Tick).unwrap();
+                let _ = tx.send(Event::Tick);
                 last_tick = Instant::now();
             }
         }
@@ -78,12 +78,7 @@ fn display(model: &nu_data::utils::Model) -> Result<(), Box<dyn Error>> {
                 KeyCode::Right => app.on_right(),
                 _ => {}
             },
-            Event::Tick => {
-                app.on_tick();
-            }
-        }
-        if app.should_quit {
-            break;
+            Event::Tick => {}
         }
     }
 
@@ -93,9 +88,8 @@ fn display(model: &nu_data::utils::Model) -> Result<(), Box<dyn Error>> {
 impl Plugin for Chart {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("chart")
-            .desc("Displays chart")
+            .desc("Displays bar charts")
             .switch("acc", "accumuate values", Some('a'))
-            .switch("monthly", "monthly report", Some('m'))
             .optional(
                 "columns",
                 SyntaxShape::Any,
@@ -116,9 +110,12 @@ impl Plugin for Chart {
     }
 
     fn sink(&mut self, call_info: CallInfo, input: Vec<Value>) {
-        if let Some(_accumulate) = call_info.args.get("acc") {
-            self.reduction = Reduction::Accumulate;
-            println!("reduccion puesta");
+        if let Some(Value {
+            value: UntaggedValue::Primitive(Primitive::Boolean(true)),
+            ..
+        }) = call_info.args.get("acc")
+        {
+            self.reduction = nu_data::utils::Reduction::Accumulate;
         }
 
         let _ = self.run(call_info, input);
@@ -215,7 +212,7 @@ impl Chart {
                     match row.get_data_by_key(key.borrow_spanned()) {
                         Some(key) => {
                             if let Some(fmt) = fmt {
-                                let callback = nu_data::utils::helpers::date_formatter(fmt.clone());
+                                let callback = nu_data::utils::helpers::date_formatter(fmt);
                                 callback(&key, "nothing".to_string())
                             } else {
                                 nu_value_ext::as_string(&key)
@@ -239,19 +236,31 @@ impl Chart {
                             "unknown column",
                             "unknown column",
                             key.tag(),
-                        ))
+                        )),
                     }
                 });
+
+                let formatter = if self.format.is_some() {
+                    let default = String::from("%b-%Y");
+
+                    let string_fmt = self.format.as_ref().unwrap_or_else(|| &default);
+
+                    Some(nu_data::utils::helpers::date_formatter(
+                        string_fmt.to_string(),
+                    ))
+                } else {
+                    None
+                };
 
                 let options = nu_data::utils::Operation {
                     grouper: Some(grouper),
                     splitter: Some(splitter),
-                    format: &None,
+                    format: &formatter,
                     eval: &self.eval,
+                    reduction: &self.reduction,
                 };
 
-                let model = nu_data::utils::report(&data, options, &name).unwrap();
-                let _ = display(&model);
+                let _ = display(&nu_data::utils::report(&data, options, &name)?);
             }
             Columns::One(col) => {
                 let key = col.clone();
@@ -264,7 +273,7 @@ impl Chart {
                     match row.get_data_by_key(key.borrow_spanned()) {
                         Some(key) => {
                             if let Some(fmt) = fmt {
-                                let callback = nu_data::utils::helpers::date_formatter(fmt.clone());
+                                let callback = nu_data::utils::helpers::date_formatter(fmt);
                                 callback(&key, "nothing".to_string())
                             } else {
                                 nu_value_ext::as_string(&key)
@@ -278,15 +287,13 @@ impl Chart {
                     }
                 });
 
-                let formatter = if let Some(_per_month) = args.get("monthly") {
-                    Some("%b-%Y".to_string())
-                } else {
-                    None
-                };
-
                 let formatter = if self.format.is_some() {
+                    let default = String::from("%b-%Y");
+
+                    let string_fmt = self.format.as_ref().unwrap_or_else(|| &default);
+
                     Some(nu_data::utils::helpers::date_formatter(
-                        self.format.as_ref().unwrap().clone(),
+                        string_fmt.to_string(),
                     ))
                 } else {
                     None
@@ -297,11 +304,10 @@ impl Chart {
                     splitter: None,
                     format: &formatter,
                     eval: &self.eval,
+                    reduction: &self.reduction,
                 };
 
-                let model = nu_data::utils::report(&data, options, &name).unwrap();
-                //println!("{:#?}", model);
-                let _ = display(&model);
+                let _ = display(&nu_data::utils::report(&data, options, &name)?);
             }
             _ => {}
         }
