@@ -64,6 +64,8 @@ fn display(model: &nu_data::utils::Model) -> Result<(), Box<dyn Error>> {
 
         match rx.recv()? {
             Event::Input(event) => match event.code {
+                KeyCode::Left => app.on_left(),
+                KeyCode::Right => app.on_right(),
                 KeyCode::Char('q') => {
                     disable_raw_mode()?;
                     execute!(
@@ -74,9 +76,16 @@ fn display(model: &nu_data::utils::Model) -> Result<(), Box<dyn Error>> {
                     terminal.show_cursor()?;
                     break;
                 }
-                KeyCode::Left => app.on_left(),
-                KeyCode::Right => app.on_right(),
-                _ => {}
+                _ => {
+                    disable_raw_mode()?;
+                    execute!(
+                        terminal.backend_mut(),
+                        LeaveAlternateScreen,
+                        DisableMouseCapture
+                    )?;
+                    terminal.show_cursor()?;
+                    break;
+                }
             },
             Event::Tick => {}
         }
