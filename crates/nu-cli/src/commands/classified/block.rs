@@ -6,16 +6,14 @@ use crate::stream::InputStream;
 use futures::stream::TryStreamExt;
 use nu_errors::ShellError;
 use nu_protocol::hir::{Block, ClassifiedCommand, Commands};
-use nu_protocol::{ReturnSuccess, UntaggedValue, Value};
+use nu_protocol::{ReturnSuccess, Scope, UntaggedValue, Value};
 use std::sync::atomic::Ordering;
 
 pub(crate) async fn run_block(
     block: &Block,
     ctx: &mut EvaluationContext,
     mut input: InputStream,
-    it: &Value,
-    vars: &IndexMap<String, Value>,
-    env: &IndexMap<String, String>,
+    scope: Arc<Scope>,
 ) -> Result<InputStream, ShellError> {
     let mut output: Result<InputStream, ShellError> = Ok(InputStream::empty());
     for pipeline in &block.block {
@@ -54,7 +52,7 @@ pub(crate) async fn run_block(
                 return Err(e);
             }
         }
-        output = run_pipeline(pipeline, ctx, input, it, vars, env).await;
+        output = run_pipeline(pipeline, ctx, input, scope.clone()).await;
 
         input = InputStream::empty();
     }
@@ -66,9 +64,7 @@ async fn run_pipeline(
     commands: &Commands,
     ctx: &mut EvaluationContext,
     mut input: InputStream,
-    it: &Value,
-    vars: &IndexMap<String, Value>,
-    env: &IndexMap<String, String>,
+    scope: Arc<Scope>,
 ) -> Result<InputStream, ShellError> {
     for item in commands.list.clone() {
         input = match item {
@@ -77,13 +73,13 @@ async fn run_pipeline(
             }
 
             ClassifiedCommand::Expr(expr) => {
-                run_expression_block(*expr, ctx, it, vars, env).await?
+                run_expression_block(*expr, ctx, scope.clone()).await?
             }
 
             ClassifiedCommand::Error(err) => return Err(err.into()),
 
             ClassifiedCommand::Internal(left) => {
-                run_internal_command(left, ctx, input, it, vars, env).await?
+                run_internal_command(left, ctx, input, scope.clone()).await?
             }
         };
     }

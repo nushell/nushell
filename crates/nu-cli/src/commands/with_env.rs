@@ -2,7 +2,9 @@ use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, Signature, SpannedTypeName, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{
+    hir::Block, Scope, Signature, SpannedTypeName, SyntaxShape, UntaggedValue, Value,
+};
 
 pub struct WithEnv;
 
@@ -77,23 +79,23 @@ async fn with_env(
     let registry = registry.clone();
 
     let mut context = EvaluationContext::from_raw(&raw_args, &registry);
-    let mut scope = raw_args.call_info.scope.clone();
+    let scope = raw_args.call_info.scope.clone();
     let (WithEnvArgs { variable, block }, input) = raw_args.process(&registry).await?;
+
+    let mut env = IndexMap::new();
 
     match &variable.value {
         UntaggedValue::Table(table) => {
             if table.len() == 1 {
                 // single row([[X W]; [Y Z]])
                 for (k, v) in table[0].row_entries() {
-                    scope.env.insert(k.clone(), v.convert_to_string());
+                    env.insert(k.clone(), v.convert_to_string());
                 }
             } else {
                 // primitive values([X Y W Z])
                 for row in table.chunks(2) {
                     if row.len() == 2 && row[0].is_primitive() && row[1].is_primitive() {
-                        scope
-                            .env
-                            .insert(row[0].convert_to_string(), row[1].convert_to_string());
+                        env.insert(row[0].convert_to_string(), row[1].convert_to_string());
                     }
                 }
             }
@@ -101,7 +103,7 @@ async fn with_env(
         // when get object by `open x.json` or `from json`
         UntaggedValue::Row(row) => {
             for (k, v) in &row.entries {
-                scope.env.insert(k.clone(), v.convert_to_string());
+                env.insert(k.clone(), v.convert_to_string());
             }
         }
         _ => {
@@ -112,15 +114,9 @@ async fn with_env(
         }
     };
 
-    let result = run_block(
-        &block,
-        &mut context,
-        input,
-        &scope.it,
-        &scope.vars,
-        &scope.env,
-    )
-    .await;
+    let scope = Scope::append_env(scope, env);
+
+    let result = run_block(&block, &mut context, input, scope).await;
 
     result.map(|x| x.to_output_stream())
 }

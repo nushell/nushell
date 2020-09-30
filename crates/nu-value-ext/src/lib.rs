@@ -238,8 +238,10 @@ where
 
                         let suggestions: IndexSet<_> = rows
                             .iter()
-                            .filter_map(|r| nu_protocol::did_you_mean(&r, &column_path_tried))
-                            .map(|s| s[0].1.to_owned())
+                            .filter_map(|r| {
+                                nu_protocol::did_you_mean(&r, column_path_tried.as_string())
+                            })
+                            .map(|s| s[0].to_owned())
                             .collect();
                         let mut existing_columns: IndexSet<_> = IndexSet::default();
                         let mut names: Vec<String> = vec![];
@@ -308,7 +310,7 @@ where
                         let primary_label = format!("There isn't a column named '{}'", &column);
 
                         if let Some(suggestions) =
-                            nu_protocol::did_you_mean(&obj_source, &column_path_tried)
+                            nu_protocol::did_you_mean(&obj_source, column_path_tried.as_string())
                         {
                             return ShellError::labeled_error_with_secondary(
                                 "Unknown column",
@@ -316,7 +318,7 @@ where
                                 column_path_tried.span,
                                 format!(
                                     "Perhaps you meant '{}'? Columns available: {}",
-                                    suggestions[0].1,
+                                    suggestions[0],
                                     &obj_source.data_descriptors().join(",")
                                 ),
                                 column_path_tried.span.since(path_members_span),
@@ -342,10 +344,12 @@ where
                 _ => {}
             }
 
-            if let Some(suggestions) = nu_protocol::did_you_mean(&obj_source, &column_path_tried) {
+            if let Some(suggestions) =
+                nu_protocol::did_you_mean(&obj_source, column_path_tried.as_string())
+            {
                 return ShellError::labeled_error(
                     "Unknown column",
-                    format!("did you mean '{}'?", suggestions[0].1),
+                    format!("did you mean '{}'?", suggestions[0]),
                     column_path_tried.span.since(path_members_span),
                 );
             }
@@ -566,21 +570,13 @@ pub fn as_string(value: &Value) -> Result<String, ShellError> {
         UntaggedValue::Primitive(Primitive::Int(x)) => Ok(format!("{}", x)),
         UntaggedValue::Primitive(Primitive::Filesize(x)) => Ok(format!("{}", x)),
         UntaggedValue::Primitive(Primitive::Path(x)) => Ok(format!("{}", x.display())),
-        UntaggedValue::Primitive(Primitive::ColumnPath(path)) => {
-            let joined = path
-                .iter()
-                .map(|member| match &member.unspanned {
-                    UnspannedPathMember::String(name) => name.to_string(),
-                    UnspannedPathMember::Int(n) => format!("{}", n),
-                })
-                .join(".");
-
-            if joined.contains(' ') {
-                Ok(format!("\"{}\"", joined))
-            } else {
-                Ok(joined)
-            }
-        }
+        UntaggedValue::Primitive(Primitive::ColumnPath(path)) => Ok(path
+            .iter()
+            .map(|member| match &member.unspanned {
+                UnspannedPathMember::String(name) => name.to_string(),
+                UnspannedPathMember::Int(n) => format!("{}", n),
+            })
+            .join(".")),
 
         // TODO: this should definitely be more general with better errors
         other => Err(ShellError::labeled_error(

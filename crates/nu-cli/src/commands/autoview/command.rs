@@ -318,7 +318,7 @@ fn create_default_command_args(context: &RunnableContextWithoutInput) -> RawComm
                 external_redirection: ExternalRedirection::Stdout,
             },
             name_tag: context.name.clone(),
-            scope: Scope::new(),
+            scope: Scope::create(),
         },
     }
 }

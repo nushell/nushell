@@ -152,18 +152,18 @@ impl EvaluationContext {
         command: Command,
         name_tag: Tag,
         args: hir::Call,
-        scope: &Scope,
+        scope: Arc<Scope>,
         input: InputStream,
     ) -> Result<OutputStream, ShellError> {
         let command_args = self.command_args(args, input, name_tag, scope);
         command.run(command_args, self.registry()).await
     }
 
-    fn call_info(&self, args: hir::Call, name_tag: Tag, scope: &Scope) -> UnevaluatedCallInfo {
+    fn call_info(&self, args: hir::Call, name_tag: Tag, scope: Arc<Scope>) -> UnevaluatedCallInfo {
         UnevaluatedCallInfo {
             args,
             name_tag,
-            scope: scope.clone(),
+            scope,
         }
     }
 
@@ -172,7 +172,7 @@ impl EvaluationContext {
         args: hir::Call,
         input: InputStream,
         name_tag: Tag,
-        scope: &Scope,
+        scope: Arc<Scope>,
     ) -> CommandArgs {
         CommandArgs {
             host: self.host.clone(),

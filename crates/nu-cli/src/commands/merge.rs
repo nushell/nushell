@@ -60,21 +60,13 @@ async fn merge(
     let (merge_args, input): (MergeArgs, _) = raw_args.process(&registry).await?;
     let block = merge_args.block;
 
-    let table: Option<Vec<Value>> = match run_block(
-        &block,
-        &mut context,
-        InputStream::empty(),
-        &scope.it,
-        &scope.vars,
-        &scope.env,
-    )
-    .await
-    {
-        Ok(mut stream) => Some(stream.drain_vec().await),
-        Err(err) => {
-            return Err(err);
-        }
-    };
+    let table: Option<Vec<Value>> =
+        match run_block(&block, &mut context, InputStream::empty(), scope).await {
+            Ok(mut stream) => Some(stream.drain_vec().await),
+            Err(err) => {
+                return Err(err);
+            }
+        };
 
     let table = table.unwrap_or_else(|| {
         vec![Value {

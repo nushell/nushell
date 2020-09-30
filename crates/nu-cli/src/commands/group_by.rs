@@ -1,5 +1,6 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
+use crate::utils::suggestions::suggestions;
 use indexmap::indexmap;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
@@ -95,7 +96,7 @@ pub async fn group_by(
     let name = args.call_info.name_tag.clone();
     let registry = registry.clone();
     let head = Arc::new(args.call_info.args.head.clone());
-    let scope = Arc::new(args.call_info.scope.clone());
+    let scope = args.call_info.scope.clone();
     let context = Arc::new(EvaluationContext::from_raw(&args, &registry));
     let (GroupByArgs { grouper }, input) = args.process(&registry).await?;
 
@@ -185,31 +186,6 @@ pub async fn group_by(
     };
 
     Ok(OutputStream::one(ReturnSuccess::value(group_value?)))
-}
-
-pub fn suggestions(tried: Tagged<&str>, for_value: &Value) -> ShellError {
-    let possibilities = for_value.data_descriptors();
-
-    let mut possible_matches: Vec<_> = possibilities
-        .iter()
-        .map(|x| (natural::distance::levenshtein_distance(x, &tried), x))
-        .collect();
-
-    possible_matches.sort();
-
-    if !possible_matches.is_empty() {
-        ShellError::labeled_error(
-            "Unknown column",
-            format!("did you mean '{}'?", possible_matches[0].1),
-            tried.tag(),
-        )
-    } else {
-        ShellError::labeled_error(
-            "Unknown column",
-            "row does not contain this column",
-            tried.tag(),
-        )
-    }
 }
 
 pub fn group(

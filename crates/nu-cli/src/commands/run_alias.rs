@@ -4,7 +4,7 @@ use crate::prelude::*;
 
 use derive_new::new;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, Signature, SyntaxShape};
+use nu_protocol::{hir::Block, Scope, Signature, SyntaxShape};
 
 #[derive(new, Clone)]
 pub struct AliasCommand {
@@ -47,26 +47,21 @@ impl WholeStreamCommand for AliasCommand {
         let mut context = EvaluationContext::from_args(&args, &registry);
         let input = args.input;
 
-        let mut scope = call_info.scope.clone();
+        let scope = call_info.scope.clone();
         let evaluated = call_info.evaluate(&registry).await?;
+
+        let mut vars = IndexMap::new();
         if let Some(positional) = &evaluated.args.positional {
             for (pos, arg) in positional.iter().enumerate() {
-                scope
-                    .vars
-                    .insert(alias_command.args[pos].0.to_string(), arg.clone());
+                vars.insert(alias_command.args[pos].0.to_string(), arg.clone());
             }
         }
 
+        let scope = Scope::append_vars(scope, vars);
+
         // FIXME: we need to patch up the spans to point at the top-level error
-        Ok(run_block(
-            &block,
-            &mut context,
-            input,
-            &scope.it,
-            &scope.vars,
-            &scope.env,
-        )
-        .await?
-        .to_output_stream())
+        Ok(run_block(&block, &mut context, input, scope)
+            .await?
+            .to_output_stream())
     }
 }

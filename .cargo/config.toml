@@ -1,0 +1,6 @@
+# use LLD as linker on Windows because it could be faster
+# for full and incremental builds compared to default
+
+[target.x86_64-pc-windows-msvc]
+#linker = "lld-link.exe"
+rustflags = ["-C", "link-args=-stack:10000000"]

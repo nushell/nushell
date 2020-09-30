@@ -130,7 +130,7 @@ async fn run_filter(
         UntaggedValue::Primitive(Primitive::EndOfStream).into_untagged_value()
     ]);
 
-    let args = args.evaluate_once_with_scope(&registry, &scope).await?;
+    let args = args.evaluate_once_with_scope(&registry, scope).await?;
 
     let real_path = Path::new(&path);
     let ext = real_path.extension();

@@ -87,15 +87,9 @@ async fn process_row(
     let row_clone = row.clone();
     let input_stream = once(async { Ok(row_clone) }).to_input_stream();
 
-    Ok(run_block(
-        &block,
-        Arc::make_mut(&mut context),
-        input_stream,
-        &row,
-        &scope.vars,
-        &scope.env,
-    )
-    .await?)
+    let scope = Scope::append_it(scope, row);
+
+    Ok(run_block(&block, Arc::make_mut(&mut context), input_stream, scope).await?)
 }
 
 async fn reduce(
@@ -133,7 +127,7 @@ async fn reduce(
             .enumerate()
             .fold(initial, move |acc, input| {
                 let block = Arc::clone(&block);
-                let mut scope = base_scope.clone();
+                let scope = base_scope.clone();
                 let context = Arc::clone(&context);
                 let row = each::make_indexed_item(input.0 + ioffset, input.1);
 
@@ -151,8 +145,8 @@ async fn reduce(
                         UntaggedValue::table(&values).into_untagged_value()
                     };
 
-                    scope.vars.insert(String::from("$acc"), f);
-                    process_row(block, Arc::new(scope), context, row).await
+                    let scope = Scope::append_var(scope, "$acc".into(), f);
+                    process_row(block, scope, context, row).await
                 }
             })
             .await?
@@ -162,7 +156,7 @@ async fn reduce(
         Ok(input
             .fold(initial, move |acc, row| {
                 let block = Arc::clone(&block);
-                let mut scope = base_scope.clone();
+                let scope = base_scope.clone();
                 let context = Arc::clone(&context);
 
                 async {
@@ -179,8 +173,8 @@ async fn reduce(
                         UntaggedValue::table(&values).into_untagged_value()
                     };
 
-                    scope.vars.insert(String::from("$acc"), f);
-                    process_row(block, Arc::new(scope), context, row).await
+                    let scope = Scope::append_var(scope, "$acc".into(), f);
+                    process_row(block, scope, context, row).await
                 }
             })
             .await?
