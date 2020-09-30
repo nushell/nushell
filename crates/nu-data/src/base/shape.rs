@@ -1,21 +1,23 @@
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
+use indexmap::map::IndexMap;
 use nu_protocol::RangeInclusion;
 use nu_protocol::{format_primitive, ColumnPath, Dictionary, Primitive, UntaggedValue, Value};
 use nu_source::{b, DebugDocBuilder, PrettyDebug};
 use num_bigint::BigInt;
-use std::collections::BTreeMap;
+use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 use std::fmt::Debug;
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub struct InlineRange {
     from: (InlineShape, RangeInclusion),
     to: (InlineShape, RangeInclusion),
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub enum InlineShape {
     Nothing,
     Int(BigInt),
@@ -32,7 +34,7 @@ pub enum InlineShape {
     Path(PathBuf),
     Binary(usize),
 
-    Row(BTreeMap<Column, InlineShape>),
+    Row(Row),
     Table(Vec<InlineShape>),
 
     // TODO: Block arguments
@@ -81,14 +83,14 @@ impl InlineShape {
     }
 
     pub fn from_dictionary(dictionary: &Dictionary) -> InlineShape {
-        let mut map = BTreeMap::new();
+        let mut map = IndexMap::new();
 
         for (key, value) in dictionary.entries.iter() {
             let column = Column::String(key.clone());
             map.insert(column, InlineShape::from_value(value));
         }
 
-        InlineShape::Row(map)
+        InlineShape::Row(Row { map })
     }
 
     pub fn from_table<'a>(table: impl IntoIterator<Item = &'a Value>) -> InlineShape {
@@ -193,16 +195,16 @@ impl PrettyDebug for FormatInlineShape {
                 "[",
                 b::kind("row")
                     + b::space()
-                    + if row.keys().len() <= 6 {
+                    + if row.map.keys().len() <= 6 {
                         b::intersperse(
-                            row.keys().map(|key| match key {
+                            row.map.keys().map(|key| match key {
                                 Column::String(string) => b::description(string),
                                 Column::Value => b::blank(),
                             }),
                             b::space(),
                         )
                     } else {
-                        b::description(format!("{} columns", row.keys().len()))
+                        b::description(format!("{} columns", row.map.keys().len()))
                     },
                 "]",
             )
@@ -250,7 +252,7 @@ impl GroupedValue for Vec<(usize, usize)> {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub enum Column {
     String(String),
     Value,
@@ -271,5 +273,54 @@ impl Into<Column> for &String {
 impl Into<Column> for &str {
     fn into(self) -> Column {
         Column::String(self.to_string())
+    }
+}
+
+/// A shape representation of the type of a row
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Row {
+    map: IndexMap<Column, InlineShape>,
+}
+
+#[allow(clippy::derive_hash_xor_eq)]
+impl Hash for Row {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let mut entries = self.map.clone();
+        entries.sort_keys();
+        entries.keys().collect::<Vec<&Column>>().hash(state);
+        entries.values().collect::<Vec<&InlineShape>>().hash(state);
+    }
+}
+
+impl PartialOrd for Row {
+    fn partial_cmp(&self, other: &Row) -> Option<Ordering> {
+        let this: Vec<&Column> = self.map.keys().collect();
+        let that: Vec<&Column> = other.map.keys().collect();
+
+        if this != that {
+            return this.partial_cmp(&that);
+        }
+
+        let this: Vec<&InlineShape> = self.map.values().collect();
+        let that: Vec<&InlineShape> = self.map.values().collect();
+
+        this.partial_cmp(&that)
+    }
+}
+
+impl Ord for Row {
+    /// Compare two dictionaries for ordering
+    fn cmp(&self, other: &Row) -> Ordering {
+        let this: Vec<&Column> = self.map.keys().collect();
+        let that: Vec<&Column> = other.map.keys().collect();
+
+        if this != that {
+            return this.cmp(&that);
+        }
+
+        let this: Vec<&InlineShape> = self.map.values().collect();
+        let that: Vec<&InlineShape> = self.map.values().collect();
+
+        this.cmp(&that)
     }
 }
