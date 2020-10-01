@@ -145,6 +145,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(StrEndsWith),
             whole_stream_command(StrCollect),
             whole_stream_command(StrLength),
+            whole_stream_command(StrLPad),
             whole_stream_command(StrReverse),
             whole_stream_command(StrCamelCase),
             whole_stream_command(StrPascalCase),
