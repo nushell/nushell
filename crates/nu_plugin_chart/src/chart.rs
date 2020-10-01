@@ -123,7 +123,7 @@ impl<'a> BarChart<'a> {
         ui.draw(|f| {
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
-                .margin(2)
+                .margin(0)
                 .constraints([Constraint::Percentage(100)].as_ref())
                 .split(f.size());
 
@@ -134,6 +134,7 @@ impl<'a> BarChart<'a> {
                 .bar_style(Style::default().fg(Color::Green))
                 .value_style(
                     Style::default()
+                        .fg(Color::Black)
                         .bg(Color::Green)
                         .add_modifier(Modifier::BOLD),
                 );
