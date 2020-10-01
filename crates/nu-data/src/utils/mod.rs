@@ -72,7 +72,6 @@ pub fn report(
     )?;
 
     let group_labels = planes.grouping_total();
-    let split_labels = planes.splits_total();
 
     let reduced = reduce(&evaluated, options.reduction, &tag)?;
 
@@ -89,7 +88,7 @@ pub fn report(
             },
             Range {
                 start: UntaggedValue::int(0).into_untagged_value(),
-                end: split_labels,
+                end: maxima,
             },
         ),
         data: reduced,
@@ -295,7 +294,7 @@ mod tests {
                     },
                     Range {
                         start: int(0),
-                        end: int(3),
+                        end: int(30),
                     },
                 ),
                 data: table(&[
