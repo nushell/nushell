@@ -32,11 +32,18 @@ impl WholeStreamCommand for Clip {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Save text to the clipboard",
-            example: "echo 'secret value' | clip",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Save text to the clipboard",
+                example: "echo 'secret value' | clip",
+                result: None,
+            },
+            Example {
+                description: "Save numbers to the clipboard",
+                example: "random integer 10000000..99999999 | clip",
+                result: None,
+            },
+        ]
     }
 }
 
@@ -61,16 +68,14 @@ pub async fn clip(
                     first = false;
                 }
 
-                let string: String = match i.as_string() {
-                    Ok(string) => string.to_string(),
-                    Err(_) => {
-                        return Err(ShellError::labeled_error(
-                            "Given non-string data",
-                            "expected strings from pipeline",
-                            name,
-                        ))
-                    }
-                };
+                let string: String = i.convert_to_string();
+                if string.is_empty() {
+                    return Err(ShellError::labeled_error(
+                        "Unable to convert to string",
+                        "Unable to convert to string",
+                        name,
+                    ));
+                }
 
                 new_copy_data.push_str(&string);
             }
