@@ -17,6 +17,21 @@ fn alias_args_work() {
 }
 
 #[test]
+fn alias_missing_args_work() {
+    Playground::setup("append_test_1", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.root(),
+            r#"
+                alias double_echo [a b] {^echo $a $b}
+                double_echo bob
+            "#
+        );
+
+        assert_eq!(actual.out, "bob");
+    })
+}
+
+#[test]
 #[cfg(not(windows))]
 fn alias_parses_path_tilde() {
     let actual = nu!(
