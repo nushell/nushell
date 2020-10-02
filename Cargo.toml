@@ -174,8 +174,13 @@ path = "src/plugins/nu_plugin_extra_s3.rs"
 required-features = ["s3"]
 
 [[bin]]
-name = "nu_plugin_extra_chart"
-path = "src/plugins/nu_plugin_extra_chart.rs"
+name = "nu_plugin_extra_chart_bar"
+path = "src/plugins/nu_plugin_extra_chart_bar.rs"
+required-features = ["chart"]
+
+[[bin]]
+name = "nu_plugin_extra_chart_line"
+path = "src/plugins/nu_plugin_extra_chart_line.rs"
 required-features = ["chart"]
 
 # Main nu binary

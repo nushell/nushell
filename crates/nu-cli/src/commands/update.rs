@@ -2,6 +2,7 @@ use crate::command_registry::CommandRegistry;
 use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
+use indexmap::indexmap;
 use nu_errors::ShellError;
 use nu_protocol::{
     ColumnPath, Primitive, ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue, Value,
@@ -48,6 +49,18 @@ impl WholeStreamCommand for Update {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         update(args, registry).await
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Update a column value",
+            example: "echo [[a, b]; [1, 2]] | update a 'nu'",
+            result: Some(vec![UntaggedValue::row(indexmap! {
+                    "a".to_string() => Value::from("nu"),
+                    "b".to_string() => UntaggedValue::int(2).into(),
+            })
+            .into()]),
+        }]
     }
 }
 

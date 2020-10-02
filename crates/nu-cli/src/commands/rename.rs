@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
-use indexmap::IndexMap;
+use indexmap::indexmap;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
@@ -45,13 +45,22 @@ impl WholeStreamCommand for Rename {
         vec![
             Example {
                 description: "Rename a column",
-                example: r#"echo "{a: 1, b: 2, c: 3}" | from json | rename my_column"#,
-                result: None,
+                example: "echo [[a, b]; [1, 2]] | rename my_column",
+                result: Some(vec![UntaggedValue::row(indexmap! {
+                        "my_column".to_string() => UntaggedValue::int(1).into(),
+                        "b".to_string() => UntaggedValue::int(2).into(),
+                })
+                .into()]),
             },
             Example {
                 description: "Rename many columns",
-                example: r#"echo "{a: 1, b: 2, c: 3}" | from json | rename spam eggs cars"#,
-                result: None,
+                example: "echo [[a, b, c]; [1, 2, 3]] | rename eggs ham bacon",
+                result: Some(vec![UntaggedValue::row(indexmap! {
+                        "eggs".to_string() => UntaggedValue::int(1).into(),
+                        "ham".to_string() => UntaggedValue::int(2).into(),
+                        "bacon".to_string() => UntaggedValue::int(3).into(),
+                })
+                .into()]),
             },
         ]
     }

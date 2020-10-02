@@ -114,6 +114,8 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Shells),
             whole_stream_command(Enter),
             whole_stream_command(Exit),
+            // Viz
+            whole_stream_command(Chart),
             // Viewers
             whole_stream_command(Autoview),
             whole_stream_command(Table),

@@ -1,52 +1,22 @@
+use nu_data::utils::Model;
 use nu_errors::ShellError;
-use nu_protocol::Value;
-use nu_source::Tagged;
 
 use tui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
-    widgets::{BarChart as TuiBarChart, Block, Borders},
+    widgets::BarChart,
 };
 
-pub enum Columns {
-    One(Tagged<String>),
-    Two(Tagged<String>, Tagged<String>),
-    None,
-}
+const DEFAULT_COLOR: Color = Color::Green;
 
-#[allow(clippy::type_complexity)]
-pub struct Chart {
-    pub reduction: nu_data::utils::Reduction,
-    pub columns: Columns,
-    pub eval: Option<Box<dyn Fn(usize, &Value) -> Result<Value, ShellError> + Send>>,
-    pub format: Option<String>,
-}
-
-impl Default for Chart {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Chart {
-    pub fn new() -> Chart {
-        Chart {
-            reduction: nu_data::utils::Reduction::Count,
-            columns: Columns::None,
-            eval: None,
-            format: None,
-        }
-    }
-}
-
-pub struct BarChart<'a> {
+pub struct Bar<'a> {
     pub title: &'a str,
     pub data: Vec<(&'a str, u64)>,
     pub enhanced_graphics: bool,
 }
 
-impl<'a> BarChart<'a> {
-    pub fn from_model(model: &'a nu_data::utils::Model) -> Result<BarChart<'a>, ShellError> {
+impl<'a> Bar<'a> {
+    pub fn from_model(model: &'a Model) -> Result<Bar<'a>, ShellError> {
         let mut data = Vec::new();
         let mut data_points = Vec::new();
 
@@ -109,7 +79,7 @@ impl<'a> BarChart<'a> {
             }
         }
 
-        Ok(BarChart {
+        Ok(Bar {
             title: "Bar Chart",
             data: (&data[..]).to_vec(),
             enhanced_graphics: true,
@@ -123,18 +93,17 @@ impl<'a> BarChart<'a> {
         ui.draw(|f| {
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
-                .margin(2)
+                .margin(0)
                 .constraints([Constraint::Percentage(100)].as_ref())
                 .split(f.size());
 
-            let barchart = TuiBarChart::default()
-                .block(Block::default().title("Chart").borders(Borders::ALL))
+            let barchart = BarChart::default()
                 .data(&self.data)
                 .bar_width(9)
-                .bar_style(Style::default().fg(Color::Green))
+                .bar_style(Style::default().fg(DEFAULT_COLOR))
                 .value_style(
                     Style::default()
-                        .bg(Color::Green)
+                        .bg(Color::Black)
                         .add_modifier(Modifier::BOLD),
                 );
 

@@ -1,4 +1,5 @@
-mod chart;
+mod bar;
+mod line;
 mod nu;
 
-pub use chart::Chart;
+pub use nu::{ChartBar, ChartLine};
