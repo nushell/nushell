@@ -35,7 +35,7 @@ If we now want to see how often the different numbers were generated, we can use
 ```shell
 > open random_numbers.csv | histogram "random numbers"
 ───┬────────────────┬─────────────┬────────────┬──────────────────────────────────────────────────────────────────────────────────────────────────────
- # │ random numbers │ occurrences │ percentage │ frequency
+ # │ random numbers │    count    │ percentage │ frequency
 ───┼────────────────┼─────────────┼────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────
  0 │ 0              │           8 │ 57.14%     │ *********************************************************
  1 │ 1              │          14 │ 100.00%    │ ****************************************************************************************************
@@ -51,7 +51,7 @@ We can also set the name of the second column or sort the table:
 ```shell
 > open random_numbers.csv | histogram "random numbers" probability
 ───┬────────────────┬─────────────┬────────────┬──────────────────────────────────────────────────────────────────────────────────────────────────────
- # │ random numbers │ occurrences │ percentage │ probability
+ # │ random numbers │    count    │ percentage │ probability
 ───┼────────────────┼─────────────┼────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────
  0 │ 0              │           8 │ 57.14%     │ *********************************************************
  1 │ 1              │          14 │ 100.00%    │ ****************************************************************************************************
@@ -66,7 +66,7 @@ We can also set the name of the second column or sort the table:
 ```shell
 > open random_numbers.csv | histogram "random numbers" probability | sort-by probability
 ───┬────────────────┬─────────────┬────────────┬──────────────────────────────────────────────────────────────────────────────────────────────────────
- # │ random numbers │ occurrences │ percentage │ probability
+ # │ random numbers │    count    │ percentage │ probability
 ───┼────────────────┼─────────────┼────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────
  0 │ 4              │           3 │ 21.43%     │ *********************
  1 │ 3              │           6 │ 42.86%     │ ******************************************
@@ -81,9 +81,9 @@ We can also set the name of the second column or sort the table:
 Of course, histogram operations are not restricted to just analyzing numbers in files, you can also analyze your directories
 
 ```shell
-> ls -la | histogram type | sort-by occurrences
+> ls -la | histogram type | sort-by count
 ───┬─────────┬─────────────┬────────────┬──────────────────────────────────────────────────────────────────────────────────────────────────────
- # │ type    │ occurrences │ percentage │ frequency
+ # │ type    │    count    │ percentage │ frequency
 ───┼─────────┼─────────────┼────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────
  0 │ Dir     │           5 │ 4.76%      │ ****
  1 │ Symlink │          28 │ 26.67%     │ **************************

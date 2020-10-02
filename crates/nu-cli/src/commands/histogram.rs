@@ -112,8 +112,9 @@ pub async fn histogram(
         nu_data::utils::Operation {
             grouper: Some(Box::new(move |_, _| Ok(String::from("frequencies")))),
             splitter: Some(splitter(column_grouper)),
-            format: None,
+            format: &None,
             eval: &evaluate_with,
+            reduction: &nu_data::utils::Reduction::Count,
         },
         &name,
     )?;
@@ -123,17 +124,33 @@ pub async fn histogram(
 
     Ok(futures::stream::iter(
         results
-            .percentages
+            .data
             .table_entries()
-            .map(move |value| {
-                let values = value.table_entries().cloned().collect::<Vec<_>>();
-                let occurrences = values.len();
-
-                (occurrences, values[occurrences - 1].clone())
-            })
+            .cloned()
             .collect::<Vec<_>>()
             .into_iter()
-            .map(move |(occurrences, value)| {
+            .zip(
+                results
+                    .percentages
+                    .table_entries()
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .into_iter(),
+            )
+            .map(move |(counts, percentages)| {
+                let percentage = percentages
+                    .table_entries()
+                    .cloned()
+                    .last()
+                    .unwrap_or_else(|| {
+                        UntaggedValue::decimal_from_float(0.0, name.span).into_value(&name)
+                    });
+                let value = counts
+                    .table_entries()
+                    .cloned()
+                    .last()
+                    .unwrap_or_else(|| UntaggedValue::int(0).into_value(&name));
+
                 let mut fact = TaggedDictBuilder::new(&name);
                 let column_value = labels
                     .get(idx)
@@ -147,19 +164,19 @@ pub async fn histogram(
                     .clone();
 
                 fact.insert_value(&column.item, column_value);
-                fact.insert_untagged("occurrences", UntaggedValue::int(occurrences));
+                fact.insert_untagged("count", value);
 
-                let percentage = format!(
+                let fmt_percentage = format!(
                     "{}%",
                     // Some(2) < the number of digits
                     // true < group the digits
-                    crate::commands::str_::from::action(&value, &name, Some(2), true)?
+                    crate::commands::str_::from::action(&percentage, &name, Some(2), true)?
                         .as_string()?
                 );
-                fact.insert_untagged("percentage", UntaggedValue::string(percentage));
+                fact.insert_untagged("percentage", UntaggedValue::string(fmt_percentage));
 
                 let string = std::iter::repeat("*")
-                    .take(value.as_u64().map_err(|_| {
+                    .take(percentage.as_u64().map_err(|_| {
                         ShellError::labeled_error("expected a number", "expected a number", &name)
                     })? as usize)
                     .collect::<String>();

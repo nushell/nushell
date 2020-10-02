@@ -1,10 +1,12 @@
 use crate::value::{UntaggedValue, Value};
 
+#[derive(Debug)]
 pub enum RowValueIter<'a> {
     Empty,
     Entries(indexmap::map::Iter<'a, String, Value>),
 }
 
+#[derive(Debug)]
 pub enum TableValueIter<'a> {
     Empty,
     Entries(std::slice::Iter<'a, Value>),

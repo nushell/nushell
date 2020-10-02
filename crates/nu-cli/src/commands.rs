@@ -17,6 +17,7 @@ pub(crate) mod build_string;
 pub(crate) mod cal;
 pub(crate) mod cd;
 pub(crate) mod char_;
+pub(crate) mod chart;
 pub(crate) mod classified;
 #[cfg(feature = "clipboard-cli")]
 pub(crate) mod clip;
@@ -142,6 +143,7 @@ pub(crate) use benchmark::Benchmark;
 pub(crate) use build_string::BuildString;
 pub(crate) use cal::Cal;
 pub(crate) use char_::Char;
+pub(crate) use chart::Chart;
 pub(crate) use compact::Compact;
 pub(crate) use config::{
     Config, ConfigClear, ConfigGet, ConfigLoad, ConfigPath, ConfigRemove, ConfigSet, ConfigSetInto,
