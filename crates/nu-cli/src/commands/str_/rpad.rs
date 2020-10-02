@@ -20,11 +20,11 @@ pub struct SubCommand;
 #[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
-        "str lpad"
+        "str rpad"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("str lpad")
+        Signature::build("str rpad")
             .required_named("length", SyntaxShape::Int, "length to pad to", Some('l'))
             .required_named(
                 "character",
@@ -53,22 +53,22 @@ impl WholeStreamCommand for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Left pad a string with a character a number of places",
-                example: "echo 'nushell' | str lpad -l 10 -c '*'",
+                description: "Right pad a string with a character a number of places",
+                example: "echo 'nushell' | str rpad -l 10 -c '*'",
                 result: Some(vec![
-                    UntaggedValue::string("***nushell").into_untagged_value()
+                    UntaggedValue::string("nushell***").into_untagged_value()
                 ]),
             },
             Example {
-                description: "Left pad a string with a character a number of places",
-                example: "echo '123' | str lpad -l 10 -c '0'",
+                description: "Right pad a string with a character a number of places",
+                example: "echo '123' | str rpad -l 10 -c '0'",
                 result: Some(vec![
                     UntaggedValue::string("0000000123").into_untagged_value()
                 ]),
             },
             Example {
-                description: "Use lpad to truncate a string",
-                example: "echo '123456789' | str lpad -l 3 -c '0'",
+                description: "Use rpad to truncate a string",
+                example: "echo '123456789' | str rpad -l 3 -c '0'",
                 result: Some(vec![UntaggedValue::string("123").into_untagged_value()]),
             },
         ]
@@ -125,8 +125,8 @@ fn action(
             if length < s.len() {
                 Ok(UntaggedValue::string(&s[0..length]).into_value(tag))
             } else {
-                let mut res = character.to_string().repeat(length - s.len());
-                res += s.as_ref();
+                let mut res = s.to_string();
+                res += character.to_string().repeat(length - s.len()).as_str();
                 Ok(UntaggedValue::string(res).into_value(tag))
             }
         }
@@ -160,7 +160,7 @@ mod tests {
         let word = string("123");
         let pad_char = '0';
         let pad_len = 10;
-        let expected = UntaggedValue::string("0000000123").into_untagged_value();
+        let expected = UntaggedValue::string("1230000000").into_untagged_value();
 
         let actual = action(&word, pad_len, pad_char, Tag::unknown()).unwrap();
         assert_eq!(actual, expected);
