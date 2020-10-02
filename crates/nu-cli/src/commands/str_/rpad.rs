@@ -63,7 +63,7 @@ impl WholeStreamCommand for SubCommand {
                 description: "Right pad a string with a character a number of places",
                 example: "echo '123' | str rpad -l 10 -c '0'",
                 result: Some(vec![
-                    UntaggedValue::string("0000000123").into_untagged_value()
+                    UntaggedValue::string("1230000000").into_untagged_value()
                 ]),
             },
             Example {
@@ -156,7 +156,7 @@ mod tests {
     }
 
     #[test]
-    fn left_pad_with_zeros() {
+    fn right_pad_with_zeros() {
         let word = string("123");
         let pad_char = '0';
         let pad_len = 10;
@@ -167,7 +167,7 @@ mod tests {
     }
 
     #[test]
-    fn left_pad_but_truncate() {
+    fn right_pad_but_truncate() {
         let word = string("123456789");
         let pad_char = '0';
         let pad_len = 3;
