@@ -1,10 +1,11 @@
+use nu_data::utils::{report as build_report, Model};
 use nu_errors::ShellError;
 use nu_plugin::Plugin;
 use nu_protocol::{CallInfo, ColumnPath, Primitive, Signature, SyntaxShape, UntaggedValue, Value};
-use nu_source::TaggedItem;
+use nu_source::{Tagged, TaggedItem};
 use nu_value_ext::ValueExt;
 
-use crate::chart::{BarChart, Chart, Columns};
+use crate::line::Line;
 
 use std::{
     error::Error,
@@ -27,8 +28,39 @@ enum Event<I> {
     Tick,
 }
 
-fn display(model: &nu_data::utils::Model) -> Result<(), Box<dyn Error>> {
-    let mut app = BarChart::from_model(&model)?;
+pub enum Columns {
+    One(Tagged<String>),
+    Two(Tagged<String>, Tagged<String>),
+    None,
+}
+
+#[allow(clippy::type_complexity)]
+pub struct SubCommand {
+    pub reduction: nu_data::utils::Reduction,
+    pub columns: Columns,
+    pub eval: Option<Box<dyn Fn(usize, &Value) -> Result<Value, ShellError> + Send>>,
+    pub format: Option<String>,
+}
+
+impl Default for SubCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SubCommand {
+    pub fn new() -> SubCommand {
+        SubCommand {
+            reduction: nu_data::utils::Reduction::Count,
+            columns: Columns::None,
+            eval: None,
+            format: None,
+        }
+    }
+}
+
+fn display(model: &Model) -> Result<(), Box<dyn Error>> {
+    let mut app = Line::from_model(&model)?;
 
     enable_raw_mode()?;
 
@@ -64,8 +96,6 @@ fn display(model: &nu_data::utils::Model) -> Result<(), Box<dyn Error>> {
 
         match rx.recv()? {
             Event::Input(event) => match event.code {
-                KeyCode::Left => app.on_left(),
-                KeyCode::Right => app.on_right(),
                 KeyCode::Char('q') => {
                     disable_raw_mode()?;
                     execute!(
@@ -94,10 +124,10 @@ fn display(model: &nu_data::utils::Model) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-impl Plugin for Chart {
+impl Plugin for SubCommand {
     fn config(&mut self) -> Result<Signature, ShellError> {
-        Ok(Signature::build("chart")
-            .desc("Displays bar charts")
+        Ok(Signature::build("chart line")
+            .desc("Line charts")
             .switch("acc", "accumuate values", Some('a'))
             .optional(
                 "columns",
@@ -131,7 +161,7 @@ impl Plugin for Chart {
     }
 }
 
-impl Chart {
+impl SubCommand {
     fn run(&mut self, call_info: CallInfo, input: Vec<Value>) -> Result<(), ShellError> {
         let args = call_info.args;
         let name = call_info.name_tag;
@@ -269,7 +299,7 @@ impl Chart {
                     reduction: &self.reduction,
                 };
 
-                let _ = display(&nu_data::utils::report(&data, options, &name)?);
+                let _ = display(&build_report(&data, options, &name)?);
             }
             Columns::One(col) => {
                 let key = col.clone();
@@ -316,7 +346,7 @@ impl Chart {
                     reduction: &self.reduction,
                 };
 
-                let _ = display(&nu_data::utils::report(&data, options, &name)?);
+                let _ = display(&build_report(&data, options, &name)?);
             }
             _ => {}
         }
