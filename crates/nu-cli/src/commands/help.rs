@@ -234,11 +234,12 @@ pub fn get_help(cmd: &dyn WholeStreamCommand, registry: &CommandRegistry) -> Str
 #[cfg(test)]
 mod tests {
     use super::Help;
+    use super::ShellError;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(Help {})
+        Ok(test_examples(Help {})?)
     }
 }

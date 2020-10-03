@@ -175,11 +175,12 @@ async fn select(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputS
 #[cfg(test)]
 mod tests {
     use super::Select;
+    use super::ShellError;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(Select {})
+        Ok(test_examples(Select {})?)
     }
 }

@@ -47,12 +47,13 @@ fn host(url: &Url) -> &str {
 
 #[cfg(test)]
 mod tests {
+    use super::ShellError;
     use super::UrlHost;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(UrlHost {})
+        Ok(test_examples(UrlHost {})?)
     }
 }

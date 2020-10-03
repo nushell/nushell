@@ -314,6 +314,13 @@ impl Tag {
         }
     }
 
+    pub fn anchored(self, anchor: Option<AnchorLocation>) -> Tag {
+        Tag {
+            anchor,
+            span: self.span,
+        }
+    }
+
     /// Creates a `Tag` from the given `Span` with no `AnchorLocation`
     pub fn unknown_anchor(span: Span) -> Tag {
         Tag { anchor: None, span }

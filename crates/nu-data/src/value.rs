@@ -47,6 +47,10 @@ pub fn date_from_str(s: Tagged<&str>) -> Result<UntaggedValue, ShellError> {
     Date::from_regular_str(s)
 }
 
+pub fn date_naive_from_str(s: Tagged<&str>) -> Result<UntaggedValue, ShellError> {
+    Date::naive_from_str(s)
+}
+
 pub fn merge_values(
     left: &UntaggedValue,
     right: &UntaggedValue,

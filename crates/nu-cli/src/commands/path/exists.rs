@@ -43,3 +43,16 @@ impl WholeStreamCommand for PathExists {
 fn action(path: &Path) -> UntaggedValue {
     UntaggedValue::boolean(path.exists())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::PathExists;
+    use super::ShellError;
+
+    #[test]
+    fn examples_work_as_expected() -> Result<(), ShellError> {
+        use crate::examples::test as test_examples;
+
+        Ok(test_examples(PathExists {})?)
+    }
+}

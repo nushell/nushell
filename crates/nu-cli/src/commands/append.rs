@@ -2,17 +2,17 @@ use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 
 #[derive(Deserialize)]
-struct AppendArgs {
+struct Arguments {
     row: Value,
 }
 
-pub struct Append;
+pub struct Command;
 
 #[async_trait]
-impl WholeStreamCommand for Append {
+impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "append"
     }
@@ -34,11 +34,18 @@ impl WholeStreamCommand for Append {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        let (AppendArgs { row }, input) = args.process(registry).await?;
+        let (Arguments { mut row }, input) = args.process(registry).await?;
 
-        let eos = futures::stream::iter(vec![row]);
+        let input: Vec<Value> = input.collect().await;
 
-        Ok(input.chain(eos).to_output_stream())
+        if let Some(first) = input.get(0) {
+            row.tag = first.tag();
+        }
+
+        Ok(
+            futures::stream::iter(input.into_iter().chain(vec![row]).map(ReturnSuccess::value))
+                .to_output_stream(),
+        )
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -52,17 +59,5 @@ impl WholeStreamCommand for Append {
                 UntaggedValue::int(4).into(),
             ]),
         }]
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::Append;
-
-    #[test]
-    fn examples_work_as_expected() {
-        use crate::examples::test as test_examples;
-
-        test_examples(Append {})
     }
 }

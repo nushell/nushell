@@ -62,6 +62,7 @@ fn trim(s: &str, char_: Option<char>) -> String {
 
 #[cfg(test)]
 mod tests {
+    use super::ShellError;
     use super::{trim, SubCommand};
     use crate::commands::str_::trim::{action, ActionMode};
     use nu_plugin::{
@@ -71,10 +72,10 @@ mod tests {
     use nu_source::Tag;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(SubCommand {})
+        Ok(test_examples(SubCommand {})?)
     }
 
     #[test]

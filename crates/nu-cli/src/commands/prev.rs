@@ -36,11 +36,12 @@ fn previous(_args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStr
 #[cfg(test)]
 mod tests {
     use super::Previous;
+    use super::ShellError;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(Previous {})
+        Ok(test_examples(Previous {})?)
     }
 }

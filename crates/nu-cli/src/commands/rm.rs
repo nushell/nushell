@@ -100,11 +100,12 @@ async fn rm(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
 #[cfg(test)]
 mod tests {
     use super::Remove;
+    use super::ShellError;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(Remove {})
+        Ok(test_examples(Remove {})?)
     }
 }

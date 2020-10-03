@@ -178,18 +178,21 @@ impl Future for SleepFuture {
 #[cfg(test)]
 mod tests {
     use super::Sleep;
+    use nu_errors::ShellError;
     use std::time::Instant;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
         let start = Instant::now();
-        test_examples(Sleep {});
+        let results = test_examples(Sleep {});
         let elapsed = start.elapsed();
         println!("{:?}", elapsed);
         // only examples with actual output are run
         assert!(elapsed >= std::time::Duration::from_secs(1));
         assert!(elapsed < std::time::Duration::from_secs(2));
+
+        Ok(results?)
     }
 }

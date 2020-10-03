@@ -58,11 +58,12 @@ async fn reverse(
 #[cfg(test)]
 mod tests {
     use super::Reverse;
+    use super::ShellError;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(Reverse {})
+        Ok(test_examples(Reverse {})?)
     }
 }
