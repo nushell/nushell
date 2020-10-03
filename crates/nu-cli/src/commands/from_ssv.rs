@@ -302,7 +302,9 @@ async fn from_ssv(
 
 #[cfg(test)]
 mod tests {
+    use super::ShellError;
     use super::*;
+
     fn owned(x: &str, y: &str) -> (String, String) {
         (String::from(x), String::from(y))
     }
@@ -504,10 +506,10 @@ mod tests {
     }
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use super::FromSSV;
         use crate::examples::test as test_examples;
 
-        test_examples(FromSSV {})
+        Ok(test_examples(FromSSV {})?)
     }
 }

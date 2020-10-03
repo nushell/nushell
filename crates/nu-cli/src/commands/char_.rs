@@ -130,11 +130,12 @@ fn str_to_character(s: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::Char;
+    use super::ShellError;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(Char {})
+        Ok(test_examples(Char {})?)
     }
 }

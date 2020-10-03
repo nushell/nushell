@@ -267,11 +267,12 @@ pub fn get_column_from_row_error(
 #[cfg(test)]
 mod tests {
     use super::Get;
+    use super::ShellError;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(Get {})
+        Ok(test_examples(Get {})?)
     }
 }

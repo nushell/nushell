@@ -186,14 +186,15 @@ async fn to_toml(
 
 #[cfg(test)]
 mod tests {
+    use super::ShellError;
     use super::*;
     use nu_protocol::Dictionary;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(ToTOML {})
+        Ok(test_examples(ToTOML {})?)
     }
 
     #[test]

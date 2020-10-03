@@ -93,11 +93,12 @@ async fn every(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
 #[cfg(test)]
 mod tests {
     use super::Every;
+    use super::ShellError;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(Every {})
+        Ok(test_examples(Every {})?)
     }
 }

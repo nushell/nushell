@@ -135,7 +135,7 @@ pub(crate) use command::{
 
 pub(crate) use alias::Alias;
 pub(crate) use ansi::Ansi;
-pub(crate) use append::Append;
+pub(crate) use append::Command as Append;
 pub(crate) use autoenv::Autoenv;
 pub(crate) use autoenv_trust::AutoenvTrust;
 pub(crate) use autoenv_untrust::AutoenvUnTrust;
@@ -164,7 +164,7 @@ pub(crate) use echo::Echo;
 pub(crate) use if_::If;
 pub(crate) use is_empty::IsEmpty;
 pub(crate) use nu::NuPlugin;
-pub(crate) use update::Update;
+pub(crate) use update::Command as Update;
 pub(crate) mod kill;
 pub(crate) use kill::Kill;
 pub(crate) mod clear;
@@ -193,13 +193,13 @@ pub(crate) use from_xml::FromXML;
 pub(crate) use from_yaml::FromYAML;
 pub(crate) use from_yaml::FromYML;
 pub(crate) use get::Get;
-pub(crate) use group_by::GroupBy;
+pub(crate) use group_by::Command as GroupBy;
 pub(crate) use group_by_date::GroupByDate;
 pub(crate) use headers::Headers;
 pub(crate) use help::Help;
 pub(crate) use histogram::Histogram;
 pub(crate) use history::History;
-pub(crate) use insert::Insert;
+pub(crate) use insert::Command as Insert;
 pub(crate) use into_int::IntoInt;
 pub(crate) use keep::{Keep, KeepUntil, KeepWhile};
 pub(crate) use last::Last;
@@ -270,3 +270,40 @@ pub(crate) use where_::Where;
 pub(crate) use which_::Which;
 pub(crate) use with_env::WithEnv;
 pub(crate) use wrap::Wrap;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::commands::whole_stream_command;
+    use crate::examples::{test_anchors, test_examples};
+    use nu_errors::ShellError;
+
+    fn commands() -> Vec<Command> {
+        vec![
+            // Table operations
+            whole_stream_command(Append),
+            whole_stream_command(GroupBy),
+            // Row specific operations
+            whole_stream_command(Insert),
+            whole_stream_command(Update),
+        ]
+    }
+
+    #[test]
+    fn examples_work_as_expected() -> Result<(), ShellError> {
+        for cmd in commands() {
+            test_examples(cmd)?;
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn tracks_metadata() -> Result<(), ShellError> {
+        for cmd in commands() {
+            test_anchors(cmd)?;
+        }
+
+        Ok(())
+    }
+}

@@ -144,11 +144,12 @@ async fn from_json(
 #[cfg(test)]
 mod tests {
     use super::FromJSON;
+    use super::ShellError;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(FromJSON {})
+        Ok(test_examples(FromJSON {})?)
     }
 }

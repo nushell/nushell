@@ -83,11 +83,12 @@ async fn default(
 #[cfg(test)]
 mod tests {
     use super::Default;
+    use super::ShellError;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(Default {})
+        Ok(test_examples(Default {})?)
     }
 }

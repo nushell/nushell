@@ -11,16 +11,17 @@ use nu_source::HasFallibleSpan;
 use nu_value_ext::ValueExt;
 
 use futures::stream::once;
-pub struct Update;
+
+pub struct Command;
 
 #[derive(Deserialize)]
-pub struct UpdateArgs {
+pub struct Arguments {
     field: ColumnPath,
     replacement: Value,
 }
 
 #[async_trait]
-impl WholeStreamCommand for Update {
+impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "update"
     }
@@ -54,10 +55,18 @@ impl WholeStreamCommand for Update {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Update a column value",
-            example: "echo [[a, b]; [1, 2]] | update a 'nu'",
+            example: "echo [[name, stars]; ['nu', 5]] | update name 'Nushell'",
             result: Some(vec![UntaggedValue::row(indexmap! {
-                    "a".to_string() => Value::from("nu"),
-                    "b".to_string() => UntaggedValue::int(2).into(),
+                    "name".to_string() => Value::from("Nushell"),
+                    "stars".to_string() => UntaggedValue::int(5).into(),
+            })
+            .into()]),
+        },Example {
+            description: "Use in block form for more involved updating logic",
+            example: "echo [[project, authors]; ['nu', ['Andrés', 'Jonathan', 'Yehuda']]] | update authors { get authors | str collect ',' }",
+            result: Some(vec![UntaggedValue::row(indexmap! {
+                    "project".to_string() => Value::from("nu"),
+                    "authors".to_string() => Value::from("Andrés,Jonathan,Yehuda"),
             })
             .into()]),
         }]
@@ -170,7 +179,7 @@ async fn update(
     let name_tag = Arc::new(raw_args.call_info.name_tag.clone());
     let scope = raw_args.call_info.scope.clone();
     let context = Arc::new(EvaluationContext::from_raw(&raw_args, &registry));
-    let (UpdateArgs { field, replacement }, input) = raw_args.process(&registry).await?;
+    let (Arguments { field, replacement }, input) = raw_args.process(&registry).await?;
     let replacement = Arc::new(replacement);
     let field = Arc::new(field);
 
@@ -191,16 +200,4 @@ async fn update(
         })
         .flatten()
         .to_output_stream())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::Update;
-
-    #[test]
-    fn examples_work_as_expected() {
-        use crate::examples::test as test_examples;
-
-        test_examples(Update {})
-    }
 }

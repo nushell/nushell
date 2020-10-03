@@ -283,15 +283,16 @@ fn process_arguments(range: Value, name: impl Into<Tag>) -> Result<(isize, isize
 
 #[cfg(test)]
 mod tests {
+    use super::ShellError;
     use super::{action, SubCommand, Substring};
     use nu_plugin::test_helpers::value::string;
     use nu_source::Tag;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(SubCommand {})
+        Ok(test_examples(SubCommand {})?)
     }
 
     struct Expectation<'a> {

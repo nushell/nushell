@@ -252,3 +252,16 @@ async fn table(
 
     Ok(OutputStream::empty())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Command;
+    use super::ShellError;
+
+    #[test]
+    fn examples_work_as_expected() -> Result<(), ShellError> {
+        use crate::examples::test as test_examples;
+
+        Ok(test_examples(Command {})?)
+    }
+}

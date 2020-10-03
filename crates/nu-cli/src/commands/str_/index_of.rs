@@ -246,16 +246,17 @@ fn process_range(input: &Value, range: &Value) -> Result<IndexOfOptionalBounds, 
 }
 #[cfg(test)]
 mod tests {
+    use super::ShellError;
     use super::{action, SubCommand};
     use nu_plugin::test_helpers::value::string;
     use nu_protocol::{Primitive, UntaggedValue};
     use nu_source::Tag;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(SubCommand {})
+        Ok(test_examples(SubCommand {})?)
     }
 
     #[test]

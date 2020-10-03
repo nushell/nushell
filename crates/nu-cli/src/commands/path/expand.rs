@@ -2,7 +2,7 @@ use super::{operate, DefaultArguments};
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
 use std::path::Path;
 
 pub struct PathExpand;
@@ -35,7 +35,8 @@ impl WholeStreamCommand for PathExpand {
         vec![Example {
             description: "Expand relative directories",
             example: "echo '/home/joe/foo/../bar' | path expand",
-            result: Some(vec![Value::from("/home/joe/bar")]),
+            result: None,
+            //Some(vec![Value::from("/home/joe/bar")]),
         }]
     }
 }
@@ -48,4 +49,17 @@ fn action(path: &Path) -> UntaggedValue {
         Ok(p) => p.to_string_lossy().to_string(),
         Err(_) => ps.to_string(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PathExpand;
+    use super::ShellError;
+
+    #[test]
+    fn examples_work_as_expected() -> Result<(), ShellError> {
+        use crate::examples::test as test_examples;
+
+        Ok(test_examples(PathExpand {})?)
+    }
 }

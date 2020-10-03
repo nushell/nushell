@@ -155,11 +155,12 @@ pub async fn pivot(
 #[cfg(test)]
 mod tests {
     use super::Pivot;
+    use super::ShellError;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(Pivot {})
+        Ok(test_examples(Pivot {})?)
     }
 }

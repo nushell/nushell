@@ -117,11 +117,12 @@ pub async fn rename(
 #[cfg(test)]
 mod tests {
     use super::Rename;
+    use super::ShellError;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(Rename {})
+        Ok(test_examples(Rename {})?)
     }
 }
