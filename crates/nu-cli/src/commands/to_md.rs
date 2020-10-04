@@ -30,10 +30,7 @@ impl WholeStreamCommand for ToMarkdown {
     }
 }
 
-async fn to_md(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+async fn to_md(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let args = args.evaluate_once(&registry).await?;
     let name_tag = args.name_tag();
