@@ -26,11 +26,11 @@ impl WholeStreamCommand for ToMarkdown {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        to_html(args, registry).await
+        to_md(args, registry).await
     }
 }
 
-async fn to_html(
+async fn to_md(
     args: CommandArgs,
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
