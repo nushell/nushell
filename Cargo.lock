@@ -1207,9 +1207,9 @@ checksum = "134951f4028bdadb9b84baf4232681efbf277da25144b9b0ad65df75946c422b"
 
 [[package]]
 name = "dtparse"
-version = "1.1.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9713da7ca51bcd8ecbaedbd6309110eb1ca930d2109ef595a125f84fa1bc608b"
+checksum = "13276c5dbd7f365e00efe6631242772fe6615e1899df84d1f6ce3ae7b48209f6"
 dependencies = [
  "chrono",
  "chrono-tz",
