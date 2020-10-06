@@ -41,16 +41,14 @@ impl WholeStreamCommand for ToMarkdown {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description:
-                    "Outputs an unformatted md string representing the contents of ls",
+                description: "Outputs an unformatted md string representing the contents of ls",
                 example: "ls | to md",
                 result: None,
             },
             Example {
-                description:
-                    "Outputs a formatted md string representing the contents of ls",
+                description: "Outputs a formatted md string representing the contents of ls",
                 example: "ls | to md -p",
-                result: None
+                result: None,
             },
         ]
     }
