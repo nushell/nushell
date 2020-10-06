@@ -91,7 +91,7 @@ default = [
 extra = ["default", "binaryview", "tree", "clipboard-cli", "trash-support", "start", "bson", "sqlite", "s3", "chart"]
 stable = ["default"]
 
-wasi = ["inc", "match", "directories-support", "ptree-support", "match", "tree"]
+wasi = ["inc", "match", "directories-support", "ptree-support", "match", "tree", "rustyline-support"]
 
 trace = ["nu-parser/trace"]
 
