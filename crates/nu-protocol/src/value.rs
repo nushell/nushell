@@ -448,6 +448,18 @@ impl From<&str> for Value {
     }
 }
 
+impl From<bool> for Value {
+    fn from(s: bool) -> Value {
+        Value {
+            value: s.into(),
+            tag: Tag {
+                anchor: None,
+                span: Span::unknown(),
+            },
+        }
+    }
+}
+
 impl<T> From<T> for UntaggedValue
 where
     T: Into<Primitive>,

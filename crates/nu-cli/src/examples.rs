@@ -1,7 +1,7 @@
 use nu_errors::ShellError;
 use nu_protocol::hir::ClassifiedBlock;
 use nu_protocol::{
-    ReturnSuccess, Scope, ShellTypeName, Signature, SyntaxShape, UntaggedValue, Value,
+    Primitive, ReturnSuccess, Scope, ShellTypeName, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use nu_source::{AnchorLocation, TaggedItem};
 
@@ -17,7 +17,7 @@ use crate::commands::classified::block::run_block;
 use crate::commands::command::CommandArgs;
 use crate::commands::{
     whole_stream_command, BuildString, Command, Each, Echo, Get, Keep, StrCollect,
-    WholeStreamCommand,
+    WholeStreamCommand, Wrap,
 };
 use crate::evaluation_context::EvaluationContext;
 use crate::stream::{InputStream, OutputStream};
@@ -41,6 +41,7 @@ pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
         whole_stream_command(Keep {}),
         whole_stream_command(Each {}),
         whole_stream_command(StrCollect),
+        whole_stream_command(Wrap),
         cmd,
     ]);
 
@@ -103,6 +104,7 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
         whole_stream_command(Each {}),
         whole_stream_command(cmd),
         whole_stream_command(StrCollect),
+        whole_stream_command(Wrap),
     ]);
 
     for sample_pipeline in examples {
@@ -166,6 +168,7 @@ pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
         whole_stream_command(Keep {}),
         whole_stream_command(Each {}),
         whole_stream_command(StrCollect),
+        whole_stream_command(Wrap),
         cmd,
     ]);
 
@@ -306,12 +309,13 @@ impl WholeStreamCommand for MockCommand {
 
         if open_mock {
             if let Some(true) = mocked_path {
-                let mocked_path = Some(mock_path());
-                let value = out.tagged(name_tag.span).map_anchored(&mocked_path);
-
-                return Ok(OutputStream::one(Ok(ReturnSuccess::Value(
-                    value.item.into_value(value.tag),
-                ))));
+                return Ok(OutputStream::one(Ok(ReturnSuccess::Value(Value {
+                    value: out,
+                    tag: Tag {
+                        anchor: Some(mock_path()),
+                        span: name_tag.span,
+                    },
+                }))));
             }
         }
 
@@ -324,7 +328,7 @@ impl WholeStreamCommand for MockCommand {
 struct MockEcho;
 
 #[derive(Deserialize)]
-pub struct MockEchoArgs {
+struct MockEchoArgs {
     pub rest: Vec<Value>,
 }
 
@@ -360,9 +364,10 @@ impl WholeStreamCommand for MockEcho {
         let stream = rest.into_iter().map(move |i| {
             let base_value = base_value.clone();
             match i.as_string() {
-                Ok(s) => OutputStream::one(Ok(ReturnSuccess::Value(
-                    UntaggedValue::string(s).into_value(base_value.tag.clone()),
-                ))),
+                Ok(s) => OutputStream::one(Ok(ReturnSuccess::Value(Value {
+                    value: UntaggedValue::Primitive(Primitive::String(s)),
+                    tag: base_value.tag.clone(),
+                }))),
                 _ => match i {
                     Value {
                         value: UntaggedValue::Table(table),

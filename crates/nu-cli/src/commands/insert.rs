@@ -103,13 +103,16 @@ async fn process_row(
                     let result = if values.len() == 1 {
                         let value = values
                             .get(0)
-                            .ok_or_else(|| ShellError::unexpected("No value to insert with"))?;
+                            .ok_or_else(|| ShellError::unexpected("No value to insert with."))?;
 
-                        value.clone()
+                        Value {
+                            value: value.value.clone(),
+                            tag: input.tag.clone(),
+                        }
                     } else if values.is_empty() {
-                        UntaggedValue::nothing().into_untagged_value()
+                        UntaggedValue::nothing().into_value(&input.tag)
                     } else {
-                        UntaggedValue::table(&values).into_untagged_value()
+                        UntaggedValue::table(&values).into_value(&input.tag)
                     };
 
                     match input {

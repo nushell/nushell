@@ -36,6 +36,7 @@ pub(crate) mod drop;
 pub(crate) mod du;
 pub(crate) mod each;
 pub(crate) mod echo;
+pub(crate) mod empty;
 pub(crate) mod enter;
 pub(crate) mod every;
 pub(crate) mod exec;
@@ -67,7 +68,6 @@ pub(crate) mod history;
 pub(crate) mod if_;
 pub(crate) mod insert;
 pub(crate) mod into_int;
-pub(crate) mod is_empty;
 pub(crate) mod keep;
 pub(crate) mod last;
 pub(crate) mod lines;
@@ -161,8 +161,8 @@ pub(crate) use each::Each;
 pub(crate) use each::EachGroup;
 pub(crate) use each::EachWindow;
 pub(crate) use echo::Echo;
+pub(crate) use empty::Command as Empty;
 pub(crate) use if_::If;
-pub(crate) use is_empty::IsEmpty;
 pub(crate) use nu::NuPlugin;
 pub(crate) use update::Command as Update;
 pub(crate) mod kill;
@@ -280,12 +280,11 @@ mod tests {
 
     fn commands() -> Vec<Command> {
         vec![
-            // Table operations
             whole_stream_command(Append),
             whole_stream_command(GroupBy),
-            // Row specific operations
             whole_stream_command(Insert),
             whole_stream_command(Update),
+            whole_stream_command(Empty),
         ]
     }
 
