@@ -76,8 +76,7 @@ async fn to_md(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
             if let UntaggedValue::Row(row) = row.value.clone() {
                 for i in 0..headers.len() {
                     let data = row.get_data(&headers[i]);
-                    let new_column_length =
-                        format_leaf(data.borrow()).plain_string(100_000).len();
+                    let new_column_length = format_leaf(data.borrow()).plain_string(100_000).len();
 
                     if column_length_vector[i] < new_column_length {
                         column_length_vector[i] = new_column_length;
