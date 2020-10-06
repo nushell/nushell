@@ -1099,18 +1099,8 @@ impl Expression {
         Expression::Literal(Literal::Number(Number::Int(i)))
     }
 
-    pub fn decimal(f: f64) -> Result<Expression, ParseError> {
-        let dec = BigDecimal::from_f64(f);
-
-        let dec = match dec {
-            Some(x) => Ok(x),
-            None => Err(ParseError::internal_error(
-                "Can not convert f64 to big decimal"
-                    .to_string()
-                    .spanned_unknown(),
-            )),
-        }?;
-        Ok(Expression::Literal(Literal::Number(Number::Decimal(dec))))
+    pub fn decimal(dec: BigDecimal) -> Expression {
+        Expression::Literal(Literal::Number(Number::Decimal(dec)))
     }
 
     pub fn string(s: String) -> Expression {
