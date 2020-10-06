@@ -1095,8 +1095,8 @@ impl IntoSpanned for Expression {
 }
 
 impl Expression {
-    pub fn integer(i: i64) -> Expression {
-        Expression::Literal(Literal::Number(Number::Int(BigInt::from(i))))
+    pub fn integer(i: BigInt) -> Expression {
+        Expression::Literal(Literal::Number(Number::Int(i)))
     }
 
     pub fn decimal(f: f64) -> Result<Expression, ParseError> {
