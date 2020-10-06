@@ -73,19 +73,16 @@ async fn to_md(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
         }
 
         for row in &input {
-            match row.value.clone() {
-                UntaggedValue::Row(row) => {
-                    for i in 0..headers.len() {
-                        let data = row.get_data(&headers[i]);
-                        let new_column_length =
-                            format_leaf(data.borrow()).plain_string(100_000).len();
+            if let UntaggedValue::Row(row) = row.value.clone() {
+                for i in 0..headers.len() {
+                    let data = row.get_data(&headers[i]);
+                    let new_column_length =
+                        format_leaf(data.borrow()).plain_string(100_000).len();
 
-                        if column_length_vector[i] < new_column_length {
-                            column_length_vector[i] = new_column_length;
-                        }
+                    if column_length_vector[i] < new_column_length {
+                        column_length_vector[i] = new_column_length;
                     }
                 }
-                _ => {}
             }
         }
     }
@@ -107,9 +104,9 @@ async fn to_md(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
 
         output_string.push_str("\n|");
 
-        for i in 0..headers.len() {
+        for column_length in column_length_vector.iter().take(headers.len()) {
             let final_string = if pretty {
-                "-".repeat(column_length_vector[i])
+                "-".repeat(*column_length)
             } else {
                 String::from("-")
             };
