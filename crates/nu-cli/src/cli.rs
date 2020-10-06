@@ -196,7 +196,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Each),
             whole_stream_command(EachGroup),
             whole_stream_command(EachWindow),
-            whole_stream_command(IsEmpty),
+            whole_stream_command(Empty),
             // Table manipulation
             whole_stream_command(Move),
             whole_stream_command(Merge),
