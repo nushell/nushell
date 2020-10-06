@@ -735,7 +735,7 @@ fn parse_arg(
 
     match expected_type {
         SyntaxShape::Number => {
-            if let Ok(x) = lite_arg.item.parse::<i64>() {
+            if let Ok(x) = lite_arg.item.parse::<BigInt>() {
                 (
                     SpannedExpression::new(Expression::integer(x), lite_arg.span),
                     None,
@@ -757,7 +757,7 @@ fn parse_arg(
             }
         }
         SyntaxShape::Int => {
-            if let Ok(x) = lite_arg.item.parse::<i64>() {
+            if let Ok(x) = lite_arg.item.parse::<BigInt>() {
                 (
                     SpannedExpression::new(Expression::integer(x), lite_arg.span),
                     None,
@@ -945,7 +945,7 @@ mod test {
         let registry = MockRegistry::new();
         let result = parse_arg(SyntaxShape::Int, &registry, &input);
         assert_eq!(result.1, None);
-        assert_eq!(result.0.expr, Expression::integer(32));
+        assert_eq!(result.0.expr, Expression::integer(BigInt::from(32)));
         Ok(())
     }
 
@@ -970,14 +970,25 @@ mod test {
         let registry = MockRegistry::new();
         let result = parse_arg(SyntaxShape::Number, &registry, &input);
         assert_eq!(result.1, None);
-        assert_eq!(result.0.expr, Expression::integer(-34));
+        assert_eq!(result.0.expr, Expression::integer(BigInt::from(-34)));
 
         let raw = "34".to_string();
         let input = raw.clone().spanned(Span::new(0, raw.len()));
         let registry = MockRegistry::new();
         let result = parse_arg(SyntaxShape::Number, &registry, &input);
         assert_eq!(result.1, None);
-        assert_eq!(result.0.expr, Expression::integer(34));
+        assert_eq!(result.0.expr, Expression::integer(BigInt::from(34)));
+
+        // test a number larger than 64bits
+        let raw = "18446744073709551615".to_string();
+        let input = raw.clone().spanned(Span::new(0, raw.len()));
+        let registry = MockRegistry::new();
+        let result = parse_arg(SyntaxShape::Number, &registry, &input);
+        assert_eq!(result.1, None);
+        assert_eq!(
+            result.0.expr,
+            Expression::integer(BigInt::from(18446744073709551615 as u128))
+        );
         Ok(())
     }
 }
