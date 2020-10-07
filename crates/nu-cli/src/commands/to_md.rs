@@ -103,9 +103,10 @@ async fn to_md(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
 
         output_string.push_str("\n|");
 
-        for column_length in column_length_vector.iter().take(headers.len()) {
+        #[allow(clippy::needless_range_loop)]
+        for i in 0..headers.len() {
             let final_string = if pretty {
-                "-".repeat(*column_length)
+                "-".repeat(column_length_vector[i])
             } else {
                 String::from("-")
             };
