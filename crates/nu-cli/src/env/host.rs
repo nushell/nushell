@@ -128,7 +128,6 @@ impl Host for BasicHost {
     fn width(&self) -> usize {
         let (mut term_width, _) = term_size::dimensions().unwrap_or_else(|| (80, 20));
         term_width -= 1;
-        std::cmp::max(term_width, 80)
     }
 }
 
