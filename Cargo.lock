@@ -2427,6 +2427,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "libxml"
+version = "0.2.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13d529280405174bd6f363d0f8a3086c27e6e60cc0efbc18cf94338f002f461b"
+dependencies = [
+ "libc",
+ "pkg-config",
+ "vcpkg",
+]
+
+[[package]]
 name = "libz-sys"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2935,6 +2946,7 @@ dependencies = [
  "ichwh",
  "indexmap",
  "itertools",
+ "libxml",
  "log 0.4.11",
  "meval",
  "nu-data",

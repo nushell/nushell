@@ -245,6 +245,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(FromURL),
             whole_stream_command(FromXLSX),
             whole_stream_command(FromXML),
+            whole_stream_command(XPath),
             whole_stream_command(FromYAML),
             whole_stream_command(FromYML),
             whole_stream_command(FromIcs),
