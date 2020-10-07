@@ -52,7 +52,6 @@ htmlescape = "0.3.1"
 ical = "0.6.0"
 ichwh = {version = "0.3.4", optional = true}
 indexmap = {version = "1.6.0", features = ["serde-1"]}
-instant = "0.1.7"
 itertools = "0.9.0"
 log = "0.4.11"
 meval = "0.2.0"
