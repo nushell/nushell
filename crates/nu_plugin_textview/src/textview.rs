@@ -13,7 +13,7 @@ impl TextView {
 
 #[allow(clippy::cognitive_complexity)]
 pub fn view_text_value(value: &Value) {
-    let (mut term_width, _) = term_size::dimensions().unwrap_or_else(|| (20, 20));
+    let (mut term_width, _) = term_size::dimensions().unwrap_or_else(|| (80, 20));
     let mut tab_width: u64 = 4;
     let mut colored_output = true;
     let mut true_color = true;
