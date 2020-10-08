@@ -99,6 +99,7 @@ impl Shell for FilesystemShell {
             long,
             short_names,
             du,
+            size_format,
         }: LsArgs,
         name_tag: Tag,
         ctrl_c: Arc<AtomicBool>,
@@ -178,6 +179,7 @@ impl Shell for FilesystemShell {
                 long,
                 short_names,
                 du,
+                size_format.to_owned(),
                 ctrl_c.clone(),
             )
             .map(ReturnSuccess::Value);
@@ -919,6 +921,7 @@ pub(crate) fn dir_entry_dict(
     long: bool,
     short_name: bool,
     du: bool,
+    size_format: Option<Tagged<String>>,
     ctrl_c: Arc<AtomicBool>,
 ) -> Result<Value, ShellError> {
     let tag = tag.into();
@@ -1057,13 +1060,25 @@ pub(crate) fn dir_entry_dict(
             } else {
                 md.len()
             };
-
-            size_untagged_value = UntaggedValue::filesize(dir_size);
+            if let Some(s) = size_format {
+                size_untagged_value = convert_bytes_to_string_using_format(dir_size, s)?;
+            } else {
+                size_untagged_value = UntaggedValue::filesize(dir_size);
+            }
         } else if md.is_file() {
-            size_untagged_value = UntaggedValue::filesize(md.len());
+            if let Some(s) = size_format {
+                size_untagged_value = convert_bytes_to_string_using_format(md.len(), s)?;
+            } else {
+                size_untagged_value = UntaggedValue::filesize(md.len());
+            }
         } else if md.file_type().is_symlink() {
             if let Ok(symlink_md) = filename.symlink_metadata() {
-                size_untagged_value = UntaggedValue::filesize(symlink_md.len() as u64);
+                if let Some(s) = size_format {
+                    size_untagged_value =
+                        convert_bytes_to_string_using_format(symlink_md.len(), s)?;
+                } else {
+                    size_untagged_value = UntaggedValue::filesize(symlink_md.len() as u64);
+                }
             }
         }
 
@@ -1098,4 +1113,39 @@ fn path_contains_hidden_folder(path: &PathBuf, folders: &[PathBuf]) -> bool {
         return true;
     }
     false
+}
+
+fn convert_bytes_to_string_using_format(
+    bytes: u64,
+    format: Tagged<String>,
+) -> Result<UntaggedValue, ShellError> {
+    let byte = byte_unit::Byte::from_bytes(bytes as u128);
+    if byte.get_bytes() == 0u128 {
+        return Ok(UntaggedValue::string("—".to_string()));
+    }
+    match format.item().as_str() {
+        "B" | "b" => Ok(UntaggedValue::string(
+            byte.get_adjusted_unit(byte_unit::ByteUnit::B).to_string(),
+        )),
+        "KB" | "kb" | "Kb" | "kB" => Ok(UntaggedValue::string(
+            byte.get_adjusted_unit(byte_unit::ByteUnit::KB).to_string(),
+        )),
+        "MB" | "mb" | "Mb" | "mB" => Ok(UntaggedValue::string(
+            byte.get_adjusted_unit(byte_unit::ByteUnit::MB).to_string(),
+        )),
+        "GB" | "gb" | "Gb" | "gB" => Ok(UntaggedValue::string(
+            byte.get_adjusted_unit(byte_unit::ByteUnit::GB).to_string(),
+        )),
+        "TB" | "tb" | "Tb" | "tB" => Ok(UntaggedValue::string(
+            byte.get_adjusted_unit(byte_unit::ByteUnit::TB).to_string(),
+        )),
+        "PB" | "pb" | "Pb" | "pB" => Ok(UntaggedValue::string(
+            byte.get_adjusted_unit(byte_unit::ByteUnit::PB).to_string(),
+        )),
+        _ => Err(ShellError::labeled_error(
+            format!("Invalid format code: {:}", format.item()),
+            "invalid format",
+            format.tag(),
+        )),
+    }
 }

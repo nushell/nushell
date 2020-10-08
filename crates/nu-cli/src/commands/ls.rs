@@ -16,6 +16,8 @@ pub struct LsArgs {
     pub short_names: bool,
     #[serde(rename = "du")]
     pub du: bool,
+    #[serde(rename = "size-format")]
+    pub size_format: Option<Tagged<String>>,
 }
 
 #[async_trait]
@@ -46,6 +48,12 @@ impl WholeStreamCommand for Ls {
                 "du",
                 "Display the apparent directory size in place of the directory metadata size",
                 Some('d'),
+            )
+            .named(
+                "size-format",
+                SyntaxShape::String,
+                "Display the size with the specified format",
+                Some('f'),
             )
     }
 
