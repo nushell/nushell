@@ -1142,6 +1142,12 @@ fn convert_bytes_to_string_using_format(
         "PB" | "pb" | "Pb" | "pB" => Ok(UntaggedValue::string(
             byte.get_adjusted_unit(byte_unit::ByteUnit::PB).to_string(),
         )),
+        "KIB" | "Kib" | "kib" => Ok(UntaggedValue::string(
+            byte.get_adjusted_unit(byte_unit::ByteUnit::KiB).to_string(),
+        )),
+        "MIB" | "Mib" | "mib" => Ok(UntaggedValue::string(
+            byte.get_adjusted_unit(byte_unit::ByteUnit::MiB).to_string(),
+        )),
         _ => Err(ShellError::labeled_error(
             format!("Invalid format code: {:}", format.item()),
             "invalid format",
