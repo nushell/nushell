@@ -33,5 +33,5 @@ fn generates_0() {
         "#
     ));
 
-    assert!(actual.out.contains("0"));
+    assert!(actual.out.contains('0'));
 }

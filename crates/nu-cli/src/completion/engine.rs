@@ -266,11 +266,11 @@ mod tests {
 
     impl SignatureRegistry for VecRegistry {
         fn has(&self, name: &str) -> bool {
-            self.0.iter().any(|v| &v.name == name)
+            self.0.iter().any(|v| v.name == name)
         }
 
         fn get(&self, name: &str) -> Option<nu_protocol::Signature> {
-            self.0.iter().find(|v| &v.name == name).map(Clone::clone)
+            self.0.iter().find(|v| v.name == name).map(Clone::clone)
         }
 
         fn clone_box(&self) -> Box<dyn SignatureRegistry> {
