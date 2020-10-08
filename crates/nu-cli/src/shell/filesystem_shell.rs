@@ -1123,30 +1123,30 @@ fn convert_bytes_to_string_using_format(
     if byte.get_bytes() == 0u128 {
         return Ok(UntaggedValue::string("—".to_string()));
     }
-    match format.item().as_str() {
-        "B" | "b" => Ok(UntaggedValue::string(
+    match format.item().to_lowercase().as_str() {
+        "b" => Ok(UntaggedValue::string(
             byte.get_adjusted_unit(byte_unit::ByteUnit::B).to_string(),
         )),
-        "KB" | "kb" | "Kb" | "kB" => Ok(UntaggedValue::string(
+        "kb" => Ok(UntaggedValue::string(
             byte.get_adjusted_unit(byte_unit::ByteUnit::KB).to_string(),
         )),
-        "MB" | "mb" | "Mb" | "mB" => Ok(UntaggedValue::string(
-            byte.get_adjusted_unit(byte_unit::ByteUnit::MB).to_string(),
-        )),
-        "GB" | "gb" | "Gb" | "gB" => Ok(UntaggedValue::string(
-            byte.get_adjusted_unit(byte_unit::ByteUnit::GB).to_string(),
-        )),
-        "TB" | "tb" | "Tb" | "tB" => Ok(UntaggedValue::string(
-            byte.get_adjusted_unit(byte_unit::ByteUnit::TB).to_string(),
-        )),
-        "PB" | "pb" | "Pb" | "pB" => Ok(UntaggedValue::string(
-            byte.get_adjusted_unit(byte_unit::ByteUnit::PB).to_string(),
-        )),
-        "KIB" | "Kib" | "kib" => Ok(UntaggedValue::string(
+        "kib" => Ok(UntaggedValue::string(
             byte.get_adjusted_unit(byte_unit::ByteUnit::KiB).to_string(),
         )),
-        "MIB" | "Mib" | "mib" => Ok(UntaggedValue::string(
+        "mb" => Ok(UntaggedValue::string(
+            byte.get_adjusted_unit(byte_unit::ByteUnit::MB).to_string(),
+        )),
+        "mib" => Ok(UntaggedValue::string(
             byte.get_adjusted_unit(byte_unit::ByteUnit::MiB).to_string(),
+        )),
+        "gb" => Ok(UntaggedValue::string(
+            byte.get_adjusted_unit(byte_unit::ByteUnit::GB).to_string(),
+        )),
+        "tb" => Ok(UntaggedValue::string(
+            byte.get_adjusted_unit(byte_unit::ByteUnit::TB).to_string(),
+        )),
+        "pb" => Ok(UntaggedValue::string(
+            byte.get_adjusted_unit(byte_unit::ByteUnit::PB).to_string(),
         )),
         _ => Err(ShellError::labeled_error(
             format!("Invalid format code: {:}", format.item()),
