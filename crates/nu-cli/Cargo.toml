@@ -53,7 +53,7 @@ ical = "0.6.0"
 ichwh = {version = "0.3.4", optional = true}
 indexmap = {version = "1.6.0", features = ["serde-1"]}
 itertools = "0.9.0"
-libxml = "0.2.15"
+# libxml = "0.2.15"
 log = "0.4.11"
 meval = "0.2.0"
 num-bigint = {version = "0.3.0", features = ["serde"]}
@@ -80,6 +80,8 @@ serde_yaml = "0.8.13"
 sha2 = "0.9.1"
 shellexpand = "2.0.0"
 strip-ansi-escapes = "0.1.0"
+sxd-xpath = "0.4.2"
+sxd-document = "0.3.2"
 tempfile = "3.1.0"
 term = {version = "0.6.1", optional = true}
 term_size = "0.3.2"
