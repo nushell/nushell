@@ -196,7 +196,10 @@ pub fn compute_values(
                     Operator::Plus => {
                         // FIXME: Not sure if I could do something better with the Span.
                         match Primitive::into_chrono_duration(rhs.clone(), Span::unknown()) {
-                            Ok(y) => Ok(x.checked_add_signed(y).expect("Data overflow.")),
+                            Ok(y) => match x.checked_add_signed(y) {
+                                Some(value) => Ok(value),
+                                None => Err(("Date", "Duration and date addition overflow")),
+                            },
                             Err(_) => Err(("Date", "Duration overflow")),
                         }
                     }

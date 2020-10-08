@@ -598,6 +598,19 @@ fn duration_overflow() {
     assert!(actual.err.contains("Duration overflow"));
 }
 
+#[test]
+fn date_and_duration_overflow() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        ls | get modified | = $it + 1000000yr
+        "#)
+    );
+
+    // assert_eq!(actual.err, "overflow");
+    assert!(actual.err.contains("Duration and date addition overflow"));
+}
+
 mod parse {
     use nu_test_support::nu;
 
