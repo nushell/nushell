@@ -218,17 +218,13 @@ fn move_after(
         ));
     };
 
-    let columns_moved = table
-        .data_descriptors()
-        .into_iter()
-        .map(|name| {
-            if columns.contains(&name) {
-                None
-            } else {
-                Some(name)
-            }
-        })
-        .collect::<Vec<_>>();
+    let columns_moved = table.data_descriptors().into_iter().map(|name| {
+        if columns.contains(&name) {
+            None
+        } else {
+            Some(name)
+        }
+    });
 
     let mut reordered_columns = vec![];
     let mut insert = false;
@@ -281,17 +277,13 @@ fn move_before(
         ));
     };
 
-    let columns_moved = table
-        .data_descriptors()
-        .into_iter()
-        .map(|name| {
-            if columns.contains(&name) {
-                None
-            } else {
-                Some(name)
-            }
-        })
-        .collect::<Vec<_>>();
+    let columns_moved = table.data_descriptors().into_iter().map(|name| {
+        if columns.contains(&name) {
+            None
+        } else {
+            Some(name)
+        }
+    });
 
     let mut reordered_columns = vec![];
     let mut inserted = false;
