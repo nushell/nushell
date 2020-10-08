@@ -3,7 +3,7 @@ extern crate sxd_xpath;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 // use libxml::parser::Parser;
 // use libxml::xpath::Context;
@@ -56,19 +56,20 @@ impl WholeStreamCommand for XPath {
         let result_string = do_xpath_sxd2(input_string, query_string.to_string());
 
         if let Some(output) = result_string {
-            let vec_string: Vec<&str> = output.split('\n').collect();
-            let vec_val = vec_string
+            let vec_strings: Vec<String> = output.split('\n').map(|x| x.to_string()).collect();
+            let vec_val: Vec<Value> = vec_strings
                 .iter()
-                .map(|s| {
+                .map(move |s| {
                     UntaggedValue::Primitive(Primitive::String((*s).to_string())).into_value(&tag)
                 })
                 .collect();
-            let vals = UntaggedValue::Table(vec_val).into_value(tag);
-            Ok(OutputStream::from(
-                vals.table_entries()
-                    .map(|v| ReturnSuccess::value(v.clone()))
-                    .collect::<Vec<_>>(),
-            ))
+            Ok(futures::stream::iter(vec_val.into_iter()).to_output_stream())
+        // let vals = UntaggedValue::Table(vec_val).into_value(tag);
+        // Ok(OutputStream::from(
+        //     vals.table_entries()
+        //         .map(|v| ReturnSuccess::value(v.clone()))
+        //         .collect::<Vec<_>>(),
+        // ))
         // Ok(OutputStream::one(ReturnSuccess::value(
         //     // UntaggedValue::string(output).into_value(query.tag()),
         //     vals,
