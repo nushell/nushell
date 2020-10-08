@@ -55,11 +55,12 @@ async fn debug_value(
 #[cfg(test)]
 mod tests {
     use super::Debug;
+    use super::ShellError;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(Debug {})
+        Ok(test_examples(Debug {})?)
     }
 }

@@ -52,12 +52,13 @@ fn shells(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream
 
 #[cfg(test)]
 mod tests {
+    use super::ShellError;
     use super::Shells;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(Shells {})
+        Ok(test_examples(Shells {})?)
     }
 }

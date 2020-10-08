@@ -7,15 +7,15 @@ use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use nu_value_ext::as_string;
 
-pub struct GroupBy;
+pub struct Command;
 
 #[derive(Deserialize)]
-pub struct GroupByArgs {
+pub struct Arguments {
     grouper: Option<Value>,
 }
 
 #[async_trait]
-impl WholeStreamCommand for GroupBy {
+impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "group-by"
     }
@@ -40,17 +40,45 @@ impl WholeStreamCommand for GroupBy {
         group_by(args, registry).await
     }
 
+    #[allow(clippy::unwrap_used)]
     fn examples(&self) -> Vec<Example> {
+        use nu_data::value::date_naive_from_str as date;
+
         vec![
             Example {
                 description: "group items by column named \"type\"",
                 example: r#"ls | group-by type"#,
-                result: None,
-            },
-            Example {
-                description: "blocks can be used for generating a grouping key (same as above)",
-                example: r#"ls | group-by { get type }"#,
-                result: None,
+                result: Some(vec![UntaggedValue::row(indexmap! {
+                    "File".to_string() => UntaggedValue::Table(vec![
+                        UntaggedValue::row(indexmap! {
+                            "modified".to_string() => date("2019-07-23".tagged_unknown()).unwrap().into(),
+                                "name".to_string() =>          UntaggedValue::string("Andrés.txt").into(),
+                                "type".to_string() =>                UntaggedValue::string("File").into(),
+                            "chickens".to_string() =>                       UntaggedValue::int(10).into(),
+                        }).into(),
+                        UntaggedValue::row(indexmap! {
+                            "modified".to_string() => date("2019-09-24".tagged_unknown()).unwrap().into(),
+                                "name".to_string() =>          UntaggedValue::string("Andrés.txt").into(),
+                                "type".to_string() =>                UntaggedValue::string("File").into(),
+                            "chickens".to_string() =>                       UntaggedValue::int(20).into(),
+                        }).into(),
+                    ]).into(),
+                    "Dir".to_string() => UntaggedValue::Table(vec![
+                        UntaggedValue::row(indexmap! {
+                            "modified".to_string() => date("2019-07-23".tagged_unknown()).unwrap().into(),
+                                "name".to_string() =>            UntaggedValue::string("Jonathan").into(),
+                                "type".to_string() =>                 UntaggedValue::string("Dir").into(),
+                            "chickens".to_string() =>                        UntaggedValue::int(5).into(),
+                        }).into(),
+                        UntaggedValue::row(indexmap! {
+                            "modified".to_string() => date("2019-09-24".tagged_unknown()).unwrap().into(),
+                                "name".to_string() =>              UntaggedValue::string("Yehuda").into(),
+                                "type".to_string() =>                 UntaggedValue::string("Dir").into(),
+                            "chickens".to_string() =>                        UntaggedValue::int(4).into(),
+                        }).into(),
+                    ]).into(),
+                })
+                .into()]),
             },
             Example {
                 description: "you can also group by raw values by leaving out the argument",
@@ -75,10 +103,26 @@ impl WholeStreamCommand for GroupBy {
                 .into()]),
             },
             Example {
-                description: "write pipelines for a more involved grouping key",
-                example:
-                    "echo [1 3 1 3 2 1 1] | group-by { echo `({{$it}} - 1) % 3` | calc | str from }",
-                result: None,
+                description:
+                    "use the block form to generate a grouping key when each row gets processed",
+                example: "echo [1 3 1 3 2 1 1] | group-by { = ($it - 1) mod 3 }",
+                result: Some(vec![UntaggedValue::row(indexmap! {
+                    "0".to_string() => UntaggedValue::Table(vec![
+                        UntaggedValue::int(1).into(),
+                        UntaggedValue::int(1).into(),
+                        UntaggedValue::int(1).into(),
+                        UntaggedValue::int(1).into(),
+
+                    ]).into(),
+                    "2".to_string() => UntaggedValue::Table(vec![
+                        UntaggedValue::int(3).into(),
+                        UntaggedValue::int(3).into(),
+                    ]).into(),
+                    "1".to_string() => UntaggedValue::Table(vec![
+                        UntaggedValue::int(2).into(),
+                    ]).into(),
+                })
+                .into()]),
             },
         ]
     }
@@ -98,7 +142,7 @@ pub async fn group_by(
     let head = Arc::new(args.call_info.args.head.clone());
     let scope = args.call_info.scope.clone();
     let context = Arc::new(EvaluationContext::from_raw(&args, &registry));
-    let (GroupByArgs { grouper }, input) = args.process(&registry).await?;
+    let (Arguments { grouper }, input) = args.process(&registry).await?;
 
     let values: Vec<Value> = input.collect().await;
     let mut keys: Vec<Result<String, ShellError>> = vec![];
@@ -168,6 +212,14 @@ pub async fn group_by(
         ));
     }
 
+    let first = values[0].clone();
+
+    let name = if first.tag.anchor().is_some() {
+        first.tag
+    } else {
+        name
+    };
+
     let values = UntaggedValue::table(&values).into_value(&name);
 
     let group_value = match group_strategy {
@@ -180,9 +232,9 @@ pub async fn group_by(
                 None => as_string(row),
             });
 
-            nu_data::utils::group(&values, &Some(block), &name)
+            nu_data::utils::group(&values, &Some(block), name)
         }
-        Grouper::ByColumn(column_name) => group(&column_name, &values, name),
+        Grouper::ByColumn(column_name) => group(&column_name, &values, &name),
     };
 
     Ok(OutputStream::one(ReturnSuccess::value(group_value?)))
@@ -286,13 +338,5 @@ mod tests {
         );
 
         Ok(())
-    }
-
-    #[test]
-    fn examples_work_as_expected() {
-        use super::GroupBy;
-        use crate::examples::test as test_examples;
-
-        test_examples(GroupBy {})
     }
 }

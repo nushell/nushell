@@ -147,7 +147,9 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(StrEndsWith),
             whole_stream_command(StrCollect),
             whole_stream_command(StrLength),
+            whole_stream_command(StrLPad),
             whole_stream_command(StrReverse),
+            whole_stream_command(StrRPad),
             whole_stream_command(StrCamelCase),
             whole_stream_command(StrPascalCase),
             whole_stream_command(StrKebabCase),
@@ -194,7 +196,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Each),
             whole_stream_command(EachGroup),
             whole_stream_command(EachWindow),
-            whole_stream_command(IsEmpty),
+            whole_stream_command(Empty),
             // Table manipulation
             whole_stream_command(Move),
             whole_stream_command(Merge),

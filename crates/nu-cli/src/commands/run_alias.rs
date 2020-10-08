@@ -4,7 +4,7 @@ use crate::prelude::*;
 
 use derive_new::new;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, Scope, Signature, SyntaxShape};
+use nu_protocol::{hir::Block, Scope, Signature, SyntaxShape, UntaggedValue};
 
 #[derive(new, Clone)]
 pub struct AliasCommand {
@@ -51,9 +51,21 @@ impl WholeStreamCommand for AliasCommand {
         let evaluated = call_info.evaluate(&registry).await?;
 
         let mut vars = IndexMap::new();
+
+        let mut num_positionals = 0;
         if let Some(positional) = &evaluated.args.positional {
+            num_positionals = positional.len();
             for (pos, arg) in positional.iter().enumerate() {
                 vars.insert(alias_command.args[pos].0.to_string(), arg.clone());
+            }
+        }
+
+        if alias_command.args.len() > num_positionals {
+            for idx in 0..(alias_command.args.len() - num_positionals) {
+                vars.insert(
+                    alias_command.args[idx + num_positionals].0.to_string(),
+                    UntaggedValue::nothing().into_untagged_value(),
+                );
             }
         }
 

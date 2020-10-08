@@ -243,11 +243,12 @@ pub async fn fetch(
 #[cfg(test)]
 mod tests {
     use super::Open;
+    use super::ShellError;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(Open {})
+        Ok(test_examples(Open {})?)
     }
 }

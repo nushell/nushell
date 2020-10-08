@@ -7,8 +7,6 @@ pub mod evaluate;
 pub mod iter;
 pub mod primitive;
 pub mod range;
-mod serde_bigdecimal;
-mod serde_bigint;
 
 use crate::hir;
 use crate::type_name::{ShellTypeName, SpannedTypeName};
@@ -443,6 +441,18 @@ impl From<&str> for Value {
             tag: Tag {
                 anchor: None,
                 span: Span::new(0, end),
+            },
+        }
+    }
+}
+
+impl From<bool> for Value {
+    fn from(s: bool) -> Value {
+        Value {
+            value: s.into(),
+            tag: Tag {
+                anchor: None,
+                span: Span::unknown(),
             },
         }
     }

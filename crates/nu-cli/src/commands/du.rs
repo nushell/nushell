@@ -427,11 +427,12 @@ impl From<FileInfo> for Value {
 #[cfg(test)]
 mod tests {
     use super::Du;
+    use super::ShellError;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(Du {})
+        Ok(test_examples(Du {})?)
     }
 }

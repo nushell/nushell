@@ -72,11 +72,12 @@ async fn range(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
 #[cfg(test)]
 mod tests {
     use super::Range;
+    use super::ShellError;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(Range {})
+        Ok(test_examples(Range {})?)
     }
 }

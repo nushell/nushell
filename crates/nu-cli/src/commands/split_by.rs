@@ -100,6 +100,7 @@ pub fn split(
 #[cfg(test)]
 mod tests {
     use super::split;
+    use super::ShellError;
     use nu_data::utils::helpers::{committers_grouped_by_date, date, int, row, string, table};
     use nu_protocol::UntaggedValue;
     use nu_source::*;
@@ -168,10 +169,10 @@ mod tests {
     }
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use super::SplitBy;
         use crate::examples::test as test_examples;
 
-        test_examples(SplitBy {})
+        Ok(test_examples(SplitBy {})?)
     }
 }

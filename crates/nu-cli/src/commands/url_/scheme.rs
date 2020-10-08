@@ -49,12 +49,13 @@ impl WholeStreamCommand for UrlScheme {
 
 #[cfg(test)]
 mod tests {
+    use super::ShellError;
     use super::UrlScheme;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(UrlScheme {})
+        Ok(test_examples(UrlScheme {})?)
     }
 }

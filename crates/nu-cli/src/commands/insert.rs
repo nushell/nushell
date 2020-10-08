@@ -9,16 +9,18 @@ use nu_protocol::{
 use nu_value_ext::ValueExt;
 
 use futures::stream::once;
-pub struct Insert;
+use indexmap::indexmap;
+
+pub struct Command;
 
 #[derive(Deserialize)]
-pub struct InsertArgs {
+pub struct Arguments {
     column: ColumnPath,
     value: Value,
 }
 
 #[async_trait]
-impl WholeStreamCommand for Insert {
+impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "insert"
     }
@@ -43,6 +45,28 @@ impl WholeStreamCommand for Insert {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         insert(args, registry).await
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Insert a column with a value",
+            example: "echo [[author, commits]; ['Andrés', 1]] | insert branches 5",
+            result: Some(vec![UntaggedValue::row(indexmap! {
+                    "author".to_string() => Value::from("Andrés"),
+                    "commits".to_string() => UntaggedValue::int(1).into(),
+                    "branches".to_string() => UntaggedValue::int(5).into(),
+            })
+            .into()]),
+        },Example {
+            description: "Use in block form for more involved insertion logic",
+            example: "echo [[author, lucky_number]; ['Yehuda', 4]] | insert success { = $it.lucky_number * 10 }",
+            result: Some(vec![UntaggedValue::row(indexmap! {
+                    "author".to_string() => Value::from("Yehuda"),
+                    "lucky_number".to_string() => UntaggedValue::int(4).into(),
+                    "success".to_string() => UntaggedValue::int(40).into(),
+            })
+            .into()]),
+        }]
     }
 }
 
@@ -79,13 +103,16 @@ async fn process_row(
                     let result = if values.len() == 1 {
                         let value = values
                             .get(0)
-                            .ok_or_else(|| ShellError::unexpected("No value to insert with"))?;
+                            .ok_or_else(|| ShellError::unexpected("No value to insert with."))?;
 
-                        value.clone()
+                        Value {
+                            value: value.value.clone(),
+                            tag: input.tag.clone(),
+                        }
                     } else if values.is_empty() {
-                        UntaggedValue::nothing().into_untagged_value()
+                        UntaggedValue::nothing().into_value(&input.tag)
                     } else {
-                        UntaggedValue::table(&values).into_untagged_value()
+                        UntaggedValue::table(&values).into_value(&input.tag)
                     };
 
                     match input {
@@ -135,7 +162,7 @@ async fn insert(
     let registry = registry.clone();
     let scope = raw_args.call_info.scope.clone();
     let context = Arc::new(EvaluationContext::from_raw(&raw_args, &registry));
-    let (InsertArgs { column, value }, input) = raw_args.process(&registry).await?;
+    let (Arguments { column, value }, input) = raw_args.process(&registry).await?;
     let value = Arc::new(value);
     let column = Arc::new(column);
 
@@ -155,16 +182,4 @@ async fn insert(
         })
         .flatten()
         .to_output_stream())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::Insert;
-
-    #[test]
-    fn examples_work_as_expected() {
-        use crate::examples::test as test_examples;
-
-        test_examples(Insert {})
-    }
 }

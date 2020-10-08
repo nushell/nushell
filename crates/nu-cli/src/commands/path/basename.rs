@@ -51,11 +51,12 @@ fn action(path: &Path) -> UntaggedValue {
 #[cfg(test)]
 mod tests {
     use super::PathBasename;
+    use super::ShellError;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(PathBasename {})
+        Ok(test_examples(PathBasename {})?)
     }
 }

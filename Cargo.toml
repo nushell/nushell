@@ -27,8 +27,8 @@ nu-protocol = {version = "0.20.0", path = "./crates/nu-protocol"}
 nu-source = {version = "0.20.0", path = "./crates/nu-source"}
 nu-value-ext = {version = "0.20.0", path = "./crates/nu-value-ext"}
 
-nu_plugin_chart = {version = "0.20.0", path = "./crates/nu_plugin_chart", optional = true}
 nu_plugin_binaryview = {version = "0.20.0", path = "./crates/nu_plugin_binaryview", optional = true}
+nu_plugin_chart = {version = "0.20.0", path = "./crates/nu_plugin_chart", optional = true}
 nu_plugin_fetch = {version = "0.20.0", path = "./crates/nu_plugin_fetch", optional = true}
 nu_plugin_from_bson = {version = "0.20.0", path = "./crates/nu_plugin_from_bson", optional = true}
 nu_plugin_from_sqlite = {version = "0.20.0", path = "./crates/nu_plugin_from_sqlite", optional = true}
@@ -46,14 +46,14 @@ nu_plugin_tree = {version = "0.20.0", path = "./crates/nu_plugin_tree", optional
 
 # Required to bootstrap the main binary
 clap = "2.33.3"
-ctrlc = "3.1.6"
+ctrlc = {version = "3.1.6", optional = true}
 futures = {version = "0.3.5", features = ["compat", "io-compat"]}
 log = "0.4.11"
 pretty_env_logger = "0.4.0"
 
 [dev-dependencies]
-nu-test-support = {version = "0.20.0", path = "./crates/nu-test-support"}
 dunce = "1.0.1"
+nu-test-support = {version = "0.20.0", path = "./crates/nu-test-support"}
 
 [build-dependencies]
 serde = {version = "1.0.115", features = ["derive"]}
@@ -91,27 +91,29 @@ default = [
 extra = ["default", "binaryview", "tree", "clipboard-cli", "trash-support", "start", "bson", "sqlite", "s3", "chart"]
 stable = ["default"]
 
+wasi = ["inc", "match", "directories-support", "ptree-support", "match", "tree", "rustyline-support"]
+
 trace = ["nu-parser/trace"]
 
 # Stable (Default)
+fetch = ["nu_plugin_fetch"]
 inc = ["nu_plugin_inc"]
+match = ["nu_plugin_match"]
+post = ["nu_plugin_post"]
 ps = ["nu_plugin_ps"]
 sys = ["nu_plugin_sys"]
 textview = ["nu_plugin_textview"]
-fetch = ["nu_plugin_fetch"]
-match = ["nu_plugin_match"]
-post = ["nu_plugin_post"]
 
 # Extra
+binaryview = ["nu_plugin_binaryview"]
 bson = ["nu_plugin_from_bson", "nu_plugin_to_bson"]
 chart = ["nu_plugin_chart"]
-binaryview = ["nu_plugin_binaryview"]
 clipboard-cli = ["nu-cli/clipboard-cli"]
-trash-support = ["nu-cli/trash-support"]
-start = ["nu_plugin_start"]
-tree = ["nu_plugin_tree"]
 s3 = ["nu_plugin_s3"]
 sqlite = ["nu_plugin_from_sqlite", "nu_plugin_to_sqlite"]
+start = ["nu_plugin_start"]
+trash-support = ["nu-cli/trash-support"]
+tree = ["nu_plugin_tree"]
 
 # Core plugins that ship with `cargo install nu` by default
 # Currently, Cargo limits us to installing only one binary

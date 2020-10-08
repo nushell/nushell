@@ -15,6 +15,7 @@ use num_bigint::BigInt;
 use crate::lite_parse::{lite_parse, LiteBlock, LiteCommand, LitePipeline};
 use crate::path::expand_path;
 use crate::signature::SignatureRegistry;
+use bigdecimal::BigDecimal;
 
 /// Parses a simple column path, one without a variable (implied or explicit) at the head
 fn parse_simple_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
@@ -735,20 +736,16 @@ fn parse_arg(
 
     match expected_type {
         SyntaxShape::Number => {
-            if let Ok(x) = lite_arg.item.parse::<i64>() {
+            if let Ok(x) = lite_arg.item.parse::<BigInt>() {
                 (
                     SpannedExpression::new(Expression::integer(x), lite_arg.span),
                     None,
                 )
-            } else if let Ok(x) = lite_arg.item.parse::<f64>() {
-                if let Ok(x) = Expression::decimal(x) {
-                    (SpannedExpression::new(x, lite_arg.span), None)
-                } else {
-                    (
-                        garbage(lite_arg.span),
-                        Some(ParseError::mismatch("number", lite_arg.clone())),
-                    )
-                }
+            } else if let Ok(x) = lite_arg.item.parse::<BigDecimal>() {
+                (
+                    SpannedExpression::new(Expression::decimal(x), lite_arg.span),
+                    None,
+                )
             } else {
                 (
                     garbage(lite_arg.span),
@@ -757,7 +754,7 @@ fn parse_arg(
             }
         }
         SyntaxShape::Int => {
-            if let Ok(x) = lite_arg.item.parse::<i64>() {
+            if let Ok(x) = lite_arg.item.parse::<BigInt>() {
                 (
                     SpannedExpression::new(Expression::integer(x), lite_arg.span),
                     None,
@@ -765,7 +762,7 @@ fn parse_arg(
             } else {
                 (
                     garbage(lite_arg.span),
-                    Some(ParseError::mismatch("number", lite_arg.clone())),
+                    Some(ParseError::mismatch("int", lite_arg.clone())),
                 )
             }
         }
@@ -945,39 +942,65 @@ mod test {
         let registry = MockRegistry::new();
         let result = parse_arg(SyntaxShape::Int, &registry, &input);
         assert_eq!(result.1, None);
-        assert_eq!(result.0.expr, Expression::integer(32));
+        assert_eq!(result.0.expr, Expression::integer(BigInt::from(32)));
         Ok(())
     }
 
     #[test]
     fn parse_number() -> Result<(), ParseError> {
+        let registry = MockRegistry::new();
+
         let raw = "-32.2".to_string();
         let input = raw.clone().spanned(Span::new(0, raw.len()));
-        let registry = MockRegistry::new();
         let result = parse_arg(SyntaxShape::Number, &registry, &input);
         assert_eq!(result.1, None);
-        assert_eq!(result.0.expr, Expression::decimal(-32.2)?);
+        assert_eq!(
+            result.0.expr,
+            Expression::decimal(BigDecimal::new(BigInt::from(-322), 1))
+        );
 
         let raw = "32.2".to_string();
         let input = raw.clone().spanned(Span::new(0, raw.len()));
-        let registry = MockRegistry::new();
         let result = parse_arg(SyntaxShape::Number, &registry, &input);
         assert_eq!(result.1, None);
-        assert_eq!(result.0.expr, Expression::decimal(32.2)?);
+        assert_eq!(
+            result.0.expr,
+            Expression::decimal(BigDecimal::new(BigInt::from(322), 1))
+        );
+
+        let raw = "36893488147419103232.54".to_string();
+        let input = raw.clone().spanned(Span::new(0, raw.len()));
+        let result = parse_arg(SyntaxShape::Number, &registry, &input);
+        assert_eq!(result.1, None);
+        assert_eq!(
+            result.0.expr,
+            Expression::decimal(BigDecimal::new(
+                BigInt::from(3689348814741910323254 as i128),
+                2
+            ))
+        );
 
         let raw = "-34".to_string();
         let input = raw.clone().spanned(Span::new(0, raw.len()));
-        let registry = MockRegistry::new();
         let result = parse_arg(SyntaxShape::Number, &registry, &input);
         assert_eq!(result.1, None);
-        assert_eq!(result.0.expr, Expression::integer(-34));
+        assert_eq!(result.0.expr, Expression::integer(BigInt::from(-34)));
 
         let raw = "34".to_string();
         let input = raw.clone().spanned(Span::new(0, raw.len()));
-        let registry = MockRegistry::new();
         let result = parse_arg(SyntaxShape::Number, &registry, &input);
         assert_eq!(result.1, None);
-        assert_eq!(result.0.expr, Expression::integer(34));
+        assert_eq!(result.0.expr, Expression::integer(BigInt::from(34)));
+
+        let raw = "36893488147419103232".to_string();
+        let input = raw.clone().spanned(Span::new(0, raw.len()));
+        let result = parse_arg(SyntaxShape::Number, &registry, &input);
+        assert_eq!(result.1, None);
+        assert_eq!(
+            result.0.expr,
+            Expression::integer(BigInt::from(36893488147419103232 as u128))
+        );
+
         Ok(())
     }
 }

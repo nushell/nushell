@@ -102,11 +102,12 @@ async fn from_ods(
 #[cfg(test)]
 mod tests {
     use super::FromODS;
+    use super::ShellError;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(FromODS {})
+        Ok(test_examples(FromODS {})?)
     }
 }

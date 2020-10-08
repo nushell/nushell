@@ -35,11 +35,12 @@ fn next(_args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream,
 #[cfg(test)]
 mod tests {
     use super::Next;
+    use super::ShellError;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(Next {})
+        Ok(test_examples(Next {})?)
     }
 }
