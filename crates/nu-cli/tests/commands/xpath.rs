@@ -3,39 +3,37 @@ use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 
 #[test]
-fn count_columns_in_cal_table() {
+fn position_function_in_predicate() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        cal | count -c
+        echo "<?xml version="1.0" encoding="UTF-8"?><a><b/><b/></a>" | from xml | to xml | xpath "count(//a/*[position() = 2])"
         "#
     ));
 
-    assert_eq!(actual.out, "7");
+    assert_eq!(actual.out, "1.0000");
 }
 
 #[test]
-fn count_columns_no_rows() {
+fn functions_implicitly_coerce_argument_types() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo [] | count -c
+        echo "<?xml version="1.0" encoding="UTF-8"?><a>true</a>" | from xml | to xml | xpath "count(//*[contains(., true)])"
         "#
     ));
 
-    assert_eq!(actual.out, "0");
+    assert_eq!(actual.out, "1.0000");
 }
 
 #[test]
-fn table_to_xml_text_and_from_xml_text_back_into_table() {
+fn find_guid_permilink_is_true() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             open jonathan.xml
             | to xml
-            | from xml
-            | get rss.children.channel.children.0.item.children.0.guid.attributes.isPermaLink
-            | echo $it
+            | xpath '//guid/@isPermaLink'
         "#
     ));
 
