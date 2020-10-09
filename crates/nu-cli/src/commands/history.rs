@@ -79,11 +79,12 @@ fn history(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStrea
 #[cfg(test)]
 mod tests {
     use super::History;
+    use super::ShellError;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(History {})
+        Ok(test_examples(History {})?)
     }
 }

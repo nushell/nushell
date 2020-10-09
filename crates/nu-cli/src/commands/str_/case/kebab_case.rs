@@ -43,16 +43,17 @@ impl WholeStreamCommand for SubCommand {
 
 #[cfg(test)]
 mod tests {
+    use super::ShellError;
     use super::{to_kebab_case, SubCommand};
     use crate::commands::str_::case::action;
     use nu_plugin::test_helpers::value::string;
     use nu_source::Tag;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(SubCommand {})
+        Ok(test_examples(SubCommand {})?)
     }
 
     #[test]

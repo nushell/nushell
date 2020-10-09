@@ -135,6 +135,7 @@ async fn from_xml(
 
 #[cfg(test)]
 mod tests {
+    use super::ShellError;
     use crate::commands::from_xml;
     use indexmap::IndexMap;
     use nu_protocol::{UntaggedValue, Value};
@@ -304,10 +305,10 @@ mod tests {
     }
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use super::FromXML;
         use crate::examples::test as test_examples;
 
-        test_examples(FromXML {})
+        Ok(test_examples(FromXML {})?)
     }
 }

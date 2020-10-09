@@ -446,7 +446,7 @@ impl Shell for FilesystemShell {
         let source = path.join(&src.item);
         let destination = path.join(&dst.item);
 
-        let sources =
+        let mut sources =
             glob::glob(&source.to_string_lossy()).map_or_else(|_| Vec::new(), Iterator::collect);
 
         if sources.is_empty() {
@@ -475,6 +475,29 @@ impl Shell for FilesystemShell {
                 "destination must be a directory when multiple sources",
                 dst.tag,
             ));
+        }
+
+        let some_if_source_is_destination = sources
+            .iter()
+            .find(|f| matches!(f, Ok(f) if destination.starts_with(f)));
+        if destination.exists() && destination.is_dir() && sources.len() == 1 {
+            if let Some(Ok(filename)) = some_if_source_is_destination {
+                return Err(ShellError::labeled_error(
+                    format!(
+                        "Not possible to move {:?} to itself",
+                        filename.file_name().expect("Invalid file name")
+                    ),
+                    "cannot move to itself",
+                    dst.tag,
+                ));
+            }
+        }
+
+        if let Some(Ok(_filename)) = some_if_source_is_destination {
+            sources = sources
+                .into_iter()
+                .filter(|f| matches!(f, Ok(f) if !destination.starts_with(f)))
+                .collect();
         }
 
         for entry in sources {
@@ -573,9 +596,15 @@ impl Shell for FilesystemShell {
                 };
 
                 if let Ok(metadata) = f.symlink_metadata() {
+                    #[cfg(unix)]
+                    let is_socket = metadata.file_type().is_socket();
+                    #[cfg(not(unix))]
+                    let is_socket = false;
+
                     if metadata.is_file()
                         || metadata.file_type().is_symlink()
                         || recursive.item
+                        || is_socket
                         || is_empty()
                     {
                         let result;
@@ -597,7 +626,7 @@ impl Shell for FilesystemShell {
                         }
                         #[cfg(not(feature = "trash-support"))]
                         {
-                            result = if metadata.is_file() {
+                            result = if metadata.is_file() || is_socket {
                                 std::fs::remove_file(&f)
                             } else {
                                 std::fs::remove_dir_all(&f)

@@ -59,12 +59,13 @@ fn tags(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, 
 
 #[cfg(test)]
 mod tests {
+    use super::ShellError;
     use super::Tags;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(Tags {})
+        Ok(test_examples(Tags {})?)
     }
 }

@@ -102,11 +102,12 @@ async fn from_xlsx(
 #[cfg(test)]
 mod tests {
     use super::FromXLSX;
+    use super::ShellError;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(FromXLSX {})
+        Ok(test_examples(FromXLSX {})?)
     }
 }

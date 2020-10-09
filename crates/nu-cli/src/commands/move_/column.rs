@@ -218,17 +218,13 @@ fn move_after(
         ));
     };
 
-    let columns_moved = table
-        .data_descriptors()
-        .into_iter()
-        .map(|name| {
-            if columns.contains(&name) {
-                None
-            } else {
-                Some(name)
-            }
-        })
-        .collect::<Vec<_>>();
+    let columns_moved = table.data_descriptors().into_iter().map(|name| {
+        if columns.contains(&name) {
+            None
+        } else {
+            Some(name)
+        }
+    });
 
     let mut reordered_columns = vec![];
     let mut insert = false;
@@ -281,17 +277,13 @@ fn move_before(
         ));
     };
 
-    let columns_moved = table
-        .data_descriptors()
-        .into_iter()
-        .map(|name| {
-            if columns.contains(&name) {
-                None
-            } else {
-                Some(name)
-            }
-        })
-        .collect::<Vec<_>>();
+    let columns_moved = table.data_descriptors().into_iter().map(|name| {
+        if columns.contains(&name) {
+            None
+        } else {
+            Some(name)
+        }
+    });
 
     let mut reordered_columns = vec![];
     let mut inserted = false;
@@ -324,12 +316,13 @@ fn move_before(
 
 #[cfg(test)]
 mod tests {
+    use super::ShellError;
     use super::SubCommand;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(SubCommand {})
+        Ok(test_examples(SubCommand {})?)
     }
 }

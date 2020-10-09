@@ -122,12 +122,13 @@ async fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
 
 #[cfg(test)]
 mod tests {
+    use super::ShellError;
     use super::Which;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(Which {})
+        Ok(test_examples(Which {})?)
     }
 }

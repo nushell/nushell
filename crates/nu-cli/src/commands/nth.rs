@@ -96,11 +96,12 @@ async fn nth(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
 #[cfg(test)]
 mod tests {
     use super::Nth;
+    use super::ShellError;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(Nth {})
+        Ok(test_examples(Nth {})?)
     }
 }

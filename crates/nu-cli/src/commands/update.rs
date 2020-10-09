@@ -2,6 +2,7 @@ use crate::command_registry::CommandRegistry;
 use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
+use indexmap::indexmap;
 use nu_errors::ShellError;
 use nu_protocol::{
     ColumnPath, Primitive, ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue, Value,
@@ -10,16 +11,17 @@ use nu_source::HasFallibleSpan;
 use nu_value_ext::ValueExt;
 
 use futures::stream::once;
-pub struct Update;
+
+pub struct Command;
 
 #[derive(Deserialize)]
-pub struct UpdateArgs {
+pub struct Arguments {
     field: ColumnPath,
     replacement: Value,
 }
 
 #[async_trait]
-impl WholeStreamCommand for Update {
+impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "update"
     }
@@ -48,6 +50,26 @@ impl WholeStreamCommand for Update {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         update(args, registry).await
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Update a column value",
+            example: "echo [[name, stars]; ['nu', 5]] | update name 'Nushell'",
+            result: Some(vec![UntaggedValue::row(indexmap! {
+                    "name".to_string() => Value::from("Nushell"),
+                    "stars".to_string() => UntaggedValue::int(5).into(),
+            })
+            .into()]),
+        },Example {
+            description: "Use in block form for more involved updating logic",
+            example: "echo [[project, authors]; ['nu', ['Andrés', 'Jonathan', 'Yehuda']]] | update authors { get authors | str collect ',' }",
+            result: Some(vec![UntaggedValue::row(indexmap! {
+                    "project".to_string() => Value::from("nu"),
+                    "authors".to_string() => Value::from("Andrés,Jonathan,Yehuda"),
+            })
+            .into()]),
+        }]
     }
 }
 
@@ -86,13 +108,16 @@ async fn process_row(
                     let result = if values.len() == 1 {
                         let value = values
                             .get(0)
-                            .ok_or_else(|| ShellError::unexpected("No value to update with"))?;
+                            .ok_or_else(|| ShellError::unexpected("No value to update with."))?;
 
-                        value.clone()
+                        Value {
+                            value: value.value.clone(),
+                            tag: input.tag.clone(),
+                        }
                     } else if values.is_empty() {
-                        UntaggedValue::nothing().into_untagged_value()
+                        UntaggedValue::nothing().into_value(&input.tag)
                     } else {
-                        UntaggedValue::table(&values).into_untagged_value()
+                        UntaggedValue::table(&values).into_value(&input.tag)
                     };
 
                     match input {
@@ -157,7 +182,7 @@ async fn update(
     let name_tag = Arc::new(raw_args.call_info.name_tag.clone());
     let scope = raw_args.call_info.scope.clone();
     let context = Arc::new(EvaluationContext::from_raw(&raw_args, &registry));
-    let (UpdateArgs { field, replacement }, input) = raw_args.process(&registry).await?;
+    let (Arguments { field, replacement }, input) = raw_args.process(&registry).await?;
     let replacement = Arc::new(replacement);
     let field = Arc::new(field);
 
@@ -178,16 +203,4 @@ async fn update(
         })
         .flatten()
         .to_output_stream())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::Update;
-
-    #[test]
-    fn examples_work_as_expected() {
-        use crate::examples::test as test_examples;
-
-        test_examples(Update {})
-    }
 }

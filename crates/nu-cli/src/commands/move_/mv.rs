@@ -79,11 +79,12 @@ async fn mv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
 #[cfg(test)]
 mod tests {
     use super::Mv;
+    use super::ShellError;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(Mv {})
+        Ok(test_examples(Mv {})?)
     }
 }

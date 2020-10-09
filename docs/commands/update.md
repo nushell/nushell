@@ -49,3 +49,12 @@ Updates an existing column on a table. First parameter is the column to update a
  1 │ X │ filesystem │ /
 ━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━
 ```
+
+Collect all the values of a nested column and join them together
+```shell
+> version | update features {get features | str collect ', '}
+───┬─────────┬──────────────────────────────────────────┬───────────────────────────
+ # │ version │               commit_hash                │         features
+───┼─────────┼──────────────────────────────────────────┼───────────────────────────
+ 0 │ 0.20.0  │ fdab3368094e938c390f1e5a7892a42da45add3e │ default, clipboard, trash
+───┴─────────┴──────────────────────────────────────────┴───────────────────────────

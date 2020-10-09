@@ -84,12 +84,13 @@ fn features_enabled(tag: impl Into<Tag>) -> TaggedListBuilder {
 
 #[cfg(test)]
 mod tests {
+    use super::ShellError;
     use super::Version;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(Version {})
+        Ok(test_examples(Version {})?)
     }
 }

@@ -141,11 +141,12 @@ pub async fn group_by_date(
 #[cfg(test)]
 mod tests {
     use super::GroupByDate;
+    use super::ShellError;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(GroupByDate {})
+        Ok(test_examples(GroupByDate {})?)
     }
 }

@@ -186,12 +186,13 @@ fn compute_average(values: &[Value], name: impl Into<Tag>) -> Result<Value, Shel
 
 #[cfg(test)]
 mod tests {
+    use super::ShellError;
     use super::SubCommand;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(SubCommand {})
+        Ok(test_examples(SubCommand {})?)
     }
 }

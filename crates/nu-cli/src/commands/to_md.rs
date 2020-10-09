@@ -26,14 +26,11 @@ impl WholeStreamCommand for ToMarkdown {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        to_html(args, registry).await
+        to_md(args, registry).await
     }
 }
 
-async fn to_html(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+async fn to_md(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let args = args.evaluate_once(&registry).await?;
     let name_tag = args.name_tag();
@@ -82,12 +79,13 @@ async fn to_html(
 
 #[cfg(test)]
 mod tests {
+    use super::ShellError;
     use super::ToMarkdown;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(ToMarkdown {})
+        Ok(test_examples(ToMarkdown {})?)
     }
 }

@@ -43,15 +43,3 @@ impl WholeStreamCommand for Clear {
         }]
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::Clear;
-
-    #[test]
-    fn examples_work_as_expected() {
-        use crate::examples::test as test_examples;
-
-        test_examples(Clear {})
-    }
-}

@@ -99,15 +99,16 @@ fn action(_input: &Value, options: &Replace, tag: impl Into<Tag>) -> Result<Valu
 
 #[cfg(test)]
 mod tests {
+    use super::ShellError;
     use super::{action, Replace, SubCommand};
     use nu_plugin::test_helpers::value::string;
     use nu_source::Tag;
 
     #[test]
-    fn examples_work_as_expected() {
+    fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(SubCommand {})
+        Ok(test_examples(SubCommand {})?)
     }
 
     #[test]
