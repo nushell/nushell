@@ -5,14 +5,8 @@ use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
-// use libxml::parser::Parser;
-// use libxml::xpath::Context;
 use sxd_document::parser;
-// use sxd_xpath::{evaluate_xpath, Value as sxdValue};
 use sxd_xpath::{Context, Factory};
-// use sxd_xpath::evaluate_xpath;
-// use std::collections::HashMap;
-// use sxd_xpath::nodeset::Node;
 
 pub struct XPath;
 
@@ -38,8 +32,8 @@ impl WholeStreamCommand for XPath {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "find items with name attribute",
-            example: r#"open wix/main.wxs"#,
-            result: Some(vec![Value::from("\u{1b}[32m")]),
+            example: r#"open wix\main.wxs | xpath '//@Name' | where $it == "README.txt" | count"#,
+            result: Some(vec![UntaggedValue::int(1).into()]),
         }]
     }
 
@@ -53,7 +47,7 @@ impl WholeStreamCommand for XPath {
 
         let query_string = query.as_str();
         let input_string = input.collect_string(tag.clone()).await?.item;
-        let result_string = do_xpath_sxd2(input_string, query_string.to_string());
+        let result_string = execute_xpath_query(input_string, query_string.to_string());
 
         if let Some(output) = result_string {
             let vec_strings: Vec<String> = output.split('\n').map(|x| x.to_string()).collect();
@@ -64,27 +58,17 @@ impl WholeStreamCommand for XPath {
                 })
                 .collect();
             Ok(futures::stream::iter(vec_val.into_iter()).to_output_stream())
-        // let vals = UntaggedValue::Table(vec_val).into_value(tag);
-        // Ok(OutputStream::from(
-        //     vals.table_entries()
-        //         .map(|v| ReturnSuccess::value(v.clone()))
-        //         .collect::<Vec<_>>(),
-        // ))
-        // Ok(OutputStream::one(ReturnSuccess::value(
-        //     // UntaggedValue::string(output).into_value(query.tag()),
-        //     vals,
-        // )))
         } else {
             Err(ShellError::labeled_error(
-                "xml error",
-                "xml error",
+                "xpath query error",
+                "xpath query error",
                 query.tag(),
             ))
         }
     }
 }
 
-pub fn do_xpath_sxd2(input_string: String, query_string: String) -> Option<String> {
+pub fn execute_xpath_query(input_string: String, query_string: String) -> Option<String> {
     let xpath = build_xpath(&query_string);
     let package = parser::parse(&input_string).expect("failed to parse xml");
     let document = package.as_document();
@@ -116,68 +100,6 @@ fn build_xpath(xpath_str: &str) -> sxd_xpath::XPath {
         .unwrap_or_else(|e| panic!("Unable to compile XPath {}: {}", xpath_str, e))
         .unwrap()
 }
-
-// pub fn do_xpath_sxd(input_string: String, query_string: String) -> Option<String> {
-//     let package = parser::parse(&input_string).expect("failed to parse xml");
-//     let document = package.as_document();
-//     let value = evaluate_xpath(&document, &query_string);
-
-//     let result_string = match value {
-//         Ok(r) => {
-//             // let match_vec_content: String = r
-//             //     .get_nodes_as_vec()
-//             //     .iter()
-//             //     .map(|e| format!("{}\n", e.get_content()))
-//             //     .collect();
-//             // // OutputStream::one(ReturnSuccess::value(match_vec_content))
-//             // match_vec_content
-//             r.string()
-//         }
-//         Err(e) => {
-//             // return Err(ShellError::labeled_error_with_secondary(
-//             //     "Could not parse as XML",
-//             //     "input cannot be parsed as XML",
-//             //     Tag::unknown(),
-//             //     "value originates from here",
-//             //     Tag::unknown(),
-//             // ))
-//             format!("Error=[{:?}]", e)
-//         }
-//     };
-
-//     Some(result_string)
-// }
-
-// pub fn do_xpath_libxml2(input_string: String, query_string: String) -> Option<String> {
-//     let parser = Parser::default();
-//     let doc = parser.parse_string(input_string).unwrap();
-//     let context = Context::new(&doc).unwrap();
-//     let result = context.evaluate(&query_string);
-
-//     let result_string = match result {
-//         Ok(r) => {
-//             let match_vec_content: String = r
-//                 .get_nodes_as_vec()
-//                 .iter()
-//                 .map(|e| format!("{}\n", e.get_content()))
-//                 .collect();
-//             // OutputStream::one(ReturnSuccess::value(match_vec_content))
-//             match_vec_content
-//         }
-//         Err(e) => {
-//             // return Err(ShellError::labeled_error_with_secondary(
-//             //     "Could not parse as XML",
-//             //     "input cannot be parsed as XML",
-//             //     Tag::unknown(),
-//             //     "value originates from here",
-//             //     Tag::unknown(),
-//             // ))
-//             format!("Error=[{:?}]", e)
-//         }
-//     };
-
-//     Some(result_string)
-// }
 
 #[cfg(test)]
 mod tests {
