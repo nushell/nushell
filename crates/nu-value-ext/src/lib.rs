@@ -1,3 +1,4 @@
+use indexmap::indexmap;
 use indexmap::set::IndexSet;
 use itertools::Itertools;
 use nu_errors::{ExpectedRange, ShellError};
@@ -31,6 +32,11 @@ pub trait ValueExt {
         member: &PathMember,
         new_value: Value,
     ) -> Result<(), ShellError>;
+    fn forgiving_insert_data_at_column_path(
+        &self,
+        split_path: &ColumnPath,
+        new_value: Value,
+    ) -> Result<Value, ShellError>;
     fn insert_data_at_column_path(
         &self,
         split_path: &ColumnPath,
@@ -97,6 +103,14 @@ impl ValueExt for Value {
         new_value: Value,
     ) -> Result<Value, ShellError> {
         insert_data_at_column_path(self, split_path, new_value)
+    }
+
+    fn forgiving_insert_data_at_column_path(
+        &self,
+        split_path: &ColumnPath,
+        new_value: Value,
+    ) -> Result<Value, ShellError> {
+        forgiving_insert_data_at_column_path(self, split_path, new_value)
     }
 
     fn replace_data_at_column_path(
@@ -217,7 +231,7 @@ where
 pub fn swap_data_by_column_path<F>(
     value: &Value,
     path: &ColumnPath,
-    get_replacement: F,
+    callback: F,
 ) -> Result<Value, ShellError>
 where
     F: FnOnce(&Value) -> Result<Value, ShellError>,
@@ -357,8 +371,8 @@ where
             error
         });
 
-    let to_replace = to_replace?;
-    let replacement = get_replacement(&to_replace)?;
+    let old_value = to_replace?;
+    let replacement = callback(&old_value)?;
 
     value
         .replace_data_at_column_path(&path, replacement)
@@ -456,6 +470,101 @@ pub fn insert_data_at_member(
             )),
         },
     }
+}
+
+pub fn missing_path_members_by_column_path(value: &Value, path: &ColumnPath) -> Option<usize> {
+    let mut current = value.clone();
+
+    for (idx, p) in path.iter().enumerate() {
+        if let Ok(value) = get_data_by_member(&current, p) {
+            current = value;
+        } else {
+            return Some(idx);
+        }
+    }
+
+    None
+}
+
+pub fn forgiving_insert_data_at_column_path(
+    value: &Value,
+    split_path: &ColumnPath,
+    new_value: Value,
+) -> Result<Value, ShellError> {
+    let mut original = value.clone();
+
+    if let Some(missed_at) = missing_path_members_by_column_path(value, split_path) {
+        let mut paths = split_path.iter().skip(missed_at + 1).collect::<Vec<_>>();
+        paths.reverse();
+
+        let mut candidate = new_value;
+
+        for member in paths.iter() {
+            match &member.unspanned {
+                UnspannedPathMember::String(column_name) => {
+                    candidate =
+                        UntaggedValue::row(indexmap! { column_name.into() => candidate.clone()})
+                            .into_value(&candidate.tag)
+                }
+                UnspannedPathMember::Int(int) => {
+                    let mut rows = vec![];
+                    let size = int.to_usize().unwrap_or_else(|| 0);
+
+                    for _ in 0..=size {
+                        rows.push(
+                            UntaggedValue::Primitive(Primitive::Nothing).into_value(&candidate.tag),
+                        );
+                    }
+                    rows.push(candidate.clone());
+                    candidate = UntaggedValue::Table(rows).into_value(&candidate.tag);
+                }
+            }
+        }
+
+        let cp = ColumnPath::new(
+            split_path
+                .iter()
+                .cloned()
+                .take(split_path.members().len() - missed_at + 1)
+                .collect::<Vec<_>>(),
+        );
+
+        if missed_at == 0 {
+            let current: &mut Value = &mut original;
+            insert_data_at_member(current, &cp.members()[0], candidate)?;
+            return Ok(original);
+        }
+
+        if value
+            .get_data_by_column_path(&cp, Box::new(move |_, _, err| err))
+            .is_ok()
+        {
+            return insert_data_at_column_path(&value, &cp, candidate);
+        } else if let Some((last, front)) = cp.split_last() {
+            let mut current: &mut Value = &mut original;
+
+            for member in front {
+                let type_name = current.spanned_type_name();
+
+                current = get_mut_data_by_member(current, &member).ok_or_else(|| {
+                    ShellError::missing_property(
+                        member.plain_string(std::usize::MAX).spanned(member.span),
+                        type_name,
+                    )
+                })?
+            }
+
+            insert_data_at_member(current, &last, candidate)?;
+
+            return Ok(original);
+        } else {
+            return Err(ShellError::untagged_runtime_error(
+                "Internal error: could not split column path correctly",
+            ));
+        }
+    }
+
+    insert_data_at_column_path(&value, split_path, new_value)
 }
 
 pub fn insert_data_at_column_path(
@@ -592,12 +701,24 @@ fn insert_data_at_index(
     index: Tagged<usize>,
     new_value: Value,
 ) -> Result<(), ShellError> {
-    if list.len() >= index.item {
-        Err(ShellError::range_error(
-            0..(list.len()),
-            &format_args!("{}", index.item).spanned(index.tag.span),
-            "insert at index",
-        ))
+    if index.item >= list.len() {
+        if index.item == list.len() {
+            list.push(new_value);
+            return Ok(());
+        }
+
+        let mut idx = list.len();
+
+        loop {
+            list.push(UntaggedValue::Primitive(Primitive::Nothing).into_value(&new_value.tag));
+
+            idx += 1;
+
+            if idx == index.item {
+                list.push(new_value);
+                return Ok(());
+            }
+        }
     } else {
         list[index.item] = new_value;
         Ok(())
@@ -687,5 +808,107 @@ pub(crate) fn get_mut_data_by_member<'value>(
             }
         },
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nu_test_support::value::*;
+
+    use indexmap::indexmap;
+
+    #[test]
+    fn forgiving_insertion_test_1() {
+        let field_path = column_path(&[string("crate"), string("version")]).unwrap();
+
+        let version = string("nuno");
+
+        let value = UntaggedValue::row(indexmap! {
+            "package".into() =>
+                row(indexmap! {
+                    "name".into()    =>     string("nu"),
+                    "version".into() =>  string("0.20.0")
+                })
+        });
+
+        assert_eq!(
+            *value
+                .into_untagged_value()
+                .forgiving_insert_data_at_column_path(&field_path, version)
+                .unwrap()
+                .get_data_by_column_path(&field_path, Box::new(error_callback("crate.version")))
+                .unwrap(),
+            *string("nuno")
+        );
+    }
+
+    #[test]
+    fn forgiving_insertion_test_2() {
+        let field_path = column_path(&[string("things"), int(0)]).unwrap();
+
+        let version = string("arepas");
+
+        let value = UntaggedValue::row(indexmap! {
+            "pivot_mode".into() => string("never"),
+            "things".into() => table(&[string("frijoles de Andrés"), int(1)]),
+            "color_config".into() =>
+                row(indexmap! {
+                    "header_align".into()    =>     string("left"),
+                    "index_color".into() =>  string("cyan_bold")
+                })
+        });
+
+        assert_eq!(
+            *value
+                .into_untagged_value()
+                .forgiving_insert_data_at_column_path(&field_path, version)
+                .unwrap()
+                .get_data_by_column_path(&field_path, Box::new(error_callback("things.0")))
+                .unwrap(),
+            *string("arepas")
+        );
+    }
+
+    #[test]
+    fn forgiving_insertion_test_3() {
+        let field_path = column_path(&[string("color_config"), string("arepa_color")]).unwrap();
+        let pizza_path = column_path(&[string("things"), int(0)]).unwrap();
+
+        let entry = string("amarillo");
+
+        let value = UntaggedValue::row(indexmap! {
+            "pivot_mode".into() => string("never"),
+            "things".into() => table(&[string("Arepas de Yehuda"), int(1)]),
+            "color_config".into() =>
+                row(indexmap! {
+                    "header_align".into()    =>     string("left"),
+                    "index_color".into() =>  string("cyan_bold")
+                })
+        });
+
+        assert_eq!(
+            *value
+                .clone()
+                .into_untagged_value()
+                .forgiving_insert_data_at_column_path(&field_path, entry.clone())
+                .unwrap()
+                .get_data_by_column_path(
+                    &field_path,
+                    Box::new(error_callback("color_config.arepa_color"))
+                )
+                .unwrap(),
+            *string("amarillo")
+        );
+
+        assert_eq!(
+            *value
+                .into_untagged_value()
+                .forgiving_insert_data_at_column_path(&field_path, entry)
+                .unwrap()
+                .get_data_by_column_path(&pizza_path, Box::new(error_callback("things.0")))
+                .unwrap(),
+            *string("Arepas de Yehuda")
+        );
     }
 }

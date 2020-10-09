@@ -3008,6 +3008,7 @@ dependencies = [
  "nu-protocol",
  "nu-source",
  "nu-table",
+ "nu-test-support",
  "nu-value-ext",
  "num-bigint 0.3.0",
  "num-traits 0.2.12",
@@ -3116,12 +3117,16 @@ dependencies = [
 name = "nu-test-support"
 version = "0.20.0"
 dependencies = [
+ "chrono",
  "dunce",
  "getset",
  "glob",
  "indexmap",
+ "nu-errors",
  "nu-protocol",
  "nu-source",
+ "nu-value-ext",
+ "num-bigint 0.3.0",
  "tempfile",
 ]
 
@@ -3134,6 +3139,7 @@ dependencies = [
  "nu-errors",
  "nu-protocol",
  "nu-source",
+ "nu-test-support",
  "num-traits 0.2.12",
 ]
 

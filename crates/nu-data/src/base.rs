@@ -165,38 +165,13 @@ pub fn coerce_compare_primitive(
 }
 #[cfg(test)]
 mod tests {
-    use indexmap::{indexmap, IndexMap};
     use nu_errors::ShellError;
-    use nu_protocol::{ColumnPath as ColumnPathValue, PathMember, UntaggedValue, Value};
-    use nu_source::*;
-    use nu_value_ext::{as_column_path, ValueExt};
-    use num_bigint::BigInt;
+    use nu_protocol::UntaggedValue;
+    use nu_source::SpannedItem;
+    use nu_test_support::value::*;
+    use nu_value_ext::ValueExt;
 
-    fn string(input: impl Into<String>) -> Value {
-        crate::utils::helpers::string(input)
-    }
-
-    fn int(input: impl Into<BigInt>) -> Value {
-        crate::utils::helpers::int(input)
-    }
-
-    fn row(entries: IndexMap<String, Value>) -> Value {
-        crate::utils::helpers::row(entries)
-    }
-
-    fn table(list: &[Value]) -> Value {
-        crate::utils::helpers::table(list)
-    }
-
-    fn error_callback(
-        reason: &'static str,
-    ) -> impl FnOnce(&Value, &PathMember, ShellError) -> ShellError {
-        move |_obj_source, _column_path_tried, _err| ShellError::unimplemented(reason)
-    }
-
-    fn column_path(paths: &[Value]) -> Result<Tagged<ColumnPathValue>, ShellError> {
-        as_column_path(&table(paths))
-    }
+    use indexmap::indexmap;
 
     #[test]
     fn gets_matching_field_from_a_row() -> Result<(), ShellError> {

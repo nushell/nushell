@@ -2,14 +2,13 @@ use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
-use nu_source::Tagged;
+use nu_protocol::{ColumnPath, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 
 pub struct SubCommand;
 
 #[derive(Deserialize)]
 pub struct SetArgs {
-    key: Tagged<String>,
+    path: ColumnPath,
     value: Value,
 }
 
@@ -21,7 +20,7 @@ impl WholeStreamCommand for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("config set")
-            .required("key", SyntaxShape::String, "variable name to set")
+            .required("key", SyntaxShape::ColumnPath, "variable name to set")
             .required("value", SyntaxShape::Any, "value to use")
     }
 
@@ -38,11 +37,28 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Set nonzero_exit_errors to true",
-            example: "config set nonzero_exit_errors $true",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Set auto pivoting",
+                example: "config set pivot_mode always",
+                result: None,
+            },
+            Example {
+                description: "Set line editor options",
+                example: "config set line_editor [[edit_mode, completion_type]; [emacs circular]]",
+                result: None,
+            },
+            Example {
+                description: "Set coloring options",
+                example: "config set color_config [[header_align header_bold]; [left $true]]",
+                result: None,
+            },
+            Example {
+                description: "Set nested options",
+                example: "config set color_config.header_color white",
+                result: None,
+            },
+        ]
     }
 }
 
@@ -50,18 +66,32 @@ pub async fn set(
     args: CommandArgs,
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
-    let name_span = args.call_info.name_tag.clone();
-    let (SetArgs { key, value }, _) = args.process(&registry).await?;
+    let name_tag = args.call_info.name_tag.clone();
+    let (SetArgs { path, mut value }, _) = args.process(&registry).await?;
 
     // NOTE: None because we are not loading a new config file, we just want to read from the
     // existing config
-    let mut result = nu_data::config::read(name_span, &None)?;
+    let raw_entries = nu_data::config::read(&name_tag, &None)?;
+    let configuration = UntaggedValue::row(raw_entries).into_value(&name_tag);
 
-    result.insert(key.to_string(), value.clone());
+    if let UntaggedValue::Table(rows) = &value.value {
+        if rows.len() == 1 && rows[0].is_row() {
+            value = rows[0].clone();
+        }
+    }
 
-    config::write(&result, &None)?;
+    match configuration.forgiving_insert_data_at_column_path(&path, value) {
+        Ok(Value {
+            value: UntaggedValue::Row(changes),
+            ..
+        }) => {
+            config::write(&changes.entries, &None)?;
 
-    Ok(OutputStream::one(ReturnSuccess::value(
-        UntaggedValue::Row(result.into()).into_value(&value.tag),
-    )))
+            Ok(OutputStream::one(ReturnSuccess::value(
+                UntaggedValue::Row(changes).into_value(name_tag),
+            )))
+        }
+        Ok(_) => Ok(OutputStream::empty()),
+        Err(reason) => Err(reason),
+    }
 }
