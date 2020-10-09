@@ -31,6 +31,11 @@ cargo build
   cargo build --release && cargo run --release
   ```
 
+- Build and run with extra features:
+  ```shell
+  cargo build --release --features=extra && cargo run --release --features=extra
+  ```
+
 - Run Clippy on Nushell:
 
   ```shell
@@ -59,4 +64,12 @@ cargo build
 
   ```shell
   cargo fmt --all
+  ```
+
+### Debugging Tips
+
+- To view verbose logs when developing, enable the `trace` log level.
+
+  ```shell
+  cargo build --release --features=extra && cargo run --release --features=extra -- --loglevel trace
   ```

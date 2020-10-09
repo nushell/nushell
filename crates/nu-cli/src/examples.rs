@@ -53,15 +53,8 @@ pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
         if let Some(expected) = &sample_pipeline.result {
             let result = block_on(evaluate_block(block, &mut ctx))?;
 
-            ctx.with_errors(|reasons| {
-                reasons
-                    .iter()
-                    .cloned()
-                    .take(1)
-                    .next()
-                    .and_then(|err| Some(err))
-            })
-            .map_or(Ok(()), |reason| Err(reason))?;
+            ctx.with_errors(|reasons| reasons.iter().cloned().take(1).next())
+                .map_or(Ok(()), Err)?;
 
             if expected.len() != result.len() {
                 let rows_returned =
@@ -115,15 +108,8 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
         if let Some(expected) = &sample_pipeline.result {
             let result = block_on(evaluate_block(block, &mut ctx))?;
 
-            ctx.with_errors(|reasons| {
-                reasons
-                    .iter()
-                    .cloned()
-                    .take(1)
-                    .next()
-                    .and_then(|err| Some(err))
-            })
-            .map_or(Ok(()), |reason| Err(reason))?;
+            ctx.with_errors(|reasons| reasons.iter().cloned().take(1).next())
+                .map_or(Ok(()), Err)?;
 
             if expected.len() != result.len() {
                 let rows_returned =
@@ -180,15 +166,8 @@ pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
         let block = parse_line(&pipeline_with_anchor, &mut ctx)?;
         let result = block_on(evaluate_block(block, &mut ctx))?;
 
-        ctx.with_errors(|reasons| {
-            reasons
-                .iter()
-                .cloned()
-                .take(1)
-                .next()
-                .and_then(|err| Some(err))
-        })
-        .map_or(Ok(()), |reason| Err(reason))?;
+        ctx.with_errors(|reasons| reasons.iter().cloned().take(1).next())
+            .map_or(Ok(()), Err)?;
 
         for actual in result.iter() {
             if !is_anchor_carried(actual, mock_path()) {
@@ -366,7 +345,7 @@ impl WholeStreamCommand for MockEcho {
             match i.as_string() {
                 Ok(s) => OutputStream::one(Ok(ReturnSuccess::Value(Value {
                     value: UntaggedValue::Primitive(Primitive::String(s)),
-                    tag: base_value.tag.clone(),
+                    tag: base_value.tag,
                 }))),
                 _ => match i {
                     Value {
@@ -384,7 +363,7 @@ impl WholeStreamCommand for MockEcho {
                     .to_output_stream(),
                     _ => OutputStream::one(Ok(ReturnSuccess::Value(Value {
                         value: i.value.clone(),
-                        tag: base_value.tag.clone(),
+                        tag: base_value.tag,
                     }))),
                 },
             }

@@ -9,7 +9,7 @@ fn into_int_filesize() {
         "#
     ));
 
-    assert!(actual.out.contains("1"));
+    assert!(actual.out.contains('1'));
 }
 
 #[test]
@@ -21,5 +21,5 @@ fn into_int_int() {
         "#
     ));
 
-    assert!(actual.out.contains("1"));
+    assert!(actual.out.contains('1'));
 }
