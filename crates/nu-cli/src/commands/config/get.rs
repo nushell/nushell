@@ -2,14 +2,13 @@ use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
-use nu_source::Tagged;
+use nu_protocol::{ColumnPath, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 
 pub struct SubCommand;
 
 #[derive(Deserialize)]
 pub struct GetArgs {
-    get: Tagged<String>,
+    path: ColumnPath,
 }
 
 #[async_trait]
@@ -21,7 +20,7 @@ impl WholeStreamCommand for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("config get").required(
             "get",
-            SyntaxShape::Any,
+            SyntaxShape::ColumnPath,
             "value to get from the config",
         )
     }
@@ -51,17 +50,14 @@ pub async fn get(
     args: CommandArgs,
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
-    let name_span = args.call_info.name_tag.clone();
-    let (GetArgs { get }, _) = args.process(&registry).await?;
+    let name_tag = args.call_info.name_tag.clone();
+    let (GetArgs { path }, _) = args.process(&registry).await?;
 
     // NOTE: None because we are not loading a new config file, we just want to read from the
     // existing config
-    let result = nu_data::config::read(name_span, &None)?;
+    let result = UntaggedValue::row(nu_data::config::read(&name_tag, &None)?).into_value(&name_tag);
 
-    let key = get.to_string();
-    let value = result
-        .get(&key)
-        .ok_or_else(|| ShellError::labeled_error("Missing key in config", "key", get.tag()))?;
+    let value = crate::commands::get::get_column_path(&path, &result)?;
 
     Ok(match value {
         Value {
@@ -75,9 +71,6 @@ pub async fn get(
 
             futures::stream::iter(list).to_output_stream()
         }
-        x => {
-            let x = x.clone();
-            OutputStream::one(ReturnSuccess::value(x))
-        }
+        x => OutputStream::one(ReturnSuccess::value(x)),
     })
 }

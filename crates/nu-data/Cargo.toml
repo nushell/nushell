@@ -33,6 +33,7 @@ nu-protocol = {version = "0.20.0", path = "../nu-protocol"}
 nu-source = {version = "0.20.0", path = "../nu-source"}
 nu-table = {version = "0.20.0", path = "../nu-table"}
 nu-value-ext = {version = "0.20.0", path = "../nu-value-ext"}
+nu-test-support = {version = "0.20.0", path = "../nu-test-support"}
 
 [target.'cfg(unix)'.dependencies]
 users = "0.10.0"

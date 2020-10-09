@@ -92,6 +92,11 @@ impl UntaggedValue {
         matches!(self, UntaggedValue::Table(_))
     }
 
+    /// Returns true if this value represents a row
+    pub fn is_row(&self) -> bool {
+        matches!(self, UntaggedValue::Row(_))
+    }
+
     /// Returns true if this value represents a string
     pub fn is_string(&self) -> bool {
         matches!(self, UntaggedValue::Primitive(Primitive::String(_)))
