@@ -33,8 +33,8 @@ impl WholeStreamCommand for XPath {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "find items with name attribute",
-            example: r#"open wix\main.wxs | xpath '//@Name' | where $it == "README.txt" | count"#,
-            result: Some(vec![UntaggedValue::int(1).into()]),
+            example: r#"echo '<?xml version="1.0" encoding="UTF-8"?><main><nushell rocks="true"/></main>' | from xml | to xml | xpath '//nushell/@rocks'"#,
+            result: None,
         }]
     }
 
@@ -79,9 +79,9 @@ pub fn execute_xpath_query(input_string: String, query_string: String) -> Option
     let mut key = query_string.clone();
     if query_string.len() >= 20 {
         key.truncate(17);
-        key = key + "...";
+        key += "...";
     } else {
-        key = query_string.clone();
+        key = query_string;
     };
 
     match res {
@@ -117,7 +117,7 @@ pub fn execute_xpath_query(input_string: String, query_string: String) -> Option
                 }
             };
 
-            if rows.len() > 0 {
+            if !rows.is_empty() {
                 Some(rows)
             } else {
                 None
