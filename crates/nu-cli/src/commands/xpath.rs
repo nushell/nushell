@@ -3,7 +3,7 @@ extern crate sxd_xpath;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue};
 use nu_source::Tagged;
 use sxd_document::parser;
 use sxd_xpath::{Context, Factory};
@@ -48,27 +48,44 @@ impl WholeStreamCommand for XPath {
         let query_string = query.as_str();
         let input_string = input.collect_string(tag.clone()).await?.item;
         let result_string = execute_xpath_query(input_string, query_string.to_string());
+        let result_value = result_string.into_untagged_value();
 
-        if let Some(output) = result_string {
-            let vec_strings: Vec<String> = output.split('\n').map(|x| x.to_string()).collect();
-            let vec_val: Vec<Value> = vec_strings
-                .iter()
-                .map(move |s| {
-                    UntaggedValue::Primitive(Primitive::String((*s).to_string())).into_value(&tag)
-                })
-                .collect();
-            Ok(futures::stream::iter(vec_val.into_iter()).to_output_stream())
-        } else {
-            Err(ShellError::labeled_error(
-                "xpath query error",
-                "xpath query error",
-                query.tag(),
-            ))
-        }
+        Ok(OutputStream::one(ReturnSuccess::value(result_value)))
+
+        // // if let Some(output) = result_string {
+        // if result_value.row_entries().count() > 0 {
+        //     // let vec_strings: Vec<String> = output.split('\n').map(|x| x.to_string()).collect();
+        //     // let vec_val: Vec<Value> = vec_strings
+        //     //     .iter()
+        //     //     .map(move |s| {
+        //     //         UntaggedValue::Primitive(Primitive::String((*s).to_string())).into_value(&tag)
+        //     //     })
+        //     //     .collect();
+        //     // Ok(futures::stream::iter(vec_val.into_iter()).to_output_stream())
+
+        //     // let vec_strings: Vec<String> = output.split('\n').map(|x| x.to_string()).collect();
+        //     // let vec_val: Vec<Value> = vec_strings
+        //     //     .iter()
+        //     //     .map(move |s| {
+        //     //         UntaggedValue::Primitive(Primitive::String((*s).to_string())).into_value(&tag)
+        //     //     })
+        //     //     .collect();
+        //     // Ok(OutputStream::one(ReturnSuccess::value(dict.into_value())))
+
+        //     Ok(OutputStream::one(ReturnSuccess::value(result_value)))
+
+        // // Ok(futures::stream::iter(result_value.into_iter()).to_output_stream())
+        // } else {
+        //     Err(ShellError::labeled_error(
+        //         "xpath query error",
+        //         "xpath query error",
+        //         query.tag(),
+        //     ))
+        // }
     }
 }
 
-pub fn execute_xpath_query(input_string: String, query_string: String) -> Option<String> {
+pub fn execute_xpath_query(input_string: String, query_string: String) -> TaggedDictBuilder {
     let xpath = build_xpath(&query_string);
     let package = parser::parse(&input_string).expect("failed to parse xml");
     let document = package.as_document();
@@ -79,17 +96,68 @@ pub fn execute_xpath_query(input_string: String, query_string: String) -> Option
 
     let res = xpath.evaluate(&context, document.root());
 
-    let re = match res.unwrap() {
-        sxd_xpath::Value::Nodeset(ns) => ns
-            .iter()
-            .map(|a| format!("{}\n", a.string_value()))
-            .collect(),
-        sxd_xpath::Value::Boolean(b) => format!("{}", b),
-        sxd_xpath::Value::Number(n) => format!("{}", n),
-        sxd_xpath::Value::String(s) => s,
+    let key = query_string.clone();
+    // let re = match res.unwrap() {
+    //     sxd_xpath::Value::Nodeset(ns) => ns
+    //         .iter()
+    //         .map(|a| format!("{}\n", a.string_value()))
+    //         .collect(),
+    //     sxd_xpath::Value::Boolean(b) => format!("{}", b),
+    //     sxd_xpath::Value::Number(n) => format!("{}", n),
+    //     sxd_xpath::Value::String(s) => s,
+    // };
+
+    // Some(re)
+
+    let mut record = TaggedDictBuilder::new(Tag::unknown());
+    match res.unwrap() {
+        sxd_xpath::Value::Nodeset(ns) => {
+            // ns
+            // .iter()
+            // .map(|a| record.insert_untagged(&key, UntaggedValue::string(a.string_value())))
+            // .collect()
+            for v in ns {
+                record.insert_untagged(&key, UntaggedValue::string(v.string_value()));
+            }
+        }
+        sxd_xpath::Value::Boolean(b) => record.insert_untagged(&key, UntaggedValue::boolean(b)),
+        sxd_xpath::Value::Number(n) => {
+            record.insert_untagged(&key, UntaggedValue::int(n.to_u64().unwrap()))
+        }
+        sxd_xpath::Value::String(s) => record.insert_untagged(&key, UntaggedValue::string(s)),
     };
 
-    Some(re)
+    record
+
+    // let tab: Vec<Value> = match res.unwrap() {
+    //     sxd_xpath::Value::Nodeset(ns) => ns
+    //         .into_iter()
+    //         .map(|a| {
+    //             let mut row = TaggedDictBuilder::new(Tag::unknown());
+    //             row.insert_value(&key, UntaggedValue::string(a.string_value()));
+    //             row.into_value()
+    //         })
+    //         .collect::<Vec<Value>>(),
+    //     sxd_xpath::Value::Boolean(b) => {
+    //         let mut row = TaggedDictBuilder::new(Tag::unknown());
+    //         row.insert_value(&key, UntaggedValue::boolean(b));
+    //         vec![row.into_value()]
+    //     }
+    //     sxd_xpath::Value::Number(n) => {
+    //         let mut row = TaggedDictBuilder::new(Tag::unknown());
+    //         row.insert_value(&key, UntaggedValue::int(n.to_u64().unwrap()));
+    //         vec![row.into_value()]
+    //     }
+    //     sxd_xpath::Value::String(s) => {
+    //         let mut row = TaggedDictBuilder::new(Tag::unknown());
+    //         row.insert_value(&key, UntaggedValue::string(s));
+    //         vec![row.into_value()]
+    //     }
+    // };
+
+    // // UntaggedValue::Table(tab)
+    // let rows = tab.iter().map(|v| v.row_entries()).collect();
+    // UntaggedValue::Row(rows)
 }
 
 fn build_xpath(xpath_str: &str) -> sxd_xpath::XPath {
