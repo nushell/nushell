@@ -2891,8 +2891,6 @@ dependencies = [
  "nu_plugin_to_sqlite",
  "nu_plugin_tree",
  "pretty_env_logger",
- "serde 1.0.115",
- "toml",
 ]
 
 [[package]]

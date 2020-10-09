@@ -56,8 +56,6 @@ dunce = "1.0.1"
 nu-test-support = {version = "0.20.0", path = "./crates/nu-test-support"}
 
 [build-dependencies]
-serde = {version = "1.0.115", features = ["derive"]}
-toml = "0.5.6"
 
 [features]
 ctrlc-support = ["nu-cli/ctrlc"]
