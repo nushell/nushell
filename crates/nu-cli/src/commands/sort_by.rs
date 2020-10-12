@@ -4,7 +4,7 @@ use nu_data::base::coerce_compare;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
-use nu_value_ext::get_data_by_key;
+use nu_value_ext::ValueExt;
 
 pub struct SortBy;
 
@@ -118,8 +118,8 @@ pub fn sort(
     }
 
     for sort_arg in keys.iter() {
-        let match_test = get_data_by_key(&vec[0], sort_arg.borrow_spanned());
-        if match_test == None {
+        let match_test = &vec[0].get_data_by_key(sort_arg.borrow_spanned());
+        if match_test.is_none() {
             return Err(ShellError::labeled_error(
                 "Can not find column to sort by",
                 "invalid column",
@@ -168,7 +168,7 @@ pub fn sort(
             let calc_key = |item: &Value| {
                 keys.iter()
                     .map(|f| {
-                        let mut value_option = get_data_by_key(item, f.borrow_spanned());
+                        let mut value_option = item.get_data_by_key(f.borrow_spanned());
 
                         if insensitive {
                             if let Some(value) = &value_option {
