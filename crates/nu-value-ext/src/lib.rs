@@ -921,7 +921,8 @@ mod tests {
         assert_eq!(
             row.get_data_by_key("lines".spanned_unknown()).unwrap(),
             int(0)
-        )
+        );
+        assert!(row.get_data_by_key("chars".spanned_unknown()).is_none());
     }
 
     #[test]
@@ -941,6 +942,12 @@ mod tests {
                 .get_data_by_key("files".spanned_unknown())
                 .unwrap(),
             table(&[int(10), int(1)])
+        );
+        assert_eq!(
+            table_value
+                .get_data_by_key("chars".spanned_unknown())
+                .unwrap(),
+            table(&[nothing(), nothing()])
         );
     }
 }

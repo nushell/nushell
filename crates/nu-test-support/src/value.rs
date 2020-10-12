@@ -22,6 +22,10 @@ pub fn row(entries: IndexMap<String, Value>) -> Value {
     UntaggedValue::row(entries).into_untagged_value()
 }
 
+pub fn nothing() -> Value {
+    UntaggedValue::nothing().into_untagged_value()
+}
+
 pub fn table(list: &[Value]) -> Value {
     UntaggedValue::table(list).into_untagged_value()
 }
