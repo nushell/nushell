@@ -97,20 +97,20 @@ impl ValueExt for Value {
         insert_data_at_member(self, member, new_value)
     }
 
-    fn insert_data_at_column_path(
-        &self,
-        split_path: &ColumnPath,
-        new_value: Value,
-    ) -> Result<Value, ShellError> {
-        insert_data_at_column_path(self, split_path, new_value)
-    }
-
     fn forgiving_insert_data_at_column_path(
         &self,
         split_path: &ColumnPath,
         new_value: Value,
     ) -> Result<Value, ShellError> {
         forgiving_insert_data_at_column_path(self, split_path, new_value)
+    }
+
+    fn insert_data_at_column_path(
+        &self,
+        split_path: &ColumnPath,
+        new_value: Value,
+    ) -> Result<Value, ShellError> {
+        insert_data_at_column_path(self, split_path, new_value)
     }
 
     fn replace_data_at_column_path(
