@@ -911,4 +911,36 @@ mod tests {
             *string("Arepas de Yehuda")
         );
     }
+
+    #[test]
+    fn get_row_data_by_key() {
+        let row = row(indexmap! {
+                "lines".to_string() => int(0),
+                "words".to_string() => int(7),
+        });
+        assert_eq!(
+            row.get_data_by_key("lines".spanned_unknown()).unwrap(),
+            int(0)
+        )
+    }
+
+    #[test]
+    fn get_table_data_by_key() {
+        let row1 = row(indexmap! {
+                "lines".to_string() => int(0),
+                "files".to_string() => int(10),
+        });
+
+        let row2 = row(indexmap! {
+                "files".to_string() => int(1)
+        });
+
+        let table_value = table(&[row1, row2]);
+        assert_eq!(
+            table_value
+                .get_data_by_key("files".spanned_unknown())
+                .unwrap(),
+            table(&[int(10), int(1)])
+        );
+    }
 }
