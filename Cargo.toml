@@ -43,6 +43,7 @@ nu_plugin_textview = {version = "0.20.0", path = "./crates/nu_plugin_textview", 
 nu_plugin_to_bson = {version = "0.20.0", path = "./crates/nu_plugin_to_bson", optional = true}
 nu_plugin_to_sqlite = {version = "0.20.0", path = "./crates/nu_plugin_to_sqlite", optional = true}
 nu_plugin_tree = {version = "0.20.0", path = "./crates/nu_plugin_tree", optional = true}
+nu_plugin_xpath = {version = "0.20.0", path = "./crates/nu_plugin_xpath", optional = true}
 
 # Required to bootstrap the main binary
 clap = "2.33.3"
@@ -88,7 +89,7 @@ default = [
   "fetch",
   "rich-benchmark",
 ]
-extra = ["default", "binaryview", "tree", "clipboard-cli", "trash-support", "start", "bson", "sqlite", "s3", "chart"]
+extra = ["default", "binaryview", "tree", "clipboard-cli", "trash-support", "start", "bson", "sqlite", "s3", "chart", "xpath"]
 stable = ["default"]
 
 wasi = ["inc", "match", "directories-support", "ptree-support", "match", "tree", "rustyline-support"]
@@ -114,6 +115,7 @@ sqlite = ["nu_plugin_from_sqlite", "nu_plugin_to_sqlite"]
 start = ["nu_plugin_start"]
 trash-support = ["nu-cli/trash-support"]
 tree = ["nu_plugin_tree"]
+xpath = ["nu_plugin_xpath"]
 
 # Core plugins that ship with `cargo install nu` by default
 # Currently, Cargo limits us to installing only one binary
@@ -184,6 +186,11 @@ required-features = ["chart"]
 name = "nu_plugin_extra_chart_line"
 path = "src/plugins/nu_plugin_extra_chart_line.rs"
 required-features = ["chart"]
+
+[[bin]]
+name = "nu_plugin_extra_xpath"
+path = "src/plugins/nu_plugin_extra_xpath.rs"
+required-features = ["xpath"]
 
 # Main nu binary
 [[bin]]

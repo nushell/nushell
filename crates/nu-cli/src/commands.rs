@@ -126,7 +126,6 @@ pub(crate) mod where_;
 pub(crate) mod which_;
 pub(crate) mod with_env;
 pub(crate) mod wrap;
-pub(crate) mod xpath;
 
 pub(crate) use autoview::Autoview;
 pub(crate) use cd::Cd;
@@ -271,7 +270,6 @@ pub(crate) use where_::Where;
 pub(crate) use which_::Which;
 pub(crate) use with_env::WithEnv;
 pub(crate) use wrap::Wrap;
-pub(crate) use xpath::XPath;
 
 #[cfg(test)]
 mod tests {

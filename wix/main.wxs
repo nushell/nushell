@@ -232,6 +232,14 @@
                                 Source='target\$(var.Profile)\nu_plugin_extra_chart_line.exe'
                                 KeyPath='yes'/>
                         </Component>
+                        <Component Id='binary18' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe17'
+                                Name='nu_plugin_extra_xpath.exe'
+                                DiskId='1'
+                                Source='target\$(var.Profile)\nu_plugin_extra_xpath.exe'
+                                KeyPath='yes'/>
+                        </Component>
                     </Directory>
                 </Directory>
             </Directory>
