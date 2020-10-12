@@ -670,6 +670,9 @@ fn default_rustyline_editor_configuration() -> Editor<Helper> {
         Cmd::Move(Movement::ForwardWord(1, At::AfterEnd, Word::Vi)),
     );
 
+    // workaround for multiline-paste hang in rustyline (see https://github.com/kkawakam/rustyline/issues/202)
+    rl.bind_sequence(KeyPress::BracketedPasteStart, rustyline::Cmd::Noop);
+
     // Let's set the defaults up front and then override them later if the user indicates
     // defaults taken from here https://github.com/kkawakam/rustyline/blob/2fe886c9576c1ea13ca0e5808053ad491a6fe049/src/config.rs#L150-L167
     rl.set_max_history_size(100);
