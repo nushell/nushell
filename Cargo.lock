@@ -2890,6 +2890,7 @@ dependencies = [
  "nu_plugin_to_bson",
  "nu_plugin_to_sqlite",
  "nu_plugin_tree",
+ "nu_plugin_xpath",
  "pretty_env_logger",
  "serde 1.0.115",
  "toml",
@@ -3365,6 +3366,21 @@ dependencies = [
  "nu-protocol",
  "nu-source",
  "ptree",
+]
+
+[[package]]
+name = "nu_plugin_xpath"
+version = "0.20.0"
+dependencies = [
+ "bigdecimal",
+ "indexmap",
+ "nu-errors",
+ "nu-plugin",
+ "nu-protocol",
+ "nu-source",
+ "nu-test-support",
+ "sxd-document",
+ "sxd-xpath",
 ]
 
 [[package]]
