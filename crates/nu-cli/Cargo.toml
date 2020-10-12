@@ -79,6 +79,8 @@ serde_yaml = "0.8.13"
 sha2 = "0.9.1"
 shellexpand = "2.0.0"
 strip-ansi-escapes = "0.1.0"
+sxd-xpath = "0.4.2"
+sxd-document = "0.3.2"
 tempfile = "3.1.0"
 term = {version = "0.6.1", optional = true}
 term_size = "0.3.2"
