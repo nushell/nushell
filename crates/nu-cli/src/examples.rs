@@ -16,8 +16,8 @@ use crate::command_registry::CommandRegistry;
 use crate::commands::classified::block::run_block;
 use crate::commands::command::CommandArgs;
 use crate::commands::{
-    whole_stream_command, BuildString, Command, Each, Echo, Get, Keep, StrCollect,
-    WholeStreamCommand, Wrap,
+    whole_stream_command, BuildString, Command, Each, Echo, First, Get, Keep, Last, Nth,
+    StrCollect, WholeStreamCommand, Wrap,
 };
 use crate::evaluation_context::EvaluationContext;
 use crate::stream::{InputStream, OutputStream};
@@ -37,9 +37,12 @@ pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
         // Minimal restricted commands to aid in testing
         whole_stream_command(Echo {}),
         whole_stream_command(BuildString {}),
+        whole_stream_command(First {}),
         whole_stream_command(Get {}),
         whole_stream_command(Keep {}),
         whole_stream_command(Each {}),
+        whole_stream_command(Last {}),
+        whole_stream_command(Nth {}),
         whole_stream_command(StrCollect),
         whole_stream_command(Wrap),
         cmd,
@@ -150,9 +153,12 @@ pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
         whole_stream_command(MockEcho {}),
         whole_stream_command(MockLs {}),
         whole_stream_command(BuildString {}),
+        whole_stream_command(First {}),
         whole_stream_command(Get {}),
         whole_stream_command(Keep {}),
         whole_stream_command(Each {}),
+        whole_stream_command(Last {}),
+        whole_stream_command(Nth {}),
         whole_stream_command(StrCollect),
         whole_stream_command(Wrap),
         cmd,
@@ -351,16 +357,33 @@ impl WholeStreamCommand for MockEcho {
                     Value {
                         value: UntaggedValue::Table(table),
                         ..
-                    } => futures::stream::iter(
-                        table
-                            .into_iter()
-                            .map(move |mut v| {
+                    } => {
+                        if table.len() == 1 && table[0].is_table() {
+                            let mut values: Vec<Value> =
+                                table[0].table_entries().map(Clone::clone).collect();
+
+                            for v in values.iter_mut() {
                                 v.tag = base_value.tag();
-                                v
-                            })
-                            .map(ReturnSuccess::value),
-                    )
-                    .to_output_stream(),
+                            }
+
+                            let subtable =
+                                vec![UntaggedValue::Table(values).into_value(base_value.tag())];
+
+                            futures::stream::iter(subtable.into_iter().map(ReturnSuccess::value))
+                                .to_output_stream()
+                        } else {
+                            futures::stream::iter(
+                                table
+                                    .into_iter()
+                                    .map(move |mut v| {
+                                        v.tag = base_value.tag();
+                                        v
+                                    })
+                                    .map(ReturnSuccess::value),
+                            )
+                            .to_output_stream()
+                        }
+                    }
                     _ => OutputStream::one(Ok(ReturnSuccess::Value(Value {
                         value: i.value.clone(),
                         tag: base_value.tag,
