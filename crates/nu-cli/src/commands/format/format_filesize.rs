@@ -180,8 +180,8 @@ fn convert_bytes_to_string_using_format(
 
 #[cfg(test)]
 mod tests {
-    use super::ShellError;
     use super::FileSize;
+    use super::ShellError;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
