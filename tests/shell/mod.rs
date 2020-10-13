@@ -7,7 +7,12 @@ fn plugins_are_declared_with_wix() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-            open Cargo.toml | get bin.name | drop | sort-by | wrap cargo | merge {
+            open Cargo.toml
+            | get bin.name
+            | str find-replace "nu_plugin_(extra|core)_(.*)" "nu_plugin_$2"
+            | drop
+            | sort-by
+            | wrap cargo | merge {
                 open wix/main.wxs --raw | from xml
                 | get Wix.children.Product.children.0.Directory.children.0
                 | where Directory.attributes.Id == "$(var.PlatformProgramFilesFolder)"
