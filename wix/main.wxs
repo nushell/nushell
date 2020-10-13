@@ -98,73 +98,73 @@
                         <Component Id='binary1' Guid='*' Win64='$(var.Win64)'>
                             <File
                                 Id='exe1'
-                                Name='nu_plugin_extra_binaryview.exe'
+                                Name='nu_plugin_binaryview.exe'
                                 DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_extra_binaryview.exe'
+                                Source='target\$(var.Profile)\nu_plugin_binaryview.exe'
                                 KeyPath='yes'/>
                         </Component>
                         <Component Id='binary2' Guid='*' Win64='$(var.Win64)'>
                             <File
                                 Id='exe2'
-                                Name='nu_plugin_core_fetch.exe'
+                                Name='nu_plugin_fetch.exe'
                                 DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_core_fetch.exe'
+                                Source='target\$(var.Profile)\nu_plugin_fetch.exe'
                                 KeyPath='yes'/>
                         </Component>
                         <Component Id='binary3' Guid='*' Win64='$(var.Win64)'>
                             <File
                                 Id='exe3'
-                                Name='nu_plugin_core_inc.exe'
+                                Name='nu_plugin_inc.exe'
                                 DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_core_inc.exe'
+                                Source='target\$(var.Profile)\nu_plugin_inc.exe'
                                 KeyPath='yes'/>
                         </Component>
                         <Component Id='binary4' Guid='*' Win64='$(var.Win64)'>
                             <File
                                 Id='exe4'
-                                Name='nu_plugin_core_post.exe'
+                                Name='nu_plugin_post.exe'
                                 DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_core_post.exe'
+                                Source='target\$(var.Profile)\nu_plugin_post.exe'
                                 KeyPath='yes'/>
                         </Component>
                         <Component Id='binary5' Guid='*' Win64='$(var.Win64)'>
                             <File
                                 Id='exe5'
-                                Name='nu_plugin_core_ps.exe'
+                                Name='nu_plugin_ps.exe'
                                 DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_core_ps.exe'
+                                Source='target\$(var.Profile)\nu_plugin_ps.exe'
                                 KeyPath='yes'/>
                         </Component>
                         <Component Id='binary6' Guid='*' Win64='$(var.Win64)'>
                             <File
                                 Id='exe6'
-                                Name='nu_plugin_extra_start.exe'
+                                Name='nu_plugin_start.exe'
                                 DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_extra_start.exe'
+                                Source='target\$(var.Profile)\nu_plugin_start.exe'
                                 KeyPath='yes'/>
                         </Component>
                         <Component Id='binary7' Guid='*' Win64='$(var.Win64)'>
                             <File
                                 Id='exe7'
-                                Name='nu_plugin_core_sys.exe'
+                                Name='nu_plugin_sys.exe'
                                 DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_core_sys.exe'
+                                Source='target\$(var.Profile)\nu_plugin_sys.exe'
                                 KeyPath='yes'/>
                         </Component>
                         <Component Id='binary8' Guid='*' Win64='$(var.Win64)'>
                             <File
                                 Id='exe8'
-                                Name='nu_plugin_core_textview.exe'
+                                Name='nu_plugin_textview.exe'
                                 DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_core_textview.exe'
+                                Source='target\$(var.Profile)\nu_plugin_textview.exe'
                                 KeyPath='yes'/>
                         </Component>
                         <Component Id='binary9' Guid='*' Win64='$(var.Win64)'>
                             <File
                                 Id='exe9'
-                                Name='nu_plugin_extra_tree.exe'
+                                Name='nu_plugin_tree.exe'
                                 DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_extra_tree.exe'
+                                Source='target\$(var.Profile)\nu_plugin_tree.exe'
                                 KeyPath='yes'/>
                         </Component>
                         <!-- Downloaded from here https://github.com/jftuga/less-Windows/releases/download/less-v562.0/less.exe -->
@@ -179,9 +179,9 @@
                         <Component Id='binary11' Guid='*' Win64='$(var.Win64)'>
                             <File
                                 Id='exe11'
-                                Name='nu_plugin_core_match.exe'
+                                Name='nu_plugin_match.exe'
                                 DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_core_match.exe'
+                                Source='target\$(var.Profile)\nu_plugin_match.exe'
                                 KeyPath='yes'/>
                         </Component>
                         <Component Id='binary12' Guid='*' Win64='$(var.Win64)'>
@@ -211,33 +211,33 @@
                         <Component Id='binary15' Guid='*' Win64='$(var.Win64)'>
                             <File
                                 Id='exe15'
-                                Name='nu_plugin_extra_s3.exe'
+                                Name='nu_plugin_s3.exe'
                                 DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_extra_s3.exe'
+                                Source='target\$(var.Profile)\nu_plugin_s3.exe'
                                 KeyPath='yes'/>
                         </Component>
                         <Component Id='binary16' Guid='*' Win64='$(var.Win64)'>
                             <File
                                 Id='exe16'
-                                Name='nu_plugin_extra_chart_bar.exe'
+                                Name='nu_plugin_chart_bar.exe'
                                 DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_extra_chart_bar.exe'
+                                Source='target\$(var.Profile)\nu_plugin_chart_bar.exe'
                                 KeyPath='yes'/>
                         </Component>
                         <Component Id='binary17' Guid='*' Win64='$(var.Win64)'>
                             <File
                                 Id='exe17'
-                                Name='nu_plugin_extra_chart_line.exe'
+                                Name='nu_plugin_chart_line.exe'
                                 DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_extra_chart_line.exe'
+                                Source='target\$(var.Profile)\nu_plugin_chart_line.exe'
                                 KeyPath='yes'/>
                         </Component>
                         <Component Id='binary18' Guid='*' Win64='$(var.Win64)'>
                             <File
                                 Id='exe18'
-                                Name='nu_plugin_extra_xpath.exe'
+                                Name='nu_plugin_xpath.exe'
                                 DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_extra_xpath.exe'
+                                Source='target\$(var.Profile)\nu_plugin_xpath.exe'
                                 KeyPath='yes'/>
                         </Component>
                     </Directory>
