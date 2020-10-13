@@ -75,7 +75,7 @@ async fn process_row(
         match replace_for {
             Ok(s) => match convert_bytes_to_string_using_format(s, format) {
                 Ok(b) => OutputStream::one(ReturnSuccess::value(
-                    input.replace_data_at_column_path(&field, b).unwrap(),
+                    input.replace_data_at_column_path(&field, b).expect("Given that the existance check was already done, this souldn't trigger never"),
                 )),
                 Err(e) => OutputStream::one(Err(e)),
             },
@@ -181,11 +181,12 @@ fn convert_bytes_to_string_using_format(
 #[cfg(test)]
 mod tests {
     use super::ShellError;
+    use super::FileSize;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        Ok(test_examples(Date {})?)
+        Ok(test_examples(FileSize {})?)
     }
 }
