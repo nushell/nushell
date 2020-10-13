@@ -234,7 +234,7 @@
                         </Component>
                         <Component Id='binary18' Guid='*' Win64='$(var.Win64)'>
                             <File
-                                Id='exe17'
+                                Id='exe18'
                                 Name='nu_plugin_extra_xpath.exe'
                                 DiskId='1'
                                 Source='target\$(var.Profile)\nu_plugin_extra_xpath.exe'
@@ -278,6 +278,7 @@
             <ComponentRef Id='binary15'/>
             <ComponentRef Id='binary16'/>
             <ComponentRef Id='binary17'/>
+            <ComponentRef Id='binary18'/>
 
             <Feature
                 Id='Environment'
