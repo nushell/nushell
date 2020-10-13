@@ -3,7 +3,8 @@ use nu_errors::ShellError;
 
 use crate::commands::WholeStreamCommand;
 use nu_protocol::{
-    ColumnPath, Primitive::Filesize, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, UntaggedValue::Primitive, Value
+    ColumnPath, Primitive::Filesize, ReturnSuccess, Signature, SyntaxShape, UntaggedValue,
+    UntaggedValue::Primitive, Value,
 };
 use nu_source::Tagged;
 use nu_value_ext::get_data_by_column_path;
@@ -70,18 +71,17 @@ async fn process_row(
     field: Arc<ColumnPath>,
 ) -> Result<OutputStream, ShellError> {
     Ok({
-                let replace_for = get_data_by_column_path(&input, &field, move |_, _, error| error);
-                match replace_for {
-                    Ok(s) => {
-                        match convert_bytes_to_string_using_format(s, format) {
-                            Ok(b) => OutputStream::one(ReturnSuccess::value(input.replace_data_at_column_path(&field, b).unwrap())),
-                            Err(e) => OutputStream::one(Err(e))
-                        }
-                    }
-                    Err(e) => OutputStream::one(Err(e))
-                }
-    }
-    )
+        let replace_for = get_data_by_column_path(&input, &field, move |_, _, error| error);
+        match replace_for {
+            Ok(s) => match convert_bytes_to_string_using_format(s, format) {
+                Ok(b) => OutputStream::one(ReturnSuccess::value(
+                    input.replace_data_at_column_path(&field, b).unwrap(),
+                )),
+                Err(e) => OutputStream::one(Err(e)),
+            },
+            Err(e) => OutputStream::one(Err(e)),
+        }
+    })
 }
 
 async fn filesize(
@@ -114,8 +114,8 @@ fn convert_bytes_to_string_using_format(
 ) -> Result<Value, ShellError> {
     match bytes.value {
         Primitive(Filesize(b)) => {
-           let byte = byte_unit::Byte::from_bytes(b as u128);
-           let value = match format.item().to_lowercase().as_str() {
+            let byte = byte_unit::Byte::from_bytes(b as u128);
+            let value = match format.item().to_lowercase().as_str() {
                 "b" => Ok(UntaggedValue::string(b.to_string())),
                 "kb" => Ok(UntaggedValue::string(
                     byte.get_adjusted_unit(byte_unit::ByteUnit::KB).to_string(),
@@ -164,10 +164,10 @@ fn convert_bytes_to_string_using_format(
                     "invalid format",
                     format.tag(),
                 )),
-           };
+            };
             match value {
-                Ok(b) => Ok(Value { value: b, ..bytes}),
-                Err(e) => Err(e)
+                Ok(b) => Ok(Value { value: b, ..bytes }),
+                Err(e) => Err(e),
             }
         }
         _ => Err(ShellError::labeled_error(
