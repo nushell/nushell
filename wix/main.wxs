@@ -75,7 +75,7 @@
                             Source='wix\License.rtf'
                             KeyPath='yes'/>
                     </Component>
-                    
+
                     <Directory Id='Bin' Name='bin'>
                         <Component Id='Path' Guid='285921EA-6DC0-4632-B12C-D7D737F30686' Win64='$(var.Win64)' KeyPath='yes'>
                             <Environment
@@ -240,6 +240,39 @@
                                 Source='target\$(var.Profile)\nu_plugin_xpath.exe'
                                 KeyPath='yes'/>
                         </Component>
+                        <Component Id='binary19' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe19'
+                                Name='nu_plugin_from_bson.exe'
+                                DiskId='1'
+                                Source='target\$(var.Profile)\nu_plugin_from_bson.exe'
+                                KeyPath='yes'/>
+                        </Component>
+                        <Component Id='binary20' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe20'
+                                Name='nu_plugin_to_bson.exe'
+                                DiskId='1'
+                                Source='target\$(var.Profile)\nu_plugin_to_bson.exe'
+                                KeyPath='yes'/>
+                        </Component>
+                        <Component Id='binary21' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe21'
+                                Name='nu_plugin_from_sqlite.exe'
+                                DiskId='1'
+                                Source='target\$(var.Profile)\nu_plugin_from_sqlite.exe'
+                                KeyPath='yes'/>
+                        </Component>
+                        <Component Id='binary22' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe22'
+                                Name='nu_plugin_to_sqlite.exe'
+                                DiskId='1'
+                                Source='target\$(var.Profile)\nu_plugin_to_sqlite.exe'
+                                KeyPath='yes'/>
+                        </Component>
+
                     </Directory>
                 </Directory>
             </Directory>
@@ -259,7 +292,7 @@
               the license sidecar file from the installer.
             -->
             <ComponentRef Id='License'/>
-            
+
             <ComponentRef Id='binary0'/>
             <ComponentRef Id='binary1'/>
             <ComponentRef Id='binary2'/>
@@ -279,6 +312,10 @@
             <ComponentRef Id='binary16'/>
             <ComponentRef Id='binary17'/>
             <ComponentRef Id='binary18'/>
+            <ComponentRef Id='binary19'/>
+            <ComponentRef Id='binary20'/>
+            <ComponentRef Id='binary21'/>
+            <ComponentRef Id='binary22'/>
 
             <Feature
                 Id='Environment'
@@ -292,7 +329,7 @@
 
         <SetProperty Id='ARPINSTALLLOCATION' Value='[APPLICATIONFOLDER]' After='CostFinalize'/>
 
-        
+
         <!--
           Uncomment the following `Icon` and `Property` tags to change the product icon.
 
@@ -303,7 +340,7 @@
         <!--<Property Id='ARPPRODUCTICON' Value='ProductICO' />-->
 
         <Property Id='ARPHELPLINK' Value='https://www.nushell.sh/book/'/>
-        
+
         <UI>
             <UIRef Id='WixUI_FeatureTree'/>
             <!--
@@ -315,7 +352,7 @@
             -->
             <!--<Publish Dialog='WelcomeDlg' Control='Next' Event='NewDialog' Value='CustomizeDlg' Order='99'>1</Publish>-->
             <!--<Publish Dialog='CustomizeDlg' Control='Back' Event='NewDialog' Value='WelcomeDlg' Order='99'>1</Publish>-->
-            
+
         </UI>
 
         <!--
@@ -323,8 +360,8 @@
           or removing the following `WixVariable` tag
         -->
         <WixVariable Id='WixUILicenseRtf' Value='wix\License.rtf'/>
-        
-        
+
+
         <!--
           Uncomment the next `WixVaraible` tag to customize the installer's
           Graphical User Interface (GUI) and add a custom banner image across
@@ -335,7 +372,7 @@
         -->
         <!--<WixVariable Id='WixUIBannerBmp' Value='wix\Banner.bmp'/>-->
 
-        
+
         <!--
           Uncomment the next `WixVariable` tag to customize the installer's
           Graphical User Interface (GUI) and add a custom image to the first
