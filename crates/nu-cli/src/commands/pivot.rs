@@ -5,7 +5,7 @@ use nu_protocol::{
     merge_descriptors, ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue,
 };
 use nu_source::{SpannedItem, Tagged};
-use nu_value_ext::get_data_by_key;
+use nu_value_ext::ValueExt;
 
 pub struct Pivot;
 
@@ -79,7 +79,7 @@ pub async fn pivot(
     if args.header_row {
         for i in input.clone() {
             if let Some(desc) = descs.get(0) {
-                match get_data_by_key(&i, desc[..].spanned_unknown()) {
+                match &i.get_data_by_key(desc[..].spanned_unknown()) {
                     Some(x) => {
                         if let Ok(s) = x.as_string() {
                             headers.push(s.to_string());
@@ -136,7 +136,7 @@ pub async fn pivot(
         }
 
         for i in input.clone() {
-            match get_data_by_key(&i, desc[..].spanned_unknown()) {
+            match &i.get_data_by_key(desc[..].spanned_unknown()) {
                 Some(x) => {
                     dict.insert_value(headers[column_num].clone(), x.clone());
                 }
