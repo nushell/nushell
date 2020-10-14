@@ -196,7 +196,7 @@ impl Dictionary {
 }
 
 /// A helper to help create dictionaries for you. It has the ability to insert values into the dictionary while maintaining the tags that need to be applied to the individual members
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TaggedDictBuilder {
     tag: Tag,
     dict: IndexMap<String, Value>,
