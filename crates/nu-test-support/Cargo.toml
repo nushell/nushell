@@ -1,6 +1,6 @@
 [package]
 authors = ["The Nu Project Contributors"]
-description = "A source string characterizer for Nushell"
+description = "Support for writing Nushell tests"
 edition = "2018"
 license = "MIT"
 name = "nu-test-support"
