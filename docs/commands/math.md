@@ -4,11 +4,14 @@ Mathematical functions that generally only operate on a list of numbers (integer
 Currently the following functions are implemented:
 
 * `math avg`: Finds the average of a list of numbers or tables
+* `math ceil`: Applies the ceil function to a list of numbers
 * [`math eval`](math-eval.md): Evaluates a list of math expressions into numbers
+* `math floor`: Applies the floor function to a list of numbers
 * `math max`: Finds the maximum within a list of numbers or tables
 * `math median`: Finds the median of a list of numbers or tables
 * `math min`: Finds the minimum within a list of numbers or tables
 * `math mode`: Finds the most frequent element(s) within a list of numbers or tables
+* `math round`: Applies the round function to a list of numbers
 * `math stddev`: Finds the standard deviation of a list of numbers or tables
 * `math sum`: Finds the sum of a list of numbers or tables
 * `math product`: Finds the product of a list of numbers or tables
@@ -115,6 +118,33 @@ To get the average of the file sizes in a directory, simply pipe the size column
 ```shell
 > echo [1 4 6 10 50] | math variance
 328.96
+```
+
+```shell
+> echo [1.5 2.3 -3.1] | math ceil
+───┬────
+ 0 │  2
+ 1 │  3
+ 2 │ -3
+───┴────
+```
+
+```shell
+> echo [1.5 2.3 -3.1] | math floor
+───┬────
+ 0 │  1
+ 1 │  2
+ 2 │ -4
+───┴────
+```
+
+```shell
+> echo [1.5 2.3 -3.1] | math round
+───┬────
+ 0 │  2
+ 1 │  2
+ 2 │ -3
+───┴────
 ```
 
 ### Dates
