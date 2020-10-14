@@ -9,6 +9,8 @@ use nu_protocol::{
 use nu_source::Tagged;
 use nu_value_ext::get_data_by_column_path;
 
+use num_format::{Locale, ToFormattedString};
+
 pub struct FileSize;
 
 #[derive(Deserialize)]
@@ -116,7 +118,7 @@ fn convert_bytes_to_string_using_format(
         Primitive(Filesize(b)) => {
             let byte = byte_unit::Byte::from_bytes(b as u128);
             let value = match format.item().to_lowercase().as_str() {
-                "b" => Ok(UntaggedValue::string(b.to_string())),
+                "b" => Ok(UntaggedValue::string(b.to_formatted_string(&Locale::en))),
                 "kb" => Ok(UntaggedValue::string(
                     byte.get_adjusted_unit(byte_unit::ByteUnit::KB).to_string(),
                 )),
