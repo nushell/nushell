@@ -1,4 +1,5 @@
 pub mod avg;
+pub mod ceil;
 pub mod command;
 pub mod eval;
 pub mod floor;
@@ -16,6 +17,7 @@ mod reducers;
 mod utils;
 
 pub use avg::SubCommand as MathAverage;
+pub use ceil::SubCommand as MathCeil;
 pub use command::Command as Math;
 pub use eval::SubCommand as MathEval;
 pub use floor::SubCommand as MathFloor;
