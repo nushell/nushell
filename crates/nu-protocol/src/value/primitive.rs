@@ -1,6 +1,7 @@
 use crate::type_name::ShellTypeName;
 use crate::value::column_path::ColumnPath;
 use crate::value::range::{Range, RangeInclusion};
+use crate::value::{serde_bigdecimal, serde_bigint};
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use nu_errors::{ExpectedRange, ShellError};
@@ -24,8 +25,10 @@ pub enum Primitive {
     /// An empty value
     Nothing,
     /// A "big int", an integer with arbitrarily large size (aka not limited to 64-bit)
+    #[serde(with = "serde_bigint")]
     Int(BigInt),
     /// A "big decimal", an decimal number with arbitrarily large size (aka not limited to 64-bit)
+    #[serde(with = "serde_bigdecimal")]
     Decimal(BigDecimal),
     /// A count in the number of bytes, used as a filesize
     Filesize(u64),
@@ -42,6 +45,7 @@ pub enum Primitive {
     /// A date value, in UTC
     Date(DateTime<Utc>),
     /// A count in the number of nanoseconds
+    #[serde(with = "serde_bigint")]
     Duration(BigInt),
     /// A range of values
     Range(Box<Range>),

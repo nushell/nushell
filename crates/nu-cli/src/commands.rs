@@ -42,6 +42,7 @@ pub(crate) mod every;
 pub(crate) mod exec;
 pub(crate) mod exit;
 pub(crate) mod first;
+pub(crate) mod flatten;
 pub(crate) mod format;
 pub(crate) mod from;
 pub(crate) mod from_csv;
@@ -176,6 +177,7 @@ pub(crate) use exec::Exec;
 pub(crate) use exit::Exit;
 pub(crate) use first::First;
 pub(crate) use format::{FileSize, Format};
+pub(crate) use flatten::Command as Flatten;
 pub(crate) use from::From;
 pub(crate) use from_csv::FromCSV;
 pub(crate) use from_eml::FromEML;
@@ -278,7 +280,7 @@ mod tests {
     use crate::examples::{test_anchors, test_examples};
     use nu_errors::ShellError;
 
-    fn commands() -> Vec<Command> {
+    fn full_tests() -> Vec<Command> {
         vec![
             whole_stream_command(Append),
             whole_stream_command(GroupBy),
@@ -288,9 +290,15 @@ mod tests {
         ]
     }
 
+    fn only_examples() -> Vec<Command> {
+        let mut commands = full_tests();
+        commands.extend(vec![whole_stream_command(Flatten)]);
+        commands
+    }
+
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
-        for cmd in commands() {
+        for cmd in only_examples() {
             test_examples(cmd)?;
         }
 
@@ -299,7 +307,7 @@ mod tests {
 
     #[test]
     fn tracks_metadata() -> Result<(), ShellError> {
-        for cmd in commands() {
+        for cmd in full_tests() {
             test_anchors(cmd)?;
         }
 

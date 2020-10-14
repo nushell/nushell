@@ -10,25 +10,16 @@ pub enum AutoPivotMode {
 
 impl AutoPivotMode {
     pub fn is_auto(&self) -> bool {
-        match &self {
-            AutoPivotMode::Auto => true,
-            _ => false,
-        }
+        matches!(self, AutoPivotMode::Auto)
     }
 
     pub fn is_always(&self) -> bool {
-        match &self {
-            AutoPivotMode::Always => true,
-            _ => false,
-        }
+        matches!(self, AutoPivotMode::Always)
     }
 
     #[allow(unused)]
     pub fn is_never(&self) -> bool {
-        match &self {
-            AutoPivotMode::Never => true,
-            _ => false,
-        }
+        matches!(self, AutoPivotMode::Never)
     }
 }
 

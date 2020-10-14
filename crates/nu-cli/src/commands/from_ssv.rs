@@ -135,7 +135,7 @@ fn parse_aligned_columns<'a>(
             .flat_map(|s| find_indices(*s))
             .collect::<Vec<usize>>();
 
-        indices.sort();
+        indices.sort_unstable();
         indices.dedup();
 
         let headers: Vec<(String, usize)> = indices

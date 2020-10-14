@@ -1,22 +1,26 @@
 [package]
 authors = ["The Nu Project Contributors"]
-description = "A source string characterizer for Nushell"
+description = "Support for writing Nushell tests"
 edition = "2018"
 license = "MIT"
 name = "nu-test-support"
-version = "0.20.0"
+version = "0.21.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-protocol = {path = "../nu-protocol", version = "0.20.0"}
-nu-source = {path = "../nu-source", version = "0.20.0"}
+nu-errors = {version = "0.21.0", path = "../nu-errors"}
+nu-protocol = {path = "../nu-protocol", version = "0.21.0"}
+nu-source = {path = "../nu-source", version = "0.21.0"}
+nu-value-ext = {version = "0.21.0", path = "../nu-value-ext"}
 
+chrono = "0.4.15"
 dunce = "1.0.1"
 getset = "0.1.1"
 glob = "0.3.0"
 indexmap = {version = "1.6.0", features = ["serde-1"]}
+num-bigint = {version = "0.3.0", features = ["serde"]}
 tempfile = "3.1.0"
 
 [build-dependencies]

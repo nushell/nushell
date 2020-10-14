@@ -4,21 +4,21 @@ description = "CLI for nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-cli"
-version = "0.20.0"
+version = "0.21.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-data = {version = "0.20.0", path = "../nu-data"}
-nu-errors = {version = "0.20.0", path = "../nu-errors"}
-nu-parser = {version = "0.20.0", path = "../nu-parser"}
-nu-plugin = {version = "0.20.0", path = "../nu-plugin"}
-nu-protocol = {version = "0.20.0", path = "../nu-protocol"}
-nu-source = {version = "0.20.0", path = "../nu-source"}
-nu-table = {version = "0.20.0", path = "../nu-table"}
-nu-test-support = {version = "0.20.0", path = "../nu-test-support"}
-nu-value-ext = {version = "0.20.0", path = "../nu-value-ext"}
+nu-data = {version = "0.21.0", path = "../nu-data"}
+nu-errors = {version = "0.21.0", path = "../nu-errors"}
+nu-parser = {version = "0.21.0", path = "../nu-parser"}
+nu-plugin = {version = "0.21.0", path = "../nu-plugin"}
+nu-protocol = {version = "0.21.0", path = "../nu-protocol"}
+nu-source = {version = "0.21.0", path = "../nu-source"}
+nu-table = {version = "0.21.0", path = "../nu-table"}
+nu-test-support = {version = "0.21.0", path = "../nu-test-support"}
+nu-value-ext = {version = "0.21.0", path = "../nu-value-ext"}
 
 ansi_term = "0.12.1"
 async-recursion = "0.3.1"
@@ -79,6 +79,8 @@ serde_yaml = "0.8.13"
 sha2 = "0.9.1"
 shellexpand = "2.0.0"
 strip-ansi-escapes = "0.1.0"
+sxd-document = "0.3.2"
+sxd-xpath = "0.4.2"
 tempfile = "3.1.0"
 term = {version = "0.6.1", optional = true}
 term_size = "0.3.2"

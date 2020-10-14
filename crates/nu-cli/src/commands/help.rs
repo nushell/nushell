@@ -6,7 +6,7 @@ use nu_data::command::signature_dict;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::{SpannedItem, Tagged};
-use nu_value_ext::get_data_by_key;
+use nu_value_ext::ValueExt;
 
 pub struct Help;
 
@@ -96,7 +96,8 @@ async fn help(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
                 dict.insert_untagged("name", cmd_name);
                 dict.insert_untagged(
                     "description",
-                    get_data_by_key(&value, "usage".spanned_unknown())
+                    value
+                        .get_data_by_key("usage".spanned_unknown())
                         .ok_or_else(|| {
                             ShellError::labeled_error(
                                 "Expected a usage key",

@@ -34,3 +34,18 @@ fn lines_proper_buffering() {
 
     assert_eq!(actual.out, "[8194,4]");
 }
+
+#[test]
+fn lines_multi_value_split() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            open sample-simple.json
+            | get first second
+            | lines
+            | count
+        "#
+    ));
+
+    assert_eq!(actual.out, "6");
+}
