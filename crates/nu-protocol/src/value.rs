@@ -7,6 +7,8 @@ pub mod evaluate;
 pub mod iter;
 pub mod primitive;
 pub mod range;
+mod serde_bigdecimal;
+mod serde_bigint;
 
 use crate::hir;
 use crate::type_name::{ShellTypeName, SpannedTypeName};
@@ -90,6 +92,11 @@ impl UntaggedValue {
     /// Returns true if this value represents a table
     pub fn is_table(&self) -> bool {
         matches!(self, UntaggedValue::Table(_))
+    }
+
+    /// Returns true if this value represents a row
+    pub fn is_row(&self) -> bool {
+        matches!(self, UntaggedValue::Row(_))
     }
 
     /// Returns true if this value represents a string
@@ -197,13 +204,22 @@ impl UntaggedValue {
     pub fn decimal_from_float(f: f64, span: Span) -> UntaggedValue {
         let dec = BigDecimal::from_f64(f);
 
-        match dec {
-            Some(dec) => UntaggedValue::Primitive(Primitive::Decimal(dec)),
-            None => UntaggedValue::Error(ShellError::labeled_error(
-                "Can not convert f64 to big decimal",
-                "can not create decimal",
-                span,
-            )),
+        // BigDecimal doesn't have the concept of inf/NaN so handle manually
+        if f.is_sign_negative() && f.is_infinite() {
+            UntaggedValue::from("-inf")
+        } else if f.is_infinite() {
+            UntaggedValue::from("inf")
+        } else if f.is_nan() {
+            UntaggedValue::from("NaN")
+        } else {
+            match dec {
+                Some(dec) => UntaggedValue::Primitive(Primitive::Decimal(dec)),
+                None => UntaggedValue::Error(ShellError::labeled_error(
+                    "Can not convert f64 to big decimal",
+                    "can not create decimal",
+                    span,
+                )),
+            }
         }
     }
 
@@ -544,4 +560,29 @@ pub fn merge_descriptors(values: &[Value]) -> Vec<String> {
         }
     }
     ret
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_decimal_from_float() {
+        assert_eq!(
+            UntaggedValue::from("inf"),
+            UntaggedValue::decimal_from_float(f64::INFINITY, Span::default())
+        );
+        assert_eq!(
+            UntaggedValue::from("-inf"),
+            UntaggedValue::decimal_from_float(f64::NEG_INFINITY, Span::default())
+        );
+        assert_eq!(
+            UntaggedValue::from("NaN"),
+            UntaggedValue::decimal_from_float(f64::NAN, Span::default())
+        );
+        assert_eq!(
+            UntaggedValue::from(5.5),
+            UntaggedValue::decimal_from_float(5.5, Span::default())
+        )
+    }
 }

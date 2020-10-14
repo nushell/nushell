@@ -16,6 +16,7 @@ mod empty;
 mod enter;
 mod every;
 mod first;
+mod flatten;
 mod format;
 mod get;
 mod group_by;

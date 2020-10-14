@@ -75,9 +75,9 @@ async fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
                 } => {
                     let mut leftover_string = leftover_string.lock();
 
-                    let st = (&*leftover_string).clone() + &st;
-
-                    let mut lines: Vec<String> = st.lines().map(|x| x.to_string()).collect();
+                    let lo_lines = (&*leftover_string).lines().map(|x| x.to_string());
+                    let st_lines = st.lines().map(|x| x.to_string());
+                    let mut lines: Vec<String> = lo_lines.chain(st_lines).collect();
 
                     leftover_string.clear();
 

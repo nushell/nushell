@@ -4,7 +4,7 @@ use indexmap::{indexset, IndexSet};
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue, Value};
 use nu_source::Spanned;
-use nu_value_ext::{as_string, get_data_by_key};
+use nu_value_ext::{as_string, ValueExt};
 
 fn from_value_to_delimited_string(
     tagged_value: &Value,
@@ -66,7 +66,7 @@ fn from_value_to_delimited_string(
                 for l in list {
                     let mut row = vec![];
                     for desc in &merged_descriptors {
-                        row.push(match get_data_by_key(l, desc.borrow_spanned()) {
+                        row.push(match l.get_data_by_key(desc.borrow_spanned()) {
                             Some(s) => to_string_tagged_value(&s)?,
                             None => String::new(),
                         });
