@@ -1,6 +1,7 @@
 pub mod avg;
 pub mod command;
 pub mod eval;
+pub mod floor;
 pub mod max;
 pub mod median;
 pub mod min;
@@ -17,6 +18,7 @@ mod utils;
 pub use avg::SubCommand as MathAverage;
 pub use command::Command as Math;
 pub use eval::SubCommand as MathEval;
+pub use floor::SubCommand as MathFloor;
 pub use max::SubCommand as MathMaximum;
 pub use median::SubCommand as MathMedian;
 pub use min::SubCommand as MathMinimum;
