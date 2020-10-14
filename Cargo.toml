@@ -190,6 +190,26 @@ name = "nu_plugin_extra_xpath"
 path = "src/plugins/nu_plugin_extra_xpath.rs"
 required-features = ["xpath"]
 
+[[bin]]
+name = "nu_plugin_extra_from_bson"
+path = "src/plugins/nu_plugin_extra_from_bson.rs"
+required-features = ["bson"]
+
+[[bin]]
+name = "nu_plugin_extra_to_bson"
+path = "src/plugins/nu_plugin_extra_to_bson.rs"
+required-features = ["bson"]
+
+[[bin]]
+name = "nu_plugin_extra_from_sqlite"
+path = "src/plugins/nu_plugin_extra_from_sqlite.rs"
+required-features = ["sqlite"]
+
+[[bin]]
+name = "nu_plugin_extra_to_sqlite"
+path = "src/plugins/nu_plugin_extra_to_sqlite.rs"
+required-features = ["sqlite"]
+
 # Main nu binary
 [[bin]]
 name = "nu"
