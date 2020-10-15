@@ -2,8 +2,7 @@ use chrono::{DateTime, NaiveDate, Utc};
 use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_protocol::{ColumnPath, PathMember, Primitive, UntaggedValue, Value};
-use nu_source::{Span, Tagged, TaggedItem};
-use nu_value_ext::as_column_path;
+use nu_source::{Span, SpannedItem, Tagged, TaggedItem};
 use num_bigint::BigInt;
 
 pub fn int(s: impl Into<BigInt>) -> Value {
@@ -43,8 +42,9 @@ pub fn date(input: impl Into<String>) -> Value {
     .into_untagged_value()
 }
 
-pub fn column_path(paths: &[Value]) -> Result<Tagged<ColumnPath>, ShellError> {
-    as_column_path(&table(paths))
+pub fn column_path(paths: &str) -> Result<Tagged<ColumnPath>, ShellError> {
+    let paths = paths.to_string().spanned_unknown();
+    Ok(ColumnPath::build(&paths).tagged_unknown())
 }
 
 pub fn error_callback(

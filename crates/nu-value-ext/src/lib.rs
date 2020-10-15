@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use indexmap::indexmap;
 use indexmap::set::IndexSet;
 use itertools::Itertools;
@@ -639,7 +642,9 @@ pub fn as_column_path(value: &Value) -> Result<Tagged<ColumnPath>, ShellError> {
         }
 
         UntaggedValue::Primitive(Primitive::String(s)) => {
-            Ok(ColumnPath::new(vec![PathMember::string(s, &value.tag.span)]).tagged(&value.tag))
+            let s = s.to_string().spanned(value.tag.span);
+
+            Ok(ColumnPath::build(&s).tagged(&value.tag))
         }
 
         UntaggedValue::Primitive(Primitive::ColumnPath(path)) => {

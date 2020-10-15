@@ -16,13 +16,13 @@ use crate::value::dict::Dictionary;
 use crate::value::iter::{RowValueIter, TableValueIter};
 use crate::value::primitive::Primitive;
 use crate::value::range::{Range, RangeInclusion};
-use crate::{ColumnPath, PathMember};
+use crate::ColumnPath;
 use bigdecimal::BigDecimal;
 use bigdecimal::FromPrimitive;
 use chrono::{DateTime, Utc};
 use indexmap::IndexMap;
 use nu_errors::ShellError;
-use nu_source::{AnchorLocation, HasSpan, Span, Spanned, Tag};
+use nu_source::{AnchorLocation, HasSpan, Span, Spanned, SpannedItem, Tag};
 use num_bigint::BigInt;
 use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
@@ -169,10 +169,10 @@ impl UntaggedValue {
     }
 
     /// Helper for creating column-path values
-    pub fn column_path(s: Vec<impl Into<PathMember>>) -> UntaggedValue {
-        UntaggedValue::Primitive(Primitive::ColumnPath(ColumnPath::new(
-            s.into_iter().map(|p| p.into()).collect(),
-        )))
+    pub fn column_path(s: &str) -> UntaggedValue {
+        let s = s.to_string().spanned_unknown();
+
+        UntaggedValue::Primitive(Primitive::ColumnPath(ColumnPath::build(&s)))
     }
 
     /// Helper for creating integer values
