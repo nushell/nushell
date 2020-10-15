@@ -40,7 +40,7 @@ impl WholeStreamCommand for FileSize {
     }
 
     fn usage(&self) -> &str {
-        "Converts a column of filesizes to some format"
+        "Converts a column of filesizes to some specified format"
     }
 
     async fn run(
