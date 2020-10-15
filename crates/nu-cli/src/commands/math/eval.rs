@@ -91,7 +91,9 @@ pub async fn eval(
 }
 
 pub fn parse<T: Into<Tag>>(math_expression: &str, tag: T) -> Result<Value, String> {
-    match meval::eval_str(math_expression) {
+    let mut ctx = meval::Context::new();
+    ctx.var("tau", std::f64::consts::TAU);
+    match meval::eval_str_with_context(math_expression, &ctx) {
         Ok(num) if num.is_infinite() || num.is_nan() => Err("cannot represent result".to_string()),
         Ok(num) => Ok(UntaggedValue::from(Primitive::from(num)).into_value(tag)),
         Err(error) => Err(error.to_string().to_lowercase()),
