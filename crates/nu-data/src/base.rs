@@ -191,7 +191,7 @@ mod tests {
 
     #[test]
     fn gets_matching_field_from_nested_rows_inside_a_row() -> Result<(), ShellError> {
-        let field_path = column_path(&[string("package"), string("version")]);
+        let field_path = column_path("package.version");
 
         let (version, tag) = string("0.4.0").into_parts();
 
@@ -217,7 +217,7 @@ mod tests {
     #[test]
     fn gets_first_matching_field_from_rows_with_same_field_inside_a_table() -> Result<(), ShellError>
     {
-        let field_path = column_path(&[string("package"), string("authors"), string("name")]);
+        let field_path = column_path("package.authors.name");
 
         let (_, tag) = string("Andrés N. Robalino").into_parts();
 
@@ -250,7 +250,7 @@ mod tests {
 
     #[test]
     fn column_path_that_contains_just_a_number_gets_a_row_from_a_table() -> Result<(), ShellError> {
-        let field_path = column_path(&[string("package"), string("authors"), int(0)]);
+        let field_path = column_path("package.authors.0");
 
         let (_, tag) = string("Andrés N. Robalino").into_parts();
 
@@ -281,7 +281,7 @@ mod tests {
 
     #[test]
     fn column_path_that_contains_just_a_number_gets_a_row_from_a_row() -> Result<(), ShellError> {
-        let field_path = column_path(&[string("package"), string("authors"), string("0")]);
+        let field_path = column_path(r#"package.authors."0""#);
 
         let (_, tag) = string("Andrés N. Robalino").into_parts();
 
@@ -312,7 +312,7 @@ mod tests {
 
     #[test]
     fn replaces_matching_field_from_a_row() -> Result<(), ShellError> {
-        let field_path = column_path(&[string("amigos")]);
+        let field_path = column_path("amigos");
 
         let sample = UntaggedValue::row(indexmap! {
             "amigos".into() => table(&[
@@ -336,11 +336,7 @@ mod tests {
 
     #[test]
     fn replaces_matching_field_from_nested_rows_inside_a_row() -> Result<(), ShellError> {
-        let field_path = column_path(&[
-            string("package"),
-            string("authors"),
-            string("los.3.caballeros"),
-        ]);
+        let field_path = column_path(r#"package.authors."los.3.caballeros""#);
 
         let sample = UntaggedValue::row(indexmap! {
             "package".into() => row(indexmap! {
@@ -381,11 +377,7 @@ mod tests {
     }
     #[test]
     fn replaces_matching_field_from_rows_inside_a_table() -> Result<(), ShellError> {
-        let field_path = column_path(&[
-            string("shell_policy"),
-            string("releases"),
-            string("nu.version.arepa"),
-        ]);
+        let field_path = column_path(r#"shell_policy.releases."nu.version.arepa""#);
 
         let sample = UntaggedValue::row(indexmap! {
             "shell_policy".into() => row(indexmap! {

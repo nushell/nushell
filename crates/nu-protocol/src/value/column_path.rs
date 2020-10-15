@@ -1,8 +1,14 @@
 use derive_new::new;
 use getset::Getters;
-use nu_source::{b, span_for_spanned_list, DebugDocBuilder, HasFallibleSpan, PrettyDebug, Span};
+use nu_source::{
+    b, span_for_spanned_list, DebugDocBuilder, HasFallibleSpan, PrettyDebug, Span, Spanned,
+    SpannedItem,
+};
 use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
+
+use crate::hir::{Expression, Literal, Member, SpannedExpression};
+use nu_errors::ParseError;
 
 /// A PathMember that has yet to be spanned so that it can be used in later processing
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
@@ -65,6 +71,23 @@ impl ColumnPath {
     pub fn last(&self) -> Option<&PathMember> {
         self.iter().last()
     }
+
+    pub fn build(text: &Spanned<String>) -> ColumnPath {
+        if let (
+            SpannedExpression {
+                expr: Expression::Literal(Literal::ColumnPath(path)),
+                span: _,
+            },
+            _,
+        ) = parse(&text)
+        {
+            ColumnPath {
+                members: path.iter().map(|member| member.to_path_member()).collect(),
+            }
+        } else {
+            ColumnPath { members: vec![] }
+        }
+    }
 }
 
 impl PrettyDebug for ColumnPath {
@@ -109,5 +132,73 @@ impl PathMember {
             UnspannedPathMember::String(string) => string.clone(),
             UnspannedPathMember::Int(int) => format!("{}", int),
         }
+    }
+}
+
+fn parse(raw_column_path: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
+    let mut delimiter = '.';
+    let mut inside_delimiter = false;
+    let mut output = vec![];
+    let mut current_part = String::new();
+    let mut start_index = 0;
+    let mut last_index = 0;
+
+    for (idx, c) in raw_column_path.item.char_indices() {
+        last_index = idx;
+        if inside_delimiter {
+            if c == delimiter {
+                inside_delimiter = false;
+            }
+        } else if c == '\'' || c == '"' || c == '`' {
+            inside_delimiter = true;
+            delimiter = c;
+        } else if c == '.' {
+            let part_span = Span::new(
+                raw_column_path.span.start() + start_index,
+                raw_column_path.span.start() + idx,
+            );
+
+            if let Ok(row_number) = current_part.parse::<u64>() {
+                output.push(Member::Int(BigInt::from(row_number), part_span));
+            } else {
+                let trimmed = trim_quotes(&current_part);
+                output.push(Member::Bare(trimmed.clone().spanned(part_span)));
+            }
+            current_part.clear();
+            // Note: I believe this is safe because of the delimiter we're using, but if we get fancy with
+            // unicode we'll need to change this
+            start_index = idx + '.'.len_utf8();
+            continue;
+        }
+        current_part.push(c);
+    }
+
+    if !current_part.is_empty() {
+        let part_span = Span::new(
+            raw_column_path.span.start() + start_index,
+            raw_column_path.span.start() + last_index + 1,
+        );
+        if let Ok(row_number) = current_part.parse::<u64>() {
+            output.push(Member::Int(BigInt::from(row_number), part_span));
+        } else {
+            let current_part = trim_quotes(&current_part);
+            output.push(Member::Bare(current_part.spanned(part_span)));
+        }
+    }
+
+    (
+        SpannedExpression::new(Expression::simple_column_path(output), raw_column_path.span),
+        None,
+    )
+}
+
+fn trim_quotes(input: &str) -> String {
+    let mut chars = input.chars();
+
+    match (chars.next(), chars.next_back()) {
+        (Some('\''), Some('\'')) => chars.collect(),
+        (Some('"'), Some('"')) => chars.collect(),
+        (Some('`'), Some('`')) => chars.collect(),
+        _ => input.to_string(),
     }
 }

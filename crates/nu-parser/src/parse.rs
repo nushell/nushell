@@ -18,7 +18,9 @@ use crate::signature::SignatureRegistry;
 use bigdecimal::BigDecimal;
 
 /// Parses a simple column path, one without a variable (implied or explicit) at the head
-fn parse_simple_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
+pub fn parse_simple_column_path(
+    lite_arg: &Spanned<String>,
+) -> (SpannedExpression, Option<ParseError>) {
     let mut delimiter = '.';
     let mut inside_delimiter = false;
     let mut output = vec![];
