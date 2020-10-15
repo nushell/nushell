@@ -64,23 +64,24 @@ fn ceil_big_decimal(val: &BigDecimal) -> BigInt {
     ceiled
 }
 
-/// Calculate product of given values
+/// Applies ceil function to given values
 pub fn ceil(values: &[Value], _name: &Tag) -> Result<Value, ShellError> {
-    if !values.iter()
-    .all(|val|matches!(val.value, UntaggedValue::Primitive(Primitive::Int(_))|UntaggedValue::Primitive(Primitive::Decimal(_))))
-    {
-        return Err(ShellError::unexpected("Only numerical values are supported"));
-    }
-    let ceiled: Vec<Value> = values
-        .iter()
-        .map(|val| match &val.value {
-            UntaggedValue::Primitive(Primitive::Int(val)) => UntaggedValue::int(val.clone()).into(),
-            UntaggedValue::Primitive(Primitive::Decimal(val)) => {
-                UntaggedValue::int(ceil_big_decimal(val)).into()
+    let mut ceiled = Vec::with_capacity(values.len());
+    for value in values {
+        match &value.value {
+            UntaggedValue::Primitive(Primitive::Int(val)) => {
+                ceiled.push(UntaggedValue::int(val.clone()).into())
             }
-            _ => UntaggedValue::int(0).into(),
-        })
-        .collect();
+            UntaggedValue::Primitive(Primitive::Decimal(val)) => {
+                ceiled.push(UntaggedValue::int(ceil_big_decimal(val)).into())
+            }
+            _ => {
+                return Err(ShellError::unexpected(
+                    "Only numerical values are supported",
+                ))
+            }
+        }
+    }
     Ok(UntaggedValue::table(&ceiled).into())
 }
 

@@ -56,22 +56,23 @@ impl WholeStreamCommand for SubCommand {
 
 /// Applies rounding function to given values
 pub fn round(values: &[Value], _name: &Tag) -> Result<Value, ShellError> {
-    if !values.iter()
-    .all(|val|matches!(val.value, UntaggedValue::Primitive(Primitive::Int(_))|UntaggedValue::Primitive(Primitive::Decimal(_))))
-    {
-        return Err(ShellError::unexpected("Only numerical values are supported"));
-    }
-    let rounded: Vec<Value> = values
-        .iter()
-        .map(|val| match &val.value {
-            UntaggedValue::Primitive(Primitive::Int(val)) => UntaggedValue::int(val.clone()).into(),
-            UntaggedValue::Primitive(Primitive::Decimal(val)) => {
-                let (rounded, _) = val.round(0).into_bigint_and_exponent();
-                UntaggedValue::int(rounded).into()
+    let mut rounded = Vec::with_capacity(values.len());
+    for value in values {
+        match &value.value {
+            UntaggedValue::Primitive(Primitive::Int(val)) => {
+                rounded.push(UntaggedValue::int(val.clone()).into())
             }
-            _ => UntaggedValue::nothing().into(),
-        })
-        .collect();
+            UntaggedValue::Primitive(Primitive::Decimal(val)) => {
+                let (rounded_val, _) = val.round(0).as_bigint_and_exponent();
+                rounded.push(UntaggedValue::int(rounded_val).into());
+            }
+            _ => {
+                return Err(ShellError::unexpected(
+                    "Only numerical values are supported",
+                ))
+            }
+        }
+    }
     Ok(UntaggedValue::table(&rounded).into())
 }
 

@@ -64,23 +64,24 @@ fn floor_big_decimal(val: &BigDecimal) -> BigInt {
     floored
 }
 
-/// Calculate product of given values
+/// Applies floor function to given values
 pub fn floor(values: &[Value], _name: &Tag) -> Result<Value, ShellError> {
-    if !values.iter()
-    .all(|val|matches!(val.value, UntaggedValue::Primitive(Primitive::Int(_))|UntaggedValue::Primitive(Primitive::Decimal(_))))
-    {
-        return Err(ShellError::unexpected("Only numerical values are supported"));
-    }
-    let floored: Vec<Value> = values
-        .iter()
-        .map(|val| match &val.value {
-            UntaggedValue::Primitive(Primitive::Int(val)) => UntaggedValue::int(val.clone()).into(),
-            UntaggedValue::Primitive(Primitive::Decimal(val)) => {
-                UntaggedValue::int(floor_big_decimal(val)).into()
+    let mut floored = Vec::with_capacity(values.len());
+    for value in values {
+        match &value.value {
+            UntaggedValue::Primitive(Primitive::Int(val)) => {
+                floored.push(UntaggedValue::int(val.clone()).into())
             }
-            _ => UntaggedValue::int(0).into(),
-        })
-        .collect();
+            UntaggedValue::Primitive(Primitive::Decimal(val)) => {
+                floored.push(UntaggedValue::int(floor_big_decimal(val)).into())
+            }
+            _ => {
+                return Err(ShellError::unexpected(
+                    "Only numerical values are supported",
+                ))
+            }
+        }
+    }
     Ok(UntaggedValue::table(&floored).into())
 }
 
