@@ -177,7 +177,7 @@ pub(crate) use exec::Exec;
 pub(crate) use exit::Exit;
 pub(crate) use first::First;
 pub(crate) use flatten::Command as Flatten;
-pub(crate) use format::Format;
+pub(crate) use format::{FileSize, Format};
 pub(crate) use from::From;
 pub(crate) use from_csv::FromCSV;
 pub(crate) use from_eml::FromEML;

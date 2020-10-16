@@ -1,3 +1,5 @@
+use nu_test_support::fs::Stub::EmptyFile;
+use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 
 #[test]
@@ -41,4 +43,27 @@ fn can_use_variables() {
     ));
 
     assert_eq!(actual.out, "nu is a new type of shell");
+}
+
+#[test]
+fn format_filesize_works() {
+    Playground::setup("format_filesize_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("yehuda.txt"),
+            EmptyFile("jonathan.txt"),
+            EmptyFile("andres.txt"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ls
+                | format filesize size KB
+                | get size
+                | first
+            "#
+        ));
+
+        assert_eq!(actual.out, "0.01 KB");
+    })
 }
