@@ -1,9 +1,9 @@
-use crate::commands::math::utils::run_with_function;
+use crate::commands::math::utils::run_with_numerical_functions_on_stream;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use bigdecimal::One;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, Signature, UntaggedValue, Value};
+use nu_protocol::{Signature, UntaggedValue, Value};
 
 pub struct SubCommand;
 
@@ -26,7 +26,7 @@ impl WholeStreamCommand for SubCommand {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        run_with_function(
+        run_with_numerical_functions_on_stream(
             RunnableContext {
                 input: args.input,
                 registry: registry.clone(),
@@ -37,7 +37,9 @@ impl WholeStreamCommand for SubCommand {
                 name: args.call_info.name_tag,
                 raw_input: args.raw_input,
             },
-            floor,
+            floor_big_int,
+            floor_big_decimal,
+            floor_default,
         )
         .await
     }
@@ -55,34 +57,24 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn floor_big_decimal(val: &BigDecimal) -> BigInt {
+fn floor_big_int(val: BigInt) -> Value {
+    UntaggedValue::int(val).into()
+}
+
+fn floor_big_decimal(val: BigDecimal) -> Value {
     let mut maybe_floored = val.round(0);
-    if &maybe_floored > val {
+    if maybe_floored > val {
         maybe_floored -= BigDecimal::one();
     }
     let (floored, _) = maybe_floored.into_bigint_and_exponent();
-    floored
+    UntaggedValue::int(floored).into()
 }
 
-/// Applies floor function to given values
-pub fn floor(values: &[Value], _name: &Tag) -> Result<Value, ShellError> {
-    let mut floored = Vec::with_capacity(values.len());
-    for value in values {
-        match &value.value {
-            UntaggedValue::Primitive(Primitive::Int(val)) => {
-                floored.push(UntaggedValue::int(val.clone()).into())
-            }
-            UntaggedValue::Primitive(Primitive::Decimal(val)) => {
-                floored.push(UntaggedValue::int(floor_big_decimal(val)).into())
-            }
-            _ => {
-                return Err(ShellError::unexpected(
-                    "Only numerical values are supported",
-                ))
-            }
-        }
-    }
-    Ok(UntaggedValue::table(&floored).into())
+fn floor_default(_: UntaggedValue) -> Value {
+    UntaggedValue::Error(ShellError::unexpected(
+        "Only numerical values are supported",
+    ))
+    .into()
 }
 
 #[cfg(test)]
