@@ -1,9 +1,9 @@
-use crate::commands::math::utils::run_with_function;
+use crate::commands::math::utils::run_with_numerical_functions_on_stream;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use bigdecimal::One;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, Signature, UntaggedValue, Value};
+use nu_protocol::{Signature, UntaggedValue, Value};
 
 pub struct SubCommand;
 
@@ -26,7 +26,7 @@ impl WholeStreamCommand for SubCommand {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        run_with_function(
+        run_with_numerical_functions_on_stream(
             RunnableContext {
                 input: args.input,
                 registry: registry.clone(),
@@ -37,7 +37,9 @@ impl WholeStreamCommand for SubCommand {
                 name: args.call_info.name_tag,
                 raw_input: args.raw_input,
             },
-            ceil,
+            ceil_big_int,
+            ceil_big_decimal,
+            ceil_default,
         )
         .await
     }
@@ -55,34 +57,24 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn ceil_big_decimal(val: &BigDecimal) -> BigInt {
+fn ceil_big_int(val: BigInt) -> Value {
+    UntaggedValue::int(val).into()
+}
+
+fn ceil_big_decimal(val: BigDecimal) -> Value {
     let mut maybe_ceiled = val.round(0);
-    if &maybe_ceiled < val {
+    if maybe_ceiled < val {
         maybe_ceiled += BigDecimal::one();
     }
     let (ceiled, _) = maybe_ceiled.into_bigint_and_exponent();
-    ceiled
+    UntaggedValue::int(ceiled).into()
 }
 
-/// Applies ceil function to given values
-pub fn ceil(values: &[Value], _name: &Tag) -> Result<Value, ShellError> {
-    let mut ceiled = Vec::with_capacity(values.len());
-    for value in values {
-        match &value.value {
-            UntaggedValue::Primitive(Primitive::Int(val)) => {
-                ceiled.push(UntaggedValue::int(val.clone()).into())
-            }
-            UntaggedValue::Primitive(Primitive::Decimal(val)) => {
-                ceiled.push(UntaggedValue::int(ceil_big_decimal(val)).into())
-            }
-            _ => {
-                return Err(ShellError::unexpected(
-                    "Only numerical values are supported",
-                ))
-            }
-        }
-    }
-    Ok(UntaggedValue::table(&ceiled).into())
+fn ceil_default(_: UntaggedValue) -> Value {
+    UntaggedValue::Error(ShellError::unexpected(
+        "Only numerical values are supported",
+    ))
+    .into()
 }
 
 #[cfg(test)]
