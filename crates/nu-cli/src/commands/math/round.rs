@@ -1,8 +1,8 @@
-use crate::commands::math::utils::run_with_function;
+use crate::commands::math::utils::run_with_numerical_functions_on_stream;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, Signature, UntaggedValue, Value};
+use nu_protocol::{Signature, UntaggedValue, Value};
 
 pub struct SubCommand;
 
@@ -25,7 +25,7 @@ impl WholeStreamCommand for SubCommand {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        run_with_function(
+        run_with_numerical_functions_on_stream(
             RunnableContext {
                 input: args.input,
                 registry: registry.clone(),
@@ -36,7 +36,9 @@ impl WholeStreamCommand for SubCommand {
                 name: args.call_info.name_tag,
                 raw_input: args.raw_input,
             },
-            round,
+            round_big_int,
+            round_big_decimal,
+            round_default,
         )
         .await
     }
@@ -54,28 +56,21 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-/// Applies rounding function to given values
-pub fn round(values: &[Value], _name: &Tag) -> Result<Value, ShellError> {
-    let mut rounded = Vec::with_capacity(values.len());
-    for value in values {
-        match &value.value {
-            UntaggedValue::Primitive(Primitive::Int(val)) => {
-                rounded.push(UntaggedValue::int(val.clone()).into())
-            }
-            UntaggedValue::Primitive(Primitive::Decimal(val)) => {
-                let (rounded_val, _) = val.round(0).as_bigint_and_exponent();
-                rounded.push(UntaggedValue::int(rounded_val).into());
-            }
-            _ => {
-                return Err(ShellError::unexpected(
-                    "Only numerical values are supported",
-                ))
-            }
-        }
-    }
-    Ok(UntaggedValue::table(&rounded).into())
+fn round_big_int(val: BigInt) -> Value {
+    UntaggedValue::int(val).into()
 }
 
+fn round_big_decimal(val: BigDecimal) -> Value {
+    let (rounded, _) = val.round(0).as_bigint_and_exponent();
+    UntaggedValue::int(rounded).into()
+}
+
+fn round_default(_: UntaggedValue) -> Value {
+    UntaggedValue::Error(ShellError::unexpected(
+        "Only numerical values are supported",
+    ))
+    .into()
+}
 #[cfg(test)]
 mod tests {
     use super::ShellError;
