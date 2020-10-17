@@ -118,11 +118,13 @@ fn get_output_string(
 
         for i in 0..headers.len() {
             if pretty {
+                output_string.push_str(" ");
                 output_string.push_str(&get_padded_string(
                     headers[i].clone(),
                     column_width_vector[i],
                     ' ',
                 ));
+                output_string.push_str(" ");
             } else {
                 output_string.push_str(headers[i].as_str());
             }
@@ -135,11 +137,13 @@ fn get_output_string(
         #[allow(clippy::needless_range_loop)]
         for i in 0..headers.len() {
             if pretty {
+                output_string.push_str(" ");
                 output_string.push_str(&get_padded_string(
                     String::from("-"),
                     column_width_vector[i],
                     '-',
                 ));
+                output_string.push_str(" ");
             } else {
                 output_string.push_str("-");
             }
@@ -155,11 +159,13 @@ fn get_output_string(
 
         for i in 0..headers.len() {
             if pretty {
+                output_string.push_str(" ");
                 output_string.push_str(&get_padded_string(
                     row[i].clone(),
                     column_width_vector[i],
                     ' ',
                 ));
+                output_string.push_str(" ");
             } else {
                 output_string.push_str(row[i].as_str());
             }
@@ -173,11 +179,7 @@ fn get_output_string(
     output_string
 }
 
-fn get_padded_string(
-    text: String,
-    desired_length: usize,
-    padding_character: char,
-) -> String {
+fn get_padded_string(text: String, desired_length: usize, padding_character: char) -> String {
     format!(
         "{}{}",
         text,
