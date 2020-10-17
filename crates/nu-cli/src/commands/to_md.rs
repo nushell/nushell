@@ -60,44 +60,73 @@ async fn to_md(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
     let (ToMarkdownArgs { pretty }, input) = args.process(&registry).await?;
     let input: Vec<Value> = input.collect().await;
     let headers = nu_protocol::merge_descriptors(&input);
-    let mut output_string = String::new();
 
-    let mut column_length_vector: Vec<usize> = Vec::new();
+    let mut escaped_headers: Vec<String> = Vec::new();
+    let mut column_width_vector: Vec<usize> = Vec::new();
 
-    if pretty {
-        if !headers.is_empty() && (headers.len() > 1 || headers[0] != "") {
-            for header in &headers {
-                let htmlescape_header_string = &htmlescape::encode_minimal(&header);
-                column_length_vector.push(htmlescape_header_string.len());
-            }
-        }
-
-        for row in &input {
-            if let UntaggedValue::Row(row) = row.value.clone() {
-                for i in 0..headers.len() {
-                    let data = row.get_data(&headers[i]);
-                    let new_column_length = format_leaf(data.borrow()).plain_string(100_000).len();
-
-                    if column_length_vector[i] < new_column_length {
-                        column_length_vector[i] = new_column_length;
-                    }
-                }
-            }
+    if !headers.is_empty() && (headers.len() > 1 || headers[0] != "") {
+        for header in &headers {
+            let escaped_header_string = htmlescape::encode_minimal(&header);
+            column_width_vector.push(escaped_header_string.len());
+            escaped_headers.push(escaped_header_string);
         }
     }
 
-    if !headers.is_empty() && (headers.len() > 1 || headers[0] != "") {
+    let mut escaped_rows: Vec<Vec<String>> = Vec::new();
+
+    for row in &input {
+        if let UntaggedValue::Row(row) = row.value.clone() {
+            let mut escaped_row_vec: Vec<String> = Vec::new();
+
+            for i in 0..headers.len() {
+                let data = row.get_data(&headers[i]);
+                let value_string = format_leaf(data.borrow()).plain_string(100_000);
+                let new_column_width = value_string.len();
+                escaped_row_vec.push(value_string);
+
+                if column_width_vector[i] < new_column_width {
+                    column_width_vector[i] = new_column_width;
+                }
+            }
+
+            escaped_rows.push(escaped_row_vec);
+        }
+    }
+
+    let output_string = get_output_string(
+        &escaped_headers,
+        &escaped_rows,
+        &column_width_vector,
+        pretty,
+    );
+
+    Ok(OutputStream::one(ReturnSuccess::value(
+        UntaggedValue::string(output_string).into_value(name_tag),
+    )))
+}
+
+fn get_output_string(
+    headers: &Vec<String>,
+    rows: &Vec<Vec<String>>,
+    column_width_vector: &Vec<usize>,
+    pretty: bool,
+) -> String {
+    let mut output_string = String::new();
+
+    if !headers.is_empty() {
         output_string.push_str("|");
 
         for i in 0..headers.len() {
-            let htmlescape_string = htmlescape::encode_minimal(&headers[i]);
-            let final_string = if pretty {
-                get_padded_string(htmlescape_string, column_length_vector[i], ' ')
+            if pretty {
+                output_string.push_str(&get_padded_string(
+                    headers[i].clone(),
+                    column_width_vector[i],
+                    ' ',
+                ));
             } else {
-                htmlescape_string
-            };
+                output_string.push_str(headers[i].as_str());
+            }
 
-            output_string.push_str(&final_string);
             output_string.push_str("|");
         }
 
@@ -105,56 +134,57 @@ async fn to_md(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
 
         #[allow(clippy::needless_range_loop)]
         for i in 0..headers.len() {
-            let final_string = if pretty {
-                "-".repeat(column_length_vector[i])
+            if pretty {
+                output_string.push_str(&get_padded_string(
+                    String::from("-"),
+                    column_width_vector[i],
+                    '-',
+                ));
             } else {
-                String::from("-")
-            };
+                output_string.push_str("-");
+            }
 
-            output_string.push_str(final_string.as_str());
             output_string.push_str("|");
         }
 
         output_string.push_str("\n");
     }
 
-    for row in input {
-        match row.value {
-            UntaggedValue::Row(row) => {
-                output_string.push_str("|");
+    for row in rows {
+        output_string.push_str("|");
 
-                for i in 0..headers.len() {
-                    let data = row.get_data(&headers[i]);
-                    let leaf_string = format_leaf(data.borrow()).plain_string(100_000);
-                    let final_string = if pretty {
-                        get_padded_string(leaf_string, column_length_vector[i], ' ')
-                    } else {
-                        leaf_string
-                    };
-
-                    output_string.push_str(&final_string);
-                    output_string.push_str("|");
-                }
-
-                output_string.push_str("\n");
+        for i in 0..headers.len() {
+            if pretty {
+                output_string.push_str(&get_padded_string(
+                    row[i].clone(),
+                    column_width_vector[i],
+                    ' ',
+                ));
+            } else {
+                output_string.push_str(row[i].as_str());
             }
-            p => {
-                output_string.push_str(
-                    &(htmlescape::encode_minimal(&format_leaf(&p).plain_string(100_000))),
-                );
-                output_string.push_str("\n");
-            }
+
+            output_string.push_str("|");
         }
+
+        output_string.push_str("\n");
     }
 
-    Ok(OutputStream::one(ReturnSuccess::value(
-        UntaggedValue::string(output_string).into_value(name_tag),
-    )))
+    output_string
 }
 
-fn get_padded_string(text: String, desired_length: usize, character: char) -> String {
-    let padding_length = desired_length - text.len();
-    return format!("{}{}", text, character.to_string().repeat(padding_length));
+fn get_padded_string(
+    text: String,
+    desired_length: usize,
+    padding_character: char,
+) -> String {
+    format!(
+        "{}{}",
+        text,
+        padding_character
+            .to_string()
+            .repeat(desired_length - text.len())
+    )
 }
 
 #[cfg(test)]
