@@ -62,12 +62,12 @@ async fn to_md(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
     let headers = nu_protocol::merge_descriptors(&input);
 
     let mut escaped_headers: Vec<String> = Vec::new();
-    let mut column_width_vector: Vec<usize> = Vec::new();
+    let mut column_widths: Vec<usize> = Vec::new();
 
     if !headers.is_empty() && (headers.len() > 1 || headers[0] != "") {
         for header in &headers {
             let escaped_header_string = htmlescape::encode_minimal(&header);
-            column_width_vector.push(escaped_header_string.len());
+            column_widths.push(escaped_header_string.len());
             escaped_headers.push(escaped_header_string);
         }
     }
@@ -75,30 +75,33 @@ async fn to_md(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
     let mut escaped_rows: Vec<Vec<String>> = Vec::new();
 
     for row in &input {
-        if let UntaggedValue::Row(row) = row.value.clone() {
-            let mut escaped_row_vec: Vec<String> = Vec::new();
+        let mut escaped_row: Vec<String> = Vec::new();
 
-            for i in 0..headers.len() {
-                let data = row.get_data(&headers[i]);
-                let value_string = format_leaf(data.borrow()).plain_string(100_000);
-                let new_column_width = value_string.len();
-                escaped_row_vec.push(value_string);
+        match row.value.clone() {
+            UntaggedValue::Row(row) => {
+                for i in 0..headers.len() {
+                    let data = row.get_data(&headers[i]);
+                    let value_string = format_leaf(data.borrow()).plain_string(100_000);
+                    let new_column_width = value_string.len();
 
-                if column_width_vector[i] < new_column_width {
-                    column_width_vector[i] = new_column_width;
+                    escaped_row.push(value_string);
+
+                    if column_widths[i] < new_column_width {
+                        column_widths[i] = new_column_width;
+                    }
                 }
             }
-
-            escaped_rows.push(escaped_row_vec);
+            p => {
+                let value_string =
+                    htmlescape::encode_minimal(&format_leaf(&p).plain_string(100_000));
+                escaped_row.push(value_string);
+            }
         }
+
+        escaped_rows.push(escaped_row);
     }
 
-    let output_string = get_output_string(
-        &escaped_headers,
-        &escaped_rows,
-        &column_width_vector,
-        pretty,
-    );
+    let output_string = get_output_string(&escaped_headers, &escaped_rows, &column_widths, pretty);
 
     Ok(OutputStream::one(ReturnSuccess::value(
         UntaggedValue::string(output_string).into_value(name_tag),
@@ -106,9 +109,9 @@ async fn to_md(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
 }
 
 fn get_output_string(
-    headers: &Vec<String>,
-    rows: &Vec<Vec<String>>,
-    column_width_vector: &Vec<usize>,
+    headers: &[String],
+    rows: &[Vec<String>],
+    column_widths: &[usize],
     pretty: bool,
 ) -> String {
     let mut output_string = String::new();
@@ -121,7 +124,7 @@ fn get_output_string(
                 output_string.push_str(" ");
                 output_string.push_str(&get_padded_string(
                     headers[i].clone(),
-                    column_width_vector[i],
+                    column_widths[i],
                     ' ',
                 ));
                 output_string.push_str(" ");
@@ -140,7 +143,7 @@ fn get_output_string(
                 output_string.push_str(" ");
                 output_string.push_str(&get_padded_string(
                     String::from("-"),
-                    column_width_vector[i],
+                    column_widths[i],
                     '-',
                 ));
                 output_string.push_str(" ");
@@ -155,22 +158,22 @@ fn get_output_string(
     }
 
     for row in rows {
-        output_string.push_str("|");
+        if !headers.is_empty() {
+            output_string.push_str("|");
+        }
 
-        for i in 0..headers.len() {
+        for i in 0..row.len() {
             if pretty {
                 output_string.push_str(" ");
-                output_string.push_str(&get_padded_string(
-                    row[i].clone(),
-                    column_width_vector[i],
-                    ' ',
-                ));
+                output_string.push_str(&get_padded_string(row[i].clone(), column_widths[i], ' '));
                 output_string.push_str(" ");
             } else {
                 output_string.push_str(row[i].as_str());
             }
 
-            output_string.push_str("|");
+            if !headers.is_empty() {
+                output_string.push_str("|");
+            }
         }
 
         output_string.push_str("\n");
