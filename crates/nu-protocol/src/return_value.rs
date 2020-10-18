@@ -22,7 +22,8 @@ pub enum CommandAction {
     /// Enter the help shell, which allows exploring the help system
     EnterHelpShell(Value),
     /// Add an alias command
-    AddAlias(Signature, Block),
+    /// Note: We are passing the Signature in a Box to decrease the memory size of AddAlias
+    AddAlias(Box<Signature>, Block),
     /// Add plugins from path given
     AddPlugins(String),
     /// Go to the previous shell in the shell ring buffer

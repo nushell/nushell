@@ -193,7 +193,7 @@ pub async fn alias(
     trace!("Inferred signature: {:?}", signature);
 
     Ok(OutputStream::one(ReturnSuccess::action(
-        CommandAction::AddAlias(signature, block),
+        CommandAction::AddAlias(Box::new(signature), block),
     )))
 }
 
