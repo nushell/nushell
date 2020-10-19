@@ -6,6 +6,7 @@ use nu_protocol::RangeInclusion;
 use nu_protocol::{format_primitive, ColumnPath, Dictionary, Primitive, UntaggedValue, Value};
 use nu_source::{b, DebugDocBuilder, PrettyDebug, Tag};
 use num_bigint::BigInt;
+use num_format::{Locale, ToFormattedString};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::fmt::Debug;
@@ -192,8 +193,8 @@ impl PrettyDebug for FormatInlineShape {
 
                 match byte.get_unit() {
                     byte_unit::ByteUnit::B => {
-                        (b::primitive(format!("{}", byte.get_value())) + b::space() + b::kind("B"))
-                            .group()
+                        let locale_byte = byte.get_value() as u64;
+                        (b::primitive(locale_byte.to_formatted_string(&Locale::en))).group()
                     }
                     _ => b::primitive(byte.format(1)),
                 }

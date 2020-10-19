@@ -3012,6 +3012,7 @@ dependencies = [
  "nu-test-support",
  "nu-value-ext",
  "num-bigint 0.3.0",
+ "num-format",
  "num-traits 0.2.12",
  "parking_lot 0.11.0",
  "query_interface",
