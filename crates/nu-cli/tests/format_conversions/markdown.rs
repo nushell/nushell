@@ -33,5 +33,5 @@ fn out_md_table_pretty() {
         "#
     ));
 
-    assert_eq!(actual.out, "|name  ||------||joseph|");
+    assert_eq!(actual.out, "| name   || ------ || joseph |");
 }
