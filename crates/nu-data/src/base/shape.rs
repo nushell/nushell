@@ -1,9 +1,10 @@
+// use crate::config::{Conf, NuConfig};
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use indexmap::map::IndexMap;
 use nu_protocol::RangeInclusion;
 use nu_protocol::{format_primitive, ColumnPath, Dictionary, Primitive, UntaggedValue, Value};
-use nu_source::{b, DebugDocBuilder, PrettyDebug};
+use nu_source::{b, DebugDocBuilder, PrettyDebug, Tag};
 use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
@@ -155,9 +156,39 @@ impl PrettyDebug for FormatInlineShape {
                 left.clone().format().pretty() + b::operator(op) + right.clone().format().pretty()
             }
             InlineShape::Bytesize(bytesize) => {
-                let byte = byte_unit::Byte::from_bytes(*bytesize as u128);
+                // get the config value, if it doesn't exist make it 'auto' so it works how it originally did
+                let filesize_format_var = crate::config::config(Tag::unknown())
+                    .expect("unabled to get the config.toml file")
+                    .get("filesize_format")
+                    .map(|val| val.convert_to_string().to_ascii_lowercase())
+                    .unwrap_or_else(|| "auto".to_string());
+                // if there is a value match it to one of the valid values for byte units
+                let filesize_format = match filesize_format_var.as_str() {
+                    "b" => (byte_unit::ByteUnit::B, ""),
+                    "kb" => (byte_unit::ByteUnit::KB, ""),
+                    "kib" => (byte_unit::ByteUnit::KiB, ""),
+                    "mb" => (byte_unit::ByteUnit::MB, ""),
+                    "mib" => (byte_unit::ByteUnit::MiB, ""),
+                    "gb" => (byte_unit::ByteUnit::GB, ""),
+                    "gib" => (byte_unit::ByteUnit::GiB, ""),
+                    "tb" => (byte_unit::ByteUnit::TB, ""),
+                    "tib" => (byte_unit::ByteUnit::TiB, ""),
+                    "pb" => (byte_unit::ByteUnit::PB, ""),
+                    "pib" => (byte_unit::ByteUnit::PiB, ""),
+                    "eb" => (byte_unit::ByteUnit::EB, ""),
+                    "eib" => (byte_unit::ByteUnit::EiB, ""),
+                    "zb" => (byte_unit::ByteUnit::ZB, ""),
+                    "zib" => (byte_unit::ByteUnit::ZiB, ""),
+                    _ => (byte_unit::ByteUnit::B, "auto"),
+                };
 
-                let byte = byte.get_appropriate_unit(false);
+                let byte = byte_unit::Byte::from_bytes(*bytesize as u128);
+                let byte =
+                    if filesize_format.0 == byte_unit::ByteUnit::B && filesize_format.1 == "auto" {
+                        byte.get_appropriate_unit(false)
+                    } else {
+                        byte.get_adjusted_unit(filesize_format.0)
+                    };
 
                 match byte.get_unit() {
                     byte_unit::ByteUnit::B => {
