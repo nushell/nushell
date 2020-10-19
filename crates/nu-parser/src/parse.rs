@@ -111,26 +111,12 @@ pub fn parse_full_column_path(
             );
 
             if head.is_none() && current_part.starts_with("$(") && current_part.ends_with(')') {
-                // We have a command invocation
-                let string: String = current_part
-                    .chars()
-                    .skip(2)
-                    .take(current_part.len() - 3)
-                    .collect();
-
-                // We haven't done much with the inner string, so let's go ahead and work with it
-                let lite_block = match lite_parse(&string, lite_arg.span.start() + 2) {
-                    Ok(lp) => lp,
-                    Err(e) => return (garbage(lite_arg.span), Some(e.cause)),
-                };
-
-                let classified_block = classify_block(&lite_block, registry);
-                let err = classified_block.failed;
-
+                let (invoc, err) =
+                    parse_invocation(&current_part.clone().spanned(part_span), registry);
                 if error.is_none() {
                     error = err;
                 }
-                head = Some(Expression::Invocation(classified_block.block))
+                head = Some(invoc.expr);
             } else if head.is_none() && current_part.starts_with('$') {
                 // We have the variable head
                 head = Some(Expression::variable(current_part.clone(), part_span))
@@ -161,28 +147,12 @@ pub fn parse_full_column_path(
 
         if head.is_none() {
             if current_part.starts_with("$(") && current_part.ends_with(')') {
-                // We have a command invocation
-                let string: String = current_part
-                    .chars()
-                    .skip(2)
-                    .take(current_part.len() - 3)
-                    .collect();
-
-                // We haven't done much with the inner string, so let's go ahead and work with it
-                let lite_block = match lite_parse(&string, lite_arg.span.start() + 2) {
-                    Ok(lp) => lp,
-                    Err(e) => return (garbage(lite_arg.span), Some(e.cause)),
-                };
-
-                let classified_block = classify_block(&lite_block, registry);
-                let err = classified_block.failed;
-
+                let (invoc, err) = parse_invocation(&current_part.spanned(part_span), registry);
                 if error.is_none() {
                     error = err;
                 }
-                head = Some(Expression::Invocation(classified_block.block));
+                head = Some(invoc.expr);
             } else if current_part.starts_with('$') {
-                // We have the variable head
                 head = Some(Expression::variable(current_part, lite_arg.span));
             } else if let Ok(row_number) = current_part.parse::<u64>() {
                 output.push(
@@ -405,6 +375,84 @@ fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseErr
     )
 }
 
+fn parse_invocation(
+    lite_arg: &Spanned<String>,
+    registry: &dyn SignatureRegistry,
+) -> (SpannedExpression, Option<ParseError>) {
+    // We have a command invocation
+    let string: String = lite_arg
+        .item
+        .chars()
+        .skip(2)
+        .take(lite_arg.item.len() - 3)
+        .collect();
+
+    // We haven't done much with the inner string, so let's go ahead and work with it
+    let lite_block = match lite_parse(&string, lite_arg.span.start() + 2) {
+        Ok(lp) => lp,
+        Err(e) => return (garbage(lite_arg.span), Some(e.cause)),
+    };
+
+    let classified_block = classify_block(&lite_block, registry);
+    let err = classified_block.failed;
+
+    (
+        SpannedExpression::new(
+            Expression::Invocation(classified_block.block),
+            lite_arg.span,
+        ),
+        err,
+    )
+}
+
+fn parse_variable(
+    lite_arg: &Spanned<String>,
+    registry: &dyn SignatureRegistry,
+) -> (SpannedExpression, Option<ParseError>) {
+    if lite_arg.item == "$it" {
+        trace!("parsin $it");
+        parse_full_column_path(lite_arg, registry)
+    } else {
+        (
+            SpannedExpression::new(
+                Expression::variable(lite_arg.item.clone(), lite_arg.span),
+                lite_arg.span,
+            ),
+            None,
+        )
+    }
+}
+/// Parses the given lite_arg starting with dollar returning
+/// a expression starting with $
+/// Currently either Variable, Invocation, FullColumnPath
+fn parse_dollar_expr(
+    lite_arg: &Spanned<String>,
+    registry: &dyn SignatureRegistry,
+) -> (SpannedExpression, Option<ParseError>) {
+    trace!("Parsing dollar expression: {:?}", lite_arg.item);
+    if lite_arg.item == "$true" {
+        (
+            SpannedExpression::new(Expression::boolean(true), lite_arg.span),
+            None,
+        )
+    } else if lite_arg.item == "$false" {
+        (
+            SpannedExpression::new(Expression::boolean(false), lite_arg.span),
+            None,
+        )
+    } else if lite_arg.item.ends_with(')') {
+        //Return invocation
+        trace!("Parsing invocation expression");
+        parse_invocation(lite_arg, registry)
+    } else if lite_arg.item.contains('.') {
+        trace!("Parsing path expression");
+        parse_full_column_path(lite_arg, registry)
+    } else {
+        trace!("Parsing variable expression");
+        parse_variable(lite_arg, registry)
+    }
+}
+
 #[derive(Debug)]
 enum FormatCommand {
     Text(Spanned<String>),
@@ -506,6 +554,7 @@ fn parse_interpolated_string(
     registry: &dyn SignatureRegistry,
     lite_arg: &Spanned<String>,
 ) -> (SpannedExpression, Option<ParseError>) {
+    trace!("Parse_interpolated_string");
     let inner_string = trim_quotes(&lite_arg.item);
     let mut error = None;
 
@@ -570,7 +619,7 @@ fn parse_external_arg(
     lite_arg: &Spanned<String>,
 ) -> (SpannedExpression, Option<ParseError>) {
     if lite_arg.item.starts_with('$') {
-        return parse_full_column_path(&lite_arg, registry);
+        return parse_dollar_expr(&lite_arg, registry);
     }
 
     if lite_arg.item.starts_with('`') && lite_arg.item.len() > 1 && lite_arg.item.ends_with('`') {
@@ -731,9 +780,8 @@ fn parse_arg(
     registry: &dyn SignatureRegistry,
     lite_arg: &Spanned<String>,
 ) -> (SpannedExpression, Option<ParseError>) {
-    // If this is a full column path (and not a range), just parse it here
     if lite_arg.item.starts_with('$') && !lite_arg.item.contains("..") {
-        return parse_full_column_path(&lite_arg, registry);
+        return parse_dollar_expr(&lite_arg, registry);
     }
 
     match expected_type {

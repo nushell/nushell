@@ -50,6 +50,7 @@ fn alias_parses_path_tilde() {
 }
 
 #[test]
+#[ignore]
 fn error_alias_wrong_shape_shallow() {
     let actual = nu!(
         cwd: ".",
@@ -63,6 +64,7 @@ fn error_alias_wrong_shape_shallow() {
 }
 
 #[test]
+#[ignore]
 fn error_alias_wrong_shape_deep_invocation() {
     let actual = nu!(
         cwd: ".",
@@ -76,6 +78,7 @@ fn error_alias_wrong_shape_deep_invocation() {
 }
 
 #[test]
+#[ignore]
 fn error_alias_wrong_shape_deep_binary() {
     let actual = nu!(
         cwd: ".",
@@ -89,6 +92,7 @@ fn error_alias_wrong_shape_deep_binary() {
 }
 
 #[test]
+#[ignore]
 fn error_alias_wrong_shape_deeper_binary() {
     let actual = nu!(
         cwd: ".",
