@@ -23,6 +23,7 @@ indexmap = {version = "1.6.0", features = ["serde-1"]}
 log = "0.4.11"
 num-bigint = {version = "0.3.0", features = ["serde"]}
 num-traits = "0.2.12"
+num-format = "0.4.0"
 parking_lot = "0.11.0"
 query_interface = "0.3.5"
 serde = {version = "1.0.115", features = ["derive"]}
