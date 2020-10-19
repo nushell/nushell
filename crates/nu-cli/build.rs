@@ -5,7 +5,7 @@ fn main() -> Result<(), io::Error> {
     let out_dir = env::var_os("OUT_DIR").expect(
     "\
         OUT_DIR environment variable not found. \
-        OUT_DIR is guaranteed to to exist in a build script by cargo - see \
+        OUT_DIR is guaranteed to exist in a build script by cargo - see \
         https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-build-scripts\
     ");
 
