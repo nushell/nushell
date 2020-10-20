@@ -252,6 +252,11 @@ impl TaggedDictBuilder {
     pub fn is_empty(&self) -> bool {
         self.dict.is_empty()
     }
+
+    /// Checks if given key exists
+    pub fn contains_key(&self, key: &str) -> bool {
+        self.dict.contains_key(key)
+    }
 }
 
 impl From<TaggedDictBuilder> for Value {

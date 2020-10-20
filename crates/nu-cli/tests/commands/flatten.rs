@@ -54,24 +54,16 @@ fn flatten_row_column_explictly() {
             r#"
                 [
                     {
-                        "origin": "Ecuador",
                         "people": {
                             "name": "Andres",
                             "meal": "arepa"
-                        },
-                        "code": { "id": 1, "references": 2},
-                        "tags": ["carbohydrate", "corn", "maiz"],
-                        "city": ["Guayaquil", "Samborondón"]
+                        }
                     },
                     {
-                        "origin": "USA",
                         "people": {
                             "name": "Katz",
                             "meal": "nurepa"
-                        },
-                        "code": { "id": 2, "references": 1},
-                        "tags": ["carbohydrate", "shell food", "amigos flavor"],
-                        "city": ["Oregon", "Brooklin"]
+                        }
                     }
                 ]
             "#,
@@ -87,30 +79,58 @@ fn flatten_row_column_explictly() {
 }
 
 #[test]
-fn flatten_table_columns_explictly() {
+fn flatten_row_columns_having_same_column_names_flats_separately() {
     Playground::setup("flatten_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "katz.json",
             r#"
                 [
                     {
-                        "origin": "Ecuador",
                         "people": {
                             "name": "Andres",
                             "meal": "arepa"
                         },
-                        "code": { "id": 1, "references": 2},
-                        "tags": ["carbohydrate", "corn", "maiz"],
-                        "city": ["Guayaquil", "Samborondón"]
+                        "city": [{"name": "Guayaquil"}, {"name": "Samborondón"}]
                     },
                     {
-                        "origin": "USA",
                         "people": {
                             "name": "Katz",
                             "meal": "nurepa"
                         },
-                        "code": { "id": 2, "references": 1},
-                        "tags": ["carbohydrate", "shell food", "amigos flavor"],
+                        "city": [{"name": "Oregon"}, {"name": "Brooklin"}]
+                    }
+                ]
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "open katz.json | flatten | flatten people city | get city_name | count"
+        );
+
+        assert_eq!(actual.out, "4");
+    })
+}
+
+#[test]
+fn flatten_table_columns_explictly() {
+    Playground::setup("flatten_test_3", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "katz.json",
+            r#"
+                [
+                    {
+                        "people": {
+                            "name": "Andres",
+                            "meal": "arepa"
+                        },
+                        "city": ["Guayaquil", "Samborondón"]
+                    },
+                    {
+                        "people": {
+                            "name": "Katz",
+                            "meal": "nurepa"
+                        },
                         "city": ["Oregon", "Brooklin"]
                     }
                 ]
@@ -128,28 +148,24 @@ fn flatten_table_columns_explictly() {
 
 #[test]
 fn flatten_more_than_one_column_that_are_subtables_not_supported() {
-    Playground::setup("flatten_test_3", |dirs, sandbox| {
+    Playground::setup("flatten_test_4", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "katz.json",
             r#"
                 [
                     {
-                        "origin": "Ecuador",
                         "people": {
                             "name": "Andres",
                             "meal": "arepa"
-                        },
-                        "code": { "id": 1, "references": 2},
+                        }
                         "tags": ["carbohydrate", "corn", "maiz"],
                         "city": ["Guayaquil", "Samborondón"]
                     },
                     {
-                        "origin": "USA",
                         "people": {
                             "name": "Katz",
                             "meal": "nurepa"
                         },
-                        "code": { "id": 2, "references": 1},
                         "tags": ["carbohydrate", "shell food", "amigos flavor"],
                         "city": ["Oregon", "Brooklin"]
                     }
