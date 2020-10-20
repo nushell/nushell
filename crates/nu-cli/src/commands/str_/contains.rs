@@ -130,9 +130,9 @@ fn action(
 mod tests {
     use super::ShellError;
     use super::{action, SubCommand};
-    use nu_plugin::test_helpers::value::string;
     use nu_protocol::UntaggedValue;
     use nu_source::Tag;
+    use nu_test_support::value::string;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {

@@ -150,7 +150,7 @@ mod tests {
     mod semver {
         use crate::inc::SemVerAction;
         use crate::Inc;
-        use nu_plugin::test_helpers::value::string;
+        use nu_test_support::value::string;
 
         #[test]
         fn major() -> Result<(), Box<dyn std::error::Error>> {

@@ -66,11 +66,9 @@ mod tests {
     use super::ShellError;
     use super::{trim_right, SubCommand};
     use crate::commands::str_::trim::{action, ActionMode};
-    use nu_plugin::{
-        row,
-        test_helpers::value::{int, string, table},
-    };
+    use nu_protocol::row;
     use nu_source::Tag;
+    use nu_test_support::value::{int, string, table};
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {

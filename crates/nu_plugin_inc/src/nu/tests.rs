@@ -2,8 +2,10 @@ mod integration {
     use crate::inc::{Action, SemVerAction};
     use crate::Inc;
     use nu_errors::ShellError;
-    use nu_plugin::test_helpers::value::{column_path, string};
     use nu_plugin::test_helpers::{plugin, CallStub};
+    use nu_protocol::{Primitive, UntaggedValue};
+    use nu_test_support::value::column_path;
+    use nu_value_ext::ValueExt;
 
     #[test]
     fn picks_up_one_action_flag_only() {
@@ -58,21 +60,28 @@ mod integration {
             .args(CallStub::new().with_parameter("package.version")?.create())
             .setup(|plugin, _| {
                 //FIXME: this will need to be updated
-                if let Ok(column_path) = column_path(&[string("package"), string("version")]) {
+                if let Ok(column_path) = column_path("package.version").as_column_path() {
+                    let column_path =
+                        UntaggedValue::Primitive(Primitive::ColumnPath(column_path.item))
+                            .into_value(column_path.tag);
                     plugin.expect_field(column_path)
                 }
             });
         Ok(())
     }
-
     mod sem_ver {
         use crate::Inc;
         use nu_errors::ShellError;
-        use nu_plugin::test_helpers::value::{get_data, string, structured_sample_record};
         use nu_plugin::test_helpers::{expect_return_value_at, plugin, CallStub};
+        use nu_protocol::TaggedDictBuilder;
+        use nu_source::Tag;
+        use nu_test_support::value::string;
+        use nu_value_ext::get_data;
 
         fn cargo_sample_record(with_version: &str) -> nu_protocol::Value {
-            structured_sample_record("version", with_version)
+            TaggedDictBuilder::build(Tag::unknown(), |row| {
+                row.insert_value("version".to_string(), string(with_version));
+            })
         }
 
         #[test]
@@ -90,7 +99,7 @@ mod integration {
 
             let actual = expect_return_value_at(run, 0);
 
-            assert_eq!(get_data(actual, "version"), string("1.0.0"));
+            assert_eq!(get_data(&actual, "version").borrow(), &string("1.0.0"));
             Ok(())
         }
 
@@ -109,7 +118,7 @@ mod integration {
 
             let actual = expect_return_value_at(run, 0);
 
-            assert_eq!(get_data(actual, "version"), string("0.2.0"));
+            assert_eq!(get_data(&actual, "version").borrow(), &string("0.2.0"));
             Ok(())
         }
 
@@ -128,7 +137,7 @@ mod integration {
 
             let actual = expect_return_value_at(run, 0);
 
-            assert_eq!(get_data(actual, "version"), string("0.1.4"));
+            assert_eq!(get_data(&actual, "version").borrow(), &string("0.1.4"));
             Ok(())
         }
     }

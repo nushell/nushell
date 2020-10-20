@@ -191,7 +191,7 @@ mod tests {
 
     #[test]
     fn gets_matching_field_from_nested_rows_inside_a_row() -> Result<(), ShellError> {
-        let field_path = column_path("package.version");
+        let field_path = column_path("package.version").as_column_path()?;
 
         let (version, tag) = string("0.4.0").into_parts();
 
@@ -205,7 +205,7 @@ mod tests {
 
         assert_eq!(
             *value.into_value(tag).get_data_by_column_path(
-                &field_path?.item,
+                &field_path.item,
                 Box::new(error_callback("package.version"))
             )?,
             version
@@ -217,7 +217,7 @@ mod tests {
     #[test]
     fn gets_first_matching_field_from_rows_with_same_field_inside_a_table() -> Result<(), ShellError>
     {
-        let field_path = column_path("package.authors.name");
+        let field_path = column_path("package.authors.name").as_column_path()?;
 
         let (_, tag) = string("Andrés N. Robalino").into_parts();
 
@@ -235,7 +235,7 @@ mod tests {
 
         assert_eq!(
             value.into_value(tag).get_data_by_column_path(
-                &field_path?.item,
+                &field_path.item,
                 Box::new(error_callback("package.authors.name"))
             )?,
             table(&[
@@ -250,7 +250,7 @@ mod tests {
 
     #[test]
     fn column_path_that_contains_just_a_number_gets_a_row_from_a_table() -> Result<(), ShellError> {
-        let field_path = column_path("package.authors.0");
+        let field_path = column_path("package.authors.0").as_column_path()?;
 
         let (_, tag) = string("Andrés N. Robalino").into_parts();
 
@@ -268,7 +268,7 @@ mod tests {
 
         assert_eq!(
             *value.into_value(tag).get_data_by_column_path(
-                &field_path?.item,
+                &field_path.item,
                 Box::new(error_callback("package.authors.0"))
             )?,
             UntaggedValue::row(indexmap! {
@@ -281,7 +281,7 @@ mod tests {
 
     #[test]
     fn column_path_that_contains_just_a_number_gets_a_row_from_a_row() -> Result<(), ShellError> {
-        let field_path = column_path(r#"package.authors."0""#);
+        let field_path = column_path(r#"package.authors."0""#).as_column_path()?;
 
         let (_, tag) = string("Andrés N. Robalino").into_parts();
 
@@ -299,7 +299,7 @@ mod tests {
 
         assert_eq!(
             *value.into_value(tag).get_data_by_column_path(
-                &field_path?.item,
+                &field_path.item,
                 Box::new(error_callback("package.authors.\"0\""))
             )?,
             UntaggedValue::row(indexmap! {
@@ -312,7 +312,7 @@ mod tests {
 
     #[test]
     fn replaces_matching_field_from_a_row() -> Result<(), ShellError> {
-        let field_path = column_path("amigos");
+        let field_path = column_path("amigos").as_column_path()?;
 
         let sample = UntaggedValue::row(indexmap! {
             "amigos".into() => table(&[
@@ -326,7 +326,7 @@ mod tests {
 
         let actual = sample
             .into_untagged_value()
-            .replace_data_at_column_path(&field_path?.item, replacement)
+            .replace_data_at_column_path(&field_path.item, replacement)
             .ok_or_else(|| ShellError::untagged_runtime_error("Could not replace column"))?;
 
         assert_eq!(actual, row(indexmap! {"amigos".into() => string("jonas")}));
@@ -336,7 +336,7 @@ mod tests {
 
     #[test]
     fn replaces_matching_field_from_nested_rows_inside_a_row() -> Result<(), ShellError> {
-        let field_path = column_path(r#"package.authors."los.3.caballeros""#);
+        let field_path = column_path(r#"package.authors."los.3.caballeros""#).as_column_path()?;
 
         let sample = UntaggedValue::row(indexmap! {
             "package".into() => row(indexmap! {
@@ -353,7 +353,7 @@ mod tests {
 
         let actual = sample
             .into_value(&tag)
-            .replace_data_at_column_path(&field_path?.item, replacement.clone())
+            .replace_data_at_column_path(&field_path.item, replacement.clone())
             .ok_or_else(|| {
                 ShellError::labeled_error(
                     "Could not replace column",
@@ -377,7 +377,8 @@ mod tests {
     }
     #[test]
     fn replaces_matching_field_from_rows_inside_a_table() -> Result<(), ShellError> {
-        let field_path = column_path(r#"shell_policy.releases."nu.version.arepa""#);
+        let field_path =
+            column_path(r#"shell_policy.releases."nu.version.arepa""#).as_column_path()?;
 
         let sample = UntaggedValue::row(indexmap! {
             "shell_policy".into() => row(indexmap! {
@@ -409,7 +410,7 @@ mod tests {
 
         let actual = sample
             .into_value(tag.clone())
-            .replace_data_at_column_path(&field_path?.item, replacement.clone())
+            .replace_data_at_column_path(&field_path.item, replacement.clone())
             .ok_or_else(|| {
                 ShellError::labeled_error(
                     "Could not replace column",

@@ -46,8 +46,8 @@ mod tests {
     use super::ShellError;
     use super::{to_screaming_snake_case, SubCommand};
     use crate::commands::str_::case::action;
-    use nu_plugin::test_helpers::value::string;
     use nu_source::Tag;
+    use nu_test_support::value::string;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {

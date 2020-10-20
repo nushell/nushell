@@ -175,8 +175,8 @@ async fn from_yaml(
 mod tests {
     use super::ShellError;
     use super::*;
-    use nu_plugin::row;
-    use nu_plugin::test_helpers::value::string;
+    use nu_protocol::row;
+    use nu_test_support::value::string;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {

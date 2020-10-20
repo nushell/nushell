@@ -1,8 +1,12 @@
 use crate::Plugin;
 use indexmap::IndexMap;
 use nu_errors::ShellError;
-use nu_protocol::{CallInfo, EvaluatedArgs, ReturnSuccess, ReturnValue, UntaggedValue, Value};
+use nu_protocol::{
+    CallInfo, EvaluatedArgs, Primitive, ReturnSuccess, ReturnValue, UntaggedValue, Value,
+};
 use nu_source::Tag;
+use nu_test_support::value::column_path;
+use nu_value_ext::ValueExt;
 
 pub struct PluginTest<'a, T: Plugin> {
     plugin: &'a mut T,
@@ -112,12 +116,12 @@ impl CallStub {
     }
 
     pub fn with_parameter(&mut self, name: &str) -> Result<&mut Self, ShellError> {
-        let fields: Vec<Value> = name
-            .split('.')
-            .map(|s| UntaggedValue::string(s.to_string()).into_value(Tag::unknown()))
-            .collect();
+        let cp = column_path(&name)
+            .as_column_path()
+            .expect("Failed! Expected valid column path.");
+        let cp = UntaggedValue::Primitive(Primitive::ColumnPath(cp.item)).into_value(cp.tag);
 
-        self.positionals.push(value::column_path(&fields)?);
+        self.positionals.push(cp);
         Ok(self)
     }
 
@@ -156,63 +160,4 @@ pub fn expect_return_value_at(
         at,
         return_values.len() - 1
     ))
-}
-
-pub mod value {
-    use bigdecimal::BigDecimal;
-    use nu_errors::ShellError;
-    use nu_protocol::{Primitive, TaggedDictBuilder, UntaggedValue, Value};
-    use nu_source::{Span, Tag};
-    use nu_value_ext::ValueExt;
-    use num_bigint::BigInt;
-
-    pub fn get_data(for_value: Value, key: &str) -> Value {
-        for_value.get_data(&key.to_string()).borrow().clone()
-    }
-
-    pub fn int(i: impl Into<BigInt>) -> Value {
-        UntaggedValue::Primitive(Primitive::Int(i.into())).into_untagged_value()
-    }
-
-    pub fn decimal(f: impl Into<BigDecimal>) -> Value {
-        UntaggedValue::decimal(f.into()).into_untagged_value()
-    }
-
-    pub fn decimal_from_float(f: f64) -> Value {
-        UntaggedValue::decimal_from_float(f, Span::unknown()).into_untagged_value()
-    }
-
-    pub fn string(input: impl Into<String>) -> Value {
-        UntaggedValue::string(input.into()).into_untagged_value()
-    }
-
-    pub fn structured_sample_record(key: &str, value: &str) -> Value {
-        let mut record = TaggedDictBuilder::new(Tag::unknown());
-        record.insert_untagged(key, UntaggedValue::string(value));
-        record.into_value()
-    }
-
-    pub fn unstructured_sample_record(value: &str) -> Value {
-        UntaggedValue::string(value).into_value(Tag::unknown())
-    }
-
-    pub fn table(list: &[Value]) -> Value {
-        UntaggedValue::table(list).into_untagged_value()
-    }
-
-    pub fn column_path(paths: &[Value]) -> Result<Value, ShellError> {
-        Ok(UntaggedValue::Primitive(Primitive::ColumnPath(
-            table(&paths.to_vec()).as_column_path()?.item,
-        ))
-        .into_untagged_value())
-    }
-
-    #[macro_export]
-    macro_rules! row {
-        ($( $key: expr => $val: expr ),*) => {{
-             let mut map = ::indexmap::IndexMap::new();
-             $( map.insert($key, $val); )*
-             ::nu_protocol::UntaggedValue::row(map).into_untagged_value()
-        }}
-    }
 }

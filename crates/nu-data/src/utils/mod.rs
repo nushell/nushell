@@ -97,99 +97,68 @@ pub fn report(
 }
 
 pub mod helpers {
-    use super::Model;
-    use indexmap::indexmap;
     use nu_errors::ShellError;
-    use nu_protocol::{UntaggedValue, Value};
-    use nu_source::{Span, Tag, TaggedItem};
+    use nu_protocol::{row, Value};
+    use nu_source::{Tag, TaggedItem};
+    use nu_test_support::value::{date, int, string, table};
     use nu_value_ext::ValueExt;
-    use num_bigint::BigInt;
-
-    use indexmap::IndexMap;
-
-    pub fn int(s: impl Into<BigInt>) -> Value {
-        UntaggedValue::int(s).into_untagged_value()
-    }
-
-    pub fn decimal_from_float(f: f64, span: Span) -> Value {
-        UntaggedValue::decimal_from_float(f, span).into_untagged_value()
-    }
-
-    pub fn string(input: impl Into<String>) -> Value {
-        UntaggedValue::string(input.into()).into_untagged_value()
-    }
-
-    pub fn row(entries: IndexMap<String, Value>) -> Value {
-        UntaggedValue::row(entries).into_untagged_value()
-    }
-
-    pub fn table(list: &[Value]) -> Value {
-        UntaggedValue::table(list).into_untagged_value()
-    }
-
-    pub fn date(input: impl Into<String>) -> Value {
-        let key = input.into().tagged_unknown();
-        crate::value::Date::naive_from_str(key.borrow_tagged())
-            .expect("date from string failed")
-            .into_untagged_value()
-    }
 
     pub fn committers() -> Vec<Value> {
         vec![
-            row(indexmap! {
+            row! {
                    "date".into() => date("2019-07-23"),
                    "name".into() =>       string("AR"),
                 "country".into() =>       string("EC"),
-              "chickens".into() =>             int(10),
-            }),
-            row(indexmap! {
+              "chickens".into() =>             int(10)
+            },
+            row! {
                    "date".into() => date("2019-07-23"),
                    "name".into() =>       string("JT"),
                 "country".into() =>       string("NZ"),
-               "chickens".into() =>             int(5),
-            }),
-            row(indexmap! {
+               "chickens".into() =>             int(5)
+            },
+            row! {
                    "date".into() => date("2019-10-10"),
                    "name".into() =>       string("YK"),
                 "country".into() =>       string("US"),
-               "chickens".into() =>             int(6),
-            }),
-            row(indexmap! {
+               "chickens".into() =>             int(6)
+            },
+            row! {
                    "date".into() => date("2019-09-24"),
                    "name".into() =>       string("AR"),
                 "country".into() =>       string("EC"),
-               "chickens".into() =>            int(20),
-            }),
-            row(indexmap! {
+               "chickens".into() =>            int(20)
+            },
+            row! {
                    "date".into() => date("2019-10-10"),
                    "name".into() =>       string("JT"),
                 "country".into() =>       string("NZ"),
-               "chickens".into() =>            int(15),
-            }),
-            row(indexmap! {
+               "chickens".into() =>            int(15)
+            },
+            row! {
                    "date".into() => date("2019-09-24"),
                    "name".into() =>       string("YK"),
                 "country".into() =>       string("US"),
-               "chickens".into() =>             int(4),
-            }),
-            row(indexmap! {
+               "chickens".into() =>             int(4)
+            },
+            row! {
                    "date".into() => date("2019-10-10"),
                    "name".into() =>       string("AR"),
                 "country".into() =>       string("EC"),
-               "chickens".into() =>            int(30),
-            }),
-            row(indexmap! {
+               "chickens".into() =>            int(30)
+            },
+            row! {
                    "date".into() => date("2019-09-24"),
                    "name".into() =>       string("JT"),
                 "country".into() =>       string("NZ"),
-              "chickens".into() =>             int(10),
-            }),
-            row(indexmap! {
+              "chickens".into() =>             int(10)
+            },
+            row! {
                    "date".into() => date("2019-07-23"),
                    "name".into() =>       string("YK"),
                 "country".into() =>       string("US"),
-               "chickens".into() =>             int(2),
-            }),
+               "chickens".into() =>             int(2)
+            },
         ]
     }
 
@@ -217,6 +186,17 @@ pub mod helpers {
             date.format(&fmt)
         })
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::helpers::{committers, date_formatter};
+    use super::{report, Labels, Model, Operation, Range, Reduction};
+    use nu_errors::ShellError;
+    use nu_protocol::Value;
+    use nu_source::{Tag, TaggedItem};
+    use nu_test_support::value::{decimal_from_float, int, table};
+    use nu_value_ext::ValueExt;
 
     pub fn assert_without_checking_percentages(report_a: Model, report_b: Model) {
         assert_eq!(report_a.labels.x, report_b.labels.x);
@@ -224,19 +204,6 @@ pub mod helpers {
         assert_eq!(report_a.ranges, report_b.ranges);
         assert_eq!(report_a.data, report_b.data);
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::helpers::{
-        assert_without_checking_percentages, committers, date_formatter, decimal_from_float, int,
-        table,
-    };
-    use super::{report, Labels, Model, Operation, Range, Reduction};
-    use nu_errors::ShellError;
-    use nu_protocol::Value;
-    use nu_source::{Span, Tag, TaggedItem};
-    use nu_value_ext::ValueExt;
 
     #[test]
     fn prepares_report_using_counting_value() {
@@ -304,19 +271,19 @@ mod tests {
                 ]),
                 percentages: table(&[
                     table(&[
-                        decimal_from_float(33.33, Span::unknown()),
-                        decimal_from_float(66.66, Span::unknown()),
-                        decimal_from_float(99.99, Span::unknown()),
+                        decimal_from_float(33.33),
+                        decimal_from_float(66.66),
+                        decimal_from_float(99.99),
                     ]),
                     table(&[
-                        decimal_from_float(16.66, Span::unknown()),
-                        decimal_from_float(33.33, Span::unknown()),
-                        decimal_from_float(49.99, Span::unknown()),
+                        decimal_from_float(16.66),
+                        decimal_from_float(33.33),
+                        decimal_from_float(49.99),
                     ]),
                     table(&[
-                        decimal_from_float(6.66, Span::unknown()),
-                        decimal_from_float(13.33, Span::unknown()),
-                        decimal_from_float(19.99, Span::unknown()),
+                        decimal_from_float(6.66),
+                        decimal_from_float(13.33),
+                        decimal_from_float(19.99),
                     ]),
                 ]),
             },

@@ -51,30 +51,30 @@ impl WholeStreamCommand for Command {
                 result: Some(vec![UntaggedValue::row(indexmap! {
                     "File".to_string() => UntaggedValue::Table(vec![
                         UntaggedValue::row(indexmap! {
-                            "modified".to_string() => date("2019-07-23".tagged_unknown()).unwrap().into(),
                                 "name".to_string() =>          UntaggedValue::string("Andrés.txt").into(),
                                 "type".to_string() =>                UntaggedValue::string("File").into(),
                             "chickens".to_string() =>                       UntaggedValue::int(10).into(),
+                            "modified".to_string() => date("2019-07-23".tagged_unknown()).unwrap().into(),
                         }).into(),
                         UntaggedValue::row(indexmap! {
-                            "modified".to_string() => date("2019-09-24".tagged_unknown()).unwrap().into(),
                                 "name".to_string() =>          UntaggedValue::string("Andrés.txt").into(),
                                 "type".to_string() =>                UntaggedValue::string("File").into(),
                             "chickens".to_string() =>                       UntaggedValue::int(20).into(),
+                            "modified".to_string() => date("2019-09-24".tagged_unknown()).unwrap().into(),
                         }).into(),
                     ]).into(),
                     "Dir".to_string() => UntaggedValue::Table(vec![
                         UntaggedValue::row(indexmap! {
-                            "modified".to_string() => date("2019-07-23".tagged_unknown()).unwrap().into(),
                                 "name".to_string() =>            UntaggedValue::string("Jonathan").into(),
                                 "type".to_string() =>                 UntaggedValue::string("Dir").into(),
                             "chickens".to_string() =>                        UntaggedValue::int(5).into(),
+                            "modified".to_string() => date("2019-07-23".tagged_unknown()).unwrap().into(),
                         }).into(),
                         UntaggedValue::row(indexmap! {
-                            "modified".to_string() => date("2019-09-24".tagged_unknown()).unwrap().into(),
                                 "name".to_string() =>              UntaggedValue::string("Yehuda").into(),
                                 "type".to_string() =>                 UntaggedValue::string("Dir").into(),
                             "chickens".to_string() =>                        UntaggedValue::int(4).into(),
+                            "modified".to_string() => date("2019-09-24".tagged_unknown()).unwrap().into(),
                         }).into(),
                     ]).into(),
                 })
@@ -278,9 +278,10 @@ pub fn group(
 #[cfg(test)]
 mod tests {
     use super::group;
-    use nu_data::utils::helpers::{committers, date, int, row, string, table};
+    use nu_data::utils::helpers::committers;
     use nu_errors::ShellError;
     use nu_source::*;
+    use nu_test_support::value::{date, int, row, string, table};
 
     #[test]
     fn groups_table_by_date_column() -> Result<(), ShellError> {

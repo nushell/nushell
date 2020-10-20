@@ -7,10 +7,7 @@ use nu_source::{AnchorLocation, TaggedItem};
 
 use crate::prelude::*;
 
-use indexmap::indexmap;
 use num_bigint::BigInt;
-
-use indexmap::IndexMap;
 
 use crate::command_registry::CommandRegistry;
 use crate::commands::classified::block::run_block;
@@ -450,10 +447,6 @@ fn string(input: impl Into<String>) -> Value {
     UntaggedValue::string(input.into()).into_untagged_value()
 }
 
-fn row(entries: IndexMap<String, Value>) -> Value {
-    UntaggedValue::row(entries).into_untagged_value()
-}
-
 fn date(input: impl Into<String>) -> Value {
     let key = input.into().tagged_unknown();
     crate::value::Date::naive_from_str(key.borrow_tagged())
@@ -463,30 +456,30 @@ fn date(input: impl Into<String>) -> Value {
 
 fn file_listing() -> Vec<Value> {
     vec![
-        row(indexmap! {
-           "modified".to_string() =>   date("2019-07-23"),
+        row! {
                "name".to_string() => string("Andrés.txt"),
                "type".to_string() =>       string("File"),
            "chickens".to_string() =>              int(10),
-        }),
-        row(indexmap! {
-           "modified".to_string() =>   date("2019-07-23"),
+           "modified".to_string() =>   date("2019-07-23")
+        },
+        row! {
                "name".to_string() =>   string("Jonathan"),
                "type".to_string() =>        string("Dir"),
            "chickens".to_string() =>               int(5),
-        }),
-        row(indexmap! {
-           "modified".to_string() =>    date("2019-09-24"),
+           "modified".to_string() =>   date("2019-07-23")
+        },
+        row! {
                "name".to_string() =>  string("Andrés.txt"),
                "type".to_string() =>        string("File"),
            "chickens".to_string() =>               int(20),
-        }),
-        row(indexmap! {
-           "modified".to_string() =>    date("2019-09-24"),
+           "modified".to_string() =>    date("2019-09-24")
+        },
+        row! {
                "name".to_string() =>      string("Yehuda"),
                "type".to_string() =>         string("Dir"),
            "chickens".to_string() =>                int(4),
-        }),
+           "modified".to_string() =>    date("2019-09-24")
+        },
     ]
 }
 
