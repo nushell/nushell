@@ -100,12 +100,20 @@ fn flat_value(
                 } = value
                 {
                     if column_requested.is_none() && !columns.is_empty() {
-                        out.insert_value(column, value.clone());
+                        if out.contains_key(&column) {
+                            out.insert_value(format!("{}_{}", column, column), value.clone());
+                        } else {
+                            out.insert_value(column, value.clone());
+                        }
                         continue;
                     }
 
                     for (k, v) in mapa.into_iter() {
-                        out.insert_value(k, v.clone());
+                        if out.contains_key(k) {
+                            out.insert_value(format!("{}_{}", column, k), v.clone());
+                        } else {
+                            out.insert_value(k, v.clone());
+                        }
                     }
                 } else if value.is_table() {
                     if tables_explicitly_flattened >= 1 && column_requested.is_some() {
