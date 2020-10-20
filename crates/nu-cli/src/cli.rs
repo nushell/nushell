@@ -159,7 +159,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Ansi),
             whole_stream_command(Char),
             // Column manipulation
-            whole_stream_command(MoveColumn),
+            whole_stream_command(Move),
             whole_stream_command(Reject),
             whole_stream_command(Select),
             whole_stream_command(Get),

@@ -101,9 +101,10 @@ pub fn split(
 mod tests {
     use super::split;
     use super::ShellError;
-    use nu_data::utils::helpers::{committers_grouped_by_date, date, int, row, string, table};
+    use nu_data::utils::helpers::committers_grouped_by_date;
     use nu_protocol::UntaggedValue;
     use nu_source::*;
+    use nu_test_support::value::{date, int, row, string, table};
 
     #[test]
     fn splits_inner_tables_by_key() {

@@ -68,7 +68,7 @@ macro_rules! trace_out_stream {
     }};
 }
 
-pub(crate) use nu_protocol::{errln, out, outln};
+pub(crate) use nu_protocol::{errln, out, outln, row};
 use nu_source::HasFallibleSpan;
 
 pub(crate) use crate::command_registry::CommandRegistry;

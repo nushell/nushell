@@ -24,3 +24,12 @@ macro_rules! outln {
 macro_rules! errln {
     ($($tokens:tt)*) => { eprintln!($($tokens)*) }
 }
+
+#[macro_export]
+macro_rules! row {
+    ($( $key: expr => $val: expr ),*) => {{
+         let mut map = ::indexmap::IndexMap::new();
+         $( map.insert($key, $val); )*
+         ::nu_protocol::UntaggedValue::row(map).into_untagged_value()
+    }}
+}

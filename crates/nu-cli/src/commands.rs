@@ -213,7 +213,7 @@ pub(crate) use math::{
 };
 pub(crate) use merge::Merge;
 pub(crate) use mkdir::Mkdir;
-pub(crate) use move_::{Move, MoveColumn, Mv};
+pub(crate) use move_::{Move, Mv};
 pub(crate) use next::Next;
 pub(crate) use nth::Nth;
 pub(crate) use open::Open;
@@ -285,6 +285,7 @@ mod tests {
             whole_stream_command(Append),
             whole_stream_command(GroupBy),
             whole_stream_command(Insert),
+            whole_stream_command(Move),
             whole_stream_command(Update),
             whole_stream_command(Empty),
         ]

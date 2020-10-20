@@ -127,7 +127,7 @@ fn build_xpath(xpath_str: &str) -> Result<sxd_xpath::XPath, ShellError> {
 mod tests {
     use super::string_to_value as query;
     use nu_errors::ShellError;
-    use nu_source::{Span, TaggedItem};
+    use nu_source::TaggedItem;
     use nu_test_support::value::{decimal_from_float, row};
 
     use indexmap::indexmap;
@@ -140,9 +140,7 @@ mod tests {
 
         assert_eq!(
             actual[0],
-            row(
-                indexmap! { "count(//a/*[posit...".into() => decimal_from_float(1.0, Span::unknown()) }
-            )
+            row(indexmap! { "count(//a/*[posit...".into() => decimal_from_float(1.0) })
         );
 
         Ok(())
@@ -156,9 +154,7 @@ mod tests {
 
         assert_eq!(
             actual[0],
-            row(
-                indexmap! { "count(//*[contain...".into() => decimal_from_float(1.0, Span::unknown()) }
-            )
+            row(indexmap! { "count(//*[contain...".into() => decimal_from_float(1.0) })
         );
 
         Ok(())

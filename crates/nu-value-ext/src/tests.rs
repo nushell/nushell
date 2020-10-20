@@ -5,7 +5,7 @@ use indexmap::indexmap;
 
 #[test]
 fn forgiving_insertion_test_1() {
-    let field_path = column_path("crate.version").unwrap();
+    let field_path = column_path("crate.version").as_column_path().unwrap();
 
     let version = string("nuno");
 
@@ -20,7 +20,7 @@ fn forgiving_insertion_test_1() {
     assert_eq!(
         *value
             .into_untagged_value()
-            .forgiving_insert_data_at_column_path(&field_path, version)
+            .forgiving_insert_data_at_column_path(&field_path.item, version)
             .unwrap()
             .get_data_by_column_path(&field_path, Box::new(error_callback("crate.version")))
             .unwrap(),
@@ -30,7 +30,7 @@ fn forgiving_insertion_test_1() {
 
 #[test]
 fn forgiving_insertion_test_2() {
-    let field_path = column_path("things.0").unwrap();
+    let field_path = column_path("things.0").as_column_path().unwrap();
 
     let version = string("arepas");
 
@@ -47,7 +47,7 @@ fn forgiving_insertion_test_2() {
     assert_eq!(
         *value
             .into_untagged_value()
-            .forgiving_insert_data_at_column_path(&field_path, version)
+            .forgiving_insert_data_at_column_path(&field_path.item, version)
             .unwrap()
             .get_data_by_column_path(&field_path, Box::new(error_callback("things.0")))
             .unwrap(),
@@ -57,8 +57,10 @@ fn forgiving_insertion_test_2() {
 
 #[test]
 fn forgiving_insertion_test_3() {
-    let field_path = column_path("color_config.arepa_color").unwrap();
-    let pizza_path = column_path("things.0").unwrap();
+    let field_path = column_path("color_config.arepa_color")
+        .as_column_path()
+        .unwrap();
+    let pizza_path = column_path("things.0").as_column_path().unwrap();
 
     let entry = string("amarillo");
 
@@ -79,7 +81,7 @@ fn forgiving_insertion_test_3() {
             .forgiving_insert_data_at_column_path(&field_path, entry.clone())
             .unwrap()
             .get_data_by_column_path(
-                &field_path,
+                &field_path.item,
                 Box::new(error_callback("color_config.arepa_color"))
             )
             .unwrap(),
@@ -89,7 +91,7 @@ fn forgiving_insertion_test_3() {
     assert_eq!(
         *value
             .into_untagged_value()
-            .forgiving_insert_data_at_column_path(&field_path, entry)
+            .forgiving_insert_data_at_column_path(&field_path.item, entry)
             .unwrap()
             .get_data_by_column_path(&pizza_path, Box::new(error_callback("things.0")))
             .unwrap(),

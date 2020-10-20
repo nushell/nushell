@@ -38,9 +38,8 @@ mod tests {
         avg::average, max::maximum, median::median, min::minimum, mode::mode, stddev::stddev,
         sum::summation, utils::calculate, utils::MathFunction, variance::variance,
     };
-    use nu_plugin::row;
-    use nu_plugin::test_helpers::value::{decimal, decimal_from_float, int, table};
-    use nu_protocol::Value;
+    use nu_protocol::{row, Value};
+    use nu_test_support::value::{decimal, decimal_from_float, int, table};
     use std::str::FromStr;
 
     #[test]
@@ -71,14 +70,14 @@ mod tests {
                 values: vec![int(10)],
                 expected_err: None,
                 expected_res: vec![
-                    Ok(decimal(10)),
+                    Ok(decimal_from_float(10.0)),
                     Ok(int(10)),
                     Ok(int(10)),
                     Ok(int(10)),
                     Ok(table(&[int(10)])),
-                    Ok(decimal(0)),
+                    Ok(decimal_from_float(0.0)),
                     Ok(int(10)),
-                    Ok(decimal(0)),
+                    Ok(decimal_from_float(0.0)),
                 ],
             },
             TestCase {
@@ -86,7 +85,7 @@ mod tests {
                 values: vec![int(10), int(20), int(30)],
                 expected_err: None,
                 expected_res: vec![
-                    Ok(decimal(20)),
+                    Ok(decimal_from_float(20.0)),
                     Ok(int(10)),
                     Ok(int(30)),
                     Ok(int(20)),
@@ -101,13 +100,13 @@ mod tests {
                 values: vec![int(10), decimal_from_float(26.5), decimal_from_float(26.5)],
                 expected_err: None,
                 expected_res: vec![
-                    Ok(decimal(21)),
+                    Ok(decimal_from_float(21.0)),
                     Ok(int(10)),
                     Ok(decimal_from_float(26.5)),
                     Ok(decimal_from_float(26.5)),
                     Ok(table(&[decimal_from_float(26.5)])),
                     Ok(decimal(BigDecimal::from_str("7.77817459305202276840928798315333943213319531457321440247173855894902863154158871367713143880202865").expect("Could not convert to decimal from string"))),
-                    Ok(decimal(63)),
+                    Ok(decimal_from_float(63.0)),
                     Ok(decimal_from_float(60.5)),
                 ],
             },
@@ -116,14 +115,14 @@ mod tests {
                 values: vec![int(-14), int(-11), int(10)],
                 expected_err: None,
                 expected_res: vec![
-                    Ok(decimal(-5)),
+                    Ok(decimal_from_float(-5.0)),
                     Ok(int(-14)),
                     Ok(int(10)),
                     Ok(int(-11)),
                     Ok(table(&[int(-14), int(-11), int(10)])),
                     Ok(decimal(BigDecimal::from_str("10.67707825203131121081152396559571062628228776946058011397810604284900898365140801704064843595778374").expect("Could not convert to decimal from string"))),
                     Ok(int(-15)),
-                    Ok(decimal(114)),
+                    Ok(decimal_from_float(114.0)),
                 ],
             },
             TestCase {
@@ -131,13 +130,13 @@ mod tests {
                 values: vec![decimal_from_float(-13.5), decimal_from_float(-11.5), int(10)],
                 expected_err: None,
                 expected_res: vec![
-                    Ok(decimal(-5)),
+                    Ok(decimal_from_float(-5.0)),
                     Ok(decimal_from_float(-13.5)),
                     Ok(int(10)),
                     Ok(decimal_from_float(-11.5)),
                     Ok(table(&[decimal_from_float(-13.5), decimal_from_float(-11.5), int(10)])),
                     Ok(decimal(BigDecimal::from_str("10.63798226482196513098036125801342585449179971588207816421068645273754903468375890632981926875247027").expect("Could not convert to decimal from string"))),
-                    Ok(decimal(-15)),
+                    Ok(decimal_from_float(-15.0)),
                     Ok(decimal(BigDecimal::from_str("113.1666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666667").expect("Could not convert to decimal from string"))),
                 ],
             },

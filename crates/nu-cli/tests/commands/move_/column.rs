@@ -22,7 +22,7 @@ fn moves_a_column_before() {
             cwd: dirs.test(), pipeline(
             r#"
                 open sample.csv
-                | move column column99 --before column1
+                | move column99 --before column1
                 | rename chars
                 | get chars
                 | str trim
@@ -57,7 +57,7 @@ fn moves_columns_before() {
             cwd: dirs.test(), pipeline(
             r#"
                 open sample.csv
-                | move column column99 column3 --before column2
+                | move column99 column3 --before column2
                 | rename _ chars_1 chars_2
                 | get chars_2 chars_1
                 | str trim
@@ -92,8 +92,8 @@ fn moves_a_column_after() {
             cwd: dirs.test(), pipeline(
             r#"
                 open sample.csv
-                | move column letters --after and_more
-                | move column letters and_more --before column2
+                | move letters --after and_more
+                | move letters and_more --before column2
                 | rename _ chars_1 chars_2
                 | get chars_1 chars_2
                 | str trim
@@ -128,7 +128,7 @@ fn moves_columns_after() {
             cwd: dirs.test(), pipeline(
             r#"
                 open sample.csv
-                | move column letters and_more --after column1
+                | move letters and_more --after column1
                 | get
                 | nth 1 2
                 | str collect

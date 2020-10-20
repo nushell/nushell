@@ -1,16 +1,21 @@
+use bigdecimal::BigDecimal;
 use chrono::{DateTime, NaiveDate, Utc};
 use indexmap::IndexMap;
 use nu_errors::ShellError;
-use nu_protocol::{ColumnPath, PathMember, Primitive, UntaggedValue, Value};
-use nu_source::{Span, SpannedItem, Tagged, TaggedItem};
+use nu_protocol::{PathMember, Primitive, UntaggedValue, Value};
+use nu_source::{Span, TaggedItem};
 use num_bigint::BigInt;
 
 pub fn int(s: impl Into<BigInt>) -> Value {
     UntaggedValue::int(s).into_untagged_value()
 }
 
-pub fn decimal_from_float(f: f64, span: Span) -> Value {
-    UntaggedValue::decimal_from_float(f, span).into_untagged_value()
+pub fn decimal(s: BigDecimal) -> Value {
+    UntaggedValue::Primitive(Primitive::Decimal(s)).into_untagged_value()
+}
+
+pub fn decimal_from_float(f: f64) -> Value {
+    UntaggedValue::decimal_from_float(f, Span::unknown()).into_untagged_value()
 }
 
 pub fn string(input: impl Into<String>) -> Value {
@@ -42,9 +47,8 @@ pub fn date(input: impl Into<String>) -> Value {
     .into_untagged_value()
 }
 
-pub fn column_path(paths: &str) -> Result<Tagged<ColumnPath>, ShellError> {
-    let paths = paths.to_string().spanned_unknown();
-    Ok(ColumnPath::build(&paths).tagged_unknown())
+pub fn column_path(paths: &str) -> Value {
+    UntaggedValue::column_path(paths, Span::unknown()).into_untagged_value()
 }
 
 pub fn error_callback(

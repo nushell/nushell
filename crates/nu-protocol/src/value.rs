@@ -169,8 +169,8 @@ impl UntaggedValue {
     }
 
     /// Helper for creating column-path values
-    pub fn column_path(s: &str) -> UntaggedValue {
-        let s = s.to_string().spanned_unknown();
+    pub fn column_path(s: &str, span: Span) -> UntaggedValue {
+        let s = s.to_string().spanned(span);
 
         UntaggedValue::Primitive(Primitive::ColumnPath(ColumnPath::build(&s)))
     }
@@ -196,8 +196,8 @@ impl UntaggedValue {
     }
 
     /// Helper for creating decimal values
-    pub fn decimal(s: BigDecimal) -> UntaggedValue {
-        UntaggedValue::Primitive(Primitive::Decimal(s))
+    pub fn decimal(s: impl Into<BigDecimal>) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Decimal(s.into()))
     }
 
     /// Helper for creating decimal values

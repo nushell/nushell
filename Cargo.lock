@@ -3067,6 +3067,7 @@ dependencies = [
  "nu-errors",
  "nu-protocol",
  "nu-source",
+ "nu-test-support",
  "nu-value-ext",
  "num-bigint 0.3.0",
  "serde 1.0.115",
@@ -3119,6 +3120,7 @@ dependencies = [
 name = "nu-test-support"
 version = "0.21.0"
 dependencies = [
+ "bigdecimal",
  "chrono",
  "dunce",
  "getset",
@@ -3227,6 +3229,7 @@ dependencies = [
  "nu-plugin",
  "nu-protocol",
  "nu-source",
+ "nu-test-support",
  "nu-value-ext",
  "semver 0.10.0",
 ]

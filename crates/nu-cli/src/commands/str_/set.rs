@@ -101,8 +101,8 @@ fn action(_input: &Value, options: &Replace, tag: impl Into<Tag>) -> Result<Valu
 mod tests {
     use super::ShellError;
     use super::{action, Replace, SubCommand};
-    use nu_plugin::test_helpers::value::string;
     use nu_source::Tag;
+    use nu_test_support::value::string;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
