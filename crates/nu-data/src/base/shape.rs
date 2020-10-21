@@ -163,7 +163,7 @@ impl PrettyDebug for FormatInlineShape {
                     .get("filesize_format")
                     .map(|val| val.convert_to_string().to_ascii_lowercase())
                     .unwrap_or_else(|| "auto".to_string());
-                // if there is a value match it to one of the valid values for byte units
+                // if there is a value, match it to one of the valid values for byte units
                 let filesize_format = match filesize_format_var.as_str() {
                     "b" => (byte_unit::ByteUnit::B, ""),
                     "kb" => (byte_unit::ByteUnit::KB, ""),
@@ -194,7 +194,10 @@ impl PrettyDebug for FormatInlineShape {
                 match byte.get_unit() {
                     byte_unit::ByteUnit::B => {
                         let locale_byte = byte.get_value() as u64;
-                        (b::primitive(locale_byte.to_formatted_string(&Locale::en))).group()
+                        (b::primitive(locale_byte.to_formatted_string(&Locale::en))
+                            + b::space()
+                            + b::kind("B"))
+                        .group()
                     }
                     _ => b::primitive(byte.format(1)),
                 }
