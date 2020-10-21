@@ -59,6 +59,8 @@ pub fn table_mode(config: &NuConfig) -> nu_table::Theme {
             Ok(m) if m == "compact_double" => nu_table::Theme::compact_double(),
             Ok(m) if m == "rounded" => nu_table::Theme::rounded(),
             Ok(m) if m == "reinforced" => nu_table::Theme::reinforced(),
+            Ok(m) if m == "heavy" => nu_table::Theme::heavy(),
+            Ok(m) if m == "none" => nu_table::Theme::none(),
             _ => nu_table::Theme::compact(),
         })
 }
