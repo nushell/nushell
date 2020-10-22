@@ -11,7 +11,7 @@ pub struct Seq;
 pub struct SeqArgs {
     separator: Option<Tagged<String>>,
     terminator: Option<Tagged<String>>,
-    widths: Tagged<bool>,
+    widths: Option<Tagged<bool>>,
     rest: Vec<Tagged<u64>>,
 }
 
@@ -139,12 +139,22 @@ async fn seq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
         _ => sep,
     };
 
+    let use_widths = match widths {
+        Some(b) => *b,
+        _ => false,
+    };
+
     let rest_nums: Vec<String> = rest_nums
         .iter()
         .map(|n| n.item.to_string().clone())
         .collect();
 
-    run_seq(sep.to_string(), Some(term.to_string()), *widths, rest_nums)
+    run_seq(
+        sep.to_string(),
+        Some(term.to_string()),
+        use_widths,
+        rest_nums,
+    )
 }
 
 #[cfg(test)]
@@ -159,13 +169,6 @@ mod tests {
         Ok(test_examples(Seq {})?)
     }
 }
-
-// #[derive(Clone)]
-// struct SeqOptions {
-//     separator: String,
-//     terminator: Option<String>,
-//     widths: bool,
-// }
 
 fn parse_float(mut s: &str) -> Result<f64, String> {
     if s.starts_with('+') {
