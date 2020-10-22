@@ -1,4 +1,6 @@
 use crate::CommandRegistry;
+
+use lazy_static::lazy_static;
 use nu_errors::ShellError;
 use nu_parser::SignatureRegistry;
 use nu_protocol::{
@@ -66,6 +68,40 @@ impl VarShapeDeduction {
             .map(|shape| VarShapeDeduction::from_usage(usage, shape))
             .collect()
     }
+}
+
+//Lookup table for possible shape inferences of variables inside binary expressions
+// (Operator, VariableSide, ShapeOfArg) -> List of possible shapes for the var
+lazy_static! {
+    static ref OPERATOR_LOOKUP_TABLE: HashMap<(Operator, BinarySide, SyntaxShape), Vec<SyntaxShape>> = {
+        vec![
+            ((Operator::Divide, BinarySide::Left, SyntaxShape::Number),       // expr => possible var shapes
+             vec![SyntaxShape::Unit, SyntaxShape::Number, SyntaxShape::Int]), //$var / number => Unit, Int, Number
+            ((Operator::Divide, BinarySide::Left, SyntaxShape::Int),
+             vec![SyntaxShape::Unit, SyntaxShape::Number, SyntaxShape::Int]), //$var / int => Unit, Int, Number
+            ((Operator::Divide, BinarySide::Left, SyntaxShape::Unit),
+             vec![SyntaxShape::Unit]), //$var / unit => Unit
+            ((Operator::Divide, BinarySide::Right, SyntaxShape::Number),
+             vec![SyntaxShape::Number, SyntaxShape::Int]), //number / $var => Int, Number
+            ((Operator::Divide, BinarySide::Right, SyntaxShape::Int),
+             vec![SyntaxShape::Number, SyntaxShape::Int]), //int / $var => Int, Number
+            ((Operator::Divide, BinarySide::Right, SyntaxShape::Unit),
+             vec![SyntaxShape::Unit, SyntaxShape::Number, SyntaxShape::Int]), //unit / $var => unit, int, number
+
+            ((Operator::Multiply, BinarySide::Left, SyntaxShape::Number),
+             vec![SyntaxShape::Unit, SyntaxShape::Number, SyntaxShape::Int]), //$var * number => Unit, Int, Number
+            ((Operator::Multiply, BinarySide::Left, SyntaxShape::Int),
+             vec![SyntaxShape::Unit, SyntaxShape::Number, SyntaxShape::Int]), //$var * int => Unit, Int, Number
+            ((Operator::Multiply, BinarySide::Left, SyntaxShape::Unit),
+             vec![SyntaxShape::Int, SyntaxShape::Number]), //$var * unit => int, number //TODO this changes as soon as more complex units arrive
+            ((Operator::Multiply, BinarySide::Right, SyntaxShape::Number),
+             vec![SyntaxShape::Unit, SyntaxShape::Number, SyntaxShape::Int]), //number * $var => Unit, Int, Number
+            ((Operator::Multiply, BinarySide::Right, SyntaxShape::Int),
+             vec![SyntaxShape::Unit, SyntaxShape::Number, SyntaxShape::Int]), //int * $var => Unit, Int, Number
+            ((Operator::Multiply, BinarySide::Right, SyntaxShape::Unit),
+             vec![SyntaxShape::Int, SyntaxShape::Number]), //unit * $var => int, number //TODO this changes as soon as more complex units arrive
+            ].into_iter().collect()
+    };
 }
 
 struct FakeVarGen {
@@ -264,6 +300,7 @@ fn get_result_shape_of(
     })
 }
 
+#[derive(Hash, PartialEq, Eq)]
 enum BinarySide {
     Left,
     Right,
@@ -1051,107 +1088,22 @@ impl VarSyntaxShapeDeductor {
                         }
                     }
                 }
-                Operator::Multiply => {
+                Operator::Multiply | Operator::Divide => {
                     if let Some(shape) = self.get_shape_of_binary_arg_or_insert_dependency(
                         (var, expr),
                         bin_spanned,
                         (pipeline_idx, pipeline),
                         registry,
                     )? {
-                        if shape == SyntaxShape::Unit {
-                            //TODO at the moment unit * unit is not possible
-                            //As soon as more complex units land this changes!
-                            self.checked_insert(
-                                var,
-                                vec![VarShapeDeduction::from_usage(
-                                    &var.span,
-                                    &SyntaxShape::Number,
-                                )],
-                            )?;
-                        } else if shape == SyntaxShape::Number || shape == SyntaxShape::Int {
-                            self.checked_insert(
-                                var,
-                                VarShapeDeduction::from_usage_with_alternatives(
-                                    &var.span,
-                                    &[SyntaxShape::Number, SyntaxShape::Unit],
-                                ),
-                            )?;
-                        } else {
-                            unreachable!("Only int or number or unit in binary with op = * allowed")
-                        }
-                    }
-                }
-                Operator::Divide => {
-                    if let Some(shape) = self.get_shape_of_binary_arg_or_insert_dependency(
-                        (var, expr),
-                        bin_spanned,
-                        (pipeline_idx, pipeline),
-                        registry,
-                    )? {
-                        match shape {
-                            SyntaxShape::Int | SyntaxShape::Number => {
-                                match var_side {
-                                    BinarySide::Left => {
-                                        //Binary is on left, number / int on right
-                                        self.checked_insert(
-                                            var,
-                                            VarShapeDeduction::from_usage_with_alternatives(
-                                                &var.span,
-                                                &[
-                                                    SyntaxShape::Number,
-                                                    SyntaxShape::Int,
-                                                    SyntaxShape::Unit,
-                                                ],
-                                            ),
-                                        )?;
-                                    }
-                                    BinarySide::Right => {
-                                        //TODO currently no unit type is supports 1/unit. This
-                                        //changes if there would be ever more complex unit types
-                                        //e.G. Frequency
-                                        self.checked_insert(
-                                            var,
-                                            VarShapeDeduction::from_usage_with_alternatives(
-                                                &var.span,
-                                                &[SyntaxShape::Number, SyntaxShape::Int],
-                                            ),
-                                        )?;
-                                    }
-                                }
-                            }
-                            SyntaxShape::Unit => {
-                                match var_side {
-                                    BinarySide::Left => {
-                                        //Must be unit / unit
-                                        self.checked_insert(
-                                            var,
-                                            vec![VarShapeDeduction::from_usage(
-                                                &var.span,
-                                                &SyntaxShape::Unit,
-                                            )],
-                                        )?;
-                                    }
-                                    BinarySide::Right => {
-                                        //Unit / var
-                                        self.checked_insert(
-                                            var,
-                                            VarShapeDeduction::from_usage_with_alternatives(
-                                                &var.span,
-                                                &[
-                                                    SyntaxShape::Number,
-                                                    SyntaxShape::Int,
-                                                    SyntaxShape::Unit,
-                                                ],
-                                            ),
-                                        )?;
-                                    }
-                                }
-                            }
-                            s => unreachable!(format!(
-                                "Shape of {:?} should have failed at parsing stage",
-                                s
-                            )),
-                        }
+                        self.checked_insert(
+                            var,
+                            VarShapeDeduction::from_usage_with_alternatives(
+                                &var.span,
+                                &OPERATOR_LOOKUP_TABLE
+                                    .get(&(op, var_side, shape))
+                                    .expect("shape is unit, number or int. Would have failed in parsing stage otherwise")
+                            ),
+                        )?;
                     }
                 }
             }
