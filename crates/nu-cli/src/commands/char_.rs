@@ -78,6 +78,7 @@ fn str_to_character(s: &str) -> Option<String> {
         "sp" | "space" => Some(" ".into()),
         // Unicode names came from https://www.compart.com/en/unicode
         // Private Use Area (U+E000-U+F8FF)
+        // Unicode can't be mixed with Ansi or it will break width calculation
         "branch" => Some('\u{e0a0}'.to_string()),  // 
         "segment" => Some('\u{e0b0}'.to_string()), // 
 
@@ -96,15 +97,13 @@ fn str_to_character(s: &str) -> Option<String> {
         "hash" | "hashtag" | "pound_sign" | "sharp" | "root" => Some("#".into()),   // #
 
         // Weather symbols
-        "sun" => Some("\x1b[33;1m\u{2600}\x1b[0m".to_string()), // Yellow Bold ☀
-        "moon" => Some("\x1b[36m\u{263d}\x1b[0m".to_string()),  // Cyan ☽
-        "clouds" => Some("\x1b[37;1m\u{2601}\x1b[0m".to_string()), // White Bold ☁
-        "rain" => Some("\x1b[37;1m\u{2614}\x1b[0m".to_string()), // White Bold ☔
-        "fog" => Some("\x1b[37;1m\u{2592}\x1b[0m".to_string()), // White Bold ▒
-        "mist" => Some("\x1b[34m\u{2591}\x1b[0m".to_string()),  // Blue ░
-        "haze" => Some("\x1b[33m\u{2591}\x1b[0m".to_string()),  // Yellow ░
-        "snow" => Some("\x1b[37;1m\u{2744}\x1b[0m".to_string()), // White Bold ❄
-        "thunderstorm" => Some("\x1b[33;1m\u{26a1}\x1b[0m".to_string()), // Yellow Bold ⚡
+        "sun" | "sunny" | "sunrise" => Some("\u{1F305}".to_string()),
+        "moon" => Some("\u{1F319}".to_string()),
+        "cloudy" | "cloud" => Some("\u{2601}".to_string()),
+        "rainy" | "rain" => Some("\u{2614}".to_string()),
+        "foggy" | "fog" => Some("\u{1F301}".to_string()),
+        "snowy" | "snow" => Some("\u{2744}".to_string()),
+        "thunderstorm" | "thunder" => Some("\u{26C8}".to_string()),
 
         // Reference for ansi codes https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
         // Another good reference http://ascii-table.com/ansi-escape-sequences.php
@@ -123,6 +122,7 @@ fn str_to_character(s: &str) -> Option<String> {
         "erase_line_from_cursor_to_end" => Some("\x1b[0K".to_string()), // clears from cursor to end of line
         "erase_line_from_cursor_to_beginning" => Some("\x1b[1K".to_string()), // clears from cursor to start of line
         "erase_entire_line" => Some("\x1b[2K".to_string()),                   // clears entire line
+
         _ => None,
     }
 }

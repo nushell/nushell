@@ -194,10 +194,12 @@ impl PrettyDebug for FormatInlineShape {
                 match byte.get_unit() {
                     byte_unit::ByteUnit::B => {
                         let locale_byte = byte.get_value() as u64;
-                        (b::primitive(locale_byte.to_formatted_string(&Locale::en))
-                            + b::space()
-                            + b::kind("B"))
-                        .group()
+                        let locale_byte_string = locale_byte.to_formatted_string(&Locale::en);
+                        if filesize_format.1 == "auto" {
+                            (b::primitive(locale_byte_string) + b::space() + b::kind("B")).group()
+                        } else {
+                            (b::primitive(locale_byte_string)).group()
+                        }
                     }
                     _ => b::primitive(byte.format(1)),
                 }

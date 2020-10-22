@@ -1,6 +1,6 @@
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Dictionary, ReturnSuccess, UntaggedValue, Value};
+use nu_protocol::{Dictionary, Primitive, ReturnSuccess, UntaggedValue, Value};
 
 use indexmap::map::IndexMap;
 
@@ -29,6 +29,26 @@ pub async fn run_with_function(
         }
         Err(e) => Err(e),
     }
+}
+
+pub type IntFunction = fn(val: BigInt) -> Value;
+
+pub type DecimalFunction = fn(val: BigDecimal) -> Value;
+
+pub type DefaultFunction = fn(val: UntaggedValue) -> Value;
+
+pub async fn run_with_numerical_functions_on_stream(
+    RunnableContext { input, .. }: RunnableContext,
+    int_function: IntFunction,
+    decimal_function: DecimalFunction,
+    default_function: DefaultFunction,
+) -> Result<OutputStream, ShellError> {
+    let mapped = input.map(move |val| match val.value {
+        UntaggedValue::Primitive(Primitive::Int(val)) => int_function(val),
+        UntaggedValue::Primitive(Primitive::Decimal(val)) => decimal_function(val),
+        other => default_function(other),
+    });
+    Ok(OutputStream::from_input(mapped))
 }
 
 pub fn calculate(values: &[Value], name: &Tag, mf: MathFunction) -> Result<Value, ShellError> {
