@@ -9,10 +9,10 @@ pub struct Seq;
 
 #[derive(Deserialize)]
 pub struct SeqArgs {
+    rest: Vec<Tagged<u64>>,
     separator: Option<Tagged<String>>,
     terminator: Option<Tagged<String>>,
-    widths: Option<Tagged<bool>>,
-    rest: Vec<Tagged<u64>>,
+    widths: Tagged<bool>,
 }
 
 #[async_trait]
@@ -23,6 +23,7 @@ impl WholeStreamCommand for Seq {
 
     fn signature(&self) -> Signature {
         Signature::build("seq")
+            .rest(SyntaxShape::Int, "sequence values")
             .named(
                 "separator",
                 SyntaxShape::String,
@@ -40,7 +41,6 @@ impl WholeStreamCommand for Seq {
                 "equalize widths of all numbers by padding with zeros",
                 Some('w'),
             )
-            .rest(SyntaxShape::Int, "sequence values")
     }
 
     fn usage(&self) -> &str {
@@ -58,14 +58,24 @@ impl WholeStreamCommand for Seq {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Select just the name column",
-                example: "ls | select name",
-                result: None,
+                description: "sequence 1 to 10 with newline separator",
+                example: "seq 1 10",
+                result: Some(vec![Value::from("1\n2\n3\n4\n5\n6\n7\n8\n9\n10")]),
             },
             Example {
-                description: "Select the name and size columns",
-                example: "ls | select name size",
-                result: None,
+                description: "sequence 1 to 10 with pipe separator",
+                example: "seq -s '|' 1 10",
+                result: Some(vec![Value::from("1|2|3|4|5|6|7|8|9|10|")]),
+            },
+            Example {
+                description: "sequence 1 to 10 with pipe separator padded with 0",
+                example: "seq -s '|' -w 1 10",
+                result: Some(vec![Value::from("01|02|03|04|05|06|07|08|09|10|")]),
+            },
+            Example {
+                description: "sequence 1 to 10 with pipe separator padded by 2s",
+                example: "seq -s '|' -w 1 2 10",
+                result: Some(vec![Value::from("1|3|5|7|9|")]),
             },
         ]
     }
@@ -77,18 +87,13 @@ async fn seq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
 
     let (
         SeqArgs {
+            rest: rest_nums,
             separator,
             terminator,
             widths,
-            rest: rest_nums,
         },
         _,
     ) = args.process(&registry).await?;
-
-    println!(
-        "sep=[{:?}] term=[{:?}] widths=[{:?}] rest=[{:?}]",
-        &separator, &terminator, &widths, &rest_nums
-    );
 
     if rest_nums.is_empty() {
         return Err(ShellError::labeled_error(
@@ -133,7 +138,7 @@ async fn seq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
                 let vec_t: Vec<char> = t.chars().collect();
                 if vec_t.len() != 1 {
                     return Err(ShellError::labeled_error(
-                        "Expected a single separator char from --separator",
+                        "Expected a single terminator char from --terminator",
                         "requires a single character string input",
                         &t.tag,
                     ));
@@ -144,25 +149,15 @@ async fn seq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
         _ => sep,
     };
 
-    let use_widths = match widths {
-        Some(b) => *b,
-        _ => false,
-    };
-
     let rest_nums: Vec<String> = rest_nums
         .iter()
         .map(|n| n.item.to_string().clone())
         .collect();
 
-    println!(
-        "sep=[{}] term=[{}] widths=[{}] rest=[{:?}]",
-        &sep, &term, &use_widths, &rest_nums
-    );
-
     run_seq(
         sep.to_string(),
         Some(term.to_string()),
-        use_widths,
+        widths.item,
         rest_nums,
     )
 }
@@ -201,13 +196,8 @@ pub fn run_seq(
     sep: String,
     termy: Option<String>,
     widths: bool,
-    rest: Vec<String>,
+    free: Vec<String>,
 ) -> Result<OutputStream, ShellError> {
-    // let free: Vec<String> = rest
-    //     .iter()
-    //     .map(|v| v.as_string().expect("error mapping rest"))
-    //     .collect();
-    let free = rest;
     let mut largest_dec = 0;
     let mut padding = 0;
     let first = if free.len() > 1 {
@@ -219,8 +209,6 @@ pub fn run_seq(
         match parse_float(slice) {
             Ok(n) => n,
             Err(s) => {
-                // show_error!("{}", s);
-                // return 1;
                 return Err(ShellError::labeled_error(
                     format!("{}", s),
                     "error parsing float",
@@ -240,8 +228,6 @@ pub fn run_seq(
         match parse_float(slice) {
             Ok(n) => n,
             Err(s) => {
-                // show_error!("{}", s);
-                // return 1;
                 return Err(ShellError::labeled_error(
                     format!("{}", s),
                     "error parsing float",
@@ -258,8 +244,6 @@ pub fn run_seq(
         match parse_float(slice) {
             Ok(n) => n,
             Err(s) => {
-                // show_error!("{}", s);
-                // return 1;
                 return Err(ShellError::labeled_error(
                     format!("{}", s),
                     "error parsing float",
@@ -286,8 +270,6 @@ pub fn run_seq(
         widths,
         padding,
     )
-
-    // Ok(0)
 }
 
 fn done_printing(next: f64, step: f64, last: f64) -> bool {
@@ -318,21 +300,17 @@ fn print_seq(
         let before_dec = istr.find('.').unwrap_or(ilen);
         if pad && before_dec < padding {
             for _ in 0..(padding - before_dec) {
-                // print!("0");
                 ret_str.push_str("0");
             }
         }
-        // print!("{}", istr);
         ret_str.push_str(&istr);
         i += 1;
         value = first + i as f64 * step;
         if !done_printing(value, step, last) {
-            // print!("{}", separator);
             ret_str.push_str(&separator);
         }
     }
     if (first >= last && step < 0f64) || (first <= last && step > 0f64) {
-        // print!("{}", terminator);
         ret_str.push_str(&terminator);
     }
 
