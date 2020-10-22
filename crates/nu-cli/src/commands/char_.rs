@@ -97,13 +97,14 @@ fn str_to_character(s: &str) -> Option<String> {
         "hash" | "hashtag" | "pound_sign" | "sharp" | "root" => Some("#".into()),   // #
 
         // Weather symbols
-        "sun" | "sunny" | "sunrise" => Some("\u{1F305}".to_string()),
-        "moon" => Some("\u{1F319}".to_string()),
-        "cloudy" | "cloud" => Some("\u{2601}".to_string()),
-        "rainy" | "rain" => Some("\u{2614}".to_string()),
-        "foggy" | "fog" => Some("\u{1F301}".to_string()),
-        "snowy" | "snow" => Some("\u{2744}".to_string()),
-        "thunderstorm" | "thunder" => Some("\u{26C8}".to_string()),
+        "sun" | "sunny" | "sunrise" => Some("☀️".to_string()),
+        "moon" => Some("🌛".to_string()),
+        "cloudy" | "cloud" | "clouds" => Some("☁️".to_string()),
+        "rainy" | "rain" => Some("🌦️".to_string()),
+        "foggy" | "fog" => Some("🌫️".to_string()),
+        "mist" | "haze" => Some("\u{2591}".to_string()),
+        "snowy" | "snow" => Some("❄️".to_string()),
+        "thunderstorm" | "thunder" => Some("🌩️".to_string()),
 
         // Reference for ansi codes https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
         // Another good reference http://ascii-table.com/ansi-escape-sequences.php
