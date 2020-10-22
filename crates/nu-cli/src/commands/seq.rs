@@ -85,6 +85,11 @@ async fn seq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
         _,
     ) = args.process(&registry).await?;
 
+    println!(
+        "sep=[{:?}] term=[{:?}] widths=[{:?}] rest=[{:?}]",
+        &separator, &terminator, &widths, &rest_nums
+    );
+
     if rest_nums.is_empty() {
         return Err(ShellError::labeled_error(
             "seq requires some parameters",
@@ -148,6 +153,11 @@ async fn seq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
         .iter()
         .map(|n| n.item.to_string().clone())
         .collect();
+
+    println!(
+        "sep=[{}] term=[{}] widths=[{}] rest=[{:?}]",
+        &sep, &term, &use_widths, &rest_nums
+    );
 
     run_seq(
         sep.to_string(),
