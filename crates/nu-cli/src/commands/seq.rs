@@ -1,21 +1,18 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape};
+use nu_source::Tagged;
 use std::cmp;
-// use std::io::{stdout, Write};
-
-// static NAME: &str = "seq";
-// static VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub struct Seq;
 
 #[derive(Deserialize)]
 pub struct SeqArgs {
-    separator: Option<Value>,
-    terminator: Option<Value>,
+    separator: Option<Tagged<String>>,
+    terminator: Option<Tagged<String>>,
     widths: bool,
-    rest: Vec<Value>,
+    rest: Vec<Tagged<String>>,
 }
 
 #[async_trait]
@@ -43,7 +40,7 @@ impl WholeStreamCommand for Seq {
                 "equalize widths of all numbers by padding with zeros",
                 Some('w'),
             )
-            .rest(SyntaxShape::Any, "sequence values")
+            .rest(SyntaxShape::String, "sequence values")
     }
 
     fn usage(&self) -> &str {
@@ -76,23 +73,29 @@ impl WholeStreamCommand for Seq {
 
 async fn seq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
+    let name = args.call_info.name_tag.clone();
+
     let (
         SeqArgs {
             separator,
             terminator,
             widths,
-            rest,
+            rest: rest_nums,
         },
         _input,
     ) = args.process(&registry).await?;
 
+    if rest_nums.is_empty() {
+        return Err(ShellError::labeled_error(
+            "seq requires some parameters",
+            "needs parameter",
+            name,
+        ));
+    }
+
     let sep = match separator {
-        Some(Value {
-            value: UntaggedValue::Primitive(Primitive::String(s)),
-            tag,
-            ..
-        }) => {
-            if s == r"\t" {
+        Some(s) => {
+            if s.item == r"\t" {
                 '\t'
             } else {
                 let vec_s: Vec<char> = s.chars().collect();
@@ -100,43 +103,37 @@ async fn seq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
                     return Err(ShellError::labeled_error(
                         "Expected a single separator char from --separator",
                         "requires a single character string input",
-                        tag,
+                        &s.tag,
                     ));
                 };
                 vec_s[0]
             }
         }
         _ => '\n',
-        // None => Some(Value {
-        //     value: UntaggedValue::Primitive(Primitive::String("\n".to_string())),
-        //     tag: Tag::unknown(),
-        // }),
     };
 
     let term = match terminator {
-        Some(Value {
-            value: UntaggedValue::Primitive(Primitive::String(s)),
-            tag,
-            ..
-        }) => {
-            if s == r"\t" {
+        Some(t) => {
+            if t.item == r"\t" {
                 '\t'
             } else {
-                let vec_s: Vec<char> = s.chars().collect();
-                if vec_s.len() != 1 {
+                let vec_t: Vec<char> = t.chars().collect();
+                if vec_t.len() != 1 {
                     return Err(ShellError::labeled_error(
-                        "expected a single terminator char from --terminator",
+                        "Expected a single separator char from --separator",
                         "requires a single character string input",
-                        tag,
+                        &t.tag,
                     ));
                 };
-                vec_s[0]
+                vec_t[0]
             }
         }
         _ => sep,
     };
 
-    run_seq(sep.to_string(), Some(term.to_string()), widths, rest)
+    let rest_nums: Vec<String> = rest_nums.iter().map(|n| n.item.clone()).collect();
+
+    run_seq(sep.to_string(), Some(term.to_string()), widths, rest_nums)
 }
 
 #[cfg(test)]
@@ -180,12 +177,13 @@ pub fn run_seq(
     sep: String,
     termy: Option<String>,
     widths: bool,
-    rest: Vec<Value>,
+    rest: Vec<String>,
 ) -> Result<OutputStream, ShellError> {
-    let free: Vec<String> = rest
-        .iter()
-        .map(|v| v.as_string().expect("error mapping rest"))
-        .collect();
+    // let free: Vec<String> = rest
+    //     .iter()
+    //     .map(|v| v.as_string().expect("error mapping rest"))
+    //     .collect();
+    let free = rest;
     let mut largest_dec = 0;
     let mut padding = 0;
     let first = if free.len() > 1 {
