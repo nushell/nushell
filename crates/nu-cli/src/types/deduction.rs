@@ -571,41 +571,6 @@ impl VarSyntaxShapeDeductor {
         Ok(())
     }
 
-    // Shapes within columns can be heterogenous as long as
-    // https://github.com/nushell/rfcs/pull/3
-    // didn't land
-    // self.infer_shapes_in_rows(_rows)?;
-    //fn infer_shape_in_column(
-    //    &mut self,
-    //    var: &VarUsage,
-    //    col_idx: usize,
-    //    rows: &[Vec<SpannedExpression>],
-    //) -> Result<(), ShellError> {
-    //    //Within a col there is equal type forcing
-    //    let (op, span) = (Operator::Equal, rows[col_idx][0].span);
-    //    rows.iter()
-    //        .filter_map(|r| r.get(col_idx))
-    //        .filter_map(|cell| self.get_shape_of_expr_or_insert_dependency(var, (op, span), cell))
-    //        .next()
-    //        .map_or(Ok(()), |shape| {
-    //            self.checked_insert(var, vec![VarShapeDeduction::from_usage(&var.span, &shape)])?;
-    //            Ok(())
-    //        })
-    //}
-    //fn infer_shapes_in_rows(&mut self, rows: &[Vec<SpannedExpression>]) -> Result<(), ShellError> {
-    //    //Iterate over all cells
-    //    for (_row_idx, _row) in rows.iter().enumerate() {
-    //        for (col_idx, cell) in _row.iter().enumerate() {
-    //            //if cell is var
-    //            if let Expression::Variable(Variable::Other(name, span)) = &cell.expr {
-    //                let var = VarUsage::new(name, span);
-    //                self.infer_shape_in_column(&var, col_idx, rows)?;
-    //            }
-    //        }
-    //    }
-    //    Ok(())
-    //}
-
     fn get_shape_of_expr_or_insert_dependency(
         &mut self,
         var: &VarUsage,
