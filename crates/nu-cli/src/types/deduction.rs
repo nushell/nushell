@@ -676,28 +676,8 @@ impl VarSyntaxShapeDeductor {
                         _ => unreachable!("SyntaxShape::Math means expression binary"),
                     };
                     match (&bin.left.expr, &bin.right.expr) {
-                        //$it should give shape in get_shape_of_expr_or_insert_dependency
-                        //Therefore the following code is not correct!
-                        ////Substitute
-                        //(
-                        //    Expression::Variable(Variable::It(_it_span)),
-                        //    Expression::Variable(Variable::Other(_var_name, _var_span)),
-                        //)
-                        //    | (
-                        //        Expression::Variable(Variable::Other(_var_name, _var_span)),
-                        //        Expression::Variable(Variable::It(_it_span)),
-                        //    ) => {
-                        //        //TODO deduce type of $it and insert into
-                        //        //dependencies_on_result_type
-                        //        None
-                        //    }
-                        //(
-                        //    Expression::Variable(Variable::It(_l_it)),
-                        //    Expression::Variable(Variable::It(_r_it)),
-                        //) => {
-                        //    //TODO deduce type of $it and return it (based on operator)
-                        //    None
-                        //}
+                        //$it should return a shape in get_shape_of_expr_or_insert_dependency below
+                        //no need to check it here.
                         (
                             Expression::Variable(Variable::Other(_, _)),
                             Expression::Variable(Variable::Other(_, _)),
