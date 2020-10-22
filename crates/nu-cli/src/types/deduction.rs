@@ -1009,11 +1009,8 @@ impl VarSyntaxShapeDeductor {
                                     }
                                 }
                             }
-                            //REVIEW is var in table legal? Shouldn't the rhs in "$p in [a b c]" be 
-                            //parsed as a list?
-                            Expression::Table(_, _) => {}
-
-                            Expression::Literal(_)
+                            Expression::Table(_, _)
+                            | Expression::Literal(_)
                             | Expression::ExternalWord
                             | Expression::Synthetic(_)
                             | Expression::Variable(_)
