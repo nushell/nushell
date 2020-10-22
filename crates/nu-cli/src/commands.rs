@@ -208,8 +208,8 @@ pub(crate) use last::Last;
 pub(crate) use lines::Lines;
 pub(crate) use ls::Ls;
 pub(crate) use math::{
-    Math, MathAverage, MathEval, MathMaximum, MathMedian, MathMinimum, MathMode, MathProduct,
-    MathStddev, MathSummation, MathVariance,
+    Math, MathAverage, MathCeil, MathEval, MathFloor, MathMaximum, MathMedian, MathMinimum,
+    MathMode, MathProduct, MathRound, MathStddev, MathSummation, MathVariance,
 };
 pub(crate) use merge::Merge;
 pub(crate) use mkdir::Mkdir;

@@ -223,6 +223,9 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(MathSummation),
             whole_stream_command(MathVariance),
             whole_stream_command(MathProduct),
+            whole_stream_command(MathRound),
+            whole_stream_command(MathFloor),
+            whole_stream_command(MathCeil),
             // File format output
             whole_stream_command(To),
             whole_stream_command(ToCSV),
