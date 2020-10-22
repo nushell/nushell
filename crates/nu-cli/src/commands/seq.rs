@@ -11,8 +11,8 @@ pub struct Seq;
 pub struct SeqArgs {
     separator: Option<Tagged<String>>,
     terminator: Option<Tagged<String>>,
-    widths: bool,
-    rest: Vec<Tagged<String>>,
+    widths: Tagged<bool>,
+    rest: Vec<Tagged<u64>>,
 }
 
 #[async_trait]
@@ -40,7 +40,7 @@ impl WholeStreamCommand for Seq {
                 "equalize widths of all numbers by padding with zeros",
                 Some('w'),
             )
-            .rest(SyntaxShape::String, "sequence values")
+            .rest(SyntaxShape::Int, "sequence values")
     }
 
     fn usage(&self) -> &str {
@@ -82,7 +82,7 @@ async fn seq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
             widths,
             rest: rest_nums,
         },
-        _input,
+        _,
     ) = args.process(&registry).await?;
 
     if rest_nums.is_empty() {
@@ -97,6 +97,10 @@ async fn seq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
         Some(s) => {
             if s.item == r"\t" {
                 '\t'
+            } else if s.item == r"\n" {
+                '\n'
+            } else if s.item == r"\r" {
+                '\r'
             } else {
                 let vec_s: Vec<char> = s.chars().collect();
                 if vec_s.len() != 1 {
@@ -116,6 +120,10 @@ async fn seq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
         Some(t) => {
             if t.item == r"\t" {
                 '\t'
+            } else if t.item == r"\n" {
+                '\n'
+            } else if t.item == r"\r" {
+                '\r'
             } else {
                 let vec_t: Vec<char> = t.chars().collect();
                 if vec_t.len() != 1 {
@@ -131,9 +139,12 @@ async fn seq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
         _ => sep,
     };
 
-    let rest_nums: Vec<String> = rest_nums.iter().map(|n| n.item.clone()).collect();
+    let rest_nums: Vec<String> = rest_nums
+        .iter()
+        .map(|n| n.item.to_string().clone())
+        .collect();
 
-    run_seq(sep.to_string(), Some(term.to_string()), widths, rest_nums)
+    run_seq(sep.to_string(), Some(term.to_string()), *widths, rest_nums)
 }
 
 #[cfg(test)]
