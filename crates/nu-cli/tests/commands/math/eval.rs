@@ -71,3 +71,15 @@ fn evaluates_pi() {
 
     assert!(actual.out.contains("3.14"));
 }
+
+#[test]
+fn evaluates_tau() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        math eval tau
+        "#
+    ));
+
+    assert!(actual.out.contains("6.28"));
+}
