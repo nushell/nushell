@@ -584,7 +584,7 @@ impl VarSyntaxShapeDeductor {
                 None
             }
             Expression::Variable(Variable::It(_)) => {
-                //TODO infer tpye of $it
+                //TODO infer type of $it
                 //therefore pipeline idx, pipeline and registry has to be passed here
                 None
             }
