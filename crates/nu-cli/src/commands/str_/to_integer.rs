@@ -5,15 +5,16 @@ use nu_protocol::ShellTypeName;
 use nu_protocol::{
     ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
 };
-use nu_source::Tag;
+use nu_source::{Tag, Tagged};
 use nu_value_ext::ValueExt;
 
 use num_bigint::BigInt;
-use std::str::FromStr;
+use num_traits::Num;
 
 #[derive(Deserialize)]
 struct Arguments {
     rest: Vec<ColumnPath>,
+    radix: Option<Tagged<u32>>,
 }
 
 pub struct SubCommand;
@@ -25,10 +26,12 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("str to-int").rest(
-            SyntaxShape::ColumnPath,
-            "optionally convert text into integer by column paths",
-        )
+        Signature::build("str to-int")
+            .named("radix", SyntaxShape::Number, "radix of integer", Some('r'))
+            .rest(
+                SyntaxShape::ColumnPath,
+                "optionally convert text into integer by column paths",
+            )
     }
 
     fn usage(&self) -> &str {
@@ -44,11 +47,28 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Convert to an integer",
-            example: "echo '255' | str to-int",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Convert to an integer",
+                example: "echo '255' | str to-int",
+                result: Some(vec![UntaggedValue::int(255).into()]),
+            },
+            Example {
+                description: "Convert str column to an integer",
+                example: "echo [['count']; ['255']] | str to-int count | get count",
+                result: Some(vec![UntaggedValue::int(255).into()]),
+            },
+            Example {
+                description: "Convert to integer from binary",
+                example: "echo '1101' | str to-int -r 2",
+                result: Some(vec![UntaggedValue::int(13).into()]),
+            },
+            Example {
+                description: "Convert to integer from hex",
+                example: "echo 'FF' | str to-int -r 16",
+                result: Some(vec![UntaggedValue::int(255).into()]),
+            },
+        ]
     }
 }
 
@@ -58,21 +78,23 @@ async fn operate(
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
 
-    let (Arguments { rest }, input) = args.process(&registry).await?;
+    let (Arguments { rest, radix }, input) = args.process(&registry).await?;
 
-    let column_paths: Vec<_> = rest;
+    let radix = radix.map(|r| r.item).unwrap_or(10);
+
+    let column_paths: Vec<ColumnPath> = rest;
 
     Ok(input
         .map(move |v| {
             if column_paths.is_empty() {
-                ReturnSuccess::value(action(&v, v.tag())?)
+                ReturnSuccess::value(action(&v, v.tag(), radix)?)
             } else {
                 let mut ret = v;
 
                 for path in &column_paths {
                     ret = ret.swap_data_by_column_path(
                         path,
-                        Box::new(move |old| action(old, old.tag())),
+                        Box::new(move |old| action(old, old.tag(), radix)),
                     )?;
                 }
 
@@ -82,21 +104,54 @@ async fn operate(
         .to_output_stream())
 }
 
-fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
+fn action(input: &Value, tag: impl Into<Tag>, radix: u32) -> Result<Value, ShellError> {
     match &input.value {
         UntaggedValue::Primitive(Primitive::Line(s))
         | UntaggedValue::Primitive(Primitive::String(s)) => {
-            let other = s.trim();
-            let out = match BigInt::from_str(other) {
-                Ok(v) => UntaggedValue::int(v),
-                Err(reason) => {
-                    return Err(ShellError::labeled_error(
-                        "could not parse as an integer",
-                        reason.to_string(),
-                        tag.into().span,
-                    ))
+            let trimmed = s.trim();
+
+            let out = match trimmed {
+                b if b.starts_with("0b") => {
+                    let num = match BigInt::from_str_radix(b.trim_start_matches("0b"), 2) {
+                        Ok(n) => n,
+                        Err(reason) => {
+                            return Err(ShellError::labeled_error(
+                                "could not parse as integer",
+                                reason.to_string(),
+                                tag.into().span,
+                            ))
+                        }
+                    };
+                    UntaggedValue::int(num)
+                }
+                h if h.starts_with("0x") => {
+                    let num = match BigInt::from_str_radix(h.trim_start_matches("0x"), 16) {
+                        Ok(n) => n,
+                        Err(reason) => {
+                            return Err(ShellError::labeled_error(
+                                "could not parse as int",
+                                reason.to_string(),
+                                tag.into().span,
+                            ))
+                        }
+                    };
+                    UntaggedValue::int(num)
+                }
+                _ => {
+                    let num = match BigInt::from_str_radix(trimmed, radix) {
+                        Ok(n) => n,
+                        Err(reason) => {
+                            return Err(ShellError::labeled_error(
+                                "could not parse as int",
+                                reason.to_string(),
+                                tag.into().span,
+                            ))
+                        }
+                    };
+                    UntaggedValue::int(num)
                 }
             };
+
             Ok(out.into_value(tag))
         }
         other => {
@@ -129,15 +184,29 @@ mod tests {
         let word = string("10");
         let expected = int(10);
 
-        let actual = action(&word, Tag::unknown()).unwrap();
+        let actual = action(&word, Tag::unknown(), 10).unwrap();
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn turns_binary_to_integer() {
+        let s = string("0b101");
+        let actual = action(&s, Tag::unknown(), 10).unwrap();
+        assert_eq!(actual, int(5));
+    }
+
+    #[test]
+    fn turns_hex_to_integer() {
+        let s = string("0xFF");
+        let actual = action(&s, Tag::unknown(), 16).unwrap();
+        assert_eq!(actual, int(255));
     }
 
     #[test]
     fn communicates_parsing_error_given_an_invalid_integerlike_string() {
         let integer_str = string("36anra");
 
-        let actual = action(&integer_str, Tag::unknown());
+        let actual = action(&integer_str, Tag::unknown(), 10);
 
         assert!(actual.is_err());
     }
