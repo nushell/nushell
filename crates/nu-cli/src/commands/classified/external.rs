@@ -3,6 +3,7 @@ use crate::evaluate::evaluate_baseline_expr;
 use crate::futures::ThreadedReceiver;
 use crate::prelude::*;
 
+use std::borrow::Cow;
 use std::io::Write;
 use std::ops::Deref;
 use std::process::{Command, Stdio};
@@ -13,6 +14,7 @@ use futures_codec::FramedRead;
 use log::trace;
 
 use nu_errors::ShellError;
+use nu_protocol::hir::Expression;
 use nu_protocol::hir::{ExternalCommand, ExternalRedirection};
 use nu_protocol::{Primitive, Scope, ShellTypeName, UntaggedValue, Value};
 use nu_source::Tag;
@@ -50,6 +52,7 @@ async fn run_with_stdin(
 
     let mut command_args = vec![];
     for arg in command.args.iter() {
+        let is_literal = matches!(arg.expr, Expression::Literal(_));
         let value = evaluate_baseline_expr(arg, &context.registry, scope.clone()).await?;
 
         // Skip any arguments that don't really exist, treating them as optional
@@ -65,8 +68,10 @@ async fn run_with_stdin(
                 for t in table {
                     match &t.value {
                         UntaggedValue::Primitive(_) => {
-                            command_args
-                                .push(t.convert_to_string().trim_end_matches('\n').to_string());
+                            command_args.push((
+                                t.convert_to_string().trim_end_matches('\n').to_string(),
+                                is_literal,
+                            ));
                         }
                         _ => {
                             return Err(ShellError::labeled_error(
@@ -80,14 +85,14 @@ async fn run_with_stdin(
             }
             _ => {
                 let trimmed_value_string = value.as_string()?.trim_end_matches('\n').to_string();
-                command_args.push(trimmed_value_string);
+                command_args.push((trimmed_value_string, is_literal));
             }
         }
     }
 
     let process_args = command_args
         .iter()
-        .map(|arg| {
+        .map(|(arg, _is_literal)| {
             let home_dir;
 
             #[cfg(feature = "dirs")]
@@ -103,8 +108,9 @@ async fn run_with_stdin(
 
             #[cfg(not(windows))]
             {
-                if argument_contains_whitespace(&arg) && !argument_is_quoted(&arg) {
-                    add_quotes(&arg)
+                if !_is_literal {
+                    let escaped = escape_double_quotes(&arg);
+                    add_double_quotes(&escaped)
                 } else {
                     arg.as_ref().to_string()
                 }
@@ -476,11 +482,6 @@ where
     shellexpand::tilde_with_context(input, home_dir)
 }
 
-#[allow(unused)]
-pub fn argument_contains_whitespace(argument: &str) -> bool {
-    argument.chars().any(|c| c.is_whitespace())
-}
-
 fn argument_is_quoted(argument: &str) -> bool {
     if argument.len() < 2 {
         return false;
@@ -491,8 +492,18 @@ fn argument_is_quoted(argument: &str) -> bool {
 }
 
 #[allow(unused)]
-fn add_quotes(argument: &str) -> String {
+fn add_double_quotes(argument: &str) -> String {
     format!("\"{}\"", argument)
+}
+
+#[allow(unused)]
+fn escape_double_quotes(argument: &str) -> Cow<'_, str> {
+    // allocate new string only if required
+    if argument.contains('"') {
+        Cow::Owned(argument.replace('"', r#"\""#))
+    } else {
+        Cow::Borrowed(argument)
+    }
 }
 
 #[allow(unused)]
@@ -520,7 +531,7 @@ fn shell_os_paths() -> Vec<std::path::PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::{
-        add_quotes, argument_contains_whitespace, argument_is_quoted, expand_tilde, remove_quotes,
+        add_double_quotes, argument_is_quoted, escape_double_quotes, expand_tilde, remove_quotes,
     };
     #[cfg(feature = "which")]
     use super::{run_external_command, EvaluationContext, InputStream};
@@ -600,10 +611,10 @@ mod tests {
     }
 
     #[test]
-    fn checks_contains_whitespace_from_argument_to_be_passed_in() {
-        assert_eq!(argument_contains_whitespace("andrés"), false);
-        assert_eq!(argument_contains_whitespace("and rés"), true);
-        assert_eq!(argument_contains_whitespace(r#"and\ rés"#), true);
+    fn checks_escape_double_quotes() {
+        assert_eq!(escape_double_quotes("andrés"), "andrés");
+        assert_eq!(escape_double_quotes(r#"an"drés"#), r#"an\"drés"#);
+        assert_eq!(escape_double_quotes(r#""an"drés""#), r#"\"an\"drés\""#);
     }
 
     #[test]
@@ -631,9 +642,8 @@ mod tests {
     }
 
     #[test]
-    fn adds_quotes_to_argument_to_be_passed_in() {
-        assert_eq!(add_quotes("andrés"), "\"andrés\"");
-        //assert_eq!(add_quotes("\"andrés\""), "\"andrés\"");
+    fn adds_double_quotes_to_argument_to_be_passed_in() {
+        assert_eq!(add_double_quotes("andrés"), "\"andrés\"");
     }
 
     #[test]
