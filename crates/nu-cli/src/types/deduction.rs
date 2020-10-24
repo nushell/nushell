@@ -104,33 +104,6 @@ lazy_static! {
     };
 }
 
-struct FakeVarGen {
-    counter: usize,
-    fake_var_prefix: String,
-}
-impl FakeVarGen {
-    pub fn new() -> Self {
-        FakeVarGen {
-            counter: 0,
-            fake_var_prefix: "$DFSasfjqiDFJSnSbwbqWF".to_string(),
-        }
-    }
-    pub fn next(&mut self) -> String {
-        let mut fake_var = self.fake_var_prefix.clone();
-        fake_var.push_str(&self.counter.to_string());
-        self.counter += 1;
-        fake_var
-    }
-
-    pub fn next_as_expr(&mut self) -> (VarUsage, Expression) {
-        let var = self.next();
-        (
-            VarUsage::new(&var, &Span::unknown()),
-            Expression::Variable(Variable::Other(var, Span::unknown())),
-        )
-    }
-}
-
 pub struct VarSyntaxShapeDeductor {
     //Initial set of caller provided var declarations
     var_declarations: Vec<VarDeclaration>,
@@ -147,8 +120,6 @@ pub struct VarSyntaxShapeDeductor {
     //Third is binary expr, which result shape var depends on
     //This list is populated for binaries like: $var + $baz * $bar
     dependencies_on_result_type: Vec<(VarUsage, Operator, SpannedExpression)>,
-
-    fake_var_generator: FakeVarGen,
 }
 
 #[derive(Clone, Debug, Eq)]
@@ -223,22 +194,6 @@ fn op_of(bin: &SpannedExpression) -> Operator {
         },
         _ => unreachable!(),
     }
-}
-fn change_op_to_assignment(mut bin: SpannedExpression) -> SpannedExpression {
-    match &mut bin.expr {
-        Expression::Binary(bin) => {
-            match &mut bin.op.expr {
-                Expression::Literal(Literal::Operator(op)) => {
-                    //Currently there is no assignment operator.
-                    //Plus does the same thing
-                    *op = Operator::Equal;
-                }
-                _ => unreachable!(),
-            }
-        }
-        _ => unreachable!(),
-    }
-    bin
 }
 
 //TODO in the future there should be a unit interface
@@ -416,7 +371,6 @@ impl VarSyntaxShapeDeductor {
             // block,
             dependencies: Vec::new(),
             dependencies_on_result_type: Vec::new(),
-            fake_var_generator: FakeVarGen::new(),
         };
         deducer.infer_shape(block, registry)?;
 
@@ -750,250 +704,21 @@ impl VarSyntaxShapeDeductor {
             expr,
         ) {
             trace!("> Found shape: {:?}", shape);
-            Ok(match shape {
-                SyntaxShape::Math => {
-                    //If execution happens here, the situation is as follows:
-                    //There is an Binary expression (source_bin) with a variable on one side
-                    //and a binary (lets call it "deep binary") on the other:
-                    //e.G. $var + 1 * 1
-                    //Now we try to infer the shapes inside the deep binary, compute the resulting
-                    //shape based on the operator (see get_result_shape_of) and return that.
-                    //That won't work if one of the deeper binary left/right expr is a variable.
-                    //Then we insert an element into
-                    //VarSyntaxShapeDeductor.dependencies_on_result_type
-                    //
-                    //If the deeper binary contains a binary on one side, we check if that binary
-                    //has a computable result type (e.G. has no variable in it) by recursively
-                    //calling this function and if so return it.
-                    //If the result type is not computable (the deep deep binary had a variable), we substitute
-                    //the deep deep binary side of the deep binary with a variable (fake_var) and
-                    //insert a dependency from the fake_var to the deep deep binary in
-                    //VarSyntaxShapeDeductor.dependencies_on_result_type
-                    //The $var on the source_bin will then (as described above) depend on the deep
-                    //binary (as it has a variable (fake_var)) on one side.
-                    //
-                    //The dependencies gets resolved at the end, when most information about all
-                    //variables is accessable.
-                    //
-                    //
-                    //
-                    //
-                    //Expression is of type binary
-                    //We have to descend deeper into tree
-                    //And compute result shape based on operator
-                    let bin = match &expr.expr {
-                        Expression::Binary(bin) => bin,
-                        _ => unreachable!("SyntaxShape::Math means expression binary"),
-                    };
-                    match (&bin.left.expr, &bin.right.expr) {
-                        //$it should return a shape in get_shape_of_expr_or_insert_dependency below
-                        //no need to check it here.
-                        (
-                            Expression::Variable(Variable::Other(_, _)),
-                            Expression::Variable(Variable::Other(_, _)),
-                        )
-                        | (Expression::Variable(Variable::Other(_, _)), _)
-                        | (_, Expression::Variable(Variable::Other(_, _))) => {
-                            //Example of this case is: $foo + $bar * $baz
-                            //foo = var (depending of shape of arg (bar * baz))
-                            self.dependencies_on_result_type.push((
-                                var.clone(),
-                                op_of(source_bin),
-                                expr.clone(),
-                            ));
-                            None
-                        }
-                        (Expression::Binary(_), Expression::Binary(_)) => {
-                            let (l_fake_var, l_fake_var_expr) =
-                                self.fake_var_generator.next_as_expr();
-                            let (r_fake_var, r_fake_var_expr) =
-                                self.fake_var_generator.next_as_expr();
-                            let fake_bin = change_op_to_assignment(expr.clone());
-                            match (
-                                self.get_shape_of_binary_arg_or_insert_dependency(
-                                    (&l_fake_var, &bin.left),
-                                    &fake_bin,
-                                    (pipeline_idx, pipeline),
-                                    registry,
-                                )?,
-                                self.get_shape_of_binary_arg_or_insert_dependency(
-                                    (&r_fake_var, &bin.right),
-                                    &fake_bin,
-                                    (pipeline_idx, pipeline),
-                                    registry,
-                                )?,
-                            ) {
-                                (Some(l_shape), Some(r_shape)) => {
-                                    //Both sides could be evaluated
-                                    Some(get_result_shape_of(l_shape, &bin.op, r_shape)?)
-                                }
-                                (None, Some(_)) => {
-                                    self.substitute_left_with_fake_var_and_insert_dependencies(
-                                        bin,
-                                        &l_fake_var_expr,
-                                        (source_bin, var),
-                                    );
-                                    None
-                                }
-                                (Some(_), None) => {
-                                    self.substitute_right_with_fake_var_and_insert_dependencies(
-                                        bin,
-                                        &r_fake_var_expr,
-                                        (source_bin, var),
-                                    );
-                                    None
-                                }
-                                (None, None) => {
-                                    //Substitute both with fake var and insert dependencies
-                                    let mut fake_bin = bin.clone();
-                                    fake_bin.right.expr = r_fake_var_expr;
-                                    fake_bin.left.expr = l_fake_var_expr;
-                                    let op = op_of(source_bin);
-                                    self.dependencies_on_result_type.push((
-                                        var.clone(),
-                                        op,
-                                        SpannedExpression::new(
-                                            Expression::Binary(fake_bin),
-                                            source_bin.span,
-                                        ),
-                                    ));
-                                    None
-                                }
-                            }
-                        }
-                        //After here every invocation on get_shape_of_expr_or_insert_dependency(expr) should
-                        //give a result shape
-                        (Expression::Binary(_), _) => {
-                            let (l_fake_var, l_fake_var_expr) =
-                                self.fake_var_generator.next_as_expr();
-                            let (r_fake_var, _) = self.fake_var_generator.next_as_expr();
-                            let fake_bin = change_op_to_assignment(expr.clone());
-                            match (
-                                self.get_shape_of_binary_arg_or_insert_dependency(
-                                    (&l_fake_var, &bin.left),
-                                    &fake_bin,
-                                    (pipeline_idx, pipeline),
-                                    registry,
-                                )?,
-                                self.get_shape_of_expr_or_insert_dependency(
-                                    &r_fake_var,
-                                    (Operator::Equal, source_bin.span),
-                                    &bin.right,
-                                ),
-                            ) {
-                                (Some(l_shape), Some(r_shape)) => {
-                                    Some(get_result_shape_of(l_shape, &bin.op, r_shape)?)
-                                }
-                                (None, _) => {
-                                    self.substitute_left_with_fake_var_and_insert_dependencies(
-                                        bin,
-                                        &l_fake_var_expr,
-                                        (source_bin, var),
-                                    );
-                                    None
-                                }
-                                (Some(_), None) => {
-                                    unreachable!("At this point shape should be deducable!")
-                                }
-                            }
-                        }
-                        (_, Expression::Binary(_)) => {
-                            let (l_fake_var, _) = self.fake_var_generator.next_as_expr();
-                            let (r_fake_var, r_fake_var_expr) =
-                                self.fake_var_generator.next_as_expr();
-                            let fake_bin = change_op_to_assignment(expr.clone());
-                            match (
-                                self.get_shape_of_expr_or_insert_dependency(
-                                    &l_fake_var,
-                                    (Operator::Equal, source_bin.span),
-                                    &bin.left,
-                                ),
-                                self.get_shape_of_binary_arg_or_insert_dependency(
-                                    (&r_fake_var, &bin.right),
-                                    &fake_bin,
-                                    (pipeline_idx, pipeline),
-                                    registry,
-                                )?,
-                            ) {
-                                (Some(l_shape), Some(r_shape)) => {
-                                    Some(get_result_shape_of(l_shape, &bin.op, r_shape)?)
-                                }
-                                (_, None) => {
-                                    self.substitute_right_with_fake_var_and_insert_dependencies(
-                                        bin,
-                                        &r_fake_var_expr,
-                                        (source_bin, var),
-                                    );
-                                    None
-                                }
-                                (None, Some(_)) => {
-                                    unreachable!("At this point shape should be deducable!")
-                                }
-                            }
-                        }
-                        (_, _) => {
-                            let (l_fake_var, _) = self.fake_var_generator.next_as_expr();
-                            let (r_fake_var, _) = self.fake_var_generator.next_as_expr();
-                            match (
-                                self.get_shape_of_expr_or_insert_dependency(&l_fake_var,
-                                    (Operator::Equal, source_bin.span),
-                                    &bin.left),
-                                self.get_shape_of_expr_or_insert_dependency(&r_fake_var,
-                                    (Operator::Equal, source_bin.span),
-                                    &bin.right)
-                            ) {
-                                ( Some(l_shape), Some(r_shape) ) => {
-                                    Some(get_result_shape_of(l_shape, &bin.op, r_shape)?)
-                                }
-                                _ => unreachable!("This should be unreachable as neither expr is real var or binary")
-
-                            }
-                        }
-                    }
-                }
-                _ => Some(shape),
-            })
+            match shape {
+                //If the shape of expr is math, we return the result shape of this math expr if
+                //possible
+                SyntaxShape::Math => self.get_result_shape_of_math_expr_or_insert_dependency(
+                    (var, expr),
+                    source_bin,
+                    (pipeline_idx, pipeline),
+                    registry,
+                ),
+                _ => Ok(Some(shape)),
+            }
         } else {
             trace!("> Could not deduce shape in expr");
             Ok(None)
         }
-    }
-
-    fn substitute_right_with_fake_var_and_insert_dependencies(
-        &mut self,
-        //Bin in which to substitute
-        bin: &Binary,
-        //The var with which to substitute (as usage and expr)
-        r_fake_var_expr: &Expression,
-        //The source bin having var on one side and above bin on other
-        (source_bin, var): (&SpannedExpression, &VarUsage),
-    ) {
-        let mut fake_bin = Box::new(bin.clone());
-        fake_bin.right.expr = r_fake_var_expr.clone();
-        let op = op_of(source_bin);
-        self.dependencies_on_result_type.push((
-            var.clone(),
-            op,
-            SpannedExpression::new(Expression::Binary(fake_bin), source_bin.span),
-        ));
-    }
-    fn substitute_left_with_fake_var_and_insert_dependencies(
-        &mut self,
-        //Bin in which to substitute
-        bin: &Binary,
-        //The var with which to substitute (as usage and expr)
-        l_fake_var_expr: &Expression,
-        //The source bin having var on one side and above bin on other
-        (source_bin, var): (&SpannedExpression, &VarUsage),
-    ) {
-        let mut fake_bin = Box::new(bin.clone());
-        fake_bin.left.expr = l_fake_var_expr.clone();
-        let op = op_of(source_bin);
-        self.dependencies_on_result_type.push((
-            var.clone(),
-            op,
-            SpannedExpression::new(Expression::Binary(fake_bin), source_bin.span),
-        ));
     }
 
     fn get_shapes_in_list_or_insert_dependency(
