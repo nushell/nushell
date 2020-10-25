@@ -55,10 +55,8 @@ async fn reject(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputS
         ));
     }
 
-    let fields: Vec<_> = fields.iter().map(|f| f.item.clone()).collect();
-
     Ok(input
-        .map(move |item| ReturnSuccess::value(reject_fields(&item, &fields, &item.tag)))
+        .map(move |item| ReturnSuccess::value(reject_fields(&item, &fields, &item.tag)?))
         .to_output_stream())
 }
 

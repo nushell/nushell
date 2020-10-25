@@ -7,7 +7,7 @@ use nu_errors::ShellError;
 use nu_protocol::{
     hir, Primitive, ShellTypeName, SpannedTypeName, TaggedDictBuilder, UntaggedValue, Value,
 };
-use nu_source::{Span, Tag};
+use nu_source::{Span, Tag, Tagged};
 use nu_value_ext::ValueExt;
 use num_bigint::BigInt;
 use num_traits::Zero;
@@ -64,20 +64,34 @@ pub fn select_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> Val
     out.into_value()
 }
 
-pub fn reject_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> Value {
+pub fn reject_fields(
+    obj: &Value,
+    fields: &[Tagged<String>],
+    tag: impl Into<Tag>,
+) -> Result<Value, ShellError> {
     let mut out = TaggedDictBuilder::new(tag);
 
     let descs = obj.data_descriptors();
 
+    for field in fields {
+        if descs.iter().all(|desc| desc != &field.item) {
+            return Err(ShellError::labeled_error(
+                "Invalid column",
+                "invalid column",
+                field.tag.clone(),
+            ));
+        }
+    }
+
     for desc in descs {
-        if fields.iter().any(|field| *field == desc) {
+        if fields.iter().any(|field| field.item == desc) {
             continue;
         } else {
             out.insert_value(desc.clone(), obj.get_data(&desc).borrow().clone())
         }
     }
 
-    out.into_value()
+    Ok(out.into_value())
 }
 
 pub enum CompareValues {
