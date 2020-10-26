@@ -6,7 +6,7 @@ use nu_test_support::{nu, pipeline};
 fn gets_the_last_row() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "ls | sort-by name | last 1 | get name | str trim | echo $it"
+        "ls | sort-by name | last 1 | get name | str trim"
     );
 
     assert_eq!(actual.out, "utf16.ini");
@@ -28,7 +28,6 @@ fn gets_last_rows_by_amount() {
                 ls
                 | last 3
                 | count
-                | echo $it
             "#
         ));
 
@@ -47,7 +46,6 @@ fn gets_last_row_when_no_amount_given() {
                 ls
                 | last
                 | count
-                | echo $it
             "#
         ));
 

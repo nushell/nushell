@@ -737,15 +737,14 @@ impl Shell for FilesystemShell {
 
             let mut codec = MaybeTextCodec::new(with_encoding);
 
-            match codec.decode(&mut bytes_mut).map_err(|e| {
-                ShellError::unexpected(format!("AsyncRead failed in open function: {:?}", e))
+            match codec.decode(&mut bytes_mut).map_err(|_| {
+                ShellError::labeled_error("Error opening file", "error opening file", name)
             })? {
                 Some(sb) => Ok(futures::stream::iter(vec![Ok(sb)].into_iter()).boxed()),
                 None => Ok(futures::stream::iter(vec![].into_iter()).boxed()),
             }
         } else {
             // We don't know that this is a finite file, so treat it as a stream
-
             let f = std::fs::File::open(&path).map_err(|e| {
                 ShellError::labeled_error(
                     format!("Error opening file: {:?}", e),
@@ -755,8 +754,8 @@ impl Shell for FilesystemShell {
             })?;
             let async_reader = futures::io::AllowStdIo::new(f);
             let sob_stream = FramedRead::new(async_reader, MaybeTextCodec::new(with_encoding))
-                .map_err(|e| {
-                    ShellError::unexpected(format!("AsyncRead failed in open function: {:?}", e))
+                .map_err(move |_| {
+                    ShellError::labeled_error("Error opening file", "error opening file", name)
                 })
                 .into_stream();
 

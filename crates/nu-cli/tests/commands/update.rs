@@ -8,7 +8,6 @@ fn sets_the_column() {
             open cargo_sample.toml
             | update dev-dependencies.pretty_assertions "0.7.0"
             | get dev-dependencies.pretty_assertions
-            | echo $it
         "#
     ));
 
@@ -24,7 +23,6 @@ fn sets_the_column_from_a_block_run_output() {
             open cargo_sample.toml
             | update dev-dependencies.pretty_assertions { open cargo_sample.toml | get dev-dependencies.pretty_assertions | inc --minor }
             | get dev-dependencies.pretty_assertions
-            | echo $it
         "#
     ));
 
@@ -40,7 +38,6 @@ fn sets_the_column_from_a_block_full_stream_output() {
             | update content { open --raw cargo_sample.toml | lines | first 5 }
             | get content.1
             | str contains "nu"
-            | echo $it
         "#
     ));
 
@@ -56,7 +53,6 @@ fn sets_the_column_from_an_invocation() {
             | update content $(open --raw cargo_sample.toml | lines | first 5)
             | get content.1
             | str contains "nu"
-            | echo $it
         "#
     ));
 

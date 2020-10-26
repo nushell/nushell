@@ -22,7 +22,6 @@ fn regular_columns() {
                 | select rusty_at last_name
                 | nth 0
                 | get last_name
-                | echo $it
             "#
         ));
 
@@ -65,7 +64,6 @@ fn complex_nested_columns() {
                 | select nu."0xATYKARNU" nu.committers.name nu.releases.version
                 | where "nu.releases.version" > "0.8"
                 | get "nu.releases.version"
-                | echo $it
             "#
         ));
 
@@ -92,7 +90,6 @@ fn allows_if_given_unknown_column_name_is_missing() {
                 open los_tres_caballeros.csv
                 | select rrusty_at first_name
                 | count
-                | echo $it
             "#
         ));
 

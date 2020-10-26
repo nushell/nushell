@@ -97,7 +97,7 @@ pub async fn process_row(
         &block,
         Arc::make_mut(&mut context),
         input_stream,
-        Scope::append_it(scope, input),
+        Scope::append_var(scope, "$it", input),
     )
     .await?
     .to_output_stream())

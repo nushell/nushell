@@ -24,7 +24,6 @@ fn changes_the_column_name() {
                 | rename mosqueteros
                 | get mosqueteros
                 | count
-                | echo $it
                 "#
         ));
 
@@ -55,7 +54,6 @@ fn keeps_remaining_original_names_given_less_new_names_than_total_original_names
                 | rename mosqueteros
                 | get hit
                 | count
-                | echo $it
                 "#
         ));
 

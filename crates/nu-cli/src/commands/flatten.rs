@@ -50,7 +50,7 @@ impl WholeStreamCommand for Command {
             },
             Example {
                 description: "restrict the flattening by passing column names",
-                example: "echo [[origin, crate, versions]; [World, $(echo [[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten versions | last | = $it.versions",
+                example: "echo [[origin, crate, versions]; [World, $(echo [[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten versions | last | get versions",
                 result: Some(vec![Value::from("0.22")]),
             }
         ]

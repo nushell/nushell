@@ -10,7 +10,6 @@ fn selects_a_row() {
                 | sort-by name
                 | nth 0
                 | get name
-                | echo $it
             "#
         ));
 
@@ -30,7 +29,6 @@ fn selects_many_rows() {
                 | get name
                 | nth 1 0
                 | count
-                | echo $it
             "#
         ));
 

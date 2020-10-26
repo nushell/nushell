@@ -26,7 +26,6 @@ fn all() {
                 | get meals
                 | get calories
                 | math sum
-                | echo $it
             "#
         ));
 
@@ -36,7 +35,7 @@ fn all() {
 
 #[test]
 fn outputs_zero_with_no_input() {
-    let actual = nu!(cwd: ".", "math sum | echo $it");
+    let actual = nu!(cwd: ".", "math sum");
 
     assert_eq!(actual.out, "0");
 }

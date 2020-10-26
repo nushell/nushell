@@ -21,7 +21,6 @@ fn parses_csv() {
                 open nu.zion.csv
                 | where author == "Andres N. Robalino"
                 | get source
-                | echo $it
             "#
         ));
 
@@ -59,7 +58,7 @@ fn parses_csv() {
 fn parses_bson() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "open sample.bson | get root | nth 0 | get b | echo $it"
+        "open sample.bson | get root | nth 0 | get b"
     );
 
     assert_eq!(actual.out, "hello");
@@ -76,7 +75,6 @@ fn parses_more_bson_complexity() {
             | nth 6
             | get b
             | get '$binary_subtype'
-            | echo $it
         "#
     ));
 
@@ -142,7 +140,6 @@ fn parses_sqlite() {
             | get table_values
             | nth 2
             | get x
-            | echo $it
         "#
     ));
 
@@ -153,7 +150,7 @@ fn parses_sqlite() {
 fn parses_toml() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "open cargo_sample.toml | get package.edition | echo $it"
+        "open cargo_sample.toml | get package.edition"
     );
 
     assert_eq!(actual.out, "2018");
@@ -167,7 +164,6 @@ fn parses_tsv() {
             open caco3_plastics.tsv
             | first 1
             | get origin
-            | echo $it
         "#
     ));
 
@@ -181,7 +177,6 @@ fn parses_json() {
         r#"
             open sgml_description.json
             | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee
-            | echo $it
         "#
     ));
 
@@ -192,7 +187,7 @@ fn parses_json() {
 fn parses_xml() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "open jonathan.xml | get rss.children.channel.children | get item.children | get link.children | echo $it"
+        "open jonathan.xml | get rss.children.channel.children | get item.children | get link.children.0"
     );
 
     assert_eq!(
@@ -205,7 +200,7 @@ fn parses_xml() {
 fn parses_ini() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "open sample.ini | get SectionOne.integer | echo $it"
+        "open sample.ini | get SectionOne.integer"
     );
 
     assert_eq!(actual.out, "1234")
@@ -215,7 +210,7 @@ fn parses_ini() {
 fn parses_utf16_ini() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "open utf16.ini | get '.ShellClassInfo' | get IconIndex | echo $it"
+        "open utf16.ini | get '.ShellClassInfo' | get IconIndex"
     );
 
     assert_eq!(actual.out, "-236")

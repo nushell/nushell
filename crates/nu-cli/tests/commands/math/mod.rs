@@ -210,18 +210,6 @@ fn duration_math_with_negative() {
 }
 
 #[test]
-fn it_math() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-            echo 1020 | = $it + 10
-        "#
-    ));
-
-    assert_eq!(actual.out, "1030");
-}
-
-#[test]
 fn compound_comparison() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
