@@ -615,7 +615,7 @@ impl Shell for FilesystemShell {
                                 .map(|val| val.is_true())
                                 .unwrap_or(false);
                             result = if _trash.item || (rm_always_trash && !_permanent.item) {
-                                trash::remove(&f).map_err(|e: trash::Error| {
+                                trash::delete(&f).map_err(|e: trash::Error| {
                                     Error::new(ErrorKind::Other, format!("{:?}", e))
                                 })
                             } else if metadata.is_file() {
