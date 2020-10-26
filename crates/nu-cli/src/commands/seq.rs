@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::value::StrExt;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, Value};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use std::cmp;
 
@@ -61,7 +61,18 @@ impl WholeStreamCommand for Seq {
             Example {
                 description: "sequence 1 to 10 with newline separator",
                 example: "seq 1 10",
-                result: Some(vec![Value::from("1\n2\n3\n4\n5\n6\n7\n8\n9\n10")]),
+                result: Some(vec![
+                    UntaggedValue::string("1").into(),
+                    UntaggedValue::string("2").into(),
+                    UntaggedValue::string("3").into(),
+                    UntaggedValue::string("4").into(),
+                    UntaggedValue::string("5").into(),
+                    UntaggedValue::string("6").into(),
+                    UntaggedValue::string("7").into(),
+                    UntaggedValue::string("8").into(),
+                    UntaggedValue::string("9").into(),
+                    UntaggedValue::string("10").into(),
+                ]),
             },
             Example {
                 description: "sequence 1 to 10 with pipe separator",
@@ -76,7 +87,7 @@ impl WholeStreamCommand for Seq {
             Example {
                 description: "sequence 1 to 10 with pipe separator padded by 2s",
                 example: "seq -s ' | ' -w 1 2 10",
-                result: Some(vec![Value::from("1 | 3 | 5 | 7 | 9")]),
+                result: Some(vec![Value::from("01 | 03 | 05 | 07 | 09")]),
             },
         ]
     }
