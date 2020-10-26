@@ -34,7 +34,7 @@ impl WholeStreamCommand for Seq {
             .named(
                 "terminator",
                 SyntaxShape::String,
-                "terminator character (defaults to separator)",
+                "terminator character (defaults to \\n)",
                 Some('t'),
             )
             .switch(
