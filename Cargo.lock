@@ -5538,9 +5538,9 @@ dependencies = [
 
 [[package]]
 name = "trash"
-version = "1.1.1"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "329be7bb48445d16bf4c241ba9514af46f2189c715bf5fd854e38f7c95f60194"
+checksum = "bbf511f5673142be74cd6a46cfb7e3da8d2b95bc08d2d46c072798e6ce8b5b9f"
 dependencies = [
  "winapi 0.3.9",
 ]
