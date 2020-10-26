@@ -219,7 +219,7 @@ We can pipeline this into a command that gets the contents of one of the columns
  name          │ nu
  readme        │ README.md
  repository    │ https://github.com/nushell/nushell
- version       │ 0.15.1
+ version       │ 0.21.0
 ───────────────┴────────────────────────────────────
 ```
 
@@ -227,7 +227,7 @@ Finally, we can use commands outside of Nu once we have the data we want:
 
 ```shell
 > open Cargo.toml | get package.version
-0.15.1
+0.21.0
 ```
 
 Here we use the variable `$it` to refer to the value being piped to the external command.
