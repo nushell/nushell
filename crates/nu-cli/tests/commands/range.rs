@@ -14,7 +14,6 @@ fn selects_a_row() {
                 | sort-by name
                 | range 0..0
                 | get name
-                | echo $it
             "#
         ));
 
@@ -38,7 +37,6 @@ fn selects_some_rows() {
                 | get name
                 | range 1..2
                 | count
-                | echo $it
             "#
         ));
 

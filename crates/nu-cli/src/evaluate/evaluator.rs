@@ -32,7 +32,7 @@ pub(crate) async fn evaluate_baseline_expr(
         Expression::Synthetic(hir::Synthetic::String(s)) => {
             Ok(UntaggedValue::string(s).into_untagged_value())
         }
-        Expression::Variable(var) => evaluate_reference(&var, scope, tag),
+        Expression::Variable(var, _) => evaluate_reference(&var, scope, tag),
         Expression::Command => unimplemented!(),
         Expression::Invocation(block) => evaluate_invocation(block, registry, scope).await,
         Expression::ExternalCommand(_) => unimplemented!(),
@@ -199,38 +199,36 @@ fn evaluate_literal(literal: &hir::Literal, span: Span) -> Value {
     }
 }
 
-fn evaluate_reference(
-    name: &hir::Variable,
-    scope: Arc<Scope>,
-    tag: Tag,
-) -> Result<Value, ShellError> {
+fn evaluate_reference(name: &str, scope: Arc<Scope>, tag: Tag) -> Result<Value, ShellError> {
     match name {
-        hir::Variable::It(_) => match scope.it() {
+        "$nu" => crate::evaluate::variables::nu(&scope.env(), tag),
+
+        "$true" => Ok(Value {
+            value: UntaggedValue::boolean(true),
+            tag,
+        }),
+
+        "$false" => Ok(Value {
+            value: UntaggedValue::boolean(false),
+            tag,
+        }),
+
+        "$it" => match scope.var("$it") {
             Some(v) => Ok(v),
             None => Err(ShellError::labeled_error(
-                "$it variable not in scope",
-                "not in scope (are you missing an 'each'?)",
+                "Variable not in scope",
+                "missing '$it' (note: $it is only available inside of a block)",
                 tag.span,
             )),
         },
-        hir::Variable::Other(name, _) => match name {
-            x if x == "$nu" => crate::evaluate::variables::nu(&scope.env(), tag),
-            x if x == "$true" => Ok(Value {
-                value: UntaggedValue::boolean(true),
-                tag,
-            }),
-            x if x == "$false" => Ok(Value {
-                value: UntaggedValue::boolean(false),
-                tag,
-            }),
-            x => match scope.var(x) {
-                Some(v) => Ok(v),
-                None => Err(ShellError::labeled_error(
-                    "Variable not in scope",
-                    "unknown variable",
-                    tag.span,
-                )),
-            },
+
+        x => match scope.var(x) {
+            Some(v) => Ok(v),
+            None => Err(ShellError::labeled_error(
+                "Variable not in scope",
+                "unknown variable",
+                tag.span,
+            )),
         },
     }
 }
@@ -244,7 +242,7 @@ async fn evaluate_invocation(
     let mut context = EvaluationContext::basic()?;
     context.registry = registry.clone();
 
-    let input = match scope.it() {
+    let input = match scope.var("$it") {
         Some(it) => InputStream::one(it),
         None => InputStream::empty(),
     };

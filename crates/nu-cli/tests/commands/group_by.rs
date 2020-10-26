@@ -22,7 +22,6 @@ fn groups() {
                 | group-by rusty_at
                 | get "10/11/2013"
                 | count
-                | echo $it
             "#
         ));
 

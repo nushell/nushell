@@ -54,7 +54,6 @@ fn reduce_numbered_example() {
         echo one longest three bar
         | reduce -n { if $(echo $it.item | str length) > $(echo $acc.item | str length) {echo $it} {echo $acc}}
         | get index
-        | echo $it
         "#
         )
     );
@@ -74,7 +73,6 @@ fn folding_with_tables() {
             }
           }
         | math sum
-        | echo $it
         "#
         )
     );

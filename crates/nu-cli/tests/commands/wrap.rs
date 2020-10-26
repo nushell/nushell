@@ -24,7 +24,6 @@ fn wrap_rows_into_a_row() {
                 | get caballeros
                 | nth 0
                 | get last_name
-                | echo $it
             "#
         ));
 
@@ -54,7 +53,6 @@ fn wrap_rows_into_a_table() {
                 | wrap caballero
                 | nth 2
                 | get caballero
-                | echo $it
             "#
         ));
 

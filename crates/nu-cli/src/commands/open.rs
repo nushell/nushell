@@ -213,7 +213,8 @@ pub async fn fetch(
         )),
     };
 
-    let res = std::fs::read(location)?;
+    let res = std::fs::read(location)
+        .map_err(|_| ShellError::labeled_error("Can't open filename given", "can't open", span))?;
 
     // If no encoding is provided we try to guess the encoding to read the file with
     let encoding = if encoding_choice.is_none() {

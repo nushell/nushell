@@ -27,7 +27,7 @@ fn by_one_with_field_passed() {
 
         let actual = nu_with_plugins!(
             cwd: dirs.test(),
-            "open sample.toml | inc package.edition | get package.edition | echo $it"
+            "open sample.toml | inc package.edition | get package.edition"
         );
 
         assert_eq!(actual.out, "2019");
@@ -47,7 +47,7 @@ fn by_one_with_no_field_passed() {
 
         let actual = nu_with_plugins!(
             cwd: dirs.test(),
-            "open sample.toml | get package.contributors | inc | echo $it"
+            "open sample.toml | get package.contributors | inc"
         );
 
         assert_eq!(actual.out, "3");
@@ -67,7 +67,7 @@ fn semversion_major_inc() {
 
         let actual = nu_with_plugins!(
             cwd: dirs.test(),
-            "open sample.toml | inc package.version -M | get package.version | echo $it"
+            "open sample.toml | inc package.version -M | get package.version"
         );
 
         assert_eq!(actual.out, "1.0.0");
@@ -87,7 +87,7 @@ fn semversion_minor_inc() {
 
         let actual = nu_with_plugins!(
             cwd: dirs.test(),
-            "open sample.toml | inc package.version --minor | get package.version | echo $it"
+            "open sample.toml | inc package.version --minor | get package.version"
         );
 
         assert_eq!(actual.out, "0.2.0");
@@ -107,7 +107,7 @@ fn semversion_patch_inc() {
 
         let actual = nu_with_plugins!(
             cwd: dirs.test(),
-            "open sample.toml | inc package.version --patch | get package.version | echo $it"
+            "open sample.toml | inc package.version --patch | get package.version"
         );
 
         assert_eq!(actual.out, "0.1.4");
@@ -127,7 +127,7 @@ fn semversion_without_passing_field() {
 
         let actual = nu_with_plugins!(
             cwd: dirs.test(),
-            "open sample.toml | get package.version | inc --patch | echo $it"
+            "open sample.toml | get package.version | inc --patch"
         );
 
         assert_eq!(actual.out, "0.1.4");

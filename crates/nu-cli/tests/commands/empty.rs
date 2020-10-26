@@ -75,7 +75,7 @@ fn passing_a_block_will_set_contents_on_empty_cells_and_leave_non_empty_ones_unt
             ]
             | empty? LVL { = 9 }
             | empty? HP {
-                get LVL | = $it * 1000
+                = $it.LVL * 1000
               }
             | math sum
             | get HP

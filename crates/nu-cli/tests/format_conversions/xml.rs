@@ -9,7 +9,6 @@ fn table_to_xml_text_and_from_xml_text_back_into_table() {
             | to xml
             | from xml
             | get rss.children.channel.children.0.item.children.0.guid.attributes.isPermaLink
-            | echo $it
         "#
     ));
 
