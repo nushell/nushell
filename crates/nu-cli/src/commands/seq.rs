@@ -114,7 +114,7 @@ async fn seq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
                 '\r'.to_string()
             } else {
                 let vec_s: Vec<char> = s.chars().collect();
-                if vec_s.len() < 1 {
+                if vec_s.is_empty() {
                     return Err(ShellError::labeled_error(
                         "Expected a single separator char from --separator",
                         "requires a single character string input",
@@ -137,7 +137,7 @@ async fn seq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
                 '\r'.to_string()
             } else {
                 let vec_t: Vec<char> = t.chars().collect();
-                if vec_t.len() < 1 {
+                if vec_t.is_empty() {
                     return Err(ShellError::labeled_error(
                         "Expected a single terminator char from --terminator",
                         "requires a single character string input",
@@ -150,10 +150,7 @@ async fn seq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
         _ => '\n'.to_string(),
     };
 
-    let rest_nums: Vec<String> = rest_nums
-        .iter()
-        .map(|n| n.item.to_string().clone())
-        .collect();
+    let rest_nums: Vec<String> = rest_nums.iter().map(|n| n.item.to_string()).collect();
 
     run_seq(sep, Some(term), widths.item, rest_nums)
 }
@@ -206,7 +203,7 @@ pub fn run_seq(
             Ok(n) => n,
             Err(s) => {
                 return Err(ShellError::labeled_error(
-                    format!("{}", s),
+                    s,
                     "error parsing float",
                     Tag::unknown(),
                 ));
@@ -225,7 +222,7 @@ pub fn run_seq(
             Ok(n) => n,
             Err(s) => {
                 return Err(ShellError::labeled_error(
-                    format!("{}", s),
+                    s,
                     "error parsing float",
                     Tag::unknown(),
                 ));
@@ -241,7 +238,7 @@ pub fn run_seq(
             Ok(n) => n,
             Err(s) => {
                 return Err(ShellError::labeled_error(
-                    format!("{}", s),
+                    s,
                     "error parsing float",
                     Tag::unknown(),
                 ));
