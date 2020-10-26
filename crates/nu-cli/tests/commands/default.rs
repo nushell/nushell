@@ -27,7 +27,6 @@ fn adds_row_data_if_column_missing() {
                 | default rusty_luck 1
                 | where rusty_luck == 1
                 | count
-                
             "#
         ));
 

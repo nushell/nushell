@@ -18,7 +18,6 @@ fn gets_first_rows_by_amount() {
                 ls
                 | first 3
                 | count
-                
             "#
         ));
 
@@ -42,7 +41,6 @@ fn gets_all_rows_if_amount_higher_than_all_rows() {
                 ls
                 | first 99
                 | count
-                
             "#
         ));
 
@@ -61,7 +59,6 @@ fn gets_first_row_when_no_amount_given() {
                 ls
                 | first
                 | count
-                
             "#
         ));
 

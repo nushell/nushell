@@ -7,7 +7,7 @@ use nu_test_support::pipeline;
 fn filters_by_unit_size_comparison() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "ls | where size > 1kb | sort-by size | get name | first 1 | str trim "
+        "ls | where size > 1kb | sort-by size | get name | first 1 | str trim"
     );
 
     assert_eq!(actual.out, "cargo_sample.toml");
@@ -17,7 +17,7 @@ fn filters_by_unit_size_comparison() {
 fn filters_with_nothing_comparison() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        r#"echo '[{"foo": 3}, {"foo": null}, {"foo": 4}]' | from json | get foo | compact | where $it > 1 | math sum "#
+        r#"echo '[{"foo": 3}, {"foo": null}, {"foo": 4}]' | from json | get foo | compact | where $it > 1 | math sum"#
     );
 
     assert_eq!(actual.out, "7");
@@ -27,7 +27,7 @@ fn filters_with_nothing_comparison() {
 fn where_in_table() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        r#"echo '[{"name": "foo", "size": 3}, {"name": "foo", "size": 2}, {"name": "bar", "size": 4}]' | from json | where name in ["foo"] | get size | math sum "#
+        r#"echo '[{"name": "foo", "size": 3}, {"name": "foo", "size": 2}, {"name": "bar", "size": 4}]' | from json | where name in ["foo"] | get size | math sum"#
     );
 
     assert_eq!(actual.out, "5");
@@ -37,7 +37,7 @@ fn where_in_table() {
 fn where_not_in_table() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        r#"echo '[{"name": "foo", "size": 3}, {"name": "foo", "size": 2}, {"name": "bar", "size": 4}]' | from json | where name not-in ["foo"] | get size | math sum "#
+        r#"echo '[{"name": "foo", "size": 3}, {"name": "foo", "size": 2}, {"name": "bar", "size": 4}]' | from json | where name not-in ["foo"] | get size | math sum"#
     );
 
     assert_eq!(actual.out, "4");
@@ -55,7 +55,6 @@ fn explicit_block_condition() {
             | first 4
             | where {= $it.z > 4200}
             | get z
-            
         "#
     ));
 
@@ -74,7 +73,6 @@ fn binary_operator_comparisons() {
             | first 4
             | where z > 4200
             | get z
-            
         "#
     ));
 
@@ -89,7 +87,6 @@ fn binary_operator_comparisons() {
             | first 4
             | where z >= 4253
             | get z
-            
         "#
     ));
 
@@ -104,7 +101,6 @@ fn binary_operator_comparisons() {
             | first 4
             | where z < 10
             | get z
-            
         "#
     ));
 
@@ -119,7 +115,6 @@ fn binary_operator_comparisons() {
             | first 4
             | where z <= 1
             | get z
-            
         "#
     ));
 
@@ -134,7 +129,6 @@ fn binary_operator_comparisons() {
             | where z != 1
             | first 1
             | get z
-            
         "#
     ));
 
@@ -152,7 +146,6 @@ fn contains_operator() {
             | get table_values
             | where x =~ ell
             | count
-            
         "#
     ));
 
@@ -166,7 +159,6 @@ fn contains_operator() {
             | get table_values
             | where x !~ ell
             | count
-            
         "#
     ));
 

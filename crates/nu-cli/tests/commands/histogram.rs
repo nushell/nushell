@@ -22,7 +22,6 @@ fn summarizes_by_column_given() {
                 | histogram rusty_at countries
                 | where rusty_at == "Ecuador"
                 | get countries
-                
             "#
         ));
 
@@ -55,7 +54,6 @@ fn summarizes_by_values() {
                 | histogram
                 | where value == "Estados Unidos"
                 | get count
-                
             "#
         ));
 

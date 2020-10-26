@@ -8,7 +8,6 @@ fn sets_the_column_from_a_block_run_output() {
             open cargo_sample.toml
             | insert dev-dependencies.newdep "1"
             | get dev-dependencies.newdep
-            
         "#
     ));
 
@@ -24,7 +23,6 @@ fn sets_the_column_from_a_block_full_stream_output() {
             | insert content { open --raw cargo_sample.toml | lines | first 5 }
             | get content.1
             | str contains "nu"
-            
         "#
     ));
 
@@ -40,7 +38,6 @@ fn sets_the_column_from_an_invocation() {
             | insert content $(open --raw cargo_sample.toml | lines | first 5)
             | get content.1
             | str contains "nu"
-            
         "#
     ));
 

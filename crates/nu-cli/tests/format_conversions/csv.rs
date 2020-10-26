@@ -35,7 +35,6 @@ fn table_to_csv_text() {
                 | to csv
                 | lines
                 | nth 1
-                
             "#
         ));
 
@@ -66,7 +65,6 @@ fn table_to_csv_text_skipping_headers_after_conversion() {
                 | split column "," a b c d origin
                 | last 1
                 | to csv --headerless
-                
             "#
         ));
 
@@ -96,7 +94,6 @@ fn infers_types() {
                 open los_cuatro_mosqueteros.csv
                 | where rusty_luck > 0
                 | count
-                
             "#
         ));
 
@@ -124,7 +121,6 @@ fn from_csv_text_to_table() {
                 | from csv
                 | get rusty_luck
                 | count
-                
             "#
         ));
 
@@ -152,7 +148,6 @@ fn from_csv_text_with_separator_to_table() {
                 | from csv --separator ';'
                 | get rusty_luck
                 | count
-                
             "#
         ));
 
@@ -180,7 +175,6 @@ fn from_csv_text_with_tab_separator_to_table() {
                 | from csv --separator '\t'
                 | get rusty_luck
                 | count
-                
             "#
         ));
 
@@ -207,7 +201,6 @@ fn from_csv_text_skipping_headers_to_table() {
                 | from csv --headerless
                 | get Column3
                 | count
-                
             "#
         ));
 

@@ -10,7 +10,6 @@ fn creates_the_resulting_string_from_the_given_fields() {
         open cargo_sample.toml
             | get package
             | format "{name} has license {license}"
-            
         "#
     ));
 
@@ -24,7 +23,6 @@ fn given_fields_can_be_column_paths() {
         r#"
         open cargo_sample.toml
             | format "{package.name} is {package.description}"
-            
         "#
     ));
 
@@ -38,7 +36,6 @@ fn can_use_variables() {
         r#"
         open cargo_sample.toml
             | format "{$it.package.name} is {$it.package.description}"
-            
         "#
     ));
 

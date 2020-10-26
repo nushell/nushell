@@ -142,7 +142,6 @@ mod regex {
                     | parse --regex "(\w+) (.+) \(#(\d+)\)"
                     | nth 1
                     | get Capture1
-                    
                 "#
             ));
 

@@ -34,7 +34,6 @@ fn row() {
                 | where country in ["Guayaquil Ecuador" "New Zealand"]
                 | get luck
                 | math sum
-                
                 "#
         ));
 

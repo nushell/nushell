@@ -16,7 +16,6 @@ fn lists_regular_files() {
             r#"
                 ls
                 | count
-                
             "#
         ));
 
@@ -39,7 +38,6 @@ fn lists_regular_files_using_asterisk_wildcard() {
             r#"
                 ls *.txt
                 | count
-                
             "#
         ));
 
@@ -62,7 +60,6 @@ fn lists_regular_files_using_question_mark_wildcard() {
             r#"
                 ls *.??.txt
                 | count
-                
             "#
         ));
 
@@ -92,7 +89,6 @@ fn lists_all_files_in_directories_from_stream() {
                 echo dir_a dir_b
                 | each { ls $it }
                 | count
-                
             "#
         ));
 
@@ -110,7 +106,6 @@ fn does_not_fail_if_glob_matches_empty_directory() {
             r#"
                 ls dir_a
                 | count
-                
             "#
         ));
 
@@ -147,7 +142,7 @@ fn list_files_from_two_parents_up_using_multiple_dots() {
         let actual = nu!(
             cwd: dirs.test().join("foo/bar"),
             r#"
-                ls ... | count 
+                ls ... | count
             "#
         );
 
@@ -171,7 +166,6 @@ fn lists_hidden_file_when_explicitly_specified() {
             r#"
                 ls .testdotfile
                 | count
-                
             "#
         ));
 
@@ -206,7 +200,6 @@ fn lists_all_hidden_files_when_glob_contains_dot() {
             r#"
                 ls **/.*
                 | count
-                
             "#
         ));
 
@@ -244,7 +237,6 @@ fn lists_all_hidden_files_when_glob_does_not_contain_dot() {
             r#"
                 ls **/*
                 | count
-                
             "#
         ));
 
@@ -268,7 +260,6 @@ fn lists_files_including_starting_with_dot() {
             r#"
                 ls -a
                 | count
-                
             "#
         ));
 

@@ -17,7 +17,6 @@ fn fetches_a_row() {
             r#"
                 open sample.toml
                 | get nu_party_venue
-                
             "#
         ));
 
@@ -44,7 +43,6 @@ fn fetches_by_index() {
             r#"
                 open sample.toml
                 | get package.authors.2
-                
             "#
         ));
 
@@ -67,7 +65,6 @@ fn fetches_by_column_path() {
             r#"
                 open sample.toml
                 | get package.name
-                
             "#
         ));
 
@@ -93,7 +90,6 @@ fn column_paths_are_either_double_quoted_or_regular_unquoted_words_separated_by_
                 open sample.toml
                 | get package."9999"
                 | count
-                
             "#
         ));
 
@@ -127,7 +123,6 @@ fn fetches_more_than_one_column_path() {
                 open sample.toml
                 | get fortune_tellers.2.name fortune_tellers.0.name fortune_tellers.1.name
                 | nth 2
-                
             "#
         ));
 

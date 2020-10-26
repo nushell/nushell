@@ -36,7 +36,6 @@ fn infers_types() {
             r#"
                 open contacts.vcf
                 | count
-                
             "#
         ));
 
@@ -75,7 +74,6 @@ fn from_vcf_text_to_table() {
                 | where name == "EMAIL"
                 | first
                 | get value
-                
             "#
         ));
 

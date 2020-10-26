@@ -8,7 +8,6 @@ fn can_average_numbers() {
              open sgml_description.json
              | get glossary.GlossDiv.GlossList.GlossEntry.Sections
              | math avg
-             
          "#
     ));
 

@@ -11,7 +11,6 @@ fn table_to_json_text_and_from_json_text_back_into_table() {
             | to json
             | from json
             | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee
-            
         "#
     ));
 
@@ -64,7 +63,6 @@ fn from_json_text_recognizing_objects_independently_to_table() {
                 | from json -o
                 | where name == "GorbyPuff"
                 | get rusty_luck
-                
             "#
         ));
 
@@ -94,7 +92,6 @@ fn table_to_json_text() {
                 | from json
                 | nth 0
                 | get name
-                
             "#
         ));
 
