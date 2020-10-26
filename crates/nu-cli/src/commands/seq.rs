@@ -1,7 +1,8 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape};
+use nu_protocol::value::{StrExt, StringExt};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use std::cmp;
 
@@ -310,9 +311,14 @@ fn print_seq(
             ret_str.push_str(&separator);
         }
     }
+
     if (first >= last && step < 0f64) || (first <= last && step > 0f64) {
         ret_str.push_str(&terminator);
     }
 
-    Ok(OutputStream::one(ReturnSuccess::value(ret_str)))
+    let rows: Vec<Value> = ret_str
+        .lines()
+        .map(|v| v.to_str_value_create_tag())
+        .collect();
+    Ok(futures::stream::iter(rows.into_iter().map(ReturnSuccess::value)).to_output_stream())
 }
