@@ -71,7 +71,7 @@ fn cal_sees_pipeline_year() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo 1020 | cal --full-year $it | get monday | first 3 | to json
+        cal --full-year 1020 | get monday | first 3 | to json
         "#
     ));
 

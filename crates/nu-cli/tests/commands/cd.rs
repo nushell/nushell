@@ -10,7 +10,7 @@ fn filesystem_change_from_current_directory_using_relative_path() {
             cwd: dirs.root(),
             r#"
                 cd cd_test_1
-                pwd | echo $it
+                echo $(pwd)
             "#
         );
 
@@ -25,7 +25,7 @@ fn filesystem_change_from_current_directory_using_absolute_path() {
             cwd: dirs.test(),
             r#"
                 cd "{}"
-                pwd | echo $it
+                echo $(pwd)
             "#,
             dirs.formats()
         );
@@ -44,7 +44,7 @@ fn filesystem_switch_back_to_previous_working_directory() {
             r#"
                 cd {}
                 cd -
-                pwd | echo $it
+                echo $(pwd)
             "#,
             dirs.test()
         );
@@ -62,7 +62,7 @@ fn filesytem_change_from_current_directory_using_relative_path_and_dash() {
             cwd: dirs.test(),
             r#"
                 cd odin/-
-                pwd | echo $it
+                echo $(pwd)
             "#
         );
 
@@ -80,7 +80,7 @@ fn filesystem_change_current_directory_to_parent_directory() {
             cwd: dirs.test(),
             r#"
                 cd ..
-                pwd | echo $it
+                echo $(pwd)
             "#
         );
 
@@ -97,7 +97,7 @@ fn filesystem_change_current_directory_to_two_parents_up_using_multiple_dots() {
             cwd: dirs.test().join("foo/bar"),
             r#"
                 cd ...
-                pwd | echo $it
+                echo $(pwd)
             "#
         );
 
@@ -116,7 +116,7 @@ fn filesystem_change_current_directory_to_parent_directory_after_delete_cwd() {
                 rm {}/foo/bar
                 echo ","
                 cd ..
-                pwd | echo $it
+                echo $(pwd)
             "#,
             dirs.test()
         );
@@ -135,7 +135,7 @@ fn filesystem_change_to_home_directory() {
             cwd: dirs.test(),
             r#"
                 cd ~
-                pwd | echo $it
+                echo $(pwd)
             "#
         );
 
@@ -152,7 +152,7 @@ fn filesystem_change_to_a_directory_containing_spaces() {
             cwd: dirs.test(),
             r#"
                 cd "robalino turner katz"
-                pwd | echo $it
+                echo $(pwd)
             "#
         );
 
@@ -219,7 +219,7 @@ fn filesystem_change_directory_to_symlink_relative() {
             cwd: dirs.test().join("boo"),
             r#"
                 cd ../foo_link
-                pwd | echo $it
+                echo $(pwd)
             "#
         );
 
@@ -249,7 +249,7 @@ fn valuesystem_change_from_current_path_using_relative_path() {
             r#"
                 enter sample.toml
                 cd bin
-                pwd | echo $it
+                pwd
                 exit
             "#
         );
@@ -283,7 +283,7 @@ fn valuesystem_change_from_current_path_using_absolute_path() {
                 enter sample.toml
                 cd bin
                 cd /dependencies
-                pwd | echo $it
+                pwd
                 exit
             "#
         );
@@ -319,7 +319,7 @@ fn valuesystem_switch_back_to_previous_working_path() {
                 cd dependencies
                 cd /bin
                 cd -
-                pwd | echo $it
+                pwd
                 exit
             "#
         );
@@ -353,7 +353,7 @@ fn valuesystem_change_from_current_path_using_relative_path_and_dash() {
                 cd package/-
                 cd /bin
                 cd -
-                pwd | echo $it
+                pwd
                 exit
             "#
         );
@@ -380,7 +380,7 @@ fn valuesystem_change_current_path_to_parent_path() {
                 enter sample.toml
                 cd package/emberenios
                 cd ..
-                pwd | echo $it
+                pwd
                 exit
             "#
         );
@@ -405,7 +405,7 @@ fn valuesystem_change_to_a_path_containing_spaces() {
             r#"
                 enter sample.toml
                 cd "pa que te"
-                pwd | echo $it
+                pwd
                 exit
             "#
         );

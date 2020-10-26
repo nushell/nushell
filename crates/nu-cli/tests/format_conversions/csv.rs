@@ -6,7 +6,7 @@ use nu_test_support::{nu, pipeline};
 fn table_to_csv_text_and_from_csv_text_back_into_table() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "open caco3_plastics.csv | to csv | from csv | first 1 | get origin | echo $it"
+        "open caco3_plastics.csv | to csv | from csv | first 1 | get origin "
     );
 
     assert_eq!(actual.out, "SPAIN");
@@ -35,7 +35,7 @@ fn table_to_csv_text() {
                 | to csv
                 | lines
                 | nth 1
-                | echo $it
+                
             "#
         ));
 
@@ -66,7 +66,7 @@ fn table_to_csv_text_skipping_headers_after_conversion() {
                 | split column "," a b c d origin
                 | last 1
                 | to csv --headerless
-                | echo $it
+                
             "#
         ));
 
@@ -96,7 +96,7 @@ fn infers_types() {
                 open los_cuatro_mosqueteros.csv
                 | where rusty_luck > 0
                 | count
-                | echo $it
+                
             "#
         ));
 
@@ -124,7 +124,7 @@ fn from_csv_text_to_table() {
                 | from csv
                 | get rusty_luck
                 | count
-                | echo $it
+                
             "#
         ));
 
@@ -152,7 +152,7 @@ fn from_csv_text_with_separator_to_table() {
                 | from csv --separator ';'
                 | get rusty_luck
                 | count
-                | echo $it
+                
             "#
         ));
 
@@ -180,7 +180,7 @@ fn from_csv_text_with_tab_separator_to_table() {
                 | from csv --separator '\t'
                 | get rusty_luck
                 | count
-                | echo $it
+                
             "#
         ));
 
@@ -207,7 +207,7 @@ fn from_csv_text_skipping_headers_to_table() {
                 | from csv --headerless
                 | get Column3
                 | count
-                | echo $it
+                
             "#
         ));
 

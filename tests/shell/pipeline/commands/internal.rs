@@ -1,4 +1,3 @@
-use nu_test_support::fs::Stub::EmptyFile;
 #[cfg(feature = "which")]
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
@@ -25,11 +24,8 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
         r#"
             open nu_times.csv
             | get origin
-            | ^echo $it
-            | nu --testbin chop
-            | lines
+            | each { ^echo $it | nu --testbin chop | lines }
             | nth 2
-            | echo $it
             "#
         ));
 
@@ -225,54 +221,6 @@ fn autoenv() {
 }
 
 #[test]
-fn proper_it_expansion() {
-    Playground::setup("ls_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            EmptyFile("andres.txt"),
-            EmptyFile("gedge.txt"),
-            EmptyFile("jonathan.txt"),
-            EmptyFile("yehuda.txt"),
-        ]);
-
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                    ls | sort-by name | group-by type | each { get File.name | echo $it } | to json
-                "#
-        ));
-
-        assert_eq!(
-            actual.out,
-            r#"["andres.txt","gedge.txt","jonathan.txt","yehuda.txt"]"#
-        );
-    })
-}
-
-#[test]
-fn it_expansion_of_list() {
-    let actual = nu!(
-        cwd: ".",
-        r#"
-            echo "foo" | echo [bar $it] | to json
-        "#
-    );
-
-    assert_eq!(actual.out, "[\"bar\",\"foo\"]");
-}
-
-#[test]
-fn it_expansion_of_invocation() {
-    let actual = nu!(
-        cwd: ".",
-        r#"
-            echo $(echo "4" | echo $it | str to-int )
-        "#
-    );
-
-    assert_eq!(actual.out, "4");
-}
-
-#[test]
 fn invocation_properly_redirects() {
     let actual = nu!(
         cwd: ".",
@@ -289,7 +237,7 @@ fn argument_invocation() {
     let actual = nu!(
         cwd: ".",
         r#"
-            echo "foo" | echo $(echo $it)
+            echo "foo" | each { echo $(echo $it) }
         "#
     );
 
@@ -315,9 +263,8 @@ fn invocation_handles_dot() {
         r#"
             echo $(open nu_times.csv)
             | get name
-            | nu --testbin chop $it
+            | each { nu --testbin chop $it | lines }
             | nth 3
-            | echo $it
             "#
         ));
 
@@ -330,7 +277,7 @@ fn string_interpolation_with_it() {
     let actual = nu!(
         cwd: ".",
         r#"
-                    echo "foo" | echo `{{$it}}`
+                    echo "foo" | each { echo `{{$it}}` }
             "#
     );
 
@@ -342,7 +289,7 @@ fn string_interpolation_with_column() {
     let actual = nu!(
         cwd: ".",
         r#"
-                    echo '{"name": "bob"}' | from json | echo `{{name}} is cool`
+                    echo [[name]; [bob]] | each { echo `{{name}} is cool` }
             "#
     );
 
@@ -354,7 +301,7 @@ fn string_interpolation_with_column2() {
     let actual = nu!(
         cwd: ".",
         r#"
-                    echo '{"name": "fred"}' | from json | echo `also {{name}} is cool`
+                    echo [[name]; [fred]] | each { echo `also {{name}} is cool` }
             "#
     );
 
@@ -366,7 +313,7 @@ fn string_interpolation_with_column3() {
     let actual = nu!(
         cwd: ".",
         r#"
-                    echo '{"name": "sally"}' | from json | echo `also {{name}}`
+                    echo [[name]; [sally]] | each { echo `also {{name}}` }
             "#
     );
 
@@ -378,7 +325,7 @@ fn string_interpolation_with_it_column_path() {
     let actual = nu!(
         cwd: ".",
         r#"
-                    echo '{"name": "sammie"}' | from json | echo `{{$it.name}}`
+                    echo [[name]; [sammie]] | each { echo `{{$it.name}}` }
         "#
     );
 
@@ -471,7 +418,7 @@ fn range_with_left_var() {
     let actual = nu!(
         cwd: ".",
         r#"
-        echo [[size]; [3]] | echo $it.size..10 | math sum
+        echo [[size]; [3]] | each { echo $it.size..10 } | math sum
         "#
     );
 
@@ -483,7 +430,7 @@ fn range_with_right_var() {
     let actual = nu!(
         cwd: ".",
         r#"
-        echo [[size]; [30]] | echo 4..$it.size | math sum
+        echo [[size]; [30]] | each { echo 4..$it.size } | math sum
         "#
     );
 
@@ -563,18 +510,6 @@ fn exclusive_range_with_mixed_types() {
 }
 
 #[test]
-fn it_expansion_of_tables() {
-    let actual = nu!(
-        cwd: ".",
-        r#"
-        echo foo | echo [[`foo {{$it}} bar`]; [`{{$it}} foo`]] | get "foo foo bar"
-        "#
-    );
-
-    assert_eq!(actual.out, "foo foo");
-}
-
-#[test]
 fn table_with_commas() {
     let actual = nu!(
         cwd: ".",
@@ -591,7 +526,7 @@ fn duration_overflow() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        ls | get modified | = $it + 1000000000000000000yr
+        ls | get modified | each { = $it + 1000000000000000000yr }
         "#)
     );
 
@@ -603,7 +538,7 @@ fn date_and_duration_overflow() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        ls | get modified | = $it + 1000000yr
+        ls | get modified | each { = $it + 1000000yr }
         "#)
     );
 

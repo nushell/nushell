@@ -87,7 +87,7 @@ async fn process_row(
             let for_block = input.clone();
             let input_stream = once(async { Ok(for_block) }).to_input_stream();
 
-            let scope = Scope::append_it(scope, input.clone());
+            let scope = Scope::append_var(scope, "$it", input.clone());
 
             let result = run_block(&block, Arc::make_mut(&mut context), input_stream, scope).await;
 
@@ -140,7 +140,7 @@ async fn process_row(
                 value: UntaggedValue::Primitive(Primitive::Nothing),
                 ..
             } => match scope
-                .it()
+                .var("$it")
                 .unwrap_or_else(|| UntaggedValue::nothing().into_untagged_value())
                 .insert_data_at_column_path(&field, value.clone())
             {

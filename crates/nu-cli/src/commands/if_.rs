@@ -121,7 +121,7 @@ async fn if_command(
             let then_case = then_case.clone();
             let else_case = else_case.clone();
             let registry = registry.clone();
-            let scope = Scope::append_it(scope.clone(), input);
+            let scope = Scope::append_var(scope.clone(), "$it", input);
             let mut context = context.clone();
 
             async move {

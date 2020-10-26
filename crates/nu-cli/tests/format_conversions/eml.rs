@@ -12,7 +12,7 @@ fn from_eml_get_to_field() {
             open sample.eml
             | get To
             | get Address
-            | echo $it
+            
         "#
         )
     );
@@ -26,7 +26,7 @@ fn from_eml_get_to_field() {
             open sample.eml
             | get To
             | get Name
-            | echo $it
+            
         "#
         )
     );
@@ -44,7 +44,7 @@ fn from_eml_get_replyto_field() {
             open sample.eml
             | get Reply-To
             | get Address
-            | echo $it
+            
         "#
         )
     );
@@ -58,7 +58,7 @@ fn from_eml_get_replyto_field() {
             open sample.eml
             | get Reply-To
             | get Name
-            | echo $it
+            
         "#
         )
     );
@@ -74,7 +74,7 @@ fn from_eml_get_subject_field() {
             r#"
             open sample.eml
             | get Subject
-            | echo $it
+            
         "#
         )
     );
@@ -90,7 +90,7 @@ fn from_eml_get_another_header_field() {
             r#"
             open sample.eml
             | get MIME-Version
-            | echo $it
+            
         "#
         )
     );

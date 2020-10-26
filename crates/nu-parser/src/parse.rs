@@ -410,7 +410,7 @@ fn parse_variable(
     registry: &dyn SignatureRegistry,
 ) -> (SpannedExpression, Option<ParseError>) {
     if lite_arg.item == "$it" {
-        trace!("parsin $it");
+        trace!("parsing $it");
         parse_full_column_path(lite_arg, registry)
     } else {
         (
@@ -603,10 +603,7 @@ fn parse_interpolated_string(
     }];
 
     let call = SpannedExpression {
-        expr: Expression::Invocation(Block {
-            block,
-            span: lite_arg.span,
-        }),
+        expr: Expression::Invocation(Block::new(None, block, lite_arg.span)),
         span: lite_arg.span,
     };
 
@@ -1375,7 +1372,7 @@ fn parse_positional_argument(
                     let span = arg.span;
                     let mut commands = hir::Commands::new(span);
                     commands.push(ClassifiedCommand::Expr(Box::new(arg)));
-                    let mut block = hir::Block::new(span);
+                    let mut block = hir::Block::new(None, vec![], span);
                     block.push(commands);
 
                     let arg = SpannedExpression::new(Expression::Block(block), span);
@@ -1771,7 +1768,7 @@ fn expand_shorthand_forms(
 }
 
 pub fn classify_block(lite_block: &LiteBlock, registry: &dyn SignatureRegistry) -> ClassifiedBlock {
-    let mut block = Block::new(lite_block.span());
+    let mut block = Block::new(None, vec![], lite_block.span());
 
     let mut error = None;
     for lite_pipeline in &lite_block.block {
@@ -1784,10 +1781,7 @@ pub fn classify_block(lite_block: &LiteBlock, registry: &dyn SignatureRegistry) 
 
         let pipeline = if let Some(vars) = vars {
             let span = pipeline.commands.span;
-            let block = hir::Block {
-                block: vec![pipeline.commands.clone()],
-                span,
-            };
+            let block = hir::Block::new(None, vec![pipeline.commands.clone()], span);
             let mut call = hir::Call::new(
                 Box::new(SpannedExpression {
                     expr: Expression::string("with-env".to_string()),

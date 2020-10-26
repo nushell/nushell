@@ -15,7 +15,7 @@ fn by_column() {
             | first 1
             | get Column1
             | str trim
-            | echo $it
+            
         "#
     ));
 
@@ -37,7 +37,7 @@ fn by_invalid_column() {
             | first 1
             | get Column1
             | str trim
-            | echo $it
+            
         "#
     ));
 
@@ -73,7 +73,7 @@ fn sort_primitive_values() {
             | first 6
             | sort-by
             | first 1
-            | echo $it
+            
         "#
     ));
 

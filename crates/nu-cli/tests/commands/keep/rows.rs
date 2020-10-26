@@ -23,7 +23,7 @@ fn rows() {
                 | keep 3
                 | get lucky_code
                 | math sum
-                | echo $it
+                
                 "#
         ));
 

@@ -83,7 +83,7 @@ async fn format_command(
                             let result = evaluate_baseline_expr(
                                 &full_column_path.0,
                                 &registry,
-                                Scope::append_it(scope.clone(), value.clone()),
+                                Scope::append_var(scope.clone(), "$it", value.clone()),
                             )
                             .await;
 

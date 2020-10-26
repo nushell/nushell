@@ -27,7 +27,7 @@ fn moves_a_column_before() {
                 | get chars
                 | str trim
                 | str collect
-                | echo $it
+                
             "#
         ));
 
@@ -62,7 +62,7 @@ fn moves_columns_before() {
                 | get chars_2 chars_1
                 | str trim
                 | str collect
-                | echo $it
+                
             "#
         ));
 
@@ -98,7 +98,7 @@ fn moves_a_column_after() {
                 | get chars_1 chars_2
                 | str trim
                 | str collect
-                | echo $it
+                
             "#
         ));
 
@@ -132,7 +132,7 @@ fn moves_columns_after() {
                 | get
                 | nth 1 2
                 | str collect
-                | echo $it
+                
             "#
         ));
 

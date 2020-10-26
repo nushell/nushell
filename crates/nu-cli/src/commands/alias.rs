@@ -4,7 +4,7 @@ use crate::prelude::*;
 use nu_data::config;
 use nu_errors::ShellError;
 use nu_parser::SignatureRegistry;
-use nu_protocol::hir::{ClassifiedCommand, Expression, NamedValue, SpannedExpression, Variable};
+use nu_protocol::hir::{ClassifiedCommand, Expression, NamedValue, SpannedExpression};
 use nu_protocol::{
     hir::Block, CommandAction, NamedType, PositionalType, ReturnSuccess, Signature, SyntaxShape,
     UntaggedValue, Value,
@@ -243,7 +243,7 @@ fn find_expr_shapes(
         Expression::Block(b) => find_block_shapes(&b, registry),
         Expression::Path(path) => match &path.head.expr {
             Expression::Invocation(b) => find_block_shapes(&b, registry),
-            Expression::Variable(Variable::Other(var, _)) => {
+            Expression::Variable(var, _) => {
                 let mut result = HashMap::new();
                 result.insert(var.to_string(), (spanned_expr.span, None));
                 Ok(result)

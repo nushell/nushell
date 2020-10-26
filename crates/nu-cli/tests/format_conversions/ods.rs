@@ -9,7 +9,7 @@ fn from_ods_file_to_table() {
             | get SalesOrders
             | nth 4
             | get Column2
-            | echo $it
+            
         "#
     ));
 

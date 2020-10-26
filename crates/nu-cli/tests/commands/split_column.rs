@@ -20,7 +20,7 @@ fn to_column() {
                 | str trim
                 | split column ","
                 | get Column2
-                | echo $it
+                
             "#
         ));
 

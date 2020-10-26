@@ -36,7 +36,7 @@ fn infers_types() {
             r#"
                 open contacts.vcf
                 | count
-                | echo $it
+                
             "#
         ));
 
@@ -75,7 +75,7 @@ fn from_vcf_text_to_table() {
                 | where name == "EMAIL"
                 | first
                 | get value
-                | echo $it
+                
             "#
         ));
 

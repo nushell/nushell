@@ -26,7 +26,7 @@ fn discards_rows_where_given_column_is_empty() {
                 | get amigos
                 | compact rusty_luck
                 | count
-                | echo $it
+                
             "#
         ));
 
@@ -43,7 +43,7 @@ fn discards_empty_rows_by_default() {
                 | from json
                 | compact
                 | count
-                | echo $it
+                
             "#
         ));
 

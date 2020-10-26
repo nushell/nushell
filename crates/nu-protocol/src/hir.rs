@@ -40,14 +40,6 @@ impl InternalCommand {
             ),
         }
     }
-
-    pub fn expand_it_usage(&mut self) {
-        if let Some(positionals) = &mut self.args.positional {
-            for arg in positionals {
-                arg.expand_it_usage();
-            }
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
@@ -84,42 +76,6 @@ pub enum ClassifiedCommand {
     Error(ParseError),
 }
 
-impl ClassifiedCommand {
-    pub fn has_it_iteration(&self) -> bool {
-        match self {
-            ClassifiedCommand::Internal(command) => {
-                let mut result = command.args.head.has_shallow_it_usage();
-
-                if let Some(positionals) = &command.args.positional {
-                    for arg in positionals {
-                        result = result || arg.has_shallow_it_usage();
-                    }
-                }
-
-                if let Some(named) = &command.args.named {
-                    for arg in named.iter() {
-                        if let NamedValue::Value(_, value) = arg.1 {
-                            result = result || value.has_shallow_it_usage();
-                        }
-                    }
-                }
-
-                result
-            }
-            ClassifiedCommand::Expr(expr) => expr.has_shallow_it_usage(),
-            _ => false,
-        }
-    }
-
-    pub fn expand_it_usage(&mut self) {
-        match self {
-            ClassifiedCommand::Internal(command) => command.expand_it_usage(),
-            ClassifiedCommand::Expr(expr) => expr.expand_it_usage(),
-            _ => {}
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct Commands {
     pub list: Vec<ClassifiedCommand>,
@@ -134,67 +90,33 @@ impl Commands {
     pub fn push(&mut self, command: ClassifiedCommand) {
         self.list.push(command);
     }
-
-    /// Convert all shallow uses of $it to `each { use of $it }`, converting each to a per-row command
-    pub fn expand_it_usage(&mut self) {
-        for idx in 0..self.list.len() {
-            self.list[idx].expand_it_usage();
-        }
-        for idx in 1..self.list.len() {
-            if self.list[idx].has_it_iteration() {
-                self.list[idx] = ClassifiedCommand::Internal(InternalCommand {
-                    name: "each".to_string(),
-                    name_span: self.span,
-                    args: hir::Call {
-                        head: Box::new(SpannedExpression {
-                            expr: Expression::Synthetic(Synthetic::String(
-                                "expanded-each".to_string(),
-                            )),
-                            span: self.span,
-                        }),
-                        named: None,
-                        span: self.span,
-                        positional: Some(vec![SpannedExpression {
-                            expr: Expression::Block(Block {
-                                block: vec![Commands {
-                                    list: vec![self.list[idx].clone()],
-                                    span: self.span,
-                                }],
-                                span: self.span,
-                            }),
-                            span: self.span,
-                        }]),
-                        external_redirection: ExternalRedirection::Stdout, // FIXME
-                    },
-                })
-            }
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct Block {
+    pub params: Vec<String>,
     pub block: Vec<Commands>,
     pub span: Span,
 }
 
 impl Block {
-    pub fn new(span: Span) -> Block {
-        Block {
-            block: vec![],
-            span,
+    pub fn new(params: Option<Vec<String>>, block: Vec<Commands>, span: Span) -> Block {
+        match params {
+            Some(params) => Block {
+                params,
+                block,
+                span,
+            },
+            None => Block {
+                params: vec!["$it".into()],
+                block,
+                span,
+            },
         }
     }
 
     pub fn push(&mut self, commands: Commands) {
         self.block.push(commands);
-    }
-
-    /// Convert all shallow uses of $it to `each { use of $it }`, converting each to a per-row command
-    pub fn expand_it_usage(&mut self) {
-        for commands in &mut self.block {
-            commands.expand_it_usage();
-        }
     }
 
     pub fn set_redirect(&mut self, external_redirection: ExternalRedirection) {
@@ -250,7 +172,7 @@ impl ExternalCommand {
                 ..
             } => {
                 let Path { head, .. } = &**path;
-                matches!(head, SpannedExpression{expr: Expression::Variable(Variable::It(_)), ..})
+                matches!(head, SpannedExpression{expr: Expression::Variable(x, ..), ..} if x == "$it")
             }
             _ => false,
         })
@@ -594,118 +516,6 @@ impl SpannedExpression {
             _ => 0,
         }
     }
-
-    pub fn has_shallow_it_usage(&self) -> bool {
-        match &self.expr {
-            Expression::Binary(binary) => {
-                binary.left.has_shallow_it_usage() || binary.right.has_shallow_it_usage()
-            }
-            Expression::Range(range) => {
-                let left = if let Some(left) = &range.left {
-                    left.has_shallow_it_usage()
-                } else {
-                    false
-                };
-
-                let right = if let Some(right) = &range.right {
-                    right.has_shallow_it_usage()
-                } else {
-                    false
-                };
-
-                left || right
-            }
-            Expression::Variable(Variable::It(_)) => true,
-            Expression::Path(path) => path.head.has_shallow_it_usage(),
-            Expression::List(list) => {
-                for l in list {
-                    if l.has_shallow_it_usage() {
-                        return true;
-                    }
-                }
-                false
-            }
-            Expression::Table(headers, cells) => {
-                for l in headers {
-                    if l.has_shallow_it_usage() {
-                        return true;
-                    }
-                }
-
-                for row in cells {
-                    for cell in row {
-                        if cell.has_shallow_it_usage() {
-                            return true;
-                        }
-                    }
-                }
-                false
-            }
-            Expression::Invocation(block) => {
-                for commands in block.block.iter() {
-                    for command in commands.list.iter() {
-                        if command.has_it_iteration() {
-                            return true;
-                        }
-                    }
-                }
-                false
-            }
-            _ => false,
-        }
-    }
-
-    pub fn expand_it_usage(&mut self) {
-        match self {
-            SpannedExpression {
-                expr: Expression::Block(block),
-                ..
-            } => {
-                block.expand_it_usage();
-            }
-            SpannedExpression {
-                expr: Expression::Invocation(block),
-                ..
-            } => {
-                block.expand_it_usage();
-            }
-            SpannedExpression {
-                expr: Expression::List(list),
-                ..
-            } => {
-                for item in list.iter_mut() {
-                    item.expand_it_usage();
-                }
-            }
-            SpannedExpression {
-                expr: Expression::Table(headers, cells),
-                ..
-            } => {
-                for header in headers.iter_mut() {
-                    header.expand_it_usage();
-                }
-
-                for row in cells.iter_mut() {
-                    for cell in row {
-                        cell.expand_it_usage()
-                    }
-                }
-            }
-            SpannedExpression {
-                expr: Expression::Path(path),
-                ..
-            } => {
-                if let SpannedExpression {
-                    expr: Expression::Invocation(block),
-                    ..
-                } = &mut path.head
-                {
-                    block.expand_it_usage();
-                }
-            }
-            _ => {}
-        }
-    }
 }
 
 impl std::ops::Deref for SpannedExpression {
@@ -745,8 +555,7 @@ impl PrettyDebugWithSource for SpannedExpression {
                         b::delimit("s\"", b::primitive(self.span.slice(source)), "\"").group()
                     }
                 },
-                Expression::Variable(Variable::Other(_, _)) => b::keyword(self.span.slice(source)),
-                Expression::Variable(Variable::It(_)) => b::keyword("$it"),
+                Expression::Variable(_, _) => b::keyword(self.span.slice(source)),
                 Expression::Binary(binary) => binary.pretty_debug(source),
                 Expression::Range(range) => range.pretty_debug(source),
                 Expression::Block(_) => b::opaque("block"),
@@ -800,8 +609,7 @@ impl PrettyDebugWithSource for SpannedExpression {
             Expression::Synthetic(s) => match s {
                 Synthetic::String(s) => b::typed("synthetic", b::primitive(format!("{:?}", s))),
             },
-            Expression::Variable(Variable::Other(_, _)) => b::keyword(self.span.slice(source)),
-            Expression::Variable(Variable::It(_)) => b::keyword("$it"),
+            Expression::Variable(_, _) => b::keyword(self.span.slice(source)),
             Expression::Binary(binary) => binary.pretty_debug(source),
             Expression::Range(range) => range.pretty_debug(source),
             Expression::Block(_) => b::opaque("block"),
@@ -839,12 +647,6 @@ impl PrettyDebugWithSource for SpannedExpression {
             },
         }
     }
-}
-
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
-pub enum Variable {
-    It(Span),
-    Other(String, Span),
 }
 
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, Eq, Hash, PartialEq, Deserialize, Serialize)]
@@ -1039,7 +841,7 @@ pub enum Expression {
     Literal(Literal),
     ExternalWord,
     Synthetic(Synthetic),
-    Variable(Variable),
+    Variable(String, Span),
     Binary(Box<Binary>),
     Range(Box<Range>),
     Block(hir::Block),
@@ -1148,11 +950,7 @@ impl Expression {
     }
 
     pub fn variable(v: String, span: Span) -> Expression {
-        if v == "$it" {
-            Expression::Variable(Variable::It(span))
-        } else {
-            Expression::Variable(Variable::Other(v, span))
-        }
+        Expression::Variable(v, span)
     }
 
     pub fn boolean(b: bool) -> Expression {

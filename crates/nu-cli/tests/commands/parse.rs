@@ -24,7 +24,7 @@ mod simple {
                     | lines
                     | each { echo $it | parse "{Name}={Value}" }
                     | nth 1
-                    | echo $it.Value
+                    | get Value
                 "#
             ));
 
@@ -40,7 +40,7 @@ mod simple {
                 r#"
                     echo "{abc}123"
                     | parse "{{abc}{name}"
-                    | echo $it.name
+                    | get name
                 "#
             ));
 
@@ -56,7 +56,7 @@ mod simple {
                 r#"
                     echo "(abc)123"
                     | parse "(abc){name}"
-                    | echo $it.name
+                    | get name
                 "#
             ));
 
@@ -89,7 +89,7 @@ mod simple {
                 r#"
                     echo "(abc)123"
                     | parse "(abc){name"
-                    | echo $it.name
+                    | get name
                 "#
             ));
 
@@ -123,7 +123,6 @@ mod regex {
                     | parse --regex "(?P<Hash>\w+) (?P<Message>.+) \(#(?P<PR>\d+)\)"
                     | nth 1
                     | get PR
-                    | echo $it
                 "#
             ));
 
@@ -143,7 +142,7 @@ mod regex {
                     | parse --regex "(\w+) (.+) \(#(\d+)\)"
                     | nth 1
                     | get Capture1
-                    | echo $it
+                    
                 "#
             ));
 
@@ -163,7 +162,6 @@ mod regex {
                     | parse --regex "(?P<Hash>\w+) (.+) \(#(?P<PR>\d+)\)"
                     | nth 1
                     | get Capture2
-                    | echo $it
                 "#
             ));
 
@@ -181,7 +179,6 @@ mod regex {
                 r#"
                     open nushell_git_log_oneline.txt
                     | parse --regex "(?P<Hash>\w+ unfinished capture group"
-                    | echo $it
                 "#
             ));
 

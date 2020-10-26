@@ -55,7 +55,7 @@ pub fn expression_to_flat_shape(e: &SpannedExpression) -> Vec<Spanned<FlatShape>
         Expression::ExternalWord => vec![FlatShape::ExternalWord.spanned(e.span)],
         Expression::ExternalCommand(_) => vec![FlatShape::ExternalCommand.spanned(e.span)],
         Expression::Synthetic(_) => vec![FlatShape::BareMember.spanned(e.span)],
-        Expression::Variable(_) => vec![FlatShape::Variable.spanned(e.span)],
+        Expression::Variable(_, _) => vec![FlatShape::Variable.spanned(e.span)],
         Expression::Binary(binary) => {
             let mut output = vec![];
             output.append(&mut expression_to_flat_shape(&binary.left));

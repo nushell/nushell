@@ -5,8 +5,6 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 /// An evaluation scope. Scopes map variable names to Values and aid in evaluating blocks and expressions.
-/// Additionally, holds the value for the special $it variable, a variable used to refer to the value passing
-/// through the pipeline at that moment
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Scope {
     vars: IndexMap<String, Value>,
@@ -63,10 +61,6 @@ impl Scope {
         }
     }
 
-    pub fn it(&self) -> Option<Value> {
-        self.var("$it")
-    }
-
     pub fn from_env(env: IndexMap<String, String>) -> Arc<Scope> {
         Arc::new(Scope {
             vars: IndexMap::new(),
@@ -75,19 +69,9 @@ impl Scope {
         })
     }
 
-    pub fn append_it(this: Arc<Self>, it: Value) -> Arc<Scope> {
+    pub fn append_var(this: Arc<Self>, name: impl Into<String>, value: Value) -> Arc<Scope> {
         let mut vars = IndexMap::new();
-        vars.insert("$it".into(), it);
-        Arc::new(Scope {
-            vars,
-            env: IndexMap::new(),
-            parent: Some(this),
-        })
-    }
-
-    pub fn append_var(this: Arc<Self>, name: String, value: Value) -> Arc<Scope> {
-        let mut vars = IndexMap::new();
-        vars.insert(name, value);
+        vars.insert(name.into(), value);
         Arc::new(Scope {
             vars,
             env: IndexMap::new(),

@@ -187,7 +187,7 @@ async fn process_row(
         let for_block = input.clone();
         let input_stream = once(async { Ok(for_block) }).to_input_stream();
 
-        let scope = Scope::append_it(scope, input.clone());
+        let scope = Scope::append_var(scope, "$it", input.clone());
 
         let mut stream = run_block(
             &default_block,
