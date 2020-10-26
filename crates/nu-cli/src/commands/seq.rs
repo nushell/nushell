@@ -1,8 +1,8 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::value::{StrExt, StringExt};
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::value::StrExt;
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, Value};
 use nu_source::Tagged;
 use std::cmp;
 
@@ -10,7 +10,7 @@ pub struct Seq;
 
 #[derive(Deserialize)]
 pub struct SeqArgs {
-    rest: Vec<Tagged<u64>>,
+    rest: Vec<Tagged<f64>>,
     separator: Option<Tagged<String>>,
     terminator: Option<Tagged<String>>,
     widths: Tagged<bool>,
@@ -24,7 +24,7 @@ impl WholeStreamCommand for Seq {
 
     fn signature(&self) -> Signature {
         Signature::build("seq")
-            .rest(SyntaxShape::Int, "sequence values")
+            .rest(SyntaxShape::Number, "sequence values")
             .named(
                 "separator",
                 SyntaxShape::String,
@@ -66,17 +66,17 @@ impl WholeStreamCommand for Seq {
             Example {
                 description: "sequence 1 to 10 with pipe separator",
                 example: "seq -s '|' 1 10",
-                result: Some(vec![Value::from("1|2|3|4|5|6|7|8|9|10|")]),
+                result: Some(vec![Value::from("1|2|3|4|5|6|7|8|9|10")]),
             },
             Example {
                 description: "sequence 1 to 10 with pipe separator padded with 0",
                 example: "seq -s '|' -w 1 10",
-                result: Some(vec![Value::from("01|02|03|04|05|06|07|08|09|10|")]),
+                result: Some(vec![Value::from("01|02|03|04|05|06|07|08|09|10")]),
             },
             Example {
                 description: "sequence 1 to 10 with pipe separator padded by 2s",
-                example: "seq -s '|' -w 1 2 10",
-                result: Some(vec![Value::from("1|3|5|7|9|")]),
+                example: "seq -s ' | ' -w 1 2 10",
+                result: Some(vec![Value::from("1 | 3 | 5 | 7 | 9")]),
             },
         ]
     }
@@ -104,50 +104,50 @@ async fn seq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
         ));
     }
 
-    let sep = match separator {
+    let sep: String = match separator {
         Some(s) => {
             if s.item == r"\t" {
-                '\t'
+                '\t'.to_string()
             } else if s.item == r"\n" {
-                '\n'
+                '\n'.to_string()
             } else if s.item == r"\r" {
-                '\r'
+                '\r'.to_string()
             } else {
                 let vec_s: Vec<char> = s.chars().collect();
-                if vec_s.len() != 1 {
+                if vec_s.len() < 1 {
                     return Err(ShellError::labeled_error(
                         "Expected a single separator char from --separator",
                         "requires a single character string input",
                         &s.tag,
                     ));
                 };
-                vec_s[0]
+                vec_s.iter().collect()
             }
         }
-        _ => '\n',
+        _ => '\n'.to_string(),
     };
 
-    let term = match terminator {
+    let term: String = match terminator {
         Some(t) => {
             if t.item == r"\t" {
-                '\t'
+                '\t'.to_string()
             } else if t.item == r"\n" {
-                '\n'
+                '\n'.to_string()
             } else if t.item == r"\r" {
-                '\r'
+                '\r'.to_string()
             } else {
                 let vec_t: Vec<char> = t.chars().collect();
-                if vec_t.len() != 1 {
+                if vec_t.len() < 1 {
                     return Err(ShellError::labeled_error(
                         "Expected a single terminator char from --terminator",
                         "requires a single character string input",
                         &t.tag,
                     ));
                 };
-                vec_t[0]
+                vec_t.iter().collect()
             }
         }
-        _ => sep,
+        _ => '\n'.to_string(),
     };
 
     let rest_nums: Vec<String> = rest_nums
@@ -155,12 +155,7 @@ async fn seq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
         .map(|n| n.item.to_string().clone())
         .collect();
 
-    run_seq(
-        sep.to_string(),
-        Some(term.to_string()),
-        widths.item,
-        rest_nums,
-    )
+    run_seq(sep, Some(term), widths.item, rest_nums)
 }
 
 #[cfg(test)]
