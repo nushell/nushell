@@ -4,21 +4,21 @@ description = "CLI for nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-cli"
-version = "0.21.0"
+version = "0.21.1"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-data = {version = "0.21.0", path = "../nu-data"}
-nu-errors = {version = "0.21.0", path = "../nu-errors"}
-nu-parser = {version = "0.21.0", path = "../nu-parser"}
-nu-plugin = {version = "0.21.0", path = "../nu-plugin"}
-nu-protocol = {version = "0.21.0", path = "../nu-protocol"}
-nu-source = {version = "0.21.0", path = "../nu-source"}
-nu-table = {version = "0.21.0", path = "../nu-table"}
-nu-test-support = {version = "0.21.0", path = "../nu-test-support"}
-nu-value-ext = {version = "0.21.0", path = "../nu-value-ext"}
+nu-data = {version = "0.21.1", path = "../nu-data"}
+nu-errors = {version = "0.21.1", path = "../nu-errors"}
+nu-parser = {version = "0.21.1", path = "../nu-parser"}
+nu-plugin = {version = "0.21.1", path = "../nu-plugin"}
+nu-protocol = {version = "0.21.1", path = "../nu-protocol"}
+nu-source = {version = "0.21.1", path = "../nu-source"}
+nu-table = {version = "0.21.1", path = "../nu-table"}
+nu-test-support = {version = "0.21.1", path = "../nu-test-support"}
+nu-value-ext = {version = "0.21.1", path = "../nu-value-ext"}
 
 ansi_term = "0.12.1"
 async-recursion = "0.3.1"
