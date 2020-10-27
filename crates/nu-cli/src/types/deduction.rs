@@ -917,34 +917,6 @@ impl VarSyntaxShapeDeductor {
     ) -> Result<(), ShellError> {
         let bin = spanned_to_binary(bin_spanned);
         if let Expression::Variable(left_var_name, l_span) = &bin.left.expr {
-            if let Expression::Variable(right_var_name, r_span) = &bin.right.expr {
-                if left_var_name != right_var_name {
-                    //type can't be deduced out of this, so add it to resolve it later
-                    self.dependencies.push((
-                        VarUsage::new(left_var_name, l_span),
-                        (op_of(bin_spanned), bin_spanned.span),
-                        VarUsage::new(right_var_name, r_span),
-                    ));
-                }
-                //No further inference possible
-                return Ok(());
-            }
-        }
-        if let Expression::Variable(_, _) = bin.left.expr {
-            if let Expression::Variable(_right_var_name, _) = &bin.right.expr {
-                todo!("Check return type of source (first command in pipeline), check that only data access (get row etc.) or data manipulation (not manipulating type), are between this cmd and source and if so, set right_var_name shape to return type of source.");
-                //No further inference possible
-                // return Ok(());
-            }
-        }
-        if let Expression::Variable(_, _) = bin.right.expr {
-            if let Expression::Variable(_left_var_name, _) = &bin.left.expr {
-                todo!("Check return type of source (first command in pipeline), check that only data access (get row etc.) or data manipulation (not manipulating type), are between this cmd and source and if so, set right_var_name shape to return type of source.");
-                //No further inference possible
-                // return Ok(());
-            }
-        }
-        if let Expression::Variable(left_var_name, l_span) = &bin.left.expr {
             if is_non_special_var(left_var_name) {
                 self.infer_shapes_between_var_and_expr(
                     (&VarUsage::new(left_var_name, l_span), &bin.right),
