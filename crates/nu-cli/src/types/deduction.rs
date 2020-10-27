@@ -27,8 +27,8 @@ pub struct VarDeclaration {
 
 //TODO This functionality should probably be somehow added to the Expression enum.
 //I am not sure for the best rust iconic way to do that
-fn is_non_special_var(var_name: &str) -> bool {
-    var_name != "$it"
+fn is_special_var(var_name: &str) -> bool {
+    var_name == "$it"
 }
 
 #[derive(Debug, Clone)]
@@ -474,33 +474,32 @@ impl VarSyntaxShapeDeductor {
         for (pos_idx, positional) in positionals.iter().enumerate().rev() {
             trace!("Handling pos_idx: {:?} of type: {:?}", pos_idx, positional);
             if let Expression::Variable(var_name, _) = &positional.expr {
-                if is_non_special_var(var_name) {
-                    let deduced_shape = {
-                        if pos_idx >= signature.positional.len() {
-                            if let Some((shape, _)) = &signature.rest_positional {
-                                Some(shape)
-                            } else {
-                                None
-                            }
-                        } else {
-                            match &signature.positional[pos_idx].0 {
-                                PositionalType::Mandatory(_, shape)
-                                | PositionalType::Optional(_, shape) => Some(shape),
-                            }
+                let deduced_shape = {
+                    if pos_idx >= signature.positional.len() {
+                        signature.rest_positional.as_ref().map(|(shape, _)| shape)
+                    //                             if let Some((shape, _)) = &signature.rest_positional {
+                    //                                 Some(shape)
+                    //                             } else {
+                    //                                 None
+                    //                             }
+                    } else {
+                        match &signature.positional[pos_idx].0 {
+                            PositionalType::Mandatory(_, shape)
+                            | PositionalType::Optional(_, shape) => Some(shape),
                         }
-                    };
-                    trace!(
-                        "Found var: {:?} in positional_idx: {:?} of shape: {:?}",
-                        var_name,
-                        pos_idx,
-                        deduced_shape
-                    );
-                    if let Some(shape) = deduced_shape {
-                        self.checked_insert(
-                            &VarUsage::new(var_name, &positional.span),
-                            vec![VarShapeDeduction::from_usage(&positional.span, shape)],
-                        )?;
                     }
+                };
+                trace!(
+                    "Found var: {:?} in positional_idx: {:?} of shape: {:?}",
+                    var_name,
+                    pos_idx,
+                    deduced_shape
+                );
+                if let Some(shape) = deduced_shape {
+                    self.checked_insert(
+                        &VarUsage::new(var_name, &positional.span),
+                        vec![VarShapeDeduction::from_usage(&positional.span, shape)],
+                    )?;
                 }
             }
         }
@@ -516,22 +515,20 @@ impl VarSyntaxShapeDeductor {
         for (name, val) in named.iter() {
             if let NamedValue::Value(span, spanned_expr) = &val {
                 if let Expression::Variable(var_name, _) = &spanned_expr.expr {
-                    if is_non_special_var(var_name) {
-                        if let Some((named_type, _)) = signature.named.get(name) {
-                            if let NamedType::Mandatory(_, shape) | NamedType::Optional(_, shape) =
-                                named_type
-                            {
-                                trace!(
-                                    "Found var: {:?} in named: {:?} of shape: {:?}",
-                                    var_name,
-                                    name,
-                                    shape
-                                );
-                                self.checked_insert(
-                                    &VarUsage::new(var_name, span),
-                                    vec![VarShapeDeduction::from_usage(span, shape)],
-                                )?;
-                            }
+                    if let Some((named_type, _)) = signature.named.get(name) {
+                        if let NamedType::Mandatory(_, shape) | NamedType::Optional(_, shape) =
+                            named_type
+                        {
+                            trace!(
+                                "Found var: {:?} in named: {:?} of shape: {:?}",
+                                var_name,
+                                name,
+                                shape
+                            );
+                            self.checked_insert(
+                                &VarUsage::new(var_name, span),
+                                vec![VarShapeDeduction::from_usage(span, shape)],
+                            )?;
                         }
                     }
                 }
@@ -562,15 +559,13 @@ impl VarSyntaxShapeDeductor {
                     //TODO Iterate over path parts and find var when implemented
                     Expression::Invocation(b) => self.infer_shape(&b, registry)?,
                     Expression::Variable(var_name, span) => {
-                        if is_non_special_var(var_name) {
-                            self.checked_insert(
-                                &VarUsage::new(var_name, span),
-                                VarShapeDeduction::from_usage_with_alternatives(
-                                    &span,
-                                    &get_shapes_allowed_in_path(),
-                                ),
-                            )?;
-                        }
+                        self.checked_insert(
+                            &VarUsage::new(var_name, span),
+                            VarShapeDeduction::from_usage_with_alternatives(
+                                &span,
+                                &get_shapes_allowed_in_path(),
+                            ),
+                        )?;
                     }
                     _ => (),
                 }
@@ -579,28 +574,24 @@ impl VarSyntaxShapeDeductor {
                 trace!("Infering vars in range");
                 if let Some(range_left) = &range.left {
                     if let Expression::Variable(var_name, _) = &range_left.expr {
-                        if is_non_special_var(var_name) {
-                            self.checked_insert(
-                                &VarUsage::new(var_name, &spanned_expr.span),
-                                VarShapeDeduction::from_usage_with_alternatives(
-                                    &spanned_expr.span,
-                                    &get_shapes_allowed_in_range(),
-                                ),
-                            )?;
-                        }
+                        self.checked_insert(
+                            &VarUsage::new(var_name, &spanned_expr.span),
+                            VarShapeDeduction::from_usage_with_alternatives(
+                                &spanned_expr.span,
+                                &get_shapes_allowed_in_range(),
+                            ),
+                        )?;
                     }
                 }
                 if let Some(range_right) = &range.right {
                     if let Expression::Variable(var_name, span) = &range_right.expr {
-                        if is_non_special_var(var_name) {
-                            self.checked_insert(
-                                &VarUsage::new(&var_name, &spanned_expr.span),
-                                VarShapeDeduction::from_usage_with_alternatives(
-                                    &span,
-                                    &get_shapes_allowed_in_range(),
-                                ),
-                            )?;
-                        }
+                        self.checked_insert(
+                            &VarUsage::new(&var_name, &spanned_expr.span),
+                            VarShapeDeduction::from_usage_with_alternatives(
+                                &span,
+                                &get_shapes_allowed_in_range(),
+                            ),
+                        )?;
                     }
                 }
             }
@@ -641,16 +632,14 @@ impl VarSyntaxShapeDeductor {
     ) -> Result<(), ShellError> {
         for expr in header {
             if let Expression::Variable(name, _) = &expr.expr {
-                if is_non_special_var(name) {
-                    let var = VarUsage::new(name, &expr.span);
-                    self.checked_insert(
-                        &var,
-                        VarShapeDeduction::from_usage_with_alternatives(
-                            &var.span,
-                            &get_shapes_allowed_in_table_header(),
-                        ),
-                    )?;
-                }
+                let var = VarUsage::new(name, &expr.span);
+                self.checked_insert(
+                    &var,
+                    VarShapeDeduction::from_usage_with_alternatives(
+                        &var.span,
+                        &get_shapes_allowed_in_table_header(),
+                    ),
+                )?;
             }
         }
         Ok(())
@@ -663,11 +652,9 @@ impl VarSyntaxShapeDeductor {
         expr: &SpannedExpression,
     ) -> Option<SyntaxShape> {
         if let Expression::Variable(name, _) = &expr.expr {
-            if is_non_special_var(name) {
-                self.dependencies
-                    .push((var.clone(), (op, span), VarUsage::new(name, &expr.span)));
-                return None;
-            }
+            self.dependencies
+                .push((var.clone(), (op, span), VarUsage::new(name, &expr.span)));
+            return None;
         }
         get_shape_of_expr(expr)
     }
@@ -917,27 +904,23 @@ impl VarSyntaxShapeDeductor {
     ) -> Result<(), ShellError> {
         let bin = spanned_to_binary(bin_spanned);
         if let Expression::Variable(left_var_name, l_span) = &bin.left.expr {
-            if is_non_special_var(left_var_name) {
-                self.infer_shapes_between_var_and_expr(
-                    (&VarUsage::new(left_var_name, l_span), &bin.right),
-                    BinarySide::Left,
-                    bin_spanned,
-                    (pipeline_idx, pipeline),
-                    registry,
-                )?;
-            }
+            self.infer_shapes_between_var_and_expr(
+                (&VarUsage::new(left_var_name, l_span), &bin.right),
+                BinarySide::Left,
+                bin_spanned,
+                (pipeline_idx, pipeline),
+                registry,
+            )?;
         }
 
         if let Expression::Variable(right_var_name, r_span) = &bin.right.expr {
-            if is_non_special_var(right_var_name) {
-                self.infer_shapes_between_var_and_expr(
-                    (&VarUsage::new(right_var_name, r_span), &bin.left),
-                    BinarySide::Right,
-                    bin_spanned,
-                    (pipeline_idx, pipeline),
-                    registry,
-                )?;
-            }
+            self.infer_shapes_between_var_and_expr(
+                (&VarUsage::new(right_var_name, r_span), &bin.left),
+                BinarySide::Right,
+                bin_spanned,
+                (pipeline_idx, pipeline),
+                registry,
+            )?;
         }
         //Descend deeper into bin tree
         self.infer_shapes_in_expr((pipeline_idx, pipeline), &bin.right, registry)?;
@@ -981,6 +964,12 @@ impl VarSyntaxShapeDeductor {
                 .map(|d| d.deduction)
                 .collect::<Vec<_>>()
         );
+
+        //No insertion for special vars like $it. Those do not represent real variables
+        if is_special_var(&var_usage.name) {
+            trace!("Didn't insert special variable {:?}", var_usage);
+            return Ok(());
+        }
 
         //Every insertion is sorted by shape!
         //Everything within self.inferences is sorted by shape!
