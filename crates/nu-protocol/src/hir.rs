@@ -113,22 +113,26 @@ impl Commands {
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct Block {
-    params: Option<Vec<String>>,
+    pub params: Vec<String>,
     pub block: Vec<Commands>,
     pub span: Span,
 }
 
 impl Block {
-    pub fn new(params: Option<Vec<String>>, block: Vec<Commands>, span: Span) -> Block {
-        Block {
+    pub fn new(params: Vec<String>, block: Vec<Commands>, span: Span) -> Block {
+        let mut output = Block {
             params,
             block,
             span,
-        }
+        };
+
+        output.infer_params();
+        output
     }
 
     pub fn push(&mut self, commands: Commands) {
         self.block.push(commands);
+        self.infer_params();
     }
 
     pub fn set_redirect(&mut self, external_redirection: ExternalRedirection) {
@@ -145,13 +149,9 @@ impl Block {
         self.block.iter().any(|x| x.has_it_usage())
     }
 
-    pub fn params(&self) -> Vec<String> {
-        if let Some(params) = &self.params {
-            params.clone()
-        } else if self.has_it_usage() {
-            vec!["$it".into()]
-        } else {
-            vec![]
+    pub fn infer_params(&mut self) {
+        if self.params.is_empty() && self.has_it_usage() {
+            self.params = vec!["$it".into()];
         }
     }
 }

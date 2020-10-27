@@ -603,7 +603,7 @@ fn parse_interpolated_string(
     }];
 
     let call = SpannedExpression {
-        expr: Expression::Invocation(Block::new(None, block, lite_arg.span)),
+        expr: Expression::Invocation(Block::new(vec![], block, lite_arg.span)),
         span: lite_arg.span,
     };
 
@@ -1372,8 +1372,8 @@ fn parse_positional_argument(
                     let span = arg.span;
                     let mut commands = hir::Commands::new(span);
                     commands.push(ClassifiedCommand::Expr(Box::new(arg)));
-                    let mut block = hir::Block::new(None, vec![], span);
-                    block.push(commands);
+
+                    let block = hir::Block::new(vec![], vec![commands], span);
 
                     let arg = SpannedExpression::new(Expression::Block(block), span);
 
@@ -1768,7 +1768,7 @@ fn expand_shorthand_forms(
 }
 
 pub fn classify_block(lite_block: &LiteBlock, registry: &dyn SignatureRegistry) -> ClassifiedBlock {
-    let mut block = Block::new(None, vec![], lite_block.span());
+    let mut command_list = vec![];
 
     let mut error = None;
     for lite_pipeline in &lite_block.block {
@@ -1781,7 +1781,7 @@ pub fn classify_block(lite_block: &LiteBlock, registry: &dyn SignatureRegistry) 
 
         let pipeline = if let Some(vars) = vars {
             let span = pipeline.commands.span;
-            let block = hir::Block::new(None, vec![pipeline.commands.clone()], span);
+            let block = hir::Block::new(vec![], vec![pipeline.commands.clone()], span);
             let mut call = hir::Call::new(
                 Box::new(SpannedExpression {
                     expr: Expression::string("with-env".to_string()),
@@ -1823,11 +1823,12 @@ pub fn classify_block(lite_block: &LiteBlock, registry: &dyn SignatureRegistry) 
             pipeline
         };
 
-        block.push(pipeline.commands);
+        command_list.push(pipeline.commands);
         if error.is_none() {
             error = err;
         }
     }
+    let block = Block::new(vec![], command_list, lite_block.span());
 
     ClassifiedBlock::new(block, error)
 }

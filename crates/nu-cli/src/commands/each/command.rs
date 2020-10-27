@@ -82,17 +82,16 @@ pub async fn process_row(
     // When we process a row, we need to know whether the block wants to have the contents of the row as
     // a parameter to the block (so it gets assigned to a variable that can be used inside the block) or
     // if it wants the contents as as an input stream
-    let params = block.params();
 
-    let input_stream = if !params.is_empty() {
+    let input_stream = if !block.params.is_empty() {
         InputStream::empty()
     } else {
         once(async { Ok(input_clone) }).to_input_stream()
     };
 
-    let scope = if !params.is_empty() {
+    let scope = if !block.params.is_empty() {
         // FIXME: add check for more than parameter, once that's supported
-        Scope::append_var(scope, params[0].clone(), input)
+        Scope::append_var(scope, block.params[0].clone(), input)
     } else {
         scope
     };
