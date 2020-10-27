@@ -477,11 +477,6 @@ impl VarSyntaxShapeDeductor {
                 let deduced_shape = {
                     if pos_idx >= signature.positional.len() {
                         signature.rest_positional.as_ref().map(|(shape, _)| shape)
-                    //                             if let Some((shape, _)) = &signature.rest_positional {
-                    //                                 Some(shape)
-                    //                             } else {
-                    //                                 None
-                    //                             }
                     } else {
                         match &signature.positional[pos_idx].0 {
                             PositionalType::Mandatory(_, shape)
