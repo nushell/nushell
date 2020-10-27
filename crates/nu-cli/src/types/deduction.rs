@@ -1035,11 +1035,11 @@ impl VarSyntaxShapeDeductor {
                             })
                             .map(|either_or| match either_or {
                                 //Left is a, right is b
-                                //(a + none) + a is a
+                                //(a UNION none) OR a is a
                                 EitherOrBoth::Left(deduc) => Some(deduc.clone()),
-                                //(none + b) + a is a
+                                //(none UNION b) OR a is a (a is None)
                                 EitherOrBoth::Right(_) => None,
-                                //(a + b) + a is (a + b)
+                                //(a UNION b) OR a is (a UNION b)
                                 EitherOrBoth::Both(a_elem, b_elem) => {
                                     let mut combination = a_elem.clone();
                                     combination.deducted_from.extend(&b_elem.deducted_from);
