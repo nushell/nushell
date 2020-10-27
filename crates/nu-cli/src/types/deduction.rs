@@ -966,8 +966,8 @@ impl VarSyntaxShapeDeductor {
     /// Inserts the new deductions. Each VarShapeDeduction represents one alternative for
     /// the variable described by var_usage
 
-    /// Each of the deductions is assumed to be for the same variable
-    /// Each of the deductions is assumed to be unique of shape
+    /// Each of the new_deductions is assumed to be for the same variable
+    /// Each of the new_deductions is assumed to be unique of shape
     fn checked_insert(
         &mut self,
         var_usage: &VarUsage,
