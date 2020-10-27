@@ -55,12 +55,34 @@ impl WholeStreamCommand for Char {
     ) -> Result<OutputStream, ShellError> {
         let (CharArgs { name }, _) = args.process(&registry).await?;
 
-        let special_character = str_to_character(&name.item);
+        let mut special_character = str_to_character(&name.item);
+
+        let mut parse_unicode = false;
+        if special_character == None {
+            let chars: Vec<char> = name.item.chars().collect();
+            let chars_len = chars.len();
+            if chars_len > 4
+                && chars[0] == '\\'
+                && chars[1] == 'u'
+                && chars[2] == '{'
+                && chars[chars_len - 1] == '}'
+            {
+                special_character = Some(chars.iter().collect());
+                parse_unicode = true;
+            }
+        }
 
         if let Some(output) = special_character {
-            Ok(OutputStream::one(ReturnSuccess::value(
-                UntaggedValue::string(output).into_value(name.tag()),
-            )))
+            if parse_unicode {
+                let decoded_output = string_to_unicode_char(&output).unwrap();
+                Ok(OutputStream::one(ReturnSuccess::value(
+                    UntaggedValue::string(decoded_output).into_value(name.tag()),
+                )))
+            } else {
+                Ok(OutputStream::one(ReturnSuccess::value(
+                    UntaggedValue::string(output).into_value(name.tag()),
+                )))
+            }
         } else {
             Err(ShellError::labeled_error(
                 "Unknown character",
@@ -69,6 +91,20 @@ impl WholeStreamCommand for Char {
             ))
         }
     }
+}
+
+fn string_to_unicode_char(s: &str) -> Option<char> {
+    // println!("{}", &s);
+    let chars: Vec<char> = s.chars().collect();
+    let chars_len = chars.len() - 1;
+
+    // Do something more appropriate to find the actual number
+    let number = &s[3..chars_len];
+    // println!("{}", &number);
+
+    u32::from_str_radix(number, 16)
+        .ok()
+        .and_then(std::char::from_u32)
 }
 
 fn str_to_character(s: &str) -> Option<String> {
