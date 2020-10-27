@@ -79,7 +79,7 @@ impl VarShapeDeduction {
 //Lookup table for possible shape inferences of variables inside binary expressions
 // (Operator, VariableSide, ShapeOfArg) -> List of possible shapes for the var
 lazy_static! {
-    static ref OPERATOR_LOOKUP_TABLE: HashMap<(Operator, BinarySide, SyntaxShape), Vec<SyntaxShape>> = {
+    static ref MULT_DIV_LOOKUP_TABLE: HashMap<(Operator, BinarySide, SyntaxShape), Vec<SyntaxShape>> = {
         vec![
             ((Operator::Divide, BinarySide::Left, SyntaxShape::Number),       // expr => possible var shapes
              vec![SyntaxShape::Unit, SyntaxShape::Number, SyntaxShape::Int]), //$var / number => Unit, Int, Number
@@ -879,7 +879,7 @@ impl VarSyntaxShapeDeductor {
                             var,
                             VarShapeDeduction::from_usage_with_alternatives(
                                 &var.span,
-                                &OPERATOR_LOOKUP_TABLE
+                                &MULT_DIV_LOOKUP_TABLE
                                     .get(&(op, var_side, shape))
                                     .expect("shape is unit, number or int. Would have failed in parsing stage otherwise")
                             ),
