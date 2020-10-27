@@ -322,7 +322,7 @@ fn get_result_shape_of_math_expr(
     registry: &CommandRegistry,
 ) -> Result<Option<SyntaxShape>, ShellError> {
     let mut shapes: Vec<Option<SyntaxShape>> = vec![];
-    for expr in vec![&bin.left, &bin.right] {
+    for expr in &[&bin.left, &bin.right] {
         let shape = match &expr.expr {
             Expression::Binary(deep_binary) => {
                 get_result_shape_of_math_expr(&deep_binary, (pipeline_idx, pipeline), registry)?
