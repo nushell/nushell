@@ -991,14 +991,14 @@ mod tests {
     #[test]
     fn test_string_to_string_value_create_tag_extension() {
         let end = "a_string".to_string().len();
-        let the_tag = Tag {
+        let tag = Tag {
             anchor: None,
             span: Span::new(0, end),
         };
 
         let expected = Value {
             value: UntaggedValue::Primitive(Primitive::String("a_string".to_string())),
-            tag: the_tag.clone(),
+            tag,
         };
 
         assert_eq!(

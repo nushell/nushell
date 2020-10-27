@@ -139,7 +139,6 @@ pub async fn group_by(
 ) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let registry = registry.clone();
-    let head = Arc::new(args.call_info.args.head.clone());
     let scope = args.call_info.scope.clone();
     let context = Arc::new(EvaluationContext::from_raw(&args, &registry));
     let (Arguments { grouper }, input) = args.process(&registry).await?;
@@ -159,12 +158,9 @@ pub async fn group_by(
             for value in values.iter() {
                 let run = block.clone();
                 let scope = scope.clone();
-                let head = head.clone();
                 let context = context.clone();
 
-                match crate::commands::each::process_row(run, scope, head, context, value.clone())
-                    .await
-                {
+                match crate::commands::each::process_row(run, scope, context, value.clone()).await {
                     Ok(mut s) => {
                         let collection: Vec<Result<ReturnSuccess, ShellError>> =
                             s.drain_vec().await;
