@@ -47,3 +47,27 @@ fn each_window_stride() {
 
     assert_eq!(actual.out, "[[1,2,3],[3,4,5]]");
 }
+
+#[test]
+fn each_no_args_in_block() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+        echo [[foo bar]; [a b] [c d] [e f]] | each { to json } | nth 1 | str collect
+        "#
+    ));
+
+    assert_eq!(actual.out, r#"{"foo":"c","bar":"d"}"#);
+}
+
+#[test]
+fn each_implicit_it_in_block() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+        echo [[foo bar]; [a b] [c d] [e f]] | each { nu --testbin cococo $it.foo }
+        "#
+    ));
+
+    assert_eq!(actual.out, "ace");
+}

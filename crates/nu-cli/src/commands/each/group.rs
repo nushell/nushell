@@ -2,10 +2,7 @@ use crate::commands::each::process_row;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{
-    hir::Block, hir::SpannedExpression, ReturnSuccess, Scope, Signature, SyntaxShape,
-    UntaggedValue, Value,
-};
+use nu_protocol::{hir::Block, ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use serde::Deserialize;
 
@@ -52,7 +49,6 @@ impl WholeStreamCommand for EachGroup {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         let registry = registry.clone();
-        let head = Arc::new(raw_args.call_info.args.head.clone());
         let scope = raw_args.call_info.scope.clone();
         let context = Arc::new(EvaluationContext::from_raw(&raw_args, &registry));
         let (each_args, input): (EachGroupArgs, _) = raw_args.process(&registry).await?;
@@ -61,13 +57,7 @@ impl WholeStreamCommand for EachGroup {
         Ok(input
             .chunks(each_args.group_size.item)
             .then(move |input| {
-                run_block_on_vec(
-                    input,
-                    block.clone(),
-                    scope.clone(),
-                    head.clone(),
-                    context.clone(),
-                )
+                run_block_on_vec(input, block.clone(), scope.clone(), context.clone())
             })
             .flatten()
             .to_output_stream())
@@ -78,7 +68,6 @@ pub(crate) fn run_block_on_vec(
     input: Vec<Value>,
     block: Arc<Block>,
     scope: Arc<Scope>,
-    head: Arc<Box<SpannedExpression>>,
     context: Arc<EvaluationContext>,
 ) -> impl Future<Output = OutputStream> {
     let value = Value {
@@ -87,7 +76,7 @@ pub(crate) fn run_block_on_vec(
     };
 
     async {
-        match process_row(block, scope, head, context, value).await {
+        match process_row(block, scope, context, value).await {
             Ok(s) => {
                 // We need to handle this differently depending on whether process_row
                 // returned just 1 value or if it returned multiple as a stream.

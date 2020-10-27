@@ -11,7 +11,6 @@ use nu_source::{Span, Tag};
 use nu_value_ext::ValueExt;
 use num_bigint::BigInt;
 use num_traits::Zero;
-use query_interface::{interfaces, vtable_for, ObjectHash};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, new, Serialize)]
@@ -20,14 +19,6 @@ pub struct Operation {
     pub(crate) operator: hir::Operator,
     pub(crate) right: Value,
 }
-
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Serialize, Deserialize, new)]
-pub struct Block {
-    pub(crate) commands: hir::Commands,
-    pub(crate) tag: Tag,
-}
-
-interfaces!(Block: dyn ObjectHash);
 
 #[derive(Serialize, Deserialize)]
 pub enum Switch {

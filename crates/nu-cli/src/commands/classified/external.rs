@@ -237,6 +237,7 @@ fn spawn(
                             }
                         }
                         unsupported => {
+                            println!("Unsupported: {:?}", unsupported);
                             let _ = stdin_write_tx.send(Ok(Value {
                                 value: UntaggedValue::Error(ShellError::labeled_error(
                                     format!(

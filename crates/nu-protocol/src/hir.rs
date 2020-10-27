@@ -40,6 +40,10 @@ impl InternalCommand {
             ),
         }
     }
+
+    pub fn has_it_usage(&self) -> bool {
+        self.args.has_it_usage()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
@@ -76,6 +80,17 @@ pub enum ClassifiedCommand {
     Error(ParseError),
 }
 
+impl ClassifiedCommand {
+    fn has_it_usage(&self) -> bool {
+        match self {
+            ClassifiedCommand::Expr(expr) => expr.has_it_usage(),
+            ClassifiedCommand::Dynamic(call) => call.has_it_usage(),
+            ClassifiedCommand::Internal(internal) => internal.has_it_usage(),
+            ClassifiedCommand::Error(_) => false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct Commands {
     pub list: Vec<ClassifiedCommand>,
@@ -90,28 +105,25 @@ impl Commands {
     pub fn push(&mut self, command: ClassifiedCommand) {
         self.list.push(command);
     }
+
+    pub fn has_it_usage(&self) -> bool {
+        self.list.iter().any(|cc| cc.has_it_usage())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct Block {
-    pub params: Vec<String>,
+    params: Option<Vec<String>>,
     pub block: Vec<Commands>,
     pub span: Span,
 }
 
 impl Block {
     pub fn new(params: Option<Vec<String>>, block: Vec<Commands>, span: Span) -> Block {
-        match params {
-            Some(params) => Block {
-                params,
-                block,
-                span,
-            },
-            None => Block {
-                params: vec!["$it".into()],
-                block,
-                span,
-            },
+        Block {
+            params,
+            block,
+            span,
         }
     }
 
@@ -126,6 +138,20 @@ impl Block {
                     internal.args.external_redirection = external_redirection;
                 }
             }
+        }
+    }
+
+    pub fn has_it_usage(&self) -> bool {
+        self.block.iter().any(|x| x.has_it_usage())
+    }
+
+    pub fn params(&self) -> Vec<String> {
+        if let Some(params) = &self.params {
+            params.clone()
+        } else if self.has_it_usage() {
+            vec!["$it".into()]
+        } else {
+            vec![]
         }
     }
 }
@@ -165,7 +191,7 @@ pub struct ExternalCommand {
 }
 
 impl ExternalCommand {
-    pub fn has_it_argument(&self) -> bool {
+    pub fn has_it_usage(&self) -> bool {
         self.args.iter().any(|arg| match arg {
             SpannedExpression {
                 expr: Expression::Path(path),
@@ -515,6 +541,10 @@ impl SpannedExpression {
             }
             _ => 0,
         }
+    }
+
+    pub fn has_it_usage(&self) -> bool {
+        self.expr.has_it_usage()
     }
 }
 
@@ -956,6 +986,32 @@ impl Expression {
     pub fn boolean(b: bool) -> Expression {
         Expression::Boolean(b)
     }
+
+    pub fn has_it_usage(&self) -> bool {
+        match self {
+            Expression::Variable(name, _) if name == "$it" => true,
+            Expression::Table(headers, values) => {
+                headers.iter().any(|se| se.has_it_usage())
+                    || values.iter().any(|v| v.iter().any(|se| se.has_it_usage()))
+            }
+            Expression::List(list) => list.iter().any(|se| se.has_it_usage()),
+            Expression::Invocation(block) => block.has_it_usage(),
+            Expression::Binary(binary) => binary.left.has_it_usage() || binary.right.has_it_usage(),
+            Expression::Path(path) => path.head.has_it_usage(),
+            Expression::Range(range) => {
+                (if let Some(left) = &range.left {
+                    left.has_it_usage()
+                } else {
+                    false
+                }) || (if let Some(right) = &range.right {
+                    right.has_it_usage()
+                } else {
+                    false
+                })
+            }
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
@@ -964,6 +1020,16 @@ pub enum NamedValue {
     PresentSwitch(Span),
     AbsentValue,
     Value(Span, SpannedExpression),
+}
+
+impl NamedValue {
+    fn has_it_usage(&self) -> bool {
+        if let NamedValue::Value(_, se) = self {
+            se.has_it_usage()
+        } else {
+            false
+        }
+    }
 }
 
 impl PrettyDebugWithSource for NamedValue {
@@ -1027,6 +1093,20 @@ impl Call {
                 }
             }
         }
+    }
+
+    pub fn has_it_usage(&self) -> bool {
+        self.head.has_it_usage()
+            || (if let Some(pos) = &self.positional {
+                pos.iter().any(|x| x.has_it_usage())
+            } else {
+                false
+            })
+            || (if let Some(named) = &self.named {
+                named.has_it_usage()
+            } else {
+                false
+            })
     }
 }
 
@@ -1187,6 +1267,10 @@ impl NamedArguments {
 
     pub fn is_empty(&self) -> bool {
         self.named.is_empty()
+    }
+
+    pub fn has_it_usage(&self) -> bool {
+        self.iter().any(|x| x.1.has_it_usage())
     }
 }
 
