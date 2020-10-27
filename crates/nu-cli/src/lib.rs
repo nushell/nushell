@@ -33,6 +33,7 @@ mod path;
 mod plugin;
 mod shell;
 mod stream;
+pub mod types;
 pub mod utils;
 
 #[cfg(test)]

@@ -4,29 +4,22 @@ use crate::prelude::*;
 
 use derive_new::new;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, Scope, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{hir::Block, PositionalType, Scope, Signature, UntaggedValue};
 
 #[derive(new, Clone)]
 pub struct AliasCommand {
-    name: String,
-    args: Vec<(String, SyntaxShape)>,
+    sig: Signature,
     block: Block,
 }
 
 #[async_trait]
 impl WholeStreamCommand for AliasCommand {
     fn name(&self) -> &str {
-        &self.name
+        &self.sig.name
     }
 
     fn signature(&self) -> Signature {
-        let mut alias = Signature::build(&self.name);
-
-        for (arg, shape) in &self.args {
-            alias = alias.optional(arg, *shape, "");
-        }
-
-        alias
+        self.sig.clone()
     }
 
     fn usage(&self) -> &str {
@@ -43,7 +36,7 @@ impl WholeStreamCommand for AliasCommand {
         let mut block = self.block.clone();
         block.set_redirect(call_info.args.external_redirection);
 
-        let alias_command = self.clone();
+        // let alias_command = self.clone();
         let mut context = EvaluationContext::from_args(&args, &registry);
         let input = args.input;
 
@@ -51,21 +44,27 @@ impl WholeStreamCommand for AliasCommand {
         let evaluated = call_info.evaluate(&registry).await?;
 
         let mut vars = IndexMap::new();
-
         let mut num_positionals = 0;
         if let Some(positional) = &evaluated.args.positional {
             num_positionals = positional.len();
-            for (pos, arg) in positional.iter().enumerate() {
-                vars.insert(alias_command.args[pos].0.to_string(), arg.clone());
+            for (idx, arg) in positional.iter().enumerate() {
+                let pos_type = &self.sig.positional[idx].0;
+                match pos_type {
+                    PositionalType::Mandatory(name, _) | PositionalType::Optional(name, _) => {
+                        vars.insert(name.clone(), arg.clone());
+                    }
+                }
             }
         }
-
-        if alias_command.args.len() > num_positionals {
-            for idx in 0..(alias_command.args.len() - num_positionals) {
-                vars.insert(
-                    alias_command.args[idx + num_positionals].0.to_string(),
-                    UntaggedValue::nothing().into_untagged_value(),
-                );
+        //Fill out every missing argument with empty value
+        if self.sig.positional.len() > num_positionals {
+            for idx in num_positionals..self.sig.positional.len() {
+                let pos_type = &self.sig.positional[idx].0;
+                match pos_type {
+                    PositionalType::Mandatory(name, _) | PositionalType::Optional(name, _) => {
+                        vars.insert(name.clone(), UntaggedValue::nothing().into_untagged_value());
+                    }
+                }
             }
         }
 

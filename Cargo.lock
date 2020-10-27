@@ -2864,6 +2864,7 @@ dependencies = [
  "ctrlc",
  "dunce",
  "futures 0.3.5",
+ "itertools",
  "log 0.4.11",
  "nu-cli",
  "nu-data",
