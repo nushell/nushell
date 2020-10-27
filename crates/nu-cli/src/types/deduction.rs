@@ -321,27 +321,18 @@ fn get_result_shape_of_math_expr(
     (pipeline_idx, pipeline): (usize, &Commands),
     registry: &CommandRegistry,
 ) -> Result<Option<SyntaxShape>, ShellError> {
-    match (&bin.left.expr, &bin.right.expr) {
-        //$it should return a shape in get_shape_of_expr_or_insert_dependency below
-        //no need to check it here.
-        (Expression::Variable(_, _), Expression::Variable(_, _))
-        | (Expression::Variable(_, _), _)
-        | (_, Expression::Variable(_, _)) => return Ok(None),
-        _ => {}
+    let mut shapes: Vec<Option<SyntaxShape>> = vec![];
+    for expr in vec![&bin.left, &bin.right] {
+        let shape = match &expr.expr {
+            Expression::Binary(deep_binary) => {
+                get_result_shape_of_math_expr(&deep_binary, (pipeline_idx, pipeline), registry)?
+            }
+            _ => get_shape_of_expr(expr),
+        };
+        shapes.push(shape);
     }
-    let l_shape = match &bin.left.expr {
-        Expression::Binary(left_deep_binary) => {
-            get_result_shape_of_math_expr(left_deep_binary, (pipeline_idx, pipeline), registry)?
-        }
-        _ => get_shape_of_expr(&bin.left),
-    };
-    let r_shape = match &bin.right.expr {
-        Expression::Binary(right_deep_binary) => {
-            get_result_shape_of_math_expr(right_deep_binary, (pipeline_idx, pipeline), registry)?
-        }
-        _ => get_shape_of_expr(&bin.right),
-    };
-    match (l_shape, r_shape) {
+    //match lhs, rhs
+    match (shapes[0], shapes[1]) {
         (None, None) | (None, _) | (_, None) => Ok(None),
         (Some(left), Some(right)) => get_result_shape_of(left, &bin.op, right).map(Some),
     }
