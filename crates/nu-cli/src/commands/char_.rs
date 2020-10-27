@@ -9,6 +9,7 @@ pub struct Char;
 #[derive(Deserialize)]
 struct CharArgs {
     name: Tagged<String>,
+    unicode: bool,
 }
 
 #[async_trait]
@@ -18,11 +19,13 @@ impl WholeStreamCommand for Char {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("ansi").required(
-            "character",
-            SyntaxShape::Any,
-            "the name of the character to output",
-        )
+        Signature::build("ansi")
+            .required(
+                "character",
+                SyntaxShape::Any,
+                "the name of the character to output",
+            )
+            .switch("unicode", "unicode string i.e. 1f378", Some('u'))
     }
 
     fn usage(&self) -> &str {
@@ -45,6 +48,11 @@ impl WholeStreamCommand for Char {
                     UntaggedValue::string("\u{2261}").into(),
                 ]),
             },
+            Example {
+                description: "Output unicode character",
+                example: r#"char -u 1f378"#,
+                result: Some(vec![Value::from("\u{1f378}")]),
+            },
         ]
     }
 
@@ -53,56 +61,40 @@ impl WholeStreamCommand for Char {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        let (CharArgs { name }, _) = args.process(&registry).await?;
+        let (CharArgs { name, unicode }, _) = args.process(&registry).await?;
 
-        let mut special_character = str_to_character(&name.item);
-
-        let mut parse_unicode = false;
-        if special_character == None {
-            let chars: Vec<char> = name.item.chars().collect();
-            let chars_len = chars.len();
-            if chars_len > 4
-                && chars[0] == '\\'
-                && chars[1] == 'u'
-                && chars[2] == '{'
-                && chars[chars_len - 1] == '}'
-            {
-                special_character = Some(chars.iter().collect());
-                parse_unicode = true;
-            }
-        }
-
-        if let Some(output) = special_character {
-            if parse_unicode {
-                let decoded_output = string_to_unicode_char(&output).unwrap();
-                Ok(OutputStream::one(ReturnSuccess::value(
-                    UntaggedValue::string(decoded_output).into_value(name.tag()),
-                )))
-            } else {
+        if unicode {
+            let decoded_char = string_to_unicode_char(&name.item);
+            if let Some(output) = decoded_char {
                 Ok(OutputStream::one(ReturnSuccess::value(
                     UntaggedValue::string(output).into_value(name.tag()),
                 )))
+            } else {
+                Err(ShellError::labeled_error(
+                    "error decoding unicode character",
+                    "error decoding unicode character",
+                    name.tag(),
+                ))
             }
         } else {
-            Err(ShellError::labeled_error(
-                "Unknown character",
-                "unknown character",
-                name.tag(),
-            ))
+            let special_character = str_to_character(&name.item);
+            if let Some(output) = special_character {
+                Ok(OutputStream::one(ReturnSuccess::value(
+                    UntaggedValue::string(output).into_value(name.tag()),
+                )))
+            } else {
+                Err(ShellError::labeled_error(
+                    "error finding named character",
+                    "error finding named character",
+                    name.tag(),
+                ))
+            }
         }
     }
 }
 
 fn string_to_unicode_char(s: &str) -> Option<char> {
-    // println!("{}", &s);
-    let chars: Vec<char> = s.chars().collect();
-    let chars_len = chars.len() - 1;
-
-    // Do something more appropriate to find the actual number
-    let number = &s[3..chars_len];
-    // println!("{}", &number);
-
-    u32::from_str_radix(number, 16)
+    u32::from_str_radix(s, 16)
         .ok()
         .and_then(std::char::from_u32)
 }
