@@ -1,16 +1,16 @@
 use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
+
+use crate::types::deduction::{VarDeclaration, VarSyntaxShapeDeductor};
+use deduction_to_signature::DeductionToSignature;
+use log::trace;
 use nu_data::config;
 use nu_errors::ShellError;
-use nu_parser::SignatureRegistry;
-use nu_protocol::hir::{ClassifiedCommand, Expression, NamedValue, SpannedExpression};
 use nu_protocol::{
-    hir::Block, CommandAction, NamedType, PositionalType, ReturnSuccess, Signature, SyntaxShape,
-    UntaggedValue, Value,
+    hir::Block, CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use nu_source::Tagged;
-use std::collections::HashMap;
 
 pub struct Alias;
 
@@ -86,7 +86,6 @@ pub async fn alias(
         },
         _ctx,
     ) = args.process(&registry).await?;
-    let mut processed_args: Vec<String> = vec![];
 
     if let Some(true) = save {
         let mut result = nu_data::config::read(name.clone().tag, &None)?;
@@ -110,7 +109,7 @@ pub async fn alias(
         let alias: Value = raw_input.trim().to_string().into();
         let alias_start = raw_input.find('[').unwrap_or(0); // used to check if the same alias already exists
 
-        // add to startup if alias doesn't exist and replce if it does
+        // add to startup if alias doesn't exist and replace if it does
         match result.get_mut("startup") {
             Some(startup) => {
                 if let UntaggedValue::Table(ref mut commands) = startup.value {
@@ -132,209 +131,41 @@ pub async fn alias(
         config::write(&result, &None)?;
     }
 
-    for item in list.iter() {
-        if let Ok(string) = item.as_string() {
-            processed_args.push(format!("${}", string));
+    let mut processed_args: Vec<VarDeclaration> = vec![];
+    for (_, item) in list.iter().enumerate() {
+        match item.as_string() {
+            Ok(var_name) => {
+                let dollar_var_name = format!("${}", var_name);
+                processed_args.push(VarDeclaration {
+                    name: dollar_var_name,
+                    // type_decl: None,
+                    span: item.tag.span,
+                });
+            }
+            Err(_) => {
+                return Err(ShellError::labeled_error(
+                    "Expected a string",
+                    "expected a string",
+                    item.tag(),
+                ));
+            }
+        }
+    }
+    trace!("Found vars: {:?}", processed_args);
+
+    let inferred_shapes = {
+        if let Some(true) = infer {
+            VarSyntaxShapeDeductor::infer_vars(&processed_args, &block, &registry)?
         } else {
-            return Err(ShellError::labeled_error(
-                "Expected a string",
-                "expected a string",
-                item.tag(),
-            ));
+            processed_args.into_iter().map(|arg| (arg, None)).collect()
         }
-    }
-
-    if let Some(true) = infer {
-        Ok(OutputStream::one(ReturnSuccess::action(
-            CommandAction::AddAlias(
-                name.to_string(),
-                to_arg_shapes(processed_args, &block, &registry)?,
-                block,
-            ),
-        )))
-    } else {
-        Ok(OutputStream::one(ReturnSuccess::action(
-            CommandAction::AddAlias(
-                name.to_string(),
-                processed_args
-                    .into_iter()
-                    .map(|arg| (arg, SyntaxShape::Any))
-                    .collect(),
-                block,
-            ),
-        )))
-    }
-}
-
-fn to_arg_shapes(
-    args: Vec<String>,
-    block: &Block,
-    registry: &CommandRegistry,
-) -> Result<Vec<(String, SyntaxShape)>, ShellError> {
-    match find_block_shapes(block, registry) {
-        Ok(found) => Ok(args
-            .iter()
-            .map(|arg| {
-                (
-                    arg.clone(),
-                    match found.get(arg) {
-                        None | Some((_, None)) => SyntaxShape::Any,
-                        Some((_, Some(shape))) => *shape,
-                    },
-                )
-            })
-            .collect()),
-        Err(err) => Err(err),
-    }
-}
-
-type ShapeMap = HashMap<String, (Span, Option<SyntaxShape>)>;
-
-fn check_insert(
-    existing: &mut ShapeMap,
-    to_add: (String, (Span, Option<SyntaxShape>)),
-) -> Result<(), ShellError> {
-    match (to_add.1).1 {
-        None => match existing.get(&to_add.0) {
-            None => {
-                existing.insert(to_add.0, to_add.1);
-                Ok(())
-            }
-            Some(_) => Ok(()),
-        },
-        Some(new) => match existing.insert(to_add.0.clone(), ((to_add.1).0, Some(new))) {
-            None => Ok(()),
-            Some(exist) => match exist.1 {
-                None => Ok(()),
-                Some(shape) => match shape {
-                    SyntaxShape::Any => Ok(()),
-                    shape if shape == new => Ok(()),
-                    _ => Err(ShellError::labeled_error_with_secondary(
-                        "Type conflict in alias variable use",
-                        format!("{:?}", new),
-                        (to_add.1).0,
-                        format!("{:?}", shape),
-                        exist.0,
-                    )),
-                },
-            },
-        },
-    }
-}
-
-fn check_merge(existing: &mut ShapeMap, new: &ShapeMap) -> Result<(), ShellError> {
-    for (k, v) in new.iter() {
-        check_insert(existing, (k.clone(), *v))?;
-    }
-
-    Ok(())
-}
-
-fn find_expr_shapes(
-    spanned_expr: &SpannedExpression,
-    registry: &CommandRegistry,
-) -> Result<ShapeMap, ShellError> {
-    match &spanned_expr.expr {
-        // TODO range will need similar if/when invocations can be parsed within range expression
-        Expression::Binary(bin) => find_expr_shapes(&bin.left, registry).and_then(|mut left| {
-            find_expr_shapes(&bin.right, registry)
-                .and_then(|right| check_merge(&mut left, &right).map(|()| left))
-        }),
-        Expression::Block(b) => find_block_shapes(&b, registry),
-        Expression::Path(path) => match &path.head.expr {
-            Expression::Invocation(b) => find_block_shapes(&b, registry),
-            Expression::Variable(var, _) => {
-                let mut result = HashMap::new();
-                result.insert(var.to_string(), (spanned_expr.span, None));
-                Ok(result)
-            }
-            _ => Ok(HashMap::new()),
-        },
-        _ => Ok(HashMap::new()),
-    }
-}
-
-fn find_block_shapes(block: &Block, registry: &CommandRegistry) -> Result<ShapeMap, ShellError> {
-    let apply_shape = |found: ShapeMap, sig_shape: SyntaxShape| -> ShapeMap {
-        found
-            .iter()
-            .map(|(v, sh)| match sh.1 {
-                None => (v.clone(), (sh.0, Some(sig_shape))),
-                Some(shape) => (v.clone(), (sh.0, Some(shape))),
-            })
-            .collect()
     };
+    let signature = DeductionToSignature::get(&name.item, &inferred_shapes);
+    trace!("Inferred signature: {:?}", signature);
 
-    let mut arg_shapes = HashMap::new();
-    for pipeline in &block.block {
-        for classified in &pipeline.list {
-            match classified {
-                ClassifiedCommand::Expr(spanned_expr) => {
-                    let found = find_expr_shapes(&spanned_expr, registry)?;
-                    check_merge(&mut arg_shapes, &found)?
-                }
-                ClassifiedCommand::Internal(internal) => {
-                    if let Some(signature) = registry.get(&internal.name) {
-                        if let Some(positional) = &internal.args.positional {
-                            for (i, spanned_expr) in positional.iter().enumerate() {
-                                let found = find_expr_shapes(&spanned_expr, registry)?;
-                                if i >= signature.positional.len() {
-                                    if let Some((sig_shape, _)) = &signature.rest_positional {
-                                        check_merge(
-                                            &mut arg_shapes,
-                                            &apply_shape(found, *sig_shape),
-                                        )?;
-                                    } else {
-                                        unreachable!("should have error'd in parsing");
-                                    }
-                                } else {
-                                    let (pos_type, _) = &signature.positional[i];
-                                    match pos_type {
-                                        // TODO pass on mandatory/optional?
-                                        PositionalType::Mandatory(_, sig_shape)
-                                        | PositionalType::Optional(_, sig_shape) => {
-                                            check_merge(
-                                                &mut arg_shapes,
-                                                &apply_shape(found, *sig_shape),
-                                            )?;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        if let Some(named) = &internal.args.named {
-                            for (name, val) in named.iter() {
-                                if let NamedValue::Value(_, spanned_expr) = val {
-                                    let found = find_expr_shapes(&spanned_expr, registry)?;
-                                    match signature.named.get(name) {
-                                        None => {
-                                            unreachable!("should have error'd in parsing");
-                                        }
-                                        Some((named_type, _)) => {
-                                            if let NamedType::Mandatory(_, sig_shape)
-                                            | NamedType::Optional(_, sig_shape) = named_type
-                                            {
-                                                check_merge(
-                                                    &mut arg_shapes,
-                                                    &apply_shape(found, *sig_shape),
-                                                )?;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        unreachable!("registry has lost name it provided");
-                    }
-                }
-                ClassifiedCommand::Dynamic(_) | ClassifiedCommand::Error(_) => (),
-            }
-        }
-    }
-
-    Ok(arg_shapes)
+    Ok(OutputStream::one(ReturnSuccess::action(
+        CommandAction::AddAlias(Box::new(signature), block),
+    )))
 }
 
 #[cfg(test)]
@@ -347,5 +178,44 @@ mod tests {
         use crate::examples::test as test_examples;
 
         Ok(test_examples(Alias {})?)
+    }
+}
+
+mod deduction_to_signature {
+    //For now this logic is relativly simple.
+    //For each var, one mandatory positional is added.
+    //As soon as more support for optional positional arguments is arrived,
+    //this logic might be a little bit more tricky.
+    use crate::types::deduction::{Deduction, VarDeclaration};
+    use nu_protocol::{PositionalType, Signature, SyntaxShape};
+
+    pub struct DeductionToSignature {}
+    impl DeductionToSignature {
+        pub fn get(
+            cmd_name: &str,
+            deductions: &[(VarDeclaration, Option<Deduction>)],
+        ) -> Signature {
+            let mut signature = Signature::build(cmd_name);
+            for (decl, deduction) in deductions {
+                match deduction {
+                    None => signature.positional.push((
+                        PositionalType::optional(&decl.name, SyntaxShape::Any),
+                        decl.name.clone(),
+                    )),
+                    Some(deduction) => match deduction {
+                        Deduction::VarShapeDeduction(normal_var_deduction) => {
+                            signature.positional.push((
+                                PositionalType::optional(
+                                    &decl.name,
+                                    normal_var_deduction[0].deduction,
+                                ),
+                                decl.name.clone(),
+                            ))
+                        }
+                    },
+                }
+            }
+            signature
+        }
     }
 }

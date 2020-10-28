@@ -1,6 +1,5 @@
 use crate::hir::Block;
-use crate::value::Value;
-use crate::SyntaxShape;
+use crate::{value::Value, Signature};
 use nu_errors::ShellError;
 use nu_source::{b, DebugDocBuilder, PrettyDebug};
 use serde::{Deserialize, Serialize};
@@ -23,7 +22,8 @@ pub enum CommandAction {
     /// Enter the help shell, which allows exploring the help system
     EnterHelpShell(Value),
     /// Add an alias command
-    AddAlias(String, Vec<(String, SyntaxShape)>, Block),
+    /// Note: We are passing the Signature in a Box to decrease the memory size of AddAlias
+    AddAlias(Box<Signature>, Block),
     /// Add plugins from path given
     AddPlugins(String),
     /// Go to the previous shell in the shell ring buffer
