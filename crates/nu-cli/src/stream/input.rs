@@ -7,7 +7,7 @@ use nu_source::{Tagged, TaggedItem};
 pub struct InputStream {
     values: BoxStream<'static, Value>,
 
-    // Whether or not an empty stream was explicitly requeted via InputStream::empty
+    // Whether or not an empty stream was explicitly requested via InputStream::empty
     empty: bool,
 }
 
