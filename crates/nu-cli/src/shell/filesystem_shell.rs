@@ -942,6 +942,7 @@ pub(crate) fn dir_entry_dict(
                 "type",
                 "target",
                 "num_links",
+                "inode",
                 "readonly",
                 "mode",
                 "uid",
@@ -1018,6 +1019,9 @@ pub(crate) fn dir_entry_dict(
 
                 let nlinks = md.nlink();
                 dict.insert_untagged("num_links", UntaggedValue::string(nlinks.to_string()));
+
+                let inode = md.ino();
+                dict.insert_untagged("inode", UntaggedValue::string(inode.to_string()));
 
                 if let Some(user) = users::get_user_by_uid(md.uid()) {
                     dict.insert_untagged(
