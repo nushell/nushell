@@ -298,6 +298,7 @@ fn list_all_columns() {
                         "type",
                         "target",
                         "num_links",
+                        "inode",
                         "readonly",
                         "mode",
                         "uid",
