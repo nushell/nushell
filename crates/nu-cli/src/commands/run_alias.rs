@@ -4,7 +4,11 @@ use crate::prelude::*;
 
 use derive_new::new;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, PositionalType, Scope, Signature, UntaggedValue};
+use nu_protocol::{
+    hir::ClassifiedCommand,
+    hir::{Block, NamedArguments},
+    PositionalType, Scope, Signature, UntaggedValue,
+};
 
 #[derive(new, Clone)]
 pub struct AliasCommand {
@@ -41,6 +45,10 @@ impl WholeStreamCommand for AliasCommand {
         let input = args.input;
 
         let scope = call_info.scope.clone();
+
+        //Saved for below
+        let call_info_named = call_info.args.named.clone();
+
         let evaluated = call_info.evaluate(&registry).await?;
 
         let mut vars = IndexMap::new();
@@ -69,6 +77,24 @@ impl WholeStreamCommand for AliasCommand {
         }
 
         let scope = Scope::append_vars(scope, vars);
+
+        //Add the named arguments to the command
+        //If block is exactly 1 command
+        if block.block.len() == 1 && block.block[0].list.len() == 1 {
+            if let ClassifiedCommand::Internal(cmd) = &mut block.block[0].list[0] {
+                cmd.args.named = match (cmd.args.named.clone(), call_info_named) {
+                    (Some(a_named), Some(b_named)) => Some(NamedArguments {
+                        named: a_named
+                            .named
+                            .into_iter()
+                            .chain(b_named.named.into_iter())
+                            .collect(),
+                    }),
+                    (Some(named), None) | (None, Some(named)) => Some(named),
+                    (None, None) => None,
+                }
+            }
+        }
 
         // FIXME: we need to patch up the spans to point at the top-level error
         Ok(run_block(&block, &mut context, input, scope)

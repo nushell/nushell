@@ -8,7 +8,8 @@ use log::trace;
 use nu_data::config;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::Block, CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+    hir::Block, hir::ClassifiedCommand, hir::InternalCommand, CommandAction, NamedType,
+    ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use nu_source::Tagged;
 
@@ -160,7 +161,15 @@ pub async fn alias(
             processed_args.into_iter().map(|arg| (arg, None)).collect()
         }
     };
-    let signature = DeductionToSignature::get(&name.item, &inferred_shapes);
+    let mut signature = DeductionToSignature::get(&name.item, &inferred_shapes);
+    //If alias is exactly 1 internal command
+    if block.block.len() == 1 && block.block[0].list.len() == 1 {
+        if let ClassifiedCommand::Internal(cmd) = &block.block[0].list[0] {
+            //to not have named args in signature which are already passed,
+            //we filter them out
+            signature.named = filter_out_cmd_named_args_from_signature(cmd, &registry);
+        }
+    }
     trace!("Inferred signature: {:?}", signature);
 
     Ok(OutputStream::one(ReturnSuccess::action(
@@ -179,6 +188,38 @@ mod tests {
 
         Ok(test_examples(Alias {})?)
     }
+}
+
+fn filter_out_cmd_named_args_from_signature(
+    cmd: &InternalCommand,
+    registry: &CommandRegistry,
+) -> IndexMap<String, (NamedType, String)> {
+    registry
+        .get_command(&cmd.name)
+        .map(|cmd| cmd.signature().named)
+        .map(|all_named| match &cmd.args.named {
+            None => all_named,
+            Some(already_passed) => {
+                trace!(
+                    "all_named: {:?}, \n already_passed {:?}",
+                    all_named,
+                    already_passed
+                );
+                all_named
+                    .into_iter()
+                    .filter_map(|(k, v)| match &already_passed.named.get(&k) {
+                        Some(named_arg) => match named_arg {
+                            nu_protocol::hir::NamedValue::AbsentSwitch
+                            | nu_protocol::hir::NamedValue::AbsentValue => Some((k, v)),
+                            nu_protocol::hir::NamedValue::PresentSwitch(_)
+                            | nu_protocol::hir::NamedValue::Value(_, _) => None,
+                        },
+                        None => Some((k, v)),
+                    })
+                    .collect()
+            }
+        })
+        .unwrap_or_else(IndexMap::new)
 }
 
 mod deduction_to_signature {
