@@ -125,42 +125,36 @@ Format: #
     ) -> Result<OutputStream, ShellError> {
         let (AnsiArgs { color, escape, osc }, _) = args.process(&registry).await?;
 
-        match escape {
-            Some(e) => {
-                let esc_vec: Vec<char> = e.item.chars().collect();
-                if esc_vec[0] == '\\' {
-                    return Err(ShellError::labeled_error(
-                        "no need for escape characters",
-                        "no need for escape characters",
-                        e.tag(),
-                    ));
-                }
-                let output = format!("\x1b[{}", e.item);
-                return Ok(OutputStream::one(ReturnSuccess::value(
-                    UntaggedValue::string(output).into_value(e.tag()),
-                )));
+        if let Some(e) = escape {
+            let esc_vec: Vec<char> = e.item.chars().collect();
+            if esc_vec[0] == '\\' {
+                return Err(ShellError::labeled_error(
+                    "no need for escape characters",
+                    "no need for escape characters",
+                    e.tag(),
+                ));
             }
-            _ => (),
+            let output = format!("\x1b[{}", e.item);
+            return Ok(OutputStream::one(ReturnSuccess::value(
+                UntaggedValue::string(output).into_value(e.tag()),
+            )));
         }
 
-        match osc {
-            Some(o) => {
-                let osc_vec: Vec<char> = o.item.chars().collect();
-                if osc_vec[0] == '\\' {
-                    return Err(ShellError::labeled_error(
-                        "no need for escape characters",
-                        "no need for escape characters",
-                        o.tag(),
-                    ));
-                }
-                //Operating system command aka osc  ESC ] <- note the right brace, not left brace for osc
-                // OCS's need to end with a bell '\x07' char
-                let output = format!("\x1b]{};", o.item);
-                return Ok(OutputStream::one(ReturnSuccess::value(
-                    UntaggedValue::string(output).into_value(o.tag()),
-                )));
+        if let Some(o) = osc {
+            let osc_vec: Vec<char> = o.item.chars().collect();
+            if osc_vec[0] == '\\' {
+                return Err(ShellError::labeled_error(
+                    "no need for escape characters",
+                    "no need for escape characters",
+                    o.tag(),
+                ));
             }
-            _ => (),
+            //Operating system command aka osc  ESC ] <- note the right brace, not left brace for osc
+            // OCS's need to end with a bell '\x07' char
+            let output = format!("\x1b]{};", o.item);
+            return Ok(OutputStream::one(ReturnSuccess::value(
+                UntaggedValue::string(output).into_value(o.tag()),
+            )));
         }
 
         let color_string = color.as_string()?;
