@@ -76,14 +76,14 @@ following values:
 
 OSC: '\x1b]' is not required for --osc parameter
 Format: #
-0 Set window title and icon name
-1 Set icon name
-2 Set window title
-4 Set/read color palette
-9 iTerm2 Grown notifications
-10 Set foreground color (x11 color spec)
-11 Set background color (x11 color spec)
-... others"#
+    0 Set window title and icon name
+    1 Set icon name
+    2 Set window title
+    4 Set/read color palette
+    9 iTerm2 Grown notifications
+    10 Set foreground color (x11 color spec)
+    11 Set background color (x11 color spec)
+    ... others"#
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -106,6 +106,14 @@ Format: #
                     "\u{1b}[1;31mHello \u{1b}[1;32mNu \u{1b}[1;35mWorld",
                 )]),
             },
+            Example {
+                description:
+                    "Use ansi to color text (rb = red bold, gb = green bold, pb = purple bold)",
+                example: r#"echo [$(ansi -e '3;93;41m') Hello $(ansi reset) " " $(ansi gb) Nu " " $(ansi pb) World] | str collect"#,
+                result: Some(vec![Value::from(
+                    "\u{1b}[3;93;41mHello \u{1b}[1;32mNu \u{1b}[1;35mWorld",
+                )]),
+            },
         ]
     }
 
@@ -116,52 +124,59 @@ Format: #
     ) -> Result<OutputStream, ShellError> {
         let (AnsiArgs { color, escape, osc }, _) = args.process(&registry).await?;
 
-        if let Some(e) = escape {
-            let esc_vec: Vec<char> = e.item.chars().collect();
-            if esc_vec[0] == '\\' {
-                return Err(ShellError::labeled_error(
-                    "no need for escape characters",
-                    "no need for escape characters",
-                    e.tag(),
-                ));
+        match escape {
+            Some(e) => {
+                let esc_vec: Vec<char> = e.item.chars().collect();
+                if esc_vec[0] == '\\' {
+                    return Err(ShellError::labeled_error(
+                        "no need for escape characters",
+                        "no need for escape characters",
+                        e.tag(),
+                    ));
+                }
+                let output = format!("\x1b[{}", e.item);
+                return Ok(OutputStream::one(ReturnSuccess::value(
+                    UntaggedValue::string(output).into_value(e.tag()),
+                )));
             }
-            let output = format!("\x1b[{}", e.item);
-            Ok(OutputStream::one(ReturnSuccess::value(
-                UntaggedValue::string(output).into_value(e.tag()),
-            )))
+            _ => (),
         }
 
-        if let Some(o) = osc {
-            let osc_vec: Vec<char> = o.item.chars().collect();
-            if osc_vec[0] == '\\' {
-                return Err(ShellError::labeled_error(
-                    "no need for escape characters",
-                    "no need for escape characters",
-                    o.tag(),
-                ));
+        match osc {
+            Some(o) => {
+                let osc_vec: Vec<char> = o.item.chars().collect();
+                if osc_vec[0] == '\\' {
+                    return Err(ShellError::labeled_error(
+                        "no need for escape characters",
+                        "no need for escape characters",
+                        o.tag(),
+                    ));
+                }
+                //Operating system command aka osc  ESC ] <- note the right brace, not left brace for osc
+                // OCS's need to end with a bell '\x07' char
+                let output = format!("\x1b]{};\x07", o.item);
+                return Ok(OutputStream::one(ReturnSuccess::value(
+                    UntaggedValue::string(output).into_value(o.tag()),
+                )));
             }
-            //Operating system command aka osc  ESC ] <- note the right brace, not left brace for osc
-            // OCS's need to end with a bell '\x07' char
-            let output = format!("\x1b]{};\x07", o.item);
+            _ => (),
+        }
+
+        let color_string = color.as_string()?;
+        let ansi_code = str_to_ansi_color(color_string);
+
+        if let Some(output) = ansi_code {
             Ok(OutputStream::one(ReturnSuccess::value(
-                UntaggedValue::string(output).into_value(o.tag()),
+                UntaggedValue::string(output).into_value(color.tag()),
             )))
         } else {
-            let color_string = color.as_string()?;
-            let ansi_code = str_to_ansi_color(color_string);
-
-            if let Some(output) = ansi_code {
-                Ok(OutputStream::one(ReturnSuccess::value(
-                    UntaggedValue::string(output).into_value(color.tag()),
-                )))
-            } else {
-                Err(ShellError::labeled_error(
-                    "Unknown color",
-                    "unknown color",
-                    color.tag(),
-                ))
-            }
+            Err(ShellError::labeled_error(
+                "Unknown color",
+                "unknown color",
+                color.tag(),
+            ))
         }
+        // }
     }
 }
 
