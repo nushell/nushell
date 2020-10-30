@@ -75,6 +75,7 @@ following values:
     https://en.wikipedia.org/wiki/ANSI_escape_code
 
 OSC: '\x1b]' is not required for --osc parameter
+Example: echo [$(ansi -o '0') 'some title' $(char bel)] | str collect
 Format: #
     0 Set window title and icon name
     1 Set icon name
@@ -154,7 +155,7 @@ Format: #
                 }
                 //Operating system command aka osc  ESC ] <- note the right brace, not left brace for osc
                 // OCS's need to end with a bell '\x07' char
-                let output = format!("\x1b]{};\x07", o.item);
+                let output = format!("\x1b]{};", o.item);
                 return Ok(OutputStream::one(ReturnSuccess::value(
                     UntaggedValue::string(output).into_value(o.tag()),
                 )));
