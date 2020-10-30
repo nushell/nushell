@@ -86,14 +86,7 @@ mod tests {
     #[test]
     #[ignore]
     fn alias_with_in_str_var_right() {
-        // Error from binary of main:
-        // /home/leo/repos/nushell/nushell(TypeDeduction)> alias -i lw [rust_newbie] {echo 1 2 3 | where "hello_world" in $rust_newbie | to json }
-        // /home/leo/repos/nushell/nushell(TypeDeduction)> lw [ big ]
-        // error: Type Error
-        //   ┌─ shell:1:11
-        //   │
-        // 1 │ lw [ big ]
-        //   │             Expected row or table, found integer
+        //Failing
         let actual = nu!(
             cwd: ".",
             r#"
@@ -132,11 +125,7 @@ mod tests {
     #[test]
     #[ignore]
     fn alias_with_contains() {
-        // Output of command in main
-        // /home/leo/repos/nushell/nushell(TypeDeduction)> echo 1 2 3 | where 4 in [1 hi 3] | to json
-        // [1,3]
-        // /home/leo/repos/nushell/nushell(TypeDeduction)> echo 1 2 3 | where 4 in [1 hi 3] | to json
-        // [1,3]
+        //Failing
         let actual = nu!(
             cwd: ".",
             r#"
@@ -150,9 +139,7 @@ mod tests {
     #[test]
     #[ignore]
     fn alias_with_contains_and_var_is_right_side() {
-        //Output of command in main
-        // /home/leo/repos/nushell/nushell(TypeDeduction)> echo 1 2 3 | where 1 in [1 2 hi] | to json
-        // [1,2]
+        //Failing
         let actual = nu!(
             cwd: ".",
             r#"
@@ -230,6 +217,7 @@ mod tests {
     #[test]
     #[ignore]
     fn alias_with_math_var() {
+        //Failing
         let actual = nu!(
             cwd: ".",
             r#"
@@ -243,16 +231,7 @@ mod tests {
     #[test]
     #[ignore]
     fn alias_with_math_var2() {
-        // Doesn't work also not on main
-        // /home/leo/repos/nushell/nushell(TypeDeduction)> alias -i l [nums digits math] {echo $nums | each {= $(str from -d $digits | str to-decimal) + $math}}}
-        // /home/leo/repos/nushell/nushell(TypeDeduction)> l 3.45 2 1
-        // error: Coercion error
-        //   ┌─ shell:1:11
-        //   │
-        // 1 │ l 3.45 2 1
-        //   │             nothing
-        //   │
-        //   │           decimal
+        //Failing
         let actual = nu!(
             cwd: ".",
             r#"
@@ -292,21 +271,7 @@ mod tests {
     #[test]
     #[ignore]
     fn alias_with_math_arg() {
-        // Doesn't also work on main
-        // /home/leo/repos/nushell/nushell(TypeDeduction)> alias -i lswh [math] {echo 1 2 3 | where $math | to json }
-        // /home/leo/repos/nushell/nushell(TypeDeduction)> lswh $it > 2
-        // error: Type Error
-        //   ┌─ shell:1:13
-        //   │
-        // 1 │ lswh $it > 2
-        //   │               Expected boolean, found block
-
-        // /home/leo/repos/nushell/nushell(TypeDeduction)> lswh {$it > 2}
-        // error: Type Error
-        //   ┌─ shell:1:15
-        //   │
-        // 1 │ lswh {$it > 2}
-        //   │                 Expected boolean, found block
+        //Failing
         let actual = nu!(
             cwd: ".",
             r#"
