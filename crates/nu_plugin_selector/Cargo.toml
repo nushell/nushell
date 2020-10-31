@@ -1,0 +1,24 @@
+[package]
+authors = ["The Nu Project Contributors"]
+description = "web scraping using css selector"
+edition = "2018"
+license = "MIT"
+name = "nu_plugin_selector"
+version = "0.21.1"
+
+[lib]
+doctest = false
+
+[dependencies]
+nu-errors = {version = "0.21.1", path = "../nu-errors"}
+nu-plugin = {path = "../nu-plugin", version = "0.21.1"}
+nu-protocol = {version = "0.21.1", path = "../nu-protocol"}
+nu-source = {version = "0.21.1", path = "../nu-source"}
+
+bigdecimal = {version = "0.2.0", features = ["serde"]}
+indexmap = {version = "1.6.0", features = ["serde-1"]}
+sxd-document = "0.3.2"
+sxd-xpath = "0.4.2"
+
+[dev-dependencies]
+nu-test-support = {path = "../nu-test-support", version = "0.21.1"}
