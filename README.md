@@ -46,7 +46,7 @@ Try it in Gitpod.
 
 Up-to-date installation instructions can be found in the [installation chapter of the book](https://www.nushell.sh/book/en/installation.html).  **Windows users**: please note that Nu works on Windows 10 and does not currently have Windows 7/8.1 support.
 
-To build Nu, you will need to use the **latest stable (1.41 or later)** version of the compiler.
+To build Nu, you will need to use the **latest stable (1.47 or later)** version of the compiler.
 
 Required dependencies:
 
@@ -219,15 +219,15 @@ We can pipeline this into a command that gets the contents of one of the columns
  name          │ nu
  readme        │ README.md
  repository    │ https://github.com/nushell/nushell
- version       │ 0.15.1
+ version       │ 0.21.0
 ───────────────┴────────────────────────────────────
 ```
 
 Finally, we can use commands outside of Nu once we have the data we want:
 
 ```shell
-> open Cargo.toml | get package.version | echo $it
-0.15.1
+> open Cargo.toml | get package.version
+0.21.0
 ```
 
 Here we use the variable `$it` to refer to the value being piped to the external command.

@@ -9,7 +9,7 @@ mod signature;
 mod syntax_shape;
 mod type_name;
 mod type_shape;
-mod value;
+pub mod value;
 
 pub use crate::call_info::{CallInfo, EvaluatedArgs};
 pub use crate::maybe_owned::MaybeOwned;

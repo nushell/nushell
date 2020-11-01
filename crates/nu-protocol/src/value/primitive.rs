@@ -249,7 +249,16 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
         }
         Primitive::Duration(duration) => format_duration(duration),
         Primitive::Int(i) => i.to_string(),
-        Primitive::Decimal(decimal) => format!("{:.4}", decimal),
+        Primitive::Decimal(decimal) => {
+            // TODO: We should really pass the precision in here instead of hard coding it
+            let decimal_string = decimal.to_string();
+            let decimal_places: Vec<&str> = decimal_string.split('.').collect();
+            if decimal_places.len() == 2 && decimal_places[1].len() > 4 {
+                format!("{:.4}", decimal)
+            } else {
+                format!("{}", decimal)
+            }
+        }
         Primitive::Range(range) => format!(
             "{}..{}{}",
             format_primitive(&range.from.0.item, None),

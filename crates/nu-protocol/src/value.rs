@@ -290,6 +290,14 @@ impl std::ops::Deref for Value {
 }
 
 impl Value {
+    /// Helper to create a Value
+    pub fn new(untagged_value: UntaggedValue, the_tag: Tag) -> Self {
+        Value {
+            value: untagged_value,
+            tag: the_tag,
+        }
+    }
+
     /// Get the corresponding anchor (originating location) for the Value
     pub fn anchor(&self) -> Option<AnchorLocation> {
         self.tag.anchor()
@@ -562,6 +570,376 @@ pub fn merge_descriptors(values: &[Value]) -> Vec<String> {
     ret
 }
 
+// Extensions
+
+pub trait StringExt {
+    fn to_string_untagged_value(&self) -> UntaggedValue;
+    fn to_string_value(&self, tag: Tag) -> Value;
+    fn to_string_value_create_tag(&self) -> Value;
+    fn to_line_value(&self, tag: Tag) -> Value;
+    fn to_line_untagged_value(&self) -> UntaggedValue;
+    fn to_column_path_value(&self, tag: Tag) -> Value;
+    fn to_column_path_untagged_value(&self, span: Span) -> UntaggedValue;
+    fn to_pattern_value(&self, tag: Tag) -> Value;
+    fn to_pattern_untagged_value(&self) -> UntaggedValue;
+}
+
+impl StringExt for String {
+    fn to_string_value(&self, the_tag: Tag) -> Value {
+        Value {
+            value: UntaggedValue::Primitive(Primitive::String(self.to_string())),
+            tag: the_tag,
+        }
+    }
+
+    fn to_string_value_create_tag(&self) -> Value {
+        let end = self.len();
+        Value {
+            value: UntaggedValue::Primitive(Primitive::String(self.to_string())),
+            tag: Tag {
+                anchor: None,
+                span: Span::new(0, end),
+            },
+        }
+    }
+
+    fn to_string_untagged_value(&self) -> UntaggedValue {
+        UntaggedValue::string(self)
+    }
+
+    fn to_line_value(&self, the_tag: Tag) -> Value {
+        Value {
+            value: UntaggedValue::Primitive(Primitive::Line(self.to_string())),
+            tag: the_tag,
+        }
+    }
+
+    fn to_line_untagged_value(&self) -> UntaggedValue {
+        UntaggedValue::line(self)
+    }
+
+    fn to_column_path_value(&self, the_tag: Tag) -> Value {
+        Value {
+            value: UntaggedValue::Primitive(Primitive::ColumnPath(ColumnPath::build(
+                &the_tag.span.spanned_string(self), // this is suspect
+            ))),
+            tag: the_tag,
+        }
+    }
+
+    fn to_column_path_untagged_value(&self, span: Span) -> UntaggedValue {
+        let s = self.to_string().spanned(span);
+        UntaggedValue::Primitive(Primitive::ColumnPath(ColumnPath::build(&s)))
+    }
+
+    fn to_pattern_value(&self, the_tag: Tag) -> Value {
+        Value {
+            value: UntaggedValue::Primitive(Primitive::Pattern(self.to_string())),
+            tag: the_tag,
+        }
+    }
+
+    fn to_pattern_untagged_value(&self) -> UntaggedValue {
+        UntaggedValue::pattern(self)
+    }
+}
+
+pub trait StrExt {
+    fn to_str_untagged_value(&self) -> UntaggedValue;
+    fn to_str_value(&self, tag: Tag) -> Value;
+    fn to_str_value_create_tag(&self) -> Value;
+    fn to_line_value(&self, tag: Tag) -> Value;
+    fn to_line_untagged_value(&self) -> UntaggedValue;
+    fn to_column_path_value(&self, tag: Tag) -> Value;
+    fn to_column_path_untagged_value(&self, span: Span) -> UntaggedValue;
+    fn to_pattern_value(&self, tag: Tag) -> Value;
+    fn to_pattern_untagged_value(&self) -> UntaggedValue;
+}
+
+impl StrExt for &str {
+    fn to_str_value(&self, the_tag: Tag) -> Value {
+        Value {
+            value: UntaggedValue::Primitive(Primitive::String(self.to_string())),
+            tag: the_tag,
+        }
+    }
+
+    fn to_str_value_create_tag(&self) -> Value {
+        let end = self.len();
+        Value {
+            value: UntaggedValue::Primitive(Primitive::String(self.to_string())),
+            tag: Tag {
+                anchor: None,
+                span: Span::new(0, end),
+            },
+        }
+    }
+
+    fn to_str_untagged_value(&self) -> UntaggedValue {
+        UntaggedValue::string(*self)
+    }
+
+    fn to_line_value(&self, the_tag: Tag) -> Value {
+        Value {
+            value: UntaggedValue::Primitive(Primitive::Line(self.to_string())),
+            tag: the_tag,
+        }
+    }
+
+    fn to_line_untagged_value(&self) -> UntaggedValue {
+        UntaggedValue::line(*self)
+    }
+
+    fn to_column_path_value(&self, the_tag: Tag) -> Value {
+        Value {
+            value: UntaggedValue::Primitive(Primitive::ColumnPath(ColumnPath::build(
+                &the_tag.span.spanned_string(self), // this is suspect
+            ))),
+            tag: the_tag,
+        }
+    }
+
+    fn to_column_path_untagged_value(&self, span: Span) -> UntaggedValue {
+        let s = self.to_string().spanned(span);
+        UntaggedValue::Primitive(Primitive::ColumnPath(ColumnPath::build(&s)))
+    }
+
+    fn to_pattern_value(&self, the_tag: Tag) -> Value {
+        Value {
+            value: UntaggedValue::Primitive(Primitive::Pattern(self.to_string())),
+            tag: the_tag,
+        }
+    }
+
+    fn to_pattern_untagged_value(&self) -> UntaggedValue {
+        UntaggedValue::pattern(*self)
+    }
+}
+
+pub trait U64Ext {
+    fn to_untagged_value(&self) -> UntaggedValue;
+    fn to_value(&self, tag: Tag) -> Value;
+    fn to_value_create_tag(&self) -> Value;
+    fn to_filesize_untagged_value(&self) -> UntaggedValue;
+    fn to_filesize_value(&self, tag: Tag) -> Value;
+    fn to_duration_untagged_value(&self) -> UntaggedValue;
+    fn to_duration_value(&self, tag: Tag) -> Value;
+}
+
+impl U64Ext for u64 {
+    fn to_value(&self, the_tag: Tag) -> Value {
+        Value {
+            value: UntaggedValue::Primitive(Primitive::Int(BigInt::from(*self))),
+            tag: the_tag,
+        }
+    }
+
+    fn to_filesize_value(&self, the_tag: Tag) -> Value {
+        Value {
+            value: UntaggedValue::Primitive(Primitive::Filesize(*self)),
+            tag: the_tag,
+        }
+    }
+
+    fn to_duration_value(&self, the_tag: Tag) -> Value {
+        Value {
+            value: UntaggedValue::Primitive(Primitive::Duration(BigInt::from(*self))),
+            tag: the_tag,
+        }
+    }
+
+    fn to_value_create_tag(&self) -> Value {
+        let end = self.to_string().len();
+        Value {
+            value: UntaggedValue::Primitive(Primitive::Int(BigInt::from(*self))),
+            tag: Tag {
+                anchor: None,
+                span: Span::new(0, end),
+            },
+        }
+    }
+
+    fn to_untagged_value(&self) -> UntaggedValue {
+        UntaggedValue::int(*self)
+    }
+
+    fn to_filesize_untagged_value(&self) -> UntaggedValue {
+        UntaggedValue::filesize(*self)
+    }
+
+    fn to_duration_untagged_value(&self) -> UntaggedValue {
+        UntaggedValue::duration(BigInt::from(*self))
+    }
+}
+
+pub trait I64Ext {
+    fn to_untagged_value(&self) -> UntaggedValue;
+    fn to_value(&self, tag: Tag) -> Value;
+    fn to_value_create_tag(&self) -> Value;
+}
+
+impl I64Ext for i64 {
+    fn to_value(&self, the_tag: Tag) -> Value {
+        Value {
+            value: UntaggedValue::Primitive(Primitive::Int(BigInt::from(*self))),
+            tag: the_tag,
+        }
+    }
+
+    fn to_value_create_tag(&self) -> Value {
+        let end = self.to_string().len();
+        Value {
+            value: UntaggedValue::Primitive(Primitive::Int(BigInt::from(*self))),
+            tag: Tag {
+                anchor: None,
+                span: Span::new(0, end),
+            },
+        }
+    }
+
+    fn to_untagged_value(&self) -> UntaggedValue {
+        UntaggedValue::int(*self)
+    }
+}
+
+pub trait DecimalExt {
+    fn to_untagged_value(&self) -> UntaggedValue;
+    fn to_value(&self, tag: Tag) -> Value;
+    fn to_value_create_tag(&self) -> Value;
+}
+
+impl DecimalExt for f64 {
+    fn to_value(&self, the_tag: Tag) -> Value {
+        if let Some(f) = BigDecimal::from_f64(*self) {
+            Value {
+                value: UntaggedValue::Primitive(Primitive::Decimal(f)),
+                tag: the_tag,
+            }
+        } else {
+            unreachable!("Internal error: protocol did not use f64-compatible decimal")
+        }
+    }
+
+    fn to_value_create_tag(&self) -> Value {
+        let end = self.to_string().len();
+        if let Some(f) = BigDecimal::from_f64(*self) {
+            Value {
+                value: UntaggedValue::Primitive(Primitive::Decimal(f)),
+                tag: Tag {
+                    anchor: None,
+                    span: Span::new(0, end),
+                },
+            }
+        } else {
+            unreachable!("Internal error: protocol did not use f64-compatible decimal")
+        }
+    }
+
+    fn to_untagged_value(&self) -> UntaggedValue {
+        if let Some(f) = BigDecimal::from_f64(*self) {
+            UntaggedValue::decimal(f)
+        } else {
+            unreachable!("Internal error: protocol did not use f64-compatible decimal")
+        }
+    }
+}
+
+pub trait PathBufExt {
+    fn to_untagged_value(&self) -> UntaggedValue;
+    fn to_value(&self, tag: Tag) -> Value;
+    fn to_value_create_tag(&self) -> Value;
+}
+
+impl PathBufExt for PathBuf {
+    fn to_value(&self, the_tag: Tag) -> Value {
+        let pb = self.clone();
+        Value {
+            value: UntaggedValue::Primitive(Primitive::Path(pb)),
+            tag: the_tag,
+        }
+    }
+
+    fn to_value_create_tag(&self) -> Value {
+        let end = self
+            .to_str()
+            .expect("unable to convert pathbuf to str")
+            .len();
+        let pb = self.clone();
+        Value {
+            value: UntaggedValue::Primitive(Primitive::Path(pb)),
+            tag: Tag {
+                anchor: None,
+                span: Span::new(0, end),
+            },
+        }
+    }
+
+    fn to_untagged_value(&self) -> UntaggedValue {
+        let pb = self.clone();
+        UntaggedValue::path(pb)
+    }
+}
+
+pub trait BooleanExt {
+    fn to_untagged_value(&self) -> UntaggedValue;
+    fn to_value(&self, tag: Tag) -> Value;
+    fn to_value_create_tag(&self) -> Value;
+}
+
+impl BooleanExt for bool {
+    fn to_value(&self, the_tag: Tag) -> Value {
+        Value {
+            value: UntaggedValue::Primitive(Primitive::Boolean(*self)),
+            tag: the_tag,
+        }
+    }
+
+    fn to_value_create_tag(&self) -> Value {
+        let end = self.to_string().len();
+        Value {
+            value: UntaggedValue::Primitive(Primitive::Boolean(*self)),
+            tag: Tag {
+                anchor: None,
+                span: Span::new(0, end),
+            },
+        }
+    }
+
+    fn to_untagged_value(&self) -> UntaggedValue {
+        UntaggedValue::boolean(*self)
+    }
+}
+
+pub trait DateTimeExt {
+    fn to_untagged_value(&self) -> UntaggedValue;
+    fn to_value(&self, tag: Tag) -> Value;
+    fn to_value_create_tag(&self) -> Value;
+}
+
+impl DateTimeExt for DateTime<Utc> {
+    fn to_value(&self, the_tag: Tag) -> Value {
+        Value {
+            value: UntaggedValue::Primitive(Primitive::Date(*self)),
+            tag: the_tag,
+        }
+    }
+
+    fn to_value_create_tag(&self) -> Value {
+        let end = self.to_string().len();
+        Value {
+            value: UntaggedValue::Primitive(Primitive::Date(*self)),
+            tag: Tag {
+                anchor: None,
+                span: Span::new(0, end),
+            },
+        }
+    }
+
+    fn to_untagged_value(&self) -> UntaggedValue {
+        UntaggedValue::date(*self)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -584,5 +962,81 @@ mod tests {
             UntaggedValue::from(5.5),
             UntaggedValue::decimal_from_float(5.5, Span::default())
         )
+    }
+
+    #[test]
+    fn test_string_to_string_untagged_value_extension() {
+        assert_eq!(
+            "a_string".to_string().to_string_untagged_value(),
+            UntaggedValue::from("a_string".to_string())
+        );
+    }
+
+    #[test]
+    fn test_string_to_string_value_extension() {
+        let end = "a_string".to_string().len();
+        let the_tag = Tag {
+            anchor: None,
+            span: Span::new(0, end),
+        };
+
+        let expected = Value {
+            value: UntaggedValue::Primitive(Primitive::String("a_string".to_string())),
+            tag: the_tag.clone(),
+        };
+
+        assert_eq!("a_string".to_string().to_string_value(the_tag), expected);
+    }
+
+    #[test]
+    fn test_string_to_string_value_create_tag_extension() {
+        let end = "a_string".to_string().len();
+        let tag = Tag {
+            anchor: None,
+            span: Span::new(0, end),
+        };
+
+        let expected = Value {
+            value: UntaggedValue::Primitive(Primitive::String("a_string".to_string())),
+            tag,
+        };
+
+        assert_eq!(
+            "a_string".to_string().to_string_value_create_tag(),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_string_to_line_untagged_value() {
+        let a_line = r"this is some line\n";
+        assert_eq!(a_line.to_line_untagged_value(), UntaggedValue::line(a_line));
+    }
+
+    #[test]
+    fn test_string_to_pattern_untagged_value() {
+        let a_pattern = r"[a-zA-Z0-9 ]";
+        assert_eq!(
+            a_pattern.to_pattern_untagged_value(),
+            UntaggedValue::pattern(a_pattern)
+        );
+    }
+
+    #[test]
+    fn test_string_to_column_path_untagged_value() {
+        let a_columnpath = "some_column_path";
+        let a_span = Span::new(0, a_columnpath.len());
+        assert_eq!(
+            a_columnpath.to_column_path_untagged_value(a_span),
+            UntaggedValue::column_path(a_columnpath, a_span)
+        );
+    }
+
+    #[test]
+    fn test_str_to_str_untaggged_value_extension() {
+        assert_eq!(
+            "a_str".to_str_untagged_value(),
+            UntaggedValue::from("a_str".to_string())
+        );
     }
 }

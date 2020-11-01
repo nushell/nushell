@@ -43,7 +43,6 @@ fn condition_is_met() {
                 | str to-int "31/04/2020"
                 | get "31/04/2020"
                 | math sum
-                | echo $it
                 "#
         ));
 

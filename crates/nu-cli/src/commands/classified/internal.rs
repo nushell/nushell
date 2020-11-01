@@ -185,9 +185,9 @@ pub(crate) async fn run_internal_command(
                                 ));
                                 InputStream::from_stream(futures::stream::iter(vec![]))
                             }
-                            CommandAction::AddAlias(name, args, block) => {
+                            CommandAction::AddAlias(sig, block) => {
                                 context.add_commands(vec![whole_stream_command(
-                                    AliasCommand::new(name, args, block),
+                                    AliasCommand::new(*sig, block),
                                 )]);
                                 InputStream::from_stream(futures::stream::iter(vec![]))
                             }

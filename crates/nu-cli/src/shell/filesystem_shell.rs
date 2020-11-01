@@ -615,7 +615,7 @@ impl Shell for FilesystemShell {
                                 .map(|val| val.is_true())
                                 .unwrap_or(false);
                             result = if _trash.item || (rm_always_trash && !_permanent.item) {
-                                trash::remove(&f).map_err(|e: trash::Error| {
+                                trash::delete(&f).map_err(|e: trash::Error| {
                                     Error::new(ErrorKind::Other, format!("{:?}", e))
                                 })
                             } else if metadata.is_file() {
@@ -737,15 +737,14 @@ impl Shell for FilesystemShell {
 
             let mut codec = MaybeTextCodec::new(with_encoding);
 
-            match codec.decode(&mut bytes_mut).map_err(|e| {
-                ShellError::unexpected(format!("AsyncRead failed in open function: {:?}", e))
+            match codec.decode(&mut bytes_mut).map_err(|_| {
+                ShellError::labeled_error("Error opening file", "error opening file", name)
             })? {
                 Some(sb) => Ok(futures::stream::iter(vec![Ok(sb)].into_iter()).boxed()),
                 None => Ok(futures::stream::iter(vec![].into_iter()).boxed()),
             }
         } else {
             // We don't know that this is a finite file, so treat it as a stream
-
             let f = std::fs::File::open(&path).map_err(|e| {
                 ShellError::labeled_error(
                     format!("Error opening file: {:?}", e),
@@ -755,8 +754,8 @@ impl Shell for FilesystemShell {
             })?;
             let async_reader = futures::io::AllowStdIo::new(f);
             let sob_stream = FramedRead::new(async_reader, MaybeTextCodec::new(with_encoding))
-                .map_err(|e| {
-                    ShellError::unexpected(format!("AsyncRead failed in open function: {:?}", e))
+                .map_err(move |_| {
+                    ShellError::labeled_error("Error opening file", "error opening file", name)
                 })
                 .into_stream();
 
@@ -943,6 +942,7 @@ pub(crate) fn dir_entry_dict(
                 "type",
                 "target",
                 "num_links",
+                "inode",
                 "readonly",
                 "mode",
                 "uid",
@@ -1019,6 +1019,9 @@ pub(crate) fn dir_entry_dict(
 
                 let nlinks = md.nlink();
                 dict.insert_untagged("num_links", UntaggedValue::string(nlinks.to_string()));
+
+                let inode = md.ino();
+                dict.insert_untagged("inode", UntaggedValue::string(inode.to_string()));
 
                 if let Some(user) = users::get_user_by_uid(md.uid()) {
                     dict.insert_untagged(

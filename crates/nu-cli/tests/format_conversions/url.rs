@@ -9,7 +9,6 @@ fn can_encode_and_decode_urlencoding() {
                 | to url
                 | from url
                 | get cheese
-                | echo $it
             "#
     ));
 

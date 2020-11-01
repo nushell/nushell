@@ -10,7 +10,6 @@ fn table_to_bson_and_back_into_table() {
             | from bson
             | get root
             | get 1.b
-            | echo $it
         "#
     ));
 
