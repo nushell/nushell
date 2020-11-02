@@ -65,6 +65,8 @@ fn pathext() -> Option<Vec<String>> {
     std::env::var_os("PATHEXT").map(|v| {
         v.to_string_lossy()
             .split(';')
+            // Filter out empty tokens and ';' at the end
+            .filter(|f| f.len() > 1)
             // Cut off the leading '.' character
             .map(|ext| ext[1..].to_string())
             .collect::<Vec<_>>()
