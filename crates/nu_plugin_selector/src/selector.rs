@@ -1,0 +1,100 @@
+use nipper::Document;
+use nu_errors::ShellError;
+use nu_protocol::{value::StringExt, Value};
+use nu_source::{Tag, Tagged};
+
+pub struct Selector {
+    pub query: String,
+    pub tag: Tag,
+}
+
+impl Selector {
+    pub fn new() -> Selector {
+        Selector {
+            query: String::new(),
+            tag: Tag::unknown(),
+        }
+    }
+}
+
+impl Default for Selector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+pub fn begin_selector_query(raw: String, query: Tagged<&str>) -> Result<Vec<Value>, ShellError> {
+    execute_selector_query(raw, query.item.to_string(), query.tag())
+}
+
+fn execute_selector_query(
+    input_string: String,
+    query_string: String,
+    tag: impl Into<Tag>,
+) -> Result<Vec<Value>, ShellError> {
+    let _tag = tag.into();
+    let mut ret = vec![];
+    let doc = Document::from(&input_string);
+
+    // How to internally iterate
+    // doc.nip("tr.athing").iter().for_each(|athing| {
+    //     let title = format!("{}", athing.select(".title a").text().to_string());
+    //     let href = athing
+    //         .select(".storylink")
+    //         .attr("href")
+    //         .unwrap()
+    //         .to_string();
+    //     let title_url = format!("{} - {}\n", title, href);
+    //     ret.push(title_url.to_string_value_create_tag());
+    // });
+
+    doc.nip(&query_string).iter().for_each(|athing| {
+        ret.push(athing.text().to_string().to_string_value_create_tag());
+    });
+
+    Ok(ret)
+}
+
+#[cfg(test)]
+mod tests {
+    use nipper::Document;
+    use nu_errors::ShellError;
+
+    #[test]
+    fn create_document_from_string() -> Result<(), ShellError> {
+        let html = r#"<div name="foo" value="bar"></div>"#;
+        let document = Document::from(html);
+        let shouldbe =
+            r#"<html><head></head><body><div name="foo" value="bar"></div></body></html>"#;
+
+        assert_eq!(shouldbe.to_string(), document.html().to_string());
+
+        Ok(())
+    }
+
+    #[test]
+    fn modify_html_document() -> Result<(), ShellError> {
+        let html = r#"<div name="foo" value="bar"></div>"#;
+        let document = Document::from(html);
+        let mut input = document.select(r#"div[name="foo"]"#);
+        input.set_attr("id", "input");
+        input.remove_attr("name");
+
+        let shouldbe = "bar".to_string();
+        let actual = input.attr("value").unwrap().to_string();
+
+        assert_eq!(shouldbe, actual);
+
+        Ok(())
+    }
+
+    // #[test]
+    // fn test_hacker_news() -> Result<(), ShellError> {
+    //     let html = reqwest::blocking::get("https://news.ycombinator.com")?.text()?;
+    //     let document = Document::from(&html);
+    //     let result = query(html, ".hnname a".to_string(), Tag::unknown());
+    //     let shouldbe = Ok(vec!["Hacker News".to_str_value_create_tag()]);
+    //     assert_eq!(shouldbe, result);
+    //     Ok(())
+    // }
+}
