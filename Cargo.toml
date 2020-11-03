@@ -44,6 +44,7 @@ nu_plugin_to_bson = {version = "0.22.0", path = "./crates/nu_plugin_to_bson", op
 nu_plugin_to_sqlite = {version = "0.22.0", path = "./crates/nu_plugin_to_sqlite", optional = true}
 nu_plugin_tree = {version = "0.22.0", path = "./crates/nu_plugin_tree", optional = true}
 nu_plugin_xpath = {version = "0.22.0", path = "./crates/nu_plugin_xpath", optional = true}
+nu_plugin_selector = {version = "0.22.0", path = "./crates/nu_plugin_selector", optional = true}
 
 # Required to bootstrap the main binary
 clap = "2.33.3"
