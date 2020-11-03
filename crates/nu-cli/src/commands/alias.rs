@@ -66,8 +66,27 @@ impl WholeStreamCommand for Alias {
                 example: "alias l [x] { ls $x }",
                 result: None,
             },
+            Example {
+                description: "An alias with an variable amount of parameter",
+                example: "alias my_fav_food [food...] { echo I like $food }",
+                result: None,
+            },
+            Example {
+                description: "An alias with at least 1 parameter",
+                example: "alias my_kill [first, x...] { kill $first $x }",
+                result: None,
+            },
         ]
     }
+}
+
+fn var_arg_name(var_name: &str) -> String {
+    let mut name = var_name.to_string();
+    name.truncate(name.len() - 3);
+    name
+}
+fn is_var_arg(var_name: &str) -> bool {
+    var_name.ends_with("...")
 }
 
 pub async fn alias(
@@ -132,13 +151,28 @@ pub async fn alias(
     }
 
     let mut processed_args: Vec<VarDeclaration> = vec![];
-    for (_, item) in list.iter().enumerate() {
+    for (idx, item) in list.iter().enumerate() {
         match item.as_string() {
             Ok(var_name) => {
-                let dollar_var_name = format!("${}", var_name);
+                let (dollar_var_name, is_var_arg) = {
+                    if is_var_arg(&var_name) {
+                        //Var args are only allowed in last place
+                        if (idx + 1) != list.len() {
+                            return Err(ShellError::labeled_error(
+                                "Var-args variables are only allowed as the last argument!",
+                                "Var-arg",
+                                item.tag.span,
+                            ));
+                        }
+                        (format!("${}", var_arg_name(&var_name)), true)
+                    } else {
+                        (format!("${}", var_name), false)
+                    }
+                };
                 processed_args.push(VarDeclaration {
                     name: dollar_var_name,
                     // type_decl: None,
+                    is_var_arg,
                     span: item.tag.span,
                 });
             }
@@ -190,6 +224,13 @@ mod deduction_to_signature {
     use nu_protocol::{PositionalType, Signature, SyntaxShape};
 
     pub struct DeductionToSignature {}
+
+    fn get_description_for_rest(decl: &VarDeclaration, normal_desc: &str) -> String {
+        let mut name_and_desc = decl.name.clone();
+        name_and_desc.push_str(": ");
+        name_and_desc.push_str(normal_desc);
+        name_and_desc
+    }
     impl DeductionToSignature {
         pub fn get(
             cmd_name: &str,
@@ -198,10 +239,17 @@ mod deduction_to_signature {
             let mut signature = Signature::build(cmd_name);
             for (decl, deduction) in deductions {
                 match deduction {
-                    None => signature.positional.push((
-                        PositionalType::optional(&decl.name, SyntaxShape::Any),
-                        decl.name.clone(),
-                    )),
+                    None => {
+                        if decl.is_var_arg {
+                            signature.rest_positional =
+                                Some((SyntaxShape::Any, get_description_for_rest(decl, "rest")));
+                        } else {
+                            signature.positional.push((
+                                PositionalType::optional(&decl.name, SyntaxShape::Any),
+                                decl.name.clone(),
+                            ));
+                        }
+                    }
                     Some(deduction) => match deduction {
                         Deduction::VarShapeDeduction(normal_var_deduction) => {
                             signature.positional.push((
@@ -211,6 +259,15 @@ mod deduction_to_signature {
                                 ),
                                 decl.name.clone(),
                             ))
+                        }
+                        Deduction::VarArgShapeDeduction(var_arg_deduction) => {
+                            signature = signature.rest(
+                                var_arg_deduction.rest_shape.0,
+                                //This is sadly critical. We need to pass the var arg name somehow.
+                                //As the signature doesn't allow naming the rest argument
+                                //we pass the variable inside the description
+                                get_description_for_rest(decl, &var_arg_deduction.rest_shape.1),
+                            );
                         }
                     },
                 }

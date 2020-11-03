@@ -63,3 +63,22 @@ For example, to edit your config file in `vi`, run:
 ```shell
 > vi $(config path)
 ```
+
+## Var args
+
+It is possible to pass a variable amount of arguments, to a command expecting an arbitrary amount of arguments, by specifying a var arg as the last parameter in the alias definition.
+Example 1:
+```shell
+alias my_echo [msg...] { echo $msg }
+```
+Example 2:
+```shell
+alias my_kill [pid pids...] { kill $pid $pids }
+```
+
+Please note, that the variable $pid in the second example is necessary and already using the var arg $pids there won't work, as the signature of kill is: 
+```shell
+kill <int> ints...
+```
+Kill only expects an arbitrary amount of arguments in the second position.
+

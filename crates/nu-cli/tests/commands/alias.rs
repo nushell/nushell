@@ -84,6 +84,21 @@ mod tests {
     }
 
     #[test]
+    fn alias_all_args_missing() {
+        Playground::setup("append_test_1", |dirs, _| {
+            let actual = nu!(
+                cwd: dirs.root(),
+                r#"
+                alias double_echo [a b] {^echo $a $b}
+                double_echo
+            "#
+            );
+
+            assert_eq!(actual.out, "");
+        })
+    }
+
+    #[test]
     #[ignore]
     fn alias_with_in_str_var_right() {
         // Error from binary of main:
@@ -330,5 +345,122 @@ mod tests {
         "#
         );
         assert!(actual.out.contains("nushell_alias_test"));
+    }
+
+    #[test]
+    fn alias_with_var_arg_no_inference() {
+        let actual = nu!(
+            cwd: ".",
+            r#"
+            alias e [args...] {echo $args}
+            e 1 2 3 | to json
+        "#
+        );
+        assert_eq!(actual.out, "[1,2,3]");
+    }
+
+    #[test]
+    fn alias_without_var_arg_and_var_arg_usage() {
+        let actual = nu!(
+            cwd: ".",
+            r#"
+            alias -i e [args] {echo $args}
+            e 1 2 3 | to json
+        "#
+        );
+        assert!(actual.err.contains("unexpected argument"));
+    }
+
+    #[test]
+    fn alias_with_var_arg_and_var_arg_usage() {
+        let actual = nu!(
+            cwd: ".",
+            r#"
+            alias -i e [args...] {echo $args}
+            e 1 2 3 | to json
+        "#
+        );
+        assert_eq!(actual.out, "[1,2,3]");
+    }
+
+    #[test]
+    fn alias_with_var_arg_used_as_normal_positional() {
+        let actual = nu!(
+            cwd: ".",
+            r#"
+            alias -i n [args...] {echo [first second third] | nth $args}
+            n 1 2 | to json
+        "#
+        );
+        assert!(actual
+            .err
+            .contains("VarArg used as a normal positional argument"));
+    }
+
+    #[test]
+    fn alias_with_var_arg_and_conflicting_var_arg_usage() {
+        let actual = nu!(
+            cwd: ".",
+            r#"
+            alias -i e [args...] {sleep 1sec $args; kill 1 $args}
+            e 1sec 1
+        "#
+        );
+        assert!(actual.err.contains("Contrary types for variable"));
+    }
+
+    #[test]
+    fn alias_with_var_arg_and_external_cmd() {
+        let actual = nu!(
+            cwd: ".",
+            r#"
+            alias -i e [args...] {^echo $args | to json}
+            e hi mom
+        "#
+        );
+        #[cfg(not(windows))]
+        assert_eq!(actual.out, "\"hi mom\\n\"");
+        #[cfg(windows)]
+        assert_eq!(actual.out, "\"hi mom\\r\\n\"");
+    }
+
+    #[test]
+    fn alias_with_var_arg_and_params_after_var_arg() {
+        let actual = nu!(
+            cwd: ".",
+            r#"
+            alias -i n [args...] {echo [1 2 3 4 5] | nth 0 $args 4}
+            n 1 3 | to json
+        "#
+        );
+        assert!(actual
+            .err
+            .contains("No arguments are allowed after a VarArg"));
+    }
+
+    #[test]
+    fn alias_with_var_arg_and_empty_var_arg() {
+        let actual = nu!(
+            cwd: ".",
+            r#"
+            alias -i n [args...] {echo $args}
+            n | to json
+        "#
+        );
+        assert_eq!(actual.out, "");
+    }
+
+    #[test]
+    fn alias_with_var_arg_not_in_last_place() {
+        let actual = nu!(
+            cwd: ".",
+            r#"
+            alias -i n [args... arg] {echo $arg $args}
+            n | to json
+        "#
+        );
+        assert!(actual
+            .err
+            .contains("Var-args variables are only allowed as the last argument!"));
     }
 }

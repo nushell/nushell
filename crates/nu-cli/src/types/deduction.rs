@@ -1,5 +1,4 @@
 use crate::CommandRegistry;
-
 use lazy_static::lazy_static;
 use nu_errors::ShellError;
 use nu_parser::SignatureRegistry;
@@ -22,11 +21,11 @@ pub struct VarDeclaration {
     pub name: String,
     // type_decl: Option<UntaggedValue>,
     // scope: ?
+    pub is_var_arg: bool,
     pub span: Span,
 }
 
 //TODO This functionality should probably be somehow added to the Expression enum.
-//I am not sure for the best rust iconic way to do that
 fn is_special_var(var_name: &str) -> bool {
     var_name == "$it"
 }
@@ -34,20 +33,32 @@ fn is_special_var(var_name: &str) -> bool {
 #[derive(Debug, Clone)]
 pub enum Deduction {
     VarShapeDeduction(Vec<VarShapeDeduction>),
-    //A deduction for VarArgs will have a different layout than for a normal var
-    //Therefore Deduction is implemented as a enum
-    // VarArgShapeDeduction(VarArgShapeDeduction),
+    VarArgShapeDeduction(VarArgShapeDeduction),
 }
 
-// That would be one possible layout for a var arg shape deduction
-// #[derive(Debug, Clone, Serialize, Deserialize)]
-// pub struct VarArgShapeDeduction {
-//     /// Spans pointing to the source of the deduction.
-//     /// The spans locate positions within the tag of var_decl
-//     pub deduced_from: Vec<Span>,
-//     pub pos_shapes: Vec<(PositionalType, String)>,
-//     pub rest_shape: Option<(SyntaxShape, String)>,
-// }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VarArgShapeDeduction {
+    /// Spans pointing to the source of the deduction.
+    /// The spans locate positions within the tag of var_decl
+    pub deduced_from: Vec<Span>,
+    pub rest_shape: (SyntaxShape, String),
+}
+
+impl VarArgShapeDeduction {
+    pub fn new(deduced_from: Vec<Span>, rest_shape: (SyntaxShape, String)) -> Self {
+        VarArgShapeDeduction {
+            deduced_from,
+            rest_shape,
+        }
+    }
+
+    pub fn from_usage(usage: Span, rest_shape: (SyntaxShape, String)) -> VarArgShapeDeduction {
+        VarArgShapeDeduction {
+            deduced_from: vec![usage],
+            rest_shape,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VarShapeDeduction {
@@ -143,6 +154,14 @@ impl VarUsage {
             span: *span,
         }
     }
+}
+
+fn var_is_var_arg(var_usage: &VarUsage, var_decls: &[VarDeclaration]) -> bool {
+    var_decls
+        .iter()
+        .find(|decl| decl.name == var_usage.name)
+        .map(|decl| decl.is_var_arg)
+        .unwrap_or(false)
 }
 
 impl PartialEq<VarUsage> for VarUsage {
@@ -471,9 +490,38 @@ impl VarSyntaxShapeDeductor {
         // For now we assume every variable in an optional positional is used as this optional
         // argument
         trace!("Positionals len: {:?}", positionals.len());
-        for (pos_idx, positional) in positionals.iter().enumerate().rev() {
+        for (pos_idx, positional) in positionals.iter().enumerate() {
             trace!("Handling pos_idx: {:?} of type: {:?}", pos_idx, positional);
-            if let Expression::Variable(var_name, _) = &positional.expr {
+            if let Expression::Variable(var_name, span) = &positional.expr {
+                if var_is_var_arg(&VarUsage::new(var_name, span), &self.var_declarations) {
+                    //var args are only allowed as rest. Assert var arg is used behind normal
+                    //positionals
+                    if pos_idx < signature.positional.len() {
+                        return Err(ShellError::labeled_error(
+                                format!(
+                                    "VarArg variable {} is used in place of a normal positional argument",
+                                    var_name
+                                ),
+                                "VarArg used as a normal positional argument",
+                                positional.span,
+                            ));
+                    }
+                    let rest = signature
+                        .rest_positional
+                        .clone()
+                        .expect("Always Some, otherwise error above (or in parser)");
+                    self.checked_var_arg_insert(VarUsage::new(var_name, &positional.span), rest)?;
+                    // After var arg no values are allowed to come
+                    if pos_idx != positionals.len() - 1 {
+                        return Err(ShellError::labeled_error(
+                            "No arguments are allowed after a VarArg",
+                            "VarArg used hier",
+                            positional.span,
+                        ));
+                    }
+                    return Ok(());
+                }
+
                 let deduced_shape = {
                     if pos_idx >= signature.positional.len() {
                         signature.rest_positional.as_ref().map(|(shape, _)| shape)
@@ -941,6 +989,93 @@ impl VarSyntaxShapeDeductor {
         // Then try to inference the variables depending on the result types again.
     }
 
+    fn merge_with_coercion(
+        &self,
+        a: SyntaxShape,
+        a_span: Span,
+        b: SyntaxShape,
+        b_span: Span,
+        var_name: &str,
+    ) -> Result<SyntaxShape, ShellError> {
+        if a == b {
+            return Ok(a);
+        }
+
+        match (a, b) {
+            (SyntaxShape::Any, other) | (other, SyntaxShape::Any) => Ok(other),
+            (SyntaxShape::Number, SyntaxShape::Int) | (SyntaxShape::Int, SyntaxShape::Number) => {
+                Ok(SyntaxShape::Int)
+            }
+            (a, b) => Err(ShellError::labeled_error_with_secondary(
+                format!(
+                    "Contrary types for variable: {:?}. First used as: {:?}, then used as: {:?}",
+                    var_name, a, b
+                ),
+                "First usage",
+                a_span,
+                "Second usage",
+                b_span,
+            )),
+        }
+    }
+
+    fn checked_var_arg_insert(
+        &mut self,
+        usage: VarUsage,
+        rest_shape: (SyntaxShape, String),
+    ) -> Result<(), ShellError> {
+        trace!(
+            "Inserting for var arg: {:?}, rest_shape: {:?}",
+            usage.name,
+            rest_shape
+        );
+        let new_deduction = VarArgShapeDeduction::from_usage(usage.span, rest_shape);
+        let (k, v) = match self.inferences.get_key_value(&usage) {
+            None => (usage, new_deduction),
+            Some((_, existing_deduction)) => {
+                let existing_deduction = match existing_deduction {
+                    Deduction::VarShapeDeduction(_) => {
+                        unreachable!("This method is only called for var args");
+                    }
+                    Deduction::VarArgShapeDeduction(d) => d,
+                };
+                let combined_rest = self.merge_with_coercion(
+                    existing_deduction.rest_shape.0,
+                    existing_deduction.deduced_from[0],
+                    new_deduction.rest_shape.0,
+                    new_deduction.deduced_from[0],
+                    &usage.name,
+                )?;
+                let mut combined_usages = existing_deduction.deduced_from.clone();
+                combined_usages.push(usage.span);
+
+                let combined_desc = format!(
+                    "{} | {}",
+                    existing_deduction.rest_shape.1, new_deduction.rest_shape.1
+                );
+                (
+                    usage,
+                    VarArgShapeDeduction::new(combined_usages, (combined_rest, combined_desc)),
+                )
+            }
+        };
+        self.inferences
+            .insert(k, Deduction::VarArgShapeDeduction(v));
+
+        Ok(())
+    }
+
+    fn err_var_arg_used_as_normal_var(&self, var_usage: &VarUsage) -> ShellError {
+        ShellError::labeled_error(
+            format!(
+                "Used var arg variable {:?} as a normal variable. Use a normal variable instead!",
+                var_usage.name
+            ),
+            "Wrong var arg usage",
+            var_usage.span,
+        )
+    }
+
     /// Inserts the new deductions. Each VarShapeDeduction represents one alternative for
     /// the variable described by var_usage
 
@@ -966,6 +1101,10 @@ impl VarSyntaxShapeDeductor {
             return Ok(());
         }
 
+        if var_is_var_arg(var_usage, &self.var_declarations) {
+            return Err(self.err_var_arg_used_as_normal_var(var_usage));
+        }
+
         //Every insertion is sorted by shape!
         //Everything within self.inferences is sorted by shape!
         let mut new_deductions = new_deductions;
@@ -973,8 +1112,12 @@ impl VarSyntaxShapeDeductor {
 
         let (insert_k, insert_v) = match self.inferences.get_key_value(&var_usage) {
             Some((k, existing_deductions)) => {
-                let Deduction::VarShapeDeduction(existing_deductions) = existing_deductions;
-
+                let existing_deductions = match existing_deductions {
+                    Deduction::VarShapeDeduction(d) => d,
+                    Deduction::VarArgShapeDeduction(_) => {
+                        unreachable!("All insertions are VarShapeDeductions!");
+                    }
+                };
                 // If there is one any in one deduction, this deduction is capable of representing the other
                 // deduction and vice versa
                 let (any_in_new, new_vec) = (
