@@ -1,6 +1,3 @@
-#[cfg(test)]
-mod tests;
-
 use indexmap::indexmap;
 use indexmap::set::IndexSet;
 use itertools::Itertools;
