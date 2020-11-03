@@ -5,12 +5,12 @@ use nu_protocol::{
 };
 use nu_source::TaggedItem;
 
-use crate::{selector::string_to_value, Selector};
+use crate::{selector::begin_selector_query, Selector};
 
 impl Plugin for Selector {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("selector")
-            .desc("execute selector query on xml")
+            .desc("execute selector query on html/web")
             .required("query", SyntaxShape::String, "selector query")
             .filter())
     }
@@ -18,7 +18,11 @@ impl Plugin for Selector {
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         let tag = call_info.name_tag;
         let query = call_info.args.nth(0).ok_or_else(|| {
-            ShellError::labeled_error("selector query not passed", "selector query not passed", &tag)
+            ShellError::labeled_error(
+                "selector query not passed",
+                "selector query not passed",
+                &tag,
+            )
         })?;
 
         self.query = query.as_string()?;
@@ -32,7 +36,7 @@ impl Plugin for Selector {
             Value {
                 value: UntaggedValue::Primitive(Primitive::String(s)),
                 ..
-            } => Ok(string_to_value(s, (*self.query).tagged(&self.tag))?
+            } => Ok(begin_selector_query(s, (*self.query).tagged(&self.tag))?
                 .into_iter()
                 .map(ReturnSuccess::value)
                 .collect()),
