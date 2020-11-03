@@ -3416,8 +3416,6 @@ dependencies = [
 name = "nu_plugin_selector"
 version = "0.21.1"
 dependencies = [
- "bigdecimal",
- "indexmap",
  "nipper",
  "nu-errors",
  "nu-plugin",
