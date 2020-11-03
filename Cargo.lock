@@ -3145,7 +3145,6 @@ dependencies = [
  "nu-errors",
  "nu-protocol",
  "nu-source",
- "nu-test-support",
  "num-traits 0.2.12",
 ]
 
