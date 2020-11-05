@@ -1,7 +1,31 @@
 use nu_test_support::{nu, pipeline};
 
 #[test]
-fn out_md_simple() {
+fn md_empty() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            echo "{}" | from json | to md
+        "#
+    ));
+
+    assert_eq!(actual.out, "");
+}
+
+#[test]
+fn md_empty_pretty() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            echo "{}" | from json | to md -p
+        "#
+    ));
+
+    assert_eq!(actual.out, "");
+}
+
+#[test]
+fn md_simple() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
@@ -13,7 +37,19 @@ fn out_md_simple() {
 }
 
 #[test]
-fn out_md_table() {
+fn md_simple_pretty() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            echo 3 | to md -p
+        "#
+    ));
+
+    assert_eq!(actual.out, "3");
+}
+
+#[test]
+fn md_table() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
@@ -25,7 +61,7 @@ fn out_md_table() {
 }
 
 #[test]
-fn out_md_table_pretty() {
+fn md_table_pretty() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
