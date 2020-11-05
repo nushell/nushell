@@ -193,7 +193,7 @@ fn get_output_string(
 }
 
 fn get_padded_string(text: String, desired_length: usize, padding_character: char) -> String {
-    let repeat_lenght = if (desired_length as i32 - text.len() as i32) < 0 {
+    let repeat_length = if text.len() > desired_length {
         0
     } else {
         desired_length - text.len()
@@ -202,7 +202,7 @@ fn get_padded_string(text: String, desired_length: usize, padding_character: cha
     format!(
         "{}{}",
         text,
-        padding_character.to_string().repeat(repeat_lenght)
+        padding_character.to_string().repeat(repeat_length)
     )
 }
 
