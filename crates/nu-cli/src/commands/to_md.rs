@@ -70,6 +70,8 @@ async fn to_md(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
             column_widths.push(escaped_header_string.len());
             escaped_headers.push(escaped_header_string);
         }
+    } else {
+        column_widths = vec![0; headers.len()]
     }
 
     let mut escaped_rows: Vec<Vec<String>> = Vec::new();
@@ -101,7 +103,15 @@ async fn to_md(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
         escaped_rows.push(escaped_row);
     }
 
-    let output_string = get_output_string(&escaped_headers, &escaped_rows, &column_widths, pretty);
+    let output_string = if (column_widths.is_empty() || column_widths.iter().all(|x| *x == 0))
+        && escaped_rows.is_empty()
+    {
+        String::from("")
+    } else {
+        get_output_string(&escaped_headers, &escaped_rows, &column_widths, pretty)
+            .trim()
+            .to_string()
+    };
 
     Ok(OutputStream::one(ReturnSuccess::value(
         UntaggedValue::string(output_string).into_value(name_tag),
@@ -183,12 +193,16 @@ fn get_output_string(
 }
 
 fn get_padded_string(text: String, desired_length: usize, padding_character: char) -> String {
+    let repeat_length = if text.len() > desired_length {
+        0
+    } else {
+        desired_length - text.len()
+    };
+
     format!(
         "{}{}",
         text,
-        padding_character
-            .to_string()
-            .repeat(desired_length - text.len())
+        padding_character.to_string().repeat(repeat_length)
     )
 }
 
