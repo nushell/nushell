@@ -67,6 +67,7 @@ For example, to edit your config file in `vi`, run:
 ## Var args
 
 It is possible to pass a variable amount of arguments, to a command expecting an arbitrary amount of arguments, by specifying a var arg as the last parameter in the alias definition.
+
 Example 1:
 ```shell
 alias my_echo [msg...] { echo $msg }
