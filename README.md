@@ -7,7 +7,7 @@
 [![The Changelog #363](https://img.shields.io/badge/The%20Changelog-%23363-61c192.svg)](https://changelog.com/podcast/363)
 [![@nu_shell](https://img.shields.io/badge/twitter-@nu_shell-1DA1F3?style=flat-square)](https://twitter.com/nu_shell)
 
-## Nu Shell
+## Nushell
 
 A new type of shell.
 
@@ -307,7 +307,7 @@ Nu is in heavy development, and will naturally change as it matures and people u
 
 ## Current Roadmap
 
-We've added a `Roadmap Board` to help collaboratively capture the direction we're going for the current release as well as capture some important issues we'd like to see in NuShell. You can find the Roadmap [here](https://github.com/nushell/nushell/projects/2).
+We've added a `Roadmap Board` to help collaboratively capture the direction we're going for the current release as well as capture some important issues we'd like to see in Nushell. You can find the Roadmap [here](https://github.com/nushell/nushell/projects/2).
 
 ## Contributing
 
