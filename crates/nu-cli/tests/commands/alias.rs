@@ -84,6 +84,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(windows))]
     fn alias_all_args_missing() {
         Playground::setup("append_test_1", |dirs, _| {
             let actual = nu!(
