@@ -123,11 +123,7 @@ impl LiteGroup {
             && !self.pipelines[0].commands.is_empty()
             && !self.pipelines[0].commands[0].parts.is_empty()
         {
-            if self.pipelines[0].commands[0].parts[0].item.starts_with('#') {
-                true
-            } else {
-                false
-            }
+            self.pipelines[0].commands[0].parts[0].item.starts_with('#')
         } else {
             false
         }
