@@ -29,7 +29,8 @@ impl WholeStreamCommand for PathExtension {
     ) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let (DefaultArguments { rest }, input) = args.process(&registry).await?;
-        operate(input, rest, &action, tag.span).await
+        let arg = Arc::new(None);
+        operate(input, rest, &action, tag.span, arg).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -48,7 +49,7 @@ impl WholeStreamCommand for PathExtension {
     }
 }
 
-fn action(path: &Path) -> UntaggedValue {
+fn action(path: &Path, _arg: Arc<Option<String>>) -> UntaggedValue {
     UntaggedValue::string(match path.extension() {
         Some(ext) => ext.to_string_lossy().to_string(),
         _ => "".to_string(),

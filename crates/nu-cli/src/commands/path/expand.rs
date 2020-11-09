@@ -28,7 +28,8 @@ impl WholeStreamCommand for PathExpand {
     ) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let (DefaultArguments { rest }, input) = args.process(&registry).await?;
-        operate(input, rest, &action, tag.span).await
+        let arg = Arc::new(None);
+        operate(input, rest, &action, tag.span, arg).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -41,7 +42,7 @@ impl WholeStreamCommand for PathExpand {
     }
 }
 
-fn action(path: &Path) -> UntaggedValue {
+fn action(path: &Path, _arg: Arc<Option<String>>) -> UntaggedValue {
     let ps = path.to_string_lossy();
     let expanded = shellexpand::tilde(&ps);
     let path: &Path = expanded.as_ref().as_ref();

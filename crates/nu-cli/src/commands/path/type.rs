@@ -29,7 +29,8 @@ impl WholeStreamCommand for PathType {
     ) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let (DefaultArguments { rest }, input) = args.process(&registry).await?;
-        operate(input, rest, &action, tag.span).await
+        let arg = Arc::new(None);
+        operate(input, rest, &action, tag.span, arg).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -41,7 +42,7 @@ impl WholeStreamCommand for PathType {
     }
 }
 
-fn action(path: &Path) -> UntaggedValue {
+fn action(path: &Path, _arg: Arc<Option<String>>) -> UntaggedValue {
     let meta = std::fs::symlink_metadata(path);
     UntaggedValue::string(match &meta {
         Ok(md) => get_file_type(md),
