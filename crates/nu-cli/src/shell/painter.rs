@@ -25,22 +25,21 @@ impl Painter {
         registry: &dyn SignatureRegistry,
         palette: &P,
     ) -> Cow<'l, str> {
-        let lite_block = nu_parser::lite_parse(line, 0);
+        let (lb, err) = nu_parser::lite_parse(line, 0);
 
-        match lite_block {
-            Err(_) => Cow::Borrowed(line),
-            Ok(lb) => {
-                let classified = nu_parser::classify_block(&lb, registry);
+        if err.is_some() {
+            Cow::Borrowed(line)
+        } else {
+            let classified = nu_parser::classify_block(&lb, registry);
 
-                let shapes = nu_parser::shapes(&classified.block);
-                let mut painter = Painter::new(line);
+            let shapes = nu_parser::shapes(&classified.block);
+            let mut painter = Painter::new(line);
 
-                for shape in shapes {
-                    painter.paint_shape(&shape, palette);
-                }
-
-                Cow::Owned(painter.into_string())
+            for shape in shapes {
+                painter.paint_shape(&shape, palette);
             }
+
+            Cow::Owned(painter.into_string())
         }
     }
 

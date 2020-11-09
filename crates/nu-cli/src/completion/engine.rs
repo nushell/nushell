@@ -288,10 +288,7 @@ mod tests {
             registry: &dyn SignatureRegistry,
             pos: usize,
         ) -> Vec<LocationType> {
-            let lite_block = match lite_parse(line, 0) {
-                Ok(v) => v,
-                Err(e) => e.partial.expect("lite_parse result"),
-            };
+            let (lite_block, _) = lite_parse(line, 0);
 
             let block = classify_block(&lite_block, registry);
 

@@ -150,16 +150,6 @@ impl LiteBlock {
     }
 }
 
-fn skip_whitespace(src: &mut Input) {
-    while let Some((_, x)) = src.peek() {
-        if x.is_whitespace() {
-            let _ = src.next();
-        } else {
-            break;
-        }
-    }
-}
-
 #[derive(Clone, Copy)]
 enum BlockKind {
     Paren,
@@ -612,7 +602,7 @@ mod tests {
             let input = "'foo bar";
 
             let input = &mut input.char_indices().peekable();
-            let (result, err) = bare(input, 0);
+            let (_, err) = bare(input, 0);
 
             assert!(err.is_some());
         }
@@ -622,7 +612,7 @@ mod tests {
             let input = "'bar";
 
             let input = &mut input.char_indices().peekable();
-            let (result, err) = bare(input, 0);
+            let (_, err) = bare(input, 0);
 
             assert!(err.is_some());
         }
@@ -632,7 +622,7 @@ mod tests {
             let input = " 'bar";
 
             let input = &mut input.char_indices().peekable();
-            let (result, err) = bare(input, 0);
+            let (_, err) = bare(input, 0);
 
             assert!(err.is_some());
         }

@@ -121,10 +121,10 @@ impl rustyline::validate::Validator for NuValidator {
     ) -> rustyline::Result<rustyline::validate::ValidationResult> {
         let src = ctx.input();
 
-        let lite_result = nu_parser::lite_parse(src, 0);
+        let (_, err) = nu_parser::lite_parse(src, 0);
 
-        if let Err(err) = lite_result {
-            if let nu_errors::ParseErrorReason::Eof { .. } = err.cause.reason() {
+        if let Some(err) = err {
+            if let nu_errors::ParseErrorReason::Eof { .. } = err.reason() {
                 return Ok(rustyline::validate::ValidationResult::Incomplete);
             }
         }
