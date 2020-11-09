@@ -65,6 +65,12 @@ pub struct LitePipeline {
     pub commands: Vec<LiteCommand>,
 }
 
+impl Default for LitePipeline {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LitePipeline {
     pub fn new() -> Self {
         Self { commands: vec![] }
@@ -95,6 +101,12 @@ pub struct LiteGroup {
     pub pipelines: Vec<LitePipeline>,
 }
 
+impl Default for LiteGroup {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LiteGroup {
     pub fn new() -> Self {
         Self { pipelines: vec![] }
@@ -123,6 +135,12 @@ impl LiteGroup {
 #[derive(Debug, Clone)]
 pub struct LiteBlock {
     pub block: Vec<LiteGroup>,
+}
+
+impl Default for LiteBlock {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl LiteBlock {

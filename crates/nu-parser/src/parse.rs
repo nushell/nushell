@@ -1406,7 +1406,7 @@ fn parse_internal_command(
     let mut named = NamedArguments::new();
     let mut positional = vec![];
     let mut error = None;
-    idx = idx + 1; // Start where the arguments begin
+    idx += 1; // Start where the arguments begin
 
     while idx < lite_cmd.parts.len() {
         if lite_cmd.parts[idx].item.starts_with('-') && lite_cmd.parts[idx].item.len() > 1 {
