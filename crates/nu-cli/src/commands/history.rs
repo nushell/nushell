@@ -27,6 +27,11 @@ pub fn history_path(config: &dyn Conf) -> PathBuf {
         })
 }
 
+#[derive(Deserialize)]
+struct Arguments {
+    clear: Option<bool>,
+}
+
 pub struct History;
 
 #[async_trait]
@@ -36,7 +41,7 @@ impl WholeStreamCommand for History {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("history")
+        Signature::build("history").switch("clear", "Clears out the history entries", Some('c'))
     }
 
     fn usage(&self) -> &str {
@@ -48,31 +53,45 @@ impl WholeStreamCommand for History {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        history(args, registry)
+        history(args, registry).await
     }
 }
 
-fn history(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn history(
+    args: CommandArgs,
+    _registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     let config: Box<dyn Conf> = Box::new(NuConfig::new());
-    let tag = args.call_info.name_tag;
-    let path = history_path(&config);
-    let file = File::open(path);
-    if let Ok(file) = file {
-        let reader = BufReader::new(file);
-        let output = reader.lines().filter_map(move |line| match line {
-            Ok(line) => Some(ReturnSuccess::value(
-                UntaggedValue::string(line).into_value(tag.clone()),
-            )),
-            Err(_) => None,
-        });
+    let tag = args.call_info.name_tag.clone();
+    let (Arguments { clear }, _) = args.process(&_registry).await?;
 
-        Ok(futures::stream::iter(output).to_output_stream())
-    } else {
-        Err(ShellError::labeled_error(
-            "Could not open history",
-            "history file could not be opened",
-            tag,
-        ))
+    let path = history_path(&config);
+
+    match clear {
+        Some(_) => {
+            // This is a NOOP, the logic to clear is handled in cli.rs
+            Ok(OutputStream::empty())
+        }
+        None => {
+            if let Ok(file) = File::open(path) {
+                let reader = BufReader::new(file);
+                // Skips the first line, which is a Rustyline internal
+                let output = reader.lines().skip(1).filter_map(move |line| match line {
+                    Ok(line) => Some(ReturnSuccess::value(
+                        UntaggedValue::string(line).into_value(tag.clone()),
+                    )),
+                    Err(_) => None,
+                });
+
+                Ok(futures::stream::iter(output).to_output_stream())
+            } else {
+                Err(ShellError::labeled_error(
+                    "Could not open history",
+                    "history file could not be opened",
+                    tag,
+                ))
+            }
+        }
     }
 }
 

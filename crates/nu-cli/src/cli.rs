@@ -323,6 +323,7 @@ pub async fn run_vec_of_pipelines(
 #[cfg(feature = "rustyline-support")]
 fn convert_rustyline_result_to_string(input: Result<String, ReadlineError>) -> LineResult {
     match input {
+        Ok(s) if s == "history -c" || s == "history --clear" => LineResult::ClearHistory,
         Ok(s) => LineResult::Success(s),
         Err(ReadlineError::Interrupted) => LineResult::CtrlC,
         Err(ReadlineError::Eof) => LineResult::CtrlD,
@@ -497,6 +498,11 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
                 rl.add_history_entry(&line);
                 let _ = rl.save_history(&history_path);
                 context.maybe_print_errors(Text::from(line));
+            }
+
+            LineResult::ClearHistory => {
+                rl.clear_history();
+                let _ = rl.save_history(&history_path);
             }
 
             LineResult::Error(line, err) => {
@@ -848,6 +854,7 @@ pub enum LineResult {
     Break,
     CtrlC,
     CtrlD,
+    ClearHistory,
 }
 
 pub async fn parse_and_eval(line: &str, ctx: &mut EvaluationContext) -> Result<String, ShellError> {
