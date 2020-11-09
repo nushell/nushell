@@ -1543,6 +1543,9 @@ fn classify_pipeline(
 
     let mut iter = lite_pipeline.commands.iter().peekable();
     while let Some(lite_cmd) = iter.next() {
+        if lite_cmd.parts.is_empty() {
+            continue;
+        }
         if lite_cmd.parts[0].item.starts_with('^') {
             let name = lite_cmd.parts[0]
                 .clone()
