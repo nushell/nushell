@@ -265,7 +265,20 @@ pub fn lex(input: &str, span_offset: usize) -> (Vec<Token>, Option<ParseError>) 
     while let Some((idx, c)) = char_indices.peek() {
         if *c == '|' {
             let idx = *idx;
+            let prev_idx = idx;
             let _ = char_indices.next();
+            if let Some((idx, c)) = char_indices.peek() {
+                if *c == '|' {
+                    // we have '||' instead of '|'
+                    let idx = *idx;
+                    let _ = char_indices.next();
+                    output.push(Token::new(
+                        TokenContents::Bare("||".into()),
+                        Span::new(span_offset + prev_idx, span_offset + idx + 1),
+                    ));
+                    continue;
+                }
+            }
             output.push(Token::new(
                 TokenContents::Pipe,
                 Span::new(span_offset + idx, span_offset + idx + 1),
@@ -284,7 +297,7 @@ pub fn lex(input: &str, span_offset: usize) -> (Vec<Token>, Option<ParseError>) 
                 TokenContents::EOL,
                 Span::new(span_offset + idx, span_offset + idx + 1),
             ));
-        } else if *c == ' ' || *c == '\t' {
+        } else if c.is_whitespace() {
             let _ = char_indices.next();
         } else {
             let (result, err) = bare(&mut char_indices, span_offset);
@@ -298,95 +311,6 @@ pub fn lex(input: &str, span_offset: usize) -> (Vec<Token>, Option<ParseError>) 
 
     (output, error)
 }
-
-// fn command(src: &mut Input, span_offset: usize) -> (LiteCommand, Option<ParseError>) {
-//     let mut error = None;
-
-//     let (v, err) = bare(src, span_offset);
-//     let cmd = LiteCommand::new();
-//     cmd.parts.push(v);
-//     if error.is_none() {
-//         error = err;
-//     }
-
-//     loop {
-//         skip_whitespace(src);
-
-//         if let Some((_, c)) = src.peek() {
-//             // The first character tells us a lot about each argument
-//             match c {
-//                 ';' => {
-//                     // this is the end of the command and the end of the pipeline
-//                     break;
-//                 }
-//                 '|' => {
-//                     let _ = src.next();
-//                     if let Some((pos, next_c)) = src.peek() {
-//                         if *next_c == '|' {
-//                             // this isn't actually a pipeline but a comparison
-//                             let span = Span::new(pos - 1 + span_offset, pos + 1 + span_offset);
-//                             cmd.parts.push("||".to_string().spanned(span));
-//                             let _ = src.next();
-//                         } else {
-//                             // this is the end of this command
-//                             break;
-//                         }
-//                     } else {
-//                         // this is the end of this command
-//                         break;
-//                     }
-//                 }
-//                 _ => {
-//                     // basic argument
-//                     let (v, err) = bare(src, span_offset);
-//                     cmd.args.push(v);
-//                     if error.is_none() {
-//                         error = err;
-//                     }
-//                 }
-//             }
-//         } else {
-//             break;
-//         }
-//     }
-
-//     (cmd, None)
-// }
-
-// fn pipeline(src: &mut Input, span_offset: usize) -> (LiteGroup, Option<ParseError>) {
-//     let mut pipelines = vec![];
-//     let mut commands = vec![];
-//     let mut error = None;
-
-//     skip_whitespace(src);
-
-//     while src.peek().is_some() {
-//         // If there is content there, let's parse it
-//         let (v, err) = command(src, span_offset);
-
-//         if error.is_none() {
-//             error = err;
-//         }
-
-//         commands.push(v);
-//         skip_whitespace(src);
-
-//         if let Some((_, ';')) = src.peek() {
-//             let _ = src.next();
-
-//             if !commands.is_empty() {
-//                 pipelines.push(LitePipeline { commands });
-//                 commands = vec![];
-//             }
-//         }
-//     }
-
-//     if !commands.is_empty() {
-//         pipelines.push(LitePipeline { commands });
-//     }
-
-//     (LiteGroup { pipelines }, error)
-// }
 
 fn group(tokens: Vec<Token>) -> (LiteBlock, Option<ParseError>) {
     let mut groups = vec![];
@@ -457,12 +381,17 @@ fn group(tokens: Vec<Token>) -> (LiteBlock, Option<ParseError>) {
 }
 
 pub fn lite_parse(src: &str, span_offset: usize) -> (LiteBlock, Option<ParseError>) {
-    let (output, error) = lex(src, span_offset);
-    if error.is_some() {
-        return (LiteBlock::new(), error);
+    let mut error = None;
+    let (output, err) = lex(src, span_offset);
+    if err.is_some() {
+        error = err;
+    }
+    let (group_output, err) = group(output);
+    if error.is_none() {
+        error = err;
     }
 
-    group(output)
+    (group_output, error)
 }
 
 #[cfg(test)]
@@ -480,129 +409,116 @@ mod tests {
         fn simple_1() {
             let input = "foo bar baz";
 
-            let input = &mut input.char_indices().peekable();
-            let (result, err) = bare(input, 0);
+            let (result, err) = lex(input, 0);
 
             assert!(err.is_none());
-            assert_eq!(result.span, span(0, 3));
+            assert_eq!(result[0].span, span(0, 3));
         }
 
         #[test]
         fn simple_2() {
             let input = "'foo bar' baz";
 
-            let input = &mut input.char_indices().peekable();
-            let (result, err) = bare(input, 0);
+            let (result, err) = lex(input, 0);
 
             assert!(err.is_none());
-            assert_eq!(result.span, span(0, 9));
+            assert_eq!(result[0].span, span(0, 9));
         }
 
         #[test]
         fn simple_3() {
             let input = "'foo\" bar' baz";
 
-            let input = &mut input.char_indices().peekable();
-            let (result, err) = bare(input, 0);
+            let (result, err) = lex(input, 0);
 
             assert!(err.is_none());
-            assert_eq!(result.span, span(0, 10));
+            assert_eq!(result[0].span, span(0, 10));
         }
 
         #[test]
         fn simple_4() {
             let input = "[foo bar] baz";
 
-            let input = &mut input.char_indices().peekable();
-            let (result, err) = bare(input, 0);
+            let (result, err) = lex(input, 0);
 
             assert!(err.is_none());
-            assert_eq!(result.span, span(0, 9));
+            assert_eq!(result[0].span, span(0, 9));
         }
 
         #[test]
         fn simple_5() {
             let input = "'foo 'bar baz";
 
-            let input = &mut input.char_indices().peekable();
-            let (result, err) = bare(input, 0);
+            let (result, err) = lex(input, 0);
 
             assert!(err.is_none());
-            assert_eq!(result.span, span(0, 9));
+            assert_eq!(result[0].span, span(0, 9));
         }
 
         #[test]
         fn simple_6() {
             let input = "''foo baz";
 
-            let input = &mut input.char_indices().peekable();
-            let (result, err) = bare(input, 0);
+            let (result, err) = lex(input, 0);
 
             assert!(err.is_none());
-            assert_eq!(result.span, span(0, 5));
+            assert_eq!(result[0].span, span(0, 5));
         }
 
         #[test]
         fn simple_7() {
             let input = "'' foo";
 
-            let input = &mut input.char_indices().peekable();
-            let (result, err) = bare(input, 0);
+            let (result, err) = lex(input, 0);
 
             assert!(err.is_none());
-            assert_eq!(result.span, span(0, 2));
+            assert_eq!(result[0].span, span(0, 2));
         }
 
         #[test]
         fn simple_8() {
             let input = " '' foo";
 
-            let input = &mut input.char_indices().peekable();
-            let (result, err) = bare(input, 0);
+            let (result, err) = lex(input, 0);
 
             assert!(err.is_none());
-            assert_eq!(result.span, span(1, 3));
+            assert_eq!(result[0].span, span(1, 3));
         }
 
         #[test]
         fn simple_9() {
             let input = " 'foo' foo";
 
-            let input = &mut input.char_indices().peekable();
-            let (result, err) = bare(input, 0);
+            let (result, err) = lex(input, 0);
 
             assert!(err.is_none());
-            assert_eq!(result.span, span(1, 6));
+            assert_eq!(result[0].span, span(1, 6));
         }
 
         #[test]
         fn simple_10() {
             let input = "[foo, bar]";
 
-            let input = &mut input.char_indices().peekable();
-            let (result, err) = bare(input, 0);
+            let (result, err) = lex(input, 0);
 
             assert!(err.is_none());
-            assert_eq!(result.span, span(0, 10));
+            assert_eq!(result[0].span, span(0, 10));
         }
 
         #[test]
         fn ignore_future() {
             let input = "foo 'bar";
 
-            let input = &mut input.char_indices().peekable();
-            let (result, err) = bare(input, 0);
+            let (result, _) = lex(input, 0);
 
-            assert!(err.is_none());
-            assert_eq!(result.span, span(0, 3));
+            assert_eq!(result[0].span, span(0, 3));
         }
 
         #[test]
         fn invalid_1() {
             let input = "'foo bar";
 
-            let input = &mut input.char_indices().peekable();
-            let (_, err) = bare(input, 0);
+            let (_, err) = lex(input, 0);
 
             assert!(err.is_some());
         }
@@ -611,8 +527,7 @@ mod tests {
         fn invalid_2() {
             let input = "'bar";
 
-            let input = &mut input.char_indices().peekable();
-            let (_, err) = bare(input, 0);
+            let (_, err) = lex(input, 0);
 
             assert!(err.is_some());
         }
@@ -621,8 +536,7 @@ mod tests {
         fn invalid_4() {
             let input = " 'bar";
 
-            let input = &mut input.char_indices().peekable();
-            let (_, err) = bare(input, 0);
+            let (_, err) = lex(input, 0);
 
             assert!(err.is_some());
         }
@@ -636,8 +550,8 @@ mod tests {
             let (result, err) = lite_parse("cmd1 | cmd2 ; deploy", 0);
             assert!(err.is_none());
             assert_eq!(result.span(), span(0, 20));
-            assert_eq!(result.block[0].span(), span(0, 11));
-            assert_eq!(result.block[1].span(), span(14, 20));
+            assert_eq!(result.block[0].pipelines[0].span(), span(0, 11));
+            assert_eq!(result.block[0].pipelines[1].span(), span(14, 20));
         }
 
         #[test]

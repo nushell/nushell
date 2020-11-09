@@ -853,20 +853,21 @@ fn parse_arg(
                     if err.is_some() {
                         return (garbage(lite_arg.span), err);
                     }
+                    let lite_groups = &lite_block.block;
 
-                    if lite_block.block.is_empty() {
+                    if lite_groups.is_empty() {
                         return (
                             SpannedExpression::new(Expression::List(vec![]), lite_arg.span),
                             None,
                         );
                     }
-                    if lite_block.block.len() == 1 {
+                    if lite_groups[0].pipelines.len() == 1 {
                         let (items, err) = parse_list(&lite_block, registry);
                         (
                             SpannedExpression::new(Expression::List(items), lite_arg.span),
                             err,
                         )
-                    } else if lite_block.block.len() == 2 {
+                    } else if lite_groups[0].pipelines.len() == 2 {
                         parse_table(&lite_block, registry, lite_arg.span)
                     } else {
                         (
@@ -1313,7 +1314,7 @@ fn parse_positional_argument(
     remaining_positionals: usize,
     registry: &dyn SignatureRegistry,
 ) -> (usize, SpannedExpression, Option<ParseError>) {
-    let mut idx = idx + 1;
+    let mut idx = idx;
     let mut error = None;
     let arg = match positional_type {
         PositionalType::Mandatory(_, SyntaxShape::Math)
@@ -1386,14 +1387,6 @@ fn parse_internal_command(
 ) -> (InternalCommand, Option<ParseError>) {
     // This is a known internal command, so we need to work with the arguments and parse them according to the expected types
 
-    // let (name, name_span) = if idx == 0 {
-    //     (lite_cmd.name.item.clone(), lite_cmd.name.span)
-    // } else {
-    //     (
-    //         format!("{} {}", lite_cmd.name.item, lite_cmd.args[0].item),
-    //         Span::new(lite_cmd.name.span.start(), lite_cmd.args[0].span.end()),
-    //     )
-    // };
     let (name, name_span) = (
         lite_cmd.parts[0..(idx + 1)]
             .iter()
@@ -1608,7 +1601,7 @@ fn classify_pipeline(
             };
             commands.push(ClassifiedCommand::Expr(Box::new(expr)))
         } else {
-            if lite_cmd.parts.len() > 2 {
+            if lite_cmd.parts.len() > 1 {
                 // Check if it's a sub-command
                 if let Some(signature) = registry.get(&format!(
                     "{} {}",
