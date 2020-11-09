@@ -1,11 +1,18 @@
-use super::{operate, DefaultArguments};
+use super::operate;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_source::Tagged;
 use std::path::Path;
 
 pub struct PathExtension;
+
+#[derive(Deserialize)]
+struct PathExtensionArguments {
+    replace: Option<Tagged<String>>,
+    rest: Vec<ColumnPath>,
+}
 
 #[async_trait]
 impl WholeStreamCommand for PathExtension {
@@ -15,6 +22,12 @@ impl WholeStreamCommand for PathExtension {
 
     fn signature(&self) -> Signature {
         Signature::build("path extension")
+            .named(
+                "replace",
+                SyntaxShape::String,
+                "Replace extension with this string",
+                Some('r'),
+            )
             .rest(SyntaxShape::ColumnPath, "optionally operate by path")
     }
 
@@ -28,8 +41,9 @@ impl WholeStreamCommand for PathExtension {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (DefaultArguments { rest }, input) = args.process(&registry).await?;
-        let arg = Arc::new(None);
+        let (PathExtensionArguments { replace, rest }, input) =
+            args.process(&registry).await?;
+        let arg = Arc::new(replace.map(|v| v.item));
         operate(input, rest, &action, tag.span, arg).await
     }
 
@@ -49,11 +63,20 @@ impl WholeStreamCommand for PathExtension {
     }
 }
 
-fn action(path: &Path, _arg: Arc<Option<String>>) -> UntaggedValue {
-    UntaggedValue::string(match path.extension() {
-        Some(ext) => ext.to_string_lossy().to_string(),
-        _ => "".to_string(),
-    })
+fn action(path: &Path, replace_with: Arc<Option<String>>) -> UntaggedValue {
+    match &*replace_with {
+        Some(ref ext) => {
+            UntaggedValue::string(
+                path.with_extension(&ext).to_string_lossy()
+            )
+        },
+        None => {
+            UntaggedValue::string(match path.extension() {
+                Some(ext) => ext.to_string_lossy(),
+                _ => "".into(),
+            })
+        },
+    }
 }
 
 #[cfg(test)]
