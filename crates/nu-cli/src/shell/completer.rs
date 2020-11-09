@@ -23,15 +23,10 @@ impl NuCompleter {
         use completion::engine::LocationType;
 
         let nu_context: &EvaluationContext = context.as_ref();
-        let lite_block = match nu_parser::lite_parse(line, 0) {
-            Ok(block) => Some(block),
-            Err(result) => result.partial,
-        };
+        let (lite_block, _) = nu_parser::lite_parse(line, 0);
 
-        let locations = lite_block
-            .map(|block| nu_parser::classify_block(&block, &nu_context.registry))
-            .map(|block| completion::engine::completion_location(line, &block.block, pos))
-            .unwrap_or_default();
+        let classified_block = nu_parser::classify_block(&lite_block, &nu_context.registry);
+        let locations = completion::engine::completion_location(line, &classified_block.block, pos);
 
         let matcher = nu_data::config::config(Tag::unknown())
             .ok()

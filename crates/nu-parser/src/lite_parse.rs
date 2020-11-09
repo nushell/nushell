@@ -3,27 +3,57 @@ use std::str::CharIndices;
 
 use nu_source::{Span, Spanned, SpannedItem};
 
-use crate::errors::{ParseError, ParseResult};
+use nu_errors::ParseError;
 
 type Input<'t> = Peekable<CharIndices<'t>>;
 
+#[derive(Debug)]
+pub struct Token {
+    pub contents: TokenContents,
+    pub span: Span,
+}
+impl Token {
+    pub fn new(contents: TokenContents, span: Span) -> Token {
+        Token { contents, span }
+    }
+}
+
+#[derive(Debug)]
+pub enum TokenContents {
+    Bare(String),
+    Pipe,
+    Semicolon,
+    EOL,
+}
+
 #[derive(Debug, Clone)]
 pub struct LiteCommand {
-    pub name: Spanned<String>,
-    pub args: Vec<Spanned<String>>,
+    pub parts: Vec<Spanned<String>>,
 }
 
 impl LiteCommand {
-    fn new(name: Spanned<String>) -> LiteCommand {
-        LiteCommand { name, args: vec![] }
+    fn new() -> LiteCommand {
+        LiteCommand { parts: vec![] }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.parts.is_empty()
+    }
+    pub fn push(&mut self, item: Spanned<String>) {
+        self.parts.push(item)
     }
 
     pub(crate) fn span(&self) -> Span {
-        let start = self.name.span.start();
-        let end = if let Some(x) = self.args.last() {
+        let start = if let Some(x) = self.parts.first() {
+            x.span.start()
+        } else {
+            0
+        };
+
+        let end = if let Some(x) = self.parts.last() {
             x.span.end()
         } else {
-            self.name.span.end()
+            0
         };
 
         Span::new(start, end)
@@ -35,10 +65,25 @@ pub struct LitePipeline {
     pub commands: Vec<LiteCommand>,
 }
 
+impl Default for LitePipeline {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LitePipeline {
+    pub fn new() -> Self {
+        Self { commands: vec![] }
+    }
+    pub fn is_empty(&self) -> bool {
+        self.commands.is_empty()
+    }
+    pub fn push(&mut self, item: LiteCommand) {
+        self.commands.push(item)
+    }
     pub(crate) fn span(&self) -> Span {
         let start = if !self.commands.is_empty() {
-            self.commands[0].name.span.start()
+            self.commands[0].span().start()
         } else {
             0
         };
@@ -52,11 +97,62 @@ impl LitePipeline {
 }
 
 #[derive(Debug, Clone)]
+pub struct LiteGroup {
+    pub pipelines: Vec<LitePipeline>,
+}
+
+impl Default for LiteGroup {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl LiteGroup {
+    pub fn new() -> Self {
+        Self { pipelines: vec![] }
+    }
+    pub fn is_empty(&self) -> bool {
+        self.pipelines.is_empty()
+    }
+    pub fn push(&mut self, item: LitePipeline) {
+        self.pipelines.push(item)
+    }
+    pub(crate) fn span(&self) -> Span {
+        let start = if !self.pipelines.is_empty() {
+            self.pipelines[0].span().start()
+        } else {
+            0
+        };
+
+        if let Some((last, _)) = self.pipelines[..].split_last() {
+            Span::new(start, last.span().end())
+        } else {
+            Span::new(start, 0)
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct LiteBlock {
-    pub block: Vec<LitePipeline>,
+    pub block: Vec<LiteGroup>,
+}
+
+impl Default for LiteBlock {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl LiteBlock {
+    pub fn new() -> Self {
+        Self { block: vec![] }
+    }
+    pub fn is_empty(&self) -> bool {
+        self.block.is_empty()
+    }
+    pub fn push(&mut self, item: LiteGroup) {
+        self.block.push(item)
+    }
     pub(crate) fn span(&self) -> Span {
         let start = if !self.block.is_empty() {
             self.block[0].span().start()
@@ -68,22 +164,6 @@ impl LiteBlock {
             Span::new(start, last.span().end())
         } else {
             Span::new(start, 0)
-        }
-    }
-}
-
-impl From<Spanned<String>> for LiteCommand {
-    fn from(v: Spanned<String>) -> LiteCommand {
-        LiteCommand::new(v)
-    }
-}
-
-fn skip_whitespace(src: &mut Input) {
-    while let Some((_, x)) = src.peek() {
-        if x.is_whitespace() {
-            let _ = src.next();
-        } else {
-            break;
         }
     }
 }
@@ -105,9 +185,11 @@ impl From<BlockKind> for char {
     }
 }
 
-fn bare(src: &mut Input, span_offset: usize) -> ParseResult<Spanned<String>> {
-    skip_whitespace(src);
-
+/// Finds the extents of a bare (un-classified) token, returning the string with its associated span,
+/// along with any parse error that was discovered along the way.
+/// Bare tokens are unparsed content separated by spaces or a command separator (like pipe or semicolon)
+/// Bare tokens may be surrounded by quotes (single, double, or backtick) or braces (square, paren, curly)
+pub fn bare(src: &mut Input, span_offset: usize) -> (Spanned<String>, Option<ParseError>) {
     let mut bare = String::new();
     let start_offset = if let Some((pos, _)) = src.peek() {
         *pos
@@ -158,16 +240,13 @@ fn bare(src: &mut Input, span_offset: usize) -> ParseResult<Spanned<String>> {
 
     if let Some(block) = block_level.last() {
         let delim: char = (*block).into();
-        let cause = nu_errors::ParseError::unexpected_eof(delim.to_string(), span);
+        let cause = ParseError::unexpected_eof(delim.to_string(), span);
 
         while let Some(bk) = block_level.pop() {
             bare.push(bk.into());
         }
 
-        return Err(ParseError {
-            cause,
-            partial: Some(bare.spanned(span)),
-        });
+        return (bare.spanned(span), Some(cause));
     }
 
     if let Some(delimiter) = inside_quote {
@@ -176,133 +255,161 @@ fn bare(src: &mut Input, span_offset: usize) -> ParseResult<Spanned<String>> {
         // correct information from the non-lite parse.
         bare.push(delimiter);
 
-        return Err(ParseError {
-            cause: nu_errors::ParseError::unexpected_eof(delimiter.to_string(), span),
-            partial: Some(bare.spanned(span)),
-        });
+        return (
+            bare.spanned(span),
+            Some(ParseError::unexpected_eof(delimiter.to_string(), span)),
+        );
     }
 
     if bare.is_empty() {
-        return Err(ParseError {
-            cause: nu_errors::ParseError::unexpected_eof("command", span),
-            partial: Some(bare.spanned(span)),
-        });
+        return (
+            bare.spanned(span),
+            Some(ParseError::unexpected_eof("command".to_string(), span)),
+        );
     }
 
-    Ok(bare.spanned(span))
+    (bare.spanned(span), None)
 }
 
-fn command(src: &mut Input, span_offset: usize) -> ParseResult<LiteCommand> {
-    let mut cmd = match bare(src, span_offset) {
-        Ok(v) => LiteCommand::new(v),
-        Err(e) => {
-            return Err(ParseError {
-                cause: e.cause,
-                partial: e.partial.map(LiteCommand::new),
-            });
-        }
-    };
+/// Breaks the input string into a vector of tokens. This tokenization only tries to classify separators like
+/// semicolons, pipes, etc from external bare values (values that haven't been classified further)
+/// Takes in a string and and offset, which is used to offset the spans created (for when this function is used to parse inner strings)
+pub fn lex(input: &str, span_offset: usize) -> (Vec<Token>, Option<ParseError>) {
+    let mut char_indices = input.char_indices().peekable();
+    let mut error = None;
 
-    loop {
-        skip_whitespace(src);
+    let mut output = vec![];
 
-        if let Some((_, c)) = src.peek() {
-            // The first character tells us a lot about each argument
-            match c {
-                ';' => {
-                    // this is the end of the command and the end of the pipeline
-                    break;
-                }
-                '|' => {
-                    let _ = src.next();
-                    if let Some((pos, next_c)) = src.peek() {
-                        if *next_c == '|' {
-                            // this isn't actually a pipeline but a comparison
-                            let span = Span::new(pos - 1 + span_offset, pos + 1 + span_offset);
-                            cmd.args.push("||".to_string().spanned(span));
-                            let _ = src.next();
-                        } else {
-                            // this is the end of this command
-                            break;
-                        }
-                    } else {
-                        // this is the end of this command
-                        break;
-                    }
-                }
-                _ => {
-                    // basic argument
-                    match bare(src, span_offset) {
-                        Ok(v) => {
-                            cmd.args.push(v);
-                        }
-
-                        Err(e) => {
-                            if let Some(v) = e.partial {
-                                cmd.args.push(v);
-                            }
-
-                            return Err(ParseError {
-                                cause: e.cause,
-                                partial: Some(cmd),
-                            });
-                        }
-                    }
+    while let Some((idx, c)) = char_indices.peek() {
+        if *c == '|' {
+            let idx = *idx;
+            let prev_idx = idx;
+            let _ = char_indices.next();
+            if let Some((idx, c)) = char_indices.peek() {
+                if *c == '|' {
+                    // we have '||' instead of '|'
+                    let idx = *idx;
+                    let _ = char_indices.next();
+                    output.push(Token::new(
+                        TokenContents::Bare("||".into()),
+                        Span::new(span_offset + prev_idx, span_offset + idx + 1),
+                    ));
+                    continue;
                 }
             }
+            output.push(Token::new(
+                TokenContents::Pipe,
+                Span::new(span_offset + idx, span_offset + idx + 1),
+            ));
+        } else if *c == ';' {
+            let idx = *idx;
+            let _ = char_indices.next();
+            output.push(Token::new(
+                TokenContents::Semicolon,
+                Span::new(span_offset + idx, span_offset + idx + 1),
+            ));
+        } else if *c == '\n' || *c == '\r' {
+            let idx = *idx;
+            let _ = char_indices.next();
+            output.push(Token::new(
+                TokenContents::EOL,
+                Span::new(span_offset + idx, span_offset + idx + 1),
+            ));
+        } else if c.is_whitespace() {
+            let _ = char_indices.next();
         } else {
-            break;
+            let (result, err) = bare(&mut char_indices, span_offset);
+            if error.is_none() {
+                error = err;
+            }
+            let Spanned { item, span } = result;
+            output.push(Token::new(TokenContents::Bare(item), span));
         }
     }
 
-    Ok(cmd)
+    (output, error)
 }
 
-fn pipeline(src: &mut Input, span_offset: usize) -> ParseResult<LiteBlock> {
-    let mut block = vec![];
-    let mut commands = vec![];
+fn group(tokens: Vec<Token>) -> (LiteBlock, Option<ParseError>) {
+    let mut groups = vec![];
+    let mut group = LiteGroup::new();
+    let mut pipeline = LitePipeline::new();
+    let mut command = LiteCommand::new();
 
-    skip_whitespace(src);
-
-    while src.peek().is_some() {
-        // If there is content there, let's parse it
-        let cmd = match command(src, span_offset) {
-            Ok(v) => v,
-            Err(e) => {
-                if let Some(partial) = e.partial {
-                    commands.push(partial);
-                    block.push(LitePipeline { commands });
+    for token in tokens {
+        match token.contents {
+            TokenContents::EOL => {
+                if !command.is_empty() {
+                    pipeline.push(command);
+                    command = LiteCommand::new();
                 }
-
-                return Err(ParseError {
-                    cause: e.cause,
-                    partial: Some(LiteBlock { block }),
-                });
+                if !pipeline.is_empty() {
+                    group.push(pipeline);
+                    pipeline = LitePipeline::new();
+                }
+                if !group.is_empty() {
+                    groups.push(group);
+                    group = LiteGroup::new();
+                }
             }
-        };
+            TokenContents::Pipe => {
+                if !command.is_empty() {
+                    pipeline.push(command);
+                    command = LiteCommand::new();
+                } else {
+                    let mut block = LiteBlock::new();
+                    block.block = groups;
 
-        commands.push(cmd);
-        skip_whitespace(src);
-
-        if let Some((_, ';')) = src.peek() {
-            let _ = src.next();
-
-            if !commands.is_empty() {
-                block.push(LitePipeline { commands });
-                commands = vec![];
+                    return (
+                        block,
+                        Some(ParseError::extra_tokens(
+                            "|".to_string().spanned(token.span),
+                        )),
+                    );
+                }
+            }
+            TokenContents::Semicolon => {
+                if !command.is_empty() {
+                    pipeline.push(command);
+                    command = LiteCommand::new();
+                }
+                if !pipeline.is_empty() {
+                    group.push(pipeline);
+                    pipeline = LitePipeline::new();
+                }
+            }
+            TokenContents::Bare(bare) => {
+                command.push(bare.spanned(token.span));
             }
         }
     }
-
-    if !commands.is_empty() {
-        block.push(LitePipeline { commands });
+    if !command.is_empty() {
+        pipeline.push(command);
+    }
+    if !pipeline.is_empty() {
+        group.push(pipeline);
+    }
+    if !group.is_empty() {
+        groups.push(group);
     }
 
-    Ok(LiteBlock { block })
+    let mut block = LiteBlock::new();
+    block.block = groups;
+    (block, None)
 }
 
-pub fn lite_parse(src: &str, span_offset: usize) -> ParseResult<LiteBlock> {
-    pipeline(&mut src.char_indices().peekable(), span_offset)
+pub fn lite_parse(src: &str, span_offset: usize) -> (LiteBlock, Option<ParseError>) {
+    let mut error = None;
+    let (output, err) = lex(src, span_offset);
+    if err.is_some() {
+        error = err;
+    }
+    let (group_output, err) = group(output);
+    if error.is_none() {
+        error = err;
+    }
+
+    (group_output, error)
 }
 
 #[cfg(test)]
@@ -320,140 +427,136 @@ mod tests {
         fn simple_1() {
             let input = "foo bar baz";
 
-            let input = &mut input.char_indices().peekable();
-            let result = bare(input, 0).unwrap();
+            let (result, err) = lex(input, 0);
 
-            assert_eq!(result.span, span(0, 3));
+            assert!(err.is_none());
+            assert_eq!(result[0].span, span(0, 3));
         }
 
         #[test]
         fn simple_2() {
             let input = "'foo bar' baz";
 
-            let input = &mut input.char_indices().peekable();
-            let result = bare(input, 0).unwrap();
+            let (result, err) = lex(input, 0);
 
-            assert_eq!(result.span, span(0, 9));
+            assert!(err.is_none());
+            assert_eq!(result[0].span, span(0, 9));
         }
 
         #[test]
         fn simple_3() {
             let input = "'foo\" bar' baz";
 
-            let input = &mut input.char_indices().peekable();
-            let result = bare(input, 0).unwrap();
+            let (result, err) = lex(input, 0);
 
-            assert_eq!(result.span, span(0, 10));
+            assert!(err.is_none());
+            assert_eq!(result[0].span, span(0, 10));
         }
 
         #[test]
         fn simple_4() {
             let input = "[foo bar] baz";
 
-            let input = &mut input.char_indices().peekable();
-            let result = bare(input, 0).unwrap();
+            let (result, err) = lex(input, 0);
 
-            assert_eq!(result.span, span(0, 9));
+            assert!(err.is_none());
+            assert_eq!(result[0].span, span(0, 9));
         }
 
         #[test]
         fn simple_5() {
             let input = "'foo 'bar baz";
 
-            let input = &mut input.char_indices().peekable();
-            let result = bare(input, 0).unwrap();
+            let (result, err) = lex(input, 0);
 
-            assert_eq!(result.span, span(0, 9));
+            assert!(err.is_none());
+            assert_eq!(result[0].span, span(0, 9));
         }
 
         #[test]
         fn simple_6() {
             let input = "''foo baz";
 
-            let input = &mut input.char_indices().peekable();
-            let result = bare(input, 0).unwrap();
+            let (result, err) = lex(input, 0);
 
-            assert_eq!(result.span, span(0, 5));
+            assert!(err.is_none());
+            assert_eq!(result[0].span, span(0, 5));
         }
 
         #[test]
         fn simple_7() {
             let input = "'' foo";
 
-            let input = &mut input.char_indices().peekable();
-            let result = bare(input, 0).unwrap();
+            let (result, err) = lex(input, 0);
 
-            assert_eq!(result.span, span(0, 2));
+            assert!(err.is_none());
+            assert_eq!(result[0].span, span(0, 2));
         }
 
         #[test]
         fn simple_8() {
             let input = " '' foo";
 
-            let input = &mut input.char_indices().peekable();
-            let result = bare(input, 0).unwrap();
+            let (result, err) = lex(input, 0);
 
-            assert_eq!(result.span, span(1, 3));
+            assert!(err.is_none());
+            assert_eq!(result[0].span, span(1, 3));
         }
 
         #[test]
         fn simple_9() {
             let input = " 'foo' foo";
 
-            let input = &mut input.char_indices().peekable();
-            let result = bare(input, 0).unwrap();
+            let (result, err) = lex(input, 0);
 
-            assert_eq!(result.span, span(1, 6));
+            assert!(err.is_none());
+            assert_eq!(result[0].span, span(1, 6));
         }
 
         #[test]
         fn simple_10() {
             let input = "[foo, bar]";
 
-            let input = &mut input.char_indices().peekable();
-            let result = bare(input, 0).unwrap();
+            let (result, err) = lex(input, 0);
 
-            assert_eq!(result.span, span(0, 10));
+            assert!(err.is_none());
+            assert_eq!(result[0].span, span(0, 10));
         }
 
         #[test]
         fn ignore_future() {
             let input = "foo 'bar";
 
-            let input = &mut input.char_indices().peekable();
-            let result = bare(input, 0).unwrap();
+            let (result, _) = lex(input, 0);
 
-            assert_eq!(result.span, span(0, 3));
+            assert_eq!(result[0].span, span(0, 3));
         }
 
         #[test]
         fn invalid_1() {
             let input = "'foo bar";
 
-            let input = &mut input.char_indices().peekable();
-            let result = bare(input, 0);
+            let (_, err) = lex(input, 0);
 
-            assert_eq!(result.is_ok(), false);
+            assert!(err.is_some());
         }
 
         #[test]
         fn invalid_2() {
             let input = "'bar";
 
-            let input = &mut input.char_indices().peekable();
-            let result = bare(input, 0);
+            let (_, err) = lex(input, 0);
 
-            assert_eq!(result.is_ok(), false);
+            assert!(err.is_some());
         }
 
         #[test]
         fn invalid_4() {
             let input = " 'bar";
 
-            let input = &mut input.char_indices().peekable();
-            let result = bare(input, 0);
+            let (_, err) = lex(input, 0);
 
-            assert_eq!(result.is_ok(), false);
+            assert!(err.is_some());
         }
     }
 
@@ -462,39 +565,58 @@ mod tests {
 
         #[test]
         fn pipeline() {
-            let result = lite_parse("cmd1 | cmd2 ; deploy", 0).unwrap();
+            let (result, err) = lite_parse("cmd1 | cmd2 ; deploy", 0);
+            assert!(err.is_none());
             assert_eq!(result.span(), span(0, 20));
-            assert_eq!(result.block[0].span(), span(0, 11));
-            assert_eq!(result.block[1].span(), span(14, 20));
+            assert_eq!(result.block[0].pipelines[0].span(), span(0, 11));
+            assert_eq!(result.block[0].pipelines[1].span(), span(14, 20));
         }
 
         #[test]
         fn simple_1() {
-            let result = lite_parse("foo", 0).unwrap();
+            let (result, err) = lite_parse("foo", 0);
+            assert!(err.is_none());
             assert_eq!(result.block.len(), 1);
-            assert_eq!(result.block[0].commands.len(), 1);
-            assert_eq!(result.block[0].commands[0].name.span, span(0, 3));
+            assert_eq!(result.block[0].pipelines.len(), 1);
+            assert_eq!(result.block[0].pipelines[0].commands.len(), 1);
+            assert_eq!(result.block[0].pipelines[0].commands[0].parts.len(), 1);
+            assert_eq!(
+                result.block[0].pipelines[0].commands[0].parts[0].span,
+                span(0, 3)
+            );
         }
 
         #[test]
         fn simple_offset() {
-            let result = lite_parse("foo", 10).unwrap();
-            assert_eq!(result.block.len(), 1);
-            assert_eq!(result.block[0].commands.len(), 1);
-            assert_eq!(result.block[0].commands[0].name.span, span(10, 13));
+            let (result, err) = lite_parse("foo", 10);
+            assert!(err.is_none());
+            assert_eq!(result.block[0].pipelines.len(), 1);
+            assert_eq!(result.block[0].pipelines[0].commands.len(), 1);
+            assert_eq!(result.block[0].pipelines[0].commands[0].parts.len(), 1);
+            assert_eq!(
+                result.block[0].pipelines[0].commands[0].parts[0].span,
+                span(10, 13)
+            );
         }
 
         #[test]
         fn incomplete_result() {
-            let result = lite_parse("my_command \"foo' --test", 10).unwrap_err();
-            assert!(matches!(result.cause.reason(), nu_errors::ParseErrorReason::Eof { .. }));
+            let (result, err) = lite_parse("my_command \"foo' --test", 10);
+            assert!(matches!(err.unwrap().reason(), nu_errors::ParseErrorReason::Eof { .. }));
 
-            let result = result.partial.unwrap();
             assert_eq!(result.block.len(), 1);
-            assert_eq!(result.block[0].commands.len(), 1);
-            assert_eq!(result.block[0].commands[0].name.item, "my_command");
-            assert_eq!(result.block[0].commands[0].args.len(), 1);
-            assert_eq!(result.block[0].commands[0].args[0].item, "\"foo' --test\"");
+            assert_eq!(result.block[0].pipelines.len(), 1);
+            assert_eq!(result.block[0].pipelines[0].commands.len(), 1);
+            assert_eq!(result.block[0].pipelines[0].commands[0].parts.len(), 2);
+
+            assert_eq!(
+                result.block[0].pipelines[0].commands[0].parts[0].item,
+                "my_command"
+            );
+            assert_eq!(
+                result.block[0].pipelines[0].commands[0].parts[1].item,
+                "\"foo' --test\""
+            );
         }
     }
 }

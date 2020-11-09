@@ -393,52 +393,56 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
             if let Some(prompt) = configuration.var("prompt") {
                 let prompt_line = prompt.as_string()?;
 
-                match nu_parser::lite_parse(&prompt_line, 0).map_err(ShellError::from) {
-                    Ok(result) => {
-                        let prompt_block = nu_parser::classify_block(&result, context.registry());
+                let (result, err) = nu_parser::lite_parse(&prompt_line, 0);
 
-                        let env = context.get_env();
+                if err.is_some() {
+                    use crate::git::current_branch;
+                    format!(
+                        "\x1b[32m{}{}\x1b[m> ",
+                        cwd,
+                        match current_branch() {
+                            Some(s) => format!("({})", s),
+                            None => "".to_string(),
+                        }
+                    )
+                } else {
+                    let prompt_block = nu_parser::classify_block(&result, context.registry());
 
-                        match run_block(
-                            &prompt_block.block,
-                            &mut context,
-                            InputStream::empty(),
-                            Scope::from_env(env),
-                        )
-                        .await
-                        {
-                            Ok(result) => match result.collect_string(Tag::unknown()).await {
-                                Ok(string_result) => {
-                                    let errors = context.get_errors();
-                                    context.maybe_print_errors(Text::from(prompt_line));
-                                    context.clear_errors();
+                    let env = context.get_env();
 
-                                    if !errors.is_empty() {
-                                        "> ".to_string()
-                                    } else {
-                                        string_result.item
-                                    }
-                                }
-                                Err(e) => {
-                                    crate::cli::print_err(e, &Text::from(prompt_line));
-                                    context.clear_errors();
+                    match run_block(
+                        &prompt_block.block,
+                        &mut context,
+                        InputStream::empty(),
+                        Scope::from_env(env),
+                    )
+                    .await
+                    {
+                        Ok(result) => match result.collect_string(Tag::unknown()).await {
+                            Ok(string_result) => {
+                                let errors = context.get_errors();
+                                context.maybe_print_errors(Text::from(prompt_line));
+                                context.clear_errors();
 
+                                if !errors.is_empty() {
                                     "> ".to_string()
+                                } else {
+                                    string_result.item
                                 }
-                            },
+                            }
                             Err(e) => {
                                 crate::cli::print_err(e, &Text::from(prompt_line));
                                 context.clear_errors();
 
                                 "> ".to_string()
                             }
-                        }
-                    }
-                    Err(e) => {
-                        crate::cli::print_err(e, &Text::from(prompt_line));
-                        context.clear_errors();
+                        },
+                        Err(e) => {
+                            crate::cli::print_err(e, &Text::from(prompt_line));
+                            context.clear_errors();
 
-                        "> ".to_string()
+                            "> ".to_string()
+                        }
                     }
                 }
             } else {
@@ -864,7 +868,10 @@ pub async fn parse_and_eval(line: &str, ctx: &mut EvaluationContext) -> Result<S
         line
     };
 
-    let lite_result = nu_parser::lite_parse(&line, 0)?;
+    let (lite_result, err) = nu_parser::lite_parse(&line, 0);
+    if let Some(err) = err {
+        return Err(err.into());
+    }
 
     // TODO ensure the command whose examples we're testing is actually in the pipeline
     let classified_block = nu_parser::classify_block(&lite_result, ctx.registry());
@@ -897,13 +904,11 @@ pub async fn process_line(
         let line = chomp_newline(line);
         ctx.raw_input = line.to_string();
 
-        let result = match nu_parser::lite_parse(&line, 0) {
-            Err(err) => {
-                return LineResult::Error(line.to_string(), err.into());
-            }
+        let (result, err) = nu_parser::lite_parse(&line, 0);
 
-            Ok(val) => val,
-        };
+        if let Some(err) = err {
+            return LineResult::Error(line.to_string(), err.into());
+        }
 
         debug!("=== Parsed ===");
         debug!("{:#?}", result);
@@ -1100,7 +1105,8 @@ pub fn print_err(err: ShellError, source: &Text) {
 mod tests {
     #[quickcheck]
     fn quickcheck_parse(data: String) -> bool {
-        if let Ok(lite_block) = nu_parser::lite_parse(&data, 0) {
+        let (lite_block, err) = nu_parser::lite_parse(&data, 0);
+        if err.is_none() {
             let context = crate::evaluation_context::EvaluationContext::basic().unwrap();
             let _ = nu_parser::classify_block(&lite_block, context.registry());
         }
