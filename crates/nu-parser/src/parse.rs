@@ -388,9 +388,9 @@ fn parse_invocation(
         .collect();
 
     // We haven't done much with the inner string, so let's go ahead and work with it
-    let lite_block = match lite_parse(&string, lite_arg.span.start() + 2) {
-        Ok(lp) => lp,
-        Err(e) => return (garbage(lite_arg.span), Some(e.cause)),
+    let (lite_block, err) = lite_parse(&string, lite_arg.span.start() + 2);
+    if err.is_some() {
+        return (garbage(lite_arg.span), err);
     };
 
     let classified_block = classify_block(&lite_block, registry);
@@ -641,38 +641,22 @@ fn parse_list(
     }
     let lite_pipeline = &lite_block.block[0];
     let mut output = vec![];
-    for lite_inner in &lite_pipeline.commands {
-        let item = if lite_inner.name.ends_with(',') {
-            let mut str: String = lite_inner.name.item.clone();
-            str.pop();
-            str.spanned(Span::new(
-                lite_inner.name.span.start(),
-                lite_inner.name.span.end() - 1,
-            ))
-        } else {
-            lite_inner.name.clone()
-        };
+    for lite_pipeline in &lite_pipeline.pipelines {
+        for lite_inner in &lite_pipeline.commands {
+            for part in &lite_inner.parts {
+                let item = if part.ends_with(',') {
+                    let mut str: String = part.item.clone();
+                    str.pop();
+                    str.spanned(Span::new(part.span.start(), part.span.end() - 1))
+                } else {
+                    part.clone()
+                };
+                let (part, err) = parse_arg(SyntaxShape::Any, registry, &item);
+                output.push(part);
 
-        let (arg, err) = parse_arg(SyntaxShape::Any, registry, &item);
-
-        output.push(arg);
-        if error.is_none() {
-            error = err;
-        }
-
-        for arg in &lite_inner.args {
-            let item = if arg.ends_with(',') {
-                let mut str: String = arg.item.clone();
-                str.pop();
-                str.spanned(Span::new(arg.span.start(), arg.span.end() - 1))
-            } else {
-                arg.clone()
-            };
-            let (arg, err) = parse_arg(SyntaxShape::Any, registry, &item);
-            output.push(arg);
-
-            if error.is_none() {
-                error = err;
+                if error.is_none() {
+                    error = err;
+                }
             }
         }
     }
@@ -711,18 +695,19 @@ fn parse_table(
     let mut output = vec![];
 
     // Header
-    let lite_pipeline = &lite_block.block[0];
+    let lite_group = &lite_block.block[0];
+    let lite_pipeline = &lite_group.pipelines[0];
     let lite_inner = &lite_pipeline.commands[0];
 
-    let (string, err) = verify_and_strip(&lite_inner.name, '[', ']');
+    let (string, err) = verify_and_strip(&lite_inner.parts[0], '[', ']');
     if error.is_none() {
         error = err;
     }
 
-    let lite_header = match lite_parse(&string, lite_inner.name.span.start() + 1) {
-        Ok(lb) => lb,
-        Err(e) => return (garbage(lite_inner.name.span), Some(e.cause)),
-    };
+    let (lite_header, err) = lite_parse(&string, lite_inner.parts[0].span.start() + 1);
+    if err.is_some() {
+        return (garbage(lite_inner.span()), err);
+    }
 
     let (headers, err) = parse_list(&lite_header, registry);
     if error.is_none() {
@@ -730,34 +715,18 @@ fn parse_table(
     }
 
     // Cells
-    let lite_rows = &lite_block.block[1];
+    let lite_rows = &lite_group.pipelines[1];
     let lite_cells = &lite_rows.commands[0];
 
-    let (string, err) = verify_and_strip(&lite_cells.name, '[', ']');
-    if error.is_none() {
-        error = err;
-    }
-
-    let lite_cell = match lite_parse(&string, lite_cells.name.span.start() + 1) {
-        Ok(lb) => lb,
-        Err(e) => return (garbage(lite_cells.name.span), Some(e.cause)),
-    };
-
-    let (inner_cell, err) = parse_list(&lite_cell, registry);
-    if error.is_none() {
-        error = err;
-    }
-    output.push(inner_cell);
-
-    for arg in &lite_cells.args {
+    for arg in &lite_cells.parts {
         let (string, err) = verify_and_strip(&arg, '[', ']');
         if error.is_none() {
             error = err;
         }
-        let lite_cell = match lite_parse(&string, arg.span.start() + 1) {
-            Ok(lb) => lb,
-            Err(e) => return (garbage(arg.span), Some(e.cause)),
-        };
+        let (lite_cell, err) = lite_parse(&string, arg.span.start() + 1);
+        if err.is_some() {
+            return (garbage(arg.span), err);
+        }
         let (inner_cell, err) = parse_list(&lite_cell, registry);
         if error.is_none() {
             error = err;
@@ -880,10 +849,10 @@ fn parse_arg(
                     let string: String = chars.collect();
 
                     // We haven't done much with the inner string, so let's go ahead and work with it
-                    let lite_block = match lite_parse(&string, lite_arg.span.start() + 1) {
-                        Ok(lb) => lb,
-                        Err(e) => return (garbage(lite_arg.span), Some(e.cause)),
-                    };
+                    let (lite_block, err) = lite_parse(&string, lite_arg.span.start() + 1);
+                    if err.is_some() {
+                        return (garbage(lite_arg.span), err);
+                    }
 
                     if lite_block.block.is_empty() {
                         return (
@@ -926,10 +895,10 @@ fn parse_arg(
                     let string: String = chars.collect();
 
                     // We haven't done much with the inner string, so let's go ahead and work with it
-                    let lite_block = match lite_parse(&string, lite_arg.span.start() + 1) {
-                        Ok(lp) => lp,
-                        Err(e) => return (garbage(lite_arg.span), Some(e.cause)),
-                    };
+                    let (lite_block, err) = lite_parse(&string, lite_arg.span.start() + 1);
+                    if err.is_some() {
+                        return (garbage(lite_arg.span), err);
+                    }
 
                     let classified_block = classify_block(&lite_block, registry);
                     let error = classified_block.failed;
@@ -1147,10 +1116,10 @@ fn parse_parenthesized_expression(
             let string: String = chars.collect();
 
             // We haven't done much with the inner string, so let's go ahead and work with it
-            let lite_block = match lite_parse(&string, lite_arg.span.start() + 1) {
-                Ok(lb) => lb,
-                Err(e) => return (garbage(lite_arg.span), Some(e.cause)),
-            };
+            let (lite_block, err) = lite_parse(&string, lite_arg.span.start() + 1);
+            if err.is_some() {
+                return (garbage(lite_arg.span), err);
+            }
 
             if lite_block.block.len() != 1 {
                 return (
@@ -1162,9 +1131,10 @@ fn parse_parenthesized_expression(
             let mut lite_pipeline = lite_block.block[0].clone();
 
             let mut collection = vec![];
-            for lite_cmd in lite_pipeline.commands.iter_mut() {
-                collection.push(lite_cmd.name.clone());
-                collection.append(&mut lite_cmd.args);
+            for lite_pipeline in lite_pipeline.pipelines.iter_mut() {
+                for lite_cmd in lite_pipeline.commands.iter_mut() {
+                    collection.append(&mut lite_cmd.parts);
+                }
             }
             let (_, expr, err) =
                 parse_math_expression(0, &collection[..], registry, shorthand_mode);
@@ -1343,7 +1313,7 @@ fn parse_positional_argument(
     remaining_positionals: usize,
     registry: &dyn SignatureRegistry,
 ) -> (usize, SpannedExpression, Option<ParseError>) {
-    let mut idx = idx;
+    let mut idx = idx + 1;
     let mut error = None;
     let arg = match positional_type {
         PositionalType::Mandatory(_, SyntaxShape::Math)
@@ -1351,23 +1321,23 @@ fn parse_positional_argument(
             // A condition can take up multiple arguments, as we build the operation as <arg> <operator> <arg>
             // We need to do this here because in parse_arg, we have access to only one arg at a time
 
-            if idx < lite_cmd.args.len() {
-                if lite_cmd.args[idx].item.starts_with('{') {
+            if idx < lite_cmd.parts.len() {
+                if lite_cmd.parts[idx].item.starts_with('{') {
                     // It's an explicit math expression, so parse it deeper in
-                    let (arg, err) = parse_arg(SyntaxShape::Math, registry, &lite_cmd.args[idx]);
+                    let (arg, err) = parse_arg(SyntaxShape::Math, registry, &lite_cmd.parts[idx]);
                     if error.is_none() {
                         error = err;
                     }
                     arg
                 } else {
-                    let end_idx = if lite_cmd.args.len() > remaining_positionals {
-                        lite_cmd.args.len() - remaining_positionals
+                    let end_idx = if (lite_cmd.parts.len() - 1) > remaining_positionals {
+                        lite_cmd.parts.len() - remaining_positionals
                     } else {
-                        lite_cmd.args.len()
+                        lite_cmd.parts.len()
                     };
 
                     let (new_idx, arg, err) =
-                        parse_math_expression(idx, &lite_cmd.args[idx..end_idx], registry, true);
+                        parse_math_expression(idx, &lite_cmd.parts[idx..end_idx], registry, true);
 
                     let span = arg.span;
                     let mut commands = hir::Commands::new(span);
@@ -1386,7 +1356,7 @@ fn parse_positional_argument(
             } else {
                 if error.is_none() {
                     error = Some(ParseError::argument_error(
-                        lite_cmd.name.clone(),
+                        lite_cmd.parts[0].clone(),
                         ArgumentError::MissingMandatoryPositional("condition".into()),
                     ))
                 }
@@ -1394,7 +1364,7 @@ fn parse_positional_argument(
             }
         }
         PositionalType::Mandatory(_, shape) | PositionalType::Optional(_, shape) => {
-            let (arg, err) = parse_arg(*shape, registry, &lite_cmd.args[idx]);
+            let (arg, err) = parse_arg(*shape, registry, &lite_cmd.parts[idx]);
             if error.is_none() {
                 error = err;
             }
@@ -1416,14 +1386,25 @@ fn parse_internal_command(
 ) -> (InternalCommand, Option<ParseError>) {
     // This is a known internal command, so we need to work with the arguments and parse them according to the expected types
 
-    let (name, name_span) = if idx == 0 {
-        (lite_cmd.name.item.clone(), lite_cmd.name.span)
-    } else {
-        (
-            format!("{} {}", lite_cmd.name.item, lite_cmd.args[0].item),
-            Span::new(lite_cmd.name.span.start(), lite_cmd.args[0].span.end()),
-        )
-    };
+    // let (name, name_span) = if idx == 0 {
+    //     (lite_cmd.name.item.clone(), lite_cmd.name.span)
+    // } else {
+    //     (
+    //         format!("{} {}", lite_cmd.name.item, lite_cmd.args[0].item),
+    //         Span::new(lite_cmd.name.span.start(), lite_cmd.args[0].span.end()),
+    //     )
+    // };
+    let (name, name_span) = (
+        lite_cmd.parts[0..(idx + 1)]
+            .iter()
+            .map(|x| x.item.clone())
+            .collect::<Vec<String>>()
+            .join(" "),
+        Span::new(
+            lite_cmd.parts[0].span.start(),
+            lite_cmd.parts[idx].span.end(),
+        ),
+    );
 
     let mut internal_command = InternalCommand::new(name, name_span, lite_cmd.span());
     internal_command.args.set_initial_flags(&signature);
@@ -1432,32 +1413,33 @@ fn parse_internal_command(
     let mut named = NamedArguments::new();
     let mut positional = vec![];
     let mut error = None;
+    idx = idx + 1; // Start where the arguments begin
 
-    while idx < lite_cmd.args.len() {
-        if lite_cmd.args[idx].item.starts_with('-') && lite_cmd.args[idx].item.len() > 1 {
+    while idx < lite_cmd.parts.len() {
+        if lite_cmd.parts[idx].item.starts_with('-') && lite_cmd.parts[idx].item.len() > 1 {
             let (named_types, err) =
-                get_flags_from_flag(&signature, &lite_cmd.name, &lite_cmd.args[idx]);
+                get_flags_from_flag(&signature, &lite_cmd.parts[0], &lite_cmd.parts[idx]);
 
             if err.is_none() {
                 for (full_name, named_type) in &named_types {
                     match named_type {
                         NamedType::Mandatory(_, shape) | NamedType::Optional(_, shape) => {
-                            if idx == lite_cmd.args.len() {
+                            if idx == lite_cmd.parts.len() {
                                 // Oops, we're missing the argument to our named argument
                                 if error.is_none() {
                                     error = Some(ParseError::argument_error(
-                                        lite_cmd.name.clone(),
+                                        lite_cmd.parts[0].clone(),
                                         ArgumentError::MissingValueForName(format!("{:?}", shape)),
                                     ));
                                 }
                             } else {
                                 idx += 1;
-                                if lite_cmd.args.len() > idx {
+                                if lite_cmd.parts.len() > idx {
                                     let (arg, err) =
-                                        parse_arg(*shape, registry, &lite_cmd.args[idx]);
+                                        parse_arg(*shape, registry, &lite_cmd.parts[idx]);
                                     named.insert_mandatory(
                                         full_name.clone(),
-                                        lite_cmd.args[idx - 1].span,
+                                        lite_cmd.parts[idx - 1].span,
                                         arg,
                                     );
 
@@ -1466,7 +1448,7 @@ fn parse_internal_command(
                                     }
                                 } else if error.is_none() {
                                     error = Some(ParseError::argument_error(
-                                        lite_cmd.name.clone(),
+                                        lite_cmd.parts[0].clone(),
                                         ArgumentError::MissingValueForName(full_name.to_owned()),
                                     ));
                                 }
@@ -1475,13 +1457,13 @@ fn parse_internal_command(
                         NamedType::Switch(_) => {
                             named.insert_switch(
                                 full_name.clone(),
-                                Some(Flag::new(FlagKind::Longhand, lite_cmd.args[idx].span)),
+                                Some(Flag::new(FlagKind::Longhand, lite_cmd.parts[idx].span)),
                             );
                         }
                     }
                 }
             } else {
-                positional.push(garbage(lite_cmd.args[idx].span));
+                positional.push(garbage(lite_cmd.parts[idx].span));
 
                 if error.is_none() {
                     error = err;
@@ -1506,7 +1488,7 @@ fn parse_internal_command(
             positional.push(arg);
             current_positional += 1;
         } else if let Some((rest_type, _)) = &signature.rest_positional {
-            let (arg, err) = parse_arg(*rest_type, registry, &lite_cmd.args[idx]);
+            let (arg, err) = parse_arg(*rest_type, registry, &lite_cmd.parts[idx]);
             if error.is_none() {
                 error = err;
             }
@@ -1514,12 +1496,12 @@ fn parse_internal_command(
             positional.push(arg);
             current_positional += 1;
         } else {
-            positional.push(garbage(lite_cmd.args[idx].span));
+            positional.push(garbage(lite_cmd.parts[idx].span));
 
             if error.is_none() {
                 error = Some(ParseError::argument_error(
-                    lite_cmd.name.clone(),
-                    ArgumentError::UnexpectedArgument(lite_cmd.args[idx].clone()),
+                    lite_cmd.parts[0].clone(),
+                    ArgumentError::UnexpectedArgument(lite_cmd.parts[idx].clone()),
                 ));
             }
         }
@@ -1539,7 +1521,7 @@ fn parse_internal_command(
         if !named.named.contains_key("help") {
             let (_, name) = &signature.positional[positional.len()];
             error = Some(ParseError::argument_error(
-                lite_cmd.name.clone(),
+                lite_cmd.parts[0].clone(),
                 ArgumentError::MissingMandatoryPositional(name.to_owned()),
             ));
         }
@@ -1568,9 +1550,8 @@ fn classify_pipeline(
 
     let mut iter = lite_pipeline.commands.iter().peekable();
     while let Some(lite_cmd) = iter.next() {
-        if lite_cmd.name.item.starts_with('^') {
-            let name = lite_cmd
-                .name
+        if lite_cmd.parts[0].item.starts_with('^') {
+            let name = lite_cmd.parts[0]
                 .clone()
                 .map(|v| v.chars().skip(1).collect::<String>());
             // TODO this is the same as the `else` branch below, only the name differs. Find a way
@@ -1584,7 +1565,7 @@ fn classify_pipeline(
             }
             args.push(name);
 
-            for lite_arg in &lite_cmd.args {
+            for lite_arg in &lite_cmd.parts[1..] {
                 let (expr, err) = parse_external_arg(registry, lite_arg);
                 if error.is_none() {
                     error = err;
@@ -1610,15 +1591,16 @@ fn classify_pipeline(
                     },
                 },
             }))
-        } else if lite_cmd.name.item == "=" {
-            let expr = if !lite_cmd.args.is_empty() {
-                let (_, expr, err) = parse_math_expression(0, &lite_cmd.args[0..], registry, false);
+        } else if lite_cmd.parts[0].item == "=" {
+            let expr = if lite_cmd.parts.len() > 1 {
+                let (_, expr, err) =
+                    parse_math_expression(0, &lite_cmd.parts[1..], registry, false);
                 error = error.or(err);
                 expr
             } else {
                 error = error.or_else(|| {
                     Some(ParseError::argument_error(
-                        lite_cmd.name.clone(),
+                        lite_cmd.parts[0].clone(),
                         ArgumentError::MissingMandatoryPositional("an expression".into()),
                     ))
                 });
@@ -1626,11 +1608,12 @@ fn classify_pipeline(
             };
             commands.push(ClassifiedCommand::Expr(Box::new(expr)))
         } else {
-            if !lite_cmd.args.is_empty() {
+            if lite_cmd.parts.len() > 2 {
                 // Check if it's a sub-command
-                if let Some(signature) =
-                    registry.get(&format!("{} {}", lite_cmd.name.item, lite_cmd.args[0].item))
-                {
+                if let Some(signature) = registry.get(&format!(
+                    "{} {}",
+                    lite_cmd.parts[0].item, lite_cmd.parts[1].item
+                )) {
                     let (mut internal_command, err) =
                         parse_internal_command(&lite_cmd, registry, &signature, 1);
 
@@ -1646,7 +1629,7 @@ fn classify_pipeline(
             }
 
             // Check if it's an internal command
-            if let Some(signature) = registry.get(&lite_cmd.name.item) {
+            if let Some(signature) = registry.get(&lite_cmd.parts[0].item) {
                 let (mut internal_command, err) =
                     parse_internal_command(&lite_cmd, registry, &signature, 0);
 
@@ -1660,7 +1643,7 @@ fn classify_pipeline(
                 continue;
             }
 
-            let name = lite_cmd.name.clone().map(|v| {
+            let name = lite_cmd.parts[0].clone().map(|v| {
                 let trimmed = trim_quotes(&v);
                 expand_path(&trimmed).to_string()
             });
@@ -1674,7 +1657,7 @@ fn classify_pipeline(
             }
             args.push(name);
 
-            for lite_arg in &lite_cmd.args {
+            for lite_arg in &lite_cmd.parts[1..] {
                 let (expr, err) = parse_external_arg(registry, lite_arg);
                 if error.is_none() {
                     error = err;
@@ -1712,33 +1695,31 @@ fn expand_shorthand_forms(
     lite_pipeline: &LitePipeline,
 ) -> (LitePipeline, Option<SpannedKeyValue>, Option<ParseError>) {
     if !lite_pipeline.commands.is_empty() {
-        if lite_pipeline.commands[0].name.item == "=" {
+        if lite_pipeline.commands[0].parts[0].item == "=" {
             (lite_pipeline.clone(), None, None)
-        } else if lite_pipeline.commands[0].name.contains('=') {
-            let assignment: Vec<_> = lite_pipeline.commands[0].name.split('=').collect();
+        } else if lite_pipeline.commands[0].parts[0].contains('=') {
+            let assignment: Vec<_> = lite_pipeline.commands[0].parts[0].split('=').collect();
             if assignment.len() != 2 {
                 (
                     lite_pipeline.clone(),
                     None,
                     Some(ParseError::mismatch(
                         "environment variable assignment",
-                        lite_pipeline.commands[0].name.clone(),
+                        lite_pipeline.commands[0].parts[0].clone(),
                     )),
                 )
             } else {
-                let original_span = lite_pipeline.commands[0].name.span;
+                let original_span = lite_pipeline.commands[0].parts[0].span;
                 let env_value = trim_quotes(assignment[1]);
 
                 let (variable_name, value) = (assignment[0], env_value);
                 let mut lite_pipeline = lite_pipeline.clone();
 
-                if !lite_pipeline.commands[0].args.is_empty() {
-                    let new_lite_command_name = lite_pipeline.commands[0].args[0].clone();
-                    let mut new_lite_command_args = lite_pipeline.commands[0].args.clone();
-                    new_lite_command_args.remove(0);
+                if !lite_pipeline.commands[0].parts.len() > 1 {
+                    let mut new_lite_command_parts = lite_pipeline.commands[0].parts.clone();
+                    new_lite_command_parts.remove(0);
 
-                    lite_pipeline.commands[0].name = new_lite_command_name;
-                    lite_pipeline.commands[0].args = new_lite_command_args;
+                    lite_pipeline.commands[0].parts = new_lite_command_parts;
 
                     (
                         lite_pipeline,
@@ -1754,7 +1735,7 @@ fn expand_shorthand_forms(
                         None,
                         Some(ParseError::mismatch(
                             "a command following variable",
-                            lite_pipeline.commands[0].name.clone(),
+                            lite_pipeline.commands[0].parts[0].clone(),
                         )),
                     )
                 }
@@ -1771,61 +1752,63 @@ pub fn classify_block(lite_block: &LiteBlock, registry: &dyn SignatureRegistry) 
     let mut command_list = vec![];
 
     let mut error = None;
-    for lite_pipeline in &lite_block.block {
-        let (lite_pipeline, vars, err) = expand_shorthand_forms(lite_pipeline);
-        if error.is_none() {
-            error = err;
-        }
-
-        let (pipeline, err) = classify_pipeline(&lite_pipeline, registry);
-
-        let pipeline = if let Some(vars) = vars {
-            let span = pipeline.commands.span;
-            let block = hir::Block::new(vec![], vec![pipeline.commands.clone()], span);
-            let mut call = hir::Call::new(
-                Box::new(SpannedExpression {
-                    expr: Expression::string("with-env".to_string()),
-                    span,
-                }),
-                span,
-            );
-            call.positional = Some(vec![
-                SpannedExpression {
-                    expr: Expression::List(vec![
-                        SpannedExpression {
-                            expr: Expression::string(vars.0.item),
-                            span: vars.0.span,
-                        },
-                        SpannedExpression {
-                            expr: Expression::string(vars.1.item),
-                            span: vars.1.span,
-                        },
-                    ]),
-                    span: Span::new(vars.0.span.start(), vars.1.span.end()),
-                },
-                SpannedExpression {
-                    expr: Expression::Block(block),
-                    span,
-                },
-            ]);
-            let classified_with_env = ClassifiedCommand::Internal(InternalCommand {
-                name: "with-env".to_string(),
-                name_span: Span::unknown(),
-                args: call,
-            });
-            ClassifiedPipeline {
-                commands: Commands {
-                    list: vec![classified_with_env],
-                    span,
-                },
+    for lite_group in &lite_block.block {
+        for lite_pipeline in &lite_group.pipelines {
+            let (lite_pipeline, vars, err) = expand_shorthand_forms(lite_pipeline);
+            if error.is_none() {
+                error = err;
             }
-        } else {
-            pipeline
-        };
 
-        command_list.push(pipeline.commands);
-        if error.is_none() {
-            error = err;
+            let (pipeline, err) = classify_pipeline(&lite_pipeline, registry);
+
+            let pipeline = if let Some(vars) = vars {
+                let span = pipeline.commands.span;
+                let block = hir::Block::new(vec![], vec![pipeline.commands.clone()], span);
+                let mut call = hir::Call::new(
+                    Box::new(SpannedExpression {
+                        expr: Expression::string("with-env".to_string()),
+                        span,
+                    }),
+                    span,
+                );
+                call.positional = Some(vec![
+                    SpannedExpression {
+                        expr: Expression::List(vec![
+                            SpannedExpression {
+                                expr: Expression::string(vars.0.item),
+                                span: vars.0.span,
+                            },
+                            SpannedExpression {
+                                expr: Expression::string(vars.1.item),
+                                span: vars.1.span,
+                            },
+                        ]),
+                        span: Span::new(vars.0.span.start(), vars.1.span.end()),
+                    },
+                    SpannedExpression {
+                        expr: Expression::Block(block),
+                        span,
+                    },
+                ]);
+                let classified_with_env = ClassifiedCommand::Internal(InternalCommand {
+                    name: "with-env".to_string(),
+                    name_span: Span::unknown(),
+                    args: call,
+                });
+                ClassifiedPipeline {
+                    commands: Commands {
+                        list: vec![classified_with_env],
+                        span,
+                    },
+                }
+            } else {
+                pipeline
+            };
+
+            command_list.push(pipeline.commands);
+            if error.is_none() {
+                error = err;
+            }
         }
     }
     let block = Block::new(vec![], command_list, lite_block.span());
