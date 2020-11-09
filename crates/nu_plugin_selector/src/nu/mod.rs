@@ -12,6 +12,7 @@ impl Plugin for Selector {
         Ok(Signature::build("selector")
             .desc("execute selector query on html/web")
             .required("query", SyntaxShape::String, "selector query")
+            .switch("as_html", "return the query output as html", Some('a'))
             .filter())
     }
 
@@ -27,6 +28,7 @@ impl Plugin for Selector {
 
         self.query = query.as_string()?;
         self.tag = tag;
+        self.as_html = call_info.args.has("as_html");
 
         Ok(vec![])
     }
@@ -36,10 +38,12 @@ impl Plugin for Selector {
             Value {
                 value: UntaggedValue::Primitive(Primitive::String(s)),
                 ..
-            } => Ok(begin_selector_query(s, (*self.query).tagged(&self.tag))?
-                .into_iter()
-                .map(ReturnSuccess::value)
-                .collect()),
+            } => Ok(
+                begin_selector_query(s, (*self.query).tagged(&self.tag), self.as_html)?
+                    .into_iter()
+                    .map(ReturnSuccess::value)
+                    .collect(),
+            ),
             Value { tag, .. } => Err(ShellError::labeled_error_with_secondary(
                 "Expected text from pipeline",
                 "requires text input",
