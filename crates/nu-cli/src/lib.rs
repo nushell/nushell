@@ -43,8 +43,8 @@ mod examples;
 pub use crate::cli::cli;
 
 pub use crate::cli::{
-    create_default_context, parse_and_eval, process_script, register_plugins, run_script_file,
-    run_script_standalone, LineResult,
+    create_default_context, parse_and_eval, process_line, register_plugins,
+    run_pipeline_standalone, run_vec_of_pipelines, LineResult,
 };
 pub use crate::command_registry::CommandRegistry;
 pub use crate::commands::command::{

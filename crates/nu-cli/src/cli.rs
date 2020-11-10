@@ -290,8 +290,8 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
     Ok(context)
 }
 
-pub async fn run_script_file(
-    file_contents: String,
+pub async fn run_vec_of_pipelines(
+    pipelines: Vec<String>,
     redirect_stdin: bool,
 ) -> Result<(), Box<dyn Error>> {
     let mut syncer = EnvironmentSyncer::new();
@@ -313,7 +313,9 @@ pub async fn run_script_file(
 
     let _ = run_startup_commands(&mut context, &config).await;
 
-    run_script_standalone(file_contents, redirect_stdin, &mut context, true).await?;
+    for pipeline in pipelines {
+        run_pipeline_standalone(pipeline, redirect_stdin, &mut context, true).await?;
+    }
 
     Ok(())
 }
@@ -473,7 +475,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
         }
 
         let line = match convert_rustyline_result_to_string(readline) {
-            LineResult::Success(s) => process_script(&s, &mut context, false, true).await,
+            LineResult::Success(s) => process_line(&s, &mut context, false, true).await,
             x => x,
         };
 
@@ -600,7 +602,8 @@ async fn run_startup_commands(
             } => {
                 for pipeline in pipelines {
                     if let Ok(pipeline_string) = pipeline.as_string() {
-                        let _ = run_script_standalone(pipeline_string, false, context, false).await;
+                        let _ =
+                            run_pipeline_standalone(pipeline_string, false, context, false).await;
                     }
                 }
             }
@@ -615,13 +618,13 @@ async fn run_startup_commands(
     Ok(())
 }
 
-pub async fn run_script_standalone(
-    script_text: String,
+pub async fn run_pipeline_standalone(
+    pipeline: String,
     redirect_stdin: bool,
     context: &mut EvaluationContext,
     exit_on_error: bool,
 ) -> Result<(), Box<dyn Error>> {
-    let line = process_script(&script_text, context, redirect_stdin, false).await;
+    let line = process_line(&pipeline, context, redirect_stdin, false).await;
 
     match line {
         LineResult::Success(line) => {
@@ -889,16 +892,16 @@ pub async fn parse_and_eval(line: &str, ctx: &mut EvaluationContext) -> Result<S
 }
 
 /// Process the line by parsing the text to turn it into commands, classify those commands so that we understand what is being called in the pipeline, and then run this pipeline
-pub async fn process_script(
-    script_text: &str,
+pub async fn process_line(
+    line: &str,
     ctx: &mut EvaluationContext,
     redirect_stdin: bool,
     cli_mode: bool,
 ) -> LineResult {
-    if script_text.trim() == "" {
-        LineResult::Success(script_text.to_string())
+    if line.trim() == "" {
+        LineResult::Success(line.to_string())
     } else {
-        let line = chomp_newline(script_text);
+        let line = chomp_newline(line);
         ctx.raw_input = line.to_string();
 
         let (result, err) = nu_parser::lite_parse(&line, 0);
@@ -927,12 +930,11 @@ pub async fn process_script(
         // ...then change to this directory
         if cli_mode
             && classified_block.block.block.len() == 1
-            && classified_block.block.block[0].pipelines.len() == 1
-            && classified_block.block.block[0].pipelines[0].list.len() == 1
+            && classified_block.block.block[0].list.len() == 1
         {
             if let ClassifiedCommand::Internal(InternalCommand {
                 ref name, ref args, ..
-            }) = classified_block.block.block[0].pipelines[0].list[0]
+            }) = classified_block.block.block[0].list[0]
             {
                 let internal_name = name;
                 let name = args

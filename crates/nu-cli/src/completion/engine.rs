@@ -138,7 +138,7 @@ impl<'s> Flatten<'s> {
         result
     }
 
-    fn pipeline(&self, pipeline: &Pipeline) -> Vec<CompletionLocation> {
+    fn pipeline(&self, pipeline: &Commands) -> Vec<CompletionLocation> {
         let mut result = Vec::new();
 
         for command in &pipeline.list {
@@ -158,11 +158,7 @@ impl<'s> Flatten<'s> {
 
     /// Flattens the block into a Vec of completion locations
     pub fn completion_locations(&self, block: &Block) -> Vec<CompletionLocation> {
-        block
-            .block
-            .iter()
-            .flat_map(|g| g.pipelines.iter().flat_map(|v| self.pipeline(v)))
-            .collect()
+        block.block.iter().flat_map(|v| self.pipeline(v)).collect()
     }
 
     pub fn new(line: &'s str) -> Flatten<'s> {
