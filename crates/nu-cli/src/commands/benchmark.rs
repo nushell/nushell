@@ -5,7 +5,7 @@ use crate::prelude::*;
 use heim::cpu::time;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::{Block, ClassifiedCommand, Commands, InternalCommand},
+    hir::{Block, ClassifiedCommand, Group, InternalCommand, Pipeline},
     Dictionary, Scope, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use rand::{
@@ -175,15 +175,19 @@ where
 
 fn add_implicit_autoview(mut block: Block) -> Block {
     if block.block.is_empty() {
-        block.push({
-            let mut commands = Commands::new(block.span);
-            commands.push(ClassifiedCommand::Internal(InternalCommand::new(
-                "autoview".to_string(),
-                block.span,
-                block.span,
-            )));
-            commands
-        });
+        let group = Group::new(
+            vec![{
+                let mut commands = Pipeline::new(block.span);
+                commands.push(ClassifiedCommand::Internal(InternalCommand::new(
+                    "autoview".to_string(),
+                    block.span,
+                    block.span,
+                )));
+                commands
+            }],
+            block.span,
+        );
+        block.push(group);
     }
     block
 }

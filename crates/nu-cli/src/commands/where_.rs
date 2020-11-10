@@ -81,9 +81,9 @@ async fn where_command(
                 tag,
             ));
         }
-        match block.block[0].list.get(0) {
-            Some(item) => match item {
-                ClassifiedCommand::Expr(expr) => expr.clone(),
+        match block.block[0].pipelines.get(0) {
+            Some(item) => match item.list.get(0) {
+                Some(ClassifiedCommand::Expr(expr)) => expr.clone(),
                 _ => {
                     return Err(ShellError::labeled_error(
                         "Expected a condition",
