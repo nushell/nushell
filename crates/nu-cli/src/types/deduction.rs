@@ -5,8 +5,8 @@ use nu_errors::ShellError;
 use nu_parser::SignatureRegistry;
 use nu_protocol::{
     hir::{
-        Binary, Block, ClassifiedCommand, Commands, Expression, Literal, NamedArguments,
-        NamedValue, Operator, SpannedExpression,
+        Binary, Block, ClassifiedCommand, Expression, Literal, NamedArguments, NamedValue,
+        Operator, Pipeline, SpannedExpression,
     },
     NamedType, PositionalType, Signature, SyntaxShape,
 };
@@ -318,7 +318,7 @@ fn spanned_to_binary(bin_spanned: &SpannedExpression) -> &Binary {
 ///Returns result shape of this math expr otherwise
 fn get_result_shape_of_math_expr(
     bin: &Binary,
-    (pipeline_idx, pipeline): (usize, &Commands),
+    (pipeline_idx, pipeline): (usize, &Pipeline),
     registry: &CommandRegistry,
 ) -> Result<Option<SyntaxShape>, ShellError> {
     let mut shapes: Vec<Option<SyntaxShape>> = vec![];
@@ -388,15 +388,17 @@ impl VarSyntaxShapeDeductor {
 
     fn infer_shape(&mut self, block: &Block, registry: &CommandRegistry) -> Result<(), ShellError> {
         trace!("Infering vars in shape");
-        for pipeline in &block.block {
-            self.infer_pipeline(pipeline, registry)?;
+        for group in &block.block {
+            for pipeline in &group.pipelines {
+                self.infer_pipeline(pipeline, registry)?;
+            }
         }
         Ok(())
     }
 
     pub fn infer_pipeline(
         &mut self,
-        pipeline: &Commands,
+        pipeline: &Pipeline,
         registry: &CommandRegistry,
     ) -> Result<(), ShellError> {
         trace!("Infering vars in pipeline");
@@ -534,7 +536,7 @@ impl VarSyntaxShapeDeductor {
 
     fn infer_shapes_in_expr(
         &mut self,
-        (pipeline_idx, pipeline): (usize, &Commands),
+        (pipeline_idx, pipeline): (usize, &Pipeline),
         spanned_expr: &SpannedExpression,
         registry: &CommandRegistry,
     ) -> Result<(), ShellError> {
@@ -660,7 +662,7 @@ impl VarSyntaxShapeDeductor {
         (var, expr): (&VarUsage, &SpannedExpression),
         //source_bin is binary having var on one and expr on other side
         source_bin: &SpannedExpression,
-        (pipeline_idx, pipeline): (usize, &Commands),
+        (pipeline_idx, pipeline): (usize, &Pipeline),
         registry: &CommandRegistry,
     ) -> Result<Option<SyntaxShape>, ShellError> {
         get_result_shape_of_math_expr(spanned_to_binary(expr), (pipeline_idx, pipeline), registry)
@@ -682,7 +684,7 @@ impl VarSyntaxShapeDeductor {
         (var, expr): (&VarUsage, &SpannedExpression),
         //source_bin is binary having var on one and expr on other side
         source_bin: &SpannedExpression,
-        (pipeline_idx, pipeline): (usize, &Commands),
+        (pipeline_idx, pipeline): (usize, &Pipeline),
         registry: &CommandRegistry,
     ) -> Result<Option<SyntaxShape>, ShellError> {
         trace!("Getting shape of binary arg {:?} for var {:?}", expr, var);
@@ -714,7 +716,7 @@ impl VarSyntaxShapeDeductor {
         var: &VarUsage,
         bin_spanned: &SpannedExpression,
         list: &[SpannedExpression],
-        (_pipeline_idx, _pipeline): (usize, &Commands),
+        (_pipeline_idx, _pipeline): (usize, &Pipeline),
         _registry: &CommandRegistry,
     ) -> Option<Vec<SyntaxShape>> {
         let shapes_in_list = list
@@ -740,7 +742,7 @@ impl VarSyntaxShapeDeductor {
         var_side: BinarySide,
         //Binary having expr on one side and var on other
         bin_spanned: &SpannedExpression,
-        (pipeline_idx, pipeline): (usize, &Commands),
+        (pipeline_idx, pipeline): (usize, &Pipeline),
         registry: &CommandRegistry,
     ) -> Result<(), ShellError> {
         trace!("Infering shapes between var {:?} and expr {:?}", var, expr);
@@ -893,7 +895,7 @@ impl VarSyntaxShapeDeductor {
 
     fn infer_shapes_in_binary_expr(
         &mut self,
-        (pipeline_idx, pipeline): (usize, &Commands),
+        (pipeline_idx, pipeline): (usize, &Pipeline),
         bin_spanned: &SpannedExpression,
         registry: &CommandRegistry,
     ) -> Result<(), ShellError> {

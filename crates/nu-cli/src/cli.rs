@@ -927,11 +927,12 @@ pub async fn process_script(
         // ...then change to this directory
         if cli_mode
             && classified_block.block.block.len() == 1
-            && classified_block.block.block[0].list.len() == 1
+            && classified_block.block.block[0].pipelines.len() == 1
+            && classified_block.block.block[0].pipelines[0].list.len() == 1
         {
             if let ClassifiedCommand::Internal(InternalCommand {
                 ref name, ref args, ..
-            }) = classified_block.block.block[0].list[0]
+            }) = classified_block.block.block[0].pipelines[0].list[0]
             {
                 let internal_name = name;
                 let name = args

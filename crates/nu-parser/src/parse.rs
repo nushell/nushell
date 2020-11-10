@@ -3,9 +3,9 @@ use std::path::Path;
 use log::trace;
 use nu_errors::{ArgumentError, ParseError};
 use nu_protocol::hir::{
-    self, Binary, Block, ClassifiedBlock, ClassifiedCommand, ClassifiedPipeline, Commands,
-    Expression, ExternalRedirection, Flag, FlagKind, InternalCommand, Member, NamedArguments,
-    Operator, RangeOperator, SpannedExpression, Unit,
+    self, Binary, Block, ClassifiedBlock, ClassifiedCommand, ClassifiedPipeline, Expression,
+    ExternalRedirection, Flag, FlagKind, Group, InternalCommand, Member, NamedArguments, Operator,
+    Pipeline, RangeOperator, SpannedExpression, Unit,
 };
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPathMember};
 use nu_source::{Span, Spanned, SpannedItem};
@@ -584,7 +584,7 @@ fn parse_interpolated_string(
         }
     }
 
-    let block = vec![Commands {
+    let pipelines = vec![Pipeline {
         span: lite_arg.span,
         list: vec![ClassifiedCommand::Internal(InternalCommand {
             name: "build-string".to_owned(),
@@ -602,8 +602,10 @@ fn parse_interpolated_string(
         })],
     }];
 
+    let group = Group::new(pipelines, lite_arg.span);
+
     let call = SpannedExpression {
-        expr: Expression::Invocation(Block::new(vec![], block, lite_arg.span)),
+        expr: Expression::Invocation(Block::new(vec![], vec![group], lite_arg.span)),
         span: lite_arg.span,
     };
 
@@ -1341,10 +1343,14 @@ fn parse_positional_argument(
                         parse_math_expression(idx, &lite_cmd.parts[idx..end_idx], registry, true);
 
                     let span = arg.span;
-                    let mut commands = hir::Commands::new(span);
+                    let mut commands = hir::Pipeline::new(span);
                     commands.push(ClassifiedCommand::Expr(Box::new(arg)));
 
-                    let block = hir::Block::new(vec![], vec![commands], span);
+                    let block = hir::Block::new(
+                        vec![],
+                        vec![Group::new(vec![commands], lite_cmd.span())],
+                        span,
+                    );
 
                     let arg = SpannedExpression::new(Expression::Block(block), span);
 
@@ -1538,7 +1544,7 @@ fn classify_pipeline(
     lite_pipeline: &LitePipeline,
     registry: &dyn SignatureRegistry,
 ) -> (ClassifiedPipeline, Option<ParseError>) {
-    let mut commands = Commands::new(lite_pipeline.span());
+    let mut commands = Pipeline::new(lite_pipeline.span());
     let mut error = None;
 
     let mut iter = lite_pipeline.commands.iter().peekable();
@@ -1745,10 +1751,10 @@ fn expand_shorthand_forms(
 }
 
 pub fn classify_block(lite_block: &LiteBlock, registry: &dyn SignatureRegistry) -> ClassifiedBlock {
-    let mut command_list = vec![];
-
+    let mut block = vec![];
     let mut error = None;
     for lite_group in &lite_block.block {
+        let mut command_list = vec![];
         for lite_pipeline in &lite_group.pipelines {
             let (lite_pipeline, vars, err) = expand_shorthand_forms(lite_pipeline);
             if error.is_none() {
@@ -1759,7 +1765,8 @@ pub fn classify_block(lite_block: &LiteBlock, registry: &dyn SignatureRegistry) 
 
             let pipeline = if let Some(vars) = vars {
                 let span = pipeline.commands.span;
-                let block = hir::Block::new(vec![], vec![pipeline.commands.clone()], span);
+                let group = Group::new(vec![pipeline.commands.clone()], span);
+                let block = hir::Block::new(vec![], vec![group], span);
                 let mut call = hir::Call::new(
                     Box::new(SpannedExpression {
                         expr: Expression::string("with-env".to_string()),
@@ -1792,7 +1799,7 @@ pub fn classify_block(lite_block: &LiteBlock, registry: &dyn SignatureRegistry) 
                     args: call,
                 });
                 ClassifiedPipeline {
-                    commands: Commands {
+                    commands: Pipeline {
                         list: vec![classified_with_env],
                         span,
                     },
@@ -1806,8 +1813,10 @@ pub fn classify_block(lite_block: &LiteBlock, registry: &dyn SignatureRegistry) 
                 error = err;
             }
         }
+        let group = Group::new(command_list, lite_block.span());
+        block.push(group);
     }
-    let block = Block::new(vec![], command_list, lite_block.span());
+    let block = Block::new(vec![], block, lite_block.span());
 
     ClassifiedBlock::new(block, error)
 }

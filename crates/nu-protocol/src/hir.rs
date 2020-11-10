@@ -62,11 +62,11 @@ impl ClassifiedBlock {
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct ClassifiedPipeline {
-    pub commands: Commands,
+    pub commands: Pipeline,
 }
 
 impl ClassifiedPipeline {
-    pub fn new(commands: Commands) -> ClassifiedPipeline {
+    pub fn new(commands: Pipeline) -> ClassifiedPipeline {
         ClassifiedPipeline { commands }
     }
 }
@@ -92,14 +92,14 @@ impl ClassifiedCommand {
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
-pub struct Commands {
+pub struct Pipeline {
     pub list: Vec<ClassifiedCommand>,
     pub span: Span,
 }
 
-impl Commands {
-    pub fn new(span: Span) -> Commands {
-        Commands { list: vec![], span }
+impl Pipeline {
+    pub fn new(span: Span) -> Pipeline {
+        Pipeline { list: vec![], span }
     }
 
     pub fn push(&mut self, command: ClassifiedCommand) {
@@ -112,14 +112,33 @@ impl Commands {
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
+pub struct Group {
+    pub pipelines: Vec<Pipeline>,
+    pub span: Span,
+}
+impl Group {
+    pub fn new(pipelines: Vec<Pipeline>, span: Span) -> Group {
+        Group { pipelines, span }
+    }
+
+    pub fn push(&mut self, pipeline: Pipeline) {
+        self.pipelines.push(pipeline);
+    }
+
+    pub fn has_it_usage(&self) -> bool {
+        self.pipelines.iter().any(|cc| cc.has_it_usage())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct Block {
     pub params: Vec<String>,
-    pub block: Vec<Commands>,
+    pub block: Vec<Group>,
     pub span: Span,
 }
 
 impl Block {
-    pub fn new(params: Vec<String>, block: Vec<Commands>, span: Span) -> Block {
+    pub fn new(params: Vec<String>, block: Vec<Group>, span: Span) -> Block {
         let mut output = Block {
             params,
             block,
@@ -130,16 +149,18 @@ impl Block {
         output
     }
 
-    pub fn push(&mut self, commands: Commands) {
-        self.block.push(commands);
+    pub fn push(&mut self, group: Group) {
+        self.block.push(group);
         self.infer_params();
     }
 
     pub fn set_redirect(&mut self, external_redirection: ExternalRedirection) {
-        if let Some(pipeline) = self.block.last_mut() {
-            if let Some(command) = pipeline.list.last_mut() {
-                if let ClassifiedCommand::Internal(internal) = command {
-                    internal.args.external_redirection = external_redirection;
+        if let Some(group) = self.block.last_mut() {
+            if let Some(pipeline) = group.pipelines.last_mut() {
+                if let Some(command) = pipeline.list.last_mut() {
+                    if let ClassifiedCommand::Internal(internal) = command {
+                        internal.args.external_redirection = external_redirection;
+                    }
                 }
             }
         }
