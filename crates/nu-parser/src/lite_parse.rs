@@ -117,17 +117,6 @@ impl LiteGroup {
     pub fn push(&mut self, item: LitePipeline) {
         self.pipelines.push(item)
     }
-    pub fn is_comment(&self) -> bool {
-        if !self.is_empty()
-            && !self.pipelines[0].is_empty()
-            && !self.pipelines[0].commands.is_empty()
-            && !self.pipelines[0].commands[0].parts.is_empty()
-        {
-            self.pipelines[0].commands[0].parts[0].item.starts_with('#')
-        } else {
-            false
-        }
-    }
     pub(crate) fn span(&self) -> Span {
         let start = if !self.pipelines.is_empty() {
             self.pipelines[0].span().start()
@@ -359,9 +348,7 @@ fn group(tokens: Vec<Token>) -> (LiteBlock, Option<ParseError>) {
                     pipeline = LitePipeline::new();
                 }
                 if !group.is_empty() {
-                    if !group.is_comment() {
-                        groups.push(group);
-                    }
+                    groups.push(group);
                     group = LiteGroup::new();
                 }
             }
@@ -402,7 +389,7 @@ fn group(tokens: Vec<Token>) -> (LiteBlock, Option<ParseError>) {
     if !pipeline.is_empty() {
         group.push(pipeline);
     }
-    if !group.is_empty() && !group.is_comment() {
+    if !group.is_empty() {
         groups.push(group);
     }
 
