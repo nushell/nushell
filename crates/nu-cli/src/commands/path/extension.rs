@@ -59,6 +59,16 @@ impl WholeStreamCommand for PathExtension {
                 example: "echo 'test' | path extension",
                 result: Some(vec![Value::from("")]),
             },
+            Example {
+                description: "Replace an extension with a custom string",
+                example: "echo 'test.txt' | path extension -r md",
+                result: Some(vec![Value::from("test.md")]),
+            },
+            Example {
+                description: "To replace more complex extensions:",
+                example: "echo 'test.tar.gz' | path extension -r '' | path extension -r txt",
+                result: Some(vec![Value::from("test.txt")]),
+            },
         ]
     }
 }
