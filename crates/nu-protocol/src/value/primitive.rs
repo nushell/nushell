@@ -69,14 +69,37 @@ impl Primitive {
                 ShellError::range_error(
                     ExpectedRange::U64,
                     &format!("{}", int).spanned(span),
-                    "converting an integer into a 64-bit integer",
+                    "converting an integer into an unsigned 64-bit integer",
                 )
             }),
             Primitive::Decimal(decimal) => decimal.to_u64().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::U64,
                     &format!("{}", decimal).spanned(span),
-                    "converting a decimal into a 64-bit integer",
+                    "converting a decimal into an unsigned 64-bit integer",
+                )
+            }),
+            other => Err(ShellError::type_error(
+                "number",
+                other.type_name().spanned(span),
+            )),
+        }
+    }
+
+    pub fn as_i64(&self, span: Span) -> Result<i64, ShellError> {
+        match self {
+            Primitive::Int(int) => int.to_i64().ok_or_else(|| {
+                ShellError::range_error(
+                    ExpectedRange::I64,
+                    &format!("{}", int).spanned(span),
+                    "converting an integer into a signed 64-bit integer",
+                )
+            }),
+            Primitive::Decimal(decimal) => decimal.to_i64().ok_or_else(|| {
+                ShellError::range_error(
+                    ExpectedRange::I64,
+                    &format!("{}", decimal).spanned(span),
+                    "converting a decimal into a signed 64-bit integer",
                 )
             }),
             other => Err(ShellError::type_error(
