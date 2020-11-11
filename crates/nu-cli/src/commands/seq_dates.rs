@@ -3,10 +3,9 @@ use crate::prelude::*;
 use chrono::naive::NaiveDate;
 use chrono::{Duration, Local};
 use nu_errors::ShellError;
-use nu_protocol::{value::I64Ext, value::StrExt, value::StringExt};
+use nu_protocol::{value::I64Ext, value::StrExt, value::StringExt, value::U64Ext};
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
-// use std::cmp;
 
 pub struct SeqDates;
 
@@ -18,6 +17,8 @@ pub struct SeqDatesArgs {
     begin_date: Option<Tagged<String>>,
     end_date: Option<Tagged<String>>,
     increment: Option<Tagged<i64>>,
+    days: Option<Tagged<u64>>,
+    reverse: Tagged<bool>,
 }
 
 #[async_trait]
@@ -59,6 +60,13 @@ impl WholeStreamCommand for SeqDates {
                 "increment dates by this number",
                 Some('n'),
             )
+            .named(
+                "days",
+                SyntaxShape::Int,
+                "number of days to print",
+                Some('d'),
+            )
+            .switch("reverse", "print dates in reverse", Some('r'))
     }
 
     fn usage(&self) -> &str {
@@ -141,6 +149,8 @@ async fn seq_dates(
             begin_date,
             end_date,
             increment,
+            days,
+            reverse,
         },
         _,
     ) = args.process(&registry).await?;
@@ -169,13 +179,13 @@ async fn seq_dates(
     };
 
     let outformat = match output_format {
-        Some(s) => s.item.to_string_value_create_tag(),
-        _ => "%Y-%m-%d".to_str_value_create_tag(),
+        Some(s) => Some(s.item.to_string_value(s.tag)),
+        _ => None,
     };
 
     let informat = match input_format {
-        Some(s) => s.item.to_string_value_create_tag(),
-        _ => "%Y-%m-%d".to_str_value_create_tag(),
+        Some(s) => Some(s.item.to_string_value(s.tag)),
+        _ => None,
     };
 
     let begin = match begin_date {
@@ -189,11 +199,24 @@ async fn seq_dates(
     };
 
     let inc = match increment {
-        Some(i) => i.to_value_create_tag(),
+        Some(i) => {
+            let clone = i.clone();
+            i.to_value(clone.tag)
+        }
         _ => (1 as i64).to_value_create_tag(),
     };
 
-    run_seq_dates(sep, outformat, informat, begin, end, inc)
+    let day_count: Option<Value> = match days {
+        Some(i) => Some(i.item.to_value(i.tag)),
+        _ => None,
+    };
+
+    let mut rev = false;
+    if *reverse {
+        rev = *reverse;
+    }
+
+    run_seq_dates(sep, outformat, informat, begin, end, inc, day_count, rev)
 }
 
 pub fn parse_date_string(s: &str, format: &str) -> Result<NaiveDate, &'static str> {
@@ -204,53 +227,53 @@ pub fn parse_date_string(s: &str, format: &str) -> Result<NaiveDate, &'static st
     Ok(d)
 }
 
-// fn parse_float(mut s: &str) -> Result<f64, String> {
-//     if s.starts_with('+') {
-//         s = &s[1..];
-//     }
-//     match s.parse() {
-//         Ok(n) => Ok(n),
-//         Err(e) => Err(format!(
-//             "seq date: invalid floating point argument `{}`: {}",
-//             s, e
-//         )),
-//     }
-// }
-
-// fn escape_sequences(s: &str) -> String {
-//     s.replace("\\n", "\n").replace("\\t", "\t")
-// }
-
 pub fn run_seq_dates(
     separator: String,
-    output_format: Value,
-    input_format: Value,
+    output_format: Option<Value>,
+    input_format: Option<Value>,
     beginning_date: Option<String>,
     ending_date: Option<String>,
     increment: Value,
+    day_count: Option<Value>,
+    reverse: bool,
 ) -> Result<OutputStream, ShellError> {
     let today = Local::today().naive_local();
-    // default step size is 1
     let mut step_size: i64 = increment
-        .as_u64()
-        .expect("unable to change increment to i64") as i64;
-    // let mut start_date = today;
-    // let mut end_date = today;
-    let informat = input_format
-        .as_string()
-        .expect("unable to make input_format a string");
-    let out_format = output_format
-        .as_string()
-        .expect("unable to make output format a string");
+        .as_i64()
+        .expect("unable to change increment to i64");
+
+    if step_size == 0 {
+        return Err(ShellError::labeled_error(
+            "increment cannot be 0",
+            "increment cannot be 0",
+            increment.tag,
+        ));
+    }
+
+    let in_format = match input_format {
+        Some(i) => i.as_string().map_err(|e| {
+            ShellError::labeled_error(
+                e.to_string(),
+                "error with input_format as_string",
+                i.tag.span,
+            )
+        })?,
+        None => "%Y-%m-%d".to_string(),
+    };
+
+    let out_format = match output_format {
+        Some(o) => o.as_string().map_err(|e| {
+            ShellError::labeled_error(
+                e.to_string(),
+                "error with output_format as_string",
+                o.tag.span,
+            )
+        })?,
+        None => "%Y-%m-%d".to_string(),
+    };
 
     let start_date = match beginning_date {
-        Some(d) => match parse_date_string(
-            &d,
-            &informat,
-            // &input_format
-            //     .as_string()
-            //     .expect("unable to make input_format a string"),
-        ) {
+        Some(d) => match parse_date_string(&d, &in_format) {
             Ok(nd) => nd,
             Err(e) => {
                 return Err(ShellError::labeled_error(
@@ -263,14 +286,8 @@ pub fn run_seq_dates(
         _ => today,
     };
 
-    let end_date = match ending_date {
-        Some(d) => match parse_date_string(
-            &d,
-            &informat,
-            // &input_format
-            //     .as_string()
-            //     .expect("unable to make input format a string"),
-        ) {
+    let mut end_date = match ending_date {
+        Some(d) => match parse_date_string(&d, &in_format) {
             Ok(nd) => nd,
             Err(e) => {
                 return Err(ShellError::labeled_error(
@@ -283,8 +300,32 @@ pub fn run_seq_dates(
         _ => today,
     };
 
-    //   conceptually counting down with a positive step or counting up with a negative step
-    //   makes no sense, attempt to do what one means by inverting the signs in those cases.
+    let mut days_to_output = match day_count {
+        Some(d) => d.as_i64()?,
+        None => 0i64,
+    };
+
+    // Make the signs opposite if we're created dates in reverse direction
+    if reverse {
+        step_size = step_size * -1;
+        days_to_output = days_to_output * -1;
+    }
+
+    if days_to_output != 0 {
+        end_date = match start_date.checked_add_signed(Duration::days(days_to_output)) {
+            Some(date) => date,
+            None => {
+                return Err(ShellError::labeled_error(
+                    "integer value too large",
+                    "integer value too large",
+                    Tag::unknown(),
+                ));
+            }
+        }
+    }
+
+    // conceptually counting down with a positive step or counting up with a negative step
+    // makes no sense, attempt to do what one means by inverting the signs in those cases.
     if (start_date > end_date) && (step_size > 0) || (start_date < end_date) && step_size < 0 {
         step_size = -step_size;
     }
@@ -309,7 +350,6 @@ pub fn run_seq_dates(
     let mut ret_str = String::from("");
     loop {
         ret_str.push_str(&format!("{}", next.format(&out_format)));
-        // print!("{}", next.format(output_format.as_str()));
         // TODO: check this value is good
         next += Duration::days(step_size);
 
@@ -317,7 +357,6 @@ pub fn run_seq_dates(
             break;
         }
 
-        // print!("{}", separator);
         ret_str.push_str(&format!("{}", separator));
     }
 
@@ -327,138 +366,6 @@ pub fn run_seq_dates(
         .collect();
     Ok(futures::stream::iter(rows.into_iter().map(ReturnSuccess::value)).to_output_stream())
 }
-
-// pub fn run_seq_dates(
-//     sep: String,
-//     output_format: Value,
-//     input_format: Value,
-//     begin_date: Option<String>,
-//     end_date: Option<String>,
-//     increment: Value,
-// ) -> Result<OutputStream, ShellError> {
-//     let mut largest_dec = 0;
-//     let mut padding = 0;
-//     let first = if free.len() > 1 {
-//         let slice = &free[0][..];
-//         let len = slice.len();
-//         let dec = slice.find('.').unwrap_or(len);
-//         largest_dec = len - dec;
-//         padding = dec;
-//         match parse_float(slice) {
-//             Ok(n) => n,
-//             Err(s) => {
-//                 return Err(ShellError::labeled_error(
-//                     s,
-//                     "error parsing float",
-//                     Tag::unknown(),
-//                 ));
-//             }
-//         }
-//     } else {
-//         1.0
-//     };
-//     let step = if free.len() > 2 {
-//         let slice = &free[1][..];
-//         let len = slice.len();
-//         let dec = slice.find('.').unwrap_or(len);
-//         largest_dec = cmp::max(largest_dec, len - dec);
-//         padding = cmp::max(padding, dec);
-//         match parse_float(slice) {
-//             Ok(n) => n,
-//             Err(s) => {
-//                 return Err(ShellError::labeled_error(
-//                     s,
-//                     "error parsing float",
-//                     Tag::unknown(),
-//                 ));
-//             }
-//         }
-//     } else {
-//         1.0
-//     };
-//     let last = {
-//         let slice = &free[free.len() - 1][..];
-//         padding = cmp::max(padding, slice.find('.').unwrap_or_else(|| slice.len()));
-//         match parse_float(slice) {
-//             Ok(n) => n,
-//             Err(s) => {
-//                 return Err(ShellError::labeled_error(
-//                     s,
-//                     "error parsing float",
-//                     Tag::unknown(),
-//                 ));
-//             }
-//         }
-//     };
-//     if largest_dec > 0 {
-//         largest_dec -= 1;
-//     }
-//     let separator = escape_sequences(&sep[..]);
-//     let terminator = match termy {
-//         Some(term) => escape_sequences(&term[..]),
-//         None => separator.clone(),
-//     };
-//     print_seq_dates(
-//         first,
-//         step,
-//         last,
-//         largest_dec,
-//         separator,
-//         terminator,
-//         widths,
-//         padding,
-//     )
-// }
-
-// fn done_printing(next: f64, step: f64, last: f64) -> bool {
-//     if step >= 0f64 {
-//         next > last
-//     } else {
-//         next < last
-//     }
-// }
-
-// #[allow(clippy::too_many_arguments)]
-// fn print_seq_dates(
-//     first: f64,
-//     step: f64,
-//     last: f64,
-//     largest_dec: usize,
-//     separator: String,
-//     terminator: String,
-//     pad: bool,
-//     padding: usize,
-// ) -> Result<OutputStream, ShellError> {
-//     let mut i = 0isize;
-//     let mut value = first + i as f64 * step;
-//     let mut ret_str = "".to_owned();
-//     while !done_printing(value, step, last) {
-//         let istr = format!("{:.*}", largest_dec, value);
-//         let ilen = istr.len();
-//         let before_dec = istr.find('.').unwrap_or(ilen);
-//         if pad && before_dec < padding {
-//             for _ in 0..(padding - before_dec) {
-//                 ret_str.push_str("0");
-//             }
-//         }
-//         ret_str.push_str(&istr);
-//         i += 1;
-//         value = first + i as f64 * step;
-//         if !done_printing(value, step, last) {
-//             ret_str.push_str(&separator);
-//         }
-//     }
-
-//     if (first >= last && step < 0f64) || (first <= last && step > 0f64) {
-//         ret_str.push_str(&terminator);
-//     }
-
-//     let rows: Vec<Value> = ret_str
-//         .lines()
-//         .map(|v| v.to_str_value_create_tag())
-//         .collect();
-//     Ok(futures::stream::iter(rows.into_iter().map(ReturnSuccess::value)).to_output_stream())
-// }
 
 #[cfg(test)]
 mod tests {
