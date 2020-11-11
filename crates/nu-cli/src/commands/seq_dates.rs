@@ -80,55 +80,57 @@ impl WholeStreamCommand for SeqDates {
     ) -> Result<OutputStream, ShellError> {
         seq_dates(args, registry).await
     }
-    // after_help("If only LAST is given, first defaults to today.  If INCREMENT is omitted, it\n \
-    // defaults to 1. If FIRST is later than LAST, the sequence will be printed\n \
-    // backward.  This is different than the seq command.  INCREMENT can not be zero,\n \
-    // that makes no sense.\n\n \
-    // FORMAT arguments to input and output must be suitable for strftime and strptime.\n\
-    // The default format for both input and output is YYYY-MM-DD.\n\n\
-    // Examples:\n\
-    // Print the next 10 days in YYYY-MM-DD format\n\
-    // $ dseq 10\n\
-    // Print the last 10 days starting today in MM/DD/YYYY format\n\
-    // $ dseq -o %m/%d/%Y -10\n\
-    // Print the days in January, 2015\n\
-    // $ dseq 2015-01-01 2015-01-31\n\
-    // Print every fifth day between January 7th 2015 and May 9th 2015\n\
-    // $ dseq 2015-01-07 5 2015-05-09\n\
-    // Print the next 10 days in your locale's date format, comma separated\n\
-    // $ dseq -o %x -s : 10\n")
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "sequence dates 1 to 10 with newline separator",
-                example: "seq date 1/1/1 1/1/10",
+                description: "print the next 10 days in YYYY-MM-DD format with newline separator",
+                example: "seq date --days 10",
+                result: None,
+            },
+            Example {
+                description: "print the previous 10 days in YYYY-MM-DD format with newline separator",
+                example: "seq date --days 10 -r",
+                result: None,
+            },
+            Example {
+                description: "print the previous 10 days starting today in MM/DD/YYYY format with newline separator",
+                example: "seq date --days 10 -o '%m/%d/%Y' -r",
+                result: None,
+            },
+            Example {
+                description: "print the first 10 days in January, 2020",
+                example: "seq date -b '2020-01-01' -e '2020-01-10'",
                 result: Some(vec![
-                    UntaggedValue::string("1").into(),
-                    UntaggedValue::string("2").into(),
-                    UntaggedValue::string("3").into(),
-                    UntaggedValue::string("4").into(),
-                    UntaggedValue::string("5").into(),
-                    UntaggedValue::string("6").into(),
-                    UntaggedValue::string("7").into(),
-                    UntaggedValue::string("8").into(),
-                    UntaggedValue::string("9").into(),
-                    UntaggedValue::string("10").into(),
+                    UntaggedValue::string("2020-01-01").into(),
+                    UntaggedValue::string("2020-01-02").into(),
+                    UntaggedValue::string("2020-01-03").into(),
+                    UntaggedValue::string("2020-01-04").into(),
+                    UntaggedValue::string("2020-01-05").into(),
+                    UntaggedValue::string("2020-01-06").into(),
+                    UntaggedValue::string("2020-01-07").into(),
+                    UntaggedValue::string("2020-01-08").into(),
+                    UntaggedValue::string("2020-01-09").into(),
+                    UntaggedValue::string("2020-01-10").into(),
                 ]),
             },
             Example {
-                description: "sequence dates 1 to 10 with pipe separator",
-                example: "seq date -s '|' 1 10",
-                result: Some(vec![Value::from("1|2|3|4|5|6|7|8|9|10")]),
+                description: "print every fifth day between January 1st 2020 and January 31st 2020",
+                example: "seq date -b '2020-01-01' -e '2020-01-31' -n 5",
+                result: Some(vec![
+                    UntaggedValue::string("2020-01-01").into(),
+                    UntaggedValue::string("2020-01-06").into(),
+                    UntaggedValue::string("2020-01-11").into(),
+                    UntaggedValue::string("2020-01-16").into(),
+                    UntaggedValue::string("2020-01-21").into(),
+                    UntaggedValue::string("2020-01-26").into(),
+                    UntaggedValue::string("2020-01-31").into(),
+                ]),
             },
             Example {
-                description: "sequence dates 1 to 10 with pipe separator padded with 0",
-                example: "seq dates -s '|' -w 1 10",
-                result: Some(vec![Value::from("01|02|03|04|05|06|07|08|09|10")]),
-            },
-            Example {
-                description: "sequence dates1 to 10 with pipe separator padded by 2s",
-                example: "seq date -s ' | ' -w 1 2 10",
-                result: Some(vec![Value::from("01 | 03 | 05 | 07 | 09")]),
+                description: "starting on May 5th, 2020, print the next 10 days in your locale's date format, colon separated",
+                example: "seq date -o %x -s ':' -d 10 -b '2020-05-01'",
+                result: None,
             },
         ]
     }
@@ -227,6 +229,7 @@ pub fn parse_date_string(s: &str, format: &str) -> Result<NaiveDate, &'static st
     Ok(d)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn run_seq_dates(
     separator: String,
     output_format: Option<Value>,
@@ -307,8 +310,8 @@ pub fn run_seq_dates(
 
     // Make the signs opposite if we're created dates in reverse direction
     if reverse {
-        step_size = step_size * -1;
-        days_to_output = days_to_output * -1;
+        step_size *= -1;
+        days_to_output *= -1;
     }
 
     if days_to_output != 0 {
@@ -330,13 +333,8 @@ pub fn run_seq_dates(
         step_size = -step_size;
     }
 
-    let is_out_of_range = |next| {
-        if (step_size > 0 && next > end_date) || (step_size < 0 && next < end_date) {
-            true
-        } else {
-            false
-        }
-    };
+    let is_out_of_range =
+        |next| (step_size > 0 && next > end_date) || (step_size < 0 && next < end_date);
 
     let mut next = start_date;
     if is_out_of_range(next) {
@@ -357,7 +355,7 @@ pub fn run_seq_dates(
             break;
         }
 
-        ret_str.push_str(&format!("{}", separator));
+        ret_str.push_str(&separator);
     }
 
     let rows: Vec<Value> = ret_str
