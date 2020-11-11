@@ -66,7 +66,7 @@ impl WholeStreamCommand for PathExtension {
             },
             Example {
                 description: "To replace more complex extensions:",
-                example: "echo 'test.tar.gz' | path extension -r '' | path extension -r txt",
+                example: "echo 'test.tar.gz' | path filestem | path extension -r txt",
                 result: Some(vec![Value::from("test.txt")]),
             },
         ]
@@ -75,14 +75,14 @@ impl WholeStreamCommand for PathExtension {
 
 fn action(path: &Path, replace_with: Arc<Option<String>>) -> UntaggedValue {
     match &*replace_with {
-        Some(ref ext) => {
+        Some(extension) => {
             UntaggedValue::string(
-                path.with_extension(&ext).to_string_lossy()
+                path.with_extension(extension).to_string_lossy()
             )
         },
         None => {
             UntaggedValue::string(match path.extension() {
-                Some(ext) => ext.to_string_lossy(),
+                Some(extension) => extension.to_string_lossy(),
                 _ => "".into(),
             })
         },
