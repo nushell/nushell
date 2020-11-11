@@ -2,10 +2,15 @@ use super::{operate, DefaultArguments};
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue, Value};
 use std::path::Path;
 
 pub struct PathExists;
+
+#[derive(Deserialize)]
+struct PathExistsArguments {
+    rest: Vec<ColumnPath>,
+}
 
 #[async_trait]
 impl WholeStreamCommand for PathExists {
@@ -27,9 +32,14 @@ impl WholeStreamCommand for PathExists {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (DefaultArguments { rest }, input) = args.process(&registry).await?;
-        let arg = Arc::new(None);
-        operate(input, rest, &action, tag.span, arg).await
+        let (PathExistsArguments { rest }, input) = args.process(&registry).await?;
+        let args = Arc::new(DefaultArguments {
+            replace: None,
+            extension: None,
+            num_levels: None,
+            paths: rest,
+        });
+        operate(input, &action, tag.span, args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -41,7 +51,7 @@ impl WholeStreamCommand for PathExists {
     }
 }
 
-fn action(path: &Path, _arg: Arc<Option<String>>) -> UntaggedValue {
+fn action(path: &Path, _args: Arc<DefaultArguments>) -> UntaggedValue {
     UntaggedValue::boolean(path.exists())
 }
 

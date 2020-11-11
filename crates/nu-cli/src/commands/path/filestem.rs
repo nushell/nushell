@@ -2,10 +2,15 @@ use super::{operate, DefaultArguments};
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue, Value};
 use std::path::Path;
 
 pub struct PathFilestem;
+
+#[derive(Deserialize)]
+struct PathFilestemArguments {
+    rest: Vec<ColumnPath>,
+}
 
 #[async_trait]
 impl WholeStreamCommand for PathFilestem {
@@ -28,9 +33,14 @@ impl WholeStreamCommand for PathFilestem {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (DefaultArguments { rest }, input) = args.process(&registry).await?;
-        let arg = Arc::new(None);
-        operate(input, rest, &action, tag.span, arg).await
+        let (PathFilestemArguments { rest }, input) = args.process(&registry).await?;
+        let args = Arc::new(DefaultArguments {
+            replace: None,
+            extension: None,
+            num_levels: None,
+            paths: rest,
+        });
+        operate(input, &action, tag.span, args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -42,7 +52,7 @@ impl WholeStreamCommand for PathFilestem {
     }
 }
 
-fn action(path: &Path, _arg: Arc<Option<String>>) -> UntaggedValue {
+fn action(path: &Path, _args: Arc<DefaultArguments>) -> UntaggedValue {
     UntaggedValue::string(match path.file_stem() {
         Some(stem) => stem.to_string_lossy().to_string(),
         _ => "".to_string(),

@@ -1,4 +1,4 @@
-use super::operate;
+use super::{operate, DefaultArguments};
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -43,8 +43,13 @@ impl WholeStreamCommand for PathExtension {
         let tag = args.call_info.name_tag.clone();
         let (PathExtensionArguments { replace, rest }, input) =
             args.process(&registry).await?;
-        let arg = Arc::new(replace.map(|v| v.item));
-        operate(input, rest, &action, tag.span, arg).await
+        let args = Arc::new(DefaultArguments {
+            replace: replace.map(|v| v.item),
+            extension: None,
+            num_levels: None,
+            paths: rest,
+        });
+        operate(input, &action, tag.span, args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -73,9 +78,9 @@ impl WholeStreamCommand for PathExtension {
     }
 }
 
-fn action(path: &Path, replace_with: Arc<Option<String>>) -> UntaggedValue {
-    match &*replace_with {
-        Some(extension) => {
+fn action(path: &Path, args: Arc<DefaultArguments>) -> UntaggedValue {
+    match args.replace {
+        Some(ref extension) => {
             UntaggedValue::string(
                 path.with_extension(extension).to_string_lossy()
             )

@@ -3,10 +3,15 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use crate::shell::filesystem_shell::get_file_type;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue, Value};
 use std::path::Path;
 
 pub struct PathType;
+
+#[derive(Deserialize)]
+struct PathTypeArguments {
+    rest: Vec<ColumnPath>,
+}
 
 #[async_trait]
 impl WholeStreamCommand for PathType {
@@ -28,9 +33,14 @@ impl WholeStreamCommand for PathType {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (DefaultArguments { rest }, input) = args.process(&registry).await?;
-        let arg = Arc::new(None);
-        operate(input, rest, &action, tag.span, arg).await
+        let (PathTypeArguments { rest }, input) = args.process(&registry).await?;
+        let args = Arc::new(DefaultArguments {
+            replace: None,
+            extension: None,
+            num_levels: None,
+            paths: rest,
+        });
+        operate(input, &action, tag.span, args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -42,7 +52,7 @@ impl WholeStreamCommand for PathType {
     }
 }
 
-fn action(path: &Path, _arg: Arc<Option<String>>) -> UntaggedValue {
+fn action(path: &Path, _args: Arc<DefaultArguments>) -> UntaggedValue {
     let meta = std::fs::symlink_metadata(path);
     UntaggedValue::string(match &meta {
         Ok(md) => get_file_type(md),
