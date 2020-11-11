@@ -1,11 +1,18 @@
-use super::{operate, DefaultArguments};
+use super::operate;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_source::Tagged;
 use std::path::Path;
 
 pub struct PathBasename;
+
+#[derive(Deserialize)]
+struct PathBasenameArguments {
+    replace: Option<Tagged<String>>,
+    rest: Vec<ColumnPath>,
+}
 
 #[async_trait]
 impl WholeStreamCommand for PathBasename {
@@ -15,6 +22,12 @@ impl WholeStreamCommand for PathBasename {
 
     fn signature(&self) -> Signature {
         Signature::build("path basename")
+            .named(
+                "replace",
+                SyntaxShape::String,
+                "Replace extension with this string",
+                Some('r'),
+            )
             .rest(SyntaxShape::ColumnPath, "optionally operate by path")
     }
 
@@ -28,25 +41,42 @@ impl WholeStreamCommand for PathBasename {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (DefaultArguments { rest }, input) = args.process(&registry).await?;
-        let arg = Arc::new(None);
+        let (PathBasenameArguments { replace, rest }, input) =
+            args.process(&registry).await?;
+        let arg = Arc::new(replace.map(|v| v.item));
         operate(input, rest, &action, tag.span, arg).await
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Get basename of a path",
-            example: "echo '/home/joe/test.txt' | path basename",
-            result: Some(vec![Value::from("test.txt")]),
-        }]
+        vec![
+            Example {
+                description: "Get basename of a path",
+                example: "echo '/home/joe/test.txt' | path basename",
+                result: Some(vec![Value::from("test.txt")]),
+            },
+            Example {
+                description: "Replace basename of a path",
+                example: "echo '/home/joe/test.txt' | path basename -r 'spam.png'",
+                result: Some(vec![Value::from("/home/joe/spam.png")]),
+            },
+        ]
     }
 }
 
-fn action(path: &Path, _arg: Arc<Option<String>>) -> UntaggedValue {
-    UntaggedValue::string(match path.file_name() {
-        Some(filename) => filename.to_string_lossy().to_string(),
-        _ => "".to_string(),
-    })
+fn action(path: &Path, replace_with: Arc<Option<String>>) -> UntaggedValue {
+    match &*replace_with {
+        Some(basename) => {
+            UntaggedValue::string(
+                path.with_file_name(basename).to_string_lossy()
+            )
+        },
+        None => {
+            UntaggedValue::string(match path.file_name() {
+                Some(filename) => filename.to_string_lossy(),
+                _ => "".into(),
+            })
+        },
+    }
 }
 
 #[cfg(test)]
