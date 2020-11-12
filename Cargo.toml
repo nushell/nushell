@@ -118,6 +118,12 @@ tree = ["nu_plugin_tree"]
 xpath = ["nu_plugin_xpath"]
 selector = ["nu_plugin_selector"]
 
+[profile.release]
+#strip = "symbols" #Couldn't get working +nightly
+opt-level = 'z' #Optimize for size
+lto = true #Link Time Optimization
+codegen-units = 1 #Reduce parallel codegen units
+
 # Core plugins that ship with `cargo install nu` by default
 # Currently, Cargo limits us to installing only one binary
 # unless we use [[bin]], so we use this as a workaround
