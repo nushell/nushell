@@ -86,22 +86,28 @@ async fn history(
 
                     // The previous line was a timestamp for the current command
                     if prev_was_timestamp {
-                        map.insert(
-                            "timestamp".to_string(),
-                            UntaggedValue::date(
-                                Utc.timestamp(prev_timestamp.parse::<i64>().unwrap(), 0),
-                            )
-                            .into_untagged_value(),
-                        );
-                        map.insert(
-                            "command".to_string(),
-                            UntaggedValue::string(current_line).into_untagged_value(),
-                        );
-                        prev_was_timestamp = false;
+                        match prev_timestamp.parse::<i64>() {
+                            Ok(ts) => {
+                                map.insert(
+                                    "timestamp".to_string(),
+                                    UntaggedValue::date(Utc.timestamp(ts, 0)).into_untagged_value(),
+                                );
+                                map.insert(
+                                    "command".to_string(),
+                                    UntaggedValue::string(current_line).into_untagged_value(),
+                                );
+                                prev_was_timestamp = false;
+                            }
+                            Err(_) => {
+                                return Err(ShellError::unexpected(
+                                    "History timestamp is malformed",
+                                ))
+                            }
+                        };
                     } else {
                         // Set the timestamp, if found
-                        if current_line.starts_with("#") {
-                            prev_timestamp = String::from(current_line.trim_start_matches("#"));
+                        if current_line.starts_with('#') {
+                            prev_timestamp = String::from(current_line.trim_start_matches('#'));
                             prev_was_timestamp = true;
                             continue;
                         } else {

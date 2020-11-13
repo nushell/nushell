@@ -24,7 +24,6 @@ use std::error::Error;
 use std::iter::Iterator;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
-use chrono::{DateTime, Local};
 
 pub fn search_paths() -> Vec<std::path::PathBuf> {
     use std::env;
@@ -501,9 +500,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
 
         match line {
             LineResult::Success(line) => {
-                let local: DateTime<Local> = Local::now();
-                rl.add_history_entry(format!("#{}", local.timestamp()));
-                rl.add_history_entry(&line);
+                add_to_rustyline_history(&line, &mut rl);
                 let _ = rl.save_history(&history_path);
                 context.maybe_print_errors(Text::from(line));
             }
@@ -514,9 +511,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
             }
 
             LineResult::Error(line, err) => {
-                let local: DateTime<Local> = Local::now();
-                rl.add_history_entry(format!("#{}", local.timestamp()));
-                rl.add_history_entry(&line);
+                add_to_rustyline_history(&line, &mut rl);
                 let _ = rl.save_history(&history_path);
 
                 context.with_host(|_host| {
@@ -710,6 +705,12 @@ fn default_rustyline_editor_configuration() -> Editor<Helper> {
     }
 
     rl
+}
+
+#[cfg(feature = "rustyline-support")]
+fn add_to_rustyline_history(line: &str, rl: &mut Editor<Helper>) -> bool {
+    rl.add_history_entry(format!("#{}", chrono::Utc::now().timestamp()));
+    rl.add_history_entry(line)
 }
 
 #[cfg(feature = "rustyline-support")]
