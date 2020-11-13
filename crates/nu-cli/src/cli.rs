@@ -24,6 +24,7 @@ use std::error::Error;
 use std::iter::Iterator;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
+use chrono::{DateTime, Local};
 
 pub fn search_paths() -> Vec<std::path::PathBuf> {
     use std::env;
@@ -500,7 +501,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
 
         match line {
             LineResult::Success(line) => {
-                rl.add_history_entry(&line);
+                add_history_entry_with_timestamp(&line);
                 let _ = rl.save_history(&history_path);
                 context.maybe_print_errors(Text::from(line));
             }
@@ -511,7 +512,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
             }
 
             LineResult::Error(line, err) => {
-                rl.add_history_entry(&line);
+                add_history_entry_with_timestamp(&line);
                 let _ = rl.save_history(&history_path);
 
                 context.with_host(|_host| {
@@ -850,6 +851,12 @@ fn chomp_newline(s: &str) -> &str {
     } else {
         s
     }
+}
+
+fn add_history_entry_with_timestamp(line: &str) -> bool {
+    let local: DateTime<Local> = Local::now();
+    rl.add_history_entry(format!("#{}", local.timestamp()));
+    rl.add_history_entry(&line)
 }
 
 #[derive(Debug)]
