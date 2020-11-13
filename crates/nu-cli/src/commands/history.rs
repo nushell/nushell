@@ -1,8 +1,9 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
+use chrono::{TimeZone, Utc};
 use nu_data::config::{Conf, NuConfig};
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
+use nu_protocol::{Signature, UntaggedValue, Value};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
@@ -74,16 +75,51 @@ async fn history(
         }
         None => {
             if let Ok(file) = File::open(path) {
-                let reader = BufReader::new(file);
-                // Skips the first line, which is a Rustyline internal
-                let output = reader.lines().skip(1).filter_map(move |line| match line {
-                    Ok(line) => Some(ReturnSuccess::value(
-                        UntaggedValue::string(line).into_value(tag.clone()),
-                    )),
-                    Err(_) => None,
-                });
+                let mut prev_was_timestamp = false;
+                let mut prev_timestamp: String = String::from("");
+                let mut rows = VecDeque::new();
 
-                Ok(futures::stream::iter(output).to_output_stream())
+                // Skips the first line, which is a Rustyline internal
+                for line in BufReader::new(&file).lines().skip(1) {
+                    let mut map = IndexMap::<String, Value>::new();
+                    let current_line = line?.clone();
+
+                    // The previous line was a timestamp for the current command
+                    if prev_was_timestamp {
+                        map.insert(
+                            "timestamp".to_string(),
+                            UntaggedValue::date(
+                                Utc.timestamp(prev_timestamp.parse::<i64>().unwrap(), 0),
+                            )
+                            .into_untagged_value(),
+                        );
+                        map.insert(
+                            "command".to_string(),
+                            UntaggedValue::string(current_line).into_untagged_value(),
+                        );
+                        prev_was_timestamp = false;
+                    } else {
+                        // Set the timestamp, if found
+                        if current_line.starts_with("#") {
+                            prev_timestamp = String::from(current_line.trim_start_matches("#"));
+                            prev_was_timestamp = true;
+                            continue;
+                        } else {
+                            // No timestamp was found for this command, use current time as default
+                            map.insert(
+                                "timestamp".to_string(),
+                                UntaggedValue::date(chrono::Utc::now()).into_untagged_value(),
+                            );
+                            map.insert(
+                                "command".to_string(),
+                                UntaggedValue::string(current_line).into_untagged_value(),
+                            );
+                        }
+                    }
+
+                    rows.push_back(UntaggedValue::row(map).into_value(&tag));
+                }
+                Ok(futures::stream::iter(rows).to_output_stream())
             } else {
                 Err(ShellError::labeled_error(
                     "Could not open history",

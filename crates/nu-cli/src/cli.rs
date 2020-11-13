@@ -501,7 +501,9 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
 
         match line {
             LineResult::Success(line) => {
-                add_history_entry_with_timestamp(&line);
+                let local: DateTime<Local> = Local::now();
+                rl.add_history_entry(format!("#{}", local.timestamp()));
+                rl.add_history_entry(&line);
                 let _ = rl.save_history(&history_path);
                 context.maybe_print_errors(Text::from(line));
             }
@@ -512,7 +514,9 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
             }
 
             LineResult::Error(line, err) => {
-                add_history_entry_with_timestamp(&line);
+                let local: DateTime<Local> = Local::now();
+                rl.add_history_entry(format!("#{}", local.timestamp()));
+                rl.add_history_entry(&line);
                 let _ = rl.save_history(&history_path);
 
                 context.with_host(|_host| {
@@ -851,12 +855,6 @@ fn chomp_newline(s: &str) -> &str {
     } else {
         s
     }
-}
-
-fn add_history_entry_with_timestamp(line: &str) -> bool {
-    let local: DateTime<Local> = Local::now();
-    rl.add_history_entry(format!("#{}", local.timestamp()));
-    rl.add_history_entry(&line)
 }
 
 #[derive(Debug)]
