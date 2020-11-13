@@ -96,14 +96,20 @@ async fn history(
                                     "command".to_string(),
                                     UntaggedValue::string(current_line).into_untagged_value(),
                                 );
-                                prev_was_timestamp = false;
                             }
                             Err(_) => {
-                                return Err(ShellError::unexpected(
-                                    "History timestamp is malformed",
-                                ))
+                                // Malformed timestamp found for this command, use current time as default
+                                map.insert(
+                                    "timestamp".to_string(),
+                                    UntaggedValue::date(chrono::Utc::now()).into_untagged_value(),
+                                );
+                                map.insert(
+                                    "command".to_string(),
+                                    UntaggedValue::string(current_line).into_untagged_value(),
+                                );
                             }
                         };
+                        prev_was_timestamp = false;
                     } else {
                         // Set the timestamp, if found
                         if current_line.starts_with('#') {
