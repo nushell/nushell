@@ -49,6 +49,26 @@ impl WholeStreamCommand for History {
         "Display command history."
     }
 
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "History of commands",
+                example: "history",
+                result: None,
+            },
+            Example {
+                description: "Commands within last day",
+                example: "history | where timestamp < 1day",
+                result: None,
+            },
+            Example {
+                description: "Clear out history entries",
+                example: "history --clear",
+                result: None,
+            },
+        ]
+    }
+
     async fn run(
         &self,
         args: CommandArgs,
@@ -76,7 +96,7 @@ async fn history(
         None => {
             if let Ok(file) = File::open(path) {
                 let mut prev_was_timestamp = false;
-                let mut prev_timestamp: String = String::from("");
+                let mut prev_timestamp = "".to_string();
                 let mut rows = VecDeque::new();
 
                 // Skips the first line, which is a Rustyline internal
@@ -113,7 +133,7 @@ async fn history(
                     } else {
                         // Set the timestamp, if found
                         if current_line.starts_with('#') {
-                            prev_timestamp = String::from(current_line.trim_start_matches('#'));
+                            prev_timestamp = current_line.trim_start_matches('#').to_string();
                             prev_was_timestamp = true;
                             continue;
                         } else {
