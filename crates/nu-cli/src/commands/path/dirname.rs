@@ -11,6 +11,7 @@ pub struct PathDirname;
 #[derive(Deserialize)]
 struct PathDirnameArguments {
     replace: Option<Tagged<String>>,
+    #[serde(rename = "num-leveles")]
     num_levels: Option<Tagged<u32>>,
     rest: Vec<ColumnPath>,
 }
@@ -30,7 +31,7 @@ impl WholeStreamCommand for PathDirname {
                 Some('r'),
             )
             .named(
-                "num_levels",
+                "num-levels",
                 SyntaxShape::Int,
                 "Number of directories to walk up",
                 Some('n'),
