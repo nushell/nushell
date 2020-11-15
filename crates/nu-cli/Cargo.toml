@@ -24,7 +24,7 @@ nu-value-ext = {version = "0.23.0", path = "../nu-value-ext"}
 ansi_term = "0.12.1"
 async-recursion = "0.3.1"
 async-trait = "0.1.40"
-base64 = "0.12.3"
+base64 = "0.13.0"
 bigdecimal = {version = "0.2.0", features = ["serde"]}
 byte-unit = "4.0.9"
 bytes = "0.5.6"
