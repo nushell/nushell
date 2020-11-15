@@ -96,11 +96,6 @@ fn action(path: &Path, args: Arc<DefaultArguments>) -> UntaggedValue {
         }
     }
 
-    // UntaggedValue::string(match path.parent() {
-    //     Some(dirname) => dirname.to_string_lossy().to_string(),
-    //     _ => "".to_string(),
-    // })
-
     match args.replace {
         Some(ref newdir) => {
             let remainder = path.strip_prefix(dirname).unwrap_or(dirname);
