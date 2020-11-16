@@ -27,7 +27,7 @@ impl WholeStreamCommand for PathDirname {
             .named(
                 "replace",
                 SyntaxShape::String,
-                "Replace extension with this string",
+                "Replace dirname with this string",
                 Some('r'),
             )
             .named(
