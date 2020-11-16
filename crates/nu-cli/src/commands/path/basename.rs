@@ -25,7 +25,7 @@ impl WholeStreamCommand for PathBasename {
             .named(
                 "replace",
                 SyntaxShape::String,
-                "Replace extension with this string",
+                "Replace basename with this string",
                 Some('r'),
             )
             .rest(SyntaxShape::ColumnPath, "optionally operate by path")
@@ -78,7 +78,7 @@ fn action(path: &Path, args: Arc<DefaultArguments>) -> UntaggedValue {
         None => {
             UntaggedValue::string(match path.file_name() {
                 Some(filename) => filename.to_string_lossy(),
-                _ => "".into(),
+                None => "".into(),
             })
         },
     }
