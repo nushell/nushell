@@ -10,6 +10,7 @@ pub struct PathFilestem;
 
 #[derive(Deserialize)]
 struct PathFilestemArguments {
+    prefix: Option<Tagged<String>>,
     suffix: Option<Tagged<String>>,
     replace: Option<Tagged<String>>,
     rest: Vec<ColumnPath>,
@@ -30,9 +31,15 @@ impl WholeStreamCommand for PathFilestem {
                 Some('r'),
             )
             .named(
+                "prefix",
+                SyntaxShape::String,
+                "Prefix to strip from a file name",
+                Some('p'),
+            )
+            .named(
                 "suffix",
                 SyntaxShape::String,
-                "Manually specify filename suffix",
+                "Suffix to strip from a file name",
                 Some('s'),
             )
             .rest(SyntaxShape::ColumnPath, "optionally operate by path")
@@ -48,10 +55,11 @@ impl WholeStreamCommand for PathFilestem {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathFilestemArguments { replace, suffix, rest }, input) =
+        let (PathFilestemArguments { replace, prefix, suffix, rest }, input) =
             args.process(&registry).await?;
         let args = Arc::new(DefaultArguments {
             replace: replace.map(|v| v.item),
+            prefix: prefix.map(|v| v.item),
             suffix: suffix.map(|v| v.item),
             num_levels: None,
             paths: rest,
@@ -60,11 +68,23 @@ impl WholeStreamCommand for PathFilestem {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Get filestem of a path",
-            example: "echo '/home/joe/test.txt' | path filestem",
-            result: Some(vec![Value::from("test")]),
-        }]
+        vec![
+            Example {
+                description: "Get filestem of a path",
+                example: "echo '/home/joe/bacon_lettuce.egg' | path filestem",
+                result: Some(vec![Value::from("bacon_lettuce")]),
+            },
+            Example {
+                description: "Get filestem of a path, stripped of prefix and suffix",
+                example: "echo '/home/joe/bacon_lettuce.egg.gz' | path filestem -p bacon_ -s .egg.gz",
+                result: Some(vec![Value::from("lettuce")]),
+            },
+            Example {
+                description: "Replace the filestem that would be returned",
+                example: "echo '/home/joe/bacon_lettuce.egg.gz' | path filestem -p bacon_ -s .egg.gz -r spam",
+                result: Some(vec![Value::from("/home/viking/bacon_spam.egg.gz")]),
+            },
+        ]
     }
 }
 
@@ -73,8 +93,6 @@ fn action(path: &Path, args: Arc<DefaultArguments>) -> UntaggedValue {
         Some(name) => name.to_string_lossy().to_string(),
         None => "".to_string(),
     };
-
-    // std::str::pattern::Pattern would be better but is unstable
 
     let suffix = match args.suffix {
         Some(ref suf) => match basename.rmatch_indices(suf).next() {
@@ -87,14 +105,27 @@ fn action(path: &Path, args: Arc<DefaultArguments>) -> UntaggedValue {
         },
     };
 
-    let stem = match basename.rmatch_indices(&suffix).next() {
-        Some((i, _)) => basename.split_at(i).0.to_string(),
+    let prefix = match args.prefix {
+        Some(ref pre) => match basename.matches(pre).next() {
+            Some(m) => basename.split_at(m.len()).0.to_string(),
+            None => "".to_string(),
+        },
+        None => "".to_string(),
+    };
+
+    let basename_without_prefix = match basename.matches(&prefix).next() {
+        Some(m) => basename.split_at(m.len()).1.to_string(),
         None => basename,
+    };
+
+    let stem = match basename_without_prefix.rmatch_indices(&suffix).next() {
+        Some((i, _)) => basename_without_prefix.split_at(i).0.to_string(),
+        None => basename_without_prefix,
     };
 
     match args.replace {
         Some(ref replace) => {
-            let new_name = replace.to_string() + &suffix;
+            let new_name = prefix + replace + &suffix;
             UntaggedValue::string(
                 path.with_file_name(&new_name).to_string_lossy()
             )

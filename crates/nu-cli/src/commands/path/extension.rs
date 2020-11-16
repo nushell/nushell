@@ -45,6 +45,7 @@ impl WholeStreamCommand for PathExtension {
             args.process(&registry).await?;
         let args = Arc::new(DefaultArguments {
             replace: replace.map(|v| v.item),
+            prefix: None,
             suffix: None,
             num_levels: None,
             paths: rest,

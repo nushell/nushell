@@ -53,6 +53,7 @@ impl WholeStreamCommand for PathDirname {
             args.process(&registry).await?;
         let args = Arc::new(DefaultArguments {
             replace: replace.map(|v| v.item),
+            prefix: None,
             suffix: None,
             num_levels: num_levels.map(|v| v.item),
             paths: rest,
