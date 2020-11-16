@@ -41,8 +41,7 @@ impl WholeStreamCommand for PathBasename {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathBasenameArguments { replace, rest }, input) =
-            args.process(&registry).await?;
+        let (PathBasenameArguments { replace, rest }, input) = args.process(&registry).await?;
         let args = Arc::new(DefaultArguments {
             replace: replace.map(|v| v.item),
             prefix: None,
@@ -72,16 +71,12 @@ impl WholeStreamCommand for PathBasename {
 fn action(path: &Path, args: Arc<DefaultArguments>) -> UntaggedValue {
     match args.replace {
         Some(ref basename) => {
-            UntaggedValue::string(
-                path.with_file_name(basename).to_string_lossy()
-            )
-        },
-        None => {
-            UntaggedValue::string(match path.file_name() {
-                Some(filename) => filename.to_string_lossy(),
-                None => "".into(),
-            })
-        },
+            UntaggedValue::string(path.with_file_name(basename).to_string_lossy())
+        }
+        None => UntaggedValue::string(match path.file_name() {
+            Some(filename) => filename.to_string_lossy(),
+            None => "".into(),
+        }),
     }
 }
 

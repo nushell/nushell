@@ -55,8 +55,15 @@ impl WholeStreamCommand for PathFilestem {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathFilestemArguments { replace, prefix, suffix, rest }, input) =
-            args.process(&registry).await?;
+        let (
+            PathFilestemArguments {
+                replace,
+                prefix,
+                suffix,
+                rest,
+            },
+            input,
+        ) = args.process(&registry).await?;
         let args = Arc::new(DefaultArguments {
             replace: replace.map(|v| v.item),
             prefix: prefix.map(|v| v.item),
@@ -126,10 +133,8 @@ fn action(path: &Path, args: Arc<DefaultArguments>) -> UntaggedValue {
     match args.replace {
         Some(ref replace) => {
             let new_name = prefix + replace + &suffix;
-            UntaggedValue::string(
-                path.with_file_name(&new_name).to_string_lossy()
-            )
-        },
+            UntaggedValue::string(path.with_file_name(&new_name).to_string_lossy())
+        }
         None => UntaggedValue::string(stem),
     }
 }

@@ -49,8 +49,14 @@ impl WholeStreamCommand for PathDirname {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathDirnameArguments { replace, num_levels, rest }, input) =
-            args.process(&registry).await?;
+        let (
+            PathDirnameArguments {
+                replace,
+                num_levels,
+                rest,
+            },
+            input,
+        ) = args.process(&registry).await?;
         let args = Arc::new(DefaultArguments {
             replace: replace.map(|v| v.item),
             prefix: None,
@@ -86,7 +92,7 @@ fn action(path: &Path, args: Arc<DefaultArguments>) -> UntaggedValue {
     let num_levels = args.num_levels.unwrap_or(1);
 
     let mut dirname = path;
-    let mut reached_top = false;  // end early if somebody passes -n 99999999
+    let mut reached_top = false; // end early if somebody passes -n 99999999
     for _ in 0..num_levels {
         dirname = dirname.parent().unwrap_or_else(|| {
             reached_top = true;
@@ -101,7 +107,7 @@ fn action(path: &Path, args: Arc<DefaultArguments>) -> UntaggedValue {
         Some(ref newdir) => {
             let remainder = path.strip_prefix(dirname).unwrap_or(dirname);
             UntaggedValue::string(Path::new(newdir).join(remainder).to_string_lossy())
-        },
+        }
         None => UntaggedValue::string(dirname.to_string_lossy()),
     }
 }

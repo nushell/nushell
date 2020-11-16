@@ -48,7 +48,9 @@ where
     let v = match &v.value {
         UntaggedValue::Primitive(Primitive::Path(buf)) => action(buf, args).into_value(v.tag()),
         UntaggedValue::Primitive(Primitive::String(s))
-        | UntaggedValue::Primitive(Primitive::Line(s)) => action(s.as_ref(), args).into_value(v.tag()),
+        | UntaggedValue::Primitive(Primitive::Line(s)) => {
+            action(s.as_ref(), args).into_value(v.tag())
+        }
         other => {
             let got = format!("got {}", other.type_name());
             return Err(ShellError::labeled_error_with_secondary(
