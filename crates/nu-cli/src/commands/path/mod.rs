@@ -28,7 +28,7 @@ struct DefaultArguments {
     // used by basename, dirname, extension and filestem
     replace: Option<String>,
     // used by filestem
-    extension: Option<String>,
+    suffix: Option<String>,
     // used by dirname
     num_levels: Option<u32>,
     // used by all

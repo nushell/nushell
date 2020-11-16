@@ -36,7 +36,7 @@ impl WholeStreamCommand for PathType {
         let (PathTypeArguments { rest }, input) = args.process(&registry).await?;
         let args = Arc::new(DefaultArguments {
             replace: None,
-            extension: None,
+            suffix: None,
             num_levels: None,
             paths: rest,
         });
