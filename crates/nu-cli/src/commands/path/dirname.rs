@@ -11,7 +11,7 @@ pub struct PathDirname;
 #[derive(Deserialize)]
 struct PathDirnameArguments {
     replace: Option<Tagged<String>>,
-    #[serde(rename = "num-leveles")]
+    #[serde(rename = "num-levels")]
     num_levels: Option<Tagged<u32>>,
     rest: Vec<ColumnPath>,
 }
