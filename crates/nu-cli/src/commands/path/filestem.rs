@@ -82,7 +82,7 @@ impl WholeStreamCommand for PathFilestem {
             Example {
                 description: "Replace the filestem that would be returned",
                 example: "echo '/home/joe/bacon_lettuce.egg.gz' | path filestem -p bacon_ -s .egg.gz -r spam",
-                result: Some(vec![Value::from("/home/viking/bacon_spam.egg.gz")]),
+                result: Some(vec![Value::from("/home/joe/bacon_spam.egg.gz")]),
             },
         ]
     }
