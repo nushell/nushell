@@ -52,6 +52,23 @@ impl WholeStreamCommand for PathBasename {
         operate(input, &action, tag.span, args).await
     }
 
+    #[cfg(windows)]
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Get basename of a path",
+                example: "echo 'C:\\Users\\joe\\test.txt' | path basename",
+                result: Some(vec![Value::from("test.txt")]),
+            },
+            Example {
+                description: "Replace basename of a path",
+                example: "echo 'C:\\Users\\joe\\test.txt' | path basename -r 'spam.png'",
+                result: Some(vec![Value::from("C:\\Users\\joe\\spam.png")]),
+            },
+        ]
+    }
+
+    #[cfg(not(windows))]
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {

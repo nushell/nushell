@@ -67,6 +67,28 @@ impl WholeStreamCommand for PathDirname {
         operate(input, &action, tag.span, args).await
     }
 
+    #[cfg(windows)]
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Get dirname of a path",
+                example: "echo 'C:\\Users\\joe\\code\\test.txt' | path dirname",
+                result: Some(vec![Value::from("C:\\Users\\joe\\code")]),
+            },
+            Example {
+                description: "Set how many levels up to skip",
+                example: "echo 'C:\\Users\\joe\\code\\test.txt' | path dirname -n 2",
+                result: Some(vec![Value::from("C:\\Users\\joe")]),
+            },
+            Example {
+                description: "Replace the part that would be returned with custom string",
+                example: "echo 'C:\\Users\\joe\\code\\test.txt' | path dirname -n 2 -r C:\\Users\\viking",
+                result: Some(vec![Value::from("C:\\Users\\viking\\code\\test.txt")]),
+            },
+        ]
+    }
+
+    #[cfg(not(windows))]
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {

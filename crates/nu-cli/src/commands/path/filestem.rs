@@ -74,6 +74,28 @@ impl WholeStreamCommand for PathFilestem {
         operate(input, &action, tag.span, args).await
     }
 
+    #[cfg(windows)]
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Get filestem of a path",
+                example: "echo 'C:\\Users\\joe\\bacon_lettuce.egg' | path filestem",
+                result: Some(vec![Value::from("bacon_lettuce")]),
+            },
+            Example {
+                description: "Get filestem of a path, stripped of prefix and suffix",
+                example: "echo 'C:\\Users\\joe\\bacon_lettuce.egg.gz' | path filestem -p bacon_ -s .egg.gz",
+                result: Some(vec![Value::from("lettuce")]),
+            },
+            Example {
+                description: "Replace the filestem that would be returned",
+                example: "echo 'C:\\Users\\joe\\bacon_lettuce.egg.gz' | path filestem -p bacon_ -s .egg.gz -r spam",
+                result: Some(vec![Value::from("C:\\Users\\joe\\bacon_spam.egg.gz")]),
+            },
+        ]
+    }
+
+    #[cfg(not(windows))]
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
