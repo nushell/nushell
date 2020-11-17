@@ -88,6 +88,7 @@ default = [
   "post",
   "fetch",
   "rich-benchmark",
+  "zip-support"
 ]
 extra = ["default", "binaryview", "tree", "clipboard-cli", "trash-support", "start", "bson", "sqlite", "s3", "chart", "xpath", "selector"]
 stable = ["default"]
@@ -104,6 +105,7 @@ post = ["nu_plugin_post"]
 ps = ["nu_plugin_ps"]
 sys = ["nu_plugin_sys"]
 textview = ["nu_plugin_textview"]
+zip-support = ["nu-cli/zip"]
 
 # Extra
 binaryview = ["nu_plugin_binaryview"]
@@ -117,6 +119,12 @@ trash-support = ["nu-cli/trash-support"]
 tree = ["nu_plugin_tree"]
 xpath = ["nu_plugin_xpath"]
 selector = ["nu_plugin_selector"]
+
+[profile.release]
+#strip = "symbols" #Couldn't get working +nightly
+opt-level = 'z' #Optimize for size
+lto = true #Link Time Optimization
+codegen-units = 1 #Reduce parallel codegen units
 
 # Core plugins that ship with `cargo install nu` by default
 # Currently, Cargo limits us to installing only one binary

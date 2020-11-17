@@ -6,6 +6,7 @@ use nu_source::{Tag, Tagged};
 pub struct Selector {
     pub query: String,
     pub tag: Tag,
+    pub as_html: bool,
 }
 
 impl Selector {
@@ -13,6 +14,7 @@ impl Selector {
         Selector {
             query: String::new(),
             tag: Tag::unknown(),
+            as_html: false,
         }
     }
 }
@@ -23,14 +25,19 @@ impl Default for Selector {
     }
 }
 
-pub fn begin_selector_query(raw: String, query: Tagged<&str>) -> Result<Vec<Value>, ShellError> {
-    execute_selector_query(raw, query.item.to_string(), query.tag())
+pub fn begin_selector_query(
+    input: String,
+    query: Tagged<&str>,
+    as_html: bool,
+) -> Result<Vec<Value>, ShellError> {
+    execute_selector_query(input, query.item.to_string(), query.tag(), as_html)
 }
 
 fn execute_selector_query(
     input_string: String,
     query_string: String,
     tag: impl Into<Tag>,
+    as_html: bool,
 ) -> Result<Vec<Value>, ShellError> {
     let _tag = tag.into();
     let mut ret = vec![];
@@ -48,10 +55,15 @@ fn execute_selector_query(
     //     ret.push(title_url.to_string_value_create_tag());
     // });
 
-    doc.nip(&query_string).iter().for_each(|athing| {
-        ret.push(athing.text().to_string().to_string_value_create_tag());
-    });
-
+    if as_html {
+        doc.nip(&query_string).iter().for_each(|athing| {
+            ret.push(athing.html().to_string().to_string_value_create_tag());
+        });
+    } else {
+        doc.nip(&query_string).iter().for_each(|athing| {
+            ret.push(athing.text().to_string().to_string_value_create_tag());
+        });
+    }
     Ok(ret)
 }
 
