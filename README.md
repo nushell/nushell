@@ -34,7 +34,7 @@ There are also [good first issues](https://github.com/nushell/nushell/issues?q=i
 
 We also have an active [Discord](https://discord.gg/NtAbbGn) and [Twitter](https://twitter.com/nu_shell) if you'd like to come and chat with us.
 
-You can also find more learning resources in our [documentation](https://www.nushell.sh/documentation.html) site.
+You can also find information on more specific topics in our [cookbook](https://www.nushell.sh/cookbook/).
 
 Try it in Gitpod.
 
@@ -44,7 +44,7 @@ Try it in Gitpod.
 
 ### Local
 
-Up-to-date installation instructions can be found in the [installation chapter of the book](https://www.nushell.sh/book/en/installation.html).  **Windows users**: please note that Nu works on Windows 10 and does not currently have Windows 7/8.1 support.
+Up-to-date installation instructions can be found in the [installation chapter of the book](https://www.nushell.sh/book/installation.html).  **Windows users**: please note that Nu works on Windows 10 and does not currently have Windows 7/8.1 support.
 
 To build Nu, you will need to use the **latest stable (1.47 or later)** version of the compiler.
 
