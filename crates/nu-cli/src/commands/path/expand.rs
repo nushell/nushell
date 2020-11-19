@@ -2,7 +2,7 @@ use super::{operate, DefaultArguments};
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue};
 use std::path::Path;
 
 pub struct PathExpand;
@@ -48,7 +48,8 @@ impl WholeStreamCommand for PathExpand {
         vec![Example {
             description: "Expand relative directories",
             example: "echo 'C:\\Users\\joe\\foo\\..\\bar' | path expand",
-            result: Some(vec![Value::from("C:\\Users\\joe\\bar")]),
+            result: None,
+            // fails to canonicalize into Some(vec![Value::from("C:\\Users\\joe\\bar")]) due to non-existing path
         }]
     }
 
@@ -57,7 +58,8 @@ impl WholeStreamCommand for PathExpand {
         vec![Example {
             description: "Expand relative directories",
             example: "echo '/home/joe/foo/../bar' | path expand",
-            result: Some(vec![Value::from("/home/joe/bar")]),
+            result: None,
+            // fails to canonicalize into Some(vec![Value::from("/home/joe/bar")]) due to non-existing path
         }]
     }
 }
@@ -66,7 +68,7 @@ fn action(path: &Path, _args: Arc<DefaultArguments>) -> UntaggedValue {
     let ps = path.to_string_lossy();
     let expanded = shellexpand::tilde(&ps);
     let path: &Path = expanded.as_ref().as_ref();
-    UntaggedValue::string(match path.canonicalize() {
+    UntaggedValue::string(match dunce::canonicalize(path) {
         Ok(p) => p.to_string_lossy().to_string(),
         Err(_) => ps.to_string(),
     })
