@@ -82,7 +82,8 @@ impl WholeStreamCommand for PathDirname {
             },
             Example {
                 description: "Replace the part that would be returned with custom string",
-                example: "echo 'C:\\Users\\joe\\code\\test.txt' | path dirname -n 2 -r C:\\Users\\viking",
+                example:
+                    "echo 'C:\\Users\\joe\\code\\test.txt' | path dirname -n 2 -r C:\\Users\\viking",
                 result: Some(vec![Value::from("C:\\Users\\viking\\code\\test.txt")]),
             },
         ]
