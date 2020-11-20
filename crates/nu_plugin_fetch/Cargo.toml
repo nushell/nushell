@@ -10,13 +10,14 @@ version = "0.22.0"
 doctest = false
 
 [dependencies]
-base64 = "0.12.3"
+base64 = "0.13.0"
 futures = {version = "0.3.5", features = ["compat", "io-compat"]}
 nu-errors = {path = "../nu-errors", version = "0.22.0"}
 nu-plugin = {path = "../nu-plugin", version = "0.22.0"}
 nu-protocol = {path = "../nu-protocol", version = "0.22.0"}
 nu-source = {path = "../nu-source", version = "0.22.0"}
-surf = "1.0.3"
-url = "2.1.1"
+surf = {version = "2.1.0", features = ["default"]}
+url = "2.2.0"
+mime = "0.3.16"
 
 [build-dependencies]
