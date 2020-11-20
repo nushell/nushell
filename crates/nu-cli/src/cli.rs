@@ -263,6 +263,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             #[cfg(feature = "uuid_crate")]
             whole_stream_command(RandomUUID),
             whole_stream_command(RandomInteger),
+            whole_stream_command(RandomDecimal),
             // Path
             whole_stream_command(PathBasename),
             whole_stream_command(PathCommand),
