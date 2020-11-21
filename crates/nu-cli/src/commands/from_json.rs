@@ -37,26 +37,26 @@ impl WholeStreamCommand for FromJSON {
     }
 }
 
-fn convert_json_value_to_nu_value(v: &serde_hjson::Value, tag: impl Into<Tag>) -> Value {
+fn convert_json_value_to_nu_value(v: &nu_json::Value, tag: impl Into<Tag>) -> Value {
     let tag = tag.into();
     let span = tag.span;
 
     match v {
-        serde_hjson::Value::Null => UntaggedValue::Primitive(Primitive::Nothing).into_value(&tag),
-        serde_hjson::Value::Bool(b) => UntaggedValue::boolean(*b).into_value(&tag),
-        serde_hjson::Value::F64(n) => UntaggedValue::decimal_from_float(*n, span).into_value(&tag),
-        serde_hjson::Value::U64(n) => UntaggedValue::int(*n).into_value(&tag),
-        serde_hjson::Value::I64(n) => UntaggedValue::int(*n).into_value(&tag),
-        serde_hjson::Value::String(s) => {
+        nu_json::Value::Null => UntaggedValue::Primitive(Primitive::Nothing).into_value(&tag),
+        nu_json::Value::Bool(b) => UntaggedValue::boolean(*b).into_value(&tag),
+        nu_json::Value::F64(n) => UntaggedValue::decimal_from_float(*n, span).into_value(&tag),
+        nu_json::Value::U64(n) => UntaggedValue::int(*n).into_value(&tag),
+        nu_json::Value::I64(n) => UntaggedValue::int(*n).into_value(&tag),
+        nu_json::Value::String(s) => {
             UntaggedValue::Primitive(Primitive::String(String::from(s))).into_value(&tag)
         }
-        serde_hjson::Value::Array(a) => UntaggedValue::Table(
+        nu_json::Value::Array(a) => UntaggedValue::Table(
             a.iter()
                 .map(|x| convert_json_value_to_nu_value(x, &tag))
                 .collect(),
         )
         .into_value(tag),
-        serde_hjson::Value::Object(o) => {
+        nu_json::Value::Object(o) => {
             let mut collected = TaggedDictBuilder::new(&tag);
             for (k, v) in o.iter() {
                 collected.insert_value(k.clone(), convert_json_value_to_nu_value(v, &tag));
@@ -67,8 +67,8 @@ fn convert_json_value_to_nu_value(v: &serde_hjson::Value, tag: impl Into<Tag>) -
     }
 }
 
-pub fn from_json_string_to_value(s: String, tag: impl Into<Tag>) -> serde_hjson::Result<Value> {
-    let v: serde_hjson::Value = serde_hjson::from_str(&s)?;
+pub fn from_json_string_to_value(s: String, tag: impl Into<Tag>) -> nu_json::Result<Value> {
+    let v: nu_json::Value = nu_json::from_str(&s)?;
     Ok(convert_json_value_to_nu_value(&v, tag))
 }
 
