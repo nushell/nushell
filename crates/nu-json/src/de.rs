@@ -93,13 +93,15 @@ where
                     return Err(self.rdr.error(ErrorCode::Custom(
                         "Found ':' but no key name (for an empty key name use quotes)".to_string(),
                     )));
-                } else if space.is_some() && space.unwrap() != self.str_buf.len() {
+                } else if space.is_some()
+                    && space.expect("Internal error: json parsing") != self.str_buf.len()
+                {
                     return Err(self.rdr.error(ErrorCode::Custom(
                         "Found whitespace in your key name (use quotes to include)".to_string(),
                     )));
                 }
                 self.rdr.uneat_char(ch);
-                let s = str::from_utf8(&self.str_buf).unwrap();
+                let s = str::from_utf8(&self.str_buf).expect("Internal error: json parsing");
                 return visitor.visit_str(s);
             } else if ch <= b' ' {
                 if ch == 0 {
@@ -150,7 +152,7 @@ where
             b'"' => {
                 self.rdr.eat_char();
                 self.parse_string()?;
-                let s = str::from_utf8(&self.str_buf).unwrap();
+                let s = str::from_utf8(&self.str_buf).expect("Internal error: json parsing");
                 visitor.visit_str(s)
             }
             b'[' => {
@@ -190,7 +192,7 @@ where
         // returns string, true, false, or null.
         self.str_buf.clear();
 
-        let first = self.rdr.peek()?.unwrap();
+        let first = self.rdr.peek()?.expect("Internal error: json parsing");
 
         if self.is_punctuator_char(first) {
             return Err(self.rdr.error(ErrorCode::PunctuatorInQlString));
@@ -211,19 +213,31 @@ where
                 let chf = self.str_buf[0];
                 match chf {
                     b'f' => {
-                        if str::from_utf8(&self.str_buf).unwrap().trim() == "false" {
+                        if str::from_utf8(&self.str_buf)
+                            .expect("Internal error: json parsing")
+                            .trim()
+                            == "false"
+                        {
                             self.rdr.uneat_char(ch);
                             return visitor.visit_bool(false);
                         }
                     }
                     b'n' => {
-                        if str::from_utf8(&self.str_buf).unwrap().trim() == "null" {
+                        if str::from_utf8(&self.str_buf)
+                            .expect("Internal error: json parsing")
+                            .trim()
+                            == "null"
+                        {
                             self.rdr.uneat_char(ch);
                             return visitor.visit_unit();
                         }
                     }
                     b't' => {
-                        if str::from_utf8(&self.str_buf).unwrap().trim() == "true" {
+                        if str::from_utf8(&self.str_buf)
+                            .expect("Internal error: json parsing")
+                            .trim()
+                            == "true"
+                        {
                             self.rdr.uneat_char(ch);
                             return visitor.visit_bool(true);
                         }
@@ -251,7 +265,11 @@ where
                 }
                 if is_eol {
                     // remove any whitespace at the end (ignored in quoteless strings)
-                    return visitor.visit_str(str::from_utf8(&self.str_buf).unwrap().trim());
+                    return visitor.visit_str(
+                        str::from_utf8(&self.str_buf)
+                            .expect("Internal error: json parsing")
+                            .trim(),
+                    );
                 }
             }
             self.str_buf.push(ch);
@@ -341,7 +359,7 @@ where
                     if self.str_buf.last() == Some(&b'\n') {
                         self.str_buf.pop();
                     }
-                    let res = str::from_utf8(&self.str_buf).unwrap();
+                    let res = str::from_utf8(&self.str_buf).expect("Internal error: json parsing");
                     //todo if (self.str_buf.slice(-1) === '\n') self.str_buf=self.str_buf.slice(0, -1); // remove last EOL
                     return visitor.visit_str(res);
                 } else {
@@ -868,7 +886,7 @@ where
         return Err(Error::Io(e));
     }
 
-    let bytes = fold.unwrap();
+    let bytes = fold.expect("Internal error: json parsing");
 
     // deserialize tries first to decode with legacy support (new_for_root)
     // and then with the standard method if this fails.
