@@ -90,7 +90,7 @@ impl WholeStreamCommand for PathFilestem {
             Example {
                 description: "Replace the filestem that would be returned",
                 example: "echo 'C:\\Users\\joe\\bacon_lettuce.egg.gz' | path filestem -p bacon_ -s .egg.gz -r spam",
-                result: Some(vec![Value::from("C:\\Users\\joe\\bacon_spam.egg.gz")]),
+                result: Some(vec![Value::from(UntaggedValue::path("C:\\Users\\joe\\bacon_spam.egg.gz"))]),
             },
         ]
     }
@@ -111,7 +111,7 @@ impl WholeStreamCommand for PathFilestem {
             Example {
                 description: "Replace the filestem that would be returned",
                 example: "echo '/home/joe/bacon_lettuce.egg.gz' | path filestem -p bacon_ -s .egg.gz -r spam",
-                result: Some(vec![Value::from("/home/joe/bacon_spam.egg.gz")]),
+                result: Some(vec![Value::from(UntaggedValue::path("/home/joe/bacon_spam.egg.gz"))]),
             },
         ]
     }
@@ -129,6 +129,7 @@ fn action(path: &Path, args: Arc<DefaultArguments>) -> UntaggedValue {
             None => "".to_string(),
         },
         None => match path.extension() {
+            // Prepend '.' since the extension returned comes without it
             Some(ext) => ".".to_string() + &ext.to_string_lossy().to_string(),
             None => "".to_string(),
         },
@@ -155,7 +156,7 @@ fn action(path: &Path, args: Arc<DefaultArguments>) -> UntaggedValue {
     match args.replace {
         Some(ref replace) => {
             let new_name = prefix + replace + &suffix;
-            UntaggedValue::string(path.with_file_name(&new_name).to_string_lossy())
+            UntaggedValue::path(path.with_file_name(&new_name))
         }
         None => UntaggedValue::string(stem),
     }

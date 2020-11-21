@@ -3,7 +3,7 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub struct PathExpand;
 
@@ -68,10 +68,7 @@ fn action(path: &Path, _args: Arc<DefaultArguments>) -> UntaggedValue {
     let ps = path.to_string_lossy();
     let expanded = shellexpand::tilde(&ps);
     let path: &Path = expanded.as_ref().as_ref();
-    UntaggedValue::string(match dunce::canonicalize(path) {
-        Ok(p) => p.to_string_lossy().to_string(),
-        Err(_) => ps.to_string(),
-    })
+    UntaggedValue::path(dunce::canonicalize(path).unwrap_or(PathBuf::from(path)))
 }
 
 #[cfg(test)]
