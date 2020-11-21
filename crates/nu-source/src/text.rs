@@ -12,6 +12,7 @@ use std::sync::Arc;
 /// Used to represent the value of an input file.
 #[derive(Clone)]
 pub struct Text {
+    #[allow(clippy::rc_buffer)]
     text: Arc<String>,
     start: usize,
     end: usize,

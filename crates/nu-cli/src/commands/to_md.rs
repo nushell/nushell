@@ -127,22 +127,22 @@ fn get_output_string(
     let mut output_string = String::new();
 
     if !headers.is_empty() {
-        output_string.push_str("|");
+        output_string.push('|');
 
         for i in 0..headers.len() {
             if pretty {
-                output_string.push_str(" ");
+                output_string.push(' ');
                 output_string.push_str(&get_padded_string(
                     headers[i].clone(),
                     column_widths[i],
                     ' ',
                 ));
-                output_string.push_str(" ");
+                output_string.push(' ');
             } else {
                 output_string.push_str(headers[i].as_str());
             }
 
-            output_string.push_str("|");
+            output_string.push('|');
         }
 
         output_string.push_str("\n|");
@@ -150,43 +150,43 @@ fn get_output_string(
         #[allow(clippy::needless_range_loop)]
         for i in 0..headers.len() {
             if pretty {
-                output_string.push_str(" ");
+                output_string.push(' ');
                 output_string.push_str(&get_padded_string(
                     String::from("-"),
                     column_widths[i],
                     '-',
                 ));
-                output_string.push_str(" ");
+                output_string.push(' ');
             } else {
-                output_string.push_str("-");
+                output_string.push('-');
             }
 
-            output_string.push_str("|");
+            output_string.push('|');
         }
 
-        output_string.push_str("\n");
+        output_string.push('\n');
     }
 
     for row in rows {
         if !headers.is_empty() {
-            output_string.push_str("|");
+            output_string.push('|');
         }
 
         for i in 0..row.len() {
             if pretty {
-                output_string.push_str(" ");
+                output_string.push(' ');
                 output_string.push_str(&get_padded_string(row[i].clone(), column_widths[i], ' '));
-                output_string.push_str(" ");
+                output_string.push(' ');
             } else {
                 output_string.push_str(row[i].as_str());
             }
 
             if !headers.is_empty() {
-                output_string.push_str("|");
+                output_string.push('|');
             }
         }
 
-        output_string.push_str("\n");
+        output_string.push('\n');
     }
 
     output_string

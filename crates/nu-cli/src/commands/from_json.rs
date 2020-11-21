@@ -96,7 +96,7 @@ async fn from_json(
                     Err(e) => {
                         let mut message = "Could not parse as JSON (".to_string();
                         message.push_str(&e.to_string());
-                        message.push_str(")");
+                        message.push(')');
 
                         Some(Err(ShellError::labeled_error_with_secondary(
                             message,
@@ -125,7 +125,7 @@ async fn from_json(
             Err(e) => {
                 let mut message = "Could not parse as JSON (".to_string();
                 message.push_str(&e.to_string());
-                message.push_str(")");
+                message.push(')');
 
                 Ok(OutputStream::one(Err(
                     ShellError::labeled_error_with_secondary(

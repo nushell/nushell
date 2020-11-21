@@ -508,7 +508,7 @@ pub fn forgiving_insert_data_at_column_path(
                 }
                 UnspannedPathMember::Int(int) => {
                     let mut rows = vec![];
-                    let size = int.to_usize().unwrap_or_else(|| 0);
+                    let size = int.to_usize().unwrap_or(0);
 
                     for _ in 0..=size {
                         rows.push(

@@ -304,7 +304,7 @@ fn print_seq(
         let before_dec = istr.find('.').unwrap_or(ilen);
         if pad && before_dec < padding {
             for _ in 0..(padding - before_dec) {
-                ret_str.push_str("0");
+                ret_str.push('0');
             }
         }
         ret_str.push_str(&istr);

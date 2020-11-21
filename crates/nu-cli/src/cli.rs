@@ -845,8 +845,8 @@ fn rustyline_hinter(config: &dyn nu_data::config::Conf) -> Option<rustyline::hin
 }
 
 fn chomp_newline(s: &str) -> &str {
-    if s.ends_with('\n') {
-        &s[..s.len() - 1]
+    if let Some(s) = s.strip_suffix('\n') {
+        s
     } else {
         s
     }
@@ -863,8 +863,8 @@ pub enum LineResult {
 }
 
 pub async fn parse_and_eval(line: &str, ctx: &mut EvaluationContext) -> Result<String, ShellError> {
-    let line = if line.ends_with('\n') {
-        &line[..line.len() - 1]
+    let line = if let Some(s) = line.strip_suffix('\n') {
+        s
     } else {
         line
     };

@@ -157,7 +157,7 @@ async fn process_row(
                 None => OutputStream::one(Err(ShellError::labeled_error(
                     "update could not find place to insert column",
                     "column name",
-                    field.maybe_span().unwrap_or_else(|| tag.span),
+                    field.maybe_span().unwrap_or(tag.span),
                 ))),
             },
             Value { value: _, ref tag } => {
@@ -166,7 +166,7 @@ async fn process_row(
                     None => OutputStream::one(Err(ShellError::labeled_error(
                         "update could not find place to insert column",
                         "column name",
-                        field.maybe_span().unwrap_or_else(|| tag.span),
+                        field.maybe_span().unwrap_or(tag.span),
                     ))),
                 }
             }
