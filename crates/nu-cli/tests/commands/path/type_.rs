@@ -16,11 +16,11 @@ fn returns_type_of_missing_file() {
 }
 
 #[test]
-fn returns_type_of_existing_file(){
+fn returns_type_of_existing_file() {
     Playground::setup("path_expand_1", |dirs, sandbox| {
-        sandbox.within("menu").with_files(vec![
-            EmptyFile("spam.txt"),
-        ]);
+        sandbox
+            .within("menu")
+            .with_files(vec![EmptyFile("spam.txt")]);
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
@@ -35,11 +35,11 @@ fn returns_type_of_existing_file(){
 }
 
 #[test]
-fn returns_type_of_existing_directory(){
+fn returns_type_of_existing_directory() {
     Playground::setup("path_expand_1", |dirs, sandbox| {
-        sandbox.within("menu").with_files(vec![
-            EmptyFile("spam.txt"),
-        ]);
+        sandbox
+            .within("menu")
+            .with_files(vec![EmptyFile("spam.txt")]);
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(

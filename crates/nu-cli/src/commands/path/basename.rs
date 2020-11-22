@@ -63,7 +63,9 @@ impl WholeStreamCommand for PathBasename {
             Example {
                 description: "Replace basename of a path",
                 example: "echo 'C:\\Users\\joe\\test.txt' | path basename -r 'spam.png'",
-                result: Some(vec![Value::from(UntaggedValue::path("C:\\Users\\joe\\spam.png"))]),
+                result: Some(vec![Value::from(UntaggedValue::path(
+                    "C:\\Users\\joe\\spam.png",
+                ))]),
             },
         ]
     }

@@ -80,9 +80,7 @@ impl WholeStreamCommand for PathExtension {
 
 fn action(path: &Path, args: Arc<DefaultArguments>) -> UntaggedValue {
     match args.replace {
-        Some(ref extension) => {
-            UntaggedValue::path(path.with_extension(extension))
-        }
+        Some(ref extension) => UntaggedValue::path(path.with_extension(extension)),
         None => UntaggedValue::string(match path.extension() {
             Some(extension) => extension.to_string_lossy(),
             None => "".into(),

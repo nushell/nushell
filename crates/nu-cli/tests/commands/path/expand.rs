@@ -9,9 +9,9 @@ use std::path::PathBuf;
 #[test]
 fn expands_path_with_dot() {
     Playground::setup("path_expand_1", |dirs, sandbox| {
-        sandbox.within("menu").with_files(vec![
-            EmptyFile("spam.txt"),
-        ]);
+        sandbox
+            .within("menu")
+            .with_files(vec![EmptyFile("spam.txt")]);
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
@@ -29,9 +29,9 @@ fn expands_path_with_dot() {
 #[test]
 fn expands_path_with_double_dot() {
     Playground::setup("path_expand_2", |dirs, sandbox| {
-        sandbox.within("menu").with_files(vec![
-            EmptyFile("spam.txt"),
-        ]);
+        sandbox
+            .within("menu")
+            .with_files(vec![EmptyFile("spam.txt")]);
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(

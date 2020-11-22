@@ -73,7 +73,9 @@ impl WholeStreamCommand for PathDirname {
             Example {
                 description: "Get dirname of a path",
                 example: "echo 'C:\\Users\\joe\\code\\test.txt' | path dirname",
-                result: Some(vec![Value::from(UntaggedValue::path("C:\\Users\\joe\\code"))]),
+                result: Some(vec![Value::from(UntaggedValue::path(
+                    "C:\\Users\\joe\\code",
+                ))]),
             },
             Example {
                 description: "Set how many levels up to skip",
@@ -84,7 +86,9 @@ impl WholeStreamCommand for PathDirname {
                 description: "Replace the part that would be returned with custom string",
                 example:
                     "echo 'C:\\Users\\joe\\code\\test.txt' | path dirname -n 2 -r C:\\Users\\viking",
-                result: Some(vec![Value::from(UntaggedValue::path("C:\\Users\\viking\\code\\test.txt"))]),
+                result: Some(vec![Value::from(UntaggedValue::path(
+                    "C:\\Users\\viking\\code\\test.txt",
+                ))]),
             },
         ]
     }
@@ -105,7 +109,9 @@ impl WholeStreamCommand for PathDirname {
             Example {
                 description: "Replace the part that would be returned with custom string",
                 example: "echo '/home/joe/code/test.txt' | path dirname -n 2 -r /home/viking",
-                result: Some(vec![Value::from(UntaggedValue::path("/home/viking/code/test.txt"))]),
+                result: Some(vec![Value::from(UntaggedValue::path(
+                    "/home/viking/code/test.txt",
+                ))]),
             },
         ]
     }
