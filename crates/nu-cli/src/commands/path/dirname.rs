@@ -129,7 +129,11 @@ fn action(path: &Path, args: Arc<DefaultArguments>) -> UntaggedValue {
     match args.replace {
         Some(ref newdir) => {
             let remainder = path.strip_prefix(dirname).unwrap_or(dirname);
-            UntaggedValue::path(Path::new(newdir).join(remainder))
+            if remainder.as_os_str().len() > 0 {
+                UntaggedValue::path(Path::new(newdir).join(remainder))
+            } else {
+                UntaggedValue::path(Path::new(newdir))
+            }
         }
         None => UntaggedValue::path(dirname),
     }
