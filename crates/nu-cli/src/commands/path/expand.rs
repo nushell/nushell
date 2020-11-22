@@ -19,7 +19,8 @@ impl WholeStreamCommand for PathExpand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("path expand").rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
+        Signature::build("path expand")
+            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
     }
 
     fn usage(&self) -> &str {
@@ -68,7 +69,7 @@ fn action(path: &Path, _args: Arc<DefaultArguments>) -> UntaggedValue {
     let ps = path.to_string_lossy();
     let expanded = shellexpand::tilde(&ps);
     let path: &Path = expanded.as_ref().as_ref();
-    UntaggedValue::path(dunce::canonicalize(path).unwrap_or(PathBuf::from(path)))
+    UntaggedValue::path(dunce::canonicalize(path).unwrap_or_else(|_| PathBuf::from(path)))
 }
 
 #[cfg(test)]
