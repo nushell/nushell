@@ -20,11 +20,11 @@ impl WholeStreamCommand for PathType {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("path type").rest(SyntaxShape::ColumnPath, "optionally operate by path")
+        Signature::build("path type").rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
     }
 
     fn usage(&self) -> &str {
-        "gives the type of the object the path refers to (eg file, dir, symlink)"
+        "Gives the type of the object a path refers to (e.g., file, dir, symlink)"
     }
 
     async fn run(

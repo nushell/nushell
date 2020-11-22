@@ -27,26 +27,26 @@ impl WholeStreamCommand for PathFilestem {
             .named(
                 "replace",
                 SyntaxShape::String,
-                "Replace filestem with this string",
+                "Return original path with filestem replaced by this string",
                 Some('r'),
             )
             .named(
                 "prefix",
                 SyntaxShape::String,
-                "Prefix to strip from a file name",
+                "Strip this string from from the beginning of a file name",
                 Some('p'),
             )
             .named(
                 "suffix",
                 SyntaxShape::String,
-                "Suffix to strip from a file name",
+                "Strip this string from from the end of a file name",
                 Some('s'),
             )
-            .rest(SyntaxShape::ColumnPath, "optionally operate by path")
+            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
     }
 
     fn usage(&self) -> &str {
-        "gets the filestem of a path"
+        "Gets the file stem of a path"
     }
 
     async fn run(

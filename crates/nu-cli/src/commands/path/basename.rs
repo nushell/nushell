@@ -25,14 +25,14 @@ impl WholeStreamCommand for PathBasename {
             .named(
                 "replace",
                 SyntaxShape::String,
-                "Replace basename with this string",
+                "Return original path with basename replaced by this string",
                 Some('r'),
             )
-            .rest(SyntaxShape::ColumnPath, "optionally operate by path")
+            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
     }
 
     fn usage(&self) -> &str {
-        "gets the filename of a path"
+        "Gets the final component of a path"
     }
 
     async fn run(

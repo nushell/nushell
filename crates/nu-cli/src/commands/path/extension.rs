@@ -25,14 +25,14 @@ impl WholeStreamCommand for PathExtension {
             .named(
                 "replace",
                 SyntaxShape::String,
-                "Replace extension with this string",
+                "Return original path with extension replaced by this string",
                 Some('r'),
             )
-            .rest(SyntaxShape::ColumnPath, "optionally operate by path")
+            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
     }
 
     fn usage(&self) -> &str {
-        "gets the extension of a path"
+        "Gets the extension of a path"
     }
 
     async fn run(

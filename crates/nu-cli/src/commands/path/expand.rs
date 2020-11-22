@@ -19,11 +19,11 @@ impl WholeStreamCommand for PathExpand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("path expand").rest(SyntaxShape::ColumnPath, "optionally operate by path")
+        Signature::build("path expand").rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
     }
 
     fn usage(&self) -> &str {
-        "expands the path to its absolute form"
+        "Expands a path to its absolute form"
     }
 
     async fn run(

@@ -27,7 +27,7 @@ impl WholeStreamCommand for PathDirname {
             .named(
                 "replace",
                 SyntaxShape::String,
-                "Replace dirname with this string",
+                "Return original path with dirname replaced by this string",
                 Some('r'),
             )
             .named(
@@ -36,11 +36,11 @@ impl WholeStreamCommand for PathDirname {
                 "Number of directories to walk up",
                 Some('n'),
             )
-            .rest(SyntaxShape::ColumnPath, "optionally operate by path")
+            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
     }
 
     fn usage(&self) -> &str {
-        "gets the dirname of a path"
+        "Gets the parent directory of a path"
     }
 
     async fn run(

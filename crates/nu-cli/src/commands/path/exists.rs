@@ -19,11 +19,11 @@ impl WholeStreamCommand for PathExists {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("path exists").rest(SyntaxShape::ColumnPath, "optionally operate by path")
+        Signature::build("path exists").rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
     }
 
     fn usage(&self) -> &str {
-        "checks whether the path exists"
+        "Checks whether a path exists"
     }
 
     async fn run(
