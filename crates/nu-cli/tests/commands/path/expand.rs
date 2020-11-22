@@ -2,8 +2,6 @@ use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 
-use dirs::home_dir;
-
 use std::path::PathBuf;
 
 #[test]
@@ -44,17 +42,4 @@ fn expands_path_with_double_dot() {
         let expected = dirs.test.join("menu").join("spam.txt");
         assert_eq!(PathBuf::from(actual.out), expected);
     })
-}
-
-#[test]
-fn expands_tilde_path() {
-    let actual = nu!(
-        cwd: "tests", pipeline(
-        r#"
-            echo "~" | path expand
-        "#
-    ));
-
-    let expected = home_dir();
-    assert_eq!(Some(PathBuf::from(actual.out)), expected);
 }
