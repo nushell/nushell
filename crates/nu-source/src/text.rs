@@ -3,7 +3,6 @@ use std::cmp::Ordering;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::ops::Range;
-use std::sync::Arc;
 
 /// A "Text" is like a string except that it can be cheaply cloned.
 /// You can also "extract" subtexts quite cheaply. You can also deref
@@ -12,8 +11,7 @@ use std::sync::Arc;
 /// Used to represent the value of an input file.
 #[derive(Clone)]
 pub struct Text {
-    #[allow(clippy::rc_buffer)]
-    text: Arc<String>,
+    text: String,
     start: usize,
     end: usize,
 }
@@ -40,11 +38,11 @@ impl Text {
     }
 }
 
-impl From<Arc<String>> for Text {
-    fn from(text: Arc<String>) -> Self {
+impl From<&str> for Text {
+    fn from(text: &str) -> Self {
         let end = text.len();
         Self {
-            text,
+            text: text.to_string(),
             start: 0,
             end,
         }
@@ -59,19 +57,12 @@ impl AsRef<str> for Text {
 
 impl From<String> for Text {
     fn from(text: String) -> Self {
-        Text::from(Arc::new(text))
-    }
-}
-
-impl From<&String> for Text {
-    fn from(text: &String) -> Self {
-        Text::from(text.to_string())
-    }
-}
-
-impl From<&str> for Text {
-    fn from(text: &str) -> Self {
-        Text::from(text.to_string())
+        let end = text.len();
+        Self {
+            text,
+            start: 0,
+            end,
+        }
     }
 }
 
