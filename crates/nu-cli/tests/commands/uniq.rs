@@ -150,18 +150,24 @@ fn uniq_counting() {
             | from json
             | wrap item
             | uniq --count
+            | where item == A
+            | get count
         "#
     ));
-    let expected = nu!(
+    assert_eq!(actual.out, "2");
+
+    let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-        echo '[{"item": "A", "count": 2}, {"item": "B", "count": 1}]'
-        | from json
+            echo '["A", "B", "A"]'
+            | from json
+            | wrap item
+            | uniq --count
+            | where item == B
+            | get count
         "#
     ));
-    print!("{}", actual.out);
-    print!("{}", expected.out);
-    assert_eq!(actual.out, expected.out);
+    assert_eq!(actual.out, "1");
 }
 
 #[test]

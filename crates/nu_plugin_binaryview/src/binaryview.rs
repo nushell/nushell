@@ -149,7 +149,7 @@ impl RenderContext {
         }
     }
     pub fn update(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let terminal_size = crossterm::terminal::size().unwrap_or_else(|_| (80, 24));
+        let terminal_size = crossterm::terminal::size().unwrap_or((80, 24));
 
         if (self.width != terminal_size.0 as usize) || (self.height != terminal_size.1 as usize) {
             let _ = std::io::stdout().execute(crossterm::cursor::Hide);

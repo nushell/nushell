@@ -63,7 +63,7 @@ pub async fn clip(
             let mut first = true;
             for i in values.iter() {
                 if !first {
-                    new_copy_data.push_str("\n");
+                    new_copy_data.push('\n');
                 } else {
                     first = false;
                 }

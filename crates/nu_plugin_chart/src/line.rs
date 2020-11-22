@@ -119,9 +119,8 @@ impl<'a> Line<'a> {
                         .marker(marker)
                         .graph_type(GraphType::Line)
                         .style(
-                            Style::default().fg(*DEFAULT_LINE_COLORS
-                                .get(idx)
-                                .unwrap_or_else(|| &DEFAULT_COLOR)),
+                            Style::default()
+                                .fg(*DEFAULT_LINE_COLORS.get(idx).unwrap_or(&DEFAULT_COLOR)),
                         )
                         .data(data_series)
                 })
