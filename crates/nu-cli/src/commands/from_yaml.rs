@@ -68,13 +68,12 @@ fn convert_yaml_value_to_nu_value(
     Ok(match v {
         serde_yaml::Value::Bool(b) => UntaggedValue::boolean(*b).into_value(tag),
         serde_yaml::Value::Number(n) if n.is_i64() => {
-            UntaggedValue::int(n.as_i64().ok_or_else(|| err_not_compatible_number)?).into_value(tag)
+            UntaggedValue::int(n.as_i64().ok_or(err_not_compatible_number)?).into_value(tag)
         }
-        serde_yaml::Value::Number(n) if n.is_f64() => UntaggedValue::decimal_from_float(
-            n.as_f64().ok_or_else(|| err_not_compatible_number)?,
-            span,
-        )
-        .into_value(tag),
+        serde_yaml::Value::Number(n) if n.is_f64() => {
+            UntaggedValue::decimal_from_float(n.as_f64().ok_or(err_not_compatible_number)?, span)
+                .into_value(tag)
+        }
         serde_yaml::Value::String(s) => UntaggedValue::string(s).into_value(tag),
         serde_yaml::Value::Sequence(a) => {
             let result: Result<Vec<Value>, ShellError> = a

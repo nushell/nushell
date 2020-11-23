@@ -61,7 +61,7 @@ mod tests {
         );
 
         //If this fails for you, check for any special unicode characters in your ~ path
-        assert!(actual.out.chars().filter(|c| c.clone() == '/').count() == 2);
+        assert!(actual.out.chars().filter(|c| *c == '/').count() == 2);
         #[cfg(target_os = "linux")]
         assert!(actual.out.contains("home"));
         #[cfg(target_os = "macos")]

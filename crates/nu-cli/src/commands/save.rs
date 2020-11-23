@@ -264,7 +264,7 @@ fn string_from(input: &[Value]) -> String {
         let mut first = true;
         for i in input.iter() {
             if !first {
-                save_data.push_str("\n");
+                save_data.push('\n');
             } else {
                 first = false;
             }

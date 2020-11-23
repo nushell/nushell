@@ -307,7 +307,7 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
             );
 
             for member in members {
-                f.push_str(".");
+                f.push('.');
                 f.push_str(&member.display())
             }
 

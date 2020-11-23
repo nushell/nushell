@@ -191,8 +191,8 @@ pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
 
 /// Parse and run a nushell pipeline
 fn parse_line(line: &str, ctx: &mut EvaluationContext) -> Result<ClassifiedBlock, ShellError> {
-    let line = if line.ends_with('\n') {
-        &line[..line.len() - 1]
+    let line = if let Some(line) = line.strip_suffix('\n') {
+        line
     } else {
         line
     };
