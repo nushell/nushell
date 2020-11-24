@@ -2,10 +2,15 @@ use super::{operate, DefaultArguments};
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
-use std::path::Path;
+use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue};
+use std::path::{Path, PathBuf};
 
 pub struct PathExpand;
+
+#[derive(Deserialize)]
+struct PathExpandArguments {
+    rest: Vec<ColumnPath>,
+}
 
 #[async_trait]
 impl WholeStreamCommand for PathExpand {
@@ -14,11 +19,12 @@ impl WholeStreamCommand for PathExpand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("path expand").rest(SyntaxShape::ColumnPath, "optionally operate by path")
+        Signature::build("path expand")
+            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
     }
 
     fn usage(&self) -> &str {
-        "expands the path to its absolute form"
+        "Expands a path to its absolute form"
     }
 
     async fn run(
@@ -27,28 +33,43 @@ impl WholeStreamCommand for PathExpand {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (DefaultArguments { rest }, input) = args.process(&registry).await?;
-        operate(input, rest, &action, tag.span).await
+        let (PathExpandArguments { rest }, input) = args.process(&registry).await?;
+        let args = Arc::new(DefaultArguments {
+            replace: None,
+            prefix: None,
+            suffix: None,
+            num_levels: None,
+            paths: rest,
+        });
+        operate(input, &action, tag.span, args).await
     }
 
+    #[cfg(windows)]
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Expand relative directories",
+            example: "echo 'C:\\Users\\joe\\foo\\..\\bar' | path expand",
+            result: None,
+            // fails to canonicalize into Some(vec![Value::from("C:\\Users\\joe\\bar")]) due to non-existing path
+        }]
+    }
+
+    #[cfg(not(windows))]
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Expand relative directories",
             example: "echo '/home/joe/foo/../bar' | path expand",
             result: None,
-            //Some(vec![Value::from("/home/joe/bar")]),
+            // fails to canonicalize into Some(vec![Value::from("/home/joe/bar")]) due to non-existing path
         }]
     }
 }
 
-fn action(path: &Path) -> UntaggedValue {
+fn action(path: &Path, _args: Arc<DefaultArguments>) -> UntaggedValue {
     let ps = path.to_string_lossy();
     let expanded = shellexpand::tilde(&ps);
     let path: &Path = expanded.as_ref().as_ref();
-    UntaggedValue::string(match path.canonicalize() {
-        Ok(p) => p.to_string_lossy().to_string(),
-        Err(_) => ps.to_string(),
-    })
+    UntaggedValue::path(dunce::canonicalize(path).unwrap_or_else(|_| PathBuf::from(path)))
 }
 
 #[cfg(test)]
