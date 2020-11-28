@@ -50,7 +50,7 @@ impl EnvironmentSyncer {
 
     pub fn did_config_change(&mut self) -> bool {
         let config = self.config.lock();
-        config.is_modified().unwrap_or_else(|_| false)
+        config.is_modified().unwrap_or(false)
     }
 
     pub fn reload(&mut self) {

@@ -263,6 +263,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             #[cfg(feature = "uuid_crate")]
             whole_stream_command(RandomUUID),
             whole_stream_command(RandomInteger),
+            whole_stream_command(RandomDecimal),
             // Path
             whole_stream_command(PathBasename),
             whole_stream_command(PathCommand),
@@ -842,8 +843,8 @@ fn rustyline_hinter(config: &dyn nu_data::config::Conf) -> Option<rustyline::hin
 }
 
 fn chomp_newline(s: &str) -> &str {
-    if s.ends_with('\n') {
-        &s[..s.len() - 1]
+    if let Some(s) = s.strip_suffix('\n') {
+        s
     } else {
         s
     }
@@ -860,8 +861,8 @@ pub enum LineResult {
 }
 
 pub async fn parse_and_eval(line: &str, ctx: &mut EvaluationContext) -> Result<String, ShellError> {
-    let line = if line.ends_with('\n') {
-        &line[..line.len() - 1]
+    let line = if let Some(s) = line.strip_suffix('\n') {
+        s
     } else {
         line
     };

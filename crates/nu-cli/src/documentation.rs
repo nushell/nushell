@@ -129,7 +129,7 @@ pub fn get_documentation(
     let mut long_desc = String::new();
 
     long_desc.push_str(&cmd.usage());
-    long_desc.push_str("\n");
+    long_desc.push('\n');
 
     let mut subcommands = vec![];
     if !config.no_subcommands {
@@ -144,7 +144,7 @@ pub fn get_documentation(
 
     let mut one_liner = String::new();
     one_liner.push_str(&signature.name);
-    one_liner.push_str(" ");
+    one_liner.push(' ');
 
     for positional in &signature.positional {
         match &positional.0 {
@@ -175,7 +175,7 @@ pub fn get_documentation(
         long_desc.push_str("\nSubcommands:\n");
         subcommands.sort();
         long_desc.push_str(&subcommands.join("\n"));
-        long_desc.push_str("\n");
+        long_desc.push('\n');
     }
 
     if !signature.positional.is_empty() || signature.rest_positional.is_some() {
@@ -205,7 +205,7 @@ pub fn get_documentation(
         long_desc.push_str("\nExamples:");
     }
     for example in examples {
-        long_desc.push_str("\n");
+        long_desc.push('\n');
         long_desc.push_str("  ");
         long_desc.push_str(example.description);
 
@@ -218,7 +218,7 @@ pub fn get_documentation(
         }
     }
 
-    long_desc.push_str("\n");
+    long_desc.push('\n');
 
     long_desc
 }

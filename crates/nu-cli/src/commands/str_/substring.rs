@@ -159,12 +159,14 @@ fn action(input: &Value, options: &Substring, tag: impl Into<Tag>) -> Result<Val
                         "End must be greater than or equal to Start",
                         tag.span,
                     )),
-                    Ordering::Less => Ok(UntaggedValue::string(
+                    Ordering::Less => Ok(UntaggedValue::string(if end == isize::max_value() {
+                        s.chars().skip(start as usize).collect::<String>()
+                    } else {
                         s.chars()
                             .skip(start as usize)
                             .take((end - start) as usize)
-                            .collect::<String>(),
-                    )
+                            .collect::<String>()
+                    })
                     .into_value(tag)),
                 }
             } else {
@@ -330,6 +332,9 @@ mod tests {
             expectation("and", (0, -3)),
             expectation("andr", (0, -2)),
             expectation("andre", (0, -1)),
+            // str substring [ -4 , _ ]
+            // str substring   -4 ,
+            expectation("dres", (-4, isize::max_value())),
             expectation("", (0, -110)),
             expectation("", (6, 0)),
             expectation("", (6, -1)),

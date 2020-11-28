@@ -57,7 +57,15 @@ pub fn split_sublines(input: &str) -> Vec<Vec<Subline>> {
             line.split_terminator(' ')
                 .map(|x| Subline {
                     subline: x,
-                    width: UnicodeWidthStr::width(x),
+                    width: {
+                        // We've tried UnicodeWidthStr::width(x), UnicodeSegmentation::graphemes(x, true).count()
+                        // and x.chars().count() with all types of combinations. Currently, it appears that
+                        // getting the max of char count and unicode width seems to produce the best layout.
+                        // However, it's not perfect.
+                        let c = x.chars().count();
+                        let u = UnicodeWidthStr::width(x);
+                        std::cmp::max(c, u)
+                    },
                 })
                 .collect::<Vec<_>>()
         })

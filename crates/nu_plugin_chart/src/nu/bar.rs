@@ -284,7 +284,7 @@ impl SubCommand {
                 let formatter = if self.format.is_some() {
                     let default = String::from("%b-%Y");
 
-                    let string_fmt = self.format.as_ref().unwrap_or_else(|| &default);
+                    let string_fmt = self.format.as_ref().unwrap_or(&default);
 
                     Some(nu_data::utils::helpers::date_formatter(
                         string_fmt.to_string(),
@@ -331,7 +331,7 @@ impl SubCommand {
                 let formatter = if self.format.is_some() {
                     let default = String::from("%b-%Y");
 
-                    let string_fmt = self.format.as_ref().unwrap_or_else(|| &default);
+                    let string_fmt = self.format.as_ref().unwrap_or(&default);
 
                     Some(nu_data::utils::helpers::date_formatter(
                         string_fmt.to_string(),

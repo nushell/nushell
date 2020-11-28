@@ -156,7 +156,7 @@ pub fn scan(paths: Vec<std::path::PathBuf>) -> Result<Vec<crate::commands::Comma
 
                 if is_valid_name && is_executable {
                     trace!(target: "nu::load", "plugin infrastructure -> Trying {:?}", path.display());
-                    build_plugin_command(&path).unwrap_or_else(|_| None)
+                    build_plugin_command(&path).unwrap_or(None)
                 } else {
                     None
                 }

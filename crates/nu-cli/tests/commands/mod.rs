@@ -34,6 +34,7 @@ mod mkdir;
 mod move_;
 mod open;
 mod parse;
+mod path;
 mod prepend;
 mod random;
 mod range;

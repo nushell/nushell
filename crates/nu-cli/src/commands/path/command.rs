@@ -16,7 +16,7 @@ impl WholeStreamCommand for Path {
     }
 
     fn usage(&self) -> &str {
-        "Apply path function"
+        "Explore and manipulate paths"
     }
 
     async fn run(
