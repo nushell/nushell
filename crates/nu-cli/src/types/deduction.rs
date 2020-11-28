@@ -765,60 +765,59 @@ impl VarSyntaxShapeDeductor {
                         )],
                     )?;
                 }
-                Operator::In | Operator::NotIn => {
-                    match var_side {
-                        BinarySide::Left => match &expr.expr {
-                            Expression::List(list) => {
-                                if !list.is_empty() {
-                                    let shapes_in_list = self
-                                        .get_shapes_in_list_or_insert_dependency(
+                Operator::In | Operator::NotIn => match var_side {
+                    BinarySide::Left => match &expr.expr {
+                        Expression::List(list) => {
+                            if !list.is_empty() {
+                                let shapes_in_list = self.get_shapes_in_list_or_insert_dependency(
+                                    var,
+                                    bin_spanned,
+                                    &list,
+                                    (pipeline_idx, pipeline),
+                                    registry,
+                                );
+                                match shapes_in_list {
+                                    None => {}
+                                    Some(shapes_in_list) => {
+                                        self.checked_insert(
                                             var,
-                                            bin_spanned,
-                                            &list,
-                                            (pipeline_idx, pipeline),
-                                            registry,
-                                        );
-                                    match shapes_in_list {
-                                        None => {}
-                                        Some(shapes_in_list) => {
-                                            self.checked_insert(
-                                                var,
-                                                VarShapeDeduction::from_usage_with_alternatives(
-                                                    &var.span,
-                                                    &shapes_in_list,
-                                                ),
-                                            )?;
-                                        }
+                                            VarShapeDeduction::from_usage_with_alternatives(
+                                                &var.span,
+                                                &shapes_in_list,
+                                            ),
+                                        )?;
                                     }
                                 }
                             }
-                            Expression::Table(_, _)
-                            | Expression::Literal(_)
-                            | Expression::ExternalWord
-                            | Expression::Synthetic(_)
-                            | Expression::Variable(_, _)
-                            | Expression::Binary(_)
-                            | Expression::Range(_)
-                            | Expression::Block(_)
-                            | Expression::Path(_)
-                            | Expression::FilePath(_)
-                            | Expression::ExternalCommand(_)
-                            | Expression::Command
-                            | Expression::Invocation(_)
-                            | Expression::Boolean(_)
-                            | Expression::Garbage => {unreachable!("Parser should have rejected code. In only applicable with rhs of type List")}
-                        },
-                        BinarySide::Right => {
-                            self.checked_insert(
-                                var,
-                                VarShapeDeduction::from_usage_with_alternatives(
-                                    &var.span,
-                                    &[SyntaxShape::Table],
-                                ),
-                            )?;
                         }
+                        Expression::Table(_, _)
+                        | Expression::Literal(_)
+                        | Expression::ExternalWord
+                        | Expression::Synthetic(_)
+                        | Expression::Variable(_, _)
+                        | Expression::Binary(_)
+                        | Expression::Range(_)
+                        | Expression::Block(_)
+                        | Expression::Path(_)
+                        | Expression::FilePath(_)
+                        | Expression::ExternalCommand(_)
+                        | Expression::Command
+                        | Expression::Invocation(_)
+                        | Expression::Boolean(_)
+                        | Expression::Garbage => {
+                            unreachable!("Parser should have rejected code. In only applicable with rhs of type List")
+                        }
+                    },
+                    BinarySide::Right => {
+                        self.checked_insert(
+                            var,
+                            VarShapeDeduction::from_usage_with_alternatives(
+                                &var.span,
+                                &[SyntaxShape::Table],
+                            ),
+                        )?;
                     }
-                }
+                },
                 Operator::Modulo => {
                     self.checked_insert(
                         var,

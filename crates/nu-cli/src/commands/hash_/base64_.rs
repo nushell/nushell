@@ -7,18 +7,28 @@ use nu_protocol::{
 };
 use nu_source::{Tag, Tagged};
 
-use base64::{encode, encode_config};
+use base64::{decode_config, encode_config};
 
 #[derive(Deserialize)]
 pub struct Arguments {
-    pub character_type: Option<Tagged<String>>,
+    pub character_set: Option<Tagged<String>>,
     pub encode: Tagged<bool>,
     pub decode: Tagged<bool>,
     pub rest: Vec<ColumnPath>,
 }
 
-pub struct SubCommand;
+#[derive(Clone)]
+pub struct Base64Config {
+    pub character_set: String,
+    pub action_type: ActionType,
+}
 
+#[derive(Clone, Copy, PartialEq)]
+pub enum ActionType {
+    Encode,
+    Decode,
+}
+pub struct SubCommand;
 
 #[async_trait]
 impl WholeStreamCommand for SubCommand {
@@ -29,21 +39,22 @@ impl WholeStreamCommand for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("hash base64")
             .named(
-                "character-type",
+                "character_set",
                 SyntaxShape::String,
-                "specify the character rules for encoding the input",
+                "specify the character rules for encoding the input.\n\
+                        \tValid values are 'standard', 'standard-no-padding', 'url-safe', 'url-safe-no-padding',\
+                        'binhex', 'bcrypt', 'crypt'",
                 Some('c'),
             )
             .switch(
-                "encode",
-                "encode the input as base64",
-                Some('p'),
+                "encode", 
+                "encode the input as base64. This is the default behavior if not specified.", 
+                Some('e')
             )
             .switch(
-                "dencode",
-                "decode the input from base64",
-                Some('d'),
-            )
+                "decode", 
+                "decode the input from base64", 
+                Some('d'))
             .rest(
                 SyntaxShape::ColumnPath,
                 "optionally base64 encode / decode data by column paths",
@@ -63,18 +74,31 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Base64 encode a string",
-            example: "my_username:my_password | hash base64",
-            result: Some(vec![
-                UntaggedValue::string("dXNlcm5hbWU6cGFzc3dvcmQ=").into_untagged_value()
-            ]),
-        }]
+        vec![
+            Example {
+                description: "Base64 encode a string with default settings",
+                example: "echo 'username:password' | hash base64",
+                result: Some(vec![
+                    UntaggedValue::string("dXNlcm5hbWU6cGFzc3dvcmQ=").into_untagged_value()
+                ]),
+            },
+            Example {
+                description: "Base64 encode a string with the binhex character set",
+                example: "echo 'username:password' | hash base64 --character_set binhex --encode",
+                result: Some(vec![
+                    UntaggedValue::string("F@0NEPjJD97kE'&bEhFZEP3").into_untagged_value()
+                ]),
+            },
+            Example {
+                description: "Base64 decode a value",
+                example: "echo 'dXNlcm5hbWU6cGFzc3dvcmQ=' | hash base64 --decode",
+                result: Some(vec![
+                    UntaggedValue::string("username:password").into_untagged_value()
+                ]),
+            },
+        ]
     }
 }
-
-#[derive(Clone)]
-pub struct EncodingConfig(String);
 
 async fn operate(
     args: CommandArgs,
@@ -82,28 +106,44 @@ async fn operate(
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
 
-    let (Arguments { 
-        encode,
-        decode,
-        character_type,
-        rest, 
-        }, 
-        input) = args.process(&registry).await?;
+    let name_tag = &args.call_info.name_tag.clone();
+
+    let (
+        Arguments {
+            encode,
+            decode,
+            character_set,
+            rest,
+        },
+        input,
+    ) = args.process(&registry).await?;
 
     if encode.item && decode.item {
         return Ok(OutputStream::one(Err(ShellError::labeled_error(
-            "only one of --decode and --encode can be used",
+            "only one of --decode and --encode flags can be used",
             "conflicting flags",
-            name,
+            name_tag,
         ))));
     }
 
-    let encoding_inner = match character_type {
-        Some(inner_tag) => inner_tag.item().to_string().clone(),
-        None => "standard".to_string()
+    // Default the action to be encoding if no flags are specified.
+    let action_type = if *decode.item() {
+        ActionType::Decode
+    } else {
+        ActionType::Encode
     };
 
-    let encoding_config = EncodingConfig(encoding_inner);
+    // Default the character set to standard if the argument is not specified.
+    let character_set = match character_set {
+        Some(inner_tag) => inner_tag.item().to_string().clone(),
+        None => "standard".to_string(),
+    };
+
+    let encoding_config = Base64Config {
+        character_set,
+        action_type,
+    };
+
     let column_paths: Vec<_> = rest;
 
     Ok(input
@@ -127,33 +167,67 @@ async fn operate(
         .to_output_stream())
 }
 
-fn action(input: &Value, encoding: &EncodingConfig, tag: impl Into<Tag>) -> Result<Value, ShellError> {
+fn action(
+    input: &Value,
+    base64_config: &Base64Config,
+    tag: impl Into<Tag>,
+) -> Result<Value, ShellError> {
     match &input.value {
         UntaggedValue::Primitive(Primitive::Line(s))
         | UntaggedValue::Primitive(Primitive::String(s)) => {
-            let encoding_config = &encoding.0;
-
-            if encoding_config == "standard" {
-                return Ok(UntaggedValue::string(encode_config(&s, base64::STANDARD)).into_value(tag));
-            }
-
-            else if encoding_config == "standard-no-padding" {
-                return Ok(UntaggedValue::string(encode_config(&s, base64::STANDARD_NO_PAD)).into_value(tag));
-            }
-
-            else if encoding_config == "url-safe" {
-                return Ok(UntaggedValue::string(encode_config(&s, base64::URL_SAFE)).into_value(tag));
-            }
-
-            else {
+            let base64_config_enum: base64::Config = if &base64_config.character_set == "standard" {
+                base64::STANDARD
+            } else if &base64_config.character_set == "standard-no-padding" {
+                base64::STANDARD_NO_PAD
+            } else if &base64_config.character_set == "url-safe" {
+                base64::URL_SAFE
+            } else if &base64_config.character_set == "url-safe-no-padding" {
+                base64::URL_SAFE_NO_PAD
+            } else if &base64_config.character_set == "binhex" {
+                base64::BINHEX
+            } else if &base64_config.character_set == "bcrypt" {
+                base64::BCRYPT
+            } else if &base64_config.character_set == "crypt" {
+                base64::CRYPT
+            } else {
                 return Err(ShellError::labeled_error(
                     "value is not an accepted character set",
-                    format!("character-set {}", encoding_config),
+                    format!(
+                        "{} is not a valid character-set.\nPlease use `help hash base64` to see a list of valid character sets.", 
+                        &base64_config.character_set
+                    ),
                     tag.into().span,
                 ));
-            }
+            };
 
-            Ok(UntaggedValue::string(encode(&s)).into_value(tag))
+            match base64_config.action_type {
+                ActionType::Encode => {
+                    return Ok(UntaggedValue::string(encode_config(&s, base64_config_enum))
+                        .into_value(tag));
+                }
+                ActionType::Decode => {
+                    let decode_result = decode_config(&s, base64_config_enum);
+
+                    match decode_result {
+                        Ok(decoded_value) => {
+                            return Ok(UntaggedValue::string(
+                                std::string::String::from_utf8_lossy(&decoded_value),
+                            )
+                            .into_value(tag));
+                        }
+                        Err(_) => {
+                            return Err(ShellError::labeled_error(
+                                "value could not be base64 decoded",
+                                format!(
+                                    "invalid base64 input for character set {}",
+                                    &base64_config.character_set
+                                ),
+                                tag.into().span,
+                            ))
+                        }
+                    }
+                }
+            }
         }
         other => {
             let got = format!("got {}", other.type_name());
@@ -168,7 +242,7 @@ fn action(input: &Value, encoding: &EncodingConfig, tag: impl Into<Tag>) -> Resu
 
 #[cfg(test)]
 mod tests {
-    use super::{action, EncodingConfig};
+    use super::{action, ActionType, Base64Config};
     use nu_protocol::UntaggedValue;
     use nu_source::Tag;
     use nu_test_support::value::string;
@@ -178,25 +252,66 @@ mod tests {
         let word = string("username:password");
         let expected = UntaggedValue::string("dXNlcm5hbWU6cGFzc3dvcmQ=").into_untagged_value();
 
-        let actual = action(&word, &EncodingConfig("standard".to_string()), Tag::unknown()).unwrap();
+        let actual = action(
+            &word,
+            &Base64Config {
+                character_set: "standard".to_string(),
+                action_type: ActionType::Encode,
+            },
+            Tag::unknown(),
+        )
+        .unwrap();
         assert_eq!(actual, expected);
     }
-    
+
     #[test]
     fn base64_encode_standard_no_padding() {
         let word = string("username:password");
         let expected = UntaggedValue::string("dXNlcm5hbWU6cGFzc3dvcmQ").into_untagged_value();
 
-        let actual = action(&word, &EncodingConfig("standard-no-padding".to_string()), Tag::unknown()).unwrap();
+        let actual = action(
+            &word,
+            &Base64Config {
+                character_set: "standard-no-padding".to_string(),
+                action_type: ActionType::Encode,
+            },
+            Tag::unknown(),
+        )
+        .unwrap();
         assert_eq!(actual, expected);
     }
-    
+
     #[test]
     fn base64_encode_url_safe() {
         let word = string("this is for url");
         let expected = UntaggedValue::string("dGhpcyBpcyBmb3IgdXJs").into_untagged_value();
 
-        let actual = action(&word, &EncodingConfig("url-safe".to_string()), Tag::unknown()).unwrap();
+        let actual = action(
+            &word,
+            &Base64Config {
+                character_set: "url-safe".to_string(),
+                action_type: ActionType::Encode,
+            },
+            Tag::unknown(),
+        )
+        .unwrap();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn base64_decode_binhex() {
+        let word = string("A5\"KC9jRB@IIF'8bF!");
+        let expected = UntaggedValue::string("a binhex test").into_untagged_value();
+
+        let actual = action(
+            &word,
+            &Base64Config {
+                character_set: "binhex".to_string(),
+                action_type: ActionType::Decode,
+            },
+            Tag::unknown(),
+        )
+        .unwrap();
         assert_eq!(actual, expected);
     }
 }
