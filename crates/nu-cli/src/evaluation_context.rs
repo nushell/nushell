@@ -27,7 +27,7 @@ pub struct EvaluationContext {
 }
 
 impl EvaluationContext {
-    pub(crate) fn registry(&self) -> &CommandRegistry {
+    pub fn registry(&self) -> &CommandRegistry {
         &self.registry
     }
 
