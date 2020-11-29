@@ -135,7 +135,7 @@ async fn operate(
 
     // Default the character set to standard if the argument is not specified.
     let character_set = match character_set {
-        Some(inner_tag) => inner_tag.item().to_string().clone(),
+        Some(inner_tag) => inner_tag.item().to_string(),
         None => "standard".to_string(),
     };
 
@@ -201,30 +201,27 @@ fn action(
             };
 
             match base64_config.action_type {
-                ActionType::Encode => {
-                    return Ok(UntaggedValue::string(encode_config(&s, base64_config_enum))
-                        .into_value(tag));
-                }
+                ActionType::Encode => Ok(UntaggedValue::string(encode_config(
+                    &s,
+                    base64_config_enum,
+                ))
+                .into_value(tag)),
                 ActionType::Decode => {
                     let decode_result = decode_config(&s, base64_config_enum);
 
                     match decode_result {
-                        Ok(decoded_value) => {
-                            return Ok(UntaggedValue::string(
-                                std::string::String::from_utf8_lossy(&decoded_value),
-                            )
-                            .into_value(tag));
-                        }
-                        Err(_) => {
-                            return Err(ShellError::labeled_error(
-                                "value could not be base64 decoded",
-                                format!(
-                                    "invalid base64 input for character set {}",
-                                    &base64_config.character_set
-                                ),
-                                tag.into().span,
-                            ))
-                        }
+                        Ok(decoded_value) => Ok(UntaggedValue::string(
+                            std::string::String::from_utf8_lossy(&decoded_value),
+                        )
+                        .into_value(tag)),
+                        Err(_) => Err(ShellError::labeled_error(
+                            "value could not be base64 decoded",
+                            format!(
+                                "invalid base64 input for character set {}",
+                                &base64_config.character_set
+                            ),
+                            tag.into().span,
+                        )),
                     }
                 }
             }
