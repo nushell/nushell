@@ -27,6 +27,21 @@ fn base64_encode_characterset_binhex() {
 }
 
 #[test]
+fn error_when_invalid_character_set_given() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        echo 'username:password' | hash base64 --character_set 'this is invalid' --encode
+        "#
+        )
+    );
+
+    assert!(actual
+        .err
+        .contains("this is invalid is not a valid character-set"));
+}
+
+#[test]
 fn base64_decode_characterset_binhex() {
     let actual = nu!(
         cwd: ".", pipeline(
