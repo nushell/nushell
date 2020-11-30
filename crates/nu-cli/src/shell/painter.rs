@@ -25,9 +25,10 @@ impl Painter {
         registry: &dyn SignatureRegistry,
         palette: &P,
     ) -> Cow<'l, str> {
-        let (lb, err) = nu_parser::lite_parse(line, 0);
+        let (tokens, err) = nu_parser::lex(line, 0);
+        let (lb, err2) = nu_parser::group(tokens);
 
-        if err.is_some() {
+        if err.is_some() || err2.is_some() {
             Cow::Borrowed(line)
         } else {
             let classified = nu_parser::classify_block(&lb, registry);

@@ -393,9 +393,10 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
             if let Some(prompt) = configuration.var("prompt") {
                 let prompt_line = prompt.as_string()?;
 
-                let (result, err) = nu_parser::lite_parse(&prompt_line, 0);
+                let (result, err) = nu_parser::lex(&prompt_line, 0);
+                let (result, err2) = nu_parser::group(result);
 
-                if err.is_some() {
+                if err.is_some() || err2.is_some() {
                     use crate::git::current_branch;
                     format!(
                         "\x1b[32m{}{}\x1b[m> ",
@@ -867,7 +868,11 @@ pub async fn parse_and_eval(line: &str, ctx: &mut EvaluationContext) -> Result<S
         line
     };
 
-    let (lite_result, err) = nu_parser::lite_parse(&line, 0);
+    let (tokens, err) = nu_parser::lex(&line, 0);
+    if let Some(err) = err {
+        return Err(err.into());
+    }
+    let (lite_result, err) = nu_parser::group(tokens);
     if let Some(err) = err {
         return Err(err.into());
     }
@@ -903,8 +908,12 @@ pub async fn process_script(
         let line = chomp_newline(script_text);
         ctx.raw_input = line.to_string();
 
-        let (result, err) = nu_parser::lite_parse(&line, 0);
+        let (result, err) = nu_parser::lex(&line, 0);
+        if let Some(err) = err {
+            return LineResult::Error(line.to_string(), err.into());
+        }
 
+        let (result, err) = nu_parser::group(result);
         if let Some(err) = err {
             return LineResult::Error(line.to_string(), err.into());
         }
@@ -1105,8 +1114,9 @@ pub fn print_err(err: ShellError, source: &Text) {
 mod tests {
     #[quickcheck]
     fn quickcheck_parse(data: String) -> bool {
-        let (lite_block, err) = nu_parser::lite_parse(&data, 0);
-        if err.is_none() {
+        let (tokens, err) = nu_parser::lex(&data, 0);
+        let (lite_block, err2) = nu_parser::group(tokens);
+        if err.is_none() && err2.is_none() {
             let context = crate::evaluation_context::EvaluationContext::basic().unwrap();
             let _ = nu_parser::classify_block(&lite_block, context.registry());
         }

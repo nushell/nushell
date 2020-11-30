@@ -285,14 +285,15 @@ mod tests {
     mod completion_location {
         use super::*;
 
-        use nu_parser::{classify_block, lite_parse, SignatureRegistry};
+        use nu_parser::{classify_block, group, lex, SignatureRegistry};
 
         fn completion_location(
             line: &str,
             registry: &dyn SignatureRegistry,
             pos: usize,
         ) -> Vec<LocationType> {
-            let (lite_block, _) = lite_parse(line, 0);
+            let (tokens, _) = lex(line, 0);
+            let (lite_block, _) = group(tokens);
 
             let block = classify_block(&lite_block, registry);
 

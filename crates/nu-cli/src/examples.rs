@@ -197,7 +197,11 @@ fn parse_line(line: &str, ctx: &mut EvaluationContext) -> Result<ClassifiedBlock
         line
     };
 
-    let (lite_result, err) = nu_parser::lite_parse(&line, 0);
+    let (lite_result, err) = nu_parser::lex(&line, 0);
+    if let Some(err) = err {
+        return Err(err.into());
+    }
+    let (lite_result, err) = nu_parser::group(lite_result);
     if let Some(err) = err {
         return Err(err.into());
     }

@@ -23,7 +23,8 @@ impl NuCompleter {
         use completion::engine::LocationType;
 
         let nu_context: &EvaluationContext = context.as_ref();
-        let (lite_block, _) = nu_parser::lite_parse(line, 0);
+        let (tokens, _) = nu_parser::lex(line, 0);
+        let (lite_block, _) = nu_parser::group(tokens);
 
         let classified_block = nu_parser::classify_block(&lite_block, &nu_context.registry);
         let locations = completion::engine::completion_location(line, &classified_block.block, pos);

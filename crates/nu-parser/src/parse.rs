@@ -12,7 +12,7 @@ use nu_source::{Span, Spanned, SpannedItem};
 use num_bigint::BigInt;
 
 //use crate::errors::{ParseError, ParseResult};
-use crate::lite_parse::{lite_parse, LiteBlock, LiteCommand, LitePipeline};
+use crate::lex::{group, lex, LiteBlock, LiteCommand, LitePipeline};
 use crate::path::expand_path;
 use crate::signature::SignatureRegistry;
 use bigdecimal::BigDecimal;
@@ -388,7 +388,11 @@ fn parse_invocation(
         .collect();
 
     // We haven't done much with the inner string, so let's go ahead and work with it
-    let (lite_block, err) = lite_parse(&string, lite_arg.span.start() + 2);
+    let (tokens, err) = lex(&string, lite_arg.span.start() + 2);
+    if err.is_some() {
+        return (garbage(lite_arg.span), err);
+    };
+    let (lite_block, err) = group(tokens);
     if err.is_some() {
         return (garbage(lite_arg.span), err);
     };
@@ -706,7 +710,12 @@ fn parse_table(
         error = err;
     }
 
-    let (lite_header, err) = lite_parse(&string, lite_inner.parts[0].span.start() + 1);
+    let (tokens, err) = lex(&string, lite_inner.parts[0].span.start() + 1);
+    if err.is_some() {
+        return (garbage(lite_inner.span()), err);
+    }
+
+    let (lite_header, err) = group(tokens);
     if err.is_some() {
         return (garbage(lite_inner.span()), err);
     }
@@ -725,7 +734,11 @@ fn parse_table(
         if error.is_none() {
             error = err;
         }
-        let (lite_cell, err) = lite_parse(&string, arg.span.start() + 1);
+        let (tokens, err) = lex(&string, arg.span.start() + 1);
+        if err.is_some() {
+            return (garbage(arg.span), err);
+        }
+        let (lite_cell, err) = group(tokens);
         if err.is_some() {
             return (garbage(arg.span), err);
         }
@@ -851,10 +864,16 @@ fn parse_arg(
                     let string: String = chars.collect();
 
                     // We haven't done much with the inner string, so let's go ahead and work with it
-                    let (lite_block, err) = lite_parse(&string, lite_arg.span.start() + 1);
+                    let (tokens, err) = lex(&string, lite_arg.span.start() + 1);
                     if err.is_some() {
                         return (garbage(lite_arg.span), err);
                     }
+
+                    let (lite_block, err) = group(tokens);
+                    if err.is_some() {
+                        return (garbage(lite_arg.span), err);
+                    }
+
                     let lite_groups = &lite_block.block;
 
                     if lite_groups.is_empty() {
@@ -898,7 +917,12 @@ fn parse_arg(
                     let string: String = chars.collect();
 
                     // We haven't done much with the inner string, so let's go ahead and work with it
-                    let (lite_block, err) = lite_parse(&string, lite_arg.span.start() + 1);
+                    let (tokens, err) = lex(&string, lite_arg.span.start() + 1);
+                    if err.is_some() {
+                        return (garbage(lite_arg.span), err);
+                    }
+
+                    let (lite_block, err) = group(tokens);
                     if err.is_some() {
                         return (garbage(lite_arg.span), err);
                     }
@@ -1119,7 +1143,12 @@ fn parse_parenthesized_expression(
             let string: String = chars.collect();
 
             // We haven't done much with the inner string, so let's go ahead and work with it
-            let (lite_block, err) = lite_parse(&string, lite_arg.span.start() + 1);
+            let (tokens, err) = lex(&string, lite_arg.span.start() + 1);
+            if err.is_some() {
+                return (garbage(lite_arg.span), err);
+            }
+
+            let (lite_block, err) = group(tokens);
             if err.is_some() {
                 return (garbage(lite_arg.span), err);
             }
