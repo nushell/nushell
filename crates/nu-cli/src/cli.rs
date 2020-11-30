@@ -339,10 +339,17 @@ fn convert_rustyline_result_to_string(input: Result<String, ReadlineError>) -> L
 /// The entry point for the CLI. Will register all known internal commands, load experimental commands, load plugins, then prepare the prompt and line reader for input.
 #[cfg(feature = "rustyline-support")]
 pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
+    use std::env;
+
     let mut syncer = EnvironmentSyncer::new();
     let configuration = syncer.get_config();
 
     let mut rl = default_rustyline_editor_configuration();
+
+
+    if let Ok(path) = env::var("PWD") {
+        context.shell_manager.set_path(path);
+    }
 
     context.configure(&configuration, |config, ctx| {
         syncer.load_environment();
