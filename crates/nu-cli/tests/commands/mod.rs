@@ -20,6 +20,7 @@ mod flatten;
 mod format;
 mod get;
 mod group_by;
+mod hash_;
 mod headers;
 mod histogram;
 mod insert;
