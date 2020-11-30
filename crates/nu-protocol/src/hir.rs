@@ -1250,7 +1250,7 @@ impl PartialOrd for NamedArguments {
         }
 
         let this: Vec<&NamedValue> = self.named.values().collect();
-        let that: Vec<&NamedValue> = self.named.values().collect();
+        let that: Vec<&NamedValue> = other.named.values().collect();
 
         this.partial_cmp(&that)
     }
@@ -1267,7 +1267,7 @@ impl Ord for NamedArguments {
         }
 
         let this: Vec<&NamedValue> = self.named.values().collect();
-        let that: Vec<&NamedValue> = self.named.values().collect();
+        let that: Vec<&NamedValue> = other.named.values().collect();
 
         this.cmp(&that)
     }
