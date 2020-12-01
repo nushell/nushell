@@ -3208,6 +3208,7 @@ dependencies = [
  "serde_urlencoded 0.7.0",
  "serde_yaml",
  "sha2 0.9.2",
+ "shadow-rs",
  "shellexpand",
  "strip-ansi-escapes",
  "sxd-document",
@@ -5178,6 +5179,16 @@ dependencies = [
  "cpuid-bool",
  "digest 0.9.0",
  "opaque-debug 0.3.0",
+]
+
+[[package]]
+name = "shadow-rs"
+version = "0.3.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bfa99d59fca26677e3582f69069226abb6b2ce7e02d1068bcfd57510fa16ab87"
+dependencies = [
+ "chrono",
+ "git2",
 ]
 
 [[package]]
