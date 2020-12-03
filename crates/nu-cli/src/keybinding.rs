@@ -1,17 +1,27 @@
-use serde::{Deserialize, Serialize};
 use rustyline::{KeyCode, Modifiers};
+use serde::{Deserialize, Serialize};
 
 fn convert_keypress(keypress: KeyEvent) -> rustyline::KeyEvent {
     match keypress {
         KeyEvent::UnknownEscSeq => convert_to_key_event(rustyline::KeyCode::UnknownEscSeq, None),
         KeyEvent::Backspace => convert_to_key_event(rustyline::KeyCode::Backspace, None),
         KeyEvent::BackTab => convert_to_key_event(rustyline::KeyCode::BackTab, None),
-        KeyEvent::BracketedPasteStart => convert_to_key_event(rustyline::KeyCode::BracketedPasteStart, None),
-        KeyEvent::BracketedPasteEnd => convert_to_key_event(rustyline::KeyCode::BracketedPasteEnd, None),
+        KeyEvent::BracketedPasteStart => {
+            convert_to_key_event(rustyline::KeyCode::BracketedPasteStart, None)
+        }
+        KeyEvent::BracketedPasteEnd => {
+            convert_to_key_event(rustyline::KeyCode::BracketedPasteEnd, None)
+        }
         KeyEvent::Char(c) => convert_to_key_event(rustyline::KeyCode::Char(c), None),
-        KeyEvent::ControlDown => convert_to_key_event(rustyline::KeyCode::Down, Some(Modifiers::CTRL)),
-        KeyEvent::ControlLeft => convert_to_key_event(rustyline::KeyCode::Left, Some(Modifiers::CTRL)),
-        KeyEvent::ControlRight => convert_to_key_event(rustyline::KeyCode::Right, Some(Modifiers::CTRL)),
+        KeyEvent::ControlDown => {
+            convert_to_key_event(rustyline::KeyCode::Down, Some(Modifiers::CTRL))
+        }
+        KeyEvent::ControlLeft => {
+            convert_to_key_event(rustyline::KeyCode::Left, Some(Modifiers::CTRL))
+        }
+        KeyEvent::ControlRight => {
+            convert_to_key_event(rustyline::KeyCode::Right, Some(Modifiers::CTRL))
+        }
         KeyEvent::ControlUp => convert_to_key_event(rustyline::KeyCode::Up, Some(Modifiers::CTRL)),
         KeyEvent::Ctrl(c) => rustyline::KeyEvent::ctrl(c),
         KeyEvent::Delete => convert_to_key_event(rustyline::KeyCode::Delete, None),
@@ -28,9 +38,15 @@ fn convert_keypress(keypress: KeyEvent) -> rustyline::KeyEvent {
         KeyEvent::PageDown => convert_to_key_event(rustyline::KeyCode::PageDown, None),
         KeyEvent::PageUp => convert_to_key_event(rustyline::KeyCode::PageUp, None),
         KeyEvent::Right => convert_to_key_event(rustyline::KeyCode::Right, None),
-        KeyEvent::ShiftDown => convert_to_key_event(rustyline::KeyCode::Down, Some(Modifiers::SHIFT)),
-        KeyEvent::ShiftLeft => convert_to_key_event(rustyline::KeyCode::Left, Some(Modifiers::SHIFT)),
-        KeyEvent::ShiftRight => convert_to_key_event(rustyline::KeyCode::Right, Some(Modifiers::SHIFT)),
+        KeyEvent::ShiftDown => {
+            convert_to_key_event(rustyline::KeyCode::Down, Some(Modifiers::SHIFT))
+        }
+        KeyEvent::ShiftLeft => {
+            convert_to_key_event(rustyline::KeyCode::Left, Some(Modifiers::SHIFT))
+        }
+        KeyEvent::ShiftRight => {
+            convert_to_key_event(rustyline::KeyCode::Right, Some(Modifiers::SHIFT))
+        }
         KeyEvent::ShiftUp => convert_to_key_event(rustyline::KeyCode::Up, Some(Modifiers::SHIFT)),
         KeyEvent::Tab => convert_to_key_event(rustyline::KeyCode::Tab, None),
         KeyEvent::Up => convert_to_key_event(rustyline::KeyCode::Up, None),
@@ -40,7 +56,7 @@ fn convert_keypress(keypress: KeyEvent) -> rustyline::KeyEvent {
 fn convert_to_key_event(key_event: KeyCode, modifier: Option<Modifiers>) -> rustyline::KeyEvent {
     rustyline::KeyEvent {
         0: key_event,
-        1: modifier.unwrap_or(Modifiers::NONE)
+        1: modifier.unwrap_or(Modifiers::NONE),
     }
 }
 
@@ -105,7 +121,9 @@ fn convert_cmd(cmd: Cmd) -> rustyline::Cmd {
     match cmd {
         Cmd::Abort => rustyline::Cmd::Abort,
         Cmd::AcceptLine => rustyline::Cmd::AcceptLine,
-        Cmd::AcceptOrInsertLine => rustyline::Cmd::AcceptOrInsertLine { accept_in_the_middle: false },
+        Cmd::AcceptOrInsertLine => rustyline::Cmd::AcceptOrInsertLine {
+            accept_in_the_middle: false,
+        },
         Cmd::BeginningOfHistory => rustyline::Cmd::BeginningOfHistory,
         Cmd::CapitalizeWord => rustyline::Cmd::CapitalizeWord,
         Cmd::ClearScreen => rustyline::Cmd::ClearScreen,

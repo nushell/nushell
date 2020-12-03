@@ -12,6 +12,7 @@ use nu_protocol::hir::{ClassifiedCommand, Expression, InternalCommand, Literal, 
 use nu_protocol::{Primitive, ReturnSuccess, Scope, UntaggedValue, Value};
 
 use log::{debug, trace};
+use rustyline::Modifiers;
 #[cfg(feature = "rustyline-support")]
 use rustyline::{
     self,
@@ -24,7 +25,6 @@ use std::error::Error;
 use std::iter::Iterator;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
-use rustyline::Modifiers;
 
 pub fn search_paths() -> Vec<std::path::PathBuf> {
     use std::env;
@@ -504,7 +504,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
 
         match line {
             LineResult::Success(line) => {
-                let _ = rl.add_history_entry(&line);
+                rl.add_history_entry(&line);
                 let _ = rl.save_history(&history_path);
                 context.maybe_print_errors(Text::from(line));
             }
@@ -515,7 +515,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
             }
 
             LineResult::Error(line, err) => {
-                let _ = rl.add_history_entry(&line);
+                rl.add_history_entry(&line);
                 let _ = rl.save_history(&history_path);
 
                 context.with_host(|_host| {
@@ -694,10 +694,13 @@ fn default_rustyline_editor_configuration() -> Editor<Helper> {
     );
 
     // workaround for multiline-paste hang in rustyline (see https://github.com/kkawakam/rustyline/issues/202)
-    rl.bind_sequence(rustyline::KeyEvent {
-        0: rustyline::KeyCode::BracketedPasteStart,
-        1: Modifiers::CTRL,
-    }, rustyline::Cmd::Noop);
+    rl.bind_sequence(
+        rustyline::KeyEvent {
+            0: rustyline::KeyCode::BracketedPasteStart,
+            1: Modifiers::NONE,
+        },
+        rustyline::Cmd::Noop,
+    );
 
     // Let's set the defaults up front and then override them later if the user indicates
     // defaults taken from here https://github.com/kkawakam/rustyline/blob/2fe886c9576c1ea13ca0e5808053ad491a6fe049/src/config.rs#L150-L167
