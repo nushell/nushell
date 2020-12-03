@@ -105,7 +105,7 @@ fn convert_cmd(cmd: Cmd) -> rustyline::Cmd {
     match cmd {
         Cmd::Abort => rustyline::Cmd::Abort,
         Cmd::AcceptLine => rustyline::Cmd::AcceptLine,
-        Cmd::AcceptOrInsertLine => rustyline::Cmd::AcceptOrInsertLine,
+        Cmd::AcceptOrInsertLine => rustyline::Cmd::AcceptOrInsertLine { accept_in_the_middle: false },
         Cmd::BeginningOfHistory => rustyline::Cmd::BeginningOfHistory,
         Cmd::CapitalizeWord => rustyline::Cmd::CapitalizeWord,
         Cmd::ClearScreen => rustyline::Cmd::ClearScreen,
