@@ -504,7 +504,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
         match line {
             LineResult::Success(line) => {
                 rl.add_history_entry(&line);
-                let _ = rl.save_history(&history_path);
+                let _ = rl.append_history(&history_path);
                 context.maybe_print_errors(Text::from(line));
             }
 
@@ -514,7 +514,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
             }
 
             LineResult::Error(line, err) => {
-                rl.add_history_entry(&line);
+                rl.append_history(&line);
                 let _ = rl.save_history(&history_path);
 
                 context.with_host(|_host| {
