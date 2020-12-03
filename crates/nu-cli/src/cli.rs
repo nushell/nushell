@@ -18,12 +18,13 @@ use rustyline::{
     config::Configurer,
     config::{ColorMode, CompletionType, Config},
     error::ReadlineError,
-    At, Cmd, Editor, KeyPress, Movement, Word,
+    At, Cmd, Editor, Movement, Word,
 };
 use std::error::Error;
 use std::iter::Iterator;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
+use rustyline::Modifiers;
 
 pub fn search_paths() -> Vec<std::path::PathBuf> {
     use std::env;
@@ -678,16 +679,25 @@ fn default_rustyline_editor_configuration() -> Editor<Helper> {
 
     // add key bindings to move over a whole word with Ctrl+ArrowLeft and Ctrl+ArrowRight
     rl.bind_sequence(
-        KeyPress::ControlLeft,
+        rustyline::KeyEvent {
+            0: rustyline::KeyCode::Left,
+            1: Modifiers::CTRL,
+        },
         Cmd::Move(Movement::BackwardWord(1, Word::Vi)),
     );
     rl.bind_sequence(
-        KeyPress::ControlRight,
+        rustyline::KeyEvent {
+            0: rustyline::KeyCode::Right,
+            1: Modifiers::CTRL,
+        },
         Cmd::Move(Movement::ForwardWord(1, At::AfterEnd, Word::Vi)),
     );
 
     // workaround for multiline-paste hang in rustyline (see https://github.com/kkawakam/rustyline/issues/202)
-    rl.bind_sequence(KeyPress::BracketedPasteStart, rustyline::Cmd::Noop);
+    rl.bind_sequence(rustyline::KeyEvent {
+        0: rustyline::KeyCode::BracketedPasteStart,
+        1: Modifiers::CTRL,
+    }, rustyline::Cmd::Noop);
 
     // Let's set the defaults up front and then override them later if the user indicates
     // defaults taken from here https://github.com/kkawakam/rustyline/blob/2fe886c9576c1ea13ca0e5808053ad491a6fe049/src/config.rs#L150-L167
