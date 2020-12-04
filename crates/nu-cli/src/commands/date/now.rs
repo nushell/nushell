@@ -22,21 +22,13 @@ impl WholeStreamCommand for Date {
         "return the current date."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        now(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        now(args).await
     }
 }
 
-pub async fn now(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let args = args.evaluate_once(&registry).await?;
+pub async fn now(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once().await?;
     let tag = args.call_info.name_tag.clone();
 
     let no_fmt = "".to_string();

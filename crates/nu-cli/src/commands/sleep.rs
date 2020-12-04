@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -40,15 +39,10 @@ impl WholeStreamCommand for Sleep {
         "Delay for a specified amount of time"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        let registry = registry.clone();
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let ctrl_c = args.ctrl_c().clone();
 
-        let (SleepArgs { duration, rest }, input) = args.process(&registry).await?;
+        let (SleepArgs { duration, rest }, input) = args.process().await?;
 
         let total_dur = Duration::from_nanos(duration.item)
             + rest

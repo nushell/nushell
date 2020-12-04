@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -31,12 +30,8 @@ impl WholeStreamCommand for Mkdir {
         "Make directories, creates intermediary directories as required."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        mkdir(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        mkdir(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -48,11 +43,10 @@ impl WholeStreamCommand for Mkdir {
     }
 }
 
-async fn mkdir(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+async fn mkdir(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let shell_manager = args.shell_manager.clone();
-    let (args, _) = args.process(&registry).await?;
+    let (args, _) = args.process().await?;
 
     shell_manager.mkdir(args, name)
 }

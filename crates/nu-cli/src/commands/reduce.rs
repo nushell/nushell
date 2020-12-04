@@ -2,7 +2,7 @@ use crate::commands::classified::block::run_block;
 use crate::commands::each;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
-use crate::{CommandArgs, CommandRegistry, Example, OutputStream};
+use crate::{CommandArgs, Example, OutputStream};
 use futures::stream::once;
 use nu_errors::ShellError;
 use nu_protocol::{hir::Block, Primitive, Scope, Signature, SyntaxShape, UntaggedValue, Value};
@@ -44,12 +44,8 @@ impl WholeStreamCommand for Reduce {
         (A, A) -> A unless --fold is selected, in which case it may be A, B -> A."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        reduce(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        reduce(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -92,14 +88,10 @@ async fn process_row(
     Ok(run_block(&block, Arc::make_mut(&mut context), input_stream, scope).await?)
 }
 
-async fn reduce(
-    raw_args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+async fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let base_scope = raw_args.call_info.scope.clone();
-    let context = Arc::new(EvaluationContext::from_raw(&raw_args, &registry));
-    let (reduce_args, mut input): (ReduceArgs, _) = raw_args.process(&registry).await?;
+    let context = Arc::new(EvaluationContext::from_raw(&raw_args));
+    let (reduce_args, mut input): (ReduceArgs, _) = raw_args.process().await?;
     let block = Arc::new(reduce_args.block);
     let (ioffset, start) = match reduce_args.fold {
         None => {

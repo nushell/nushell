@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::evaluate::evaluate_baseline_expr;
 use crate::prelude::*;
@@ -32,12 +31,8 @@ impl WholeStreamCommand for Where {
         "Filter table to match the condition."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        where_command(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        where_command(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -65,14 +60,11 @@ impl WholeStreamCommand for Where {
         ]
     }
 }
-async fn where_command(
-    raw_args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+async fn where_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let registry = Arc::new(registry.clone());
     let scope = raw_args.call_info.scope.clone();
     let tag = raw_args.call_info.name_tag.clone();
-    let (WhereArgs { block }, input) = raw_args.process(&registry).await?;
+    let (WhereArgs { block }, input) = raw_args.process().await?;
     let condition = {
         if block.block.len() != 1 {
             return Err(ShellError::labeled_error(
@@ -105,7 +97,6 @@ async fn where_command(
     Ok(input
         .filter_map(move |input| {
             let condition = condition.clone();
-            let registry = registry.clone();
             let scope = Scope::append_var(scope.clone(), "$it", input.clone());
 
             async move {

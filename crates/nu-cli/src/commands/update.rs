@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
@@ -44,12 +43,8 @@ impl WholeStreamCommand for Command {
         "Update an existing column to have a new value."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        update(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        update(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -174,15 +169,11 @@ async fn process_row(
     })
 }
 
-async fn update(
-    raw_args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+async fn update(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = Arc::new(raw_args.call_info.name_tag.clone());
     let scope = raw_args.call_info.scope.clone();
     let context = Arc::new(EvaluationContext::from_raw(&raw_args, &registry));
-    let (Arguments { field, replacement }, input) = raw_args.process(&registry).await?;
+    let (Arguments { field, replacement }, input) = raw_args.process().await?;
     let replacement = Arc::new(replacement);
     let field = Arc::new(field);
 

@@ -22,14 +22,10 @@ impl WholeStreamCommand for AutoenvTrust {
         "Trust a .nu-env file in the current or given directory"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
 
-        let file_to_trust = match args.call_info.evaluate(registry).await?.args.nth(0) {
+        let file_to_trust = match args.call_info.evaluate().await?.args.nth(0) {
             Some(Value {
                 value: UntaggedValue::Primitive(Primitive::String(ref path)),
                 tag: _,

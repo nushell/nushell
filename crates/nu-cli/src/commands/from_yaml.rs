@@ -19,12 +19,8 @@ impl WholeStreamCommand for FromYAML {
         "Parse text as .yaml/.yml and create table."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        from_yaml(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        from_yaml(args).await
     }
 }
 
@@ -44,12 +40,8 @@ impl WholeStreamCommand for FromYML {
         "Parse text as .yaml/.yml and create table."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        from_yaml(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        from_yaml(args).await
     }
 }
 
@@ -141,12 +133,8 @@ pub fn from_yaml_string_to_value(s: String, tag: impl Into<Tag>) -> Result<Value
     Ok(convert_yaml_value_to_nu_value(&v, tag)?)
 }
 
-async fn from_yaml(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let args = args.evaluate_once(&registry).await?;
+async fn from_yaml(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once().await?;
     let tag = args.name_tag();
     let input = args.input;
 

@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
-use crate::{CommandArgs, CommandRegistry, OutputStream};
+use crate::{CommandArgs, OutputStream};
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 
@@ -20,11 +20,7 @@ impl WholeStreamCommand for Command {
         "Configuration management."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        _registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let name_span = args.call_info.name_tag.clone();
         let name = args.call_info.name_tag;
         let result = nu_data::config::read(name_span, &None)?;

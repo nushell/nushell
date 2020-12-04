@@ -29,19 +29,14 @@ impl WholeStreamCommand for ToTSV {
         "Convert table into .tsv text"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        to_tsv(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        to_tsv(args).await
     }
 }
 
-async fn to_tsv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+async fn to_tsv(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (ToTSVArgs { headerless }, input) = args.process(&registry).await?;
+    let (ToTSVArgs { headerless }, input) = args.process().await?;
 
     to_delimited_data(headerless, '\t', "TSV", input, name).await
 }

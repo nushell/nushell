@@ -95,6 +95,10 @@ impl Scope {
         })
     }
 
+    pub fn get_command(&self, _name: &str) -> Option<crate::Signature> {
+        None
+    }
+
     /// Create an empty scope
     pub fn create() -> Arc<Scope> {
         Arc::new(Scope {

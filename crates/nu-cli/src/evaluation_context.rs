@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::{command::CommandArgs, Command, UnevaluatedCallInfo};
 use crate::env::host::Host;
 use crate::shell::shell_manager::ShellManager;
@@ -14,7 +13,7 @@ use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct EvaluationContext {
-    pub registry: CommandRegistry,
+    pub scope: Arc<Scope>,
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub ctrl_c: Arc<AtomicBool>,
@@ -27,16 +26,13 @@ pub struct EvaluationContext {
 }
 
 impl EvaluationContext {
-    pub fn registry(&self) -> &CommandRegistry {
-        &self.registry
+    pub fn scope(&self) -> Arc<Scope> {
+        self.scope.clone()
     }
 
-    pub(crate) fn from_raw(
-        raw_args: &CommandArgs,
-        registry: &CommandRegistry,
-    ) -> EvaluationContext {
+    pub(crate) fn from_raw(raw_args: &CommandArgs) -> EvaluationContext {
         EvaluationContext {
-            registry: registry.clone(),
+            scope: raw_args.call_info.scope.clone(),
             host: raw_args.host.clone(),
             current_errors: raw_args.current_errors.clone(),
             ctrl_c: raw_args.ctrl_c.clone(),
@@ -47,9 +43,9 @@ impl EvaluationContext {
         }
     }
 
-    pub(crate) fn from_args(args: &CommandArgs, registry: &CommandRegistry) -> EvaluationContext {
+    pub(crate) fn from_args(args: &CommandArgs) -> EvaluationContext {
         EvaluationContext {
-            registry: registry.clone(),
+            scope: args.call_info.scope.clone(),
             host: args.host.clone(),
             current_errors: args.current_errors.clone(),
             ctrl_c: args.ctrl_c.clone(),
@@ -61,10 +57,8 @@ impl EvaluationContext {
     }
 
     pub fn basic() -> Result<EvaluationContext, Box<dyn Error>> {
-        let registry = CommandRegistry::new();
-
         Ok(EvaluationContext {
-            registry,
+            scope: Arc::new(Scope::new()),
             host: Arc::new(parking_lot::Mutex::new(Box::new(
                 crate::env::host::BasicHost,
             ))),
@@ -156,7 +150,7 @@ impl EvaluationContext {
         input: InputStream,
     ) -> Result<OutputStream, ShellError> {
         let command_args = self.command_args(args, input, name_tag, scope);
-        command.run(command_args, self.registry()).await
+        command.run(command_args).await
     }
 
     fn call_info(&self, args: hir::Call, name_tag: Tag, scope: Arc<Scope>) -> UnevaluatedCallInfo {

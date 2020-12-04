@@ -38,12 +38,8 @@ impl WholeStreamCommand for GroupByDate {
         "creates a table grouped by date."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        group_by_date(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        group_by_date(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -63,11 +59,7 @@ enum GroupByColumn {
     Name(Option<Tagged<String>>),
 }
 
-pub async fn group_by_date(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+pub async fn group_by_date(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let (
         GroupByDateArgs {
@@ -75,7 +67,7 @@ pub async fn group_by_date(
             format,
         },
         input,
-    ) = args.process(&registry).await?;
+    ) = args.process().await?;
     let values: Vec<Value> = input.collect().await;
 
     if values.is_empty() {

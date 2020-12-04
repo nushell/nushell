@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::evaluate::evaluate_baseline_expr;
@@ -46,12 +45,8 @@ impl WholeStreamCommand for If {
         "Run blocks if a condition is true or false."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        if_command(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        if_command(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -69,10 +64,7 @@ impl WholeStreamCommand for If {
         ]
     }
 }
-async fn if_command(
-    raw_args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+async fn if_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let registry = Arc::new(registry.clone());
     let scope = raw_args.call_info.scope.clone();
     let tag = raw_args.call_info.name_tag.clone();
@@ -85,7 +77,7 @@ async fn if_command(
             else_case,
         },
         input,
-    ) = raw_args.process(&registry).await?;
+    ) = raw_args.process().await?;
     let condition = {
         if condition.block.len() != 1 {
             return Err(ShellError::labeled_error(
@@ -120,7 +112,6 @@ async fn if_command(
             let condition = condition.clone();
             let then_case = then_case.clone();
             let else_case = else_case.clone();
-            let registry = registry.clone();
             let scope = Scope::append_var(scope.clone(), "$it", input);
             let mut context = context.clone();
 

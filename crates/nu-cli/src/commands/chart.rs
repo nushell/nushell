@@ -20,20 +20,15 @@ impl WholeStreamCommand for Chart {
         "Displays charts."
     }
 
-    async fn run(
-        &self,
-        _args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        if registry.get_command("chart bar").is_none() {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        if args.call_info.scope.get_command("chart bar").is_none() {
             return Err(ShellError::untagged_runtime_error(
                 "nu_plugin_chart not installed.",
             ));
         }
 
-        let registry = registry.clone();
         Ok(OutputStream::one(Ok(ReturnSuccess::Value(
-            UntaggedValue::string(crate::commands::help::get_help(&Chart, &registry))
+            UntaggedValue::string(crate::commands::help::get_help(&Chart, args.scope.clone()))
                 .into_value(Tag::unknown()),
         ))))
     }

@@ -19,12 +19,8 @@ impl WholeStreamCommand for ToYAML {
         "Convert table into .yaml/.yml text"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        to_yaml(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        to_yaml(args).await
     }
 }
 
@@ -119,12 +115,8 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
     })
 }
 
-async fn to_yaml(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let args = args.evaluate_once(&registry).await?;
+async fn to_yaml(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once().await?;
     let name_tag = args.name_tag();
     let name_span = name_tag.span;
 

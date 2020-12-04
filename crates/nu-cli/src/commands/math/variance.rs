@@ -29,13 +29,9 @@ impl WholeStreamCommand for SubCommand {
         "Finds the variance of a list of numbers or tables"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let name = args.call_info.name_tag.clone();
-        let (Arguments { sample }, mut input) = args.process(&registry).await?;
+        let (Arguments { sample }, mut input) = args.process().await?;
 
         let values: Vec<Value> = input.drain_vec().await;
 

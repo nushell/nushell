@@ -25,11 +25,7 @@ impl WholeStreamCommand for SubCommand {
         "Gets the median of a list of numbers"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         run_with_function(
             RunnableContext {
                 input: args.input,

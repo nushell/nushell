@@ -53,7 +53,7 @@ async fn run_with_stdin(
     let mut command_args = vec![];
     for arg in command.args.iter() {
         let is_literal = matches!(arg.expr, Expression::Literal(_));
-        let value = evaluate_baseline_expr(arg, &context.registry, scope.clone()).await?;
+        let value = evaluate_baseline_expr(arg, scope.clone()).await?;
 
         // Skip any arguments that don't really exist, treating them as optional
         // FIXME: we may want to preserve the gap in the future, though it's hard to say

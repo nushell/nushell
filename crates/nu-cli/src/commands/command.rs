@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::help::get_help;
 use crate::deserializer::ConfigDeserializer;
 use crate::evaluate::evaluate_args::evaluate_args;
@@ -21,8 +20,8 @@ pub struct UnevaluatedCallInfo {
 }
 
 impl UnevaluatedCallInfo {
-    pub async fn evaluate(self, registry: &CommandRegistry) -> Result<CallInfo, ShellError> {
-        let args = evaluate_args(&self.args, registry, self.scope.clone()).await?;
+    pub async fn evaluate(self) -> Result<CallInfo, ShellError> {
+        let args = evaluate_args(&self.args, self.scope.clone()).await?;
 
         Ok(CallInfo {
             args,
@@ -78,15 +77,12 @@ impl std::fmt::Debug for CommandArgs {
 }
 
 impl CommandArgs {
-    pub async fn evaluate_once(
-        self,
-        registry: &CommandRegistry,
-    ) -> Result<EvaluatedWholeStreamCommandArgs, ShellError> {
+    pub async fn evaluate_once(self) -> Result<EvaluatedWholeStreamCommandArgs, ShellError> {
         let host = self.host.clone();
         let ctrl_c = self.ctrl_c.clone();
         let shell_manager = self.shell_manager.clone();
         let input = self.input;
-        let call_info = self.call_info.evaluate(registry).await?;
+        let call_info = self.call_info.evaluate().await?;
 
         Ok(EvaluatedWholeStreamCommandArgs::new(
             host,
@@ -99,7 +95,7 @@ impl CommandArgs {
 
     pub async fn evaluate_once_with_scope(
         self,
-        registry: &CommandRegistry,
+
         scope: Arc<Scope>,
     ) -> Result<EvaluatedWholeStreamCommandArgs, ShellError> {
         let host = self.host.clone();
@@ -111,7 +107,7 @@ impl CommandArgs {
             args: self.call_info.args,
             scope: scope.clone(),
         };
-        let call_info = call_info.evaluate(registry).await?;
+        let call_info = call_info.evaluate().await?;
 
         Ok(EvaluatedWholeStreamCommandArgs::new(
             host,
@@ -122,11 +118,8 @@ impl CommandArgs {
         ))
     }
 
-    pub async fn process<'de, T: Deserialize<'de>>(
-        self,
-        registry: &CommandRegistry,
-    ) -> Result<(T, InputStream), ShellError> {
-        let args = self.evaluate_once(registry).await?;
+    pub async fn process<'de, T: Deserialize<'de>>(self) -> Result<(T, InputStream), ShellError> {
+        let args = self.evaluate_once().await?;
         let call_info = args.call_info.clone();
 
         let mut deserializer = ConfigDeserializer::from_call_info(call_info);
@@ -141,14 +134,14 @@ pub struct RunnableContext {
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub ctrl_c: Arc<AtomicBool>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
-    pub registry: CommandRegistry,
+    pub scope: Arc<Scope>,
     pub name: Tag,
     pub raw_input: String,
 }
 
 impl RunnableContext {
     pub fn get_command(&self, name: &str) -> Option<Command> {
-        self.registry.get_command(name)
+        self.scope.get_command(name)
     }
 }
 
@@ -247,11 +240,7 @@ pub trait WholeStreamCommand: Send + Sync {
 
     fn usage(&self) -> &str;
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError>;
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError>;
 
     fn is_binary(&self) -> bool {
         false
@@ -306,19 +295,15 @@ impl Command {
         self.0.examples()
     }
 
-    pub async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    pub async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         if args.call_info.switch_present("help") {
             let cl = self.0.clone();
-            let registry = registry.clone();
             Ok(OutputStream::one(Ok(ReturnSuccess::Value(
-                UntaggedValue::string(get_help(&*cl, &registry)).into_value(Tag::unknown()),
+                UntaggedValue::string(get_help(&*cl, &args.call_info.scope.clone()))
+                    .into_value(Tag::unknown()),
             ))))
         } else {
-            self.0.run(args, registry).await
+            self.0.run(args).await
         }
     }
 

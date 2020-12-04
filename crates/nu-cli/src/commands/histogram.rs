@@ -32,12 +32,8 @@ impl WholeStreamCommand for Histogram {
         "Creates a new table with a histogram based on the column name passed in."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        histogram(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        histogram(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -62,13 +58,9 @@ impl WholeStreamCommand for Histogram {
     }
 }
 
-pub async fn histogram(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+pub async fn histogram(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (input, args) = args.evaluate_once(&registry).await?.parts();
+    let (input, args) = args.evaluate_once().await?.parts();
 
     let values: Vec<Value> = input.collect().await;
 

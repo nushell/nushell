@@ -18,8 +18,7 @@ pub(crate) async fn run_expression_block(
         trace!(target: "nu::run::expr", "{:?}", expr);
     }
 
-    let registry = context.registry().clone();
-    let output = evaluate_baseline_expr(&expr, &registry, scope).await?;
+    let output = evaluate_baseline_expr(&expr, scope).await?;
 
     Ok(once(async { Ok(output) }).to_input_stream())
 }

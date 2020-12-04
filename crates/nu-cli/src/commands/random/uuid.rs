@@ -20,12 +20,8 @@ impl WholeStreamCommand for SubCommand {
         "Generate a random uuid4 string"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        uuid(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        uuid(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -37,10 +33,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn uuid(
-    _args: CommandArgs,
-    _registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+pub async fn uuid(_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let uuid_4 = Uuid::new_v4().to_hyphenated().to_string();
 
     Ok(OutputStream::one(ReturnSuccess::value(uuid_4)))

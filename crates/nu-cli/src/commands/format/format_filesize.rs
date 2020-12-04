@@ -43,12 +43,8 @@ impl WholeStreamCommand for FileSize {
         "Converts a column of filesizes to some specified format"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        filesize(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        filesize(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -86,12 +82,8 @@ async fn process_row(
     })
 }
 
-async fn filesize(
-    raw_args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let (Arguments { field, format }, input) = raw_args.process(&registry).await?;
+async fn filesize(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (Arguments { field, format }, input) = raw_args.process().await?;
     let field = Arc::new(field);
 
     Ok(input

@@ -20,12 +20,8 @@ impl WholeStreamCommand for Lines {
         "Split single string into rows, one per line."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        lines(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        lines(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -47,10 +43,9 @@ fn ends_with_line_ending(st: &str) -> bool {
     }
 }
 
-async fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn lines(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let leftover_string = Arc::new(Mutex::new(String::new()));
-    let registry = registry.clone();
-    let args = args.evaluate_once(&registry).await?;
+    let args = args.evaluate_once().await?;
     let tag = args.name_tag();
     let name_span = tag.span;
 

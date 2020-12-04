@@ -152,24 +152,16 @@ impl WholeStreamCommand for Save {
         "Save the contents of the pipeline to a file."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        save(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        save(args).await
     }
 }
 
-async fn save(
-    raw_args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+async fn save(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut full_path = PathBuf::from(raw_args.shell_manager.path());
     let name_tag = raw_args.call_info.name_tag.clone();
     let name = raw_args.call_info.name_tag.clone();
     let scope = raw_args.call_info.scope.clone();
-    let registry = registry.clone();
     let host = raw_args.host.clone();
     let ctrl_c = raw_args.ctrl_c.clone();
     let current_errors = raw_args.current_errors.clone();
@@ -182,7 +174,7 @@ async fn save(
             raw: save_raw,
         },
         input,
-    ) = raw_args.process(&registry).await?;
+    ) = raw_args.process().await?;
     let input: Vec<Value> = input.collect().await;
     if path.is_none() {
         let mut should_return_file_path_error = true;

@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
@@ -32,12 +31,8 @@ impl WholeStreamCommand for Merge {
         "Merge a table."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        merge(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        merge(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -49,15 +44,11 @@ impl WholeStreamCommand for Merge {
     }
 }
 
-async fn merge(
-    raw_args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+async fn merge(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let scope = raw_args.call_info.scope.clone();
     let mut context = EvaluationContext::from_raw(&raw_args, &registry);
     let name_tag = raw_args.call_info.name_tag.clone();
-    let (merge_args, input): (MergeArgs, _) = raw_args.process(&registry).await?;
+    let (merge_args, input): (MergeArgs, _) = raw_args.process().await?;
     let block = merge_args.block;
 
     let table: Option<Vec<Value>> =

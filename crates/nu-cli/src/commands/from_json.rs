@@ -28,12 +28,8 @@ impl WholeStreamCommand for FromJSON {
         "Parse text as .json and create table."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        from_json(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        from_json(args).await
     }
 }
 
@@ -72,14 +68,10 @@ pub fn from_json_string_to_value(s: String, tag: impl Into<Tag>) -> nu_json::Res
     Ok(convert_json_value_to_nu_value(&v, tag))
 }
 
-async fn from_json(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+async fn from_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
-    let registry = registry.clone();
 
-    let (FromJSONArgs { objects }, input) = args.process(&registry).await?;
+    let (FromJSONArgs { objects }, input) = args.process().await?;
     let concat_string = input.collect_string(name_tag.clone()).await?;
 
     let string_clone: Vec<_> = concat_string.item.lines().map(|x| x.to_string()).collect();

@@ -34,12 +34,8 @@ impl WholeStreamCommand for Get {
         "Open given cells as text."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        get(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        get(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -58,12 +54,8 @@ impl WholeStreamCommand for Get {
     }
 }
 
-pub async fn get(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let (GetArgs { rest: column_paths }, mut input) = args.process(&registry).await?;
+pub async fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (GetArgs { rest: column_paths }, mut input) = args.process().await?;
     if column_paths.is_empty() {
         let vec = input.drain_vec().await;
 

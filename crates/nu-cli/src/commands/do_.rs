@@ -34,12 +34,8 @@ impl WholeStreamCommand for Do {
         "Runs a block, optionally ignoring errors"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        do_(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        do_(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -58,14 +54,10 @@ impl WholeStreamCommand for Do {
     }
 }
 
-async fn do_(
-    raw_args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+async fn do_(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let external_redirection = raw_args.call_info.args.external_redirection;
 
-    let mut context = EvaluationContext::from_raw(&raw_args, &registry);
+    let mut context = EvaluationContext::from_raw(&raw_args);
     let scope = raw_args.call_info.scope.clone();
     let (
         DoArgs {
@@ -73,7 +65,7 @@ async fn do_(
             mut block,
         },
         input,
-    ) = raw_args.process(&registry).await?;
+    ) = raw_args.process().await?;
 
     let block_redirection = match external_redirection {
         ExternalRedirection::None => {

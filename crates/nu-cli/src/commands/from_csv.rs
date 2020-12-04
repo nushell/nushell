@@ -37,12 +37,8 @@ impl WholeStreamCommand for FromCSV {
         "Parse text as .csv and create table."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        from_csv(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        from_csv(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -66,11 +62,7 @@ impl WholeStreamCommand for FromCSV {
     }
 }
 
-async fn from_csv(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+async fn from_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
 
     let (
@@ -79,7 +71,7 @@ async fn from_csv(
             separator,
         },
         input,
-    ) = args.process(&registry).await?;
+    ) = args.process().await?;
     let sep = match separator {
         Some(Value {
             value: UntaggedValue::Primitive(Primitive::String(s)),

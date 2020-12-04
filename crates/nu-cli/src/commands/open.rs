@@ -56,12 +56,8 @@ For a more complete list of encodings please refer to the encoding_rs
 documentation link at https://docs.rs/encoding_rs/0.8.23/encoding_rs/#statics"#
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        open(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        open(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -97,9 +93,8 @@ pub fn get_encoding(opt: Option<Tagged<String>>) -> Result<&'static Encoding, Sh
     }
 }
 
-async fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let cwd = PathBuf::from(args.shell_manager.path());
-    let registry = registry.clone();
     let shell_manager = args.shell_manager.clone();
 
     let (
@@ -109,7 +104,7 @@ async fn open(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
             encoding,
         },
         _,
-    ) = args.process(&registry).await?;
+    ) = args.process().await?;
 
     // TODO: Remove once Streams are supported everywhere!
     // As a short term workaround for getting AutoConvert and Bat functionality (Those don't currently support Streams)

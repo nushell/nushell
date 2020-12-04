@@ -73,12 +73,8 @@ impl WholeStreamCommand for SeqDates {
         "print sequences of dates"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        seq_dates(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        seq_dates(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -136,11 +132,7 @@ impl WholeStreamCommand for SeqDates {
     }
 }
 
-async fn seq_dates(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+async fn seq_dates(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let _name = args.call_info.name_tag.clone();
 
     let (
@@ -155,7 +147,7 @@ async fn seq_dates(
             reverse,
         },
         _,
-    ) = args.process(&registry).await?;
+    ) = args.process().await?;
 
     let sep: String = match separator {
         Some(s) => {

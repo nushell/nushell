@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -30,12 +29,8 @@ impl WholeStreamCommand for Last {
         "Show only the last number of rows."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        last(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        last(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -58,9 +53,8 @@ impl WholeStreamCommand for Last {
     }
 }
 
-async fn last(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let (LastArgs { rows }, input) = args.process(&registry).await?;
+async fn last(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (LastArgs { rows }, input) = args.process().await?;
     let v: Vec<_> = input.into_vec().await;
 
     let end_rows_desired = if let Some(quantity) = rows {

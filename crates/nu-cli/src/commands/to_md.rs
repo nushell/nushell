@@ -30,12 +30,8 @@ impl WholeStreamCommand for ToMarkdown {
         "Convert table into simple Markdown"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        to_md(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        to_md(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -54,10 +50,9 @@ impl WholeStreamCommand for ToMarkdown {
     }
 }
 
-async fn to_md(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+async fn to_md(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
-    let (ToMarkdownArgs { pretty }, input) = args.process(&registry).await?;
+    let (ToMarkdownArgs { pretty }, input) = args.process().await?;
     let input: Vec<Value> = input.collect().await;
     let headers = nu_protocol::merge_descriptors(&input);
 

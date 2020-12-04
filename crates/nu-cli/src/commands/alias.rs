@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 
@@ -46,12 +45,8 @@ impl WholeStreamCommand for Alias {
         "Define a shortcut for another command."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        alias(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        alias(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -70,12 +65,9 @@ impl WholeStreamCommand for Alias {
     }
 }
 
-pub async fn alias(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+pub async fn alias(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut raw_input = args.raw_input.clone();
+    let scope = args.call_info.scope.clone();
     let (
         AliasArgs {
             name,
@@ -85,7 +77,7 @@ pub async fn alias(
             save,
         },
         _ctx,
-    ) = args.process(&registry).await?;
+    ) = args.process().await?;
 
     if let Some(true) = save {
         let mut result = nu_data::config::read(name.clone().tag, &None)?;
@@ -155,7 +147,7 @@ pub async fn alias(
 
     let inferred_shapes = {
         if let Some(true) = infer {
-            VarSyntaxShapeDeductor::infer_vars(&processed_args, &block, &registry)?
+            VarSyntaxShapeDeductor::infer_vars(&processed_args, &block, &scope)?
         } else {
             processed_args.into_iter().map(|arg| (arg, None)).collect()
         }

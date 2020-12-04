@@ -63,11 +63,7 @@ impl WholeStreamCommand for RunExternalCommand {
         true
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let positionals = args.call_info.args.positional.clone().ok_or_else(|| {
             ShellError::untagged_runtime_error("positional arguments unexpectedly empty")
         })?;

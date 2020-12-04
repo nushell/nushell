@@ -35,13 +35,9 @@ impl WholeStreamCommand for PathBasename {
         "Gets the final component of a path"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathBasenameArguments { replace, rest }, input) = args.process(&registry).await?;
+        let (PathBasenameArguments { replace, rest }, input) = args.process().await?;
         let args = Arc::new(DefaultArguments {
             replace: replace.map(|v| v.item),
             prefix: None,

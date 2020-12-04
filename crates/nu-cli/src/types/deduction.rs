@@ -1,5 +1,3 @@
-use crate::CommandRegistry;
-
 use lazy_static::lazy_static;
 use nu_errors::ShellError;
 use nu_parser::SignatureRegistry;
@@ -319,7 +317,6 @@ fn spanned_to_binary(bin_spanned: &SpannedExpression) -> &Binary {
 fn get_result_shape_of_math_expr(
     bin: &Binary,
     (pipeline_idx, pipeline): (usize, &Pipeline),
-    registry: &CommandRegistry,
 ) -> Result<Option<SyntaxShape>, ShellError> {
     let mut shapes: Vec<Option<SyntaxShape>> = vec![];
     for expr in &[&bin.left, &bin.right] {
@@ -356,7 +353,7 @@ impl VarSyntaxShapeDeductor {
     pub fn infer_vars(
         vars_to_find: &[VarDeclaration],
         block: &Block,
-        registry: &CommandRegistry,
+        scope: Arc<Scope>,
     ) -> Result<Vec<(VarDeclaration, Option<Deduction>)>, ShellError> {
         trace!("Deducing shapes for vars: {:?}", vars_to_find);
 
@@ -396,11 +393,7 @@ impl VarSyntaxShapeDeductor {
         Ok(())
     }
 
-    pub fn infer_pipeline(
-        &mut self,
-        pipeline: &Pipeline,
-        registry: &CommandRegistry,
-    ) -> Result<(), ShellError> {
+    pub fn infer_pipeline(&mut self, pipeline: &Pipeline) -> Result<(), ShellError> {
         trace!("Infering vars in pipeline");
         for (cmd_pipeline_idx, classified) in pipeline.list.iter().enumerate() {
             match &classified {
@@ -538,7 +531,6 @@ impl VarSyntaxShapeDeductor {
         &mut self,
         (pipeline_idx, pipeline): (usize, &Pipeline),
         spanned_expr: &SpannedExpression,
-        registry: &CommandRegistry,
     ) -> Result<(), ShellError> {
         match &spanned_expr.expr {
             Expression::Binary(_) => {
@@ -663,7 +655,6 @@ impl VarSyntaxShapeDeductor {
         //source_bin is binary having var on one and expr on other side
         source_bin: &SpannedExpression,
         (pipeline_idx, pipeline): (usize, &Pipeline),
-        registry: &CommandRegistry,
     ) -> Result<Option<SyntaxShape>, ShellError> {
         get_result_shape_of_math_expr(spanned_to_binary(expr), (pipeline_idx, pipeline), registry)
             .map(|shape| {
@@ -685,7 +676,6 @@ impl VarSyntaxShapeDeductor {
         //source_bin is binary having var on one and expr on other side
         source_bin: &SpannedExpression,
         (pipeline_idx, pipeline): (usize, &Pipeline),
-        registry: &CommandRegistry,
     ) -> Result<Option<SyntaxShape>, ShellError> {
         trace!("Getting shape of binary arg {:?} for var {:?}", expr, var);
         if let Some(shape) = self.get_shape_of_expr_or_insert_dependency(
@@ -717,7 +707,6 @@ impl VarSyntaxShapeDeductor {
         bin_spanned: &SpannedExpression,
         list: &[SpannedExpression],
         (_pipeline_idx, _pipeline): (usize, &Pipeline),
-        _registry: &CommandRegistry,
     ) -> Option<Vec<SyntaxShape>> {
         let shapes_in_list = list
             .iter()
@@ -743,7 +732,6 @@ impl VarSyntaxShapeDeductor {
         //Binary having expr on one side and var on other
         bin_spanned: &SpannedExpression,
         (pipeline_idx, pipeline): (usize, &Pipeline),
-        registry: &CommandRegistry,
     ) -> Result<(), ShellError> {
         trace!("Infering shapes between var {:?} and expr {:?}", var, expr);
         let bin = spanned_to_binary(bin_spanned);
@@ -896,7 +884,6 @@ impl VarSyntaxShapeDeductor {
         &mut self,
         (pipeline_idx, pipeline): (usize, &Pipeline),
         bin_spanned: &SpannedExpression,
-        registry: &CommandRegistry,
     ) -> Result<(), ShellError> {
         let bin = spanned_to_binary(bin_spanned);
         if let Expression::Variable(left_var_name, l_span) = &bin.left.expr {

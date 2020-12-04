@@ -19,15 +19,13 @@ impl WholeStreamCommand for From {
         "Parse content (string or binary) as a table (input format based on subcommand, like csv, ini, json, toml)"
     }
 
-    async fn run(
-        &self,
-        _args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        let registry = registry.clone();
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(ReturnSuccess::value(
-            UntaggedValue::string(crate::commands::help::get_help(&From, &registry))
-                .into_value(Tag::unknown()),
+            UntaggedValue::string(crate::commands::help::get_help(
+                &From,
+                &args.call_info.scope,
+            ))
+            .into_value(Tag::unknown()),
         )))
     }
 }

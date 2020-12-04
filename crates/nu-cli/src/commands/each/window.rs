@@ -50,15 +50,10 @@ impl WholeStreamCommand for EachWindow {
         }]
     }
 
-    async fn run(
-        &self,
-        raw_args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        let registry = registry.clone();
+    async fn run(&self, raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         let scope = raw_args.call_info.scope.clone();
-        let context = Arc::new(EvaluationContext::from_raw(&raw_args, &registry));
-        let (each_args, mut input): (EachWindowArgs, _) = raw_args.process(&registry).await?;
+        let context = Arc::new(EvaluationContext::from_raw(&raw_args));
+        let (each_args, mut input): (EachWindowArgs, _) = raw_args.process().await?;
         let block = Arc::new(each_args.block);
 
         let mut window: Vec<_> = input

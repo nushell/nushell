@@ -27,13 +27,9 @@ impl WholeStreamCommand for PathExists {
         "Checks whether a path exists"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathExistsArguments { rest }, input) = args.process(&registry).await?;
+        let (PathExistsArguments { rest }, input) = args.process().await?;
         let args = Arc::new(DefaultArguments {
             replace: None,
             prefix: None,

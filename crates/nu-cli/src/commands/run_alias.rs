@@ -26,13 +26,8 @@ impl WholeStreamCommand for AliasCommand {
         ""
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let call_info = args.call_info.clone();
-        let registry = registry.clone();
         let mut block = self.block.clone();
         block.set_redirect(call_info.args.external_redirection);
 

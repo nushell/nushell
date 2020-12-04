@@ -1,7 +1,7 @@
 use crate::commands::WholeStreamCommand;
 
 use crate::prelude::*;
-use nu_protocol::{NamedType, PositionalType, Signature, UntaggedValue, Value};
+use nu_protocol::{NamedType, PositionalType, Scope, Signature, UntaggedValue, Value};
 
 use indexmap::IndexMap;
 
@@ -23,9 +23,9 @@ impl Default for DocumentationConfig {
     }
 }
 
-fn generate_doc(registry: &CommandRegistry, name: &str) -> IndexMap<String, Value> {
+fn generate_doc(name: &str, scope: Arc<Scope>) -> IndexMap<String, Value> {
     let mut row_entries = IndexMap::new();
-    let command = registry
+    let command = scope
         .get_command(name)
         .unwrap_or_else(|| panic!("Expected command '{}' from names to be in registry", name));
     row_entries.insert(
@@ -46,7 +46,7 @@ fn generate_doc(registry: &CommandRegistry, name: &str) -> IndexMap<String, Valu
         "documentation".to_owned(),
         UntaggedValue::string(get_documentation(
             command.stream_command(),
-            registry,
+            scope,
             &DocumentationConfig {
                 no_subcommands: true,
                 no_colour: true,
@@ -58,7 +58,7 @@ fn generate_doc(registry: &CommandRegistry, name: &str) -> IndexMap<String, Valu
 }
 
 // generate_docs gets the documentation from each command and returns a Table as output
-pub fn generate_docs(registry: &CommandRegistry) -> Value {
+pub fn generate_docs(scope: Arc<Scope>) -> Value {
     let mut sorted_names = registry.names();
     sorted_names.sort();
 
@@ -84,11 +84,11 @@ pub fn generate_docs(registry: &CommandRegistry) -> Value {
         if !cmap.contains_key(name) {
             continue;
         }
-        let mut row_entries = generate_doc(registry, name);
+        let mut row_entries = generate_doc(name, scope);
         // Iterate over all the subcommands of the parent command
         let mut sub_table = Vec::new();
         for sub_name in cmap.get(name).unwrap_or(&Vec::new()).iter() {
-            let sub_row = generate_doc(registry, sub_name);
+            let sub_row = generate_doc(sub_name, scope);
             sub_table.push(UntaggedValue::row(sub_row).into_untagged_value());
         }
 
@@ -121,7 +121,7 @@ fn retrieve_doc_link(name: &str) -> Option<String> {
 #[allow(clippy::cognitive_complexity)]
 pub fn get_documentation(
     cmd: &dyn WholeStreamCommand,
-    registry: &CommandRegistry,
+    scope: Arc<Scope>,
     config: &DocumentationConfig,
 ) -> String {
     let cmd_name = cmd.name();
@@ -133,9 +133,9 @@ pub fn get_documentation(
 
     let mut subcommands = vec![];
     if !config.no_subcommands {
-        for name in registry.names() {
+        for name in scope.get_command_names() {
             if name.starts_with(&format!("{} ", cmd_name)) {
-                let subcommand = registry.get_command(&name).expect("This shouldn't happen");
+                let subcommand = scope.get_command(&name).expect("This shouldn't happen");
 
                 subcommands.push(format!("  {} - {}", name, subcommand.usage()));
             }

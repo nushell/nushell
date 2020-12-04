@@ -38,12 +38,8 @@ impl WholeStreamCommand for WithEnv {
         "Runs a block with an environment set. Eg) with-env [NAME 'foo'] { echo $nu.env.NAME }"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        with_env(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        with_env(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -72,15 +68,10 @@ impl WholeStreamCommand for WithEnv {
     }
 }
 
-async fn with_env(
-    raw_args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-
+async fn with_env(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut context = EvaluationContext::from_raw(&raw_args, &registry);
     let scope = raw_args.call_info.scope.clone();
-    let (WithEnvArgs { variable, block }, input) = raw_args.process(&registry).await?;
+    let (WithEnvArgs { variable, block }, input) = raw_args.process().await?;
 
     let mut env = IndexMap::new();
 

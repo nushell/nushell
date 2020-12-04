@@ -27,15 +27,11 @@ impl WholeStreamCommand for SubCommand {
         "Keeps rows until the condition matches."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let registry = Arc::new(registry.clone());
         let scope = args.call_info.scope.clone();
 
-        let call_info = args.evaluate_once(&registry).await?;
+        let call_info = args.evaluate_once().await?;
 
         let block = call_info.args.expect_nth(0)?.clone();
 
@@ -84,7 +80,6 @@ impl WholeStreamCommand for SubCommand {
             .input
             .take_while(move |item| {
                 let condition = condition.clone();
-                let registry = registry.clone();
                 let scope = Scope::append_var(scope.clone(), "$it", item.clone());
                 trace!("ITEM = {:?}", item);
 

@@ -48,12 +48,8 @@ impl WholeStreamCommand for Benchmark {
         "Runs a block and returns the time it took to execute it"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        benchmark(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        benchmark(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -72,16 +68,11 @@ impl WholeStreamCommand for Benchmark {
     }
 }
 
-async fn benchmark(
-    raw_args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-
+async fn benchmark(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = raw_args.call_info.args.span;
-    let mut context = EvaluationContext::from_raw(&raw_args, &registry);
+    let mut context = EvaluationContext::from_raw(&raw_args);
     let scope = raw_args.call_info.scope.clone();
-    let (BenchmarkArgs { block, passthrough }, input) = raw_args.process(&registry).await?;
+    let (BenchmarkArgs { block, passthrough }, input) = raw_args.process().await?;
 
     let env = scope.env();
     let name = generate_free_name(&env);

@@ -31,22 +31,14 @@ impl WholeStreamCommand for Date {
         "format the current date using the given format string."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        format(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        format(args).await
     }
 }
 
-pub async fn format(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+pub async fn format(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let (FormatArgs { format, raw }, _) = args.process(&registry).await?;
+    let (FormatArgs { format, raw }, _) = args.process().await?;
 
     let dt_fmt = format.to_string();
 

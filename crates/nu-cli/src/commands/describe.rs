@@ -23,19 +23,12 @@ impl WholeStreamCommand for Describe {
         "Describes the objects in the stream."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        describe(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        describe(args).await
     }
 }
 
-pub async fn describe(
-    args: CommandArgs,
-    _registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+pub async fn describe(args: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(args
         .input
         .map(|row| {

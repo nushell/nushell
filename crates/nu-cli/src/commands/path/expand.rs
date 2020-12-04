@@ -27,13 +27,9 @@ impl WholeStreamCommand for PathExpand {
         "Expands a path to its absolute form"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathExpandArguments { rest }, input) = args.process(&registry).await?;
+        let (PathExpandArguments { rest }, input) = args.process().await?;
         let args = Arc::new(DefaultArguments {
             replace: None,
             prefix: None,

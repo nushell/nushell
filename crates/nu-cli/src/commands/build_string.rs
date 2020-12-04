@@ -27,13 +27,9 @@ impl WholeStreamCommand for BuildString {
         "Builds a string from the arguments"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (BuildStringArgs { rest }, _) = args.process(&registry).await?;
+        let (BuildStringArgs { rest }, _) = args.process().await?;
 
         let mut output_string = String::new();
 

@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -29,12 +28,8 @@ impl WholeStreamCommand for Prepend {
         "Prepend the given row to the front of the table"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        prepend(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        prepend(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -51,13 +46,8 @@ impl WholeStreamCommand for Prepend {
     }
 }
 
-async fn prepend(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-
-    let (PrependArgs { row }, input) = args.process(&registry).await?;
+async fn prepend(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (PrependArgs { row }, input) = args.process().await?;
 
     let bos = futures::stream::iter(vec![row]);
 

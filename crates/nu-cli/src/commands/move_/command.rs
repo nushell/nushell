@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_data::base::select_fields;
@@ -42,12 +41,8 @@ impl WholeStreamCommand for Command {
         "Move columns."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        operate(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        operate(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -88,12 +83,8 @@ impl WholeStreamCommand for Command {
     }
 }
 
-async fn operate(
-    raw_args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+async fn operate(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = raw_args.call_info.name_tag.clone();
-    let registry = registry.clone();
     let (
         Arguments {
             rest: mut columns,
@@ -101,7 +92,7 @@ async fn operate(
             after,
         },
         input,
-    ) = raw_args.process(&registry).await?;
+    ) = raw_args.process().await?;
 
     if columns.is_empty() {
         return Err(ShellError::labeled_error(

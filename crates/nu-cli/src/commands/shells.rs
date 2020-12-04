@@ -20,12 +20,8 @@ impl WholeStreamCommand for Shells {
         "Display the list of current shells."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        shells(args, registry)
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        shells(args)
     }
 }
 

@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
@@ -37,12 +36,8 @@ impl WholeStreamCommand for Command {
         "Check for empty values"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        is_empty(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        is_empty(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -87,15 +82,12 @@ impl WholeStreamCommand for Command {
     }
 }
 
-async fn is_empty(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+async fn is_empty(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let name_tag = Arc::new(args.call_info.name_tag.clone());
-    let context = Arc::new(EvaluationContext::from_raw(&args, &registry));
+    let context = Arc::new(EvaluationContext::from_raw(&args));
     let scope = args.call_info.scope.clone();
-    let (Arguments { rest }, input) = args.process(&registry).await?;
+    let (Arguments { rest }, input) = args.process().await?;
     let (columns, default_block): (Vec<ColumnPath>, Option<Block>) = arguments(rest)?;
     let default_block = Arc::new(default_block);
 

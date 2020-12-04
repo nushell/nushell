@@ -9,7 +9,6 @@ use crate::prelude::*;
 
 use num_bigint::BigInt;
 
-use crate::command_registry::CommandRegistry;
 use crate::commands::classified::block::run_block;
 use crate::commands::command::CommandArgs;
 use crate::commands::{
@@ -278,11 +277,7 @@ impl WholeStreamCommand for MockCommand {
         "Generates tables and metadata that mimics behavior of real commands in controlled ways."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let name_tag = args.call_info.name_tag.clone();
 
         let (
@@ -291,7 +286,7 @@ impl WholeStreamCommand for MockCommand {
                 open: open_mock,
             },
             _input,
-        ) = args.process(&registry).await?;
+        ) = args.process().await?;
 
         let out = UntaggedValue::string("Yehuda Katz in Ecuador");
 
@@ -334,13 +329,9 @@ impl WholeStreamCommand for MockEcho {
         "Mock echo."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let name_tag = args.call_info.name_tag.clone();
-        let (MockEchoArgs { rest }, input) = args.process(&registry).await?;
+        let (MockEchoArgs { rest }, input) = args.process().await?;
 
         let mut base_value = UntaggedValue::string("Yehuda Katz in Ecuador").into_value(name_tag);
         let input: Vec<Value> = input.collect().await;

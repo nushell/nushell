@@ -56,12 +56,8 @@ impl WholeStreamCommand for Char {
         ]
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        let (CharArgs { name, unicode }, _) = args.process(&registry).await?;
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        let (CharArgs { name, unicode }, _) = args.process().await?;
 
         if unicode {
             let decoded_char = string_to_unicode_char(&name.item);

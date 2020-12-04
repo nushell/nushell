@@ -27,12 +27,12 @@ pub struct HelpShell {
 }
 
 impl HelpShell {
-    pub fn index(registry: &CommandRegistry) -> Result<HelpShell, ShellError> {
+    pub fn index(scope: Arc<Scope>) -> Result<HelpShell, ShellError> {
         let mut cmds = TaggedDictBuilder::new(Tag::unknown());
         let mut specs = Vec::new();
 
-        for cmd in registry.names() {
-            if let Some(cmd_value) = registry.get_command(&cmd) {
+        for cmd in scope.names() {
+            if let Some(cmd_value) = scope.get_command(&cmd) {
                 let mut spec = TaggedDictBuilder::new(Tag::unknown());
                 let value = command_dict(cmd_value, Tag::unknown());
 
@@ -63,7 +63,7 @@ impl HelpShell {
         })
     }
 
-    pub fn for_command(cmd: Value, registry: &CommandRegistry) -> Result<HelpShell, ShellError> {
+    pub fn for_command(cmd: Value, scope: Arc<Scope>) -> Result<HelpShell, ShellError> {
         let mut sh = HelpShell::index(&registry)?;
 
         if let Value {

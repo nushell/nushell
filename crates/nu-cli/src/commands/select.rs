@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -32,12 +31,8 @@ impl WholeStreamCommand for Select {
         "Down-select table to only these columns."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        select(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        select(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -56,10 +51,9 @@ impl WholeStreamCommand for Select {
     }
 }
 
-async fn select(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+async fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (SelectArgs { rest: mut fields }, mut input) = args.process(&registry).await?;
+    let (SelectArgs { rest: mut fields }, mut input) = args.process().await?;
     if fields.is_empty() {
         return Err(ShellError::labeled_error(
             "Select requires columns to select",

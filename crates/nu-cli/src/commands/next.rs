@@ -19,12 +19,8 @@ impl WholeStreamCommand for Next {
         "Go to next shell."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        next(args, registry)
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        next(args)
     }
 }
 

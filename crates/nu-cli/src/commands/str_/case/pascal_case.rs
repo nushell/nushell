@@ -24,12 +24,8 @@ impl WholeStreamCommand for SubCommand {
         "converts a string to PascalCase"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        operate(args, registry, &to_pascal_case).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        operate((args), &to_pascal_case).await
     }
 
     fn examples(&self) -> Vec<Example> {

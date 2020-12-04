@@ -20,12 +20,8 @@ impl WholeStreamCommand for Previous {
         "Go to previous shell."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        previous(args, registry)
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        previous(args)
     }
 }
 

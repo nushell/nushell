@@ -61,15 +61,13 @@ The file can contain several optional sections:
     fn signature(&self) -> Signature {
         Signature::build("autoenv")
     }
-    async fn run(
-        &self,
-        _args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        let registry = registry.clone();
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(ReturnSuccess::value(
-            UntaggedValue::string(crate::commands::help::get_help(&Autoenv, &registry))
-                .into_value(Tag::unknown()),
+            UntaggedValue::string(crate::commands::help::get_help(
+                &Autoenv,
+                &args.call_info.scope,
+            ))
+            .into_value(Tag::unknown()),
         )))
     }
 

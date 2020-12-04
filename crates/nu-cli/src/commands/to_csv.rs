@@ -37,17 +37,12 @@ impl WholeStreamCommand for ToCSV {
         "Convert table into .csv text "
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        to_csv(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        to_csv(args).await
     }
 }
 
-async fn to_csv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+async fn to_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let (
         ToCSVArgs {
@@ -55,7 +50,7 @@ async fn to_csv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputS
             headerless,
         },
         input,
-    ) = args.process(&registry).await?;
+    ) = args.process().await?;
     let sep = match separator {
         Some(Value {
             value: UntaggedValue::Primitive(Primitive::String(s)),

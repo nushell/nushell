@@ -71,7 +71,6 @@ macro_rules! trace_out_stream {
 pub(crate) use nu_protocol::{errln, out, outln, row};
 use nu_source::HasFallibleSpan;
 
-pub(crate) use crate::command_registry::CommandRegistry;
 pub(crate) use crate::commands::command::{CommandArgs, RawCommandArgs, RunnableContext};
 pub(crate) use crate::commands::Example;
 pub(crate) use crate::evaluation_context::EvaluationContext;

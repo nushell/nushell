@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::path::canonicalize;
 use crate::prelude::*;
@@ -47,13 +46,9 @@ impl WholeStreamCommand for SubCommand {
         }]
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let shell_manager = args.shell_manager.clone();
-        let (Arguments { load_path }, _) = args.process(&registry).await?;
+        let (Arguments { load_path }, _) = args.process().await?;
 
         if let Some(Tagged {
             item: load_path,

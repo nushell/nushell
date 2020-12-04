@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -38,12 +37,8 @@ impl WholeStreamCommand for Kill {
         "Kill a process using the process id."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        kill(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        kill(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -62,9 +57,7 @@ impl WholeStreamCommand for Kill {
     }
 }
 
-async fn kill(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-
+async fn kill(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let (
         KillArgs {
             pid,
@@ -73,7 +66,7 @@ async fn kill(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
             quiet,
         },
         ..,
-    ) = args.process(&registry).await?;
+    ) = args.process().await?;
     let mut cmd = if cfg!(windows) {
         let mut cmd = Command::new("taskkill");
 

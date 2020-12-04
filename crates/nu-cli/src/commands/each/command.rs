@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
@@ -38,12 +37,8 @@ impl WholeStreamCommand for Each {
         "Run a block on each row of the table."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        each(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        each(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -111,14 +106,10 @@ pub(crate) fn make_indexed_item(index: usize, item: Value) -> Value {
     dict.into_value()
 }
 
-async fn each(
-    raw_args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+async fn each(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let scope = raw_args.call_info.scope.clone();
-    let context = Arc::new(EvaluationContext::from_raw(&raw_args, &registry));
-    let (each_args, input): (EachArgs, _) = raw_args.process(&registry).await?;
+    let context = Arc::new(EvaluationContext::from_raw(&raw_args));
+    let (each_args, input): (EachArgs, _) = raw_args.process().await?;
     let block = Arc::new(each_args.block);
 
     if each_args.numbered.item {
