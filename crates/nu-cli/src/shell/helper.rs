@@ -62,6 +62,7 @@ impl rustyline::completion::Completer for Helper {
 }
 
 impl rustyline::hint::Hinter for Helper {
+    type Hint = String;
     fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
         self.hinter.as_ref().and_then(|h| h.hint(line, pos, &ctx))
     }

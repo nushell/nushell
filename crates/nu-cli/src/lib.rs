@@ -47,6 +47,7 @@ pub use crate::cli::{
     run_script_standalone, LineResult,
 };
 pub use crate::command_registry::CommandRegistry;
+pub use crate::commands::classified::block::run_block;
 pub use crate::commands::command::{
     whole_stream_command, CommandArgs, EvaluatedWholeStreamCommandArgs, Example, WholeStreamCommand,
 };

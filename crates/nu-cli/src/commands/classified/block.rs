@@ -11,7 +11,7 @@ use nu_protocol::hir::{
 use nu_protocol::{ReturnSuccess, Scope, UntaggedValue, Value};
 use std::sync::atomic::Ordering;
 
-pub(crate) async fn run_block(
+pub async fn run_block(
     block: &Block,
     ctx: &mut EvaluationContext,
     mut input: InputStream,
