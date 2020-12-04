@@ -3,57 +3,59 @@ use serde::{Deserialize, Serialize};
 
 pub fn convert_keyevent(key_event: KeyEvent) -> rustyline::KeyEvent {
     match key_event {
-        KeyEvent::UnknownEscSeq => convert_to_key_event(rustyline::KeyCode::UnknownEscSeq, None),
-        KeyEvent::Backspace => convert_to_key_event(rustyline::KeyCode::Backspace, None),
-        KeyEvent::BackTab => convert_to_key_event(rustyline::KeyCode::BackTab, None),
+        KeyEvent::UnknownEscSeq => convert_to_rl_keyevent(rustyline::KeyCode::UnknownEscSeq, None),
+        KeyEvent::Backspace => convert_to_rl_keyevent(rustyline::KeyCode::Backspace, None),
+        KeyEvent::BackTab => convert_to_rl_keyevent(rustyline::KeyCode::BackTab, None),
         KeyEvent::BracketedPasteStart => {
-            convert_to_key_event(rustyline::KeyCode::BracketedPasteStart, None)
+            convert_to_rl_keyevent(rustyline::KeyCode::BracketedPasteStart, None)
         }
         KeyEvent::BracketedPasteEnd => {
-            convert_to_key_event(rustyline::KeyCode::BracketedPasteEnd, None)
+            convert_to_rl_keyevent(rustyline::KeyCode::BracketedPasteEnd, None)
         }
-        KeyEvent::Char(c) => convert_to_key_event(rustyline::KeyCode::Char(c), None),
+        KeyEvent::Char(c) => convert_to_rl_keyevent(rustyline::KeyCode::Char(c), None),
         KeyEvent::ControlDown => {
-            convert_to_key_event(rustyline::KeyCode::Down, Some(Modifiers::CTRL))
+            convert_to_rl_keyevent(rustyline::KeyCode::Down, Some(Modifiers::CTRL))
         }
         KeyEvent::ControlLeft => {
-            convert_to_key_event(rustyline::KeyCode::Left, Some(Modifiers::CTRL))
+            convert_to_rl_keyevent(rustyline::KeyCode::Left, Some(Modifiers::CTRL))
         }
         KeyEvent::ControlRight => {
-            convert_to_key_event(rustyline::KeyCode::Right, Some(Modifiers::CTRL))
+            convert_to_rl_keyevent(rustyline::KeyCode::Right, Some(Modifiers::CTRL))
         }
-        KeyEvent::ControlUp => convert_to_key_event(rustyline::KeyCode::Up, Some(Modifiers::CTRL)),
+        KeyEvent::ControlUp => {
+            convert_to_rl_keyevent(rustyline::KeyCode::Up, Some(Modifiers::CTRL))
+        }
         KeyEvent::Ctrl(c) => rustyline::KeyEvent::ctrl(c),
-        KeyEvent::Delete => convert_to_key_event(rustyline::KeyCode::Delete, None),
-        KeyEvent::Down => convert_to_key_event(rustyline::KeyCode::Down, None),
-        KeyEvent::End => convert_to_key_event(rustyline::KeyCode::End, None),
-        KeyEvent::Enter => convert_to_key_event(rustyline::KeyCode::Enter, None),
-        KeyEvent::Esc => convert_to_key_event(rustyline::KeyCode::Esc, None),
-        KeyEvent::F(u) => convert_to_key_event(rustyline::KeyCode::F(u), None),
-        KeyEvent::Home => convert_to_key_event(rustyline::KeyCode::Home, None),
-        KeyEvent::Insert => convert_to_key_event(rustyline::KeyCode::Insert, None),
-        KeyEvent::Left => convert_to_key_event(rustyline::KeyCode::Left, None),
+        KeyEvent::Delete => convert_to_rl_keyevent(rustyline::KeyCode::Delete, None),
+        KeyEvent::Down => convert_to_rl_keyevent(rustyline::KeyCode::Down, None),
+        KeyEvent::End => convert_to_rl_keyevent(rustyline::KeyCode::End, None),
+        KeyEvent::Enter => convert_to_rl_keyevent(rustyline::KeyCode::Enter, None),
+        KeyEvent::Esc => convert_to_rl_keyevent(rustyline::KeyCode::Esc, None),
+        KeyEvent::F(u) => convert_to_rl_keyevent(rustyline::KeyCode::F(u), None),
+        KeyEvent::Home => convert_to_rl_keyevent(rustyline::KeyCode::Home, None),
+        KeyEvent::Insert => convert_to_rl_keyevent(rustyline::KeyCode::Insert, None),
+        KeyEvent::Left => convert_to_rl_keyevent(rustyline::KeyCode::Left, None),
         KeyEvent::Meta(c) => rustyline::KeyEvent::new(c, Modifiers::NONE),
-        KeyEvent::Null => convert_to_key_event(rustyline::KeyCode::Null, None),
-        KeyEvent::PageDown => convert_to_key_event(rustyline::KeyCode::PageDown, None),
-        KeyEvent::PageUp => convert_to_key_event(rustyline::KeyCode::PageUp, None),
-        KeyEvent::Right => convert_to_key_event(rustyline::KeyCode::Right, None),
+        KeyEvent::Null => convert_to_rl_keyevent(rustyline::KeyCode::Null, None),
+        KeyEvent::PageDown => convert_to_rl_keyevent(rustyline::KeyCode::PageDown, None),
+        KeyEvent::PageUp => convert_to_rl_keyevent(rustyline::KeyCode::PageUp, None),
+        KeyEvent::Right => convert_to_rl_keyevent(rustyline::KeyCode::Right, None),
         KeyEvent::ShiftDown => {
-            convert_to_key_event(rustyline::KeyCode::Down, Some(Modifiers::SHIFT))
+            convert_to_rl_keyevent(rustyline::KeyCode::Down, Some(Modifiers::SHIFT))
         }
         KeyEvent::ShiftLeft => {
-            convert_to_key_event(rustyline::KeyCode::Left, Some(Modifiers::SHIFT))
+            convert_to_rl_keyevent(rustyline::KeyCode::Left, Some(Modifiers::SHIFT))
         }
         KeyEvent::ShiftRight => {
-            convert_to_key_event(rustyline::KeyCode::Right, Some(Modifiers::SHIFT))
+            convert_to_rl_keyevent(rustyline::KeyCode::Right, Some(Modifiers::SHIFT))
         }
-        KeyEvent::ShiftUp => convert_to_key_event(rustyline::KeyCode::Up, Some(Modifiers::SHIFT)),
-        KeyEvent::Tab => convert_to_key_event(rustyline::KeyCode::Tab, None),
-        KeyEvent::Up => convert_to_key_event(rustyline::KeyCode::Up, None),
+        KeyEvent::ShiftUp => convert_to_rl_keyevent(rustyline::KeyCode::Up, Some(Modifiers::SHIFT)),
+        KeyEvent::Tab => convert_to_rl_keyevent(rustyline::KeyCode::Tab, None),
+        KeyEvent::Up => convert_to_rl_keyevent(rustyline::KeyCode::Up, None),
     }
 }
 
-fn convert_to_key_event(key_event: KeyCode, modifier: Option<Modifiers>) -> rustyline::KeyEvent {
+fn convert_to_rl_keyevent(key_event: KeyCode, modifier: Option<Modifiers>) -> rustyline::KeyEvent {
     rustyline::KeyEvent {
         0: key_event,
         1: modifier.unwrap_or(Modifiers::NONE),
