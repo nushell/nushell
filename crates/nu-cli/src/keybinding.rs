@@ -1,8 +1,8 @@
 use rustyline::{KeyCode, Modifiers};
 use serde::{Deserialize, Serialize};
 
-fn convert_keypress(keypress: KeyEvent) -> rustyline::KeyEvent {
-    match keypress {
+pub fn convert_keyevent(key_event: KeyEvent) -> rustyline::KeyEvent {
+    match key_event {
         KeyEvent::UnknownEscSeq => convert_to_key_event(rustyline::KeyCode::UnknownEscSeq, None),
         KeyEvent::Backspace => convert_to_key_event(rustyline::KeyCode::Backspace, None),
         KeyEvent::BackTab => convert_to_key_event(rustyline::KeyCode::BackTab, None),
@@ -168,7 +168,7 @@ fn convert_cmd(cmd: Cmd) -> rustyline::Cmd {
 
 fn convert_keybinding(keybinding: Keybinding) -> (rustyline::KeyEvent, rustyline::Cmd) {
     (
-        convert_keypress(keybinding.key),
+        convert_keyevent(keybinding.key),
         convert_cmd(keybinding.binding),
     )
 }

@@ -1,18 +1,18 @@
 use crate::commands::classified::block::run_block;
 use crate::commands::classified::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
 use crate::evaluation_context::EvaluationContext;
+#[cfg(feature = "rustyline-support")]
+use crate::keybinding::{convert_keyevent, KeyEvent};
 use crate::path::canonicalize;
 use crate::prelude::*;
 #[cfg(feature = "rustyline-support")]
 use crate::shell::Helper;
 use crate::EnvironmentSyncer;
 use futures_codec::FramedRead;
+use log::{debug, trace};
 use nu_errors::ShellError;
 use nu_protocol::hir::{ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments};
 use nu_protocol::{Primitive, ReturnSuccess, Scope, UntaggedValue, Value};
-
-use log::{debug, trace};
-use rustyline::Modifiers;
 #[cfg(feature = "rustyline-support")]
 use rustyline::{
     self,
@@ -679,26 +679,17 @@ fn default_rustyline_editor_configuration() -> Editor<Helper> {
 
     // add key bindings to move over a whole word with Ctrl+ArrowLeft and Ctrl+ArrowRight
     rl.bind_sequence(
-        rustyline::KeyEvent {
-            0: rustyline::KeyCode::Left,
-            1: Modifiers::CTRL,
-        },
+        convert_keyevent(KeyEvent::ControlLeft),
         Cmd::Move(Movement::BackwardWord(1, Word::Vi)),
     );
     rl.bind_sequence(
-        rustyline::KeyEvent {
-            0: rustyline::KeyCode::Right,
-            1: Modifiers::CTRL,
-        },
+        convert_keyevent(KeyEvent::ControlRight),
         Cmd::Move(Movement::ForwardWord(1, At::AfterEnd, Word::Vi)),
     );
 
     // workaround for multiline-paste hang in rustyline (see https://github.com/kkawakam/rustyline/issues/202)
     rl.bind_sequence(
-        rustyline::KeyEvent {
-            0: rustyline::KeyCode::BracketedPasteStart,
-            1: Modifiers::NONE,
-        },
+        convert_keyevent(KeyEvent::BracketedPasteStart),
         rustyline::Cmd::Noop,
     );
 
