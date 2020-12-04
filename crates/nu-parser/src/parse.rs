@@ -761,7 +761,7 @@ fn parse_arg(
     registry: &dyn SignatureRegistry,
     lite_arg: &Spanned<String>,
 ) -> (SpannedExpression, Option<ParseError>) {
-    if lite_arg.item.starts_with('$') && !lite_arg.item.contains("..") {
+    if lite_arg.item.starts_with('$') && parse_range(lite_arg, registry).1.is_some() {
         return parse_dollar_expr(&lite_arg, registry);
     }
 
