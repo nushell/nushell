@@ -7,8 +7,8 @@ mod shapes;
 mod signature;
 
 pub use lex::{group, lex, LiteBlock};
-pub use parse::{classify_block, garbage, parse_full_column_path};
+pub use parse::{classify_block, garbage, parse, parse_full_column_path};
 pub use path::expand_ndots;
-pub use scope::{ParserScope, Scope};
+pub use scope::ParserScope;
 pub use shapes::shapes;
 pub use signature::{Signature, SignatureRegistry};

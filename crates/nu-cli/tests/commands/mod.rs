@@ -1,4 +1,3 @@
-mod alias;
 mod append;
 mod autoenv;
 mod autoenv_trust;

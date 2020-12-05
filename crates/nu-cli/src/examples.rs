@@ -49,6 +49,8 @@ pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
 
         let block = parse_line(sample_pipeline.example, &mut ctx)?;
 
+        println!("{:#?}", block);
+
         if let Some(expected) = &sample_pipeline.result {
             let result = block_on(evaluate_block(block, &mut ctx))?;
 
@@ -190,6 +192,7 @@ pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
 
 /// Parse and run a nushell pipeline
 fn parse_line(line: &str, ctx: &mut EvaluationContext) -> Result<ClassifiedBlock, ShellError> {
+    //FIXME: do we still need this?
     let line = if let Some(line) = line.strip_suffix('\n') {
         line
     } else {
@@ -206,8 +209,8 @@ fn parse_line(line: &str, ctx: &mut EvaluationContext) -> Result<ClassifiedBlock
     }
 
     // TODO ensure the command whose examples we're testing is actually in the pipeline
-    let classified_block = nu_parser::classify_block(&lite_result, &*ctx.scope);
-    Ok(classified_block)
+    let (block, err) = nu_parser::classify_block(&lite_result, ctx.mut_scope());
+    Ok(ClassifiedBlock { block, failed: err })
 }
 
 async fn evaluate_block(

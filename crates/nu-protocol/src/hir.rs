@@ -102,6 +102,13 @@ impl Pipeline {
         Pipeline { list: vec![], span }
     }
 
+    pub fn basic() -> Pipeline {
+        Pipeline {
+            list: vec![],
+            span: Span::unknown(),
+        }
+    }
+
     pub fn push(&mut self, command: ClassifiedCommand) {
         self.list.push(command);
     }
@@ -119,6 +126,13 @@ pub struct Group {
 impl Group {
     pub fn new(pipelines: Vec<Pipeline>, span: Span) -> Group {
         Group { pipelines, span }
+    }
+
+    pub fn basic() -> Group {
+        Group {
+            pipelines: vec![],
+            span: Span::unknown(),
+        }
     }
 
     pub fn push(&mut self, pipeline: Pipeline) {
@@ -147,6 +161,14 @@ impl Block {
 
         output.infer_params();
         output
+    }
+
+    pub fn basic() -> Block {
+        Block {
+            params: vec![],
+            block: vec![],
+            span: Span::unknown(),
+        }
     }
 
     pub fn push(&mut self, group: Group) {

@@ -1,11 +1,11 @@
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
 use log::trace;
 use nu_errors::{ArgumentError, ParseError};
 use nu_protocol::hir::{
-    self, Binary, Block, ClassifiedBlock, ClassifiedCommand, ClassifiedPipeline, Expression,
-    ExternalRedirection, Flag, FlagKind, Group, InternalCommand, Member, NamedArguments, Operator,
-    Pipeline, RangeOperator, SpannedExpression, Unit,
+    self, Binary, Block, ClassifiedCommand, Expression, ExternalRedirection, Flag, FlagKind, Group,
+    InternalCommand, Member, NamedArguments, Operator, Pipeline, RangeOperator, SpannedExpression,
+    Unit,
 };
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPathMember};
 use nu_source::{Span, Spanned, SpannedItem};
@@ -397,14 +397,13 @@ fn parse_invocation(
         return (garbage(lite_arg.span), err);
     };
 
-    let classified_block = classify_block(&lite_block, scope);
-    let err = classified_block.failed;
+    let mut new_scope = scope.enter_scope();
+    let scope = Arc::get_mut(&mut new_scope);
+
+    let (classified_block, err) = classify_block(&lite_block, scope.unwrap());
 
     (
-        SpannedExpression::new(
-            Expression::Invocation(classified_block.block),
-            lite_arg.span,
-        ),
+        SpannedExpression::new(Expression::Invocation(classified_block), lite_arg.span),
         err,
     )
 }
@@ -927,15 +926,14 @@ fn parse_arg(
                         return (garbage(lite_arg.span), err);
                     }
 
-                    let classified_block = classify_block(&lite_block, scope);
-                    let error = classified_block.failed;
+                    let mut new_scope = scope.enter_scope();
+                    let scope = Arc::get_mut(&mut new_scope);
+
+                    let (classified_block, err) = classify_block(&lite_block, scope.unwrap());
 
                     (
-                        SpannedExpression::new(
-                            Expression::Block(classified_block.block),
-                            lite_arg.span,
-                        ),
-                        error,
+                        SpannedExpression::new(Expression::Block(classified_block), lite_arg.span),
+                        err,
                     )
                 }
                 _ => {
@@ -1568,136 +1566,108 @@ fn parse_internal_command(
     (internal_command, error)
 }
 
-/// Convert a lite-ly parsed pipeline into a fully classified pipeline, ready to be evaluated.
-/// This conversion does error-recovery, so the result is allowed to be lossy. A lossy unit is designated as garbage.
-/// Errors are returned as part of a side-car error rather than a Result to allow both error and lossy result simultaneously.
-fn classify_pipeline(
-    lite_pipeline: &LitePipeline,
+fn parse_external_call(
+    lite_cmd: &LiteCommand,
+    end_of_pipeline: bool,
     scope: &dyn ParserScope,
-) -> (ClassifiedPipeline, Option<ParseError>) {
-    let mut commands = Pipeline::new(lite_pipeline.span());
+) -> (Option<ClassifiedCommand>, Option<ParseError>) {
     let mut error = None;
+    let name = lite_cmd.parts[0].clone().map(|v| {
+        let trimmed = trim_quotes(&v);
+        expand_path(&trimmed).to_string()
+    });
 
-    let mut iter = lite_pipeline.commands.iter().peekable();
-    while let Some(lite_cmd) = iter.next() {
-        if lite_cmd.parts.is_empty() {
-            continue;
+    let mut args = vec![];
+
+    let (name, err) = parse_arg(SyntaxShape::String, scope, &name);
+    let name_span = name.span;
+    if error.is_none() {
+        error = err;
+    }
+    args.push(name);
+
+    for lite_arg in &lite_cmd.parts[1..] {
+        let (expr, err) = parse_external_arg(lite_arg, scope);
+        if error.is_none() {
+            error = err;
         }
-        if lite_cmd.parts[0].item.starts_with('^') {
-            let name = lite_cmd.parts[0]
-                .clone()
-                .map(|v| v.chars().skip(1).collect::<String>());
-            // TODO this is the same as the `else` branch below, only the name differs. Find a way
-            //      to share this functionality.
-            let mut args = vec![];
+        args.push(expr);
+    }
 
-            let (name, err) = parse_arg(SyntaxShape::String, scope, &name);
-            let name_span = name.span;
-            if error.is_none() {
-                error = err;
-            }
-            args.push(name);
-
-            for lite_arg in &lite_cmd.parts[1..] {
-                let (expr, err) = parse_external_arg(lite_arg, scope);
-                if error.is_none() {
-                    error = err;
-                }
-                args.push(expr);
-            }
-
-            commands.push(ClassifiedCommand::Internal(InternalCommand {
-                name: "run_external".to_string(),
-                name_span,
-                args: hir::Call {
-                    head: Box::new(SpannedExpression {
-                        expr: Expression::string("run_external".to_string()),
-                        span: name_span,
-                    }),
-                    positional: Some(args),
-                    named: None,
+    (
+        Some(ClassifiedCommand::Internal(InternalCommand {
+            name: "run_external".to_string(),
+            name_span,
+            args: hir::Call {
+                head: Box::new(SpannedExpression {
+                    expr: Expression::string("run_external".to_string()),
                     span: name_span,
-                    external_redirection: if iter.peek().is_none() {
-                        ExternalRedirection::None
-                    } else {
-                        ExternalRedirection::Stdout
-                    },
-                },
-            }))
-        } else if lite_cmd.parts[0].item == "=" {
-            let expr = if lite_cmd.parts.len() > 1 {
-                let (_, expr, err) = parse_math_expression(0, &lite_cmd.parts[1..], scope, false);
-                error = error.or(err);
-                expr
-            } else {
-                error = error.or_else(|| {
-                    Some(ParseError::argument_error(
-                        lite_cmd.parts[0].clone(),
-                        ArgumentError::MissingMandatoryPositional("an expression".into()),
-                    ))
-                });
-                garbage(lite_cmd.span())
-            };
-            commands.push(ClassifiedCommand::Expr(Box::new(expr)))
-        } else {
-            if lite_cmd.parts.len() > 1 {
-                // Check if it's a sub-command
-                if let Some(signature) = scope.get_signature(&format!(
-                    "{} {}",
-                    lite_cmd.parts[0].item, lite_cmd.parts[1].item
-                )) {
-                    let (mut internal_command, err) =
-                        parse_internal_command(&lite_cmd, scope, &signature, 1);
-
-                    error = error.or(err);
-                    internal_command.args.external_redirection = if iter.peek().is_none() {
-                        ExternalRedirection::None
-                    } else {
-                        ExternalRedirection::Stdout
-                    };
-                    commands.push(ClassifiedCommand::Internal(internal_command));
-                    continue;
-                }
-            }
-
-            // Check if it's an internal command
-            if let Some(signature) = scope.get_signature(&lite_cmd.parts[0].item) {
-                let (mut internal_command, err) =
-                    parse_internal_command(&lite_cmd, scope, &signature, 0);
-
-                error = error.or(err);
-                internal_command.args.external_redirection = if iter.peek().is_none() {
+                }),
+                positional: Some(args),
+                named: None,
+                span: name_span,
+                external_redirection: if end_of_pipeline {
                     ExternalRedirection::None
                 } else {
                     ExternalRedirection::Stdout
-                };
-                commands.push(ClassifiedCommand::Internal(internal_command));
-                continue;
+                },
+            },
+        })),
+        error,
+    )
+}
+
+fn expand_aliases_in_call(call: &mut LiteCommand, scope: &dyn ParserScope) {
+    if let Some(name) = call.parts.get(0) {
+        if let Some(mut expansion) = scope.get_alias(name) {
+            // set the expansion's spans to point to the alias itself
+            for item in expansion.iter_mut() {
+                item.span = name.span;
             }
 
-            let name = lite_cmd.parts[0].clone().map(|v| {
-                let trimmed = trim_quotes(&v);
-                expand_path(&trimmed).to_string()
-            });
+            // replace the alias with the expansion
+            call.parts.remove(0);
+            expansion.append(&mut call.parts);
+            call.parts = expansion;
+        }
+    }
+}
 
-            let mut args = vec![];
+fn parse_call(
+    mut lite_cmd: LiteCommand,
+    end_of_pipeline: bool,
+    scope: &mut dyn ParserScope,
+) -> (Option<ClassifiedCommand>, Option<ParseError>) {
+    expand_aliases_in_call(&mut lite_cmd, scope);
 
-            let (name, err) = parse_arg(SyntaxShape::String, scope, &name);
-            let name_span = name.span;
+    let mut error = None;
+    if lite_cmd.parts.is_empty() {
+        return (None, None);
+    } else if lite_cmd.parts[0].item.starts_with('^') {
+        let name = lite_cmd.parts[0]
+            .clone()
+            .map(|v| v.chars().skip(1).collect::<String>());
+        // TODO this is the same as the `else` branch below, only the name differs. Find a way
+        //      to share this functionality.
+        let mut args = vec![];
+
+        let (name, err) = parse_arg(SyntaxShape::String, scope, &name);
+        let name_span = name.span;
+        if error.is_none() {
+            error = err;
+        }
+        args.push(name);
+
+        for lite_arg in &lite_cmd.parts[1..] {
+            let (expr, err) = parse_external_arg(lite_arg, scope);
             if error.is_none() {
                 error = err;
             }
-            args.push(name);
+            args.push(expr);
+        }
 
-            for lite_arg in &lite_cmd.parts[1..] {
-                let (expr, err) = parse_external_arg(lite_arg, scope);
-                if error.is_none() {
-                    error = err;
-                }
-                args.push(expr);
-            }
-
-            commands.push(ClassifiedCommand::Internal(InternalCommand {
+        return (
+            Some(ClassifiedCommand::Internal(InternalCommand {
                 name: "run_external".to_string(),
                 name_span,
                 args: hir::Call {
@@ -1708,17 +1678,96 @@ fn classify_pipeline(
                     positional: Some(args),
                     named: None,
                     span: name_span,
-                    external_redirection: if iter.peek().is_none() {
+                    external_redirection: if end_of_pipeline {
                         ExternalRedirection::None
                     } else {
                         ExternalRedirection::Stdout
                     },
                 },
-            }))
+            })),
+            error,
+        );
+    } else if lite_cmd.parts[0].item == "=" {
+        let expr = if lite_cmd.parts.len() > 1 {
+            let (_, expr, err) = parse_math_expression(0, &lite_cmd.parts[1..], scope, false);
+            error = error.or(err);
+            expr
+        } else {
+            error = error.or_else(|| {
+                Some(ParseError::argument_error(
+                    lite_cmd.parts[0].clone(),
+                    ArgumentError::MissingMandatoryPositional("an expression".into()),
+                ))
+            });
+            garbage(lite_cmd.span())
+        };
+        return (Some(ClassifiedCommand::Expr(Box::new(expr))), error);
+    } else if lite_cmd.parts[0].item == "alias" {
+        let error = parse_alias(&lite_cmd, scope);
+        if error.is_none() {
+            return (None, None);
+        } else {
+            return (
+                Some(ClassifiedCommand::Expr(Box::new(garbage(lite_cmd.span())))),
+                error,
+            );
+        }
+    } else if lite_cmd.parts.len() > 1 {
+        // Check if it's a sub-command
+        if let Some(signature) = scope.get_signature(&format!(
+            "{} {}",
+            lite_cmd.parts[0].item, lite_cmd.parts[1].item
+        )) {
+            let (mut internal_command, err) =
+                parse_internal_command(&lite_cmd, scope, &signature, 1);
+
+            error = error.or(err);
+            internal_command.args.external_redirection = if end_of_pipeline {
+                ExternalRedirection::None
+            } else {
+                ExternalRedirection::Stdout
+            };
+            return (Some(ClassifiedCommand::Internal(internal_command)), error);
+        }
+    }
+    // Check if it's an internal command
+    if let Some(signature) = scope.get_signature(&lite_cmd.parts[0].item) {
+        let (mut internal_command, err) = parse_internal_command(&lite_cmd, scope, &signature, 0);
+
+        error = error.or(err);
+        internal_command.args.external_redirection = if end_of_pipeline {
+            ExternalRedirection::None
+        } else {
+            ExternalRedirection::Stdout
+        };
+        (Some(ClassifiedCommand::Internal(internal_command)), error)
+    } else {
+        parse_external_call(&lite_cmd, end_of_pipeline, scope)
+    }
+}
+
+/// Convert a lite-ly parsed pipeline into a fully classified pipeline, ready to be evaluated.
+/// This conversion does error-recovery, so the result is allowed to be lossy. A lossy unit is designated as garbage.
+/// Errors are returned as part of a side-car error rather than a Result to allow both error and lossy result simultaneously.
+fn parse_pipeline(
+    lite_pipeline: LitePipeline,
+    scope: &mut dyn ParserScope,
+) -> (Pipeline, Option<ParseError>) {
+    let mut commands = Pipeline::new(lite_pipeline.span());
+    let mut error = None;
+
+    let mut iter = lite_pipeline.commands.into_iter().peekable();
+    while let Some(lite_cmd) = iter.next() {
+        let (call, err) = parse_call(lite_cmd, iter.peek().is_none(), scope);
+        if error.is_none() {
+            error = err;
+        }
+        if let Some(call) = call {
+            commands.push(call);
         }
     }
 
-    (ClassifiedPipeline::new(commands), error)
+    (commands, error)
 }
 
 type SpannedKeyValue = (Spanned<String>, Spanned<String>);
@@ -1780,75 +1829,179 @@ fn expand_shorthand_forms(
     }
 }
 
-pub fn classify_block(lite_block: &LiteBlock, scope: &dyn ParserScope) -> ClassifiedBlock {
-    let mut block = vec![];
+// pub fn parse_block(lite_block: &LiteBlock, scope: &dyn ParserScope) -> ClassifiedBlock {
+//     let mut block = vec![];
+//     let mut error = None;
+//     for lite_group in &lite_block.block {
+//         let mut command_list = vec![];
+//         for lite_pipeline in &lite_group.pipelines {
+//             let (lite_pipeline, vars, err) = expand_shorthand_forms(lite_pipeline);
+//             if error.is_none() {
+//                 error = err;
+//             }
+
+//             let (pipeline, err) = parse_pipeline(&lite_pipeline, scope);
+
+//             let pipeline = if let Some(vars) = vars {
+//                 let span = pipeline.commands.span;
+//                 let group = Group::new(vec![pipeline.commands.clone()], span);
+//                 let block = hir::Block::new(vec![], vec![group], span);
+//                 let mut call = hir::Call::new(
+//                     Box::new(SpannedExpression {
+//                         expr: Expression::string("with-env".to_string()),
+//                         span,
+//                     }),
+//                     span,
+//                 );
+//                 call.positional = Some(vec![
+//                     SpannedExpression {
+//                         expr: Expression::List(vec![
+//                             SpannedExpression {
+//                                 expr: Expression::string(vars.0.item),
+//                                 span: vars.0.span,
+//                             },
+//                             SpannedExpression {
+//                                 expr: Expression::string(vars.1.item),
+//                                 span: vars.1.span,
+//                             },
+//                         ]),
+//                         span: Span::new(vars.0.span.start(), vars.1.span.end()),
+//                     },
+//                     SpannedExpression {
+//                         expr: Expression::Block(block),
+//                         span,
+//                     },
+//                 ]);
+//                 let classified_with_env = ClassifiedCommand::Internal(InternalCommand {
+//                     name: "with-env".to_string(),
+//                     name_span: Span::unknown(),
+//                     args: call,
+//                 });
+//                 ClassifiedPipeline {
+//                     commands: Pipeline {
+//                         list: vec![classified_with_env],
+//                         span,
+//                     },
+//                 }
+//             } else {
+//                 pipeline
+//             };
+
+//             command_list.push(pipeline.commands);
+//             if error.is_none() {
+//                 error = err;
+//             }
+//         }
+//         let group = Group::new(command_list, lite_block.span());
+//         block.push(group);
+//     }
+//     let block = Block::new(vec![], block, lite_block.span());
+
+//     ClassifiedBlock::new(block, error)
+// }
+
+fn parse_alias(call: &LiteCommand, scope: &mut dyn ParserScope) -> Option<ParseError> {
+    if call.parts.len() < 4 {
+        return Some(ParseError::mismatch("alias", call.parts[0].clone()));
+    }
+
+    if call.parts[0].item != "alias" {
+        return Some(ParseError::mismatch("alias", call.parts[0].clone()));
+    }
+
+    if call.parts[2].item != "=" {
+        return Some(ParseError::mismatch("=", call.parts[2].clone()));
+    }
+
+    let name = call.parts[1].item.clone();
+    let args: Vec<_> = call.parts.iter().skip(3).cloned().collect();
+
+    scope.add_alias(&name, args);
+
+    None
+}
+
+pub fn classify_block(
+    lite_block: &LiteBlock,
+    scope: &mut dyn ParserScope,
+) -> (Block, Option<ParseError>) {
+    let mut output = Block::basic();
     let mut error = None;
-    for lite_group in &lite_block.block {
-        let mut command_list = vec![];
-        for lite_pipeline in &lite_group.pipelines {
-            let (lite_pipeline, vars, err) = expand_shorthand_forms(lite_pipeline);
+
+    // Check for custom commands first
+    // for group in lite_block.block.iter() {
+    //     for pipeline in &group.pipelines {
+    //         for call in &pipeline.commands {
+    //             if let Some(first) = call.parts.first() {
+    //                 if first.item == "def" {
+    //                     if pipeline.commands.len() > 1 && err.is_none() {
+    //                         err = Some(ParseError::DefinitionInPipeline(first.span));
+    //                     }
+    //                     parse_definition_prototype(call, scope);
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+
+    // Then the rest of the code
+    for group in &lite_block.block {
+        let mut out_group = Group::basic();
+        for pipeline in &group.pipelines {
+            let (out_pipe, err) = parse_pipeline(pipeline.clone(), scope);
             if error.is_none() {
                 error = err;
             }
-
-            let (pipeline, err) = classify_pipeline(&lite_pipeline, scope);
-
-            let pipeline = if let Some(vars) = vars {
-                let span = pipeline.commands.span;
-                let group = Group::new(vec![pipeline.commands.clone()], span);
-                let block = hir::Block::new(vec![], vec![group], span);
-                let mut call = hir::Call::new(
-                    Box::new(SpannedExpression {
-                        expr: Expression::string("with-env".to_string()),
-                        span,
-                    }),
-                    span,
-                );
-                call.positional = Some(vec![
-                    SpannedExpression {
-                        expr: Expression::List(vec![
-                            SpannedExpression {
-                                expr: Expression::string(vars.0.item),
-                                span: vars.0.span,
-                            },
-                            SpannedExpression {
-                                expr: Expression::string(vars.1.item),
-                                span: vars.1.span,
-                            },
-                        ]),
-                        span: Span::new(vars.0.span.start(), vars.1.span.end()),
-                    },
-                    SpannedExpression {
-                        expr: Expression::Block(block),
-                        span,
-                    },
-                ]);
-                let classified_with_env = ClassifiedCommand::Internal(InternalCommand {
-                    name: "with-env".to_string(),
-                    name_span: Span::unknown(),
-                    args: call,
-                });
-                ClassifiedPipeline {
-                    commands: Pipeline {
-                        list: vec![classified_with_env],
-                        span,
-                    },
-                }
-            } else {
-                pipeline
-            };
-
-            command_list.push(pipeline.commands);
-            if error.is_none() {
-                error = err;
+            //let mut out_pipe = Pipeline::basic();
+            // for call in pipeline.commands {
+            //     // if call.elements[0].item == "def" {
+            //     //     let error = parse_definition(call, scope);
+            //     //     if err.is_none() {
+            //     //         err = error;
+            //     //     }
+            //     // } else
+            //     if call.parts[0].item == "alias" {
+            //         let error = parse_alias(call, scope);
+            //         if err.is_none() {
+            //             err = error;
+            //         }
+            //     } else {
+            //         let (parsed, error) = parse_call(call, scope);
+            //         if err.is_none() {
+            //             err = error;
+            //         }
+            //         out_pipe.push(parsed);
+            //     }
+            // }
+            if !out_pipe.list.is_empty() {
+                out_group.push(out_pipe);
             }
         }
-        let group = Group::new(command_list, lite_block.span());
-        block.push(group);
+        if !out_group.pipelines.is_empty() {
+            output.push(out_group);
+        }
     }
-    let block = Block::new(vec![], block, lite_block.span());
 
-    ClassifiedBlock::new(block, error)
+    //output.definitions = scope.commands.clone();
+
+    (output, error)
+}
+
+pub fn parse(
+    input: &str,
+    span_offset: usize,
+    scope: &mut dyn ParserScope,
+) -> (Block, Option<ParseError>) {
+    let (output, error) = lex(input, span_offset);
+    if error.is_some() {
+        return (Block::basic(), error);
+    }
+    let (lite_block, error) = group(output);
+    if error.is_some() {
+        return (Block::basic(), error);
+    }
+
+    classify_block(&lite_block, scope)
 }
 
 /// Easy shorthand function to create a garbage expression at the given span

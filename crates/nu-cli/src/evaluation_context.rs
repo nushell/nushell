@@ -3,6 +3,7 @@ use crate::env::host::Host;
 use crate::prelude::*;
 use crate::shell::shell_manager::ShellManager;
 use crate::stream::{InputStream, OutputStream};
+use nu_parser::ParserScope;
 use nu_protocol::hir;
 use nu_source::{Tag, Text};
 use parking_lot::Mutex;
@@ -27,6 +28,12 @@ pub struct EvaluationContext {
 impl EvaluationContext {
     pub fn scope(&self) -> Arc<Scope> {
         self.scope.clone()
+    }
+
+    pub fn mut_scope(&mut self) -> &mut dyn ParserScope {
+        let scope: &mut Scope = Arc::make_mut(&mut self.scope);
+
+        scope
     }
 
     pub(crate) fn from_raw(raw_args: &CommandArgs) -> EvaluationContext {

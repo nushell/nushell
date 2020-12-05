@@ -1,6 +1,7 @@
 use crate::prelude::*;
 use crate::shell::palette::Palette;
 use ansi_term::{Color, Style};
+use nu_parser::ParserScope;
 use nu_protocol::hir::FlatShape;
 use nu_source::Spanned;
 use std::borrow::Cow;
@@ -21,15 +22,11 @@ impl Painter {
     }
 
     pub fn paint_string<'l, P: Palette>(line: &'l str, scope: &Scope, palette: &P) -> Cow<'l, str> {
-        let (tokens, err) = nu_parser::lex(line, 0);
-        let (lb, err2) = nu_parser::group(tokens);
+        let mut scope = scope.enter_scope();
+        if let Some(scope) = Arc::get_mut(&mut scope) {
+            let (block, _) = nu_parser::parse(line, 0, scope);
 
-        if err.is_some() || err2.is_some() {
-            Cow::Borrowed(line)
-        } else {
-            let classified = nu_parser::classify_block(&lb, scope);
-
-            let shapes = nu_parser::shapes(&classified.block);
+            let shapes = nu_parser::shapes(&block);
             let mut painter = Painter::new(line);
 
             for shape in shapes {
@@ -37,6 +34,8 @@ impl Painter {
             }
 
             Cow::Owned(painter.into_string())
+        } else {
+            Cow::Borrowed(line)
         }
     }
 

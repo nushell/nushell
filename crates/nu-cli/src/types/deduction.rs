@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::prelude::*;
 use lazy_static::lazy_static;
 use nu_errors::ShellError;

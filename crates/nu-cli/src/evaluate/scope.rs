@@ -68,6 +68,30 @@ impl ParserScope for Scope {
     fn has_signature(&self, name: &str) -> bool {
         self.get_command(name).is_some()
     }
+
+    fn get_alias(&self, name: &str) -> Option<Vec<Spanned<String>>> {
+        if let Some(x) = self.aliases.get(name) {
+            Some(x.clone())
+        } else if let Some(parent) = &self.parent {
+            parent.get_alias(name)
+        } else {
+            None
+        }
+    }
+
+    fn add_alias(&mut self, name: &str, replacement: Vec<Spanned<String>>) {
+        self.aliases.insert(name.to_string(), replacement);
+    }
+
+    fn enter_scope(&self) -> Arc<dyn ParserScope> {
+        Arc::new(Scope {
+            aliases: IndexMap::new(),
+            commands: IndexMap::new(),
+            env: IndexMap::new(),
+            vars: IndexMap::new(),
+            parent: Some(Arc::new(self.clone())),
+        })
+    }
 }
 
 impl Scope {

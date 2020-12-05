@@ -256,7 +256,7 @@ pub fn completion_location(line: &str, block: &Block, pos: usize) -> Vec<Complet
 mod tests {
     use super::*;
 
-    use nu_parser::ParserScope;
+    use nu_parser::{classify_block, group, lex, ParserScope};
     use nu_protocol::{Signature, SyntaxShape};
 
     #[derive(Clone, Debug)]
@@ -276,12 +276,26 @@ mod tests {
         fn get_signature(&self, name: &str) -> Option<nu_protocol::Signature> {
             self.0.iter().find(|v| v.name == name).map(Clone::clone)
         }
+
+        fn get_alias(&self, _name: &str) -> Option<Vec<Spanned<String>>> {
+            todo!()
+        }
+
+        fn add_alias(&mut self, _name: &str, _replacement: Vec<Spanned<String>>) {
+            todo!()
+        }
+
+        fn enter_scope(&self) -> std::sync::Arc<dyn ParserScope> {
+            std::sync::Arc::new(self.clone())
+        }
     }
 
     mod completion_location {
+        use std::sync::Arc;
+
         use super::*;
 
-        use nu_parser::{classify_block, group, lex, ParserScope};
+        use nu_parser::ParserScope;
 
         fn completion_location(
             line: &str,
@@ -291,12 +305,17 @@ mod tests {
             let (tokens, _) = lex(line, 0);
             let (lite_block, _) = group(tokens);
 
-            let block = classify_block(&lite_block, scope);
+            let mut scope = scope.enter_scope();
+            if let Some(scope) = Arc::get_mut(&mut scope) {
+                let (block, _) = classify_block(&lite_block, scope);
 
-            super::completion_location(line, &block.block, pos)
-                .into_iter()
-                .map(|v| v.item)
-                .collect()
+                super::completion_location(line, &block, pos)
+                    .into_iter()
+                    .map(|v| v.item)
+                    .collect()
+            } else {
+                vec![]
+            }
         }
 
         #[test]
