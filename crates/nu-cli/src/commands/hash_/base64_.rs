@@ -11,10 +11,10 @@ use base64::{decode_config, encode_config};
 
 #[derive(Deserialize)]
 pub struct Arguments {
+    pub rest: Vec<ColumnPath>,
     pub character_set: Option<Tagged<String>>,
     pub encode: Tagged<bool>,
     pub decode: Tagged<bool>,
-    pub rest: Vec<ColumnPath>,
 }
 
 #[derive(Clone)]
