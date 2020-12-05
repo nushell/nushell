@@ -119,16 +119,6 @@ impl Scope {
         }
     }
 
-    pub fn from_env(env: IndexMap<String, String>) -> Arc<Scope> {
-        Arc::new(Scope {
-            vars: IndexMap::new(),
-            commands: IndexMap::new(),
-            aliases: IndexMap::new(),
-            env,
-            parent: None,
-        })
-    }
-
     pub fn append_var(this: Arc<Self>, name: impl Into<String>, value: Value) -> Arc<Scope> {
         let mut vars = IndexMap::new();
         vars.insert(name.into(), value);

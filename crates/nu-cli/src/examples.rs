@@ -217,7 +217,7 @@ async fn evaluate_block(
     let input_stream = InputStream::empty();
     let env = ctx.get_env();
 
-    let scope = Scope::from_env(env);
+    let scope = Scope::append_env(ctx.scope.clone(), env);
 
     Ok(run_block(&block.block, ctx, input_stream, scope)
         .await?

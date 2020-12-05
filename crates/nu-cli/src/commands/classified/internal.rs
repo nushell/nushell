@@ -66,7 +66,7 @@ pub(crate) async fn run_internal_command(
                                 let contents_tag = tagged_contents.tag.clone();
                                 let command_name = format!("from {}", extension);
                                 let command = command.clone();
-                                if let Some(converter) = context.scope.get_command(&command_name) {
+                                if let Some(converter) = scope.get_command(&command_name) {
                                     let new_args = RawCommandArgs {
                                         host: context.host.clone(),
                                         ctrl_c: context.ctrl_c.clone(),
@@ -136,7 +136,7 @@ pub(crate) async fn run_internal_command(
                                     context.shell_manager.insert_at_current(Box::new(
                                         match HelpShell::for_command(
                                             UntaggedValue::string(cmd).into_value(tag),
-                                            &context.scope,
+                                            &scope,
                                         ) {
                                             Ok(v) => v,
                                             Err(err) => {
@@ -150,7 +150,7 @@ pub(crate) async fn run_internal_command(
                                 }
                                 _ => {
                                     context.shell_manager.insert_at_current(Box::new(
-                                        match HelpShell::index(&context.scope()) {
+                                        match HelpShell::index(&scope) {
                                             Ok(v) => v,
                                             Err(err) => {
                                                 return InputStream::one(
