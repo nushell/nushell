@@ -1,64 +1,38 @@
-use rustyline::{KeyCode, Modifiers};
 use serde::{Deserialize, Serialize};
 
-pub fn convert_keyevent(key_event: KeyEvent) -> rustyline::KeyEvent {
-    match key_event {
-        KeyEvent::UnknownEscSeq => convert_to_rl_keyevent(rustyline::KeyCode::UnknownEscSeq, None),
-        KeyEvent::Backspace => convert_to_rl_keyevent(rustyline::KeyCode::Backspace, None),
-        KeyEvent::BackTab => convert_to_rl_keyevent(rustyline::KeyCode::BackTab, None),
-        KeyEvent::BracketedPasteStart => {
-            convert_to_rl_keyevent(rustyline::KeyCode::BracketedPasteStart, None)
-        }
-        KeyEvent::BracketedPasteEnd => {
-            convert_to_rl_keyevent(rustyline::KeyCode::BracketedPasteEnd, None)
-        }
-        KeyEvent::Char(c) => convert_to_rl_keyevent(rustyline::KeyCode::Char(c), None),
-        KeyEvent::ControlDown => {
-            convert_to_rl_keyevent(rustyline::KeyCode::Down, Some(Modifiers::CTRL))
-        }
-        KeyEvent::ControlLeft => {
-            convert_to_rl_keyevent(rustyline::KeyCode::Left, Some(Modifiers::CTRL))
-        }
-        KeyEvent::ControlRight => {
-            convert_to_rl_keyevent(rustyline::KeyCode::Right, Some(Modifiers::CTRL))
-        }
-        KeyEvent::ControlUp => {
-            convert_to_rl_keyevent(rustyline::KeyCode::Up, Some(Modifiers::CTRL))
-        }
-        KeyEvent::Ctrl(c) => rustyline::KeyEvent::ctrl(c),
-        KeyEvent::Delete => convert_to_rl_keyevent(rustyline::KeyCode::Delete, None),
-        KeyEvent::Down => convert_to_rl_keyevent(rustyline::KeyCode::Down, None),
-        KeyEvent::End => convert_to_rl_keyevent(rustyline::KeyCode::End, None),
-        KeyEvent::Enter => convert_to_rl_keyevent(rustyline::KeyCode::Enter, None),
-        KeyEvent::Esc => convert_to_rl_keyevent(rustyline::KeyCode::Esc, None),
-        KeyEvent::F(u) => convert_to_rl_keyevent(rustyline::KeyCode::F(u), None),
-        KeyEvent::Home => convert_to_rl_keyevent(rustyline::KeyCode::Home, None),
-        KeyEvent::Insert => convert_to_rl_keyevent(rustyline::KeyCode::Insert, None),
-        KeyEvent::Left => convert_to_rl_keyevent(rustyline::KeyCode::Left, None),
-        KeyEvent::Meta(c) => rustyline::KeyEvent::new(c, Modifiers::NONE),
-        KeyEvent::Null => convert_to_rl_keyevent(rustyline::KeyCode::Null, None),
-        KeyEvent::PageDown => convert_to_rl_keyevent(rustyline::KeyCode::PageDown, None),
-        KeyEvent::PageUp => convert_to_rl_keyevent(rustyline::KeyCode::PageUp, None),
-        KeyEvent::Right => convert_to_rl_keyevent(rustyline::KeyCode::Right, None),
-        KeyEvent::ShiftDown => {
-            convert_to_rl_keyevent(rustyline::KeyCode::Down, Some(Modifiers::SHIFT))
-        }
-        KeyEvent::ShiftLeft => {
-            convert_to_rl_keyevent(rustyline::KeyCode::Left, Some(Modifiers::SHIFT))
-        }
-        KeyEvent::ShiftRight => {
-            convert_to_rl_keyevent(rustyline::KeyCode::Right, Some(Modifiers::SHIFT))
-        }
-        KeyEvent::ShiftUp => convert_to_rl_keyevent(rustyline::KeyCode::Up, Some(Modifiers::SHIFT)),
-        KeyEvent::Tab => convert_to_rl_keyevent(rustyline::KeyCode::Tab, None),
-        KeyEvent::Up => convert_to_rl_keyevent(rustyline::KeyCode::Up, None),
-    }
-}
-
-fn convert_to_rl_keyevent(key_event: KeyCode, modifier: Option<Modifiers>) -> rustyline::KeyEvent {
-    rustyline::KeyEvent {
-        0: key_event,
-        1: modifier.unwrap_or(Modifiers::NONE),
+fn convert_keypress(keypress: KeyPress) -> rustyline::KeyPress {
+    match keypress {
+        KeyPress::UnknownEscSeq => rustyline::KeyPress::UnknownEscSeq,
+        KeyPress::Backspace => rustyline::KeyPress::Backspace,
+        KeyPress::BackTab => rustyline::KeyPress::BackTab,
+        KeyPress::BracketedPasteStart => rustyline::KeyPress::BracketedPasteStart,
+        KeyPress::BracketedPasteEnd => rustyline::KeyPress::BracketedPasteEnd,
+        KeyPress::Char(c) => rustyline::KeyPress::Char(c),
+        KeyPress::ControlDown => rustyline::KeyPress::ControlDown,
+        KeyPress::ControlLeft => rustyline::KeyPress::ControlLeft,
+        KeyPress::ControlRight => rustyline::KeyPress::ControlRight,
+        KeyPress::ControlUp => rustyline::KeyPress::ControlUp,
+        KeyPress::Ctrl(c) => rustyline::KeyPress::Ctrl(c),
+        KeyPress::Delete => rustyline::KeyPress::Delete,
+        KeyPress::Down => rustyline::KeyPress::Down,
+        KeyPress::End => rustyline::KeyPress::End,
+        KeyPress::Enter => rustyline::KeyPress::Enter,
+        KeyPress::Esc => rustyline::KeyPress::Esc,
+        KeyPress::F(u) => rustyline::KeyPress::F(u),
+        KeyPress::Home => rustyline::KeyPress::Home,
+        KeyPress::Insert => rustyline::KeyPress::Insert,
+        KeyPress::Left => rustyline::KeyPress::Left,
+        KeyPress::Meta(c) => rustyline::KeyPress::Meta(c),
+        KeyPress::Null => rustyline::KeyPress::Null,
+        KeyPress::PageDown => rustyline::KeyPress::PageDown,
+        KeyPress::PageUp => rustyline::KeyPress::PageUp,
+        KeyPress::Right => rustyline::KeyPress::Right,
+        KeyPress::ShiftDown => rustyline::KeyPress::ShiftDown,
+        KeyPress::ShiftLeft => rustyline::KeyPress::ShiftLeft,
+        KeyPress::ShiftRight => rustyline::KeyPress::ShiftRight,
+        KeyPress::ShiftUp => rustyline::KeyPress::ShiftUp,
+        KeyPress::Tab => rustyline::KeyPress::Tab,
+        KeyPress::Up => rustyline::KeyPress::Up,
     }
 }
 
@@ -123,9 +97,7 @@ fn convert_cmd(cmd: Cmd) -> rustyline::Cmd {
     match cmd {
         Cmd::Abort => rustyline::Cmd::Abort,
         Cmd::AcceptLine => rustyline::Cmd::AcceptLine,
-        Cmd::AcceptOrInsertLine => rustyline::Cmd::AcceptOrInsertLine {
-            accept_in_the_middle: false,
-        },
+        Cmd::AcceptOrInsertLine => rustyline::Cmd::AcceptOrInsertLine,
         Cmd::BeginningOfHistory => rustyline::Cmd::BeginningOfHistory,
         Cmd::CapitalizeWord => rustyline::Cmd::CapitalizeWord,
         Cmd::ClearScreen => rustyline::Cmd::ClearScreen,
@@ -168,18 +140,18 @@ fn convert_cmd(cmd: Cmd) -> rustyline::Cmd {
     }
 }
 
-fn convert_keybinding(keybinding: Keybinding) -> (rustyline::KeyEvent, rustyline::Cmd) {
+fn convert_keybinding(keybinding: Keybinding) -> (rustyline::KeyPress, rustyline::Cmd) {
     (
-        convert_keyevent(keybinding.key),
+        convert_keypress(keybinding.key),
         convert_cmd(keybinding.binding),
     )
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum KeyEvent {
+pub enum KeyPress {
     /// Unsupported escape sequence (on unix platform)
     UnknownEscSeq,
-    /// ⌫ or `KeyEvent::Ctrl('H')`
+    /// ⌫ or `KeyPress::Ctrl('H')`
     Backspace,
     /// ⇤ (usually Shift-Tab)
     BackTab,
@@ -205,9 +177,9 @@ pub enum KeyEvent {
     Down,
     /// ⇲
     End,
-    /// ↵ or `KeyEvent::Ctrl('M')`
+    /// ↵ or `KeyPress::Ctrl('M')`
     Enter,
-    /// Escape or `KeyEvent::Ctrl('[')`
+    /// Escape or `KeyPress::Ctrl('[')`
     Esc,
     /// Function key
     F(u8),
@@ -219,7 +191,7 @@ pub enum KeyEvent {
     Left,
     /// Escape-char or Alt-char
     Meta(char),
-    /// `KeyEvent::Char('\0')`
+    /// `KeyPress::Char('\0')`
     Null,
     /// ⇟
     PageDown,
@@ -235,7 +207,7 @@ pub enum KeyEvent {
     ShiftRight,
     /// Shift-↑
     ShiftUp,
-    /// ⇥ or `KeyEvent::Ctrl('I')`
+    /// ⇥ or `KeyPress::Ctrl('I')`
     Tab,
     /// ↑ arrow key
     Up,
@@ -427,7 +399,7 @@ pub type RepeatCount = usize;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Keybinding {
-    key: KeyEvent,
+    key: KeyPress,
     binding: Cmd,
 }
 
