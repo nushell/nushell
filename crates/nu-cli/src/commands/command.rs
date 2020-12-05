@@ -8,11 +8,11 @@ use nu_errors::ShellError;
 use nu_protocol::hir;
 use nu_protocol::{CallInfo, EvaluatedArgs, ReturnSuccess, Signature, UntaggedValue, Value};
 use parking_lot::Mutex;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::ops::Deref;
 use std::sync::atomic::AtomicBool;
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct UnevaluatedCallInfo {
     pub args: hir::Call,
     pub name_tag: Tag,

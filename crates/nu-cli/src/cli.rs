@@ -413,12 +413,13 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
                     let prompt_block = nu_parser::classify_block(&result, &*context.scope());
 
                     let env = context.get_env();
+                    let scope = context.scope.clone();
 
                     match run_block(
                         &prompt_block.block,
                         &mut context,
                         InputStream::empty(),
-                        Scope::from_env(env),
+                        Scope::append_env(scope, env),
                     )
                     .await
                     {
@@ -888,12 +889,13 @@ pub async fn parse_and_eval(line: &str, ctx: &mut EvaluationContext) -> Result<S
 
     let input_stream = InputStream::empty();
     let env = ctx.get_env();
+    let scope = ctx.scope.clone();
 
     run_block(
         &classified_block.block,
         ctx,
         input_stream,
-        Scope::from_env(env),
+        Scope::append_env(scope, env),
     )
     .await?
     .collect_string(Tag::unknown())
@@ -1047,11 +1049,12 @@ pub async fn process_script(
 
         trace!("{:#?}", classified_block);
         let env = ctx.get_env();
+        let scope = ctx.scope.clone();
         match run_block(
             &classified_block.block,
             ctx,
             input_stream,
-            Scope::from_env(env),
+            Scope::append_env(scope, env),
         )
         .await
         {

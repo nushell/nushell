@@ -1,16 +1,17 @@
 use nu_source::Spanned;
 use std::{collections::HashMap, fmt::Debug};
 
-pub trait CommandScope: Debug {
+pub trait ParserScope: Debug {
     fn get_signature(&self, name: &str) -> Option<nu_protocol::Signature>;
 
-    fn get_alias(&self, name: &str) -> Option<Vec<Spanned<String>>>;
-    fn add_alias(&mut self, name: &str, replacement: Vec<Spanned<String>>);
-
     fn has_signature(&self, name: &str) -> bool;
+
+    fn get_alias(&self, _name: &str) -> Option<Vec<Spanned<String>>> {
+        None
+    }
 }
 
-impl CommandScope for Scope {
+impl ParserScope for Scope {
     fn get_signature(&self, name: &str) -> Option<nu_protocol::Signature> {
         self.get_signature(name)
     }
@@ -22,21 +23,17 @@ impl CommandScope for Scope {
     fn get_alias(&self, name: &str) -> Option<Vec<Spanned<String>>> {
         self.get_alias(name)
     }
-
-    fn add_alias(&mut self, name: &str, replacement: Vec<Spanned<String>>) {
-        self.aliases.insert(name.to_string(), replacement);
-    }
 }
 
 #[derive(Debug)]
 pub struct Scope {
-    pub parent: Option<Box<dyn CommandScope>>,
+    pub parent: Option<Box<dyn ParserScope>>,
     pub commands: HashMap<String, nu_protocol::Signature>,
     pub aliases: HashMap<String, Vec<Spanned<String>>>,
 }
 
 impl Scope {
-    pub fn new(parent: Option<Box<dyn CommandScope>>) -> Scope {
+    pub fn new(parent: Option<Box<dyn ParserScope>>) -> Scope {
         Scope {
             parent,
             commands: HashMap::new(),
@@ -65,5 +62,9 @@ impl Scope {
         } else {
             None
         }
+    }
+
+    pub fn add_alias(&mut self, name: &str, replacement: Vec<Spanned<String>>) {
+        self.aliases.insert(name.to_string(), replacement);
     }
 }

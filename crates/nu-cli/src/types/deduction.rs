@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use lazy_static::lazy_static;
 use nu_errors::ShellError;
-use nu_parser::CommandScope;
+use nu_parser::ParserScope;
 use nu_protocol::{
     hir::{
         Binary, Block, ClassifiedCommand, Expression, Literal, NamedArguments, NamedValue,

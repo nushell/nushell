@@ -256,7 +256,7 @@ pub fn completion_location(line: &str, block: &Block, pos: usize) -> Vec<Complet
 mod tests {
     use super::*;
 
-    use nu_parser::CommandScope;
+    use nu_parser::ParserScope;
     use nu_protocol::{Signature, SyntaxShape};
 
     #[derive(Clone, Debug)]
@@ -268,7 +268,7 @@ mod tests {
         }
     }
 
-    impl CommandScope for VecRegistry {
+    impl ParserScope for VecRegistry {
         fn has_signature(&self, name: &str) -> bool {
             self.0.iter().any(|v| v.name == name)
         }
@@ -276,24 +276,16 @@ mod tests {
         fn get_signature(&self, name: &str) -> Option<nu_protocol::Signature> {
             self.0.iter().find(|v| v.name == name).map(Clone::clone)
         }
-
-        fn get_alias(&self, _name: &str) -> Option<Vec<Spanned<String>>> {
-            todo!()
-        }
-
-        fn add_alias(&mut self, _name: &str, _replacement: Vec<Spanned<String>>) {
-            todo!()
-        }
     }
 
     mod completion_location {
         use super::*;
 
-        use nu_parser::{classify_block, group, lex, CommandScope};
+        use nu_parser::{classify_block, group, lex, ParserScope};
 
         fn completion_location(
             line: &str,
-            scope: &dyn CommandScope,
+            scope: &dyn ParserScope,
             pos: usize,
         ) -> Vec<LocationType> {
             let (tokens, _) = lex(line, 0);

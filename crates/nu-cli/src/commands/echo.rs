@@ -8,7 +8,7 @@ use nu_protocol::{
 
 pub struct Echo;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct EchoArgs {
     pub rest: Vec<Value>,
 }
@@ -64,7 +64,7 @@ async fn echo(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 value: UntaggedValue::Primitive(Primitive::Range(range)),
                 tag,
             } => futures::stream::iter(RangeIterator::new(*range, tag)).to_output_stream(),
-            _ => OutputStream::one(Ok(ReturnSuccess::Value(i.clone()))),
+            x => OutputStream::one(Ok(ReturnSuccess::Value(x))),
         },
     });
 

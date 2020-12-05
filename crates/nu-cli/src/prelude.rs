@@ -96,7 +96,7 @@ pub(crate) use nu_source::{
 pub(crate) use nu_value_ext::ValueExt;
 pub(crate) use num_bigint::BigInt;
 pub(crate) use num_traits::cast::ToPrimitive;
-pub(crate) use serde::{Deserialize, Serialize};
+pub(crate) use serde::Deserialize;
 pub(crate) use std::collections::VecDeque;
 pub(crate) use std::future::Future;
 pub(crate) use std::sync::atomic::AtomicBool;

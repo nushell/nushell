@@ -122,8 +122,10 @@ impl EvaluationContext {
     }
 
     pub fn add_commands(&mut self, commands: Vec<Command>) {
-        for command in commands {
-            self.scope.add_command(command.name().to_string(), command);
+        if let Some(scope) = Arc::get_mut(&mut self.scope) {
+            for command in commands {
+                scope.add_command(command.name().to_string(), command);
+            }
         }
     }
 
@@ -134,17 +136,6 @@ impl EvaluationContext {
 
     pub(crate) fn is_command_registered(&self, name: &str) -> bool {
         self.scope.has_command(name)
-    }
-
-    pub(crate) fn expect_command(&self, name: &str) -> Result<Command, ShellError> {
-        if let Some(c) = self.get_command(name) {
-            Ok(c)
-        } else {
-            Err(ShellError::untagged_runtime_error(format!(
-                "Missing command '{}'",
-                name
-            )))
-        }
     }
 
     pub(crate) async fn run_command(

@@ -1,34 +1,66 @@
 use crate::commands::Command;
 use crate::prelude::*;
-use nu_parser::CommandScope;
+use nu_parser::ParserScope;
 use nu_protocol::Value;
 use nu_source::Spanned;
 
 /// An evaluation scope. Scopes map variable names to Values and aid in evaluating blocks and expressions.
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Scope {
     vars: IndexMap<String, Value>,
     env: IndexMap<String, String>,
+    commands: IndexMap<String, Command>,
+    aliases: IndexMap<String, Vec<Spanned<String>>>,
     parent: Option<Arc<Scope>>,
 }
 
 impl Scope {
-    pub fn has_command(&self, _name: &str) -> bool {
-        false
+    pub fn has_command(&self, name: &str) -> bool {
+        self.get_command(name).is_some()
     }
 
     pub fn get_command_names(&self) -> Vec<String> {
-        vec![]
+        let mut parent_command_names = if let Some(parent) = &self.parent {
+            parent.get_command_names()
+        } else {
+            vec![]
+        };
+
+        let mut command_names: Vec<String> = self.commands.keys().map(|x| x.to_string()).collect();
+        parent_command_names.append(&mut command_names);
+        command_names.dedup();
+        command_names.sort();
+
+        command_names
     }
 
-    pub fn add_command(&self, _name: String, _command: Command) {}
+    pub fn add_command(&mut self, name: String, command: Command) {
+        self.commands.insert(name, command);
+    }
 
-    pub fn get_command(&self, _name: &str) -> Option<Command> {
-        None
+    pub fn get_command(&self, name: &str) -> Option<Command> {
+        if let Some(command) = self.commands.get(name) {
+            Some(command.clone())
+        } else if let Some(parent) = &self.parent {
+            parent.get_command(name)
+        } else {
+            None
+        }
+    }
+
+    pub fn expect_command(&self, name: &str) -> Result<Command, ShellError> {
+        if let Some(c) = self.get_command(name) {
+            Ok(c)
+        } else {
+            Err(ShellError::untagged_runtime_error(format!(
+                "Missing command '{}'",
+                name
+            )))
+        }
     }
 }
 
-impl CommandScope for Scope {
+impl ParserScope for Scope {
     fn get_signature(&self, name: &str) -> Option<nu_protocol::Signature> {
         self.get_command(name).map(|x| x.signature())
     }
@@ -36,12 +68,6 @@ impl CommandScope for Scope {
     fn has_signature(&self, name: &str) -> bool {
         self.get_command(name).is_some()
     }
-
-    fn get_alias(&self, _name: &str) -> Option<Vec<Spanned<String>>> {
-        None
-    }
-
-    fn add_alias(&mut self, _name: &str, _replacement: Vec<Spanned<String>>) {}
 }
 
 impl Scope {
@@ -96,6 +122,8 @@ impl Scope {
     pub fn from_env(env: IndexMap<String, String>) -> Arc<Scope> {
         Arc::new(Scope {
             vars: IndexMap::new(),
+            commands: IndexMap::new(),
+            aliases: IndexMap::new(),
             env,
             parent: None,
         })
@@ -107,6 +135,8 @@ impl Scope {
         Arc::new(Scope {
             vars,
             env: IndexMap::new(),
+            commands: IndexMap::new(),
+            aliases: IndexMap::new(),
             parent: Some(this),
         })
     }
@@ -115,6 +145,8 @@ impl Scope {
         Arc::new(Scope {
             vars,
             env: IndexMap::new(),
+            commands: IndexMap::new(),
+            aliases: IndexMap::new(),
             parent: Some(this),
         })
     }
@@ -123,6 +155,8 @@ impl Scope {
         Arc::new(Scope {
             vars: IndexMap::new(),
             env,
+            commands: IndexMap::new(),
+            aliases: IndexMap::new(),
             parent: Some(this),
         })
     }
@@ -132,6 +166,8 @@ impl Scope {
         Arc::new(Scope {
             vars: IndexMap::new(),
             env: IndexMap::new(),
+            commands: IndexMap::new(),
+            aliases: IndexMap::new(),
             parent: None,
         })
     }

@@ -14,7 +14,7 @@ use num_bigint::BigInt;
 //use crate::errors::{ParseError, ParseResult};
 use crate::lex::{group, lex, LiteBlock, LiteCommand, LitePipeline};
 use crate::path::expand_path;
-use crate::scope::CommandScope;
+use crate::scope::ParserScope;
 use bigdecimal::BigDecimal;
 
 /// Parses a simple column path, one without a variable (implied or explicit) at the head
@@ -80,7 +80,7 @@ pub fn parse_simple_column_path(
 /// Parses a column path, adding in the preceding reference to $it if it's elided
 pub fn parse_full_column_path(
     lite_arg: &Spanned<String>,
-    scope: &dyn CommandScope,
+    scope: &dyn ParserScope,
 ) -> (SpannedExpression, Option<ParseError>) {
     let mut delimiter = '.';
     let mut inside_delimiter = false;
@@ -211,7 +211,7 @@ fn trim_quotes(input: &str) -> String {
 /// Parse a numeric range
 fn parse_range(
     lite_arg: &Spanned<String>,
-    scope: &dyn CommandScope,
+    scope: &dyn ParserScope,
 ) -> (SpannedExpression, Option<ParseError>) {
     let lite_arg_span_start = lite_arg.span.start();
     let lite_arg_len = lite_arg.item.len();
@@ -377,7 +377,7 @@ fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseErr
 
 fn parse_invocation(
     lite_arg: &Spanned<String>,
-    scope: &dyn CommandScope,
+    scope: &dyn ParserScope,
 ) -> (SpannedExpression, Option<ParseError>) {
     // We have a command invocation
     let string: String = lite_arg
@@ -411,7 +411,7 @@ fn parse_invocation(
 
 fn parse_variable(
     lite_arg: &Spanned<String>,
-    scope: &dyn CommandScope,
+    scope: &dyn ParserScope,
 ) -> (SpannedExpression, Option<ParseError>) {
     if lite_arg.item == "$it" {
         trace!("parsing $it");
@@ -431,7 +431,7 @@ fn parse_variable(
 /// Currently either Variable, Invocation, FullColumnPath
 fn parse_dollar_expr(
     lite_arg: &Spanned<String>,
-    scope: &dyn CommandScope,
+    scope: &dyn ParserScope,
 ) -> (SpannedExpression, Option<ParseError>) {
     trace!("Parsing dollar expression: {:?}", lite_arg.item);
     if lite_arg.item == "$true" {
@@ -556,7 +556,7 @@ fn format(input: &str, start: usize) -> (Vec<FormatCommand>, Option<ParseError>)
 /// Parses an interpolated string, one that has expressions inside of it
 fn parse_interpolated_string(
     lite_arg: &Spanned<String>,
-    scope: &dyn CommandScope,
+    scope: &dyn ParserScope,
 ) -> (SpannedExpression, Option<ParseError>) {
     trace!("Parse_interpolated_string");
     let inner_string = trim_quotes(&lite_arg.item);
@@ -619,7 +619,7 @@ fn parse_interpolated_string(
 /// Parses the given argument using the shape as a guide for how to correctly parse the argument
 fn parse_external_arg(
     lite_arg: &Spanned<String>,
-    scope: &dyn CommandScope,
+    scope: &dyn ParserScope,
 ) -> (SpannedExpression, Option<ParseError>) {
     if lite_arg.item.starts_with('$') {
         return parse_dollar_expr(&lite_arg, scope);
@@ -638,7 +638,7 @@ fn parse_external_arg(
 
 fn parse_list(
     lite_block: &LiteBlock,
-    scope: &dyn CommandScope,
+    scope: &dyn ParserScope,
 ) -> (Vec<SpannedExpression>, Option<ParseError>) {
     let mut error = None;
 
@@ -694,7 +694,7 @@ fn verify_and_strip(
 
 fn parse_table(
     lite_block: &LiteBlock,
-    scope: &dyn CommandScope,
+    scope: &dyn ParserScope,
     span: Span,
 ) -> (SpannedExpression, Option<ParseError>) {
     let mut error = None;
@@ -758,7 +758,7 @@ fn parse_table(
 /// Parses the given argument using the shape as a guide for how to correctly parse the argument
 fn parse_arg(
     expected_type: SyntaxShape,
-    scope: &dyn CommandScope,
+    scope: &dyn ParserScope,
     lite_arg: &Spanned<String>,
 ) -> (SpannedExpression, Option<ParseError>) {
     if lite_arg.item.starts_with('$') && parse_range(lite_arg, scope).1.is_some() {
@@ -1119,7 +1119,7 @@ fn get_flags_from_flag(
 fn shorthand_reparse(
     left: SpannedExpression,
     orig_left: Option<Spanned<String>>,
-    scope: &dyn CommandScope,
+    scope: &dyn ParserScope,
     shorthand_mode: bool,
 ) -> (SpannedExpression, Option<ParseError>) {
     // If we're in shorthand mode, we need to reparse the left-hand side if possible
@@ -1136,7 +1136,7 @@ fn shorthand_reparse(
 
 fn parse_parenthesized_expression(
     lite_arg: &Spanned<String>,
-    scope: &dyn CommandScope,
+    scope: &dyn ParserScope,
     shorthand_mode: bool,
 ) -> (SpannedExpression, Option<ParseError>) {
     let mut chars = lite_arg.item.chars();
@@ -1184,7 +1184,7 @@ fn parse_parenthesized_expression(
 
 fn parse_possibly_parenthesized(
     lite_arg: &Spanned<String>,
-    scope: &dyn CommandScope,
+    scope: &dyn ParserScope,
     shorthand_mode: bool,
 ) -> (
     (Option<Spanned<String>>, SpannedExpression),
@@ -1203,7 +1203,7 @@ fn parse_possibly_parenthesized(
 fn parse_math_expression(
     incoming_idx: usize,
     lite_args: &[Spanned<String>],
-    scope: &dyn CommandScope,
+    scope: &dyn ParserScope,
     shorthand_mode: bool,
 ) -> (usize, SpannedExpression, Option<ParseError>) {
     // Precedence parsing is included
@@ -1346,7 +1346,7 @@ fn parse_positional_argument(
     lite_cmd: &LiteCommand,
     positional_type: &PositionalType,
     remaining_positionals: usize,
-    scope: &dyn CommandScope,
+    scope: &dyn ParserScope,
 ) -> (usize, SpannedExpression, Option<ParseError>) {
     let mut idx = idx;
     let mut error = None;
@@ -1419,7 +1419,7 @@ fn parse_positional_argument(
 /// and to ensure that the basic requirements in terms of number of each were met.
 fn parse_internal_command(
     lite_cmd: &LiteCommand,
-    scope: &dyn CommandScope,
+    scope: &dyn ParserScope,
     signature: &Signature,
     mut idx: usize,
 ) -> (InternalCommand, Option<ParseError>) {
@@ -1573,7 +1573,7 @@ fn parse_internal_command(
 /// Errors are returned as part of a side-car error rather than a Result to allow both error and lossy result simultaneously.
 fn classify_pipeline(
     lite_pipeline: &LitePipeline,
-    scope: &dyn CommandScope,
+    scope: &dyn ParserScope,
 ) -> (ClassifiedPipeline, Option<ParseError>) {
     let mut commands = Pipeline::new(lite_pipeline.span());
     let mut error = None;
@@ -1780,7 +1780,7 @@ fn expand_shorthand_forms(
     }
 }
 
-pub fn classify_block(lite_block: &LiteBlock, scope: &dyn CommandScope) -> ClassifiedBlock {
+pub fn classify_block(lite_block: &LiteBlock, scope: &dyn ParserScope) -> ClassifiedBlock {
     let mut block = vec![];
     let mut error = None;
     for lite_group in &lite_block.block {
