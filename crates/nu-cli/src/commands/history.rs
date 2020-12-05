@@ -56,7 +56,7 @@ impl WholeStreamCommand for History {
 async fn history(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let config: Box<dyn Conf> = Box::new(NuConfig::new());
     let tag = args.call_info.name_tag.clone();
-    let (Arguments { clear }, _) = args.process(&_registry).await?;
+    let (Arguments { clear }, _) = args.process().await?;
 
     let path = history_path(&config);
 

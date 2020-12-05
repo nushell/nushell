@@ -4,9 +4,7 @@ use crate::prelude::*;
 
 use futures::stream::once;
 use nu_errors::ShellError;
-use nu_protocol::{
-    hir::Block, Scope, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
-};
+use nu_protocol::{hir::Block, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct Each;

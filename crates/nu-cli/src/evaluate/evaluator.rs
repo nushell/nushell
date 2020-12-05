@@ -7,7 +7,7 @@ use log::trace;
 use nu_errors::{ArgumentError, ShellError};
 use nu_protocol::hir::{self, Expression, ExternalRedirection, RangeOperator, SpannedExpression};
 use nu_protocol::{
-    ColumnPath, Primitive, RangeInclusion, Scope, UnspannedPathMember, UntaggedValue, Value,
+    ColumnPath, Primitive, RangeInclusion, UnspannedPathMember, UntaggedValue, Value,
 };
 
 #[async_recursion]
@@ -234,7 +234,6 @@ fn evaluate_reference(name: &str, scope: Arc<Scope>, tag: Tag) -> Result<Value, 
 async fn evaluate_invocation(block: &hir::Block, scope: Arc<Scope>) -> Result<Value, ShellError> {
     // FIXME: we should use a real context here
     let mut context = EvaluationContext::basic()?;
-    context.registry = registry.clone();
 
     let input = match scope.var("$it") {
         Some(it) => InputStream::one(it),

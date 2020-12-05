@@ -1,6 +1,6 @@
+use crate::prelude::*;
 use crate::shell::palette::Palette;
 use ansi_term::{Color, Style};
-use nu_parser::SignatureRegistry;
 use nu_protocol::hir::FlatShape;
 use nu_source::Spanned;
 use std::borrow::Cow;
@@ -20,18 +20,14 @@ impl Painter {
         }
     }
 
-    pub fn paint_string<'l, P: Palette>(
-        line: &'l str,
-        registry: &dyn SignatureRegistry,
-        palette: &P,
-    ) -> Cow<'l, str> {
+    pub fn paint_string<'l, P: Palette>(line: &'l str, scope: &Scope, palette: &P) -> Cow<'l, str> {
         let (tokens, err) = nu_parser::lex(line, 0);
         let (lb, err2) = nu_parser::group(tokens);
 
         if err.is_some() || err2.is_some() {
             Cow::Borrowed(line)
         } else {
-            let classified = nu_parser::classify_block(&lb, registry);
+            let classified = nu_parser::classify_block(&lb, scope);
 
             let shapes = nu_parser::shapes(&classified.block);
             let mut painter = Painter::new(line);

@@ -55,7 +55,7 @@ impl WholeStreamCommand for Size {
     }
 }
 
-fn size(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+fn size(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let input = args.input;
     let tag = args.call_info.name_tag;
     let name_span = tag.span;

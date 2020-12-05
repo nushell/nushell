@@ -26,7 +26,7 @@ impl NuCompleter {
         let (tokens, _) = nu_parser::lex(line, 0);
         let (lite_block, _) = nu_parser::group(tokens);
 
-        let classified_block = nu_parser::classify_block(&lite_block, &nu_context.registry);
+        let classified_block = nu_parser::classify_block(&lite_block, &*(nu_context.scope));
         let locations = completion::engine::completion_location(line, &classified_block.block, pos);
 
         let matcher = nu_data::config::config(Tag::unknown())

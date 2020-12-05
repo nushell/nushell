@@ -8,7 +8,7 @@ use nu_errors::ShellError;
 use nu_protocol::hir::{
     Block, Call, ClassifiedCommand, Expression, Pipeline, SpannedExpression, Synthetic,
 };
-use nu_protocol::{ReturnSuccess, Scope, UntaggedValue, Value};
+use nu_protocol::{ReturnSuccess, UntaggedValue, Value};
 use std::sync::atomic::Ordering;
 
 pub async fn run_block(
@@ -129,9 +129,7 @@ async fn run_pipeline(
                 return Err(ShellError::unimplemented("Dynamic commands"))
             }
 
-            ClassifiedCommand::Expr(expr) => {
-                run_expression_block(*expr, ctx, scope.clone()).await?
-            }
+            ClassifiedCommand::Expr(expr) => run_expression_block(*expr, scope.clone()).await?,
 
             ClassifiedCommand::Error(err) => return Err(err.into()),
 

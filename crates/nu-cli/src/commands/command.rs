@@ -6,7 +6,7 @@ use derive_new::new;
 use getset::Getters;
 use nu_errors::ShellError;
 use nu_protocol::hir;
-use nu_protocol::{CallInfo, EvaluatedArgs, ReturnSuccess, Scope, Signature, UntaggedValue, Value};
+use nu_protocol::{CallInfo, EvaluatedArgs, ReturnSuccess, Signature, UntaggedValue, Value};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;

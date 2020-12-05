@@ -19,10 +19,13 @@ impl WholeStreamCommand for Command {
         "Generate random values"
     }
 
-    async fn run(&self, _args: CommandArgs) -> Result<OutputStream, ShellError> {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(Ok(ReturnSuccess::Value(
-            UntaggedValue::string(crate::commands::help::get_help(&Command, &registry.clone()))
-                .into_value(Tag::unknown()),
+            UntaggedValue::string(crate::commands::help::get_help(
+                &Command,
+                &args.call_info.scope,
+            ))
+            .into_value(Tag::unknown()),
         ))))
     }
 }

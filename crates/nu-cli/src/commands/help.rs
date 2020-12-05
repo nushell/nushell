@@ -4,9 +4,7 @@ use crate::documentation::{generate_docs, get_documentation, DocumentationConfig
 use crate::prelude::*;
 use nu_data::command::signature_dict;
 use nu_errors::ShellError;
-use nu_protocol::{
-    ReturnSuccess, Scope, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
-};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::{SpannedItem, Tagged};
 use nu_value_ext::ValueExt;
 
@@ -58,7 +56,7 @@ async fn help(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     if !rest.is_empty() {
         if rest[0].item == "commands" {
-            let mut sorted_names = args.call_info.scope.get_command_names();
+            let mut sorted_names = scope.get_command_names();
             sorted_names.sort();
 
             let (mut subcommand_names, command_names) = sorted_names
@@ -130,7 +128,7 @@ async fn help(args: CommandArgs) -> Result<OutputStream, ShellError> {
                                 process_name(
                                     &mut short_desc,
                                     &cmd_name,
-                                    registry.clone(),
+                                    scope.clone(),
                                     rest.clone(),
                                     name.clone(),
                                 )?;
@@ -226,7 +224,7 @@ You can also learn more at https://www.nushell.sh/book/"#;
     }
 }
 
-pub fn get_help(cmd: &dyn WholeStreamCommand, scope: Arc<Scope>) -> String {
+pub fn get_help(cmd: &dyn WholeStreamCommand, scope: &Scope) -> String {
     get_documentation(cmd, scope, &DocumentationConfig::default())
 }
 

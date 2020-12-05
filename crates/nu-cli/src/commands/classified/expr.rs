@@ -6,11 +6,9 @@ use log::{log_enabled, trace};
 use futures::stream::once;
 use nu_errors::ShellError;
 use nu_protocol::hir::SpannedExpression;
-use nu_protocol::Scope;
 
 pub(crate) async fn run_expression_block(
     expr: SpannedExpression,
-    context: &mut EvaluationContext,
     scope: Arc<Scope>,
 ) -> Result<InputStream, ShellError> {
     if log_enabled!(log::Level::Trace) {

@@ -22,10 +22,13 @@ impl WholeStreamCommand for Command {
         "Apply string function."
     }
 
-    async fn run(&self, _args: CommandArgs) -> Result<OutputStream, ShellError> {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(ReturnSuccess::value(
-            UntaggedValue::string(crate::commands::help::get_help(&Command, &registry))
-                .into_value(Tag::unknown()),
+            UntaggedValue::string(crate::commands::help::get_help(
+                &Command,
+                &args.call_info.scope,
+            ))
+            .into_value(Tag::unknown()),
         )))
     }
 }

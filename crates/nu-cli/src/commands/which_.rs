@@ -76,6 +76,7 @@ struct WhichArgs {
 
 async fn which(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut output = vec![];
+    let scope = args.call_info.scope.clone();
 
     let (WhichArgs { application, all }, _) = args.process().await?;
     let external = application.starts_with('^');
@@ -85,7 +86,7 @@ async fn which(args: CommandArgs) -> Result<OutputStream, ShellError> {
         application.item.clone()
     };
     if !external {
-        let builtin = registry.has(&item);
+        let builtin = scope.has_command(&item);
         if builtin {
             output.push(ReturnSuccess::value(entry_builtin!(
                 item,

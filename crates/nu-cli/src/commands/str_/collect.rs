@@ -44,7 +44,7 @@ impl WholeStreamCommand for SubCommand {
 
 pub async fn collect(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let (SubCommandArgs { separator }, input) = args.process(registry).await?;
+    let (SubCommandArgs { separator }, input) = args.process().await?;
     let separator = separator.map(|tagged| tagged.item).unwrap_or_default();
 
     let strings: Vec<Result<String, ShellError>> =

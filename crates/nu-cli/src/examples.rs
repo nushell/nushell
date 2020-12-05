@@ -1,7 +1,7 @@
 use nu_errors::ShellError;
 use nu_protocol::hir::ClassifiedBlock;
 use nu_protocol::{
-    Primitive, ReturnSuccess, Scope, ShellTypeName, Signature, SyntaxShape, UntaggedValue, Value,
+    Primitive, ReturnSuccess, ShellTypeName, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use nu_source::{AnchorLocation, TaggedItem};
 
@@ -206,7 +206,7 @@ fn parse_line(line: &str, ctx: &mut EvaluationContext) -> Result<ClassifiedBlock
     }
 
     // TODO ensure the command whose examples we're testing is actually in the pipeline
-    let classified_block = nu_parser::classify_block(&lite_result, ctx.registry());
+    let classified_block = nu_parser::classify_block(&lite_result, &*ctx.scope);
     Ok(classified_block)
 }
 
@@ -406,11 +406,7 @@ impl WholeStreamCommand for MockLs {
         "Mock ls."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        _: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let name_tag = args.call_info.name_tag.clone();
 
         let mut base_value =

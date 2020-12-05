@@ -2,9 +2,7 @@ use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{
-    hir::Block, Scope, Signature, SpannedTypeName, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{hir::Block, Signature, SpannedTypeName, SyntaxShape, UntaggedValue, Value};
 
 pub struct WithEnv;
 
@@ -69,7 +67,7 @@ impl WholeStreamCommand for WithEnv {
 }
 
 async fn with_env(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let mut context = EvaluationContext::from_raw(&raw_args, &registry);
+    let mut context = EvaluationContext::from_raw(&raw_args);
     let scope = raw_args.call_info.scope.clone();
     let (WithEnvArgs { variable, block }, input) = raw_args.process().await?;
 

@@ -46,7 +46,7 @@ impl WholeStreamCommand for Merge {
 
 async fn merge(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let scope = raw_args.call_info.scope.clone();
-    let mut context = EvaluationContext::from_raw(&raw_args, &registry);
+    let mut context = EvaluationContext::from_raw(&raw_args);
     let name_tag = raw_args.call_info.name_tag.clone();
     let (merge_args, input): (MergeArgs, _) = raw_args.process().await?;
     let block = merge_args.block;

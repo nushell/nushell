@@ -2,9 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::evaluate::evaluate_baseline_expr;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{
-    hir::Block, hir::ClassifiedCommand, ReturnSuccess, Scope, Signature, SyntaxShape,
-};
+use nu_protocol::{hir::Block, hir::ClassifiedCommand, ReturnSuccess, Signature, SyntaxShape};
 
 pub struct Where;
 
@@ -61,7 +59,6 @@ impl WholeStreamCommand for Where {
     }
 }
 async fn where_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let registry = Arc::new(registry.clone());
     let scope = raw_args.call_info.scope.clone();
     let tag = raw_args.call_info.name_tag.clone();
     let (WhereArgs { block }, input) = raw_args.process().await?;
@@ -101,7 +98,7 @@ async fn where_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError
 
             async move {
                 //FIXME: should we use the scope that's brought in as well?
-                let condition = evaluate_baseline_expr(&condition, &*registry, scope).await;
+                let condition = evaluate_baseline_expr(&condition, scope).await;
 
                 match condition {
                     Ok(condition) => match condition.as_bool() {

@@ -88,7 +88,7 @@ async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
             rest: column_paths,
         },
         input,
-    ) = args.process(&registry.clone()).await?;
+    ) = args.process().await?;
     let digits = decimals.map(|tagged| tagged.item);
 
     Ok(input

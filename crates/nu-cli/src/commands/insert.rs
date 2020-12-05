@@ -3,12 +3,11 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{
-    ColumnPath, Primitive, ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue, Value,
+    ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use nu_value_ext::ValueExt;
 
 use futures::stream::once;
-use indexmap::indexmap;
 
 pub struct Command;
 
@@ -152,7 +151,7 @@ async fn process_row(
 
 async fn insert(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let scope = raw_args.call_info.scope.clone();
-    let context = Arc::new(EvaluationContext::from_raw(&raw_args, &registry));
+    let context = Arc::new(EvaluationContext::from_raw(&raw_args));
     let (Arguments { column, value }, input) = raw_args.process().await?;
     let value = Arc::new(value);
     let column = Arc::new(column);

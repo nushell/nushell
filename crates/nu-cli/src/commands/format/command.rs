@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::evaluate::evaluate_baseline_expr;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 use std::borrow::Borrow;
 
@@ -67,7 +67,7 @@ async fn format_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
                             // FIXME: use the correct spans
                             let full_column_path = nu_parser::parse_full_column_path(
                                 &(c.to_string()).spanned(Span::unknown()),
-                                &*registry,
+                                &*scope,
                             );
 
                             let result = evaluate_baseline_expr(

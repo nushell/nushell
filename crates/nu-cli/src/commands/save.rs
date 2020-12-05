@@ -209,7 +209,7 @@ async fn save(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         break if !save_raw {
             if let Some(extension) = full_path.extension() {
                 let command_name = format!("to {}", extension.to_string_lossy());
-                if let Some(converter) = registry.get_command(&command_name) {
+                if let Some(converter) = scope.get_command(&command_name) {
                     let new_args = RawCommandArgs {
                         host,
                         ctrl_c,
@@ -227,7 +227,7 @@ async fn save(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                             scope,
                         },
                     };
-                    let mut result = converter.run(new_args.with_input(input), &registry).await?;
+                    let mut result = converter.run(new_args.with_input(input)).await?;
                     let result_vec: Vec<Result<ReturnSuccess, ShellError>> =
                         result.drain_vec().await;
                     if converter.is_binary() {

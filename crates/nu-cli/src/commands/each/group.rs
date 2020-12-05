@@ -2,7 +2,7 @@ use crate::commands::each::process_row;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{hir::Block, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use serde::Deserialize;
 

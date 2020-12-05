@@ -4,7 +4,7 @@ use crate::prelude::*;
 
 use derive_new::new;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, PositionalType, Scope, Signature, UntaggedValue};
+use nu_protocol::{hir::Block, PositionalType, Signature, UntaggedValue};
 
 #[derive(new, Clone)]
 pub struct AliasCommand {
@@ -32,11 +32,11 @@ impl WholeStreamCommand for AliasCommand {
         block.set_redirect(call_info.args.external_redirection);
 
         // let alias_command = self.clone();
-        let mut context = EvaluationContext::from_args(&args, &registry);
+        let mut context = EvaluationContext::from_args(&args);
         let input = args.input;
 
         let scope = call_info.scope.clone();
-        let evaluated = call_info.evaluate(&registry).await?;
+        let evaluated = call_info.evaluate().await?;
 
         let mut vars = IndexMap::new();
         let mut num_positionals = 0;

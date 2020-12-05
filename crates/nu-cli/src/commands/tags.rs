@@ -24,7 +24,7 @@ impl WholeStreamCommand for Tags {
     }
 }
 
-fn tags(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+fn tags(args: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(args
         .input
         .map(move |v| {

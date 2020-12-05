@@ -1,10 +1,9 @@
 use crate::commands::{command::CommandArgs, Command, UnevaluatedCallInfo};
 use crate::env::host::Host;
+use crate::prelude::*;
 use crate::shell::shell_manager::ShellManager;
 use crate::stream::{InputStream, OutputStream};
-use indexmap::IndexMap;
-use nu_errors::ShellError;
-use nu_protocol::{hir, Scope};
+use nu_protocol::hir;
 use nu_source::{Tag, Text};
 use parking_lot::Mutex;
 use std::error::Error;
@@ -58,7 +57,7 @@ impl EvaluationContext {
 
     pub fn basic() -> Result<EvaluationContext, Box<dyn Error>> {
         Ok(EvaluationContext {
-            scope: Arc::new(Scope::new()),
+            scope: Scope::create(),
             host: Arc::new(parking_lot::Mutex::new(Box::new(
                 crate::env::host::BasicHost,
             ))),
@@ -124,21 +123,28 @@ impl EvaluationContext {
 
     pub fn add_commands(&mut self, commands: Vec<Command>) {
         for command in commands {
-            self.registry.insert(command.name().to_string(), command);
+            self.scope.add_command(command.name().to_string(), command);
         }
     }
 
     #[allow(unused)]
     pub(crate) fn get_command(&self, name: &str) -> Option<Command> {
-        self.registry.get_command(name)
+        self.scope.get_command(name)
     }
 
     pub(crate) fn is_command_registered(&self, name: &str) -> bool {
-        self.registry.has(name)
+        self.scope.has_command(name)
     }
 
     pub(crate) fn expect_command(&self, name: &str) -> Result<Command, ShellError> {
-        self.registry.expect_command(name)
+        if let Some(c) = self.get_command(name) {
+            Ok(c)
+        } else {
+            Err(ShellError::untagged_runtime_error(format!(
+                "Missing command '{}'",
+                name
+            )))
+        }
     }
 
     pub(crate) async fn run_command(

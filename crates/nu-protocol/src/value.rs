@@ -3,7 +3,6 @@ mod convert;
 mod debug;
 pub mod dict;
 pub mod did_you_mean;
-pub mod evaluate;
 pub mod iter;
 pub mod primitive;
 pub mod range;

@@ -92,7 +92,7 @@ async fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         if spec.len() == 2 {
             let (_, command) = (spec[0], spec[1]);
 
-            if scope.has(command) {
+            if scope.has_command(command) {
                 return Ok(OutputStream::one(ReturnSuccess::action(
                     CommandAction::EnterHelpShell(
                         UntaggedValue::string(command).into_value(Tag::unknown()),

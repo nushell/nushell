@@ -6,7 +6,7 @@ use heim::cpu::time;
 use nu_errors::ShellError;
 use nu_protocol::{
     hir::{Block, ClassifiedCommand, Group, InternalCommand, Pipeline},
-    Dictionary, Scope, Signature, SyntaxShape, UntaggedValue, Value,
+    Dictionary, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use rand::{
     distributions::Alphanumeric,

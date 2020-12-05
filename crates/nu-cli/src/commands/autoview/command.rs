@@ -5,7 +5,7 @@ use crate::primitive::get_color_config;
 use nu_data::value::format_leaf;
 use nu_errors::ShellError;
 use nu_protocol::hir::{self, Expression, ExternalRedirection, Literal, SpannedExpression};
-use nu_protocol::{Primitive, Scope, Signature, UntaggedValue, Value};
+use nu_protocol::{Primitive, Signature, UntaggedValue, Value};
 use nu_table::TextStyle;
 use parking_lot::Mutex;
 use std::sync::atomic::AtomicBool;

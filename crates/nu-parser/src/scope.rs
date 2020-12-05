@@ -1,12 +1,13 @@
 use nu_source::Spanned;
-use std::{collections::HashMap, fmt::Debug, sync::Arc};
+use std::{collections::HashMap, fmt::Debug};
 
 pub trait CommandScope: Debug {
     fn get_signature(&self, name: &str) -> Option<nu_protocol::Signature>;
-    fn add_signature(&mut self, name: &str, signature: nu_protocol::Signature);
 
     fn get_alias(&self, name: &str) -> Option<Vec<Spanned<String>>>;
     fn add_alias(&mut self, name: &str, replacement: Vec<Spanned<String>>);
+
+    fn has_signature(&self, name: &str) -> bool;
 }
 
 impl CommandScope for Scope {
@@ -14,8 +15,8 @@ impl CommandScope for Scope {
         self.get_signature(name)
     }
 
-    fn add_signature(&mut self, name: &str, signature: nu_protocol::Signature) {
-        self.commands.insert(name.to_string(), signature);
+    fn has_signature(&self, name: &str) -> bool {
+        self.get_signature(name).is_some()
     }
 
     fn get_alias(&self, name: &str) -> Option<Vec<Spanned<String>>> {
@@ -24,58 +25,6 @@ impl CommandScope for Scope {
 
     fn add_alias(&mut self, name: &str, replacement: Vec<Spanned<String>>) {
         self.aliases.insert(name.to_string(), replacement);
-    }
-}
-
-impl CommandScope for nu_protocol::Scope {
-    fn get_signature(&self, name: &str) -> Option<nu_protocol::Signature> {
-        self.get_signature(name)
-    }
-
-    fn add_signature(&mut self, name: &str, signature: nu_protocol::Signature) {
-        self.add_signature(name, signature)
-    }
-
-    fn get_alias(&self, _name: &str) -> Option<Vec<Spanned<String>>> {
-        None
-    }
-
-    fn add_alias(&mut self, _name: &str, _replacement: Vec<Spanned<String>>) {}
-}
-
-impl<T: CommandScope> CommandScope for Arc<T> {
-    fn get_signature(&self, name: &str) -> Option<nu_protocol::Signature> {
-        self.get_signature(name)
-    }
-
-    fn add_signature(&mut self, name: &str, signature: nu_protocol::Signature) {
-        self.add_signature(name, signature)
-    }
-
-    fn get_alias(&self, name: &str) -> Option<Vec<Spanned<String>>> {
-        self.get_alias(name)
-    }
-
-    fn add_alias(&mut self, name: &str, replacement: Vec<Spanned<String>>) {
-        self.add_alias(name, replacement)
-    }
-}
-
-impl CommandScope for &nu_protocol::Scope {
-    fn get_signature(&self, name: &str) -> Option<nu_protocol::Signature> {
-        self.get_signature(name)
-    }
-
-    fn add_signature(&mut self, name: &str, signature: nu_protocol::Signature) {
-        self.add_signature(name, signature)
-    }
-
-    fn get_alias(&self, name: &str) -> Option<Vec<Spanned<String>>> {
-        self.get_alias(name)
-    }
-
-    fn add_alias(&mut self, name: &str, replacement: Vec<Spanned<String>>) {
-        self.add_alias(name, replacement)
     }
 }
 
@@ -103,6 +52,11 @@ impl Scope {
             None
         }
     }
+
+    pub fn has_signature(&self, name: &str) -> bool {
+        self.get_signature(name).is_some()
+    }
+
     pub fn get_alias(&self, name: &str) -> Option<Vec<Spanned<String>>> {
         if let Some(x) = self.aliases.get(name) {
             Some(x.clone())

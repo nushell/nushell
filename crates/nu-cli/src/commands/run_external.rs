@@ -81,7 +81,7 @@ impl WholeStreamCommand for RunExternalCommand {
 
         let mut external_context = {
             EvaluationContext {
-                registry: registry.clone(),
+                scope: args.call_info.scope.clone(),
                 host: args.host.clone(),
                 user_recently_used_autoenv_untrust: false,
                 shell_manager: args.shell_manager.clone(),

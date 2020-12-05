@@ -1,6 +1,5 @@
 use std::borrow::Cow::{self, Owned};
 
-use nu_parser::SignatureRegistry;
 use nu_source::{Tag, Tagged};
 
 use crate::completion;
@@ -88,11 +87,7 @@ impl rustyline::highlight::Highlighter for Helper {
     }
 
     fn highlight<'l>(&self, line: &'l str, _pos: usize) -> Cow<'l, str> {
-        Painter::paint_string(
-            line,
-            &self.context.registry().clone_box(),
-            &DefaultPalette {},
-        )
+        Painter::paint_string(line, &self.context.scope(), &DefaultPalette {})
     }
 
     fn highlight_char(&self, _line: &str, _pos: usize) -> bool {

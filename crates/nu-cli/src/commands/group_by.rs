@@ -1,7 +1,6 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use crate::utils::suggestions::suggestions;
-use indexmap::indexmap;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;

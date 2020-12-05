@@ -47,6 +47,7 @@ impl WholeStreamCommand for SubCommand {
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        let scope = args.call_info.scope.clone();
         let shell_manager = args.shell_manager.clone();
         let (Arguments { load_path }, _) = args.process().await?;
 
@@ -100,7 +101,7 @@ impl WholeStreamCommand for SubCommand {
         }
 
         Ok(OutputStream::one(ReturnSuccess::value(
-            UntaggedValue::string(crate::commands::help::get_help(&SubCommand, &registry))
+            UntaggedValue::string(crate::commands::help::get_help(&SubCommand, &scope))
                 .into_value(Tag::unknown()),
         )))
     }

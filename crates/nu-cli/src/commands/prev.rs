@@ -25,7 +25,7 @@ impl WholeStreamCommand for Previous {
     }
 }
 
-fn previous(_args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+fn previous(_args: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(vec![Ok(ReturnSuccess::Action(CommandAction::PreviousShell))].into())
 }
 

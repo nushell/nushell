@@ -25,7 +25,7 @@ impl WholeStreamCommand for Shells {
     }
 }
 
-fn shells(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+fn shells(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut shells_out = VecDeque::new();
     let tag = args.call_info.name_tag;
 

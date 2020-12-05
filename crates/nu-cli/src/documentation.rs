@@ -1,9 +1,7 @@
 use crate::commands::WholeStreamCommand;
 
 use crate::prelude::*;
-use nu_protocol::{NamedType, PositionalType, Scope, Signature, UntaggedValue, Value};
-
-use indexmap::IndexMap;
+use nu_protocol::{NamedType, PositionalType, Signature, UntaggedValue, Value};
 
 use std::collections::HashMap;
 
@@ -23,7 +21,7 @@ impl Default for DocumentationConfig {
     }
 }
 
-fn generate_doc(name: &str, scope: Arc<Scope>) -> IndexMap<String, Value> {
+fn generate_doc(name: &str, scope: &Scope) -> IndexMap<String, Value> {
     let mut row_entries = IndexMap::new();
     let command = scope
         .get_command(name)
@@ -58,8 +56,8 @@ fn generate_doc(name: &str, scope: Arc<Scope>) -> IndexMap<String, Value> {
 }
 
 // generate_docs gets the documentation from each command and returns a Table as output
-pub fn generate_docs(scope: Arc<Scope>) -> Value {
-    let mut sorted_names = registry.names();
+pub fn generate_docs(scope: &Scope) -> Value {
+    let mut sorted_names = scope.get_command_names();
     sorted_names.sort();
 
     // cmap will map parent commands to it's subcommands e.g. to -> [to csv, to yaml, to bson]
@@ -121,7 +119,7 @@ fn retrieve_doc_link(name: &str) -> Option<String> {
 #[allow(clippy::cognitive_complexity)]
 pub fn get_documentation(
     cmd: &dyn WholeStreamCommand,
-    scope: Arc<Scope>,
+    scope: &Scope,
     config: &DocumentationConfig,
 ) -> String {
     let cmd_name = cmd.name();
@@ -213,7 +211,7 @@ pub fn get_documentation(
             long_desc.push_str(&format!("\n  > {}\n", example.example));
         } else {
             let colored_example =
-                crate::shell::painter::Painter::paint_string(example.example, registry, &palette);
+                crate::shell::painter::Painter::paint_string(example.example, scope, &palette);
             long_desc.push_str(&format!("\n  > {}\n", colored_example));
         }
     }

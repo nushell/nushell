@@ -1,7 +1,5 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
-use indexmap::indexmap;
-use indexmap::map::IndexMap;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, UntaggedValue};
 

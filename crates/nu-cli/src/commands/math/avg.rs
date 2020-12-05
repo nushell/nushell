@@ -32,7 +32,7 @@ impl WholeStreamCommand for SubCommand {
         run_with_function(
             RunnableContext {
                 input: args.input,
-                registry: registry.clone(),
+                scope: args.call_info.scope.clone(),
                 shell_manager: args.shell_manager,
                 host: args.host,
                 ctrl_c: args.ctrl_c,

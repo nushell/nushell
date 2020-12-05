@@ -16,7 +16,7 @@ use log::trace;
 use nu_errors::ShellError;
 use nu_protocol::hir::Expression;
 use nu_protocol::hir::{ExternalCommand, ExternalRedirection};
-use nu_protocol::{Primitive, Scope, ShellTypeName, UntaggedValue, Value};
+use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
 use nu_source::Tag;
 
 pub(crate) async fn run_external_command(
@@ -536,13 +536,12 @@ mod tests {
     };
     #[cfg(feature = "which")]
     use super::{run_external_command, EvaluationContext, InputStream};
+    use crate::prelude::*;
 
     #[cfg(feature = "which")]
     use futures::executor::block_on;
     #[cfg(feature = "which")]
     use nu_errors::ShellError;
-    #[cfg(feature = "which")]
-    use nu_protocol::Scope;
     #[cfg(feature = "which")]
     use nu_test_support::commands::ExternalBuilder;
 

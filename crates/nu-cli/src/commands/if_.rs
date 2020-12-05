@@ -3,9 +3,7 @@ use crate::commands::WholeStreamCommand;
 use crate::evaluate::evaluate_baseline_expr;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{
-    hir::Block, hir::ClassifiedCommand, Scope, Signature, SyntaxShape, UntaggedValue,
-};
+use nu_protocol::{hir::Block, hir::ClassifiedCommand, Signature, SyntaxShape, UntaggedValue};
 
 pub struct If;
 
@@ -65,10 +63,9 @@ impl WholeStreamCommand for If {
     }
 }
 async fn if_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let registry = Arc::new(registry.clone());
     let scope = raw_args.call_info.scope.clone();
     let tag = raw_args.call_info.name_tag.clone();
-    let context = Arc::new(EvaluationContext::from_raw(&raw_args, &registry));
+    let context = Arc::new(EvaluationContext::from_raw(&raw_args));
 
     let (
         IfArgs {
@@ -117,7 +114,7 @@ async fn if_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             async move {
                 //FIXME: should we use the scope that's brought in as well?
-                let condition = evaluate_baseline_expr(&condition, &*registry, scope.clone()).await;
+                let condition = evaluate_baseline_expr(&condition, scope.clone()).await;
 
                 match condition {
                     Ok(condition) => match condition.as_bool() {

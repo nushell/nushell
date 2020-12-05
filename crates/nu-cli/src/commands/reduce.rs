@@ -5,7 +5,7 @@ use crate::prelude::*;
 use crate::{CommandArgs, Example, OutputStream};
 use futures::stream::once;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, Primitive, Scope, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{hir::Block, Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct Reduce;

@@ -14,7 +14,7 @@ use num_bigint::BigInt;
 //use crate::errors::{ParseError, ParseResult};
 use crate::lex::{group, lex, LiteBlock, LiteCommand, LitePipeline};
 use crate::path::expand_path;
-use crate::scope::{CommandScope, Scope};
+use crate::scope::CommandScope;
 use bigdecimal::BigDecimal;
 
 /// Parses a simple column path, one without a variable (implied or explicit) at the head

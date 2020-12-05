@@ -48,7 +48,7 @@ impl WholeStreamCommand for SubCommand {
 
 pub async fn eval(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.span;
-    let (SubCommandArgs { expression }, input) = args.process(registry).await?;
+    let (SubCommandArgs { expression }, input) = args.process().await?;
 
     Ok(input
         .map(move |x| {

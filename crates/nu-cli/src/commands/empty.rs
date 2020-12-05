@@ -3,14 +3,12 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::Block, ColumnPath, Primitive, ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue,
-    Value,
+    hir::Block, ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use nu_source::Tagged;
 use nu_value_ext::{as_string, ValueExt};
 
 use futures::stream::once;
-use indexmap::indexmap;
 
 #[derive(Deserialize)]
 pub struct Arguments {

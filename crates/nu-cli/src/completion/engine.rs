@@ -256,7 +256,7 @@ pub fn completion_location(line: &str, block: &Block, pos: usize) -> Vec<Complet
 mod tests {
     use super::*;
 
-    use nu_parser::SignatureRegistry;
+    use nu_parser::CommandScope;
     use nu_protocol::{Signature, SyntaxShape};
 
     #[derive(Clone, Debug)]
@@ -268,34 +268,38 @@ mod tests {
         }
     }
 
-    impl SignatureRegistry for VecRegistry {
-        fn has(&self, name: &str) -> bool {
+    impl CommandScope for VecRegistry {
+        fn has_signature(&self, name: &str) -> bool {
             self.0.iter().any(|v| v.name == name)
         }
 
-        fn get(&self, name: &str) -> Option<nu_protocol::Signature> {
+        fn get_signature(&self, name: &str) -> Option<nu_protocol::Signature> {
             self.0.iter().find(|v| v.name == name).map(Clone::clone)
         }
 
-        fn clone_box(&self) -> Box<dyn SignatureRegistry> {
-            Box::new(self.clone())
+        fn get_alias(&self, _name: &str) -> Option<Vec<Spanned<String>>> {
+            todo!()
+        }
+
+        fn add_alias(&mut self, _name: &str, _replacement: Vec<Spanned<String>>) {
+            todo!()
         }
     }
 
     mod completion_location {
         use super::*;
 
-        use nu_parser::{classify_block, group, lex, SignatureRegistry};
+        use nu_parser::{classify_block, group, lex, CommandScope};
 
         fn completion_location(
             line: &str,
-            registry: &dyn SignatureRegistry,
+            scope: &dyn CommandScope,
             pos: usize,
         ) -> Vec<LocationType> {
             let (tokens, _) = lex(line, 0);
             let (lite_block, _) = group(tokens);
 
-            let block = classify_block(&lite_block, registry);
+            let block = classify_block(&lite_block, scope);
 
             super::completion_location(line, &block.block, pos)
                 .into_iter()

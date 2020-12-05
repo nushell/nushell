@@ -15,7 +15,7 @@ impl Completer for FlagCompleter {
     ) -> Vec<Suggestion> {
         let context: &EvaluationContext = ctx.as_ref();
 
-        if let Some(cmd) = context.registry.get_command(&self.cmd) {
+        if let Some(cmd) = context.scope.get_command(&self.cmd) {
             let sig = cmd.signature();
             let mut suggestions = Vec::new();
             for (name, (named_type, _desc)) in sig.named.iter() {

@@ -78,6 +78,8 @@ pub(crate) use nu_data::config;
 pub(crate) use nu_data::value;
 // pub(crate) use crate::env::host::handle_unexpected;
 pub(crate) use crate::env::Host;
+pub(crate) use crate::evaluate::scope::Scope;
+
 pub(crate) use crate::shell::filesystem_shell::FilesystemShell;
 pub(crate) use crate::shell::help_shell::HelpShell;
 pub(crate) use crate::shell::shell_manager::ShellManager;
@@ -86,6 +88,7 @@ pub(crate) use crate::stream::{InputStream, InterruptibleStream, OutputStream};
 pub(crate) use bigdecimal::BigDecimal;
 pub(crate) use futures::stream::BoxStream;
 pub(crate) use futures::{Stream, StreamExt};
+pub(crate) use nu_errors::ShellError;
 pub(crate) use nu_source::{
     b, AnchorLocation, DebugDocBuilder, PrettyDebug, PrettyDebugWithSource, Span, SpannedItem, Tag,
     TaggedItem, Text,
@@ -93,14 +96,14 @@ pub(crate) use nu_source::{
 pub(crate) use nu_value_ext::ValueExt;
 pub(crate) use num_bigint::BigInt;
 pub(crate) use num_traits::cast::ToPrimitive;
-pub(crate) use serde::Deserialize;
+pub(crate) use serde::{Deserialize, Serialize};
 pub(crate) use std::collections::VecDeque;
 pub(crate) use std::future::Future;
 pub(crate) use std::sync::atomic::AtomicBool;
 pub(crate) use std::sync::Arc;
 
 pub(crate) use async_trait::async_trait;
-pub(crate) use indexmap::IndexMap;
+pub(crate) use indexmap::{indexmap, IndexMap};
 pub(crate) use itertools::Itertools;
 
 pub trait FromInputStream {

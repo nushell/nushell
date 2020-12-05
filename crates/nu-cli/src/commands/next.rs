@@ -24,7 +24,7 @@ impl WholeStreamCommand for Next {
     }
 }
 
-fn next(_args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+fn next(_args: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(vec![Ok(ReturnSuccess::Action(CommandAction::NextShell))].into())
 }
 

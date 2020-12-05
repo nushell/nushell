@@ -5,7 +5,7 @@ use crate::prelude::*;
 use log::{log_enabled, trace};
 use nu_errors::ShellError;
 use nu_protocol::hir::{ExternalRedirection, InternalCommand};
-use nu_protocol::{CommandAction, Primitive, ReturnSuccess, Scope, UntaggedValue, Value};
+use nu_protocol::{CommandAction, Primitive, ReturnSuccess, UntaggedValue, Value};
 
 pub(crate) async fn run_internal_command(
     command: InternalCommand,
@@ -135,7 +135,7 @@ pub(crate) async fn run_internal_command(
                                     context.shell_manager.insert_at_current(Box::new(
                                         match HelpShell::for_command(
                                             UntaggedValue::string(cmd).into_value(tag),
-                                            &context.scope(),
+                                            &context.scope,
                                         ) {
                                             Ok(v) => v,
                                             Err(err) => {

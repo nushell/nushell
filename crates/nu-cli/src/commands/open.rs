@@ -94,6 +94,7 @@ pub fn get_encoding(opt: Option<Tagged<String>>) -> Result<&'static Encoding, Sh
 }
 
 async fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let scope = args.call_info.scope.clone();
     let cwd = PathBuf::from(args.shell_manager.path());
     let shell_manager = args.shell_manager.clone();
 
@@ -121,7 +122,7 @@ async fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     if let Some(ext) = ext {
         // Check if we have a conversion command
-        if let Some(_command) = registry.get_command(&format!("from {}", ext)) {
+        if let Some(_command) = scope.get_command(&format!("from {}", ext)) {
             let (_, tagged_contents) = crate::commands::open::fetch(
                 &cwd,
                 &PathBuf::from(&path.item),

@@ -11,9 +11,8 @@ use crate::EnvironmentSyncer;
 use futures_codec::FramedRead;
 use log::{debug, trace};
 use nu_errors::ShellError;
-use nu_parser::CommandScope;
 use nu_protocol::hir::{ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments};
-use nu_protocol::{Primitive, ReturnSuccess, Scope, UntaggedValue, Value};
+use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue, Value};
 #[cfg(feature = "rustyline-support")]
 use rustyline::{
     self,
@@ -411,7 +410,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
                         }
                     )
                 } else {
-                    let prompt_block = nu_parser::classify_block(&result, &context.scope());
+                    let prompt_block = nu_parser::classify_block(&result, &*context.scope());
 
                     let env = context.get_env();
 
@@ -885,7 +884,7 @@ pub async fn parse_and_eval(line: &str, ctx: &mut EvaluationContext) -> Result<S
     }
 
     // TODO ensure the command whose examples we're testing is actually in the pipeline
-    let classified_block = nu_parser::classify_block(&lite_result, &ctx.scope());
+    let classified_block = nu_parser::classify_block(&lite_result, &*ctx.scope());
 
     let input_stream = InputStream::empty();
     let env = ctx.get_env();
@@ -928,7 +927,7 @@ pub async fn process_script(
         debug!("=== Parsed ===");
         debug!("{:#?}", result);
 
-        let classified_block = nu_parser::classify_block(&result, &ctx.scope());
+        let classified_block = nu_parser::classify_block(&result, &*ctx.scope());
 
         debug!("{:#?}", classified_block);
         //println!("{:#?}", pipeline);
@@ -1125,7 +1124,7 @@ mod tests {
         let (lite_block, err2) = nu_parser::group(tokens);
         if err.is_none() && err2.is_none() {
             let context = crate::evaluation_context::EvaluationContext::basic().unwrap();
-            let _ = nu_parser::classify_block(&lite_block, &context.scope());
+            let _ = nu_parser::classify_block(&lite_block, &*context.scope());
         }
         true
     }
