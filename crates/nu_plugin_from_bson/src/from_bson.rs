@@ -130,7 +130,9 @@ fn convert_bson_value_to_nu_value(v: &Bson, tag: impl Into<Tag>) -> Result<Value
             );
             collected.into_value()
         }
-        Bson::UtcDatetime(dt) => UntaggedValue::Primitive(Primitive::Date(*dt)).into_value(&tag),
+        Bson::UtcDatetime(dt) => {
+            UntaggedValue::Primitive(Primitive::Date((*dt).into())).into_value(&tag)
+        }
         Bson::Symbol(s) => {
             let mut collected = TaggedDictBuilder::new(tag.clone());
             collected.insert_value(
