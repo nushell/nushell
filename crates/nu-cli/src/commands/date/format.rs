@@ -5,6 +5,7 @@ use nu_protocol::{
     Dictionary, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use nu_source::Tagged;
+use std::fmt::{self, write};
 
 pub struct Date;
 
@@ -27,7 +28,7 @@ impl WholeStreamCommand for Date {
     }
 
     fn usage(&self) -> &str {
-        "format a given date using the given format string."
+        "Format a given date using the given format string."
     }
 
     async fn run(
@@ -68,21 +69,30 @@ pub async fn format(
                 value: UntaggedValue::Primitive(Primitive::Date(dt)),
                 ..
             } => {
-                let dt_fmt = format!("{}", dt.format(&format.item));
-
-                let value = if table {
-                    let mut indexmap = IndexMap::new();
-                    indexmap.insert(
-                        "formatted".to_string(),
-                        UntaggedValue::string(&dt_fmt).into_value(&tag),
-                    );
-
-                    UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag)
+                let mut output = String::new();
+                if let Err(fmt::Error) =
+                    write(&mut output, format_args!("{}", dt.format(&format.item)))
+                {
+                    Err(ShellError::labeled_error(
+                        "The date format is invalid",
+                        "invalid strftime format",
+                        &format.tag,
+                    ))
                 } else {
-                    UntaggedValue::string(&dt_fmt).into_value(&tag)
-                };
+                    let value = if table {
+                        let mut indexmap = IndexMap::new();
+                        indexmap.insert(
+                            "formatted".to_string(),
+                            UntaggedValue::string(&output).into_value(&tag),
+                        );
 
-                ReturnSuccess::value(value)
+                        UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag)
+                    } else {
+                        UntaggedValue::string(&output).into_value(&tag)
+                    };
+
+                    ReturnSuccess::value(value)
+                }
             }
             _ => Err(ShellError::labeled_error(
                 "Expected a date from pipeline",

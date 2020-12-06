@@ -8,7 +8,7 @@ use nu_source::Tagged;
 pub struct Date;
 
 #[derive(Deserialize)]
-struct DateToTimeZoneArguments {
+struct DateToTimeZoneArgs {
     timezone: Tagged<String>,
 }
 
@@ -63,7 +63,7 @@ async fn to_timezone(
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let tag = args.call_info.name_tag.clone();
-    let (DateToTimeZoneArguments { timezone }, input) = args.process(&registry).await?;
+    let (DateToTimeZoneArgs { timezone }, input) = args.process(&registry).await?;
 
     Ok(input
         .map(move |value| match value {
