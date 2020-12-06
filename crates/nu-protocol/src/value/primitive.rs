@@ -3,7 +3,7 @@ use crate::value::column_path::ColumnPath;
 use crate::value::range::{Range, RangeInclusion};
 use crate::value::{serde_bigdecimal, serde_bigint};
 use bigdecimal::BigDecimal;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, FixedOffset, Utc};
 use nu_errors::{ExpectedRange, ShellError};
 use nu_source::{PrettyDebug, Span, SpannedItem};
 use num_bigint::BigInt;
@@ -42,8 +42,8 @@ pub enum Primitive {
     Pattern(String),
     /// A boolean value
     Boolean(bool),
-    /// A date value, in UTC
-    Date(DateTime<Utc>),
+    /// A date value
+    Date(DateTime<FixedOffset>),
     /// A count in the number of nanoseconds
     #[serde(with = "serde_bigint")]
     Duration(BigInt),
@@ -385,8 +385,8 @@ pub fn format_duration(duration: &BigInt) -> String {
 }
 
 #[allow(clippy::cognitive_complexity)]
-/// Format a UTC date value into a humanized string (eg "1 week ago" instead of a formal date string)
-pub fn format_date(d: &DateTime<Utc>) -> String {
+/// Format a date value into a humanized string (eg "1 week ago" instead of a formal date string)
+pub fn format_date(d: &DateTime<FixedOffset>) -> String {
     let utc: DateTime<Utc> = Utc::now();
 
     let duration = utc.signed_duration_since(*d);

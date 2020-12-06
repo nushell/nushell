@@ -1,11 +1,13 @@
 pub mod command;
 pub mod format;
 pub mod now;
-pub mod utc;
+pub mod to_table;
+pub mod to_timezone;
 
-mod utils;
+mod parser;
 
 pub use command::Command as Date;
 pub use format::Date as DateFormat;
 pub use now::Date as DateNow;
-pub use utc::Date as DateUTC;
+pub use to_table::Date as DateToTable;
+pub use to_timezone::Date as DateToTimeZone;
