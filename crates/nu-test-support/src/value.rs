@@ -40,10 +40,9 @@ pub fn date(input: impl Into<String>) -> Value {
     let date = NaiveDate::parse_from_str(key.borrow_tagged().item, "%Y-%m-%d")
         .expect("date from string failed");
 
-    UntaggedValue::Primitive(Primitive::Date(DateTime::<Utc>::from_utc(
-        date.and_hms(12, 34, 56),
-        Utc,
-    ).into()))
+    UntaggedValue::Primitive(Primitive::Date(
+        DateTime::<Utc>::from_utc(date.and_hms(12, 34, 56), Utc).into(),
+    ))
     .into_untagged_value()
 }
 
