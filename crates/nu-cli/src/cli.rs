@@ -266,6 +266,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(RandomUUID),
             whole_stream_command(RandomInteger),
             whole_stream_command(RandomDecimal),
+            whole_stream_command(RandomChars),
             // Path
             whole_stream_command(PathBasename),
             whole_stream_command(PathCommand),
