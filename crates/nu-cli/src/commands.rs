@@ -232,7 +232,9 @@ pub(crate) use prev::Previous;
 pub(crate) use pwd::Pwd;
 #[cfg(feature = "uuid_crate")]
 pub(crate) use random::RandomUUID;
-pub(crate) use random::{Random, RandomBool, RandomDecimal, RandomDice, RandomInteger};
+pub(crate) use random::{
+    Random, RandomBool, RandomChars, RandomDecimal, RandomDice, RandomInteger,
+};
 pub(crate) use range::Range;
 pub(crate) use reduce::Reduce;
 pub(crate) use reject::Reject;

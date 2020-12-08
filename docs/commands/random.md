@@ -119,3 +119,10 @@ true
 > random integer 100000..200000
 173400
 ```
+
+### chars Examples
+Generate a random password of length 15
+```shell
+> random chars -l 15
+fWBSbE7QtaoJGeo
+```
