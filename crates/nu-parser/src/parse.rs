@@ -904,7 +904,7 @@ fn parse_arg(
                 ),
             }
         }
-        SyntaxShape::Block | SyntaxShape::Math => {
+        SyntaxShape::Block | SyntaxShape::Math | SyntaxShape::MathRaw => {
             // Blocks have one of two forms: the literal block and the implied block
             // To parse a literal block, we need to detect that what we have is itself a block
             let mut chars = lite_arg.item.chars();
@@ -1369,6 +1369,57 @@ fn parse_positional_argument(
 
                     let (new_idx, arg, err) =
                         parse_math_expression(idx, &lite_cmd.parts[idx..end_idx], scope, true);
+
+                    let span = arg.span;
+                    let mut commands = hir::Pipeline::new(span);
+                    commands.push(ClassifiedCommand::Expr(Box::new(arg)));
+
+                    let block = hir::Block::new(
+                        vec![],
+                        vec![Group::new(vec![commands], lite_cmd.span())],
+                        span,
+                    );
+
+                    let arg = SpannedExpression::new(Expression::Block(block), span);
+
+                    idx = new_idx - 1;
+                    if error.is_none() {
+                        error = err;
+                    }
+                    arg
+                }
+            } else {
+                if error.is_none() {
+                    error = Some(ParseError::argument_error(
+                        lite_cmd.parts[0].clone(),
+                        ArgumentError::MissingMandatoryPositional("condition".into()),
+                    ))
+                }
+                garbage(lite_cmd.span())
+            }
+        }
+        PositionalType::Mandatory(_, SyntaxShape::MathRaw)
+        | PositionalType::Optional(_, SyntaxShape::MathRaw) => {
+            // A condition can take up multiple arguments, as we build the operation as <arg> <operator> <arg>
+            // We need to do this here because in parse_arg, we have access to only one arg at a time
+
+            if idx < lite_cmd.parts.len() {
+                if lite_cmd.parts[idx].item.starts_with('{') {
+                    // It's an explicit math expression, so parse it deeper in
+                    let (arg, err) = parse_arg(SyntaxShape::Math, scope, &lite_cmd.parts[idx]);
+                    if error.is_none() {
+                        error = err;
+                    }
+                    arg
+                } else {
+                    let end_idx = if (lite_cmd.parts.len() - 1) > remaining_positionals {
+                        lite_cmd.parts.len() - remaining_positionals
+                    } else {
+                        lite_cmd.parts.len()
+                    };
+
+                    let (new_idx, arg, err) =
+                        parse_math_expression(idx, &lite_cmd.parts[idx..end_idx], scope, false);
 
                     let span = arg.span;
                     let mut commands = hir::Pipeline::new(span);

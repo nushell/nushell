@@ -122,6 +122,10 @@ impl Dictionary {
         }
     }
 
+    pub fn insert(&mut self, key: String, value: Value) -> Option<Value> {
+        self.entries.insert_full(key, value).1
+    }
+
     pub fn merge_from(&self, other: &Dictionary) -> Dictionary {
         let mut obj = self.clone();
 

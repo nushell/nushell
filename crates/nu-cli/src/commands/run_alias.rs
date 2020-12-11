@@ -64,7 +64,7 @@ impl WholeStreamCommand for AliasCommand {
         }
 
         args.scope.enter_scope();
-        args.scope.add_vars(vars);
+        args.scope.add_vars(&vars);
         let result = run_block(&block, &mut context, input).await;
 
         args.scope.exit_scope();

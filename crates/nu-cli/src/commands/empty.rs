@@ -3,7 +3,8 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::Block, ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+    hir::CapturedBlock, ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape,
+    UntaggedValue, Value,
 };
 use nu_source::Tagged;
 use nu_value_ext::{as_string, ValueExt};
@@ -85,7 +86,7 @@ async fn is_empty(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = Arc::new(args.call_info.name_tag.clone());
     let context = Arc::new(EvaluationContext::from_raw(&args));
     let (Arguments { rest }, input) = args.process().await?;
-    let (columns, default_block): (Vec<ColumnPath>, Option<Block>) = arguments(rest)?;
+    let (columns, default_block): (Vec<ColumnPath>, Option<CapturedBlock>) = arguments(rest)?;
     let default_block = Arc::new(default_block);
 
     if input.is_empty() {
@@ -129,7 +130,7 @@ async fn is_empty(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .to_output_stream())
 }
 
-fn arguments(rest: Vec<Value>) -> Result<(Vec<ColumnPath>, Option<Block>), ShellError> {
+fn arguments(rest: Vec<Value>) -> Result<(Vec<ColumnPath>, Option<CapturedBlock>), ShellError> {
     let mut rest = rest;
     let mut columns = vec![];
     let mut default = None;
@@ -161,7 +162,7 @@ fn arguments(rest: Vec<Value>) -> Result<(Vec<ColumnPath>, Option<Block>), Shell
 async fn process_row(
     context: Arc<EvaluationContext>,
     input: Value,
-    default_block: Arc<Option<Block>>,
+    default_block: Arc<Option<CapturedBlock>>,
     column_paths: Vec<ColumnPath>,
     tag: Arc<Tag>,
 ) -> Result<OutputStream, ShellError> {
@@ -174,9 +175,10 @@ async fn process_row(
         let input_stream = once(async { Ok(for_block) }).to_input_stream();
 
         context.scope.enter_scope();
+        context.scope.add_vars(&default_block.captured.entries);
         context.scope.add_var("$it", input.clone());
 
-        let stream = run_block(&default_block, &*context, input_stream).await;
+        let stream = run_block(&default_block.block, &*context, input_stream).await;
         context.scope.exit_scope();
 
         let mut stream = stream?;

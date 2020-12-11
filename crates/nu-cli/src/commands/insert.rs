@@ -65,7 +65,7 @@ impl WholeStreamCommand for Command {
 }
 
 async fn process_row(
-    mut context: Arc<EvaluationContext>,
+    context: Arc<EvaluationContext>,
     input: Value,
     mut value: Arc<Value>,
     field: Arc<ColumnPath>,
@@ -81,9 +81,10 @@ async fn process_row(
             let input_stream = once(async { Ok(for_block) }).to_input_stream();
 
             context.scope.enter_scope();
+            context.scope.add_vars(&block.captured.entries);
             context.scope.add_var("$it", input.clone());
 
-            let result = run_block(&block, &*context, input_stream).await;
+            let result = run_block(&block.block, &*context, input_stream).await;
 
             context.scope.exit_scope();
 

@@ -4,14 +4,17 @@ use crate::prelude::*;
 
 use futures::stream::once;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value};
+use nu_protocol::{
+    hir::{Block, CapturedBlock},
+    Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
+};
 use nu_source::Tagged;
 
 pub struct Each;
 
 #[derive(Deserialize)]
 pub struct EachArgs {
-    block: Block,
+    block: CapturedBlock,
     numbered: Tagged<bool>,
 }
 
@@ -66,7 +69,7 @@ impl WholeStreamCommand for Each {
 }
 
 pub async fn process_row(
-    block: Arc<Block>,
+    captured_block: Arc<CapturedBlock>,
     context: Arc<EvaluationContext>,
     input: Value,
 ) -> Result<OutputStream, ShellError> {
@@ -75,19 +78,25 @@ pub async fn process_row(
     // a parameter to the block (so it gets assigned to a variable that can be used inside the block) or
     // if it wants the contents as as an input stream
 
-    let input_stream = if !block.params.is_empty() {
+    let input_stream = if !captured_block.block.params.is_empty() {
         InputStream::empty()
     } else {
         once(async { Ok(input_clone) }).to_input_stream()
     };
 
     context.scope.enter_scope();
-    if !block.params.is_empty() {
+    context.scope.add_vars(&captured_block.captured.entries);
+
+    if !captured_block.block.params.is_empty() {
         // FIXME: add check for more than parameter, once that's supported
-        context.scope.add_var(block.params[0].clone(), input);
+        context
+            .scope
+            .add_var(captured_block.block.params[0].clone(), input);
+    } else {
+        context.scope.add_var("$it", input);
     }
 
-    let result = run_block(&block, &*context, input_stream).await;
+    let result = run_block(&captured_block.block, &*context, input_stream).await;
 
     context.scope.exit_scope();
 
@@ -103,9 +112,8 @@ pub(crate) fn make_indexed_item(index: usize, item: Value) -> Value {
 }
 
 async fn each(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let scope = raw_args.scope.clone();
     let context = Arc::new(EvaluationContext::from_raw(&raw_args));
-    let (each_args, input): (EachArgs, _) = raw_args.process().await?;
+    let (mut each_args, input): (EachArgs, _) = raw_args.process().await?;
     let block = Arc::new(each_args.block);
 
     if each_args.numbered.item {

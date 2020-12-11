@@ -3,7 +3,7 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 //use itertools::Itertools;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, Primitive, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{hir::CapturedBlock, Primitive, Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 use serde::Deserialize;
 
@@ -12,7 +12,7 @@ pub struct EachWindow;
 #[derive(Deserialize)]
 pub struct EachWindowArgs {
     window_size: Tagged<usize>,
-    block: Block,
+    block: CapturedBlock,
     stride: Option<Tagged<usize>>,
 }
 

@@ -1,8 +1,8 @@
 use log::trace;
 use nu_errors::{CoerceInto, ShellError};
 use nu_protocol::{
-    hir::Block, CallInfo, ColumnPath, Primitive, RangeInclusion, ShellTypeName, UntaggedValue,
-    Value,
+    hir::{Block, CapturedBlock},
+    CallInfo, ColumnPath, Primitive, RangeInclusion, ShellTypeName, UntaggedValue, Value,
 };
 use nu_source::{HasSpan, Spanned, SpannedItem, Tagged, TaggedItem};
 use nu_value_ext::ValueExt;
@@ -379,7 +379,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
             return visit::<Value, _>(value.val, name, fields, visitor);
         }
 
-        if name == "Block" {
+        if name == "CapturedBlock" {
             let block = match value.val {
                 Value {
                     value: UntaggedValue::Block(block),
@@ -392,7 +392,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
                     ))
                 }
             };
-            return visit::<Block, _>(block, name, fields, visitor);
+            return visit::<CapturedBlock, _>(block, name, fields, visitor);
         }
 
         if name == "ColumnPath" {

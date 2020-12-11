@@ -2,7 +2,10 @@ use crate::commands::each::process_row;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{
+    hir::{Block, CapturedBlock},
+    ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+};
 use nu_source::Tagged;
 use serde::Deserialize;
 
@@ -11,7 +14,7 @@ pub struct EachGroup;
 #[derive(Deserialize)]
 pub struct EachGroupArgs {
     group_size: Tagged<usize>,
-    block: Block,
+    block: CapturedBlock,
     //numbered: Tagged<bool>,
 }
 
@@ -58,7 +61,7 @@ impl WholeStreamCommand for EachGroup {
 
 pub(crate) fn run_block_on_vec(
     input: Vec<Value>,
-    block: Arc<Block>,
+    block: Arc<CapturedBlock>,
     context: Arc<EvaluationContext>,
 ) -> impl Future<Output = OutputStream> {
     let value = Value {

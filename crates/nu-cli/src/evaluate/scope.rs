@@ -109,9 +109,11 @@ impl Scope {
         }
     }
 
-    pub fn add_vars(&self, vars: IndexMap<String, Value>) {
+    pub fn add_vars(&self, vars: &IndexMap<String, Value>) {
         if let Some(frame) = self.frames.lock().last_mut() {
-            frame.vars.extend(vars)
+            frame
+                .vars
+                .extend(vars.iter().map(|(s, v)| (s.clone(), v.clone())))
         }
     }
 

@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{hir, Primitive, UntaggedValue};
+use crate::{hir, Dictionary, Primitive, UntaggedValue};
 use crate::{PathMember, ShellTypeName};
 use derive_new::new;
 
@@ -43,6 +43,10 @@ impl InternalCommand {
 
     pub fn has_it_usage(&self) -> bool {
         self.args.has_it_usage()
+    }
+
+    pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {
+        self.args.get_free_variables(known_variables)
     }
 }
 
@@ -87,6 +91,15 @@ impl ClassifiedCommand {
             ClassifiedCommand::Dynamic(call) => call.has_it_usage(),
             ClassifiedCommand::Internal(internal) => internal.has_it_usage(),
             ClassifiedCommand::Error(_) => false,
+        }
+    }
+
+    pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {
+        match self {
+            ClassifiedCommand::Expr(expr) => expr.get_free_variables(known_variables),
+            ClassifiedCommand::Dynamic(call) => call.get_free_variables(known_variables),
+            ClassifiedCommand::Internal(internal) => internal.get_free_variables(known_variables),
+            _ => vec![],
         }
     }
 }
@@ -145,6 +158,18 @@ impl Group {
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
+pub struct CapturedBlock {
+    pub block: Block,
+    pub captured: Dictionary,
+}
+
+impl CapturedBlock {
+    pub fn new(block: Block, captured: Dictionary) -> Self {
+        Self { block, captured }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct Block {
     pub params: Vec<String>,
     pub block: Vec<Group>,
@@ -159,7 +184,7 @@ impl Block {
             span,
         };
 
-        output.infer_params();
+        //output.infer_params();
         output
     }
 
@@ -196,6 +221,23 @@ impl Block {
         if self.params.is_empty() && self.has_it_usage() {
             self.params = vec!["$it".into()];
         }
+    }
+
+    pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {
+        let mut known_variables = known_variables.clone();
+        known_variables.extend_from_slice(&self.params);
+
+        let mut free_variables = vec![];
+        for group in &self.block {
+            for pipeline in &group.pipelines {
+                for elem in &pipeline.list {
+                    free_variables
+                        .extend_from_slice(&elem.get_free_variables(&mut known_variables));
+                }
+            }
+        }
+
+        free_variables
     }
 }
 
@@ -588,6 +630,10 @@ impl SpannedExpression {
 
     pub fn has_it_usage(&self) -> bool {
         self.expr.has_it_usage()
+    }
+
+    pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {
+        self.expr.get_free_variables(known_variables)
     }
 }
 
@@ -1055,6 +1101,52 @@ impl Expression {
             _ => false,
         }
     }
+
+    pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {
+        let mut output = vec![];
+        match self {
+            Expression::Variable(name, _) => {
+                if !known_variables.contains(name) {
+                    output.push(name.clone());
+                }
+            }
+            Expression::Table(headers, values) => {
+                for header in headers {
+                    output.extend(header.get_free_variables(known_variables));
+                }
+                for row in values {
+                    for value in row {
+                        output.extend(value.get_free_variables(known_variables));
+                    }
+                }
+            }
+            Expression::List(list) => {
+                for item in list {
+                    output.extend(item.get_free_variables(known_variables));
+                }
+            }
+            Expression::Invocation(block) => {
+                output.extend(block.get_free_variables(known_variables));
+            }
+            Expression::Binary(binary) => {
+                output.extend(binary.left.get_free_variables(known_variables));
+                output.extend(binary.right.get_free_variables(known_variables));
+            }
+            Expression::Path(path) => {
+                output.extend(path.head.get_free_variables(known_variables));
+            }
+            Expression::Range(range) => {
+                if let Some(left) = &range.left {
+                    output.extend(left.get_free_variables(known_variables));
+                }
+                if let Some(right) = &range.right {
+                    output.extend(right.get_free_variables(known_variables));
+                }
+            }
+            _ => {}
+        }
+        output
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
@@ -1071,6 +1163,13 @@ impl NamedValue {
             se.has_it_usage()
         } else {
             false
+        }
+    }
+    pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {
+        if let NamedValue::Value(_, se) = self {
+            se.get_free_variables(known_variables)
+        } else {
+            vec![]
         }
     }
 }
@@ -1150,6 +1249,23 @@ impl Call {
             } else {
                 false
             })
+    }
+
+    pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {
+        let mut free_variables = vec![];
+
+        free_variables.extend(self.head.get_free_variables(known_variables));
+        if let Some(pos) = &self.positional {
+            for pos in pos {
+                free_variables.extend(pos.get_free_variables(known_variables));
+            }
+        }
+
+        if let Some(named) = &self.named {
+            free_variables.extend(named.get_free_variables(known_variables));
+        }
+
+        free_variables
     }
 }
 
@@ -1314,6 +1430,14 @@ impl NamedArguments {
 
     pub fn has_it_usage(&self) -> bool {
         self.iter().any(|x| x.1.has_it_usage())
+    }
+
+    pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {
+        let mut free_variables = vec![];
+        for (_, val) in self.named.iter() {
+            free_variables.extend(val.get_free_variables(known_variables));
+        }
+        free_variables
     }
 }
 

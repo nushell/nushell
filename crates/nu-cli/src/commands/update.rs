@@ -79,7 +79,7 @@ async fn process_row(
 
     Ok(match replacement {
         Value {
-            value: UntaggedValue::Block(block),
+            value: UntaggedValue::Block(captured_block),
             tag: block_tag,
         } => {
             let for_block = input.clone();
@@ -87,8 +87,9 @@ async fn process_row(
 
             context.scope.enter_scope();
             context.scope.add_var("$it", input.clone());
+            context.scope.add_vars(&captured_block.captured.entries);
 
-            let result = run_block(&block, &*context, input_stream).await;
+            let result = run_block(&captured_block.block, &*context, input_stream).await;
 
             context.scope.exit_scope();
 

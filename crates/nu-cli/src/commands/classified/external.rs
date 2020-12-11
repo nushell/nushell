@@ -534,7 +534,6 @@ mod tests {
     };
     #[cfg(feature = "which")]
     use super::{run_external_command, EvaluationContext, InputStream};
-    use crate::prelude::*;
 
     #[cfg(feature = "which")]
     use futures::executor::block_on;

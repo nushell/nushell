@@ -5,7 +5,10 @@ use crate::prelude::*;
 use async_recursion::async_recursion;
 use log::trace;
 use nu_errors::{ArgumentError, ShellError};
-use nu_protocol::hir::{self, Expression, ExternalRedirection, RangeOperator, SpannedExpression};
+use nu_protocol::{
+    hir::{self, CapturedBlock, Expression, ExternalRedirection, RangeOperator, SpannedExpression},
+    Dictionary,
+};
 use nu_protocol::{
     ColumnPath, Primitive, RangeInclusion, UnspannedPathMember, UntaggedValue, Value,
 };
@@ -137,7 +140,20 @@ pub(crate) async fn evaluate_baseline_expr(
 
             Ok(UntaggedValue::Table(exprs).into_value(tag))
         }
-        Expression::Block(block) => Ok(UntaggedValue::Block(block.clone()).into_value(&tag)),
+        Expression::Block(block) => {
+            // Capture the current values of all free variables
+            let mut known_variables = vec![];
+            let free_variables = block.get_free_variables(&mut known_variables);
+
+            let mut captured = Dictionary::new(IndexMap::new());
+            for free_variable in &free_variables {
+                if let Some(v) = ctx.scope.get_var(free_variable) {
+                    captured.insert(free_variable.into(), v.clone());
+                }
+            }
+
+            Ok(UntaggedValue::Block(CapturedBlock::new(block.clone(), captured)).into_value(&tag))
+        }
         Expression::Path(path) => {
             let value = evaluate_baseline_expr(&path.head, ctx).await?;
             let mut item = value;

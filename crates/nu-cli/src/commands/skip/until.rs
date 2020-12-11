@@ -33,21 +33,23 @@ impl WholeStreamCommand for SubCommand {
 
         let block = call_info.args.expect_nth(0)?.clone();
 
-        let condition = Arc::new(match block {
+        let (condition, captured) = match block {
             Value {
-                value: UntaggedValue::Block(block),
+                value: UntaggedValue::Block(captured_block),
                 tag,
             } => {
-                if block.block.len() != 1 {
+                if captured_block.block.block.len() != 1 {
                     return Err(ShellError::labeled_error(
                         "Expected a condition",
                         "expected a condition",
                         tag,
                     ));
                 }
-                match block.block[0].pipelines.get(0) {
+                match captured_block.block.block[0].pipelines.get(0) {
                     Some(item) => match item.list.get(0) {
-                        Some(ClassifiedCommand::Expr(expr)) => expr.clone(),
+                        Some(ClassifiedCommand::Expr(expr)) => {
+                            (Arc::new(expr.clone()), captured_block.captured.clone())
+                        }
                         _ => {
                             return Err(ShellError::labeled_error(
                                 "Expected a condition",
@@ -72,7 +74,7 @@ impl WholeStreamCommand for SubCommand {
                     tag,
                 ));
             }
-        });
+        };
 
         Ok(call_info
             .input
@@ -82,6 +84,7 @@ impl WholeStreamCommand for SubCommand {
 
                 ctx.scope.enter_scope();
                 ctx.scope.add_var("$it", item.clone());
+                ctx.scope.add_vars(&captured.entries);
                 trace!("ITEM = {:?}", item);
 
                 async move {
