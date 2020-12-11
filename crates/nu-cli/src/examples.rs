@@ -210,7 +210,7 @@ fn parse_line(line: &str, ctx: &mut EvaluationContext) -> Result<ClassifiedBlock
     }
 
     // TODO ensure the command whose examples we're testing is actually in the pipeline
-    let (block, err) = nu_parser::classify_block(&lite_result, ctx.mut_scope());
+    let (block, err) = nu_parser::classify_block(&lite_result, &ctx.scope);
     Ok(ClassifiedBlock { block, failed: err })
 }
 
@@ -224,13 +224,11 @@ async fn evaluate_block(
     ctx.scope.enter_scope();
     ctx.scope.add_env(env);
 
-    let result = run_block(&block.block, ctx, input_stream)
-        .await?
-        .drain_vec()
-        .await;
+    let result = run_block(&block.block, ctx, input_stream).await;
 
     ctx.scope.exit_scope();
 
+    let result = result?.drain_vec().await;
     Ok(result)
 }
 

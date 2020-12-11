@@ -281,18 +281,16 @@ mod tests {
             todo!()
         }
 
-        fn add_alias(&mut self, _name: &str, _replacement: Vec<Spanned<String>>) {
+        fn add_alias(&self, _name: &str, _replacement: Vec<Spanned<String>>) {
             todo!()
         }
 
-        fn enter_scope(&self) -> std::sync::Arc<dyn ParserScope> {
-            std::sync::Arc::new(self.clone())
-        }
+        fn enter_scope(&self) {}
+
+        fn exit_scope(&self) {}
     }
 
     mod completion_location {
-        use std::sync::Arc;
-
         use super::*;
 
         use nu_parser::ParserScope;
@@ -305,17 +303,14 @@ mod tests {
             let (tokens, _) = lex(line, 0);
             let (lite_block, _) = group(tokens);
 
-            let mut scope = scope.enter_scope();
-            if let Some(scope) = Arc::get_mut(&mut scope) {
-                let (block, _) = classify_block(&lite_block, scope);
+            scope.enter_scope();
+            let (block, _) = classify_block(&lite_block, scope);
+            scope.exit_scope();
 
-                super::completion_location(line, &block, pos)
-                    .into_iter()
-                    .map(|v| v.item)
-                    .collect()
-            } else {
-                vec![]
-            }
+            super::completion_location(line, &block, pos)
+                .into_iter()
+                .map(|v| v.item)
+                .collect()
         }
 
         #[test]

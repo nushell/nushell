@@ -130,7 +130,6 @@ enum Grouper {
 
 pub async fn group_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let scope = args.scope.clone();
     let context = Arc::new(EvaluationContext::from_raw(&args));
     let (Arguments { grouper }, input) = args.process().await?;
 
@@ -148,10 +147,9 @@ pub async fn group_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             for value in values.iter() {
                 let run = block.clone();
-                let scope = scope.clone();
                 let context = context.clone();
 
-                match crate::commands::each::process_row(run, scope, context, value.clone()).await {
+                match crate::commands::each::process_row(run, context, value.clone()).await {
                     Ok(mut s) => {
                         let collection: Vec<Result<ReturnSuccess, ShellError>> =
                             s.drain_vec().await;

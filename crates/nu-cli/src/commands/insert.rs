@@ -65,7 +65,6 @@ impl WholeStreamCommand for Command {
 }
 
 async fn process_row(
-    scope: Arc<Scope>,
     mut context: Arc<EvaluationContext>,
     input: Value,
     mut value: Arc<Value>,
@@ -81,9 +80,12 @@ async fn process_row(
             let for_block = input.clone();
             let input_stream = once(async { Ok(for_block) }).to_input_stream();
 
-            let scope = Scope::append_var(scope, "$it", input.clone());
+            context.scope.enter_scope();
+            context.scope.add_var("$it", input.clone());
 
-            let result = run_block(&block, Arc::make_mut(&mut context), input_stream, scope).await;
+            let result = run_block(&block, &*context, input_stream).await;
+
+            context.scope.exit_scope();
 
             match result {
                 Ok(mut stream) => {
@@ -133,8 +135,9 @@ async fn process_row(
             Value {
                 value: UntaggedValue::Primitive(Primitive::Nothing),
                 ..
-            } => match scope
-                .var("$it")
+            } => match context
+                .scope
+                .get_var("$it")
                 .unwrap_or_else(|| UntaggedValue::nothing().into_untagged_value())
                 .insert_data_at_column_path(&field, value.clone())
             {
@@ -150,7 +153,6 @@ async fn process_row(
 }
 
 async fn insert(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let scope = raw_args.scope.clone();
     let context = Arc::new(EvaluationContext::from_raw(&raw_args));
     let (Arguments { column, value }, input) = raw_args.process().await?;
     let value = Arc::new(value);
@@ -158,13 +160,12 @@ async fn insert(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     Ok(input
         .then(move |input| {
-            let scope = scope.clone();
             let context = context.clone();
             let value = value.clone();
             let column = column.clone();
 
             async {
-                match process_row(scope, context, input, value, column).await {
+                match process_row(context, input, value, column).await {
                     Ok(s) => s,
                     Err(e) => OutputStream::one(Err(e)),
                 }

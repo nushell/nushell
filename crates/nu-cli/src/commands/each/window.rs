@@ -75,13 +75,12 @@ impl WholeStreamCommand for EachWindow {
                 window.push(input);
 
                 let block = block.clone();
-                let scope = scope.clone();
                 let context = context.clone();
                 let local_window = window.clone();
 
                 async move {
                     if i % stride == 0 {
-                        Some(run_block_on_vec(local_window, block, scope, context).await)
+                        Some(run_block_on_vec(local_window, block, context).await)
                     } else {
                         None
                     }

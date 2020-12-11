@@ -103,9 +103,11 @@ async fn with_env(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     };
 
-    let scope = Scope::append_env(scope, env);
+    context.scope.enter_scope();
+    context.scope.add_env(env);
 
-    let result = run_block(&block, &mut context, input, scope).await;
+    let result = run_block(&block, &mut context, input).await;
+    context.scope.exit_scope();
 
     result.map(|x| x.to_output_stream())
 }

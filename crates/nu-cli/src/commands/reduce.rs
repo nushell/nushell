@@ -92,7 +92,7 @@ async fn process_row(
 }
 
 async fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let context = EvaluationContext::from_raw(&raw_args);
+    let context = Arc::new(EvaluationContext::from_raw(&raw_args));
     let (reduce_args, mut input): (ReduceArgs, _) = raw_args.process().await?;
     let block = Arc::new(reduce_args.block);
     let (ioffset, start) = match reduce_args.fold {
@@ -120,10 +120,11 @@ async fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(input
             .enumerate()
             .fold(initial, move |acc, input| {
+                let context = context.clone();
                 let block = Arc::clone(&block);
                 let row = each::make_indexed_item(input.0 + ioffset, input.1);
 
-                async {
+                async move {
                     let values = acc?.drain_vec().await;
 
                     let f = if values.len() == 1 {
@@ -139,7 +140,7 @@ async fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
 
                     context.scope.enter_scope();
                     context.scope.add_var("$acc", f);
-                    let result = process_row(block, &context, row).await;
+                    let result = process_row(block, &*context, row).await;
                     context.scope.exit_scope();
                     result
                 }
@@ -151,8 +152,9 @@ async fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(input
             .fold(initial, move |acc, row| {
                 let block = Arc::clone(&block);
+                let context = context.clone();
 
-                async {
+                async move {
                     let values = acc?.drain_vec().await;
 
                     let f = if values.len() == 1 {
@@ -168,7 +170,7 @@ async fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
 
                     context.scope.enter_scope();
                     context.scope.add_var("$acc", f);
-                    let result = process_row(block, &context, row).await;
+                    let result = process_row(block, &*context, row).await;
                     context.scope.exit_scope();
                     result
                 }

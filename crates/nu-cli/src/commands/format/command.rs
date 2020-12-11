@@ -45,7 +45,7 @@ impl WholeStreamCommand for Format {
 }
 
 async fn format_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let scope = args.scope.clone();
+    let ctx = Arc::new(EvaluationContext::from_args(&args));
     let (FormatArgs { pattern }, input) = args.process().await?;
 
     let format_pattern = format(&pattern);
@@ -55,7 +55,7 @@ async fn format_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .then(move |value| {
             let mut output = String::new();
             let commands = commands.clone();
-            let scope = scope.clone();
+            let ctx = ctx.clone();
 
             async move {
                 for command in &*commands {
@@ -67,14 +67,13 @@ async fn format_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
                             // FIXME: use the correct spans
                             let full_column_path = nu_parser::parse_full_column_path(
                                 &(c.to_string()).spanned(Span::unknown()),
-                                &*scope,
+                                &ctx.scope,
                             );
 
-                            let result = evaluate_baseline_expr(
-                                &full_column_path.0,
-                                Scope::append_var(scope.clone(), "$it", value.clone()),
-                            )
-                            .await;
+                            ctx.scope.enter_scope();
+                            ctx.scope.add_var("$it", value.clone());
+                            let result = evaluate_baseline_expr(&full_column_path.0, &*ctx).await;
+                            ctx.scope.exit_scope();
 
                             if let Ok(c) = result {
                                 output

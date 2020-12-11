@@ -881,13 +881,10 @@ pub async fn parse_and_eval(line: &str, ctx: &mut EvaluationContext) -> Result<S
     let env = ctx.get_env();
     ctx.scope.add_env(env);
 
-    let result = run_block(&classified_block, ctx, input_stream)
-        .await?
-        .collect_string(Tag::unknown())
-        .await
-        .map(|x| x.item);
+    let result = run_block(&classified_block, ctx, input_stream).await;
     ctx.scope.exit_scope();
 
+    let result = result?.collect_string(Tag::unknown()).await.map(|x| x.item);
     result
 }
 

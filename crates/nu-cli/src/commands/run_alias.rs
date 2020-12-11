@@ -36,7 +36,7 @@ impl WholeStreamCommand for AliasCommand {
         let mut context = EvaluationContext::from_args(&args);
         let input = args.input;
 
-        let evaluated = call_info.evaluate().await?;
+        let evaluated = call_info.evaluate(&context).await?;
 
         let mut vars = IndexMap::new();
         let mut num_positionals = 0;
@@ -65,11 +65,11 @@ impl WholeStreamCommand for AliasCommand {
 
         args.scope.enter_scope();
         args.scope.add_vars(vars);
-        let output_stream = run_block(&block, &mut context, input)
-            .await?
-            .to_output_stream();
+        let result = run_block(&block, &mut context, input).await;
 
         args.scope.exit_scope();
+
+        let output_stream = result?.to_output_stream();
 
         // FIXME: we need to patch up the spans to point at the top-level error
         Ok(output_stream)

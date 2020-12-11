@@ -109,38 +109,33 @@ async fn if_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
             let condition = condition.clone();
             let then_case = then_case.clone();
             let else_case = else_case.clone();
-            let scope = Scope::append_var(scope.clone(), "$it", input);
-            let mut context = context.clone();
+            let context = context.clone();
+            context.scope.enter_scope();
+            context.scope.add_var("$it", input);
 
             async move {
                 //FIXME: should we use the scope that's brought in as well?
-                let condition = evaluate_baseline_expr(&condition, scope.clone()).await;
+                let condition = evaluate_baseline_expr(&condition, &*context).await;
 
                 match condition {
                     Ok(condition) => match condition.as_bool() {
                         Ok(b) => {
                             if b {
-                                match run_block(
-                                    &then_case,
-                                    Arc::make_mut(&mut context),
-                                    InputStream::empty(),
-                                    scope,
-                                )
-                                .await
-                                {
+                                let result =
+                                    run_block(&then_case, &*context, InputStream::empty()).await;
+                                context.scope.exit_scope();
+
+                                match result {
                                     Ok(stream) => stream.to_output_stream(),
                                     Err(e) => futures::stream::iter(vec![Err(e)].into_iter())
                                         .to_output_stream(),
                                 }
                             } else {
-                                match run_block(
-                                    &else_case,
-                                    Arc::make_mut(&mut context),
-                                    InputStream::empty(),
-                                    scope,
-                                )
-                                .await
-                                {
+                                let result =
+                                    run_block(&else_case, &*context, InputStream::empty()).await;
+                                context.scope.exit_scope();
+
+                                match result {
                                     Ok(stream) => stream.to_output_stream(),
                                     Err(e) => futures::stream::iter(vec![Err(e)].into_iter())
                                         .to_output_stream(),

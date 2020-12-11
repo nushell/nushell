@@ -140,8 +140,8 @@ async fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                                     external_redirection: ExternalRedirection::Stdout,
                                 },
                                 name_tag: tag.clone(),
-                                scope: scope.clone(),
                             },
+                            scope: scope.clone(),
                         };
                         let tag = tagged_contents.tag.clone();
                         let mut result = converter

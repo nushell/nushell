@@ -73,7 +73,7 @@ async fn help(args: CommandArgs) -> Result<OutputStream, ShellError> {
             fn process_name(
                 dict: &mut TaggedDictBuilder,
                 cmd_name: &str,
-                scope: Arc<Scope>,
+                scope: Scope,
                 rest: Vec<Tagged<String>>,
                 name: Tag,
             ) -> Result<(), ShellError> {
@@ -110,7 +110,7 @@ async fn help(args: CommandArgs) -> Result<OutputStream, ShellError> {
             fn make_subcommands_table(
                 subcommand_names: &mut Vec<String>,
                 cmd_name: &str,
-                scope: Arc<Scope>,
+                scope: Scope,
                 rest: Vec<Tagged<String>>,
                 name: Tag,
             ) -> Result<Value, ShellError> {

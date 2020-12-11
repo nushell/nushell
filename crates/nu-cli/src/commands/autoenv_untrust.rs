@@ -28,7 +28,8 @@ impl WholeStreamCommand for AutoenvUnTrust {
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let file_to_untrust = match args.call_info.evaluate().await?.args.nth(0) {
+        let ctx = EvaluationContext::from_args(&args);
+        let file_to_untrust = match args.call_info.evaluate(&ctx).await?.args.nth(0) {
             Some(Value {
                 value: UntaggedValue::Primitive(Primitive::String(ref path)),
                 tag: _,

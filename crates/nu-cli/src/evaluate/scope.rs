@@ -12,7 +12,7 @@ pub struct Scope {
 impl Scope {
     pub fn new() -> Scope {
         Scope {
-            frames: Arc::new(parking_lot::Mutex::new(vec![])),
+            frames: Arc::new(parking_lot::Mutex::new(vec![ScopeFrame::new()])),
         }
     }
     pub fn get_command(&self, name: &str) -> Option<Command> {
@@ -72,7 +72,7 @@ impl Scope {
         let mut output = IndexMap::new();
 
         for frame in self.frames.lock().iter().rev() {
-            for v in frame.vars {
+            for v in frame.vars.iter() {
                 output.insert(v.0.clone(), v.1.clone());
             }
         }
@@ -85,7 +85,7 @@ impl Scope {
         let mut output = IndexMap::new();
 
         for frame in self.frames.lock().iter().rev() {
-            for v in frame.env {
+            for v in frame.env.iter() {
                 output.insert(v.0.clone(), v.1.clone());
             }
         }

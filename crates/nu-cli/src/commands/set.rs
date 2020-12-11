@@ -1,14 +1,8 @@
 use crate::prelude::*;
 use crate::{commands::WholeStreamCommand, evaluate::evaluate_baseline_expr};
 
-use log::trace;
-use nu_data::config;
 use nu_errors::ShellError;
-use nu_parser::{LiteBlock, LiteCommand, LiteGroup, LitePipeline, ParserScope};
-use nu_protocol::{
-    hir::Block, hir::ClassifiedCommand, CommandAction, ReturnSuccess, Signature, SyntaxShape,
-    UntaggedValue, Value,
-};
+use nu_protocol::{CommandAction, ReturnSuccess, Signature, SyntaxShape};
 use nu_source::Tagged;
 
 pub struct Set;
@@ -49,7 +43,8 @@ impl WholeStreamCommand for Set {
 pub async fn set(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let mut scope = args.scope.clone();
-    let (SetArgs { name, equals, rest }, _ctx) = args.process().await?;
+    let ctx = EvaluationContext::from_args(&args);
+    let (SetArgs { name, equals, rest }, input) = args.process().await?;
 
     let strings: Vec<_> = rest
         .into_iter()
@@ -59,13 +54,20 @@ pub async fn set(args: CommandArgs) -> Result<OutputStream, ShellError> {
         })
         .collect();
 
-    let (_, expr, err) = nu_parser::parse_math_expression(0, &strings, &*scope, false);
+    let (_, expr, err) = nu_parser::parse_math_expression(0, &strings, &scope, false);
     if let Some(err) = err {
         return Err(err.into());
     }
-    let value = evaluate_baseline_expr(&expr, scope.clone()).await?;
+
+    let value = evaluate_baseline_expr(&expr, &ctx).await?;
+
+    let name = if name.item.starts_with('$') {
+        name.item.clone()
+    } else {
+        format!("${}", name.item)
+    };
 
     Ok(OutputStream::one(ReturnSuccess::action(
-        CommandAction::AddVariable(name.item.clone(), value),
+        CommandAction::AddVariable(name, value),
     )))
 }

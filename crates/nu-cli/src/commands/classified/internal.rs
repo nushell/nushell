@@ -1,3 +1,5 @@
+use std::sync::atomic::Ordering;
+
 use crate::commands::command::whole_stream_command;
 use crate::commands::run_alias::AliasCommand;
 use crate::commands::UnevaluatedCallInfo;
@@ -22,7 +24,9 @@ pub(crate) async fn run_internal_command(
     let internal_command = context.scope.expect_command(&command.name);
 
     if command.name == "autoenv untrust" {
-        context.user_recently_used_autoenv_untrust = true;
+        context
+            .user_recently_used_autoenv_untrust
+            .store(true, Ordering::SeqCst);
     }
 
     let result = {
@@ -37,7 +41,6 @@ pub(crate) async fn run_internal_command(
     };
 
     let head = Arc::new(command.args.head.clone());
-    //let context = Arc::new(context.clone());
     let context = context.clone();
     let command = Arc::new(command);
 

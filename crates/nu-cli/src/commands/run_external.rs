@@ -83,7 +83,7 @@ impl WholeStreamCommand for RunExternalCommand {
             EvaluationContext {
                 scope: args.scope.clone(),
                 host: args.host.clone(),
-                user_recently_used_autoenv_untrust: false,
+                user_recently_used_autoenv_untrust: Arc::new(AtomicBool::new(false)),
                 shell_manager: args.shell_manager.clone(),
                 ctrl_c: args.ctrl_c.clone(),
                 current_errors: Arc::new(Mutex::new(vec![])),
@@ -129,7 +129,6 @@ impl WholeStreamCommand for RunExternalCommand {
             command,
             &mut external_context,
             input,
-            scope,
             external_redirection,
         )
         .await;

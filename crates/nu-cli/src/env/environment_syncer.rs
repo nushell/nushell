@@ -3,7 +3,7 @@ use crate::evaluation_context::EvaluationContext;
 use nu_data::config::{Conf, NuConfig};
 use nu_errors::ShellError;
 use parking_lot::Mutex;
-use std::sync::Arc;
+use std::sync::{atomic::Ordering, Arc};
 
 pub struct EnvironmentSyncer {
     pub env: Arc<Mutex<Box<Environment>>>,
@@ -63,8 +63,12 @@ impl EnvironmentSyncer {
 
     pub fn autoenv(&self, ctx: &mut EvaluationContext) -> Result<(), ShellError> {
         let mut environment = self.env.lock();
-        let auto = environment.autoenv(ctx.user_recently_used_autoenv_untrust);
-        ctx.user_recently_used_autoenv_untrust = false;
+        let recently_used = ctx
+            .user_recently_used_autoenv_untrust
+            .load(Ordering::SeqCst);
+        let auto = environment.autoenv(recently_used);
+        ctx.user_recently_used_autoenv_untrust
+            .store(false, Ordering::SeqCst);
         auto
     }
 

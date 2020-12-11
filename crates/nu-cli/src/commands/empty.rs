@@ -84,7 +84,6 @@ async fn is_empty(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let name_tag = Arc::new(args.call_info.name_tag.clone());
     let context = Arc::new(EvaluationContext::from_raw(&args));
-    let scope = args.scope.clone();
     let (Arguments { rest }, input) = args.process().await?;
     let (columns, default_block): (Vec<ColumnPath>, Option<Block>) = arguments(rest)?;
     let default_block = Arc::new(default_block);
@@ -97,13 +96,12 @@ async fn is_empty(args: CommandArgs) -> Result<OutputStream, ShellError> {
         return Ok(InputStream::from_stream(stream)
             .then(move |input| {
                 let tag = name_tag.clone();
-                let scope = scope.clone();
                 let context = context.clone();
                 let block = default_block.clone();
                 let columns = vec![];
 
                 async {
-                    match process_row(scope, context, input, block, columns, tag).await {
+                    match process_row(context, input, block, columns, tag).await {
                         Ok(s) => s,
                         Err(e) => OutputStream::one(Err(e)),
                     }
@@ -116,13 +114,12 @@ async fn is_empty(args: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(input
         .then(move |input| {
             let tag = name_tag.clone();
-            let scope = scope.clone();
             let context = context.clone();
             let block = default_block.clone();
             let columns = columns.clone();
 
             async {
-                match process_row(scope, context, input, block, columns, tag).await {
+                match process_row(context, input, block, columns, tag).await {
                     Ok(s) => s,
                     Err(e) => OutputStream::one(Err(e)),
                 }
@@ -162,8 +159,7 @@ fn arguments(rest: Vec<Value>) -> Result<(Vec<ColumnPath>, Option<Block>), Shell
 }
 
 async fn process_row(
-    scope: Arc<Scope>,
-    mut context: Arc<EvaluationContext>,
+    context: Arc<EvaluationContext>,
     input: Value,
     default_block: Arc<Option<Block>>,
     column_paths: Vec<ColumnPath>,
@@ -177,16 +173,13 @@ async fn process_row(
         let for_block = input.clone();
         let input_stream = once(async { Ok(for_block) }).to_input_stream();
 
-        let scope = Scope::append_var(scope, "$it", input.clone());
+        context.scope.enter_scope();
+        context.scope.add_var("$it", input.clone());
 
-        let mut stream = run_block(
-            &default_block,
-            Arc::make_mut(&mut context),
-            input_stream,
-            scope,
-        )
-        .await?;
+        let stream = run_block(&default_block, &*context, input_stream).await;
+        context.scope.exit_scope();
 
+        let mut stream = stream?;
         *results = Some({
             let values = stream.drain_vec().await;
 

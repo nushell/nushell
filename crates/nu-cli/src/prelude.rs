@@ -89,6 +89,7 @@ pub(crate) use bigdecimal::BigDecimal;
 pub(crate) use futures::stream::BoxStream;
 pub(crate) use futures::{Stream, StreamExt};
 pub(crate) use nu_errors::ShellError;
+pub(crate) use nu_parser::ParserScope;
 pub(crate) use nu_source::{
     b, AnchorLocation, DebugDocBuilder, PrettyDebug, PrettyDebugWithSource, Span, SpannedItem, Tag,
     TaggedItem, Text,

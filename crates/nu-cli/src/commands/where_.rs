@@ -59,7 +59,7 @@ impl WholeStreamCommand for Where {
     }
 }
 async fn where_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let scope = raw_args.scope.clone();
+    let ctx = Arc::new(EvaluationContext::from_raw(&raw_args));
     let tag = raw_args.call_info.name_tag.clone();
     let (WhereArgs { block }, input) = raw_args.process().await?;
     let condition = {
@@ -94,11 +94,15 @@ async fn where_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError
     Ok(input
         .filter_map(move |input| {
             let condition = condition.clone();
-            let scope = Scope::append_var(scope.clone(), "$it", input.clone());
+            let ctx = ctx.clone();
+
+            ctx.scope.enter_scope();
+            ctx.scope.add_var("$it", input.clone());
 
             async move {
                 //FIXME: should we use the scope that's brought in as well?
-                let condition = evaluate_baseline_expr(&condition, scope).await;
+                let condition = evaluate_baseline_expr(&condition, &*ctx).await;
+                ctx.scope.exit_scope();
 
                 match condition {
                     Ok(condition) => match condition.as_bool() {

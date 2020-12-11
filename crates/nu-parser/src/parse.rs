@@ -398,9 +398,7 @@ fn parse_invocation(
     };
 
     scope.enter_scope();
-
     let (classified_block, err) = classify_block(&lite_block, scope);
-
     scope.exit_scope();
 
     (

@@ -52,7 +52,7 @@ async fn merge(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let block = merge_args.block;
 
     let table: Option<Vec<Value>> =
-        match run_block(&block, &mut context, InputStream::empty(), scope).await {
+        match run_block(&block, &mut context, InputStream::empty()).await {
             Ok(mut stream) => Some(stream.drain_vec().await),
             Err(err) => {
                 return Err(err);

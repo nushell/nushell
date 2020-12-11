@@ -3,6 +3,7 @@ use crate::evaluate::evaluate_baseline_expr;
 use crate::prelude::*;
 use log::trace;
 use nu_errors::ShellError;
+use nu_parser::ParserScope;
 use nu_protocol::{hir::ClassifiedCommand, Signature, SyntaxShape, UntaggedValue, Value};
 
 pub struct SubCommand;
@@ -28,7 +29,7 @@ impl WholeStreamCommand for SubCommand {
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let scope = args.scope.clone();
+        let ctx = Arc::new(EvaluationContext::from_args(&args));
 
         let call_info = args.evaluate_once().await?;
 
@@ -79,11 +80,14 @@ impl WholeStreamCommand for SubCommand {
             .input
             .take_while(move |item| {
                 let condition = condition.clone();
-                let scope = Scope::append_var(scope.clone(), "$it", item.clone());
+                let ctx = ctx.clone();
+                ctx.scope.enter_scope();
+                ctx.scope.add_var("$it", item.clone());
                 trace!("ITEM = {:?}", item);
 
                 async move {
-                    let result = evaluate_baseline_expr(&*condition, scope).await;
+                    let result = evaluate_baseline_expr(&*condition, &*ctx).await;
+                    ctx.scope.exit_scope();
                     trace!("RESULT = {:?}", result);
 
                     !matches!(result, Ok(ref v) if v.is_true())

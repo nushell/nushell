@@ -67,8 +67,7 @@ impl WholeStreamCommand for Each {
 
 pub async fn process_row(
     block: Arc<Block>,
-    scope: Arc<Scope>,
-    mut context: Arc<EvaluationContext>,
+    context: Arc<EvaluationContext>,
     input: Value,
 ) -> Result<OutputStream, ShellError> {
     let input_clone = input.clone();
@@ -82,18 +81,17 @@ pub async fn process_row(
         once(async { Ok(input_clone) }).to_input_stream()
     };
 
-    let scope = if !block.params.is_empty() {
+    context.scope.enter_scope();
+    if !block.params.is_empty() {
         // FIXME: add check for more than parameter, once that's supported
-        Scope::append_var(scope, block.params[0].clone(), input)
-    } else {
-        scope
-    };
+        context.scope.add_var(block.params[0].clone(), input);
+    }
 
-    Ok(
-        run_block(&block, Arc::make_mut(&mut context), input_stream, scope)
-            .await?
-            .to_output_stream(),
-    )
+    let result = run_block(&block, &*context, input_stream).await;
+
+    context.scope.exit_scope();
+
+    Ok(result?.to_output_stream())
 }
 
 pub(crate) fn make_indexed_item(index: usize, item: Value) -> Value {
@@ -115,12 +113,11 @@ async fn each(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
             .enumerate()
             .then(move |input| {
                 let block = block.clone();
-                let scope = scope.clone();
                 let context = context.clone();
                 let row = make_indexed_item(input.0, input.1);
 
                 async {
-                    match process_row(block, scope, context, row).await {
+                    match process_row(block, context, row).await {
                         Ok(s) => s,
                         Err(e) => OutputStream::one(Err(e)),
                     }
@@ -132,11 +129,10 @@ async fn each(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(input
             .then(move |input| {
                 let block = block.clone();
-                let scope = scope.clone();
                 let context = context.clone();
 
                 async {
-                    match process_row(block, scope, context, input).await {
+                    match process_row(block, context, input).await {
                         Ok(s) => s,
                         Err(e) => OutputStream::one(Err(e)),
                     }

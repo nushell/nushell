@@ -3,7 +3,6 @@ use crate::env::host::Host;
 use crate::prelude::*;
 use crate::shell::shell_manager::ShellManager;
 use crate::stream::{InputStream, OutputStream};
-use nu_parser::ParserScope;
 use nu_protocol::hir;
 use nu_source::{Tag, Text};
 use parking_lot::Mutex;
@@ -18,7 +17,7 @@ pub struct EvaluationContext {
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub ctrl_c: Arc<AtomicBool>,
     pub raw_input: String,
-    pub user_recently_used_autoenv_untrust: bool,
+    pub user_recently_used_autoenv_untrust: Arc<AtomicBool>,
     pub(crate) shell_manager: ShellManager,
 
     /// Windows-specific: keep track of previous cwd on each drive
@@ -26,14 +25,6 @@ pub struct EvaluationContext {
 }
 
 impl EvaluationContext {
-    pub fn scope(&self) -> Arc<Scope> {
-        self.scope.clone()
-    }
-
-    pub fn mut_scope(&mut self) -> Option<&mut Scope> {
-        Arc::get_mut(&mut self.scope)
-    }
-
     pub(crate) fn from_raw(raw_args: &CommandArgs) -> EvaluationContext {
         EvaluationContext {
             scope: raw_args.scope.clone(),
@@ -41,7 +32,7 @@ impl EvaluationContext {
             current_errors: raw_args.current_errors.clone(),
             ctrl_c: raw_args.ctrl_c.clone(),
             shell_manager: raw_args.shell_manager.clone(),
-            user_recently_used_autoenv_untrust: false,
+            user_recently_used_autoenv_untrust: Arc::new(AtomicBool::new(false)),
             windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
             raw_input: String::default(),
         }
@@ -54,7 +45,7 @@ impl EvaluationContext {
             current_errors: args.current_errors.clone(),
             ctrl_c: args.ctrl_c.clone(),
             shell_manager: args.shell_manager.clone(),
-            user_recently_used_autoenv_untrust: false,
+            user_recently_used_autoenv_untrust: Arc::new(AtomicBool::new(false)),
             windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
             raw_input: String::default(),
         }
@@ -62,13 +53,13 @@ impl EvaluationContext {
 
     pub fn basic() -> Result<EvaluationContext, Box<dyn Error>> {
         Ok(EvaluationContext {
-            scope: Scope::create(),
+            scope: Scope::new(),
             host: Arc::new(parking_lot::Mutex::new(Box::new(
                 crate::env::host::BasicHost,
             ))),
             current_errors: Arc::new(Mutex::new(vec![])),
             ctrl_c: Arc::new(AtomicBool::new(false)),
-            user_recently_used_autoenv_untrust: false,
+            user_recently_used_autoenv_untrust: Arc::new(AtomicBool::new(false)),
             shell_manager: ShellManager::basic()?,
             windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
             raw_input: String::default(),
@@ -127,10 +118,8 @@ impl EvaluationContext {
     }
 
     pub fn add_commands(&mut self, commands: Vec<Command>) {
-        if let Some(scope) = Arc::get_mut(&mut self.scope) {
-            for command in commands {
-                scope.add_command(command.name().to_string(), command);
-            }
+        for command in commands {
+            self.scope.add_command(command.name().to_string(), command);
         }
     }
 

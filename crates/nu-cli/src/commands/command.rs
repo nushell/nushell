@@ -19,8 +19,8 @@ pub struct UnevaluatedCallInfo {
 }
 
 impl UnevaluatedCallInfo {
-    pub async fn evaluate(self) -> Result<CallInfo, ShellError> {
-        let args = evaluate_args(&self.args, self.scope.clone()).await?;
+    pub async fn evaluate(self, ctx: &EvaluationContext) -> Result<CallInfo, ShellError> {
+        let args = evaluate_args(&self.args, ctx).await?;
 
         Ok(CallInfo {
             args,
@@ -80,11 +80,12 @@ impl std::fmt::Debug for CommandArgs {
 
 impl CommandArgs {
     pub async fn evaluate_once(self) -> Result<EvaluatedWholeStreamCommandArgs, ShellError> {
+        let ctx = EvaluationContext::from_args(&self);
         let host = self.host.clone();
         let ctrl_c = self.ctrl_c.clone();
         let shell_manager = self.shell_manager.clone();
         let input = self.input;
-        let call_info = self.call_info.evaluate().await?;
+        let call_info = self.call_info.evaluate(&ctx).await?;
         let scope = self.scope.clone();
 
         Ok(EvaluatedWholeStreamCommandArgs::new(
@@ -281,8 +282,7 @@ impl Command {
         if args.call_info.switch_present("help") {
             let cl = self.0.clone();
             Ok(OutputStream::one(Ok(ReturnSuccess::Value(
-                UntaggedValue::string(get_help(&*cl, &args.call_info.scope.clone()))
-                    .into_value(Tag::unknown()),
+                UntaggedValue::string(get_help(&*cl, &args.scope)).into_value(Tag::unknown()),
             ))))
         } else {
             self.0.run(args).await
