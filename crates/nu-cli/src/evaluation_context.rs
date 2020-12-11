@@ -75,11 +75,11 @@ impl EvaluationContext {
         })
     }
 
-    pub(crate) fn error(&mut self, error: ShellError) {
+    pub(crate) fn error(&self, error: ShellError) {
         self.with_errors(|errors| errors.push(error))
     }
 
-    pub(crate) fn clear_errors(&mut self) {
+    pub(crate) fn clear_errors(&self) {
         self.current_errors.lock().clear()
     }
 
@@ -120,7 +120,7 @@ impl EvaluationContext {
         block(&mut *host)
     }
 
-    pub(crate) fn with_errors<T>(&mut self, block: impl FnOnce(&mut Vec<ShellError>) -> T) -> T {
+    pub(crate) fn with_errors<T>(&self, block: impl FnOnce(&mut Vec<ShellError>) -> T) -> T {
         let mut errors = self.current_errors.lock();
 
         block(&mut *errors)
@@ -144,7 +144,7 @@ impl EvaluationContext {
     }
 
     pub(crate) async fn run_command(
-        &mut self,
+        &self,
         command: Command,
         name_tag: Tag,
         args: hir::Call,

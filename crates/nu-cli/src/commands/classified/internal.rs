@@ -9,7 +9,7 @@ use nu_protocol::{CommandAction, Primitive, ReturnSuccess, UntaggedValue, Value}
 
 pub(crate) async fn run_internal_command(
     command: InternalCommand,
-    context: &mut EvaluationContext,
+    context: &EvaluationContext,
     input: InputStream,
 ) -> Result<InputStream, ShellError> {
     if log_enabled!(log::Level::Trace) {

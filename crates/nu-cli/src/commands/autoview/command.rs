@@ -61,7 +61,7 @@ pub struct RunnableContextWithoutInput {
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub ctrl_c: Arc<AtomicBool>,
-    pub scope: Arc<Scope>,
+    pub scope: Scope,
     pub name: Tag,
 }
 
@@ -315,7 +315,7 @@ fn create_default_command_args(context: &RunnableContextWithoutInput) -> RawComm
             },
             name_tag: context.name.clone(),
         },
-        scope: Scope::create(),
+        scope: Scope::new(),
     }
 }
 

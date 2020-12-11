@@ -74,18 +74,17 @@ async fn benchmark(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let scope = raw_args.scope.clone();
     let (BenchmarkArgs { block, passthrough }, input) = raw_args.process().await?;
 
-    let env = scope.env();
+    let env = scope.get_env_vars();
     let name = generate_free_name(&env);
-    let mut env = IndexMap::new();
-    env.insert(name, generate_random_env_value());
-    let scope = Scope::append_env(scope, env);
+
+    scope.add_env_var(name, generate_random_env_value());
 
     let start_time = Instant::now();
 
     #[cfg(feature = "rich-benchmark")]
     let start = time().await;
 
-    let result = run_block(&block, &mut context, input, scope.clone()).await;
+    let result = run_block(&block, &mut context, input).await;
     let output = result?.into_vec().await;
 
     #[cfg(feature = "rich-benchmark")]

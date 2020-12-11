@@ -5,7 +5,7 @@ use nu_protocol::{hir, EvaluatedArgs, UntaggedValue, Value};
 
 pub(crate) async fn evaluate_args(
     call: &hir::Call,
-    ctx: &mut EvaluationContext,
+    ctx: &EvaluationContext,
 ) -> Result<EvaluatedArgs, ShellError> {
     let mut positional_args: Vec<Value> = vec![];
 

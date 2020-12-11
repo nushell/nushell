@@ -281,7 +281,7 @@ impl Command {
         if args.call_info.switch_present("help") {
             let cl = self.0.clone();
             Ok(OutputStream::one(Ok(ReturnSuccess::Value(
-                UntaggedValue::string(get_help(&*cl, &args.scope.clone()))
+                UntaggedValue::string(get_help(&*cl, &args.call_info.scope.clone()))
                     .into_value(Tag::unknown()),
             ))))
         } else {

@@ -21,7 +21,7 @@ impl WholeStreamCommand for Chart {
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        if args.call_info.scope.get_command("chart bar").is_none() {
+        if args.scope.get_command("chart bar").is_none() {
             return Err(ShellError::untagged_runtime_error(
                 "nu_plugin_chart not installed.",
             ));

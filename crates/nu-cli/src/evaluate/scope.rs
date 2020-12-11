@@ -10,6 +10,11 @@ pub struct Scope {
 }
 
 impl Scope {
+    pub fn new() -> Scope {
+        Scope {
+            frames: Arc::new(parking_lot::Mutex::new(vec![])),
+        }
+    }
     pub fn get_command(&self, name: &str) -> Option<Command> {
         for frame in self.frames.lock().iter().rev() {
             if let Some(command) = frame.get_command(name) {
@@ -107,6 +112,12 @@ impl Scope {
     pub fn add_vars(&self, vars: IndexMap<String, Value>) {
         if let Some(frame) = self.frames.lock().last_mut() {
             frame.vars.extend(vars)
+        }
+    }
+
+    pub fn add_env_var(&self, name: impl Into<String>, value: String) {
+        if let Some(frame) = self.frames.lock().last_mut() {
+            frame.env.insert(name.into(), value);
         }
     }
 
