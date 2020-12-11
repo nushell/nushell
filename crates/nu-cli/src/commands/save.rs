@@ -161,7 +161,7 @@ async fn save(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut full_path = PathBuf::from(raw_args.shell_manager.path());
     let name_tag = raw_args.call_info.name_tag.clone();
     let name = raw_args.call_info.name_tag.clone();
-    let scope = raw_args.call_info.scope.clone();
+    let scope = raw_args.scope.clone();
     let host = raw_args.host.clone();
     let ctrl_c = raw_args.ctrl_c.clone();
     let current_errors = raw_args.current_errors.clone();
@@ -224,8 +224,8 @@ async fn save(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                                 external_redirection: ExternalRedirection::Stdout,
                             },
                             name_tag: name_tag.clone(),
-                            scope,
                         },
+                        scope,
                     };
                     let mut result = converter.run(new_args.with_input(input)).await?;
                     let result_vec: Vec<Result<ReturnSuccess, ShellError>> =

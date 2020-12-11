@@ -81,7 +81,7 @@ impl WholeStreamCommand for RunExternalCommand {
 
         let mut external_context = {
             EvaluationContext {
-                scope: args.call_info.scope.clone(),
+                scope: args.scope.clone(),
                 host: args.host.clone(),
                 user_recently_used_autoenv_untrust: false,
                 shell_manager: args.shell_manager.clone(),
@@ -122,7 +122,7 @@ impl WholeStreamCommand for RunExternalCommand {
             }
         }
 
-        let scope = args.call_info.scope.clone();
+        let scope = args.scope.clone();
 
         let input = args.input;
         let result = external::run_external_command(

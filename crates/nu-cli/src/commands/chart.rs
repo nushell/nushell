@@ -28,11 +28,8 @@ impl WholeStreamCommand for Chart {
         }
 
         Ok(OutputStream::one(Ok(ReturnSuccess::Value(
-            UntaggedValue::string(crate::commands::help::get_help(
-                &Chart,
-                &args.call_info.scope,
-            ))
-            .into_value(Tag::unknown()),
+            UntaggedValue::string(crate::commands::help::get_help(&Chart, &args.scope))
+                .into_value(Tag::unknown()),
         ))))
     }
 }

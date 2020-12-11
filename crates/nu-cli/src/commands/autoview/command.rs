@@ -29,7 +29,7 @@ impl WholeStreamCommand for Command {
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         autoview(RunnableContext {
             input: args.input,
-            scope: args.call_info.scope.clone(),
+            scope: args.scope.clone(),
             shell_manager: args.shell_manager,
             host: args.host,
             ctrl_c: args.ctrl_c,
@@ -314,8 +314,8 @@ fn create_default_command_args(context: &RunnableContextWithoutInput) -> RawComm
                 external_redirection: ExternalRedirection::Stdout,
             },
             name_tag: context.name.clone(),
-            scope: Scope::create(),
         },
+        scope: Scope::create(),
     }
 }
 

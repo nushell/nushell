@@ -51,7 +51,7 @@ pub(crate) fn command_dict(command: Command, tag: impl Into<Tag>) -> Value {
 
 async fn help(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let scope = args.call_info.scope.clone();
+    let scope = args.scope.clone();
     let (HelpArgs { rest }, ..) = args.process().await?;
 
     if !rest.is_empty() {

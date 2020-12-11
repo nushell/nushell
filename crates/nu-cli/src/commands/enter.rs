@@ -75,7 +75,7 @@ documentation link at https://docs.rs/encoding_rs/0.8.23/encoding_rs/#statics"#
 }
 
 async fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let scope = raw_args.call_info.scope.clone();
+    let scope = raw_args.scope.clone();
     let shell_manager = raw_args.shell_manager.clone();
     let head = raw_args.call_info.args.head.clone();
     let ctrl_c = raw_args.ctrl_c.clone();

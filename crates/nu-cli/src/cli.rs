@@ -64,7 +64,9 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
         use crate::commands::*;
 
         context.add_commands(vec![
+            // Fundamentals
             whole_stream_command(NuPlugin),
+            whole_stream_command(Set),
             // System/file operations
             whole_stream_command(Exec),
             whole_stream_command(Pwd),
@@ -395,61 +397,13 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
             if let Some(prompt) = configuration.var("prompt") {
                 let prompt_line = prompt.as_string()?;
 
-                let mut scope = context.scope().enter_scope();
-                if let Some(scope) = Arc::get_mut(&mut scope) {
-                    let (prompt_block, err) = nu_parser::parse(&prompt_line, 0, &mut *scope);
+                context.scope.enter_scope();
+                let (prompt_block, err) = nu_parser::parse(&prompt_line, 0, &context.scope);
 
-                    if err.is_some() {
-                        use crate::git::current_branch;
-                        format!(
-                            "\x1b[32m{}{}\x1b[m> ",
-                            cwd,
-                            match current_branch() {
-                                Some(s) => format!("({})", s),
-                                None => "".to_string(),
-                            }
-                        )
-                    } else {
-                        let env = context.get_env();
-                        let scope = context.scope.clone();
-
-                        match run_block(
-                            &prompt_block,
-                            &mut context,
-                            InputStream::empty(),
-                            Scope::append_env(scope, env),
-                        )
-                        .await
-                        {
-                            Ok(result) => match result.collect_string(Tag::unknown()).await {
-                                Ok(string_result) => {
-                                    let errors = context.get_errors();
-                                    context.maybe_print_errors(Text::from(prompt_line));
-                                    context.clear_errors();
-
-                                    if !errors.is_empty() {
-                                        "> ".to_string()
-                                    } else {
-                                        string_result.item
-                                    }
-                                }
-                                Err(e) => {
-                                    crate::cli::print_err(e, &Text::from(prompt_line));
-                                    context.clear_errors();
-
-                                    "> ".to_string()
-                                }
-                            },
-                            Err(e) => {
-                                crate::cli::print_err(e, &Text::from(prompt_line));
-                                context.clear_errors();
-
-                                "> ".to_string()
-                            }
-                        }
-                    }
-                } else {
+                if err.is_some() {
                     use crate::git::current_branch;
+                    context.scope.exit_scope();
+
                     format!(
                         "\x1b[32m{}{}\x1b[m> ",
                         cwd,
@@ -458,6 +412,40 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
                             None => "".to_string(),
                         }
                     )
+                } else {
+                    let env = context.get_env();
+
+                    let run_result =
+                        run_block(&prompt_block, &mut context, InputStream::empty()).await;
+                    context.scope.exit_scope();
+
+                    match run_result {
+                        Ok(result) => match result.collect_string(Tag::unknown()).await {
+                            Ok(string_result) => {
+                                let errors = context.get_errors();
+                                context.maybe_print_errors(Text::from(prompt_line));
+                                context.clear_errors();
+
+                                if !errors.is_empty() {
+                                    "> ".to_string()
+                                } else {
+                                    string_result.item
+                                }
+                            }
+                            Err(e) => {
+                                crate::cli::print_err(e, &Text::from(prompt_line));
+                                context.clear_errors();
+
+                                "> ".to_string()
+                            }
+                        },
+                        Err(e) => {
+                            crate::cli::print_err(e, &Text::from(prompt_line));
+                            context.clear_errors();
+
+                            "> ".to_string()
+                        }
+                    }
                 }
             } else {
                 use crate::git::current_branch;
@@ -883,32 +871,24 @@ pub async fn parse_and_eval(line: &str, ctx: &mut EvaluationContext) -> Result<S
     };
 
     // TODO ensure the command whose examples we're testing is actually in the pipeline
-    let mut scope = ctx.scope().enter_scope();
-    if let Some(scope) = Arc::get_mut(&mut scope) {
-        let (classified_block, err) = nu_parser::parse(&line, 0, scope);
-        if let Some(err) = err {
-            return Err(err.into());
-        }
+    ctx.scope.enter_scope();
+    let (classified_block, err) = nu_parser::parse(&line, 0, &ctx.scope);
+    if let Some(err) = err {
+        return Err(err.into());
+    }
 
-        let input_stream = InputStream::empty();
-        let env = ctx.get_env();
-        let scope = ctx.scope.clone();
+    let input_stream = InputStream::empty();
+    let env = ctx.get_env();
+    ctx.scope.add_env(env);
 
-        run_block(
-            &classified_block,
-            ctx,
-            input_stream,
-            Scope::append_env(scope, env),
-        )
+    let result = run_block(&classified_block, ctx, input_stream)
         .await?
         .collect_string(Tag::unknown())
         .await
-        .map(|x| x.item)
-    } else {
-        Err(ShellError::untagged_runtime_error(
-            "internal error: could not create mutable scope",
-        ))
-    }
+        .map(|x| x.item);
+    ctx.scope.exit_scope();
+
+    result
 }
 
 /// Process the line by parsing the text to turn it into commands, classify those commands so that we understand what is being called in the pipeline, and then run this pipeline
@@ -924,7 +904,7 @@ pub async fn process_script(
         let line = chomp_newline(script_text);
         ctx.raw_input = line.to_string();
 
-        let (block, err) = nu_parser::parse(&line, 0, ctx.mut_scope());
+        let (block, err) = nu_parser::parse(&line, 0, &mut ctx.scope);
 
         debug!("{:#?}", block);
         //println!("{:#?}", pipeline);
@@ -1044,8 +1024,13 @@ pub async fn process_script(
 
         trace!("{:#?}", block);
         let env = ctx.get_env();
-        let scope = ctx.scope.clone();
-        match run_block(&block, ctx, input_stream, Scope::append_env(scope, env)).await {
+
+        ctx.scope.enter_scope();
+        ctx.scope.add_env(env);
+        let result = run_block(&block, ctx, input_stream).await;
+        ctx.scope.exit_scope();
+
+        match result {
             Ok(input) => {
                 // Running a pipeline gives us back a stream that we can then
                 // work through. At the top level, we just want to pull on the
@@ -1109,9 +1094,6 @@ pub fn print_err(err: ShellError, source: &Text) {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
-    use nu_parser::ParserScope;
 
     #[quickcheck]
     fn quickcheck_parse(data: String) -> bool {
@@ -1119,10 +1101,7 @@ mod tests {
         let (lite_block, err2) = nu_parser::group(tokens);
         if err.is_none() && err2.is_none() {
             let context = crate::evaluation_context::EvaluationContext::basic().unwrap();
-            let mut scope = context.scope().enter_scope();
-            if let Some(scope) = Arc::get_mut(&mut scope) {
-                let _ = nu_parser::classify_block(&lite_block, scope);
-            }
+            let _ = nu_parser::classify_block(&lite_block, &context.scope);
         }
         true
     }

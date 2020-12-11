@@ -397,10 +397,11 @@ fn parse_invocation(
         return (garbage(lite_arg.span), err);
     };
 
-    let mut new_scope = scope.enter_scope();
-    let scope = Arc::get_mut(&mut new_scope);
+    scope.enter_scope();
 
-    let (classified_block, err) = classify_block(&lite_block, scope.unwrap());
+    let (classified_block, err) = classify_block(&lite_block, scope);
+
+    scope.exit_scope();
 
     (
         SpannedExpression::new(Expression::Invocation(classified_block), lite_arg.span),
@@ -926,10 +927,9 @@ fn parse_arg(
                         return (garbage(lite_arg.span), err);
                     }
 
-                    let mut new_scope = scope.enter_scope();
-                    let scope = Arc::get_mut(&mut new_scope);
-
-                    let (classified_block, err) = classify_block(&lite_block, scope.unwrap());
+                    scope.enter_scope();
+                    let (classified_block, err) = classify_block(&lite_block, scope);
+                    scope.exit_scope();
 
                     (
                         SpannedExpression::new(Expression::Block(classified_block), lite_arg.span),
@@ -1198,7 +1198,7 @@ fn parse_possibly_parenthesized(
 }
 
 /// Handle parsing math expressions, complete with working with the precedence of the operators
-fn parse_math_expression(
+pub fn parse_math_expression(
     incoming_idx: usize,
     lite_args: &[Spanned<String>],
     scope: &dyn ParserScope,
@@ -1636,7 +1636,7 @@ fn expand_aliases_in_call(call: &mut LiteCommand, scope: &dyn ParserScope) {
 fn parse_call(
     mut lite_cmd: LiteCommand,
     end_of_pipeline: bool,
-    scope: &mut dyn ParserScope,
+    scope: &dyn ParserScope,
 ) -> (Option<ClassifiedCommand>, Option<ParseError>) {
     expand_aliases_in_call(&mut lite_cmd, scope);
 
@@ -1751,7 +1751,7 @@ fn parse_call(
 /// Errors are returned as part of a side-car error rather than a Result to allow both error and lossy result simultaneously.
 fn parse_pipeline(
     lite_pipeline: LitePipeline,
-    scope: &mut dyn ParserScope,
+    scope: &dyn ParserScope,
 ) -> (Pipeline, Option<ParseError>) {
     let mut commands = Pipeline::new(lite_pipeline.span());
     let mut error = None;
@@ -1900,7 +1900,7 @@ fn expand_shorthand_forms(
 //     ClassifiedBlock::new(block, error)
 // }
 
-fn parse_alias(call: &LiteCommand, scope: &mut dyn ParserScope) -> Option<ParseError> {
+fn parse_alias(call: &LiteCommand, scope: &dyn ParserScope) -> Option<ParseError> {
     if call.parts.len() < 4 {
         return Some(ParseError::mismatch("alias", call.parts[0].clone()));
     }
@@ -1923,7 +1923,7 @@ fn parse_alias(call: &LiteCommand, scope: &mut dyn ParserScope) -> Option<ParseE
 
 pub fn classify_block(
     lite_block: &LiteBlock,
-    scope: &mut dyn ParserScope,
+    scope: &dyn ParserScope,
 ) -> (Block, Option<ParseError>) {
     let mut output = Block::basic();
     let mut error = None;
@@ -1990,7 +1990,7 @@ pub fn classify_block(
 pub fn parse(
     input: &str,
     span_offset: usize,
-    scope: &mut dyn ParserScope,
+    scope: &dyn ParserScope,
 ) -> (Block, Option<ParseError>) {
     let (output, error) = lex(input, span_offset);
     if error.is_some() {

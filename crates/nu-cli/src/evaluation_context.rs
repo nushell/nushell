@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct EvaluationContext {
-    pub scope: Arc<Scope>,
+    pub scope: Scope,
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub ctrl_c: Arc<AtomicBool>,
@@ -30,15 +30,13 @@ impl EvaluationContext {
         self.scope.clone()
     }
 
-    pub fn mut_scope(&mut self) -> &mut dyn ParserScope {
-        let scope: &mut Scope = Arc::make_mut(&mut self.scope);
-
-        scope
+    pub fn mut_scope(&mut self) -> Option<&mut Scope> {
+        Arc::get_mut(&mut self.scope)
     }
 
     pub(crate) fn from_raw(raw_args: &CommandArgs) -> EvaluationContext {
         EvaluationContext {
-            scope: raw_args.call_info.scope.clone(),
+            scope: raw_args.scope.clone(),
             host: raw_args.host.clone(),
             current_errors: raw_args.current_errors.clone(),
             ctrl_c: raw_args.ctrl_c.clone(),
@@ -51,7 +49,7 @@ impl EvaluationContext {
 
     pub(crate) fn from_args(args: &CommandArgs) -> EvaluationContext {
         EvaluationContext {
-            scope: args.call_info.scope.clone(),
+            scope: args.scope.clone(),
             host: args.host.clone(),
             current_errors: args.current_errors.clone(),
             ctrl_c: args.ctrl_c.clone(),
@@ -150,34 +148,24 @@ impl EvaluationContext {
         command: Command,
         name_tag: Tag,
         args: hir::Call,
-        scope: Arc<Scope>,
         input: InputStream,
     ) -> Result<OutputStream, ShellError> {
-        let command_args = self.command_args(args, input, name_tag, scope);
+        let command_args = self.command_args(args, input, name_tag);
         command.run(command_args).await
     }
 
-    fn call_info(&self, args: hir::Call, name_tag: Tag, scope: Arc<Scope>) -> UnevaluatedCallInfo {
-        UnevaluatedCallInfo {
-            args,
-            name_tag,
-            scope,
-        }
+    fn call_info(&self, args: hir::Call, name_tag: Tag) -> UnevaluatedCallInfo {
+        UnevaluatedCallInfo { args, name_tag }
     }
 
-    fn command_args(
-        &self,
-        args: hir::Call,
-        input: InputStream,
-        name_tag: Tag,
-        scope: Arc<Scope>,
-    ) -> CommandArgs {
+    fn command_args(&self, args: hir::Call, input: InputStream, name_tag: Tag) -> CommandArgs {
         CommandArgs {
             host: self.host.clone(),
             ctrl_c: self.ctrl_c.clone(),
             current_errors: self.current_errors.clone(),
             shell_manager: self.shell_manager.clone(),
-            call_info: self.call_info(args, name_tag, scope),
+            call_info: self.call_info(args, name_tag),
+            scope: self.scope.clone(),
             input,
             raw_input: self.raw_input.clone(),
         }

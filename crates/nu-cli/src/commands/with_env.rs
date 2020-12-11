@@ -68,7 +68,7 @@ impl WholeStreamCommand for WithEnv {
 
 async fn with_env(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut context = EvaluationContext::from_raw(&raw_args);
-    let scope = raw_args.call_info.scope.clone();
+    let scope = raw_args.scope.clone();
     let (WithEnvArgs { variable, block }, input) = raw_args.process().await?;
 
     let mut env = IndexMap::new();

@@ -21,11 +21,8 @@ impl WholeStreamCommand for Path {
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(ReturnSuccess::value(
-            UntaggedValue::string(crate::commands::help::get_help(
-                &Path,
-                &args.call_info.scope,
-            ))
-            .into_value(Tag::unknown()),
+            UntaggedValue::string(crate::commands::help::get_help(&Path, &args.scope))
+                .into_value(Tag::unknown()),
         )))
     }
 }

@@ -1,4 +1,5 @@
 use nu_errors::ShellError;
+use nu_parser::ParserScope;
 use nu_protocol::hir::ClassifiedBlock;
 use nu_protocol::{
     Primitive, ReturnSuccess, ShellTypeName, Signature, SyntaxShape, UntaggedValue, Value,
@@ -220,12 +221,17 @@ async fn evaluate_block(
     let input_stream = InputStream::empty();
     let env = ctx.get_env();
 
-    let scope = Scope::append_env(ctx.scope.clone(), env);
+    ctx.scope.enter_scope();
+    ctx.scope.add_env(env);
 
-    Ok(run_block(&block.block, ctx, input_stream, scope)
+    let result = run_block(&block.block, ctx, input_stream)
         .await?
         .drain_vec()
-        .await)
+        .await;
+
+    ctx.scope.exit_scope();
+
+    Ok(result)
 }
 
 // TODO probably something already available to do this

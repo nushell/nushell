@@ -63,11 +63,8 @@ The file can contain several optional sections:
     }
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(ReturnSuccess::value(
-            UntaggedValue::string(crate::commands::help::get_help(
-                &Autoenv,
-                &args.call_info.scope,
-            ))
-            .into_value(Tag::unknown()),
+            UntaggedValue::string(crate::commands::help::get_help(&Autoenv, &args.scope))
+                .into_value(Tag::unknown()),
         )))
     }
 

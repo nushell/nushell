@@ -45,7 +45,7 @@ impl WholeStreamCommand for Format {
 }
 
 async fn format_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let scope = args.call_info.scope.clone();
+    let scope = args.scope.clone();
     let (FormatArgs { pattern }, input) = args.process().await?;
 
     let format_pattern = format(&pattern);

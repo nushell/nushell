@@ -21,7 +21,7 @@ impl WholeStreamCommand for Url {
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(ReturnSuccess::value(
-            UntaggedValue::string(crate::commands::help::get_help(&Url, &args.call_info.scope))
+            UntaggedValue::string(crate::commands::help::get_help(&Url, &args.scope))
                 .into_value(Tag::unknown()),
         )))
     }

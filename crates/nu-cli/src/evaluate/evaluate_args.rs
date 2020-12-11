@@ -2,17 +2,16 @@
 use crate::evaluate::evaluate_baseline_expr;
 use crate::prelude::*;
 use nu_protocol::{hir, EvaluatedArgs, UntaggedValue, Value};
-use std::sync::Arc;
 
 pub(crate) async fn evaluate_args(
     call: &hir::Call,
-    scope: Arc<Scope>,
+    ctx: &mut EvaluationContext,
 ) -> Result<EvaluatedArgs, ShellError> {
     let mut positional_args: Vec<Value> = vec![];
 
     if let Some(positional) = &call.positional {
         for pos in positional {
-            let result = evaluate_baseline_expr(pos, scope.clone()).await?;
+            let result = evaluate_baseline_expr(pos, ctx).await?;
             positional_args.push(result);
         }
     }
@@ -32,10 +31,7 @@ pub(crate) async fn evaluate_args(
                     named_args.insert(name.clone(), UntaggedValue::boolean(true).into_value(tag));
                 }
                 hir::NamedValue::Value(_, expr) => {
-                    named_args.insert(
-                        name.clone(),
-                        evaluate_baseline_expr(expr, scope.clone()).await?,
-                    );
+                    named_args.insert(name.clone(), evaluate_baseline_expr(expr, ctx).await?);
                 }
                 _ => {}
             };

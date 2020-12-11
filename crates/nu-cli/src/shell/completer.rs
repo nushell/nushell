@@ -8,7 +8,7 @@ use crate::evaluation_context::EvaluationContext;
 use nu_parser::ParserScope;
 use nu_source::Tag;
 
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 pub(crate) struct NuCompleter {}
 
@@ -25,95 +25,92 @@ impl NuCompleter {
 
         let nu_context: &EvaluationContext = context.as_ref();
 
-        let mut scope = nu_context.scope().enter_scope();
-        if let Some(scope) = Arc::get_mut(&mut scope) {
-            let (block, _) = nu_parser::parse(line, 0, scope);
-            let locations = completion::engine::completion_location(line, &block, pos);
+        nu_context.scope.enter_scope();
+        let (block, _) = nu_parser::parse(line, 0, &nu_context.scope);
+        nu_context.scope.exit_scope();
 
-            let matcher = nu_data::config::config(Tag::unknown())
-                .ok()
-                .and_then(|cfg| cfg.get("line_editor").cloned())
-                .and_then(|le| {
-                    le.row_entries()
-                        .find(|(idx, _value)| idx.as_str() == "completion_match_method")
-                        .and_then(|(_idx, value)| value.as_string().ok())
-                })
-                .unwrap_or_else(String::new);
+        let locations = completion::engine::completion_location(line, &block, pos);
 
-            let matcher = matcher.as_str();
-            let matcher: &dyn Matcher = match matcher {
-                "case-insensitive" => &matchers::case_insensitive::Matcher,
-                _ => &matchers::case_sensitive::Matcher,
-            };
+        let matcher = nu_data::config::config(Tag::unknown())
+            .ok()
+            .and_then(|cfg| cfg.get("line_editor").cloned())
+            .and_then(|le| {
+                le.row_entries()
+                    .find(|(idx, _value)| idx.as_str() == "completion_match_method")
+                    .and_then(|(_idx, value)| value.as_string().ok())
+            })
+            .unwrap_or_else(String::new);
 
-            if locations.is_empty() {
-                (pos, Vec::new())
-            } else {
-                let pos = locations[0].span.start();
-                let suggestions = locations
-                    .into_iter()
-                    .flat_map(|location| {
-                        let partial = location.span.slice(line);
-                        match location.item {
-                            LocationType::Command => {
-                                let command_completer = CommandCompleter;
-                                command_completer.complete(context, partial, matcher.to_owned())
-                            }
+        let matcher = matcher.as_str();
+        let matcher: &dyn Matcher = match matcher {
+            "case-insensitive" => &matchers::case_insensitive::Matcher,
+            _ => &matchers::case_sensitive::Matcher,
+        };
 
-                            LocationType::Flag(cmd) => {
-                                let flag_completer = FlagCompleter { cmd };
-                                flag_completer.complete(context, partial, matcher.to_owned())
-                            }
+        if locations.is_empty() {
+            (pos, Vec::new())
+        } else {
+            let pos = locations[0].span.start();
+            let suggestions = locations
+                .into_iter()
+                .flat_map(|location| {
+                    let partial = location.span.slice(line);
+                    match location.item {
+                        LocationType::Command => {
+                            let command_completer = CommandCompleter;
+                            command_completer.complete(context, partial, matcher.to_owned())
+                        }
 
-                            LocationType::Argument(cmd, _arg_name) => {
-                                let path_completer = PathCompleter;
+                        LocationType::Flag(cmd) => {
+                            let flag_completer = FlagCompleter { cmd };
+                            flag_completer.complete(context, partial, matcher.to_owned())
+                        }
 
-                                const QUOTE_CHARS: &[char] = &['\'', '"', '`'];
+                        LocationType::Argument(cmd, _arg_name) => {
+                            let path_completer = PathCompleter;
 
-                                // TODO Find a better way to deal with quote chars. Can the completion
-                                //      engine relay this back to us? Maybe have two spans: inner and
-                                //      outer. The former is what we want to complete, the latter what
-                                //      we'd need to replace.
-                                let (quote_char, partial) = if partial.starts_with(QUOTE_CHARS) {
-                                    let (head, tail) = partial.split_at(1);
-                                    (Some(head), tail)
-                                } else {
-                                    (None, partial)
-                                };
+                            const QUOTE_CHARS: &[char] = &['\'', '"', '`'];
 
-                                let partial = if let Some(quote_char) = quote_char {
-                                    if partial.ends_with(quote_char) {
-                                        &partial[..partial.len() - 1]
-                                    } else {
-                                        partial
-                                    }
+                            // TODO Find a better way to deal with quote chars. Can the completion
+                            //      engine relay this back to us? Maybe have two spans: inner and
+                            //      outer. The former is what we want to complete, the latter what
+                            //      we'd need to replace.
+                            let (quote_char, partial) = if partial.starts_with(QUOTE_CHARS) {
+                                let (head, tail) = partial.split_at(1);
+                                (Some(head), tail)
+                            } else {
+                                (None, partial)
+                            };
+
+                            let partial = if let Some(quote_char) = quote_char {
+                                if partial.ends_with(quote_char) {
+                                    &partial[..partial.len() - 1]
                                 } else {
                                     partial
-                                };
-
-                                let completed_paths =
-                                    path_completer.path_suggestions(partial, matcher);
-                                match cmd.as_deref().unwrap_or("") {
-                                    "cd" => select_directory_suggestions(completed_paths),
-                                    _ => completed_paths,
                                 }
-                                .into_iter()
-                                .map(|s| Suggestion {
-                                    replacement: requote(s.suggestion.replacement),
-                                    display: s.suggestion.display,
-                                })
-                                .collect()
+                            } else {
+                                partial
+                            };
+
+                            let completed_paths = path_completer.path_suggestions(partial, matcher);
+                            match cmd.as_deref().unwrap_or("") {
+                                "cd" => select_directory_suggestions(completed_paths),
+                                _ => completed_paths,
                             }
-
-                            LocationType::Variable => Vec::new(),
+                            .into_iter()
+                            .map(|s| Suggestion {
+                                replacement: requote(s.suggestion.replacement),
+                                display: s.suggestion.display,
+                            })
+                            .collect()
                         }
-                    })
-                    .collect();
 
-                (pos, suggestions)
-            }
-        } else {
-            (0, vec![])
+                        LocationType::Variable => Vec::new(),
+                    }
+                })
+                .collect();
+
+            (pos, suggestions)
         }
     }
 }

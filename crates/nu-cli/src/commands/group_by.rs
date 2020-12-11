@@ -130,7 +130,7 @@ enum Grouper {
 
 pub async fn group_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let scope = args.call_info.scope.clone();
+    let scope = args.scope.clone();
     let context = Arc::new(EvaluationContext::from_raw(&args));
     let (Arguments { grouper }, input) = args.process().await?;
 

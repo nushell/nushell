@@ -25,7 +25,7 @@ impl WholeStreamCommand for SubCommand {
         run_with_numerical_functions_on_stream(
             RunnableContext {
                 input: args.input,
-                scope: args.call_info.scope.clone(),
+                scope: args.scope.clone(),
                 shell_manager: args.shell_manager,
                 host: args.host,
                 ctrl_c: args.ctrl_c,

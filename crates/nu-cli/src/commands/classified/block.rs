@@ -13,9 +13,8 @@ use std::sync::atomic::Ordering;
 
 pub async fn run_block(
     block: &Block,
-    ctx: &mut EvaluationContext,
+    ctx: &EvaluationContext,
     mut input: InputStream,
-    scope: Arc<Scope>,
 ) -> Result<InputStream, ShellError> {
     let mut output: Result<InputStream, ShellError> = Ok(InputStream::empty());
     for group in &block.block {
@@ -36,7 +35,6 @@ pub async fn run_block(
                                 )),
                                 Span::unknown(),
                             ),
-                            scope.clone(),
                             inp,
                         )
                         .await?;
@@ -108,7 +106,7 @@ pub async fn run_block(
                     return Err(e);
                 }
             }
-            output = run_pipeline(pipeline, ctx, input, scope.clone()).await;
+            output = run_pipeline(pipeline, ctx, input).await;
 
             input = InputStream::empty();
         }
@@ -119,9 +117,8 @@ pub async fn run_block(
 
 async fn run_pipeline(
     commands: &Pipeline,
-    ctx: &mut EvaluationContext,
+    ctx: &EvaluationContext,
     mut input: InputStream,
-    scope: Arc<Scope>,
 ) -> Result<InputStream, ShellError> {
     for item in commands.list.clone() {
         input = match item {
@@ -129,13 +126,11 @@ async fn run_pipeline(
                 return Err(ShellError::unimplemented("Dynamic commands"))
             }
 
-            ClassifiedCommand::Expr(expr) => run_expression_block(*expr, scope.clone()).await?,
+            ClassifiedCommand::Expr(expr) => run_expression_block(*expr, ctx).await?,
 
             ClassifiedCommand::Error(err) => return Err(err.into()),
 
-            ClassifiedCommand::Internal(left) => {
-                run_internal_command(left, ctx, input, scope.clone()).await?
-            }
+            ClassifiedCommand::Internal(left) => run_internal_command(left, ctx, input).await?,
         };
     }
 

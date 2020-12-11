@@ -5,6 +5,7 @@ use crate::prelude::*;
 use crate::{CommandArgs, Example, OutputStream};
 use futures::stream::once;
 use nu_errors::ShellError;
+use nu_parser::ParserScope;
 use nu_protocol::{hir::Block, Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
@@ -76,21 +77,22 @@ impl WholeStreamCommand for Reduce {
 
 async fn process_row(
     block: Arc<Block>,
-    scope: Arc<Scope>,
-    mut context: Arc<EvaluationContext>,
+    context: &EvaluationContext,
     row: Value,
 ) -> Result<InputStream, ShellError> {
     let row_clone = row.clone();
     let input_stream = once(async { Ok(row_clone) }).to_input_stream();
 
-    let scope = Scope::append_var(scope, "$it", row);
+    context.scope.enter_scope();
+    context.scope.add_var("$it", row);
+    let result = run_block(&block, context, input_stream).await;
+    context.scope.exit_scope();
 
-    Ok(run_block(&block, Arc::make_mut(&mut context), input_stream, scope).await?)
+    Ok(result?)
 }
 
 async fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let base_scope = raw_args.call_info.scope.clone();
-    let context = Arc::new(EvaluationContext::from_raw(&raw_args));
+    let context = EvaluationContext::from_raw(&raw_args);
     let (reduce_args, mut input): (ReduceArgs, _) = raw_args.process().await?;
     let block = Arc::new(reduce_args.block);
     let (ioffset, start) = match reduce_args.fold {
@@ -119,8 +121,6 @@ async fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
             .enumerate()
             .fold(initial, move |acc, input| {
                 let block = Arc::clone(&block);
-                let scope = base_scope.clone();
-                let context = Arc::clone(&context);
                 let row = each::make_indexed_item(input.0 + ioffset, input.1);
 
                 async {
@@ -137,8 +137,11 @@ async fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                         UntaggedValue::table(&values).into_untagged_value()
                     };
 
-                    let scope = Scope::append_var(scope, "$acc", f);
-                    process_row(block, scope, context, row).await
+                    context.scope.enter_scope();
+                    context.scope.add_var("$acc", f);
+                    let result = process_row(block, &context, row).await;
+                    context.scope.exit_scope();
+                    result
                 }
             })
             .await?
@@ -148,8 +151,6 @@ async fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(input
             .fold(initial, move |acc, row| {
                 let block = Arc::clone(&block);
-                let scope = base_scope.clone();
-                let context = Arc::clone(&context);
 
                 async {
                     let values = acc?.drain_vec().await;
@@ -165,8 +166,11 @@ async fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                         UntaggedValue::table(&values).into_untagged_value()
                     };
 
-                    let scope = Scope::append_var(scope, "$acc", f);
-                    process_row(block, scope, context, row).await
+                    context.scope.enter_scope();
+                    context.scope.add_var("$acc", f);
+                    let result = process_row(block, &context, row).await;
+                    context.scope.exit_scope();
+                    result
                 }
             })
             .await?

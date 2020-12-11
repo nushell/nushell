@@ -22,7 +22,7 @@ impl WholeStreamCommand for To {
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(ReturnSuccess::value(
-            UntaggedValue::string(crate::commands::help::get_help(&To, &args.call_info.scope))
+            UntaggedValue::string(crate::commands::help::get_help(&To, &args.scope))
                 .into_value(Tag::unknown()),
         )))
     }

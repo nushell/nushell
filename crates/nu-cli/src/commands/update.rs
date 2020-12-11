@@ -170,7 +170,7 @@ async fn process_row(
 
 async fn update(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = Arc::new(raw_args.call_info.name_tag.clone());
-    let scope = raw_args.call_info.scope.clone();
+    let scope = raw_args.scope.clone();
     let context = Arc::new(EvaluationContext::from_raw(&raw_args));
     let (Arguments { field, replacement }, input) = raw_args.process().await?;
     let replacement = Arc::new(replacement);

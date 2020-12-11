@@ -22,21 +22,18 @@ impl Painter {
     }
 
     pub fn paint_string<'l, P: Palette>(line: &'l str, scope: &Scope, palette: &P) -> Cow<'l, str> {
-        let mut scope = scope.enter_scope();
-        if let Some(scope) = Arc::get_mut(&mut scope) {
-            let (block, _) = nu_parser::parse(line, 0, scope);
+        scope.enter_scope();
+        let (block, _) = nu_parser::parse(line, 0, scope);
+        scope.exit_scope();
 
-            let shapes = nu_parser::shapes(&block);
-            let mut painter = Painter::new(line);
+        let shapes = nu_parser::shapes(&block);
+        let mut painter = Painter::new(line);
 
-            for shape in shapes {
-                painter.paint_shape(&shape, palette);
-            }
-
-            Cow::Owned(painter.into_string())
-        } else {
-            Cow::Borrowed(line)
+        for shape in shapes {
+            painter.paint_shape(&shape, palette);
         }
+
+        Cow::Owned(painter.into_string())
     }
 
     fn paint_shape<P: Palette>(&mut self, shape: &Spanned<FlatShape>, palette: &P) {

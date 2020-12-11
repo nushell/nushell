@@ -150,7 +150,7 @@ async fn process_row(
 }
 
 async fn insert(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let scope = raw_args.call_info.scope.clone();
+    let scope = raw_args.scope.clone();
     let context = Arc::new(EvaluationContext::from_raw(&raw_args));
     let (Arguments { column, value }, input) = raw_args.process().await?;
     let value = Arc::new(value);

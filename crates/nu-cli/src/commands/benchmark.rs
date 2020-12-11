@@ -71,7 +71,7 @@ impl WholeStreamCommand for Benchmark {
 async fn benchmark(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = raw_args.call_info.args.span;
     let mut context = EvaluationContext::from_raw(&raw_args);
-    let scope = raw_args.call_info.scope.clone();
+    let scope = raw_args.scope.clone();
     let (BenchmarkArgs { block, passthrough }, input) = raw_args.process().await?;
 
     let env = scope.env();
@@ -120,7 +120,7 @@ async fn benchmark(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         let idle_time = into_big_int(end.idle() - start.idle());
         indexmap.insert("idle time".to_string(), idle_time);
 
-        benchmark_output(indexmap, output, passthrough, &tag, &mut context, scope).await
+        benchmark_output(indexmap, output, passthrough, &tag, &mut context).await
     } else {
         Err(ShellError::untagged_runtime_error(
             "Could not retreive CPU time",
@@ -134,7 +134,6 @@ async fn benchmark_output<T, Output>(
     passthrough: Option<Block>,
     tag: T,
     context: &mut EvaluationContext,
-    scope: Arc<Scope>,
 ) -> Result<OutputStream, ShellError>
 where
     T: Into<Tag> + Copy,
@@ -154,7 +153,7 @@ where
         // add autoview for an empty block
         let time_block = add_implicit_autoview(time_block);
 
-        let _ = run_block(&time_block, context, benchmark_output, scope).await?;
+        let _ = run_block(&time_block, context, benchmark_output).await?;
         context.clear_errors();
 
         Ok(block_output.into())

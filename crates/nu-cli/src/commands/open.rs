@@ -94,7 +94,7 @@ pub fn get_encoding(opt: Option<Tagged<String>>) -> Result<&'static Encoding, Sh
 }
 
 async fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let scope = args.call_info.scope.clone();
+    let scope = args.scope.clone();
     let cwd = PathBuf::from(args.shell_manager.path());
     let shell_manager = args.shell_manager.clone();
 

@@ -112,7 +112,7 @@ impl WholeStreamCommand for PluginFilter {
 async fn run_filter(path: String, args: CommandArgs) -> Result<OutputStream, ShellError> {
     trace!("filter_plugin :: {}", path);
 
-    let scope = args.call_info.scope.clone();
+    let scope = args.scope.clone();
 
     let bos = futures::stream::iter(vec![
         UntaggedValue::Primitive(Primitive::BeginningOfStream).into_untagged_value()

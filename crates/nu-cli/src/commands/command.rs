@@ -16,7 +16,6 @@ use std::sync::atomic::AtomicBool;
 pub struct UnevaluatedCallInfo {
     pub args: hir::Call,
     pub name_tag: Tag,
-    pub scope: Arc<Scope>,
 }
 
 impl UnevaluatedCallInfo {
@@ -42,6 +41,7 @@ pub struct CommandArgs {
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub shell_manager: ShellManager,
     pub call_info: UnevaluatedCallInfo,
+    pub scope: Scope,
     pub input: InputStream,
     pub raw_input: String,
 }
@@ -53,6 +53,7 @@ pub struct RawCommandArgs {
     pub ctrl_c: Arc<AtomicBool>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub shell_manager: ShellManager,
+    pub scope: Scope,
     pub call_info: UnevaluatedCallInfo,
 }
 
@@ -64,6 +65,7 @@ impl RawCommandArgs {
             current_errors: self.current_errors,
             shell_manager: self.shell_manager,
             call_info: self.call_info,
+            scope: self.scope,
             input: input.into(),
             raw_input: String::default(),
         }
@@ -83,6 +85,7 @@ impl CommandArgs {
         let shell_manager = self.shell_manager.clone();
         let input = self.input;
         let call_info = self.call_info.evaluate().await?;
+        let scope = self.scope.clone();
 
         Ok(EvaluatedWholeStreamCommandArgs::new(
             host,
@@ -90,31 +93,7 @@ impl CommandArgs {
             shell_manager,
             call_info,
             input,
-        ))
-    }
-
-    pub async fn evaluate_once_with_scope(
-        self,
-
-        scope: Arc<Scope>,
-    ) -> Result<EvaluatedWholeStreamCommandArgs, ShellError> {
-        let host = self.host.clone();
-        let ctrl_c = self.ctrl_c.clone();
-        let shell_manager = self.shell_manager.clone();
-        let input = self.input;
-        let call_info = UnevaluatedCallInfo {
-            name_tag: self.call_info.name_tag,
-            args: self.call_info.args,
-            scope: scope.clone(),
-        };
-        let call_info = call_info.evaluate().await?;
-
-        Ok(EvaluatedWholeStreamCommandArgs::new(
-            host,
-            ctrl_c,
-            shell_manager,
-            call_info,
-            input,
+            scope,
         ))
     }
 
@@ -134,7 +113,7 @@ pub struct RunnableContext {
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub ctrl_c: Arc<AtomicBool>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
-    pub scope: Arc<Scope>,
+    pub scope: Scope,
     pub name: Tag,
     pub raw_input: String,
 }
@@ -164,6 +143,7 @@ impl EvaluatedWholeStreamCommandArgs {
         shell_manager: ShellManager,
         call_info: CallInfo,
         input: impl Into<InputStream>,
+        scope: Scope,
     ) -> EvaluatedWholeStreamCommandArgs {
         EvaluatedWholeStreamCommandArgs {
             args: EvaluatedCommandArgs {
@@ -171,6 +151,7 @@ impl EvaluatedWholeStreamCommandArgs {
                 ctrl_c,
                 shell_manager,
                 call_info,
+                scope,
             },
             input: input.into(),
         }
@@ -200,6 +181,7 @@ pub struct EvaluatedCommandArgs {
     pub ctrl_c: Arc<AtomicBool>,
     pub shell_manager: ShellManager,
     pub call_info: CallInfo,
+    pub scope: Scope,
 }
 
 impl EvaluatedCommandArgs {
@@ -299,7 +281,7 @@ impl Command {
         if args.call_info.switch_present("help") {
             let cl = self.0.clone();
             Ok(OutputStream::one(Ok(ReturnSuccess::Value(
-                UntaggedValue::string(get_help(&*cl, &args.call_info.scope.clone()))
+                UntaggedValue::string(get_help(&*cl, &args.scope.clone()))
                     .into_value(Tag::unknown()),
             ))))
         } else {

@@ -84,7 +84,7 @@ async fn is_empty(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let name_tag = Arc::new(args.call_info.name_tag.clone());
     let context = Arc::new(EvaluationContext::from_raw(&args));
-    let scope = args.call_info.scope.clone();
+    let scope = args.scope.clone();
     let (Arguments { rest }, input) = args.process().await?;
     let (columns, default_block): (Vec<ColumnPath>, Option<Block>) = arguments(rest)?;
     let default_block = Arc::new(default_block);

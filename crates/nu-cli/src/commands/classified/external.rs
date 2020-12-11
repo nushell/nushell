@@ -23,7 +23,6 @@ pub(crate) async fn run_external_command(
     command: ExternalCommand,
     context: &mut EvaluationContext,
     input: InputStream,
-    scope: Arc<Scope>,
     external_redirection: ExternalRedirection,
 ) -> Result<InputStream, ShellError> {
     trace!(target: "nu::run::external", "-> {}", command.name);
@@ -36,14 +35,13 @@ pub(crate) async fn run_external_command(
         ));
     }
 
-    run_with_stdin(command, context, input, scope, external_redirection).await
+    run_with_stdin(command, context, input, external_redirection).await
 }
 
 async fn run_with_stdin(
     command: ExternalCommand,
     context: &mut EvaluationContext,
     input: InputStream,
-    scope: Arc<Scope>,
     external_redirection: ExternalRedirection,
 ) -> Result<InputStream, ShellError> {
     let path = context.shell_manager.path();
@@ -53,7 +51,7 @@ async fn run_with_stdin(
     let mut command_args = vec![];
     for arg in command.args.iter() {
         let is_literal = matches!(arg.expr, Expression::Literal(_));
-        let value = evaluate_baseline_expr(arg, scope.clone()).await?;
+        let value = evaluate_baseline_expr(arg, context).await?;
 
         // Skip any arguments that don't really exist, treating them as optional
         // FIXME: we may want to preserve the gap in the future, though it's hard to say
@@ -132,7 +130,7 @@ async fn run_with_stdin(
         &process_args[..],
         input,
         external_redirection,
-        scope,
+        &context.scope,
     )
 }
 
@@ -142,7 +140,7 @@ fn spawn(
     args: &[String],
     input: InputStream,
     external_redirection: ExternalRedirection,
-    scope: Arc<Scope>,
+    scope: &Scope,
 ) -> Result<InputStream, ShellError> {
     let command = command.clone();
 
@@ -173,7 +171,7 @@ fn spawn(
     trace!(target: "nu::run::external", "cwd = {:?}", &path);
 
     process.env_clear();
-    process.envs(scope.env());
+    process.envs(scope.get_env_vars());
 
     // We want stdout regardless of what
     // we are doing ($it case or pipe stdin)
@@ -567,15 +565,11 @@ mod tests {
         let mut ctx =
             EvaluationContext::basic().expect("There was a problem creating a basic context.");
 
-        assert!(run_external_command(
-            cmd,
-            &mut ctx,
-            input,
-            Scope::create(),
-            ExternalRedirection::Stdout
-        )
-        .await
-        .is_err());
+        assert!(
+            run_external_command(cmd, &mut ctx, input, ExternalRedirection::Stdout)
+                .await
+                .is_err()
+        );
 
         Ok(())
     }

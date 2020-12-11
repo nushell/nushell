@@ -28,7 +28,7 @@ impl WholeStreamCommand for SubCommand {
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let scope = args.call_info.scope.clone();
+        let scope = args.scope.clone();
 
         let call_info = args.evaluate_once().await?;
 

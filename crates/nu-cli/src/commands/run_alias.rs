@@ -4,6 +4,7 @@ use crate::prelude::*;
 
 use derive_new::new;
 use nu_errors::ShellError;
+use nu_parser::ParserScope;
 use nu_protocol::{hir::Block, PositionalType, Signature, UntaggedValue};
 
 #[derive(new, Clone)]
@@ -35,7 +36,6 @@ impl WholeStreamCommand for AliasCommand {
         let mut context = EvaluationContext::from_args(&args);
         let input = args.input;
 
-        let scope = call_info.scope.clone();
         let evaluated = call_info.evaluate().await?;
 
         let mut vars = IndexMap::new();
@@ -63,11 +63,15 @@ impl WholeStreamCommand for AliasCommand {
             }
         }
 
-        let scope = Scope::append_vars(scope, vars);
+        args.scope.enter_scope();
+        args.scope.add_vars(vars);
+        let output_stream = run_block(&block, &mut context, input)
+            .await?
+            .to_output_stream();
+
+        args.scope.exit_scope();
 
         // FIXME: we need to patch up the spans to point at the top-level error
-        Ok(run_block(&block, &mut context, input, scope)
-            .await?
-            .to_output_stream())
+        Ok(output_stream)
     }
 }

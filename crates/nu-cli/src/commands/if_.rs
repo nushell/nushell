@@ -63,7 +63,7 @@ impl WholeStreamCommand for If {
     }
 }
 async fn if_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let scope = raw_args.call_info.scope.clone();
+    let scope = raw_args.scope.clone();
     let tag = raw_args.call_info.name_tag.clone();
     let context = Arc::new(EvaluationContext::from_raw(&raw_args));
 

@@ -44,7 +44,7 @@ impl WholeStreamCommand for EachGroup {
     }
 
     async fn run(&self, raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let scope = raw_args.call_info.scope.clone();
+        let scope = raw_args.scope.clone();
         let context = Arc::new(EvaluationContext::from_raw(&raw_args));
         let (each_args, input): (EachGroupArgs, _) = raw_args.process().await?;
         let block = Arc::new(each_args.block);

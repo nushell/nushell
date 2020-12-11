@@ -76,7 +76,7 @@ struct WhichArgs {
 
 async fn which(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut output = vec![];
-    let scope = args.call_info.scope.clone();
+    let scope = args.scope.clone();
 
     let (WhichArgs { application, all }, _) = args.process().await?;
     let external = application.starts_with('^');
