@@ -2013,33 +2013,62 @@ pub fn classify_block(
     for group in &lite_block.block {
         let mut out_group = Group::basic();
         for pipeline in &group.pipelines {
+            let (pipeline, vars, err) = expand_shorthand_forms(pipeline);
+            if error.is_none() {
+                error = err;
+            }
+
             let (out_pipe, err) = parse_pipeline(pipeline.clone(), scope);
             if error.is_none() {
                 error = err;
             }
-            //let mut out_pipe = Pipeline::basic();
-            // for call in pipeline.commands {
-            //     // if call.elements[0].item == "def" {
-            //     //     let error = parse_definition(call, scope);
-            //     //     if err.is_none() {
-            //     //         err = error;
-            //     //     }
-            //     // } else
-            //     if call.parts[0].item == "alias" {
-            //         let error = parse_alias(call, scope);
-            //         if err.is_none() {
-            //             err = error;
-            //         }
-            //     } else {
-            //         let (parsed, error) = parse_call(call, scope);
-            //         if err.is_none() {
-            //             err = error;
-            //         }
-            //         out_pipe.push(parsed);
-            //     }
-            // }
-            if !out_pipe.list.is_empty() {
-                out_group.push(out_pipe);
+
+            let pipeline = if let Some(vars) = vars {
+                let span = pipeline.span();
+                let block =
+                    hir::Block::new(vec![], vec![Group::new(vec![out_pipe.clone()], span)], span);
+                let mut call = hir::Call::new(
+                    Box::new(SpannedExpression {
+                        expr: Expression::string("with-env".to_string()),
+                        span,
+                    }),
+                    span,
+                );
+                call.positional = Some(vec![
+                    SpannedExpression {
+                        expr: Expression::List(vec![
+                            SpannedExpression {
+                                expr: Expression::string(vars.0.item),
+                                span: vars.0.span,
+                            },
+                            SpannedExpression {
+                                expr: Expression::string(vars.1.item),
+                                span: vars.1.span,
+                            },
+                        ]),
+                        span: Span::new(vars.0.span.start(), vars.1.span.end()),
+                    },
+                    SpannedExpression {
+                        expr: Expression::Block(block),
+                        span,
+                    },
+                ]);
+                let classified_with_env = ClassifiedCommand::Internal(InternalCommand {
+                    name: "with-env".to_string(),
+                    name_span: Span::unknown(),
+                    args: call,
+                });
+
+                Pipeline {
+                    list: vec![classified_with_env],
+                    span,
+                }
+            } else {
+                out_pipe
+            };
+
+            if !pipeline.list.is_empty() {
+                out_group.push(pipeline);
             }
         }
         if !out_group.pipelines.is_empty() {
