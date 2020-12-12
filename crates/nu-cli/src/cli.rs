@@ -86,6 +86,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Touch),
             whole_stream_command(Cpy),
             whole_stream_command(Date),
+            whole_stream_command(DateListTimeZone),
             whole_stream_command(DateNow),
             whole_stream_command(DateToTable),
             whole_stream_command(DateToTimeZone),

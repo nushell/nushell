@@ -1,6 +1,8 @@
 // Modified from chrono::format::scan
 
-use chrono::{FixedOffset, Local};
+use chrono::{DateTime, FixedOffset, Local, Offset, TimeZone};
+use chrono_tz::Tz;
+use titlecase::titlecase;
 
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
 pub enum ParseErrorKind {
@@ -12,32 +14,39 @@ pub enum ParseErrorKind {
 
     /// The input string has been prematurely ended.
     TooShort,
-
-    /// The timezone abbreviation is either invalid or not yet supported.
-    NotSupported,
 }
 
-pub fn get_timezone_offset(s: &str) -> Result<FixedOffset, ParseErrorKind> {
-    let offset_hours = |o| Ok(FixedOffset::east(o * 3600));
-
-    if s.chars().all(|x| x.is_ascii_alphabetic()) {
-        match s.to_lowercase().as_str() {
-            "gmt" | "utc" | "ut" => offset_hours(0),
-            "edt" => offset_hours(-4),
-            "est" | "cdt" => offset_hours(-5),
-            "cst" | "mdt" => offset_hours(-6),
-            "mst" | "pdt" => offset_hours(-7),
-            "pst" => offset_hours(-8),
-            "local" => Ok(*Local::now().offset()),
-            _ => Err(ParseErrorKind::NotSupported),
-        }
-    } else {
-        let offset = timezone_offset_internal(s, true, true)?;
-
-        match FixedOffset::east_opt(offset) {
-            Some(offset) => Ok(offset),
+pub fn datetime_in_timezone(
+    dt: &DateTime<FixedOffset>,
+    s: &str,
+) -> Result<DateTime<FixedOffset>, ParseErrorKind> {
+    match timezone_offset_internal(s, true, true) {
+        Ok(offset) => match FixedOffset::east_opt(offset) {
+            Some(offset) => Ok(dt.with_timezone(&offset)),
             None => Err(ParseErrorKind::OutOfRange),
+        },
+        Err(ParseErrorKind::Invalid) => {
+            if s.to_lowercase() == "local" {
+                Ok(dt.with_timezone(Local::now().offset()))
+            } else {
+                let tz: Tz = parse_timezone_internal(s)?;
+                let offset = tz.offset_from_utc_datetime(&dt.naive_utc()).fix();
+                Ok(dt.with_timezone(&offset))
+            }
         }
+        Err(e) => Err(e),
+    }
+}
+
+fn parse_timezone_internal(s: &str) -> Result<Tz, ParseErrorKind> {
+    if let Ok(tz) = s.parse() {
+        Ok(tz)
+    } else if let Ok(tz) = titlecase(s).parse() {
+        Ok(tz)
+    } else if let Ok(tz) = s.to_uppercase().parse() {
+        Ok(tz)
+    } else {
+        Err(ParseErrorKind::Invalid)
     }
 }
 

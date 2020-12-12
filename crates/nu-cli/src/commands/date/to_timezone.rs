@@ -1,4 +1,4 @@
-use crate::commands::date::parser::{get_timezone_offset, ParseErrorKind};
+use crate::commands::date::parser::{datetime_in_timezone, ParseErrorKind};
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -29,7 +29,7 @@ impl WholeStreamCommand for Date {
     fn usage(&self) -> &str {
         "Convert a date to a given time zone.
         
-Supported time zone abbreviations include: GMT, UTC, UT, EDT, EST, CDT, CST, MDT, MST, PDT, PST, LOCAL.
+Use `date list-timezone` to list all supported time zones.
         "
     }
 
@@ -49,8 +49,13 @@ Supported time zone abbreviations include: GMT, UTC, UT, EDT, EST, CDT, CST, MDT
                 result: None,
             },
             Example {
-                description: "Get the current date in PST",
-                example: "date now | date to-timezone PST",
+                description: "Get the current local date",
+                example: "date now | date to-timezone local",
+                result: None,
+            },
+            Example {
+                description: "Get the current date in Hawaii",
+                example: "date now | date to-timezone US/Hawaii",
                 result: None,
             },
         ]
@@ -70,9 +75,9 @@ async fn to_timezone(
             Value {
                 value: UntaggedValue::Primitive(Primitive::Date(dt)),
                 ..
-            } => match get_timezone_offset(&timezone.item) {
-                Ok(tz) => {
-                    let value = UntaggedValue::date(dt.with_timezone(&tz)).into_value(&tag);
+            } => match datetime_in_timezone(&dt, &timezone.item) {
+                Ok(dt) => {
+                    let value = UntaggedValue::date(dt).into_value(&tag);
 
                     ReturnSuccess::value(value)
                 }
@@ -93,11 +98,9 @@ async fn to_timezone(
 
 fn error_message(err: ParseErrorKind) -> &'static str {
     match err {
-        ParseErrorKind::NotSupported => {
-            "The time zone abbreviation is either invalid or not yet supported"
-        }
+        ParseErrorKind::Invalid => "The time zone description is invalid",
         ParseErrorKind::OutOfRange => "The time zone offset is out of range",
-        _ => "The format of the time zone is invalid",
+        ParseErrorKind::TooShort => "The format of the time zone is invalid",
     }
 }
 
