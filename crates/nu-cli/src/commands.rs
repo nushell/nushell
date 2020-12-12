@@ -154,7 +154,7 @@ pub(crate) use config::{
 };
 pub(crate) use count::Count;
 pub(crate) use cp::Cpy;
-pub(crate) use date::{Date, DateFormat, DateNow, DateUTC};
+pub(crate) use date::{Date, DateFormat, DateListTimeZone, DateNow, DateToTable, DateToTimeZone};
 pub(crate) use debug::Debug;
 pub(crate) use default::Default;
 pub(crate) use describe::Describe;

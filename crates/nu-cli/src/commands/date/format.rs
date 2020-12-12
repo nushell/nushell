@@ -1,18 +1,18 @@
-use crate::prelude::*;
-use chrono::{DateTime, Local};
-use nu_errors::ShellError;
-
-use crate::commands::date::utils::{date_to_value, date_to_value_raw};
 use crate::commands::WholeStreamCommand;
-use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
+use crate::prelude::*;
+use nu_errors::ShellError;
+use nu_protocol::{
+    Dictionary, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+};
 use nu_source::Tagged;
+use std::fmt::{self, write};
 
 pub struct Date;
 
 #[derive(Deserialize)]
 pub struct FormatArgs {
     format: Tagged<String>,
-    raw: Option<bool>,
+    table: bool,
 }
 
 #[async_trait]
@@ -24,11 +24,11 @@ impl WholeStreamCommand for Date {
     fn signature(&self) -> Signature {
         Signature::build("date format")
             .required("format", SyntaxShape::String, "strftime format")
-            .switch("raw", "print date without tables", Some('r'))
+            .switch("table", "print date in a table", Some('t'))
     }
 
     fn usage(&self) -> &str {
-        "format the current date using the given format string."
+        "Format a given date using the given format string."
     }
 
     async fn run(
@@ -38,6 +38,21 @@ impl WholeStreamCommand for Date {
     ) -> Result<OutputStream, ShellError> {
         format(args, registry).await
     }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Format the current date",
+                example: "date now | date format '%Y.%m.%d_%H %M %S,%z'",
+                result: None,
+            },
+            Example {
+                description: "Format the current date and print in a table",
+                example: "date now | date format -t '%Y-%m-%d_%H:%M:%S %z'",
+                result: None,
+            },
+        ]
+    }
 }
 
 pub async fn format(
@@ -46,20 +61,46 @@ pub async fn format(
 ) -> Result<OutputStream, ShellError> {
     let registry = registry.clone();
     let tag = args.call_info.name_tag.clone();
-    let (FormatArgs { format, raw }, _) = args.process(&registry).await?;
+    let (FormatArgs { format, table }, input) = args.process(&registry).await?;
 
-    let dt_fmt = format.to_string();
+    Ok(input
+        .map(move |value| match value {
+            Value {
+                value: UntaggedValue::Primitive(Primitive::Date(dt)),
+                ..
+            } => {
+                let mut output = String::new();
+                if let Err(fmt::Error) =
+                    write(&mut output, format_args!("{}", dt.format(&format.item)))
+                {
+                    Err(ShellError::labeled_error(
+                        "The date format is invalid",
+                        "invalid strftime format",
+                        &format.tag,
+                    ))
+                } else {
+                    let value = if table {
+                        let mut indexmap = IndexMap::new();
+                        indexmap.insert(
+                            "formatted".to_string(),
+                            UntaggedValue::string(&output).into_value(&tag),
+                        );
 
-    let value = {
-        let local: DateTime<Local> = Local::now();
-        if let Some(true) = raw {
-            UntaggedValue::string(date_to_value_raw(local, dt_fmt)).into_untagged_value()
-        } else {
-            date_to_value(local, tag, dt_fmt)
-        }
-    };
+                        UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag)
+                    } else {
+                        UntaggedValue::string(&output).into_value(&tag)
+                    };
 
-    Ok(OutputStream::one(value))
+                    ReturnSuccess::value(value)
+                }
+            }
+            _ => Err(ShellError::labeled_error(
+                "Expected a date from pipeline",
+                "requires date input",
+                &tag,
+            )),
+        })
+        .to_output_stream())
 }
 
 #[cfg(test)]

@@ -31,6 +31,7 @@ byte-unit = "4.0.9"
 bytes = "0.5.6"
 calamine = "0.16.1"
 chrono = {version = "0.4.15", features = ["serde"]}
+chrono-tz = "0.5.3"
 clap = "2.33.3"
 clipboard = {version = "0.5.0", optional = true}
 codespan-reporting = "0.9.5"
@@ -91,6 +92,7 @@ tempfile = "3.1.0"
 term = {version = "0.6.1", optional = true}
 term_size = "0.3.2"
 termcolor = "1.1.0"
+titlecase = "1.0"
 toml = "0.5.6"
 trash = {version = "1.2.0", optional = true}
 unicode-segmentation = "1.6.0"

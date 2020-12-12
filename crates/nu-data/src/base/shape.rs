@@ -1,6 +1,6 @@
 // use crate::config::{Conf, NuConfig};
 use bigdecimal::BigDecimal;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, FixedOffset};
 use indexmap::map::IndexMap;
 use nu_protocol::RangeInclusion;
 use nu_protocol::{format_primitive, ColumnPath, Dictionary, Primitive, UntaggedValue, Value};
@@ -31,7 +31,7 @@ pub enum InlineShape {
     ColumnPath(ColumnPath),
     Pattern(String),
     Boolean(bool),
-    Date(DateTime<Utc>),
+    Date(DateTime<FixedOffset>),
     Duration(BigInt),
     Path(PathBuf),
     Binary(usize),
