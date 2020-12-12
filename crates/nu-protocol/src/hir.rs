@@ -78,7 +78,6 @@ impl ClassifiedPipeline {
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub enum ClassifiedCommand {
     Expr(Box<SpannedExpression>),
-    #[allow(unused)]
     Dynamic(crate::hir::Call),
     Internal(InternalCommand),
     Error(ParseError),
@@ -178,14 +177,11 @@ pub struct Block {
 
 impl Block {
     pub fn new(params: Vec<String>, block: Vec<Group>, span: Span) -> Block {
-        let mut output = Block {
+        Block {
             params,
             block,
             span,
-        };
-
-        //output.infer_params();
-        output
+        }
     }
 
     pub fn basic() -> Block {

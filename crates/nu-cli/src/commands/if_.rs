@@ -3,15 +3,17 @@ use crate::commands::WholeStreamCommand;
 use crate::evaluate::evaluate_baseline_expr;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, hir::ClassifiedCommand, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{
+    hir::CapturedBlock, hir::ClassifiedCommand, Signature, SyntaxShape, UntaggedValue,
+};
 
 pub struct If;
 
 #[derive(Deserialize)]
 pub struct IfArgs {
-    condition: Block,
-    then_case: Block,
-    else_case: Block,
+    condition: CapturedBlock,
+    then_case: CapturedBlock,
+    else_case: CapturedBlock,
 }
 
 #[async_trait]
@@ -75,15 +77,15 @@ async fn if_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         },
         input,
     ) = raw_args.process().await?;
-    let condition = {
-        if condition.block.len() != 1 {
+    let cond = {
+        if condition.block.block.len() != 1 {
             return Err(ShellError::labeled_error(
                 "Expected a condition",
                 "expected a condition",
                 tag,
             ));
         }
-        match condition.block[0].pipelines.get(0) {
+        match condition.block.block[0].pipelines.get(0) {
             Some(item) => match item.list.get(0) {
                 Some(ClassifiedCommand::Expr(expr)) => expr.clone(),
                 _ => {
@@ -106,23 +108,25 @@ async fn if_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     Ok(input
         .then(move |input| {
-            let condition = condition.clone();
+            let cond = cond.clone();
             let then_case = then_case.clone();
             let else_case = else_case.clone();
             let context = context.clone();
             context.scope.enter_scope();
+            context.scope.add_vars(&condition.captured.entries);
             context.scope.add_var("$it", input);
 
             async move {
                 //FIXME: should we use the scope that's brought in as well?
-                let condition = evaluate_baseline_expr(&condition, &*context).await;
+                let condition = evaluate_baseline_expr(&cond, &*context).await;
 
                 match condition {
                     Ok(condition) => match condition.as_bool() {
                         Ok(b) => {
                             if b {
                                 let result =
-                                    run_block(&then_case, &*context, InputStream::empty()).await;
+                                    run_block(&then_case.block, &*context, InputStream::empty())
+                                        .await;
                                 context.scope.exit_scope();
 
                                 match result {
@@ -132,7 +136,8 @@ async fn if_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                                 }
                             } else {
                                 let result =
-                                    run_block(&else_case, &*context, InputStream::empty()).await;
+                                    run_block(&else_case.block, &*context, InputStream::empty())
+                                        .await;
                                 context.scope.exit_scope();
 
                                 match result {

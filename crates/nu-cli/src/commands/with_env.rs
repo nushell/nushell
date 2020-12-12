@@ -2,14 +2,16 @@ use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, Signature, SpannedTypeName, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{
+    hir::CapturedBlock, Signature, SpannedTypeName, SyntaxShape, UntaggedValue, Value,
+};
 
 pub struct WithEnv;
 
 #[derive(Deserialize, Debug)]
 struct WithEnvArgs {
     variable: Value,
-    block: Block,
+    block: CapturedBlock,
 }
 
 #[async_trait]
@@ -105,8 +107,9 @@ async fn with_env(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     context.scope.enter_scope();
     context.scope.add_env(env);
+    context.scope.add_vars(&block.captured.entries);
 
-    let result = run_block(&block, &mut context, input).await;
+    let result = run_block(&block.block, &context, input).await;
     context.scope.exit_scope();
 
     result.map(|x| x.to_output_stream())

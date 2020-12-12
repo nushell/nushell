@@ -6,14 +6,14 @@ use crate::{CommandArgs, Example, OutputStream};
 use futures::stream::once;
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
-use nu_protocol::{hir::Block, Primitive, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{hir::CapturedBlock, Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct Reduce;
 
 #[derive(Deserialize)]
 pub struct ReduceArgs {
-    block: Block,
+    block: CapturedBlock,
     fold: Option<Value>,
     numbered: Tagged<bool>,
 }
@@ -76,7 +76,7 @@ impl WholeStreamCommand for Reduce {
 }
 
 async fn process_row(
-    block: Arc<Block>,
+    block: Arc<CapturedBlock>,
     context: &EvaluationContext,
     row: Value,
 ) -> Result<InputStream, ShellError> {
@@ -84,8 +84,9 @@ async fn process_row(
     let input_stream = once(async { Ok(row_clone) }).to_input_stream();
 
     context.scope.enter_scope();
+    context.scope.add_vars(&block.captured.entries);
     context.scope.add_var("$it", row);
-    let result = run_block(&block, context, input_stream).await;
+    let result = run_block(&block.block, context, input_stream).await;
     context.scope.exit_scope();
 
     Ok(result?)
@@ -142,6 +143,7 @@ async fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                     context.scope.add_var("$acc", f);
                     let result = process_row(block, &*context, row).await;
                     context.scope.exit_scope();
+
                     result
                 }
             })

@@ -364,6 +364,9 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
 
     let _ = run_startup_commands(&mut context, &configuration).await;
 
+    // Give ourselves a scope to work in
+    context.scope.enter_scope();
+
     let history_path = crate::commands::history::history_path(&configuration);
     let _ = rl.load_history(&history_path);
 
@@ -413,10 +416,9 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
                         }
                     )
                 } else {
-                    let env = context.get_env();
+                    // let env = context.get_env();
 
-                    let run_result =
-                        run_block(&prompt_block, &mut context, InputStream::empty()).await;
+                    let run_result = run_block(&prompt_block, &context, InputStream::empty()).await;
                     context.scope.exit_scope();
 
                     match run_result {
@@ -874,6 +876,7 @@ pub async fn parse_and_eval(line: &str, ctx: &mut EvaluationContext) -> Result<S
     ctx.scope.enter_scope();
     let (classified_block, err) = nu_parser::parse(&line, 0, &ctx.scope);
     if let Some(err) = err {
+        ctx.scope.exit_scope();
         return Err(err.into());
     }
 
@@ -901,7 +904,7 @@ pub async fn process_script(
         let line = chomp_newline(script_text);
         ctx.raw_input = line.to_string();
 
-        let (block, err) = nu_parser::parse(&line, 0, &mut ctx.scope);
+        let (block, err) = nu_parser::parse(&line, 0, &ctx.scope);
 
         debug!("{:#?}", block);
         //println!("{:#?}", pipeline);
@@ -1022,10 +1025,8 @@ pub async fn process_script(
         trace!("{:#?}", block);
         let env = ctx.get_env();
 
-        ctx.scope.enter_scope();
         ctx.scope.add_env(env);
         let result = run_block(&block, ctx, input_stream).await;
-        ctx.scope.exit_scope();
 
         match result {
             Ok(input) => {

@@ -1,4 +1,4 @@
-use std::{path::Path, sync::Arc};
+use std::path::Path;
 
 use log::trace;
 use nu_errors::{ArgumentError, ParseError};
@@ -904,7 +904,9 @@ fn parse_arg(
                 ),
             }
         }
-        SyntaxShape::Block | SyntaxShape::Math | SyntaxShape::MathRaw => {
+        SyntaxShape::Initializer => parse_arg(SyntaxShape::Any, scope, lite_arg),
+
+        SyntaxShape::Block | SyntaxShape::Math => {
             // Blocks have one of two forms: the literal block and the implied block
             // To parse a literal block, we need to detect that what we have is itself a block
             let mut chars = lite_arg.item.chars();
@@ -1347,6 +1349,35 @@ fn parse_positional_argument(
     let mut idx = idx;
     let mut error = None;
     let arg = match positional_type {
+        PositionalType::Mandatory(_, SyntaxShape::Initializer)
+        | PositionalType::Optional(_, SyntaxShape::Initializer) => {
+            let end_idx = if (lite_cmd.parts.len() - 1) > remaining_positionals {
+                lite_cmd.parts.len() - remaining_positionals
+            } else {
+                lite_cmd.parts.len()
+            };
+
+            let (new_idx, arg, err) =
+                parse_math_expression(idx, &lite_cmd.parts[idx..end_idx], scope, false);
+
+            let span = arg.span;
+            let mut commands = hir::Pipeline::new(span);
+            commands.push(ClassifiedCommand::Expr(Box::new(arg)));
+
+            let block = hir::Block::new(
+                vec![],
+                vec![Group::new(vec![commands], lite_cmd.span())],
+                span,
+            );
+
+            let arg = SpannedExpression::new(Expression::Block(block), span);
+
+            idx = new_idx - 1;
+            if error.is_none() {
+                error = err;
+            }
+            arg
+        }
         PositionalType::Mandatory(_, SyntaxShape::Math)
         | PositionalType::Optional(_, SyntaxShape::Math) => {
             // A condition can take up multiple arguments, as we build the operation as <arg> <operator> <arg>
@@ -1369,57 +1400,6 @@ fn parse_positional_argument(
 
                     let (new_idx, arg, err) =
                         parse_math_expression(idx, &lite_cmd.parts[idx..end_idx], scope, true);
-
-                    let span = arg.span;
-                    let mut commands = hir::Pipeline::new(span);
-                    commands.push(ClassifiedCommand::Expr(Box::new(arg)));
-
-                    let block = hir::Block::new(
-                        vec![],
-                        vec![Group::new(vec![commands], lite_cmd.span())],
-                        span,
-                    );
-
-                    let arg = SpannedExpression::new(Expression::Block(block), span);
-
-                    idx = new_idx - 1;
-                    if error.is_none() {
-                        error = err;
-                    }
-                    arg
-                }
-            } else {
-                if error.is_none() {
-                    error = Some(ParseError::argument_error(
-                        lite_cmd.parts[0].clone(),
-                        ArgumentError::MissingMandatoryPositional("condition".into()),
-                    ))
-                }
-                garbage(lite_cmd.span())
-            }
-        }
-        PositionalType::Mandatory(_, SyntaxShape::MathRaw)
-        | PositionalType::Optional(_, SyntaxShape::MathRaw) => {
-            // A condition can take up multiple arguments, as we build the operation as <arg> <operator> <arg>
-            // We need to do this here because in parse_arg, we have access to only one arg at a time
-
-            if idx < lite_cmd.parts.len() {
-                if lite_cmd.parts[idx].item.starts_with('{') {
-                    // It's an explicit math expression, so parse it deeper in
-                    let (arg, err) = parse_arg(SyntaxShape::Math, scope, &lite_cmd.parts[idx]);
-                    if error.is_none() {
-                        error = err;
-                    }
-                    arg
-                } else {
-                    let end_idx = if (lite_cmd.parts.len() - 1) > remaining_positionals {
-                        lite_cmd.parts.len() - remaining_positionals
-                    } else {
-                        lite_cmd.parts.len()
-                    };
-
-                    let (new_idx, arg, err) =
-                        parse_math_expression(idx, &lite_cmd.parts[idx..end_idx], scope, false);
 
                     let span = arg.span;
                     let mut commands = hir::Pipeline::new(span);
@@ -1666,6 +1646,40 @@ fn parse_external_call(
     )
 }
 
+fn parse_value_call(
+    call: LiteCommand,
+    scope: &dyn ParserScope,
+) -> (Option<ClassifiedCommand>, Option<ParseError>) {
+    let mut err = None;
+
+    let (head, error) = parse_arg(SyntaxShape::Block, scope, &call.parts[0]);
+    let mut span = head.span;
+    if err.is_none() {
+        err = error;
+    }
+
+    let mut args = vec![];
+    for arg in call.parts.iter().skip(1) {
+        let (arg, error) = parse_arg(SyntaxShape::Any, scope, arg);
+        if err.is_none() {
+            err = error;
+        }
+        span = span.until(arg.span);
+        args.push(arg);
+    }
+
+    (
+        Some(ClassifiedCommand::Dynamic(hir::Call {
+            head: Box::new(head),
+            positional: Some(args),
+            named: None,
+            span,
+            external_redirection: ExternalRedirection::None,
+        })),
+        err,
+    )
+}
+
 fn expand_aliases_in_call(call: &mut LiteCommand, scope: &dyn ParserScope) {
     if let Some(name) = call.parts.get(0) {
         if let Some(mut expansion) = scope.get_alias(name) {
@@ -1736,6 +1750,8 @@ fn parse_call(
             })),
             error,
         );
+    } else if lite_cmd.parts[0].item.starts_with('$') || lite_cmd.parts[0].item.starts_with('{') {
+        return parse_value_call(lite_cmd, scope);
     } else if lite_cmd.parts[0].item == "=" {
         let expr = if lite_cmd.parts.len() > 1 {
             let (_, expr, err) = parse_math_expression(0, &lite_cmd.parts[1..], scope, false);

@@ -3,14 +3,14 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::Block, hir::ExternalRedirection, ReturnSuccess, Signature, SyntaxShape, Value,
+    hir::CapturedBlock, hir::ExternalRedirection, ReturnSuccess, Signature, SyntaxShape, Value,
 };
 
 pub struct Do;
 
 #[derive(Deserialize, Debug)]
 struct DoArgs {
-    block: Block,
+    block: CapturedBlock,
     ignore_errors: bool,
 }
 
@@ -85,9 +85,9 @@ async fn do_(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         x => x,
     };
 
-    block.set_redirect(block_redirection);
+    block.block.set_redirect(block_redirection);
 
-    let result = run_block(&block, &mut context, input).await;
+    let result = run_block(&block.block, &context, input).await;
 
     if ignore_errors {
         // To properly ignore errors we need to redirect stderr, consume it, and remove

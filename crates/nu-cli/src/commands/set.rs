@@ -30,7 +30,7 @@ impl WholeStreamCommand for Set {
             .required("equals", SyntaxShape::String, "the equals sign")
             .required(
                 "expr",
-                SyntaxShape::MathRaw,
+                SyntaxShape::Initializer,
                 "the value to set the variable to",
             )
     }
@@ -51,7 +51,8 @@ impl WholeStreamCommand for Set {
 pub async fn set(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let ctx = EvaluationContext::from_args(&args);
-    let (SetArgs { name, equals, rhs }, _) = args.process().await?;
+
+    let (SetArgs { name, rhs, .. }, _) = args.process().await?;
 
     let (expr, captured) = {
         if rhs.block.block.len() != 1 {
@@ -64,7 +65,7 @@ pub async fn set(args: CommandArgs) -> Result<OutputStream, ShellError> {
         match rhs.block.block[0].pipelines.get(0) {
             Some(item) => match item.list.get(0) {
                 Some(ClassifiedCommand::Expr(expr)) => (expr.clone(), rhs.captured.clone()),
-                _ => {
+                x => {
                     return Err(ShellError::labeled_error(
                         "Expected a value",
                         "expected a value",

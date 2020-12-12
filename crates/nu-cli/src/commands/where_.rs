@@ -2,13 +2,15 @@ use crate::commands::WholeStreamCommand;
 use crate::evaluate::evaluate_baseline_expr;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, hir::ClassifiedCommand, ReturnSuccess, Signature, SyntaxShape};
+use nu_protocol::{
+    hir::CapturedBlock, hir::ClassifiedCommand, ReturnSuccess, Signature, SyntaxShape,
+};
 
 pub struct Where;
 
 #[derive(Deserialize)]
 pub struct WhereArgs {
-    block: Block,
+    block: CapturedBlock,
 }
 
 #[async_trait]
@@ -63,14 +65,14 @@ async fn where_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError
     let tag = raw_args.call_info.name_tag.clone();
     let (WhereArgs { block }, input) = raw_args.process().await?;
     let condition = {
-        if block.block.len() != 1 {
+        if block.block.block.len() != 1 {
             return Err(ShellError::labeled_error(
                 "Expected a condition",
                 "expected a condition",
                 tag,
             ));
         }
-        match block.block[0].pipelines.get(0) {
+        match block.block.block[0].pipelines.get(0) {
             Some(item) => match item.list.get(0) {
                 Some(ClassifiedCommand::Expr(expr)) => expr.clone(),
                 _ => {
@@ -97,6 +99,7 @@ async fn where_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError
             let ctx = ctx.clone();
 
             ctx.scope.enter_scope();
+            ctx.scope.add_vars(&block.captured.entries);
             ctx.scope.add_var("$it", input.clone());
 
             async move {

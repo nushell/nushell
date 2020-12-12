@@ -5,7 +5,7 @@ use crate::prelude::*;
 use heim::cpu::time;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::{Block, ClassifiedCommand, Group, InternalCommand, Pipeline},
+    hir::{Block, CapturedBlock, ClassifiedCommand, Group, InternalCommand, Pipeline},
     Dictionary, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use rand::{
@@ -19,8 +19,8 @@ pub struct Benchmark;
 
 #[derive(Deserialize, Debug)]
 struct BenchmarkArgs {
-    block: Block,
-    passthrough: Option<Block>,
+    block: CapturedBlock,
+    passthrough: Option<CapturedBlock>,
 }
 
 #[async_trait]
@@ -84,7 +84,7 @@ async fn benchmark(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     #[cfg(feature = "rich-benchmark")]
     let start = time().await;
 
-    let result = run_block(&block, &mut context, input).await;
+    let result = run_block(&block.block, &mut context, input).await;
     let output = result?.into_vec().await;
 
     #[cfg(feature = "rich-benchmark")]
@@ -130,7 +130,7 @@ async fn benchmark(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
 async fn benchmark_output<T, Output>(
     indexmap: IndexMap<String, BigInt>,
     block_output: Output,
-    passthrough: Option<Block>,
+    passthrough: Option<CapturedBlock>,
     tag: T,
     context: &mut EvaluationContext,
 ) -> Result<OutputStream, ShellError>
@@ -150,7 +150,7 @@ where
         let benchmark_output = InputStream::one(value);
 
         // add autoview for an empty block
-        let time_block = add_implicit_autoview(time_block);
+        let time_block = add_implicit_autoview(time_block.block);
 
         let _ = run_block(&time_block, context, benchmark_output).await?;
         context.clear_errors();

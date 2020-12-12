@@ -5,8 +5,7 @@ use crate::prelude::*;
 use futures::stream::once;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::{Block, CapturedBlock},
-    Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
+    hir::CapturedBlock, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
 };
 use nu_source::Tagged;
 
@@ -113,7 +112,8 @@ pub(crate) fn make_indexed_item(index: usize, item: Value) -> Value {
 
 async fn each(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let context = Arc::new(EvaluationContext::from_raw(&raw_args));
-    let (mut each_args, input): (EachArgs, _) = raw_args.process().await?;
+
+    let (each_args, input): (EachArgs, _) = raw_args.process().await?;
     let block = Arc::new(each_args.block);
 
     if each_args.numbered.item {

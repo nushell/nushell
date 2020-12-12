@@ -3,6 +3,7 @@ use crate::commands::classified::internal::run_internal_command;
 use crate::evaluation_context::EvaluationContext;
 use crate::prelude::*;
 use crate::stream::InputStream;
+use async_recursion::async_recursion;
 use futures::stream::TryStreamExt;
 use nu_errors::ShellError;
 use nu_protocol::hir::{
@@ -11,6 +12,7 @@ use nu_protocol::hir::{
 use nu_protocol::{ReturnSuccess, UntaggedValue, Value};
 use std::sync::atomic::Ordering;
 
+#[async_recursion]
 pub async fn run_block(
     block: &Block,
     ctx: &EvaluationContext,
@@ -115,6 +117,7 @@ pub async fn run_block(
     output
 }
 
+#[async_recursion]
 async fn run_pipeline(
     commands: &Pipeline,
     ctx: &EvaluationContext,
@@ -122,11 +125,63 @@ async fn run_pipeline(
 ) -> Result<InputStream, ShellError> {
     for item in commands.list.clone() {
         input = match item {
-            ClassifiedCommand::Dynamic(_) => {
-                return Err(ShellError::unimplemented("Dynamic commands"))
+            ClassifiedCommand::Dynamic(call) => {
+                let mut args = vec![];
+                if let Some(positional) = call.positional {
+                    for pos in &positional {
+                        let result = run_expression_block(pos, ctx).await?.into_vec().await;
+                        args.push(result);
+                    }
+                }
+
+                match &call.head.expr {
+                    Expression::Block(block) => {
+                        ctx.scope.enter_scope();
+                        for (param, value) in block.params.iter().zip(args.iter()) {
+                            ctx.scope.add_var(param.clone(), value[0].clone());
+                        }
+                        let result = run_block(&block, ctx, input).await;
+                        ctx.scope.exit_scope();
+
+                        let result = result?;
+                        return Ok(result);
+                    }
+                    Expression::Variable(v, span) => {
+                        if let Some(value) = ctx.scope.get_var(v) {
+                            match &value.value {
+                                UntaggedValue::Block(captured_block) => {
+                                    ctx.scope.enter_scope();
+                                    ctx.scope.add_vars(&captured_block.captured.entries);
+                                    for (param, value) in
+                                        captured_block.block.params.iter().zip(args.iter())
+                                    {
+                                        ctx.scope.add_var(param.clone(), value[0].clone());
+                                    }
+                                    let result = run_block(&captured_block.block, ctx, input).await;
+                                    ctx.scope.exit_scope();
+
+                                    let result = result?;
+                                    return Ok(result);
+                                }
+                                x => {
+                                    return Err(ShellError::labeled_error("Dynamic commands must start with a block (or variable pointing to a block)", "needs to be a block", call.head.span));
+                                }
+                            }
+                        } else {
+                            return Err(ShellError::labeled_error(
+                                "Variable not found",
+                                "variable not found",
+                                span,
+                            ));
+                        }
+                    }
+                    _ => {
+                        return Err(ShellError::labeled_error("Dynamic commands must start with a block (or variable pointing to a block)", "needs to be a block", call.head.span));
+                    }
+                }
             }
 
-            ClassifiedCommand::Expr(expr) => run_expression_block(*expr, ctx).await?,
+            ClassifiedCommand::Expr(expr) => run_expression_block(&*expr, ctx).await?,
 
             ClassifiedCommand::Error(err) => return Err(err.into()),
 
