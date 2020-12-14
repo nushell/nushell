@@ -10,13 +10,13 @@ version = "0.24.1"
 
 [dependencies]
 bigdecimal = {version = "0.2.0", features = ["serde"]}
-codespan-reporting = "0.9.5"
+codespan-reporting = "0.11.0"
 derive-new = "0.5.8"
 indexmap = {version = "1.6.0", features = ["serde-1"]}
 log = "0.4.11"
 num-bigint = {version = "0.3.0", features = ["serde"]}
 num-traits = "0.2.12"
-serde = "1.0.115"
+serde = "1.0.118"
 shellexpand = "2.0.0"
 
 nu-errors = {version = "0.24.1", path = "../nu-errors"}

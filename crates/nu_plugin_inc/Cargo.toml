@@ -17,6 +17,6 @@ nu-source = {path = "../nu-source", version = "0.24.1"}
 nu-test-support = {path = "../nu-test-support", version = "0.24.1"}
 nu-value-ext = {path = "../nu-value-ext", version = "0.24.1"}
 
-semver = "0.10.0"
+semver = "0.11.0"
 
 [build-dependencies]
