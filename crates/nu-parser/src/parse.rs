@@ -1993,21 +1993,21 @@ pub fn classify_block(
     let mut output = Block::basic();
     let mut error = None;
 
-    // Check for custom commands first
-    // for group in lite_block.block.iter() {
-    //     for pipeline in &group.pipelines {
-    //         for call in &pipeline.commands {
-    //             if let Some(first) = call.parts.first() {
-    //                 if first.item == "def" {
-    //                     if pipeline.commands.len() > 1 && err.is_none() {
-    //                         err = Some(ParseError::DefinitionInPipeline(first.span));
-    //                     }
-    //                     parse_definition_prototype(call, scope);
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
+    Check for custom commands first
+    for group in lite_block.block.iter() {
+        for pipeline in &group.pipelines {
+            for call in &pipeline.commands {
+                if let Some(first) = call.parts.first() {
+                    if first.item == "def" {
+                        if pipeline.commands.len() > 1 && err.is_none() {
+                            err = Some(ParseError::DefinitionInPipeline(first.span));
+                        }
+                        parse_definition_prototype(call, scope);
+                    }
+                }
+            }
+        }
+    }
 
     // Then the rest of the code
     for group in &lite_block.block {
@@ -2076,7 +2076,7 @@ pub fn classify_block(
         }
     }
 
-    //output.definitions = scope.commands.clone();
+    output.definitions = scope.commands.clone();
 
     (output, error)
 }

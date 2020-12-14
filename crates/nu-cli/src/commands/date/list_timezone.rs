@@ -21,12 +21,8 @@ impl WholeStreamCommand for Date {
         "List supported time zones."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        list_timezone(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        list_timezone(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -45,11 +41,8 @@ impl WholeStreamCommand for Date {
     }
 }
 
-async fn list_timezone(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(&registry).await?;
+async fn list_timezone(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once().await?;
     let tag = args.call_info.name_tag.clone();
 
     let list = TZ_VARIANTS.iter().map(move |tz| {

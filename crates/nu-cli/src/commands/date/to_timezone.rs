@@ -33,12 +33,8 @@ Use `date list-timezone` to list all supported time zones.
         "
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        to_timezone(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        to_timezone(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -62,13 +58,9 @@ Use `date list-timezone` to list all supported time zones.
     }
 }
 
-async fn to_timezone(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+async fn to_timezone(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let (DateToTimeZoneArgs { timezone }, input) = args.process(&registry).await?;
+    let (DateToTimeZoneArgs { timezone }, input) = args.process().await?;
 
     Ok(input
         .map(move |value| match value {

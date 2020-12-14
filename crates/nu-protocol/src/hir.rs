@@ -172,6 +172,7 @@ impl CapturedBlock {
 pub struct Block {
     pub params: Vec<String>,
     pub block: Vec<Group>,
+    pub definitions: IndexMap<String, Command>,
     pub span: Span,
 }
 
