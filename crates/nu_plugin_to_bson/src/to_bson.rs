@@ -29,7 +29,7 @@ pub fn value_to_bson_value(v: &Value) -> Result<Bson, ShellError> {
                 .expect("Unimplemented BUG: What about big decimals?"),
         ),
         UntaggedValue::Primitive(Primitive::Duration(i)) => Bson::String(i.to_string()),
-        UntaggedValue::Primitive(Primitive::Date(d)) => Bson::UtcDatetime(*d),
+        UntaggedValue::Primitive(Primitive::Date(d)) => Bson::UtcDatetime((*d).into()),
         UntaggedValue::Primitive(Primitive::EndOfStream) => Bson::Null,
         UntaggedValue::Primitive(Primitive::BeginningOfStream) => Bson::Null,
         UntaggedValue::Primitive(Primitive::Decimal(d)) => {

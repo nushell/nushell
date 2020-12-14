@@ -1,10 +1,8 @@
+use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use chrono::{DateTime, Local};
 use nu_errors::ShellError;
-
-use crate::commands::date::utils::date_to_value;
-use crate::commands::WholeStreamCommand;
-use nu_protocol::Signature;
+use nu_protocol::{Signature, UntaggedValue};
 
 pub struct Date;
 
@@ -19,7 +17,7 @@ impl WholeStreamCommand for Date {
     }
 
     fn usage(&self) -> &str {
-        "return the current date."
+        "Get the current date."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -31,12 +29,9 @@ pub async fn now(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once().await?;
     let tag = args.call_info.name_tag.clone();
 
-    let no_fmt = "".to_string();
+    let now: DateTime<Local> = Local::now();
 
-    let value = {
-        let local: DateTime<Local> = Local::now();
-        date_to_value(local, tag, no_fmt)
-    };
+    let value = UntaggedValue::date(now.with_timezone(now.offset())).into_value(&tag);
 
     Ok(OutputStream::one(value))
 }

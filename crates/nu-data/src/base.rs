@@ -1,7 +1,7 @@
 pub(crate) mod shape;
 
 use bigdecimal::BigDecimal;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, FixedOffset, Utc};
 use derive_new::new;
 use nu_errors::ShellError;
 use nu_protocol::{
@@ -75,8 +75,8 @@ pub enum CompareValues {
     Ints(BigInt, BigInt),
     Decimals(BigDecimal, BigDecimal),
     String(String, String),
-    Date(DateTime<Utc>, DateTime<Utc>),
-    DateDuration(DateTime<Utc>, BigInt),
+    Date(DateTime<FixedOffset>, DateTime<FixedOffset>),
+    DateDuration(DateTime<FixedOffset>, BigInt),
     Booleans(bool, bool),
 }
 
@@ -94,9 +94,10 @@ impl CompareValues {
                     Span::unknown(),
                 )
                 .expect("Could not convert nushell Duration into chrono Duration.");
-                let right: DateTime<Utc> = Utc::now()
+                let right: DateTime<FixedOffset> = Utc::now()
                     .checked_sub_signed(duration)
-                    .expect("Data overflow");
+                    .expect("Data overflow")
+                    .into();
                 right.cmp(left)
             }
             CompareValues::Booleans(left, right) => left.cmp(right),

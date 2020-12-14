@@ -153,7 +153,7 @@ pub(crate) use config::{
 };
 pub(crate) use count::Count;
 pub(crate) use cp::Cpy;
-pub(crate) use date::{Date, DateFormat, DateNow, DateUTC};
+pub(crate) use date::{Date, DateFormat, DateListTimeZone, DateNow, DateToTable, DateToTimeZone};
 pub(crate) use debug::Debug;
 pub(crate) use default::Default;
 pub(crate) use describe::Describe;
@@ -231,7 +231,9 @@ pub(crate) use prev::Previous;
 pub(crate) use pwd::Pwd;
 #[cfg(feature = "uuid_crate")]
 pub(crate) use random::RandomUUID;
-pub(crate) use random::{Random, RandomBool, RandomDecimal, RandomDice, RandomInteger};
+pub(crate) use random::{
+    Random, RandomBool, RandomChars, RandomDecimal, RandomDice, RandomInteger,
+};
 pub(crate) use range::Range;
 pub(crate) use reduce::Reduce;
 pub(crate) use reject::Reject;

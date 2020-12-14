@@ -25,7 +25,7 @@ impl Date {
 
         let date = date.with_timezone(&chrono::offset::Utc);
 
-        Ok(UntaggedValue::Primitive(Primitive::Date(date)))
+        Ok(UntaggedValue::Primitive(Primitive::Date(date.into())))
     }
 
     pub fn naive_from_str(s: Tagged<&str>) -> Result<UntaggedValue, ShellError> {
@@ -38,7 +38,7 @@ impl Date {
         })?;
 
         Ok(UntaggedValue::Primitive(Primitive::Date(
-            DateTime::<Utc>::from_utc(date.and_hms(12, 34, 56), Utc),
+            DateTime::<Utc>::from_utc(date.and_hms(12, 34, 56), Utc).into(),
         )))
     }
 }

@@ -3144,6 +3144,7 @@ dependencies = [
  "bytes 0.5.6",
  "calamine",
  "chrono",
+ "chrono-tz",
  "clap",
  "clipboard",
  "codespan-reporting",
@@ -3217,6 +3218,7 @@ dependencies = [
  "term",
  "term_size",
  "termcolor",
+ "titlecase",
  "toml",
  "trash",
  "umask",
@@ -5623,6 +5625,16 @@ name = "tinyvec_macros"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
+
+[[package]]
+name = "titlecase"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f565e410cfc24c2f2a89960b023ca192689d7f77d3f8d4f4af50c2d8affe1117"
+dependencies = [
+ "lazy_static 1.4.0",
+ "regex 1.4.2",
+]
 
 [[package]]
 name = "tokio"

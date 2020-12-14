@@ -54,6 +54,7 @@ pub async fn from_delimited_data(
 ) -> Result<OutputStream, ShellError> {
     let name_tag = name;
     let concat_string = input.collect_string(name_tag.clone()).await?;
+    let sample_lines = concat_string.item.lines().take(3).collect_vec().join("\n");
 
     match from_delimited_string_to_value(concat_string.item, headerless, sep, name_tag.clone()) {
         Ok(x) => match x {
@@ -65,10 +66,16 @@ pub async fn from_delimited_data(
         },
         Err(err) => {
             let line_one = match pretty_csv_error(err) {
-                Some(pretty) => format!("Could not parse as {} ({})", format_name, pretty),
-                None => format!("Could not parse as {}", format_name),
+                Some(pretty) => format!(
+                    "Could not parse as {} split by '{}' ({})",
+                    format_name, sep, pretty
+                ),
+                None => format!("Could not parse as {} split by '{}'", format_name, sep),
             };
-            let line_two = format!("input cannot be parsed as {}", format_name);
+            let line_two = format!(
+                "input cannot be parsed as {} split by '{}'. Input's first lines:\n{}",
+                format_name, sep, sample_lines
+            );
 
             Err(ShellError::labeled_error_with_secondary(
                 line_one,

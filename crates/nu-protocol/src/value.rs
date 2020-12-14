@@ -18,7 +18,7 @@ use crate::value::range::{Range, RangeInclusion};
 use crate::ColumnPath;
 use bigdecimal::BigDecimal;
 use bigdecimal::FromPrimitive;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, FixedOffset, Utc};
 use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_source::{AnchorLocation, HasSpan, Span, Spanned, SpannedItem, Tag};
@@ -247,10 +247,11 @@ impl UntaggedValue {
 
     /// Helper for creating datatime values
     pub fn system_date(s: SystemTime) -> UntaggedValue {
-        UntaggedValue::Primitive(Primitive::Date(s.into()))
+        let utc: DateTime<Utc> = s.into();
+        UntaggedValue::Primitive(Primitive::Date(utc.into()))
     }
 
-    pub fn date(d: impl Into<DateTime<Utc>>) -> UntaggedValue {
+    pub fn date(d: impl Into<DateTime<FixedOffset>>) -> UntaggedValue {
         UntaggedValue::Primitive(Primitive::Date(d.into()))
     }
 
@@ -923,7 +924,7 @@ pub trait DateTimeExt {
     fn to_value_create_tag(&self) -> Value;
 }
 
-impl DateTimeExt for DateTime<Utc> {
+impl DateTimeExt for DateTime<FixedOffset> {
     fn to_value(&self, the_tag: Tag) -> Value {
         Value {
             value: UntaggedValue::Primitive(Primitive::Date(*self)),
