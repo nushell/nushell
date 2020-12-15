@@ -4,8 +4,8 @@ use log::trace;
 use nu_errors::{ArgumentError, ParseError};
 use nu_protocol::hir::{
     self, Binary, Block, ClassifiedCommand, Expression, ExternalRedirection, Flag, FlagKind, Group,
-    InternalCommand, Member, NamedArguments, Operator, Pipeline, RangeOperator, SpannedExpression,
-    Unit,
+    InternalCommand, Literal, Member, NamedArguments, Operator, Pipeline, RangeOperator,
+    SpannedExpression, Unit,
 };
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPathMember};
 use nu_source::{Span, Spanned, SpannedItem};
@@ -1986,6 +1986,95 @@ fn parse_alias(call: &LiteCommand, scope: &dyn ParserScope) -> Option<ParseError
     None
 }
 
+fn parse_signature(
+    name: &str,
+    s: &Spanned<String>,
+    scope: &dyn ParserScope,
+) -> (Signature, Option<ParseError>) {
+    let mut err = None;
+
+    let (preparsed_params, error) = parse_arg(SyntaxShape::Table, scope, s);
+    if err.is_none() {
+        err = error;
+    }
+    let mut signature = Signature::new(name);
+
+    if let SpannedExpression {
+        expr: Expression::Table(_, preparsed_params),
+        ..
+    } = preparsed_params
+    {
+        for preparsed_param in preparsed_params.iter().flatten() {
+            match preparsed_param.expr {
+                Expression::Literal(Literal::String(st)) => {
+                    let parts: Vec<_> = st.split(':').collect();
+                    if parts.len() == 1 {
+                        signature.positional.push((
+                            PositionalType::Mandatory(parts[0].to_string(), SyntaxShape::Any),
+                            String::new(),
+                        ));
+                    } else if parts.len() == 2 {
+                        let name = parts[0].to_string();
+                        let shape = match parts[1] {
+                            "int" => SyntaxShape::Int,
+                            "string" => SyntaxShape::String,
+                            "block" => SyntaxShape::Block,
+                            "any" => SyntaxShape::Any,
+                            _ => {
+                                if err.is_none() {
+                                    err = Some(ParseError::mismatch(
+                                        "params with known types",
+                                        s.clone(),
+                                    ));
+                                }
+                                SyntaxShape::Any
+                            }
+                        };
+                        signature
+                            .positional
+                            .push((PositionalType::Mandatory(name, shape), String::new()));
+                    } else if err.is_none() {
+                        err = Some(ParseError::mismatch("param with type", s.clone()));
+                    }
+                }
+                _ => {
+                    if err.is_none() {
+                        err = Some(ParseError::mismatch("parameter", s.clone()));
+                    }
+                }
+            }
+        }
+        (signature, err)
+    } else {
+        (
+            signature,
+            Some(ParseError::mismatch("parameters", s.clone())),
+        )
+    }
+}
+
+fn parse_definition_prototype(call: &LiteCommand, scope: &dyn ParserScope) -> Option<ParseError> {
+    let mut err = None;
+
+    if call.parts.len() != 4 {
+        return Some(ParseError::mismatch("definition", call.parts[0].clone()));
+    }
+
+    if call.parts[0].item != "def" {
+        return Some(ParseError::mismatch("definition", call.parts[0].clone()));
+    }
+
+    let name = call.parts[1].item.clone();
+    let (signature, error) = parse_signature(&name, &call.parts[2], scope);
+    if err.is_none() {
+        err = error;
+    }
+
+    scope.add_definition(signature, None);
+
+    err
+}
+
 pub fn classify_block(
     lite_block: &LiteBlock,
     scope: &dyn ParserScope,
@@ -1993,14 +2082,14 @@ pub fn classify_block(
     let mut output = Block::basic();
     let mut error = None;
 
-    Check for custom commands first
+    // Check for custom commands first
     for group in lite_block.block.iter() {
         for pipeline in &group.pipelines {
             for call in &pipeline.commands {
                 if let Some(first) = call.parts.first() {
                     if first.item == "def" {
-                        if pipeline.commands.len() > 1 && err.is_none() {
-                            err = Some(ParseError::DefinitionInPipeline(first.span));
+                        if pipeline.commands.len() > 1 && error.is_none() {
+                            error = Some(ParseError::mismatch("definition", first.clone()));
                         }
                         parse_definition_prototype(call, scope);
                     }
@@ -2076,7 +2165,7 @@ pub fn classify_block(
         }
     }
 
-    output.definitions = scope.commands.clone();
+    output.definitions = scope.get_definitions();
 
     (output, error)
 }

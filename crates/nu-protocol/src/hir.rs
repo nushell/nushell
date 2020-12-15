@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+use crate::Signature;
 use crate::{hir, Dictionary, Primitive, UntaggedValue};
 use crate::{PathMember, ShellTypeName};
 use derive_new::new;
@@ -168,19 +169,25 @@ impl CapturedBlock {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Block {
-    pub params: Vec<String>,
+    pub params: Signature,
     pub block: Vec<Group>,
-    pub definitions: IndexMap<String, Command>,
+    pub definitions: IndexMap<String, Block>,
     pub span: Span,
 }
 
 impl Block {
-    pub fn new(params: Vec<String>, block: Vec<Group>, span: Span) -> Block {
+    pub fn new(
+        params: Signature,
+        block: Vec<Group>,
+        definitions: IndexMap<String, Block>,
+        span: Span,
+    ) -> Block {
         Block {
             params,
             block,
+            definitions,
             span,
         }
     }
@@ -189,6 +196,7 @@ impl Block {
         Block {
             params: vec![],
             block: vec![],
+            definitions: IndexMap::new(),
             span: Span::unknown(),
         }
     }
@@ -215,14 +223,20 @@ impl Block {
     }
 
     pub fn infer_params(&mut self) {
-        if self.params.is_empty() && self.has_it_usage() {
+        if self.params.positional.is_empty() && self.has_it_usage() {
             self.params = vec!["$it".into()];
         }
     }
 
     pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {
         let mut known_variables = known_variables.clone();
-        known_variables.extend_from_slice(&self.params);
+        let positional_params: Vec<_> = self
+            .params
+            .positional
+            .iter()
+            .map(|(_, name)| name.clone())
+            .collect();
+        known_variables.extend_from_slice(&positional_params);
 
         let mut free_variables = vec![];
         for group in &self.block {
@@ -235,6 +249,39 @@ impl Block {
         }
 
         free_variables
+    }
+}
+
+#[allow(clippy::derive_hash_xor_eq)]
+impl Hash for Block {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let mut entries = self.definitions.clone();
+        entries.sort_keys();
+
+        // FIXME: this is incomplete
+        entries.keys().collect::<Vec<&String>>().hash(state);
+    }
+}
+
+impl PartialOrd for Block {
+    /// Compare two dictionaries for sort ordering
+    fn partial_cmp(&self, other: &Block) -> Option<Ordering> {
+        let this: Vec<&String> = self.definitions.keys().collect();
+        let that: Vec<&String> = other.definitions.keys().collect();
+
+        // FIXME: this is incomplete
+        this.partial_cmp(&that)
+    }
+}
+
+impl Ord for Block {
+    /// Compare two dictionaries for ordering
+    fn cmp(&self, other: &Block) -> Ordering {
+        let this: Vec<&String> = self.definitions.keys().collect();
+        let that: Vec<&String> = other.definitions.keys().collect();
+
+        // FIXME: this is incomplete
+        this.cmp(&that)
     }
 }
 

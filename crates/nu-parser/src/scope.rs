@@ -1,3 +1,4 @@
+use nu_protocol::hir::Block;
 use nu_source::Spanned;
 use std::fmt::Debug;
 
@@ -5,6 +6,10 @@ pub trait ParserScope: Debug {
     fn get_signature(&self, name: &str) -> Option<nu_protocol::Signature>;
 
     fn has_signature(&self, name: &str) -> bool;
+
+    fn add_definition(&self, signature: nu_protocol::Signature, block: Option<Block>);
+
+    fn get_definitions(&self) -> Vec<(nu_protocol::Signature, Option<Block>)>;
 
     fn get_alias(&self, name: &str) -> Option<Vec<Spanned<String>>>;
 
