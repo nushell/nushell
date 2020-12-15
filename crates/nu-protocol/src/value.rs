@@ -242,8 +242,8 @@ impl UntaggedValue {
     }
 
     /// Helper for creating date duration values
-    pub fn duration(nanos: BigInt) -> UntaggedValue {
-        UntaggedValue::Primitive(Primitive::Duration(nanos))
+    pub fn duration(nanos: impl Into<BigInt>) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Duration(nanos.into()))
     }
 
     /// Helper for creating datatime values

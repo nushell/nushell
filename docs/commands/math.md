@@ -3,6 +3,7 @@
 Mathematical functions that generally only operate on a list of numbers (integers, decimals, bytes) and tables.
 Currently the following functions are implemented:
 
+* `math abs`: Returns absolute values of a list of numbers
 * `math avg`: Finds the average of a list of numbers or tables
 * `math ceil`: Applies the ceil function to a list of numbers
 * [`math eval`](math-eval.md): Evaluates a list of math expressions into numbers
@@ -145,6 +146,15 @@ To get the average of the file sizes in a directory, simply pipe the size column
  1 │  2
  2 │ -3
 ───┴────
+```
+
+```shell
+> echo [1 -2 -3.0] | math abs
+───┬────────
+ 0 │      1
+ 1 │      2
+ 2 │ 3.0000
+───┴────────
 ```
 
 ### Dates

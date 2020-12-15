@@ -217,6 +217,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(AutoenvTrust),
             whole_stream_command(AutoenvUnTrust),
             whole_stream_command(Math),
+            whole_stream_command(MathAbs),
             whole_stream_command(MathAverage),
             whole_stream_command(MathEval),
             whole_stream_command(MathMedian),
