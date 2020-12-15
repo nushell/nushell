@@ -4,19 +4,19 @@ description = "A plugin to display charts"
 edition = "2018"
 license = "MIT"
 name = "nu_plugin_chart"
-version = "0.24.0"
+version = "0.24.1"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-cli = {path = "../nu-cli", version = "0.24.0"}
-nu-data = {path = "../nu-data", version = "0.24.0"}
-nu-errors = {path = "../nu-errors", version = "0.24.0"}
-nu-plugin = {path = "../nu-plugin", version = "0.24.0"}
-nu-protocol = {path = "../nu-protocol", version = "0.24.0"}
-nu-source = {path = "../nu-source", version = "0.24.0"}
-nu-value-ext = {path = "../nu-value-ext", version = "0.24.0"}
+nu-cli = {path = "../nu-cli", version = "0.24.1"}
+nu-data = {path = "../nu-data", version = "0.24.1"}
+nu-errors = {path = "../nu-errors", version = "0.24.1"}
+nu-plugin = {path = "../nu-plugin", version = "0.24.1"}
+nu-protocol = {path = "../nu-protocol", version = "0.24.1"}
+nu-source = {path = "../nu-source", version = "0.24.1"}
+nu-value-ext = {path = "../nu-value-ext", version = "0.24.1"}
 
 crossterm = "0.18"
 tui = {version = "0.12.0", default-features = false, features = ["crossterm"]}
