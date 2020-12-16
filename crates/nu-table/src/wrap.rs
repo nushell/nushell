@@ -233,6 +233,14 @@ pub fn wrap<'a>(
             current_max = current_line_width;
         }
 
+        // highlight trailing spaces so they stand out.
+        let re = regex::Regex::new(r"(?P<endsp>\s+)$").expect("error with regex");
+        if let Some(mat) = re.find(&current_line) {
+            let match_start = mat.start();
+            String::insert_str(&mut current_line, match_start, "\x1b[100m");
+            current_line += "\x1b[0m";
+        }
+
         output.push(WrappedLine {
             line: current_line,
             width: current_line_width,

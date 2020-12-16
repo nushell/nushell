@@ -3363,6 +3363,7 @@ name = "nu-table"
 version = "0.24.1"
 dependencies = [
  "ansi_term 0.12.1",
+ "regex 1.4.2",
  "unicode-width",
 ]
 
