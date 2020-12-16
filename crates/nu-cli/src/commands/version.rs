@@ -4,9 +4,8 @@ use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_protocol::{value::StrExt, value::StringExt, Dictionary, Signature, UntaggedValue};
 
-pub mod shadow {
-    include!(concat!(env!("OUT_DIR"), "/shadow.rs"));
-}
+shadow!(shadow);
+
 pub struct Version;
 
 #[async_trait]
