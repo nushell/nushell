@@ -778,7 +778,6 @@ impl WrappedTable {
         }
 
         println!("{}", output);
-        // println!("{:#?}", output);
     }
 
     fn print_cell_contents(&self, cells: &[WrappedCell], color_hm: &HashMap<String, Style>) {
@@ -804,7 +803,6 @@ impl WrappedTable {
                     let remainder = self.column_widths[column.0] - line.width;
                     output.push(' ');
 
-                    // println!("Column1: [{:?}]", column.1.style);
                     match column.1.style.alignment {
                         Alignment::Left => {
                             if let Some(color) = column.1.style.color_style {
@@ -869,7 +867,7 @@ impl WrappedTable {
         }
     }
 
-    fn new_print_table(&self, color_hm: &HashMap<String, Style>) {
+    fn print_table(&self, color_hm: &HashMap<String, Style>) {
         #[cfg(windows)]
         {
             let _ = ansi_term::enable_ansi_support();
@@ -1015,12 +1013,16 @@ pub fn draw_table(table: &Table, termwidth: usize, color_hm: &HashMap<String, St
     // This should give us the final max column width
     let max_column_width = column_space.max_width(termwidth);
 
-    let wrapped_table = wrap_cells(processed_table, max_column_width);
+    let wrapped_table = wrap_cells(processed_table, max_column_width, &color_hm);
 
-    wrapped_table.new_print_table(&color_hm);
+    wrapped_table.print_table(&color_hm);
 }
 
-fn wrap_cells(processed_table: ProcessedTable, max_column_width: usize) -> WrappedTable {
+fn wrap_cells(
+    processed_table: ProcessedTable,
+    max_column_width: usize,
+    color_hm: &HashMap<String, Style>,
+) -> WrappedTable {
     let mut column_widths = vec![
         0;
         std::cmp::max(
@@ -1041,7 +1043,8 @@ fn wrap_cells(processed_table: ProcessedTable, max_column_width: usize) -> Wrapp
         };
 
         for contents in header.1.contents.into_iter() {
-            let (mut lines, inner_max_width) = wrap(max_column_width, contents.into_iter());
+            let (mut lines, inner_max_width) =
+                wrap(max_column_width, contents.into_iter(), &color_hm);
             wrapped.lines.append(&mut lines);
             if inner_max_width > wrapped.max_width {
                 wrapped.max_width = inner_max_width;
@@ -1063,7 +1066,8 @@ fn wrap_cells(processed_table: ProcessedTable, max_column_width: usize) -> Wrapp
                 style: column.1.style,
             };
             for contents in column.1.contents.into_iter() {
-                let (mut lines, inner_max_width) = wrap(max_column_width, contents.into_iter());
+                let (mut lines, inner_max_width) =
+                    wrap(max_column_width, contents.into_iter(), &color_hm);
                 wrapped.lines.append(&mut lines);
                 if inner_max_width > wrapped.max_width {
                     wrapped.max_width = inner_max_width;
