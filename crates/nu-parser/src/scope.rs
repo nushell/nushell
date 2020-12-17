@@ -7,9 +7,9 @@ pub trait ParserScope: Debug {
 
     fn has_signature(&self, name: &str) -> bool;
 
-    fn add_definition(&self, signature: nu_protocol::Signature, block: Option<Block>);
+    fn add_definition(&self, block: Block);
 
-    fn get_definitions(&self) -> Vec<(nu_protocol::Signature, Option<Block>)>;
+    fn get_definitions(&self) -> Vec<Block>;
 
     fn get_alias(&self, name: &str) -> Option<Vec<Spanned<String>>>;
 

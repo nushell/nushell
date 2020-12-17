@@ -1,7 +1,7 @@
 use crate::commands::Command;
 use crate::prelude::*;
 use nu_parser::ParserScope;
-use nu_protocol::Value;
+use nu_protocol::{hir::Block, Value};
 use nu_source::Spanned;
 
 #[derive(Debug, Clone)]
@@ -139,6 +139,23 @@ impl ParserScope for Scope {
         self.get_command(name).is_some()
     }
 
+    fn add_definition(&self, block: Block) {
+        if let Some(frame) = self.frames.lock().last_mut() {
+            let name = block.params.name.clone();
+            frame.custom_commands.insert(name, block);
+        }
+    }
+
+    fn get_definitions(&self) -> Vec<Block> {
+        let mut blocks = vec![];
+        if let Some(frame) = self.frames.lock().last() {
+            for (_, custom_command) in &frame.custom_commands {
+                blocks.push(custom_command.clone());
+            }
+        }
+        blocks
+    }
+
     fn get_alias(&self, name: &str) -> Option<Vec<Spanned<String>>> {
         for frame in self.frames.lock().iter().rev() {
             if let Some(x) = frame.aliases.get(name) {
@@ -170,6 +187,7 @@ pub struct ScopeFrame {
     pub vars: IndexMap<String, Value>,
     pub env: IndexMap<String, String>,
     pub commands: IndexMap<String, Command>,
+    pub custom_commands: IndexMap<String, Block>,
     pub aliases: IndexMap<String, Vec<Spanned<String>>>,
 }
 
@@ -195,6 +213,7 @@ impl ScopeFrame {
             vars: IndexMap::new(),
             env: IndexMap::new(),
             commands: IndexMap::new(),
+            custom_commands: IndexMap::new(),
             aliases: IndexMap::new(),
         }
     }

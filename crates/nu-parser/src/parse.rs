@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use indexmap::IndexMap;
 use log::trace;
 use nu_errors::{ArgumentError, ParseError};
 use nu_protocol::hir::{
@@ -607,7 +608,12 @@ fn parse_interpolated_string(
     let group = Group::new(pipelines, lite_arg.span);
 
     let call = SpannedExpression {
-        expr: Expression::Invocation(Block::new(vec![], vec![group], lite_arg.span)),
+        expr: Expression::Invocation(Block::new(
+            Signature::new("<invocation>"),
+            vec![group],
+            IndexMap::new(),
+            lite_arg.span,
+        )),
         span: lite_arg.span,
     };
 
@@ -1365,8 +1371,9 @@ fn parse_positional_argument(
             commands.push(ClassifiedCommand::Expr(Box::new(arg)));
 
             let block = hir::Block::new(
-                vec![],
+                Signature::new("<initializer>"),
                 vec![Group::new(vec![commands], lite_cmd.span())],
+                IndexMap::new(),
                 span,
             );
 
@@ -1406,8 +1413,9 @@ fn parse_positional_argument(
                     commands.push(ClassifiedCommand::Expr(Box::new(arg)));
 
                     let block = hir::Block::new(
-                        vec![],
+                        Signature::new("<math>"),
                         vec![Group::new(vec![commands], lite_cmd.span())],
+                        IndexMap::new(),
                         span,
                     );
 
@@ -1777,6 +1785,16 @@ fn parse_call(
                 error,
             );
         }
+    } else if lite_cmd.parts[0].item == "def" {
+        let error = parse_definition(&lite_cmd, scope);
+        if error.is_none() {
+            return (None, None);
+        } else {
+            return (
+                Some(ClassifiedCommand::Expr(Box::new(garbage(lite_cmd.span())))),
+                error,
+            );
+        }
     } else if lite_cmd.parts.len() > 1 {
         // Check if it's a sub-command
         if let Some(signature) = scope.get_signature(&format!(
@@ -2005,7 +2023,7 @@ fn parse_signature(
     } = preparsed_params
     {
         for preparsed_param in preparsed_params.iter().flatten() {
-            match preparsed_param.expr {
+            match &preparsed_param.expr {
                 Expression::Literal(Literal::String(st)) => {
                     let parts: Vec<_> = st.split(':').collect();
                     if parts.len() == 1 {
@@ -2052,6 +2070,51 @@ fn parse_signature(
         )
     }
 }
+fn parse_definition(call: &LiteCommand, scope: &dyn ParserScope) -> Option<ParseError> {
+    // A this point, we've already handled the prototype and put it into scope
+    // So our main goal here is to parse the block now that the names and
+    // prototypes of adjacent commands are also available
+    let mut err = None;
+
+    if call.parts.len() == 4 {
+        if call.parts.len() != 4 {
+            return Some(ParseError::mismatch("definition", call.parts[0].clone()));
+        }
+
+        if call.parts[0].item != "def" {
+            return Some(ParseError::mismatch("definition", call.parts[0].clone()));
+        }
+
+        let name = call.parts[1].item.clone();
+        let (signature, error) = parse_signature(&name, &call.parts[2], scope);
+        if err.is_none() {
+            err = error;
+        }
+
+        let (tokens, err) = lex(&call.parts[3].item, call.parts[3].span.start());
+        if err.is_some() {
+            return err;
+        };
+        let (lite_block, err) = group(tokens);
+        if err.is_some() {
+            return err;
+        };
+
+        let name = &call.parts[1].item;
+        let (mut block, err) = classify_block(&lite_block, scope);
+
+        block.params = signature;
+        block.params.name = name.clone();
+
+        scope.add_definition(block);
+
+        err
+    } else {
+        Some(ParseError::internal_error(
+            "need a block".to_string().spanned(call.span()),
+        ))
+    }
+}
 
 fn parse_definition_prototype(call: &LiteCommand, scope: &dyn ParserScope) -> Option<ParseError> {
     let mut err = None;
@@ -2070,7 +2133,7 @@ fn parse_definition_prototype(call: &LiteCommand, scope: &dyn ParserScope) -> Op
         err = error;
     }
 
-    scope.add_definition(signature, None);
+    scope.add_definition(Block::new(signature, vec![], IndexMap::new(), call.span()));
 
     err
 }
@@ -2114,8 +2177,12 @@ pub fn classify_block(
 
             let pipeline = if let Some(vars) = vars {
                 let span = pipeline.span();
-                let block =
-                    hir::Block::new(vec![], vec![Group::new(vec![out_pipe.clone()], span)], span);
+                let block = hir::Block::new(
+                    Signature::new("<block>"),
+                    vec![Group::new(vec![out_pipe.clone()], span)],
+                    IndexMap::new(),
+                    span,
+                );
                 let mut call = hir::Call::new(
                     Box::new(SpannedExpression {
                         expr: Expression::string("with-env".to_string()),
@@ -2165,7 +2232,10 @@ pub fn classify_block(
         }
     }
 
-    output.definitions = scope.get_definitions();
+    for def in scope.get_definitions() {
+        let name = def.params.name.clone();
+        output.definitions.insert(name, def.clone());
+    }
 
     (output, error)
 }

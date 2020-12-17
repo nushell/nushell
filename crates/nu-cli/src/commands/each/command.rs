@@ -77,7 +77,7 @@ pub async fn process_row(
     // a parameter to the block (so it gets assigned to a variable that can be used inside the block) or
     // if it wants the contents as as an input stream
 
-    let input_stream = if !captured_block.block.params.is_empty() {
+    let input_stream = if !captured_block.block.params.positional.is_empty() {
         InputStream::empty()
     } else {
         once(async { Ok(input_clone) }).to_input_stream()
@@ -86,11 +86,11 @@ pub async fn process_row(
     context.scope.enter_scope();
     context.scope.add_vars(&captured_block.captured.entries);
 
-    if !captured_block.block.params.is_empty() {
+    if !captured_block.block.params.positional.is_empty() {
         // FIXME: add check for more than parameter, once that's supported
         context
             .scope
-            .add_var(captured_block.block.params[0].clone(), input);
+            .add_var(captured_block.block.params.positional[0].0.name(), input);
     } else {
         context.scope.add_var("$it", input);
     }

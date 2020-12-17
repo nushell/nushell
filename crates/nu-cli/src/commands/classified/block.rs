@@ -137,8 +137,8 @@ async fn run_pipeline(
                 match &call.head.expr {
                     Expression::Block(block) => {
                         ctx.scope.enter_scope();
-                        for (param, value) in block.params.iter().zip(args.iter()) {
-                            ctx.scope.add_var(param.clone(), value[0].clone());
+                        for (param, value) in block.params.positional.iter().zip(args.iter()) {
+                            ctx.scope.add_var(param.0.name(), value[0].clone());
                         }
                         let result = run_block(&block, ctx, input).await;
                         ctx.scope.exit_scope();
@@ -152,10 +152,14 @@ async fn run_pipeline(
                                 UntaggedValue::Block(captured_block) => {
                                     ctx.scope.enter_scope();
                                     ctx.scope.add_vars(&captured_block.captured.entries);
-                                    for (param, value) in
-                                        captured_block.block.params.iter().zip(args.iter())
+                                    for (param, value) in captured_block
+                                        .block
+                                        .params
+                                        .positional
+                                        .iter()
+                                        .zip(args.iter())
                                     {
-                                        ctx.scope.add_var(param.clone(), value[0].clone());
+                                        ctx.scope.add_var(param.0.name(), value[0].clone());
                                     }
                                     let result = run_block(&captured_block.block, ctx, input).await;
                                     ctx.scope.exit_scope();

@@ -194,7 +194,7 @@ impl Block {
 
     pub fn basic() -> Block {
         Block {
-            params: vec![],
+            params: Signature::new("<basic>"),
             block: vec![],
             definitions: IndexMap::new(),
             span: Span::unknown(),
@@ -223,9 +223,10 @@ impl Block {
     }
 
     pub fn infer_params(&mut self) {
-        if self.params.positional.is_empty() && self.has_it_usage() {
-            self.params = vec!["$it".into()];
-        }
+        // FIXME: re-enable inference later
+        // if self.params.positional.is_empty() && self.has_it_usage() {
+        //     self.params = vec!["$it".into()];
+        // }
     }
 
     pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {
