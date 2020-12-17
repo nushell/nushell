@@ -233,11 +233,18 @@ pub fn wrap<'a>(
             current_max = current_line_width;
         }
 
-        // highlight trailing spaces so they stand out.
-        let re = regex::Regex::new(r"(?P<endsp>\s+)$").expect("error with regex");
-        if let Some(mat) = re.find(&current_line) {
-            let match_start = mat.start();
-            String::insert_str(&mut current_line, match_start, "\x1b[100m");
+        // highlight leading and trailing spaces so they stand out.
+        let re_leading =
+            regex::Regex::new(r"(?P<beginsp>^\s+)").expect("error with leading space regex");
+        if let Some(leading_match) = re_leading.find(&current_line.clone()) {
+            String::insert_str(&mut current_line, leading_match.end(), "\x1b[0m");
+            String::insert_str(&mut current_line, leading_match.start(), "\x1b[100m");
+        }
+
+        let re_trailing =
+            regex::Regex::new(r"(?P<endsp>\s+$)").expect("error with trailing space regex");
+        if let Some(trailing_match) = re_trailing.find(&current_line.clone()) {
+            String::insert_str(&mut current_line, trailing_match.start(), "\x1b[100m");
             current_line += "\x1b[0m";
         }
 
