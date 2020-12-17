@@ -1,5 +1,5 @@
-use crate::commands::Command;
 use crate::prelude::*;
+use crate::{commands::Command, whole_stream_command};
 use nu_parser::ParserScope;
 use nu_protocol::{hir::Block, Value};
 use nu_source::Spanned;
@@ -142,7 +142,8 @@ impl ParserScope for Scope {
     fn add_definition(&self, block: Block) {
         if let Some(frame) = self.frames.lock().last_mut() {
             let name = block.params.name.clone();
-            frame.custom_commands.insert(name, block);
+            frame.custom_commands.insert(name.clone(), block.clone());
+            frame.commands.insert(name, whole_stream_command(block));
         }
     }
 

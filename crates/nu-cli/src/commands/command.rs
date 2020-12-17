@@ -1,11 +1,11 @@
-use crate::commands::help::get_help;
-use crate::deserializer::ConfigDeserializer;
 use crate::evaluate::evaluate_args::evaluate_args;
 use crate::prelude::*;
+use crate::{commands::help::get_help, run_block};
+use crate::{deserializer::ConfigDeserializer, evaluate::evaluate_baseline_expr};
 use derive_new::new;
 use getset::Getters;
 use nu_errors::ShellError;
-use nu_protocol::hir;
+use nu_protocol::hir::{self, Block};
 use nu_protocol::{CallInfo, EvaluatedArgs, ReturnSuccess, Signature, UntaggedValue, Value};
 use parking_lot::Mutex;
 use serde::Deserialize;
@@ -236,6 +236,57 @@ pub trait WholeStreamCommand: Send + Sync {
 
     fn examples(&self) -> Vec<Example> {
         Vec::new()
+    }
+}
+
+// Custom commands are blocks, so we can use the information in the block to also
+// implement a WholeStreamCommand
+#[async_trait]
+impl WholeStreamCommand for Block {
+    fn name(&self) -> &str {
+        &self.params.name
+    }
+
+    fn signature(&self) -> Signature {
+        self.params.clone()
+    }
+
+    fn usage(&self) -> &str {
+        ""
+    }
+
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        let ctx = EvaluationContext::from_args(&args);
+        let input = args.input;
+        ctx.scope.enter_scope();
+        if let Some(args) = args.call_info.args.positional {
+            // FIXME: do not do this
+            for arg in args.iter().zip(self.params.positional.iter()) {
+                let value = evaluate_baseline_expr(arg.0, &ctx).await?;
+                let name = arg.1 .0.name();
+
+                if name.starts_with('$') {
+                    ctx.scope.add_var(name, value);
+                } else {
+                    ctx.scope.add_var(format!("${}", name), value);
+                }
+            }
+        }
+        let result = run_block(self, &ctx, input).await;
+        ctx.scope.exit_scope();
+        Ok(result?.to_output_stream())
+    }
+
+    fn is_binary(&self) -> bool {
+        false
+    }
+
+    fn is_internal(&self) -> bool {
+        false
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![]
     }
 }
 
