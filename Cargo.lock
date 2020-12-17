@@ -136,12 +136,23 @@ version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eb877970c7b440ead138f6321a3b5395d6061183af779340b65e20c0fede9146"
 dependencies = [
- "async-task 4.0.3",
+ "async-task",
  "concurrent-queue",
  "fastrand",
- "futures-lite 1.11.2",
+ "futures-lite",
  "once_cell",
  "vec-arena",
+]
+
+[[package]]
+name = "async-fs"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b3ca4f8ff117c37c278a2f7415ce9be55560b846b5bc4412aaa5d29c1c3dae2"
+dependencies = [
+ "async-lock",
+ "blocking",
+ "futures-lite",
 ]
 
 [[package]]
@@ -152,7 +163,7 @@ checksum = "73079b49cd26b8fd5a15f68fc7707fc78698dc2a3d61430f2a7a9430230dfa04"
 dependencies = [
  "async-executor",
  "async-io",
- "futures-lite 1.11.2",
+ "futures-lite",
  "num_cpus",
  "once_cell",
 ]
@@ -165,14 +176,23 @@ checksum = "b5bfd63f6fc8fd2925473a147d3f4d252c712291efdde0d7057b25146563402c"
 dependencies = [
  "concurrent-queue",
  "fastrand",
- "futures-lite 1.11.2",
+ "futures-lite",
  "log 0.4.11",
  "nb-connect",
  "once_cell",
- "parking 2.0.0",
+ "parking",
  "polling",
  "vec-arena",
  "waker-fn",
+]
+
+[[package]]
+name = "async-lock"
+version = "2.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1996609732bde4a9988bc42125f55f2af5f3c36370e27c778d5191a4a1b63bfb"
+dependencies = [
+ "event-listener",
 ]
 
 [[package]]
@@ -182,6 +202,34 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "479db852db25d9dbf6204e6cb6253698f175c15726470f78af0d918e99d6156e"
 dependencies = [
  "event-listener",
+]
+
+[[package]]
+name = "async-net"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06de475c85affe184648202401d7622afb32f0f74e02192857d0201a16defbe5"
+dependencies = [
+ "async-io",
+ "blocking",
+ "fastrand",
+ "futures-lite",
+]
+
+[[package]]
+name = "async-process"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c8cea09c1fb10a317d1b5af8024eeba256d6554763e85ecd90ff8df31c7bbda"
+dependencies = [
+ "async-io",
+ "blocking",
+ "cfg-if 0.1.10",
+ "event-listener",
+ "futures-lite",
+ "once_cell",
+ "signal-hook",
+ "winapi 0.3.9",
 ]
 
 [[package]]
@@ -205,12 +253,12 @@ dependencies = [
  "async-global-executor",
  "async-io",
  "async-mutex",
- "blocking 1.0.2",
+ "blocking",
  "crossbeam-utils 0.8.1",
  "futures-channel",
  "futures-core",
  "futures-io",
- "futures-lite 1.11.2",
+ "futures-lite",
  "gloo-timers",
  "kv-log-macro",
  "log 0.4.11",
@@ -222,12 +270,6 @@ dependencies = [
  "slab 0.4.2",
  "wasm-bindgen-futures 0.4.18",
 ]
-
-[[package]]
-name = "async-task"
-version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c17772156ef2829aadc587461c7753af20b7e8db1529bc66855add962a3b35d3"
 
 [[package]]
 name = "async-task"
@@ -357,7 +399,7 @@ dependencies = [
  "mach",
  "nix 0.19.0",
  "num-traits 0.2.14",
- "uom 0.30.0",
+ "uom",
  "winapi 0.3.9",
 ]
 
@@ -463,29 +505,15 @@ dependencies = [
 
 [[package]]
 name = "blocking"
-version = "0.4.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2468ff7bf85066b4a3678fede6fe66db31846d753ff0adfbfab2c6a6e81612b"
-dependencies = [
- "async-channel",
- "atomic-waker",
- "futures-lite 0.1.11",
- "once_cell",
- "parking 1.0.6",
- "waker-fn",
-]
-
-[[package]]
-name = "blocking"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c5e170dbede1f740736619b776d7251cb1b9095c435c34d8ca9f57fcd2f335e9"
 dependencies = [
  "async-channel",
- "async-task 4.0.3",
+ "async-task",
  "atomic-waker",
  "fastrand",
- "futures-lite 1.11.2",
+ "futures-lite",
  "once_cell",
 ]
 
@@ -1125,9 +1153,9 @@ dependencies = [
 
 [[package]]
 name = "darwin-libproc"
-version = "0.1.2"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fb90051930c9a0f09e585762152048e23ac74d20c10590ef7cf01c0343c3046"
+checksum = "cc629b7cf42586fee31dae31f9ab73fa5ff5f0170016aa61be5fcbc12a90c516"
 dependencies = [
  "darwin-libproc-sys",
  "libc",
@@ -1136,9 +1164,9 @@ dependencies = [
 
 [[package]]
 name = "darwin-libproc-sys"
-version = "0.1.2"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57cebb5bde66eecdd30ddc4b9cd208238b15db4982ccc72db59d699ea10867c1"
+checksum = "ef0aa083b94c54aa4cfd9bbfd37856714c139d1dc511af80270558c7ba3b4816"
 dependencies = [
  "libc",
 ]
@@ -1699,21 +1727,6 @@ checksum = "f4914ae450db1921a56c91bde97a27846287d062087d4a652efc09bb3a01ebda"
 
 [[package]]
 name = "futures-lite"
-version = "0.1.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97999970129b808f0ccba93211201d431fcc12d7e1ffae03a61b5cedd1a7ced2"
-dependencies = [
- "fastrand",
- "futures-core",
- "futures-io",
- "memchr",
- "parking 2.0.0",
- "pin-project-lite 0.1.11",
- "waker-fn",
-]
-
-[[package]]
-name = "futures-lite"
 version = "1.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e6c079abfac3ab269e2927ec048dabc89d009ebfdda6b8ee86624f30c689658"
@@ -1722,7 +1735,7 @@ dependencies = [
  "futures-core",
  "futures-io",
  "memchr",
- "parking 2.0.0",
+ "parking",
  "pin-project-lite 0.1.11",
  "waker-fn",
 ]
@@ -1991,9 +2004,9 @@ dependencies = [
 
 [[package]]
 name = "heim"
-version = "0.1.0-beta.3"
+version = "0.1.0-rc.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1014732324a9baf5a691525faabb33909bf6f40dcc2b03c8f2fb07bb01e7e3f"
+checksum = "b8a653442b9bdd11a77d3753a60443c60c4437d3acac8e6c3d4a6a9acd7cceed"
 dependencies = [
  "heim-common",
  "heim-cpu",
@@ -2008,30 +2021,30 @@ dependencies = [
 
 [[package]]
 name = "heim-common"
-version = "0.1.0-beta.1"
+version = "0.1.0-rc.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58d46c2c79530368c7a76e4808ff7263970029f38bcd544a9d43722ed0828527"
+checksum = "d767e6e47cf88abe7c9a5ebb4df82f180d30d9c0ba0269b6d166482461765834"
 dependencies = [
- "cfg-if 0.1.10",
- "core-foundation 0.7.0",
+ "cfg-if 1.0.0",
+ "core-foundation 0.9.1",
  "futures-core",
  "futures-util",
  "lazy_static 1.4.0",
  "libc",
  "mach",
- "nix 0.17.0",
+ "nix 0.19.0",
  "pin-utils",
- "uom 0.28.0",
+ "uom",
  "winapi 0.3.9",
 ]
 
 [[package]]
 name = "heim-cpu"
-version = "0.1.0-beta.3"
+version = "0.1.0-rc.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73b1442359831aa671aa931f0a084aab210e77b1330ded78f1e60cc305abc4bb"
+checksum = "9ba5fb13a3b90581d22b4edf99e87c54316444622ae123d36816a227a7caa6df"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "futures 0.3.8",
  "glob",
  "heim-common",
@@ -2046,13 +2059,13 @@ dependencies = [
 
 [[package]]
 name = "heim-disk"
-version = "0.1.0-beta.1"
+version = "0.1.0-rc.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c650cc53da13cb4027eba907bfeff7c764d801e83fd833e48b513c38ed78368"
+checksum = "75603ff3868851c04954ee86bf610a6bd45be2732a0e81c35fd72b2b90fa4718"
 dependencies = [
  "bitflags",
- "cfg-if 0.1.10",
- "core-foundation 0.7.0",
+ "cfg-if 1.0.0",
+ "core-foundation 0.9.1",
  "heim-common",
  "heim-runtime",
  "libc",
@@ -2063,11 +2076,11 @@ dependencies = [
 
 [[package]]
 name = "heim-host"
-version = "0.1.0-beta.1"
+version = "0.1.0-rc.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79cce3ce658bd45e510ff0a2fb5c668cbe1a7368929fd1db123741c99fd6902e"
+checksum = "9abf6cd02bc4f6e6aa31a7f80702a2d0e574f4f2c6156a93c3550eb036304722"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "heim-common",
  "heim-runtime",
  "lazy_static 1.4.0",
@@ -2081,11 +2094,11 @@ dependencies = [
 
 [[package]]
 name = "heim-memory"
-version = "0.1.0-beta.1"
+version = "0.1.0-rc.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "edf21693fc5ebcae37997230b90876687bcf6e53d243af988a5a89215a3c2578"
+checksum = "6fa81bccc5e81ab0c68f520ecba5cb42817bacabfc6120160de886754ad0e3e1"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "heim-common",
  "heim-runtime",
  "lazy_static 1.4.0",
@@ -2096,27 +2109,27 @@ dependencies = [
 
 [[package]]
 name = "heim-net"
-version = "0.1.0-beta.2"
+version = "0.1.0-rc.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59da1108e732afcda77e1429b5d0ce648b9a31d1f8cf385108b83bea4cf91342"
+checksum = "d13afa5e9b71c813c1e087bb27f51ae87d3a6d68a2bdd045bae4322dfae4948b"
 dependencies = [
  "bitflags",
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "heim-common",
  "heim-runtime",
  "libc",
  "macaddr",
- "nix 0.17.0",
+ "nix 0.19.0",
 ]
 
 [[package]]
 name = "heim-process"
-version = "0.1.1-beta.3"
+version = "0.1.1-rc.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd969deb2a89a488b6a9bf18a65923ae4cdef6b128fa2dedb74ef5c694deb5ae"
+checksum = "386870aac75d29b817fe709f1ef4303553e0af369e3c71d04beceeb50ae2cf39"
 dependencies = [
  "async-trait",
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "darwin-libproc",
  "futures 0.3.8",
  "heim-common",
@@ -2129,30 +2142,30 @@ dependencies = [
  "mach",
  "memchr",
  "ntapi",
- "ordered-float",
+ "ordered-float 2.0.1",
  "smol",
  "winapi 0.3.9",
 ]
 
 [[package]]
 name = "heim-runtime"
-version = "0.1.0-beta.1"
+version = "0.1.0-rc.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "906dd26ed2eb6b9f5f0dc3dfc04caeb82785ccc05a3b3326e4c841613451acc7"
+checksum = "54ec7e5238c8f0dd0cc60914d31a5a7aadd4cde74c966a76c1caed1f5224e9b8"
 dependencies = [
  "futures 0.3.8",
  "futures-timer",
+ "once_cell",
  "smol",
- "version-sync",
 ]
 
 [[package]]
 name = "heim-sensors"
-version = "0.1.0-beta.1"
+version = "0.1.0-rc.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5cdae0cfeffcc728b469424c937abaa286a0d89e2a0c347c51eaddc60c029144"
+checksum = "82de7f0784d3b0c53f2e8875c63f430bf6718b03ec8ddce905c12887031158f5"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "heim-common",
  "heim-runtime",
 ]
@@ -2376,7 +2389,7 @@ dependencies = [
  "byteorder",
  "jpeg-decoder",
  "num-iter",
- "num-rational",
+ "num-rational 0.2.4",
  "num-traits 0.2.14",
  "png",
 ]
@@ -3023,19 +3036,6 @@ dependencies = [
 
 [[package]]
 name = "nix"
-version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50e4785f2c3b7589a0d0c1dd60285e1188adac4006e8abd6dd578e1567027363"
-dependencies = [
- "bitflags",
- "cc",
- "cfg-if 0.1.10",
- "libc",
- "void",
-]
-
-[[package]]
-name = "nix"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83450fe6a6142ddd95fb064b746083fc4ef1705fe81f64a64e1d4b39f54a1055"
@@ -3092,7 +3092,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "clap",
  "ctrlc",
@@ -3132,7 +3132,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cli"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "Inflector",
  "ansi_term 0.12.1",
@@ -3223,7 +3223,7 @@ dependencies = [
  "trash",
  "umask",
  "unicode-segmentation",
- "uom 0.28.0",
+ "uom",
  "url",
  "users",
  "uuid",
@@ -3233,7 +3233,7 @@ dependencies = [
 
 [[package]]
 name = "nu-data"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "ansi_term 0.12.1",
  "bigdecimal",
@@ -3263,7 +3263,7 @@ dependencies = [
 
 [[package]]
 name = "nu-errors"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "ansi_term 0.12.1",
  "bigdecimal",
@@ -3282,7 +3282,7 @@ dependencies = [
 
 [[package]]
 name = "nu-json"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "lazy_static 1.4.0",
  "num-traits 0.1.43",
@@ -3292,7 +3292,7 @@ dependencies = [
 
 [[package]]
 name = "nu-parser"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "bigdecimal",
  "codespan-reporting",
@@ -3310,7 +3310,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "bigdecimal",
  "indexmap",
@@ -3326,7 +3326,7 @@ dependencies = [
 
 [[package]]
 name = "nu-protocol"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "bigdecimal",
  "byte-unit",
@@ -3349,7 +3349,7 @@ dependencies = [
 
 [[package]]
 name = "nu-source"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "derive-new",
  "getset",
@@ -3360,7 +3360,7 @@ dependencies = [
 
 [[package]]
 name = "nu-table"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "ansi_term 0.12.1",
  "unicode-width",
@@ -3368,7 +3368,7 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "bigdecimal",
  "chrono",
@@ -3386,7 +3386,7 @@ dependencies = [
 
 [[package]]
 name = "nu-value-ext"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "indexmap",
  "itertools",
@@ -3398,7 +3398,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_binaryview"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "ansi_term 0.12.1",
  "crossterm 0.18.2",
@@ -3414,7 +3414,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_chart"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "crossterm 0.18.2",
  "nu-cli",
@@ -3429,7 +3429,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_fetch"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "base64 0.12.3",
  "futures 0.3.8",
@@ -3443,7 +3443,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_from_bson"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "bigdecimal",
  "bson",
@@ -3457,7 +3457,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_from_sqlite"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "bigdecimal",
  "nu-errors",
@@ -3472,7 +3472,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_inc"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "nu-errors",
  "nu-plugin",
@@ -3485,7 +3485,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_match"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "nu-errors",
  "nu-plugin",
@@ -3496,7 +3496,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_post"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "base64 0.12.3",
  "futures 0.3.8",
@@ -3512,7 +3512,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_ps"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "futures 0.3.8",
  "futures-timer",
@@ -3526,7 +3526,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_s3"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "futures 0.3.8",
  "nu-errors",
@@ -3538,7 +3538,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_selector"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "nipper",
  "nu-errors",
@@ -3550,7 +3550,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_start"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "glob",
  "nu-errors",
@@ -3563,7 +3563,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_sys"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "battery",
  "futures 0.3.8",
@@ -3578,7 +3578,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_textview"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "ansi_term 0.12.1",
  "bat",
@@ -3593,7 +3593,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_to_bson"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "bson",
  "nu-errors",
@@ -3606,7 +3606,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_to_sqlite"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "hex 0.4.2",
  "nu-errors",
@@ -3621,7 +3621,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_tree"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "derive-new",
  "nu-errors",
@@ -3633,7 +3633,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_xpath"
-version = "0.23.0"
+version = "0.24.1"
 dependencies = [
  "bigdecimal",
  "indexmap",
@@ -3656,7 +3656,7 @@ dependencies = [
  "num-complex",
  "num-integer",
  "num-iter",
- "num-rational",
+ "num-rational 0.2.4",
  "num-traits 0.2.14",
 ]
 
@@ -3733,6 +3733,17 @@ checksum = "5c000134b5dbf44adc5cb772486d335293351644b801551abe8f75c84cfa4aef"
 dependencies = [
  "autocfg",
  "num-bigint 0.2.6",
+ "num-integer",
+ "num-traits 0.2.14",
+]
+
+[[package]]
+name = "num-rational"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12ac428b1cb17fce6f731001d307d351ec70a6d202fc2e60f7d4c5e42d8f4f07"
+dependencies = [
+ "autocfg",
  "num-integer",
  "num-traits 0.2.14",
 ]
@@ -3892,10 +3903,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "parking"
-version = "1.0.6"
+name = "ordered-float"
+version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6cb300f271742d4a2a66c01b6b2fa0c83dfebd2e0bf11addb879a3547b4ed87c"
+checksum = "dacdec97876ef3ede8c50efc429220641a0b11ba0048b4b0c357bccbc47c5204"
+dependencies = [
+ "num-traits 0.2.14",
+]
 
 [[package]]
 name = "parking"
@@ -4188,9 +4202,9 @@ checksum = "3831453b3449ceb48b6d9c7ad7c96d5ea673e9b470a1dc578c2ce6521230884c"
 
 [[package]]
 name = "platforms"
-version = "0.2.1"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "feb3b2b1033b8a60b4da6ee470325f887758c95d5320f52f9ce0df055a55940e"
+checksum = "cc77a3fc329982cbf3ea772aa265b742a550998bad65747c630406ee52dac425"
 
 [[package]]
 name = "plist"
@@ -4351,17 +4365,6 @@ dependencies = [
  "serde 1.0.117",
  "serde-value",
  "tint",
-]
-
-[[package]]
-name = "pulldown-cmark"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca36dea94d187597e104a5c8e4b07576a8a45aa5db48a65e12940d3eb7461f55"
-dependencies = [
- "bitflags",
- "memchr",
- "unicase",
 ]
 
 [[package]]
@@ -4979,7 +4982,7 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d7eb9ef2c18661902cc47e535f9bc51b78acd254da71d375c2f6720d9a40403"
 dependencies = [
- "semver-parser 0.7.0",
+ "semver-parser",
 ]
 
 [[package]]
@@ -4988,7 +4991,7 @@ version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "394cec28fa623e00903caf7ba4fa6fb9a0e260280bb8cdbbba029611108a0190"
 dependencies = [
- "semver-parser 0.7.0",
+ "semver-parser",
 ]
 
 [[package]]
@@ -4996,12 +4999,6 @@ name = "semver-parser"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
-
-[[package]]
-name = "semver-parser"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b46e1121e8180c12ff69a742aabc4f310542b6ccb69f1691689ac17fdf8618aa"
 
 [[package]]
 name = "serde"
@@ -5037,7 +5034,7 @@ version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a65a7291a8a568adcae4c10a677ebcedbc6c9cec91c054dee2ce40b0e3290eb"
 dependencies = [
- "ordered-float",
+ "ordered-float 1.0.2",
  "serde 1.0.117",
 ]
 
@@ -5280,23 +5277,20 @@ checksum = "7acad6f34eb9e8a259d3283d1e8c1d34d7415943d4895f65cc73813c7396fc85"
 
 [[package]]
 name = "smol"
-version = "0.1.18"
+version = "1.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "620cbb3c6e34da57d3a248cda0cd01cd5848164dc062e764e65d06fe3ea7aed5"
+checksum = "85cf3b5351f3e783c1d79ab5fc604eeed8b8ae9abd36b166e8b87a089efd85e4"
 dependencies = [
- "async-task 3.0.0",
- "blocking 0.4.7",
- "concurrent-queue",
- "fastrand",
- "futures-io",
- "futures-util",
- "libc",
+ "async-channel",
+ "async-executor",
+ "async-fs",
+ "async-io",
+ "async-lock",
+ "async-net",
+ "async-process",
+ "blocking",
+ "futures-lite",
  "once_cell",
- "scoped-tls 1.0.0",
- "slab 0.4.2",
- "socket2",
- "wepoll-sys-stjepang",
- "winapi 0.3.9",
 ]
 
 [[package]]
@@ -6063,21 +6057,11 @@ checksum = "f7fe0bb3479651439c9112f72b6c505038574c9fbb575ed1bf3b797fa39dd564"
 
 [[package]]
 name = "uom"
-version = "0.28.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "627142a1043c2d460613232ce4f7e322e756636e000c0f1d1f2e779cb431358a"
-dependencies = [
- "num-rational",
- "num-traits 0.2.14",
- "typenum",
-]
-
-[[package]]
-name = "uom"
 version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e76503e636584f1e10b9b3b9498538279561adcef5412927ba00c2b32c4ce5ed"
 dependencies = [
+ "num-rational 0.3.2",
  "num-traits 0.2.14",
  "typenum",
 ]
@@ -6170,21 +6154,6 @@ name = "vec_map"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1bddf1187be692e79c5ffeab891132dfb0f236ed36a43c7ed39f1165ee20191"
-
-[[package]]
-name = "version-sync"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7b77d2a6f56988f7bb54102fe73ab963df4e7374b58298a7efa1361f681e0e2"
-dependencies = [
- "proc-macro2",
- "pulldown-cmark",
- "regex 1.4.2",
- "semver-parser 0.9.0",
- "syn",
- "toml",
- "url",
-]
 
 [[package]]
 name = "version_check"

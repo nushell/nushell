@@ -1,3 +1,4 @@
+pub mod abs;
 pub mod avg;
 pub mod ceil;
 pub mod command;
@@ -16,6 +17,7 @@ pub mod variance;
 mod reducers;
 mod utils;
 
+pub use abs::SubCommand as MathAbs;
 pub use avg::SubCommand as MathAverage;
 pub use ceil::SubCommand as MathCeil;
 pub use command::Command as Math;

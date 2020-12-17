@@ -4,23 +4,23 @@ description = "CLI for nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-cli"
-version = "0.23.0"
+version = "0.24.1"
 build = "build.rs"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-data = {version = "0.23.0", path = "../nu-data"}
-nu-errors = {version = "0.23.0", path = "../nu-errors"}
-nu-json = {version = "0.23.0", path = "../nu-json"}
-nu-parser = {version = "0.23.0", path = "../nu-parser"}
-nu-plugin = {version = "0.23.0", path = "../nu-plugin"}
-nu-protocol = {version = "0.23.0", path = "../nu-protocol"}
-nu-source = {version = "0.23.0", path = "../nu-source"}
-nu-table = {version = "0.23.0", path = "../nu-table"}
-nu-test-support = {version = "0.23.0", path = "../nu-test-support"}
-nu-value-ext = {version = "0.23.0", path = "../nu-value-ext"}
+nu-data = {version = "0.24.1", path = "../nu-data"}
+nu-errors = {version = "0.24.1", path = "../nu-errors"}
+nu-json = {version = "0.24.1", path = "../nu-json"}
+nu-parser = {version = "0.24.1", path = "../nu-parser"}
+nu-plugin = {version = "0.24.1", path = "../nu-plugin"}
+nu-protocol = {version = "0.24.1", path = "../nu-protocol"}
+nu-source = {version = "0.24.1", path = "../nu-source"}
+nu-table = {version = "0.24.1", path = "../nu-table"}
+nu-test-support = {version = "0.24.1", path = "../nu-test-support"}
+nu-value-ext = {version = "0.24.1", path = "../nu-value-ext"}
 
 ansi_term = "0.12.1"
 async-recursion = "0.3.1"
@@ -52,7 +52,7 @@ futures-util = "0.3.5"
 getset = "0.1.1"
 git2 = {version = "0.13.11", default_features = false, optional = true}
 glob = "0.3.0"
-heim = {version = "0.1.0-beta.3", optional = true}
+heim = {version = "0.1.0-rc.1", optional = true}
 htmlescape = "0.3.1"
 ical = "0.6.0"
 ichwh = {version = "0.3.4", optional = true}
@@ -96,7 +96,7 @@ titlecase = "1.0"
 toml = "0.5.6"
 trash = {version = "1.2.0", optional = true}
 unicode-segmentation = "1.6.0"
-uom = {version = "0.28.0", features = ["f64", "try-from"]}
+uom = {version = "0.30.0", features = ["f64", "try-from"]}
 url = "2.1.1"
 uuid_crate = {package = "uuid", version = "0.8.1", features = ["v4"], optional = true}
 which = {version = "4.0.2", optional = true}
@@ -115,7 +115,7 @@ users = "0.10.0"
 [dependencies.rusqlite]
 features = ["bundled", "blob"]
 optional = true
-version = "0.24.0"
+version = "0.24.1"
 
 [build-dependencies]
 shadow-rs = "0.3.20"
