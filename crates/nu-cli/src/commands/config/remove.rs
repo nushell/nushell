@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -30,12 +29,8 @@ impl WholeStreamCommand for SubCommand {
         "Removes a value from the config"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        remove(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        remove(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -47,12 +42,9 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn remove(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+pub async fn remove(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_span = args.call_info.name_tag.clone();
-    let (RemoveArgs { remove }, _) = args.process(&registry).await?;
+    let (RemoveArgs { remove }, _) = args.process().await?;
 
     let mut result = nu_data::config::read(name_span, &None)?;
 

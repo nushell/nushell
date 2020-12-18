@@ -51,12 +51,8 @@ impl WholeStreamCommand for SubCommand {
         "Returns starting index of given pattern in string counting from 0. Returns -1 when there are no results."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        operate(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        operate(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -95,12 +91,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-async fn operate(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-
+async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let (
         Arguments {
             pattern,
@@ -109,7 +100,7 @@ async fn operate(
             end,
         },
         input,
-    ) = args.process(&registry).await?;
+    ) = args.process().await?;
     let range = range.unwrap_or_else(|| {
         UntaggedValue::Primitive(Primitive::String("".to_string())).into_untagged_value()
     });

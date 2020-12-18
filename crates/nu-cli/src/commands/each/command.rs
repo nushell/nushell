@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
@@ -6,7 +5,7 @@ use crate::prelude::*;
 use futures::stream::once;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::Block, Scope, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
+    hir::CapturedBlock, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
 };
 use nu_source::Tagged;
 
@@ -14,7 +13,7 @@ pub struct Each;
 
 #[derive(Deserialize)]
 pub struct EachArgs {
-    block: Block,
+    block: CapturedBlock,
     numbered: Tagged<bool>,
 }
 
@@ -38,12 +37,8 @@ impl WholeStreamCommand for Each {
         "Run a block on each row of the table."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        each(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        each(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -73,9 +68,8 @@ impl WholeStreamCommand for Each {
 }
 
 pub async fn process_row(
-    block: Arc<Block>,
-    scope: Arc<Scope>,
-    mut context: Arc<EvaluationContext>,
+    captured_block: Arc<Box<CapturedBlock>>,
+    context: Arc<EvaluationContext>,
     input: Value,
 ) -> Result<OutputStream, ShellError> {
     let input_clone = input.clone();
@@ -83,24 +77,29 @@ pub async fn process_row(
     // a parameter to the block (so it gets assigned to a variable that can be used inside the block) or
     // if it wants the contents as as an input stream
 
-    let input_stream = if !block.params.is_empty() {
+    let input_stream = if !captured_block.block.params.positional.is_empty() {
         InputStream::empty()
     } else {
         once(async { Ok(input_clone) }).to_input_stream()
     };
 
-    let scope = if !block.params.is_empty() {
-        // FIXME: add check for more than parameter, once that's supported
-        Scope::append_var(scope, block.params[0].clone(), input)
-    } else {
-        scope
-    };
+    context.scope.enter_scope();
+    context.scope.add_vars(&captured_block.captured.entries);
 
-    Ok(
-        run_block(&block, Arc::make_mut(&mut context), input_stream, scope)
-            .await?
-            .to_output_stream(),
-    )
+    if !captured_block.block.params.positional.is_empty() {
+        // FIXME: add check for more than parameter, once that's supported
+        context
+            .scope
+            .add_var(captured_block.block.params.positional[0].0.name(), input);
+    } else {
+        context.scope.add_var("$it", input);
+    }
+
+    let result = run_block(&captured_block.block, &*context, input_stream).await;
+
+    context.scope.exit_scope();
+
+    Ok(result?.to_output_stream())
 }
 
 pub(crate) fn make_indexed_item(index: usize, item: Value) -> Value {
@@ -111,27 +110,22 @@ pub(crate) fn make_indexed_item(index: usize, item: Value) -> Value {
     dict.into_value()
 }
 
-async fn each(
-    raw_args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let scope = raw_args.call_info.scope.clone();
-    let context = Arc::new(EvaluationContext::from_raw(&raw_args, &registry));
-    let (each_args, input): (EachArgs, _) = raw_args.process(&registry).await?;
-    let block = Arc::new(each_args.block);
+async fn each(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let context = Arc::new(EvaluationContext::from_raw(&raw_args));
+
+    let (each_args, input): (EachArgs, _) = raw_args.process().await?;
+    let block = Arc::new(Box::new(each_args.block));
 
     if each_args.numbered.item {
         Ok(input
             .enumerate()
             .then(move |input| {
                 let block = block.clone();
-                let scope = scope.clone();
                 let context = context.clone();
                 let row = make_indexed_item(input.0, input.1);
 
                 async {
-                    match process_row(block, scope, context, row).await {
+                    match process_row(block, context, row).await {
                         Ok(s) => s,
                         Err(e) => OutputStream::one(Err(e)),
                     }
@@ -143,11 +137,10 @@ async fn each(
         Ok(input
             .then(move |input| {
                 let block = block.clone();
-                let scope = scope.clone();
                 let context = context.clone();
 
                 async {
-                    match process_row(block, scope, context, input).await {
+                    match process_row(block, context, input).await {
                         Ok(s) => s,
                         Err(e) => OutputStream::one(Err(e)),
                     }

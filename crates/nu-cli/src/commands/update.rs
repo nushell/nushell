@@ -1,11 +1,9 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
-use indexmap::indexmap;
 use nu_errors::ShellError;
 use nu_protocol::{
-    ColumnPath, Primitive, ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue, Value,
+    ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use nu_source::HasFallibleSpan;
 use nu_value_ext::ValueExt;
@@ -44,12 +42,8 @@ impl WholeStreamCommand for Command {
         "Update an existing column to have a new value."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        update(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        update(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -74,8 +68,7 @@ impl WholeStreamCommand for Command {
 }
 
 async fn process_row(
-    scope: Arc<Scope>,
-    mut context: Arc<EvaluationContext>,
+    context: Arc<EvaluationContext>,
     input: Value,
     mut replacement: Arc<Value>,
     field: Arc<ColumnPath>,
@@ -86,15 +79,19 @@ async fn process_row(
 
     Ok(match replacement {
         Value {
-            value: UntaggedValue::Block(block),
+            value: UntaggedValue::Block(captured_block),
             tag: block_tag,
         } => {
             let for_block = input.clone();
             let input_stream = once(async { Ok(for_block) }).to_input_stream();
 
-            let scope = Scope::append_var(scope, "$it", input.clone());
+            context.scope.enter_scope();
+            context.scope.add_var("$it", input.clone());
+            context.scope.add_vars(&captured_block.captured.entries);
 
-            let result = run_block(&block, Arc::make_mut(&mut context), input_stream, scope).await;
+            let result = run_block(&captured_block.block, &*context, input_stream).await;
+
+            context.scope.exit_scope();
 
             match result {
                 Ok(mut stream) => {
@@ -148,8 +145,9 @@ async fn process_row(
             Value {
                 value: UntaggedValue::Primitive(Primitive::Nothing),
                 ..
-            } => match scope
-                .var("$it")
+            } => match context
+                .scope
+                .get_var("$it")
                 .unwrap_or_else(|| UntaggedValue::nothing().into_untagged_value())
                 .replace_data_at_column_path(&field, replacement.clone())
             {
@@ -174,28 +172,22 @@ async fn process_row(
     })
 }
 
-async fn update(
-    raw_args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+async fn update(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = Arc::new(raw_args.call_info.name_tag.clone());
-    let scope = raw_args.call_info.scope.clone();
-    let context = Arc::new(EvaluationContext::from_raw(&raw_args, &registry));
-    let (Arguments { field, replacement }, input) = raw_args.process(&registry).await?;
+    let context = Arc::new(EvaluationContext::from_raw(&raw_args));
+    let (Arguments { field, replacement }, input) = raw_args.process().await?;
     let replacement = Arc::new(replacement);
     let field = Arc::new(field);
 
     Ok(input
         .then(move |input| {
             let tag = name_tag.clone();
-            let scope = scope.clone();
             let context = context.clone();
             let replacement = replacement.clone();
             let field = field.clone();
 
             async {
-                match process_row(scope, context, input, replacement, field, tag).await {
+                match process_row(context, input, replacement, field, tag).await {
                     Ok(s) => s,
                     Err(e) => OutputStream::one(Err(e)),
                 }

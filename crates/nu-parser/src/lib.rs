@@ -1,12 +1,14 @@
 mod errors;
-mod lite_parse;
+mod lex;
 mod parse;
 mod path;
+mod scope;
 mod shapes;
 mod signature;
 
-pub use lite_parse::{lite_parse, LiteBlock};
-pub use parse::{classify_block, garbage, parse_full_column_path};
+pub use lex::{group, lex, LiteBlock, LiteCommand, LiteGroup, LitePipeline};
+pub use parse::{classify_block, garbage, parse, parse_full_column_path, parse_math_expression};
 pub use path::expand_ndots;
+pub use scope::ParserScope;
 pub use shapes::shapes;
 pub use signature::{Signature, SignatureRegistry};

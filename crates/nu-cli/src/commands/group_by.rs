@@ -1,7 +1,6 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use crate::utils::suggestions::suggestions;
-use indexmap::indexmap;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
@@ -32,12 +31,8 @@ impl WholeStreamCommand for Command {
         "Create a new table grouped."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        group_by(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        group_by(args).await
     }
 
     #[allow(clippy::unwrap_used)]
@@ -133,15 +128,10 @@ enum Grouper {
     ByBlock,
 }
 
-pub async fn group_by(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+pub async fn group_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let registry = registry.clone();
-    let scope = args.call_info.scope.clone();
-    let context = Arc::new(EvaluationContext::from_raw(&args, &registry));
-    let (Arguments { grouper }, input) = args.process(&registry).await?;
+    let context = Arc::new(EvaluationContext::from_raw(&args));
+    let (Arguments { grouper }, input) = args.process().await?;
 
     let values: Vec<Value> = input.collect().await;
     let mut keys: Vec<Result<String, ShellError>> = vec![];
@@ -157,10 +147,9 @@ pub async fn group_by(
 
             for value in values.iter() {
                 let run = block.clone();
-                let scope = scope.clone();
                 let context = context.clone();
 
-                match crate::commands::each::process_row(run, scope, context, value.clone()).await {
+                match crate::commands::each::process_row(run, context, value.clone()).await {
                     Ok(mut s) => {
                         let collection: Vec<Result<ReturnSuccess, ShellError>> =
                             s.drain_vec().await;

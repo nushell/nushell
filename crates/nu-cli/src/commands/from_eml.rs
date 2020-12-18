@@ -35,12 +35,8 @@ impl WholeStreamCommand for FromEML {
         "Parse text as .eml and create table."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        from_eml(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        from_eml(args).await
     }
 }
 
@@ -77,13 +73,9 @@ fn headerfieldvalue_to_value(tag: &Tag, value: &HeaderFieldValue) -> UntaggedVal
     }
 }
 
-async fn from_eml(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+async fn from_eml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let registry = registry.clone();
-    let (eml_args, input): (FromEMLArgs, _) = args.process(&registry).await?;
+    let (eml_args, input): (FromEMLArgs, _) = args.process().await?;
     let value = input.collect_string(tag.clone()).await?;
 
     let body_preview = eml_args

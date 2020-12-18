@@ -118,6 +118,18 @@ pub struct Signature {
     pub is_filter: bool,
 }
 
+impl PartialEq for Signature {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+            && self.usage == other.usage
+            && self.positional == other.positional
+            && self.rest_positional == other.rest_positional
+            && self.is_filter == other.is_filter
+    }
+}
+
+impl Eq for Signature {}
+
 impl Signature {
     pub fn shift_positional(&mut self) {
         self.positional = Vec::from(&self.positional[1..]);

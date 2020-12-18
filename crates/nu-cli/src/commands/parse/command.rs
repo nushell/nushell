@@ -34,12 +34,8 @@ impl WholeStreamCommand for Command {
         "Parse columns from string data using a simple pattern."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        operate(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        operate(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -54,12 +50,9 @@ impl WholeStreamCommand for Command {
     }
 }
 
-pub async fn operate(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+pub async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
-    let (Arguments { regex, pattern }, mut input) = args.process(&registry).await?;
+    let (Arguments { regex, pattern }, mut input) = args.process().await?;
 
     let regex_pattern = if let Tagged { item: true, tag } = regex {
         Regex::new(&pattern.item)

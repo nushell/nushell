@@ -1,17 +1,15 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::Block, ColumnPath, Primitive, ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue,
-    Value,
+    hir::CapturedBlock, ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape,
+    UntaggedValue, Value,
 };
 use nu_source::Tagged;
 use nu_value_ext::{as_string, ValueExt};
 
 use futures::stream::once;
-use indexmap::indexmap;
 
 #[derive(Deserialize)]
 pub struct Arguments {
@@ -37,12 +35,8 @@ impl WholeStreamCommand for Command {
         "Check for empty values"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        is_empty(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        is_empty(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -87,16 +81,12 @@ impl WholeStreamCommand for Command {
     }
 }
 
-async fn is_empty(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+async fn is_empty(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let name_tag = Arc::new(args.call_info.name_tag.clone());
-    let context = Arc::new(EvaluationContext::from_raw(&args, &registry));
-    let scope = args.call_info.scope.clone();
-    let (Arguments { rest }, input) = args.process(&registry).await?;
-    let (columns, default_block): (Vec<ColumnPath>, Option<Block>) = arguments(rest)?;
+    let context = Arc::new(EvaluationContext::from_raw(&args));
+    let (Arguments { rest }, input) = args.process().await?;
+    let (columns, default_block): (Vec<ColumnPath>, Option<Box<CapturedBlock>>) = arguments(rest)?;
     let default_block = Arc::new(default_block);
 
     if input.is_empty() {
@@ -107,13 +97,12 @@ async fn is_empty(
         return Ok(InputStream::from_stream(stream)
             .then(move |input| {
                 let tag = name_tag.clone();
-                let scope = scope.clone();
                 let context = context.clone();
                 let block = default_block.clone();
                 let columns = vec![];
 
                 async {
-                    match process_row(scope, context, input, block, columns, tag).await {
+                    match process_row(context, input, block, columns, tag).await {
                         Ok(s) => s,
                         Err(e) => OutputStream::one(Err(e)),
                     }
@@ -126,13 +115,12 @@ async fn is_empty(
     Ok(input
         .then(move |input| {
             let tag = name_tag.clone();
-            let scope = scope.clone();
             let context = context.clone();
             let block = default_block.clone();
             let columns = columns.clone();
 
             async {
-                match process_row(scope, context, input, block, columns, tag).await {
+                match process_row(context, input, block, columns, tag).await {
                     Ok(s) => s,
                     Err(e) => OutputStream::one(Err(e)),
                 }
@@ -142,7 +130,9 @@ async fn is_empty(
         .to_output_stream())
 }
 
-fn arguments(rest: Vec<Value>) -> Result<(Vec<ColumnPath>, Option<Block>), ShellError> {
+fn arguments(
+    rest: Vec<Value>,
+) -> Result<(Vec<ColumnPath>, Option<Box<CapturedBlock>>), ShellError> {
     let mut rest = rest;
     let mut columns = vec![];
     let mut default = None;
@@ -172,10 +162,9 @@ fn arguments(rest: Vec<Value>) -> Result<(Vec<ColumnPath>, Option<Block>), Shell
 }
 
 async fn process_row(
-    scope: Arc<Scope>,
-    mut context: Arc<EvaluationContext>,
+    context: Arc<EvaluationContext>,
     input: Value,
-    default_block: Arc<Option<Block>>,
+    default_block: Arc<Option<Box<CapturedBlock>>>,
     column_paths: Vec<ColumnPath>,
     tag: Arc<Tag>,
 ) -> Result<OutputStream, ShellError> {
@@ -187,16 +176,14 @@ async fn process_row(
         let for_block = input.clone();
         let input_stream = once(async { Ok(for_block) }).to_input_stream();
 
-        let scope = Scope::append_var(scope, "$it", input.clone());
+        context.scope.enter_scope();
+        context.scope.add_vars(&default_block.captured.entries);
+        context.scope.add_var("$it", input.clone());
 
-        let mut stream = run_block(
-            &default_block,
-            Arc::make_mut(&mut context),
-            input_stream,
-            scope,
-        )
-        .await?;
+        let stream = run_block(&default_block.block, &*context, input_stream).await;
+        context.scope.exit_scope();
 
+        let mut stream = stream?;
         *results = Some({
             let values = stream.drain_vec().await;
 

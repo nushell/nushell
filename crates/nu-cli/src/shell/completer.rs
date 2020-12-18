@@ -5,6 +5,7 @@ use crate::completion::matchers::Matcher;
 use crate::completion::path::{PathCompleter, PathSuggestion};
 use crate::completion::{self, Completer, Suggestion};
 use crate::evaluation_context::EvaluationContext;
+use nu_parser::ParserScope;
 use nu_source::Tag;
 
 use std::borrow::Cow;
@@ -23,10 +24,12 @@ impl NuCompleter {
         use completion::engine::LocationType;
 
         let nu_context: &EvaluationContext = context.as_ref();
-        let (lite_block, _) = nu_parser::lite_parse(line, 0);
 
-        let classified_block = nu_parser::classify_block(&lite_block, &nu_context.registry);
-        let locations = completion::engine::completion_location(line, &classified_block.block, pos);
+        nu_context.scope.enter_scope();
+        let (block, _) = nu_parser::parse(line, 0, &nu_context.scope);
+        nu_context.scope.exit_scope();
+
+        let locations = completion::engine::completion_location(line, &block, pos);
 
         let matcher = nu_data::config::config(Tag::unknown())
             .ok()

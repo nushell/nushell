@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -19,19 +18,12 @@ impl WholeStreamCommand for Shuffle {
         "Shuffle rows randomly."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        shuffle(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        shuffle(args).await
     }
 }
 
-async fn shuffle(
-    args: CommandArgs,
-    _registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+async fn shuffle(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let input = args.input;
     let mut values: Vec<Value> = input.collect().await;
 

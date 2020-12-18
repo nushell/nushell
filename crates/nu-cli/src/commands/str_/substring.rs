@@ -42,12 +42,8 @@ impl WholeStreamCommand for SubCommand {
         "substrings text"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        operate(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        operate(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -92,14 +88,10 @@ impl From<(isize, isize)> for Substring {
 
 struct SubstringText(String, String);
 
-async fn operate(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let registry = registry.clone();
 
-    let (Arguments { range, rest }, input) = args.process(&registry).await?;
+    let (Arguments { range, rest }, input) = args.process().await?;
 
     let column_paths: Vec<_> = rest;
     let options = process_arguments(range, name)?.into();

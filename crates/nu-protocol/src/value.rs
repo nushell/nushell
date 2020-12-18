@@ -3,7 +3,6 @@ mod convert;
 mod debug;
 pub mod dict;
 pub mod did_you_mean;
-pub mod evaluate;
 pub mod iter;
 pub mod primitive;
 pub mod range;
@@ -45,8 +44,8 @@ pub enum UntaggedValue {
     /// An error value that represents an error that occurred as the values in the pipeline were built
     Error(ShellError),
 
-    /// A block of Nu code, eg `{ ls | get name ; echo "done" }`
-    Block(hir::Block),
+    /// A block of Nu code, eg `{ ls | get name ; echo "done" }` with its captured values
+    Block(Box<hir::CapturedBlock>),
 }
 
 impl UntaggedValue {

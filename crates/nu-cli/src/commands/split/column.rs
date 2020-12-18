@@ -38,21 +38,13 @@ impl WholeStreamCommand for SubCommand {
         "splits contents across multiple columns via the separator."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        split_column(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        split_column(args).await
     }
 }
 
-async fn split_column(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+async fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_span = args.call_info.name_tag.span;
-    let registry = registry.clone();
     let (
         SplitColumnArgs {
             separator,
@@ -60,7 +52,7 @@ async fn split_column(
             collapse_empty,
         },
         input,
-    ) = args.process(&registry).await?;
+    ) = args.process().await?;
 
     Ok(input
         .map(move |v| {

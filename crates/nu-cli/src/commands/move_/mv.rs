@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -38,12 +37,8 @@ impl WholeStreamCommand for Mv {
         "Move files or directories."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        mv(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        mv(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -67,11 +62,10 @@ impl WholeStreamCommand for Mv {
     }
 }
 
-async fn mv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+async fn mv(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let shell_manager = args.shell_manager.clone();
-    let (args, _) = args.process(&registry).await?;
+    let (args, _) = args.process().await?;
 
     shell_manager.mv(args, name)
 }

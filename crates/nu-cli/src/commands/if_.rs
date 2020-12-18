@@ -1,20 +1,19 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::evaluate::evaluate_baseline_expr;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::Block, hir::ClassifiedCommand, Scope, Signature, SyntaxShape, UntaggedValue,
+    hir::CapturedBlock, hir::ClassifiedCommand, Signature, SyntaxShape, UntaggedValue,
 };
 
 pub struct If;
 
 #[derive(Deserialize)]
 pub struct IfArgs {
-    condition: Block,
-    then_case: Block,
-    else_case: Block,
+    condition: CapturedBlock,
+    then_case: CapturedBlock,
+    else_case: CapturedBlock,
 }
 
 #[async_trait]
@@ -46,12 +45,8 @@ impl WholeStreamCommand for If {
         "Run blocks if a condition is true or false."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        if_command(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        if_command(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -69,14 +64,9 @@ impl WholeStreamCommand for If {
         ]
     }
 }
-async fn if_command(
-    raw_args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = Arc::new(registry.clone());
-    let scope = raw_args.call_info.scope.clone();
+async fn if_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = raw_args.call_info.name_tag.clone();
-    let context = Arc::new(EvaluationContext::from_raw(&raw_args, &registry));
+    let context = Arc::new(EvaluationContext::from_raw(&raw_args));
 
     let (
         IfArgs {
@@ -85,18 +75,18 @@ async fn if_command(
             else_case,
         },
         input,
-    ) = raw_args.process(&registry).await?;
-    let condition = {
-        if condition.block.len() != 1 {
+    ) = raw_args.process().await?;
+    let cond = {
+        if condition.block.block.len() != 1 {
             return Err(ShellError::labeled_error(
                 "Expected a condition",
                 "expected a condition",
                 tag,
             ));
         }
-        match condition.block[0].list.get(0) {
-            Some(item) => match item {
-                ClassifiedCommand::Expr(expr) => expr.clone(),
+        match condition.block.block[0].pipelines.get(0) {
+            Some(item) => match item.list.get(0) {
+                Some(ClassifiedCommand::Expr(expr)) => expr.clone(),
                 _ => {
                     return Err(ShellError::labeled_error(
                         "Expected a condition",
@@ -117,42 +107,39 @@ async fn if_command(
 
     Ok(input
         .then(move |input| {
-            let condition = condition.clone();
+            let cond = cond.clone();
             let then_case = then_case.clone();
             let else_case = else_case.clone();
-            let registry = registry.clone();
-            let scope = Scope::append_var(scope.clone(), "$it", input);
-            let mut context = context.clone();
+            let context = context.clone();
+            context.scope.enter_scope();
+            context.scope.add_vars(&condition.captured.entries);
+            context.scope.add_var("$it", input);
 
             async move {
                 //FIXME: should we use the scope that's brought in as well?
-                let condition = evaluate_baseline_expr(&condition, &*registry, scope.clone()).await;
+                let condition = evaluate_baseline_expr(&cond, &*context).await;
 
                 match condition {
                     Ok(condition) => match condition.as_bool() {
                         Ok(b) => {
                             if b {
-                                match run_block(
-                                    &then_case,
-                                    Arc::make_mut(&mut context),
-                                    InputStream::empty(),
-                                    scope,
-                                )
-                                .await
-                                {
+                                let result =
+                                    run_block(&then_case.block, &*context, InputStream::empty())
+                                        .await;
+                                context.scope.exit_scope();
+
+                                match result {
                                     Ok(stream) => stream.to_output_stream(),
                                     Err(e) => futures::stream::iter(vec![Err(e)].into_iter())
                                         .to_output_stream(),
                                 }
                             } else {
-                                match run_block(
-                                    &else_case,
-                                    Arc::make_mut(&mut context),
-                                    InputStream::empty(),
-                                    scope,
-                                )
-                                .await
-                                {
+                                let result =
+                                    run_block(&else_case.block, &*context, InputStream::empty())
+                                        .await;
+                                context.scope.exit_scope();
+
+                                match result {
                                     Ok(stream) => stream.to_output_stream(),
                                     Err(e) => futures::stream::iter(vec![Err(e)].into_iter())
                                         .to_output_stream(),

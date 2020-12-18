@@ -17,7 +17,7 @@ impl Completer for CommandCompleter {
         matcher: &dyn Matcher,
     ) -> Vec<Suggestion> {
         let context: &EvaluationContext = ctx.as_ref();
-        let mut commands: IndexSet<String> = IndexSet::from_iter(context.registry.names());
+        let mut commands: IndexSet<String> = IndexSet::from_iter(context.scope.get_command_names());
 
         // Command suggestions can come from three possible sets:
         //   1. internal command names,

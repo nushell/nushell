@@ -30,12 +30,8 @@ impl WholeStreamCommand for SubCommand {
         "trims whitespace or character from the beginning of text"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        operate(args, registry, &trim_left).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        operate((args), &trim_left).await
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -28,15 +28,11 @@ impl WholeStreamCommand for SubCommand {
         "Finds the average of a list of numbers or tables"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         run_with_function(
             RunnableContext {
                 input: args.input,
-                registry: registry.clone(),
+                scope: args.scope.clone(),
                 shell_manager: args.shell_manager,
                 host: args.host,
                 ctrl_c: args.ctrl_c,

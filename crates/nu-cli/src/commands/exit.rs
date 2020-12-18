@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::command::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -20,12 +19,8 @@ impl WholeStreamCommand for Exit {
         "Exit the current shell (or all shells)"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        exit(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        exit(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -44,12 +39,8 @@ impl WholeStreamCommand for Exit {
     }
 }
 
-pub async fn exit(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let args = args.evaluate_once(&registry).await?;
+pub async fn exit(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once().await?;
 
     let command_action = if args.call_info.args.has("now") {
         CommandAction::Exit

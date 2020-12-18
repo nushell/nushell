@@ -5,7 +5,7 @@ use crate::primitive::get_color_config;
 use nu_data::value::format_leaf;
 use nu_errors::ShellError;
 use nu_protocol::hir::{self, Expression, ExternalRedirection, Literal, SpannedExpression};
-use nu_protocol::{Primitive, Scope, Signature, UntaggedValue, Value};
+use nu_protocol::{Primitive, Signature, UntaggedValue, Value};
 use nu_table::TextStyle;
 use parking_lot::Mutex;
 use std::sync::atomic::AtomicBool;
@@ -26,14 +26,10 @@ impl WholeStreamCommand for Command {
         "View the contents of the pipeline as a table or list."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         autoview(RunnableContext {
             input: args.input,
-            registry: registry.clone(),
+            scope: args.scope.clone(),
             shell_manager: args.shell_manager,
             host: args.host,
             ctrl_c: args.ctrl_c,
@@ -65,7 +61,7 @@ pub struct RunnableContextWithoutInput {
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub ctrl_c: Arc<AtomicBool>,
-    pub registry: CommandRegistry,
+    pub scope: Scope,
     pub name: Tag,
 }
 
@@ -76,7 +72,7 @@ impl RunnableContextWithoutInput {
             host: context.host,
             ctrl_c: context.ctrl_c,
             current_errors: context.current_errors,
-            registry: context.registry,
+            scope: context.scope,
             name: context.name,
         };
         (context.input, new_context)
@@ -109,7 +105,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
 
                 if let Some(table) = table {
                     let command_args = create_default_command_args(&context).with_input(stream);
-                    let result = table.run(command_args, &context.registry).await?;
+                    let result = table.run(command_args).await?;
                     result.collect::<Vec<_>>().await;
                 }
             }
@@ -126,7 +122,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                             );
                             let command_args =
                                 create_default_command_args(&context).with_input(stream);
-                            let result = text.run(command_args, &context.registry).await?;
+                            let result = text.run(command_args).await?;
                             result.collect::<Vec<_>>().await;
                         } else {
                             out!("{}", s);
@@ -149,7 +145,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                             );
                             let command_args =
                                 create_default_command_args(&context).with_input(stream);
-                            let result = text.run(command_args, &context.registry).await?;
+                            let result = text.run(command_args).await?;
                             result.collect::<Vec<_>>().await;
                         } else {
                             out!("{}\n", s);
@@ -224,7 +220,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                             stream.push_back(x);
                             let command_args =
                                 create_default_command_args(&context).with_input(stream);
-                            let result = binary.run(command_args, &context.registry).await?;
+                            let result = binary.run(command_args).await?;
                             result.collect::<Vec<_>>().await;
                         } else {
                             use pretty_hex::*;
@@ -285,7 +281,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                             stream.push_back(x);
                             let command_args =
                                 create_default_command_args(&context).with_input(stream);
-                            let result = table.run(command_args, &context.registry).await?;
+                            let result = table.run(command_args).await?;
                             result.collect::<Vec<_>>().await;
                         } else {
                             out!("{:?}", item);
@@ -318,8 +314,8 @@ fn create_default_command_args(context: &RunnableContextWithoutInput) -> RawComm
                 external_redirection: ExternalRedirection::Stdout,
             },
             name_tag: context.name.clone(),
-            scope: Scope::create(),
         },
+        scope: Scope::new(),
     }
 }
 

@@ -19,12 +19,8 @@ impl WholeStreamCommand for FromTOML {
         "Parse text as .toml and create table."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        from_toml(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        from_toml(args).await
     }
 }
 
@@ -65,12 +61,8 @@ pub fn from_toml_string_to_value(s: String, tag: impl Into<Tag>) -> Result<Value
     Ok(convert_toml_value_to_nu_value(&v, tag))
 }
 
-pub async fn from_toml(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let args = args.evaluate_once(&registry).await?;
+pub async fn from_toml(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once().await?;
     let tag = args.name_tag();
     let input = args.input;
 

@@ -19,15 +19,9 @@ impl WholeStreamCommand for Path {
         "Explore and manipulate paths"
     }
 
-    async fn run(
-        &self,
-        _args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        let registry = registry.clone();
-
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(ReturnSuccess::value(
-            UntaggedValue::string(crate::commands::help::get_help(&Path, &registry))
+            UntaggedValue::string(crate::commands::help::get_help(&Path, &args.scope))
                 .into_value(Tag::unknown()),
         )))
     }

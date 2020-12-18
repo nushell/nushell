@@ -3,14 +3,14 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::Block, hir::ExternalRedirection, ReturnSuccess, Signature, SyntaxShape, Value,
+    hir::CapturedBlock, hir::ExternalRedirection, ReturnSuccess, Signature, SyntaxShape, Value,
 };
 
 pub struct Do;
 
 #[derive(Deserialize, Debug)]
 struct DoArgs {
-    block: Block,
+    block: CapturedBlock,
     ignore_errors: bool,
 }
 
@@ -34,12 +34,8 @@ impl WholeStreamCommand for Do {
         "Runs a block, optionally ignoring errors"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        do_(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        do_(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -58,22 +54,17 @@ impl WholeStreamCommand for Do {
     }
 }
 
-async fn do_(
-    raw_args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+async fn do_(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let external_redirection = raw_args.call_info.args.external_redirection;
 
-    let mut context = EvaluationContext::from_raw(&raw_args, &registry);
-    let scope = raw_args.call_info.scope.clone();
+    let context = EvaluationContext::from_raw(&raw_args);
     let (
         DoArgs {
             ignore_errors,
             mut block,
         },
         input,
-    ) = raw_args.process(&registry).await?;
+    ) = raw_args.process().await?;
 
     let block_redirection = match external_redirection {
         ExternalRedirection::None => {
@@ -93,9 +84,9 @@ async fn do_(
         x => x,
     };
 
-    block.set_redirect(block_redirection);
+    block.block.set_redirect(block_redirection);
 
-    let result = run_block(&block, &mut context, input, scope).await;
+    let result = run_block(&block.block, &context, input).await;
 
     if ignore_errors {
         // To properly ignore errors we need to redirect stderr, consume it, and remove

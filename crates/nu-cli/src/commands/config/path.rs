@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -20,12 +19,8 @@ impl WholeStreamCommand for SubCommand {
         "return the path to the config file"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        path(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        path(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -37,10 +32,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn path(
-    args: CommandArgs,
-    _registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+pub async fn path(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let path = config::default_path()?;
 
     Ok(OutputStream::one(ReturnSuccess::value(

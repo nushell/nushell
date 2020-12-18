@@ -31,12 +31,8 @@ impl WholeStreamCommand for Touch {
     fn usage(&self) -> &str {
         "creates one or more files"
     }
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        touch(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        touch(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -55,9 +51,8 @@ impl WholeStreamCommand for Touch {
     }
 }
 
-async fn touch(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let (TouchArgs { target, rest }, _) = args.process(&registry).await?;
+async fn touch(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (TouchArgs { target, rest }, _) = args.process().await?;
 
     for item in vec![target].into_iter().chain(rest.into_iter()) {
         match OpenOptions::new().write(true).create(true).open(&item) {

@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -46,12 +45,8 @@ impl WholeStreamCommand for Remove {
         "Remove file(s)"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        rm(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        rm(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -80,11 +75,10 @@ impl WholeStreamCommand for Remove {
     }
 }
 
-async fn rm(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+async fn rm(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let shell_manager = args.shell_manager.clone();
-    let (args, _): (RemoveArgs, _) = args.process(&registry).await?;
+    let (args, _): (RemoveArgs, _) = args.process().await?;
 
     if args.trash.item && args.permanent.item {
         return Ok(OutputStream::one(Err(ShellError::labeled_error(

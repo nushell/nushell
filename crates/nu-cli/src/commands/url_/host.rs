@@ -23,12 +23,8 @@ impl WholeStreamCommand for UrlHost {
         "gets the host of a url"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        let (DefaultArguments { rest }, input) = args.process(&registry).await?;
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        let (DefaultArguments { rest }, input) = args.process().await?;
         operate(input, rest, &host).await
     }
 

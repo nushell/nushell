@@ -1,9 +1,8 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::evaluate::evaluate_baseline_expr;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 use std::borrow::Borrow;
 
@@ -32,12 +31,8 @@ impl WholeStreamCommand for Format {
         "Format columns into a string using a simple pattern."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        format_command(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        format_command(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -49,13 +44,9 @@ impl WholeStreamCommand for Format {
     }
 }
 
-async fn format_command(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = Arc::new(registry.clone());
-    let scope = args.call_info.scope.clone();
-    let (FormatArgs { pattern }, input) = args.process(&registry).await?;
+async fn format_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let ctx = Arc::new(EvaluationContext::from_args(&args));
+    let (FormatArgs { pattern }, input) = args.process().await?;
 
     let format_pattern = format(&pattern);
     let commands = Arc::new(format_pattern);
@@ -64,8 +55,7 @@ async fn format_command(
         .then(move |value| {
             let mut output = String::new();
             let commands = commands.clone();
-            let registry = registry.clone();
-            let scope = scope.clone();
+            let ctx = ctx.clone();
 
             async move {
                 for command in &*commands {
@@ -77,15 +67,13 @@ async fn format_command(
                             // FIXME: use the correct spans
                             let full_column_path = nu_parser::parse_full_column_path(
                                 &(c.to_string()).spanned(Span::unknown()),
-                                &*registry,
+                                &ctx.scope,
                             );
 
-                            let result = evaluate_baseline_expr(
-                                &full_column_path.0,
-                                &registry,
-                                Scope::append_var(scope.clone(), "$it", value.clone()),
-                            )
-                            .await;
+                            ctx.scope.enter_scope();
+                            ctx.scope.add_var("$it", value.clone());
+                            let result = evaluate_baseline_expr(&full_column_path.0, &*ctx).await;
+                            ctx.scope.exit_scope();
 
                             if let Ok(c) = result {
                                 output

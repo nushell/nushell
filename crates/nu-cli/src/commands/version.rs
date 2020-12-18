@@ -23,12 +23,8 @@ impl WholeStreamCommand for Version {
         "Display Nu version"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        version(args, registry)
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        version(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -40,7 +36,7 @@ impl WholeStreamCommand for Version {
     }
 }
 
-pub fn version(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+pub fn version(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.args.span;
 
     let mut indexmap = IndexMap::with_capacity(4);

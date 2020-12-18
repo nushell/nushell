@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use futures::future;
@@ -28,12 +27,8 @@ impl WholeStreamCommand for Compact {
         "Creates a table with non-empty rows"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        compact(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        compact(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -45,12 +40,8 @@ impl WholeStreamCommand for Compact {
     }
 }
 
-pub async fn compact(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let (CompactArgs { rest: columns }, input) = args.process(&registry).await?;
+pub async fn compact(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (CompactArgs { rest: columns }, input) = args.process().await?;
     Ok(input
         .filter_map(move |item| {
             future::ready(if columns.is_empty() {

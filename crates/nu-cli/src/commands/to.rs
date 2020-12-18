@@ -20,14 +20,9 @@ impl WholeStreamCommand for To {
         "Convert table into an output format (based on subcommand, like csv, html, json, yaml)."
     }
 
-    async fn run(
-        &self,
-        _args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        let registry = registry.clone();
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(ReturnSuccess::value(
-            UntaggedValue::string(crate::commands::help::get_help(&To, &registry))
+            UntaggedValue::string(crate::commands::help::get_help(&To, &args.scope))
                 .into_value(Tag::unknown()),
         )))
     }

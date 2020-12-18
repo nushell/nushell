@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::UnevaluatedCallInfo;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
@@ -50,12 +49,8 @@ For a more complete list of encodings please refer to the encoding_rs
 documentation link at https://docs.rs/encoding_rs/0.8.23/encoding_rs/#statics"#
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        enter(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        enter(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -79,19 +74,15 @@ documentation link at https://docs.rs/encoding_rs/0.8.23/encoding_rs/#statics"#
     }
 }
 
-async fn enter(
-    raw_args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let scope = raw_args.call_info.scope.clone();
+async fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let scope = raw_args.scope.clone();
     let shell_manager = raw_args.shell_manager.clone();
     let head = raw_args.call_info.args.head.clone();
     let ctrl_c = raw_args.ctrl_c.clone();
     let current_errors = raw_args.current_errors.clone();
     let host = raw_args.host.clone();
     let tag = raw_args.call_info.name_tag.clone();
-    let (EnterArgs { location, encoding }, _) = raw_args.process(&registry).await?;
+    let (EnterArgs { location, encoding }, _) = raw_args.process().await?;
     let location_string = location.display().to_string();
     let location_clone = location_string.clone();
 
@@ -101,7 +92,7 @@ async fn enter(
         if spec.len() == 2 {
             let (_, command) = (spec[0], spec[1]);
 
-            if registry.has(command) {
+            if scope.has_command(command) {
                 return Ok(OutputStream::one(ReturnSuccess::action(
                     CommandAction::EnterHelpShell(
                         UntaggedValue::string(command).into_value(Tag::unknown()),
@@ -134,7 +125,7 @@ async fn enter(
             UntaggedValue::Primitive(Primitive::String(_)) => {
                 if let Some(extension) = file_extension {
                     let command_name = format!("from {}", extension);
-                    if let Some(converter) = registry.get_command(&command_name) {
+                    if let Some(converter) = scope.get_command(&command_name) {
                         let new_args = RawCommandArgs {
                             host,
                             ctrl_c,
@@ -149,12 +140,12 @@ async fn enter(
                                     external_redirection: ExternalRedirection::Stdout,
                                 },
                                 name_tag: tag.clone(),
-                                scope: scope.clone(),
                             },
+                            scope: scope.clone(),
                         };
                         let tag = tagged_contents.tag.clone();
                         let mut result = converter
-                            .run(new_args.with_input(vec![tagged_contents]), &registry)
+                            .run(new_args.with_input(vec![tagged_contents]))
                             .await?;
                         let result_vec: Vec<Result<ReturnSuccess, ShellError>> =
                             result.drain_vec().await;

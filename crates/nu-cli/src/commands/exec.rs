@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -30,12 +29,8 @@ impl WholeStreamCommand for Exec {
         "Execute command"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        exec(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        exec(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -55,13 +50,12 @@ impl WholeStreamCommand for Exec {
 }
 
 #[cfg(unix)]
-async fn exec(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn exec(args: CommandArgs) -> Result<OutputStream, ShellError> {
     use std::os::unix::process::CommandExt;
     use std::process::Command;
 
-    let registry = registry.clone();
     let name = args.call_info.name_tag.clone();
-    let (args, _): (ExecArgs, _) = args.process(&registry).await?;
+    let (args, _): (ExecArgs, _) = args.process().await?;
 
     let mut command = Command::new(args.command.item);
     for tagged_arg in args.rest {
@@ -78,7 +72,7 @@ async fn exec(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
 }
 
 #[cfg(not(unix))]
-async fn exec(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn exec(args: CommandArgs) -> Result<OutputStream, ShellError> {
     Err(ShellError::labeled_error(
         "Error on exec",
         "exec is not supported on your platform",

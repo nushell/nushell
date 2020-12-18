@@ -26,12 +26,8 @@ impl WholeStreamCommand for IntoInt {
         "Convert value to integer"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        into_int(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        into_int(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -43,12 +39,8 @@ impl WholeStreamCommand for IntoInt {
     }
 }
 
-async fn into_int(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let (args, _): (IntoIntArgs, _) = args.process(&registry).await?;
+async fn into_int(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (args, _): (IntoIntArgs, _) = args.process().await?;
 
     let stream = args.rest.into_iter().map(|i| match i {
         Value {

@@ -3,7 +3,7 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 //use itertools::Itertools;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, Primitive, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{hir::CapturedBlock, Primitive, Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 use serde::Deserialize;
 
@@ -12,7 +12,7 @@ pub struct EachWindow;
 #[derive(Deserialize)]
 pub struct EachWindowArgs {
     window_size: Tagged<usize>,
-    block: Block,
+    block: CapturedBlock,
     stride: Option<Tagged<usize>>,
 }
 
@@ -50,16 +50,10 @@ impl WholeStreamCommand for EachWindow {
         }]
     }
 
-    async fn run(
-        &self,
-        raw_args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        let registry = registry.clone();
-        let scope = raw_args.call_info.scope.clone();
-        let context = Arc::new(EvaluationContext::from_raw(&raw_args, &registry));
-        let (each_args, mut input): (EachWindowArgs, _) = raw_args.process(&registry).await?;
-        let block = Arc::new(each_args.block);
+    async fn run(&self, raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+        let context = Arc::new(EvaluationContext::from_raw(&raw_args));
+        let (each_args, mut input): (EachWindowArgs, _) = raw_args.process().await?;
+        let block = Arc::new(Box::new(each_args.block));
 
         let mut window: Vec<_> = input
             .by_ref()
@@ -80,13 +74,12 @@ impl WholeStreamCommand for EachWindow {
                 window.push(input);
 
                 let block = block.clone();
-                let scope = scope.clone();
                 let context = context.clone();
                 let local_window = window.clone();
 
                 async move {
                     if i % stride == 0 {
-                        Some(run_block_on_vec(local_window, block, scope, context).await)
+                        Some(run_block_on_vec(local_window, block, context).await)
                     } else {
                         None
                     }

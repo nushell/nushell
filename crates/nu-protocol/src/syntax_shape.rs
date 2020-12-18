@@ -30,8 +30,10 @@ pub enum SyntaxShape {
     Unit,
     /// An operator
     Operator,
-    /// A math expression, eg `foo > 1`
+    /// A math expression which expands shorthand forms on the lefthand side, eg `foo > 1`
     Math,
+    /// An initializer expression, eg the right hand side of `set x = 1 + 2`
+    Initializer,
 }
 
 impl PrettyDebug for SyntaxShape {
@@ -52,6 +54,7 @@ impl PrettyDebug for SyntaxShape {
             SyntaxShape::Unit => "unit",
             SyntaxShape::Operator => "operator",
             SyntaxShape::Math => "condition",
+            SyntaxShape::Initializer => "initializer",
         })
     }
 }

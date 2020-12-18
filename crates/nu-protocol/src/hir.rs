@@ -5,7 +5,8 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{hir, Primitive, UntaggedValue};
+use crate::Signature;
+use crate::{hir, Dictionary, PositionalType, Primitive, SyntaxShape, UntaggedValue};
 use crate::{PathMember, ShellTypeName};
 use derive_new::new;
 
@@ -44,6 +45,10 @@ impl InternalCommand {
     pub fn has_it_usage(&self) -> bool {
         self.args.has_it_usage()
     }
+
+    pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {
+        self.args.get_free_variables(known_variables)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
@@ -62,11 +67,11 @@ impl ClassifiedBlock {
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct ClassifiedPipeline {
-    pub commands: Commands,
+    pub commands: Pipeline,
 }
 
 impl ClassifiedPipeline {
-    pub fn new(commands: Commands) -> ClassifiedPipeline {
+    pub fn new(commands: Pipeline) -> ClassifiedPipeline {
         ClassifiedPipeline { commands }
     }
 }
@@ -74,7 +79,6 @@ impl ClassifiedPipeline {
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub enum ClassifiedCommand {
     Expr(Box<SpannedExpression>),
-    #[allow(unused)]
     Dynamic(crate::hir::Call),
     Internal(InternalCommand),
     Error(ParseError),
@@ -89,17 +93,33 @@ impl ClassifiedCommand {
             ClassifiedCommand::Error(_) => false,
         }
     }
+
+    pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {
+        match self {
+            ClassifiedCommand::Expr(expr) => expr.get_free_variables(known_variables),
+            ClassifiedCommand::Dynamic(call) => call.get_free_variables(known_variables),
+            ClassifiedCommand::Internal(internal) => internal.get_free_variables(known_variables),
+            _ => vec![],
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
-pub struct Commands {
+pub struct Pipeline {
     pub list: Vec<ClassifiedCommand>,
     pub span: Span,
 }
 
-impl Commands {
-    pub fn new(span: Span) -> Commands {
-        Commands { list: vec![], span }
+impl Pipeline {
+    pub fn new(span: Span) -> Pipeline {
+        Pipeline { list: vec![], span }
+    }
+
+    pub fn basic() -> Pipeline {
+        Pipeline {
+            list: vec![],
+            span: Span::unknown(),
+        }
     }
 
     pub fn push(&mut self, command: ClassifiedCommand) {
@@ -112,34 +132,87 @@ impl Commands {
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
+pub struct Group {
+    pub pipelines: Vec<Pipeline>,
+    pub span: Span,
+}
+impl Group {
+    pub fn new(pipelines: Vec<Pipeline>, span: Span) -> Group {
+        Group { pipelines, span }
+    }
+
+    pub fn basic() -> Group {
+        Group {
+            pipelines: vec![],
+            span: Span::unknown(),
+        }
+    }
+
+    pub fn push(&mut self, pipeline: Pipeline) {
+        self.pipelines.push(pipeline);
+    }
+
+    pub fn has_it_usage(&self) -> bool {
+        self.pipelines.iter().any(|cc| cc.has_it_usage())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
+pub struct CapturedBlock {
+    pub block: Block,
+    pub captured: Dictionary,
+}
+
+impl CapturedBlock {
+    pub fn new(block: Block, captured: Dictionary) -> Self {
+        Self { block, captured }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Block {
-    pub params: Vec<String>,
-    pub block: Vec<Commands>,
+    pub params: Signature,
+    pub block: Vec<Group>,
+    pub definitions: IndexMap<String, Block>,
     pub span: Span,
 }
 
 impl Block {
-    pub fn new(params: Vec<String>, block: Vec<Commands>, span: Span) -> Block {
-        let mut output = Block {
+    pub fn new(
+        params: Signature,
+        block: Vec<Group>,
+        definitions: IndexMap<String, Block>,
+        span: Span,
+    ) -> Block {
+        Block {
             params,
             block,
+            definitions,
             span,
-        };
-
-        output.infer_params();
-        output
+        }
     }
 
-    pub fn push(&mut self, commands: Commands) {
-        self.block.push(commands);
+    pub fn basic() -> Block {
+        Block {
+            params: Signature::new("<basic>"),
+            block: vec![],
+            definitions: IndexMap::new(),
+            span: Span::unknown(),
+        }
+    }
+
+    pub fn push(&mut self, group: Group) {
+        self.block.push(group);
         self.infer_params();
     }
 
     pub fn set_redirect(&mut self, external_redirection: ExternalRedirection) {
-        if let Some(pipeline) = self.block.last_mut() {
-            if let Some(command) = pipeline.list.last_mut() {
-                if let ClassifiedCommand::Internal(internal) = command {
-                    internal.args.external_redirection = external_redirection;
+        if let Some(group) = self.block.last_mut() {
+            if let Some(pipeline) = group.pipelines.last_mut() {
+                if let Some(command) = pipeline.list.last_mut() {
+                    if let ClassifiedCommand::Internal(internal) = command {
+                        internal.args.external_redirection = external_redirection;
+                    }
                 }
             }
         }
@@ -150,9 +223,69 @@ impl Block {
     }
 
     pub fn infer_params(&mut self) {
-        if self.params.is_empty() && self.has_it_usage() {
-            self.params = vec!["$it".into()];
+        // FIXME: re-enable inference later
+        if self.params.positional.is_empty() && self.has_it_usage() {
+            self.params.positional = vec![(
+                PositionalType::Mandatory("$it".to_string(), SyntaxShape::Any),
+                "implied $it".to_string(),
+            )];
         }
+    }
+
+    pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {
+        let mut known_variables = known_variables.clone();
+        let positional_params: Vec<_> = self
+            .params
+            .positional
+            .iter()
+            .map(|(_, name)| name.clone())
+            .collect();
+        known_variables.extend_from_slice(&positional_params);
+
+        let mut free_variables = vec![];
+        for group in &self.block {
+            for pipeline in &group.pipelines {
+                for elem in &pipeline.list {
+                    free_variables
+                        .extend_from_slice(&elem.get_free_variables(&mut known_variables));
+                }
+            }
+        }
+
+        free_variables
+    }
+}
+
+#[allow(clippy::derive_hash_xor_eq)]
+impl Hash for Block {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let mut entries = self.definitions.clone();
+        entries.sort_keys();
+
+        // FIXME: this is incomplete
+        entries.keys().collect::<Vec<&String>>().hash(state);
+    }
+}
+
+impl PartialOrd for Block {
+    /// Compare two dictionaries for sort ordering
+    fn partial_cmp(&self, other: &Block) -> Option<Ordering> {
+        let this: Vec<&String> = self.definitions.keys().collect();
+        let that: Vec<&String> = other.definitions.keys().collect();
+
+        // FIXME: this is incomplete
+        this.partial_cmp(&that)
+    }
+}
+
+impl Ord for Block {
+    /// Compare two dictionaries for ordering
+    fn cmp(&self, other: &Block) -> Ordering {
+        let this: Vec<&String> = self.definitions.keys().collect();
+        let that: Vec<&String> = other.definitions.keys().collect();
+
+        // FIXME: this is incomplete
+        this.cmp(&that)
     }
 }
 
@@ -545,6 +678,10 @@ impl SpannedExpression {
 
     pub fn has_it_usage(&self) -> bool {
         self.expr.has_it_usage()
+    }
+
+    pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {
+        self.expr.get_free_variables(known_variables)
     }
 }
 
@@ -1012,6 +1149,52 @@ impl Expression {
             _ => false,
         }
     }
+
+    pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {
+        let mut output = vec![];
+        match self {
+            Expression::Variable(name, _) => {
+                if !known_variables.contains(name) {
+                    output.push(name.clone());
+                }
+            }
+            Expression::Table(headers, values) => {
+                for header in headers {
+                    output.extend(header.get_free_variables(known_variables));
+                }
+                for row in values {
+                    for value in row {
+                        output.extend(value.get_free_variables(known_variables));
+                    }
+                }
+            }
+            Expression::List(list) => {
+                for item in list {
+                    output.extend(item.get_free_variables(known_variables));
+                }
+            }
+            Expression::Invocation(block) => {
+                output.extend(block.get_free_variables(known_variables));
+            }
+            Expression::Binary(binary) => {
+                output.extend(binary.left.get_free_variables(known_variables));
+                output.extend(binary.right.get_free_variables(known_variables));
+            }
+            Expression::Path(path) => {
+                output.extend(path.head.get_free_variables(known_variables));
+            }
+            Expression::Range(range) => {
+                if let Some(left) = &range.left {
+                    output.extend(left.get_free_variables(known_variables));
+                }
+                if let Some(right) = &range.right {
+                    output.extend(right.get_free_variables(known_variables));
+                }
+            }
+            _ => {}
+        }
+        output
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
@@ -1019,7 +1202,7 @@ pub enum NamedValue {
     AbsentSwitch,
     PresentSwitch(Span),
     AbsentValue,
-    Value(Span, SpannedExpression),
+    Value(Span, Box<SpannedExpression>),
 }
 
 impl NamedValue {
@@ -1028,6 +1211,13 @@ impl NamedValue {
             se.has_it_usage()
         } else {
             false
+        }
+    }
+    pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {
+        if let NamedValue::Value(_, se) = self {
+            se.get_free_variables(known_variables)
+        } else {
+            vec![]
         }
     }
 }
@@ -1107,6 +1297,23 @@ impl Call {
             } else {
                 false
             })
+    }
+
+    pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {
+        let mut free_variables = vec![];
+
+        free_variables.extend(self.head.get_free_variables(known_variables));
+        if let Some(pos) = &self.positional {
+            for pos in pos {
+                free_variables.extend(pos.get_free_variables(known_variables));
+            }
+        }
+
+        if let Some(named) = &self.named {
+            free_variables.extend(named.get_free_variables(known_variables));
+        }
+
+        free_variables
     }
 }
 
@@ -1229,7 +1436,7 @@ impl PartialOrd for NamedArguments {
         }
 
         let this: Vec<&NamedValue> = self.named.values().collect();
-        let that: Vec<&NamedValue> = self.named.values().collect();
+        let that: Vec<&NamedValue> = other.named.values().collect();
 
         this.partial_cmp(&that)
     }
@@ -1246,7 +1453,7 @@ impl Ord for NamedArguments {
         }
 
         let this: Vec<&NamedValue> = self.named.values().collect();
-        let that: Vec<&NamedValue> = self.named.values().collect();
+        let that: Vec<&NamedValue> = other.named.values().collect();
 
         this.cmp(&that)
     }
@@ -1271,6 +1478,14 @@ impl NamedArguments {
 
     pub fn has_it_usage(&self) -> bool {
         self.iter().any(|x| x.1.has_it_usage())
+    }
+
+    pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {
+        let mut free_variables = vec![];
+        for (_, val) in self.named.iter() {
+            free_variables.extend(val.get_free_variables(known_variables));
+        }
+        free_variables
     }
 }
 
@@ -1297,7 +1512,7 @@ impl NamedArguments {
             None => self.named.insert(name.into(), NamedValue::AbsentValue),
             Some(expr) => self
                 .named
-                .insert(name.into(), NamedValue::Value(flag_span, expr)),
+                .insert(name.into(), NamedValue::Value(flag_span, Box::new(expr))),
         };
     }
 
@@ -1308,7 +1523,7 @@ impl NamedArguments {
         expr: SpannedExpression,
     ) {
         self.named
-            .insert(name.into(), NamedValue::Value(flag_span, expr));
+            .insert(name.into(), NamedValue::Value(flag_span, Box::new(expr)));
     }
 
     pub fn switch_present(&self, switch: &str) -> bool {

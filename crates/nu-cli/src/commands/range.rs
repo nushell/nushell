@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::deserializer::NumericRange;
 use crate::prelude::*;
@@ -31,18 +30,13 @@ impl WholeStreamCommand for Range {
         "Return only the selected rows"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        range(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        range(args).await
     }
 }
 
-async fn range(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let (RangeArgs { area }, input) = args.process(&registry).await?;
+async fn range(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (RangeArgs { area }, input) = args.process().await?;
     let range = area.item;
     let (from, left_inclusive) = range.from;
     let (to, right_inclusive) = range.to;

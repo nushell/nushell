@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -29,12 +28,8 @@ impl WholeStreamCommand for Command {
         "Append a row to the table"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        let (Arguments { mut value }, input) = args.process(registry).await?;
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        let (Arguments { mut value }, input) = args.process().await?;
 
         let input: Vec<Value> = input.collect().await;
 

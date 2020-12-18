@@ -31,12 +31,8 @@ impl WholeStreamCommand for SubCommand {
         "Generate a random boolean value"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        bool_command(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        bool_command(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -55,11 +51,8 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn bool_command(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let (BoolArgs { bias }, _) = args.process(&registry).await?;
+pub async fn bool_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (BoolArgs { bias }, _) = args.process().await?;
 
     let mut probability = 0.5;
 

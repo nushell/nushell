@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -34,12 +33,8 @@ impl WholeStreamCommand for Default {
         "Sets a default row's column if missing."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        default(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        default(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -51,12 +46,8 @@ impl WholeStreamCommand for Default {
     }
 }
 
-async fn default(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let (DefaultArgs { column, value }, input) = args.process(&registry).await?;
+async fn default(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (DefaultArgs { column, value }, input) = args.process().await?;
 
     Ok(input
         .map(move |item| {

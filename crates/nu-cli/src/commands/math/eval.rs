@@ -29,12 +29,8 @@ impl WholeStreamCommand for SubCommand {
         )
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        eval(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        eval(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -50,12 +46,9 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn eval(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+pub async fn eval(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.span;
-    let (SubCommandArgs { expression }, input) = args.process(registry).await?;
+    let (SubCommandArgs { expression }, input) = args.process().await?;
 
     Ok(input
         .map(move |x| {

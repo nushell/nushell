@@ -21,12 +21,8 @@ impl WholeStreamCommand for Date {
         "Print the date in a structured table."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        to_table(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        to_table(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -38,12 +34,8 @@ impl WholeStreamCommand for Date {
     }
 }
 
-async fn to_table(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let args = args.evaluate_once(&registry).await?;
+async fn to_table(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once().await?;
     let tag = args.call_info.name_tag.clone();
     let input = args.input;
 

@@ -3,7 +3,7 @@ use crate::evaluate::evaluate_baseline_expr;
 use crate::prelude::*;
 use log::trace;
 use nu_errors::ShellError;
-use nu_protocol::{hir::ClassifiedCommand, Scope, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{hir::ClassifiedCommand, Signature, SyntaxShape, UntaggedValue, Value};
 
 pub struct SubCommand;
 
@@ -27,32 +27,29 @@ impl WholeStreamCommand for SubCommand {
         "Keeps rows while the condition matches."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        let registry = Arc::new(registry.clone());
-        let scope = args.call_info.scope.clone();
-        let call_info = args.evaluate_once(&registry).await?;
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        let ctx = Arc::new(EvaluationContext::from_args(&args));
+        let call_info = args.evaluate_once().await?;
 
         let block = call_info.args.expect_nth(0)?.clone();
 
-        let condition = Arc::new(match block {
+        let (condition, captured) = match block {
             Value {
-                value: UntaggedValue::Block(block),
+                value: UntaggedValue::Block(captured_block),
                 tag,
             } => {
-                if block.block.len() != 1 {
+                if captured_block.block.block.len() != 1 {
                     return Err(ShellError::labeled_error(
                         "Expected a condition",
                         "expected a condition",
                         tag,
                     ));
                 }
-                match block.block[0].list.get(0) {
-                    Some(item) => match item {
-                        ClassifiedCommand::Expr(expr) => expr.clone(),
+                match captured_block.block.block[0].pipelines.get(0) {
+                    Some(item) => match item.list.get(0) {
+                        Some(ClassifiedCommand::Expr(expr)) => {
+                            (Arc::new(expr.clone()), captured_block.captured.clone())
+                        }
                         _ => {
                             return Err(ShellError::labeled_error(
                                 "Expected a condition",
@@ -77,18 +74,22 @@ impl WholeStreamCommand for SubCommand {
                     tag,
                 ));
             }
-        });
+        };
 
         Ok(call_info
             .input
             .take_while(move |item| {
                 let condition = condition.clone();
-                let registry = registry.clone();
-                let scope = Scope::append_var(scope.clone(), "$it", item.clone());
+                let ctx = ctx.clone();
+
+                ctx.scope.enter_scope();
+                ctx.scope.add_var("$it", item.clone());
+                ctx.scope.add_vars(&captured.entries);
                 trace!("ITEM = {:?}", item);
 
                 async move {
-                    let result = evaluate_baseline_expr(&*condition, &registry, scope).await;
+                    let result = evaluate_baseline_expr(&*condition, &*ctx).await;
+                    ctx.scope.exit_scope();
                     trace!("RESULT = {:?}", result);
 
                     matches!(result, Ok(ref v) if v.is_true())

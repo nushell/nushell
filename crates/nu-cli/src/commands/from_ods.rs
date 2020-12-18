@@ -31,29 +31,21 @@ impl WholeStreamCommand for FromODS {
         "Parse OpenDocument Spreadsheet(.ods) data and create table."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        from_ods(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        from_ods(args).await
     }
 }
 
-async fn from_ods(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+async fn from_ods(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let span = tag.span;
-    let registry = registry.clone();
 
     let (
         FromODSArgs {
             headerless: _headerless,
         },
         input,
-    ) = args.process(&registry).await?;
+    ) = args.process().await?;
     let bytes = input.collect_binary(tag.clone()).await?;
     let buf: Cursor<Vec<u8>> = Cursor::new(bytes.item);
     let mut ods = Ods::<_>::new(buf).map_err(|_| {

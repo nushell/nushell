@@ -23,15 +23,13 @@ struct Arguments {
 
 pub async fn operate<F>(
     args: CommandArgs,
-    registry: &CommandRegistry,
+
     trim_operation: &'static F,
 ) -> Result<OutputStream, ShellError>
 where
     F: Fn(&str, Option<char>) -> String + Send + Sync + 'static,
 {
-    let registry = registry.clone();
-
-    let (Arguments { rest, char_ }, input) = args.process(&registry).await?;
+    let (Arguments { rest, char_ }, input) = args.process().await?;
 
     let column_paths: Vec<_> = rest;
     let to_trim = char_.map(|tagged| tagged.item);

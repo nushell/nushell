@@ -31,12 +31,8 @@ impl WholeStreamCommand for Date {
         "Format a given date using the given format string."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        format(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        format(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -55,13 +51,9 @@ impl WholeStreamCommand for Date {
     }
 }
 
-pub async fn format(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+pub async fn format(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let (FormatArgs { format, table }, input) = args.process(&registry).await?;
+    let (FormatArgs { format, table }, input) = args.process().await?;
 
     Ok(input
         .map(move |value| match value {

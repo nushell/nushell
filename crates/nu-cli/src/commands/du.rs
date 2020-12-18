@@ -73,12 +73,8 @@ impl WholeStreamCommand for Du {
         "Find disk usage sizes of specified items"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        du(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        du(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -90,13 +86,12 @@ impl WholeStreamCommand for Du {
     }
 }
 
-async fn du(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+async fn du(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let ctrl_c = args.ctrl_c.clone();
     let ctrl_c_copy = ctrl_c.clone();
 
-    let (args, _): (DuArgs, _) = args.process(&registry).await?;
+    let (args, _): (DuArgs, _) = args.process().await?;
     let exclude = args.exclude.map_or(Ok(None), move |x| {
         Pattern::new(&x.item)
             .map(Option::Some)

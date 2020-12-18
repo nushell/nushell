@@ -28,12 +28,8 @@ impl WholeStreamCommand for SubCommand {
         "Generate a random integer [min..max]"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        integer(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        integer(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -62,11 +58,8 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn integer(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let (IntegerArgs { range }, _) = args.process(&registry).await?;
+pub async fn integer(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (IntegerArgs { range }, _) = args.process().await?;
 
     let (min, max) = if let Some(range) = &range {
         (range.item.min(), range.item.max())

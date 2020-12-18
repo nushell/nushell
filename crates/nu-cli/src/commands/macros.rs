@@ -29,7 +29,7 @@ macro_rules! command {
         pub struct $export;
 
         impl Command for $export {
-            fn run(&self, $args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+            fn run(&self, $args: CommandArgs) -> Result<OutputStream, ShellError> {
                 fn command($args: EvaluatedCommandArgs, ( $($param_name),*, ): ( $($param_type),*, )) -> Result<OutputStream, ShellError> {
                     let output = $body;
 

@@ -1,6 +1,7 @@
+use crate::prelude::*;
 use crate::shell::palette::Palette;
 use ansi_term::{Color, Style};
-use nu_parser::SignatureRegistry;
+use nu_parser::ParserScope;
 use nu_protocol::hir::FlatShape;
 use nu_source::Spanned;
 use std::borrow::Cow;
@@ -20,27 +21,19 @@ impl Painter {
         }
     }
 
-    pub fn paint_string<'l, P: Palette>(
-        line: &'l str,
-        registry: &dyn SignatureRegistry,
-        palette: &P,
-    ) -> Cow<'l, str> {
-        let (lb, err) = nu_parser::lite_parse(line, 0);
+    pub fn paint_string<'l, P: Palette>(line: &'l str, scope: &Scope, palette: &P) -> Cow<'l, str> {
+        scope.enter_scope();
+        let (block, _) = nu_parser::parse(line, 0, scope);
+        scope.exit_scope();
 
-        if err.is_some() {
-            Cow::Borrowed(line)
-        } else {
-            let classified = nu_parser::classify_block(&lb, registry);
+        let shapes = nu_parser::shapes(&block);
+        let mut painter = Painter::new(line);
 
-            let shapes = nu_parser::shapes(&classified.block);
-            let mut painter = Painter::new(line);
-
-            for shape in shapes {
-                painter.paint_shape(&shape, palette);
-            }
-
-            Cow::Owned(painter.into_string())
+        for shape in shapes {
+            painter.paint_shape(&shape, palette);
         }
+
+        Cow::Owned(painter.into_string())
     }
 
     fn paint_shape<P: Palette>(&mut self, shape: &Spanned<FlatShape>, palette: &P) {
