@@ -1,4 +1,6 @@
 use crate::table::TextStyle;
+use ansi_term::Style;
+use std::collections::HashMap;
 use std::{fmt::Display, iter::Iterator};
 use unicode_width::UnicodeWidthStr;
 
@@ -136,12 +138,18 @@ fn split_word<'a>(cell_width: usize, word: &'a str) -> Vec<Subline<'a>> {
 pub fn wrap<'a>(
     cell_width: usize,
     mut input: impl Iterator<Item = Subline<'a>>,
+    color_hm: &HashMap<String, Style>,
 ) -> (Vec<WrappedLine>, usize) {
     let mut lines = vec![];
     let mut current_line: Vec<Subline> = vec![];
     let mut current_width = 0;
     let mut first = true;
     let mut max_width = 0;
+    let lead_trail_space_bg_color = color_hm
+        .get("leading_trailing_space_bg")
+        .unwrap_or(&Style::default())
+        .to_owned();
+
     loop {
         match input.next() {
             Some(item) => {
@@ -231,6 +239,28 @@ pub fn wrap<'a>(
 
         if current_line_width > current_max {
             current_max = current_line_width;
+        }
+
+        // highlight leading and trailing spaces so they stand out.
+        let mut bg_color_string = Style::default().prefix().to_string();
+        // right now config settings can only set foreground colors so, in this
+        // instance we take the foreground color and make it a background color
+        if let Some(bg) = lead_trail_space_bg_color.foreground {
+            bg_color_string = Style::default().on(bg).prefix().to_string()
+        };
+
+        let re_leading =
+            regex::Regex::new(r"(?P<beginsp>^\s+)").expect("error with leading space regex");
+        if let Some(leading_match) = re_leading.find(&current_line.clone()) {
+            String::insert_str(&mut current_line, leading_match.end(), "\x1b[0m");
+            String::insert_str(&mut current_line, leading_match.start(), &bg_color_string);
+        }
+
+        let re_trailing =
+            regex::Regex::new(r"(?P<endsp>\s+$)").expect("error with trailing space regex");
+        if let Some(trailing_match) = re_trailing.find(&current_line.clone()) {
+            String::insert_str(&mut current_line, trailing_match.start(), &bg_color_string);
+            current_line += "\x1b[0m";
         }
 
         output.push(WrappedLine {

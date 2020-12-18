@@ -53,6 +53,7 @@ header_align = "l" # left|l, right|r, center|c
 header_color = "c" # green|g, red|r, blue|u, black|b, yellow|y, purple|p, cyan|c, white|w
 header_bold = true
 index_color = "rd"
+leading_trailing_space_bg = "white"
 
 [line_editor]
 max_history_size = 100000
