@@ -272,7 +272,12 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
 
                         nu_table::draw_table(&table, term_width, &color_hm);
                     }
-
+                    Value {
+                        value: UntaggedValue::Primitive(Primitive::Nothing),
+                        ..
+                    } => {
+                        // Do nothing
+                    }
                     Value {
                         value: ref item, ..
                     } => {
