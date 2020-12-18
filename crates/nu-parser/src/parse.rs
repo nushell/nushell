@@ -1785,16 +1785,6 @@ fn parse_call(
                 error,
             );
         }
-    } else if lite_cmd.parts[0].item == "def" {
-        let error = parse_definition(&lite_cmd, scope);
-        if error.is_none() {
-            return (None, None);
-        } else {
-            return (
-                Some(ClassifiedCommand::Expr(Box::new(garbage(lite_cmd.span())))),
-                error,
-            );
-        }
     } else if lite_cmd.parts.len() > 1 {
         // Check if it's a sub-command
         if let Some(signature) = scope.get_signature(&format!(
@@ -1815,6 +1805,15 @@ fn parse_call(
     }
     // Check if it's an internal command
     if let Some(signature) = scope.get_signature(&lite_cmd.parts[0].item) {
+        if lite_cmd.parts[0].item == "def" {
+            let error = parse_definition(&lite_cmd, scope);
+            if error.is_some() {
+                return (
+                    Some(ClassifiedCommand::Expr(Box::new(garbage(lite_cmd.span())))),
+                    error,
+                );
+            }
+        }
         let (mut internal_command, err) = parse_internal_command(&lite_cmd, scope, &signature, 0);
 
         error = error.or(err);
@@ -2090,24 +2089,35 @@ fn parse_definition(call: &LiteCommand, scope: &dyn ParserScope) -> Option<Parse
             return err;
         };
 
-        let (tokens, err) = lex(&call.parts[3].item, call.parts[3].span.start());
-        if err.is_some() {
-            return err;
-        };
-        let (lite_block, err) = group(tokens);
-        if err.is_some() {
-            return err;
-        };
+        let mut chars = call.parts[3].chars();
+        match (chars.next(), chars.next_back()) {
+            (Some('{'), Some('}')) => {
+                // We have a literal block
+                let string: String = chars.collect();
 
-        let name = &call.parts[1].item;
-        let (mut block, err) = classify_block(&lite_block, scope);
+                let (tokens, err) = lex(&string, call.parts[3].span.start() + 1);
+                if err.is_some() {
+                    return err;
+                };
+                let (lite_block, err) = group(tokens);
+                if err.is_some() {
+                    return err;
+                };
 
-        block.params = signature;
-        block.params.name = name.clone();
+                let name = &call.parts[1].item;
+                let (mut block, err) = classify_block(&lite_block, scope);
 
-        scope.add_definition(block);
+                block.params = signature;
+                block.params.name = name.clone();
 
-        err
+                scope.add_definition(block);
+
+                err
+            }
+            _ => {
+                return Some(ParseError::mismatch("body", call.parts[3].clone()));
+            }
+        }
     } else {
         Some(ParseError::internal_error(
             "need a block".to_string().spanned(call.span()),

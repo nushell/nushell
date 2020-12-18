@@ -67,6 +67,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             // Fundamentals
             whole_stream_command(NuPlugin),
             whole_stream_command(Set),
+            whole_stream_command(Def),
             // System/file operations
             whole_stream_command(Exec),
             whole_stream_command(Pwd),
@@ -374,6 +375,9 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
     let history_path = crate::commands::history::history_path(&configuration);
     let _ = rl.load_history(&history_path);
 
+    let mut session_text = String::new();
+    let mut line_start: usize = 0;
+
     let skip_welcome_message = configuration
         .var("skip_welcome_message")
         .map(|x| x.is_true())
@@ -482,8 +486,23 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
             initial_command = None;
         }
 
+        if let Ok(line) = &readline {
+            line_start = session_text.len();
+            session_text.push_str(line);
+            session_text.push('\n');
+        }
+
         let line = match convert_rustyline_result_to_string(readline) {
-            LineResult::Success(s) => process_script(&s, &mut context, false, true).await,
+            LineResult::Success(s) => {
+                process_script(
+                    &session_text[line_start..],
+                    &mut context,
+                    false,
+                    line_start,
+                    true,
+                )
+                .await
+            }
             x => x,
         };
 
@@ -522,10 +541,10 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
                 let _ = rl.save_history(&history_path);
 
                 context.with_host(|_host| {
-                    print_err(err, &Text::from(line.clone()));
+                    print_err(err, &Text::from(session_text.clone()));
                 });
 
-                context.maybe_print_errors(Text::from(line.clone()));
+                context.maybe_print_errors(Text::from(session_text.clone()));
             }
 
             LineResult::CtrlC => {
@@ -631,7 +650,7 @@ pub async fn run_script_standalone(
     context: &mut EvaluationContext,
     exit_on_error: bool,
 ) -> Result<(), Box<dyn Error>> {
-    let line = process_script(&script_text, context, redirect_stdin, false).await;
+    let line = process_script(&script_text, context, redirect_stdin, 0, false).await;
 
     match line {
         LineResult::Success(line) => {
@@ -900,6 +919,7 @@ pub async fn process_script(
     script_text: &str,
     ctx: &mut EvaluationContext,
     redirect_stdin: bool,
+    span_offset: usize,
     cli_mode: bool,
 ) -> LineResult {
     if script_text.trim() == "" {
@@ -908,7 +928,7 @@ pub async fn process_script(
         let line = chomp_newline(script_text);
         ctx.raw_input = line.to_string();
 
-        let (block, err) = nu_parser::parse(&line, 0, &ctx.scope);
+        let (block, err) = nu_parser::parse(&line, span_offset, &ctx.scope);
 
         debug!("{:#?}", block);
         //println!("{:#?}", pipeline);

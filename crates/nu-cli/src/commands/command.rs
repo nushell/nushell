@@ -256,25 +256,31 @@ impl WholeStreamCommand for Block {
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        let call_info = args.call_info.clone();
+
+        let mut block = self.clone();
+        block.set_redirect(call_info.args.external_redirection);
+
         let ctx = EvaluationContext::from_args(&args);
+        let evaluated = call_info.evaluate(&ctx).await?;
+
         let input = args.input;
         ctx.scope.enter_scope();
-        if let Some(args) = args.call_info.args.positional {
+        if let Some(args) = evaluated.args.positional {
             // FIXME: do not do this
-            for arg in args.iter().zip(self.params.positional.iter()) {
-                let value = evaluate_baseline_expr(arg.0, &ctx).await?;
+            for arg in args.into_iter().zip(self.params.positional.iter()) {
                 let name = arg.1 .0.name();
 
                 if name.starts_with('$') {
-                    ctx.scope.add_var(name, value);
+                    ctx.scope.add_var(name, arg.0);
                 } else {
-                    ctx.scope.add_var(format!("${}", name), value);
+                    ctx.scope.add_var(format!("${}", name), arg.0);
                 }
             }
         }
-        let result = run_block(self, &ctx, input).await;
+        let result = run_block(&block, &ctx, input).await;
         ctx.scope.exit_scope();
-        Ok(result?.to_output_stream())
+        result.map(|x| x.to_output_stream())
     }
 
     fn is_binary(&self) -> bool {
