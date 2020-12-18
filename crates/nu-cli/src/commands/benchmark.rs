@@ -100,7 +100,7 @@ async fn benchmark(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         let real_time = into_big_int(end_time - start_time);
         indexmap.insert("real time".to_string(), real_time);
-        benchmark_output(indexmap, output, passthrough, &tag, &mut context, scope).await
+        benchmark_output(indexmap, output, passthrough, &tag, &mut context).await
     }
     // return advanced stats
     #[cfg(feature = "rich-benchmark")]
