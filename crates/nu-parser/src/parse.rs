@@ -2245,10 +2245,10 @@ pub fn classify_block(
         }
     }
 
-    for def in scope.get_definitions() {
-        let name = def.params.name.clone();
-        output.definitions.insert(name, def.clone());
-    }
+    // for def in scope.get_definitions() {
+    //     let name = def.params.name.clone();
+    //     output.definitions.insert(name, def.clone());
+    // }
 
     (output, error)
 }
