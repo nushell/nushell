@@ -280,10 +280,11 @@ pub fn bare(src: &mut Input, span_offset: usize) -> (Spanned<String>, Option<Par
 }
 
 fn skip_comment(input: &mut Input) {
-    for (_, c) in input {
-        if c == '\n' || c == '\r' {
+    while let Some((_, c)) = input.peek() {
+        if *c == '\n' || *c == '\r' {
             break;
         }
+        input.next();
     }
 }
 
