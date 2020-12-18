@@ -3,9 +3,8 @@ use crate::{commands::WholeStreamCommand, evaluate::evaluate_baseline_expr};
 
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::CapturedBlock,
-    hir::{ClassifiedCommand, Operator},
-    CommandAction, ReturnSuccess, Signature, SyntaxShape,
+    hir::CapturedBlock, hir::ClassifiedCommand, CommandAction, ReturnSuccess, Signature,
+    SyntaxShape,
 };
 use nu_source::Tagged;
 
@@ -65,7 +64,7 @@ pub async fn set(args: CommandArgs) -> Result<OutputStream, ShellError> {
         match rhs.block.block[0].pipelines.get(0) {
             Some(item) => match item.list.get(0) {
                 Some(ClassifiedCommand::Expr(expr)) => (expr.clone(), rhs.captured.clone()),
-                x => {
+                _ => {
                     return Err(ShellError::labeled_error(
                         "Expected a value",
                         "expected a value",

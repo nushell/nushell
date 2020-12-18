@@ -3,8 +3,7 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::{Block, CapturedBlock},
-    ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+    hir::CapturedBlock, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use nu_source::Tagged;
 use serde::Deserialize;
@@ -49,7 +48,7 @@ impl WholeStreamCommand for EachGroup {
     async fn run(&self, raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         let context = Arc::new(EvaluationContext::from_raw(&raw_args));
         let (each_args, input): (EachGroupArgs, _) = raw_args.process().await?;
-        let block = Arc::new(each_args.block);
+        let block = Arc::new(Box::new(each_args.block));
 
         Ok(input
             .chunks(each_args.group_size.item)
@@ -61,7 +60,7 @@ impl WholeStreamCommand for EachGroup {
 
 pub(crate) fn run_block_on_vec(
     input: Vec<Value>,
-    block: Arc<CapturedBlock>,
+    block: Arc<Box<CapturedBlock>>,
     context: Arc<EvaluationContext>,
 ) -> impl Future<Output = OutputStream> {
     let value = Value {

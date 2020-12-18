@@ -1,7 +1,7 @@
+use crate::deserializer::ConfigDeserializer;
 use crate::evaluate::evaluate_args::evaluate_args;
 use crate::prelude::*;
 use crate::{commands::help::get_help, run_block};
-use crate::{deserializer::ConfigDeserializer, evaluate::evaluate_baseline_expr};
 use derive_new::new;
 use getset::Getters;
 use nu_errors::ShellError;

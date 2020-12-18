@@ -1,5 +1,4 @@
-use crate::hir::Block;
-use crate::{value::Value, Signature};
+use crate::value::Value;
 use nu_errors::ShellError;
 use nu_source::{b, DebugDocBuilder, PrettyDebug};
 use serde::{Deserialize, Serialize};

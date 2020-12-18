@@ -68,7 +68,7 @@ impl WholeStreamCommand for Command {
 }
 
 async fn process_row(
-    mut context: Arc<EvaluationContext>,
+    context: Arc<EvaluationContext>,
     input: Value,
     mut replacement: Arc<Value>,
     field: Arc<ColumnPath>,

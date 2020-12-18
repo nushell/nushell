@@ -84,6 +84,7 @@ impl WholeStreamCommand for SubCommand {
                 let ctx = ctx.clone();
 
                 ctx.scope.enter_scope();
+                ctx.scope.add_vars(&captured.entries);
                 ctx.scope.add_var("$it", item.clone());
                 trace!("ITEM = {:?}", item);
 

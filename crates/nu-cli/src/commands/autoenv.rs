@@ -72,15 +72,15 @@ The file can contain several optional sections:
         vec![Example {
             description: "Example .nu-env file",
             example: r#"cat .nu-env
-    [env]
-    mykey = "myvalue"
+        [env]
+        mykey = "myvalue"
 
-    [scriptvars]
-    myscript = "echo myval"
+        [scriptvars]
+        myscript = "echo myval"
 
-    [scripts]
-    entryscripts = ["touch hello.txt", "touch hello2.txt"]
-    exitscripts = ["touch bye.txt"]"#,
+        [scripts]
+        entryscripts = ["touch hello.txt", "touch hello2.txt"]
+        exitscripts = ["touch bye.txt"]"#,
             result: None,
         }]
     }

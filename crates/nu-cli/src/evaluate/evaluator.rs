@@ -152,7 +152,13 @@ pub(crate) async fn evaluate_baseline_expr(
                 }
             }
 
-            Ok(UntaggedValue::Block(CapturedBlock::new(block.clone(), captured)).into_value(&tag))
+            let mut block = block.clone();
+            block.infer_params();
+
+            Ok(
+                UntaggedValue::Block(Box::new(CapturedBlock::new(block, captured)))
+                    .into_value(&tag),
+            )
         }
         Expression::Path(path) => {
             let value = evaluate_baseline_expr(&path.head, ctx).await?;

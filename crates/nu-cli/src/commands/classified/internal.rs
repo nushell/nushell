@@ -1,7 +1,5 @@
 use std::sync::atomic::Ordering;
 
-use crate::commands::command::whole_stream_command;
-use crate::commands::run_alias::AliasCommand;
 use crate::commands::UnevaluatedCallInfo;
 use crate::prelude::*;
 use log::{log_enabled, trace};

@@ -29,7 +29,6 @@ impl WholeStreamCommand for SubCommand {
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let ctx = Arc::new(EvaluationContext::from_args(&args));
-        let scope = args.scope.clone();
         let call_info = args.evaluate_once().await?;
 
         let block = call_info.args.expect_nth(0)?.clone();

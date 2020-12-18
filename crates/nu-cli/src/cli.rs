@@ -493,7 +493,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
         }
 
         let line = match convert_rustyline_result_to_string(readline) {
-            LineResult::Success(s) => {
+            LineResult::Success(_) => {
                 process_script(
                     &session_text[line_start..],
                     &mut context,
@@ -910,8 +910,7 @@ pub async fn parse_and_eval(line: &str, ctx: &mut EvaluationContext) -> Result<S
     let result = run_block(&classified_block, ctx, input_stream).await;
     ctx.scope.exit_scope();
 
-    let result = result?.collect_string(Tag::unknown()).await.map(|x| x.item);
-    result
+    result?.collect_string(Tag::unknown()).await.map(|x| x.item)
 }
 
 /// Process the line by parsing the text to turn it into commands, classify those commands so that we understand what is being called in the pipeline, and then run this pipeline

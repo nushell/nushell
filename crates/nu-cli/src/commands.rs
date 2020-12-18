@@ -95,7 +95,6 @@ pub(crate) mod reject;
 pub(crate) mod rename;
 pub(crate) mod reverse;
 pub(crate) mod rm;
-pub(crate) mod run_alias;
 pub(crate) mod run_external;
 pub(crate) mod save;
 pub(crate) mod select;

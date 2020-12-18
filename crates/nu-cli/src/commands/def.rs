@@ -1,12 +1,8 @@
+use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
-use crate::{commands::WholeStreamCommand, evaluate::evaluate_baseline_expr};
 
 use nu_errors::ShellError;
-use nu_protocol::{
-    hir::CapturedBlock,
-    hir::{ClassifiedCommand, Operator},
-    CommandAction, ReturnSuccess, Signature, SyntaxShape, Value,
-};
+use nu_protocol::{hir::CapturedBlock, Signature, SyntaxShape, Value};
 use nu_source::Tagged;
 
 pub struct Def;
@@ -39,7 +35,7 @@ impl WholeStreamCommand for Def {
         "Create a command and set it to a definition."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    async fn run(&self, _args: CommandArgs) -> Result<OutputStream, ShellError> {
         // Currently, we don't do anything here because we should have already
         // installed the definition as we entered the scope
         // We just create a command so that we can get proper coloring

@@ -68,7 +68,7 @@ impl WholeStreamCommand for Each {
 }
 
 pub async fn process_row(
-    captured_block: Arc<CapturedBlock>,
+    captured_block: Arc<Box<CapturedBlock>>,
     context: Arc<EvaluationContext>,
     input: Value,
 ) -> Result<OutputStream, ShellError> {
@@ -114,7 +114,7 @@ async fn each(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let context = Arc::new(EvaluationContext::from_raw(&raw_args));
 
     let (each_args, input): (EachArgs, _) = raw_args.process().await?;
-    let block = Arc::new(each_args.block);
+    let block = Arc::new(Box::new(each_args.block));
 
     if each_args.numbered.item {
         Ok(input

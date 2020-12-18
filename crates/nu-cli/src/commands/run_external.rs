@@ -122,8 +122,6 @@ impl WholeStreamCommand for RunExternalCommand {
             }
         }
 
-        let scope = args.scope.clone();
-
         let input = args.input;
         let result = external::run_external_command(
             command,

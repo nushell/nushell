@@ -86,7 +86,7 @@ async fn is_empty(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = Arc::new(args.call_info.name_tag.clone());
     let context = Arc::new(EvaluationContext::from_raw(&args));
     let (Arguments { rest }, input) = args.process().await?;
-    let (columns, default_block): (Vec<ColumnPath>, Option<CapturedBlock>) = arguments(rest)?;
+    let (columns, default_block): (Vec<ColumnPath>, Option<Box<CapturedBlock>>) = arguments(rest)?;
     let default_block = Arc::new(default_block);
 
     if input.is_empty() {
@@ -130,7 +130,9 @@ async fn is_empty(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .to_output_stream())
 }
 
-fn arguments(rest: Vec<Value>) -> Result<(Vec<ColumnPath>, Option<CapturedBlock>), ShellError> {
+fn arguments(
+    rest: Vec<Value>,
+) -> Result<(Vec<ColumnPath>, Option<Box<CapturedBlock>>), ShellError> {
     let mut rest = rest;
     let mut columns = vec![];
     let mut default = None;
@@ -162,7 +164,7 @@ fn arguments(rest: Vec<Value>) -> Result<(Vec<ColumnPath>, Option<CapturedBlock>
 async fn process_row(
     context: Arc<EvaluationContext>,
     input: Value,
-    default_block: Arc<Option<CapturedBlock>>,
+    default_block: Arc<Option<Box<CapturedBlock>>>,
     column_paths: Vec<ColumnPath>,
     tag: Arc<Tag>,
 ) -> Result<OutputStream, ShellError> {

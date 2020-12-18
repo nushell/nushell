@@ -84,7 +84,7 @@ async fn benchmark(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     #[cfg(feature = "rich-benchmark")]
     let start = time().await;
 
-    let result = run_block(&block.block, &mut context, input).await;
+    let result = run_block(&block.block, &context, input).await;
     let output = result?.into_vec().await;
 
     #[cfg(feature = "rich-benchmark")]

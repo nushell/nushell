@@ -45,7 +45,7 @@ pub enum UntaggedValue {
     Error(ShellError),
 
     /// A block of Nu code, eg `{ ls | get name ; echo "done" }` with its captured values
-    Block(hir::CapturedBlock),
+    Block(Box<hir::CapturedBlock>),
 }
 
 impl UntaggedValue {

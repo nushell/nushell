@@ -9,6 +9,12 @@ pub struct Scope {
     frames: Arc<parking_lot::Mutex<Vec<ScopeFrame>>>,
 }
 
+impl Default for Scope {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Scope {
     pub fn new() -> Scope {
         Scope {
@@ -206,7 +212,7 @@ impl ScopeFrame {
     }
 
     pub fn get_command(&self, name: &str) -> Option<Command> {
-        self.commands.get(name).map(|x| x.clone())
+        self.commands.get(name).cloned()
     }
 
     pub fn new() -> ScopeFrame {

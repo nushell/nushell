@@ -278,11 +278,17 @@ mod tests {
         }
 
         fn get_alias(&self, _name: &str) -> Option<Vec<Spanned<String>>> {
-            todo!()
+            None
         }
 
         fn add_alias(&self, _name: &str, _replacement: Vec<Spanned<String>>) {
             todo!()
+        }
+
+        fn add_definition(&self, _block: Block) {}
+
+        fn get_definitions(&self) -> Vec<Block> {
+            vec![]
         }
 
         fn enter_scope(&self) {}

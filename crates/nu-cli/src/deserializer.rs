@@ -392,7 +392,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
                     ))
                 }
             };
-            return visit::<CapturedBlock, _>(block, name, fields, visitor);
+            return visit::<CapturedBlock, _>(*block, name, fields, visitor);
         }
 
         if name == "ColumnPath" {

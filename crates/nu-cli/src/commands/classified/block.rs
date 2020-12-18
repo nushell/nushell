@@ -167,7 +167,7 @@ async fn run_pipeline(
                                     let result = result?;
                                     return Ok(result);
                                 }
-                                x => {
+                                _ => {
                                     return Err(ShellError::labeled_error("Dynamic commands must start with a block (or variable pointing to a block)", "needs to be a block", call.head.span));
                                 }
                             }

@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 use crate::Signature;
-use crate::{hir, Dictionary, Primitive, UntaggedValue};
+use crate::{hir, Dictionary, PositionalType, Primitive, SyntaxShape, UntaggedValue};
 use crate::{PathMember, ShellTypeName};
 use derive_new::new;
 
@@ -224,9 +224,12 @@ impl Block {
 
     pub fn infer_params(&mut self) {
         // FIXME: re-enable inference later
-        // if self.params.positional.is_empty() && self.has_it_usage() {
-        //     self.params = vec!["$it".into()];
-        // }
+        if self.params.positional.is_empty() && self.has_it_usage() {
+            self.params.positional = vec![(
+                PositionalType::Mandatory("$it".to_string(), SyntaxShape::Any),
+                "implied $it".to_string(),
+            )];
+        }
     }
 
     pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {
@@ -1199,7 +1202,7 @@ pub enum NamedValue {
     AbsentSwitch,
     PresentSwitch(Span),
     AbsentValue,
-    Value(Span, SpannedExpression),
+    Value(Span, Box<SpannedExpression>),
 }
 
 impl NamedValue {
@@ -1509,7 +1512,7 @@ impl NamedArguments {
             None => self.named.insert(name.into(), NamedValue::AbsentValue),
             Some(expr) => self
                 .named
-                .insert(name.into(), NamedValue::Value(flag_span, expr)),
+                .insert(name.into(), NamedValue::Value(flag_span, Box::new(expr))),
         };
     }
 
@@ -1520,7 +1523,7 @@ impl NamedArguments {
         expr: SpannedExpression,
     ) {
         self.named
-            .insert(name.into(), NamedValue::Value(flag_span, expr));
+            .insert(name.into(), NamedValue::Value(flag_span, Box::new(expr)));
     }
 
     pub fn switch_present(&self, switch: &str) -> bool {

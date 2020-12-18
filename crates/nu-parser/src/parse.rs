@@ -2114,9 +2114,7 @@ fn parse_definition(call: &LiteCommand, scope: &dyn ParserScope) -> Option<Parse
 
                 err
             }
-            _ => {
-                return Some(ParseError::mismatch("body", call.parts[3].clone()));
-            }
+            _ => Some(ParseError::mismatch("body", call.parts[3].clone())),
         }
     } else {
         Some(ParseError::internal_error(

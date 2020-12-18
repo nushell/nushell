@@ -128,6 +128,7 @@ impl LiteGroup {
             false
         }
     }
+    #[cfg(test)]
     pub(crate) fn span(&self) -> Span {
         let start = if !self.pipelines.is_empty() {
             self.pipelines[0].span().start()
@@ -158,6 +159,7 @@ impl LiteBlock {
     pub fn push(&mut self, item: LiteGroup) {
         self.block.push(item)
     }
+    #[cfg(test)]
     pub(crate) fn span(&self) -> Span {
         let start = if !self.block.is_empty() {
             self.block[0].span().start()
