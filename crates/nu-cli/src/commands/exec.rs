@@ -72,7 +72,7 @@ async fn exec(args: CommandArgs) -> Result<OutputStream, ShellError> {
 }
 
 #[cfg(not(unix))]
-async fn exec(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+async fn exec(args: CommandArgs) -> Result<OutputStream, ShellError> {
     Err(ShellError::labeled_error(
         "Error on exec",
         "exec is not supported on your platform",
