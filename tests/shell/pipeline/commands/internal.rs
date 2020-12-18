@@ -332,6 +332,32 @@ fn string_interpolation_with_it_column_path() {
     assert_eq!(actual.out, "sammie");
 }
 
+#[test]
+fn run_custom_command() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            def add-me [x y] { = $x + $y}; add-me 10 5
+        "#
+    );
+
+    assert_eq!(actual.out, "15");
+}
+
+#[test]
+fn set_variables() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            set x = 5
+            set y = 12
+            = $x + $y
+        "#
+    );
+
+    assert_eq!(actual.out, "17");
+}
+
 #[cfg(feature = "which")]
 #[test]
 fn argument_invocation_reports_errors() {
