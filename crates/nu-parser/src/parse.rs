@@ -2035,6 +2035,12 @@ fn parse_signature(
                         let shape = match parts[1] {
                             "int" => SyntaxShape::Int,
                             "string" => SyntaxShape::String,
+                            "path" => SyntaxShape::Path,
+                            "table" => SyntaxShape::Table,
+                            "unit" => SyntaxShape::Unit,
+                            "number" => SyntaxShape::Number,
+                            "pattern" => SyntaxShape::Pattern,
+                            "range" => SyntaxShape::Range,
                             "block" => SyntaxShape::Block,
                             "any" => SyntaxShape::Any,
                             _ => {
