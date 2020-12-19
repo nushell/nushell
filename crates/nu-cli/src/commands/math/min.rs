@@ -31,7 +31,6 @@ impl WholeStreamCommand for SubCommand {
                 ctrl_c: args.ctrl_c,
                 current_errors: args.current_errors,
                 name: args.call_info.name_tag,
-                raw_input: args.raw_input,
             },
             minimum,
         )

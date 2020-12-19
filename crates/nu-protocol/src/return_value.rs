@@ -26,6 +26,8 @@ pub enum CommandAction {
     AddEnvVariable(String, String),
     /// Add plugins from path given
     AddPlugins(String),
+    /// Run the given script in the current context (given filename)
+    SourceScript(String),
     /// Go to the previous shell in the shell ring buffer
     PreviousShell,
     /// Go to the next shell in the shell ring buffer
@@ -49,6 +51,7 @@ impl PrettyDebug for CommandAction {
             CommandAction::EnterHelpShell(v) => b::typed("enter help shell", v.pretty()),
             CommandAction::AddVariable(..) => b::description("add variable"),
             CommandAction::AddEnvVariable(..) => b::description("add environment variable"),
+            CommandAction::SourceScript(..) => b::description("source script"),
             CommandAction::AddPlugins(..) => b::description("add plugins"),
             CommandAction::PreviousShell => b::description("previous shell"),
             CommandAction::NextShell => b::description("next shell"),

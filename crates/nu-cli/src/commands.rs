@@ -108,6 +108,7 @@ pub(crate) mod size;
 pub(crate) mod skip;
 pub(crate) mod sleep;
 pub(crate) mod sort_by;
+pub(crate) mod source;
 pub(crate) mod split;
 pub(crate) mod split_by;
 pub(crate) mod str_;
@@ -255,6 +256,7 @@ pub(crate) use size::Size;
 pub(crate) use skip::{Skip, SkipUntil, SkipWhile};
 pub(crate) use sleep::Sleep;
 pub(crate) use sort_by::SortBy;
+pub(crate) use source::Source;
 pub(crate) use split::{Split, SplitChars, SplitColumn, SplitRow};
 pub(crate) use split_by::SplitBy;
 pub(crate) use str_::{
