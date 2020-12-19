@@ -26,7 +26,7 @@ use serde::Deserialize;
 pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
     let examples = cmd.examples();
 
-    let mut base_context = EvaluationContext::basic()?;
+    let base_context = EvaluationContext::basic()?;
 
     base_context.add_commands(vec![
         // Mocks
@@ -89,7 +89,7 @@ pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
 pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
     let examples = cmd.examples();
 
-    let mut base_context = EvaluationContext::basic()?;
+    let base_context = EvaluationContext::basic()?;
 
     base_context.add_commands(vec![
         whole_stream_command(Echo {}),
@@ -144,7 +144,7 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
 pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
     let examples = cmd.examples();
 
-    let mut base_context = EvaluationContext::basic()?;
+    let base_context = EvaluationContext::basic()?;
 
     base_context.add_commands(vec![
         // Minimal restricted commands to aid in testing
