@@ -8,38 +8,42 @@ use nu_protocol::{
 };
 use nu_source::Tagged;
 
-pub struct Set;
+pub struct SetEnv;
 
 #[derive(Deserialize)]
-pub struct SetArgs {
+pub struct SetEnvArgs {
     pub name: Tagged<String>,
     pub equals: Tagged<String>,
     pub rhs: CapturedBlock,
 }
 
 #[async_trait]
-impl WholeStreamCommand for Set {
+impl WholeStreamCommand for SetEnv {
     fn name(&self) -> &str {
-        "set"
+        "set-env"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("set")
-            .required("name", SyntaxShape::String, "the name of the variable")
+        Signature::build("set-env")
+            .required(
+                "name",
+                SyntaxShape::String,
+                "the name of the environment variable",
+            )
             .required("equals", SyntaxShape::String, "the equals sign")
             .required(
                 "expr",
                 SyntaxShape::Initializer,
-                "the value to set the variable to",
+                "the value to set the environment variable to",
             )
     }
 
     fn usage(&self) -> &str {
-        "Create a variable and set it to a value."
+        "Create an environment variable and set it to a value."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        set(args).await
+        set_env(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -47,11 +51,11 @@ impl WholeStreamCommand for Set {
     }
 }
 
-pub async fn set(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub async fn set_env(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let ctx = EvaluationContext::from_args(&args);
 
-    let (SetArgs { name, rhs, .. }, _) = args.process().await?;
+    let (SetEnvArgs { name, rhs, .. }, _) = args.process().await?;
 
     let (expr, captured) = {
         if rhs.block.block.len() != 1 {
@@ -90,14 +94,11 @@ pub async fn set(args: CommandArgs) -> Result<OutputStream, ShellError> {
     ctx.scope.exit_scope();
 
     let value = value?;
+    let value = value.as_string()?;
 
-    let name = if name.item.starts_with('$') {
-        name.item.clone()
-    } else {
-        format!("${}", name.item)
-    };
+    let name = name.item.clone();
 
     Ok(OutputStream::one(ReturnSuccess::action(
-        CommandAction::AddVariable(name, value),
+        CommandAction::AddEnvVariable(name, value),
     )))
 }

@@ -184,6 +184,10 @@ pub(crate) async fn run_internal_command(
                                 context.scope.add_var(name, value);
                                 InputStream::from_stream(futures::stream::iter(vec![]))
                             }
+                            CommandAction::AddEnvVariable(name, value) => {
+                                context.scope.add_env_var(name, value);
+                                InputStream::from_stream(futures::stream::iter(vec![]))
+                            }
                             CommandAction::AddPlugins(path) => {
                                 match crate::plugin::scan(vec![std::path::PathBuf::from(path)]) {
                                     Ok(plugins) => {

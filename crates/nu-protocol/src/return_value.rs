@@ -22,6 +22,8 @@ pub enum CommandAction {
     EnterHelpShell(Value),
     /// Add a variable into scope
     AddVariable(String, Value),
+    /// Add an environment variable into scope
+    AddEnvVariable(String, String),
     /// Add plugins from path given
     AddPlugins(String),
     /// Go to the previous shell in the shell ring buffer
@@ -46,6 +48,7 @@ impl PrettyDebug for CommandAction {
             CommandAction::EnterValueShell(v) => b::typed("enter value shell", v.pretty()),
             CommandAction::EnterHelpShell(v) => b::typed("enter help shell", v.pretty()),
             CommandAction::AddVariable(..) => b::description("add variable"),
+            CommandAction::AddEnvVariable(..) => b::description("add environment variable"),
             CommandAction::AddPlugins(..) => b::description("add plugins"),
             CommandAction::PreviousShell => b::description("previous shell"),
             CommandAction::NextShell => b::description("next shell"),
