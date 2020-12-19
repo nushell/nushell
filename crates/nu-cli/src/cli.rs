@@ -58,7 +58,7 @@ pub fn search_paths() -> Vec<std::path::PathBuf> {
 }
 
 pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Box<dyn Error>> {
-    let mut context = EvaluationContext::basic()?;
+    let context = EvaluationContext::basic()?;
 
     {
         use crate::commands::*;
@@ -69,6 +69,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Set),
             whole_stream_command(SetEnv),
             whole_stream_command(Def),
+            whole_stream_command(Source),
             // System/file operations
             whole_stream_command(Exec),
             whole_stream_command(Pwd),
@@ -325,7 +326,7 @@ pub async fn run_script_file(
 
     let _ = run_startup_commands(&mut context, &config).await;
 
-    run_script_standalone(file_contents, redirect_stdin, &mut context, true).await?;
+    run_script_standalone(file_contents, redirect_stdin, &context, true).await?;
 
     Ok(())
 }
@@ -497,7 +498,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
             LineResult::Success(_) => {
                 process_script(
                     &session_text[line_start..],
-                    &mut context,
+                    &context,
                     false,
                     line_start,
                     true,
@@ -648,7 +649,7 @@ async fn run_startup_commands(
 pub async fn run_script_standalone(
     script_text: String,
     redirect_stdin: bool,
-    context: &mut EvaluationContext,
+    context: &EvaluationContext,
     exit_on_error: bool,
 ) -> Result<(), Box<dyn Error>> {
     let line = process_script(&script_text, context, redirect_stdin, 0, false).await;
@@ -888,7 +889,7 @@ pub enum LineResult {
     ClearHistory,
 }
 
-pub async fn parse_and_eval(line: &str, ctx: &mut EvaluationContext) -> Result<String, ShellError> {
+pub async fn parse_and_eval(line: &str, ctx: &EvaluationContext) -> Result<String, ShellError> {
     // FIXME: do we still need this?
     let line = if let Some(s) = line.strip_suffix('\n') {
         s
@@ -917,7 +918,7 @@ pub async fn parse_and_eval(line: &str, ctx: &mut EvaluationContext) -> Result<S
 /// Process the line by parsing the text to turn it into commands, classify those commands so that we understand what is being called in the pipeline, and then run this pipeline
 pub async fn process_script(
     script_text: &str,
-    ctx: &mut EvaluationContext,
+    ctx: &EvaluationContext,
     redirect_stdin: bool,
     span_offset: usize,
     cli_mode: bool,
@@ -926,7 +927,6 @@ pub async fn process_script(
         LineResult::Success(script_text.to_string())
     } else {
         let line = chomp_newline(script_text);
-        ctx.raw_input = line.to_string();
 
         let (block, err) = nu_parser::parse(&line, span_offset, &ctx.scope);
 
@@ -1067,7 +1067,6 @@ pub async fn process_script(
                     current_errors: ctx.current_errors.clone(),
                     scope: ctx.scope.clone(),
                     name: Tag::unknown(),
-                    raw_input: line.to_string(),
                 };
 
                 if let Ok(mut output_stream) =

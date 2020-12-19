@@ -192,7 +192,7 @@ pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
 }
 
 /// Parse and run a nushell pipeline
-fn parse_line(line: &str, ctx: &mut EvaluationContext) -> Result<ClassifiedBlock, ShellError> {
+fn parse_line(line: &str, ctx: &EvaluationContext) -> Result<ClassifiedBlock, ShellError> {
     //FIXME: do we still need this?
     let line = if let Some(line) = line.strip_suffix('\n') {
         line

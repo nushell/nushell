@@ -16,7 +16,6 @@ pub struct EvaluationContext {
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub ctrl_c: Arc<AtomicBool>,
-    pub raw_input: String,
     pub user_recently_used_autoenv_untrust: Arc<AtomicBool>,
     pub(crate) shell_manager: ShellManager,
 
@@ -34,7 +33,6 @@ impl EvaluationContext {
             shell_manager: raw_args.shell_manager.clone(),
             user_recently_used_autoenv_untrust: Arc::new(AtomicBool::new(false)),
             windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
-            raw_input: String::default(),
         }
     }
 
@@ -47,7 +45,6 @@ impl EvaluationContext {
             shell_manager: args.shell_manager.clone(),
             user_recently_used_autoenv_untrust: Arc::new(AtomicBool::new(false)),
             windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
-            raw_input: String::default(),
         }
     }
 
@@ -62,7 +59,6 @@ impl EvaluationContext {
             user_recently_used_autoenv_untrust: Arc::new(AtomicBool::new(false)),
             shell_manager: ShellManager::basic()?,
             windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
-            raw_input: String::default(),
         })
     }
 
@@ -82,7 +78,7 @@ impl EvaluationContext {
         self.current_errors.lock().push(err);
     }
 
-    pub(crate) fn maybe_print_errors(&mut self, source: Text) -> bool {
+    pub(crate) fn maybe_print_errors(&self, source: Text) -> bool {
         let errors = self.current_errors.clone();
         let mut errors = errors.lock();
 
@@ -105,7 +101,7 @@ impl EvaluationContext {
         block(config, &mut *self);
     }
 
-    pub(crate) fn with_host<T>(&mut self, block: impl FnOnce(&mut dyn Host) -> T) -> T {
+    pub(crate) fn with_host<T>(&self, block: impl FnOnce(&mut dyn Host) -> T) -> T {
         let mut host = self.host.lock();
 
         block(&mut *host)
@@ -117,7 +113,7 @@ impl EvaluationContext {
         block(&mut *errors)
     }
 
-    pub fn add_commands(&mut self, commands: Vec<Command>) {
+    pub fn add_commands(&self, commands: Vec<Command>) {
         for command in commands {
             self.scope.add_command(command.name().to_string(), command);
         }
@@ -156,7 +152,6 @@ impl EvaluationContext {
             call_info: self.call_info(args, name_tag),
             scope: self.scope.clone(),
             input,
-            raw_input: self.raw_input.clone(),
         }
     }
 

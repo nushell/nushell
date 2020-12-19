@@ -88,7 +88,6 @@ impl WholeStreamCommand for RunExternalCommand {
                 ctrl_c: args.ctrl_c.clone(),
                 current_errors: Arc::new(Mutex::new(vec![])),
                 windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
-                raw_input: String::default(),
             }
         };
 

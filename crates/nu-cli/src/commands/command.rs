@@ -43,7 +43,6 @@ pub struct CommandArgs {
     pub call_info: UnevaluatedCallInfo,
     pub scope: Scope,
     pub input: InputStream,
-    pub raw_input: String,
 }
 
 #[derive(Getters, Clone)]
@@ -67,7 +66,6 @@ impl RawCommandArgs {
             call_info: self.call_info,
             scope: self.scope,
             input: input.into(),
-            raw_input: String::default(),
         }
     }
 }
@@ -116,7 +114,6 @@ pub struct RunnableContext {
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub scope: Scope,
     pub name: Tag,
-    pub raw_input: String,
 }
 
 impl RunnableContext {

@@ -47,7 +47,7 @@ pub(crate) async fn run_internal_command(
             .then(move |item| {
                 let head = head.clone();
                 let command = command.clone();
-                let mut context = context.clone();
+                let context = context.clone();
                 async move {
                     match item {
                         Ok(ReturnSuccess::Action(action)) => match action {
@@ -187,6 +187,29 @@ pub(crate) async fn run_internal_command(
                             CommandAction::AddEnvVariable(name, value) => {
                                 context.scope.add_env_var(name, value);
                                 InputStream::from_stream(futures::stream::iter(vec![]))
+                            }
+                            CommandAction::SourceScript(filename) => {
+                                let contents = std::fs::read_to_string(&filename);
+                                if let Ok(contents) = contents {
+                                    let result = crate::cli::run_script_standalone(
+                                        contents, true, &context, false,
+                                    )
+                                    .await;
+
+                                    if let Err(err) = result {
+                                        return InputStream::one(
+                                            UntaggedValue::Error(err.into()).into_untagged_value(),
+                                        );
+                                    }
+                                    InputStream::from_stream(futures::stream::iter(vec![]))
+                                } else {
+                                    InputStream::one(
+                                        UntaggedValue::Error(ShellError::untagged_runtime_error(
+                                            format!("could not source '{}'", filename),
+                                        ))
+                                        .into_untagged_value(),
+                                    )
+                                }
                             }
                             CommandAction::AddPlugins(path) => {
                                 match crate::plugin::scan(vec![std::path::PathBuf::from(path)]) {
