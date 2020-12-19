@@ -345,7 +345,7 @@ fn run_custom_command() {
 }
 
 #[test]
-fn set_variables() {
+fn set_variable() {
     let actual = nu!(
         cwd: ".",
         r#"
@@ -356,6 +356,19 @@ fn set_variables() {
     );
 
     assert_eq!(actual.out, "17");
+}
+
+#[test]
+fn set_env_variable() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            set-env TESTENVVAR = "hello world"
+            echo $nu.env.TESTENVVAR
+        "#
+    );
+
+    assert_eq!(actual.out, "hello world");
 }
 
 #[cfg(feature = "which")]

@@ -67,6 +67,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             // Fundamentals
             whole_stream_command(NuPlugin),
             whole_stream_command(Set),
+            whole_stream_command(SetEnv),
             whole_stream_command(Def),
             // System/file operations
             whole_stream_command(Exec),
