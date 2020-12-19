@@ -528,7 +528,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
             LineResult::Success(line) => {
                 rl.add_history_entry(&line);
                 let _ = rl.save_history(&history_path);
-                context.maybe_print_errors(Text::from(line));
+                context.maybe_print_errors(Text::from(session_text.clone()));
             }
 
             LineResult::ClearHistory => {
