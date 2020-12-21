@@ -84,6 +84,8 @@ pub fn version(args: CommandArgs) -> Result<OutputStream, ShellError> {
     // }
     let _commit_autor = shadow::COMMIT_AUTHOR;
 
+    let _version = shadow::version();
+
     // let commit_email: Option<&str> = Some(shadow::COMMIT_EMAIL).filter(|x| !x.is_empty());
     // if let Some(commit_email) = commit_email {
     //     indexmap.insert(
