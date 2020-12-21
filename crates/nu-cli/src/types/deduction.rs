@@ -290,7 +290,7 @@ fn get_shape_of_expr(expr: &SpannedExpression) -> Option<SyntaxShape> {
         Expression::ExternalWord => Some(SyntaxShape::String),
         Expression::Synthetic(_) => Some(SyntaxShape::String),
 
-        Expression::Binary(_) => Some(SyntaxShape::Math),
+        Expression::Binary(_) => Some(SyntaxShape::RowCondition),
         Expression::Range(_) => Some(SyntaxShape::Range),
         Expression::List(_) => Some(SyntaxShape::Table),
         Expression::Boolean(_) => Some(SyntaxShape::String),
@@ -690,12 +690,13 @@ impl VarSyntaxShapeDeductor {
             match shape {
                 //If the shape of expr is math, we return the result shape of this math expr if
                 //possible
-                SyntaxShape::Math => self.get_result_shape_of_math_expr_or_insert_dependency(
-                    (var, expr),
-                    source_bin,
-                    (pipeline_idx, pipeline),
-                    scope,
-                ),
+                SyntaxShape::RowCondition => self
+                    .get_result_shape_of_math_expr_or_insert_dependency(
+                        (var, expr),
+                        source_bin,
+                        (pipeline_idx, pipeline),
+                        scope,
+                    ),
                 _ => Ok(Some(shape)),
             }
         } else {

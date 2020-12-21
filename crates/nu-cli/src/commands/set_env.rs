@@ -33,7 +33,7 @@ impl WholeStreamCommand for SetEnv {
             .required("equals", SyntaxShape::String, "the equals sign")
             .required(
                 "expr",
-                SyntaxShape::Initializer,
+                SyntaxShape::MathExpression,
                 "the value to set the environment variable to",
             )
     }

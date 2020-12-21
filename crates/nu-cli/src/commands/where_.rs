@@ -22,7 +22,7 @@ impl WholeStreamCommand for Where {
     fn signature(&self) -> Signature {
         Signature::build("where").required(
             "condition",
-            SyntaxShape::Math,
+            SyntaxShape::RowCondition,
             "the condition that must match",
         )
     }

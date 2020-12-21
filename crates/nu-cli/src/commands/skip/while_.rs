@@ -17,7 +17,7 @@ impl WholeStreamCommand for SubCommand {
         Signature::build("skip while")
             .required(
                 "condition",
-                SyntaxShape::Math,
+                SyntaxShape::RowCondition,
                 "The condition that must be met to continue skipping",
             )
             .filter()

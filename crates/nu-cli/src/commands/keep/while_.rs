@@ -17,7 +17,7 @@ impl WholeStreamCommand for SubCommand {
         Signature::build("keep while")
             .required(
                 "condition",
-                SyntaxShape::Math,
+                SyntaxShape::RowCondition,
                 "The condition that must be met to keep rows",
             )
             .filter()
