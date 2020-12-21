@@ -284,16 +284,14 @@ impl WholeStreamCommand for Block {
                     } else {
                         ctx.scope.add_var(format!("${}", name), value.clone());
                     }
+                } else if name.starts_with('$') {
+                    ctx.scope
+                        .add_var(name, UntaggedValue::nothing().into_untagged_value());
                 } else {
-                    if name.starts_with('$') {
-                        ctx.scope
-                            .add_var(name, UntaggedValue::nothing().into_untagged_value());
-                    } else {
-                        ctx.scope.add_var(
-                            format!("${}", name),
-                            UntaggedValue::nothing().into_untagged_value(),
-                        );
-                    }
+                    ctx.scope.add_var(
+                        format!("${}", name),
+                        UntaggedValue::nothing().into_untagged_value(),
+                    );
                 }
             }
         } else {
