@@ -910,9 +910,9 @@ fn parse_arg(
                 ),
             }
         }
-        SyntaxShape::Initializer => parse_arg(SyntaxShape::Any, scope, lite_arg),
+        SyntaxShape::MathExpression => parse_arg(SyntaxShape::Any, scope, lite_arg),
 
-        SyntaxShape::Block | SyntaxShape::Math => {
+        SyntaxShape::Block | SyntaxShape::RowCondition => {
             // Blocks have one of two forms: the literal block and the implied block
             // To parse a literal block, we need to detect that what we have is itself a block
             let mut chars = lite_arg.item.chars();
@@ -1355,8 +1355,8 @@ fn parse_positional_argument(
     let mut idx = idx;
     let mut error = None;
     let arg = match positional_type {
-        PositionalType::Mandatory(_, SyntaxShape::Initializer)
-        | PositionalType::Optional(_, SyntaxShape::Initializer) => {
+        PositionalType::Mandatory(_, SyntaxShape::MathExpression)
+        | PositionalType::Optional(_, SyntaxShape::MathExpression) => {
             let end_idx = if (lite_cmd.parts.len() - 1) > remaining_positionals {
                 lite_cmd.parts.len() - remaining_positionals
             } else {
@@ -1385,15 +1385,15 @@ fn parse_positional_argument(
             }
             arg
         }
-        PositionalType::Mandatory(_, SyntaxShape::Math)
-        | PositionalType::Optional(_, SyntaxShape::Math) => {
+        PositionalType::Mandatory(_, SyntaxShape::RowCondition)
+        | PositionalType::Optional(_, SyntaxShape::RowCondition) => {
             // A condition can take up multiple arguments, as we build the operation as <arg> <operator> <arg>
             // We need to do this here because in parse_arg, we have access to only one arg at a time
 
             if idx < lite_cmd.parts.len() {
                 if lite_cmd.parts[idx].item.starts_with('{') {
                     // It's an explicit math expression, so parse it deeper in
-                    let (arg, err) = parse_arg(SyntaxShape::Math, scope, &lite_cmd.parts[idx]);
+                    let (arg, err) = parse_arg(SyntaxShape::RowCondition, scope, &lite_cmd.parts[idx]);
                     if error.is_none() {
                         error = err;
                     }
@@ -1413,7 +1413,7 @@ fn parse_positional_argument(
                     commands.push(ClassifiedCommand::Expr(Box::new(arg)));
 
                     let block = hir::Block::new(
-                        Signature::new("<math>"),
+                        Signature::new("<cond>"),
                         vec![Group::new(vec![commands], lite_cmd.span())],
                         IndexMap::new(),
                         span,

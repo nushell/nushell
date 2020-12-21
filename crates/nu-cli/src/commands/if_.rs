@@ -26,7 +26,7 @@ impl WholeStreamCommand for If {
         Signature::build("if")
             .required(
                 "condition",
-                SyntaxShape::Math,
+                SyntaxShape::MathExpression,
                 "the condition that must match",
             )
             .required(
