@@ -53,12 +53,12 @@ impl WholeStreamCommand for If {
         vec![
             Example {
                 description: "Run a block if a condition is true",
-                example: "echo 10 | if $it > 5 { echo 'greater than 5' } { echo 'less than or equal to 5' }",
+                example: "set x = 10; if $x > 5 { echo 'greater than 5' } { echo 'less than or equal to 5' }",
                 result: Some(vec![UntaggedValue::string("greater than 5").into()]),
             },
             Example {
                 description: "Run a block if a condition is false",
-                example: "echo 1 | if $it > 5 { echo 'greater than 5' } { echo 'less than or equal to 5' }",
+                example: "set x = 1; if $x > 5 { echo 'greater than 5' } { echo 'less than or equal to 5' }",
                 result: Some(vec![UntaggedValue::string("less than or equal to 5").into()]),
             },
         ]
@@ -105,57 +105,27 @@ async fn if_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     };
 
-    Ok(input
-        .then(move |input| {
-            let cond = cond.clone();
-            let then_case = then_case.clone();
-            let else_case = else_case.clone();
-            let context = context.clone();
-            context.scope.enter_scope();
-            context.scope.add_vars(&condition.captured.entries);
-            context.scope.add_var("$it", input);
+    context.scope.enter_scope();
+    context.scope.add_vars(&condition.captured.entries);
 
-            async move {
-                //FIXME: should we use the scope that's brought in as well?
-                let condition = evaluate_baseline_expr(&cond, &*context).await;
+    //FIXME: should we use the scope that's brought in as well?
+    let condition = evaluate_baseline_expr(&cond, &*context).await;
+    match condition {
+        Ok(condition) => match condition.as_bool() {
+            Ok(b) => {
+                let result = if b {
+                    run_block(&then_case.block, &*context, input).await
+                } else {
+                    run_block(&else_case.block, &*context, input).await
+                };
+                context.scope.exit_scope();
 
-                match condition {
-                    Ok(condition) => match condition.as_bool() {
-                        Ok(b) => {
-                            if b {
-                                let result =
-                                    run_block(&then_case.block, &*context, InputStream::empty())
-                                        .await;
-                                context.scope.exit_scope();
-
-                                match result {
-                                    Ok(stream) => stream.to_output_stream(),
-                                    Err(e) => futures::stream::iter(vec![Err(e)].into_iter())
-                                        .to_output_stream(),
-                                }
-                            } else {
-                                let result =
-                                    run_block(&else_case.block, &*context, InputStream::empty())
-                                        .await;
-                                context.scope.exit_scope();
-
-                                match result {
-                                    Ok(stream) => stream.to_output_stream(),
-                                    Err(e) => futures::stream::iter(vec![Err(e)].into_iter())
-                                        .to_output_stream(),
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            futures::stream::iter(vec![Err(e)].into_iter()).to_output_stream()
-                        }
-                    },
-                    Err(e) => futures::stream::iter(vec![Err(e)].into_iter()).to_output_stream(),
-                }
+                result.map(|x| x.to_output_stream())
             }
-        })
-        .flatten()
-        .to_output_stream())
+            Err(e) => Ok(futures::stream::iter(vec![Err(e)].into_iter()).to_output_stream()),
+        },
+        Err(e) => Ok(futures::stream::iter(vec![Err(e)].into_iter()).to_output_stream()),
+    }
 }
 
 #[cfg(test)]

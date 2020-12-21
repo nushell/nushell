@@ -13,7 +13,7 @@ use num_bigint::BigInt;
 use crate::commands::classified::block::run_block;
 use crate::commands::command::CommandArgs;
 use crate::commands::{
-    whole_stream_command, BuildString, Command, Each, Echo, First, Get, Keep, Last, Nth,
+    whole_stream_command, BuildString, Command, Each, Echo, First, Get, Keep, Last, Nth, Set,
     StrCollect, WholeStreamCommand, Wrap,
 };
 use crate::evaluation_context::EvaluationContext;
@@ -40,6 +40,7 @@ pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
         whole_stream_command(Each {}),
         whole_stream_command(Last {}),
         whole_stream_command(Nth {}),
+        whole_stream_command(Set {}),
         whole_stream_command(StrCollect),
         whole_stream_command(Wrap),
         cmd,
@@ -97,6 +98,7 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
         whole_stream_command(Get {}),
         whole_stream_command(Keep {}),
         whole_stream_command(Each {}),
+        whole_stream_command(Set {}),
         whole_stream_command(cmd),
         whole_stream_command(StrCollect),
         whole_stream_command(Wrap),
@@ -158,6 +160,7 @@ pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
         whole_stream_command(Each {}),
         whole_stream_command(Last {}),
         whole_stream_command(Nth {}),
+        whole_stream_command(Set {}),
         whole_stream_command(StrCollect),
         whole_stream_command(Wrap),
         cmd,
