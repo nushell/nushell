@@ -55,7 +55,7 @@ impl PrettyDebug for SyntaxShape {
             SyntaxShape::Unit => "unit",
             SyntaxShape::Operator => "operator",
             SyntaxShape::RowCondition => "condition",
-            SyntaxShape::MathExpression => "initializer",
+            SyntaxShape::MathExpression => "math expression",
         })
     }
 }
