@@ -104,6 +104,7 @@ pub fn string_to_lookup_value(str_prim: &str) -> String {
         "header_bold" => "header_bold".to_string(),
         "header_style" => "header_style".to_string(),
         "index_color" => "index_color".to_string(),
+        "leading_trailing_space_bg" => "leading_trailing_space_bg".to_string(),
         _ => "Primitive::Nothing".to_string(),
     }
 }
@@ -143,6 +144,10 @@ pub fn get_color_config() -> HashMap<String, Style> {
     hm.insert("header_bold".to_string(), Color::Green.bold());
     hm.insert("header_style".to_string(), Style::default());
     hm.insert("index_color".to_string(), Color::Green.bold());
+    hm.insert(
+        "leading_trailing_space_bg".to_string(),
+        Style::default().on(Color::RGB(128, 128, 128)),
+    );
 
     // populate hashmap from config values
     if let Ok(config) = crate::config::config(Tag::unknown()) {
@@ -204,6 +209,9 @@ pub fn get_color_config() -> HashMap<String, Style> {
                         update_hashmap(&key, &value, &mut hm);
                     }
                     "index_color" => {
+                        update_hashmap(&key, &value, &mut hm);
+                    }
+                    "leading_trailing_space_bg" => {
                         update_hashmap(&key, &value, &mut hm);
                     }
                     _ => (),

@@ -48,12 +48,8 @@ impl WholeStreamCommand for Seq {
         "print sequences of numbers"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        seq(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        seq(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -93,8 +89,7 @@ impl WholeStreamCommand for Seq {
     }
 }
 
-async fn seq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+async fn seq(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
 
     let (
@@ -105,7 +100,7 @@ async fn seq(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
             widths,
         },
         _,
-    ) = args.process(&registry).await?;
+    ) = args.process().await?;
 
     if rest_nums.is_empty() {
         return Err(ShellError::labeled_error(

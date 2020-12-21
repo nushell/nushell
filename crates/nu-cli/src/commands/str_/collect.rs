@@ -29,12 +29,8 @@ impl WholeStreamCommand for SubCommand {
         "collects a list of strings into a string"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        collect(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        collect(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -46,12 +42,9 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn collect(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+pub async fn collect(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let (SubCommandArgs { separator }, input) = args.process(registry).await?;
+    let (SubCommandArgs { separator }, input) = args.process().await?;
     let separator = separator.map(|tagged| tagged.item).unwrap_or_default();
 
     let strings: Vec<Result<String, ShellError>> =

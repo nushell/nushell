@@ -19,12 +19,8 @@ impl WholeStreamCommand for Pwd {
         "Output the current working directory."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        pwd(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        pwd(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -36,13 +32,9 @@ impl WholeStreamCommand for Pwd {
     }
 }
 
-pub async fn pwd(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+pub async fn pwd(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let shell_manager = args.shell_manager.clone();
-    let args = args.evaluate_once(&registry).await?;
+    let args = args.evaluate_once().await?;
 
     shell_manager.pwd(args)
 }

@@ -1,11 +1,9 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::{command::CommandArgs, Command, UnevaluatedCallInfo};
 use crate::env::host::Host;
+use crate::prelude::*;
 use crate::shell::shell_manager::ShellManager;
 use crate::stream::{InputStream, OutputStream};
-use indexmap::IndexMap;
-use nu_errors::ShellError;
-use nu_protocol::{hir, Scope};
+use nu_protocol::hir;
 use nu_source::{Tag, Text};
 use parking_lot::Mutex;
 use std::error::Error;
@@ -14,12 +12,11 @@ use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct EvaluationContext {
-    pub registry: CommandRegistry,
+    pub scope: Scope,
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub ctrl_c: Arc<AtomicBool>,
-    pub raw_input: String,
-    pub user_recently_used_autoenv_untrust: bool,
+    pub user_recently_used_autoenv_untrust: Arc<AtomicBool>,
     pub(crate) shell_manager: ShellManager,
 
     /// Windows-specific: keep track of previous cwd on each drive
@@ -27,61 +24,49 @@ pub struct EvaluationContext {
 }
 
 impl EvaluationContext {
-    pub fn registry(&self) -> &CommandRegistry {
-        &self.registry
-    }
-
-    pub(crate) fn from_raw(
-        raw_args: &CommandArgs,
-        registry: &CommandRegistry,
-    ) -> EvaluationContext {
+    pub(crate) fn from_raw(raw_args: &CommandArgs) -> EvaluationContext {
         EvaluationContext {
-            registry: registry.clone(),
+            scope: raw_args.scope.clone(),
             host: raw_args.host.clone(),
             current_errors: raw_args.current_errors.clone(),
             ctrl_c: raw_args.ctrl_c.clone(),
             shell_manager: raw_args.shell_manager.clone(),
-            user_recently_used_autoenv_untrust: false,
+            user_recently_used_autoenv_untrust: Arc::new(AtomicBool::new(false)),
             windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
-            raw_input: String::default(),
         }
     }
 
-    pub(crate) fn from_args(args: &CommandArgs, registry: &CommandRegistry) -> EvaluationContext {
+    pub(crate) fn from_args(args: &CommandArgs) -> EvaluationContext {
         EvaluationContext {
-            registry: registry.clone(),
+            scope: args.scope.clone(),
             host: args.host.clone(),
             current_errors: args.current_errors.clone(),
             ctrl_c: args.ctrl_c.clone(),
             shell_manager: args.shell_manager.clone(),
-            user_recently_used_autoenv_untrust: false,
+            user_recently_used_autoenv_untrust: Arc::new(AtomicBool::new(false)),
             windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
-            raw_input: String::default(),
         }
     }
 
     pub fn basic() -> Result<EvaluationContext, Box<dyn Error>> {
-        let registry = CommandRegistry::new();
-
         Ok(EvaluationContext {
-            registry,
+            scope: Scope::new(),
             host: Arc::new(parking_lot::Mutex::new(Box::new(
                 crate::env::host::BasicHost,
             ))),
             current_errors: Arc::new(Mutex::new(vec![])),
             ctrl_c: Arc::new(AtomicBool::new(false)),
-            user_recently_used_autoenv_untrust: false,
+            user_recently_used_autoenv_untrust: Arc::new(AtomicBool::new(false)),
             shell_manager: ShellManager::basic()?,
             windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
-            raw_input: String::default(),
         })
     }
 
-    pub(crate) fn error(&mut self, error: ShellError) {
+    pub(crate) fn error(&self, error: ShellError) {
         self.with_errors(|errors| errors.push(error))
     }
 
-    pub(crate) fn clear_errors(&mut self) {
+    pub(crate) fn clear_errors(&self) {
         self.current_errors.lock().clear()
     }
 
@@ -93,7 +78,7 @@ impl EvaluationContext {
         self.current_errors.lock().push(err);
     }
 
-    pub(crate) fn maybe_print_errors(&mut self, source: Text) -> bool {
+    pub(crate) fn maybe_print_errors(&self, source: Text) -> bool {
         let errors = self.current_errors.clone();
         let mut errors = errors.lock();
 
@@ -116,72 +101,57 @@ impl EvaluationContext {
         block(config, &mut *self);
     }
 
-    pub(crate) fn with_host<T>(&mut self, block: impl FnOnce(&mut dyn Host) -> T) -> T {
+    pub(crate) fn with_host<T>(&self, block: impl FnOnce(&mut dyn Host) -> T) -> T {
         let mut host = self.host.lock();
 
         block(&mut *host)
     }
 
-    pub(crate) fn with_errors<T>(&mut self, block: impl FnOnce(&mut Vec<ShellError>) -> T) -> T {
+    pub(crate) fn with_errors<T>(&self, block: impl FnOnce(&mut Vec<ShellError>) -> T) -> T {
         let mut errors = self.current_errors.lock();
 
         block(&mut *errors)
     }
 
-    pub fn add_commands(&mut self, commands: Vec<Command>) {
+    pub fn add_commands(&self, commands: Vec<Command>) {
         for command in commands {
-            self.registry.insert(command.name().to_string(), command);
+            self.scope.add_command(command.name().to_string(), command);
         }
     }
 
     #[allow(unused)]
     pub(crate) fn get_command(&self, name: &str) -> Option<Command> {
-        self.registry.get_command(name)
+        self.scope.get_command(name)
     }
 
     pub(crate) fn is_command_registered(&self, name: &str) -> bool {
-        self.registry.has(name)
-    }
-
-    pub(crate) fn expect_command(&self, name: &str) -> Result<Command, ShellError> {
-        self.registry.expect_command(name)
+        self.scope.has_command(name)
     }
 
     pub(crate) async fn run_command(
-        &mut self,
+        &self,
         command: Command,
         name_tag: Tag,
         args: hir::Call,
-        scope: Arc<Scope>,
         input: InputStream,
     ) -> Result<OutputStream, ShellError> {
-        let command_args = self.command_args(args, input, name_tag, scope);
-        command.run(command_args, self.registry()).await
+        let command_args = self.command_args(args, input, name_tag);
+        command.run(command_args).await
     }
 
-    fn call_info(&self, args: hir::Call, name_tag: Tag, scope: Arc<Scope>) -> UnevaluatedCallInfo {
-        UnevaluatedCallInfo {
-            args,
-            name_tag,
-            scope,
-        }
+    fn call_info(&self, args: hir::Call, name_tag: Tag) -> UnevaluatedCallInfo {
+        UnevaluatedCallInfo { args, name_tag }
     }
 
-    fn command_args(
-        &self,
-        args: hir::Call,
-        input: InputStream,
-        name_tag: Tag,
-        scope: Arc<Scope>,
-    ) -> CommandArgs {
+    fn command_args(&self, args: hir::Call, input: InputStream, name_tag: Tag) -> CommandArgs {
         CommandArgs {
             host: self.host.clone(),
             ctrl_c: self.ctrl_c.clone(),
             current_errors: self.current_errors.clone(),
             shell_manager: self.shell_manager.clone(),
-            call_info: self.call_info(args, name_tag, scope),
+            call_info: self.call_info(args, name_tag),
+            scope: self.scope.clone(),
             input,
-            raw_input: self.raw_input.clone(),
         }
     }
 

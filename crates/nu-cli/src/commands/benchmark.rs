@@ -5,8 +5,8 @@ use crate::prelude::*;
 use heim::cpu::time;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::{Block, ClassifiedCommand, Commands, InternalCommand},
-    Dictionary, Scope, Signature, SyntaxShape, UntaggedValue, Value,
+    hir::{Block, CapturedBlock, ClassifiedCommand, Group, InternalCommand, Pipeline},
+    Dictionary, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use rand::{
     distributions::Alphanumeric,
@@ -19,8 +19,8 @@ pub struct Benchmark;
 
 #[derive(Deserialize, Debug)]
 struct BenchmarkArgs {
-    block: Block,
-    passthrough: Option<Block>,
+    block: CapturedBlock,
+    passthrough: Option<CapturedBlock>,
 }
 
 #[async_trait]
@@ -48,12 +48,8 @@ impl WholeStreamCommand for Benchmark {
         "Runs a block and returns the time it took to execute it"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        benchmark(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        benchmark(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -72,29 +68,23 @@ impl WholeStreamCommand for Benchmark {
     }
 }
 
-async fn benchmark(
-    raw_args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-
+async fn benchmark(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = raw_args.call_info.args.span;
-    let mut context = EvaluationContext::from_raw(&raw_args, &registry);
-    let scope = raw_args.call_info.scope.clone();
-    let (BenchmarkArgs { block, passthrough }, input) = raw_args.process(&registry).await?;
+    let mut context = EvaluationContext::from_raw(&raw_args);
+    let scope = raw_args.scope.clone();
+    let (BenchmarkArgs { block, passthrough }, input) = raw_args.process().await?;
 
-    let env = scope.env();
+    let env = scope.get_env_vars();
     let name = generate_free_name(&env);
-    let mut env = IndexMap::new();
-    env.insert(name, generate_random_env_value());
-    let scope = Scope::append_env(scope, env);
+
+    scope.add_env_var(name, generate_random_env_value());
 
     let start_time = Instant::now();
 
     #[cfg(feature = "rich-benchmark")]
     let start = time().await;
 
-    let result = run_block(&block, &mut context, input, scope.clone()).await;
+    let result = run_block(&block.block, &context, input).await;
     let output = result?.into_vec().await;
 
     #[cfg(feature = "rich-benchmark")]
@@ -110,7 +100,7 @@ async fn benchmark(
 
         let real_time = into_big_int(end_time - start_time);
         indexmap.insert("real time".to_string(), real_time);
-        benchmark_output(indexmap, output, passthrough, &tag, &mut context, scope).await
+        benchmark_output(indexmap, output, passthrough, &tag, &mut context).await
     }
     // return advanced stats
     #[cfg(feature = "rich-benchmark")]
@@ -129,7 +119,7 @@ async fn benchmark(
         let idle_time = into_big_int(end.idle() - start.idle());
         indexmap.insert("idle time".to_string(), idle_time);
 
-        benchmark_output(indexmap, output, passthrough, &tag, &mut context, scope).await
+        benchmark_output(indexmap, output, passthrough, &tag, &mut context).await
     } else {
         Err(ShellError::untagged_runtime_error(
             "Could not retreive CPU time",
@@ -140,10 +130,9 @@ async fn benchmark(
 async fn benchmark_output<T, Output>(
     indexmap: IndexMap<String, BigInt>,
     block_output: Output,
-    passthrough: Option<Block>,
+    passthrough: Option<CapturedBlock>,
     tag: T,
     context: &mut EvaluationContext,
-    scope: Arc<Scope>,
 ) -> Result<OutputStream, ShellError>
 where
     T: Into<Tag> + Copy,
@@ -161,9 +150,9 @@ where
         let benchmark_output = InputStream::one(value);
 
         // add autoview for an empty block
-        let time_block = add_implicit_autoview(time_block);
+        let time_block = add_implicit_autoview(time_block.block);
 
-        let _ = run_block(&time_block, context, benchmark_output, scope).await?;
+        let _ = run_block(&time_block, context, benchmark_output).await?;
         context.clear_errors();
 
         Ok(block_output.into())
@@ -175,15 +164,19 @@ where
 
 fn add_implicit_autoview(mut block: Block) -> Block {
     if block.block.is_empty() {
-        block.push({
-            let mut commands = Commands::new(block.span);
-            commands.push(ClassifiedCommand::Internal(InternalCommand::new(
-                "autoview".to_string(),
-                block.span,
-                block.span,
-            )));
-            commands
-        });
+        let group = Group::new(
+            vec![{
+                let mut commands = Pipeline::new(block.span);
+                commands.push(ClassifiedCommand::Internal(InternalCommand::new(
+                    "autoview".to_string(),
+                    block.span,
+                    block.span,
+                )));
+                commands
+            }],
+            block.span,
+        );
+        block.push(group);
     }
     block
 }

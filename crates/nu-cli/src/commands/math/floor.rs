@@ -21,21 +21,16 @@ impl WholeStreamCommand for SubCommand {
         "Applies the floor function to a list of numbers"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         run_with_numerical_functions_on_stream(
             RunnableContext {
                 input: args.input,
-                registry: registry.clone(),
+                scope: args.scope.clone(),
                 shell_manager: args.shell_manager,
                 host: args.host,
                 ctrl_c: args.ctrl_c,
                 current_errors: args.current_errors,
                 name: args.call_info.name_tag,
-                raw_input: args.raw_input,
             },
             floor_big_int,
             floor_big_decimal,

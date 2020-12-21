@@ -34,12 +34,8 @@ impl WholeStreamCommand for SubCommand {
         "checks if string starts with pattern"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        operate(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        operate(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -51,13 +47,8 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-async fn operate(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-
-    let (Arguments { pattern, rest }, input) = args.process(&registry).await?;
+async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (Arguments { pattern, rest }, input) = args.process().await?;
 
     let column_paths: Vec<_> = rest;
 

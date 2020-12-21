@@ -33,12 +33,8 @@ impl WholeStreamCommand for Command {
         "View the contents of the pipeline as a table."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        table(TableConfiguration::new(), args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        table(TableConfiguration::new(), (args)).await
     }
 }
 
@@ -158,10 +154,8 @@ fn values_to_entries(
 async fn table(
     configuration: TableConfiguration,
     args: CommandArgs,
-    registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let mut args = args.evaluate_once(&registry).await?;
+    let mut args = args.evaluate_once().await?;
     let mut finished = false;
     // Ideally, get_color_config would get all the colors configured in the config.toml
     // and create a style based on those settings. However, there are few places where

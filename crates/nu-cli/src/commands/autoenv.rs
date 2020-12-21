@@ -61,14 +61,9 @@ The file can contain several optional sections:
     fn signature(&self) -> Signature {
         Signature::build("autoenv")
     }
-    async fn run(
-        &self,
-        _args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        let registry = registry.clone();
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(ReturnSuccess::value(
-            UntaggedValue::string(crate::commands::help::get_help(&Autoenv, &registry))
+            UntaggedValue::string(crate::commands::help::get_help(&Autoenv, &args.scope))
                 .into_value(Tag::unknown()),
         )))
     }
@@ -77,15 +72,15 @@ The file can contain several optional sections:
         vec![Example {
             description: "Example .nu-env file",
             example: r#"cat .nu-env
-    [env]
-    mykey = "myvalue"
+        [env]
+        mykey = "myvalue"
 
-    [scriptvars]
-    myscript = "echo myval"
+        [scriptvars]
+        myscript = "echo myval"
 
-    [scripts]
-    entryscripts = ["touch hello.txt", "touch hello2.txt"]
-    exitscripts = ["touch bye.txt"]"#,
+        [scripts]
+        entryscripts = ["touch hello.txt", "touch hello2.txt"]
+        exitscripts = ["touch bye.txt"]"#,
             result: None,
         }]
     }

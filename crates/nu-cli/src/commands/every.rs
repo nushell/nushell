@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -37,12 +36,8 @@ impl WholeStreamCommand for Every {
         "Show (or skip) every n-th row, starting from the first one."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        every(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        every(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -68,9 +63,8 @@ impl WholeStreamCommand for Every {
     }
 }
 
-async fn every(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let (EveryArgs { stride, skip }, input) = args.process(&registry).await?;
+async fn every(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (EveryArgs { stride, skip }, input) = args.process().await?;
 
     let stride = stride.item;
     let skip = skip.item;

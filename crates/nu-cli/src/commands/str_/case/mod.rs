@@ -23,15 +23,13 @@ struct Arguments {
 
 pub async fn operate<F>(
     args: CommandArgs,
-    registry: &CommandRegistry,
+
     case_operation: &'static F,
 ) -> Result<OutputStream, ShellError>
 where
     F: Fn(&str) -> String + Send + Sync + 'static,
 {
-    let registry = registry.clone();
-
-    let (Arguments { rest }, input) = args.process(&registry).await?;
+    let (Arguments { rest }, input) = args.process().await?;
 
     let column_paths: Vec<_> = rest;
     Ok(input

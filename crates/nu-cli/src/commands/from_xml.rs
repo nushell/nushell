@@ -19,12 +19,8 @@ impl WholeStreamCommand for FromXML {
         "Parse text as .xml and create table."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        from_xml(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        from_xml(args).await
     }
 }
 
@@ -99,12 +95,8 @@ pub fn from_xml_string_to_value(s: String, tag: impl Into<Tag>) -> Result<Value,
     Ok(from_document_to_value(&parsed, tag))
 }
 
-async fn from_xml(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let args = args.evaluate_once(&registry).await?;
+async fn from_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once().await?;
     let tag = args.name_tag();
     let input = args.input;
 

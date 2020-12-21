@@ -1,7 +1,8 @@
 use nu_errors::ShellError;
+use nu_parser::ParserScope;
 use nu_protocol::hir::ClassifiedBlock;
 use nu_protocol::{
-    Primitive, ReturnSuccess, Scope, ShellTypeName, Signature, SyntaxShape, UntaggedValue, Value,
+    Primitive, ReturnSuccess, ShellTypeName, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use nu_source::{AnchorLocation, TaggedItem};
 
@@ -9,11 +10,10 @@ use crate::prelude::*;
 
 use num_bigint::BigInt;
 
-use crate::command_registry::CommandRegistry;
 use crate::commands::classified::block::run_block;
 use crate::commands::command::CommandArgs;
 use crate::commands::{
-    whole_stream_command, BuildString, Command, Each, Echo, First, Get, Keep, Last, Nth,
+    whole_stream_command, BuildString, Command, Each, Echo, First, Get, Keep, Last, Nth, Set,
     StrCollect, WholeStreamCommand, Wrap,
 };
 use crate::evaluation_context::EvaluationContext;
@@ -26,7 +26,7 @@ use serde::Deserialize;
 pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
     let examples = cmd.examples();
 
-    let mut base_context = EvaluationContext::basic()?;
+    let base_context = EvaluationContext::basic()?;
 
     base_context.add_commands(vec![
         // Mocks
@@ -40,6 +40,7 @@ pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
         whole_stream_command(Each {}),
         whole_stream_command(Last {}),
         whole_stream_command(Nth {}),
+        whole_stream_command(Set {}),
         whole_stream_command(StrCollect),
         whole_stream_command(Wrap),
         cmd,
@@ -49,6 +50,8 @@ pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
         let mut ctx = base_context.clone();
 
         let block = parse_line(sample_pipeline.example, &mut ctx)?;
+
+        println!("{:#?}", block);
 
         if let Some(expected) = &sample_pipeline.result {
             let result = block_on(evaluate_block(block, &mut ctx))?;
@@ -87,7 +90,7 @@ pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
 pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
     let examples = cmd.examples();
 
-    let mut base_context = EvaluationContext::basic()?;
+    let base_context = EvaluationContext::basic()?;
 
     base_context.add_commands(vec![
         whole_stream_command(Echo {}),
@@ -95,6 +98,7 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
         whole_stream_command(Get {}),
         whole_stream_command(Keep {}),
         whole_stream_command(Each {}),
+        whole_stream_command(Set {}),
         whole_stream_command(cmd),
         whole_stream_command(StrCollect),
         whole_stream_command(Wrap),
@@ -142,7 +146,7 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
 pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
     let examples = cmd.examples();
 
-    let mut base_context = EvaluationContext::basic()?;
+    let base_context = EvaluationContext::basic()?;
 
     base_context.add_commands(vec![
         // Minimal restricted commands to aid in testing
@@ -156,6 +160,7 @@ pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
         whole_stream_command(Each {}),
         whole_stream_command(Last {}),
         whole_stream_command(Nth {}),
+        whole_stream_command(Set {}),
         whole_stream_command(StrCollect),
         whole_stream_command(Wrap),
         cmd,
@@ -190,21 +195,26 @@ pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
 }
 
 /// Parse and run a nushell pipeline
-fn parse_line(line: &str, ctx: &mut EvaluationContext) -> Result<ClassifiedBlock, ShellError> {
+fn parse_line(line: &str, ctx: &EvaluationContext) -> Result<ClassifiedBlock, ShellError> {
+    //FIXME: do we still need this?
     let line = if let Some(line) = line.strip_suffix('\n') {
         line
     } else {
         line
     };
 
-    let (lite_result, err) = nu_parser::lite_parse(&line, 0);
+    let (lite_result, err) = nu_parser::lex(&line, 0);
+    if let Some(err) = err {
+        return Err(err.into());
+    }
+    let (lite_result, err) = nu_parser::group(lite_result);
     if let Some(err) = err {
         return Err(err.into());
     }
 
     // TODO ensure the command whose examples we're testing is actually in the pipeline
-    let classified_block = nu_parser::classify_block(&lite_result, ctx.registry());
-    Ok(classified_block)
+    let (block, err) = nu_parser::classify_block(&lite_result, &ctx.scope);
+    Ok(ClassifiedBlock { block, failed: err })
 }
 
 async fn evaluate_block(
@@ -214,12 +224,15 @@ async fn evaluate_block(
     let input_stream = InputStream::empty();
     let env = ctx.get_env();
 
-    let scope = Scope::from_env(env);
+    ctx.scope.enter_scope();
+    ctx.scope.add_env(env);
 
-    Ok(run_block(&block.block, ctx, input_stream, scope)
-        .await?
-        .drain_vec()
-        .await)
+    let result = run_block(&block.block, ctx, input_stream).await;
+
+    ctx.scope.exit_scope();
+
+    let result = result?.drain_vec().await;
+    Ok(result)
 }
 
 // TODO probably something already available to do this
@@ -274,11 +287,7 @@ impl WholeStreamCommand for MockCommand {
         "Generates tables and metadata that mimics behavior of real commands in controlled ways."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let name_tag = args.call_info.name_tag.clone();
 
         let (
@@ -287,7 +296,7 @@ impl WholeStreamCommand for MockCommand {
                 open: open_mock,
             },
             _input,
-        ) = args.process(&registry).await?;
+        ) = args.process().await?;
 
         let out = UntaggedValue::string("Yehuda Katz in Ecuador");
 
@@ -330,13 +339,9 @@ impl WholeStreamCommand for MockEcho {
         "Mock echo."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let name_tag = args.call_info.name_tag.clone();
-        let (MockEchoArgs { rest }, input) = args.process(&registry).await?;
+        let (MockEchoArgs { rest }, input) = args.process().await?;
 
         let mut base_value = UntaggedValue::string("Yehuda Katz in Ecuador").into_value(name_tag);
         let input: Vec<Value> = input.collect().await;
@@ -411,11 +416,7 @@ impl WholeStreamCommand for MockLs {
         "Mock ls."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        _: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let name_tag = args.call_info.name_tag.clone();
 
         let mut base_value =

@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -20,12 +19,8 @@ impl WholeStreamCommand for Reverse {
         "Reverses the table."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        reverse(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        reverse(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -43,12 +38,8 @@ impl WholeStreamCommand for Reverse {
     }
 }
 
-async fn reverse(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let args = args.evaluate_once(&registry).await?;
+async fn reverse(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once().await?;
     let (input, _args) = args.parts();
 
     let input = input.collect::<Vec<_>>().await;

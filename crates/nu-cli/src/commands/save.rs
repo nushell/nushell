@@ -152,28 +152,20 @@ impl WholeStreamCommand for Save {
         "Save the contents of the pipeline to a file."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        save(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        save(args).await
     }
 }
 
-async fn save(
-    raw_args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+async fn save(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut full_path = PathBuf::from(raw_args.shell_manager.path());
     let name_tag = raw_args.call_info.name_tag.clone();
     let name = raw_args.call_info.name_tag.clone();
-    let scope = raw_args.call_info.scope.clone();
-    let registry = registry.clone();
+    let scope = raw_args.scope.clone();
     let host = raw_args.host.clone();
     let ctrl_c = raw_args.ctrl_c.clone();
     let current_errors = raw_args.current_errors.clone();
-    let mut shell_manager = raw_args.shell_manager.clone();
+    let shell_manager = raw_args.shell_manager.clone();
 
     let head = raw_args.call_info.args.head.clone();
     let (
@@ -182,7 +174,7 @@ async fn save(
             raw: save_raw,
         },
         input,
-    ) = raw_args.process(&registry).await?;
+    ) = raw_args.process().await?;
     let input: Vec<Value> = input.collect().await;
     if path.is_none() {
         let mut should_return_file_path_error = true;
@@ -217,7 +209,7 @@ async fn save(
         break if !save_raw {
             if let Some(extension) = full_path.extension() {
                 let command_name = format!("to {}", extension.to_string_lossy());
-                if let Some(converter) = registry.get_command(&command_name) {
+                if let Some(converter) = scope.get_command(&command_name) {
                     let new_args = RawCommandArgs {
                         host,
                         ctrl_c,
@@ -232,10 +224,10 @@ async fn save(
                                 external_redirection: ExternalRedirection::Stdout,
                             },
                             name_tag: name_tag.clone(),
-                            scope,
                         },
+                        scope,
                     };
-                    let mut result = converter.run(new_args.with_input(input), &registry).await?;
+                    let mut result = converter.run(new_args.with_input(input)).await?;
                     let result_vec: Vec<Result<ReturnSuccess, ShellError>> =
                         result.drain_vec().await;
                     if converter.is_binary() {

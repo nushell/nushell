@@ -17,7 +17,6 @@ extern crate quickcheck_macros;
 extern crate shadow_rs;
 
 mod cli;
-mod command_registry;
 mod commands;
 #[cfg(feature = "rustyline-support")]
 mod completion;
@@ -46,10 +45,9 @@ mod examples;
 pub use crate::cli::cli;
 
 pub use crate::cli::{
-    create_default_context, parse_and_eval, process_line, register_plugins,
-    run_pipeline_standalone, run_vec_of_pipelines, LineResult,
+    create_default_context, parse_and_eval, process_script, register_plugins, run_script_file,
+    run_script_standalone, LineResult,
 };
-pub use crate::command_registry::CommandRegistry;
 pub use crate::commands::classified::block::run_block;
 pub use crate::commands::command::{
     whole_stream_command, CommandArgs, EvaluatedWholeStreamCommandArgs, Example, WholeStreamCommand,

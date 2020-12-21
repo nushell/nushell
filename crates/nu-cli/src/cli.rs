@@ -8,8 +8,9 @@ use crate::shell::Helper;
 use crate::EnvironmentSyncer;
 use futures_codec::FramedRead;
 use nu_errors::ShellError;
+use nu_parser::ParserScope;
 use nu_protocol::hir::{ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments};
-use nu_protocol::{Primitive, ReturnSuccess, Scope, UntaggedValue, Value};
+use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue, Value};
 
 use log::{debug, trace};
 #[cfg(feature = "rustyline-support")]
@@ -57,13 +58,18 @@ pub fn search_paths() -> Vec<std::path::PathBuf> {
 }
 
 pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Box<dyn Error>> {
-    let mut context = EvaluationContext::basic()?;
+    let context = EvaluationContext::basic()?;
 
     {
         use crate::commands::*;
 
         context.add_commands(vec![
+            // Fundamentals
             whole_stream_command(NuPlugin),
+            whole_stream_command(Set),
+            whole_stream_command(SetEnv),
+            whole_stream_command(Def),
+            whole_stream_command(Source),
             // System/file operations
             whole_stream_command(Exec),
             whole_stream_command(Pwd),
@@ -100,7 +106,6 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Describe),
             whole_stream_command(Which),
             whole_stream_command(Debug),
-            whole_stream_command(Alias),
             whole_stream_command(WithEnv),
             whole_stream_command(Do),
             whole_stream_command(Sleep),
@@ -298,8 +303,8 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
     Ok(context)
 }
 
-pub async fn run_vec_of_pipelines(
-    pipelines: Vec<String>,
+pub async fn run_script_file(
+    file_contents: String,
     redirect_stdin: bool,
 ) -> Result<(), Box<dyn Error>> {
     let mut syncer = EnvironmentSyncer::new();
@@ -321,9 +326,7 @@ pub async fn run_vec_of_pipelines(
 
     let _ = run_startup_commands(&mut context, &config).await;
 
-    for pipeline in pipelines {
-        run_pipeline_standalone(pipeline, redirect_stdin, &mut context, true).await?;
-    }
+    run_script_standalone(file_contents, redirect_stdin, &context, true).await?;
 
     Ok(())
 }
@@ -368,8 +371,14 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
 
     let _ = run_startup_commands(&mut context, &configuration).await;
 
+    // Give ourselves a scope to work in
+    context.scope.enter_scope();
+
     let history_path = crate::commands::history::history_path(&configuration);
     let _ = rl.load_history(&history_path);
+
+    let mut session_text = String::new();
+    let mut line_start: usize = 0;
 
     let skip_welcome_message = configuration
         .var("skip_welcome_message")
@@ -401,10 +410,13 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
             if let Some(prompt) = configuration.var("prompt") {
                 let prompt_line = prompt.as_string()?;
 
-                let (result, err) = nu_parser::lite_parse(&prompt_line, 0);
+                context.scope.enter_scope();
+                let (prompt_block, err) = nu_parser::parse(&prompt_line, 0, &context.scope);
 
                 if err.is_some() {
                     use crate::git::current_branch;
+                    context.scope.exit_scope();
+
                     format!(
                         "\x1b[32m{}{}\x1b[m> ",
                         cwd,
@@ -414,18 +426,12 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
                         }
                     )
                 } else {
-                    let prompt_block = nu_parser::classify_block(&result, context.registry());
+                    // let env = context.get_env();
 
-                    let env = context.get_env();
+                    let run_result = run_block(&prompt_block, &context, InputStream::empty()).await;
+                    context.scope.exit_scope();
 
-                    match run_block(
-                        &prompt_block.block,
-                        &mut context,
-                        InputStream::empty(),
-                        Scope::from_env(env),
-                    )
-                    .await
-                    {
+                    match run_result {
                         Ok(result) => match result.collect_string(Tag::unknown()).await {
                             Ok(string_result) => {
                                 let errors = context.get_errors();
@@ -482,8 +488,23 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
             initial_command = None;
         }
 
+        if let Ok(line) = &readline {
+            line_start = session_text.len();
+            session_text.push_str(line);
+            session_text.push('\n');
+        }
+
         let line = match convert_rustyline_result_to_string(readline) {
-            LineResult::Success(s) => process_line(&s, &mut context, false, true).await,
+            LineResult::Success(_) => {
+                process_script(
+                    &session_text[line_start..],
+                    &context,
+                    false,
+                    line_start,
+                    true,
+                )
+                .await
+            }
             x => x,
         };
 
@@ -509,7 +530,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
             LineResult::Success(line) => {
                 rl.add_history_entry(&line);
                 let _ = rl.save_history(&history_path);
-                context.maybe_print_errors(Text::from(line));
+                context.maybe_print_errors(Text::from(session_text.clone()));
             }
 
             LineResult::ClearHistory => {
@@ -522,10 +543,10 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
                 let _ = rl.save_history(&history_path);
 
                 context.with_host(|_host| {
-                    print_err(err, &Text::from(line.clone()));
+                    print_err(err, &Text::from(session_text.clone()));
                 });
 
-                context.maybe_print_errors(Text::from(line.clone()));
+                context.maybe_print_errors(Text::from(session_text.clone()));
             }
 
             LineResult::CtrlC => {
@@ -610,8 +631,7 @@ async fn run_startup_commands(
             } => {
                 for pipeline in pipelines {
                     if let Ok(pipeline_string) = pipeline.as_string() {
-                        let _ =
-                            run_pipeline_standalone(pipeline_string, false, context, false).await;
+                        let _ = run_script_standalone(pipeline_string, false, context, false).await;
                     }
                 }
             }
@@ -626,13 +646,13 @@ async fn run_startup_commands(
     Ok(())
 }
 
-pub async fn run_pipeline_standalone(
-    pipeline: String,
+pub async fn run_script_standalone(
+    script_text: String,
     redirect_stdin: bool,
-    context: &mut EvaluationContext,
+    context: &EvaluationContext,
     exit_on_error: bool,
 ) -> Result<(), Box<dyn Error>> {
-    let line = process_line(&pipeline, context, redirect_stdin, false).await;
+    let line = process_script(&script_text, context, redirect_stdin, 0, false).await;
 
     match line {
         LineResult::Success(line) => {
@@ -869,64 +889,51 @@ pub enum LineResult {
     ClearHistory,
 }
 
-pub async fn parse_and_eval(line: &str, ctx: &mut EvaluationContext) -> Result<String, ShellError> {
+pub async fn parse_and_eval(line: &str, ctx: &EvaluationContext) -> Result<String, ShellError> {
+    // FIXME: do we still need this?
     let line = if let Some(s) = line.strip_suffix('\n') {
         s
     } else {
         line
     };
 
-    let (lite_result, err) = nu_parser::lite_parse(&line, 0);
+    // TODO ensure the command whose examples we're testing is actually in the pipeline
+    ctx.scope.enter_scope();
+    let (classified_block, err) = nu_parser::parse(&line, 0, &ctx.scope);
     if let Some(err) = err {
+        ctx.scope.exit_scope();
         return Err(err.into());
     }
 
-    // TODO ensure the command whose examples we're testing is actually in the pipeline
-    let classified_block = nu_parser::classify_block(&lite_result, ctx.registry());
-
     let input_stream = InputStream::empty();
     let env = ctx.get_env();
+    ctx.scope.add_env(env);
 
-    run_block(
-        &classified_block.block,
-        ctx,
-        input_stream,
-        Scope::from_env(env),
-    )
-    .await?
-    .collect_string(Tag::unknown())
-    .await
-    .map(|x| x.item)
+    let result = run_block(&classified_block, ctx, input_stream).await;
+    ctx.scope.exit_scope();
+
+    result?.collect_string(Tag::unknown()).await.map(|x| x.item)
 }
 
 /// Process the line by parsing the text to turn it into commands, classify those commands so that we understand what is being called in the pipeline, and then run this pipeline
-pub async fn process_line(
-    line: &str,
-    ctx: &mut EvaluationContext,
+pub async fn process_script(
+    script_text: &str,
+    ctx: &EvaluationContext,
     redirect_stdin: bool,
+    span_offset: usize,
     cli_mode: bool,
 ) -> LineResult {
-    if line.trim() == "" {
-        LineResult::Success(line.to_string())
+    if script_text.trim() == "" {
+        LineResult::Success(script_text.to_string())
     } else {
-        let line = chomp_newline(line);
-        ctx.raw_input = line.to_string();
+        let line = chomp_newline(script_text);
 
-        let (result, err) = nu_parser::lite_parse(&line, 0);
+        let (block, err) = nu_parser::parse(&line, span_offset, &ctx.scope);
 
-        if let Some(err) = err {
-            return LineResult::Error(line.to_string(), err.into());
-        }
-
-        debug!("=== Parsed ===");
-        debug!("{:#?}", result);
-
-        let classified_block = nu_parser::classify_block(&result, ctx.registry());
-
-        debug!("{:#?}", classified_block);
+        debug!("{:#?}", block);
         //println!("{:#?}", pipeline);
 
-        if let Some(failure) = classified_block.failed {
+        if let Some(failure) = err {
             return LineResult::Error(line.to_string(), failure.into());
         }
 
@@ -937,12 +944,13 @@ pub async fn process_line(
         // ...and we're in the CLI
         // ...then change to this directory
         if cli_mode
-            && classified_block.block.block.len() == 1
-            && classified_block.block.block[0].list.len() == 1
+            && block.block.len() == 1
+            && block.block[0].pipelines.len() == 1
+            && block.block[0].pipelines[0].list.len() == 1
         {
             if let ClassifiedCommand::Internal(InternalCommand {
                 ref name, ref args, ..
-            }) = classified_block.block.block[0].list[0]
+            }) = block.block[0].pipelines[0].list[0]
             {
                 let internal_name = name;
                 let name = args
@@ -1038,16 +1046,13 @@ pub async fn process_line(
             InputStream::empty()
         };
 
-        trace!("{:#?}", classified_block);
+        trace!("{:#?}", block);
         let env = ctx.get_env();
-        match run_block(
-            &classified_block.block,
-            ctx,
-            input_stream,
-            Scope::from_env(env),
-        )
-        .await
-        {
+
+        ctx.scope.add_env(env);
+        let result = run_block(&block, ctx, input_stream).await;
+
+        match result {
             Ok(input) => {
                 // Running a pipeline gives us back a stream that we can then
                 // work through. At the top level, we just want to pull on the
@@ -1060,9 +1065,8 @@ pub async fn process_line(
                     host: ctx.host.clone(),
                     ctrl_c: ctx.ctrl_c.clone(),
                     current_errors: ctx.current_errors.clone(),
-                    registry: ctx.registry.clone(),
+                    scope: ctx.scope.clone(),
                     name: Tag::unknown(),
-                    raw_input: line.to_string(),
                 };
 
                 if let Ok(mut output_stream) =
@@ -1111,12 +1115,14 @@ pub fn print_err(err: ShellError, source: &Text) {
 
 #[cfg(test)]
 mod tests {
+
     #[quickcheck]
     fn quickcheck_parse(data: String) -> bool {
-        let (lite_block, err) = nu_parser::lite_parse(&data, 0);
-        if err.is_none() {
+        let (tokens, err) = nu_parser::lex(&data, 0);
+        let (lite_block, err2) = nu_parser::group(tokens);
+        if err.is_none() && err2.is_none() {
             let context = crate::evaluation_context::EvaluationContext::basic().unwrap();
-            let _ = nu_parser::classify_block(&lite_block, context.registry());
+            let _ = nu_parser::classify_block(&lite_block, &context.scope);
         }
         true
     }

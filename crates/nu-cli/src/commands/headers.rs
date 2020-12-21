@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use futures::stream::StreamExt;
@@ -23,12 +22,8 @@ impl WholeStreamCommand for Headers {
         "Use the first row of the table as column names"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        headers(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        headers(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -47,10 +42,7 @@ impl WholeStreamCommand for Headers {
     }
 }
 
-pub async fn headers(
-    args: CommandArgs,
-    _registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+pub async fn headers(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let input = args.input;
     let rows: Vec<Value> = input.collect().await;
 

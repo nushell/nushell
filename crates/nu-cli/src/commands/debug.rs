@@ -24,21 +24,13 @@ impl WholeStreamCommand for Debug {
         "Print the Rust debug representation of the values"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        debug_value(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        debug_value(args).await
     }
 }
 
-async fn debug_value(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let (DebugArgs { raw }, input) = args.process(&registry).await?;
+async fn debug_value(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (DebugArgs { raw }, input) = args.process().await?;
     Ok(input
         .map(move |v| {
             if raw {

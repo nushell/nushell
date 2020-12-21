@@ -1,5 +1,4 @@
-use crate::hir::Block;
-use crate::{value::Value, Signature};
+use crate::value::Value;
 use nu_errors::ShellError;
 use nu_source::{b, DebugDocBuilder, PrettyDebug};
 use serde::{Deserialize, Serialize};
@@ -21,11 +20,14 @@ pub enum CommandAction {
     EnterValueShell(Value),
     /// Enter the help shell, which allows exploring the help system
     EnterHelpShell(Value),
-    /// Add an alias command
-    /// Note: We are passing the Signature in a Box to decrease the memory size of AddAlias
-    AddAlias(Box<Signature>, Block),
+    /// Add a variable into scope
+    AddVariable(String, Value),
+    /// Add an environment variable into scope
+    AddEnvVariable(String, String),
     /// Add plugins from path given
     AddPlugins(String),
+    /// Run the given script in the current context (given filename)
+    SourceScript(String),
     /// Go to the previous shell in the shell ring buffer
     PreviousShell,
     /// Go to the next shell in the shell ring buffer
@@ -47,7 +49,9 @@ impl PrettyDebug for CommandAction {
             CommandAction::EnterShell(s) => b::typed("enter shell", b::description(s)),
             CommandAction::EnterValueShell(v) => b::typed("enter value shell", v.pretty()),
             CommandAction::EnterHelpShell(v) => b::typed("enter help shell", v.pretty()),
-            CommandAction::AddAlias(..) => b::description("add alias"),
+            CommandAction::AddVariable(..) => b::description("add variable"),
+            CommandAction::AddEnvVariable(..) => b::description("add environment variable"),
+            CommandAction::SourceScript(..) => b::description("source script"),
             CommandAction::AddPlugins(..) => b::description("add plugins"),
             CommandAction::PreviousShell => b::description("previous shell"),
             CommandAction::NextShell => b::description("next shell"),

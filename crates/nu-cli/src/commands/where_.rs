@@ -1,17 +1,16 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::evaluate::evaluate_baseline_expr;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::Block, hir::ClassifiedCommand, ReturnSuccess, Scope, Signature, SyntaxShape,
+    hir::CapturedBlock, hir::ClassifiedCommand, ReturnSuccess, Signature, SyntaxShape,
 };
 
 pub struct Where;
 
 #[derive(Deserialize)]
 pub struct WhereArgs {
-    block: Block,
+    block: CapturedBlock,
 }
 
 #[async_trait]
@@ -23,7 +22,7 @@ impl WholeStreamCommand for Where {
     fn signature(&self) -> Signature {
         Signature::build("where").required(
             "condition",
-            SyntaxShape::Math,
+            SyntaxShape::RowCondition,
             "the condition that must match",
         )
     }
@@ -32,12 +31,8 @@ impl WholeStreamCommand for Where {
         "Filter table to match the condition."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        where_command(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        where_command(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -65,25 +60,21 @@ impl WholeStreamCommand for Where {
         ]
     }
 }
-async fn where_command(
-    raw_args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = Arc::new(registry.clone());
-    let scope = raw_args.call_info.scope.clone();
+async fn where_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let ctx = Arc::new(EvaluationContext::from_raw(&raw_args));
     let tag = raw_args.call_info.name_tag.clone();
-    let (WhereArgs { block }, input) = raw_args.process(&registry).await?;
+    let (WhereArgs { block }, input) = raw_args.process().await?;
     let condition = {
-        if block.block.len() != 1 {
+        if block.block.block.len() != 1 {
             return Err(ShellError::labeled_error(
                 "Expected a condition",
                 "expected a condition",
                 tag,
             ));
         }
-        match block.block[0].list.get(0) {
-            Some(item) => match item {
-                ClassifiedCommand::Expr(expr) => expr.clone(),
+        match block.block.block[0].pipelines.get(0) {
+            Some(item) => match item.list.get(0) {
+                Some(ClassifiedCommand::Expr(expr)) => expr.clone(),
                 _ => {
                     return Err(ShellError::labeled_error(
                         "Expected a condition",
@@ -105,12 +96,16 @@ async fn where_command(
     Ok(input
         .filter_map(move |input| {
             let condition = condition.clone();
-            let registry = registry.clone();
-            let scope = Scope::append_var(scope.clone(), "$it", input.clone());
+            let ctx = ctx.clone();
+
+            ctx.scope.enter_scope();
+            ctx.scope.add_vars(&block.captured.entries);
+            ctx.scope.add_var("$it", input.clone());
 
             async move {
                 //FIXME: should we use the scope that's brought in as well?
-                let condition = evaluate_baseline_expr(&condition, &*registry, scope).await;
+                let condition = evaluate_baseline_expr(&condition, &*ctx).await;
+                ctx.scope.exit_scope();
 
                 match condition {
                     Ok(condition) => match condition.as_bool() {

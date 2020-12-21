@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -30,12 +29,8 @@ impl WholeStreamCommand for Drop {
         "Remove the last number of rows. If you want to remove columns, try 'reject'."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        drop(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        drop(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -57,8 +52,8 @@ impl WholeStreamCommand for Drop {
     }
 }
 
-async fn drop(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let (DropArgs { rows }, input) = args.process(&registry).await?;
+async fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (DropArgs { rows }, input) = args.process().await?;
     let v: Vec<_> = input.into_vec().await;
 
     let rows_to_drop = if let Some(quantity) = rows {

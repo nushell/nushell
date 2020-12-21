@@ -30,8 +30,11 @@ pub enum SyntaxShape {
     Unit,
     /// An operator
     Operator,
-    /// A math expression, eg `foo > 1`
-    Math,
+    /// A math expression which expands shorthand forms on the lefthand side, eg `foo > 1`
+    /// The shorthand allows us to more easily reach columns inside of the row being passed in
+    RowCondition,
+    /// A general math expression, eg the `1 + 2` of `= 1 + 2`
+    MathExpression,
 }
 
 impl PrettyDebug for SyntaxShape {
@@ -51,7 +54,8 @@ impl PrettyDebug for SyntaxShape {
             SyntaxShape::Table => "table",
             SyntaxShape::Unit => "unit",
             SyntaxShape::Operator => "operator",
-            SyntaxShape::Math => "condition",
+            SyntaxShape::RowCondition => "condition",
+            SyntaxShape::MathExpression => "math expression",
         })
     }
 }

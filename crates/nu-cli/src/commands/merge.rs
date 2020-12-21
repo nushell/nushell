@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
@@ -6,12 +5,14 @@ use nu_data::value::merge_values;
 
 use indexmap::IndexMap;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{
+    hir::CapturedBlock, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+};
 pub struct Merge;
 
 #[derive(Deserialize)]
 pub struct MergeArgs {
-    block: Block,
+    block: CapturedBlock,
 }
 
 #[async_trait]
@@ -32,12 +33,8 @@ impl WholeStreamCommand for Merge {
         "Merge a table."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        merge(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        merge(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -49,24 +46,23 @@ impl WholeStreamCommand for Merge {
     }
 }
 
-async fn merge(
-    raw_args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let scope = raw_args.call_info.scope.clone();
-    let mut context = EvaluationContext::from_raw(&raw_args, &registry);
+async fn merge(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let context = EvaluationContext::from_raw(&raw_args);
     let name_tag = raw_args.call_info.name_tag.clone();
-    let (merge_args, input): (MergeArgs, _) = raw_args.process(&registry).await?;
+    let (merge_args, input): (MergeArgs, _) = raw_args.process().await?;
     let block = merge_args.block;
 
-    let table: Option<Vec<Value>> =
-        match run_block(&block, &mut context, InputStream::empty(), scope).await {
-            Ok(mut stream) => Some(stream.drain_vec().await),
-            Err(err) => {
-                return Err(err);
-            }
-        };
+    context.scope.enter_scope();
+    context.scope.add_vars(&block.captured.entries);
+    let result = run_block(&block.block, &context, InputStream::empty()).await;
+    context.scope.exit_scope();
+
+    let table: Option<Vec<Value>> = match result {
+        Ok(mut stream) => Some(stream.drain_vec().await),
+        Err(err) => {
+            return Err(err);
+        }
+    };
 
     let table = table.unwrap_or_else(|| {
         vec![Value {

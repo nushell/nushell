@@ -55,12 +55,8 @@ impl WholeStreamCommand for SubCommand {
         "Converts numeric types to strings. Trims trailing zeros unless decimals parameter is specified."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        operate(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        operate(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -84,10 +80,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-async fn operate(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let (
         Arguments {
             decimals,
@@ -95,7 +88,7 @@ async fn operate(
             rest: column_paths,
         },
         input,
-    ) = args.process(&registry.clone()).await?;
+    ) = args.process().await?;
     let digits = decimals.map(|tagged| tagged.item);
 
     Ok(input

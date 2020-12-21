@@ -138,7 +138,7 @@ impl<'s> Flatten<'s> {
         result
     }
 
-    fn pipeline(&self, pipeline: &Commands) -> Vec<CompletionLocation> {
+    fn pipeline(&self, pipeline: &Pipeline) -> Vec<CompletionLocation> {
         let mut result = Vec::new();
 
         for command in &pipeline.list {
@@ -158,7 +158,11 @@ impl<'s> Flatten<'s> {
 
     /// Flattens the block into a Vec of completion locations
     pub fn completion_locations(&self, block: &Block) -> Vec<CompletionLocation> {
-        block.block.iter().flat_map(|v| self.pipeline(v)).collect()
+        block
+            .block
+            .iter()
+            .flat_map(|g| g.pipelines.iter().flat_map(|v| self.pipeline(v)))
+            .collect()
     }
 
     pub fn new(line: &'s str) -> Flatten<'s> {
@@ -252,7 +256,7 @@ pub fn completion_location(line: &str, block: &Block, pos: usize) -> Vec<Complet
 mod tests {
     use super::*;
 
-    use nu_parser::SignatureRegistry;
+    use nu_parser::{classify_block, group, lex, ParserScope};
     use nu_protocol::{Signature, SyntaxShape};
 
     #[derive(Clone, Debug)]
@@ -264,35 +268,52 @@ mod tests {
         }
     }
 
-    impl SignatureRegistry for VecRegistry {
-        fn has(&self, name: &str) -> bool {
+    impl ParserScope for VecRegistry {
+        fn has_signature(&self, name: &str) -> bool {
             self.0.iter().any(|v| v.name == name)
         }
 
-        fn get(&self, name: &str) -> Option<nu_protocol::Signature> {
+        fn get_signature(&self, name: &str) -> Option<nu_protocol::Signature> {
             self.0.iter().find(|v| v.name == name).map(Clone::clone)
         }
 
-        fn clone_box(&self) -> Box<dyn SignatureRegistry> {
-            Box::new(self.clone())
+        fn get_alias(&self, _name: &str) -> Option<Vec<Spanned<String>>> {
+            None
         }
+
+        fn add_alias(&self, _name: &str, _replacement: Vec<Spanned<String>>) {
+            todo!()
+        }
+
+        fn add_definition(&self, _block: Block) {}
+
+        fn get_definitions(&self) -> Vec<Block> {
+            vec![]
+        }
+
+        fn enter_scope(&self) {}
+
+        fn exit_scope(&self) {}
     }
 
     mod completion_location {
         use super::*;
 
-        use nu_parser::{classify_block, lite_parse, SignatureRegistry};
+        use nu_parser::ParserScope;
 
         fn completion_location(
             line: &str,
-            registry: &dyn SignatureRegistry,
+            scope: &dyn ParserScope,
             pos: usize,
         ) -> Vec<LocationType> {
-            let (lite_block, _) = lite_parse(line, 0);
+            let (tokens, _) = lex(line, 0);
+            let (lite_block, _) = group(tokens);
 
-            let block = classify_block(&lite_block, registry);
+            scope.enter_scope();
+            let (block, _) = classify_block(&lite_block, scope);
+            scope.exit_scope();
 
-            super::completion_location(line, &block.block, pos)
+            super::completion_location(line, &block, pos)
                 .into_iter()
                 .map(|v| v.item)
                 .collect()

@@ -40,12 +40,8 @@ impl WholeStreamCommand for SubCommand {
         "finds and replaces text"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        operate(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        operate(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -67,12 +63,7 @@ impl WholeStreamCommand for SubCommand {
 #[derive(Clone)]
 struct FindReplace(String, String);
 
-async fn operate(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-
+async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let (
         Arguments {
             find,
@@ -81,7 +72,7 @@ async fn operate(
             all,
         },
         input,
-    ) = args.process(&registry).await?;
+    ) = args.process().await?;
     let options = FindReplace(find.item, replace.item);
     let column_paths: Vec<_> = rest;
 

@@ -23,12 +23,8 @@ impl WholeStreamCommand for Size {
         "Gather word count statistics on the text."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        size(args, registry)
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        size(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -59,7 +55,7 @@ impl WholeStreamCommand for Size {
     }
 }
 
-fn size(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+fn size(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let input = args.input;
     let tag = args.call_info.name_tag;
     let name_span = tag.span;

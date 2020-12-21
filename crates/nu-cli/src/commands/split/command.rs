@@ -20,14 +20,9 @@ impl WholeStreamCommand for Command {
         "split contents across desired subcommand (like row, column) via the separator."
     }
 
-    async fn run(
-        &self,
-        _args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        let registry = registry.clone();
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(Ok(ReturnSuccess::Value(
-            UntaggedValue::string(crate::commands::help::get_help(&Command, &registry))
+            UntaggedValue::string(crate::commands::help::get_help(&Command, &args.scope))
                 .into_value(Tag::unknown()),
         ))))
     }

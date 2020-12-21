@@ -29,12 +29,8 @@ impl WholeStreamCommand for Help {
         "Display help information about commands."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        help(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        help(args).await
     }
 }
 
@@ -53,21 +49,21 @@ pub(crate) fn command_dict(command: Command, tag: impl Into<Tag>) -> Value {
     cmd_dict.into_value()
 }
 
-async fn help(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+async fn help(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (HelpArgs { rest }, ..) = args.process(&registry).await?;
+    let scope = args.scope.clone();
+    let (HelpArgs { rest }, ..) = args.process().await?;
 
     if !rest.is_empty() {
         if rest[0].item == "commands" {
-            let mut sorted_names = registry.names();
+            let mut sorted_names = scope.get_command_names();
             sorted_names.sort();
 
             let (mut subcommand_names, command_names) = sorted_names
                 .into_iter()
                 // Internal only commands shouldn't be displayed
                 .filter(|cmd_name| {
-                    registry
+                    scope
                         .get_command(&cmd_name)
                         .filter(|command| !command.is_internal())
                         .is_some()
@@ -77,13 +73,13 @@ async fn help(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
             fn process_name(
                 dict: &mut TaggedDictBuilder,
                 cmd_name: &str,
-                registry: CommandRegistry,
+                scope: Scope,
                 rest: Vec<Tagged<String>>,
                 name: Tag,
             ) -> Result<(), ShellError> {
                 let document_tag = rest[0].tag.clone();
                 let value = command_dict(
-                    registry.get_command(&cmd_name).ok_or_else(|| {
+                    scope.get_command(&cmd_name).ok_or_else(|| {
                         ShellError::labeled_error(
                             format!("Could not load {}", cmd_name),
                             "could not load command",
@@ -114,7 +110,7 @@ async fn help(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
             fn make_subcommands_table(
                 subcommand_names: &mut Vec<String>,
                 cmd_name: &str,
-                registry: CommandRegistry,
+                scope: Scope,
                 rest: Vec<Tagged<String>>,
                 name: Tag,
             ) -> Result<Value, ShellError> {
@@ -132,7 +128,7 @@ async fn help(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
                                 process_name(
                                     &mut short_desc,
                                     &cmd_name,
-                                    registry.clone(),
+                                    scope.clone(),
                                     rest.clone(),
                                     name.clone(),
                                 )?;
@@ -154,7 +150,7 @@ async fn help(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
                         process_name(
                             &mut short_desc,
                             &cmd_name,
-                            registry.clone(),
+                            scope.clone(),
                             rest.clone(),
                             name.clone(),
                         )?;
@@ -163,7 +159,7 @@ async fn help(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
                             make_subcommands_table(
                                 &mut subcommand_names,
                                 &cmd_name,
-                                registry.clone(),
+                                scope.clone(),
                                 rest.clone(),
                                 name.clone(),
                             )?,
@@ -174,22 +170,22 @@ async fn help(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
             Ok(futures::stream::iter(iterator).to_output_stream())
         } else if rest[0].item == "generate_docs" {
             Ok(OutputStream::one(ReturnSuccess::value(generate_docs(
-                &registry,
+                &scope,
             ))))
         } else if rest.len() == 2 {
             // Check for a subcommand
             let command_name = format!("{} {}", rest[0].item, rest[1].item);
-            if let Some(command) = registry.get_command(&command_name) {
+            if let Some(command) = scope.get_command(&command_name) {
                 Ok(OutputStream::one(ReturnSuccess::value(
-                    UntaggedValue::string(get_help(command.stream_command(), &registry))
+                    UntaggedValue::string(get_help(command.stream_command(), &scope))
                         .into_value(Tag::unknown()),
                 )))
             } else {
                 Ok(OutputStream::empty())
             }
-        } else if let Some(command) = registry.get_command(&rest[0].item) {
+        } else if let Some(command) = scope.get_command(&rest[0].item) {
             Ok(OutputStream::one(ReturnSuccess::value(
-                UntaggedValue::string(get_help(command.stream_command(), &registry))
+                UntaggedValue::string(get_help(command.stream_command(), &scope))
                     .into_value(Tag::unknown()),
             )))
         } else {
@@ -228,8 +224,8 @@ You can also learn more at https://www.nushell.sh/book/"#;
     }
 }
 
-pub fn get_help(cmd: &dyn WholeStreamCommand, registry: &CommandRegistry) -> String {
-    get_documentation(cmd, registry, &DocumentationConfig::default())
+pub fn get_help(cmd: &dyn WholeStreamCommand, scope: &Scope) -> String {
+    get_documentation(cmd, scope, &DocumentationConfig::default())
 }
 
 #[cfg(test)]

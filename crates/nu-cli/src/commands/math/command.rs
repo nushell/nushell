@@ -19,13 +19,9 @@ impl WholeStreamCommand for Command {
         "Use mathematical functions as aggregate functions on a list of numbers or tables"
     }
 
-    async fn run(
-        &self,
-        _args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(Ok(ReturnSuccess::Value(
-            UntaggedValue::string(crate::commands::help::get_help(&Command, &registry.clone()))
+            UntaggedValue::string(crate::commands::help::get_help(&Command, &args.scope))
                 .into_value(Tag::unknown()),
         ))))
     }

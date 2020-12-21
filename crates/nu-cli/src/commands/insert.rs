@@ -1,15 +1,13 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{
-    ColumnPath, Primitive, ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue, Value,
+    ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use nu_value_ext::ValueExt;
 
 use futures::stream::once;
-use indexmap::indexmap;
 
 pub struct Command;
 
@@ -39,12 +37,8 @@ impl WholeStreamCommand for Command {
         "Insert a new column with a given value."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        insert(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        insert(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -71,8 +65,7 @@ impl WholeStreamCommand for Command {
 }
 
 async fn process_row(
-    scope: Arc<Scope>,
-    mut context: Arc<EvaluationContext>,
+    context: Arc<EvaluationContext>,
     input: Value,
     mut value: Arc<Value>,
     field: Arc<ColumnPath>,
@@ -87,9 +80,13 @@ async fn process_row(
             let for_block = input.clone();
             let input_stream = once(async { Ok(for_block) }).to_input_stream();
 
-            let scope = Scope::append_var(scope, "$it", input.clone());
+            context.scope.enter_scope();
+            context.scope.add_vars(&block.captured.entries);
+            context.scope.add_var("$it", input.clone());
 
-            let result = run_block(&block, Arc::make_mut(&mut context), input_stream, scope).await;
+            let result = run_block(&block.block, &*context, input_stream).await;
+
+            context.scope.exit_scope();
 
             match result {
                 Ok(mut stream) => {
@@ -139,8 +136,9 @@ async fn process_row(
             Value {
                 value: UntaggedValue::Primitive(Primitive::Nothing),
                 ..
-            } => match scope
-                .var("$it")
+            } => match context
+                .scope
+                .get_var("$it")
                 .unwrap_or_else(|| UntaggedValue::nothing().into_untagged_value())
                 .insert_data_at_column_path(&field, value.clone())
             {
@@ -155,26 +153,20 @@ async fn process_row(
     })
 }
 
-async fn insert(
-    raw_args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let scope = raw_args.call_info.scope.clone();
-    let context = Arc::new(EvaluationContext::from_raw(&raw_args, &registry));
-    let (Arguments { column, value }, input) = raw_args.process(&registry).await?;
+async fn insert(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let context = Arc::new(EvaluationContext::from_raw(&raw_args));
+    let (Arguments { column, value }, input) = raw_args.process().await?;
     let value = Arc::new(value);
     let column = Arc::new(column);
 
     Ok(input
         .then(move |input| {
-            let scope = scope.clone();
             let context = context.clone();
             let value = value.clone();
             let column = column.clone();
 
             async {
-                match process_row(scope, context, input, value, column).await {
+                match process_row(context, input, value, column).await {
                     Ok(s) => s,
                     Err(e) => OutputStream::one(Err(e)),
                 }

@@ -4,23 +4,23 @@ description = "CLI for nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-cli"
-version = "0.24.1"
+version = "0.24.2"
 build = "build.rs"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-data = {version = "0.24.1", path = "../nu-data"}
-nu-errors = {version = "0.24.1", path = "../nu-errors"}
-nu-json = {version = "0.24.1", path = "../nu-json"}
-nu-parser = {version = "0.24.1", path = "../nu-parser"}
-nu-plugin = {version = "0.24.1", path = "../nu-plugin"}
-nu-protocol = {version = "0.24.1", path = "../nu-protocol"}
-nu-source = {version = "0.24.1", path = "../nu-source"}
-nu-table = {version = "0.24.1", path = "../nu-table"}
-nu-test-support = {version = "0.24.1", path = "../nu-test-support"}
-nu-value-ext = {version = "0.24.1", path = "../nu-value-ext"}
+nu-data = {version = "0.24.2", path = "../nu-data"}
+nu-errors = {version = "0.24.2", path = "../nu-errors"}
+nu-json = {version = "0.24.2", path = "../nu-json"}
+nu-parser = {version = "0.24.2", path = "../nu-parser"}
+nu-plugin = {version = "0.24.2", path = "../nu-plugin"}
+nu-protocol = {version = "0.24.2", path = "../nu-protocol"}
+nu-source = {version = "0.24.2", path = "../nu-source"}
+nu-table = {version = "0.24.2", path = "../nu-table"}
+nu-test-support = {version = "0.24.2", path = "../nu-test-support"}
+nu-value-ext = {version = "0.24.2", path = "../nu-value-ext"}
 
 ansi_term = "0.12.1"
 async-recursion = "0.3.1"
@@ -116,7 +116,7 @@ users = "0.10.0"
 [dependencies.rusqlite]
 features = ["bundled", "blob"]
 optional = true
-version = "0.24.1"
+version = "0.24.2"
 
 [build-dependencies]
 shadow-rs = "0.5"

@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use futures::stream::StreamExt;
@@ -23,12 +22,8 @@ impl WholeStreamCommand for Clip {
         "Copy the contents of the pipeline to the copy/paste buffer"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        clip(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        clip(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -47,10 +42,7 @@ impl WholeStreamCommand for Clip {
     }
 }
 
-pub async fn clip(
-    args: CommandArgs,
-    _registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+pub async fn clip(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let input = args.input;
     let name = args.call_info.name_tag.clone();
     let values: Vec<Value> = input.collect().await;

@@ -23,12 +23,8 @@ impl WholeStreamCommand for Which {
         "Finds a program file."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        which(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        which(args).await
     }
 }
 
@@ -78,12 +74,11 @@ struct WhichArgs {
     all: bool,
 }
 
-async fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-
+async fn which(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut output = vec![];
+    let scope = args.scope.clone();
 
-    let (WhichArgs { application, all }, _) = args.process(&registry).await?;
+    let (WhichArgs { application, all }, _) = args.process().await?;
     let external = application.starts_with('^');
     let item = if external {
         application.item[1..].to_string()
@@ -91,7 +86,7 @@ async fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
         application.item.clone()
     };
     if !external {
-        let builtin = registry.has(&item);
+        let builtin = scope.has_command(&item);
         if builtin {
             output.push(ReturnSuccess::value(entry_builtin!(
                 item,

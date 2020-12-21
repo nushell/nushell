@@ -28,12 +28,8 @@ impl WholeStreamCommand for SubCommand {
         "Generate a random decimal within a range [min..max]"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        decimal(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        decimal(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -62,11 +58,8 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn decimal(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let (DecimalArgs { range }, _) = args.process(&registry).await?;
+pub async fn decimal(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (DecimalArgs { range }, _) = args.process().await?;
 
     let (min, max) = if let Some(range) = &range {
         (range.item.min() as f64, range.item.max() as f64)

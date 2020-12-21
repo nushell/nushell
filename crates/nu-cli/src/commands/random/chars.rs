@@ -34,12 +34,8 @@ impl WholeStreamCommand for SubCommand {
         "Generate random chars"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        chars(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        chars(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -58,11 +54,8 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn chars(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let (CharsArgs { length }, _) = args.process(&registry).await?;
+pub async fn chars(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (CharsArgs { length }, _) = args.process().await?;
 
     let chars_length = length.map_or(DEFAULT_CHARS_LENGTH, |l| l.item);
 

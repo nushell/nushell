@@ -1,17 +1,16 @@
-use crate::commands::command::whole_stream_command;
-use crate::commands::run_alias::AliasCommand;
+use std::sync::atomic::Ordering;
+
 use crate::commands::UnevaluatedCallInfo;
 use crate::prelude::*;
 use log::{log_enabled, trace};
 use nu_errors::ShellError;
 use nu_protocol::hir::{ExternalRedirection, InternalCommand};
-use nu_protocol::{CommandAction, Primitive, ReturnSuccess, Scope, UntaggedValue, Value};
+use nu_protocol::{CommandAction, Primitive, ReturnSuccess, UntaggedValue, Value};
 
 pub(crate) async fn run_internal_command(
     command: InternalCommand,
-    context: &mut EvaluationContext,
+    context: &EvaluationContext,
     input: InputStream,
-    scope: Arc<Scope>,
 ) -> Result<InputStream, ShellError> {
     if log_enabled!(log::Level::Trace) {
         trace!(target: "nu::run::internal", "->");
@@ -19,10 +18,13 @@ pub(crate) async fn run_internal_command(
     }
 
     let objects: InputStream = trace_stream!(target: "nu::trace_stream::internal", "input" = input);
-    let internal_command = context.expect_command(&command.name);
+
+    let internal_command = context.scope.expect_command(&command.name);
 
     if command.name == "autoenv untrust" {
-        context.user_recently_used_autoenv_untrust = true;
+        context
+            .user_recently_used_autoenv_untrust
+            .store(true, Ordering::SeqCst);
     }
 
     let result = {
@@ -31,14 +33,12 @@ pub(crate) async fn run_internal_command(
                 internal_command?,
                 Tag::unknown_anchor(command.name_span),
                 command.args.clone(),
-                scope.clone(),
                 objects,
             )
             .await?
     };
 
     let head = Arc::new(command.args.head.clone());
-    //let context = Arc::new(context.clone());
     let context = context.clone();
     let command = Arc::new(command);
 
@@ -47,8 +47,7 @@ pub(crate) async fn run_internal_command(
             .then(move |item| {
                 let head = head.clone();
                 let command = command.clone();
-                let mut context = context.clone();
-                let scope = scope.clone();
+                let context = context.clone();
                 async move {
                     match item {
                         Ok(ReturnSuccess::Action(action)) => match action {
@@ -65,8 +64,7 @@ pub(crate) async fn run_internal_command(
                                 let contents_tag = tagged_contents.tag.clone();
                                 let command_name = format!("from {}", extension);
                                 let command = command.clone();
-                                if let Some(converter) = context.registry.get_command(&command_name)
-                                {
+                                if let Some(converter) = context.scope.get_command(&command_name) {
                                     let new_args = RawCommandArgs {
                                         host: context.host.clone(),
                                         ctrl_c: context.ctrl_c.clone(),
@@ -81,14 +79,11 @@ pub(crate) async fn run_internal_command(
                                                 external_redirection: ExternalRedirection::Stdout,
                                             },
                                             name_tag: Tag::unknown_anchor(command.name_span),
-                                            scope,
                                         },
+                                        scope: context.scope.clone(),
                                     };
                                     let result = converter
-                                        .run(
-                                            new_args.with_input(vec![tagged_contents]),
-                                            &context.registry,
-                                        )
+                                        .run(new_args.with_input(vec![tagged_contents]))
                                         .await;
 
                                     match result {
@@ -139,7 +134,7 @@ pub(crate) async fn run_internal_command(
                                     context.shell_manager.insert_at_current(Box::new(
                                         match HelpShell::for_command(
                                             UntaggedValue::string(cmd).into_value(tag),
-                                            &context.registry(),
+                                            &context.scope,
                                         ) {
                                             Ok(v) => v,
                                             Err(err) => {
@@ -153,7 +148,7 @@ pub(crate) async fn run_internal_command(
                                 }
                                 _ => {
                                     context.shell_manager.insert_at_current(Box::new(
-                                        match HelpShell::index(&context.registry()) {
+                                        match HelpShell::index(&context.scope) {
                                             Ok(v) => v,
                                             Err(err) => {
                                                 return InputStream::one(
@@ -185,11 +180,36 @@ pub(crate) async fn run_internal_command(
                                 ));
                                 InputStream::from_stream(futures::stream::iter(vec![]))
                             }
-                            CommandAction::AddAlias(sig, block) => {
-                                context.add_commands(vec![whole_stream_command(
-                                    AliasCommand::new(*sig, block),
-                                )]);
+                            CommandAction::AddVariable(name, value) => {
+                                context.scope.add_var(name, value);
                                 InputStream::from_stream(futures::stream::iter(vec![]))
+                            }
+                            CommandAction::AddEnvVariable(name, value) => {
+                                context.scope.add_env_var(name, value);
+                                InputStream::from_stream(futures::stream::iter(vec![]))
+                            }
+                            CommandAction::SourceScript(filename) => {
+                                let contents = std::fs::read_to_string(&filename);
+                                if let Ok(contents) = contents {
+                                    let result = crate::cli::run_script_standalone(
+                                        contents, true, &context, false,
+                                    )
+                                    .await;
+
+                                    if let Err(err) = result {
+                                        return InputStream::one(
+                                            UntaggedValue::Error(err.into()).into_untagged_value(),
+                                        );
+                                    }
+                                    InputStream::from_stream(futures::stream::iter(vec![]))
+                                } else {
+                                    InputStream::one(
+                                        UntaggedValue::Error(ShellError::untagged_runtime_error(
+                                            format!("could not source '{}'", filename),
+                                        ))
+                                        .into_untagged_value(),
+                                    )
+                                }
                             }
                             CommandAction::AddPlugins(path) => {
                                 match crate::plugin::scan(vec![std::path::PathBuf::from(path)]) {

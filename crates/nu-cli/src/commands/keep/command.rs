@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -30,12 +29,8 @@ impl WholeStreamCommand for Command {
         "Keep the number of rows only"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        keep(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        keep(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -59,9 +54,8 @@ impl WholeStreamCommand for Command {
     }
 }
 
-async fn keep(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let (Arguments { rows }, input) = args.process(&registry).await?;
+async fn keep(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (Arguments { rows }, input) = args.process().await?;
     let rows_desired = if let Some(quantity) = rows {
         *quantity
     } else {

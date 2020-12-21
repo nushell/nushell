@@ -19,11 +19,7 @@ impl WholeStreamCommand for SubCommand {
         "outputs the lengths of the strings in the pipeline"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        _registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(args
             .input
             .map(move |x| match x.as_string() {

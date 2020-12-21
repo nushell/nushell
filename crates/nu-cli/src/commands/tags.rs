@@ -19,16 +19,12 @@ impl WholeStreamCommand for Tags {
         "Read the tags (metadata) for values."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        tags(args, registry)
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        tags(args)
     }
 }
 
-fn tags(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+fn tags(args: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(args
         .input
         .map(move |v| {

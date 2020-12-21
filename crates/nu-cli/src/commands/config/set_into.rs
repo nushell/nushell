@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -30,12 +29,8 @@ impl WholeStreamCommand for SubCommand {
         "Sets a value in the config"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        set_into(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        set_into(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -47,14 +42,11 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn set_into(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+pub async fn set_into(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_span = args.call_info.name_tag.clone();
     let name = args.call_info.name_tag.clone();
 
-    let (SetIntoArgs { set_into: v }, input) = args.process(&registry).await?;
+    let (SetIntoArgs { set_into: v }, input) = args.process().await?;
 
     // NOTE: None because we are not loading a new config file, we just want to read from the
     // existing config

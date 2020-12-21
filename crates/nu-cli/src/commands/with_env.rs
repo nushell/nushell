@@ -3,7 +3,7 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::Block, Scope, Signature, SpannedTypeName, SyntaxShape, UntaggedValue, Value,
+    hir::CapturedBlock, Signature, SpannedTypeName, SyntaxShape, UntaggedValue, Value,
 };
 
 pub struct WithEnv;
@@ -11,7 +11,7 @@ pub struct WithEnv;
 #[derive(Deserialize, Debug)]
 struct WithEnvArgs {
     variable: Value,
-    block: Block,
+    block: CapturedBlock,
 }
 
 #[async_trait]
@@ -38,12 +38,8 @@ impl WholeStreamCommand for WithEnv {
         "Runs a block with an environment set. Eg) with-env [NAME 'foo'] { echo $nu.env.NAME }"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        with_env(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        with_env(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -72,15 +68,9 @@ impl WholeStreamCommand for WithEnv {
     }
 }
 
-async fn with_env(
-    raw_args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-
-    let mut context = EvaluationContext::from_raw(&raw_args, &registry);
-    let scope = raw_args.call_info.scope.clone();
-    let (WithEnvArgs { variable, block }, input) = raw_args.process(&registry).await?;
+async fn with_env(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let context = EvaluationContext::from_raw(&raw_args);
+    let (WithEnvArgs { variable, block }, input) = raw_args.process().await?;
 
     let mut env = IndexMap::new();
 
@@ -114,9 +104,12 @@ async fn with_env(
         }
     };
 
-    let scope = Scope::append_env(scope, env);
+    context.scope.enter_scope();
+    context.scope.add_env(env);
+    context.scope.add_vars(&block.captured.entries);
 
-    let result = run_block(&block, &mut context, input, scope).await;
+    let result = run_block(&block.block, &context, input).await;
+    context.scope.exit_scope();
 
     result.map(|x| x.to_output_stream())
 }

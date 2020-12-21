@@ -20,16 +20,12 @@ impl WholeStreamCommand for Shells {
         "Display the list of current shells."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        shells(args, registry)
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        shells(args)
     }
 }
 
-fn shells(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+fn shells(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut shells_out = VecDeque::new();
     let tag = args.call_info.name_tag;
 

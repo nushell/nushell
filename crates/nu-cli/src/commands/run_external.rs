@@ -63,11 +63,7 @@ impl WholeStreamCommand for RunExternalCommand {
         true
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let positionals = args.call_info.args.positional.clone().ok_or_else(|| {
             ShellError::untagged_runtime_error("positional arguments unexpectedly empty")
         })?;
@@ -85,14 +81,13 @@ impl WholeStreamCommand for RunExternalCommand {
 
         let mut external_context = {
             EvaluationContext {
-                registry: registry.clone(),
+                scope: args.scope.clone(),
                 host: args.host.clone(),
-                user_recently_used_autoenv_untrust: false,
+                user_recently_used_autoenv_untrust: Arc::new(AtomicBool::new(false)),
                 shell_manager: args.shell_manager.clone(),
                 ctrl_c: args.ctrl_c.clone(),
                 current_errors: Arc::new(Mutex::new(vec![])),
                 windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
-                raw_input: String::default(),
             }
         };
 
@@ -126,14 +121,11 @@ impl WholeStreamCommand for RunExternalCommand {
             }
         }
 
-        let scope = args.call_info.scope.clone();
-
         let input = args.input;
         let result = external::run_external_command(
             command,
             &mut external_context,
             input,
-            scope,
             external_redirection,
         )
         .await;

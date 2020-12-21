@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -26,12 +25,8 @@ impl WholeStreamCommand for Command {
         "Skip some number of rows."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        skip(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        skip(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -46,9 +41,8 @@ impl WholeStreamCommand for Command {
     }
 }
 
-async fn skip(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let (Arguments { rows }, input) = args.process(&registry).await?;
+async fn skip(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (Arguments { rows }, input) = args.process().await?;
     let rows_desired = if let Some(quantity) = rows {
         *quantity
     } else {

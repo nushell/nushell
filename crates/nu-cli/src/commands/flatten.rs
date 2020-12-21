@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -28,12 +27,8 @@ impl WholeStreamCommand for Command {
         "Flatten the table."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        flatten(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        flatten(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -57,13 +52,9 @@ impl WholeStreamCommand for Command {
     }
 }
 
-async fn flatten(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+async fn flatten(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let registry = registry.clone();
-    let (Arguments { rest: columns }, input) = args.process(&registry).await?;
+    let (Arguments { rest: columns }, input) = args.process().await?;
 
     Ok(input
         .map(move |item| {

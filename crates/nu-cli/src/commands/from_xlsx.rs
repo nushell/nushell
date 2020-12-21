@@ -31,28 +31,20 @@ impl WholeStreamCommand for FromXLSX {
         "Parse binary Excel(.xlsx) data and create table."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        from_xlsx(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        from_xlsx(args).await
     }
 }
 
-async fn from_xlsx(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+async fn from_xlsx(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let span = tag.span;
-    let registry = registry.clone();
     let (
         FromXLSXArgs {
             headerless: _headerless,
         },
         input,
-    ) = args.process(&registry).await?;
+    ) = args.process().await?;
     let value = input.collect_binary(tag.clone()).await?;
 
     let buf: Cursor<Vec<u8>> = Cursor::new(value.item);

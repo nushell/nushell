@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -31,22 +30,15 @@ impl WholeStreamCommand for SubCommand {
         "Loads the config from the path given"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        set(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        set(args).await
     }
 }
 
-pub async fn set(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+pub async fn set(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let name_span = args.call_info.name_tag.clone();
-    let (LoadArgs { load }, _) = args.process(&registry).await?;
+    let (LoadArgs { load }, _) = args.process().await?;
 
     let configuration = load.item().clone();
 

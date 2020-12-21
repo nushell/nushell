@@ -20,7 +20,7 @@ impl WholeStreamCommand for Clear {
         "Clears the terminal"
     }
 
-    async fn run(&self, _: CommandArgs, _: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    async fn run(&self, _: CommandArgs) -> Result<OutputStream, ShellError> {
         if cfg!(windows) {
             Command::new("cmd")
                 .args(&["/C", "cls"])

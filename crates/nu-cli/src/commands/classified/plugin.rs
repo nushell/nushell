@@ -104,24 +104,13 @@ impl WholeStreamCommand for PluginFilter {
         &self.config.usage
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        run_filter(self.path.clone(), args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        run_filter(self.path.clone(), (args)).await
     }
 }
 
-async fn run_filter(
-    path: String,
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+async fn run_filter(path: String, args: CommandArgs) -> Result<OutputStream, ShellError> {
     trace!("filter_plugin :: {}", path);
-    let registry = registry.clone();
-
-    let scope = args.call_info.scope.clone();
 
     let bos = futures::stream::iter(vec![
         UntaggedValue::Primitive(Primitive::BeginningOfStream).into_untagged_value()
@@ -130,7 +119,7 @@ async fn run_filter(
         UntaggedValue::Primitive(Primitive::EndOfStream).into_untagged_value()
     ]);
 
-    let args = args.evaluate_once_with_scope(&registry, scope).await?;
+    let args = args.evaluate_once().await?;
 
     let real_path = Path::new(&path);
     let ext = real_path.extension();
@@ -390,22 +379,13 @@ impl WholeStreamCommand for PluginSink {
         &self.config.usage
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        run_sink(self.path.clone(), args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        run_sink(self.path.clone(), args).await
     }
 }
 
-async fn run_sink(
-    path: String,
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
-    let args = args.evaluate_once(&registry).await?;
+async fn run_sink(path: String, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once().await?;
     let call_info = args.call_info.clone();
 
     let input: Vec<Value> = args.input.collect().await;

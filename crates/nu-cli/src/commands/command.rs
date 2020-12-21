@@ -1,28 +1,26 @@
-use crate::command_registry::CommandRegistry;
-use crate::commands::help::get_help;
 use crate::deserializer::ConfigDeserializer;
 use crate::evaluate::evaluate_args::evaluate_args;
 use crate::prelude::*;
+use crate::{commands::help::get_help, run_block};
 use derive_new::new;
 use getset::Getters;
 use nu_errors::ShellError;
-use nu_protocol::hir;
-use nu_protocol::{CallInfo, EvaluatedArgs, ReturnSuccess, Scope, Signature, UntaggedValue, Value};
+use nu_protocol::hir::{self, Block};
+use nu_protocol::{CallInfo, EvaluatedArgs, ReturnSuccess, Signature, UntaggedValue, Value};
 use parking_lot::Mutex;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::ops::Deref;
 use std::sync::atomic::AtomicBool;
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct UnevaluatedCallInfo {
     pub args: hir::Call,
     pub name_tag: Tag,
-    pub scope: Arc<Scope>,
 }
 
 impl UnevaluatedCallInfo {
-    pub async fn evaluate(self, registry: &CommandRegistry) -> Result<CallInfo, ShellError> {
-        let args = evaluate_args(&self.args, registry, self.scope.clone()).await?;
+    pub async fn evaluate(self, ctx: &EvaluationContext) -> Result<CallInfo, ShellError> {
+        let args = evaluate_args(&self.args, ctx).await?;
 
         Ok(CallInfo {
             args,
@@ -43,8 +41,8 @@ pub struct CommandArgs {
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub shell_manager: ShellManager,
     pub call_info: UnevaluatedCallInfo,
+    pub scope: Scope,
     pub input: InputStream,
-    pub raw_input: String,
 }
 
 #[derive(Getters, Clone)]
@@ -54,6 +52,7 @@ pub struct RawCommandArgs {
     pub ctrl_c: Arc<AtomicBool>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub shell_manager: ShellManager,
+    pub scope: Scope,
     pub call_info: UnevaluatedCallInfo,
 }
 
@@ -65,8 +64,8 @@ impl RawCommandArgs {
             current_errors: self.current_errors,
             shell_manager: self.shell_manager,
             call_info: self.call_info,
+            scope: self.scope,
             input: input.into(),
-            raw_input: String::default(),
         }
     }
 }
@@ -78,15 +77,14 @@ impl std::fmt::Debug for CommandArgs {
 }
 
 impl CommandArgs {
-    pub async fn evaluate_once(
-        self,
-        registry: &CommandRegistry,
-    ) -> Result<EvaluatedWholeStreamCommandArgs, ShellError> {
+    pub async fn evaluate_once(self) -> Result<EvaluatedWholeStreamCommandArgs, ShellError> {
+        let ctx = EvaluationContext::from_args(&self);
         let host = self.host.clone();
         let ctrl_c = self.ctrl_c.clone();
         let shell_manager = self.shell_manager.clone();
         let input = self.input;
-        let call_info = self.call_info.evaluate(registry).await?;
+        let call_info = self.call_info.evaluate(&ctx).await?;
+        let scope = self.scope.clone();
 
         Ok(EvaluatedWholeStreamCommandArgs::new(
             host,
@@ -94,39 +92,12 @@ impl CommandArgs {
             shell_manager,
             call_info,
             input,
+            scope,
         ))
     }
 
-    pub async fn evaluate_once_with_scope(
-        self,
-        registry: &CommandRegistry,
-        scope: Arc<Scope>,
-    ) -> Result<EvaluatedWholeStreamCommandArgs, ShellError> {
-        let host = self.host.clone();
-        let ctrl_c = self.ctrl_c.clone();
-        let shell_manager = self.shell_manager.clone();
-        let input = self.input;
-        let call_info = UnevaluatedCallInfo {
-            name_tag: self.call_info.name_tag,
-            args: self.call_info.args,
-            scope: scope.clone(),
-        };
-        let call_info = call_info.evaluate(registry).await?;
-
-        Ok(EvaluatedWholeStreamCommandArgs::new(
-            host,
-            ctrl_c,
-            shell_manager,
-            call_info,
-            input,
-        ))
-    }
-
-    pub async fn process<'de, T: Deserialize<'de>>(
-        self,
-        registry: &CommandRegistry,
-    ) -> Result<(T, InputStream), ShellError> {
-        let args = self.evaluate_once(registry).await?;
+    pub async fn process<'de, T: Deserialize<'de>>(self) -> Result<(T, InputStream), ShellError> {
+        let args = self.evaluate_once().await?;
         let call_info = args.call_info.clone();
 
         let mut deserializer = ConfigDeserializer::from_call_info(call_info);
@@ -141,14 +112,13 @@ pub struct RunnableContext {
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub ctrl_c: Arc<AtomicBool>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
-    pub registry: CommandRegistry,
+    pub scope: Scope,
     pub name: Tag,
-    pub raw_input: String,
 }
 
 impl RunnableContext {
     pub fn get_command(&self, name: &str) -> Option<Command> {
-        self.registry.get_command(name)
+        self.scope.get_command(name)
     }
 }
 
@@ -171,6 +141,7 @@ impl EvaluatedWholeStreamCommandArgs {
         shell_manager: ShellManager,
         call_info: CallInfo,
         input: impl Into<InputStream>,
+        scope: Scope,
     ) -> EvaluatedWholeStreamCommandArgs {
         EvaluatedWholeStreamCommandArgs {
             args: EvaluatedCommandArgs {
@@ -178,6 +149,7 @@ impl EvaluatedWholeStreamCommandArgs {
                 ctrl_c,
                 shell_manager,
                 call_info,
+                scope,
             },
             input: input.into(),
         }
@@ -207,6 +179,7 @@ pub struct EvaluatedCommandArgs {
     pub ctrl_c: Arc<AtomicBool>,
     pub shell_manager: ShellManager,
     pub call_info: CallInfo,
+    pub scope: Scope,
 }
 
 impl EvaluatedCommandArgs {
@@ -247,11 +220,7 @@ pub trait WholeStreamCommand: Send + Sync {
 
     fn usage(&self) -> &str;
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError>;
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError>;
 
     fn is_binary(&self) -> bool {
         false
@@ -264,6 +233,96 @@ pub trait WholeStreamCommand: Send + Sync {
 
     fn examples(&self) -> Vec<Example> {
         Vec::new()
+    }
+}
+
+// Custom commands are blocks, so we can use the information in the block to also
+// implement a WholeStreamCommand
+#[async_trait]
+impl WholeStreamCommand for Block {
+    fn name(&self) -> &str {
+        &self.params.name
+    }
+
+    fn signature(&self) -> Signature {
+        self.params.clone()
+    }
+
+    fn usage(&self) -> &str {
+        ""
+    }
+
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        let call_info = args.call_info.clone();
+
+        let mut block = self.clone();
+        block.set_redirect(call_info.args.external_redirection);
+
+        let ctx = EvaluationContext::from_args(&args);
+        let evaluated = call_info.evaluate(&ctx).await?;
+
+        let input = args.input;
+        ctx.scope.enter_scope();
+        if let Some(args) = evaluated.args.positional {
+            // FIXME: do not do this
+            for arg in args.into_iter().zip(self.params.positional.iter()) {
+                let name = arg.1 .0.name();
+
+                if name.starts_with('$') {
+                    ctx.scope.add_var(name, arg.0);
+                } else {
+                    ctx.scope.add_var(format!("${}", name), arg.0);
+                }
+            }
+        }
+        if let Some(args) = evaluated.args.named {
+            for named in &block.params.named {
+                let name = named.0;
+                if let Some(value) = args.get(name) {
+                    if name.starts_with('$') {
+                        ctx.scope.add_var(name, value.clone());
+                    } else {
+                        ctx.scope.add_var(format!("${}", name), value.clone());
+                    }
+                } else if name.starts_with('$') {
+                    ctx.scope
+                        .add_var(name, UntaggedValue::nothing().into_untagged_value());
+                } else {
+                    ctx.scope.add_var(
+                        format!("${}", name),
+                        UntaggedValue::nothing().into_untagged_value(),
+                    );
+                }
+            }
+        } else {
+            for named in &block.params.named {
+                let name = named.0;
+                if name.starts_with('$') {
+                    ctx.scope
+                        .add_var(name, UntaggedValue::nothing().into_untagged_value());
+                } else {
+                    ctx.scope.add_var(
+                        format!("${}", name),
+                        UntaggedValue::nothing().into_untagged_value(),
+                    );
+                }
+            }
+        }
+        let result = run_block(&block, &ctx, input).await;
+        ctx.scope.exit_scope();
+        result.map(|x| x.to_output_stream())
+    }
+
+    fn is_binary(&self) -> bool {
+        false
+    }
+
+    fn is_internal(&self) -> bool {
+        false
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![]
     }
 }
 
@@ -306,19 +365,14 @@ impl Command {
         self.0.examples()
     }
 
-    pub async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    pub async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         if args.call_info.switch_present("help") {
             let cl = self.0.clone();
-            let registry = registry.clone();
             Ok(OutputStream::one(Ok(ReturnSuccess::Value(
-                UntaggedValue::string(get_help(&*cl, &registry)).into_value(Tag::unknown()),
+                UntaggedValue::string(get_help(&*cl, &args.scope)).into_value(Tag::unknown()),
             ))))
         } else {
-            self.0.run(args, registry).await
+            self.0.run(args).await
         }
     }
 

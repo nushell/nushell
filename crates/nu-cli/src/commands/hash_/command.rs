@@ -22,15 +22,9 @@ impl WholeStreamCommand for Command {
         "Apply hash function."
     }
 
-    async fn run(
-        &self,
-        _args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        let registry = registry.clone();
-
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(ReturnSuccess::value(
-            UntaggedValue::string(crate::commands::help::get_help(&Command, &registry))
+            UntaggedValue::string(crate::commands::help::get_help(&Command, &args.scope))
                 .into_value(Tag::unknown()),
         )))
     }

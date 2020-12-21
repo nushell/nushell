@@ -33,7 +33,7 @@ impl ShellManager {
         })
     }
 
-    pub fn insert_at_current(&mut self, shell: Box<dyn Shell + Send>) {
+    pub fn insert_at_current(&self, shell: Box<dyn Shell + Send>) {
         self.shells.lock().push(shell);
         self.current_shell
             .store(self.shells.lock().len() - 1, Ordering::SeqCst);
@@ -44,7 +44,7 @@ impl ShellManager {
         self.current_shell.load(Ordering::SeqCst)
     }
 
-    pub fn remove_at_current(&mut self) {
+    pub fn remove_at_current(&self) {
         {
             let mut shells = self.shells.lock();
             if shells.len() > 0 {
@@ -78,7 +78,7 @@ impl ShellManager {
         env[self.current_shell()].pwd(args)
     }
 
-    pub fn set_path(&mut self, path: String) {
+    pub fn set_path(&self, path: String) {
         self.shells.lock()[self.current_shell()].set_path(path)
     }
 
@@ -93,7 +93,7 @@ impl ShellManager {
     }
 
     pub fn save(
-        &mut self,
+        &self,
         full_path: &PathBuf,
         save_data: &[u8],
         name: Span,
@@ -101,7 +101,7 @@ impl ShellManager {
         self.shells.lock()[self.current_shell()].save(full_path, save_data, name)
     }
 
-    pub fn next(&mut self) {
+    pub fn next(&self) {
         {
             let shell_len = self.shells.lock().len();
             if self.current_shell() == (shell_len - 1) {
@@ -114,7 +114,7 @@ impl ShellManager {
         self.set_path(self.path())
     }
 
-    pub fn prev(&mut self) {
+    pub fn prev(&self) {
         {
             let shell_len = self.shells.lock().len();
             if self.current_shell() == 0 {

@@ -71,7 +71,6 @@ macro_rules! trace_out_stream {
 pub(crate) use nu_protocol::{errln, out, outln, row};
 use nu_source::HasFallibleSpan;
 
-pub(crate) use crate::command_registry::CommandRegistry;
 pub(crate) use crate::commands::command::{CommandArgs, RawCommandArgs, RunnableContext};
 pub(crate) use crate::commands::Example;
 pub(crate) use crate::evaluation_context::EvaluationContext;
@@ -79,6 +78,8 @@ pub(crate) use nu_data::config;
 pub(crate) use nu_data::value;
 // pub(crate) use crate::env::host::handle_unexpected;
 pub(crate) use crate::env::Host;
+pub(crate) use crate::evaluate::scope::Scope;
+
 pub(crate) use crate::shell::filesystem_shell::FilesystemShell;
 pub(crate) use crate::shell::help_shell::HelpShell;
 pub(crate) use crate::shell::shell_manager::ShellManager;
@@ -87,6 +88,8 @@ pub(crate) use crate::stream::{InputStream, InterruptibleStream, OutputStream};
 pub(crate) use bigdecimal::BigDecimal;
 pub(crate) use futures::stream::BoxStream;
 pub(crate) use futures::{Stream, StreamExt};
+pub(crate) use nu_errors::ShellError;
+pub(crate) use nu_parser::ParserScope;
 pub(crate) use nu_source::{
     b, AnchorLocation, DebugDocBuilder, PrettyDebug, PrettyDebugWithSource, Span, SpannedItem, Tag,
     TaggedItem, Text,
@@ -101,7 +104,7 @@ pub(crate) use std::sync::atomic::AtomicBool;
 pub(crate) use std::sync::Arc;
 
 pub(crate) use async_trait::async_trait;
-pub(crate) use indexmap::IndexMap;
+pub(crate) use indexmap::{indexmap, IndexMap};
 pub(crate) use itertools::Itertools;
 
 pub trait FromInputStream {

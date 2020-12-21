@@ -48,22 +48,15 @@ impl WholeStreamCommand for History {
         "Display command history."
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        history(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        history(args).await
     }
 }
 
-async fn history(
-    args: CommandArgs,
-    _registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+async fn history(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let config: Box<dyn Conf> = Box::new(NuConfig::new());
     let tag = args.call_info.name_tag.clone();
-    let (Arguments { clear }, _) = args.process(&_registry).await?;
+    let (Arguments { clear }, _) = args.process().await?;
 
     let path = history_path(&config);
 

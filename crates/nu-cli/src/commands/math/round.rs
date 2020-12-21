@@ -30,12 +30,8 @@ impl WholeStreamCommand for SubCommand {
         "Applies the round function to a list of numbers"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        operate(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        operate(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -62,11 +58,8 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-async fn operate(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let (Arguments { precision }, input) = args.process(&registry).await?;
+async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (Arguments { precision }, input) = args.process().await?;
     let precision = precision.map(|p| p.item).unwrap_or(0);
 
     let mapped = input.map(move |val| match val.value {

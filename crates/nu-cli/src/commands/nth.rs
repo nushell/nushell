@@ -1,4 +1,3 @@
-use crate::command_registry::CommandRegistry;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -33,12 +32,8 @@ impl WholeStreamCommand for Nth {
         "Return only the selected rows"
     }
 
-    async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        nth(args, registry).await
+    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        nth(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -57,15 +52,14 @@ impl WholeStreamCommand for Nth {
     }
 }
 
-async fn nth(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let registry = registry.clone();
+async fn nth(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let (
         NthArgs {
             row_number,
             rest: and_rows,
         },
         input,
-    ) = args.process(&registry).await?;
+    ) = args.process().await?;
 
     let row_numbers = vec![vec![row_number], and_rows]
         .into_iter()
