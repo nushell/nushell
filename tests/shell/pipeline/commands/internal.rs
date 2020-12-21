@@ -345,6 +345,30 @@ fn run_custom_command() {
 }
 
 #[test]
+fn run_custom_command_with_flag() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        def foo [--bar:number] { if $(echo $bar | empty?) { echo "empty" } { echo $bar } }; foo --bar 10
+        "#
+    );
+
+    assert_eq!(actual.out, "10");
+}
+
+#[test]
+fn run_custom_command_with_flag_missing() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        def foo [--bar:number] { if $(echo $bar | empty?) { echo "empty" } { echo $bar } }; foo
+        "#
+    );
+
+    assert_eq!(actual.out, "empty");
+}
+
+#[test]
 fn set_variable() {
     let actual = nu!(
         cwd: ".",

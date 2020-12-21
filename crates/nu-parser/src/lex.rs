@@ -173,6 +173,29 @@ impl LiteBlock {
             Span::new(start, 0)
         }
     }
+    pub fn head(&self) -> Option<Spanned<String>> {
+        if let Some(group) = self.block.get(0) {
+            if let Some(pipeline) = group.pipelines.get(0) {
+                if let Some(command) = pipeline.commands.get(0) {
+                    if let Some(head) = command.parts.get(0) {
+                        return Some(head.clone());
+                    }
+                }
+            }
+        }
+        None
+    }
+    pub fn remove_head(&mut self) {
+        if let Some(group) = self.block.get_mut(0) {
+            if let Some(pipeline) = group.pipelines.get_mut(0) {
+                if let Some(command) = pipeline.commands.get_mut(0) {
+                    if !command.parts.is_empty() {
+                        command.parts.remove(0);
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
