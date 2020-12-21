@@ -275,6 +275,39 @@ impl WholeStreamCommand for Block {
                 }
             }
         }
+        if let Some(args) = evaluated.args.named {
+            for named in &block.params.named {
+                let name = named.0;
+                if let Some(value) = args.get(name) {
+                    if name.starts_with('$') {
+                        ctx.scope.add_var(name, value.clone());
+                    } else {
+                        ctx.scope.add_var(format!("${}", name), value.clone());
+                    }
+                } else if name.starts_with('$') {
+                    ctx.scope
+                        .add_var(name, UntaggedValue::nothing().into_untagged_value());
+                } else {
+                    ctx.scope.add_var(
+                        format!("${}", name),
+                        UntaggedValue::nothing().into_untagged_value(),
+                    );
+                }
+            }
+        } else {
+            for named in &block.params.named {
+                let name = named.0;
+                if name.starts_with('$') {
+                    ctx.scope
+                        .add_var(name, UntaggedValue::nothing().into_untagged_value());
+                } else {
+                    ctx.scope.add_var(
+                        format!("${}", name),
+                        UntaggedValue::nothing().into_untagged_value(),
+                    );
+                }
+            }
+        }
         let result = run_block(&block, &ctx, input).await;
         ctx.scope.exit_scope();
         result.map(|x| x.to_output_stream())

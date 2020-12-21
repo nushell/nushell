@@ -2027,36 +2027,76 @@ fn parse_signature(
                 Expression::Literal(Literal::String(st)) => {
                     let parts: Vec<_> = st.split(':').collect();
                     if parts.len() == 1 {
-                        signature.positional.push((
-                            PositionalType::Mandatory(parts[0].to_string(), SyntaxShape::Any),
-                            String::new(),
-                        ));
+                        if parts[0].starts_with("--") {
+                            // Flag
+                            let flagname = parts[0][2..].to_string();
+                            signature
+                                .named
+                                .insert(flagname, (NamedType::Switch(None), String::new()));
+                        } else {
+                            // Positional
+                            signature.positional.push((
+                                PositionalType::Mandatory(parts[0].to_string(), SyntaxShape::Any),
+                                String::new(),
+                            ));
+                        }
                     } else if parts.len() == 2 {
-                        let name = parts[0].to_string();
-                        let shape = match parts[1] {
-                            "int" => SyntaxShape::Int,
-                            "string" => SyntaxShape::String,
-                            "path" => SyntaxShape::Path,
-                            "table" => SyntaxShape::Table,
-                            "unit" => SyntaxShape::Unit,
-                            "number" => SyntaxShape::Number,
-                            "pattern" => SyntaxShape::Pattern,
-                            "range" => SyntaxShape::Range,
-                            "block" => SyntaxShape::Block,
-                            "any" => SyntaxShape::Any,
-                            _ => {
-                                if err.is_none() {
-                                    err = Some(ParseError::mismatch(
-                                        "params with known types",
-                                        s.clone(),
-                                    ));
+                        if parts[0].starts_with("--") {
+                            // Flag
+                            let flagname = parts[0][2..].to_string();
+                            let shape = match parts[1] {
+                                "int" => SyntaxShape::Int,
+                                "string" => SyntaxShape::String,
+                                "path" => SyntaxShape::Path,
+                                "table" => SyntaxShape::Table,
+                                "unit" => SyntaxShape::Unit,
+                                "number" => SyntaxShape::Number,
+                                "pattern" => SyntaxShape::Pattern,
+                                "range" => SyntaxShape::Range,
+                                "block" => SyntaxShape::Block,
+                                "any" => SyntaxShape::Any,
+                                _ => {
+                                    if err.is_none() {
+                                        err = Some(ParseError::mismatch(
+                                            "params with known types",
+                                            s.clone(),
+                                        ));
+                                    }
+                                    SyntaxShape::Any
                                 }
-                                SyntaxShape::Any
-                            }
-                        };
-                        signature
-                            .positional
-                            .push((PositionalType::Mandatory(name, shape), String::new()));
+                            };
+                            signature.named.insert(
+                                flagname,
+                                (NamedType::Optional(None, shape), String::new()),
+                            );
+                        } else {
+                            // Positional
+                            let name = parts[0].to_string();
+                            let shape = match parts[1] {
+                                "int" => SyntaxShape::Int,
+                                "string" => SyntaxShape::String,
+                                "path" => SyntaxShape::Path,
+                                "table" => SyntaxShape::Table,
+                                "unit" => SyntaxShape::Unit,
+                                "number" => SyntaxShape::Number,
+                                "pattern" => SyntaxShape::Pattern,
+                                "range" => SyntaxShape::Range,
+                                "block" => SyntaxShape::Block,
+                                "any" => SyntaxShape::Any,
+                                _ => {
+                                    if err.is_none() {
+                                        err = Some(ParseError::mismatch(
+                                            "params with known types",
+                                            s.clone(),
+                                        ));
+                                    }
+                                    SyntaxShape::Any
+                                }
+                            };
+                            signature
+                                .positional
+                                .push((PositionalType::Mandatory(name, shape), String::new()));
+                        }
                     } else if err.is_none() {
                         err = Some(ParseError::mismatch("param with type", s.clone()));
                     }
@@ -2245,11 +2285,6 @@ pub fn classify_block(
             output.push(out_group);
         }
     }
-
-    // for def in scope.get_definitions() {
-    //     let name = def.params.name.clone();
-    //     output.definitions.insert(name, def.clone());
-    // }
 
     (output, error)
 }
