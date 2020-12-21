@@ -84,8 +84,6 @@ pub fn version(args: CommandArgs) -> Result<OutputStream, ShellError> {
     // }
     let _commit_autor = shadow::COMMIT_AUTHOR;
 
-    let _version = shadow::version();
-
     // let commit_email: Option<&str> = Some(shadow::COMMIT_EMAIL).filter(|x| !x.is_empty());
     // if let Some(commit_email) = commit_email {
     //     indexmap.insert(
@@ -152,6 +150,8 @@ pub fn version(args: CommandArgs) -> Result<OutputStream, ShellError> {
     //     );
     // }
     let _project_name = shadow::PROJECT_NAME;
+
+    let _version = shadow::version();
 
     let build_time: Option<&str> = Some(shadow::BUILD_TIME).filter(|x| !x.is_empty());
     if let Some(build_time) = build_time {
