@@ -1393,7 +1393,8 @@ fn parse_positional_argument(
             if idx < lite_cmd.parts.len() {
                 if lite_cmd.parts[idx].item.starts_with('{') {
                     // It's an explicit math expression, so parse it deeper in
-                    let (arg, err) = parse_arg(SyntaxShape::RowCondition, scope, &lite_cmd.parts[idx]);
+                    let (arg, err) =
+                        parse_arg(SyntaxShape::RowCondition, scope, &lite_cmd.parts[idx]);
                     if error.is_none() {
                         error = err;
                     }
