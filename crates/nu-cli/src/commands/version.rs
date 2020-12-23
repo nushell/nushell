@@ -7,6 +7,7 @@ use nu_protocol::{value::StrExt, value::StringExt, Dictionary, Signature, Untagg
 pub mod shadow {
     include!(concat!(env!("OUT_DIR"), "/shadow.rs"));
 }
+
 pub struct Version;
 
 #[async_trait]
@@ -151,6 +152,8 @@ pub fn version(args: CommandArgs) -> Result<OutputStream, ShellError> {
     //     );
     // }
     let _project_name = shadow::PROJECT_NAME;
+
+    let _version = shadow::version();
 
     let build_time: Option<&str> = Some(shadow::BUILD_TIME).filter(|x| !x.is_empty());
     if let Some(build_time) = build_time {

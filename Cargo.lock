@@ -1919,9 +1919,9 @@ checksum = "f6503fe142514ca4799d4c26297c4248239fe8838d827db6bd6065c6ed29a6ce"
 
 [[package]]
 name = "git2"
-version = "0.13.12"
+version = "0.13.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca6f1a0238d7f8f8fd5ee642f4ebac4dbc03e03d1f78fbe7a3ede35dcf7e2224"
+checksum = "802b535f89475f22bb2b3d589de07861417e67b1a358c7ec8e5005bf4f209133"
 dependencies = [
  "bitflags",
  "libc",
@@ -2573,9 +2573,9 @@ checksum = "4d58d1b70b004888f764dfbf6a26a3b0342a1632d33968e4a179d8011c760614"
 
 [[package]]
 name = "libgit2-sys"
-version = "0.12.14+1.1.0"
+version = "0.12.15+1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f25af58e6495f7caf2919d08f212de550cfa3ed2f5e744988938ea292b9f549"
+checksum = "48c39622f3887bc7fb2fff6d06293f64b02c1dfa281212566ac155171d13b0eb"
 dependencies = [
  "cc",
  "libc",
@@ -5183,9 +5183,9 @@ dependencies = [
 
 [[package]]
 name = "shadow-rs"
-version = "0.3.20"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfa99d59fca26677e3582f69069226abb6b2ce7e02d1068bcfd57510fa16ab87"
+checksum = "b5ee6ecc8237a62951c2e5c871aa86799ba8a9bf909b5567129858039ae63e87"
 dependencies = [
  "chrono",
  "git2",
