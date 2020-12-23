@@ -64,7 +64,7 @@ To install Nu via cargo (make sure you have installed [rustup](https://rustup.rs
 cargo install nu
 ```
 
-You can also build Nu yourself with all the bells and whistles (be sure to have installed the [dependencies](https://www.nushell.sh/book/en/installation.html#dependencies) for your platform), once you have checked out this repo with git:
+You can also build Nu yourself with all the bells and whistles (be sure to have installed the [dependencies](https://www.nushell.sh/book/installation.html#dependencies) for your platform), once you have checked out this repo with git:
 
 ```bash
 cargo build --workspace --features=extra
@@ -234,7 +234,7 @@ Here we use the variable `$it` to refer to the value being piped to the external
 
 ### Configuration
 
-Nu has early support for configuring the shell. You can refer to the book for a list of [all supported variables](https://www.nushell.sh/book/en/configuration.html).
+Nu has early support for configuring the shell. You can refer to the book for a list of [all supported variables](https://www.nushell.sh/book/configuration.html).
 
 To set one of these variables, you can use `config set`. For example:
 
