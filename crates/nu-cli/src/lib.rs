@@ -13,9 +13,6 @@ extern crate quickcheck;
 #[macro_use(quickcheck)]
 extern crate quickcheck_macros;
 
-#[macro_use]
-extern crate shadow_rs;
-
 mod cli;
 mod commands;
 #[cfg(feature = "rustyline-support")]
