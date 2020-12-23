@@ -2130,7 +2130,7 @@ fn parse_definition(call: &LiteCommand, scope: &dyn ParserScope) -> Option<Parse
             return Some(ParseError::mismatch("definition", call.parts[0].clone()));
         }
 
-        let name = call.parts[1].item.clone();
+        let name = trim_quotes(&call.parts[1].item);
         let (signature, err) = parse_signature(&name, &call.parts[2], scope);
         if err.is_some() {
             return err;
@@ -2151,11 +2151,10 @@ fn parse_definition(call: &LiteCommand, scope: &dyn ParserScope) -> Option<Parse
                     return err;
                 };
 
-                let name = &call.parts[1].item;
                 let (mut block, err) = classify_block(&lite_block, scope);
 
                 block.params = signature;
-                block.params.name = name.clone();
+                block.params.name = name;
 
                 scope.add_definition(block);
 
@@ -2181,7 +2180,7 @@ fn parse_definition_prototype(call: &LiteCommand, scope: &dyn ParserScope) -> Op
         return Some(ParseError::mismatch("definition", call.parts[0].clone()));
     }
 
-    let name = call.parts[1].item.clone();
+    let name = trim_quotes(&call.parts[1].item);
     let (signature, error) = parse_signature(&name, &call.parts[2], scope);
     if err.is_none() {
         err = error;

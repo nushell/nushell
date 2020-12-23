@@ -369,6 +369,18 @@ fn run_custom_command_with_flag_missing() {
 }
 
 #[test]
+fn run_custom_subcommand() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        def "str double" [x] { echo $x $x | str collect }; str double bob
+        "#
+    );
+
+    assert_eq!(actual.out, "bobbob");
+}
+
+#[test]
 fn set_variable() {
     let actual = nu!(
         cwd: ".",
