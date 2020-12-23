@@ -2154,7 +2154,7 @@ fn parse_definition(call: &LiteCommand, scope: &dyn ParserScope) -> Option<Parse
                 let (mut block, err) = classify_block(&lite_block, scope);
 
                 block.params = signature;
-                block.params.name = name.clone();
+                block.params.name = name;
 
                 scope.add_definition(block);
 
