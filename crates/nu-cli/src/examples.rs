@@ -17,7 +17,7 @@ use crate::commands::{
     StrCollect, WholeStreamCommand, Wrap,
 };
 use crate::evaluation_context::EvaluationContext;
-use crate::stream::{InputStream, OutputStream};
+use nu_stream::{InputStream, OutputStream};
 
 use async_trait::async_trait;
 use futures::executor::block_on;

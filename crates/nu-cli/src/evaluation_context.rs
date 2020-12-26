@@ -2,7 +2,7 @@ use crate::commands::{command::CommandArgs, Command, UnevaluatedCallInfo};
 use crate::env::host::Host;
 use crate::prelude::*;
 use crate::shell::shell_manager::ShellManager;
-use crate::stream::{InputStream, OutputStream};
+use nu_stream::{InputStream, OutputStream};
 use nu_protocol::hir;
 use nu_source::{Tag, Text};
 use parking_lot::Mutex;

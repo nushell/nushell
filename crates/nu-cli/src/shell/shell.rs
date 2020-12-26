@@ -7,7 +7,7 @@ use crate::commands::mkdir::MkdirArgs;
 use crate::commands::move_::mv::Arguments as MvArgs;
 use crate::commands::rm::RemoveArgs;
 use crate::prelude::*;
-use crate::stream::OutputStream;
+use nu_stream::OutputStream;
 
 use encoding_rs::Encoding;
 use nu_errors::ShellError;

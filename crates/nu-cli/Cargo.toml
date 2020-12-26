@@ -18,6 +18,7 @@ nu-parser = {version = "0.24.2", path = "../nu-parser"}
 nu-plugin = {version = "0.24.2", path = "../nu-plugin"}
 nu-protocol = {version = "0.24.2", path = "../nu-protocol"}
 nu-source = {version = "0.24.2", path = "../nu-source"}
+nu-stream = {version = "0.24.2", path = "../nu-stream"}
 nu-table = {version = "0.24.2", path = "../nu-table"}
 nu-test-support = {version = "0.24.2", path = "../nu-test-support"}
 nu-value-ext = {version = "0.24.2", path = "../nu-value-ext"}

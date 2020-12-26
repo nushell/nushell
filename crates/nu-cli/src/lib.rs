@@ -31,7 +31,8 @@ mod keybinding;
 mod path;
 mod plugin;
 mod shell;
-mod stream;
+//no longer here, moved to its own crate..
+//mod stream;
 pub mod types;
 pub mod utils;
 
@@ -54,7 +55,7 @@ pub use crate::env::environment_syncer::EnvironmentSyncer;
 pub use crate::env::host::BasicHost;
 pub use crate::evaluation_context::EvaluationContext;
 pub use crate::prelude::ToOutputStream;
-pub use crate::stream::{InputStream, InterruptibleStream, OutputStream};
+pub use nu_stream::{InputStream, InterruptibleStream, OutputStream};
 pub use nu_data::config;
 pub use nu_data::dict::TaggedListBuilder;
 pub use nu_data::primitive;

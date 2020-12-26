@@ -2,7 +2,7 @@ use crate::commands::classified::expr::run_expression_block;
 use crate::commands::classified::internal::run_internal_command;
 use crate::evaluation_context::EvaluationContext;
 use crate::prelude::*;
-use crate::stream::InputStream;
+use nu_stream::InputStream;
 use async_recursion::async_recursion;
 use futures::stream::TryStreamExt;
 use nu_errors::ShellError;
