@@ -284,11 +284,11 @@ pub fn format_leaf<'a>(value: impl Into<&'a UntaggedValue>) -> DebugDocBuilder {
     InlineShape::from_value(value.into()).format().pretty()
 }
 
-pub fn style_leaf<'a>(
-    value: impl Into<&'a UntaggedValue>,
+pub fn style_leaf(
+    value: &UntaggedValue,
     color_hash_map: &HashMap<String, ansi_term::Style>,
 ) -> TextStyle {
-    match value.into() {
+    match &*value {
         UntaggedValue::Primitive(p) => {
             // This is just to return the name of the type so that style_primitive
             // can work on a string versus a type like String("some_text")
@@ -296,7 +296,7 @@ pub fn style_leaf<'a>(
             let str_len = str.len();
             let paren_index = str.find('(').unwrap_or(str_len - 1);
             let prim_type = str[0..paren_index].to_string();
-            style_primitive(&prim_type, &color_hash_map)
+            style_primitive(&prim_type, &color_hash_map, &value)
         }
         _ => TextStyle::basic_left(),
     }

@@ -966,20 +966,21 @@ pub(crate) fn dir_entry_dict(
         }
     }
 
-    let name = if short_name {
-        filename.file_name().and_then(|s| s.to_str())
-    } else {
-        filename.to_str()
-    }
-    .ok_or_else(|| {
-        ShellError::labeled_error(
-            format!("Invalid file name: {:}", filename.to_string_lossy()),
-            "invalid file name",
-            tag,
-        )
-    })?;
+    // let name = if short_name {
+    //     filename.file_name().and_then(|s| s.to_str())
+    // } else {
+    //     filename.to_str()
+    // }
+    // .ok_or_else(|| {
+    //     ShellError::labeled_error(
+    //         format!("Invalid file name: {:}", filename.to_string_lossy()),
+    //         "invalid file name",
+    //         tag,
+    //     )
+    // })?;
 
-    dict.insert_untagged("name", UntaggedValue::string(name));
+    // dict.insert_untagged("name", UntaggedValue::string(name));
+    dict.insert_untagged("name", UntaggedValue::path(filename));
 
     if let Some(md) = metadata {
         dict.insert_untagged("type", get_file_type(md));

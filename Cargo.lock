@@ -2752,6 +2752,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "lscolors"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d24b894c45c9da468621cdd615a5a79ee5e5523dd4f75c76ebc03d458940c16e"
+dependencies = [
+ "ansi_term 0.12.1",
+]
+
+[[package]]
 name = "mac"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3245,6 +3254,7 @@ dependencies = [
  "getset",
  "indexmap",
  "log 0.4.11",
+ "lscolors",
  "nu-errors",
  "nu-protocol",
  "nu-source",
