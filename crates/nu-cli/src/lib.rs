@@ -31,8 +31,6 @@ mod keybinding;
 mod path;
 mod plugin;
 mod shell;
-//no longer here, moved to its own crate..
-//mod stream;
 pub mod types;
 pub mod utils;
 
