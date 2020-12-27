@@ -979,7 +979,7 @@ pub(crate) fn dir_entry_dict(
         )
     })?;
 
-    dict.insert_untagged("name", UntaggedValue::string(name));
+    dict.insert_untagged("name", UntaggedValue::path(name));
 
     if let Some(md) = metadata {
         dict.insert_untagged("type", get_file_type(md));
