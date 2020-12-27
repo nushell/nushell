@@ -1,22 +1,4 @@
-/// pulled from the prelude
-use std::sync::Arc;
-use futures::stream::BoxStream;
-use futures::{Stream, StreamExt};
-
-pub trait Interruptible<V> {
-    fn interruptible(self, ctrl_c: Arc<AtomicBool>) -> InterruptibleStream<V>;
-}
-
-impl<S, V> Interruptible<V> for S
-where
-    S: Stream<Item = V> + Send + 'static,
-{
-    fn interruptible(self, ctrl_c: Arc<AtomicBool>) -> InterruptibleStream<V> {
-        InterruptibleStream::new(self, ctrl_c)
-    }
-}
-
-///
+use crate::prelude::*;
 use futures::task::Poll;
 use std::sync::atomic::{AtomicBool, Ordering};
 

@@ -67,3 +67,27 @@ macro_rules! trace_out_stream {
         }
     }};
 }
+
+pub(crate) use std::collections::VecDeque;
+pub(crate) use std::future::Future;
+pub(crate) use std::sync::Arc;
+pub(crate) use futures::stream::BoxStream;
+pub(crate) use futures::{Stream, StreamExt};
+
+pub(crate) use crate::{InputStream, OutputStream};
+
+pub trait ToOutputStream {
+    fn to_output_stream(self) -> OutputStream;
+}
+
+impl<T, U> ToOutputStream for T
+where
+    T: Stream<Item = U> + Send + 'static,
+    U: Into<nu_protocol::ReturnValue>,
+{
+    fn to_output_stream(self) -> OutputStream {
+        OutputStream {
+            values: self.map(|item| item.into()).boxed(),
+        }
+    }
+}

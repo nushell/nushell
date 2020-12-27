@@ -1,27 +1,4 @@
-// pulled from the prelude
-use crate::InputStream;
-use std::collections::VecDeque;
-use std::future::Future;
-use futures::stream::BoxStream;
-use futures::{Stream, StreamExt};
-
-pub trait ToOutputStream {
-    fn to_output_stream(self) -> OutputStream;
-}
-
-impl<T, U> ToOutputStream for T
-where
-    T: Stream<Item = U> + Send + 'static,
-    U: Into<nu_protocol::ReturnValue>,
-{
-    fn to_output_stream(self) -> OutputStream {
-        OutputStream {
-            values: self.map(|item| item.into()).boxed(),
-        }
-    }
-}
-
-///
+use crate::prelude::*;
 use futures::stream::iter;
 use nu_protocol::{ReturnSuccess, ReturnValue, Value};
 use std::iter::IntoIterator;

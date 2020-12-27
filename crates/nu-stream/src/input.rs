@@ -1,9 +1,4 @@
-// pulled from the prelude
-use std::collections::VecDeque;
-use std::future::Future;
-use futures::stream::BoxStream;
-use futures::{Stream, StreamExt};
-///
+use crate::prelude::*;
 use futures::stream::{iter, once};
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, Type, UntaggedValue, Value};
