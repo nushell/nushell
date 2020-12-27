@@ -77,24 +77,6 @@ pub fn version(args: CommandArgs) -> Result<OutputStream, ShellError> {
         );
     }
 
-    // let commit_author: Option<&str> = Some(shadow::COMMIT_AUTHOR).filter(|x| !x.is_empty());
-    // if let Some(commit_author) = commit_author {
-    //     indexmap.insert(
-    //         "commit_author".to_string(),
-    //         commit_author.to_pattern_untagged_value().into_value(&tag),
-    //     );
-    // }
-    let _commit_autor = shadow::COMMIT_AUTHOR;
-
-    // let commit_email: Option<&str> = Some(shadow::COMMIT_EMAIL).filter(|x| !x.is_empty());
-    // if let Some(commit_email) = commit_email {
-    //     indexmap.insert(
-    //         "commit_email".to_string(),
-    //         commit_email.to_pattern_untagged_value().into_value(&tag),
-    //     );
-    // }
-    let _commit_email = shadow::COMMIT_EMAIL;
-
     let build_os: Option<&str> = Some(shadow::BUILD_OS).filter(|x| !x.is_empty());
     if let Some(build_os) = build_os {
         indexmap.insert(
@@ -134,26 +116,6 @@ pub fn version(args: CommandArgs) -> Result<OutputStream, ShellError> {
             pkg_version.to_pattern_untagged_value().into_value(&tag),
         );
     }
-
-    // let cargo_tree: Option<&str> = Some(shadow::CARGO_TREE).filter(|x| !x.is_empty());
-    // if let Some(cargo_tree) = cargo_tree {
-    //     indexmap.insert(
-    //         "cargo_tree".to_string(),
-    //         cargo_tree.to_pattern_untagged_value().into_value(&tag),
-    //     );
-    // }
-    let _cargo_tree = shadow::CARGO_TREE;
-
-    // let project_name: Option<&str> = Some(shadow::PROJECT_NAME).filter(|x| !x.is_empty());
-    // if let Some(project_name) = project_name {
-    //     indexmap.insert(
-    //         "project_name".to_string(),
-    //         project_name.to_pattern_untagged_value().into_value(&tag),
-    //     );
-    // }
-    let _project_name = shadow::PROJECT_NAME;
-
-    let _version = shadow::version();
 
     let build_time: Option<&str> = Some(shadow::BUILD_TIME).filter(|x| !x.is_empty());
     if let Some(build_time) = build_time {
