@@ -4,7 +4,7 @@ use nu_protocol::{ReturnSuccess, ReturnValue, Value};
 use std::iter::IntoIterator;
 
 pub struct OutputStream {
-    pub(crate) values: BoxStream<'static, ReturnValue>,
+    pub values: BoxStream<'static, ReturnValue>,
 }
 
 impl OutputStream {
