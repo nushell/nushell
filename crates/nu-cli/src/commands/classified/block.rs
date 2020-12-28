@@ -2,7 +2,6 @@ use crate::commands::classified::expr::run_expression_block;
 use crate::commands::classified::internal::run_internal_command;
 use crate::evaluation_context::EvaluationContext;
 use crate::prelude::*;
-use nu_stream::InputStream;
 use async_recursion::async_recursion;
 use futures::stream::TryStreamExt;
 use nu_errors::ShellError;
@@ -10,6 +9,7 @@ use nu_protocol::hir::{
     Block, Call, ClassifiedCommand, Expression, Pipeline, SpannedExpression, Synthetic,
 };
 use nu_protocol::{ReturnSuccess, UntaggedValue, Value};
+use nu_stream::InputStream;
 use std::sync::atomic::Ordering;
 
 #[async_recursion]

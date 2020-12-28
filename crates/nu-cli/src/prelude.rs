@@ -84,7 +84,6 @@ pub(crate) use crate::shell::filesystem_shell::FilesystemShell;
 pub(crate) use crate::shell::help_shell::HelpShell;
 pub(crate) use crate::shell::shell_manager::ShellManager;
 pub(crate) use crate::shell::value_shell::ValueShell;
-pub(crate) use nu_stream::{InputStream, InterruptibleStream, OutputStream};
 pub(crate) use bigdecimal::BigDecimal;
 pub(crate) use futures::stream::BoxStream;
 pub(crate) use futures::{Stream, StreamExt};
@@ -94,6 +93,7 @@ pub(crate) use nu_source::{
     b, AnchorLocation, DebugDocBuilder, PrettyDebug, PrettyDebugWithSource, Span, SpannedItem, Tag,
     TaggedItem, Text,
 };
+pub(crate) use nu_stream::{InputStream, InterruptibleStream, OutputStream};
 pub(crate) use nu_value_ext::ValueExt;
 pub(crate) use num_bigint::BigInt;
 pub(crate) use num_traits::cast::ToPrimitive;

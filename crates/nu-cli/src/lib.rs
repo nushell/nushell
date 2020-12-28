@@ -53,11 +53,11 @@ pub use crate::env::environment_syncer::EnvironmentSyncer;
 pub use crate::env::host::BasicHost;
 pub use crate::evaluation_context::EvaluationContext;
 pub use crate::prelude::ToOutputStream;
-pub use nu_stream::{InputStream, InterruptibleStream, OutputStream};
 pub use nu_data::config;
 pub use nu_data::dict::TaggedListBuilder;
 pub use nu_data::primitive;
 pub use nu_data::value;
+pub use nu_stream::{InputStream, InterruptibleStream, OutputStream};
 pub use nu_value_ext::ValueExt;
 pub use num_traits::cast::ToPrimitive;
 

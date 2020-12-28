@@ -3181,6 +3181,7 @@ dependencies = [
  "nu-plugin",
  "nu-protocol",
  "nu-source",
+ "nu-stream",
  "nu-table",
  "nu-test-support",
  "nu-value-ext",
@@ -3356,6 +3357,16 @@ dependencies = [
  "pretty",
  "serde 1.0.117",
  "termcolor",
+]
+
+[[package]]
+name = "nu-stream"
+version = "0.24.2"
+dependencies = [
+ "futures 0.3.8",
+ "nu-errors",
+ "nu-protocol",
+ "nu-source",
 ]
 
 [[package]]
