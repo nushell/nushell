@@ -191,7 +191,7 @@ pub(crate) async fn run_internal_command(
                             CommandAction::SourceScript(filename) => {
                                 let contents = std::fs::read_to_string(&filename);
                                 if let Ok(contents) = contents {
-                                    let result = crate::cli::run_script_standalone(
+                                    let result = crate::script::run_script_standalone(
                                         contents, true, &context, false,
                                     )
                                     .await;
