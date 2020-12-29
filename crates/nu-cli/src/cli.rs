@@ -1,12 +1,12 @@
 use crate::commands::classified::block::run_block;
 use crate::evaluation_context::EvaluationContext;
 use crate::prelude::*;
-#[cfg(feature = "rustyline-support")]
-use crate::shell::Helper;
 use crate::script::print_err;
-use crate::script::LineResult;
 use crate::script::process_script;
 use crate::script::run_script_standalone;
+use crate::script::LineResult;
+#[cfg(feature = "rustyline-support")]
+use crate::shell::Helper;
 use crate::EnvironmentSyncer;
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
