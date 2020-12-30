@@ -89,6 +89,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "33954243bd79057c2de7338850b85983a44588021f8a5fee574a8888c6de4344"
 
 [[package]]
+name = "arboard"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85149eb4159516fbc261f362153822672e4bdb5b3accc863a5777627c6d9fe72"
+dependencies = [
+ "clipboard-win",
+ "core-graphics",
+ "image 0.23.12",
+ "lazy_static 1.4.0",
+ "libc",
+ "objc",
+ "objc-foundation",
+ "objc_id",
+ "scopeguard",
+ "thiserror",
+ "winapi 0.3.9",
+ "xcb",
+]
+
+[[package]]
 name = "arrayref"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -576,6 +596,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "bytemuck"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41aa2ec95ca3b5c54cf73c91acf06d24f4495d5f1b1c12506ae3483d646177ac"
+
+[[package]]
 name = "byteorder"
 version = "1.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -707,24 +733,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "clipboard"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25a904646c0340239dcf7c51677b33928bf24fdf424b79a57909c0109075b2e7"
-dependencies = [
- "clipboard-win",
- "objc",
- "objc-foundation",
- "objc_id",
- "x11-clipboard",
-]
-
-[[package]]
 name = "clipboard-win"
-version = "2.2.0"
+version = "4.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3a093d6fed558e5fe24c3dfc85a68bb68f1c824f440d3ba5aca189e2998786b"
+checksum = "5123c6b97286809fea9e38d2c9bf530edbcb9fc0d8f8272c28b0c95f067fa92d"
 dependencies = [
+ "error-code",
+ "str-buf",
  "winapi 0.3.9",
 ]
 
@@ -765,6 +780,12 @@ dependencies = [
  "termcolor",
  "unicode-width",
 ]
+
+[[package]]
+name = "color_quant"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
 
 [[package]]
 name = "colored"
@@ -881,6 +902,18 @@ name = "core-foundation-sys"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ea221b5284a47e40033bf9b66f35f984ec0ea2931eb03505246cd27a963f981b"
+
+[[package]]
+name = "core-graphics"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52a67c4378cf203eace8fb6567847eb641fd6ff933c1145a115c6ee820ebb978"
+dependencies = [
+ "bitflags",
+ "core-foundation 0.9.1",
+ "foreign-types",
+ "libc",
+]
 
 [[package]]
 name = "cpuid-bool"
@@ -1193,6 +1226,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "deflate"
+version = "0.8.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73770f8e1fe7d64df17ca66ad28994a0a623ea497fa69486e14984e715c5d174"
+dependencies = [
+ "adler32",
+ "byteorder",
+]
+
+[[package]]
 name = "derive-new"
 version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1465,6 +1508,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2d2f06b9cac1506ece98fe3231e3cc9c4410ec3d5b1f24ae1c8946f0742cdefc"
 dependencies = [
  "version_check",
+]
+
+[[package]]
+name = "error-code"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b49c94f66f2d2c5ee8685039e458b4e6c9f13af7c28736baf10ce42966a5ab52"
+dependencies = [
+ "libc",
+ "str-buf",
 ]
 
 [[package]]
@@ -2391,7 +2444,23 @@ dependencies = [
  "num-iter",
  "num-rational 0.2.4",
  "num-traits 0.2.14",
- "png",
+ "png 0.15.3",
+]
+
+[[package]]
+name = "image"
+version = "0.23.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ce04077ead78e39ae8610ad26216aed811996b043d47beed5090db674f9e9b5"
+dependencies = [
+ "bytemuck",
+ "byteorder",
+ "color_quant",
+ "num-iter",
+ "num-rational 0.3.2",
+ "num-traits 0.2.14",
+ "png 0.16.8",
+ "tiff",
 ]
 
 [[package]]
@@ -3136,6 +3205,7 @@ version = "0.24.2"
 dependencies = [
  "Inflector",
  "ansi_term 0.12.1",
+ "arboard",
  "async-recursion",
  "async-trait",
  "base64 0.13.0",
@@ -3146,7 +3216,6 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "clap",
- "clipboard",
  "codespan-reporting",
  "csv",
  "ctrlc",
@@ -3414,7 +3483,7 @@ version = "0.24.2"
 dependencies = [
  "ansi_term 0.12.1",
  "crossterm 0.18.2",
- "image",
+ "image 0.22.5",
  "neso",
  "nu-errors",
  "nu-plugin",
@@ -4240,8 +4309,20 @@ checksum = "ef859a23054bbfee7811284275ae522f0434a3c8e7f4b74bd4a35ae7e1c4a283"
 dependencies = [
  "bitflags",
  "crc32fast",
- "deflate",
+ "deflate 0.7.20",
  "inflate",
+]
+
+[[package]]
+name = "png"
+version = "0.16.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c3287920cb847dee3de33d301c463fba14dda99db24214ddf93f83d3021f4c6"
+dependencies = [
+ "bitflags",
+ "crc32fast",
+ "deflate 0.8.6",
+ "miniz_oxide 0.3.7",
 ]
 
 [[package]]
@@ -5336,6 +5417,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8207e78455ffdf55661170876f88daf85356e4edd54e0a3dbc79586ca1e50cbe"
 
 [[package]]
+name = "str-buf"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d44a3643b4ff9caf57abcee9c2c621d6c03d9135e0d8b589bd9afb5992cb176a"
+
+[[package]]
 name = "string_cache"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5595,6 +5682,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d40c6d1b69745a6ec6fb1ca717914848da4b44ae29d9b3080cbee91d72a69b14"
 dependencies = [
  "lazy_static 1.4.0",
+]
+
+[[package]]
+name = "tiff"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a53f4706d65497df0c4349241deddf35f84cee19c87ed86ea8ca590f4464437"
+dependencies = [
+ "jpeg-decoder",
+ "miniz_oxide 0.4.3",
+ "weezl",
 ]
 
 [[package]]
@@ -6357,6 +6455,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "weezl"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e2bb9fc8309084dd7cd651336673844c1d47f8ef6d2091ec160b27f5c4aa277"
+
+[[package]]
 name = "wepoll-sys-stjepang"
 version = "1.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6463,19 +6567,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "x11-clipboard"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89bd49c06c9eb5d98e6ba6536cf64ac9f7ee3a009b2f53996d405b3944f6bcea"
-dependencies = [
- "xcb",
-]
-
-[[package]]
 name = "xcb"
-version = "0.8.2"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e917a3f24142e9ff8be2414e36c649d47d6cc2ba81f16201cdef96e533e02de"
+checksum = "62056f63138b39116f82a540c983cc11f1c90cd70b3d492a70c25eaa50bd22a6"
 dependencies = [
  "libc",
  "log 0.4.11",
