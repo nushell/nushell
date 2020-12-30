@@ -50,7 +50,9 @@ pub async fn run_block(
                                 ctx.clear_errors();
                                 return Err(err.clone());
                             }
-                            if ctx.ctrl_c.load(Ordering::SeqCst) {}
+                            if ctx.ctrl_c.load(Ordering::SeqCst) {
+                                return Ok(InputStream::empty());
+                            }
                         }
                         Ok(None) => {
                             if let Some(err) = ctx.get_errors().get(0) {
@@ -83,7 +85,14 @@ pub async fn run_block(
                                 ctx.clear_errors();
                                 return Err(err.clone());
                             }
-                            if ctx.ctrl_c.load(Ordering::SeqCst) {}
+                            if ctx.ctrl_c.load(Ordering::SeqCst) {
+                                // This early return doesn't return the result
+                                // we have so far, but breaking out of this loop
+                                // causes lifetime issues. A future contribution
+                                // could attempt to return the current output.
+                                // https://github.com/nushell/nushell/pull/2830#discussion_r550319687
+                                return Ok(InputStream::empty());
+                            }
                         }
                         Ok(None) => {
                             if let Some(err) = ctx.get_errors().get(0) {
