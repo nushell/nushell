@@ -86,7 +86,7 @@ impl EvaluationContext {
             let error = errors[0].clone();
             *errors = vec![];
 
-            crate::cli::print_err(error, &source);
+            crate::script::print_err(error, &source);
             true
         } else {
             false
