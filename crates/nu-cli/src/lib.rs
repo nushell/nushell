@@ -41,13 +41,14 @@ mod examples;
 pub use crate::cli::cli;
 
 pub use crate::cli::{
-    create_default_context, parse_and_eval, process_script, register_plugins, run_script_file,
-    run_script_standalone, LineResult,
+    parse_and_eval, process_script, register_plugins, run_script_file, run_script_standalone,
+    LineResult,
 };
 pub use crate::commands::classified::block::run_block;
 pub use crate::commands::command::{
     whole_stream_command, CommandArgs, EvaluatedWholeStreamCommandArgs, Example, WholeStreamCommand,
 };
+pub use crate::commands::default_context::create_default_context;
 pub use crate::commands::help::get_help;
 pub use crate::env::environment_syncer::EnvironmentSyncer;
 pub use crate::env::host::BasicHost;
