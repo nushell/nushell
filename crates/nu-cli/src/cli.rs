@@ -1,7 +1,11 @@
 use crate::commands::classified::block::run_block;
 use crate::evaluation_context::EvaluationContext;
 use crate::prelude::*;
-use crate::script::{print_err, process_script, run_script_standalone, LineResult};
+use crate::script::{print_err, run_script_standalone};
+
+#[allow(unused_imports)]
+pub(crate) use crate::script::{process_script, LineResult};
+
 #[cfg(feature = "rustyline-support")]
 use crate::shell::Helper;
 use crate::EnvironmentSyncer;
@@ -20,7 +24,6 @@ use rustyline::{
 use std::error::Error;
 use std::iter::Iterator;
 use std::path::PathBuf;
-use std::sync::atomic::Ordering;
 
 pub fn search_paths() -> Vec<std::path::PathBuf> {
     use std::env;

@@ -42,9 +42,6 @@ mod examples;
 pub use crate::cli::cli;
 
 pub use crate::cli::{create_default_context, parse_and_eval, register_plugins, run_script_file};
-
-pub use crate::script::{print_err, process_script, run_script_standalone, LineResult};
-
 pub use crate::commands::classified::block::run_block;
 pub use crate::commands::command::{
     whole_stream_command, CommandArgs, EvaluatedWholeStreamCommandArgs, Example, WholeStreamCommand,

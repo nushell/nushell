@@ -12,7 +12,6 @@ use log::{debug, trace};
 use std::error::Error;
 use std::iter::Iterator;
 use std::path::Path;
-use std::sync::atomic::Ordering;
 
 #[derive(Debug)]
 pub enum LineResult {
