@@ -4,7 +4,7 @@ use futures::stream::StreamExt;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, Value};
 
-use clipboard::{ClipboardContext, ClipboardProvider};
+use arboard::Clipboard;
 
 pub struct Clip;
 
@@ -47,8 +47,7 @@ pub async fn clip(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let values: Vec<Value> = input.collect().await;
 
-    if let Ok(clip_context) = ClipboardProvider::new() {
-        let mut clip_context: ClipboardContext = clip_context;
+    if let Ok(mut clip_context) = Clipboard::new() {
         let mut new_copy_data = String::new();
 
         if !values.is_empty() {
@@ -73,7 +72,7 @@ pub async fn clip(args: CommandArgs) -> Result<OutputStream, ShellError> {
             }
         }
 
-        match clip_context.set_contents(new_copy_data) {
+        match clip_context.set_text(new_copy_data) {
             Ok(_) => {}
             Err(_) => {
                 return Err(ShellError::labeled_error(
