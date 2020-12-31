@@ -40,30 +40,27 @@ pub async fn run_block(
                             inp,
                         )
                         .await?;
-                    loop {
-                        match output_stream.try_next().await {
-                            Ok(Some(ReturnSuccess::Value(Value {
-                                value: UntaggedValue::Error(e),
-                                ..
-                            }))) => return Err(e),
-                            Ok(Some(_item)) => {
-                                if let Some(err) = ctx.get_errors().get(0) {
-                                    ctx.clear_errors();
-                                    return Err(err.clone());
-                                }
-                                if ctx.ctrl_c.load(Ordering::SeqCst) {
-                                    break;
-                                }
+                    match output_stream.try_next().await {
+                        Ok(Some(ReturnSuccess::Value(Value {
+                            value: UntaggedValue::Error(e),
+                            ..
+                        }))) => return Err(e),
+                        Ok(Some(_item)) => {
+                            if let Some(err) = ctx.get_errors().get(0) {
+                                ctx.clear_errors();
+                                return Err(err.clone());
                             }
-                            Ok(None) => {
-                                if let Some(err) = ctx.get_errors().get(0) {
-                                    ctx.clear_errors();
-                                    return Err(err.clone());
-                                }
-                                break;
+                            if ctx.ctrl_c.load(Ordering::SeqCst) {
+                                return Ok(InputStream::empty());
                             }
-                            Err(e) => return Err(e),
                         }
+                        Ok(None) => {
+                            if let Some(err) = ctx.get_errors().get(0) {
+                                ctx.clear_errors();
+                                return Err(err.clone());
+                            }
+                        }
+                        Err(e) => return Err(e),
                     }
                 }
             }
@@ -78,30 +75,32 @@ pub async fn run_block(
                 Ok(inp) => {
                     let mut output_stream = inp.to_output_stream();
 
-                    loop {
-                        match output_stream.try_next().await {
-                            Ok(Some(ReturnSuccess::Value(Value {
-                                value: UntaggedValue::Error(e),
-                                ..
-                            }))) => return Err(e),
-                            Ok(Some(_item)) => {
-                                if let Some(err) = ctx.get_errors().get(0) {
-                                    ctx.clear_errors();
-                                    return Err(err.clone());
-                                }
-                                if ctx.ctrl_c.load(Ordering::SeqCst) {
-                                    break;
-                                }
+                    match output_stream.try_next().await {
+                        Ok(Some(ReturnSuccess::Value(Value {
+                            value: UntaggedValue::Error(e),
+                            ..
+                        }))) => return Err(e),
+                        Ok(Some(_item)) => {
+                            if let Some(err) = ctx.get_errors().get(0) {
+                                ctx.clear_errors();
+                                return Err(err.clone());
                             }
-                            Ok(None) => {
-                                if let Some(err) = ctx.get_errors().get(0) {
-                                    ctx.clear_errors();
-                                    return Err(err.clone());
-                                }
-                                break;
+                            if ctx.ctrl_c.load(Ordering::SeqCst) {
+                                // This early return doesn't return the result
+                                // we have so far, but breaking out of this loop
+                                // causes lifetime issues. A future contribution
+                                // could attempt to return the current output.
+                                // https://github.com/nushell/nushell/pull/2830#discussion_r550319687
+                                return Ok(InputStream::empty());
                             }
-                            Err(e) => return Err(e),
                         }
+                        Ok(None) => {
+                            if let Some(err) = ctx.get_errors().get(0) {
+                                ctx.clear_errors();
+                                return Err(err.clone());
+                            }
+                        }
+                        Err(e) => return Err(e),
                     }
                 }
                 Err(e) => {
