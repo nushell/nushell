@@ -44,13 +44,12 @@ fn entry(arg: impl Into<String>, path: Value, builtin: bool, tag: Tag) -> Value 
     UntaggedValue::row(map).into_value(tag)
 }
 
-macro_rules! entry_builtin {
-    ($arg:expr, $tag:expr) => {
+macro_rules! create_entry {
+    ($arg:expr, $path:expr, $tag:expr, $is_builtin:expr) => {
         entry(
             $arg.clone(),
-            UntaggedValue::Primitive(Primitive::String("nushell built-in command".to_string()))
-                .into_value($tag.clone()),
-            true,
+            UntaggedValue::Primitive(Primitive::String($path.to_string())).into_value($tag.clone()),
+            $is_builtin,
             $tag,
         )
     };
@@ -86,12 +85,8 @@ async fn which(args: CommandArgs) -> Result<OutputStream, ShellError> {
         application.item.clone()
     };
     if !external {
-        let builtin = scope.has_command(&item);
-        if builtin {
-            output.push(ReturnSuccess::value(entry_builtin!(
-                item,
-                application.tag.clone()
-            )));
+        if let Some(entry) = entry_for(&scope, &item, application.tag.clone()) {
+            output.push(ReturnSuccess::value(entry));
         }
     }
 
@@ -112,6 +107,18 @@ async fn which(args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(futures::stream::iter(output.into_iter()).to_output_stream())
     } else {
         Ok(futures::stream::iter(output.into_iter().take(1)).to_output_stream())
+    }
+}
+
+fn entry_for(scope: &Scope, name: &str, tag: Tag) -> Option<Value> {
+    if scope.has_custom_command(name) {
+        Some(create_entry!(name, "Nushell custom command", tag, false))
+    } else if scope.has_command(name) {
+        Some(create_entry!(name, "Nushell built-in command", tag, true))
+    } else if scope.has_alias(name) {
+        Some(create_entry!(name, "Nushell alias", tag, false))
+    } else {
+        None
     }
 }
 

@@ -52,14 +52,20 @@ impl Scope {
         names
     }
 
-    pub fn has_command(&self, name: &str) -> bool {
-        for frame in self.frames.lock().iter() {
-            if frame.has_command(name) {
-                return true;
-            }
-        }
+    fn has_cmd_helper(&self, name: &str, f: fn(&ScopeFrame, &str) -> bool) -> bool {
+        self.frames.lock().iter().any(|frame| f(frame, name))
+    }
 
-        false
+    pub fn has_command(&self, name: &str) -> bool {
+        self.has_cmd_helper(name, ScopeFrame::has_command)
+    }
+
+    pub fn has_custom_command(&self, name: &str) -> bool {
+        self.has_cmd_helper(name, ScopeFrame::has_custom_command)
+    }
+
+    pub fn has_alias(&self, name: &str) -> bool {
+        self.has_cmd_helper(name, ScopeFrame::has_alias)
     }
 
     pub fn expect_command(&self, name: &str) -> Result<Command, ShellError> {
@@ -201,6 +207,14 @@ pub struct ScopeFrame {
 impl ScopeFrame {
     pub fn has_command(&self, name: &str) -> bool {
         self.commands.contains_key(name)
+    }
+
+    pub fn has_custom_command(&self, name: &str) -> bool {
+        self.custom_commands.contains_key(name)
+    }
+
+    pub fn has_alias(&self, name: &str) -> bool {
+        self.aliases.contains_key(name)
     }
 
     pub fn get_command_names(&self) -> Vec<String> {
