@@ -20,7 +20,7 @@ impl WholeStreamCommand for Which {
     }
 
     fn usage(&self) -> &str {
-        "Finds a program file."
+        "Finds a program file, alias or custom command."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
