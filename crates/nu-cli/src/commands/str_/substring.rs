@@ -251,7 +251,7 @@ fn process_arguments(range: Value, name: impl Into<Tag>) -> Result<(isize, isize
     }?;
 
     let start = match &search {
-        SubstringText(start, _) if start == "" || start == "_" => 0,
+        SubstringText(start, _) if start.is_empty() || start == "_" => 0,
         SubstringText(start, _) => start.trim().parse().map_err(|_| {
             ShellError::labeled_error(
                 "could not perform substring",
@@ -262,7 +262,7 @@ fn process_arguments(range: Value, name: impl Into<Tag>) -> Result<(isize, isize
     };
 
     let end = match &search {
-        SubstringText(_, end) if end == "" || end == "_" => isize::max_value(),
+        SubstringText(_, end) if end.is_empty() || end == "_" => isize::max_value(),
         SubstringText(_, end) => end.trim().parse().map_err(|_| {
             ShellError::labeled_error(
                 "could not perform substring",

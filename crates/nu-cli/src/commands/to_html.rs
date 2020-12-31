@@ -284,7 +284,7 @@ async fn to_html(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let input: Vec<Value> = input.collect().await;
     let headers = nu_protocol::merge_descriptors(&input);
     let headers = Some(headers)
-        .filter(|headers| !headers.is_empty() && (headers.len() > 1 || headers[0] != ""));
+        .filter(|headers| !headers.is_empty() && (headers.len() > 1 || !headers[0].is_empty()));
     let mut output_string = String::new();
     let mut regex_hm: HashMap<u32, (&str, String)> = HashMap::new();
 

@@ -243,7 +243,7 @@ where
                         }
                     }
                     _ => {
-                        if chf == b'-' || chf >= b'0' && chf <= b'9' {
+                        if chf == b'-' || (b'0'..=b'9').contains(&chf) {
                             let mut pn = ParseNumber::new(self.str_buf.iter().cloned());
                             match pn.parse(false) {
                                 Ok(Number::F64(v)) => {
@@ -435,7 +435,7 @@ where
 
                                     let n2 = self.decode_hex_escape()?;
 
-                                    if n2 < 0xDC00 || n2 > 0xDFFF {
+                                    if !(0xDC00..=0xDFFF).contains(&n2) {
                                         return Err(self
                                             .rdr
                                             .error(ErrorCode::LoneLeadingSurrogateInHexEscape));

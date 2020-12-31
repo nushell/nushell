@@ -16,7 +16,7 @@ impl ToSqlite {
     }
 }
 fn comma_concat(acc: String, current: String) -> String {
-    if acc == "" {
+    if acc.is_empty() {
         current
     } else {
         format!("{}, {}", acc, current)

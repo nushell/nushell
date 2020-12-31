@@ -7,7 +7,6 @@ use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use std::collections::HashSet;
 use std::io::Cursor;
 use std::io::Write;
-use std::iter::FromIterator;
 
 pub struct ToXML;
 
@@ -77,7 +76,7 @@ pub fn get_children(row: &Value) -> Option<&Vec<Value>> {
 
 pub fn is_xml_row(row: &Value) -> bool {
     if let UntaggedValue::Row(r) = &row.value {
-        let keys: HashSet<&String> = HashSet::from_iter(r.keys());
+        let keys: HashSet<&String> = r.keys().collect();
         let children: String = "children".to_string();
         let attributes: String = "attributes".to_string();
         return keys.contains(&children) && keys.contains(&attributes) && keys.len() == 2;
