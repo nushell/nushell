@@ -222,7 +222,7 @@ fn errors_if_file_not_found() {
         cwd: "tests/fixtures/formats",
         "open i_dont_exist.txt"
     );
-    let expected = "Cannot canonicalize";
+    let expected = "Cannot find file";
     assert!(
         actual.err.contains(expected),
         "Error:\n{}\ndoes not contain{}",

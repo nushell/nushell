@@ -112,11 +112,12 @@ async fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         let cwd = shell_manager.path();
 
         let full_path = std::path::PathBuf::from(cwd);
+        let span = location.span();
 
         let (file_extension, tagged_contents) = crate::commands::open::fetch(
             &full_path,
             &PathBuf::from(location_clone),
-            tag.span,
+            span,
             encoding,
         )
         .await?;

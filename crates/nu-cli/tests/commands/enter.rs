@@ -80,6 +80,6 @@ fn errors_if_file_not_found() {
             "enter i_dont_exist.csv"
         );
 
-        assert!(actual.err.contains("Cannot canonicalize"));
+        assert!(actual.err.contains("Cannot find file"));
     })
 }

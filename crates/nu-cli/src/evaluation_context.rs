@@ -74,10 +74,6 @@ impl EvaluationContext {
         self.current_errors.lock().clone()
     }
 
-    pub(crate) fn add_error(&self, err: ShellError) {
-        self.current_errors.lock().push(err);
-    }
-
     pub(crate) fn maybe_print_errors(&self, source: Text) -> bool {
         let errors = self.current_errors.clone();
         let mut errors = errors.lock();

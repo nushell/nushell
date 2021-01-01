@@ -53,12 +53,12 @@ pub(crate) async fn run_internal_command(
                         Ok(ReturnSuccess::Action(action)) => match action {
                             CommandAction::ChangePath(path) => {
                                 context.shell_manager.set_path(path);
-                                InputStream::from_stream(futures::stream::iter(vec![]))
+                                InputStream::empty()
                             }
                             CommandAction::Exit => std::process::exit(0), // TODO: save history.txt
                             CommandAction::Error(err) => {
-                                context.error(err.clone());
-                                InputStream::one(UntaggedValue::Error(err).into_untagged_value())
+                                context.error(err);
+                                InputStream::empty()
                             }
                             CommandAction::AutoConvert(tagged_contents, extension) => {
                                 let contents_tag = tagged_contents.tag.clone();
@@ -117,8 +117,8 @@ pub(crate) async fn run_internal_command(
 
                                             futures::stream::iter(output).to_input_stream()
                                         }
-                                        Err(e) => {
-                                            context.add_error(e);
+                                        Err(err) => {
+                                            context.error(err);
                                             InputStream::empty()
                                         }
                                     }
@@ -138,9 +138,8 @@ pub(crate) async fn run_internal_command(
                                         ) {
                                             Ok(v) => v,
                                             Err(err) => {
-                                                return InputStream::one(
-                                                    UntaggedValue::Error(err).into_untagged_value(),
-                                                )
+                                                context.error(err);
+                                                return InputStream::empty();
                                             }
                                         },
                                     ));
@@ -151,9 +150,8 @@ pub(crate) async fn run_internal_command(
                                         match HelpShell::index(&context.scope) {
                                             Ok(v) => v,
                                             Err(err) => {
-                                                return InputStream::one(
-                                                    UntaggedValue::Error(err).into_untagged_value(),
-                                                )
+                                                context.error(err);
+                                                return InputStream::empty();
                                             }
                                         },
                                     ));
@@ -171,10 +169,8 @@ pub(crate) async fn run_internal_command(
                                     match FilesystemShell::with_location(location) {
                                         Ok(v) => v,
                                         Err(err) => {
-                                            return InputStream::one(
-                                                UntaggedValue::Error(err.into())
-                                                    .into_untagged_value(),
-                                            )
+                                            context.error(err.into());
+                                            return InputStream::empty();
                                         }
                                     },
                                 ));
@@ -198,12 +194,9 @@ pub(crate) async fn run_internal_command(
                                         .await;
 
                                         if let Err(err) = result {
-                                            return InputStream::one(
-                                                UntaggedValue::Error(err.into())
-                                                    .into_untagged_value(),
-                                            );
+                                            context.error(err.into());
                                         }
-                                        InputStream::from_stream(futures::stream::iter(vec![]))
+                                        InputStream::empty()
                                     }
                                     Err(_) => {
                                         context.error(ShellError::labeled_error(
@@ -212,7 +205,7 @@ pub(crate) async fn run_internal_command(
                                             filename.span(),
                                         ));
 
-                                        InputStream::from_stream(futures::stream::iter(vec![]))
+                                        InputStream::empty()
                                     }
                                 }
                             }
@@ -228,39 +221,37 @@ pub(crate) async fn run_internal_command(
                                                 .collect(),
                                         );
 
-                                        InputStream::from_stream(futures::stream::iter(vec![]))
+                                        InputStream::empty()
                                     }
                                     Err(reason) => {
-                                        context.error(reason.clone());
-                                        InputStream::one(
-                                            UntaggedValue::Error(reason).into_untagged_value(),
-                                        )
+                                        context.error(reason);
+                                        InputStream::empty()
                                     }
                                 }
                             }
                             CommandAction::PreviousShell => {
                                 context.shell_manager.prev();
-                                InputStream::from_stream(futures::stream::iter(vec![]))
+                                InputStream::empty()
                             }
                             CommandAction::NextShell => {
                                 context.shell_manager.next();
-                                InputStream::from_stream(futures::stream::iter(vec![]))
+                                InputStream::empty()
                             }
                             CommandAction::LeaveShell => {
                                 context.shell_manager.remove_at_current();
                                 if context.shell_manager.is_empty() {
                                     std::process::exit(0); // TODO: save history.txt
                                 }
-                                InputStream::from_stream(futures::stream::iter(vec![]))
+                                InputStream::empty()
                             }
                         },
 
                         Ok(ReturnSuccess::Value(Value {
                             value: UntaggedValue::Error(err),
-                            tag,
+                            ..
                         })) => {
-                            context.error(err.clone());
-                            InputStream::one(UntaggedValue::Error(err).into_value(tag))
+                            context.error(err);
+                            InputStream::empty()
                         }
 
                         Ok(ReturnSuccess::Value(v)) => InputStream::one(v),
@@ -280,8 +271,8 @@ pub(crate) async fn run_internal_command(
                         }
 
                         Err(err) => {
-                            context.error(err.clone());
-                            InputStream::one(UntaggedValue::Error(err).into_untagged_value())
+                            context.error(err);
+                            InputStream::empty()
                         }
                     }
                 }
