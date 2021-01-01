@@ -1,6 +1,6 @@
 use crate::value::Value;
 use nu_errors::ShellError;
-use nu_source::{b, DebugDocBuilder, PrettyDebug};
+use nu_source::{b, DebugDocBuilder, PrettyDebug, Tagged};
 use serde::{Deserialize, Serialize};
 
 /// The inner set of actions for the command processor. Each denotes a way to change state in the processor without changing it directly from the command itself.
@@ -27,7 +27,7 @@ pub enum CommandAction {
     /// Add plugins from path given
     AddPlugins(String),
     /// Run the given script in the current context (given filename)
-    SourceScript(String),
+    SourceScript(Tagged<String>),
     /// Go to the previous shell in the shell ring buffer
     PreviousShell,
     /// Go to the next shell in the shell ring buffer
