@@ -30,7 +30,7 @@ fn add() {
 }
 
 #[test]
-fn add_compount() {
+fn add_compound() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"

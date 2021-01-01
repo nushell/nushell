@@ -122,7 +122,7 @@ async fn benchmark(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         benchmark_output(indexmap, output, passthrough, &tag, &mut context).await
     } else {
         Err(ShellError::untagged_runtime_error(
-            "Could not retreive CPU time",
+            "Could not retrieve CPU time",
         ))
     }
 }

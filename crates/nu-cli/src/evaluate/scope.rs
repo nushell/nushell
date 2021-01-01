@@ -80,7 +80,7 @@ impl Scope {
     }
 
     pub fn get_vars(&self) -> IndexMap<String, Value> {
-        //FIXME: should this be an interator?
+        //FIXME: should this be an iterator?
         let mut output = IndexMap::new();
 
         for frame in self.frames.lock().iter().rev() {
@@ -93,7 +93,7 @@ impl Scope {
     }
 
     pub fn get_env_vars(&self) -> IndexMap<String, String> {
-        //FIXME: should this be an interator?
+        //FIXME: should this be an iterator?
         let mut output = IndexMap::new();
 
         for frame in self.frames.lock().iter().rev() {
@@ -242,7 +242,7 @@ impl ScopeFrame {
 
 // impl Scope {
 //     pub fn vars(&self) -> IndexMap<String, Value> {
-//         //FIXME: should this be an interator?
+//         //FIXME: should this be an iterator?
 
 //         let mut output = IndexMap::new();
 
@@ -262,7 +262,7 @@ impl ScopeFrame {
 //     }
 
 //     pub fn env(&self) -> IndexMap<String, String> {
-//         //FIXME: should this be an interator?
+//         //FIXME: should this be an iterator?
 
 //         let mut output = IndexMap::new();
 

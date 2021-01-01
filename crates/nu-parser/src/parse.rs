@@ -1278,7 +1278,7 @@ pub fn parse_math_expression(
                     let (orig_left, left) =
                         working_exprs.pop().expect("This shouldn't be possible");
 
-                    // If we're in shorthand mode, we need to reparse the left-hand side if possibe
+                    // If we're in shorthand mode, we need to reparse the left-hand side if possible
                     let (left, err) = shorthand_reparse(left, orig_left, scope, shorthand_mode);
                     if error.is_none() {
                         error = err;

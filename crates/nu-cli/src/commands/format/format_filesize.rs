@@ -73,7 +73,7 @@ async fn process_row(
         match replace_for {
             Ok(s) => match convert_bytes_to_string_using_format(s, format) {
                 Ok(b) => OutputStream::one(ReturnSuccess::value(
-                    input.replace_data_at_column_path(&field, b).expect("Given that the existance check was already done, this souldn't trigger never"),
+                    input.replace_data_at_column_path(&field, b).expect("Given that the existence check was already done, this shouldn't trigger never"),
                 )),
                 Err(e) => OutputStream::one(Err(e)),
             },

@@ -117,7 +117,7 @@ async fn host(tag: Tag) -> Result<Value, ShellError> {
     // Sessions
     // note: the heim host module has nomenclature "users"
     let users = host::users().await.map_err(|_| {
-        ShellError::labeled_error("Unabled to get users", "could not load users", tag.span)
+        ShellError::labeled_error("Unable to get users", "could not load users", tag.span)
     })?;
 
     futures::pin_mut!(users);
@@ -141,7 +141,7 @@ async fn disks(tag: Tag) -> Result<Option<UntaggedValue>, ShellError> {
     let mut output = vec![];
     let partitions = disk::partitions_physical().await.map_err(|_| {
         ShellError::labeled_error(
-            "Unabled to get disk list",
+            "Unable to get disk list",
             "could not load disk list",
             tag.span,
         )
@@ -301,7 +301,7 @@ async fn net(tag: Tag) -> Result<Option<UntaggedValue>, ShellError> {
     let mut output = vec![];
     let io_counters = net::io_counters().await.map_err(|_| {
         ShellError::labeled_error(
-            "Unabled to get network device list",
+            "Unable to get network device list",
             "could not load network device list",
             tag.span,
         )

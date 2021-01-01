@@ -89,8 +89,8 @@ pub async fn process_script(
                 let name = args
                     .positional
                     .as_ref()
-                    .and_then(|potionals| {
-                        potionals.get(0).map(|e| {
+                    .and_then(|positionals| {
+                        positionals.get(0).map(|e| {
                             if let Expression::Literal(Literal::String(ref s)) = e.expr {
                                 &s
                             } else {
