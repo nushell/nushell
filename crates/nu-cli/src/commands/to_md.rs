@@ -59,7 +59,7 @@ async fn to_md(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut escaped_headers: Vec<String> = Vec::new();
     let mut column_widths: Vec<usize> = Vec::new();
 
-    if !headers.is_empty() && (headers.len() > 1 || headers[0] != "") {
+    if !headers.is_empty() && (headers.len() > 1 || !headers[0].is_empty()) {
         for header in &headers {
             let escaped_header_string = htmlescape::encode_minimal(&header);
             column_widths.push(escaped_header_string.len());

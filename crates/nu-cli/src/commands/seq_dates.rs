@@ -197,7 +197,7 @@ async fn seq_dates(args: CommandArgs) -> Result<OutputStream, ShellError> {
             let clone = i.clone();
             i.to_value(clone.tag)
         }
-        _ => (1 as i64).to_value_create_tag(),
+        _ => (1_i64).to_value_create_tag(),
     };
 
     let day_count: Option<Value> = match days {

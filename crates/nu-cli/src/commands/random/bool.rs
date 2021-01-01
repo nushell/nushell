@@ -59,7 +59,7 @@ pub async fn bool_command(args: CommandArgs) -> Result<OutputStream, ShellError>
     if let Some(prob) = bias {
         probability = *prob as f64;
 
-        let probability_is_valid = 0.0 <= probability && probability <= 1.0;
+        let probability_is_valid = (0.0..=1.0).contains(&probability);
 
         if !probability_is_valid {
             return Err(ShellError::labeled_error(

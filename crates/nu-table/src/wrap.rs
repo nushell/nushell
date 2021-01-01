@@ -74,7 +74,7 @@ pub fn split_sublines(input: &str) -> Vec<Vec<Subline>> {
         .collect::<Vec<_>>()
 }
 
-pub fn column_width<'a>(input: &[Vec<Subline<'a>>]) -> usize {
+pub fn column_width(input: &[Vec<Subline>]) -> usize {
     let mut max = 0;
 
     for line in input {
@@ -100,7 +100,7 @@ pub fn column_width<'a>(input: &[Vec<Subline<'a>>]) -> usize {
     max
 }
 
-fn split_word<'a>(cell_width: usize, word: &'a str) -> Vec<Subline<'a>> {
+fn split_word(cell_width: usize, word: &str) -> Vec<Subline> {
     use unicode_width::UnicodeWidthChar;
 
     let mut output = vec![];

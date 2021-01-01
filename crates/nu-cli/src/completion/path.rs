@@ -22,7 +22,7 @@ impl PathCompleter {
             None => ("", expanded),
         };
 
-        let base_dir = if base_dir_name == "" {
+        let base_dir = if base_dir_name.is_empty() {
             PathBuf::from(".")
         } else {
             #[cfg(feature = "directories")]

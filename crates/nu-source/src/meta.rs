@@ -399,7 +399,7 @@ impl Tag {
         self.span.slice(source)
     }
 
-    pub fn string<'a>(&self, source: &'a str) -> String {
+    pub fn string(&self, source: &str) -> String {
         self.span.slice(source).to_string()
     }
 
@@ -407,7 +407,7 @@ impl Tag {
         self.span.slice(source).tagged(self)
     }
 
-    pub fn tagged_string<'a>(&self, source: &'a str) -> Tagged<String> {
+    pub fn tagged_string(&self, source: &str) -> Tagged<String> {
         self.span.slice(source).to_string().tagged(self)
     }
 
@@ -595,7 +595,7 @@ impl Span {
         }
     }
 
-    pub fn string<'a>(&self, source: &'a str) -> String {
+    pub fn string(&self, source: &str) -> String {
         self.slice(source).to_string()
     }
 
@@ -603,7 +603,7 @@ impl Span {
         self.slice(source).spanned(*self)
     }
 
-    pub fn spanned_string<'a>(&self, source: &'a str) -> Spanned<String> {
+    pub fn spanned_string(&self, source: &str) -> Spanned<String> {
         self.slice(source).to_string().spanned(*self)
     }
 
