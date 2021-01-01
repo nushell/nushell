@@ -188,12 +188,20 @@ pub async fn fetch(
     // TODO: I don't understand the point of this? Maybe for better error reporting
     let mut cwd = cwd.clone();
     cwd.push(location);
-    let nice_location = dunce::canonicalize(&cwd).map_err(|e| {
-        ShellError::labeled_error(
-            format!("Cannot canonicalize file {:?} because {:?}", &cwd, e),
-            "Cannot canonicalize",
+    let nice_location = dunce::canonicalize(&cwd).map_err(|e| match e.kind() {
+        std::io::ErrorKind::NotFound => ShellError::labeled_error(
+            format!("Cannot find file {:?}", cwd),
+            "cannot find file",
             span,
-        )
+        ),
+        std::io::ErrorKind::PermissionDenied => {
+            ShellError::labeled_error("Permission denied", "permission denied", span)
+        }
+        _ => ShellError::labeled_error(
+            format!("Cannot open file {:?} because {:?}", &cwd, e),
+            "Cannot open",
+            span,
+        ),
     })?;
 
     // The extension may be used in AutoConvert later on
