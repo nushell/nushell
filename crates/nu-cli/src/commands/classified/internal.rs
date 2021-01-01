@@ -189,26 +189,31 @@ pub(crate) async fn run_internal_command(
                                 InputStream::from_stream(futures::stream::iter(vec![]))
                             }
                             CommandAction::SourceScript(filename) => {
-                                let contents = std::fs::read_to_string(&filename);
-                                if let Ok(contents) = contents {
-                                    let result = crate::script::run_script_standalone(
-                                        contents, true, &context, false,
-                                    )
-                                    .await;
+                                let contents = std::fs::read_to_string(&filename.item);
+                                match contents {
+                                    Ok(contents) => {
+                                        let result = crate::script::run_script_standalone(
+                                            contents, true, &context, false,
+                                        )
+                                        .await;
 
-                                    if let Err(err) = result {
-                                        return InputStream::one(
-                                            UntaggedValue::Error(err.into()).into_untagged_value(),
-                                        );
+                                        if let Err(err) = result {
+                                            return InputStream::one(
+                                                UntaggedValue::Error(err.into())
+                                                    .into_untagged_value(),
+                                            );
+                                        }
+                                        InputStream::from_stream(futures::stream::iter(vec![]))
                                     }
-                                    InputStream::from_stream(futures::stream::iter(vec![]))
-                                } else {
-                                    InputStream::one(
-                                        UntaggedValue::Error(ShellError::untagged_runtime_error(
-                                            format!("could not source '{}'", filename),
-                                        ))
-                                        .into_untagged_value(),
-                                    )
+                                    Err(_) => {
+                                        context.error(ShellError::labeled_error(
+                                            "Can't load file to source",
+                                            "can't load file",
+                                            filename.span(),
+                                        ));
+
+                                        InputStream::from_stream(futures::stream::iter(vec![]))
+                                    }
                                 }
                             }
                             CommandAction::AddPlugins(path) => {

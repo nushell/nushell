@@ -43,6 +43,6 @@ pub async fn source(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let (SourceArgs { filename }, _) = args.process().await?;
 
     Ok(OutputStream::one(ReturnSuccess::action(
-        CommandAction::SourceScript(filename.item),
+        CommandAction::SourceScript(filename),
     )))
 }
