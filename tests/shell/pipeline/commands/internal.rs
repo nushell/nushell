@@ -401,7 +401,7 @@ fn run_broken_inner_custom_command() {
         "#
     );
 
-    assert!(actual.err.contains("command not found"));
+    assert!(actual.err.contains("not found"));
 }
 
 #[test]
