@@ -57,7 +57,7 @@ pub(crate) async fn run_internal_command(
                             }
                             CommandAction::Exit => std::process::exit(0), // TODO: save history.txt
                             CommandAction::Error(err) => {
-                                context.error(err.clone());
+                                context.error(err);
                                 InputStream::empty()
                             }
                             CommandAction::AutoConvert(tagged_contents, extension) => {
@@ -118,7 +118,7 @@ pub(crate) async fn run_internal_command(
                                             futures::stream::iter(output).to_input_stream()
                                         }
                                         Err(err) => {
-                                            context.error(err.clone());
+                                            context.error(err);
                                             InputStream::empty()
                                         }
                                     }
@@ -138,7 +138,7 @@ pub(crate) async fn run_internal_command(
                                         ) {
                                             Ok(v) => v,
                                             Err(err) => {
-                                                context.error(err.clone());
+                                                context.error(err);
                                                 return InputStream::empty();
                                             }
                                         },
@@ -150,7 +150,7 @@ pub(crate) async fn run_internal_command(
                                         match HelpShell::index(&context.scope) {
                                             Ok(v) => v,
                                             Err(err) => {
-                                                context.error(err.clone());
+                                                context.error(err);
                                                 return InputStream::empty();
                                             }
                                         },
@@ -224,7 +224,7 @@ pub(crate) async fn run_internal_command(
                                         InputStream::empty()
                                     }
                                     Err(reason) => {
-                                        context.error(reason.clone());
+                                        context.error(reason);
                                         InputStream::empty()
                                     }
                                 }
@@ -250,7 +250,7 @@ pub(crate) async fn run_internal_command(
                             value: UntaggedValue::Error(err),
                             ..
                         })) => {
-                            context.error(err.clone());
+                            context.error(err);
                             InputStream::empty()
                         }
 
@@ -271,7 +271,7 @@ pub(crate) async fn run_internal_command(
                         }
 
                         Err(err) => {
-                            context.error(err.clone());
+                            context.error(err);
                             InputStream::empty()
                         }
                     }
