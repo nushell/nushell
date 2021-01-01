@@ -2142,6 +2142,8 @@ fn parse_definition(call: &LiteCommand, scope: &dyn ParserScope) -> Option<Parse
                 // We have a literal block
                 let string: String = chars.collect();
 
+                scope.enter_scope();
+
                 let (tokens, err) = lex(&string, call.parts[3].span.start() + 1);
                 if err.is_some() {
                     return err;
@@ -2152,6 +2154,7 @@ fn parse_definition(call: &LiteCommand, scope: &dyn ParserScope) -> Option<Parse
                 };
 
                 let (mut block, err) = classify_block(&lite_block, scope);
+                scope.exit_scope();
 
                 block.params = signature;
                 block.params.name = name;
@@ -2282,6 +2285,14 @@ pub fn classify_block(
         }
         if !out_group.pipelines.is_empty() {
             output.push(out_group);
+        }
+    }
+
+    let definitions = scope.get_definitions();
+    for definition in definitions.into_iter() {
+        let name = definition.params.name.clone();
+        if !output.definitions.contains_key(&name) {
+            output.definitions.insert(name, definition.clone());
         }
     }
 
