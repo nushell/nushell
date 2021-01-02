@@ -35,7 +35,7 @@ pub async fn ps(tag: Tag, long: bool) -> Result<Vec<Value>, ShellError> {
         .await
         .map_err(|_| {
             ShellError::labeled_error(
-                "Unabled to get process list",
+                "Unable to get process list",
                 "could not load process list",
                 tag.span,
             )

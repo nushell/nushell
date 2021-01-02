@@ -14,7 +14,7 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("math celi")
+        Signature::build("math ceil")
     }
 
     fn usage(&self) -> &str {

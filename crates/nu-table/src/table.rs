@@ -159,11 +159,11 @@ impl TextStyle {
         self.color_style.unwrap_or_default().is_strikethrough
     }
 
-    pub fn fg(&self, foregound: Color) -> TextStyle {
+    pub fn fg(&self, foreground: Color) -> TextStyle {
         TextStyle {
             alignment: self.alignment,
             color_style: Some(Style {
-                foreground: Some(foregound),
+                foreground: Some(foreground),
                 ..self.color_style.unwrap_or_default()
             }),
         }

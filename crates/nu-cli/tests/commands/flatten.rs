@@ -47,7 +47,7 @@ fn flatten_nested_tables() {
 }
 
 #[test]
-fn flatten_row_column_explictly() {
+fn flatten_row_column_explicitly() {
     Playground::setup("flatten_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "katz.json",
@@ -113,7 +113,7 @@ fn flatten_row_columns_having_same_column_names_flats_separately() {
 }
 
 #[test]
-fn flatten_table_columns_explictly() {
+fn flatten_table_columns_explicitly() {
     Playground::setup("flatten_test_3", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "katz.json",
