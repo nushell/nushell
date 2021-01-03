@@ -34,13 +34,6 @@ fn all() {
 }
 
 #[test]
-fn outputs_zero_with_no_input() {
-    let actual = nu!(cwd: ".", "math sum");
-
-    assert_eq!(actual.out, "0");
-}
-
-#[test]
 #[allow(clippy::unreadable_literal)]
 #[allow(clippy::float_cmp)]
 fn compute_sum_of_individual_row() -> Result<(), String> {

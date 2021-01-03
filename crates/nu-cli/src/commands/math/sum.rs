@@ -73,7 +73,11 @@ pub fn summation(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
     let sum = reducer_for(Reduce::Summation);
 
     let first = values.get(0).ok_or_else(|| {
-        ShellError::unexpected("Cannot perform aggregate math operation on empty data")
+        ShellError::labeled_error(
+            "Cannot perform aggregate math operation on empty data",
+            "expected input",
+            name.span,
+        )
     })?;
 
     match first {

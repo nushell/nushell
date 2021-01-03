@@ -103,5 +103,5 @@ fn error_reduce_empty() {
         )
     );
 
-    assert!(actual.err.contains("empty input"));
+    assert!(actual.err.contains("needs input"));
 }
