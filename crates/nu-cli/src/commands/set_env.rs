@@ -2,10 +2,7 @@ use crate::prelude::*;
 use crate::{commands::WholeStreamCommand, evaluate::evaluate_baseline_expr};
 
 use nu_errors::ShellError;
-use nu_protocol::{
-    hir::CapturedBlock, hir::ClassifiedCommand, CommandAction, ReturnSuccess, Signature,
-    SyntaxShape,
-};
+use nu_protocol::{hir::CapturedBlock, hir::ClassifiedCommand, Signature, SyntaxShape};
 use nu_source::Tagged;
 
 pub struct SetEnv;
@@ -98,7 +95,10 @@ pub async fn set_env(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let name = name.item.clone();
 
-    Ok(OutputStream::one(ReturnSuccess::action(
-        CommandAction::AddEnvVariable(name, value),
-    )))
+    // Note: this is a special case for setting the context from a command
+    // In this case, if we don't set it now, we'll lose the scope that this
+    // variable should be set into.
+    ctx.scope.add_env_var(name, value);
+
+    Ok(OutputStream::empty())
 }
