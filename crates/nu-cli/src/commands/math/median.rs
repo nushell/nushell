@@ -54,6 +54,18 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
+fn to_byte(value: &Value) -> Option<Value> {
+    match &value.value {
+        UntaggedValue::Primitive(Primitive::Int(num)) => Some(
+            UntaggedValue::Primitive(Primitive::Filesize(convert_number_to_u64(&Number::Int(
+                num.clone(),
+            ))))
+            .into_untagged_value(),
+        ),
+        _ => None,
+    }
+}
+
 enum Pick {
     MedianAverage,
     Median,
@@ -129,7 +141,39 @@ fn compute_average(values: &[Value], name: impl Into<Tag>) -> Result<Value, Shel
         )
     })?;
     let total_rows = UntaggedValue::decimal(number);
-    let total = sum(UntaggedValue::int(0).into_untagged_value(), values.to_vec())?;
+
+    let are_bytes = values
+        .get(0)
+        .ok_or_else(|| {
+            ShellError::unexpected("Cannot perform aggregate math operation on empty data")
+        })?
+        .is_filesize();
+
+    let total = if are_bytes {
+        to_byte(&sum(
+            UntaggedValue::int(0).into_untagged_value(),
+            values
+                .to_vec()
+                .iter()
+                .map(|v| match v {
+                    Value {
+                        value: UntaggedValue::Primitive(Primitive::Filesize(num)),
+                        ..
+                    } => UntaggedValue::int(*num as usize).into_untagged_value(),
+                    other => other.clone(),
+                })
+                .collect::<Vec<_>>(),
+        )?)
+        .ok_or_else(|| {
+            ShellError::labeled_error(
+                "could not convert to big decimal",
+                "could not convert to big decimal",
+                &name.span,
+            )
+        })
+    } else {
+        sum(UntaggedValue::int(0).into_untagged_value(), values.to_vec())
+    }?;
 
     match total {
         Value {
