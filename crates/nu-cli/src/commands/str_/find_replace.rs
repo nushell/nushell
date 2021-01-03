@@ -33,7 +33,7 @@ impl WholeStreamCommand for SubCommand {
                 SyntaxShape::ColumnPath,
                 "optionally find and replace text by column paths",
             )
-            .switch("all", "replace all occurences of find string", Some('a'))
+            .switch("all", "replace all occurrences of find string", Some('a'))
     }
 
     fn usage(&self) -> &str {

@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 
 use nu_errors::ShellError;
-use nu_protocol::{CommandAction, ReturnSuccess, Signature, SyntaxShape};
+use nu_protocol::{Signature, SyntaxShape};
 use nu_source::Tagged;
 
 pub struct Source;
@@ -40,9 +40,30 @@ impl WholeStreamCommand for Source {
 }
 
 pub async fn source(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let ctx = EvaluationContext::from_args(&args);
     let (SourceArgs { filename }, _) = args.process().await?;
 
-    Ok(OutputStream::one(ReturnSuccess::action(
-        CommandAction::SourceScript(filename.item),
-    )))
+    // Note: this is a special case for setting the context from a command
+    // In this case, if we don't set it now, we'll lose the scope that this
+    // variable should be set into.
+    let contents = std::fs::read_to_string(&filename.item);
+    match contents {
+        Ok(contents) => {
+            let result = crate::script::run_script_standalone(contents, true, &ctx, false).await;
+
+            if let Err(err) = result {
+                ctx.error(err.into());
+            }
+            Ok(OutputStream::empty())
+        }
+        Err(_) => {
+            ctx.error(ShellError::labeled_error(
+                "Can't load file to source",
+                "can't load file",
+                filename.span(),
+            ));
+
+            Ok(OutputStream::empty())
+        }
+    }
 }

@@ -5,7 +5,7 @@ use std::io;
 
 /// The `Plugin` trait defines the API which plugins may use to "hook" into nushell.
 pub trait Plugin {
-    /// The `config` method is used to configure a plguin's user interface / signature.
+    /// The `config` method is used to configure a plugin's user interface / signature.
     ///
     /// This is where the "name" of the plugin (ex `fetch`), description, any required/optional fields, and flags
     /// can be defined. This information will displayed in nushell when running help <plugin name>

@@ -42,7 +42,7 @@ impl WholeStreamCommand for SubCommand {
         vec![Example {
             description: "Load all plugins in the current directory",
             example: "nu plugin --load .",
-            result: Some(vec![]),
+            result: None,
         }]
     }
 

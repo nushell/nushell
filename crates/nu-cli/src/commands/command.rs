@@ -238,6 +238,7 @@ pub trait WholeStreamCommand: Send + Sync {
 
 // Custom commands are blocks, so we can use the information in the block to also
 // implement a WholeStreamCommand
+#[allow(clippy::suspicious_else_formatting)]
 #[async_trait]
 impl WholeStreamCommand for Block {
     fn name(&self) -> &str {

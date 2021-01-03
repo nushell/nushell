@@ -120,7 +120,7 @@ pub fn compute_stddev(values: &[Value], n: usize, name: &Tag) -> Result<Value, S
         _ => {
             return Err(ShellError::labeled_error(
                 "Could not take square root of variance",
-                "error occured here",
+                "error occurred here",
                 name.span,
             ))
         }
@@ -129,7 +129,7 @@ pub fn compute_stddev(values: &[Value], n: usize, name: &Tag) -> Result<Value, S
         Some(stddev) => Ok(UntaggedValue::from(Primitive::Decimal(stddev)).into_value(name)),
         None => Err(ShellError::labeled_error(
             "Could not calculate stddev",
-            "error occured here",
+            "error occurred here",
             name.span,
         )),
     }

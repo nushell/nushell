@@ -35,7 +35,7 @@ fn from_attributes_to_value(attributes: &[roxmltree::Attribute], tag: impl Into<
     collected.into_value()
 }
 
-fn from_node_to_value<'a, 'd>(n: &roxmltree::Node<'a, 'd>, tag: impl Into<Tag>) -> Value {
+fn from_node_to_value(n: &roxmltree::Node, tag: impl Into<Tag>) -> Value {
     let tag = tag.into();
 
     if n.is_element() {

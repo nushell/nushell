@@ -36,7 +36,7 @@ macro_rules! trace_stream {
                 );
             });
 
-            $crate::stream::InputStream::from_stream(objects.boxed())
+            nu_stream::InputStream::from_stream(objects.boxed())
         } else {
             $expr
         }
@@ -61,7 +61,7 @@ macro_rules! trace_out_stream {
                 );
             });
 
-            $crate::stream::OutputStream::new(objects)
+            nu_stream::OutputStream::new(objects)
         } else {
             $expr
         }
@@ -84,7 +84,6 @@ pub(crate) use crate::shell::filesystem_shell::FilesystemShell;
 pub(crate) use crate::shell::help_shell::HelpShell;
 pub(crate) use crate::shell::shell_manager::ShellManager;
 pub(crate) use crate::shell::value_shell::ValueShell;
-pub(crate) use crate::stream::{InputStream, InterruptibleStream, OutputStream};
 pub(crate) use bigdecimal::BigDecimal;
 pub(crate) use futures::stream::BoxStream;
 pub(crate) use futures::{Stream, StreamExt};
@@ -94,13 +93,14 @@ pub(crate) use nu_source::{
     b, AnchorLocation, DebugDocBuilder, PrettyDebug, PrettyDebugWithSource, Span, SpannedItem, Tag,
     TaggedItem, Text,
 };
+pub(crate) use nu_stream::{InputStream, InterruptibleStream, OutputStream};
 pub(crate) use nu_value_ext::ValueExt;
 pub(crate) use num_bigint::BigInt;
 pub(crate) use num_traits::cast::ToPrimitive;
 pub(crate) use serde::Deserialize;
 pub(crate) use std::collections::VecDeque;
 pub(crate) use std::future::Future;
-pub(crate) use std::sync::atomic::AtomicBool;
+pub(crate) use std::sync::atomic::{AtomicBool, Ordering};
 pub(crate) use std::sync::Arc;
 
 pub(crate) use async_trait::async_trait;

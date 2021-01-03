@@ -52,14 +52,24 @@ impl Scope {
         names
     }
 
-    pub fn has_command(&self, name: &str) -> bool {
-        for frame in self.frames.lock().iter() {
-            if frame.has_command(name) {
-                return true;
-            }
-        }
+    pub fn len(&self) -> usize {
+        self.frames.lock().len()
+    }
 
-        false
+    fn has_cmd_helper(&self, name: &str, f: fn(&ScopeFrame, &str) -> bool) -> bool {
+        self.frames.lock().iter().any(|frame| f(frame, name))
+    }
+
+    pub fn has_command(&self, name: &str) -> bool {
+        self.has_cmd_helper(name, ScopeFrame::has_command)
+    }
+
+    pub fn has_custom_command(&self, name: &str) -> bool {
+        self.has_cmd_helper(name, ScopeFrame::has_custom_command)
+    }
+
+    pub fn has_alias(&self, name: &str) -> bool {
+        self.has_cmd_helper(name, ScopeFrame::has_alias)
     }
 
     pub fn expect_command(&self, name: &str) -> Result<Command, ShellError> {
@@ -74,12 +84,14 @@ impl Scope {
     }
 
     pub fn get_vars(&self) -> IndexMap<String, Value> {
-        //FIXME: should this be an interator?
+        //FIXME: should this be an iterator?
         let mut output = IndexMap::new();
 
         for frame in self.frames.lock().iter().rev() {
             for v in frame.vars.iter() {
-                output.insert(v.0.clone(), v.1.clone());
+                if !output.contains_key(v.0) {
+                    output.insert(v.0.clone(), v.1.clone());
+                }
             }
         }
 
@@ -87,12 +99,14 @@ impl Scope {
     }
 
     pub fn get_env_vars(&self) -> IndexMap<String, String> {
-        //FIXME: should this be an interator?
+        //FIXME: should this be an iterator?
         let mut output = IndexMap::new();
 
         for frame in self.frames.lock().iter().rev() {
             for v in frame.env.iter() {
-                output.insert(v.0.clone(), v.1.clone());
+                if !output.contains_key(v.0) {
+                    output.insert(v.0.clone(), v.1.clone());
+                }
             }
         }
 
@@ -203,6 +217,14 @@ impl ScopeFrame {
         self.commands.contains_key(name)
     }
 
+    pub fn has_custom_command(&self, name: &str) -> bool {
+        self.custom_commands.contains_key(name)
+    }
+
+    pub fn has_alias(&self, name: &str) -> bool {
+        self.aliases.contains_key(name)
+    }
+
     pub fn get_command_names(&self) -> Vec<String> {
         self.commands.keys().map(|x| x.to_string()).collect()
     }
@@ -228,7 +250,7 @@ impl ScopeFrame {
 
 // impl Scope {
 //     pub fn vars(&self) -> IndexMap<String, Value> {
-//         //FIXME: should this be an interator?
+//         //FIXME: should this be an iterator?
 
 //         let mut output = IndexMap::new();
 
@@ -248,7 +270,7 @@ impl ScopeFrame {
 //     }
 
 //     pub fn env(&self) -> IndexMap<String, String> {
-//         //FIXME: should this be an interator?
+//         //FIXME: should this be an iterator?
 
 //         let mut output = IndexMap::new();
 

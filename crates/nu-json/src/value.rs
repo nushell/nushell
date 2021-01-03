@@ -107,7 +107,7 @@ impl Value {
             }
             s.parse().ok()
         }
-        if pointer == "" {
+        if pointer.is_empty() {
             return Some(self);
         }
         if !pointer.starts_with('/') {

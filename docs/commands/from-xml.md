@@ -1,6 +1,6 @@
 # from xml
 
-Parse text as `.xml` and create table. Use this when nushell cannot dertermine the input file extension.
+Parse text as `.xml` and create table. Use this when nushell cannot determine the input file extension.
 
 Syntax: `from xml`
 

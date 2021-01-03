@@ -2,9 +2,9 @@ use crate::commands::{command::CommandArgs, Command, UnevaluatedCallInfo};
 use crate::env::host::Host;
 use crate::prelude::*;
 use crate::shell::shell_manager::ShellManager;
-use crate::stream::{InputStream, OutputStream};
 use nu_protocol::hir;
 use nu_source::{Tag, Text};
+use nu_stream::{InputStream, OutputStream};
 use parking_lot::Mutex;
 use std::error::Error;
 use std::sync::atomic::AtomicBool;
@@ -74,10 +74,6 @@ impl EvaluationContext {
         self.current_errors.lock().clone()
     }
 
-    pub(crate) fn add_error(&self, err: ShellError) {
-        self.current_errors.lock().push(err);
-    }
-
     pub(crate) fn maybe_print_errors(&self, source: Text) -> bool {
         let errors = self.current_errors.clone();
         let mut errors = errors.lock();
@@ -86,7 +82,7 @@ impl EvaluationContext {
             let error = errors[0].clone();
             *errors = vec![];
 
-            crate::cli::print_err(error, &source);
+            crate::script::print_err(error, &source);
             true
         } else {
             false

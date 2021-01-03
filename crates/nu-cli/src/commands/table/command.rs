@@ -75,7 +75,7 @@ fn values_to_entries(
         let mut row: Vec<StyledString> = headers
             .iter()
             .map(|d: &StyledString| {
-                if d.contents == "" {
+                if d.contents.is_empty() {
                     match value {
                         Value {
                             value: UntaggedValue::Row(..),

@@ -40,7 +40,7 @@ pub fn view_text_value(value: &Value) {
                         term_width = value.as_u64().unwrap_or(term_width as u64) as usize;
                     }
                     "tab_width" => {
-                        tab_width = value.as_u64().unwrap_or(4 as u64);
+                        tab_width = value.as_u64().unwrap_or(4_u64);
                     }
                     "colored_output" => colored_output = value.as_bool().unwrap_or(true),
                     "true_color" => true_color = value.as_bool().unwrap_or(true),

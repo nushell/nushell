@@ -1,8 +1,8 @@
 use crate::prelude::*;
-use futures::stream::{iter, once};
+use futures::stream::iter;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, Type, UntaggedValue, Value};
-use nu_source::{Tagged, TaggedItem};
+use nu_source::{PrettyDebug, Tag, Tagged, TaggedItem};
 
 pub struct InputStream {
     values: BoxStream<'static, Value>,
@@ -14,7 +14,7 @@ pub struct InputStream {
 impl InputStream {
     pub fn empty() -> InputStream {
         InputStream {
-            values: once(async { UntaggedValue::nothing().into_untagged_value() }).boxed(),
+            values: futures::stream::empty().boxed(),
             empty: true,
         }
     }

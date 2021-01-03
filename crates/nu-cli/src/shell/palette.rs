@@ -265,7 +265,7 @@ impl ThemeColor {
         match character {
             b'0'..=b'9' => Ok(character - b'0'),
             b'a'..=b'z' => Ok(character - (b'a' - 10)),
-            _ => Err(E::custom(format!("invalid charater {}", character))),
+            _ => Err(E::custom(format!("invalid character {}", character))),
         }
     }
 }

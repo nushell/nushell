@@ -6,7 +6,7 @@ use crate::{CommandArgs, Example, OutputStream};
 use futures::stream::once;
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
-use nu_protocol::{hir::CapturedBlock, Primitive, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{hir::CapturedBlock, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct Reduce;
@@ -93,22 +93,25 @@ async fn process_row(
 }
 
 async fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let span = raw_args.call_info.name_tag.span;
     let context = Arc::new(EvaluationContext::from_raw(&raw_args));
     let (reduce_args, mut input): (ReduceArgs, _) = raw_args.process().await?;
     let block = Arc::new(reduce_args.block);
-    let (ioffset, start) = match reduce_args.fold {
-        None => {
-            let first = input
-                .next()
-                .await
-                .expect("empty stream expected to contain Primitive::Nothing");
-            if let UntaggedValue::Primitive(Primitive::Nothing) = first.value {
-                return Err(ShellError::missing_value(None, "empty input"));
-            }
+    let (ioffset, start) = if !input.is_empty() {
+        match reduce_args.fold {
+            None => {
+                let first = input.next().await.expect("non-empty stream");
 
-            (1, first)
+                (1, first)
+            }
+            Some(acc) => (0, acc),
         }
-        Some(acc) => (0, acc),
+    } else {
+        return Err(ShellError::labeled_error(
+            "Expected input",
+            "needs input",
+            span,
+        ));
     };
 
     if reduce_args.numbered.item {
