@@ -419,6 +419,18 @@ fn set_variable() {
 }
 
 #[test]
+fn set_doesnt_leak() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        do { set x = 5 }; echo $x
+        "#
+    );
+
+    assert!(actual.err.contains("unknown variable"));
+}
+
+#[test]
 fn set_env_variable() {
     let actual = nu!(
         cwd: ".",
@@ -429,6 +441,18 @@ fn set_env_variable() {
     );
 
     assert_eq!(actual.out, "hello world");
+}
+
+#[test]
+fn set_env_doesnt_leak() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        do { set-env xyz = "my message" }; echo $nu.env.xyz
+        "#
+    );
+
+    assert!(actual.err.contains("did you mean"));
 }
 
 #[cfg(feature = "which")]

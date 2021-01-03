@@ -84,7 +84,9 @@ async fn benchmark(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     #[cfg(feature = "rich-benchmark")]
     let start = time().await;
 
+    context.scope.enter_scope();
     let result = run_block(&block.block, &context, input).await;
+    context.scope.exit_scope();
     let output = result?.into_vec().await;
 
     #[cfg(feature = "rich-benchmark")]
@@ -152,7 +154,10 @@ where
         // add autoview for an empty block
         let time_block = add_implicit_autoview(time_block.block);
 
-        let _ = run_block(&time_block, context, benchmark_output).await?;
+        context.scope.enter_scope();
+        let result = run_block(&time_block, context, benchmark_output).await;
+        context.scope.exit_scope();
+        result?;
         context.clear_errors();
 
         Ok(block_output.into())

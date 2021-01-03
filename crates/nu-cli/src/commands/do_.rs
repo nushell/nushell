@@ -83,8 +83,9 @@ async fn do_(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     };
 
     block.block.set_redirect(block_redirection);
-
+    context.scope.enter_scope();
     let result = run_block(&block.block, &context, input).await;
+    context.scope.exit_scope();
 
     if ignore_errors {
         // To properly ignore errors we need to redirect stderr, consume it, and remove

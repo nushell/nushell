@@ -176,39 +176,6 @@ pub(crate) async fn run_internal_command(
                                 ));
                                 InputStream::from_stream(futures::stream::iter(vec![]))
                             }
-                            CommandAction::AddVariable(name, value) => {
-                                context.scope.add_var(name, value);
-                                InputStream::from_stream(futures::stream::iter(vec![]))
-                            }
-                            CommandAction::AddEnvVariable(name, value) => {
-                                context.scope.add_env_var(name, value);
-                                InputStream::from_stream(futures::stream::iter(vec![]))
-                            }
-                            CommandAction::SourceScript(filename) => {
-                                let contents = std::fs::read_to_string(&filename.item);
-                                match contents {
-                                    Ok(contents) => {
-                                        let result = crate::script::run_script_standalone(
-                                            contents, true, &context, false,
-                                        )
-                                        .await;
-
-                                        if let Err(err) = result {
-                                            context.error(err.into());
-                                        }
-                                        InputStream::empty()
-                                    }
-                                    Err(_) => {
-                                        context.error(ShellError::labeled_error(
-                                            "Can't load file to source",
-                                            "can't load file",
-                                            filename.span(),
-                                        ));
-
-                                        InputStream::empty()
-                                    }
-                                }
-                            }
                             CommandAction::AddPlugins(path) => {
                                 match crate::plugin::scan(vec![std::path::PathBuf::from(path)]) {
                                     Ok(plugins) => {

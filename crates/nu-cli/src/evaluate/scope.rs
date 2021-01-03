@@ -52,6 +52,10 @@ impl Scope {
         names
     }
 
+    pub fn len(&self) -> usize {
+        self.frames.lock().len()
+    }
+
     fn has_cmd_helper(&self, name: &str, f: fn(&ScopeFrame, &str) -> bool) -> bool {
         self.frames.lock().iter().any(|frame| f(frame, name))
     }
