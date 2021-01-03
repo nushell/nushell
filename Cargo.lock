@@ -1980,8 +1980,6 @@ dependencies = [
  "libc",
  "libgit2-sys",
  "log 0.4.11",
- "openssl-probe",
- "openssl-sys",
  "url",
 ]
 
@@ -2648,9 +2646,7 @@ checksum = "48c39622f3887bc7fb2fff6d06293f64b02c1dfa281212566ac155171d13b0eb"
 dependencies = [
  "cc",
  "libc",
- "libssh2-sys",
  "libz-sys",
- "openssl-sys",
  "pkg-config",
 ]
 
@@ -2671,20 +2667,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "64d31059f22935e6c31830db5249ba2b7ecd54fd73a9909286f0a67aa55c2fbd"
 dependencies = [
  "cc",
- "pkg-config",
- "vcpkg",
-]
-
-[[package]]
-name = "libssh2-sys"
-version = "0.2.20"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df40b13fe7ea1be9b9dffa365a51273816c345fc1811478b57ed7d964fbfc4ce"
-dependencies = [
- "cc",
- "libc",
- "libz-sys",
- "openssl-sys",
  "pkg-config",
  "vcpkg",
 ]
@@ -5275,9 +5257,9 @@ dependencies = [
 
 [[package]]
 name = "shadow-rs"
-version = "0.5.2"
+version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04e282c2db7b215c4b002b557dd253ca5bac87e9509cc585deca849a93d88435"
+checksum = "73d9796f3ab288d5f5a06430723004eeb134c6a0bb3674ba4a124c557f137127"
 dependencies = [
  "chrono",
  "git2",
