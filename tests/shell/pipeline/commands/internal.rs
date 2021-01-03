@@ -455,6 +455,28 @@ fn set_env_doesnt_leak() {
     assert!(actual.err.contains("did you mean"));
 }
 
+#[test]
+fn proper_shadow_set_env_aliases() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        set-env DEBUG = true; echo $nu.env.DEBUG | autoview; do { set-env DEBUG = false; echo $nu.env.DEBUG } | autoview; echo $nu.env.DEBUG
+        "#
+    );
+    assert_eq!(actual.out, "truefalsetrue");
+}
+
+#[test]
+fn proper_shadow_set_aliases() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        set DEBUG = false; echo $DEBUG | autoview; do { set DEBUG = true; echo $DEBUG } | autoview; echo $DEBUG
+        "#
+    );
+    assert_eq!(actual.out, "falsetruefalse");
+}
+
 #[cfg(feature = "which")]
 #[test]
 fn argument_invocation_reports_errors() {

@@ -89,7 +89,9 @@ impl Scope {
 
         for frame in self.frames.lock().iter().rev() {
             for v in frame.vars.iter() {
-                output.insert(v.0.clone(), v.1.clone());
+                if !output.contains_key(v.0) {
+                    output.insert(v.0.clone(), v.1.clone());
+                }
             }
         }
 
@@ -102,7 +104,9 @@ impl Scope {
 
         for frame in self.frames.lock().iter().rev() {
             for v in frame.env.iter() {
-                output.insert(v.0.clone(), v.1.clone());
+                if !output.contains_key(v.0) {
+                    output.insert(v.0.clone(), v.1.clone());
+                }
             }
         }
 
