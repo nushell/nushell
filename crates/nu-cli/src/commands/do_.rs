@@ -2,9 +2,7 @@ use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{
-    hir::CapturedBlock, hir::ExternalRedirection, ReturnSuccess, Signature, SyntaxShape, Value,
-};
+use nu_protocol::{hir::CapturedBlock, hir::ExternalRedirection, Signature, SyntaxShape, Value};
 
 pub struct Do;
 
@@ -48,7 +46,7 @@ impl WholeStreamCommand for Do {
             Example {
                 description: "Run the block and ignore errors",
                 example: r#"do -i { thisisnotarealcommand }"#,
-                result: Some(vec![Value::nothing()]),
+                result: Some(vec![]),
             },
         ]
     }
@@ -98,7 +96,7 @@ async fn do_(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                 context.clear_errors();
                 Ok(futures::stream::iter(output).to_output_stream())
             }
-            Err(_) => Ok(OutputStream::one(ReturnSuccess::value(Value::nothing()))),
+            Err(_) => Ok(OutputStream::empty()),
         }
     } else {
         result.map(|x| x.to_output_stream())
