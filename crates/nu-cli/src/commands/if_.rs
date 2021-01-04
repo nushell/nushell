@@ -53,12 +53,12 @@ impl WholeStreamCommand for If {
         vec![
             Example {
                 description: "Run a block if a condition is true",
-                example: "set x = 10; if $x > 5 { echo 'greater than 5' } { echo 'less than or equal to 5' }",
+                example: "let x = 10; if $x > 5 { echo 'greater than 5' } { echo 'less than or equal to 5' }",
                 result: Some(vec![UntaggedValue::string("greater than 5").into()]),
             },
             Example {
                 description: "Run a block if a condition is false",
-                example: "set x = 1; if $x > 5 { echo 'greater than 5' } { echo 'less than or equal to 5' }",
+                example: "let x = 1; if $x > 5 { echo 'greater than 5' } { echo 'less than or equal to 5' }",
                 result: Some(vec![UntaggedValue::string("less than or equal to 5").into()]),
             },
         ]
