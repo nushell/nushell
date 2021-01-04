@@ -22,6 +22,7 @@ mod documentation;
 mod env;
 mod evaluate;
 mod evaluation_context;
+mod feature;
 mod format;
 mod futures;
 #[cfg(feature = "rustyline-support")]
