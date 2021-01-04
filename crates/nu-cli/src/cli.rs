@@ -1,13 +1,13 @@
 use crate::commands::classified::block::run_block;
 use crate::commands::default_context::create_default_context;
 use crate::evaluation_context::EvaluationContext;
-use crate::feature::configure_ctrl_c;
+use crate::line_editor::configure_ctrl_c;
 
 #[allow(unused_imports)]
 pub(crate) use crate::script::{process_script, LineResult};
 
 #[cfg(feature = "rustyline-support")]
-use crate::feature::{
+use crate::line_editor::{
     configure_rustyline_editor, convert_rustyline_result_to_string,
     default_rustyline_editor_configuration, nu_line_editor_helper,
 };

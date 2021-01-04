@@ -22,13 +22,13 @@ mod documentation;
 mod env;
 mod evaluate;
 mod evaluation_context;
-mod feature;
 mod format;
 mod futures;
 #[cfg(feature = "rustyline-support")]
 mod git;
 #[cfg(feature = "rustyline-support")]
 mod keybinding;
+mod line_editor;
 mod path;
 mod plugin;
 pub mod script;
