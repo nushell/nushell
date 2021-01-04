@@ -1786,6 +1786,36 @@ fn parse_call(
                 error,
             );
         }
+    } else if lite_cmd.parts[0].item == "source" {
+        if lite_cmd.parts.len() != 2 {
+            return (
+                None,
+                Some(ParseError::argument_error(
+                    lite_cmd.parts[0].clone(),
+                    ArgumentError::MissingMandatoryPositional("a path for sourcing".into()),
+                )),
+            );
+        }
+        if lite_cmd.parts[1].item.starts_with('$') {
+            return (
+                None,
+                Some(ParseError::mismatch(
+                    "a filepath constant",
+                    lite_cmd.parts[1].clone(),
+                )),
+            );
+        }
+        if let Ok(contents) = std::fs::read_to_string(&lite_cmd.parts[1].item) {
+            let _ = parse(&contents, 0, scope);
+        } else {
+            return (
+                None,
+                Some(ParseError::mismatch(
+                    "a filepath to a source file",
+                    lite_cmd.parts[1].clone(),
+                )),
+            );
+        }
     } else if lite_cmd.parts.len() > 1 {
         // Check if it's a sub-command
         if let Some(signature) = scope.get_signature(&format!(
