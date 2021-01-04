@@ -10,6 +10,6 @@ version = "0.24.2"
 
 [dependencies]
 serde = "^0.8.0"
-num-traits = "~0.1.32"
+num-traits = "0.2.14"
 regex = "^1.0"
 lazy_static = "1"
