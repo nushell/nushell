@@ -1,28 +1,29 @@
 [package]
 authors = ["The Nu Project Contributors"]
+build = "build.rs"
 description = "CLI for nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-cli"
-version = "0.24.2"
-build = "build.rs"
+version = "0.25.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-data = {version = "0.24.2", path = "../nu-data"}
-nu-errors = {version = "0.24.2", path = "../nu-errors"}
-nu-json = {version = "0.24.2", path = "../nu-json"}
-nu-parser = {version = "0.24.2", path = "../nu-parser"}
-nu-plugin = {version = "0.24.2", path = "../nu-plugin"}
-nu-protocol = {version = "0.24.2", path = "../nu-protocol"}
-nu-source = {version = "0.24.2", path = "../nu-source"}
-nu-stream = {version = "0.24.2", path = "../nu-stream"}
-nu-table = {version = "0.24.2", path = "../nu-table"}
-nu-test-support = {version = "0.24.2", path = "../nu-test-support"}
-nu-value-ext = {version = "0.24.2", path = "../nu-value-ext"}
+nu-data = {version = "0.25.0", path = "../nu-data"}
+nu-errors = {version = "0.25.0", path = "../nu-errors"}
+nu-json = {version = "0.25.0", path = "../nu-json"}
+nu-parser = {version = "0.25.0", path = "../nu-parser"}
+nu-plugin = {version = "0.25.0", path = "../nu-plugin"}
+nu-protocol = {version = "0.25.0", path = "../nu-protocol"}
+nu-source = {version = "0.25.0", path = "../nu-source"}
+nu-stream = {version = "0.25.0", path = "../nu-stream"}
+nu-table = {version = "0.25.0", path = "../nu-table"}
+nu-test-support = {version = "0.25.0", path = "../nu-test-support"}
+nu-value-ext = {version = "0.25.0", path = "../nu-value-ext"}
 
+Inflector = "0.11"
 ansi_term = "0.12.1"
 arboard = {version = "1.1.0", optional = true}
 async-recursion = "0.3.1"
@@ -48,8 +49,8 @@ encoding_rs = "0.8.24"
 filesize = "0.2.0"
 fs_extra = "1.2.0"
 futures = {version = "0.3.5", features = ["compat", "io-compat"]}
-futures_codec = "0.4.1"
 futures-util = "0.3.5"
+futures_codec = "0.4.1"
 getset = "0.1.1"
 git2 = {version = "0.13.11", default_features = false, optional = true}
 glob = "0.3.0"
@@ -58,7 +59,6 @@ htmlescape = "0.3.1"
 ical = "0.6.0"
 ichwh = {version = "0.3.4", optional = true}
 indexmap = {version = "1.6.0", features = ["serde-1"]}
-Inflector = "0.11"
 itertools = "0.9.0"
 lazy_static = "1.*"
 log = "0.4.11"

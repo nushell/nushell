@@ -10,8 +10,8 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
         context.add_commands(vec![
             // Fundamentals
             whole_stream_command(NuPlugin),
-            whole_stream_command(Set),
-            whole_stream_command(SetEnv),
+            whole_stream_command(Let),
+            whole_stream_command(LetEnv),
             whole_stream_command(Def),
             whole_stream_command(Source),
             // System/file operations
