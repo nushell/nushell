@@ -47,7 +47,6 @@ impl fmt::Display for TokenContents {
 }
 
 /// A `LiteCommand` is a list of words that will get meaning when processed by
-/// the parser.
 #[derive(Debug, Clone)]
 pub struct LiteCommand {
     pub parts: Vec<Spanned<String>>,
@@ -174,6 +173,18 @@ impl LiteGroup {
 
     pub fn push(&mut self, item: LitePipeline) {
         self.pipelines.push(item)
+    }
+
+    pub fn is_comment(&self) -> bool {
+        if !self.is_empty()
+            && !self.pipelines[0].is_empty()
+            && !self.pipelines[0].commands.is_empty()
+            && !self.pipelines[0].commands[0].parts.is_empty()
+        {
+            self.pipelines[0].commands[0].parts[0].item.starts_with('#')
+        } else {
+            false
+        }
     }
 
     #[cfg(test)]
@@ -379,6 +390,17 @@ pub fn baseline(src: &mut Input, span_offset: usize) -> (Spanned<String>, Option
     (token_contents.spanned(span), None)
 }
 
+/// We encountered a `#` character. Keep consuming characters until we encounter
+/// a newline character (but don't consume it).
+fn skip_comment(input: &mut Input) {
+    while let Some((_, c)) = input.peek() {
+        if *c == '\n' || *c == '\r' {
+            break;
+        }
+        input.next();
+    }
+}
+
 /// Try to parse a list of tokens into a block.
 pub fn block(tokens: Vec<Token>) -> (LiteBlock, Option<ParseError>) {
     // Accumulate chunks of tokens into groups.
@@ -403,21 +425,6 @@ pub fn block(tokens: Vec<Token>) -> (LiteBlock, Option<ParseError>) {
     // - newline (`\n` or `\r`)
     // - pipes (`|`)
     // - semicolon
-    fn finish_command(
-        prev_comments: &mut Option<Vec<Spanned<String>>>,
-        command: &mut LiteCommand,
-        pipeline: &mut LitePipeline,
-    ) {
-        if let Some(prev_comments_) = prev_comments {
-            //Add previous comments to this command
-            command.comments = Some(prev_comments_.clone());
-            //Reset
-            *prev_comments = None;
-        }
-        pipeline.push(command.clone());
-        *command = LiteCommand::new();
-    }
-
     for token in tokens {
         match &token.contents {
             TokenContents::EOL => {
@@ -447,7 +454,8 @@ pub fn block(tokens: Vec<Token>) -> (LiteBlock, Option<ParseError>) {
                 // If we have an open command, push it into the current
                 // pipeline.
                 if command.has_content() {
-                    finish_command(&mut prev_comments, &mut command, &mut pipeline);
+                    pipeline.push(command);
+                    command = LiteCommand::new();
                 }
 
                 // If we have an open pipeline, push it into the current group.
@@ -469,10 +477,12 @@ pub fn block(tokens: Vec<Token>) -> (LiteBlock, Option<ParseError>) {
                 // If the current command has content, accumulate it into
                 // the current pipeline and start a new command.
                 if command.has_content() {
-                    finish_command(&mut prev_comments, &mut command, &mut pipeline);
+                    pipeline.push(command);
+                    command = LiteCommand::new();
                 } else {
                     // If the current command doesn't have content, return an
                     // error that indicates that the `|` was unexpected.
+                    // LiteBlock::new(groups),
                     return (
                         LiteBlock::new(groups),
                         Some(ParseError::extra_tokens(
@@ -488,7 +498,8 @@ pub fn block(tokens: Vec<Token>) -> (LiteBlock, Option<ParseError>) {
                 // If the current command has content, accumulate it into the
                 // current pipeline and start a new command.
                 if command.has_content() {
-                    finish_command(&mut prev_comments, &mut command, &mut pipeline);
+                    pipeline.push(command);
+                    command = LiteCommand::new();
                 }
 
                 // If the current pipeline has content, accumulate it into the
@@ -531,7 +542,7 @@ pub fn block(tokens: Vec<Token>) -> (LiteBlock, Option<ParseError>) {
 
     // If the current command has content, accumulate it into the current pipeline.
     if command.has_content() {
-        finish_command(&mut prev_comments, &mut command, &mut pipeline)
+        pipeline.push(command);
     }
 
     // If the current pipeline has content, accumulate it into the current group.
@@ -618,26 +629,10 @@ pub fn lex(input: &str, span_offset: usize) -> (Vec<Token>, Option<ParseError>) 
                 Span::new(span_offset + idx, span_offset + idx + 1),
             ));
         } else if *c == '#' {
-            let comment_start = *idx + 1;
-            let mut comment = String::new();
-            //Don't copy '#' into comment string
-            char_indices.next();
-            while let Some((_, c)) = char_indices.peek() {
-                if *c == '\n' {
-                    break;
-                }
-                comment.push(*c);
-                //Advance char_indices
-                let _ = char_indices.next();
-            }
-            let token = Token::new(
-                TokenContents::Comment(comment.clone()),
-                Span::new(
-                    span_offset + comment_start,
-                    span_offset + comment_start + comment.len(),
-                ),
-            );
-            output.push(token);
+            // If the next character is `#`, we're at the beginning of a line
+            // comment. The comment continues until the next newline.
+
+            skip_comment(&mut char_indices);
         } else if c.is_whitespace() {
             // If the next character is non-newline whitespace, skip it.
 
