@@ -123,7 +123,7 @@ impl rustyline::validate::Validator for NuValidator {
             }
         }
 
-        let (_, err) = nu_parser::group(tokens);
+        let (_, err) = nu_parser::block(tokens);
 
         if let Some(err) = err {
             if let nu_errors::ParseErrorReason::Eof { .. } = err.reason() {
