@@ -256,7 +256,7 @@ pub fn completion_location(line: &str, block: &Block, pos: usize) -> Vec<Complet
 mod tests {
     use super::*;
 
-    use nu_parser::{classify_block, block, lex, ParserScope};
+    use nu_parser::{block, classify_block, lex, ParserScope};
     use nu_protocol::{Signature, SyntaxShape};
 
     #[derive(Clone, Debug)]
