@@ -409,8 +409,8 @@ fn set_variable() {
     let actual = nu!(
         cwd: ".",
         r#"
-            set x = 5
-            set y = 12
+            let x = 5
+            let y = 12
             = $x + $y
         "#
     );
@@ -419,16 +419,62 @@ fn set_variable() {
 }
 
 #[test]
+fn set_doesnt_leak() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        do { let x = 5 }; echo $x
+        "#
+    );
+
+    assert!(actual.err.contains("unknown variable"));
+}
+
+#[test]
 fn set_env_variable() {
     let actual = nu!(
         cwd: ".",
         r#"
-            set-env TESTENVVAR = "hello world"
+            let-env TESTENVVAR = "hello world"
             echo $nu.env.TESTENVVAR
         "#
     );
 
     assert_eq!(actual.out, "hello world");
+}
+
+#[test]
+fn set_env_doesnt_leak() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        do { let-env xyz = "my message" }; echo $nu.env.xyz
+        "#
+    );
+
+    assert!(actual.err.contains("did you mean"));
+}
+
+#[test]
+fn proper_shadow_set_env_aliases() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        let-env DEBUG = true; echo $nu.env.DEBUG | autoview; do { let-env DEBUG = false; echo $nu.env.DEBUG } | autoview; echo $nu.env.DEBUG
+        "#
+    );
+    assert_eq!(actual.out, "truefalsetrue");
+}
+
+#[test]
+fn proper_shadow_set_aliases() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        let DEBUG = false; echo $DEBUG | autoview; do { let DEBUG = true; echo $DEBUG } | autoview; echo $DEBUG
+        "#
+    );
+    assert_eq!(actual.out, "falsetruefalse");
 }
 
 #[cfg(feature = "which")]

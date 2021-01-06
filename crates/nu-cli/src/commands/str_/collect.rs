@@ -49,12 +49,39 @@ pub async fn collect(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let strings: Vec<Result<String, ShellError>> =
         input.map(|value| value.as_string()).collect().await;
-    let strings: Vec<String> = strings.into_iter().collect::<Result<_, _>>()?;
-    let output = strings.join(&separator);
+    let strings: Result<Vec<_>, _> = strings.into_iter().collect::<Result<_, _>>();
 
-    Ok(OutputStream::one(ReturnSuccess::value(
-        UntaggedValue::string(output).into_value(tag),
-    )))
+    match strings {
+        Ok(strings) => {
+            let output = strings.join(&separator);
+
+            Ok(OutputStream::one(ReturnSuccess::value(
+                UntaggedValue::string(output).into_value(tag),
+            )))
+        }
+        Err(err) => match err.error {
+            nu_errors::ProximateShellError::TypeError { actual, .. } => {
+                if let Some(item) = actual.item {
+                    Err(ShellError::labeled_error_with_secondary(
+                        "could not convert to string",
+                        format!("tried to convert '{}' in input to a string", item),
+                        tag.span,
+                        format!("'{}' value originated here", item),
+                        actual.span,
+                    ))
+                } else {
+                    Err(ShellError::labeled_error_with_secondary(
+                        "could not convert to string",
+                        "failed to convert input to strings",
+                        tag.span,
+                        "non-string found here",
+                        actual.span,
+                    ))
+                }
+            }
+            _ => Err(err),
+        },
+    }
 }
 
 #[cfg(test)]

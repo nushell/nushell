@@ -134,7 +134,7 @@ pub fn sort(
             {
                 let (type_1, type_2) = values
                     .err()
-                    .expect("An error ocourred in the checking of types");
+                    .expect("An error occurred in the checking of types");
                 return Err(ShellError::labeled_error(
                     "Not all values can be compared",
                     format!(

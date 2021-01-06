@@ -1278,7 +1278,7 @@ pub fn parse_math_expression(
                     let (orig_left, left) =
                         working_exprs.pop().expect("This shouldn't be possible");
 
-                    // If we're in shorthand mode, we need to reparse the left-hand side if possibe
+                    // If we're in shorthand mode, we need to reparse the left-hand side if possible
                     let (left, err) = shorthand_reparse(left, orig_left, scope, shorthand_mode);
                     if error.is_none() {
                         error = err;
@@ -1784,6 +1784,36 @@ fn parse_call(
             return (
                 Some(ClassifiedCommand::Expr(Box::new(garbage(lite_cmd.span())))),
                 error,
+            );
+        }
+    } else if lite_cmd.parts[0].item == "source" {
+        if lite_cmd.parts.len() != 2 {
+            return (
+                None,
+                Some(ParseError::argument_error(
+                    lite_cmd.parts[0].clone(),
+                    ArgumentError::MissingMandatoryPositional("a path for sourcing".into()),
+                )),
+            );
+        }
+        if lite_cmd.parts[1].item.starts_with('$') {
+            return (
+                None,
+                Some(ParseError::mismatch(
+                    "a filepath constant",
+                    lite_cmd.parts[1].clone(),
+                )),
+            );
+        }
+        if let Ok(contents) = std::fs::read_to_string(&lite_cmd.parts[1].item) {
+            let _ = parse(&contents, 0, scope);
+        } else {
+            return (
+                None,
+                Some(ParseError::mismatch(
+                    "a filepath to a source file",
+                    lite_cmd.parts[1].clone(),
+                )),
             );
         }
     } else if lite_cmd.parts.len() > 1 {

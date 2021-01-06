@@ -90,7 +90,7 @@ pub async fn histogram(args: CommandArgs) -> Result<OutputStream, ShellError> {
     } else if let Some((key, _)) = columns[0].split_last() {
         key.as_string()
     } else {
-        "frecuency".to_string()
+        "frequency".to_string()
     };
 
     let column = if let Some(ref column) = column_grouper {
@@ -149,7 +149,7 @@ pub async fn histogram(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     .ok_or_else(|| {
                         ShellError::labeled_error(
                             "Unable to load group labels",
-                            "unabled to load group labels",
+                            "unable to load group labels",
                             &name,
                         )
                     })?

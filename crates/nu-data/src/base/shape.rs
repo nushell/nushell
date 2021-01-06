@@ -159,7 +159,7 @@ impl PrettyDebug for FormatInlineShape {
             InlineShape::Bytesize(bytesize) => {
                 // get the config value, if it doesn't exist make it 'auto' so it works how it originally did
                 let filesize_format_var = crate::config::config(Tag::unknown())
-                    .expect("unabled to get the config.toml file")
+                    .expect("unable to get the config.toml file")
                     .get("filesize_format")
                     .map(|val| val.convert_to_string().to_ascii_lowercase())
                     .unwrap_or_else(|| "auto".to_string());

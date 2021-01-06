@@ -44,7 +44,7 @@ impl PrettyDebug for &PathMember {
     }
 }
 
-/// The fundamental path primitive to descrive how to navigate through a table to get to a sub-item. A path member can be either a word or a number. Words/strings are taken to mean
+/// The fundamental path primitive to describe how to navigate through a table to get to a sub-item. A path member can be either a word or a number. Words/strings are taken to mean
 /// a column name, and numbers are the row number. Taken together they describe which column or row to narrow to in order to get data.
 ///
 /// Rows must follow column names, they can't come first. eg) `foo.1` is valid where `1.foo` is not.

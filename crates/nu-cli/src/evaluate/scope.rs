@@ -52,6 +52,10 @@ impl Scope {
         names
     }
 
+    pub fn len(&self) -> usize {
+        self.frames.lock().len()
+    }
+
     fn has_cmd_helper(&self, name: &str, f: fn(&ScopeFrame, &str) -> bool) -> bool {
         self.frames.lock().iter().any(|frame| f(frame, name))
     }
@@ -80,12 +84,14 @@ impl Scope {
     }
 
     pub fn get_vars(&self) -> IndexMap<String, Value> {
-        //FIXME: should this be an interator?
+        //FIXME: should this be an iterator?
         let mut output = IndexMap::new();
 
         for frame in self.frames.lock().iter().rev() {
             for v in frame.vars.iter() {
-                output.insert(v.0.clone(), v.1.clone());
+                if !output.contains_key(v.0) {
+                    output.insert(v.0.clone(), v.1.clone());
+                }
             }
         }
 
@@ -93,12 +99,14 @@ impl Scope {
     }
 
     pub fn get_env_vars(&self) -> IndexMap<String, String> {
-        //FIXME: should this be an interator?
+        //FIXME: should this be an iterator?
         let mut output = IndexMap::new();
 
         for frame in self.frames.lock().iter().rev() {
             for v in frame.env.iter() {
-                output.insert(v.0.clone(), v.1.clone());
+                if !output.contains_key(v.0) {
+                    output.insert(v.0.clone(), v.1.clone());
+                }
             }
         }
 
@@ -242,7 +250,7 @@ impl ScopeFrame {
 
 // impl Scope {
 //     pub fn vars(&self) -> IndexMap<String, Value> {
-//         //FIXME: should this be an interator?
+//         //FIXME: should this be an iterator?
 
 //         let mut output = IndexMap::new();
 
@@ -262,7 +270,7 @@ impl ScopeFrame {
 //     }
 
 //     pub fn env(&self) -> IndexMap<String, String> {
-//         //FIXME: should this be an interator?
+//         //FIXME: should this be an iterator?
 
 //         let mut output = IndexMap::new();
 

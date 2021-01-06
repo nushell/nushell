@@ -19,7 +19,6 @@ pub async fn run_block(
     mut input: InputStream,
 ) -> Result<InputStream, ShellError> {
     let mut output: Result<InputStream, ShellError> = Ok(InputStream::empty());
-    ctx.scope.enter_scope();
     for (_, definition) in block.definitions.iter() {
         ctx.scope.add_definition(definition.clone());
     }
@@ -48,7 +47,6 @@ pub async fn run_block(
                     {
                         Ok(x) => x,
                         Err(e) => {
-                            ctx.scope.exit_scope();
                             return Err(e);
                         }
                     };
@@ -57,36 +55,30 @@ pub async fn run_block(
                             value: UntaggedValue::Error(e),
                             ..
                         }))) => {
-                            ctx.scope.exit_scope();
                             return Err(e);
                         }
                         Ok(Some(_item)) => {
                             if let Some(err) = ctx.get_errors().get(0) {
                                 ctx.clear_errors();
-                                ctx.scope.exit_scope();
                                 return Err(err.clone());
                             }
                             if ctx.ctrl_c.load(Ordering::SeqCst) {
-                                ctx.scope.exit_scope();
                                 return Ok(InputStream::empty());
                             }
                         }
                         Ok(None) => {
                             if let Some(err) = ctx.get_errors().get(0) {
                                 ctx.clear_errors();
-                                ctx.scope.exit_scope();
                                 return Err(err.clone());
                             }
                         }
                         Err(e) => {
-                            ctx.scope.exit_scope();
                             return Err(e);
                         }
                     }
                 }
             }
             Err(e) => {
-                ctx.scope.exit_scope();
                 return Err(e);
             }
         }
@@ -102,13 +94,11 @@ pub async fn run_block(
                             value: UntaggedValue::Error(e),
                             ..
                         }))) => {
-                            ctx.scope.exit_scope();
                             return Err(e);
                         }
                         Ok(Some(_item)) => {
                             if let Some(err) = ctx.get_errors().get(0) {
                                 ctx.clear_errors();
-                                ctx.scope.exit_scope();
                                 return Err(err.clone());
                             }
                             if ctx.ctrl_c.load(Ordering::SeqCst) {
@@ -117,25 +107,21 @@ pub async fn run_block(
                                 // causes lifetime issues. A future contribution
                                 // could attempt to return the current output.
                                 // https://github.com/nushell/nushell/pull/2830#discussion_r550319687
-                                ctx.scope.exit_scope();
                                 return Ok(InputStream::empty());
                             }
                         }
                         Ok(None) => {
                             if let Some(err) = ctx.get_errors().get(0) {
                                 ctx.clear_errors();
-                                ctx.scope.exit_scope();
                                 return Err(err.clone());
                             }
                         }
                         Err(e) => {
-                            ctx.scope.exit_scope();
                             return Err(e);
                         }
                     }
                 }
                 Err(e) => {
-                    ctx.scope.exit_scope();
                     return Err(e);
                 }
             }
@@ -144,7 +130,6 @@ pub async fn run_block(
             input = InputStream::empty();
         }
     }
-    ctx.scope.exit_scope();
 
     output
 }

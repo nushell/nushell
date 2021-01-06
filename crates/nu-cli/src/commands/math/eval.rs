@@ -50,37 +50,48 @@ pub async fn eval(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.span;
     let (SubCommandArgs { expression }, input) = args.process().await?;
 
-    Ok(input
-        .map(move |x| {
-            if let Some(Tagged {
-                tag,
-                item: expression,
-            }) = &expression
-            {
-                UntaggedValue::string(expression).into_value(tag)
-            } else {
-                x
-            }
-        })
-        .map(move |input| {
-            if let Ok(string) = input.as_string() {
-                match parse(&string, &input.tag) {
-                    Ok(value) => ReturnSuccess::value(value),
-                    Err(err) => Err(ShellError::labeled_error(
-                        "Math evaluation error",
-                        err,
-                        &input.tag.span,
-                    )),
+    if let Some(string) = expression {
+        match parse(&string, &string.tag) {
+            Ok(value) => Ok(OutputStream::one(ReturnSuccess::value(value))),
+            Err(err) => Err(ShellError::labeled_error(
+                "Math evaluation error",
+                err,
+                &string.tag.span,
+            )),
+        }
+    } else {
+        Ok(input
+            .map(move |x| {
+                if let Some(Tagged {
+                    tag,
+                    item: expression,
+                }) = &expression
+                {
+                    UntaggedValue::string(expression).into_value(tag)
+                } else {
+                    x
                 }
-            } else {
-                Err(ShellError::labeled_error(
-                    "Expected a string from pipeline",
-                    "requires string input",
-                    name,
-                ))
-            }
-        })
-        .to_output_stream())
+            })
+            .map(move |input| {
+                if let Ok(string) = input.as_string() {
+                    match parse(&string, &input.tag) {
+                        Ok(value) => ReturnSuccess::value(value),
+                        Err(err) => Err(ShellError::labeled_error(
+                            "Math evaluation error",
+                            err,
+                            &input.tag.span,
+                        )),
+                    }
+                } else {
+                    Err(ShellError::labeled_error(
+                        "Expected a string from pipeline",
+                        "requires string input",
+                        name,
+                    ))
+                }
+            })
+            .to_output_stream())
+    }
 }
 
 pub fn parse<T: Into<Tag>>(math_expression: &str, tag: T) -> Result<Value, String> {

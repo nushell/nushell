@@ -18,13 +18,13 @@ impl Plugin for handler::Handler {
             .named(
                 "endpoint",
                 SyntaxShape::Any,
-                "the enpoint info for the S3 resource, i.g., s3.ap-northeast-1.amazonaws.com or 10.1.1.1",
+                "the endpoint info for the S3 resource, i.g., s3.ap-northeast-1.amazonaws.com or 10.1.1.1",
                 Some('e'),
             )
             .named(
                 "access_key",
                 SyntaxShape::Any,
-                "the accessy key when authenticating",
+                "the access key when authenticating",
                 Some('a'),
             )
             .named(

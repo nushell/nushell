@@ -42,7 +42,7 @@ Create a file within an already existent folder.
 ──────────┴───────────
 ```
 
-Create three files at oince
+Create three files at once
 ```shell
 > touch a b c
 > ls

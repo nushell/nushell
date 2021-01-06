@@ -334,7 +334,7 @@ impl Tag {
         }
     }
 
-    /// Creates a `Tag` for the given `AnchorLocatrion` with unknown `Span` position.
+    /// Creates a `Tag` for the given `AnchorLocation` with unknown `Span` position.
     pub fn unknown_span(anchor: AnchorLocation) -> Tag {
         Tag {
             anchor: Some(anchor),
@@ -376,7 +376,7 @@ impl Tag {
     ///
     /// Both `Tag`s must share the same `AnchorLocation`.
     /// The resulting `Tag` will have a `Span` that starts from the current `Tag` and ends at `Span` of the given `Tag`.
-    /// Should the `None` variant be passed in, a new `Tag` with the same `Span` and `Anchorlocation` will be returned.
+    /// Should the `None` variant be passed in, a new `Tag` with the same `Span` and `AnchorLocation` will be returned.
     pub fn until_option(&self, other: Option<impl Into<Tag>>) -> Tag {
         match other {
             Some(other) => {
