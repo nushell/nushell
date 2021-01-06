@@ -3179,6 +3179,7 @@ dependencies = [
  "nu_plugin_tree",
  "nu_plugin_xpath",
  "pretty_env_logger",
+ "syn",
 ]
 
 [[package]]
@@ -5489,9 +5490,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "1.0.52"
+version = "1.0.57"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c1e438504729046a5cfae47f97c30d6d083c7d91d94603efdae3477fc070d4c"
+checksum = "4211ce9909eb971f111059df92c45640aad50a619cf55cd76476be803c4c68e6"
 dependencies = [
  "proc-macro2",
  "quote",

@@ -37,6 +37,7 @@ nu_plugin_match = {version = "0.25.0", path = "./crates/nu_plugin_match", option
 nu_plugin_post = {version = "0.25.0", path = "./crates/nu_plugin_post", optional = true}
 nu_plugin_ps = {version = "0.25.0", path = "./crates/nu_plugin_ps", optional = true}
 nu_plugin_s3 = {version = "0.25.0", path = "./crates/nu_plugin_s3", optional = true}
+nu_plugin_selector = {version = "0.25.0", path = "./crates/nu_plugin_selector", optional = true}
 nu_plugin_start = {version = "0.25.0", path = "./crates/nu_plugin_start", optional = true}
 nu_plugin_sys = {version = "0.25.0", path = "./crates/nu_plugin_sys", optional = true}
 nu_plugin_textview = {version = "0.25.0", path = "./crates/nu_plugin_textview", optional = true}
@@ -44,15 +45,15 @@ nu_plugin_to_bson = {version = "0.25.0", path = "./crates/nu_plugin_to_bson", op
 nu_plugin_to_sqlite = {version = "0.25.0", path = "./crates/nu_plugin_to_sqlite", optional = true}
 nu_plugin_tree = {version = "0.25.0", path = "./crates/nu_plugin_tree", optional = true}
 nu_plugin_xpath = {version = "0.25.0", path = "./crates/nu_plugin_xpath", optional = true}
-nu_plugin_selector = {version = "0.25.0", path = "./crates/nu_plugin_selector", optional = true}
 
 # Required to bootstrap the main binary
 clap = "2.33.3"
 ctrlc = {version = "3.1.6", optional = true}
 futures = {version = "0.3.5", features = ["compat", "io-compat"]}
+itertools = "0.9.0"
 log = "0.4.11"
 pretty_env_logger = "0.4.0"
-itertools = "0.9.0"
+syn = "=1.0.57"
 
 [dev-dependencies]
 dunce = "1.0.1"
@@ -88,7 +89,7 @@ default = [
   "post",
   "fetch",
   "rich-benchmark",
-  "zip-support"
+  "zip-support",
 ]
 extra = ["default", "binaryview", "tree", "clipboard-cli", "trash-support", "start", "bson", "sqlite", "s3", "chart", "xpath", "selector"]
 stable = ["default"]
@@ -113,18 +114,18 @@ bson = ["nu_plugin_from_bson", "nu_plugin_to_bson"]
 chart = ["nu_plugin_chart"]
 clipboard-cli = ["nu-cli/clipboard-cli"]
 s3 = ["nu_plugin_s3"]
+selector = ["nu_plugin_selector"]
 sqlite = ["nu_plugin_from_sqlite", "nu_plugin_to_sqlite"]
 start = ["nu_plugin_start"]
 trash-support = ["nu-cli/trash-support"]
 tree = ["nu_plugin_tree"]
 xpath = ["nu_plugin_xpath"]
-selector = ["nu_plugin_selector"]
 
 [profile.release]
 #strip = "symbols" #Couldn't get working +nightly
-opt-level = 'z' #Optimize for size
-lto = true #Link Time Optimization
 codegen-units = 1 #Reduce parallel codegen units
+lto = true #Link Time Optimization
+opt-level = 'z' #Optimize for size
 
 # Core plugins that ship with `cargo install nu` by default
 # Currently, Cargo limits us to installing only one binary
