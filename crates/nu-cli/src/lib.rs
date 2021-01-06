@@ -28,6 +28,7 @@ mod futures;
 mod git;
 #[cfg(feature = "rustyline-support")]
 mod keybinding;
+mod line_editor;
 mod path;
 mod plugin;
 pub mod script;

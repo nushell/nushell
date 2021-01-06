@@ -4,7 +4,7 @@ description = "Nushell table printing"
 edition = "2018"
 license = "MIT"
 name = "nu-table"
-version = "0.25.0"
+version = "0.25.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [[bin]]
@@ -13,5 +13,5 @@ path = "src/main.rs"
 
 [dependencies]
 ansi_term = "0.12.1"
-unicode-width = "0.1.8"
 regex = "1.4.2"
+unicode-width = "0.1.8"
