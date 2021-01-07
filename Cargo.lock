@@ -3358,7 +3358,6 @@ dependencies = [
  "nu-protocol",
  "nu-source",
  "nu-value-ext",
- "syn",
  "tui",
 ]
 
