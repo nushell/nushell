@@ -71,7 +71,7 @@ pub fn sum(data: Vec<Value>) -> Result<Value, ShellError> {
     // sum aggregator. Currently this is only handling, filesize,
     // and other types are defaulting to an integer.
     let mut acc = if first_value.is_filesize() {
-        UntaggedValue::filesize(0 as u64).into_untagged_value()
+        UntaggedValue::filesize(0u64).into_untagged_value()
     } else {
         UntaggedValue::int(0).into_untagged_value()
     };
