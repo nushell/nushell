@@ -35,7 +35,6 @@ async-trait = "0.1.36"
 futures = {version = "0.3", features = ["compat", "io-compat"]}
 futures-util = "0.3.5"
 futures_codec = "0.4"
-syn = "=1.0.57"
 web-sys = {version = "0.3.14", features = ["console"]}
 
 [dev-dependencies]
