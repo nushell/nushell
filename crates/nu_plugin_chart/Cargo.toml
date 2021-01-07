@@ -18,6 +18,6 @@ nu-protocol = {path = "../nu-protocol", version = "0.25.1"}
 nu-source = {path = "../nu-source", version = "0.25.1"}
 nu-value-ext = {path = "../nu-value-ext", version = "0.25.1"}
 
-crossterm = "0.18"
+crossterm = "0.19.0"
+tui = {version = "0.14.0", default-features = false, features = ["crossterm"]}
 syn = "=1.0.57"
-tui = {version = "0.12.0", default-features = false, features = ["crossterm"]}
