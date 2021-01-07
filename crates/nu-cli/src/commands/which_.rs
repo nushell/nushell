@@ -1,6 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use indexmap::map::IndexMap;
+use log::trace;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
@@ -55,6 +56,64 @@ macro_rules! create_entry {
     };
 }
 
+fn get_entries_in_aliases(scope: &Scope, name: &str, tag: Tag) -> Vec<Value> {
+    let aliases = scope
+        .get_aliases_with_name(name)
+        .unwrap_or(vec![])
+        .into_iter()
+        .map(|_| create_entry!(name, "Nushell alias", tag.clone(), false))
+        .collect::<Vec<_>>();
+    trace!("Found {} aliases", aliases.len());
+    aliases
+}
+
+fn get_entries_in_custom_command(scope: &Scope, name: &str, tag: Tag) -> Vec<Value> {
+    scope
+        .get_custom_commands_with_name(name)
+        .unwrap_or(vec![])
+        .into_iter()
+        .map(|_| create_entry!(name, "Nushell custom command", tag.clone(), false))
+        .collect()
+}
+
+fn get_entry_in_commands(scope: &Scope, name: &str, tag: Tag) -> Option<Value> {
+    if scope.has_command(name) {
+        Some(create_entry!(
+            name,
+            "Nushell built-in command",
+            tag.clone(),
+            true
+        ))
+    } else {
+        None
+    }
+}
+
+fn get_entries_in_nu(
+    scope: &Scope,
+    name: &str,
+    tag: Tag,
+    skip_after_first_found: bool,
+) -> Vec<Value> {
+    let mut all_entries = vec![];
+
+    all_entries.extend(get_entries_in_aliases(scope, name, tag.clone()));
+    if !all_entries.is_empty() && skip_after_first_found {
+        return all_entries;
+    }
+
+    all_entries.extend(get_entries_in_custom_command(scope, name, tag.clone()));
+    if !all_entries.is_empty() && skip_after_first_found {
+        return all_entries;
+    }
+
+    if let Some(entry) = get_entry_in_commands(scope, name, tag.clone()) {
+        all_entries.push(entry);
+    }
+
+    all_entries
+}
+
 #[allow(unused)]
 macro_rules! entry_path {
     ($arg:expr, $path:expr, $tag:expr) => {
@@ -67,6 +126,34 @@ macro_rules! entry_path {
     };
 }
 
+#[cfg(feature = "ichwh")]
+async fn get_first_entry_in_path(item: &str, tag: Tag) -> Option<Value> {
+    ichwh::which(item)
+        .await
+        .unwrap_or(None)
+        .map(|path| entry_path!(item, path.into(), tag))
+}
+
+#[cfg(not(feature = "ichwh"))]
+async fn get_first_entry_in_path(_: &str, _: Tag) -> Option<Value> {
+    None
+}
+
+#[cfg(feature = "ichwh")]
+async fn get_all_entries_in_path(item: &str, tag: Tag) -> Vec<Value> {
+    ichwh::which_all(&item)
+        .await
+        .unwrap_or(vec![])
+        .into_iter()
+        .map(|path| entry_path!(item, path.into(), tag.clone()))
+        .collect()
+}
+
+#[cfg(not(feature = "ichwh"))]
+async fn get_all_entries_in_path(_: &str, _: Tag) -> Vec<Value> {
+    vec![]
+}
+
 #[derive(Deserialize, Debug)]
 struct WhichArgs {
     application: Tagged<String>,
@@ -74,52 +161,55 @@ struct WhichArgs {
 }
 
 async fn which(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let mut output = vec![];
     let scope = args.scope.clone();
 
     let (WhichArgs { application, all }, _) = args.process().await?;
-    let external = application.starts_with('^');
-    let item = if external {
-        application.item[1..].to_string()
-    } else {
-        application.item.clone()
-    };
-    if !external {
-        if let Some(entry) = entry_for(&scope, &item, application.tag.clone()) {
-            output.push(ReturnSuccess::value(entry));
-        }
-    }
 
-    #[cfg(feature = "ichwh")]
-    {
-        if let Ok(paths) = ichwh::which_all(&item).await {
-            for path in paths {
-                output.push(ReturnSuccess::value(entry_path!(
-                    item,
-                    path.into(),
-                    application.tag.clone()
-                )));
+    let (external, prog_name) = if application.starts_with('^') {
+        (true, application.item[1..].to_string())
+    } else {
+        (false, application.item.clone())
+    };
+
+    let mut output = vec![];
+
+    //If prog_name is an external command, don't search for nu-specific programs
+    //If all is false, we can save some time by only searching for the first matching
+    //program
+    //This match handles all different cases
+    match (all, external) {
+        (true, true) => {
+            output.extend(get_all_entries_in_path(&prog_name, application.tag.clone()).await);
+        }
+        (true, false) => {
+            output.extend(get_entries_in_nu(
+                &scope,
+                &prog_name,
+                application.tag.clone(),
+                false,
+            ));
+            output.extend(get_all_entries_in_path(&prog_name, application.tag.clone()).await);
+        }
+        (false, true) => {
+            if let Some(entry) = get_first_entry_in_path(&prog_name, application.tag.clone()).await
+            {
+                output.push(entry);
+            }
+        }
+        (false, false) => {
+            let nu_entries = get_entries_in_nu(&scope, &prog_name, application.tag.clone(), true);
+            if !nu_entries.is_empty() {
+                output.push(nu_entries[0].clone());
+            } else {
+                if let Some(entry) =
+                    get_first_entry_in_path(&prog_name, application.tag.clone()).await
+                {
+                    output.push(entry);
+                }
             }
         }
     }
-
-    if all {
-        Ok(futures::stream::iter(output.into_iter()).to_output_stream())
-    } else {
-        Ok(futures::stream::iter(output.into_iter().take(1)).to_output_stream())
-    }
-}
-
-fn entry_for(scope: &Scope, name: &str, tag: Tag) -> Option<Value> {
-    if scope.has_custom_command(name) {
-        Some(create_entry!(name, "Nushell custom command", tag, false))
-    } else if scope.has_command(name) {
-        Some(create_entry!(name, "Nushell built-in command", tag, true))
-    } else if scope.has_alias(name) {
-        Some(create_entry!(name, "Nushell alias", tag, false))
-    } else {
-        None
-    }
+    Ok(futures::stream::iter(output.into_iter().map(ReturnSuccess::value)).to_output_stream())
 }
 
 #[cfg(test)]

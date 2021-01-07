@@ -55,5 +55,6 @@ mod touch;
 mod uniq;
 mod update;
 mod where_;
+mod which;
 mod with_env;
 mod wrap;
