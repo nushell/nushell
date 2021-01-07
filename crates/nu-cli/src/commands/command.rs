@@ -250,7 +250,7 @@ impl WholeStreamCommand for Block {
     }
 
     fn usage(&self) -> &str {
-        ""
+        &self.params.usage
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

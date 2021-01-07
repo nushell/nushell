@@ -7,6 +7,7 @@ mod cd;
 mod compact;
 mod count;
 mod cp;
+mod def;
 mod default;
 mod drop;
 mod each;

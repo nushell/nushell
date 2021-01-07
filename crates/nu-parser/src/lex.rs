@@ -18,7 +18,7 @@ impl Token {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum TokenContents {
     /// A baseline token is an atomic chunk of source code. This means that the
     /// token contains the entirety of string literals, as well as the entirety
@@ -28,6 +28,7 @@ pub enum TokenContents {
     /// until the closing `}` (after taking comments and string literals into
     /// consideration).
     Baseline(String),
+    Comment(String),
     Pipe,
     Semicolon,
     EOL,
@@ -38,11 +39,27 @@ pub enum TokenContents {
 #[derive(Debug, Clone)]
 pub struct LiteCommand {
     pub parts: Vec<Spanned<String>>,
+    ///Preceding comments. Each String in the vec is one line. The comment literal is not included.
+    pub comments: Option<Vec<Spanned<String>>>,
 }
 
 impl LiteCommand {
     fn new() -> LiteCommand {
-        LiteCommand { parts: vec![] }
+        LiteCommand {
+            parts: vec![],
+            comments: None,
+        }
+    }
+
+    pub fn comments_joined(&self) -> String {
+        match &self.comments {
+            None => "".to_string(),
+            Some(text) => text
+                .iter()
+                .map(|s| s.item.clone())
+                .collect::<Vec<_>>()
+                .join("\n"),
+        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -145,18 +162,6 @@ impl LiteGroup {
 
     pub fn push(&mut self, item: LitePipeline) {
         self.pipelines.push(item)
-    }
-
-    pub fn is_comment(&self) -> bool {
-        if !self.is_empty()
-            && !self.pipelines[0].is_empty()
-            && !self.pipelines[0].commands.is_empty()
-            && !self.pipelines[0].commands[0].parts.is_empty()
-        {
-            self.pipelines[0].commands[0].parts[0].item.starts_with('#')
-        } else {
-            false
-        }
     }
 
     #[cfg(test)]
@@ -362,17 +367,6 @@ pub fn baseline(src: &mut Input, span_offset: usize) -> (Spanned<String>, Option
     (token_contents.spanned(span), None)
 }
 
-/// We encountered a `#` character. Keep consuming characters until we encounter
-/// a newline character (but don't consume it).
-fn skip_comment(input: &mut Input) {
-    while let Some((_, c)) = input.peek() {
-        if *c == '\n' || *c == '\r' {
-            break;
-        }
-        input.next();
-    }
-}
-
 /// Try to parse a list of tokens into a block.
 pub fn block(tokens: Vec<Token>) -> (LiteBlock, Option<ParseError>) {
     // Accumulate chunks of tokens into groups.
@@ -387,6 +381,9 @@ pub fn block(tokens: Vec<Token>) -> (LiteBlock, Option<ParseError>) {
     // The current command
     let mut command = LiteCommand::new();
 
+    let mut prev_comments = None;
+    let mut prev_comment_indent = 0;
+
     let mut prev_token: Option<Token> = None;
 
     // The parsing process repeats:
@@ -394,6 +391,21 @@ pub fn block(tokens: Vec<Token>) -> (LiteBlock, Option<ParseError>) {
     // - newline (`\n` or `\r`)
     // - pipes (`|`)
     // - semicolon
+    fn finish_command(
+        prev_comments: &mut Option<Vec<Spanned<String>>>,
+        command: &mut LiteCommand,
+        pipeline: &mut LitePipeline,
+    ) {
+        if let Some(prev_comments_) = prev_comments {
+            //Add previous comments to this command
+            command.comments = Some(prev_comments_.clone());
+            //Reset
+            *prev_comments = None;
+        }
+        pipeline.push(command.clone());
+        *command = LiteCommand::new();
+    }
+
     for token in tokens {
         match &token.contents {
             TokenContents::EOL => {
@@ -409,13 +421,21 @@ pub fn block(tokens: Vec<Token>) -> (LiteBlock, Option<ParseError>) {
                     if let TokenContents::Pipe = prev.contents {
                         continue;
                     }
+                    if let TokenContents::EOL = prev.contents {
+                        //If we have an empty line we discard previous comments as they are not
+                        //part of a command
+                        //Example nu Code:
+                        //#I am a comment getting discarded
+                        //
+                        //def e [] {echo hi}
+                        prev_comments = None
+                    }
                 }
 
                 // If we have an open command, push it into the current
                 // pipeline.
                 if command.has_content() {
-                    pipeline.push(command);
-                    command = LiteCommand::new();
+                    finish_command(&mut prev_comments, &mut command, &mut pipeline);
                 }
 
                 // If we have an open pipeline, push it into the current group.
@@ -437,8 +457,7 @@ pub fn block(tokens: Vec<Token>) -> (LiteBlock, Option<ParseError>) {
                 // If the current command has content, accumulate it into
                 // the current pipeline and start a new command.
                 if command.has_content() {
-                    pipeline.push(command);
-                    command = LiteCommand::new();
+                    finish_command(&mut prev_comments, &mut command, &mut pipeline);
                 } else {
                     // If the current command doesn't have content, return an
                     // error that indicates that the `|` was unexpected.
@@ -457,8 +476,7 @@ pub fn block(tokens: Vec<Token>) -> (LiteBlock, Option<ParseError>) {
                 // If the current command has content, accumulate it into the
                 // current pipeline and start a new command.
                 if command.has_content() {
-                    pipeline.push(command);
-                    command = LiteCommand::new();
+                    finish_command(&mut prev_comments, &mut command, &mut pipeline);
                 }
 
                 // If the current pipeline has content, accumulate it into the
@@ -474,13 +492,34 @@ pub fn block(tokens: Vec<Token>) -> (LiteBlock, Option<ParseError>) {
 
                 command.push(bare.to_string().spanned(token.span));
             }
+            TokenContents::Comment(comment) => {
+                if prev_comments.is_none() {
+                    //Calculate amount of space indent
+                    if let Some((i, _)) = comment.chars().enumerate().find(|(_, ch)| *ch != ' ') {
+                        prev_comment_indent = i;
+                    }
+                }
+                let comment: String = comment
+                    .chars()
+                    .enumerate()
+                    .skip_while(|(i, ch)| *i < prev_comment_indent && *ch == ' ')
+                    .map(|(_, ch)| ch)
+                    .collect();
+
+                //Because we skipped some spaces at start, the span needs to be adjusted
+                let comment_span = Span::new(token.span.end() - comment.len(), token.span.end());
+
+                prev_comments
+                    .get_or_insert(vec![])
+                    .push(comment.spanned(comment_span));
+            }
         }
         prev_token = Some(token);
     }
 
     // If the current command has content, accumulate it into the current pipeline.
     if command.has_content() {
-        pipeline.push(command);
+        finish_command(&mut prev_comments, &mut command, &mut pipeline)
     }
 
     // If the current pipeline has content, accumulate it into the current group.
@@ -567,10 +606,26 @@ pub fn lex(input: &str, span_offset: usize) -> (Vec<Token>, Option<ParseError>) 
                 Span::new(span_offset + idx, span_offset + idx + 1),
             ));
         } else if *c == '#' {
-            // If the next character is `#`, we're at the beginning of a line
-            // comment. The comment continues until the next newline.
-
-            skip_comment(&mut char_indices);
+            let comment_start = *idx + 1;
+            let mut comment = String::new();
+            //Don't copy '#' into comment string
+            char_indices.next();
+            while let Some((_, c)) = char_indices.peek() {
+                if *c == '\n' {
+                    break;
+                }
+                comment.push(*c);
+                //Advance char_indices
+                let _ = char_indices.next();
+            }
+            let token = Token::new(
+                TokenContents::Comment(comment.clone()),
+                Span::new(
+                    span_offset + comment_start,
+                    span_offset + comment_start + comment.len(),
+                ),
+            );
+            output.push(token);
         } else if c.is_whitespace() {
             // If the next character is non-newline whitespace, skip it.
 
@@ -703,6 +758,23 @@ mod tests {
         }
 
         #[test]
+        fn lex_comment() {
+            let input = r#"
+#A comment
+def e [] {echo hi}
+                "#;
+
+            let (result, err) = lex(input, 0);
+            assert!(err.is_none());
+            //result[0] == EOL
+            assert_eq!(result[1].span, span(2, 11));
+            assert_eq!(
+                result[1].contents,
+                TokenContents::Comment("A comment".to_string())
+            );
+        }
+
+        #[test]
         fn ignore_future() {
             let input = "foo 'bar";
 
@@ -804,5 +876,106 @@ mod tests {
                 "\"foo' --test\""
             );
         }
+        #[test]
+        fn command_with_comment() {
+            let code = r#"
+# My echo
+# * It's much better :)
+def my_echo [arg] { echo $arg }
+            "#;
+            let (result, err) = lex(code, 0);
+            assert!(err.is_none());
+            let (result, err) = block(result);
+            assert!(err.is_none());
+
+            assert_eq!(result.block.len(), 1);
+            assert_eq!(result.block[0].pipelines.len(), 1);
+            assert_eq!(result.block[0].pipelines[0].commands.len(), 1);
+            assert_eq!(result.block[0].pipelines[0].commands[0].parts.len(), 4);
+            assert_eq!(
+                result.block[0].pipelines[0].commands[0].comments,
+                Some(vec![
+                    //Leading space is trimmed
+                    "My echo".to_string().spanned(Span::new(3, 10)),
+                    "* It's much better :)"
+                        .to_string()
+                        .spanned(Span::new(13, 34))
+                ])
+            );
+        }
+        #[test]
+        fn discarded_comment() {
+            let code = r#"
+# This comment gets discarded, because of the following empty line
+
+echo 42
+            "#;
+            let (result, err) = lex(code, 0);
+            assert!(err.is_none());
+            // assert_eq!(format!("{:?}", result), "");
+            let (result, err) = block(result);
+            assert!(err.is_none());
+            assert_eq!(result.block.len(), 1);
+            assert_eq!(result.block[0].pipelines.len(), 1);
+            assert_eq!(result.block[0].pipelines[0].commands.len(), 1);
+            assert_eq!(result.block[0].pipelines[0].commands[0].parts.len(), 2);
+            assert_eq!(result.block[0].pipelines[0].commands[0].comments, None);
+        }
+    }
+
+    #[test]
+    fn no_discarded_white_space_start_of_comment() {
+        let code = r#"
+#No white_space at firt line ==> No white_space discarded
+#   Starting space is not discarded
+echo 42
+            "#;
+        let (result, err) = lex(code, 0);
+        assert!(err.is_none());
+        // assert_eq!(format!("{:?}", result), "");
+        let (result, err) = block(result);
+        assert!(err.is_none());
+        assert_eq!(result.block.len(), 1);
+        assert_eq!(result.block[0].pipelines.len(), 1);
+        assert_eq!(result.block[0].pipelines[0].commands.len(), 1);
+        assert_eq!(result.block[0].pipelines[0].commands[0].parts.len(), 2);
+        assert_eq!(
+            result.block[0].pipelines[0].commands[0].comments,
+            Some(vec![
+                "No white_space at firt line ==> No white_space discarded"
+                    .to_string()
+                    .spanned(Span::new(2, 58)),
+                "   Starting space is not discarded"
+                    .to_string()
+                    .spanned(Span::new(60, 94)),
+            ])
+        );
+    }
+
+    #[test]
+    fn multiple_discarded_white_space_start_of_comment() {
+        let code = r#"
+#  Discard 2 spaces
+# Discard 1 space
+#  Discard 2 spaces
+echo 42
+            "#;
+        let (result, err) = lex(code, 0);
+        assert!(err.is_none());
+        // assert_eq!(format!("{:?}", result), "");
+        let (result, err) = block(result);
+        assert!(err.is_none());
+        assert_eq!(result.block.len(), 1);
+        assert_eq!(result.block[0].pipelines.len(), 1);
+        assert_eq!(result.block[0].pipelines[0].commands.len(), 1);
+        assert_eq!(result.block[0].pipelines[0].commands[0].parts.len(), 2);
+        assert_eq!(
+            result.block[0].pipelines[0].commands[0].comments,
+            Some(vec![
+                "Discard 2 spaces".to_string().spanned(Span::new(4, 20)),
+                "Discard 1 space".to_string().spanned(Span::new(23, 38)),
+                "Discard 2 spaces".to_string().spanned(Span::new(42, 58)),
+            ])
+        );
     }
 }

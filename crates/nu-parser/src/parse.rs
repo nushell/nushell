@@ -2161,7 +2161,11 @@ fn parse_definition(call: &LiteCommand, scope: &dyn ParserScope) -> Option<Parse
         }
 
         let name = trim_quotes(&call.parts[1].item);
-        let (signature, err) = parse_signature(&name, &call.parts[2], scope);
+        let (mut signature, err) = parse_signature(&name, &call.parts[2], scope);
+
+        //Add commands comments to signature usage
+        signature.usage = call.comments_joined();
+
         if err.is_some() {
             return err;
         };
