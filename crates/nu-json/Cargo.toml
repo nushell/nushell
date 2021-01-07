@@ -9,7 +9,7 @@ version = "0.25.1"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+num-traits = "0.2.14"
 lazy_static = "1"
-num-traits = "~0.1.32"
 regex = "^1.0"
 serde = "^0.8.0"
