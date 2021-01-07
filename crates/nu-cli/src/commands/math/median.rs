@@ -128,8 +128,9 @@ fn compute_average(values: &[Value], name: impl Into<Tag>) -> Result<Value, Shel
             &name,
         )
     })?;
+
     let total_rows = UntaggedValue::decimal(number);
-    let total = sum(UntaggedValue::int(0).into_untagged_value(), values.to_vec())?;
+    let total = sum(Value::nothing(), values.to_vec())?;
 
     match total {
         Value {

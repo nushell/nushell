@@ -41,16 +41,18 @@ pub fn reducer_for(
     command: Reduce,
 ) -> Box<dyn Fn(Value, Vec<Value>) -> Result<Value, ShellError> + Send + Sync + 'static> {
     match command {
-        Reduce::Summation | Reduce::Default => Box::new(formula(
+        Reduce::Default => Box::new(formula(
             UntaggedValue::int(0).into_untagged_value(),
             Box::new(sum),
         )),
+        Reduce::Summation => Box::new(|_, values| sum(values)),
         Reduce::Minimum => Box::new(|_, values| min(values)),
         Reduce::Maximum => Box::new(|_, values| max(values)),
         Reduce::Product => Box::new(|_, values| product(values)),
     }
 }
 
+#[allow(dead_code)]
 pub enum Reduce {
     Summation,
     Minimum,
@@ -60,7 +62,20 @@ pub enum Reduce {
 }
 
 pub fn sum(data: Vec<Value>) -> Result<Value, ShellError> {
-    let mut acc = UntaggedValue::int(0).into_untagged_value();
+    let first_value = data
+        .get(0)
+        .ok_or_else(|| ShellError::unexpected(ERR_EMPTY_DATA))?;
+
+    // Generate the initial accumulator value, of the correct type for
+    // the incoming data, this will be used in conjunction with the
+    // sum aggregator. Currently this is only handling, filesize,
+    // and other types are defaulting to an integer.
+    let mut acc = if first_value.is_filesize() {
+        UntaggedValue::filesize(0u64).into_untagged_value()
+    } else {
+        UntaggedValue::int(0).into_untagged_value()
+    };
+
     for value in data {
         match value.value {
             UntaggedValue::Primitive(_) => {
