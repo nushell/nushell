@@ -43,7 +43,7 @@ pub enum Type {
     /// A path through a table
     ColumnPath,
     /// A glob pattern (like foo*)
-    Pattern,
+    GlobPattern,
     /// A boolean value
     Boolean,
     /// A date value (in UTC)
@@ -51,7 +51,7 @@ pub enum Type {
     /// A data duration value
     Duration,
     /// A filepath value
-    Path,
+    FilePath,
     /// A binary (non-text) buffer value
     Binary,
 
@@ -141,11 +141,11 @@ impl Type {
             Primitive::Filesize(_) => Type::Filesize,
             Primitive::String(_) => Type::String,
             Primitive::ColumnPath(_) => Type::ColumnPath,
-            Primitive::GlobPattern(_) => Type::Pattern,
+            Primitive::GlobPattern(_) => Type::GlobPattern,
             Primitive::Boolean(_) => Type::Boolean,
             Primitive::Date(_) => Type::Date,
             Primitive::Duration(_) => Type::Duration,
-            Primitive::FilePath(_) => Type::Path,
+            Primitive::FilePath(_) => Type::FilePath,
             Primitive::Binary(_) => Type::Binary,
             Primitive::BeginningOfStream => Type::BeginningOfStream,
             Primitive::EndOfStream => Type::EndOfStream,
@@ -223,11 +223,11 @@ impl PrettyDebug for Type {
             Type::String => ty("string"),
             Type::Line => ty("line"),
             Type::ColumnPath => ty("column-path"),
-            Type::Pattern => ty("pattern"),
+            Type::GlobPattern => ty("pattern"),
             Type::Boolean => ty("boolean"),
             Type::Date => ty("date"),
             Type::Duration => ty("duration"),
-            Type::Path => ty("path"),
+            Type::FilePath => ty("path"),
             Type::Binary => ty("binary"),
             Type::Error => b::error("error"),
             Type::BeginningOfStream => b::keyword("beginning-of-stream"),

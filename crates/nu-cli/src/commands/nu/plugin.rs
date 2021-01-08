@@ -28,7 +28,7 @@ impl WholeStreamCommand for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("nu plugin").named(
             "load",
-            SyntaxShape::Path,
+            SyntaxShape::FilePath,
             "a path to load the plugins from",
             Some('l'),
         )

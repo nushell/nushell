@@ -29,7 +29,7 @@ impl WholeStreamCommand for Open {
         Signature::build(self.name())
             .required(
                 "path",
-                SyntaxShape::Path,
+                SyntaxShape::FilePath,
                 "the file path to load values from",
             )
             .switch(

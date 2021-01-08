@@ -176,7 +176,7 @@ impl UntaggedValue {
 
     /// Helper for creating glob pattern values
     pub fn glob_pattern(s: impl Into<String>) -> UntaggedValue {
-        UntaggedValue::Primitive(Primitive::GlobPattern(s.into()))
+        UntaggedValue::Primitive(Primitive::String(s.into()))
     }
 
     /// Helper for creating filepath values

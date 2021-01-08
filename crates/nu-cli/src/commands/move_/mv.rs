@@ -23,12 +23,12 @@ impl WholeStreamCommand for Mv {
         Signature::build("mv")
             .required(
                 "source",
-                SyntaxShape::Pattern,
+                SyntaxShape::GlobPattern,
                 "the location to move files/directories from",
             )
             .required(
                 "destination",
-                SyntaxShape::Path,
+                SyntaxShape::FilePath,
                 "the location to move files/directories to",
             )
     }

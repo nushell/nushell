@@ -28,7 +28,7 @@ impl WholeStreamCommand for Ls {
         Signature::build("ls")
             .optional(
                 "path",
-                SyntaxShape::Pattern,
+                SyntaxShape::GlobPattern,
                 "a path to get the directory contents from",
             )
             .switch("all", "Show hidden files", Some('a'))

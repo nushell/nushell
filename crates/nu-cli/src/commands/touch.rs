@@ -23,10 +23,10 @@ impl WholeStreamCommand for Touch {
         Signature::build("touch")
             .required(
                 "filename",
-                SyntaxShape::Path,
+                SyntaxShape::FilePath,
                 "the path of the file you want to create",
             )
-            .rest(SyntaxShape::Path, "additional files to create")
+            .rest(SyntaxShape::FilePath, "additional files to create")
     }
     fn usage(&self) -> &str {
         "creates one or more files"

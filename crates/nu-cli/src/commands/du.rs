@@ -38,7 +38,7 @@ impl WholeStreamCommand for Du {
 
     fn signature(&self) -> Signature {
         Signature::build(NAME)
-            .optional("path", SyntaxShape::Pattern, "starting directory")
+            .optional("path", SyntaxShape::GlobPattern, "starting directory")
             .switch(
                 "all",
                 "Output file sizes as well as directory sizes",
@@ -51,7 +51,7 @@ impl WholeStreamCommand for Du {
             )
             .named(
                 "exclude",
-                SyntaxShape::Pattern,
+                SyntaxShape::GlobPattern,
                 "Exclude these file names",
                 Some('x'),
             )

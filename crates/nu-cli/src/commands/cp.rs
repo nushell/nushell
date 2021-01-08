@@ -22,8 +22,8 @@ impl WholeStreamCommand for Cpy {
 
     fn signature(&self) -> Signature {
         Signature::build("cp")
-            .required("src", SyntaxShape::Pattern, "the place to copy from")
-            .required("dst", SyntaxShape::Path, "the place to copy to")
+            .required("src", SyntaxShape::GlobPattern, "the place to copy from")
+            .required("dst", SyntaxShape::FilePath, "the place to copy to")
             .switch(
                 "recursive",
                 "copy recursively through subdirectories",
