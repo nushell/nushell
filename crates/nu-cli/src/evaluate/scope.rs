@@ -32,25 +32,34 @@ impl Scope {
     }
 
     pub fn get_aliases_with_name(&self, name: &str) -> Option<Vec<Vec<Spanned<String>>>> {
-        Some(
-            self.frames
-                .lock()
-                .iter()
-                .rev()
-                .filter_map(|frame| frame.aliases.get(name).cloned())
-                .collect(),
-        )
+        let aliases: Vec<_> = self
+            .frames
+            .lock()
+            .iter()
+            .rev()
+            .filter_map(|frame| frame.aliases.get(name).cloned())
+            .collect();
+        if aliases.is_empty() {
+            None
+        } else {
+            Some(aliases)
+        }
     }
 
     pub fn get_custom_commands_with_name(&self, name: &str) -> Option<Vec<Block>> {
-        Some(
-            self.frames
-                .lock()
-                .iter()
-                .rev()
-                .filter_map(|frame| frame.custom_commands.get(name).cloned())
-                .collect(),
-        )
+        let custom_commands: Vec<_> = self
+            .frames
+            .lock()
+            .iter()
+            .rev()
+            .filter_map(|frame| frame.custom_commands.get(name).cloned())
+            .collect();
+
+        if custom_commands.is_empty() {
+            None
+        } else {
+            Some(custom_commands)
+        }
     }
 
     pub fn add_command(&self, name: String, command: Command) {
