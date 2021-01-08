@@ -71,7 +71,6 @@ impl InlineShape {
             Primitive::Decimal(decimal) => InlineShape::Decimal(decimal.clone()),
             Primitive::Filesize(bytesize) => InlineShape::Bytesize(*bytesize),
             Primitive::String(string) => InlineShape::String(string.clone()),
-            Primitive::Line(string) => InlineShape::Line(string.clone()),
             Primitive::ColumnPath(path) => InlineShape::ColumnPath(path.clone()),
             Primitive::Pattern(pattern) => InlineShape::Pattern(pattern.clone()),
             Primitive::Boolean(boolean) => InlineShape::Boolean(*boolean),

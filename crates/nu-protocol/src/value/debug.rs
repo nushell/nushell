@@ -35,7 +35,6 @@ impl PrettyType for Primitive {
             Primitive::Decimal(_) => ty("decimal"),
             Primitive::Filesize(_) => ty("filesize"),
             Primitive::String(_) => ty("string"),
-            Primitive::Line(_) => ty("line"),
             Primitive::ColumnPath(_) => ty("column-path"),
             Primitive::Pattern(_) => ty("pattern"),
             Primitive::Boolean(_) => ty("boolean"),
@@ -73,7 +72,6 @@ impl PrettyDebug for Primitive {
             }
             Primitive::Filesize(bytes) => primitive_doc(bytes, "filesize"),
             Primitive::String(string) => prim(string),
-            Primitive::Line(string) => prim(string),
             Primitive::ColumnPath(path) => path.pretty(),
             Primitive::Pattern(pattern) => primitive_doc(pattern, "pattern"),
             Primitive::Boolean(boolean) => match boolean {

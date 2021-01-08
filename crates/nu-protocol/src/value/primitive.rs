@@ -34,8 +34,6 @@ pub enum Primitive {
     Filesize(u64),
     /// A string value
     String(String),
-    /// A string value with an implied carriage return (or cr/lf) ending
-    Line(String),
     /// A path to travel to reach a value in a table
     ColumnPath(ColumnPath),
     /// A glob pattern, eg foo*
@@ -235,7 +233,6 @@ impl ShellTypeName for Primitive {
             Primitive::Decimal(_) => "decimal",
             Primitive::Filesize(_) => "filesize(in bytes)",
             Primitive::String(_) => "string",
-            Primitive::Line(_) => "line",
             Primitive::ColumnPath(_) => "column path",
             Primitive::Pattern(_) => "pattern",
             Primitive::Boolean(_) => "boolean",
@@ -294,7 +291,6 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
         ),
         Primitive::Pattern(s) => s.to_string(),
         Primitive::String(s) => s.to_owned(),
-        Primitive::Line(s) => s.to_owned(),
         Primitive::ColumnPath(p) => {
             let mut members = p.iter();
             let mut f = String::new();

@@ -75,8 +75,7 @@ async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
 fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
     match &input.value {
-        UntaggedValue::Primitive(Primitive::Line(s))
-        | UntaggedValue::Primitive(Primitive::String(s)) => {
+        UntaggedValue::Primitive(Primitive::String(s)) => {
             let other = s.trim();
             let out = match BigDecimal::from_str(other) {
                 Ok(v) => UntaggedValue::decimal(v),

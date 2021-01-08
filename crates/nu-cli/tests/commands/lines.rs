@@ -31,7 +31,7 @@ fn lines_proper_buffering() {
         "#
     ));
 
-    assert_eq!(actual.out, "[8194,4]");
+    assert_eq!(actual.out, "[8193,3]");
 }
 
 #[test]

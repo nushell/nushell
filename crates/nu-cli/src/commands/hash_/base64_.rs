@@ -164,8 +164,7 @@ fn action(
     tag: impl Into<Tag>,
 ) -> Result<Value, ShellError> {
     match &input.value {
-        UntaggedValue::Primitive(Primitive::Line(s))
-        | UntaggedValue::Primitive(Primitive::String(s)) => {
+        UntaggedValue::Primitive(Primitive::String(s)) => {
             let base64_config_enum: base64::Config = if &base64_config.character_set == "standard" {
                 base64::STANDARD
             } else if &base64_config.character_set == "standard-no-padding" {

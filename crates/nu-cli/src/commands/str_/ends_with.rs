@@ -75,8 +75,7 @@ async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
 fn action(input: &Value, pattern: &str, tag: impl Into<Tag>) -> Result<Value, ShellError> {
     match &input.value {
-        UntaggedValue::Primitive(Primitive::Line(s))
-        | UntaggedValue::Primitive(Primitive::String(s)) => {
+        UntaggedValue::Primitive(Primitive::String(s)) => {
             let ends_with = s.ends_with(pattern);
             Ok(UntaggedValue::boolean(ends_with).into_value(tag))
         }

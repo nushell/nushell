@@ -26,8 +26,7 @@ where
 {
     let a = |url| UntaggedValue::string(action(url));
     let v = match &v.value {
-        UntaggedValue::Primitive(Primitive::String(s))
-        | UntaggedValue::Primitive(Primitive::Line(s)) => match Url::parse(s) {
+        UntaggedValue::Primitive(Primitive::String(s)) => match Url::parse(s) {
             Ok(url) => a(&url).into_value(v.tag()),
             Err(_) => UntaggedValue::string("").into_value(v.tag()),
         },

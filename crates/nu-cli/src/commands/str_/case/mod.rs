@@ -61,8 +61,7 @@ where
     F: Fn(&str) -> String + Send + Sync + 'static,
 {
     match &input.value {
-        UntaggedValue::Primitive(Primitive::Line(s))
-        | UntaggedValue::Primitive(Primitive::String(s)) => {
+        UntaggedValue::Primitive(Primitive::String(s)) => {
             Ok(UntaggedValue::string(case_operation(s)).into_value(tag))
         }
         other => {

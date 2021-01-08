@@ -122,8 +122,7 @@ fn action(input: &Value, options: &Substring, tag: impl Into<Tag>) -> Result<Val
     let tag = tag.into();
 
     match &input.value {
-        UntaggedValue::Primitive(Primitive::Line(s))
-        | UntaggedValue::Primitive(Primitive::String(s)) => {
+        UntaggedValue::Primitive(Primitive::String(s)) => {
             let len: isize = s.len().try_into().map_err(|_| {
                 ShellError::labeled_error(
                     "could not perform substring",

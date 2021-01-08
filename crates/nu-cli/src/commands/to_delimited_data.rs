@@ -133,7 +133,6 @@ pub fn clone_tagged_value(v: &Value) -> Value {
 fn to_string_tagged_value(v: &Value) -> Result<String, ShellError> {
     match &v.value {
         UntaggedValue::Primitive(Primitive::String(_))
-        | UntaggedValue::Primitive(Primitive::Line(_))
         | UntaggedValue::Primitive(Primitive::Filesize(_))
         | UntaggedValue::Primitive(Primitive::Boolean(_))
         | UntaggedValue::Primitive(Primitive::Decimal(_))

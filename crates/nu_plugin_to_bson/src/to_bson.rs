@@ -46,7 +46,6 @@ pub fn value_to_bson_value(v: &Value) -> Result<Bson, ShellError> {
         }
         UntaggedValue::Primitive(Primitive::Nothing) => Bson::Null,
         UntaggedValue::Primitive(Primitive::String(s)) => Bson::String(s.clone()),
-        UntaggedValue::Primitive(Primitive::Line(s)) => Bson::String(s.clone()),
         UntaggedValue::Primitive(Primitive::ColumnPath(path)) => Bson::Array(
             path.iter()
                 .map(|x| match &x.unspanned {

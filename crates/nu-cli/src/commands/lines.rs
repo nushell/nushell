@@ -63,10 +63,6 @@ async fn lines(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 Value {
                     value: UntaggedValue::Primitive(Primitive::String(st)),
                     ..
-                }
-                | Value {
-                    value: UntaggedValue::Primitive(Primitive::Line(st)),
-                    ..
                 } => {
                     let mut leftover_string = leftover_string.lock();
 
@@ -84,7 +80,9 @@ async fn lines(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
                     let success_lines: Vec<_> = lines
                         .iter()
-                        .map(|x| ReturnSuccess::value(UntaggedValue::line(x).into_untagged_value()))
+                        .map(|x| {
+                            ReturnSuccess::value(UntaggedValue::string(x).into_untagged_value())
+                        })
                         .collect();
 
                     futures::stream::iter(success_lines)

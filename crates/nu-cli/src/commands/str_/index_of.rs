@@ -137,8 +137,7 @@ fn action(
 ) -> Result<Value, ShellError> {
     let r = process_range(&input, &range)?;
     match &input.value {
-        UntaggedValue::Primitive(Primitive::Line(s))
-        | UntaggedValue::Primitive(Primitive::String(s)) => {
+        UntaggedValue::Primitive(Primitive::String(s)) => {
             let start_index = r.0 as usize;
             let end_index = r.1 as usize;
 
@@ -169,15 +168,13 @@ fn action(
 
 fn process_range(input: &Value, range: &Value) -> Result<IndexOfOptionalBounds, ShellError> {
     let input_len = match &input.value {
-        UntaggedValue::Primitive(Primitive::Line(s))
-        | UntaggedValue::Primitive(Primitive::String(s)) => s.len(),
+        UntaggedValue::Primitive(Primitive::String(s)) => s.len(),
         _ => 0,
     };
     let min_index_str = String::from("0");
     let max_index_str = input_len.to_string();
     let r = match &range.value {
-        UntaggedValue::Primitive(Primitive::Line(s))
-        | UntaggedValue::Primitive(Primitive::String(s)) => {
+        UntaggedValue::Primitive(Primitive::String(s)) => {
             let indexes: Vec<&str> = s.split(',').collect();
 
             let start_index = indexes.get(0).unwrap_or(&&min_index_str[..]).to_string();
