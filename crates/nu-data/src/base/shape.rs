@@ -72,7 +72,7 @@ impl InlineShape {
             Primitive::Filesize(bytesize) => InlineShape::Bytesize(*bytesize),
             Primitive::String(string) => InlineShape::String(string.clone()),
             Primitive::ColumnPath(path) => InlineShape::ColumnPath(path.clone()),
-            Primitive::Pattern(pattern) => InlineShape::Pattern(pattern.clone()),
+            Primitive::GlobPattern(pattern) => InlineShape::Pattern(pattern.clone()),
             Primitive::Boolean(boolean) => InlineShape::Boolean(*boolean),
             Primitive::Date(date) => InlineShape::Date(*date),
             Primitive::Duration(duration) => InlineShape::Duration(duration.clone()),

@@ -175,12 +175,12 @@ impl UntaggedValue {
     }
 
     /// Helper for creating glob pattern values
-    pub fn pattern(s: impl Into<String>) -> UntaggedValue {
-        UntaggedValue::Primitive(Primitive::String(s.into()))
+    pub fn glob_pattern(s: impl Into<String>) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::GlobPattern(s.into()))
     }
 
     /// Helper for creating filepath values
-    pub fn path(s: impl Into<PathBuf>) -> UntaggedValue {
+    pub fn filepath(s: impl Into<PathBuf>) -> UntaggedValue {
         UntaggedValue::Primitive(Primitive::FilePath(s.into()))
     }
 
@@ -623,13 +623,13 @@ impl StringExt for String {
 
     fn to_pattern_value(&self, the_tag: Tag) -> Value {
         Value {
-            value: UntaggedValue::Primitive(Primitive::Pattern(self.to_string())),
+            value: UntaggedValue::Primitive(Primitive::GlobPattern(self.to_string())),
             tag: the_tag,
         }
     }
 
     fn to_pattern_untagged_value(&self) -> UntaggedValue {
-        UntaggedValue::pattern(self)
+        UntaggedValue::glob_pattern(self)
     }
 }
 
@@ -682,13 +682,13 @@ impl StrExt for &str {
 
     fn to_pattern_value(&self, the_tag: Tag) -> Value {
         Value {
-            value: UntaggedValue::Primitive(Primitive::Pattern(self.to_string())),
+            value: UntaggedValue::Primitive(Primitive::GlobPattern(self.to_string())),
             tag: the_tag,
         }
     }
 
     fn to_pattern_untagged_value(&self) -> UntaggedValue {
-        UntaggedValue::pattern(*self)
+        UntaggedValue::glob_pattern(*self)
     }
 }
 
@@ -852,7 +852,7 @@ impl PathBufExt for PathBuf {
 
     fn to_untagged_value(&self) -> UntaggedValue {
         let pb = self.clone();
-        UntaggedValue::path(pb)
+        UntaggedValue::filepath(pb)
     }
 }
 
@@ -988,7 +988,7 @@ mod tests {
         let a_pattern = r"[a-zA-Z0-9 ]";
         assert_eq!(
             a_pattern.to_pattern_untagged_value(),
-            UntaggedValue::pattern(a_pattern)
+            UntaggedValue::glob_pattern(a_pattern)
         );
     }
 

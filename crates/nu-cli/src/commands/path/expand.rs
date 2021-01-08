@@ -65,7 +65,7 @@ fn action(path: &Path, _args: Arc<DefaultArguments>) -> UntaggedValue {
     let ps = path.to_string_lossy();
     let expanded = shellexpand::tilde(&ps);
     let path: &Path = expanded.as_ref().as_ref();
-    UntaggedValue::path(dunce::canonicalize(path).unwrap_or_else(|_| PathBuf::from(path)))
+    UntaggedValue::filepath(dunce::canonicalize(path).unwrap_or_else(|_| PathBuf::from(path)))
 }
 
 #[cfg(test)]

@@ -107,7 +107,7 @@ impl WholeStreamCommand for PathFilestem {
             Example {
                 description: "Replace the filestem that would be returned",
                 example: "echo '/home/joe/bacon_lettuce.egg.gz' | path filestem -p bacon_ -s .egg.gz -r spam",
-                result: Some(vec![Value::from(UntaggedValue::path("/home/joe/bacon_spam.egg.gz"))]),
+                result: Some(vec![Value::from(UntaggedValue::filepath("/home/joe/bacon_spam.egg.gz"))]),
             },
         ]
     }
@@ -152,7 +152,7 @@ fn action(path: &Path, args: Arc<DefaultArguments>) -> UntaggedValue {
     match args.replace {
         Some(ref replace) => {
             let new_name = prefix + replace + &suffix;
-            UntaggedValue::path(path.with_file_name(&new_name))
+            UntaggedValue::filepath(path.with_file_name(&new_name))
         }
         None => UntaggedValue::string(stem),
     }

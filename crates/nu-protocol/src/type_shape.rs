@@ -141,7 +141,7 @@ impl Type {
             Primitive::Filesize(_) => Type::Filesize,
             Primitive::String(_) => Type::String,
             Primitive::ColumnPath(_) => Type::ColumnPath,
-            Primitive::Pattern(_) => Type::Pattern,
+            Primitive::GlobPattern(_) => Type::Pattern,
             Primitive::Boolean(_) => Type::Boolean,
             Primitive::Date(_) => Type::Date,
             Primitive::Duration(_) => Type::Duration,

@@ -58,7 +58,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
             )?))
         }
         UntaggedValue::Primitive(Primitive::Nothing) => serde_yaml::Value::Null,
-        UntaggedValue::Primitive(Primitive::Pattern(s)) => serde_yaml::Value::String(s.clone()),
+        UntaggedValue::Primitive(Primitive::GlobPattern(s)) => serde_yaml::Value::String(s.clone()),
         UntaggedValue::Primitive(Primitive::String(s)) => serde_yaml::Value::String(s.clone()),
         UntaggedValue::Primitive(Primitive::ColumnPath(path)) => {
             let mut out = vec![];

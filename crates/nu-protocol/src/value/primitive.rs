@@ -37,7 +37,7 @@ pub enum Primitive {
     /// A path to travel to reach a value in a table
     ColumnPath(ColumnPath),
     /// A glob pattern, eg foo*
-    Pattern(String),
+    GlobPattern(String),
     /// A boolean value
     Boolean(bool),
     /// A date value
@@ -234,7 +234,7 @@ impl ShellTypeName for Primitive {
             Primitive::Filesize(_) => "filesize(in bytes)",
             Primitive::String(_) => "string",
             Primitive::ColumnPath(_) => "column path",
-            Primitive::Pattern(_) => "pattern",
+            Primitive::GlobPattern(_) => "pattern",
             Primitive::Boolean(_) => "boolean",
             Primitive::Date(_) => "date",
             Primitive::Duration(_) => "duration",
@@ -289,7 +289,7 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
             },
             format_primitive(&range.to.0.item, None)
         ),
-        Primitive::Pattern(s) => s.to_string(),
+        Primitive::GlobPattern(s) => s.to_string(),
         Primitive::String(s) => s.to_owned(),
         Primitive::ColumnPath(p) => {
             let mut members = p.iter();

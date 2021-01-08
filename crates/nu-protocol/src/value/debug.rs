@@ -36,7 +36,7 @@ impl PrettyType for Primitive {
             Primitive::Filesize(_) => ty("filesize"),
             Primitive::String(_) => ty("string"),
             Primitive::ColumnPath(_) => ty("column-path"),
-            Primitive::Pattern(_) => ty("pattern"),
+            Primitive::GlobPattern(_) => ty("pattern"),
             Primitive::Boolean(_) => ty("boolean"),
             Primitive::Date(_) => ty("date"),
             Primitive::Duration(_) => ty("duration"),
@@ -73,7 +73,7 @@ impl PrettyDebug for Primitive {
             Primitive::Filesize(bytes) => primitive_doc(bytes, "filesize"),
             Primitive::String(string) => prim(string),
             Primitive::ColumnPath(path) => path.pretty(),
-            Primitive::Pattern(pattern) => primitive_doc(pattern, "pattern"),
+            Primitive::GlobPattern(pattern) => primitive_doc(pattern, "pattern"),
             Primitive::Boolean(boolean) => match boolean {
                 true => b::primitive("$yes"),
                 false => b::primitive("$no"),

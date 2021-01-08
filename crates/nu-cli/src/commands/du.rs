@@ -347,7 +347,7 @@ impl From<DirInfo> for Value {
 
         r.insert(
             "path".to_string(),
-            UntaggedValue::path(d.path).into_value(&d.tag),
+            UntaggedValue::filepath(d.path).into_value(&d.tag),
         );
 
         r.insert(
@@ -389,7 +389,7 @@ impl From<FileInfo> for Value {
 
         r.insert(
             "path".to_string(),
-            UntaggedValue::path(f.path).into_value(&f.tag),
+            UntaggedValue::filepath(f.path).into_value(&f.tag),
         );
 
         r.insert(

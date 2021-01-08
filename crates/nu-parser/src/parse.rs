@@ -820,7 +820,7 @@ fn parse_arg(
             let trimmed = trim_quotes(&lite_arg.item);
             let expanded = expand_path(&trimmed).to_string();
             (
-                SpannedExpression::new(Expression::pattern(expanded), lite_arg.span),
+                SpannedExpression::new(Expression::glob_pattern(expanded), lite_arg.span),
                 None,
             )
         }
