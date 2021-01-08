@@ -57,7 +57,7 @@ pub fn value_to_bson_value(v: &Value) -> Result<Bson, ShellError> {
                 .collect::<Result<Vec<Bson>, ShellError>>()?,
         ),
         UntaggedValue::Primitive(Primitive::Pattern(p)) => Bson::String(p.clone()),
-        UntaggedValue::Primitive(Primitive::Path(s)) => Bson::String(s.display().to_string()),
+        UntaggedValue::Primitive(Primitive::FilePath(s)) => Bson::String(s.display().to_string()),
         UntaggedValue::Table(l) => Bson::Array(
             l.iter()
                 .map(|x| value_to_bson_value(x))

@@ -145,7 +145,7 @@ impl Type {
             Primitive::Boolean(_) => Type::Boolean,
             Primitive::Date(_) => Type::Date,
             Primitive::Duration(_) => Type::Duration,
-            Primitive::Path(_) => Type::Path,
+            Primitive::FilePath(_) => Type::Path,
             Primitive::Binary(_) => Type::Binary,
             Primitive::BeginningOfStream => Type::BeginningOfStream,
             Primitive::EndOfStream => Type::EndOfStream,

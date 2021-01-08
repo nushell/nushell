@@ -149,10 +149,10 @@ pub fn coerce_compare_primitive(
         (Date(left), Date(right)) => CompareValues::Date(*left, *right),
         (Date(left), Duration(right)) => CompareValues::DateDuration(*left, right.clone()),
         (Boolean(left), Boolean(right)) => CompareValues::Booleans(*left, *right),
-        (Path(left), String(right)) => {
+        (FilePath(left), String(right)) => {
             CompareValues::String(left.as_path().display().to_string(), right.clone())
         }
-        (String(left), Path(right)) => {
+        (String(left), FilePath(right)) => {
             CompareValues::String(left.clone(), right.as_path().display().to_string())
         }
         _ => return Err((left.type_name(), right.type_name())),

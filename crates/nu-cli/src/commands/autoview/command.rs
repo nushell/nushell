@@ -134,7 +134,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                         out!("{}", s);
                     }
                     Value {
-                        value: UntaggedValue::Primitive(Primitive::Path(s)),
+                        value: UntaggedValue::Primitive(Primitive::FilePath(s)),
                         ..
                     } => {
                         out!("{}", s.display());

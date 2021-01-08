@@ -112,8 +112,8 @@ pub fn clone_tagged_value(v: &Value) -> Value {
         UntaggedValue::Primitive(Primitive::Int(i)) => {
             UntaggedValue::Primitive(Primitive::Int(i.clone()))
         }
-        UntaggedValue::Primitive(Primitive::Path(x)) => {
-            UntaggedValue::Primitive(Primitive::Path(x.clone()))
+        UntaggedValue::Primitive(Primitive::FilePath(x)) => {
+            UntaggedValue::Primitive(Primitive::FilePath(x.clone()))
         }
         UntaggedValue::Primitive(Primitive::Filesize(b)) => {
             UntaggedValue::Primitive(Primitive::Filesize(*b))
@@ -136,7 +136,7 @@ fn to_string_tagged_value(v: &Value) -> Result<String, ShellError> {
         | UntaggedValue::Primitive(Primitive::Filesize(_))
         | UntaggedValue::Primitive(Primitive::Boolean(_))
         | UntaggedValue::Primitive(Primitive::Decimal(_))
-        | UntaggedValue::Primitive(Primitive::Path(_))
+        | UntaggedValue::Primitive(Primitive::FilePath(_))
         | UntaggedValue::Primitive(Primitive::Int(_)) => as_string(v),
         UntaggedValue::Primitive(Primitive::Date(d)) => Ok(d.to_string()),
         UntaggedValue::Primitive(Primitive::Nothing) => Ok(String::new()),

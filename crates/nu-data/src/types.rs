@@ -36,7 +36,7 @@ impl ExtractType for std::path::PathBuf {
 
         match &value {
             Value {
-                value: UntaggedValue::Primitive(Primitive::Path(p)),
+                value: UntaggedValue::Primitive(Primitive::FilePath(p)),
                 ..
             } => Ok(p.clone()),
             other => Err(ShellError::type_error("Path", other.spanned_type_name())),

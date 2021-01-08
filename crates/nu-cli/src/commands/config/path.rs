@@ -36,6 +36,6 @@ pub async fn path(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let path = config::default_path()?;
 
     Ok(OutputStream::one(ReturnSuccess::value(
-        UntaggedValue::Primitive(Primitive::Path(path)).into_value(args.call_info.name_tag),
+        UntaggedValue::Primitive(Primitive::FilePath(path)).into_value(args.call_info.name_tag),
     )))
 }

@@ -48,7 +48,7 @@ pub enum Primitive {
     /// A range of values
     Range(Box<Range>),
     /// A file path
-    Path(PathBuf),
+    FilePath(PathBuf),
     /// A vector of raw binary data
     #[serde(with = "serde_bytes")]
     Binary(Vec<u8>),
@@ -238,7 +238,7 @@ impl ShellTypeName for Primitive {
             Primitive::Boolean(_) => "boolean",
             Primitive::Date(_) => "date",
             Primitive::Duration(_) => "duration",
-            Primitive::Path(_) => "file path",
+            Primitive::FilePath(_) => "file path",
             Primitive::Binary(_) => "binary",
             Primitive::BeginningOfStream => "marker<beginning of stream>",
             Primitive::EndOfStream => "marker<end of stream>",
@@ -252,7 +252,7 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
         Primitive::Nothing => String::new(),
         Primitive::BeginningOfStream => String::new(),
         Primitive::EndOfStream => String::new(),
-        Primitive::Path(p) => format!("{}", p.display()),
+        Primitive::FilePath(p) => format!("{}", p.display()),
         Primitive::Filesize(num_bytes) => {
             let byte = byte_unit::Byte::from_bytes(*num_bytes as u128);
 

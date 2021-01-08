@@ -60,7 +60,7 @@ fn helper(v: &Value) -> Result<toml::Value, ShellError> {
         }
         UntaggedValue::Primitive(Primitive::Pattern(s)) => toml::Value::String(s.clone()),
         UntaggedValue::Primitive(Primitive::String(s)) => toml::Value::String(s.clone()),
-        UntaggedValue::Primitive(Primitive::Path(s)) => {
+        UntaggedValue::Primitive(Primitive::FilePath(s)) => {
             toml::Value::String(s.display().to_string())
         }
         UntaggedValue::Primitive(Primitive::ColumnPath(path)) => toml::Value::Array(

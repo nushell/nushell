@@ -395,7 +395,7 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
                 })
                 .collect::<Result<Vec<serde_json::Value>, ShellError>>()?,
         ),
-        UntaggedValue::Primitive(Primitive::Path(s)) => {
+        UntaggedValue::Primitive(Primitive::FilePath(s)) => {
             serde_json::Value::String(s.display().to_string())
         }
 

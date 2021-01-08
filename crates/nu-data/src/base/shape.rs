@@ -76,7 +76,7 @@ impl InlineShape {
             Primitive::Boolean(boolean) => InlineShape::Boolean(*boolean),
             Primitive::Date(date) => InlineShape::Date(*date),
             Primitive::Duration(duration) => InlineShape::Duration(duration.clone()),
-            Primitive::Path(path) => InlineShape::Path(path.clone()),
+            Primitive::FilePath(path) => InlineShape::Path(path.clone()),
             Primitive::Binary(b) => InlineShape::Binary(b.len()),
             Primitive::BeginningOfStream => InlineShape::BeginningOfStream,
             Primitive::EndOfStream => InlineShape::EndOfStream,
