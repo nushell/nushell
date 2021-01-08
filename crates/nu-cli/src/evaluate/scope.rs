@@ -31,6 +31,37 @@ impl Scope {
         None
     }
 
+    pub fn get_aliases_with_name(&self, name: &str) -> Option<Vec<Vec<Spanned<String>>>> {
+        let aliases: Vec<_> = self
+            .frames
+            .lock()
+            .iter()
+            .rev()
+            .filter_map(|frame| frame.aliases.get(name).cloned())
+            .collect();
+        if aliases.is_empty() {
+            None
+        } else {
+            Some(aliases)
+        }
+    }
+
+    pub fn get_custom_commands_with_name(&self, name: &str) -> Option<Vec<Block>> {
+        let custom_commands: Vec<_> = self
+            .frames
+            .lock()
+            .iter()
+            .rev()
+            .filter_map(|frame| frame.custom_commands.get(name).cloned())
+            .collect();
+
+        if custom_commands.is_empty() {
+            None
+        } else {
+            Some(custom_commands)
+        }
+    }
+
     pub fn add_command(&self, name: String, command: Command) {
         // Note: this is assumed to always be true, as there is always a global top frame
         if let Some(frame) = self.frames.lock().last_mut() {
