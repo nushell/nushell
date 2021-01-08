@@ -333,6 +333,30 @@ fn string_interpolation_with_it_column_path() {
 }
 
 #[test]
+fn bignum_large_integer() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            echo 91231720741731287123917
+        "#
+    );
+
+    assert_eq!(actual.out, "91231720741731287123917");
+}
+
+#[test]
+fn bignum_large_decimal() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            echo 91231720741731287123917.1
+        "#
+    );
+
+    assert_eq!(actual.out, "91231720741731287123917.1");
+}
+
+#[test]
 fn run_custom_command() {
     let actual = nu!(
         cwd: ".",
