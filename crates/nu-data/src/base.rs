@@ -146,9 +146,6 @@ pub fn coerce_compare_primitive(
         }
         (Nothing, Nothing) => CompareValues::Booleans(true, true),
         (String(left), String(right)) => CompareValues::String(left.clone(), right.clone()),
-        (Line(left), String(right)) => CompareValues::String(left.clone(), right.clone()),
-        (String(left), Line(right)) => CompareValues::String(left.clone(), right.clone()),
-        (Line(left), Line(right)) => CompareValues::String(left.clone(), right.clone()),
         (Date(left), Date(right)) => CompareValues::Date(*left, *right),
         (Date(left), Duration(right)) => CompareValues::DateDuration(*left, right.clone()),
         (Boolean(left), Boolean(right)) => CompareValues::Booleans(*left, *right),

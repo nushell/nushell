@@ -134,29 +134,6 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                         out!("{}", s);
                     }
                     Value {
-                        value: UntaggedValue::Primitive(Primitive::Line(ref s)),
-                        tag: Tag { anchor, span },
-                    } if anchor.is_some() => {
-                        if let Some(text) = text {
-                            let mut stream = VecDeque::new();
-                            stream.push_back(
-                                UntaggedValue::string(s).into_value(Tag { anchor, span }),
-                            );
-                            let command_args =
-                                create_default_command_args(&context).with_input(stream);
-                            let result = text.run(command_args).await?;
-                            result.collect::<Vec<_>>().await;
-                        } else {
-                            out!("{}\n", s);
-                        }
-                    }
-                    Value {
-                        value: UntaggedValue::Primitive(Primitive::Line(s)),
-                        ..
-                    } => {
-                        out!("{}\n", s);
-                    }
-                    Value {
                         value: UntaggedValue::Primitive(Primitive::Path(s)),
                         ..
                     } => {

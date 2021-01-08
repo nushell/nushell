@@ -47,7 +47,6 @@ fn nu_value_to_sqlite_string(v: Value) -> String {
             Primitive::Filesize(u) => format!("{}", u),
             Primitive::Pattern(s) => format!("'{}'", s.replace("'", "''")),
             Primitive::String(s) => format!("'{}'", s.replace("'", "''")),
-            Primitive::Line(s) => format!("'{}'", s.replace("'", "''")),
             Primitive::Boolean(true) => "1".into(),
             Primitive::Boolean(_) => "0".into(),
             Primitive::Date(d) => format!("'{}'", d),

@@ -221,8 +221,7 @@ fn spawn(
                 for value in block_on_stream(input) {
                     match &value.value {
                         UntaggedValue::Primitive(Primitive::Nothing) => continue,
-                        UntaggedValue::Primitive(Primitive::String(s))
-                        | UntaggedValue::Primitive(Primitive::Line(s)) => {
+                        UntaggedValue::Primitive(Primitive::String(s)) => {
                             if stdin_write.write(s.as_bytes()).is_err() {
                                 // Other side has closed, so exit
                                 return Ok(());

@@ -47,8 +47,7 @@ where
 {
     let v = match &v.value {
         UntaggedValue::Primitive(Primitive::Path(buf)) => action(buf, args).into_value(v.tag()),
-        UntaggedValue::Primitive(Primitive::String(s))
-        | UntaggedValue::Primitive(Primitive::Line(s)) => {
+        UntaggedValue::Primitive(Primitive::String(s)) => {
             action(s.as_ref(), args).into_value(v.tag())
         }
         other => {

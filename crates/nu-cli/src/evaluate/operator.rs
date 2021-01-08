@@ -63,18 +63,6 @@ fn string_contains(
             UntaggedValue::Primitive(Primitive::String(l)),
             UntaggedValue::Primitive(Primitive::String(r)),
         ) => Ok(l.contains(r)),
-        (
-            UntaggedValue::Primitive(Primitive::Line(l)),
-            UntaggedValue::Primitive(Primitive::String(r)),
-        ) => Ok(l.contains(r)),
-        (
-            UntaggedValue::Primitive(Primitive::String(l)),
-            UntaggedValue::Primitive(Primitive::Line(r)),
-        ) => Ok(l.contains(r)),
-        (
-            UntaggedValue::Primitive(Primitive::Line(l)),
-            UntaggedValue::Primitive(Primitive::Line(r)),
-        ) => Ok(l.contains(r)),
         _ => Err((left.type_name(), right.type_name())),
     }
 }

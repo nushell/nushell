@@ -80,8 +80,7 @@ where
 {
     let tag = tag.into();
     match &input.value {
-        UntaggedValue::Primitive(Primitive::Line(s))
-        | UntaggedValue::Primitive(Primitive::String(s)) => {
+        UntaggedValue::Primitive(Primitive::String(s)) => {
             Ok(UntaggedValue::string(trim_operation(s, char_)).into_value(tag))
         }
         other => match mode {

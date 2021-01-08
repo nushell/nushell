@@ -109,8 +109,7 @@ fn action(
     tag: impl Into<Tag>,
 ) -> Result<Value, ShellError> {
     match &input.value {
-        UntaggedValue::Primitive(Primitive::Line(s))
-        | UntaggedValue::Primitive(Primitive::String(s)) => {
+        UntaggedValue::Primitive(Primitive::String(s)) => {
             let out = match options {
                 Some(dt) => match DateTime::parse_from_str(s, &dt.0) {
                     Ok(d) => UntaggedValue::date(d),

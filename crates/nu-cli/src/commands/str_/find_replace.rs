@@ -105,8 +105,7 @@ fn action(
     all: bool,
 ) -> Result<Value, ShellError> {
     match &input.value {
-        UntaggedValue::Primitive(Primitive::Line(s))
-        | UntaggedValue::Primitive(Primitive::String(s)) => {
+        UntaggedValue::Primitive(Primitive::String(s)) => {
             let find = &options.0;
             let replacement = &options.1;
 

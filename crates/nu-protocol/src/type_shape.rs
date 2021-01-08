@@ -140,7 +140,6 @@ impl Type {
             Primitive::Decimal(_) => Type::Decimal,
             Primitive::Filesize(_) => Type::Filesize,
             Primitive::String(_) => Type::String,
-            Primitive::Line(_) => Type::Line,
             Primitive::ColumnPath(_) => Type::ColumnPath,
             Primitive::Pattern(_) => Type::Pattern,
             Primitive::Boolean(_) => Type::Boolean,

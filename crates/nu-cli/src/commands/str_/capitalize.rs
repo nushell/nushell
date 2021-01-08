@@ -72,8 +72,7 @@ async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
 fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
     match &input.value {
-        UntaggedValue::Primitive(Primitive::Line(s))
-        | UntaggedValue::Primitive(Primitive::String(s)) => {
+        UntaggedValue::Primitive(Primitive::String(s)) => {
             let mut capitalized = String::new();
 
             for (idx, character) in s.chars().enumerate() {

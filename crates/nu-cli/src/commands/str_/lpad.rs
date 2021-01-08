@@ -111,8 +111,7 @@ fn action(
     tag: impl Into<Tag>,
 ) -> Result<Value, ShellError> {
     match &input.value {
-        UntaggedValue::Primitive(Primitive::Line(s))
-        | UntaggedValue::Primitive(Primitive::String(s)) => {
+        UntaggedValue::Primitive(Primitive::String(s)) => {
             if length < s.len() {
                 Ok(UntaggedValue::string(&s[0..length]).into_value(tag))
             } else {

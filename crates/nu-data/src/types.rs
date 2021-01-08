@@ -81,10 +81,6 @@ impl ExtractType for String {
                 value: UntaggedValue::Primitive(Primitive::String(string)),
                 ..
             } => Ok(string.clone()),
-            Value {
-                value: UntaggedValue::Primitive(Primitive::Line(string)),
-                ..
-            } => Ok(string.clone()),
             other => Err(ShellError::type_error("String", other.spanned_type_name())),
         }
     }

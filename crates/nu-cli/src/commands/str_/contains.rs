@@ -96,8 +96,7 @@ fn action(
     tag: impl Into<Tag>,
 ) -> Result<Value, ShellError> {
     match &input.value {
-        UntaggedValue::Primitive(Primitive::Line(s))
-        | UntaggedValue::Primitive(Primitive::String(s)) => {
+        UntaggedValue::Primitive(Primitive::String(s)) => {
             let contains = if insensitive {
                 s.to_lowercase().find(&pattern.to_lowercase()).is_some()
             } else {

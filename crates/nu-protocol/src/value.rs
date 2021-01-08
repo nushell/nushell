@@ -162,11 +162,6 @@ impl UntaggedValue {
         UntaggedValue::Primitive(Primitive::String(s.into()))
     }
 
-    /// Helper for creating line values
-    pub fn line(s: impl Into<String>) -> UntaggedValue {
-        UntaggedValue::Primitive(Primitive::Line(s.into()))
-    }
-
     /// Helper for creating column-path values
     pub fn column_path(s: &str, span: Span) -> UntaggedValue {
         let s = s.to_string().spanned(span);
@@ -317,7 +312,6 @@ impl Value {
     pub fn as_string(&self) -> Result<String, ShellError> {
         match &self.value {
             UntaggedValue::Primitive(Primitive::String(string)) => Ok(string.clone()),
-            UntaggedValue::Primitive(Primitive::Line(line)) => Ok(line.clone() + "\n"),
             UntaggedValue::Primitive(Primitive::Path(path)) => {
                 Ok(path.to_string_lossy().to_string())
             }
@@ -584,8 +578,6 @@ pub trait StringExt {
     fn to_string_untagged_value(&self) -> UntaggedValue;
     fn to_string_value(&self, tag: Tag) -> Value;
     fn to_string_value_create_tag(&self) -> Value;
-    fn to_line_value(&self, tag: Tag) -> Value;
-    fn to_line_untagged_value(&self) -> UntaggedValue;
     fn to_column_path_value(&self, tag: Tag) -> Value;
     fn to_column_path_untagged_value(&self, span: Span) -> UntaggedValue;
     fn to_pattern_value(&self, tag: Tag) -> Value;
@@ -613,17 +605,6 @@ impl StringExt for String {
 
     fn to_string_untagged_value(&self) -> UntaggedValue {
         UntaggedValue::string(self)
-    }
-
-    fn to_line_value(&self, the_tag: Tag) -> Value {
-        Value {
-            value: UntaggedValue::Primitive(Primitive::Line(self.to_string())),
-            tag: the_tag,
-        }
-    }
-
-    fn to_line_untagged_value(&self) -> UntaggedValue {
-        UntaggedValue::line(self)
     }
 
     fn to_column_path_value(&self, the_tag: Tag) -> Value {
@@ -656,8 +637,6 @@ pub trait StrExt {
     fn to_str_untagged_value(&self) -> UntaggedValue;
     fn to_str_value(&self, tag: Tag) -> Value;
     fn to_str_value_create_tag(&self) -> Value;
-    fn to_line_value(&self, tag: Tag) -> Value;
-    fn to_line_untagged_value(&self) -> UntaggedValue;
     fn to_column_path_value(&self, tag: Tag) -> Value;
     fn to_column_path_untagged_value(&self, span: Span) -> UntaggedValue;
     fn to_pattern_value(&self, tag: Tag) -> Value;
@@ -685,17 +664,6 @@ impl StrExt for &str {
 
     fn to_str_untagged_value(&self) -> UntaggedValue {
         UntaggedValue::string(*self)
-    }
-
-    fn to_line_value(&self, the_tag: Tag) -> Value {
-        Value {
-            value: UntaggedValue::Primitive(Primitive::Line(self.to_string())),
-            tag: the_tag,
-        }
-    }
-
-    fn to_line_untagged_value(&self) -> UntaggedValue {
-        UntaggedValue::line(*self)
     }
 
     fn to_column_path_value(&self, the_tag: Tag) -> Value {
@@ -1013,12 +981,6 @@ mod tests {
             "a_string".to_string().to_string_value_create_tag(),
             expected
         );
-    }
-
-    #[test]
-    fn test_string_to_line_untagged_value() {
-        let a_line = r"this is some line\n";
-        assert_eq!(a_line.to_line_untagged_value(), UntaggedValue::line(a_line));
     }
 
     #[test]
