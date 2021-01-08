@@ -359,11 +359,12 @@ async fn run_startup_commands(
                 value: UntaggedValue::Table(pipelines),
                 ..
             } => {
+                let mut script_file = String::new();
                 for pipeline in pipelines {
-                    if let Ok(pipeline_string) = pipeline.as_string() {
-                        let _ = run_script_standalone(pipeline_string, false, context, false).await;
-                    }
+                    script_file.push_str(&pipeline.as_string()?);
+                    script_file.push('\n');
                 }
+                let _ = run_script_standalone(script_file, false, context, false).await;
             }
             _ => {
                 return Err(ShellError::untagged_runtime_error(
