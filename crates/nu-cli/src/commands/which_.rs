@@ -59,7 +59,7 @@ macro_rules! create_entry {
 fn get_entries_in_aliases(scope: &Scope, name: &str, tag: Tag) -> Vec<Value> {
     let aliases = scope
         .get_aliases_with_name(name)
-        .unwrap_or(vec![])
+        .unwrap_or_default()
         .into_iter()
         .map(|_| create_entry!(name, "Nushell alias", tag.clone(), false))
         .collect::<Vec<_>>();
@@ -70,7 +70,7 @@ fn get_entries_in_aliases(scope: &Scope, name: &str, tag: Tag) -> Vec<Value> {
 fn get_entries_in_custom_command(scope: &Scope, name: &str, tag: Tag) -> Vec<Value> {
     scope
         .get_custom_commands_with_name(name)
-        .unwrap_or(vec![])
+        .unwrap_or_default()
         .into_iter()
         .map(|_| create_entry!(name, "Nushell custom command", tag.clone(), false))
         .collect()
@@ -78,12 +78,7 @@ fn get_entries_in_custom_command(scope: &Scope, name: &str, tag: Tag) -> Vec<Val
 
 fn get_entry_in_commands(scope: &Scope, name: &str, tag: Tag) -> Option<Value> {
     if scope.has_command(name) {
-        Some(create_entry!(
-            name,
-            "Nushell built-in command",
-            tag.clone(),
-            true
-        ))
+        Some(create_entry!(name, "Nushell built-in command", tag, true))
     } else {
         None
     }
@@ -107,7 +102,7 @@ fn get_entries_in_nu(
         return all_entries;
     }
 
-    if let Some(entry) = get_entry_in_commands(scope, name, tag.clone()) {
+    if let Some(entry) = get_entry_in_commands(scope, name, tag) {
         all_entries.push(entry);
     }
 
@@ -143,7 +138,7 @@ async fn get_first_entry_in_path(_: &str, _: Tag) -> Option<Value> {
 async fn get_all_entries_in_path(item: &str, tag: Tag) -> Vec<Value> {
     ichwh::which_all(&item)
         .await
-        .unwrap_or(vec![])
+        .unwrap_or_default()
         .into_iter()
         .map(|path| entry_path!(item, path.into(), tag.clone()))
         .collect()
@@ -200,12 +195,10 @@ async fn which(args: CommandArgs) -> Result<OutputStream, ShellError> {
             let nu_entries = get_entries_in_nu(&scope, &prog_name, application.tag.clone(), true);
             if !nu_entries.is_empty() {
                 output.push(nu_entries[0].clone());
-            } else {
-                if let Some(entry) =
-                    get_first_entry_in_path(&prog_name, application.tag.clone()).await
-                {
-                    output.push(entry);
-                }
+            } else if let Some(entry) =
+                get_first_entry_in_path(&prog_name, application.tag.clone()).await
+            {
+                output.push(entry);
             }
         }
     }
