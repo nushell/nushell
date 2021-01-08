@@ -96,7 +96,7 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
             )?))
         }
         UntaggedValue::Primitive(Primitive::Nothing) => serde_json::Value::Null,
-        UntaggedValue::Primitive(Primitive::Pattern(s)) => serde_json::Value::String(s.clone()),
+        UntaggedValue::Primitive(Primitive::GlobPattern(s)) => serde_json::Value::String(s.clone()),
         UntaggedValue::Primitive(Primitive::String(s)) => serde_json::Value::String(s.clone()),
         UntaggedValue::Primitive(Primitive::ColumnPath(path)) => serde_json::Value::Array(
             path.iter()
@@ -113,7 +113,7 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
                 })
                 .collect::<Result<Vec<serde_json::Value>, ShellError>>()?,
         ),
-        UntaggedValue::Primitive(Primitive::Path(s)) => {
+        UntaggedValue::Primitive(Primitive::FilePath(s)) => {
             serde_json::Value::String(s.display().to_string())
         }
 

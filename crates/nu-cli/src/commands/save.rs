@@ -140,7 +140,11 @@ impl WholeStreamCommand for Save {
 
     fn signature(&self) -> Signature {
         Signature::build("save")
-            .optional("path", SyntaxShape::Path, "the path to save contents to")
+            .optional(
+                "path",
+                SyntaxShape::FilePath,
+                "the path to save contents to",
+            )
             .switch(
                 "raw",
                 "treat values as-is rather than auto-converting based on file extension",

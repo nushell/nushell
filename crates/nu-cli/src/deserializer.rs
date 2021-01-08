@@ -425,7 +425,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
                 ..
             } => visit::<Tagged<bool>, _>(false.tagged(tag), name, fields, visitor),
             Value {
-                value: UntaggedValue::Primitive(Primitive::Path(p)),
+                value: UntaggedValue::Primitive(Primitive::FilePath(p)),
                 ..
             } => visit::<Tagged<PathBuf>, _>(p.tagged(tag), name, fields, visitor),
             Value {

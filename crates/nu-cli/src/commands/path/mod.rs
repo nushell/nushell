@@ -46,7 +46,7 @@ where
     F: Fn(&Path, Arc<DefaultArguments>) -> UntaggedValue + Send + 'static,
 {
     let v = match &v.value {
-        UntaggedValue::Primitive(Primitive::Path(buf)) => action(buf, args).into_value(v.tag()),
+        UntaggedValue::Primitive(Primitive::FilePath(buf)) => action(buf, args).into_value(v.tag()),
         UntaggedValue::Primitive(Primitive::String(s)) => {
             action(s.as_ref(), args).into_value(v.tag())
         }

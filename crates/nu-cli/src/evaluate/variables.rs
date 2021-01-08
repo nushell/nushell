@@ -23,30 +23,33 @@ pub fn nu(env: &IndexMap<String, String>, tag: impl Into<Tag>) -> Result<Value, 
     let path = std::env::var_os("PATH");
     if let Some(paths) = path {
         for path in std::env::split_paths(&paths) {
-            table.push(UntaggedValue::path(path).into_value(&tag));
+            table.push(UntaggedValue::filepath(path).into_value(&tag));
         }
     }
     nu_dict.insert_value("path", UntaggedValue::table(&table).into_value(&tag));
 
     let path = std::env::current_dir()?;
-    nu_dict.insert_value("cwd", UntaggedValue::path(path).into_value(&tag));
+    nu_dict.insert_value("cwd", UntaggedValue::filepath(path).into_value(&tag));
 
     if let Some(home) = crate::shell::filesystem_shell::homedir_if_possible() {
-        nu_dict.insert_value("home-dir", UntaggedValue::path(home).into_value(&tag));
+        nu_dict.insert_value("home-dir", UntaggedValue::filepath(home).into_value(&tag));
     }
 
     let temp = std::env::temp_dir();
-    nu_dict.insert_value("temp-dir", UntaggedValue::path(temp).into_value(&tag));
+    nu_dict.insert_value("temp-dir", UntaggedValue::filepath(temp).into_value(&tag));
 
     let config = nu_data::config::default_path()?;
-    nu_dict.insert_value("config-path", UntaggedValue::path(config).into_value(&tag));
+    nu_dict.insert_value(
+        "config-path",
+        UntaggedValue::filepath(config).into_value(&tag),
+    );
 
     #[cfg(feature = "rustyline-support")]
     {
         let keybinding_path = crate::keybinding::keybinding_path()?;
         nu_dict.insert_value(
             "keybinding-path",
-            UntaggedValue::path(keybinding_path).into_value(&tag),
+            UntaggedValue::filepath(keybinding_path).into_value(&tag),
         );
     }
 
@@ -54,7 +57,7 @@ pub fn nu(env: &IndexMap<String, String>, tag: impl Into<Tag>) -> Result<Value, 
     let history = crate::commands::history::history_path(&config);
     nu_dict.insert_value(
         "history-path",
-        UntaggedValue::path(history).into_value(&tag),
+        UntaggedValue::filepath(history).into_value(&tag),
     );
 
     Ok(nu_dict.into_value())

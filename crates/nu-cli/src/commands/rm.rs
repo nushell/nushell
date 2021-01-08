@@ -38,7 +38,7 @@ impl WholeStreamCommand for Remove {
             )
             .switch("recursive", "delete subdirectories recursively", Some('r'))
             .switch("force", "suppress error when no file", Some('f'))
-            .rest(SyntaxShape::Pattern, "the file path(s) to remove")
+            .rest(SyntaxShape::GlobPattern, "the file path(s) to remove")
     }
 
     fn usage(&self) -> &str {

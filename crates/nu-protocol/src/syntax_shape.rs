@@ -19,9 +19,9 @@ pub enum SyntaxShape {
     /// Only an integer value is allowed
     Int,
     /// A filepath is allowed
-    Path,
+    FilePath,
     /// A glob pattern is allowed, eg `foo*`
-    Pattern,
+    GlobPattern,
     /// A block is allowed, eg `{start this thing}`
     Block,
     /// A table is allowed, eg `[first second]`
@@ -48,8 +48,8 @@ impl PrettyDebug for SyntaxShape {
             SyntaxShape::Number => "number",
             SyntaxShape::Range => "range",
             SyntaxShape::Int => "integer",
-            SyntaxShape::Path => "file path",
-            SyntaxShape::Pattern => "pattern",
+            SyntaxShape::FilePath => "file path",
+            SyntaxShape::GlobPattern => "pattern",
             SyntaxShape::Block => "block",
             SyntaxShape::Table => "table",
             SyntaxShape::Unit => "unit",

@@ -1092,7 +1092,7 @@ impl Expression {
         }))
     }
 
-    pub fn pattern(p: String) -> Expression {
+    pub fn glob_pattern(p: String) -> Expression {
         Expression::Literal(Literal::GlobPattern(p))
     }
 

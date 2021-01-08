@@ -816,11 +816,11 @@ fn parse_arg(
                 )
             }
         }
-        SyntaxShape::Pattern => {
+        SyntaxShape::GlobPattern => {
             let trimmed = trim_quotes(&lite_arg.item);
             let expanded = expand_path(&trimmed).to_string();
             (
-                SpannedExpression::new(Expression::pattern(expanded), lite_arg.span),
+                SpannedExpression::new(Expression::glob_pattern(expanded), lite_arg.span),
                 None,
             )
         }
@@ -828,7 +828,7 @@ fn parse_arg(
         SyntaxShape::Range => parse_range(&lite_arg, scope),
         SyntaxShape::Operator => parse_operator(&lite_arg),
         SyntaxShape::Unit => parse_unit(&lite_arg),
-        SyntaxShape::Path => {
+        SyntaxShape::FilePath => {
             let trimmed = trim_quotes(&lite_arg.item);
             let expanded = expand_path(&trimmed).to_string();
             let path = Path::new(&expanded);
@@ -2077,11 +2077,11 @@ fn parse_signature(
                             let shape = match parts[1] {
                                 "int" => SyntaxShape::Int,
                                 "string" => SyntaxShape::String,
-                                "path" => SyntaxShape::Path,
+                                "path" => SyntaxShape::FilePath,
                                 "table" => SyntaxShape::Table,
                                 "unit" => SyntaxShape::Unit,
                                 "number" => SyntaxShape::Number,
-                                "pattern" => SyntaxShape::Pattern,
+                                "pattern" => SyntaxShape::GlobPattern,
                                 "range" => SyntaxShape::Range,
                                 "block" => SyntaxShape::Block,
                                 "any" => SyntaxShape::Any,
@@ -2105,11 +2105,11 @@ fn parse_signature(
                             let shape = match parts[1] {
                                 "int" => SyntaxShape::Int,
                                 "string" => SyntaxShape::String,
-                                "path" => SyntaxShape::Path,
+                                "path" => SyntaxShape::FilePath,
                                 "table" => SyntaxShape::Table,
                                 "unit" => SyntaxShape::Unit,
                                 "number" => SyntaxShape::Number,
-                                "pattern" => SyntaxShape::Pattern,
+                                "pattern" => SyntaxShape::GlobPattern,
                                 "range" => SyntaxShape::Range,
                                 "block" => SyntaxShape::Block,
                                 "any" => SyntaxShape::Any,

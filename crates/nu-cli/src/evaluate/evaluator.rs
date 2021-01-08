@@ -29,7 +29,7 @@ pub(crate) async fn evaluate_baseline_expr(
             "Invalid external word".spanned(tag.span),
             ArgumentError::InvalidExternalWord,
         )),
-        Expression::FilePath(path) => Ok(UntaggedValue::path(path.clone()).into_value(tag)),
+        Expression::FilePath(path) => Ok(UntaggedValue::filepath(path.clone()).into_value(tag)),
         Expression::Synthetic(hir::Synthetic::String(s)) => {
             Ok(UntaggedValue::string(s).into_untagged_value())
         }
@@ -213,7 +213,7 @@ fn evaluate_literal(literal: &hir::Literal, span: Span) -> Value {
         },
         hir::Literal::Size(int, unit) => unit.compute(&int).into_value(span),
         hir::Literal::String(string) => UntaggedValue::string(string).into_value(span),
-        hir::Literal::GlobPattern(pattern) => UntaggedValue::pattern(pattern).into_value(span),
+        hir::Literal::GlobPattern(pattern) => UntaggedValue::glob_pattern(pattern).into_value(span),
         hir::Literal::Bare(bare) => UntaggedValue::string(bare.clone()).into_value(span),
         hir::Literal::Operator(_) => unimplemented!("Not sure what to do with operator yet"),
     }

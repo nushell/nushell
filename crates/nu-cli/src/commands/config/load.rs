@@ -21,7 +21,7 @@ impl WholeStreamCommand for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("config load").required(
             "load",
-            SyntaxShape::Path,
+            SyntaxShape::FilePath,
             "Path to load the config from",
         )
     }

@@ -59,7 +59,7 @@ impl WholeStreamCommand for PathBasename {
             Example {
                 description: "Replace basename of a path",
                 example: "echo 'C:\\Users\\joe\\test.txt' | path basename -r 'spam.png'",
-                result: Some(vec![Value::from(UntaggedValue::path(
+                result: Some(vec![Value::from(UntaggedValue::filepath(
                     "C:\\Users\\joe\\spam.png",
                 ))]),
             },
@@ -77,7 +77,9 @@ impl WholeStreamCommand for PathBasename {
             Example {
                 description: "Replace basename of a path",
                 example: "echo '/home/joe/test.txt' | path basename -r 'spam.png'",
-                result: Some(vec![Value::from(UntaggedValue::path("/home/joe/spam.png"))]),
+                result: Some(vec![Value::from(UntaggedValue::filepath(
+                    "/home/joe/spam.png",
+                ))]),
             },
         ]
     }
@@ -85,7 +87,7 @@ impl WholeStreamCommand for PathBasename {
 
 fn action(path: &Path, args: Arc<DefaultArguments>) -> UntaggedValue {
     match args.replace {
-        Some(ref basename) => UntaggedValue::path(path.with_file_name(basename)),
+        Some(ref basename) => UntaggedValue::filepath(path.with_file_name(basename)),
         None => UntaggedValue::string(match path.file_name() {
             Some(filename) => filename.to_string_lossy(),
             None => "".into(),

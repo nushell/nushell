@@ -21,8 +21,11 @@ impl WholeStreamCommand for Exec {
 
     fn signature(&self) -> Signature {
         Signature::build("exec")
-            .required("command", SyntaxShape::Path, "the command to execute")
-            .rest(SyntaxShape::Pattern, "any additional arguments for command")
+            .required("command", SyntaxShape::FilePath, "the command to execute")
+            .rest(
+                SyntaxShape::GlobPattern,
+                "any additional arguments for command",
+            )
     }
 
     fn usage(&self) -> &str {

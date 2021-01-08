@@ -22,7 +22,10 @@ impl WholeStreamCommand for Mkdir {
 
     fn signature(&self) -> Signature {
         Signature::build("mkdir")
-            .rest(SyntaxShape::Path, "the name(s) of the path(s) to create")
+            .rest(
+                SyntaxShape::FilePath,
+                "the name(s) of the path(s) to create",
+            )
             .switch("show-created-paths", "show the path(s) created.", Some('s'))
     }
 

@@ -27,7 +27,7 @@ impl WholeStreamCommand for Enter {
         Signature::build("enter")
             .required(
                 "location",
-                SyntaxShape::Path,
+                SyntaxShape::FilePath,
                 "the location to create a new shell from",
             )
             .named(

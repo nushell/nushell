@@ -69,20 +69,20 @@ impl WholeStreamCommand for PathDirname {
             Example {
                 description: "Get dirname of a path",
                 example: "echo 'C:\\Users\\joe\\code\\test.txt' | path dirname",
-                result: Some(vec![Value::from(UntaggedValue::path(
+                result: Some(vec![Value::from(UntaggedValue::filepath(
                     "C:\\Users\\joe\\code",
                 ))]),
             },
             Example {
                 description: "Set how many levels up to skip",
                 example: "echo 'C:\\Users\\joe\\code\\test.txt' | path dirname -n 2",
-                result: Some(vec![Value::from(UntaggedValue::path("C:\\Users\\joe"))]),
+                result: Some(vec![Value::from(UntaggedValue::filepath("C:\\Users\\joe"))]),
             },
             Example {
                 description: "Replace the part that would be returned with custom string",
                 example:
                     "echo 'C:\\Users\\joe\\code\\test.txt' | path dirname -n 2 -r C:\\Users\\viking",
-                result: Some(vec![Value::from(UntaggedValue::path(
+                result: Some(vec![Value::from(UntaggedValue::filepath(
                     "C:\\Users\\viking\\code\\test.txt",
                 ))]),
             },
@@ -95,17 +95,17 @@ impl WholeStreamCommand for PathDirname {
             Example {
                 description: "Get dirname of a path",
                 example: "echo '/home/joe/code/test.txt' | path dirname",
-                result: Some(vec![Value::from(UntaggedValue::path("/home/joe/code"))]),
+                result: Some(vec![Value::from(UntaggedValue::filepath("/home/joe/code"))]),
             },
             Example {
                 description: "Set how many levels up to skip",
                 example: "echo '/home/joe/code/test.txt' | path dirname -n 2",
-                result: Some(vec![Value::from(UntaggedValue::path("/home/joe"))]),
+                result: Some(vec![Value::from(UntaggedValue::filepath("/home/joe"))]),
             },
             Example {
                 description: "Replace the part that would be returned with custom string",
                 example: "echo '/home/joe/code/test.txt' | path dirname -n 2 -r /home/viking",
-                result: Some(vec![Value::from(UntaggedValue::path(
+                result: Some(vec![Value::from(UntaggedValue::filepath(
                     "/home/viking/code/test.txt",
                 ))]),
             },
@@ -132,12 +132,12 @@ fn action(path: &Path, args: Arc<DefaultArguments>) -> UntaggedValue {
         Some(ref newdir) => {
             let remainder = path.strip_prefix(dirname).unwrap_or(dirname);
             if !remainder.as_os_str().is_empty() {
-                UntaggedValue::path(Path::new(newdir).join(remainder))
+                UntaggedValue::filepath(Path::new(newdir).join(remainder))
             } else {
-                UntaggedValue::path(Path::new(newdir))
+                UntaggedValue::filepath(Path::new(newdir))
             }
         }
-        None => UntaggedValue::path(dirname),
+        None => UntaggedValue::filepath(dirname),
     }
 }
 

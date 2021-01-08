@@ -60,7 +60,7 @@ macro_rules! entry_path {
     ($arg:expr, $path:expr, $tag:expr) => {
         entry(
             $arg.clone(),
-            UntaggedValue::Primitive(Primitive::Path($path)).into_value($tag.clone()),
+            UntaggedValue::Primitive(Primitive::FilePath($path)).into_value($tag.clone()),
             false,
             $tag,
         )

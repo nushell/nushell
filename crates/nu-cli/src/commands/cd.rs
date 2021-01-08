@@ -23,7 +23,7 @@ impl WholeStreamCommand for Cd {
     fn signature(&self) -> Signature {
         Signature::build("cd").optional(
             "directory",
-            SyntaxShape::Path,
+            SyntaxShape::FilePath,
             "the directory to change to",
         )
     }
