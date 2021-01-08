@@ -5,18 +5,26 @@ use log::trace;
 use nu_errors::{ArgumentError, ParseError};
 use nu_protocol::hir::{
     self, Binary, Block, ClassifiedCommand, Expression, ExternalRedirection, Flag, FlagKind, Group,
-    InternalCommand, Literal, Member, NamedArguments, Operator, Pipeline, RangeOperator,
-    SpannedExpression, Unit,
+    InternalCommand, Member, NamedArguments, Operator, Pipeline, RangeOperator, SpannedExpression,
+    Unit,
 };
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPathMember};
 use nu_source::{Span, Spanned, SpannedItem};
 use num_bigint::BigInt;
 
-//use crate::errors::{ParseError, ParseResult};
 use crate::lex::{block, lex, LiteBlock, LiteCommand, LitePipeline};
 use crate::path::expand_path;
 use crate::scope::ParserScope;
 use bigdecimal::BigDecimal;
+
+use self::{
+    def::{parse_definition, parse_definition_prototype},
+    util::trim_quotes,
+    util::verify_and_strip,
+};
+
+mod def;
+mod util;
 
 /// Parses a simple column path, one without a variable (implied or explicit) at the head
 pub fn parse_simple_column_path(
@@ -195,17 +203,6 @@ pub fn parse_full_column_path(
             ),
             error,
         )
-    }
-}
-
-fn trim_quotes(input: &str) -> String {
-    let mut chars = input.chars();
-
-    match (chars.next(), chars.next_back()) {
-        (Some('\''), Some('\'')) => chars.collect(),
-        (Some('"'), Some('"')) => chars.collect(),
-        (Some('`'), Some('`')) => chars.collect(),
-        _ => input.to_string(),
     }
 }
 
@@ -672,28 +669,6 @@ fn parse_list(
     }
 
     (output, error)
-}
-
-fn verify_and_strip(
-    contents: &Spanned<String>,
-    left: char,
-    right: char,
-) -> (String, Option<ParseError>) {
-    let mut chars = contents.item.chars();
-
-    match (chars.next(), chars.next_back()) {
-        (Some(l), Some(r)) if l == left && r == right => {
-            let output: String = chars.collect();
-            (output, None)
-        }
-        _ => (
-            String::new(),
-            Some(ParseError::mismatch(
-                format!("value in {} {}", left, right),
-                contents.clone(),
-            )),
-        ),
-    }
 }
 
 fn parse_table(
@@ -2032,200 +2007,6 @@ fn parse_alias(call: &LiteCommand, scope: &dyn ParserScope) -> Option<ParseError
     scope.add_alias(&name, args);
 
     None
-}
-
-fn parse_signature(
-    name: &str,
-    s: &Spanned<String>,
-    scope: &dyn ParserScope,
-) -> (Signature, Option<ParseError>) {
-    let mut err = None;
-
-    let (preparsed_params, error) = parse_arg(SyntaxShape::Table, scope, s);
-    if err.is_none() {
-        err = error;
-    }
-    let mut signature = Signature::new(name);
-
-    if let SpannedExpression {
-        expr: Expression::List(preparsed_params),
-        ..
-    } = preparsed_params
-    {
-        for preparsed_param in preparsed_params.iter() {
-            match &preparsed_param.expr {
-                Expression::Literal(Literal::String(st)) => {
-                    let parts: Vec<_> = st.split(':').collect();
-                    if parts.len() == 1 {
-                        if parts[0].starts_with("--") {
-                            // Flag
-                            let flagname = parts[0][2..].to_string();
-                            signature
-                                .named
-                                .insert(flagname, (NamedType::Switch(None), String::new()));
-                        } else {
-                            // Positional
-                            signature.positional.push((
-                                PositionalType::Mandatory(parts[0].to_string(), SyntaxShape::Any),
-                                String::new(),
-                            ));
-                        }
-                    } else if parts.len() == 2 {
-                        if parts[0].starts_with("--") {
-                            // Flag
-                            let flagname = parts[0][2..].to_string();
-                            let shape = match parts[1] {
-                                "int" => SyntaxShape::Int,
-                                "string" => SyntaxShape::String,
-                                "path" => SyntaxShape::FilePath,
-                                "table" => SyntaxShape::Table,
-                                "unit" => SyntaxShape::Unit,
-                                "number" => SyntaxShape::Number,
-                                "pattern" => SyntaxShape::GlobPattern,
-                                "range" => SyntaxShape::Range,
-                                "block" => SyntaxShape::Block,
-                                "any" => SyntaxShape::Any,
-                                _ => {
-                                    if err.is_none() {
-                                        err = Some(ParseError::mismatch(
-                                            "params with known types",
-                                            s.clone(),
-                                        ));
-                                    }
-                                    SyntaxShape::Any
-                                }
-                            };
-                            signature.named.insert(
-                                flagname,
-                                (NamedType::Optional(None, shape), String::new()),
-                            );
-                        } else {
-                            // Positional
-                            let name = parts[0].to_string();
-                            let shape = match parts[1] {
-                                "int" => SyntaxShape::Int,
-                                "string" => SyntaxShape::String,
-                                "path" => SyntaxShape::FilePath,
-                                "table" => SyntaxShape::Table,
-                                "unit" => SyntaxShape::Unit,
-                                "number" => SyntaxShape::Number,
-                                "pattern" => SyntaxShape::GlobPattern,
-                                "range" => SyntaxShape::Range,
-                                "block" => SyntaxShape::Block,
-                                "any" => SyntaxShape::Any,
-                                _ => {
-                                    if err.is_none() {
-                                        err = Some(ParseError::mismatch(
-                                            "params with known types",
-                                            s.clone(),
-                                        ));
-                                    }
-                                    SyntaxShape::Any
-                                }
-                            };
-                            signature
-                                .positional
-                                .push((PositionalType::Mandatory(name, shape), String::new()));
-                        }
-                    } else if err.is_none() {
-                        err = Some(ParseError::mismatch("param with type", s.clone()));
-                    }
-                }
-                _ => {
-                    if err.is_none() {
-                        err = Some(ParseError::mismatch("parameter", s.clone()));
-                    }
-                }
-            }
-        }
-        (signature, err)
-    } else {
-        (
-            signature,
-            Some(ParseError::mismatch("parameters", s.clone())),
-        )
-    }
-}
-fn parse_definition(call: &LiteCommand, scope: &dyn ParserScope) -> Option<ParseError> {
-    // A this point, we've already handled the prototype and put it into scope
-    // So our main goal here is to parse the block now that the names and
-    // prototypes of adjacent commands are also available
-
-    if call.parts.len() == 4 {
-        if call.parts.len() != 4 {
-            return Some(ParseError::mismatch("definition", call.parts[0].clone()));
-        }
-
-        if call.parts[0].item != "def" {
-            return Some(ParseError::mismatch("definition", call.parts[0].clone()));
-        }
-
-        let name = trim_quotes(&call.parts[1].item);
-        let (mut signature, err) = parse_signature(&name, &call.parts[2], scope);
-
-        //Add commands comments to signature usage
-        signature.usage = call.comments_joined();
-
-        if err.is_some() {
-            return err;
-        };
-
-        let mut chars = call.parts[3].chars();
-        match (chars.next(), chars.next_back()) {
-            (Some('{'), Some('}')) => {
-                // We have a literal block
-                let string: String = chars.collect();
-
-                scope.enter_scope();
-
-                let (tokens, err) = lex(&string, call.parts[3].span.start() + 1);
-                if err.is_some() {
-                    return err;
-                };
-                let (lite_block, err) = block(tokens);
-                if err.is_some() {
-                    return err;
-                };
-
-                let (mut block, err) = classify_block(&lite_block, scope);
-                scope.exit_scope();
-
-                block.params = signature;
-                block.params.name = name;
-
-                scope.add_definition(block);
-
-                err
-            }
-            _ => Some(ParseError::mismatch("body", call.parts[3].clone())),
-        }
-    } else {
-        Some(ParseError::internal_error(
-            "need a block".to_string().spanned(call.span()),
-        ))
-    }
-}
-
-fn parse_definition_prototype(call: &LiteCommand, scope: &dyn ParserScope) -> Option<ParseError> {
-    let mut err = None;
-
-    if call.parts.len() != 4 {
-        return Some(ParseError::mismatch("definition", call.parts[0].clone()));
-    }
-
-    if call.parts[0].item != "def" {
-        return Some(ParseError::mismatch("definition", call.parts[0].clone()));
-    }
-
-    let name = trim_quotes(&call.parts[1].item);
-    let (signature, error) = parse_signature(&name, &call.parts[2], scope);
-    if err.is_none() {
-        err = error;
-    }
-
-    scope.add_definition(Block::new(signature, vec![], IndexMap::new(), call.span()));
-
-    err
 }
 
 pub fn classify_block(
