@@ -17,7 +17,7 @@ fn which_alias_ls() {
         "alias ls = ls -a; which ls | get path | str trim"
     );
 
-    assert_eq!(actual.out, "Nushell alias");
+    assert_eq!(actual.out, "Nushell alias: ls -a");
 }
 
 #[test]
@@ -37,7 +37,7 @@ fn correct_precedence_alias_def_custom() {
         "def ls [] {echo def}; alias ls = echo alias; which ls | get path | str trim"
     );
 
-    assert_eq!(actual.out, "Nushell alias");
+    assert_eq!(actual.out, "Nushell alias: echo alias");
 }
 
 #[test]
