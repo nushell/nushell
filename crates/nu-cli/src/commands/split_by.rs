@@ -1,4 +1,4 @@
-use crate::commands::WholeStreamCommand;
+use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use crate::utils::suggestions::suggestions;
 use nu_errors::ShellError;

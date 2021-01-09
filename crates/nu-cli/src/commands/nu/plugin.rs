@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::commands::WholeStreamCommand;
+use nu_engine::WholeStreamCommand;
 use crate::path::canonicalize;
 use crate::prelude::*;
 
@@ -101,8 +101,7 @@ impl WholeStreamCommand for SubCommand {
         }
 
         Ok(OutputStream::one(ReturnSuccess::value(
-            UntaggedValue::string(crate::commands::help::get_help(&SubCommand, &scope))
-                .into_value(Tag::unknown()),
+            UntaggedValue::string(get_help(&SubCommand, &scope)).into_value(Tag::unknown()),
         )))
     }
 }

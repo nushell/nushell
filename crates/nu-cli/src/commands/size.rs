@@ -1,6 +1,6 @@
 extern crate unicode_segmentation;
 
-use crate::commands::WholeStreamCommand;
+use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use indexmap::indexmap;
 use nu_errors::ShellError;

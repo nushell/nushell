@@ -1,5 +1,5 @@
 use super::{operate, DefaultArguments};
-use crate::commands::WholeStreamCommand;
+use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use crate::shell::filesystem_shell::get_file_type;
 use nu_errors::ShellError;

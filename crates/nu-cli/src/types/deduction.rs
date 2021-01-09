@@ -1,6 +1,9 @@
 #![allow(dead_code)]
 use crate::prelude::*;
+use itertools::{merge_join_by, EitherOrBoth, Itertools};
 use lazy_static::lazy_static;
+use log::trace;
+use nu_engine::Scope;
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
 use nu_protocol::{
@@ -13,9 +16,6 @@ use nu_protocol::{
 use nu_source::Span;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, hash::Hash};
-
-use itertools::{merge_join_by, EitherOrBoth, Itertools};
-use log::trace;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VarDeclaration {

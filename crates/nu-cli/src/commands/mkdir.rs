@@ -1,18 +1,11 @@
-use crate::commands::WholeStreamCommand;
+use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape};
 use nu_source::Tagged;
 use std::path::PathBuf;
-
+use nu_engine::
 pub struct Mkdir;
-
-#[derive(Deserialize)]
-pub struct MkdirArgs {
-    pub rest: Vec<Tagged<PathBuf>>,
-    #[serde(rename = "show-created-paths")]
-    pub show_created_paths: bool,
-}
 
 #[async_trait]
 impl WholeStreamCommand for Mkdir {

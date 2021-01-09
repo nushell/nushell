@@ -1,4 +1,4 @@
-use crate::commands::WholeStreamCommand;
+use nu_engine::WholeStreamCommand;
 use crate::deserializer::NumericRange;
 use crate::prelude::*;
 use nu_errors::ShellError;

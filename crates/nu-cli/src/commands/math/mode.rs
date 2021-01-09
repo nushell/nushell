@@ -1,5 +1,5 @@
 use crate::commands::math::utils::run_with_function;
-use crate::commands::WholeStreamCommand;
+use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, UntaggedValue, Value};

@@ -1,5 +1,5 @@
 use super::operate;
-use crate::commands::WholeStreamCommand;
+use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use inflector::cases::pascalcase::to_pascal_case;
 use nu_errors::ShellError;

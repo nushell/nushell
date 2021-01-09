@@ -1,4 +1,4 @@
-use crate::commands::WholeStreamCommand;
+use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape};
@@ -6,17 +6,6 @@ use nu_source::Tagged;
 use std::path::PathBuf;
 
 pub struct Ls;
-
-#[derive(Deserialize)]
-pub struct LsArgs {
-    pub path: Option<Tagged<PathBuf>>,
-    pub all: bool,
-    pub long: bool,
-    #[serde(rename = "short-names")]
-    pub short_names: bool,
-    #[serde(rename = "du")]
-    pub du: bool,
-}
 
 #[async_trait]
 impl WholeStreamCommand for Ls {

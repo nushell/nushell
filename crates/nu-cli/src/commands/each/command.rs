@@ -1,5 +1,5 @@
-use crate::commands::classified::block::run_block;
-use crate::commands::WholeStreamCommand;
+use nu_engine::run_block;
+use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 
 use futures::stream::once;

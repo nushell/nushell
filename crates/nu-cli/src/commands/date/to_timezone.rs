@@ -1,5 +1,5 @@
 use crate::commands::date::parser::{datetime_in_timezone, ParseErrorKind};
-use crate::commands::WholeStreamCommand;
+use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};

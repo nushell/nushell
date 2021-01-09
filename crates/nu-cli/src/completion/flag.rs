@@ -1,6 +1,6 @@
 use super::matchers::Matcher;
 use crate::completion::{Completer, CompletionContext, Suggestion};
-use crate::evaluation_context::EvaluationContext;
+use nu_engine::EvaluationContext;
 
 pub struct FlagCompleter {
     pub(crate) cmd: String,

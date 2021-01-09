@@ -1,7 +1,7 @@
-use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use ::eml_parser::eml::*;
 use ::eml_parser::EmlParser;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue};
 use nu_source::Tagged;

@@ -1,5 +1,5 @@
 use crate::commands::table::options::{ConfigExtensions, NuConfig as TableConfiguration};
-use crate::commands::WholeStreamCommand;
+use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use crate::primitive::get_color_config;
 use nu_data::value::{format_leaf, style_leaf};

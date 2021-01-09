@@ -1,12 +1,12 @@
-use crate::commands::cd::CdArgs;
 use crate::commands::classified::external;
-use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 
 use derive_new::new;
 use parking_lot::Mutex;
 use std::path::PathBuf;
 
+use nu_engine::shell::CdArgs;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::hir::{Expression, ExternalArgs, ExternalCommand, Literal, SpannedExpression};
 use nu_protocol::{Signature, SyntaxShape};

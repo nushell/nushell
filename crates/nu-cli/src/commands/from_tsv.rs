@@ -1,5 +1,5 @@
 use crate::commands::from_delimited_data::from_delimited_data;
-use crate::commands::WholeStreamCommand;
+use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::Signature;

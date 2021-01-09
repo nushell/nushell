@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 use nu_errors::ShellError;
 
 use crate::commands::date::utils::date_to_value;
-use crate::commands::WholeStreamCommand;
+use nu_engine::WholeStreamCommand;
 use nu_protocol::Signature;
 
 pub struct Date;

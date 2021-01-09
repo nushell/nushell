@@ -1,6 +1,6 @@
 use crate::commands::classified::maybe_text_codec::StringOrBinary;
 use crate::commands::constants::BAT_LANGUAGES;
-use crate::commands::WholeStreamCommand;
+use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use encoding_rs::{Encoding, UTF_8};
 use futures_util::StreamExt;

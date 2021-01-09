@@ -1,5 +1,5 @@
 extern crate ical;
-use crate::commands::WholeStreamCommand;
+use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use ical::parser::vcard::component::*;
 use ical::property::Property;

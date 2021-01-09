@@ -1,4 +1,4 @@
-use crate::commands::WholeStreamCommand;
+use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use bigdecimal::FromPrimitive;
 use nu_data::value::compute_values;

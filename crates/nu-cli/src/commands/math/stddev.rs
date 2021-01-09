@@ -1,5 +1,5 @@
 use super::variance::compute_variance as variance;
-use crate::commands::WholeStreamCommand;
+use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{Dictionary, Primitive, ReturnSuccess, Signature, UntaggedValue, Value};

@@ -1,5 +1,5 @@
 use crate::commands::each::group::run_block_on_vec;
-use crate::commands::WholeStreamCommand;
+use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 //use itertools::Itertools;
 use nu_errors::ShellError;

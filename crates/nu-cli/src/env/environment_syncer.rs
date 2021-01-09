@@ -1,6 +1,7 @@
-use crate::env::environment::{Env, Environment};
+use crate::env::environment::Environment;
 use crate::evaluation_context::EvaluationContext;
 use nu_data::config::{Conf, NuConfig};
+use nu_engine::Env;
 use nu_errors::ShellError;
 use parking_lot::Mutex;
 use std::sync::{atomic::Ordering, Arc};

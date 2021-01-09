@@ -1,17 +1,11 @@
-use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape};
 use nu_source::Tagged;
 use std::path::PathBuf;
 
 pub struct Mv;
-
-#[derive(Deserialize)]
-pub struct Arguments {
-    pub src: Tagged<PathBuf>,
-    pub dst: Tagged<PathBuf>,
-}
 
 #[async_trait]
 impl WholeStreamCommand for Mv {

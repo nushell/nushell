@@ -19,7 +19,9 @@ members = ["crates/*/"]
 
 [dependencies]
 nu-cli = {version = "0.25.1", path = "./crates/nu-cli"}
+nu-core-commands = {version = "0.25.1", path = "./crates/nu-core-commands"}
 nu-data = {version = "0.25.1", path = "./crates/nu-data"}
+nu-engine = {version = "0.25.1", path = "./crates/nu-engine"}
 nu-errors = {version = "0.25.1", path = "./crates/nu-errors"}
 nu-parser = {version = "0.25.1", path = "./crates/nu-parser"}
 nu-plugin = {version = "0.25.1", path = "./crates/nu-plugin"}
@@ -50,9 +52,9 @@ nu_plugin_xpath = {version = "0.25.1", path = "./crates/nu_plugin_xpath", option
 clap = "2.33.3"
 ctrlc = {version = "3.1.6", optional = true}
 futures = {version = "0.3.5", features = ["compat", "io-compat"]}
+itertools = "0.10.0"
 log = "0.4.11"
 pretty_env_logger = "0.4.0"
-itertools = "0.10.0"
 
 [dev-dependencies]
 dunce = "1.0.1"

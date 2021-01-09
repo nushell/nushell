@@ -1,9 +1,9 @@
-use crate::commands::classified::block::run_block;
-use crate::commands::classified::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
 use crate::evaluation_context::EvaluationContext;
 use crate::path::canonicalize;
 use crate::prelude::*;
 use futures_codec::FramedRead;
+use nu_engine::run_block;
+use nu_engine::{MaybeTextCodec, StringOrBinary};
 use nu_errors::ShellError;
 use nu_protocol::hir::{ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments};
 use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue, Value};

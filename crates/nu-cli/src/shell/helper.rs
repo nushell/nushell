@@ -1,12 +1,8 @@
-use std::borrow::Cow::{self, Owned};
-
-use nu_source::{Tag, Tagged};
-
 use crate::completion;
-use crate::evaluation_context::EvaluationContext;
 use crate::shell::completer::NuCompleter;
-use crate::shell::painter::Painter;
-use crate::shell::palette::DefaultPalette;
+use nu_engine::{DefaultPalette, EvaluationContext, Painter};
+use nu_source::{Tag, Tagged};
+use std::borrow::Cow::{self, Owned};
 
 pub struct Helper {
     completer: NuCompleter,

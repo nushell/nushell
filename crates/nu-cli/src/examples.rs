@@ -10,13 +10,13 @@ use crate::prelude::*;
 
 use num_bigint::BigInt;
 
-use crate::commands::classified::block::run_block;
 use crate::commands::command::CommandArgs;
 use crate::commands::{
     whole_stream_command, BuildString, Command, Each, Echo, First, Get, Keep, Last, Let, Nth,
     StrCollect, WholeStreamCommand, Wrap,
 };
 use crate::evaluation_context::EvaluationContext;
+use nu_engine::run_block;
 use nu_stream::{InputStream, OutputStream};
 
 use async_trait::async_trait;

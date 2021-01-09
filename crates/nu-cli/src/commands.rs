@@ -136,9 +136,6 @@ pub(crate) mod wrap;
 
 pub(crate) use autoview::Autoview;
 pub(crate) use cd::Cd;
-pub(crate) use command::{
-    whole_stream_command, Command, Example, UnevaluatedCallInfo, WholeStreamCommand,
-};
 
 pub(crate) use ansi::Ansi;
 pub(crate) use append::Command as Append;

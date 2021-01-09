@@ -1,7 +1,7 @@
 use crate::commands::classified::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
-use crate::evaluate::evaluate_baseline_expr;
 use crate::futures::ThreadedReceiver;
 use crate::prelude::*;
+use nu_engine::evaluate_baseline_expr;
 
 use std::borrow::Cow;
 use std::io::Write;
@@ -18,6 +18,7 @@ use nu_protocol::hir::Expression;
 use nu_protocol::hir::{ExternalCommand, ExternalRedirection};
 use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
 use nu_source::Tag;
+use nu_stream::trace_stream;
 
 pub(crate) async fn run_external_command(
     command: ExternalCommand,
