@@ -76,6 +76,7 @@ struct RangeIterator {
     end: Primitive,
     tag: Tag,
     is_end_inclusive: bool,
+    moves_up: bool,
 }
 
 impl RangeIterator {
@@ -85,9 +86,15 @@ impl RangeIterator {
             x => x,
         };
 
+        let end = match range.to.0.item {
+            Primitive::Nothing => Primitive::Int(u64::MAX.into()),
+            x => x,
+        };
+
         RangeIterator {
+            moves_up: start <= end,
             curr: start,
-            end: range.to.0.item,
+            end,
             tag,
             is_end_inclusive: matches!(range.to.1, RangeInclusion::Inclusive),
         }
@@ -121,7 +128,9 @@ impl Iterator for RangeIterator {
 
         use std::cmp::Ordering;
 
-        if (ordering == Ordering::Less) || (self.is_end_inclusive && ordering == Ordering::Equal) {
+        if self.moves_up
+            && (ordering == Ordering::Less || self.is_end_inclusive && ordering == Ordering::Equal)
+        {
             let output = UntaggedValue::Primitive(self.curr.clone()).into_value(self.tag.clone());
 
             let next_value = nu_data::value::compute_values(
@@ -147,8 +156,36 @@ impl Iterator for RangeIterator {
                 }
             };
             Some(ReturnSuccess::value(output))
+        } else if !self.moves_up
+            && (ordering == Ordering::Greater
+                || self.is_end_inclusive && ordering == Ordering::Equal)
+        {
+            let output = UntaggedValue::Primitive(self.curr.clone()).into_value(self.tag.clone());
+
+            let next_value = nu_data::value::compute_values(
+                Operator::Plus,
+                &UntaggedValue::Primitive(self.curr.clone()),
+                &UntaggedValue::int(-1),
+            );
+
+            self.curr = match next_value {
+                Ok(result) => match result {
+                    UntaggedValue::Primitive(p) => p,
+                    _ => {
+                        return Some(Err(ShellError::unimplemented(
+                            "Internal error: expected a primitive result from increment",
+                        )));
+                    }
+                },
+                Err((left_type, right_type)) => {
+                    return Some(Err(ShellError::coerce_error(
+                        left_type.spanned(self.tag.span),
+                        right_type.spanned(self.tag.span),
+                    )));
+                }
+            };
+            Some(ReturnSuccess::value(output))
         } else {
-            // TODO: add inclusive/exclusive ranges
             None
         }
     }
