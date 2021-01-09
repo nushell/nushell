@@ -1,5 +1,17 @@
 use nu_errors::ParseError;
-use nu_source::Spanned;
+use nu_protocol::hir::{Expression, SpannedExpression};
+use nu_source::{Span, Spanned, SpannedItem};
+
+use crate::lex::Token;
+
+/// Shorthand function a parser mismatch with a token
+pub(crate) fn token_to_spanned_string(token: &Token) -> Spanned<String> {
+    token.contents.to_string().spanned(token.span.clone())
+}
+/// Easy shorthand function to create a garbage expression at the given span
+pub fn garbage(span: Span) -> SpannedExpression {
+    SpannedExpression::new(Expression::Garbage, span)
+}
 
 pub(crate) fn trim_quotes(input: &str) -> String {
     let mut chars = input.chars();

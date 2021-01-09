@@ -26,6 +26,8 @@ use self::{
 mod def;
 mod util;
 
+pub use self::util::garbage;
+
 /// Parses a simple column path, one without a variable (implied or explicit) at the head
 pub fn parse_simple_column_path(
     lite_arg: &Spanned<String>,
@@ -2129,11 +2131,6 @@ pub fn parse(
     }
 
     classify_block(&lite_block, scope)
-}
-
-/// Easy shorthand function to create a garbage expression at the given span
-pub fn garbage(span: Span) -> SpannedExpression {
-    SpannedExpression::new(Expression::Garbage, span)
 }
 
 #[test]

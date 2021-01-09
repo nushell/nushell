@@ -1,40 +1,18 @@
-use crate::parse::{classify_block, parse_arg, util::trim_quotes};
+use crate::parse::{classify_block, util::trim_quotes};
 
 use indexmap::IndexMap;
 use nu_errors::ParseError;
-use nu_protocol::{
-    hir::{Block, Expression, Literal, SpannedExpression},
-    NamedType,
-};
-use nu_protocol::{PositionalType, Signature, SyntaxShape};
-use nu_source::{Spanned, SpannedItem};
+use nu_protocol::hir::Block;
+use nu_source::SpannedItem;
 
 //use crate::errors::{ParseError, ParseResult};
 use crate::lex::{block, lex, LiteCommand};
 
 use crate::ParserScope;
 
-fn parse_type(type_: &str, signature_vec: &Spanned<String>) -> (SyntaxShape, Option<ParseError>) {
-    match type_ {
-        "int" => (SyntaxShape::Int, None),
-        "string" => (SyntaxShape::String, None),
-        "path" => (SyntaxShape::FilePath, None),
-        "table" => (SyntaxShape::Table, None),
-        "unit" => (SyntaxShape::Unit, None),
-        "number" => (SyntaxShape::Number, None),
-        "pattern" => (SyntaxShape::GlobPattern, None),
-        "range" => (SyntaxShape::Range, None),
-        "block" => (SyntaxShape::Block, None),
-        "any" => (SyntaxShape::Any, None),
-        _ => (
-            SyntaxShape::Any,
-            Some(ParseError::mismatch(
-                "params with known types",
-                signature_vec.clone(),
-            )),
-        ),
-    }
-}
+use self::param_flag_list::parse_signature;
+
+mod param_flag_list;
 
 pub(crate) fn parse_definition(call: &LiteCommand, scope: &dyn ParserScope) -> Option<ParseError> {
     // A this point, we've already handled the prototype and put it into scope;
@@ -51,7 +29,7 @@ pub(crate) fn parse_definition(call: &LiteCommand, scope: &dyn ParserScope) -> O
         }
 
         let name = trim_quotes(&call.parts[1].item);
-        let (mut signature, err) = parse_signature(&name, &call.parts[2], scope);
+        let (mut signature, err) = parse_signature(&name, &call.parts[2]);
 
         //Add commands comments to signature usage
         signature.usage = call.comments_joined();
@@ -111,7 +89,7 @@ pub(crate) fn parse_definition_prototype(
     }
 
     let name = trim_quotes(&call.parts[1].item);
-    let (signature, error) = parse_signature(&name, &call.parts[2], scope);
+    let (signature, error) = parse_signature(&name, &call.parts[2]);
     if err.is_none() {
         err = error;
     }
@@ -119,87 +97,4 @@ pub(crate) fn parse_definition_prototype(
     scope.add_definition(Block::new(signature, vec![], IndexMap::new(), call.span()));
 
     err
-}
-
-fn parse_signature(
-    name: &str,
-    signature_vec: &Spanned<String>,
-    scope: &dyn ParserScope,
-) -> (Signature, Option<ParseError>) {
-    let mut err = None;
-
-    let (preparsed_params, error) = parse_arg(SyntaxShape::Table, scope, signature_vec);
-    if err.is_none() {
-        err = error;
-    }
-    let mut signature = Signature::new(name);
-
-    if let SpannedExpression {
-        expr: Expression::List(preparsed_params),
-        ..
-    } = preparsed_params
-    {
-        for preparsed_param in preparsed_params.iter() {
-            match &preparsed_param.expr {
-                Expression::Literal(Literal::String(st)) => {
-                    let parts: Vec<_> = st.split(':').collect();
-                    if parts.len() == 1 {
-                        if parts[0].starts_with("--") {
-                            // Flag
-                            let flagname = parts[0][2..].to_string();
-                            signature
-                                .named
-                                .insert(flagname, (NamedType::Switch(None), String::new()));
-                        } else {
-                            // Positional
-                            signature.positional.push((
-                                PositionalType::Mandatory(parts[0].to_string(), SyntaxShape::Any),
-                                String::new(),
-                            ));
-                        }
-                    } else if parts.len() == 2 {
-                        if parts[0].starts_with("--") {
-                            // Flag
-                            let flagname = parts[0][2..].to_string();
-                            let (shape, parse_type_err) = parse_type(parts[1], signature_vec);
-                            if err.is_none() {
-                                err = parse_type_err;
-                            }
-
-                            signature.named.insert(
-                                flagname,
-                                (NamedType::Optional(None, shape), String::new()),
-                            );
-                        } else {
-                            // Positional
-                            let name = parts[0].to_string();
-                            let (shape, parse_type_err) = parse_type(parts[1], signature_vec);
-                            if err.is_none() {
-                                err = parse_type_err;
-                            }
-                            signature
-                                .positional
-                                .push((PositionalType::Mandatory(name, shape), String::new()));
-                        }
-                    } else if err.is_none() {
-                        err = Some(ParseError::mismatch(
-                            "param with type",
-                            signature_vec.clone(),
-                        ));
-                    }
-                }
-                _ => {
-                    if err.is_none() {
-                        err = Some(ParseError::mismatch("parameter", signature_vec.clone()));
-                    }
-                }
-            }
-        }
-        (signature, err)
-    } else {
-        (
-            signature,
-            Some(ParseError::mismatch("parameters", signature_vec.clone())),
-        )
-    }
 }
