@@ -61,7 +61,15 @@ fn get_entries_in_aliases(scope: &Scope, name: &str, tag: Tag) -> Vec<Value> {
         .get_aliases_with_name(name)
         .unwrap_or_default()
         .into_iter()
-        .map(|_| create_entry!(name, "Nushell alias", tag.clone(), false))
+        .flatten()
+        .map(|alias| {
+            create_entry!(
+                name,
+                format!("Nushell alias: {}", alias.item),
+                tag.clone(),
+                false
+            )
+        })
         .collect::<Vec<_>>();
     trace!("Found {} aliases", aliases.len());
     aliases
