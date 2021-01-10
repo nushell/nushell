@@ -63,6 +63,14 @@ fn string_contains(
             UntaggedValue::Primitive(Primitive::String(l)),
             UntaggedValue::Primitive(Primitive::String(r)),
         ) => Ok(l.contains(r)),
+        (
+            UntaggedValue::Primitive(Primitive::FilePath(l)),
+            UntaggedValue::Primitive(Primitive::String(r)),
+        ) => Ok(l.as_path().display().to_string().contains(r)),
+        (
+            UntaggedValue::Primitive(Primitive::String(l)),
+            UntaggedValue::Primitive(Primitive::FilePath(r)),
+        ) => Ok(l.contains(&r.as_path().display().to_string())),
         _ => Err((left.type_name(), right.type_name())),
     }
 }
