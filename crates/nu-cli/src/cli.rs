@@ -1,12 +1,12 @@
 use crate::commands::default_context::create_default_context;
 use crate::env::basic_host::BasicHost;
 use crate::line_editor::configure_ctrl_c;
+use nu_engine::basic_shell_manager;
 use nu_engine::run_block;
 use nu_engine::EvaluationContext;
-use nu_engine::{FilesystemShell, Scope, ShellManager};
+use nu_engine::Scope;
 use parking_lot::Mutex;
 use std::sync::atomic::AtomicBool;
-use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 
 #[allow(unused_imports)]
@@ -85,13 +85,6 @@ pub fn maybe_print_errors(context: &EvaluationContext, source: Text) -> bool {
     }
 }
 
-pub fn basic_shell_manager() -> Result<ShellManager, Box<dyn Error>> {
-    Ok(ShellManager {
-        current_shell: Arc::new(AtomicUsize::new(0)),
-        shells: Arc::new(Mutex::new(vec![Box::new(FilesystemShell::basic()?)])),
-    })
-}
-
 pub fn basic_evaluation_context() -> Result<EvaluationContext, Box<dyn Error>> {
     Ok(EvaluationContext {
         scope: Scope::new(),
@@ -99,7 +92,7 @@ pub fn basic_evaluation_context() -> Result<EvaluationContext, Box<dyn Error>> {
         current_errors: Arc::new(Mutex::new(vec![])),
         ctrl_c: Arc::new(AtomicBool::new(false)),
         user_recently_used_autoenv_untrust: Arc::new(AtomicBool::new(false)),
-        shell_manager: crate::cli::basic_shell_manager()?,
+        shell_manager: basic_shell_manager::basic_shell_manager()?,
         windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
     })
 }
