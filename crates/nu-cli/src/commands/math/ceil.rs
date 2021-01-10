@@ -1,7 +1,7 @@
 use crate::commands::math::utils::run_with_numerical_functions_on_stream;
-use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use bigdecimal::One;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, UntaggedValue, Value};
 

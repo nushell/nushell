@@ -1,8 +1,8 @@
 use crate::commands::math::reducers::{reducer_for, Reduce};
 use crate::commands::math::utils::run_with_function;
-use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use bigdecimal::FromPrimitive;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
     hir::{convert_number_to_u64, Number, Operator},

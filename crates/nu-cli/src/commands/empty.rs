@@ -1,6 +1,6 @@
+use crate::prelude::*;
 use nu_engine::run_block;
 use nu_engine::WholeStreamCommand;
-use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{
     hir::CapturedBlock, ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape,

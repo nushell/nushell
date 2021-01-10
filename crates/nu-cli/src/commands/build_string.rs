@@ -1,8 +1,8 @@
 use crate::prelude::*;
 use nu_errors::ShellError;
 
-use nu_engine::WholeStreamCommand;
 use nu_data::value::format_leaf;
+use nu_engine::WholeStreamCommand;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 
 #[derive(Deserialize)]

@@ -1,8 +1,8 @@
-use nu_engine::run_block;
-use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 #[cfg(feature = "rich-benchmark")]
 use heim::cpu::time;
+use nu_engine::run_block;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
     hir::{Block, CapturedBlock, ClassifiedCommand, Group, InternalCommand, Pipeline},

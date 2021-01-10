@@ -1,7 +1,7 @@
-use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use indexmap::set::IndexSet;
 use log::trace;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
     did_you_mean, ColumnPath, Dictionary, PathMember, Primitive, ReturnSuccess, Signature,

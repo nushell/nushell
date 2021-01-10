@@ -1,5 +1,5 @@
-use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 
@@ -21,8 +21,7 @@ impl WholeStreamCommand for Command {
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(Ok(ReturnSuccess::Value(
-            UntaggedValue::string(get_help(&Command, &args.scope))
-                .into_value(Tag::unknown()),
+            UntaggedValue::string(get_help(&Command, &args.scope)).into_value(Tag::unknown()),
         ))))
     }
 }

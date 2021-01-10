@@ -1,7 +1,7 @@
 use super::operate;
-use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use inflector::cases::kebabcase::to_kebab_case;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape, Value};
 

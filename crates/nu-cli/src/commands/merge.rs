@@ -1,7 +1,7 @@
-use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use nu_data::value::merge_values;
 use nu_engine::run_block;
+use nu_engine::WholeStreamCommand;
 
 use indexmap::IndexMap;
 use nu_errors::ShellError;

@@ -1,6 +1,6 @@
 use crate::commands::math::utils::run_with_function;
-use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, UntaggedValue, Value};
 use std::cmp::Ordering;

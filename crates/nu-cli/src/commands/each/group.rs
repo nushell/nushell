@@ -1,6 +1,6 @@
 use crate::commands::each::process_row;
-use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
     hir::CapturedBlock, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,

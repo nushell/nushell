@@ -1,8 +1,8 @@
 extern crate ical;
-use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use ical::parser::vcard::component::*;
 use ical::property::Property;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
 

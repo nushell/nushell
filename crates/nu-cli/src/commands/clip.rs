@@ -1,6 +1,6 @@
-use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use futures::stream::StreamExt;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, Value};
 

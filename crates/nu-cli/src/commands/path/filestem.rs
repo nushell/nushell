@@ -1,6 +1,6 @@
 use super::{operate, DefaultArguments};
-use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;

@@ -1,7 +1,7 @@
-use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use futures::future;
 use futures::stream::StreamExt;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;

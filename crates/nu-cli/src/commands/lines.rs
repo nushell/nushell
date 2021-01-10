@@ -1,5 +1,5 @@
-use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 use parking_lot::Mutex;

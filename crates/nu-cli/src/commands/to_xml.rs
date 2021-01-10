@@ -1,6 +1,6 @@
-use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use indexmap::IndexMap;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};

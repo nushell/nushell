@@ -1,6 +1,6 @@
-use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use nu_engine::run_block;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
     ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,

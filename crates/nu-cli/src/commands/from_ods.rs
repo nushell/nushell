@@ -1,7 +1,7 @@
-use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use calamine::*;
 use nu_data::TaggedListBuilder;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue};
 use std::io::Cursor;

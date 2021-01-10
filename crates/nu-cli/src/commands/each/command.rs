@@ -1,6 +1,6 @@
+use crate::prelude::*;
 use nu_engine::run_block;
 use nu_engine::WholeStreamCommand;
-use crate::prelude::*;
 
 use futures::stream::once;
 use nu_errors::ShellError;
