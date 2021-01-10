@@ -4,7 +4,6 @@ use nu_source::{Span, Spanned, SpannedItem};
 
 use crate::lex::Token;
 
-/// Shorthand function a parser mismatch with a token
 pub(crate) fn token_to_spanned_string(token: &Token) -> Spanned<String> {
     token.contents.to_string().spanned(token.span)
 }
