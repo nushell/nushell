@@ -1,7 +1,7 @@
 use crate::command_args::EvaluatedWholeStreamCommandArgs;
 use crate::maybe_text_codec::StringOrBinary;
-use crate::shell::shell::Shell;
 use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
+use crate::shell::Shell;
 use encoding_rs::Encoding;
 use futures::stream::BoxStream;
 use nu_errors::ShellError;

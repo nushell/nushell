@@ -377,7 +377,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
 }
 
 pub fn register_plugins(context: &mut EvaluationContext) -> Result<(), ShellError> {
-    if let Ok(plugins) = nu_engine::plugin::plugin::scan(search_paths()) {
+    if let Ok(plugins) = nu_engine::plugin::build_plugin::scan(search_paths()) {
         context.add_commands(
             plugins
                 .into_iter()

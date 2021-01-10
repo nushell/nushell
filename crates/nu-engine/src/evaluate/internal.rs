@@ -184,9 +184,9 @@ pub(crate) async fn run_internal_command(
                                 InputStream::from_stream(futures::stream::iter(vec![]))
                             }
                             CommandAction::AddPlugins(path) => {
-                                match crate::plugin::plugin::scan(vec![std::path::PathBuf::from(
-                                    path,
-                                )]) {
+                                match crate::plugin::build_plugin::scan(vec![
+                                    std::path::PathBuf::from(path),
+                                ]) {
                                     Ok(plugins) => {
                                         context.add_commands(
                                             plugins
