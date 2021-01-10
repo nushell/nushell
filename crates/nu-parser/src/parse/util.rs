@@ -7,6 +7,7 @@ use crate::lex::Token;
 pub(crate) fn token_to_spanned_string(token: &Token) -> Spanned<String> {
     token.contents.to_string().spanned(token.span)
 }
+
 /// Easy shorthand function to create a garbage expression at the given span
 pub fn garbage(span: Span) -> SpannedExpression {
     SpannedExpression::new(Expression::Garbage, span)
