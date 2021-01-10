@@ -1,4 +1,4 @@
-use nu_data::value;
+use nu_data::{value, value::compare_values};
 use nu_errors::ShellError;
 use nu_protocol::hir::Operator;
 use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
@@ -79,9 +79,15 @@ fn table_contains(
     left: &UntaggedValue,
     right: &UntaggedValue,
 ) -> Result<bool, (&'static str, &'static str)> {
-    let left = left.clone();
     match right {
-        UntaggedValue::Table(values) => Ok(values.iter().any(|x| x.value == left)),
+        UntaggedValue::Table(values) => {
+            Ok(values
+                .iter()
+                .any(|x| match compare_values(Operator::Equal, &left, &x.value) {
+                    Ok(coerced) => coerced,
+                    _ => false,
+                }))
+        }
         _ => Err((left.type_name(), right.type_name())),
     }
 }
