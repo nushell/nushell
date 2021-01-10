@@ -171,7 +171,7 @@ mod tests {
     fn syncs_env_if_new_env_entry_is_added_to_an_existing_configuration() -> Result<(), ShellError>
     {
         let mut ctx = crate::cli::basic_evaluation_context()?;
-        ctx.host = Arc::new(Mutex::new(Box::new(crate::env::host::FakeHost::new())));
+        ctx.host = Arc::new(Mutex::new(Box::new(nu_engine::FakeHost::new())));
 
         let mut expected = IndexMap::new();
         expected.insert(
