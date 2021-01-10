@@ -29,10 +29,12 @@ pub fn parse_signature(
     match (chars.next(), chars.next_back()) {
         (Some('['), Some(']')) => {}
         _ => {
-            err = err.or(Some(ParseError::mismatch(
-                "definition signature",
-                signature_vec.clone(),
-            )));
+            err = err.or_else(|| {
+                Some(ParseError::mismatch(
+                    "definition signature",
+                    signature_vec.clone(),
+                ))
+            });
         }
     }
 
@@ -46,7 +48,7 @@ pub fn parse_signature(
     err = err.or(error);
 
     //After normal lexing, tokens also need to be split on ',' and ':'
-    let tokens = lex_split_baseline_tokens_on(tokens, &vec![',', ':']);
+    let tokens = lex_split_baseline_tokens_on(tokens, &[',', ':']);
 
     let mut parameters = vec![];
     let mut flags = vec![];
@@ -55,16 +57,16 @@ pub fn parse_signature(
     while i < tokens.len() {
         if tokens[i].contents.is_eol() {
             //Skip leading eol
-            i = i + 1;
+            i += 1;
         } else if is_flag(&tokens[i]) {
             let (flag, advanced_by, error) = parse_flag(&tokens[i..], signature_vec);
             err = err.or(error);
-            i = i + advanced_by;
+            i += advanced_by;
             flags.push(flag);
         } else {
             let (parameter, advanced_by, error) = parse_parameter(&tokens[i..], signature_vec);
             err = err.or(error);
-            i = i + advanced_by;
+            i += advanced_by;
             parameters.push(parameter);
         }
     }
@@ -79,15 +81,12 @@ fn parse_parameter(
     tokens: &[Token],
     tokens_as_str: &Spanned<String>,
 ) -> (Parameter, usize, Option<ParseError>) {
-    if tokens.len() == 0 {
+    if tokens.is_empty() {
         //TODO fix span
         return (
             Parameter::error(),
             0,
-            Some(ParseError::unexpected_eof(
-                "parameter",
-                tokens_as_str.span.clone(),
-            )),
+            Some(ParseError::unexpected_eof("parameter", tokens_as_str.span)),
         );
     }
 
@@ -101,16 +100,16 @@ fn parse_parameter(
     let (type_, advanced_by, error) = parse_optional_type(&tokens[i..]);
     let type_ = type_.unwrap_or(SyntaxShape::Any);
     err = err.or(error);
-    i = i + advanced_by;
+    i += advanced_by;
 
     let (comment_text, advanced_by, error) = parse_signature_item_end(&tokens[i..]);
-    i = i + advanced_by;
+    i += advanced_by;
     err = err.or(error);
 
     let parameter = Parameter::new(
         PositionalType::mandatory(&name.item, type_),
         comment_text,
-        name.span.clone(),
+        name.span,
     );
 
     debug!(
@@ -126,14 +125,11 @@ fn parse_flag(
     tokens: &[Token],
     tokens_as_str: &Spanned<String>,
 ) -> (Flag, usize, Option<ParseError>) {
-    if tokens.len() == 0 {
+    if tokens.is_empty() {
         return (
             Flag::error(),
             0,
-            Some(ParseError::unexpected_eof(
-                "parameter",
-                tokens_as_str.span.clone(),
-            )),
+            Some(ParseError::unexpected_eof("parameter", tokens_as_str.span)),
         );
     }
 
@@ -145,17 +141,17 @@ fn parse_flag(
     err = err.or(error);
 
     let (shortform, advanced_by, error) = parse_flag_optional_shortform(&tokens[i..]);
-    i = i + advanced_by;
+    i += advanced_by;
     err = err.or(error);
     let shortform = shortform.map(|c| c.item);
 
     let (type_, advanced_by, error) = parse_optional_type(&tokens[i..]);
     let type_ = type_.unwrap_or(SyntaxShape::Any);
     err = err.or(error);
-    i = i + advanced_by;
+    i += advanced_by;
 
     let (comment, advanced_by, error) = parse_signature_item_end(&tokens[i..]);
-    i = i + advanced_by;
+    i += advanced_by;
     err = err.or(error);
 
     //TODO Fixup span
@@ -163,7 +159,7 @@ fn parse_flag(
         name.item.clone(),
         NamedType::Optional(shortform, type_),
         comment,
-        name.span.clone(),
+        name.span,
     );
 
     debug!("Parsed flag: {:?}", flag);
@@ -192,9 +188,7 @@ fn parse_type(type_: &Spanned<String>) -> (SyntaxShape, Option<ParseError>) {
 
 fn parse_type_token(type_: &Token) -> (SyntaxShape, Option<ParseError>) {
     match &type_.contents {
-        TokenContents::Baseline(type_str) => {
-            parse_type(&type_str.clone().spanned(type_.span.clone()))
-        }
+        TokenContents::Baseline(type_str) => parse_type(&type_str.clone().spanned(type_.span)),
         _ => (
             SyntaxShape::Any,
             Some(ParseError::mismatch(
@@ -213,14 +207,14 @@ fn parse_param_name(token: &Token) -> (Spanned<String>, Option<ParseError>) {
             //Example case:
             //def f [ string ] { echo $string }
             //Currently an error is thrown
-            let name = name.clone().spanned(token.span.clone());
+            let name = name.clone().spanned(token.span);
             let (_, err) = parse_type(&name);
             if err.is_some() {
                 //Okay not a type. Just return name
                 (name, None)
             } else {
                 (
-                    name.clone(),
+                    name,
                     Some(ParseError::mismatch(
                         "parameter name",
                         token_to_spanned_string(token),
@@ -229,7 +223,7 @@ fn parse_param_name(token: &Token) -> (Spanned<String>, Option<ParseError>) {
             }
         }
         _ => (
-            "Internal Error".to_string().spanned(token.span.clone()),
+            "Internal Error".to_string().spanned(token.span),
             Some(ParseError::mismatch(
                 "parameter name",
                 token_to_spanned_string(token),
@@ -242,12 +236,9 @@ fn parse_optional_comment(tokens: &[Token]) -> (Option<String>, usize) {
     let mut comment_text = None;
     let mut i: usize = 0;
     if i < tokens.len() {
-        match &tokens[i].contents {
-            TokenContents::Comment(comment) => {
-                comment_text = Some(comment.trim().to_string());
-                i = i + 1;
-            }
-            _ => {}
+        if let TokenContents::Comment(comment) = &tokens[i].contents {
+            comment_text = Some(comment.trim().to_string());
+            i += 1;
         }
     }
     (comment_text, i)
@@ -267,17 +258,14 @@ fn parse_optional_type(tokens: &[Token]) -> (Option<SyntaxShape>, usize, Option<
     if i < tokens.len() && is_double_point(&tokens[i]) {
         //Type has to follow
         if i + 1 == tokens.len() {
-            err = err.or(Some(ParseError::unexpected_eof(
-                "type",
-                tokens[i].span.clone(),
-            )));
+            err = err.or_else(|| Some(ParseError::unexpected_eof("type", tokens[i].span)));
         } else {
             //Jump over <:>
-            i = i + 1;
+            i += 1;
             let (shape, error) = parse_type_token(&tokens[i]);
             err = err.or(error);
             type_ = Some(shape);
-            i = i + 1;
+            i += 1;
         }
     }
     (type_, i, err)
@@ -286,7 +274,7 @@ fn parse_optional_type(tokens: &[Token]) -> (Option<SyntaxShape>, usize, Option<
 ///Parses the end of a flag or a parameter
 ///    ((<,> | <eol>) | (#Comment <eol>)
 fn parse_signature_item_end(tokens: &[Token]) -> (Option<String>, usize, Option<ParseError>) {
-    if tokens.len() == 0 {
+    if tokens.is_empty() {
         //If no more tokens, parameter/flag doesn't need ',' or comment to be properly finished
         return (None, 0, None);
     }
@@ -294,11 +282,11 @@ fn parse_signature_item_end(tokens: &[Token]) -> (Option<String>, usize, Option<
     let mut i = 0;
     let err = None;
     let (parsed_comma, advanced_by) = parse_comma(&tokens[i..]);
-    i = i + advanced_by;
+    i += advanced_by;
     let (comment, advanced_by) = parse_optional_comment(&tokens[i..]);
-    i = i + advanced_by;
+    i += advanced_by;
     let (parsed_eol, advanced_by) = parse_eol(&tokens[i..]);
-    i = i + advanced_by;
+    i += advanced_by;
 
     debug!(
         "Parsed comma {} and parsed eol {}",
@@ -324,7 +312,7 @@ fn parse_flag_name(token: &Token) -> (Spanned<String>, Option<ParseError>) {
     if let TokenContents::Baseline(name) = &token.contents {
         if !name.starts_with("--") {
             (
-                name.clone().spanned(token.span.clone()),
+                name.clone().spanned(token.span),
                 Some(ParseError::mismatch(
                     "longform of a flag (Starting with --)",
                     token_to_spanned_string(token),
@@ -333,7 +321,7 @@ fn parse_flag_name(token: &Token) -> (Spanned<String>, Option<ParseError>) {
         } else {
             //Discard preceding --
             let name = name[2..].to_string();
-            (name.spanned(token.span.clone()), None)
+            (name.spanned(token.span), None)
         }
     } else {
         (
@@ -349,7 +337,7 @@ fn parse_flag_name(token: &Token) -> (Spanned<String>, Option<ParseError>) {
 fn parse_flag_optional_shortform(
     tokens: &[Token],
 ) -> (Option<Spanned<char>>, usize, Option<ParseError>) {
-    if tokens.len() == 0 {
+    if tokens.is_empty() {
         return (None, 0, None);
     }
 
@@ -367,24 +355,28 @@ fn parse_flag_optional_shortform(
                 match dash_count {
                     0 => {
                         //If no starting -
-                        err = err.or(Some(ParseError::mismatch(
-                            "Shortflag starting with '-'",
-                            c.clone().spanned((start, end)),
-                        )));
+                        err = err.or_else(|| {
+                            Some(ParseError::mismatch(
+                                "Shortflag starting with '-'",
+                                c.clone().spanned((start, end)),
+                            ))
+                        });
                     }
                     1 => {
                         //Skip over '-'
-                        start = start + 1;
+                        start += 1;
                         c.remove(0);
                     }
                     _ => {
                         //If --
-                        err = err.or(Some(ParseError::mismatch(
-                            "Shortflag starting with a single '-'",
-                            c.clone().spanned((start, end)),
-                        )));
+                        err = err.or_else(|| {
+                            Some(ParseError::mismatch(
+                                "Shortflag starting with a single '-'",
+                                c.clone().spanned((start, end)),
+                            ))
+                        });
                         //Skip over --
-                        start = start + dash_count;
+                        start += dash_count;
                         c = c
                             .strip_prefix(&"-".repeat(dash_count))
                             .unwrap_or("X")
@@ -414,7 +406,7 @@ fn parse_flag_optional_shortform(
 }
 
 fn parse_eol(tokens: &[Token]) -> (bool, usize) {
-    if 0 < tokens.len() && tokens[0].contents.is_eol() {
+    if !tokens.is_empty() && tokens[0].contents.is_eol() {
         (true, 1)
     } else {
         (false, 0)
@@ -428,7 +420,7 @@ fn parse_comma(tokens: &[Token]) -> (bool, usize) {
             _ => false,
         }
     }
-    if 0 < tokens.len() && is_comma(&tokens[0]) {
+    if !tokens.is_empty() && is_comma(&tokens[0]) {
         (true, 1)
     } else {
         (false, 0)
@@ -449,13 +441,13 @@ fn to_signature(name: &str, params: Vec<Parameter>, flags: Vec<Flag>) -> Signatu
     for param in params.into_iter() {
         // pub positional: Vec<(PositionalType, Description)>,
         sign.positional
-            .push((param.pos_type, param.desc.unwrap_or("".to_string())));
+            .push((param.pos_type, param.desc.unwrap_or_else(|| "".to_string())));
     }
 
     for flag in flags.into_iter() {
         sign.named.insert(
             flag.long_name,
-            (flag.named_type, flag.desc.unwrap_or("".to_string())),
+            (flag.named_type, flag.desc.unwrap_or_else(|| "".to_string())),
         );
     }
 
@@ -466,7 +458,7 @@ fn to_signature(name: &str, params: Vec<Parameter>, flags: Vec<Flag>) -> Signatu
 //The parameter list requires this. Therefore here is a hacky method doing this.
 fn lex_split_baseline_tokens_on(
     tokens: Vec<Token>,
-    extra_baseline_terminal_tokens: &Vec<char>,
+    extra_baseline_terminal_tokens: &[char],
 ) -> Vec<Token> {
     debug!("Before lex fix up {:?}", tokens);
     let make_new_token =
@@ -478,7 +470,7 @@ fn lex_split_baseline_tokens_on(
             //Only add token if its not empty
             if !token_new.is_empty() {
                 result.push(Token::new(
-                    TokenContents::Baseline(token_new.clone()),
+                    TokenContents::Baseline(token_new),
                     Span::new(start, end),
                 ));
             }
