@@ -1,9 +1,11 @@
 use crate::commands::default_context::create_default_context;
-use crate::evaluation_context::EvaluationContext;
+use crate::env::basic_host::BasicHost;
 use crate::line_editor::configure_ctrl_c;
 use nu_engine::run_block;
-use nu_engine::{history_path, FilesystemShell, ShellManager};
+use nu_engine::EvaluationContext;
+use nu_engine::{FilesystemShell, Scope, ShellManager};
 use parking_lot::Mutex;
+use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 
@@ -68,7 +70,7 @@ pub fn search_paths() -> Vec<std::path::PathBuf> {
     search_paths
 }
 
-pub(crate) fn maybe_print_errors(context: &EvaluationContext, source: Text) -> bool {
+pub fn maybe_print_errors(context: &EvaluationContext, source: Text) -> bool {
     let errors = context.current_errors.clone();
     let mut errors = errors.lock();
 
@@ -87,6 +89,18 @@ pub fn basic_shell_manager() -> Result<ShellManager, Box<dyn Error>> {
     Ok(ShellManager {
         current_shell: Arc::new(AtomicUsize::new(0)),
         shells: Arc::new(Mutex::new(vec![Box::new(FilesystemShell::basic()?)])),
+    })
+}
+
+pub fn basic_evaluation_context() -> Result<EvaluationContext, Box<dyn Error>> {
+    Ok(EvaluationContext {
+        scope: Scope::new(),
+        host: Arc::new(parking_lot::Mutex::new(Box::new(BasicHost))),
+        current_errors: Arc::new(Mutex::new(vec![])),
+        ctrl_c: Arc::new(AtomicBool::new(false)),
+        user_recently_used_autoenv_untrust: Arc::new(AtomicBool::new(false)),
+        shell_manager: crate::cli::basic_shell_manager()?,
+        windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
     })
 }
 
@@ -208,7 +222,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
                         Ok(result) => match result.collect_string(Tag::unknown()).await {
                             Ok(string_result) => {
                                 let errors = context.get_errors();
-                                context.maybe_print_errors(Text::from(prompt_line));
+                                maybe_print_errors(&context, Text::from(prompt_line));
                                 context.clear_errors();
 
                                 if !errors.is_empty() {
@@ -303,7 +317,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
             LineResult::Success(line) => {
                 rl.add_history_entry(&line);
                 let _ = rl.save_history(&history_path);
-                context.maybe_print_errors(Text::from(session_text.clone()));
+                maybe_print_errors(&context, Text::from(session_text.clone()));
             }
 
             LineResult::ClearHistory => {
@@ -319,7 +333,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
                     print_err(err, &Text::from(session_text.clone()));
                 });
 
-                context.maybe_print_errors(Text::from(session_text.clone()));
+                maybe_print_errors(&context, Text::from(session_text.clone()));
             }
 
             LineResult::CtrlC => {
@@ -437,7 +451,7 @@ mod tests {
         let (tokens, err) = nu_parser::lex(&data, 0);
         let (lite_block, err2) = nu_parser::block(tokens);
         if err.is_none() && err2.is_none() {
-            let context = crate::evaluation_context::EvaluationContext::basic().unwrap();
+            let context = crate::cli::basic_evaluation_context().unwrap();
             let _ = nu_parser::classify_block(&lite_block, &context.scope);
         }
         true

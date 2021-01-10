@@ -287,8 +287,8 @@ pub(crate) use wrap::Wrap;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::commands::whole_stream_command;
     use crate::examples::{test_anchors, test_examples};
+    use nu_engine::{whole_stream_command, Command};
     use nu_errors::ShellError;
 
     fn full_tests() -> Vec<Command> {

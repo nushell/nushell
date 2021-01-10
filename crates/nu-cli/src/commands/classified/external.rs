@@ -1,7 +1,7 @@
-use crate::commands::classified::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
 use crate::futures::ThreadedReceiver;
 use crate::prelude::*;
 use nu_engine::evaluate_baseline_expr;
+use nu_engine::{MaybeTextCodec, StringOrBinary};
 
 use std::borrow::Cow;
 use std::io::Write;
@@ -533,7 +533,7 @@ mod tests {
         add_double_quotes, argument_is_quoted, escape_double_quotes, expand_tilde, remove_quotes,
     };
     #[cfg(feature = "which")]
-    use super::{run_external_command, EvaluationContext, InputStream};
+    use super::{run_external_command, InputStream};
 
     #[cfg(feature = "which")]
     use futures::executor::block_on;
@@ -561,8 +561,8 @@ mod tests {
         let cmd = ExternalBuilder::for_name("i_dont_exist.exe").build();
 
         let input = InputStream::empty();
-        let mut ctx =
-            EvaluationContext::basic().expect("There was a problem creating a basic context.");
+        let mut ctx = crate::cli::basic_evaluation_context()
+            .expect("There was a problem creating a basic context.");
 
         assert!(
             run_external_command(cmd, &mut ctx, input, ExternalRedirection::Stdout)
@@ -576,7 +576,7 @@ mod tests {
     // async fn failure_run() -> Result<(), ShellError> {
     //     let cmd = ExternalBuilder::for_name("fail").build();
 
-    //     let mut ctx = EvaluationContext::basic().expect("There was a problem creating a basic context.");
+    //     let mut ctx = crate::cli::basic_evaluation_context().expect("There was a problem creating a basic context.");
     //     let stream = run_external_command(cmd, &mut ctx, None, false)
     //         .await?
     //         .expect("There was a problem running the external command.");

@@ -1,13 +1,14 @@
 use crate::commands::each;
-use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
-use crate::{CommandArgs, Example, OutputStream};
 use futures::stream::once;
 use nu_engine::run_block;
+use nu_engine::WholeStreamCommand;
+use nu_engine::{CommandArgs, Example};
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
 use nu_protocol::{hir::CapturedBlock, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
+use nu_stream::OutputStream;
 
 pub struct Reduce;
 

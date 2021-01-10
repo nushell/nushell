@@ -1,13 +1,11 @@
-use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use glob::*;
-use indexmap::map::IndexMap;
-use nu_engine::{command_dict, DirBuilder, DirInfo, FileInfo};
+use nu_engine::WholeStreamCommand;
+use nu_engine::{DirBuilder, DirInfo, FileInfo};
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape};
 use nu_source::Tagged;
 use std::path::PathBuf;
-use std::sync::atomic::Ordering;
 
 const NAME: &str = "du";
 const GLOB_PARAMS: MatchOptions = MatchOptions {
@@ -159,97 +157,6 @@ async fn du(args: CommandArgs) -> Result<OutputStream, ShellError> {
 fn glob_err_into(e: GlobError) -> ShellError {
     let e = e.into_error();
     ShellError::from(e)
-}
-
-fn value_from_vec<V>(vec: Vec<V>, tag: &Tag) -> Value
-where
-    V: Into<Value>,
-{
-    if vec.is_empty() {
-        UntaggedValue::nothing()
-    } else {
-        let values = vec.into_iter().map(Into::into).collect::<Vec<Value>>();
-        UntaggedValue::Table(values)
-    }
-    .into_value(tag)
-}
-
-impl From<DirInfo> for Value {
-    fn from(d: DirInfo) -> Self {
-        let mut r: IndexMap<String, Value> = IndexMap::new();
-
-        r.insert(
-            "path".to_string(),
-            UntaggedValue::filepath(d.path).into_value(&d.tag),
-        );
-
-        r.insert(
-            "apparent".to_string(),
-            UntaggedValue::filesize(d.size).into_value(&d.tag),
-        );
-
-        r.insert(
-            "physical".to_string(),
-            UntaggedValue::filesize(d.blocks).into_value(&d.tag),
-        );
-
-        r.insert("directories".to_string(), value_from_vec(d.dirs, &d.tag));
-
-        r.insert("files".to_string(), value_from_vec(d.files, &d.tag));
-
-        if !d.errors.is_empty() {
-            let v = UntaggedValue::Table(
-                d.errors
-                    .into_iter()
-                    .map(move |e| UntaggedValue::Error(e).into_untagged_value())
-                    .collect::<Vec<Value>>(),
-            )
-            .into_value(&d.tag);
-
-            r.insert("errors".to_string(), v);
-        }
-
-        Value {
-            value: UntaggedValue::row(r),
-            tag: d.tag,
-        }
-    }
-}
-
-impl From<FileInfo> for Value {
-    fn from(f: FileInfo) -> Self {
-        let mut r: IndexMap<String, Value> = IndexMap::new();
-
-        r.insert(
-            "path".to_string(),
-            UntaggedValue::filepath(f.path).into_value(&f.tag),
-        );
-
-        r.insert(
-            "apparent".to_string(),
-            UntaggedValue::filesize(f.size).into_value(&f.tag),
-        );
-
-        let b = f
-            .blocks
-            .map(UntaggedValue::filesize)
-            .unwrap_or_else(UntaggedValue::nothing)
-            .into_value(&f.tag);
-
-        r.insert("physical".to_string(), b);
-
-        r.insert(
-            "directories".to_string(),
-            UntaggedValue::nothing().into_value(&f.tag),
-        );
-
-        r.insert(
-            "files".to_string(),
-            UntaggedValue::nothing().into_value(&f.tag),
-        );
-
-        UntaggedValue::row(r).into_value(&f.tag)
-    }
 }
 
 #[cfg(test)]

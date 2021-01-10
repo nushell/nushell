@@ -3,7 +3,7 @@ use nu_engine::whole_stream_command;
 use std::error::Error;
 
 pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Box<dyn Error>> {
-    let context = EvaluationContext::basic()?;
+    let context = crate::cli::basic_evaluation_context()?;
 
     {
         use crate::commands::*;

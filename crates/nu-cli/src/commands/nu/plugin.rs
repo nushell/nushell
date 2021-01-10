@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
-use nu_engine::WholeStreamCommand;
-use crate::path::canonicalize;
 use crate::prelude::*;
+use nu_engine::filesystem::path::canonicalize;
+use nu_engine::WholeStreamCommand;
 
 use nu_errors::ShellError;
 use nu_protocol::{CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue};

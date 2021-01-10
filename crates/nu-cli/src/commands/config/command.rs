@@ -1,8 +1,9 @@
-use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
-use crate::{CommandArgs, OutputStream};
+use nu_engine::CommandArgs;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
+use nu_stream::OutputStream;
 
 pub struct Command;
 

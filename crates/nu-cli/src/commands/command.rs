@@ -1,13 +1,7 @@
 use crate::prelude::*;
-use derive_new::new;
-use getset::Getters;
 use nu_engine::Command;
 use nu_errors::ShellError;
-use nu_protocol::hir::{self, Block};
-use nu_protocol::{CallInfo, EvaluatedArgs, ReturnSuccess, Signature, UntaggedValue, Value};
 use parking_lot::Mutex;
-use serde::Deserialize;
-use std::ops::Deref;
 use std::sync::atomic::AtomicBool;
 
 pub struct RunnableContext {

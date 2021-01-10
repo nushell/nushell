@@ -1,12 +1,13 @@
-use crate::evaluation_context::EvaluationContext;
-use crate::path::canonicalize;
 use crate::prelude::*;
 use futures_codec::FramedRead;
+use nu_engine::path::canonicalize;
 use nu_engine::run_block;
+use nu_engine::EvaluationContext;
 use nu_engine::{MaybeTextCodec, StringOrBinary};
 use nu_errors::ShellError;
 use nu_protocol::hir::{ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments};
 use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue, Value};
+use nu_stream::ToInputStream;
 
 use log::{debug, trace};
 use std::error::Error;
@@ -250,7 +251,7 @@ pub async fn run_script_standalone(
                 }
             };
 
-            context.maybe_print_errors(Text::from(line));
+            maybe_print_errors(&context, Text::from(line));
             if error_code != 0 && exit_on_error {
                 std::process::exit(error_code);
             }
@@ -261,7 +262,7 @@ pub async fn run_script_standalone(
                 print_err(err, &Text::from(line.clone()));
             });
 
-            context.maybe_print_errors(Text::from(line));
+            maybe_print_errors(&context, Text::from(line));
             if exit_on_error {
                 std::process::exit(1);
             }

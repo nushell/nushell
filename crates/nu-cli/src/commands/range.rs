@@ -1,6 +1,6 @@
-use nu_engine::WholeStreamCommand;
-use crate::deserializer::NumericRange;
 use crate::prelude::*;
+use nu_engine::deserializer::NumericRange;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{RangeInclusion, ReturnSuccess, Signature, SyntaxShape};
 use nu_source::Tagged;

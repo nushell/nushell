@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use crate::{commands::WholeStreamCommand, evaluate::evaluate_baseline_expr};
+use nu_engine::{evaluate_baseline_expr, WholeStreamCommand};
 
 use nu_errors::ShellError;
 use nu_protocol::{hir::CapturedBlock, hir::ClassifiedCommand, Signature, SyntaxShape};

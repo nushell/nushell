@@ -1,12 +1,11 @@
-use nu_engine::WholeStreamCommand;
 use crate::prelude::*;
 use nu_data::config::{Conf, NuConfig};
 use nu_engine::history_path;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::path::PathBuf;
 
 #[derive(Deserialize)]
 struct Arguments {

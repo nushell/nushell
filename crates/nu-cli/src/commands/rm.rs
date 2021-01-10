@@ -3,8 +3,6 @@ use nu_engine::shell::RemoveArgs;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape};
-use nu_source::Tagged;
-use std::path::PathBuf;
 
 pub struct Remove;
 

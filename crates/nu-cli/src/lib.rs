@@ -17,8 +17,6 @@ mod cli;
 mod commands;
 #[cfg(feature = "rustyline-support")]
 mod completion;
-mod deserializer;
-mod documentation;
 mod env;
 mod format;
 mod futures;
@@ -27,8 +25,6 @@ mod git;
 #[cfg(feature = "rustyline-support")]
 mod keybinding;
 mod line_editor;
-mod path;
-mod plugin;
 pub mod script;
 mod shell;
 pub mod types;

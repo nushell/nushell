@@ -19,7 +19,6 @@ members = ["crates/*/"]
 
 [dependencies]
 nu-cli = {version = "0.25.1", path = "./crates/nu-cli"}
-nu-core-commands = {version = "0.25.1", path = "./crates/nu-core-commands"}
 nu-data = {version = "0.25.1", path = "./crates/nu-data"}
 nu-engine = {version = "0.25.1", path = "./crates/nu-engine"}
 nu-errors = {version = "0.25.1", path = "./crates/nu-errors"}

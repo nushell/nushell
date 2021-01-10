@@ -1,7 +1,6 @@
-use crate::documentation::{generate_docs, get_documentation, DocumentationConfig};
 use crate::prelude::*;
-use nu_data::command::signature_dict;
 use nu_engine::command_dict;
+use nu_engine::documentation::generate_docs;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value};
