@@ -17,11 +17,7 @@ mod cli;
 mod commands;
 #[cfg(feature = "rustyline-support")]
 mod completion;
-mod deserializer;
-mod documentation;
 mod env;
-mod evaluate;
-mod evaluation_context;
 mod format;
 mod futures;
 #[cfg(feature = "rustyline-support")]
@@ -29,8 +25,6 @@ mod git;
 #[cfg(feature = "rustyline-support")]
 mod keybinding;
 mod line_editor;
-mod path;
-mod plugin;
 pub mod script;
 mod shell;
 pub mod types;
@@ -43,17 +37,9 @@ mod examples;
 pub use crate::cli::cli;
 
 pub use crate::cli::{parse_and_eval, register_plugins, run_script_file};
-pub use crate::commands::classified::block::run_block;
-pub use crate::commands::command::{
-    whole_stream_command, CommandArgs, EvaluatedWholeStreamCommandArgs, Example, WholeStreamCommand,
-};
 
 pub use crate::commands::default_context::create_default_context;
-pub use crate::commands::help::get_help;
 pub use crate::env::environment_syncer::EnvironmentSyncer;
-pub use crate::env::host::BasicHost;
-pub use crate::evaluation_context::EvaluationContext;
-pub use crate::prelude::ToOutputStream;
 pub use nu_data::config;
 pub use nu_data::dict::TaggedListBuilder;
 pub use nu_data::primitive;

@@ -2,7 +2,7 @@ use crate::prelude::*;
 use futures::stream::iter;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, Type, UntaggedValue, Value};
-use nu_source::{PrettyDebug, Tag, Tagged, TaggedItem};
+use nu_source::{HasFallibleSpan, PrettyDebug, Tag, Tagged, TaggedItem};
 
 pub struct InputStream {
     values: BoxStream<'static, Value>,
@@ -172,5 +172,25 @@ impl From<Vec<Value>> for InputStream {
             values: futures::stream::iter(input).boxed(),
             empty: false,
         }
+    }
+}
+
+pub trait ToInputStream {
+    fn to_input_stream(self) -> InputStream;
+}
+
+impl<T, U> ToInputStream for T
+where
+    T: Stream<Item = U> + Send + 'static,
+    U: Into<Result<nu_protocol::Value, nu_errors::ShellError>>,
+{
+    fn to_input_stream(self) -> InputStream {
+        InputStream::from_stream(self.map(|item| match item.into() {
+            Ok(result) => result,
+            Err(err) => match HasFallibleSpan::maybe_span(&err) {
+                Some(span) => nu_protocol::UntaggedValue::Error(err).into_value(span),
+                None => nu_protocol::UntaggedValue::Error(err).into_untagged_value(),
+            },
+        }))
     }
 }

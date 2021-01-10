@@ -1,6 +1,6 @@
-use crate::commands::UnevaluatedCallInfo;
-use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
+use nu_engine::UnevaluatedCallInfo;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::hir::ExternalRedirection;
 use nu_protocol::{

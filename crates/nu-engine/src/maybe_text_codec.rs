@@ -2,7 +2,6 @@ use bytes::{BufMut, Bytes, BytesMut};
 
 use nu_errors::ShellError;
 
-extern crate encoding_rs;
 use encoding_rs::{CoderResult, Decoder, Encoding, UTF_8};
 
 #[cfg(not(test))]

@@ -1,8 +1,8 @@
 use crate::commands::table::options::{ConfigExtensions, NuConfig as TableConfiguration};
-use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use crate::primitive::get_color_config;
 use nu_data::value::{format_leaf, style_leaf};
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_table::{draw_table, Alignment, StyledString, TextStyle};

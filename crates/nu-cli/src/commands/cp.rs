@@ -1,18 +1,9 @@
-use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape};
-use nu_source::Tagged;
-use std::path::PathBuf;
 
 pub struct Cpy;
-
-#[derive(Deserialize)]
-pub struct CopyArgs {
-    pub src: Tagged<PathBuf>,
-    pub dst: Tagged<PathBuf>,
-    pub recursive: Tagged<bool>,
-}
 
 #[async_trait]
 impl WholeStreamCommand for Cpy {

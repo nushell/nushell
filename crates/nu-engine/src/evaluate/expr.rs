@@ -1,11 +1,12 @@
-use crate::evaluate::evaluate_baseline_expr;
-use crate::prelude::*;
+use crate::evaluate_baseline_expr;
 
 use log::{log_enabled, trace};
 
+use crate::evaluation_context::EvaluationContext;
 use futures::stream::once;
 use nu_errors::ShellError;
 use nu_protocol::hir::SpannedExpression;
+use nu_stream::{InputStream, ToInputStream};
 
 pub(crate) async fn run_expression_block(
     expr: &SpannedExpression,

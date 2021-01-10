@@ -4,7 +4,7 @@ use crate::completion::matchers;
 use crate::completion::matchers::Matcher;
 use crate::completion::path::{PathCompleter, PathSuggestion};
 use crate::completion::{self, Completer, Suggestion};
-use crate::evaluation_context::EvaluationContext;
+use nu_engine::EvaluationContext;
 use nu_parser::ParserScope;
 use nu_source::Tag;
 

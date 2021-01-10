@@ -1,7 +1,7 @@
-use crate::commands::WholeStreamCommand;
-use crate::evaluate::evaluate_baseline_expr;
 use crate::prelude::*;
 use log::trace;
+use nu_engine::evaluate_baseline_expr;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{hir::ClassifiedCommand, Signature, SyntaxShape, UntaggedValue, Value};
 

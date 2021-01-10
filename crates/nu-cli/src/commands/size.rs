@@ -1,8 +1,8 @@
 extern crate unicode_segmentation;
 
-use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use indexmap::indexmap;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
 use unicode_segmentation::UnicodeSegmentation;

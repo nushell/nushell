@@ -1,6 +1,6 @@
-use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_data::base::coerce_compare;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;

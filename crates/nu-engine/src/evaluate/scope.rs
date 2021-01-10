@@ -1,8 +1,10 @@
-use crate::prelude::*;
-use crate::{commands::Command, whole_stream_command};
+use crate::whole_stream_command::{whole_stream_command, Command};
+use indexmap::IndexMap;
+use nu_errors::ShellError;
 use nu_parser::ParserScope;
 use nu_protocol::{hir::Block, Value};
 use nu_source::Spanned;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct Scope {
@@ -85,6 +87,10 @@ impl Scope {
 
     pub fn len(&self) -> usize {
         self.frames.lock().len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.frames.lock().is_empty()
     }
 
     fn has_cmd_helper(&self, name: &str, f: fn(&ScopeFrame, &str) -> bool) -> bool {

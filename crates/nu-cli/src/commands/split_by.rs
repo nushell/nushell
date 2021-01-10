@@ -1,6 +1,6 @@
-use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use crate::utils::suggestions::suggestions;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, Value};
 use nu_source::Tagged;

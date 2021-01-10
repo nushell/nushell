@@ -1,22 +1,21 @@
-use crate::commands::cd::CdArgs;
-use crate::commands::command::EvaluatedWholeStreamCommandArgs;
-use crate::commands::cp::CopyArgs;
-use crate::commands::ls::LsArgs;
-use crate::commands::mkdir::MkdirArgs;
-use crate::commands::move_::mv::Arguments as MvArgs;
-use crate::commands::rm::RemoveArgs;
-use crate::prelude::*;
-use crate::shell::shell::Shell;
-use crate::utils::ValueStructure;
-
-use crate::commands::classified::maybe_text_codec::StringOrBinary;
+use crate::command_args::EvaluatedWholeStreamCommandArgs;
+use crate::maybe_text_codec::StringOrBinary;
+use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
+use crate::shell::Shell;
 use encoding_rs::Encoding;
+use futures::stream::BoxStream;
+use nu_errors::ShellError;
+use nu_protocol::ValueStructure;
+use nu_protocol::{ReturnSuccess, ShellTypeName, UntaggedValue, Value};
+use nu_source::SpannedItem;
+use nu_source::{Span, Tag, Tagged};
+use nu_stream::OutputStream;
+use nu_value_ext::ValueExt;
+use std::collections::VecDeque;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
-
-use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, ShellTypeName, UntaggedValue, Value};
-use nu_source::Tagged;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct ValueShell {

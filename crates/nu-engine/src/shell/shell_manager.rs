@@ -1,38 +1,25 @@
-use crate::commands::cd::CdArgs;
-use crate::commands::classified::maybe_text_codec::StringOrBinary;
-use crate::commands::command::EvaluatedWholeStreamCommandArgs;
-use crate::commands::cp::CopyArgs;
-use crate::commands::ls::LsArgs;
-use crate::commands::mkdir::MkdirArgs;
-use crate::commands::move_::mv::Arguments as MvArgs;
-use crate::commands::rm::RemoveArgs;
-use crate::prelude::*;
-use crate::shell::filesystem_shell::FilesystemShell;
-use crate::shell::shell::Shell;
+use crate::command_args::EvaluatedWholeStreamCommandArgs;
+use crate::maybe_text_codec::StringOrBinary;
+use crate::shell::Shell;
+use futures::Stream;
 use nu_stream::OutputStream;
 
+use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
 use encoding_rs::Encoding;
 use nu_errors::ShellError;
+use nu_source::{Span, Tag};
 use parking_lot::Mutex;
-use std::error::Error;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 
 #[derive(Clone, Debug)]
 pub struct ShellManager {
-    pub(crate) current_shell: Arc<AtomicUsize>,
-    pub(crate) shells: Arc<Mutex<Vec<Box<dyn Shell + Send>>>>,
+    pub current_shell: Arc<AtomicUsize>,
+    pub shells: Arc<Mutex<Vec<Box<dyn Shell + Send>>>>,
 }
 
 impl ShellManager {
-    pub fn basic() -> Result<ShellManager, Box<dyn Error>> {
-        Ok(ShellManager {
-            current_shell: Arc::new(AtomicUsize::new(0)),
-            shells: Arc::new(Mutex::new(vec![Box::new(FilesystemShell::basic()?)])),
-        })
-    }
-
     pub fn insert_at_current(&self, shell: Box<dyn Shell + Send>) {
         self.shells.lock().push(shell);
         self.current_shell

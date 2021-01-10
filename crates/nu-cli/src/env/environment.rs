@@ -1,38 +1,9 @@
 use crate::env::directory_specific_environment::*;
 use indexmap::{indexmap, IndexSet};
 use nu_data::config::Conf;
+use nu_engine::Env;
 use nu_errors::ShellError;
 use nu_protocol::{UntaggedValue, Value};
-use std::env::*;
-use std::ffi::OsString;
-
-use std::fmt::Debug;
-
-pub trait Env: Debug + Send {
-    fn env(&self) -> Option<Value>;
-    fn path(&self) -> Option<Value>;
-
-    fn add_env(&mut self, key: &str, value: &str);
-    fn add_path(&mut self, new_path: OsString);
-}
-
-impl Env for Box<dyn Env> {
-    fn env(&self) -> Option<Value> {
-        (**self).env()
-    }
-
-    fn path(&self) -> Option<Value> {
-        (**self).path()
-    }
-
-    fn add_env(&mut self, key: &str, value: &str) {
-        (**self).add_env(key, value);
-    }
-
-    fn add_path(&mut self, new_path: OsString) {
-        (**self).add_path(new_path);
-    }
-}
 
 #[derive(Debug, Default)]
 pub struct Environment {
@@ -128,7 +99,7 @@ impl Env for Environment {
             {
                 let mut new_paths = current_paths.clone();
 
-                let new_path_candidates = split_paths(&paths).map(|path| {
+                let new_path_candidates = std::env::split_paths(&paths).map(|path| {
                     UntaggedValue::string(path.to_string_lossy()).into_value(tag.clone())
                 });
 

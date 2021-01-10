@@ -36,7 +36,7 @@ macro_rules! trace_stream {
                 );
             });
 
-            $crate::stream::InputStream::from_stream(objects.boxed())
+            nu_stream::InputStream::from_stream(objects.boxed())
         } else {
             $expr
         }

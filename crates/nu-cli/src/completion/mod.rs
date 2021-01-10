@@ -4,8 +4,8 @@ pub(crate) mod flag;
 pub(crate) mod matchers;
 pub(crate) mod path;
 
-use crate::evaluation_context::EvaluationContext;
 use matchers::Matcher;
+use nu_engine::EvaluationContext;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Suggestion {

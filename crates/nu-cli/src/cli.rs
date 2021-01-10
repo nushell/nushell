@@ -1,7 +1,13 @@
-use crate::commands::classified::block::run_block;
 use crate::commands::default_context::create_default_context;
-use crate::evaluation_context::EvaluationContext;
+use crate::env::basic_host::BasicHost;
 use crate::line_editor::configure_ctrl_c;
+use nu_engine::run_block;
+use nu_engine::EvaluationContext;
+use nu_engine::{FilesystemShell, Scope, ShellManager};
+use parking_lot::Mutex;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicUsize;
+use std::sync::Arc;
 
 #[allow(unused_imports)]
 pub(crate) use crate::script::{process_script, LineResult};
@@ -64,6 +70,40 @@ pub fn search_paths() -> Vec<std::path::PathBuf> {
     search_paths
 }
 
+pub fn maybe_print_errors(context: &EvaluationContext, source: Text) -> bool {
+    let errors = context.current_errors.clone();
+    let mut errors = errors.lock();
+
+    if errors.len() > 0 {
+        let error = errors[0].clone();
+        *errors = vec![];
+
+        crate::script::print_err(error, &source);
+        true
+    } else {
+        false
+    }
+}
+
+pub fn basic_shell_manager() -> Result<ShellManager, Box<dyn Error>> {
+    Ok(ShellManager {
+        current_shell: Arc::new(AtomicUsize::new(0)),
+        shells: Arc::new(Mutex::new(vec![Box::new(FilesystemShell::basic()?)])),
+    })
+}
+
+pub fn basic_evaluation_context() -> Result<EvaluationContext, Box<dyn Error>> {
+    Ok(EvaluationContext {
+        scope: Scope::new(),
+        host: Arc::new(parking_lot::Mutex::new(Box::new(BasicHost))),
+        current_errors: Arc::new(Mutex::new(vec![])),
+        ctrl_c: Arc::new(AtomicBool::new(false)),
+        user_recently_used_autoenv_untrust: Arc::new(AtomicBool::new(false)),
+        shell_manager: crate::cli::basic_shell_manager()?,
+        windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
+    })
+}
+
 pub async fn run_script_file(
     file_contents: String,
     redirect_stdin: bool,
@@ -121,7 +161,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
     // Give ourselves a scope to work in
     context.scope.enter_scope();
 
-    let history_path = crate::commands::history::history_path(&configuration);
+    let history_path = nu_engine::history_path(&configuration);
     let _ = rl.load_history(&history_path);
 
     let mut session_text = String::new();
@@ -182,7 +222,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
                         Ok(result) => match result.collect_string(Tag::unknown()).await {
                             Ok(string_result) => {
                                 let errors = context.get_errors();
-                                context.maybe_print_errors(Text::from(prompt_line));
+                                maybe_print_errors(&context, Text::from(prompt_line));
                                 context.clear_errors();
 
                                 if !errors.is_empty() {
@@ -277,7 +317,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
             LineResult::Success(line) => {
                 rl.add_history_entry(&line);
                 let _ = rl.save_history(&history_path);
-                context.maybe_print_errors(Text::from(session_text.clone()));
+                maybe_print_errors(&context, Text::from(session_text.clone()));
             }
 
             LineResult::ClearHistory => {
@@ -293,7 +333,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
                     print_err(err, &Text::from(session_text.clone()));
                 });
 
-                context.maybe_print_errors(Text::from(session_text.clone()));
+                maybe_print_errors(&context, Text::from(session_text.clone()));
             }
 
             LineResult::CtrlC => {
@@ -337,7 +377,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
 }
 
 pub fn register_plugins(context: &mut EvaluationContext) -> Result<(), ShellError> {
-    if let Ok(plugins) = crate::plugin::scan(search_paths()) {
+    if let Ok(plugins) = nu_engine::plugin::build_plugin::scan(search_paths()) {
         context.add_commands(
             plugins
                 .into_iter()
@@ -411,7 +451,7 @@ mod tests {
         let (tokens, err) = nu_parser::lex(&data, 0);
         let (lite_block, err2) = nu_parser::block(tokens);
         if err.is_none() && err2.is_none() {
-            let context = crate::evaluation_context::EvaluationContext::basic().unwrap();
+            let context = crate::cli::basic_evaluation_context().unwrap();
             let _ = nu_parser::classify_block(&lite_block, &context.scope);
         }
         true

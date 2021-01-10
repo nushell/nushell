@@ -1,7 +1,7 @@
-use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use indexmap::map::IndexMap;
 use log::trace;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;

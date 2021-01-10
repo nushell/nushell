@@ -1,10 +1,10 @@
-use crate::commands::classified::maybe_text_codec::StringOrBinary;
 use crate::commands::constants::BAT_LANGUAGES;
-use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use encoding_rs::{Encoding, UTF_8};
 use futures_util::StreamExt;
 use log::debug;
+use nu_engine::StringOrBinary;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::{AnchorLocation, Span, Tagged};

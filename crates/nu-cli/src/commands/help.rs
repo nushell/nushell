@@ -1,8 +1,7 @@
-use crate::commands::command::Command;
-use crate::commands::WholeStreamCommand;
-use crate::documentation::{generate_docs, get_documentation, DocumentationConfig};
 use crate::prelude::*;
-use nu_data::command::signature_dict;
+use nu_engine::command_dict;
+use nu_engine::documentation::generate_docs;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::{SpannedItem, Tagged};
@@ -32,21 +31,6 @@ impl WholeStreamCommand for Help {
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         help(args).await
     }
-}
-
-pub(crate) fn command_dict(command: Command, tag: impl Into<Tag>) -> Value {
-    let tag = tag.into();
-
-    let mut cmd_dict = TaggedDictBuilder::new(&tag);
-
-    cmd_dict.insert_untagged("name", UntaggedValue::string(command.name()));
-
-    cmd_dict.insert_untagged("type", UntaggedValue::string("Command"));
-
-    cmd_dict.insert_value("signature", signature_dict(command.signature(), tag));
-    cmd_dict.insert_untagged("usage", UntaggedValue::string(command.usage()));
-
-    cmd_dict.into_value()
 }
 
 async fn help(args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -222,10 +206,6 @@ You can also learn more at https://www.nushell.sh/book/"#;
             UntaggedValue::string(msg).into_value(Tag::unknown()),
         )))
     }
-}
-
-pub fn get_help(cmd: &dyn WholeStreamCommand, scope: &Scope) -> String {
-    get_documentation(cmd, scope, &DocumentationConfig::default())
 }
 
 #[cfg(test)]

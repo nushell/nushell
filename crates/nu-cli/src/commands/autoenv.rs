@@ -1,5 +1,5 @@
-use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 use serde::Deserialize;
@@ -63,8 +63,7 @@ The file can contain several optional sections:
     }
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(ReturnSuccess::value(
-            UntaggedValue::string(crate::commands::help::get_help(&Autoenv, &args.scope))
-                .into_value(Tag::unknown()),
+            UntaggedValue::string(get_help(&Autoenv, &args.scope)).into_value(Tag::unknown()),
         )))
     }
 

@@ -1,7 +1,4 @@
-use crate::prelude::*;
-#[cfg(test)]
 use indexmap::IndexMap;
-// use nu_errors::ShellError;
 use std::ffi::OsString;
 use std::fmt::Debug;
 
@@ -59,87 +56,11 @@ impl Host for Box<dyn Host> {
 }
 
 #[derive(Debug)]
-pub struct BasicHost;
-
-impl Host for BasicHost {
-    fn stdout(&mut self, out: &str) {
-        match out {
-            "\n" => outln!(""),
-            other => outln!("{}", other),
-        }
-    }
-
-    fn stderr(&mut self, out: &str) {
-        match out {
-            "\n" => errln!(""),
-            other => errln!("{}", other),
-        }
-    }
-
-    #[allow(unused_variables)]
-    fn vars(&mut self) -> Vec<(String, String)> {
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            std::env::vars().collect::<Vec<_>>()
-        }
-
-        #[cfg(target_arch = "wasm32")]
-        {
-            vec![]
-        }
-    }
-
-    #[allow(unused_variables)]
-    fn env_get(&mut self, key: OsString) -> Option<OsString> {
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            std::env::var_os(key)
-        }
-        #[cfg(target_arch = "wasm32")]
-        {
-            None
-        }
-    }
-
-    #[allow(unused_variables)]
-    fn env_set(&mut self, key: OsString, value: OsString) {
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            std::env::set_var(key, value);
-        }
-    }
-
-    #[allow(unused_variables)]
-    fn env_rm(&mut self, key: OsString) {
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            std::env::remove_var(key);
-        }
-    }
-
-    fn out_termcolor(&self) -> termcolor::StandardStream {
-        termcolor::StandardStream::stdout(termcolor::ColorChoice::Auto)
-    }
-
-    fn err_termcolor(&self) -> termcolor::StandardStream {
-        termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto)
-    }
-
-    fn width(&self) -> usize {
-        let (mut term_width, _) = term_size::dimensions().unwrap_or((80, 20));
-        term_width -= 1;
-        term_width
-    }
-}
-
-#[cfg(test)]
-#[derive(Debug)]
 pub struct FakeHost {
     line_written: String,
     env_vars: IndexMap<String, String>,
 }
 
-#[cfg(test)]
 impl FakeHost {
     pub fn new() -> FakeHost {
         FakeHost {
@@ -149,7 +70,12 @@ impl FakeHost {
     }
 }
 
-#[cfg(test)]
+impl Default for FakeHost {
+    fn default() -> Self {
+        FakeHost::new()
+    }
+}
+
 impl Host for FakeHost {
     fn stdout(&mut self, out: &str) {
         self.line_written = out.to_string();
@@ -199,14 +125,3 @@ impl Host for FakeHost {
         1
     }
 }
-
-// pub(crate) fn handle_unexpected<T>(
-//     host: &mut dyn Host,
-//     func: impl FnOnce(&mut dyn Host) -> Result<T, ShellError>,
-// ) {
-//     let result = func(host);
-
-//     if let Err(err) = result {
-//         host.stderr(&format!("Something unexpected happened:\n{:?}", err));
-//     }
-// }

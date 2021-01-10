@@ -1,8 +1,9 @@
-use crate::commands::WholeStreamCommand;
-
-use crate::prelude::*;
+use crate::evaluate::scope::Scope;
+use crate::whole_stream_command::WholeStreamCommand;
+use indexmap::IndexMap;
+use itertools::Itertools;
 use nu_protocol::{NamedType, PositionalType, Signature, UntaggedValue, Value};
-
+use nu_source::PrettyDebug;
 use std::collections::HashMap;
 
 const COMMANDS_DOCS_DIR: &str = "docs/commands";
@@ -288,4 +289,8 @@ fn get_flags_section(signature: &Signature) -> String {
         long_desc.push_str(&msg);
     }
     long_desc
+}
+
+pub fn get_help(cmd: &dyn WholeStreamCommand, scope: &Scope) -> String {
+    get_documentation(cmd, scope, &DocumentationConfig::default())
 }

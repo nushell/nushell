@@ -8,6 +8,7 @@ pub mod primitive;
 pub mod range;
 mod serde_bigdecimal;
 mod serde_bigint;
+pub mod value_structure;
 
 use crate::hir;
 use crate::type_name::{ShellTypeName, SpannedTypeName};

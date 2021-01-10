@@ -1,11 +1,15 @@
-use crate::commands::command::{whole_stream_command, WholeStreamCommand};
-use crate::prelude::*;
+use crate::command_args::CommandArgs;
+use crate::whole_stream_command::{whole_stream_command, WholeStreamCommand};
+use async_trait::async_trait;
 use derive_new::new;
+use futures::StreamExt;
 use log::trace;
 use nu_errors::ShellError;
 use nu_plugin::jsonrpc::JsonRpc;
 use nu_protocol::{Primitive, ReturnValue, Signature, UntaggedValue, Value};
+use nu_stream::{OutputStream, ToOutputStream};
 use serde::{self, Deserialize, Serialize};
+use std::collections::VecDeque;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::io::Write;
@@ -27,7 +31,7 @@ enum PluginCommand {
 }
 
 impl PluginCommand {
-    fn command(self) -> Result<crate::commands::Command, ShellError> {
+    fn command(self) -> Result<crate::whole_stream_command::Command, ShellError> {
         match self {
             PluginCommand::Filter(cmd) => Ok(whole_stream_command(cmd)),
             PluginCommand::Sink(cmd) => Ok(whole_stream_command(cmd)),
@@ -67,7 +71,7 @@ impl PluginCommandBuilder {
         }
     }
 
-    pub fn build(&self) -> Result<crate::commands::Command, ShellError> {
+    pub fn build(&self) -> Result<crate::whole_stream_command::Command, ShellError> {
         let mode = &self.mode;
 
         let name = self.name.clone();

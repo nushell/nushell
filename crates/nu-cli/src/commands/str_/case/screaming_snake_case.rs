@@ -1,7 +1,7 @@
 use super::operate;
-use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use inflector::cases::screamingsnakecase::to_screaming_snake_case;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape, Value};
 

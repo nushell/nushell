@@ -1,4 +1,4 @@
-use crate::commands::classified::plugin::PluginCommandBuilder;
+use crate::plugin::run_plugin::PluginCommandBuilder;
 use log::trace;
 use nu_errors::ShellError;
 use nu_plugin::jsonrpc::JsonRpc;
@@ -93,7 +93,9 @@ pub fn build_plugin_command(
     result
 }
 
-pub fn scan(paths: Vec<std::path::PathBuf>) -> Result<Vec<crate::commands::Command>, ShellError> {
+pub fn scan(
+    paths: Vec<std::path::PathBuf>,
+) -> Result<Vec<crate::whole_stream_command::Command>, ShellError> {
     let mut plugins = vec![];
 
     let opts = glob::MatchOptions {
@@ -162,7 +164,7 @@ pub fn scan(paths: Vec<std::path::PathBuf>) -> Result<Vec<crate::commands::Comma
                 }
             }).map(|p| p.build())
             .filter_map(Result::ok)
-            .collect::<Vec<crate::commands::Command>>();
+            .collect::<Vec<crate::whole_stream_command::Command>>();
         plugins.extend(plugs);
     }
 

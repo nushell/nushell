@@ -7,6 +7,7 @@ use std::ops::Deref;
 use std::str::Bytes;
 use std::{fmt, io};
 
+// FIXME: find a good home, as nu-engine may be too core for styling
 pub trait Palette {
     fn styles_for_shape(&self, shape: &Spanned<FlatShape>) -> Vec<Spanned<Style>>;
 }

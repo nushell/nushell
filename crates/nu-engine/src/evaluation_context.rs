@@ -1,12 +1,15 @@
-use crate::commands::{command::CommandArgs, Command, UnevaluatedCallInfo};
+use crate::call_info::UnevaluatedCallInfo;
+use crate::command_args::CommandArgs;
 use crate::env::host::Host;
-use crate::prelude::*;
+use crate::evaluate::scope::Scope;
 use crate::shell::shell_manager::ShellManager;
+use crate::whole_stream_command::Command;
+use indexmap::IndexMap;
+use nu_errors::ShellError;
 use nu_protocol::hir;
-use nu_source::{Tag, Text};
+use nu_source::Tag;
 use nu_stream::{InputStream, OutputStream};
 use parking_lot::Mutex;
-use std::error::Error;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
@@ -17,14 +20,14 @@ pub struct EvaluationContext {
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub ctrl_c: Arc<AtomicBool>,
     pub user_recently_used_autoenv_untrust: Arc<AtomicBool>,
-    pub(crate) shell_manager: ShellManager,
+    pub shell_manager: ShellManager,
 
     /// Windows-specific: keep track of previous cwd on each drive
     pub windows_drives_previous_cwd: Arc<Mutex<std::collections::HashMap<String, String>>>,
 }
 
 impl EvaluationContext {
-    pub(crate) fn from_raw(raw_args: &CommandArgs) -> EvaluationContext {
+    pub fn from_raw(raw_args: &CommandArgs) -> EvaluationContext {
         EvaluationContext {
             scope: raw_args.scope.clone(),
             host: raw_args.host.clone(),
@@ -36,7 +39,7 @@ impl EvaluationContext {
         }
     }
 
-    pub(crate) fn from_args(args: &CommandArgs) -> EvaluationContext {
+    pub fn from_args(args: &CommandArgs) -> EvaluationContext {
         EvaluationContext {
             scope: args.scope.clone(),
             host: args.host.clone(),
@@ -48,48 +51,19 @@ impl EvaluationContext {
         }
     }
 
-    pub fn basic() -> Result<EvaluationContext, Box<dyn Error>> {
-        Ok(EvaluationContext {
-            scope: Scope::new(),
-            host: Arc::new(parking_lot::Mutex::new(Box::new(
-                crate::env::host::BasicHost,
-            ))),
-            current_errors: Arc::new(Mutex::new(vec![])),
-            ctrl_c: Arc::new(AtomicBool::new(false)),
-            user_recently_used_autoenv_untrust: Arc::new(AtomicBool::new(false)),
-            shell_manager: ShellManager::basic()?,
-            windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
-        })
-    }
-
-    pub(crate) fn error(&self, error: ShellError) {
+    pub fn error(&self, error: ShellError) {
         self.with_errors(|errors| errors.push(error))
     }
 
-    pub(crate) fn clear_errors(&self) {
+    pub fn clear_errors(&self) {
         self.current_errors.lock().clear()
     }
 
-    pub(crate) fn get_errors(&self) -> Vec<ShellError> {
+    pub fn get_errors(&self) -> Vec<ShellError> {
         self.current_errors.lock().clone()
     }
 
-    pub(crate) fn maybe_print_errors(&self, source: Text) -> bool {
-        let errors = self.current_errors.clone();
-        let mut errors = errors.lock();
-
-        if errors.len() > 0 {
-            let error = errors[0].clone();
-            *errors = vec![];
-
-            crate::script::print_err(error, &source);
-            true
-        } else {
-            false
-        }
-    }
-
-    pub(crate) fn configure<T>(
+    pub fn configure<T>(
         &mut self,
         config: &dyn nu_data::config::Conf,
         block: impl FnOnce(&dyn nu_data::config::Conf, &mut Self) -> T,
@@ -97,13 +71,13 @@ impl EvaluationContext {
         block(config, &mut *self);
     }
 
-    pub(crate) fn with_host<T>(&self, block: impl FnOnce(&mut dyn Host) -> T) -> T {
+    pub fn with_host<T>(&self, block: impl FnOnce(&mut dyn Host) -> T) -> T {
         let mut host = self.host.lock();
 
         block(&mut *host)
     }
 
-    pub(crate) fn with_errors<T>(&self, block: impl FnOnce(&mut Vec<ShellError>) -> T) -> T {
+    pub fn with_errors<T>(&self, block: impl FnOnce(&mut Vec<ShellError>) -> T) -> T {
         let mut errors = self.current_errors.lock();
 
         block(&mut *errors)
@@ -120,7 +94,7 @@ impl EvaluationContext {
         self.scope.get_command(name)
     }
 
-    pub(crate) fn is_command_registered(&self, name: &str) -> bool {
+    pub fn is_command_registered(&self, name: &str) -> bool {
         self.scope.has_command(name)
     }
 

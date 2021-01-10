@@ -1,25 +1,24 @@
-use crate::commands::cd::CdArgs;
-use crate::commands::command::EvaluatedWholeStreamCommandArgs;
-use crate::commands::cp::CopyArgs;
-use crate::commands::du::{DirBuilder, DirInfo};
-use crate::commands::ls::LsArgs;
-use crate::commands::mkdir::MkdirArgs;
-use crate::commands::move_::mv::Arguments as MvArgs;
-use crate::commands::rm::RemoveArgs;
-use crate::path::canonicalize;
-use crate::prelude::*;
-use crate::shell::shell::Shell;
-use crate::utils::FileStructure;
-use nu_protocol::{TaggedDictBuilder, Value};
-
-use std::collections::HashMap;
-use std::io::{Error, ErrorKind};
-use std::path::{Path, PathBuf};
-
-use crate::commands::classified::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
+use crate::command_args::EvaluatedWholeStreamCommandArgs;
+use crate::filesystem::dir_info::{DirBuilder, DirInfo};
+use crate::filesystem::path::canonicalize;
+use crate::filesystem::utils::FileStructure;
+use crate::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
+use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
+use crate::shell::Shell;
 use encoding_rs::Encoding;
+use futures::stream::BoxStream;
+use futures::StreamExt;
 use futures_codec::FramedRead;
 use futures_util::TryStreamExt;
+use nu_protocol::{TaggedDictBuilder, Value};
+use nu_source::{Span, Tag};
+use nu_stream::{Interruptible, OutputStream, ToOutputStream};
+use std::collections::HashMap;
+use std::collections::VecDeque;
+use std::io::{Error, ErrorKind};
+use std::path::{Path, PathBuf};
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -884,7 +883,7 @@ fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
 #[cfg(unix)]
 use std::os::unix::fs::FileTypeExt;
 
-pub(crate) fn get_file_type(md: &std::fs::Metadata) -> &str {
+pub fn get_file_type(md: &std::fs::Metadata) -> &str {
     let ft = md.file_type();
     let mut file_type = "Unknown";
     if ft.is_dir() {

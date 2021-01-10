@@ -1,6 +1,6 @@
-use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_data::base::select_fields;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ColumnPath, ReturnSuccess, Signature, SyntaxShape, Value};
 use nu_source::HasFallibleSpan;

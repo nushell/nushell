@@ -1,6 +1,6 @@
 use crate::commands::each::group::run_block_on_vec;
-use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
+use nu_engine::WholeStreamCommand;
 //use itertools::Itertools;
 use nu_errors::ShellError;
 use nu_protocol::{hir::CapturedBlock, Primitive, Signature, SyntaxShape, UntaggedValue};

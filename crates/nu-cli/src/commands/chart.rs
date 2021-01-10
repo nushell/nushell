@@ -1,5 +1,5 @@
-use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 
@@ -28,8 +28,7 @@ impl WholeStreamCommand for Chart {
         }
 
         Ok(OutputStream::one(Ok(ReturnSuccess::Value(
-            UntaggedValue::string(crate::commands::help::get_help(&Chart, &args.scope))
-                .into_value(Tag::unknown()),
+            UntaggedValue::string(get_help(&Chart, &args.scope)).into_value(Tag::unknown()),
         ))))
     }
 }

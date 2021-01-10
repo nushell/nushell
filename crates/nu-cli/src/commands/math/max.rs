@@ -1,7 +1,7 @@
 use crate::commands::math::reducers::{reducer_for, Reduce};
 use crate::commands::math::utils::run_with_function;
-use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, UntaggedValue, Value};
 

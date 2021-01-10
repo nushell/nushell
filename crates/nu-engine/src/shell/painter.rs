@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::evaluate::scope::Scope;
 use crate::shell::palette::Palette;
 use ansi_term::{Color, Style};
 use nu_parser::ParserScope;
@@ -6,6 +6,7 @@ use nu_protocol::hir::FlatShape;
 use nu_source::Spanned;
 use std::borrow::Cow;
 
+// FIXME: find a good home, as nu-engine may be too core for styling
 pub struct Painter {
     original: Vec<u8>,
     styles: Vec<Style>,

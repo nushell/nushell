@@ -1,5 +1,5 @@
-use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
+use nu_engine::WholeStreamCommand;
 use nu_errors::{CoerceInto, ShellError};
 use nu_protocol::{
     Primitive, ReturnSuccess, Signature, SyntaxShape, UnspannedPathMember, UntaggedValue, Value,

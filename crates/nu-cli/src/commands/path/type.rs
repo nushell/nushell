@@ -1,7 +1,7 @@
 use super::{operate, DefaultArguments};
-use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
-use crate::shell::filesystem_shell::get_file_type;
+use nu_engine::filesystem::filesystem_shell::get_file_type;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue, Value};
 use std::path::Path;

@@ -1,11 +1,18 @@
-use std::sync::atomic::Ordering;
-
-use crate::commands::UnevaluatedCallInfo;
-use crate::prelude::*;
+use crate::call_info::UnevaluatedCallInfo;
+use crate::command_args::RawCommandArgs;
+use crate::evaluation_context::EvaluationContext;
+use crate::filesystem::filesystem_shell::FilesystemShell;
+use crate::shell::help_shell::HelpShell;
+use crate::shell::value_shell::ValueShell;
+use futures::StreamExt;
 use log::{log_enabled, trace};
 use nu_errors::ShellError;
 use nu_protocol::hir::{ExternalRedirection, InternalCommand};
 use nu_protocol::{CommandAction, Primitive, ReturnSuccess, UntaggedValue, Value};
+use nu_source::{PrettyDebug, Span, Tag};
+use nu_stream::{trace_stream, InputStream, ToInputStream};
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
 
 pub(crate) async fn run_internal_command(
     command: InternalCommand,
@@ -177,7 +184,9 @@ pub(crate) async fn run_internal_command(
                                 InputStream::from_stream(futures::stream::iter(vec![]))
                             }
                             CommandAction::AddPlugins(path) => {
-                                match crate::plugin::scan(vec![std::path::PathBuf::from(path)]) {
+                                match crate::plugin::build_plugin::scan(vec![
+                                    std::path::PathBuf::from(path),
+                                ]) {
                                     Ok(plugins) => {
                                         context.add_commands(
                                             plugins

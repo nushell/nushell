@@ -1,7 +1,7 @@
-use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use futures::stream::StreamExt;
 use indexmap::IndexMap;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::Dictionary;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};

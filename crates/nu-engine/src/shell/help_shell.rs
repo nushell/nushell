@@ -1,24 +1,40 @@
-use crate::commands::cd::CdArgs;
-use crate::commands::command::EvaluatedWholeStreamCommandArgs;
-use crate::commands::cp::CopyArgs;
-use crate::commands::help::command_dict;
-use crate::commands::ls::LsArgs;
-use crate::commands::mkdir::MkdirArgs;
-use crate::commands::move_::mv::Arguments as MvArgs;
-use crate::commands::rm::RemoveArgs;
-use crate::prelude::*;
-use crate::shell::shell::Shell;
-
-use std::ffi::OsStr;
-use std::path::PathBuf;
-
-use crate::commands::classified::maybe_text_codec::StringOrBinary;
+use crate::command_args::EvaluatedWholeStreamCommandArgs;
+use crate::evaluate::scope::Scope;
+use crate::maybe_text_codec::StringOrBinary;
+use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
+use crate::shell::Shell;
+use crate::whole_stream_command::Command;
 use encoding_rs::Encoding;
+use futures::stream::BoxStream;
+use nu_data::command::signature_dict;
 use nu_errors::ShellError;
 use nu_protocol::{
     Primitive, ReturnSuccess, ShellTypeName, TaggedDictBuilder, UntaggedValue, Value,
 };
 use nu_source::Tagged;
+use nu_source::{Span, SpannedItem, Tag};
+use nu_stream::OutputStream;
+use nu_value_ext::ValueExt;
+use std::collections::VecDeque;
+use std::ffi::OsStr;
+use std::path::PathBuf;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
+
+pub fn command_dict(command: Command, tag: impl Into<Tag>) -> Value {
+    let tag = tag.into();
+
+    let mut cmd_dict = TaggedDictBuilder::new(&tag);
+
+    cmd_dict.insert_untagged("name", UntaggedValue::string(command.name()));
+
+    cmd_dict.insert_untagged("type", UntaggedValue::string("Command"));
+
+    cmd_dict.insert_value("signature", signature_dict(command.signature(), tag));
+    cmd_dict.insert_untagged("usage", UntaggedValue::string(command.usage()));
+
+    cmd_dict.into_value()
+}
 
 #[derive(Clone, Debug)]
 pub struct HelpShell {

@@ -1,6 +1,8 @@
 // TODO: Temporary redirect
-use crate::evaluate::evaluate_baseline_expr;
-use crate::prelude::*;
+use crate::evaluate::evaluator::evaluate_baseline_expr;
+use crate::evaluation_context::EvaluationContext;
+use indexmap::IndexMap;
+use nu_errors::ShellError;
 use nu_protocol::{hir, EvaluatedArgs, UntaggedValue, Value};
 
 pub(crate) async fn evaluate_args(

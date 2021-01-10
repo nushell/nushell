@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
-use crate::commands::WholeStreamCommand;
-use crate::path::canonicalize;
 use crate::prelude::*;
+use nu_engine::filesystem::path::canonicalize;
+use nu_engine::WholeStreamCommand;
 
 use nu_errors::ShellError;
 use nu_protocol::{CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
@@ -101,8 +101,7 @@ impl WholeStreamCommand for SubCommand {
         }
 
         Ok(OutputStream::one(ReturnSuccess::value(
-            UntaggedValue::string(crate::commands::help::get_help(&SubCommand, &scope))
-                .into_value(Tag::unknown()),
+            UntaggedValue::string(get_help(&SubCommand, &scope)).into_value(Tag::unknown()),
         )))
     }
 }

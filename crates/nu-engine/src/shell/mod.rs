@@ -1,17 +1,22 @@
-use crate::commands::cd::CdArgs;
-use crate::commands::classified::maybe_text_codec::StringOrBinary;
-use crate::commands::command::EvaluatedWholeStreamCommandArgs;
-use crate::commands::cp::CopyArgs;
-use crate::commands::ls::LsArgs;
-use crate::commands::mkdir::MkdirArgs;
-use crate::commands::move_::mv::Arguments as MvArgs;
-use crate::commands::rm::RemoveArgs;
-use crate::prelude::*;
 use nu_stream::OutputStream;
 
+use crate::command_args::EvaluatedWholeStreamCommandArgs;
+use crate::maybe_text_codec::StringOrBinary;
+pub use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
 use encoding_rs::Encoding;
+use futures::stream::BoxStream;
 use nu_errors::ShellError;
+use nu_source::{Span, Tag};
 use std::path::PathBuf;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
+
+pub(crate) mod help_shell;
+pub(crate) mod painter;
+pub(crate) mod palette;
+pub(crate) mod shell_args;
+pub(crate) mod shell_manager;
+pub(crate) mod value_shell;
 
 pub trait Shell: std::fmt::Debug {
     fn name(&self) -> String;

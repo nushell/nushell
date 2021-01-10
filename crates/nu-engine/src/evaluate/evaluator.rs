@@ -1,10 +1,11 @@
-use crate::commands::classified::block::run_block;
-use crate::did_you_mean;
+use crate::evaluate::block::run_block;
 use crate::evaluate::operator::apply_operator;
-use crate::prelude::*;
+use crate::evaluation_context::EvaluationContext;
 use async_recursion::async_recursion;
+use indexmap::IndexMap;
 use log::trace;
 use nu_errors::{ArgumentError, ShellError};
+use nu_protocol::did_you_mean;
 use nu_protocol::{
     hir::{self, CapturedBlock, Expression, ExternalRedirection, RangeOperator, SpannedExpression},
     Dictionary,
@@ -12,9 +13,12 @@ use nu_protocol::{
 use nu_protocol::{
     ColumnPath, Primitive, RangeInclusion, UnspannedPathMember, UntaggedValue, Value,
 };
+use nu_source::{Span, SpannedItem, Tag};
+use nu_stream::InputStream;
+use nu_value_ext::ValueExt;
 
 #[async_recursion]
-pub(crate) async fn evaluate_baseline_expr(
+pub async fn evaluate_baseline_expr(
     expr: &SpannedExpression,
     ctx: &EvaluationContext,
 ) -> Result<Value, ShellError> {

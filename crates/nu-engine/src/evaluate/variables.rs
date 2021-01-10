@@ -1,4 +1,5 @@
-use crate::prelude::*;
+use crate::history_path::history_path;
+use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::Tag;
@@ -31,7 +32,7 @@ pub fn nu(env: &IndexMap<String, String>, tag: impl Into<Tag>) -> Result<Value, 
     let path = std::env::current_dir()?;
     nu_dict.insert_value("cwd", UntaggedValue::filepath(path).into_value(&tag));
 
-    if let Some(home) = crate::shell::filesystem_shell::homedir_if_possible() {
+    if let Some(home) = crate::filesystem::filesystem_shell::homedir_if_possible() {
         nu_dict.insert_value("home-dir", UntaggedValue::filepath(home).into_value(&tag));
     }
 
@@ -54,7 +55,7 @@ pub fn nu(env: &IndexMap<String, String>, tag: impl Into<Tag>) -> Result<Value, 
     }
 
     let config: Box<dyn nu_data::config::Conf> = Box::new(nu_data::config::NuConfig::new());
-    let history = crate::commands::history::history_path(&config);
+    let history = history_path(&config);
     nu_dict.insert_value(
         "history-path",
         UntaggedValue::filepath(history).into_value(&tag),

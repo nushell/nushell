@@ -1,6 +1,6 @@
-use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use chrono::{DateTime, Local};
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, UntaggedValue};
 
