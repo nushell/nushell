@@ -89,6 +89,10 @@ impl Scope {
         self.frames.lock().len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.frames.lock().is_empty()
+    }
+
     fn has_cmd_helper(&self, name: &str, f: fn(&ScopeFrame, &str) -> bool) -> bool {
         self.frames.lock().iter().any(|frame| f(frame, name))
     }

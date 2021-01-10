@@ -70,6 +70,12 @@ impl FakeHost {
     }
 }
 
+impl Default for FakeHost {
+    fn default() -> Self {
+        FakeHost::new()
+    }
+}
+
 impl Host for FakeHost {
     fn stdout(&mut self, out: &str) {
         self.line_written = out.to_string();
