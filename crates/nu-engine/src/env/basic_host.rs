@@ -1,4 +1,4 @@
-use nu_engine::Host;
+use crate::Host;
 use nu_protocol::{errln, outln};
 use std::ffi::OsString;
 

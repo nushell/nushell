@@ -3221,6 +3221,7 @@ dependencies = [
  "serde 1.0.118",
  "serde_json",
  "tempfile",
+ "term_size",
  "termcolor",
  "umask",
  "users",
