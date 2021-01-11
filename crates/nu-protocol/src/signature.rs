@@ -5,7 +5,7 @@ use nu_source::{b, DebugDocBuilder, PrettyDebug, PrettyDebugWithSource};
 use serde::{Deserialize, Serialize};
 
 /// The types of named parameter that a command can have
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub enum NamedType {
     /// A flag without any associated argument. eg) `foo --bar, foo -b`
     Switch(Option<char>),
