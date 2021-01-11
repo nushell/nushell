@@ -46,7 +46,6 @@ macro_rules! trace_out_stream {
     }};
 }
 
-pub(crate) use nu_protocol::{out, outln, row};
 pub(crate) use crate::commands::command::RunnableContext;
 pub(crate) use async_trait::async_trait;
 pub(crate) use bigdecimal::BigDecimal;
@@ -63,6 +62,7 @@ pub(crate) use nu_engine::ShellManager;
 pub(crate) use nu_engine::{get_help, CommandArgs, Scope, WholeStreamCommand};
 pub(crate) use nu_errors::ShellError;
 pub(crate) use nu_parser::ParserScope;
+pub(crate) use nu_protocol::{out, outln, row};
 pub(crate) use nu_source::{AnchorLocation, PrettyDebug, Span, SpannedItem, Tag, TaggedItem, Text};
 pub(crate) use nu_stream::ToInputStream;
 pub(crate) use nu_stream::{InputStream, Interruptible, OutputStream};

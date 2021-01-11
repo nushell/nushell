@@ -16,30 +16,13 @@ extern crate quickcheck_macros;
 pub mod commands;
 #[cfg(feature = "rustyline-support")]
 mod completion;
-//mod env;
-//mod format;
 mod futures;
 pub mod maybe_print_errors;
-//#[cfg(feature = "rustyline-support")]
-//mod git;
-//#[cfg(feature = "rustyline-support")]
-//mod keybinding;
-//mod line_editor;
 pub mod script;
-//mod shell;
-//pub mod types;
 pub mod utils;
 
 #[cfg(test)]
 mod examples;
-
-//#[cfg(feature = "rustyline-support")]
-//pub use crate::cli::cli;
-
-//pub use crate::cli::{parse_and_eval, register_plugins, run_script_file};
-
-//pub use crate::commands::default_context::create_default_context;
-//pub use crate::env::environment_syncer::EnvironmentSyncer;
 
 pub use crate::maybe_print_errors::maybe_print_errors;
 

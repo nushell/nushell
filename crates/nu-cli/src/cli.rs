@@ -1,8 +1,8 @@
-use nu_command::commands::default_context::create_default_context;
 use crate::line_editor::configure_ctrl_c;
+use nu_command::commands::default_context::create_default_context;
+use nu_command::maybe_print_errors;
 use nu_engine::run_block;
 use nu_engine::EvaluationContext;
-use nu_command::maybe_print_errors;
 
 #[allow(unused_imports)]
 pub(crate) use nu_command::script::{process_script, LineResult};
