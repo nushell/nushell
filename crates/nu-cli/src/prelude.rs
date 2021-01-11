@@ -48,11 +48,14 @@ macro_rules! trace_out_stream {
 
 pub(crate) use futures::{Stream, StreamExt};
 pub(crate) use nu_engine::Host;
+#[allow(unused_imports)]
 pub(crate) use nu_errors::ShellError;
+#[allow(unused_imports)]
 pub(crate) use nu_protocol::outln;
 pub(crate) use nu_stream::OutputStream;
 #[allow(unused_imports)]
 pub(crate) use nu_value_ext::ValueExt;
+#[allow(unused_imports)]
 pub(crate) use std::sync::atomic::Ordering;
 
 pub trait FromInputStream {

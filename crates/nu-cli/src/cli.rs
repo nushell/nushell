@@ -1,5 +1,6 @@
 use crate::line_editor::configure_ctrl_c;
 use nu_command::commands::default_context::create_default_context;
+#[allow(unused_imports)]
 use nu_command::maybe_print_errors;
 use nu_engine::run_block;
 use nu_engine::EvaluationContext;
