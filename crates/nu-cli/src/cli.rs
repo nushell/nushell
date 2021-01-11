@@ -1,13 +1,7 @@
 use crate::commands::default_context::create_default_context;
-use crate::env::basic_host::BasicHost;
 use crate::line_editor::configure_ctrl_c;
 use nu_engine::run_block;
 use nu_engine::EvaluationContext;
-use nu_engine::{FilesystemShell, Scope, ShellManager};
-use parking_lot::Mutex;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::AtomicUsize;
-use std::sync::Arc;
 
 #[allow(unused_imports)]
 pub(crate) use crate::script::{process_script, LineResult};
@@ -83,25 +77,6 @@ pub fn maybe_print_errors(context: &EvaluationContext, source: Text) -> bool {
     } else {
         false
     }
-}
-
-pub fn basic_shell_manager() -> Result<ShellManager, Box<dyn Error>> {
-    Ok(ShellManager {
-        current_shell: Arc::new(AtomicUsize::new(0)),
-        shells: Arc::new(Mutex::new(vec![Box::new(FilesystemShell::basic()?)])),
-    })
-}
-
-pub fn basic_evaluation_context() -> Result<EvaluationContext, Box<dyn Error>> {
-    Ok(EvaluationContext {
-        scope: Scope::new(),
-        host: Arc::new(parking_lot::Mutex::new(Box::new(BasicHost))),
-        current_errors: Arc::new(Mutex::new(vec![])),
-        ctrl_c: Arc::new(AtomicBool::new(false)),
-        user_recently_used_autoenv_untrust: Arc::new(AtomicBool::new(false)),
-        shell_manager: crate::cli::basic_shell_manager()?,
-        windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
-    })
 }
 
 pub async fn run_script_file(
@@ -445,13 +420,14 @@ pub async fn parse_and_eval(line: &str, ctx: &EvaluationContext) -> Result<Strin
 
 #[cfg(test)]
 mod tests {
+    use nu_engine::basic_evaluation_context;
 
     #[quickcheck]
     fn quickcheck_parse(data: String) -> bool {
         let (tokens, err) = nu_parser::lex(&data, 0);
         let (lite_block, err2) = nu_parser::block(tokens);
         if err.is_none() && err2.is_none() {
-            let context = crate::cli::basic_evaluation_context().unwrap();
+            let context = basic_evaluation_context().unwrap();
             let _ = nu_parser::classify_block(&lite_block, &context.scope);
         }
         true

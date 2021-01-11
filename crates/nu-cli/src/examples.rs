@@ -1,3 +1,4 @@
+use nu_engine::basic_evaluation_context;
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
 use nu_protocol::hir::ClassifiedBlock;
@@ -25,7 +26,7 @@ use serde::Deserialize;
 pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
     let examples = cmd.examples();
 
-    let base_context = crate::cli::basic_evaluation_context()?;
+    let base_context = basic_evaluation_context()?;
 
     base_context.add_commands(vec![
         // Mocks
@@ -89,7 +90,7 @@ pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
 pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
     let examples = cmd.examples();
 
-    let base_context = crate::cli::basic_evaluation_context()?;
+    let base_context = basic_evaluation_context()?;
 
     base_context.add_commands(vec![
         whole_stream_command(Echo {}),
@@ -145,7 +146,7 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
 pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
     let examples = cmd.examples();
 
-    let base_context = crate::cli::basic_evaluation_context()?;
+    let base_context = basic_evaluation_context()?;
 
     base_context.add_commands(vec![
         // Minimal restricted commands to aid in testing
