@@ -1,5 +1,5 @@
-use std::iter::Peekable;
 use std::str::CharIndices;
+use std::{fmt, iter::Peekable};
 
 use nu_source::{Span, Spanned, SpannedItem};
 
@@ -18,7 +18,7 @@ impl Token {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, is_enum_variant)]
 pub enum TokenContents {
     /// A baseline token is an atomic chunk of source code. This means that the
     /// token contains the entirety of string literals, as well as the entirety
@@ -32,6 +32,28 @@ pub enum TokenContents {
     Pipe,
     Semicolon,
     EOL,
+}
+
+impl fmt::Display for TokenContents {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TokenContents::Baseline(base) => {
+                write!(f, "{}", base)
+            }
+            TokenContents::Comment(comm) => {
+                write!(f, "#{}", comm)
+            }
+            TokenContents::Pipe => {
+                write!(f, "|")
+            }
+            TokenContents::Semicolon => {
+                write!(f, ";")
+            }
+            TokenContents::EOL => {
+                write!(f, "\\n")
+            }
+        }
+    }
 }
 
 /// A `LiteCommand` is a list of words that will get meaning when processed by
@@ -656,6 +678,19 @@ mod tests {
 
     mod bare {
         use super::*;
+
+        #[ignore = "result is Token::baseline(\"--flag(-f)\")"]
+        #[test]
+        fn lex_flag() {
+            let input = "--flag(-f)";
+
+            let (result, err) = lex(input, 0);
+
+            assert_eq!("", format!("{:?}", result));
+            assert!(err.is_none());
+            assert_eq!(result[0].span, span(0, 6));
+            assert_eq!(result[1].span, span(7, 9));
+        }
 
         #[test]
         fn simple_1() {
