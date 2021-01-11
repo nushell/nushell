@@ -538,10 +538,11 @@ mod tests {
     #[cfg(feature = "which")]
     use futures::executor::block_on;
     #[cfg(feature = "which")]
+    use nu_engine::basic_evaluation_context;
+    #[cfg(feature = "which")]
     use nu_errors::ShellError;
     #[cfg(feature = "which")]
     use nu_test_support::commands::ExternalBuilder;
-
     // async fn read(mut stream: OutputStream) -> Option<Value> {
     //     match stream.try_next().await {
     //         Ok(val) => {
