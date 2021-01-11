@@ -51,7 +51,28 @@ impl rustyline::completion::Completer for Helper {
     }
 
     fn update(&self, line: &mut rustyline::line_buffer::LineBuffer, start: usize, elected: &str) {
-        let end = line.pos();
+        let end = start
+            + match line
+                .as_str()
+                .chars()
+                .into_iter()
+                .skip(start)
+                .zip(elected.chars().into_iter())
+                .enumerate()
+                .skip_while(|(_, (line, replace))| line == replace)
+                .next()
+            {
+                Some((index, (_, _))) => index,
+                None => line.pos(),
+            };
+
+        let mut end = end.max(line.pos());
+
+        let remaining = &line.as_str()[end..];
+        if remaining.starts_with('"') {
+            end += 1;
+        }
+
         line.replace(start..end, elected)
     }
 }
