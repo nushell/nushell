@@ -30,8 +30,8 @@ pub mod script;
 //pub mod types;
 pub mod utils;
 
-//#[cfg(test)]
-//mod examples;
+#[cfg(test)]
+mod examples;
 
 //#[cfg(feature = "rustyline-support")]
 //pub use crate::cli::cli;
