@@ -1,5 +1,4 @@
 use indexmap::{IndexMap, IndexSet};
-use nu_command::commands;
 use nu_command::commands::autoenv;
 use nu_errors::ShellError;
 use serde::Deserialize;
