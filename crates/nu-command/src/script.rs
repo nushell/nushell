@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use crate::maybe_print_errors;
 use futures_codec::FramedRead;
 use nu_engine::path::canonicalize;
 use nu_engine::run_block;

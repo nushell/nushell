@@ -47,8 +47,6 @@ macro_rules! trace_out_stream {
 }
 
 pub(crate) use nu_protocol::{out, outln, row};
-
-//pub(crate) use crate::cli::maybe_print_errors;
 pub(crate) use crate::commands::command::RunnableContext;
 pub(crate) use async_trait::async_trait;
 pub(crate) use bigdecimal::BigDecimal;

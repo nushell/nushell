@@ -13,12 +13,13 @@ extern crate quickcheck;
 #[macro_use(quickcheck)]
 extern crate quickcheck_macros;
 
-mod commands;
+pub mod commands;
 #[cfg(feature = "rustyline-support")]
 mod completion;
 //mod env;
 //mod format;
 mod futures;
+pub mod maybe_print_errors;
 //#[cfg(feature = "rustyline-support")]
 //mod git;
 //#[cfg(feature = "rustyline-support")]
@@ -39,6 +40,9 @@ pub mod utils;
 
 //pub use crate::commands::default_context::create_default_context;
 //pub use crate::env::environment_syncer::EnvironmentSyncer;
+
+pub use crate::maybe_print_errors::maybe_print_errors;
+
 pub use nu_data::config;
 pub use nu_data::dict::TaggedListBuilder;
 pub use nu_data::primitive;
