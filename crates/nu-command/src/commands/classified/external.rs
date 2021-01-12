@@ -464,7 +464,7 @@ pub fn did_find_command(#[allow(unused)] name: &str) -> bool {
             let cmd_builtins = [
                 "assoc", "break", "color", "copy", "date", "del", "dir", "dpath", "echo", "erase",
                 "for", "ftype", "md", "mkdir", "mklink", "move", "path", "ren", "rename", "rd",
-                "rmdir", "set", "start", "time", "title", "type", "ver", "verify", "vol",
+                "rmdir", "start", "time", "title", "type", "ver", "verify", "vol",
             ];
 
             cmd_builtins.contains(&name)
