@@ -16,7 +16,7 @@ byte-unit = "4.0.9"
 
 chrono = "0.4.15"
 derive-new = "0.5.8"
-directories = {version = "3.0.1", optional = true}
+etcetera = {version = "0.3.2", optional = true}
 dirs = {version = "3.0.1", optional = true}
 getset = "0.1.1"
 indexmap = {version = "1.6.0", features = ["serde-1"]}
@@ -38,3 +38,6 @@ nu-value-ext = {version = "0.25.2", path = "../nu-value-ext"}
 
 [target.'cfg(unix)'.dependencies]
 users = "0.10.0"
+
+[features]
+directories = ["etcetera"]

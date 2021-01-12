@@ -145,11 +145,17 @@ pub fn value_to_toml_value(v: &Value) -> Result<toml::Value, ShellError> {
 
 #[cfg(feature = "directories")]
 pub fn config_path() -> Result<PathBuf, ShellError> {
-    use directories::ProjectDirs;
+    use etcetera::app_strategy;
+    use etcetera::app_strategy::AppStrategy;
+    use etcetera::app_strategy::AppStrategyArgs;
 
-    let dir = ProjectDirs::from("org", "nushell", "nu")
-        .ok_or_else(|| ShellError::untagged_runtime_error("Couldn't find project directory"))?;
-    let path = ProjectDirs::config_dir(&dir).to_owned();
+    let strategy = app_strategy::choose_app_strategy(AppStrategyArgs {
+        top_level_domain: "org".to_string(),
+        author: "nushell".to_string(),
+        app_name: "nu".to_string(),
+    })
+    .map_err(|_| ShellError::untagged_runtime_error("Couldn't find config directory"))?;
+    let path = strategy.config_dir();
     std::fs::create_dir_all(&path).map_err(|err| {
         ShellError::untagged_runtime_error(&format!("Couldn't create {} path:\n{}", "config", err))
     })?;
@@ -181,11 +187,17 @@ pub fn default_path_for(file: &Option<PathBuf>) -> Result<PathBuf, ShellError> {
 
 #[cfg(feature = "directories")]
 pub fn user_data() -> Result<PathBuf, ShellError> {
-    use directories::ProjectDirs;
+    use etcetera::app_strategy;
+    use etcetera::app_strategy::AppStrategy;
+    use etcetera::app_strategy::AppStrategyArgs;
 
-    let dir = ProjectDirs::from("org", "nushell", "nu")
-        .ok_or_else(|| ShellError::untagged_runtime_error("Couldn't find project directory"))?;
-    let path = ProjectDirs::data_local_dir(&dir).to_owned();
+    let strategy = app_strategy::choose_app_strategy(AppStrategyArgs {
+        top_level_domain: "org".to_string(),
+        author: "nushell".to_string(),
+        app_name: "nu".to_string(),
+    })
+    .map_err(|_| ShellError::untagged_runtime_error("Couldn't find config directory"))?;
+    let path = strategy.data_dir();
     std::fs::create_dir_all(&path).map_err(|err| {
         ShellError::untagged_runtime_error(&format!(
             "Couldn't create {} path:\n{}",

@@ -3180,6 +3180,7 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "nu-command"
 version = "0.25.2"
 dependencies = [
@@ -3200,6 +3201,7 @@ dependencies = [
  "csv",
  "ctrlc",
  "derive-new",
+ "directories 3.0.1",
  "dirs 3.0.1",
  "dtparse",
  "dunce",
@@ -3282,6 +3284,21 @@ dependencies = [
 ]
 
 [[package]]
+||||||| constructed merge base
+name = "nu-core-commands"
+version = "0.25.2"
+dependencies = [
+ "async-trait",
+ "eml-parser",
+ "nu-errors",
+ "nu-protocol",
+ "nu-source",
+ "serde 1.0.118",
+]
+
+[[package]]
+=======
+>>>>>>> macos cli config dir change
 name = "nu-data"
 version = "0.25.2"
 dependencies = [

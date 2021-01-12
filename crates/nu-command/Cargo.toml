@@ -41,7 +41,6 @@ codespan-reporting = "0.11.0"
 csv = "1.1.3"
 ctrlc = {version = "3.1.6", optional = true}
 derive-new = "0.5.8"
-directories = {version = "3.0.1", optional = true}
 dirs = {version = "3.0.1", optional = true}
 dtparse = "1.2.0"
 dunce = "1.0.1"
@@ -132,3 +131,4 @@ rich-benchmark = ["heim"]
 rustyline-support = ["rustyline"]
 stable = []
 trash-support = ["trash"]
+directories = []
