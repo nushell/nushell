@@ -64,7 +64,7 @@ nu-test-support = {version = "0.25.2", path = "./crates/nu-test-support"}
 
 [features]
 ctrlc-support = ["nu-cli/ctrlc", "nu-command/ctrlc"]
-directories-support = ["nu-cli/directories", "nu-cli/dirs", "nu-command/directories", "nu-command/dirs", "nu-data/directories", "nu-data/dirs"]
+directories-support = ["nu-cli/directories", "nu-cli/dirs", "nu-command/directories", "nu-command/dirs", "nu-data/directories", "nu-data/dirs", "nu-engine/dirs"]
 git-support = ["nu-cli/git2", "nu-command/git2"]
 ptree-support = ["nu-cli/ptree", "nu-command/ptree"]
 rich-benchmark = ["nu-cli/rich-benchmark", "nu-command/rich-benchmark"]
