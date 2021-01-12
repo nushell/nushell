@@ -127,8 +127,11 @@ pub fn get_documentation(
     let signature = cmd.signature();
     let mut long_desc = String::new();
 
-    long_desc.push_str(&cmd.usage());
-    long_desc.push('\n');
+    let usage = &cmd.usage();
+    if !usage.is_empty() {
+        long_desc.push_str(usage);
+        long_desc.push_str("\n\n");
+    }
 
     let mut subcommands = vec![];
     if !config.no_subcommands {
@@ -168,7 +171,7 @@ pub fn get_documentation(
         one_liner.push_str("{flags} ");
     }
 
-    long_desc.push_str(&format!("\nUsage:\n  > {}\n", one_liner));
+    long_desc.push_str(&format!("Usage:\n  > {}\n", one_liner));
 
     if !subcommands.is_empty() {
         long_desc.push_str("\nSubcommands:\n");
