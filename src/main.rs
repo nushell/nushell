@@ -1,7 +1,7 @@
 use clap::{App, Arg};
 use log::LevelFilter;
 use nu_cli::create_default_context;
-use nu_cli::utils::test_bins as binaries;
+use nu_command::utils::test_bins as binaries;
 use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;

@@ -1,10 +1,12 @@
-use crate::commands::default_context::create_default_context;
 use crate::line_editor::configure_ctrl_c;
+use nu_command::commands::default_context::create_default_context;
+#[allow(unused_imports)]
+use nu_command::maybe_print_errors;
 use nu_engine::run_block;
 use nu_engine::EvaluationContext;
 
 #[allow(unused_imports)]
-pub(crate) use crate::script::{process_script, LineResult};
+pub(crate) use nu_command::script::{process_script, LineResult};
 
 #[cfg(feature = "rustyline-support")]
 use crate::line_editor::{
@@ -19,7 +21,7 @@ use nu_stream::InputStream;
 #[allow(unused_imports)]
 use std::sync::atomic::Ordering;
 
-use crate::script::{print_err, run_script_standalone};
+use nu_command::script::{print_err, run_script_standalone};
 
 #[cfg(feature = "rustyline-support")]
 use rustyline::{self, error::ReadlineError};
@@ -62,21 +64,6 @@ pub fn search_paths() -> Vec<std::path::PathBuf> {
     }
 
     search_paths
-}
-
-pub fn maybe_print_errors(context: &EvaluationContext, source: Text) -> bool {
-    let errors = context.current_errors.clone();
-    let mut errors = errors.lock();
-
-    if errors.len() > 0 {
-        let error = errors[0].clone();
-        *errors = vec![];
-
-        crate::script::print_err(error, &source);
-        true
-    } else {
-        false
-    }
 }
 
 pub async fn run_script_file(

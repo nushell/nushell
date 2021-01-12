@@ -46,17 +46,33 @@ macro_rules! trace_out_stream {
     }};
 }
 
+pub(crate) use crate::commands::command::RunnableContext;
+pub(crate) use async_trait::async_trait;
+pub(crate) use bigdecimal::BigDecimal;
 pub(crate) use futures::{Stream, StreamExt};
+pub(crate) use indexmap::{indexmap, IndexMap};
+pub(crate) use itertools::Itertools;
+pub(crate) use nu_data::config;
+pub(crate) use nu_data::value;
+pub(crate) use nu_engine::EvaluationContext;
+pub(crate) use nu_engine::Example;
 pub(crate) use nu_engine::Host;
-#[allow(unused_imports)]
-pub(crate) use nu_errors::ShellError;
-#[allow(unused_imports)]
-pub(crate) use nu_protocol::outln;
-pub(crate) use nu_stream::OutputStream;
-#[allow(unused_imports)]
+pub(crate) use nu_engine::RawCommandArgs;
+pub(crate) use nu_engine::ShellManager;
+pub(crate) use nu_engine::{get_help, CommandArgs, Scope, WholeStreamCommand};
+pub(crate) use nu_parser::ParserScope;
+pub(crate) use nu_protocol::{out, row};
+pub(crate) use nu_source::{AnchorLocation, PrettyDebug, Span, SpannedItem, Tag, TaggedItem, Text};
+pub(crate) use nu_stream::ToInputStream;
+pub(crate) use nu_stream::{InputStream, Interruptible, OutputStream};
 pub(crate) use nu_value_ext::ValueExt;
-#[allow(unused_imports)]
-pub(crate) use std::sync::atomic::Ordering;
+pub(crate) use num_bigint::BigInt;
+pub(crate) use num_traits::cast::ToPrimitive;
+pub(crate) use serde::Deserialize;
+pub(crate) use std::collections::VecDeque;
+pub(crate) use std::future::Future;
+pub(crate) use std::sync::atomic::{AtomicBool, Ordering};
+pub(crate) use std::sync::Arc;
 
 pub trait FromInputStream {
     fn from_input_stream(self) -> OutputStream;

@@ -37,21 +37,11 @@ pub enum TokenContents {
 impl fmt::Display for TokenContents {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TokenContents::Baseline(base) => {
-                write!(f, "{}", base)
-            }
-            TokenContents::Comment(comm) => {
-                write!(f, "#{}", comm)
-            }
-            TokenContents::Pipe => {
-                write!(f, "|")
-            }
-            TokenContents::Semicolon => {
-                write!(f, ";")
-            }
-            TokenContents::EOL => {
-                write!(f, "\\n")
-            }
+            TokenContents::Baseline(base) => write!(f, "{}", base),
+            TokenContents::Comment(comm) => write!(f, "#{}", comm),
+            TokenContents::Pipe => write!(f, "|"),
+            TokenContents::Semicolon => write!(f, ";"),
+            TokenContents::EOL => write!(f, "\\n"),
         }
     }
 }

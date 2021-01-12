@@ -4,14 +4,13 @@ build = "build.rs"
 description = "CLI for nushell"
 edition = "2018"
 license = "MIT"
-name = "nu-cli"
+name = "nu-command"
 version = "0.25.2"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-command = {version = "0.25.2", path = "../nu-command"}
 nu-data = {version = "0.25.2", path = "../nu-data"}
 nu-engine = {version = "0.25.2", path = "../nu-engine"}
 nu-errors = {version = "0.25.2", path = "../nu-errors"}
