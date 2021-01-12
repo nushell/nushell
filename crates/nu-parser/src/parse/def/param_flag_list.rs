@@ -200,6 +200,12 @@ fn parse_type_token(type_: &Token) -> (SyntaxShape, Option<ParseError>) {
 }
 
 fn parse_param_name(token: &Token) -> (Spanned<String>, Option<ParseError>) {
+    fn error_mismatch_found_type(token: &Token) -> ParseError {
+        let found = "type ".to_string() + &token.contents.to_string();
+        let found = found.spanned(token.span);
+        ParseError::mismatch("parameter name", found)
+    }
+
     match &token.contents {
         TokenContents::Baseline(name) => {
             //Make sure user didn't enter type
@@ -213,21 +219,12 @@ fn parse_param_name(token: &Token) -> (Spanned<String>, Option<ParseError>) {
                 //Okay not a type. Just return name
                 (name, None)
             } else {
-                (
-                    name,
-                    Some(ParseError::mismatch(
-                        "parameter name",
-                        token_to_spanned_string(token),
-                    )),
-                )
+                (name, Some(error_mismatch_found_type(token)))
             }
         }
         _ => (
             "Internal Error".to_string().spanned(token.span),
-            Some(ParseError::mismatch(
-                "parameter name",
-                token_to_spanned_string(token),
-            )),
+            Some(error_mismatch_found_type(token)),
         ),
     }
 }
