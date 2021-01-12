@@ -43,6 +43,7 @@ fn automatically_change_directory() {
 }
 
 #[test]
+#[cfg(not(windows))]
 fn automatically_change_directory_with_trailing_slash_and_same_name_as_command() {
     use nu_test_support::playground::Playground;
 
@@ -53,6 +54,26 @@ fn automatically_change_directory_with_trailing_slash_and_same_name_as_command()
             cwd: dirs.test(),
             r#"
                 cd/
+                pwd
+            "#
+        );
+
+        assert!(actual.out.ends_with("cd"));
+    })
+}
+
+#[test]
+#[cfg(windows)]
+fn automatically_change_directory_with_trailing_slash_and_same_name_as_command() {
+    use nu_test_support::playground::Playground;
+
+    Playground::setup("cd_test_5_1", |dirs, sandbox| {
+        sandbox.mkdir("cd");
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                cd\
                 pwd
             "#
         );
