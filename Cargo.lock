@@ -3060,7 +3060,7 @@ dependencies = [
  "itertools",
  "log 0.4.13",
  "nu-cli",
- "nu-command",
+ "nu-core-commands",
  "nu-data",
  "nu-engine",
  "nu-errors",
@@ -3135,7 +3135,7 @@ dependencies = [
  "lazy_static 1.4.0",
  "log 0.4.13",
  "meval",
- "nu-command",
+ "nu-core-commands",
  "nu-data",
  "nu-engine",
  "nu-errors",
@@ -3196,7 +3196,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "nu-command"
+name = "nu-core-commands"
 version = "0.25.2"
 dependencies = [
  "Inflector",
@@ -3296,18 +3296,6 @@ dependencies = [
  "uuid",
  "which",
  "zip",
-]
-
-[[package]]
-name = "nu-core-commands"
-version = "0.25.2"
-dependencies = [
- "async-trait",
- "eml-parser",
- "nu-errors",
- "nu-protocol",
- "nu-source",
- "serde 1.0.119",
 ]
 
 [[package]]

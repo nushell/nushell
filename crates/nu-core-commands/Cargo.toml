@@ -4,7 +4,7 @@ build = "build.rs"
 description = "CLI for nushell"
 edition = "2018"
 license = "MIT"
-name = "nu-command"
+name = "nu-core-commands"
 version = "0.25.2"
 
 [lib]

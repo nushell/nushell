@@ -222,7 +222,7 @@ mod external_words {
     }
 }
 
-mod nu_commands {
+mod nu_core_commands {
     use super::nu;
 
     #[test]
