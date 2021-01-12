@@ -45,9 +45,9 @@ pub fn nu(env: &IndexMap<String, String>, tag: impl Into<Tag>) -> Result<Value, 
         UntaggedValue::filepath(config).into_value(&tag),
     );
 
-    #[cfg(feature = "rustyline-support")]
+    // #[cfg(feature = "rustyline-support")]
     {
-        let keybinding_path = crate::keybinding::keybinding_path()?;
+        let keybinding_path = nu_data::keybinding::keybinding_path()?;
         nu_dict.insert_value(
             "keybinding-path",
             UntaggedValue::filepath(keybinding_path).into_value(&tag),
