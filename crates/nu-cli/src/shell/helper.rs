@@ -164,3 +164,49 @@ fn vec_tag<T>(input: Vec<Tagged<T>>) -> Option<Tag> {
 }
 
 impl rustyline::Helper for Helper {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nu_engine::basic_evaluation_context;
+    use rustyline::completion::Completer;
+    use rustyline::line_buffer::LineBuffer;
+
+    #[test]
+    fn closing_quote_should_replaced() {
+        let text = "cd \"folder with spaces\\subdirectory\\\"";
+        let replacement = "\"folder with spaces\\subdirectory\\subsubdirectory\\\"";
+
+        let mut buffer = LineBuffer::with_capacity(256);
+        buffer.insert_str(0, text);
+        buffer.set_pos(text.len() - 1);
+
+        let helper = Helper::new(basic_evaluation_context().unwrap(), None);
+
+        helper.update(&mut buffer, "cd ".len(), &replacement);
+
+        assert_eq!(
+            buffer.as_str(),
+            "cd \"folder with spaces\\subdirectory\\subsubdirectory\\\""
+        );
+    }
+
+    #[test]
+    fn replacement_with_cursor_in_text() {
+        let text = "cd \"folder with spaces\\subdirectory\\\"";
+        let replacement = "\"folder with spaces\\subdirectory\\subsubdirectory\\\"";
+
+        let mut buffer = LineBuffer::with_capacity(256);
+        buffer.insert_str(0, text);
+        buffer.set_pos(text.len() - 30);
+
+        let helper = Helper::new(basic_evaluation_context().unwrap(), None);
+
+        helper.update(&mut buffer, "cd ".len(), &replacement);
+
+        assert_eq!(
+            buffer.as_str(),
+            "cd \"folder with spaces\\subdirectory\\subsubdirectory\\\""
+        );
+    }
+}
