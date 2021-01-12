@@ -59,8 +59,7 @@ impl rustyline::completion::Completer for Helper {
                 .skip(start)
                 .zip(elected.chars().into_iter())
                 .enumerate()
-                .skip_while(|(_, (line, replace))| line == replace)
-                .next()
+                .find(|(_, (line, replace))| line != replace)
             {
                 Some((index, (_, _))) => index,
                 None => line.pos(),
