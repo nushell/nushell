@@ -21,7 +21,7 @@ members = ["crates/*/"]
 nu-cli = {version = "0.25.2", path = "./crates/nu-cli"}
 nu-command = {version = "0.25.2", path = "./crates/nu-command"}
 nu-data = {version = "0.25.2", path = "./crates/nu-data"}
-nu-engine = {version = "0.25.2", path = "./crates/nu-engine"}
+nu-engine = {version = "0.25.2", path = "./crates/nu-engine", features = ["dirs"]}
 nu-errors = {version = "0.25.2", path = "./crates/nu-errors"}
 nu-parser = {version = "0.25.2", path = "./crates/nu-parser"}
 nu-plugin = {version = "0.25.2", path = "./crates/nu-plugin"}
