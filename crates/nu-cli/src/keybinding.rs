@@ -405,14 +405,10 @@ pub struct Keybinding {
 
 type Keybindings = Vec<Keybinding>;
 
-pub(crate) fn keybinding_path() -> Result<std::path::PathBuf, nu_errors::ShellError> {
-    nu_data::config::default_path_for(&Some(std::path::PathBuf::from("keybindings.yml")))
-}
-
 pub(crate) fn load_keybindings(
     rl: &mut rustyline::Editor<crate::shell::Helper>,
 ) -> Result<(), nu_errors::ShellError> {
-    let filename = keybinding_path()?;
+    let filename = nu_data::keybinding::keybinding_path()?;
     let contents = std::fs::read_to_string(filename);
 
     // Silently fail if there is no file there
