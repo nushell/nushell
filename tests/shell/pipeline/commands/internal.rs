@@ -416,17 +416,17 @@ fn run_inner_custom_command() {
     assert_eq!(actual.out, "10");
 }
 
-//#[test]
-//fn run_broken_inner_custom_command() {
-//    let actual = nu!(
-//        cwd: ".",
-//        r#"
-//        def outer [x] { def inner [y] { echo $y }; inner $x }; inner 10
-//        "#
-//    );
-//
-//    assert!(actual.err.contains("not found"));
-//}
+#[test]
+fn run_broken_inner_custom_command() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        def outer [x] { def inner [y] { echo $y }; inner $x }; inner 10
+        "#
+    );
+
+    assert!(actual.err.contains("not found"));
+}
 
 #[test]
 fn set_variable() {
