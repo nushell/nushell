@@ -200,35 +200,17 @@ fn parse_type_token(type_: &Token) -> (SyntaxShape, Option<ParseError>) {
 }
 
 fn parse_param_name(token: &Token) -> (Spanned<String>, Option<ParseError>) {
-    match &token.contents {
-        TokenContents::Baseline(name) => {
-            //Make sure user didn't enter type
-            //REVIEW Should type names be allowed to be parameter names:
-            //Example case:
-            //def f [ string ] { echo $string }
-            //Currently an error is thrown
-            let name = name.clone().spanned(token.span);
-            let (_, err) = parse_type(&name);
-            if err.is_some() {
-                //Okay not a type. Just return name
-                (name, None)
-            } else {
-                (
-                    name,
-                    Some(ParseError::mismatch(
-                        "parameter name",
-                        token_to_spanned_string(token),
-                    )),
-                )
-            }
-        }
-        _ => (
-            "Internal Error".to_string().spanned(token.span),
+    if let TokenContents::Baseline(name) = &token.contents {
+        let name = name.clone().spanned(token.span);
+        (name, None)
+    } else {
+        (
+            "InternalError".to_string().spanned(token.span),
             Some(ParseError::mismatch(
                 "parameter name",
                 token_to_spanned_string(token),
             )),
-        ),
+        )
     }
 }
 
