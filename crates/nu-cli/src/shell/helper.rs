@@ -145,7 +145,6 @@ fn vec_tag<T>(input: Vec<Tagged<T>>) -> Option<Tag> {
 
 impl rustyline::Helper for Helper {}
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
