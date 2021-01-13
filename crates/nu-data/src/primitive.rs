@@ -91,12 +91,12 @@ pub fn string_to_lookup_value(str_prim: &str) -> String {
         "primitive_string" => "Primitive::String".to_string(),
         "primitive_line" => "Primitive::Line".to_string(),
         "primitive_columnpath" => "Primitive::ColumnPath".to_string(),
-        "primitive_pattern" => "Primitive::Pattern".to_string(),
+        "primitive_pattern" => "Primitive::GlobPattern".to_string(),
         "primitive_boolean" => "Primitive::Boolean".to_string(),
         "primitive_date" => "Primitive::Date".to_string(),
         "primitive_duration" => "Primitive::Duration".to_string(),
         "primitive_range" => "Primitive::Range".to_string(),
-        "primitive_path" => "Primitive::Path".to_string(),
+        "primitive_path" => "Primitive::FilePath".to_string(),
         "primitive_binary" => "Primitive::Binary".to_string(),
         "separator_color" => "separator_color".to_string(),
         "header_align" => "header_align".to_string(),
@@ -269,8 +269,8 @@ pub fn style_primitive(primitive: &str, color_hm: &HashMap<String, Style>) -> Te
                 None => TextStyle::basic_left(),
             }
         }
-        "Pattern" => {
-            let style = color_hm.get("Primitive::Pattern");
+        "GlobPattern" => {
+            let style = color_hm.get("Primitive::GlobPattern");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
                 None => TextStyle::basic_left(),
@@ -304,8 +304,8 @@ pub fn style_primitive(primitive: &str, color_hm: &HashMap<String, Style>) -> Te
                 None => TextStyle::basic_left(),
             }
         }
-        "Path" => {
-            let style = color_hm.get("Primitive::Path");
+        "FilePath" => {
+            let style = color_hm.get("Primitive::FilePath");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
                 None => TextStyle::basic_left(),

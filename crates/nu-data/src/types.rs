@@ -36,7 +36,7 @@ impl ExtractType for std::path::PathBuf {
 
         match &value {
             Value {
-                value: UntaggedValue::Primitive(Primitive::Path(p)),
+                value: UntaggedValue::Primitive(Primitive::FilePath(p)),
                 ..
             } => Ok(p.clone()),
             other => Err(ShellError::type_error("Path", other.spanned_type_name())),
@@ -79,10 +79,6 @@ impl ExtractType for String {
         match value {
             Value {
                 value: UntaggedValue::Primitive(Primitive::String(string)),
-                ..
-            } => Ok(string.clone()),
-            Value {
-                value: UntaggedValue::Primitive(Primitive::Line(string)),
                 ..
             } => Ok(string.clone()),
             other => Err(ShellError::type_error("String", other.spanned_type_name())),

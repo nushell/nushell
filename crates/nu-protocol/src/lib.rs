@@ -24,4 +24,5 @@ pub use crate::value::did_you_mean::did_you_mean;
 pub use crate::value::primitive::Primitive;
 pub use crate::value::primitive::{format_date, format_duration, format_primitive};
 pub use crate::value::range::{Range, RangeInclusion};
+pub use crate::value::value_structure::{ValueResource, ValueStructure};
 pub use crate::value::{merge_descriptors, UntaggedValue, Value};

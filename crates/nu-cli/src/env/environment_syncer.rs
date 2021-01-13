@@ -1,6 +1,7 @@
-use crate::env::environment::{Env, Environment};
-use crate::evaluation_context::EvaluationContext;
+use crate::env::environment::Environment;
 use nu_data::config::{Conf, NuConfig};
+use nu_engine::Env;
+use nu_engine::EvaluationContext;
 use nu_errors::ShellError;
 use parking_lot::Mutex;
 use std::sync::{atomic::Ordering, Arc};
@@ -152,10 +153,10 @@ impl EnvironmentSyncer {
 #[cfg(test)]
 mod tests {
     use super::EnvironmentSyncer;
-    use crate::env::environment::Env;
-    use crate::evaluation_context::EvaluationContext;
     use indexmap::IndexMap;
     use nu_data::config::tests::FakeConfig;
+    use nu_engine::basic_evaluation_context;
+    use nu_engine::Env;
     use nu_errors::ShellError;
     use nu_test_support::fs::Stub::FileWithContent;
     use nu_test_support::playground::Playground;
@@ -170,8 +171,8 @@ mod tests {
     #[test]
     fn syncs_env_if_new_env_entry_is_added_to_an_existing_configuration() -> Result<(), ShellError>
     {
-        let mut ctx = EvaluationContext::basic()?;
-        ctx.host = Arc::new(Mutex::new(Box::new(crate::env::host::FakeHost::new())));
+        let mut ctx = basic_evaluation_context()?;
+        ctx.host = Arc::new(Mutex::new(Box::new(nu_engine::FakeHost::new())));
 
         let mut expected = IndexMap::new();
         expected.insert(
@@ -273,8 +274,8 @@ mod tests {
     #[test]
     fn syncs_env_if_new_env_entry_in_session_is_not_in_configuration_file() -> Result<(), ShellError>
     {
-        let mut ctx = EvaluationContext::basic()?;
-        ctx.host = Arc::new(Mutex::new(Box::new(crate::env::host::FakeHost::new())));
+        let mut ctx = basic_evaluation_context()?;
+        ctx.host = Arc::new(Mutex::new(Box::new(nu_engine::FakeHost::new())));
 
         let mut expected = IndexMap::new();
         expected.insert(
@@ -372,8 +373,8 @@ mod tests {
 
     #[test]
     fn nu_envs_have_higher_priority_and_does_not_get_overwritten() -> Result<(), ShellError> {
-        let mut ctx = EvaluationContext::basic()?;
-        ctx.host = Arc::new(Mutex::new(Box::new(crate::env::host::FakeHost::new())));
+        let mut ctx = basic_evaluation_context()?;
+        ctx.host = Arc::new(Mutex::new(Box::new(nu_engine::FakeHost::new())));
 
         let mut expected = IndexMap::new();
         expected.insert(
@@ -448,8 +449,8 @@ mod tests {
     #[test]
     fn syncs_path_if_new_path_entry_in_session_is_not_in_configuration_file(
     ) -> Result<(), ShellError> {
-        let mut ctx = EvaluationContext::basic()?;
-        ctx.host = Arc::new(Mutex::new(Box::new(crate::env::host::FakeHost::new())));
+        let mut ctx = basic_evaluation_context()?;
+        ctx.host = Arc::new(Mutex::new(Box::new(nu_engine::FakeHost::new())));
 
         let expected = std::env::join_paths(vec![
             PathBuf::from("/Users/andresrobalino/.volta/bin"),
@@ -535,8 +536,8 @@ mod tests {
     #[test]
     fn nu_paths_have_higher_priority_and_new_paths_get_appended_to_the_end(
     ) -> Result<(), ShellError> {
-        let mut ctx = EvaluationContext::basic()?;
-        ctx.host = Arc::new(Mutex::new(Box::new(crate::env::host::FakeHost::new())));
+        let mut ctx = basic_evaluation_context()?;
+        ctx.host = Arc::new(Mutex::new(Box::new(nu_engine::FakeHost::new())));
 
         let expected = std::env::join_paths(vec![
             PathBuf::from("/Users/andresrobalino/.volta/bin"),

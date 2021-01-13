@@ -1,27 +1,36 @@
-use crate::commands::classified::block::run_block;
-use crate::commands::default_context::create_default_context;
-use crate::evaluation_context::EvaluationContext;
-use crate::prelude::*;
-use crate::script::{print_err, run_script_standalone};
+use crate::line_editor::configure_ctrl_c;
+use nu_command::commands::default_context::create_default_context;
+#[allow(unused_imports)]
+use nu_command::maybe_print_errors;
+use nu_engine::run_block;
+use nu_engine::EvaluationContext;
 
 #[allow(unused_imports)]
-pub(crate) use crate::script::{process_script, LineResult};
+pub(crate) use nu_command::script::{process_script, LineResult};
 
 #[cfg(feature = "rustyline-support")]
-use crate::shell::Helper;
+use crate::line_editor::{
+    configure_rustyline_editor, convert_rustyline_result_to_string,
+    default_rustyline_editor_configuration, nu_line_editor_helper,
+};
+
+#[allow(unused_imports)]
+use nu_data::config;
+use nu_source::{Tag, Text};
+use nu_stream::InputStream;
+#[allow(unused_imports)]
+use std::sync::atomic::Ordering;
+
+use nu_command::script::{print_err, run_script_standalone};
+
+#[cfg(feature = "rustyline-support")]
+use rustyline::{self, error::ReadlineError};
+
 use crate::EnvironmentSyncer;
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
 use nu_protocol::{UntaggedValue, Value};
 
-#[cfg(feature = "rustyline-support")]
-use rustyline::{
-    self,
-    config::Configurer,
-    config::{ColorMode, CompletionType, Config},
-    error::ReadlineError,
-    At, Cmd, Editor, KeyPress, Movement, Word,
-};
 use std::error::Error;
 use std::iter::Iterator;
 use std::path::PathBuf;
@@ -85,20 +94,6 @@ pub async fn run_script_file(
     Ok(())
 }
 
-#[cfg(feature = "rustyline-support")]
-fn convert_rustyline_result_to_string(input: Result<String, ReadlineError>) -> LineResult {
-    match input {
-        Ok(s) if s == "history -c" || s == "history --clear" => LineResult::ClearHistory,
-        Ok(s) => LineResult::Success(s),
-        Err(ReadlineError::Interrupted) => LineResult::CtrlC,
-        Err(ReadlineError::Eof) => LineResult::CtrlD,
-        Err(err) => {
-            outln!("Error: {:?}", err);
-            LineResult::Break
-        }
-    }
-}
-
 /// The entry point for the CLI. Will register all known internal commands, load experimental commands, load plugins, then prepare the prompt and line reader for input.
 #[cfg(feature = "rustyline-support")]
 pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
@@ -128,7 +123,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
     // Give ourselves a scope to work in
     context.scope.enter_scope();
 
-    let history_path = crate::commands::history::history_path(&configuration);
+    let history_path = nu_engine::history_path(&configuration);
     let _ = rl.load_history(&history_path);
 
     let mut session_text = String::new();
@@ -189,7 +184,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
                         Ok(result) => match result.collect_string(Tag::unknown()).await {
                             Ok(string_result) => {
                                 let errors = context.get_errors();
-                                context.maybe_print_errors(Text::from(prompt_line));
+                                maybe_print_errors(&context, Text::from(prompt_line));
                                 context.clear_errors();
 
                                 if !errors.is_empty() {
@@ -284,7 +279,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
             LineResult::Success(line) => {
                 rl.add_history_entry(&line);
                 let _ = rl.save_history(&history_path);
-                context.maybe_print_errors(Text::from(session_text.clone()));
+                maybe_print_errors(&context, Text::from(session_text.clone()));
             }
 
             LineResult::ClearHistory => {
@@ -300,7 +295,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
                     print_err(err, &Text::from(session_text.clone()));
                 });
 
-                context.maybe_print_errors(Text::from(session_text.clone()));
+                maybe_print_errors(&context, Text::from(session_text.clone()));
             }
 
             LineResult::CtrlC => {
@@ -344,30 +339,13 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
 }
 
 pub fn register_plugins(context: &mut EvaluationContext) -> Result<(), ShellError> {
-    if let Ok(plugins) = crate::plugin::scan(search_paths()) {
+    if let Ok(plugins) = nu_engine::plugin::build_plugin::scan(search_paths()) {
         context.add_commands(
             plugins
                 .into_iter()
                 .filter(|p| !context.is_command_registered(p.name()))
                 .collect(),
         );
-    }
-
-    Ok(())
-}
-
-fn configure_ctrl_c(_context: &mut EvaluationContext) -> Result<(), Box<dyn Error>> {
-    #[cfg(feature = "ctrlc")]
-    {
-        let cc = _context.ctrl_c.clone();
-
-        ctrlc::set_handler(move || {
-            cc.store(true, Ordering::SeqCst);
-        })?;
-
-        if _context.ctrl_c.load(Ordering::SeqCst) {
-            _context.ctrl_c.store(false, Ordering::SeqCst);
-        }
     }
 
     Ok(())
@@ -383,11 +361,12 @@ async fn run_startup_commands(
                 value: UntaggedValue::Table(pipelines),
                 ..
             } => {
+                let mut script_file = String::new();
                 for pipeline in pipelines {
-                    if let Ok(pipeline_string) = pipeline.as_string() {
-                        let _ = run_script_standalone(pipeline_string, false, context, false).await;
-                    }
+                    script_file.push_str(&pipeline.as_string()?);
+                    script_file.push('\n');
                 }
+                let _ = run_script_standalone(script_file, false, context, false).await;
             }
             _ => {
                 return Err(ShellError::untagged_runtime_error(
@@ -398,187 +377,6 @@ async fn run_startup_commands(
     }
 
     Ok(())
-}
-
-#[cfg(feature = "rustyline-support")]
-fn default_rustyline_editor_configuration() -> Editor<Helper> {
-    #[cfg(windows)]
-    const DEFAULT_COMPLETION_MODE: CompletionType = CompletionType::Circular;
-    #[cfg(not(windows))]
-    const DEFAULT_COMPLETION_MODE: CompletionType = CompletionType::List;
-
-    let config = Config::builder().color_mode(ColorMode::Forced).build();
-    let mut rl: Editor<_> = Editor::with_config(config);
-
-    // add key bindings to move over a whole word with Ctrl+ArrowLeft and Ctrl+ArrowRight
-    rl.bind_sequence(
-        KeyPress::ControlLeft,
-        Cmd::Move(Movement::BackwardWord(1, Word::Vi)),
-    );
-    rl.bind_sequence(
-        KeyPress::ControlRight,
-        Cmd::Move(Movement::ForwardWord(1, At::AfterEnd, Word::Vi)),
-    );
-
-    // workaround for multiline-paste hang in rustyline (see https://github.com/kkawakam/rustyline/issues/202)
-    rl.bind_sequence(KeyPress::BracketedPasteStart, rustyline::Cmd::Noop);
-
-    // Let's set the defaults up front and then override them later if the user indicates
-    // defaults taken from here https://github.com/kkawakam/rustyline/blob/2fe886c9576c1ea13ca0e5808053ad491a6fe049/src/config.rs#L150-L167
-    rl.set_max_history_size(100);
-    rl.set_history_ignore_dups(true);
-    rl.set_history_ignore_space(false);
-    rl.set_completion_type(DEFAULT_COMPLETION_MODE);
-    rl.set_completion_prompt_limit(100);
-    rl.set_keyseq_timeout(-1);
-    rl.set_edit_mode(rustyline::config::EditMode::Emacs);
-    rl.set_auto_add_history(false);
-    rl.set_bell_style(rustyline::config::BellStyle::default());
-    rl.set_color_mode(rustyline::ColorMode::Enabled);
-    rl.set_tab_stop(8);
-
-    if let Err(e) = crate::keybinding::load_keybindings(&mut rl) {
-        println!("Error loading keybindings: {:?}", e);
-    }
-
-    rl
-}
-
-#[cfg(feature = "rustyline-support")]
-fn configure_rustyline_editor(
-    rl: &mut Editor<Helper>,
-    config: &dyn nu_data::config::Conf,
-) -> Result<(), ShellError> {
-    #[cfg(windows)]
-    const DEFAULT_COMPLETION_MODE: CompletionType = CompletionType::Circular;
-    #[cfg(not(windows))]
-    const DEFAULT_COMPLETION_MODE: CompletionType = CompletionType::List;
-
-    if let Some(line_editor_vars) = config.var("line_editor") {
-        for (idx, value) in line_editor_vars.row_entries() {
-            match idx.as_ref() {
-                "max_history_size" => {
-                    if let Ok(max_history_size) = value.as_u64() {
-                        rl.set_max_history_size(max_history_size as usize);
-                    }
-                }
-                "history_duplicates" => {
-                    // history_duplicates = match value.as_string() {
-                    //     Ok(s) if s.to_lowercase() == "alwaysadd" => {
-                    //         rustyline::config::HistoryDuplicates::AlwaysAdd
-                    //     }
-                    //     Ok(s) if s.to_lowercase() == "ignoreconsecutive" => {
-                    //         rustyline::config::HistoryDuplicates::IgnoreConsecutive
-                    //     }
-                    //     _ => rustyline::config::HistoryDuplicates::AlwaysAdd,
-                    // };
-                    if let Ok(history_duplicates) = value.as_bool() {
-                        rl.set_history_ignore_dups(history_duplicates);
-                    }
-                }
-                "history_ignore_space" => {
-                    if let Ok(history_ignore_space) = value.as_bool() {
-                        rl.set_history_ignore_space(history_ignore_space);
-                    }
-                }
-                "completion_type" => {
-                    let completion_type = match value.as_string() {
-                        Ok(s) if s.to_lowercase() == "circular" => {
-                            rustyline::config::CompletionType::Circular
-                        }
-                        Ok(s) if s.to_lowercase() == "list" => {
-                            rustyline::config::CompletionType::List
-                        }
-                        #[cfg(all(unix, feature = "with-fuzzy"))]
-                        Ok(s) if s.to_lowercase() == "fuzzy" => {
-                            rustyline::config::CompletionType::Fuzzy
-                        }
-                        _ => DEFAULT_COMPLETION_MODE,
-                    };
-                    rl.set_completion_type(completion_type);
-                }
-                "completion_prompt_limit" => {
-                    if let Ok(completion_prompt_limit) = value.as_u64() {
-                        rl.set_completion_prompt_limit(completion_prompt_limit as usize);
-                    }
-                }
-                "keyseq_timeout_ms" => {
-                    if let Ok(keyseq_timeout_ms) = value.as_u64() {
-                        rl.set_keyseq_timeout(keyseq_timeout_ms as i32);
-                    }
-                }
-                "edit_mode" => {
-                    let edit_mode = match value.as_string() {
-                        Ok(s) if s.to_lowercase() == "vi" => rustyline::config::EditMode::Vi,
-                        Ok(s) if s.to_lowercase() == "emacs" => rustyline::config::EditMode::Emacs,
-                        _ => rustyline::config::EditMode::Emacs,
-                    };
-                    rl.set_edit_mode(edit_mode);
-                    // Note: When edit_mode is Emacs, the keyseq_timeout_ms is set to -1
-                    // no matter what you may have configured. This is so that key chords
-                    // can be applied without having to do them in a given timeout. So,
-                    // it essentially turns off the keyseq timeout.
-                }
-                "auto_add_history" => {
-                    if let Ok(auto_add_history) = value.as_bool() {
-                        rl.set_auto_add_history(auto_add_history);
-                    }
-                }
-                "bell_style" => {
-                    let bell_style = match value.as_string() {
-                        Ok(s) if s.to_lowercase() == "audible" => {
-                            rustyline::config::BellStyle::Audible
-                        }
-                        Ok(s) if s.to_lowercase() == "none" => rustyline::config::BellStyle::None,
-                        Ok(s) if s.to_lowercase() == "visible" => {
-                            rustyline::config::BellStyle::Visible
-                        }
-                        _ => rustyline::config::BellStyle::default(),
-                    };
-                    rl.set_bell_style(bell_style);
-                }
-                "color_mode" => {
-                    let color_mode = match value.as_string() {
-                        Ok(s) if s.to_lowercase() == "enabled" => rustyline::ColorMode::Enabled,
-                        Ok(s) if s.to_lowercase() == "forced" => rustyline::ColorMode::Forced,
-                        Ok(s) if s.to_lowercase() == "disabled" => rustyline::ColorMode::Disabled,
-                        _ => rustyline::ColorMode::Enabled,
-                    };
-                    rl.set_color_mode(color_mode);
-                }
-                "tab_stop" => {
-                    if let Ok(tab_stop) = value.as_u64() {
-                        rl.set_tab_stop(tab_stop as usize);
-                    }
-                }
-                _ => (),
-            }
-        }
-    }
-
-    Ok(())
-}
-
-#[cfg(feature = "rustyline-support")]
-fn nu_line_editor_helper(
-    context: &mut EvaluationContext,
-    config: &dyn nu_data::config::Conf,
-) -> crate::shell::Helper {
-    let hinter = rustyline_hinter(config);
-    crate::shell::Helper::new(context.clone(), hinter)
-}
-
-#[cfg(feature = "rustyline-support")]
-fn rustyline_hinter(config: &dyn nu_data::config::Conf) -> Option<rustyline::hint::HistoryHinter> {
-    if let Some(line_editor_vars) = config.var("line_editor") {
-        for (idx, value) in line_editor_vars.row_entries() {
-            if idx == "show_hints" && value.expect_string() == "false" {
-                return None;
-            }
-        }
-    }
-
-    Some(rustyline::hint::HistoryHinter {})
 }
 
 pub async fn parse_and_eval(line: &str, ctx: &EvaluationContext) -> Result<String, ShellError> {
@@ -609,13 +407,14 @@ pub async fn parse_and_eval(line: &str, ctx: &EvaluationContext) -> Result<Strin
 
 #[cfg(test)]
 mod tests {
+    use nu_engine::basic_evaluation_context;
 
     #[quickcheck]
     fn quickcheck_parse(data: String) -> bool {
         let (tokens, err) = nu_parser::lex(&data, 0);
-        let (lite_block, err2) = nu_parser::group(tokens);
+        let (lite_block, err2) = nu_parser::block(tokens);
         if err.is_none() && err2.is_none() {
-            let context = crate::evaluation_context::EvaluationContext::basic().unwrap();
+            let context = basic_evaluation_context().unwrap();
             let _ = nu_parser::classify_block(&lite_block, &context.scope);
         }
         true

@@ -8,6 +8,7 @@ pub mod primitive;
 pub mod range;
 mod serde_bigdecimal;
 mod serde_bigint;
+pub mod value_structure;
 
 use crate::hir;
 use crate::type_name::{ShellTypeName, SpannedTypeName};
@@ -162,11 +163,6 @@ impl UntaggedValue {
         UntaggedValue::Primitive(Primitive::String(s.into()))
     }
 
-    /// Helper for creating line values
-    pub fn line(s: impl Into<String>) -> UntaggedValue {
-        UntaggedValue::Primitive(Primitive::Line(s.into()))
-    }
-
     /// Helper for creating column-path values
     pub fn column_path(s: &str, span: Span) -> UntaggedValue {
         let s = s.to_string().spanned(span);
@@ -180,13 +176,13 @@ impl UntaggedValue {
     }
 
     /// Helper for creating glob pattern values
-    pub fn pattern(s: impl Into<String>) -> UntaggedValue {
+    pub fn glob_pattern(s: impl Into<String>) -> UntaggedValue {
         UntaggedValue::Primitive(Primitive::String(s.into()))
     }
 
     /// Helper for creating filepath values
-    pub fn path(s: impl Into<PathBuf>) -> UntaggedValue {
-        UntaggedValue::Primitive(Primitive::Path(s.into()))
+    pub fn filepath(s: impl Into<PathBuf>) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::FilePath(s.into()))
     }
 
     /// Helper for creating filesize values
@@ -317,8 +313,7 @@ impl Value {
     pub fn as_string(&self) -> Result<String, ShellError> {
         match &self.value {
             UntaggedValue::Primitive(Primitive::String(string)) => Ok(string.clone()),
-            UntaggedValue::Primitive(Primitive::Line(line)) => Ok(line.clone() + "\n"),
-            UntaggedValue::Primitive(Primitive::Path(path)) => {
+            UntaggedValue::Primitive(Primitive::FilePath(path)) => {
                 Ok(path.to_string_lossy().to_string())
             }
             _ => Err(ShellError::type_error("string", self.spanned_type_name())),
@@ -333,7 +328,7 @@ impl Value {
             UntaggedValue::Primitive(Primitive::Decimal(x)) => format!("{}", x),
             UntaggedValue::Primitive(Primitive::Int(x)) => format!("{}", x),
             UntaggedValue::Primitive(Primitive::Filesize(x)) => format!("{}", x),
-            UntaggedValue::Primitive(Primitive::Path(x)) => format!("{}", x.display()),
+            UntaggedValue::Primitive(Primitive::FilePath(x)) => format!("{}", x.display()),
             UntaggedValue::Primitive(Primitive::ColumnPath(path)) => {
                 let joined: String = path
                     .iter()
@@ -370,7 +365,7 @@ impl Value {
     /// View the Value as a path, if possible
     pub fn as_path(&self) -> Result<PathBuf, ShellError> {
         match &self.value {
-            UntaggedValue::Primitive(Primitive::Path(path)) => Ok(path.clone()),
+            UntaggedValue::Primitive(Primitive::FilePath(path)) => Ok(path.clone()),
             UntaggedValue::Primitive(Primitive::String(path_str)) => Ok(PathBuf::from(&path_str)),
             _ => Err(ShellError::type_error("Path", self.spanned_type_name())),
         }
@@ -584,8 +579,6 @@ pub trait StringExt {
     fn to_string_untagged_value(&self) -> UntaggedValue;
     fn to_string_value(&self, tag: Tag) -> Value;
     fn to_string_value_create_tag(&self) -> Value;
-    fn to_line_value(&self, tag: Tag) -> Value;
-    fn to_line_untagged_value(&self) -> UntaggedValue;
     fn to_column_path_value(&self, tag: Tag) -> Value;
     fn to_column_path_untagged_value(&self, span: Span) -> UntaggedValue;
     fn to_pattern_value(&self, tag: Tag) -> Value;
@@ -615,17 +608,6 @@ impl StringExt for String {
         UntaggedValue::string(self)
     }
 
-    fn to_line_value(&self, the_tag: Tag) -> Value {
-        Value {
-            value: UntaggedValue::Primitive(Primitive::Line(self.to_string())),
-            tag: the_tag,
-        }
-    }
-
-    fn to_line_untagged_value(&self) -> UntaggedValue {
-        UntaggedValue::line(self)
-    }
-
     fn to_column_path_value(&self, the_tag: Tag) -> Value {
         Value {
             value: UntaggedValue::Primitive(Primitive::ColumnPath(ColumnPath::build(
@@ -642,13 +624,13 @@ impl StringExt for String {
 
     fn to_pattern_value(&self, the_tag: Tag) -> Value {
         Value {
-            value: UntaggedValue::Primitive(Primitive::Pattern(self.to_string())),
+            value: UntaggedValue::Primitive(Primitive::GlobPattern(self.to_string())),
             tag: the_tag,
         }
     }
 
     fn to_pattern_untagged_value(&self) -> UntaggedValue {
-        UntaggedValue::pattern(self)
+        UntaggedValue::glob_pattern(self)
     }
 }
 
@@ -656,8 +638,6 @@ pub trait StrExt {
     fn to_str_untagged_value(&self) -> UntaggedValue;
     fn to_str_value(&self, tag: Tag) -> Value;
     fn to_str_value_create_tag(&self) -> Value;
-    fn to_line_value(&self, tag: Tag) -> Value;
-    fn to_line_untagged_value(&self) -> UntaggedValue;
     fn to_column_path_value(&self, tag: Tag) -> Value;
     fn to_column_path_untagged_value(&self, span: Span) -> UntaggedValue;
     fn to_pattern_value(&self, tag: Tag) -> Value;
@@ -687,17 +667,6 @@ impl StrExt for &str {
         UntaggedValue::string(*self)
     }
 
-    fn to_line_value(&self, the_tag: Tag) -> Value {
-        Value {
-            value: UntaggedValue::Primitive(Primitive::Line(self.to_string())),
-            tag: the_tag,
-        }
-    }
-
-    fn to_line_untagged_value(&self) -> UntaggedValue {
-        UntaggedValue::line(*self)
-    }
-
     fn to_column_path_value(&self, the_tag: Tag) -> Value {
         Value {
             value: UntaggedValue::Primitive(Primitive::ColumnPath(ColumnPath::build(
@@ -714,13 +683,13 @@ impl StrExt for &str {
 
     fn to_pattern_value(&self, the_tag: Tag) -> Value {
         Value {
-            value: UntaggedValue::Primitive(Primitive::Pattern(self.to_string())),
+            value: UntaggedValue::Primitive(Primitive::GlobPattern(self.to_string())),
             tag: the_tag,
         }
     }
 
     fn to_pattern_untagged_value(&self) -> UntaggedValue {
-        UntaggedValue::pattern(*self)
+        UntaggedValue::glob_pattern(*self)
     }
 }
 
@@ -862,7 +831,7 @@ impl PathBufExt for PathBuf {
     fn to_value(&self, the_tag: Tag) -> Value {
         let pb = self.clone();
         Value {
-            value: UntaggedValue::Primitive(Primitive::Path(pb)),
+            value: UntaggedValue::Primitive(Primitive::FilePath(pb)),
             tag: the_tag,
         }
     }
@@ -874,7 +843,7 @@ impl PathBufExt for PathBuf {
             .len();
         let pb = self.clone();
         Value {
-            value: UntaggedValue::Primitive(Primitive::Path(pb)),
+            value: UntaggedValue::Primitive(Primitive::FilePath(pb)),
             tag: Tag {
                 anchor: None,
                 span: Span::new(0, end),
@@ -884,7 +853,7 @@ impl PathBufExt for PathBuf {
 
     fn to_untagged_value(&self) -> UntaggedValue {
         let pb = self.clone();
-        UntaggedValue::path(pb)
+        UntaggedValue::filepath(pb)
     }
 }
 
@@ -1016,17 +985,11 @@ mod tests {
     }
 
     #[test]
-    fn test_string_to_line_untagged_value() {
-        let a_line = r"this is some line\n";
-        assert_eq!(a_line.to_line_untagged_value(), UntaggedValue::line(a_line));
-    }
-
-    #[test]
     fn test_string_to_pattern_untagged_value() {
         let a_pattern = r"[a-zA-Z0-9 ]";
         assert_eq!(
             a_pattern.to_pattern_untagged_value(),
-            UntaggedValue::pattern(a_pattern)
+            UntaggedValue::glob_pattern(a_pattern)
         );
     }
 

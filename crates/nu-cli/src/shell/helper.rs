@@ -1,12 +1,8 @@
-use std::borrow::Cow::{self, Owned};
-
-use nu_source::{Tag, Tagged};
-
 use crate::completion;
-use crate::evaluation_context::EvaluationContext;
 use crate::shell::completer::NuCompleter;
-use crate::shell::painter::Painter;
-use crate::shell::palette::DefaultPalette;
+use nu_engine::{DefaultPalette, EvaluationContext, Painter};
+use nu_source::{Tag, Tagged};
+use std::borrow::Cow::{self, Owned};
 
 pub struct Helper {
     completer: NuCompleter,
@@ -55,7 +51,27 @@ impl rustyline::completion::Completer for Helper {
     }
 
     fn update(&self, line: &mut rustyline::line_buffer::LineBuffer, start: usize, elected: &str) {
-        let end = line.pos();
+        let end = start
+            + match line
+                .as_str()
+                .chars()
+                .into_iter()
+                .skip(start)
+                .zip(elected.chars().into_iter())
+                .enumerate()
+                .find(|(_, (line, replace))| line != replace)
+            {
+                Some((index, (_, _))) => index,
+                None => line.pos(),
+            };
+
+        let mut end = end.max(line.pos());
+
+        let remaining = &line.as_str()[end..];
+        if remaining.starts_with('"') {
+            end += 1;
+        }
+
         line.replace(start..end, elected)
     }
 }
@@ -123,7 +139,7 @@ impl rustyline::validate::Validator for NuValidator {
             }
         }
 
-        let (_, err) = nu_parser::group(tokens);
+        let (_, err) = nu_parser::block(tokens);
 
         if let Some(err) = err {
             if let nu_errors::ParseErrorReason::Eof { .. } = err.reason() {
@@ -148,3 +164,49 @@ fn vec_tag<T>(input: Vec<Tagged<T>>) -> Option<Tag> {
 }
 
 impl rustyline::Helper for Helper {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nu_engine::basic_evaluation_context;
+    use rustyline::completion::Completer;
+    use rustyline::line_buffer::LineBuffer;
+
+    #[test]
+    fn closing_quote_should_replaced() {
+        let text = "cd \"folder with spaces\\subdirectory\\\"";
+        let replacement = "\"folder with spaces\\subdirectory\\subsubdirectory\\\"";
+
+        let mut buffer = LineBuffer::with_capacity(256);
+        buffer.insert_str(0, text);
+        buffer.set_pos(text.len() - 1);
+
+        let helper = Helper::new(basic_evaluation_context().unwrap(), None);
+
+        helper.update(&mut buffer, "cd ".len(), &replacement);
+
+        assert_eq!(
+            buffer.as_str(),
+            "cd \"folder with spaces\\subdirectory\\subsubdirectory\\\""
+        );
+    }
+
+    #[test]
+    fn replacement_with_cursor_in_text() {
+        let text = "cd \"folder with spaces\\subdirectory\\\"";
+        let replacement = "\"folder with spaces\\subdirectory\\subsubdirectory\\\"";
+
+        let mut buffer = LineBuffer::with_capacity(256);
+        buffer.insert_str(0, text);
+        buffer.set_pos(text.len() - 30);
+
+        let helper = Helper::new(basic_evaluation_context().unwrap(), None);
+
+        helper.update(&mut buffer, "cd ".len(), &replacement);
+
+        assert_eq!(
+            buffer.as_str(),
+            "cd \"folder with spaces\\subdirectory\\subsubdirectory\\\""
+        );
+    }
+}

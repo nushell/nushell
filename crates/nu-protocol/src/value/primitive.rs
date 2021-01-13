@@ -34,12 +34,10 @@ pub enum Primitive {
     Filesize(u64),
     /// A string value
     String(String),
-    /// A string value with an implied carriage return (or cr/lf) ending
-    Line(String),
     /// A path to travel to reach a value in a table
     ColumnPath(ColumnPath),
     /// A glob pattern, eg foo*
-    Pattern(String),
+    GlobPattern(String),
     /// A boolean value
     Boolean(bool),
     /// A date value
@@ -50,7 +48,7 @@ pub enum Primitive {
     /// A range of values
     Range(Box<Range>),
     /// A file path
-    Path(PathBuf),
+    FilePath(PathBuf),
     /// A vector of raw binary data
     #[serde(with = "serde_bytes")]
     Binary(Vec<u8>),
@@ -235,13 +233,12 @@ impl ShellTypeName for Primitive {
             Primitive::Decimal(_) => "decimal",
             Primitive::Filesize(_) => "filesize(in bytes)",
             Primitive::String(_) => "string",
-            Primitive::Line(_) => "line",
             Primitive::ColumnPath(_) => "column path",
-            Primitive::Pattern(_) => "pattern",
+            Primitive::GlobPattern(_) => "pattern",
             Primitive::Boolean(_) => "boolean",
             Primitive::Date(_) => "date",
             Primitive::Duration(_) => "duration",
-            Primitive::Path(_) => "file path",
+            Primitive::FilePath(_) => "file path",
             Primitive::Binary(_) => "binary",
             Primitive::BeginningOfStream => "marker<beginning of stream>",
             Primitive::EndOfStream => "marker<end of stream>",
@@ -255,7 +252,7 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
         Primitive::Nothing => String::new(),
         Primitive::BeginningOfStream => String::new(),
         Primitive::EndOfStream => String::new(),
-        Primitive::Path(p) => format!("{}", p.display()),
+        Primitive::FilePath(p) => format!("{}", p.display()),
         Primitive::Filesize(num_bytes) => {
             let byte = byte_unit::Byte::from_bytes(*num_bytes as u128);
 
@@ -292,9 +289,8 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
             },
             format_primitive(&range.to.0.item, None)
         ),
-        Primitive::Pattern(s) => s.to_string(),
+        Primitive::GlobPattern(s) => s.to_string(),
         Primitive::String(s) => s.to_owned(),
-        Primitive::Line(s) => s.to_owned(),
         Primitive::ColumnPath(p) => {
             let mut members = p.iter();
             let mut f = String::new();
