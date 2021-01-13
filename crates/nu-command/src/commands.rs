@@ -4,6 +4,7 @@ pub(crate) mod macros;
 mod from_delimited_data;
 mod to_delimited_data;
 
+pub(crate) mod alias;
 pub(crate) mod ansi;
 pub(crate) mod append;
 pub(crate) mod args;
@@ -137,6 +138,7 @@ pub(crate) mod wrap;
 pub(crate) use autoview::Autoview;
 pub(crate) use cd::Cd;
 
+pub(crate) use alias::Alias;
 pub(crate) use ansi::Ansi;
 pub(crate) use append::Command as Append;
 pub(crate) use autoenv::Autoenv;

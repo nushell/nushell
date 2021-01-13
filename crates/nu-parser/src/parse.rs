@@ -1430,7 +1430,7 @@ fn parse_positional_argument(
 /// Does a full parse of an internal command using the lite-ly parse command as a starting point
 /// This main focus at this level is to understand what flags were passed in, what positional arguments were passed in, what rest arguments were passed in
 /// and to ensure that the basic requirements in terms of number of each were met.
-fn parse_internal_command(
+fn parse_internal_call(
     lite_cmd: &LiteCommand,
     scope: &dyn ParserScope,
     signature: &Signature,
@@ -1753,16 +1753,6 @@ fn parse_call(
             garbage(lite_cmd.span())
         };
         return (Some(ClassifiedCommand::Expr(Box::new(expr))), error);
-    } else if lite_cmd.parts[0].item == "alias" {
-        let error = parse_alias(&lite_cmd, scope);
-        if error.is_none() {
-            return (None, None);
-        } else {
-            return (
-                Some(ClassifiedCommand::Expr(Box::new(garbage(lite_cmd.span())))),
-                error,
-            );
-        }
     } else if lite_cmd.parts[0].item == "source" {
         if lite_cmd.parts.len() != 2 {
             return (
@@ -1799,8 +1789,7 @@ fn parse_call(
             "{} {}",
             lite_cmd.parts[0].item, lite_cmd.parts[1].item
         )) {
-            let (mut internal_command, err) =
-                parse_internal_command(&lite_cmd, scope, &signature, 1);
+            let (mut internal_command, err) = parse_internal_call(&lite_cmd, scope, &signature, 1);
 
             error = error.or(err);
             internal_command.args.external_redirection = if end_of_pipeline {
@@ -1821,8 +1810,16 @@ fn parse_call(
                     error,
                 );
             }
+        } else if lite_cmd.parts[0].item == "alias" {
+            let error = parse_alias(&lite_cmd, scope);
+            if error.is_some() {
+                return (
+                    Some(ClassifiedCommand::Expr(Box::new(garbage(lite_cmd.span())))),
+                    error,
+                );
+            }
         }
-        let (mut internal_command, err) = parse_internal_command(&lite_cmd, scope, &signature, 0);
+        let (mut internal_command, err) = parse_internal_call(&lite_cmd, scope, &signature, 0);
 
         error = error.or(err);
         internal_command.args.external_redirection = if end_of_pipeline {
