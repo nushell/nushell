@@ -48,3 +48,6 @@ users = "0.10.0"
 
 [dev-dependencies]
 nu-test-support = {version = "0.25.2", path = "../nu-test-support"}
+
+[features]
+rustyline-support = []
