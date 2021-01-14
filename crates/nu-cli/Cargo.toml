@@ -130,6 +130,6 @@ quickcheck_macros = "0.9.1"
 [features]
 clipboard-cli = ["arboard"]
 rich-benchmark = ["heim"]
-rustyline-support = ["rustyline"]
+rustyline-support = ["rustyline", "nu-engine/rustyline-support"]
 stable = []
 trash-support = ["trash"]
