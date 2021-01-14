@@ -5,6 +5,9 @@
 extern crate indexmap;
 
 #[macro_use]
+extern crate shadow_rs;
+
+#[macro_use]
 mod prelude;
 pub mod commands;
 mod futures;

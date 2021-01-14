@@ -53,7 +53,6 @@ futures = {version = "0.3.5", features = ["compat", "io-compat"]}
 futures-util = "0.3.8"
 futures_codec = "0.4.1"
 getset = "0.1.1"
-git2 = {version = "0.13.11", default_features = false, optional = true}
 glob = "0.3.0"
 heim = {version = "0.1.0-rc.1", optional = true}
 htmlescape = "0.3.1"
@@ -103,6 +102,7 @@ url = "2.1.1"
 uuid_crate = {package = "uuid", version = "0.8.1", features = ["v4"], optional = true}
 which = {version = "4.0.2", optional = true}
 zip = {version = "0.5.7", optional = true}
+shadow-rs = "0.5"
 
 [target.'cfg(unix)'.dependencies]
 umask = "1.0.0"

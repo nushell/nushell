@@ -4,9 +4,7 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{value::StrExt, value::StringExt, Dictionary, Signature, UntaggedValue};
 
-pub mod shadow {
-    include!(concat!(env!("OUT_DIR"), "/shadow.rs"));
-}
+shadow!(shadow);
 
 pub struct Version;
 
@@ -163,11 +161,6 @@ fn features_enabled() -> Vec<String> {
     #[cfg(feature = "directories")]
     {
         names.push("directories".to_string());
-    }
-
-    #[cfg(feature = "git2")]
-    {
-        names.push("git".to_string());
     }
 
     #[cfg(feature = "ptree")]

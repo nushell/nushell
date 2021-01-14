@@ -3107,7 +3107,6 @@ dependencies = [
  "futures-util",
  "futures_codec",
  "getset",
- "git2",
  "glob",
  "heim",
  "htmlescape",
@@ -3211,7 +3210,6 @@ dependencies = [
  "futures-util",
  "futures_codec",
  "getset",
- "git2",
  "glob",
  "heim",
  "htmlescape",
@@ -5217,9 +5215,9 @@ dependencies = [
 
 [[package]]
 name = "shadow-rs"
-version = "0.5.8"
+version = "0.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48d36234bd8117223aa622e2ab8aa530f4db4e48f651c2afd445cc3178b4ecdb"
+checksum = "8e76d5a8e6babb34eb136420a59b39d592912aa318dc8761db0b472b768df4f4"
 dependencies = [
  "chrono",
  "git2",

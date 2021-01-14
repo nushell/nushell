@@ -163,17 +163,9 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
                 let (prompt_block, err) = nu_parser::parse(&prompt_line, 0, &context.scope);
 
                 if err.is_some() {
-                    use crate::git::current_branch;
                     context.scope.exit_scope();
 
-                    format!(
-                        "\x1b[32m{}{}\x1b[m> ",
-                        cwd,
-                        match current_branch() {
-                            Some(s) => format!("({})", s),
-                            None => "".to_string(),
-                        }
-                    )
+                    format!("\x1b[32m{}{}\x1b[m> ", cwd, current_branch())
                 } else {
                     // let env = context.get_env();
 
@@ -209,15 +201,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
                     }
                 }
             } else {
-                use crate::git::current_branch;
-                format!(
-                    "\x1b[32m{}{}\x1b[m> ",
-                    cwd,
-                    match current_branch() {
-                        Some(s) => format!("({})", s),
-                        None => "".to_string(),
-                    }
-                )
+                format!("\x1b[32m{}{}\x1b[m> ", cwd, current_branch())
             }
         };
 
@@ -371,7 +355,7 @@ async fn run_startup_commands(
             _ => {
                 return Err(ShellError::untagged_runtime_error(
                     "expected a table of pipeline strings as startup commands",
-                ))
+                ));
             }
         }
     }
@@ -403,6 +387,14 @@ pub async fn parse_and_eval(line: &str, ctx: &EvaluationContext) -> Result<Strin
     ctx.scope.exit_scope();
 
     result?.collect_string(Tag::unknown()).await.map(|x| x.item)
+}
+
+fn current_branch() -> String {
+    Some(shadow_rs::branch())
+        .map(|x| x.trim().to_string())
+        .filter(|x| !x.is_empty())
+        .map(|x| format!("({})", x))
+        .unwrap_or_default()
 }
 
 #[cfg(test)]
