@@ -151,30 +151,6 @@ fn converts_to_decimal() {
 }
 
 #[test]
-fn sets() {
-    Playground::setup("str_test_5", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
-            "sample.toml",
-            r#"
-                     [package]
-                     name = "nushell"
-                 "#,
-        )]);
-
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                 open sample.toml
-                 | str set wykittenshell package.name
-                 | get package.name
-             "#
-        ));
-
-        assert_eq!(actual.out, "wykittenshell");
-    })
-}
-
-#[test]
 fn find_and_replaces() {
     Playground::setup("str_test_6", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
