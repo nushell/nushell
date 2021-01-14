@@ -251,15 +251,11 @@ pub fn wrap<'a>(
             bg_color_string = Style::default().on(bg).prefix().to_string()
         };
 
-        // let re_leading =
-        //     regex::Regex::new(r"(?P<beginsp>^\s+)").expect("error with leading space regex");
         if let Some(leading_match) = re_leading.find(&current_line.clone()) {
             String::insert_str(&mut current_line, leading_match.end(), "\x1b[0m");
             String::insert_str(&mut current_line, leading_match.start(), &bg_color_string);
         }
 
-        // let re_trailing =
-        //     regex::Regex::new(r"(?P<endsp>\s+$)").expect("error with trailing space regex");
         if let Some(trailing_match) = re_trailing.find(&current_line.clone()) {
             String::insert_str(&mut current_line, trailing_match.start(), &bg_color_string);
             current_line += "\x1b[0m";
