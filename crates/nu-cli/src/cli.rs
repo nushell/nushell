@@ -389,6 +389,7 @@ pub async fn parse_and_eval(line: &str, ctx: &EvaluationContext) -> Result<Strin
     result?.collect_string(Tag::unknown()).await.map(|x| x.item)
 }
 
+#[allow(dead_code)]
 fn current_branch() -> String {
     #[cfg(feature = "shadow-rs")]
     {
