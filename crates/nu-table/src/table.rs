@@ -1009,8 +1009,18 @@ pub fn draw_table(table: &Table, termwidth: usize, color_hm: &HashMap<String, St
 
     // This should give us the final max column width
     let max_column_width = column_space.max_width(termwidth);
+    let re_leading =
+        regex::Regex::new(r"(?P<beginsp>^\s+)").expect("error with leading space regex");
+    let re_trailing =
+        regex::Regex::new(r"(?P<endsp>\s+$)").expect("error with trailing space regex");
 
-    let wrapped_table = wrap_cells(processed_table, max_column_width, &color_hm);
+    let wrapped_table = wrap_cells(
+        processed_table,
+        max_column_width,
+        &color_hm,
+        &re_leading,
+        &re_trailing,
+    );
 
     wrapped_table.print_table(&color_hm);
 }
@@ -1019,6 +1029,8 @@ fn wrap_cells(
     processed_table: ProcessedTable,
     max_column_width: usize,
     color_hm: &HashMap<String, Style>,
+    re_leading: &regex::Regex,
+    re_trailing: &regex::Regex,
 ) -> WrappedTable {
     let mut column_widths = vec![
         0;
@@ -1040,8 +1052,13 @@ fn wrap_cells(
         };
 
         for contents in header.1.contents.into_iter() {
-            let (mut lines, inner_max_width) =
-                wrap(max_column_width, contents.into_iter(), &color_hm);
+            let (mut lines, inner_max_width) = wrap(
+                max_column_width,
+                contents.into_iter(),
+                &color_hm,
+                &re_leading,
+                &re_trailing,
+            );
             wrapped.lines.append(&mut lines);
             if inner_max_width > wrapped.max_width {
                 wrapped.max_width = inner_max_width;
@@ -1063,8 +1080,13 @@ fn wrap_cells(
                 style: column.1.style,
             };
             for contents in column.1.contents.into_iter() {
-                let (mut lines, inner_max_width) =
-                    wrap(max_column_width, contents.into_iter(), &color_hm);
+                let (mut lines, inner_max_width) = wrap(
+                    max_column_width,
+                    contents.into_iter(),
+                    &color_hm,
+                    &re_leading,
+                    &re_trailing,
+                );
                 wrapped.lines.append(&mut lines);
                 if inner_max_width > wrapped.max_width {
                     wrapped.max_width = inner_max_width;
