@@ -390,11 +390,18 @@ pub async fn parse_and_eval(line: &str, ctx: &EvaluationContext) -> Result<Strin
 }
 
 fn current_branch() -> String {
-    Some(shadow_rs::branch())
-        .map(|x| x.trim().to_string())
-        .filter(|x| !x.is_empty())
-        .map(|x| format!("({})", x))
-        .unwrap_or_default()
+    #[cfg(feature = "shadow-rs")]
+    {
+        Some(shadow_rs::branch())
+            .map(|x| x.trim().to_string())
+            .filter(|x| !x.is_empty())
+            .map(|x| format!("({})", x))
+            .unwrap_or_default()
+    }
+    #[cfg(not(feature = "shadow-rs"))]
+    {
+        "".to_string()
+    }
 }
 
 #[cfg(test)]
