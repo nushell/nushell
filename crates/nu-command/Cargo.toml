@@ -102,7 +102,7 @@ url = "2.1.1"
 uuid_crate = { package = "uuid", version = "0.8.1", features = ["v4"], optional = true }
 which = { version = "4.0.2", optional = true }
 zip = { version = "0.5.7", optional = true }
-shadow-rs = { version = "0.5.12-pre", default-features = false }
+shadow-rs = { version = "0.5", default-features = false }
 
 [target.'cfg(unix)'.dependencies]
 umask = "1.0.0"
@@ -120,7 +120,7 @@ optional = true
 version = "0.24.2"
 
 [build-dependencies]
-shadow-rs = "0.5.12-pre"
+shadow-rs = "0.5"
 
 [dev-dependencies]
 quickcheck = "0.9.2"
