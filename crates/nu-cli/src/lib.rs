@@ -19,8 +19,6 @@ mod completion;
 mod env;
 mod format;
 #[cfg(feature = "rustyline-support")]
-mod git;
-#[cfg(feature = "rustyline-support")]
 mod keybinding;
 mod line_editor;
 mod shell;

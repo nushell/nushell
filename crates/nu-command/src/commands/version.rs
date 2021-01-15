@@ -165,11 +165,6 @@ fn features_enabled() -> Vec<String> {
         names.push("directories".to_string());
     }
 
-    #[cfg(feature = "git2")]
-    {
-        names.push("git".to_string());
-    }
-
     #[cfg(feature = "ptree")]
     {
         names.push("ptree".to_string());
