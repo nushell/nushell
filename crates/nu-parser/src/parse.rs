@@ -446,6 +446,8 @@ fn parse_dollar_expr(
         //Return invocation
         trace!("Parsing invocation expression");
         parse_invocation(lite_arg, scope)
+    } else if lite_arg.item.contains("..") {
+        parse_range(lite_arg, scope)
     } else if lite_arg.item.contains('.') {
         trace!("Parsing path expression");
         parse_full_column_path(lite_arg, scope)
@@ -742,7 +744,7 @@ fn parse_arg(
     scope: &dyn ParserScope,
     lite_arg: &Spanned<String>,
 ) -> (SpannedExpression, Option<ParseError>) {
-    if lite_arg.item.starts_with('$') && parse_range(lite_arg, scope).1.is_some() {
+    if lite_arg.item.starts_with('$') {
         return parse_dollar_expr(&lite_arg, scope);
     }
 
