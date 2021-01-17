@@ -48,7 +48,10 @@ pub fn parse_signature(
     err = err.or(error);
 
     //After normal lexing, tokens also need to be split on ',' and ':'
+    //TODO this could probably be all done in a specialized lexing function
     let tokens = lex_split_baseline_tokens_on(tokens, &[',', ':']);
+    let tokens = lex_split_shortflag_from_longflag(tokens);
+    debug!("Tokens are {:?}", tokens);
 
     let mut parameters = vec![];
     let mut flags = vec![];
@@ -143,7 +146,6 @@ fn parse_flag(
     let (shortform, advanced_by, error) = parse_flag_optional_shortform(&tokens[i..]);
     i += advanced_by;
     err = err.or(error);
-    let shortform = shortform.map(|c| c.item);
 
     let (type_, advanced_by, error) = parse_optional_type(&tokens[i..]);
     let type_ = type_.unwrap_or(SyntaxShape::Any);
@@ -228,10 +230,7 @@ fn parse_optional_comment(tokens: &[Token]) -> (Option<String>, usize) {
 
 fn parse_optional_type(tokens: &[Token]) -> (Option<SyntaxShape>, usize, Option<ParseError>) {
     fn is_double_point(token: &Token) -> bool {
-        match &token.contents {
-            TokenContents::Baseline(base) => base == ":",
-            _ => false,
-        }
+        is_baseline_token_matching(token, ":")
     }
     let mut err = None;
     let mut type_ = None;
@@ -316,74 +315,65 @@ fn parse_flag_name(token: &Token) -> (Spanned<String>, Option<ParseError>) {
     }
 }
 
-fn parse_flag_optional_shortform(
-    tokens: &[Token],
-) -> (Option<Spanned<char>>, usize, Option<ParseError>) {
+fn parse_flag_optional_shortform(tokens: &[Token]) -> (Option<char>, usize, Option<ParseError>) {
     if tokens.is_empty() {
         return (None, 0, None);
     }
 
     let token = &tokens[0];
-    if let TokenContents::Baseline(shortform) = &token.contents {
+    return if let TokenContents::Baseline(shortform) = &token.contents {
         let mut chars = shortform.chars();
         match (chars.next(), chars.next_back()) {
             (Some('('), Some(')')) => {
                 let mut err = None;
-                let mut start = token.span.start() + 1; //Skip '('
-                let end = token.span.end() - 1; // Skip ')'
-                let mut c: String = chars.collect();
-                let dash_count = c.chars().take_while(|c| *c == '-').count();
-                debug!("Dash count {}", dash_count);
-                match dash_count {
-                    0 => {
-                        //If no starting -
-                        err = err.or_else(|| {
-                            Some(ParseError::mismatch(
-                                "Shortflag starting with '-'",
-                                c.clone().spanned((start, end)),
-                            ))
-                        });
-                    }
-                    1 => {
-                        //Skip over '-'
-                        start += 1;
-                        c.remove(0);
-                    }
-                    _ => {
-                        //If --
-                        err = err.or_else(|| {
-                            Some(ParseError::mismatch(
-                                "Shortflag starting with a single '-'",
-                                c.clone().spanned((start, end)),
-                            ))
-                        });
-                        //Skip over --
-                        start += dash_count;
-                        c = c
-                            .strip_prefix(&"-".repeat(dash_count))
-                            .unwrap_or("X")
-                            .into();
-                    }
-                }
-                let err = err.or_else(|| match c.chars().count() {
-                    0 => Some(ParseError::mismatch(
-                        "Shortflag of exactly 1 character",
-                        shortform.clone().spanned((start, end)),
-                    )),
-                    1 => None,
-                    _ => Some(ParseError::mismatch(
-                        "Shortflag of exactly 1 character",
-                        c.clone().spanned((start, end)),
-                    )),
-                });
-                let c = c.chars().next().unwrap_or('X').spanned((start, end));
 
-                (Some(*c.spanned((start, end))), 1, err)
+                let flag_span = Span::new(
+                    token.span.start() + 1, //Skip '('
+                    token.span.end() - 1,   // Skip ')'
+                );
+
+                let c: String = chars.collect();
+                let dash_count = c.chars().take_while(|c| *c == '-').count();
+                err =
+                    err.or_else(|| err_on_to_many_dashes(dash_count, c.clone().spanned(flag_span)));
+                let name = &c[dash_count..];
+                err = err.or_else(|| err_on_name_to_long(name, c.clone().spanned(flag_span)));
+                let c = name.chars().next();
+
+                (c, 1, err)
             }
             _ => (None, 0, None),
         }
     } else {
         (None, 0, None)
+    };
+
+    fn err_on_to_many_dashes(dash_count: usize, actual: Spanned<String>) -> Option<ParseError> {
+        match dash_count {
+            0 => {
+                //If no starting -
+                Some(ParseError::mismatch("Shortflag starting with '-'", actual))
+            }
+            1 => None,
+            _ => {
+                //If --
+                Some(ParseError::mismatch(
+                    "Shortflag starting with a single '-'",
+                    actual,
+                ))
+            }
+        }
+    }
+
+    fn err_on_name_to_long(name: &str, actual: Spanned<String>) -> Option<ParseError> {
+        if name.len() != 1 {
+            Some(ParseError::mismatch(
+                "Shortflag of exactly 1 character",
+                actual,
+            ))
+        } else {
+            None
+        }
     }
 }
 
@@ -397,10 +387,7 @@ fn parse_eol(tokens: &[Token]) -> (bool, usize) {
 
 fn parse_comma(tokens: &[Token]) -> (bool, usize) {
     fn is_comma(token: &Token) -> bool {
-        match &token.contents {
-            TokenContents::Baseline(base) => base == ",",
-            _ => false,
-        }
+        is_baseline_token_matching(token, ",")
     }
     if !tokens.is_empty() && is_comma(&tokens[0]) {
         (true, 1)
@@ -436,7 +423,47 @@ fn to_signature(name: &str, params: Vec<Parameter>, flags: Vec<Flag>) -> Signatu
     sign
 }
 
-//Currently the lexer does not split baselines on , and :
+fn is_baseline_token_matching(token: &Token, string: &str) -> bool {
+    match &token.contents {
+        TokenContents::Baseline(base) => base == string,
+        _ => false,
+    }
+}
+
+//Currently the lexer does not split off baselines after existing text
+//Example --flag(-f) is lexed as one baseline token.
+//To properly parse the input, it is required that --flag and (-f) are 2 tokens.
+fn lex_split_shortflag_from_longflag(tokens: Vec<Token>) -> Vec<Token> {
+    let mut result = Vec::with_capacity(tokens.capacity());
+    for token in tokens {
+        let mut processed = false;
+        if let TokenContents::Baseline(base) = &token.contents {
+            if let Some(paren_start) = base.find('(') {
+                if paren_start != 0 {
+                    processed = true;
+                    //If token contains '(' and '(' is not the first char,
+                    //we split on '('
+                    //Example: Baseline(--flag(-f)) results in: [Baseline(--flag), Baseline((-f))]
+                    let paren_span_i = token.span.start() + paren_start;
+                    result.push(Token::new(
+                        TokenContents::Baseline(base[..paren_start].to_string()),
+                        Span::new(token.span.start(), paren_span_i),
+                    ));
+                    result.push(Token::new(
+                        TokenContents::Baseline(base[paren_start..].to_string()),
+                        Span::new(paren_span_i, token.span.end()),
+                    ));
+                }
+            }
+        }
+
+        if !processed {
+            result.push(token);
+        }
+    }
+    result
+}
+//Currently the lexer does not split baselines on ',' ':'
 //The parameter list requires this. Therefore here is a hacky method doing this.
 fn lex_split_baseline_tokens_on(
     tokens: Vec<Token>,
@@ -836,6 +863,22 @@ mod tests {
                 PositionalType::Mandatory("d".into(), SyntaxShape::Int),
                 "The required d parameter".into()
             )]
+        );
+    }
+
+    #[test]
+    fn flag_withouth_space_between_longname_shortname() {
+        let name = "my_func";
+        let sign = "[
+        --xxx(-x):string # The all powerful x flag
+        ]";
+        let (sign, err) = parse_signature(name, &sign.to_string().spanned_unknown());
+        assert!(err.is_none());
+        assert_signature_has_flag(
+            &sign,
+            "xxx",
+            NamedType::Optional(Some('x'), SyntaxShape::String),
+            "The all powerful x flag",
         );
     }
 }
