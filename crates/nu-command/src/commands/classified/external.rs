@@ -96,7 +96,7 @@ async fn run_with_stdin(
 
             #[cfg(feature = "dirs")]
             {
-                home_dir = dirs::home_dir;
+                home_dir = dirs_next::home_dir;
             }
             #[cfg(not(feature = "dirs"))]
             {
