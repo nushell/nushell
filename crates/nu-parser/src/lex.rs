@@ -669,19 +669,6 @@ mod tests {
     mod bare {
         use super::*;
 
-        #[ignore = "result is Token::baseline(\"--flag(-f)\")"]
-        #[test]
-        fn lex_flag() {
-            let input = "--flag(-f)";
-
-            let (result, err) = lex(input, 0);
-
-            assert_eq!("", format!("{:?}", result));
-            assert!(err.is_none());
-            assert_eq!(result[0].span, span(0, 6));
-            assert_eq!(result[1].span, span(7, 9));
-        }
-
         #[test]
         fn simple_1() {
             let input = "foo bar baz";
