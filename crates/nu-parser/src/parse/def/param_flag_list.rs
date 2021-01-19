@@ -334,8 +334,8 @@ fn parse_flag_optional_shortform(tokens: &[Token]) -> (Option<char>, usize, Opti
 
                 let c: String = chars.collect();
                 let dash_count = c.chars().take_while(|c| *c == '-').count();
-                err =
-                    err.or_else(|| err_on_too_many_dashes(dash_count, c.clone().spanned(flag_span)));
+                err = err
+                    .or_else(|| err_on_too_many_dashes(dash_count, c.clone().spanned(flag_span)));
                 let name = &c[dash_count..];
                 err = err.or_else(|| err_on_name_too_long(name, c.clone().spanned(flag_span)));
                 let c = name.chars().next();
