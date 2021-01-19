@@ -810,3 +810,73 @@ mod tilde_expansion {
         assert_eq!(actual.out, "1~1");
     }
 }
+
+mod variable_scoping {
+    use nu_test_support::nu;
+
+    macro_rules! test_variable_scope {
+        ($func:literal == $res:literal $(,)*) => {
+            let actual = nu!(
+                cwd: ".",
+                $func
+            );
+
+            assert_eq!(actual.out, $res);
+        };
+    }
+    macro_rules! test_variable_scope_list {
+        ($func:literal == $res:expr $(,)*) => {
+            let actual = nu!(
+                cwd: ".",
+                $func
+            );
+
+            let result: Vec<&str> = actual.out.matches("ZZZ").collect();
+            assert_eq!(result, $res);
+        };
+    }
+
+    #[test]
+    fn access_variables_in_scopes() {
+        test_variable_scope!(
+            r#" def test [input] { echo [0 1 2] | do { do { echo $input } } }
+                test ZZZ "#
+                == "ZZZ"
+        );
+        test_variable_scope!(
+            r#" def test [input] { echo [0 1 2] | do { do { if $input == "ZZZ" { echo $input } { echo $input } } } }
+                test ZZZ "#
+                == "ZZZ"
+        );
+        test_variable_scope!(
+            r#" def test [input] { echo [0 1 2] | do { do { if $input == "ZZZ" { echo $input } { echo $input } } } }
+                test ZZZ "#
+                == "ZZZ"
+        );
+        test_variable_scope!(
+            r#" def test [input] { echo [0 1 2] | do { echo $input } }
+                test ZZZ "#
+                == "ZZZ"
+        );
+        test_variable_scope!(
+            r#" def test [input] { echo [0 1 2] | do { if $input == $input { echo $input } { echo $input } } }
+                test ZZZ "#
+                == "ZZZ"
+        );
+        test_variable_scope_list!(
+            r#" def test [input] { echo [0 1 2] | each { echo $input } }
+                test ZZZ "#
+                == ["ZZZ", "ZZZ", "ZZZ"]
+        );
+        test_variable_scope_list!(
+            r#" def test [input] { echo [0 1 2] | each { if $it > 0 {echo $input} {echo $input}} }
+                test ZZZ "#
+                == ["ZZZ", "ZZZ", "ZZZ"]
+        );
+        test_variable_scope_list!(
+            r#" def test [input] { echo [0 1 2] | each { if $input == $input {echo $input} {echo $input}} }
+                test ZZZ "#
+                == ["ZZZ", "ZZZ", "ZZZ"]
+        );
+    }
+}
