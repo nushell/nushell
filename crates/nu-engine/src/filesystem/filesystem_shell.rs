@@ -72,7 +72,7 @@ impl FilesystemShell {
 pub fn homedir_if_possible() -> Option<PathBuf> {
     #[cfg(feature = "dirs")]
     {
-        dirs::home_dir()
+        dirs_next::home_dir()
     }
 
     #[cfg(not(feature = "dirs"))]
