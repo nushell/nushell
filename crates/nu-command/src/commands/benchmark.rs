@@ -1,6 +1,6 @@
 use crate::prelude::*;
-#[cfg(feature = "rich-benchmark")]
-use heim::cpu::time;
+// #[cfg(feature = "rich-benchmark")]
+// use heim::cpu::time;
 use nu_engine::run_block;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
@@ -81,22 +81,22 @@ async fn benchmark(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let start_time = Instant::now();
 
-    #[cfg(feature = "rich-benchmark")]
-    let start = time().await;
+    // #[cfg(feature = "rich-benchmark")]
+    // let start = time().await;
 
     context.scope.enter_scope();
     let result = run_block(&block.block, &context, input).await;
     context.scope.exit_scope();
     let output = result?.into_vec().await;
 
-    #[cfg(feature = "rich-benchmark")]
-    let end = time().await;
+    // #[cfg(feature = "rich-benchmark")]
+    // let end = time().await;
 
     let end_time = Instant::now();
     context.clear_errors();
 
     // return basic runtime
-    #[cfg(not(feature = "rich-benchmark"))]
+    //#[cfg(not(feature = "rich-benchmark"))]
     {
         let mut indexmap = IndexMap::with_capacity(1);
 
@@ -105,28 +105,29 @@ async fn benchmark(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         benchmark_output(indexmap, output, passthrough, &tag, &mut context).await
     }
     // return advanced stats
-    #[cfg(feature = "rich-benchmark")]
-    if let (Ok(start), Ok(end)) = (start, end) {
-        let mut indexmap = IndexMap::with_capacity(4);
+    // #[cfg(feature = "rich-benchmark")]
+    // if let (Ok(start), Ok(end)) = (start, end) {
+    //     let mut indexmap = IndexMap::with_capacity(4);
 
-        let real_time = into_big_int(end_time - start_time);
-        indexmap.insert("real time".to_string(), real_time);
+    //     let real_time = into_big_int(end_time - start_time);
+    //     indexmap.insert("real time".to_string(), real_time);
 
-        let user_time = into_big_int(end.user() - start.user());
-        indexmap.insert("user time".to_string(), user_time);
+    //     let user_time = into_big_int(end.user() - start.user());
+    //     indexmap.insert("user time".to_string(), user_time);
 
-        let system_time = into_big_int(end.system() - start.system());
-        indexmap.insert("system time".to_string(), system_time);
+    //     let system_time = into_big_int(end.system() - start.system());
+    //     indexmap.insert("system time".to_string(), system_time);
 
-        let idle_time = into_big_int(end.idle() - start.idle());
-        indexmap.insert("idle time".to_string(), idle_time);
+    //     let idle_time = into_big_int(end.idle() - start.idle());
+    //     indexmap.insert("idle time".to_string(), idle_time);
 
-        benchmark_output(indexmap, output, passthrough, &tag, &mut context).await
-    } else {
-        Err(ShellError::untagged_runtime_error(
-            "Could not retrieve CPU time",
-        ))
-    }
+    //     benchmark_output(indexmap, output, passthrough, &tag, &mut context).await
+    // } else {
+    //     Err(ShellError::untagged_runtime_error(
+    //         "Could not retrieve CPU time",
+    //     ))
+    // }
+    
 }
 
 async fn benchmark_output<T, Output>(
