@@ -335,9 +335,9 @@ fn parse_flag_optional_shortform(tokens: &[Token]) -> (Option<char>, usize, Opti
                 let c: String = chars.collect();
                 let dash_count = c.chars().take_while(|c| *c == '-').count();
                 err =
-                    err.or_else(|| err_on_to_many_dashes(dash_count, c.clone().spanned(flag_span)));
+                    err.or_else(|| err_on_too_many_dashes(dash_count, c.clone().spanned(flag_span)));
                 let name = &c[dash_count..];
-                err = err.or_else(|| err_on_name_to_long(name, c.clone().spanned(flag_span)));
+                err = err.or_else(|| err_on_name_too_long(name, c.clone().spanned(flag_span)));
                 let c = name.chars().next();
 
                 (c, 1, err)
@@ -348,7 +348,7 @@ fn parse_flag_optional_shortform(tokens: &[Token]) -> (Option<char>, usize, Opti
         (None, 0, None)
     };
 
-    fn err_on_to_many_dashes(dash_count: usize, actual: Spanned<String>) -> Option<ParseError> {
+    fn err_on_too_many_dashes(dash_count: usize, actual: Spanned<String>) -> Option<ParseError> {
         match dash_count {
             0 => {
                 //If no starting -
@@ -365,7 +365,7 @@ fn parse_flag_optional_shortform(tokens: &[Token]) -> (Option<char>, usize, Opti
         }
     }
 
-    fn err_on_name_to_long(name: &str, actual: Spanned<String>) -> Option<ParseError> {
+    fn err_on_name_too_long(name: &str, actual: Spanned<String>) -> Option<ParseError> {
         if name.len() != 1 {
             Some(ParseError::mismatch(
                 "Shortflag of exactly 1 character",
