@@ -127,7 +127,6 @@ async fn benchmark(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     //         "Could not retrieve CPU time",
     //     ))
     // }
-    
 }
 
 async fn benchmark_output<T, Output>(
