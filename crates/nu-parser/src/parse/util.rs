@@ -2,7 +2,7 @@ use nu_errors::ParseError;
 use nu_protocol::hir::{Expression, SpannedExpression};
 use nu_source::{Span, Spanned, SpannedItem};
 
-use crate::lex::Token;
+use crate::lex::lexer::Token;
 
 pub(crate) fn token_to_spanned_string(token: &Token) -> Spanned<String> {
     token.contents.to_string().spanned(token.span)

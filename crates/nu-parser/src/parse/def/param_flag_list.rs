@@ -11,7 +11,10 @@
 use log::debug;
 
 use crate::{
-    lex::{lex, Token, TokenContents},
+    lex::{
+        lexer::{lex, Token},
+        tokens::TokenContents,
+    },
     parse::util::token_to_spanned_string,
 };
 use nu_errors::ParseError;
