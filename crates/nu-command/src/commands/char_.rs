@@ -134,7 +134,7 @@ fn str_to_character(s: &str) -> Option<String> {
         // Another good reference http://ascii-table.com/ansi-escape-sequences.php
 
         // For setting title like `echo [$(char title) $(pwd) $(char bel)] | str collect`
-        "title" => Some("\x1b]2;".to_string()), // ESC]2; xterm sets window title
+        "title" => Some("\x1b]2;".to_string()), // ESC]2; xterm sets window title using OSC syntax escapes
         "bel" => Some('\x07'.to_string()),      // Terminal Bell
         "backspace" => Some('\x08'.to_string()), // Backspace
 
@@ -147,6 +147,35 @@ fn str_to_character(s: &str) -> Option<String> {
         "erase_line_from_cursor_to_end" => Some("\x1b[0K".to_string()), // clears from cursor to end of line
         "erase_line_from_cursor_to_beginning" => Some("\x1b[1K".to_string()), // clears from cursor to start of line
         "erase_entire_line" => Some("\x1b[2K".to_string()),                   // clears entire line
+
+        // Turn cursor chars
+        "cursor_off" => Some("\x1b[?25l".to_string()),
+        "cursor_on" => Some("\x1b[?25h".to_string()),
+        "cursor_blink_off" => Some("\x1b[?12l".to_string()),
+        "cursor_blink_on" => Some("\x1b[?12h".to_string()),
+        // Cursor position in ESC [ <r>;<c>R where r = row and c = column
+        "cursor_position" => Some("\x1b[6n".to_string()),
+
+        // Report Terminal Identity
+        "identity" => Some("\x1b[0c".to_string()),
+
+        // Ansi escape only - CSI command
+        "csi" | "escape" | "escape_left" => Some("\x1b[".to_string()),
+        // OSC escape (Operating system command)
+        "osc" | "escape_right" => Some("\x1b]".to_string()),
+
+        // Ansi RGB - Needs to be 32;2;r;g;b or 48;2;r;g;b
+        // assuming the rgb will be passed via command and no here
+        "rgb_fg" => Some("\x1b[32;2;".to_string()),
+        "rgb_bg" => Some("\x1b[48;2;".to_string()),
+
+        // Ansi color index - Needs 38;5;idx or 48;5;idx where idx = 0 to 255
+        "idx_fg" | "color_idx_fg" => Some("\x1b[38;5;".to_string()),
+        "idx_bg" | "color_idx_bg" => Some("\x1b[48;5;".to_string()),
+
+        // Returns terminal size like "[<r>;<c>R" where r is rows and c is columns
+        // This should work assuming your terminal is not greater than 999x999
+        "size" => Some("\x1b[s\x1b[999;999H\x1b[6n\x1b[u".to_string()),
 
         _ => None,
     }
