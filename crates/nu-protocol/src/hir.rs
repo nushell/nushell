@@ -1173,7 +1173,7 @@ impl Expression {
                     output.extend(item.get_free_variables(known_variables));
                 }
             }
-            Expression::Invocation(block) => {
+            Expression::Invocation(block) | Expression::Block(block) => {
                 output.extend(block.get_free_variables(known_variables));
             }
             Expression::Binary(binary) => {

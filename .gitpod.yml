@@ -4,7 +4,7 @@ tasks:
   - name: Clippy
     init: cargo clippy --all --features=stable -- -D clippy::result_unwrap_used -D clippy::option_unwrap_used
   - name: Testing
-    init: cargo test --all --features=stable,test-bins
+    init: cargo test --all --features=stable
   - name: Build
     init: cargo build --features=stable
   - name: Nu

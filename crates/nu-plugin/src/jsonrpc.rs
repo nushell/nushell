@@ -1,4 +1,4 @@
-use nu_protocol::{outln, CallInfo, Value};
+use nu_protocol::{CallInfo, Value};
 use serde::{Deserialize, Serialize};
 use std::io::Write;
 

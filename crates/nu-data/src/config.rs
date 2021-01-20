@@ -145,7 +145,7 @@ pub fn value_to_toml_value(v: &Value) -> Result<toml::Value, ShellError> {
 
 #[cfg(feature = "directories")]
 pub fn config_path() -> Result<PathBuf, ShellError> {
-    use directories::ProjectDirs;
+    use directories_next::ProjectDirs;
 
     let dir = ProjectDirs::from("org", "nushell", "nu")
         .ok_or_else(|| ShellError::untagged_runtime_error("Couldn't find project directory"))?;
@@ -181,7 +181,7 @@ pub fn default_path_for(file: &Option<PathBuf>) -> Result<PathBuf, ShellError> {
 
 #[cfg(feature = "directories")]
 pub fn user_data() -> Result<PathBuf, ShellError> {
-    use directories::ProjectDirs;
+    use directories_next::ProjectDirs;
 
     let dir = ProjectDirs::from("org", "nushell", "nu")
         .ok_or_else(|| ShellError::untagged_runtime_error("Couldn't find project directory"))?;
