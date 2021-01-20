@@ -9,7 +9,7 @@ pub struct Ansi;
 
 #[derive(Deserialize)]
 struct AnsiArgs {
-    color: Value,
+    code: Value,
     escape: Option<Tagged<String>>,
     osc: Option<Tagged<String>>,
 }
@@ -23,18 +23,18 @@ impl WholeStreamCommand for Ansi {
     fn signature(&self) -> Signature {
         Signature::build("ansi")
             .optional(
-                "color",
+                "code",
                 SyntaxShape::Any,
-                "the name of the color to use or 'reset' to reset the color",
+                "the name of the code to use like 'green' or 'reset' to reset the color",
             )
             .named(
-                "escape", // \x1b
+                "escape", // \x1b[
                 SyntaxShape::Any,
                 "escape sequence without the escape character(s)",
                 Some('e'),
             )
             .named(
-                "osc",
+                "osc", // \x1b]
                 SyntaxShape::Any,
                 "operating system command (ocs) escape sequence without the escape character(s)",
                 Some('o'),
@@ -119,7 +119,7 @@ Format: #
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let (AnsiArgs { color, escape, osc }, _) = args.process().await?;
+        let (AnsiArgs { code, escape, osc }, _) = args.process().await?;
 
         if let Some(e) = escape {
             let esc_vec: Vec<char> = e.item.chars().collect();
@@ -145,6 +145,7 @@ Format: #
                     o.tag(),
                 ));
             }
+
             //Operating system command aka osc  ESC ] <- note the right brace, not left brace for osc
             // OCS's need to end with a bell '\x07' char
             let output = format!("\x1b]{};", o.item);
@@ -153,25 +154,24 @@ Format: #
             )));
         }
 
-        let color_string = color.as_string()?;
-        let ansi_code = str_to_ansi_color(color_string);
+        let code_string = code.as_string()?;
+        let ansi_code = str_to_ansi(code_string);
 
         if let Some(output) = ansi_code {
             Ok(OutputStream::one(ReturnSuccess::value(
-                UntaggedValue::string(output).into_value(color.tag()),
+                UntaggedValue::string(output).into_value(code.tag()),
             )))
         } else {
             Err(ShellError::labeled_error(
-                "Unknown color",
-                "unknown color",
-                color.tag(),
+                "Unknown ansi code",
+                "unknown ansi code",
+                code.tag(),
             ))
         }
-        // }
     }
 }
 
-pub fn str_to_ansi_color(s: String) -> Option<String> {
+pub fn str_to_ansi(s: String) -> Option<String> {
     match s.as_str() {
         "g" | "green" => Some(Color::Green.prefix().to_string()),
         "gb" | "green_bold" => Some(Color::Green.bold().prefix().to_string()),
@@ -222,6 +222,57 @@ pub fn str_to_ansi_color(s: String) -> Option<String> {
         "wd" | "white_dimmed" => Some(Color::White.dimmed().prefix().to_string()),
         "wr" | "white_reverse" => Some(Color::White.reverse().prefix().to_string()),
         "reset" => Some("\x1b[0m".to_owned()),
+
+        // Reference for ansi codes https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
+        // Another good reference http://ascii-table.com/ansi-escape-sequences.php
+
+        // For setting title like `echo [$(char title) $(pwd) $(char bel)] | str collect`
+        "title" => Some("\x1b]2;".to_string()), // ESC]2; xterm sets window title using OSC syntax escapes
+        "bel" => Some('\x07'.to_string()),      // Terminal Bell
+        "backspace" => Some('\x08'.to_string()), // Backspace
+
+        // Ansi Erase Sequences
+        "clear_screen" => Some("\x1b[J".to_string()), // clears the screen
+        "clear_screen_from_cursor_to_end" => Some("\x1b[0J".to_string()), // clears from cursor until end of screen
+        "clear_screen_from_cursor_to_beginning" => Some("\x1b[1J".to_string()), // clears from cursor to beginning of screen
+        "cls" | "clear_entire_screen" => Some("\x1b[2J".to_string()), // clears the entire screen
+        "erase_line" => Some("\x1b[K".to_string()),                   // clears the current line
+        "erase_line_from_cursor_to_end" => Some("\x1b[0K".to_string()), // clears from cursor to end of line
+        "erase_line_from_cursor_to_beginning" => Some("\x1b[1K".to_string()), // clears from cursor to start of line
+        "erase_entire_line" => Some("\x1b[2K".to_string()),                   // clears entire line
+
+        // Turn on/off cursor
+        "cursor_off" => Some("\x1b[?25l".to_string()),
+        "cursor_on" => Some("\x1b[?25h".to_string()),
+
+        // Turn on/off blinking
+        "cursor_blink_off" => Some("\x1b[?12l".to_string()),
+        "cursor_blink_on" => Some("\x1b[?12h".to_string()),
+
+        // Cursor position in ESC [ <r>;<c>R where r = row and c = column
+        "cursor_position" => Some("\x1b[6n".to_string()),
+
+        // Report Terminal Identity
+        "identity" => Some("\x1b[0c".to_string()),
+
+        // Ansi escape only - CSI command
+        "csi" | "escape" | "escape_left" => Some("\x1b[".to_string()),
+        // OSC escape (Operating system command)
+        "osc" | "escape_right" => Some("\x1b]".to_string()),
+
+        // Ansi RGB - Needs to be 32;2;r;g;b or 48;2;r;g;b
+        // assuming the rgb will be passed via command and no here
+        "rgb_fg" => Some("\x1b[32;2;".to_string()),
+        "rgb_bg" => Some("\x1b[48;2;".to_string()),
+
+        // Ansi color index - Needs 38;5;idx or 48;5;idx where idx = 0 to 255
+        "idx_fg" | "color_idx_fg" => Some("\x1b[38;5;".to_string()),
+        "idx_bg" | "color_idx_bg" => Some("\x1b[48;5;".to_string()),
+
+        // Returns terminal size like "[<r>;<c>R" where r is rows and c is columns
+        // This should work assuming your terminal is not greater than 999x999
+        "size" => Some("\x1b[s\x1b[999;999H\x1b[6n\x1b[u".to_string()),
+
         _ => None,
     }
 }
