@@ -187,7 +187,7 @@ pub async fn sysinfo(tag: Tag) -> Vec<Value> {
     if let Some(temp) = temp(&mut sys, tag.clone()) {
         sysinfo.insert_value("temp", temp);
     }
-    if let Some(net) = net(&mut sys, tag.clone()) {
+    if let Some(net) = net(&mut sys, tag) {
         sysinfo.insert_value("net", net);
     }
 
