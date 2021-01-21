@@ -500,7 +500,7 @@ impl Span {
         let mut iterator = list.iter();
 
         match iterator.next() {
-            None => return Span::new(0, 0),
+            None => Span::new(0, 0),
             Some(first) => {
                 let last = iterator.last().unwrap_or(first);
 
