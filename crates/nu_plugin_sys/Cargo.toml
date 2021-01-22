@@ -10,12 +10,12 @@ version = "0.25.2"
 doctest = false
 
 [dependencies]
-nu-errors = {path = "../nu-errors", version = "0.25.2"}
-nu-plugin = {path = "../nu-plugin", version = "0.25.2"}
-nu-protocol = {path = "../nu-protocol", version = "0.25.2"}
-nu-source = {path = "../nu-source", version = "0.25.2"}
+nu-errors = { path = "../nu-errors", version = "0.25.2" }
+nu-plugin = { path = "../nu-plugin", version = "0.25.2" }
+nu-protocol = { path = "../nu-protocol", version = "0.25.2" }
+nu-source = { path = "../nu-source", version = "0.25.2" }
 
-futures = {version = "0.3.5", features = ["compat", "io-compat"]}
+futures = { version = "0.3.5", features = ["compat", "io-compat"] }
 futures-util = "0.3.5"
 num-bigint = "0.3.0"
 sysinfo = "0.15.9"
