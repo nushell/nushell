@@ -429,6 +429,42 @@ fn run_broken_inner_custom_command() {
 }
 
 #[test]
+fn run_custom_command_with_rest() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            def rest-me [...rest: string] { echo $rest.1 $rest.0}; rest-me "hello" "world" | to json
+        "#
+    );
+
+    assert_eq!(actual.out, r#"["world","hello"]"#);
+}
+
+#[test]
+fn run_custom_command_with_rest_and_arg() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            def rest-me-with-arg [name: string, ...rest: string] { echo $rest.1 $rest.0 $name}; rest-me-with-arg "hello" "world" "yay" | to json
+        "#
+    );
+
+    assert_eq!(actual.out, r#"["yay","world","hello"]"#);
+}
+
+#[test]
+fn run_custom_command_with_rest_and_flag() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            def rest-me-with-flag [--name: string, ...rest: string] { echo $rest.1 $rest.0 $name}; rest-me-with-flag "hello" "world" --name "yay" | to json
+        "#
+    );
+
+    assert_eq!(actual.out, r#"["world","hello","yay"]"#);
+}
+
+#[test]
 fn set_variable() {
     let actual = nu!(
         cwd: ".",
