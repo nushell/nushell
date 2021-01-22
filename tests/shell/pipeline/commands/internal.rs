@@ -571,6 +571,42 @@ fn index_out_of_bounds() {
 }
 
 #[test]
+fn index_row() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        let foo = [[name]; [joe] [bob]]; echo $foo.1 | to json
+        "#
+    );
+
+    assert_eq!(actual.out, r#"{"name":"bob"}"#);
+}
+
+#[test]
+fn index_cell() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        let foo = [[name]; [joe] [bob]]; echo $foo.name.1
+        "#
+    );
+
+    assert_eq!(actual.out, "bob");
+}
+
+#[test]
+fn index_cell_alt() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        let foo = [[name]; [joe] [bob]]; echo $foo.1.name
+        "#
+    );
+
+    assert_eq!(actual.out, "bob");
+}
+
+#[test]
 fn echoing_ranges() {
     let actual = nu!(
         cwd: ".",
