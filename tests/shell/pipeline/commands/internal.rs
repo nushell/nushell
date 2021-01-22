@@ -559,6 +559,18 @@ fn can_process_one_row_from_internal_and_pipes_it_to_stdin_of_external() {
 }
 
 #[test]
+fn index_out_of_bounds() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            let foo = [1, 2, 3]; echo $foo.5
+        "#
+    );
+
+    assert!(actual.err.contains("unknown row"));
+}
+
+#[test]
 fn echoing_ranges() {
     let actual = nu!(
         cwd: ".",
