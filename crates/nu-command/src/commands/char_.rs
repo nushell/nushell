@@ -19,7 +19,7 @@ impl WholeStreamCommand for Char {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("ansi")
+        Signature::build("char")
             .required(
                 "character",
                 SyntaxShape::Any,
