@@ -63,7 +63,7 @@ impl WholeStreamCommand for SubCommand {
         vec![
             Example {
                 description: "round to nearest integer",
-                example: "= 1.7 | str from -d 0",
+                example: "echo 1.7 | str from -d 0",
                 result: Some(vec![UntaggedValue::string("2").into_untagged_value()]),
             },
             /*
