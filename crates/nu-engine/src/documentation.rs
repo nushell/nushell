@@ -160,7 +160,7 @@ pub fn get_documentation(
     }
 
     if signature.rest_positional.is_some() {
-        one_liner.push_str(" ...args");
+        one_liner.push_str("...args ");
     }
 
     if !subcommands.is_empty() {
