@@ -1,9 +1,17 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
+use nu_protocol::ShellTypeName;
+use nu_protocol::{
+    ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+};
 
 pub struct SubCommand;
+
+#[derive(Deserialize)]
+struct Arguments {
+    rest: Vec<ColumnPath>,
+}
 
 #[async_trait]
 impl WholeStreamCommand for SubCommand {
@@ -12,7 +20,10 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("str reverse")
+        Signature::build("str reverse").rest(
+            SyntaxShape::ColumnPath,
+            "optionally reverse text by column paths",
+        )
     }
 
     fn usage(&self) -> &str {
@@ -20,16 +31,7 @@ impl WholeStreamCommand for SubCommand {
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        Ok(args
-            .input
-            .map(move |x| match x.as_string() {
-                Ok(s) => ReturnSuccess::value(
-                    UntaggedValue::string(s.chars().rev().collect::<String>())
-                        .into_untagged_value(),
-                ),
-                Err(err) => Err(err),
-            })
-            .to_output_stream())
+        operate(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -38,6 +40,46 @@ impl WholeStreamCommand for SubCommand {
             example: "echo 'Nushell' | str reverse",
             result: Some(vec![UntaggedValue::string("llehsuN").into_untagged_value()]),
         }]
+    }
+}
+
+async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (Arguments { rest }, input) = args.process().await?;
+    let column_paths: Vec<_> = rest;
+
+    Ok(input
+        .map(move |v| {
+            if column_paths.is_empty() {
+                ReturnSuccess::value(action(&v, v.tag())?)
+            } else {
+                let mut ret = v;
+
+                for path in &column_paths {
+                    ret = ret.swap_data_by_column_path(
+                        path,
+                        Box::new(move |old| action(old, old.tag())),
+                    )?;
+                }
+
+                ReturnSuccess::value(ret)
+            }
+        })
+        .to_output_stream())
+}
+
+fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
+    match &input.value {
+        UntaggedValue::Primitive(Primitive::String(s)) => {
+            Ok(UntaggedValue::string(s.chars().rev().collect::<String>()).into_value(tag))
+        }
+        other => {
+            let got = format!("got {}", other.type_name());
+            Err(ShellError::labeled_error(
+                "value is not string",
+                got,
+                tag.into().span,
+            ))
+        }
     }
 }
 
