@@ -559,6 +559,54 @@ fn can_process_one_row_from_internal_and_pipes_it_to_stdin_of_external() {
 }
 
 #[test]
+fn index_out_of_bounds() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            let foo = [1, 2, 3]; echo $foo.5
+        "#
+    );
+
+    assert!(actual.err.contains("unknown row"));
+}
+
+#[test]
+fn index_row() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        let foo = [[name]; [joe] [bob]]; echo $foo.1 | to json
+        "#
+    );
+
+    assert_eq!(actual.out, r#"{"name":"bob"}"#);
+}
+
+#[test]
+fn index_cell() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        let foo = [[name]; [joe] [bob]]; echo $foo.name.1
+        "#
+    );
+
+    assert_eq!(actual.out, "bob");
+}
+
+#[test]
+fn index_cell_alt() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        let foo = [[name]; [joe] [bob]]; echo $foo.1.name
+        "#
+    );
+
+    assert_eq!(actual.out, "bob");
+}
+
+#[test]
 fn echoing_ranges() {
     let actual = nu!(
         cwd: ".",

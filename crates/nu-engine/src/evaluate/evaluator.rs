@@ -172,8 +172,8 @@ pub async fn evaluate_baseline_expr(
                 let next = item.get_data_by_member(member);
 
                 match next {
-                    Err(err) => {
-                        if let UnspannedPathMember::String(_name) = &member.unspanned {
+                    Err(err) => match &member.unspanned {
+                        UnspannedPathMember::String(_name) => {
                             let possible_matches = did_you_mean(&item, member.as_string());
 
                             match possible_matches {
@@ -187,7 +187,14 @@ pub async fn evaluate_baseline_expr(
                                 None => return Err(err),
                             }
                         }
-                    }
+                        UnspannedPathMember::Int(_row) => {
+                            return Err(ShellError::labeled_error(
+                                "Unknown row",
+                                "unknown row",
+                                &member.span,
+                            ));
+                        }
+                    },
                     Ok(next) => {
                         item = next.clone().value.into_value(&tag);
                     }
