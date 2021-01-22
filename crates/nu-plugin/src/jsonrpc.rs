@@ -1,5 +1,6 @@
-use nu_protocol::{outln, CallInfo, Value};
+use nu_protocol::{CallInfo, Value};
 use serde::{Deserialize, Serialize};
+use std::io::Write;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JsonRpc<T> {
@@ -22,10 +23,16 @@ pub fn send_response<T: Serialize>(result: T) {
     let response = JsonRpc::new("response", result);
     let response_raw = serde_json::to_string(&response);
 
+    let mut stdout = std::io::stdout();
+
     match response_raw {
-        Ok(response) => outln!("{}", response),
-        Err(err) => outln!("{}", err),
-    }
+        Ok(response) => {
+            let _ = writeln!(stdout, "{}", response);
+        }
+        Err(err) => {
+            let _ = writeln!(stdout, "{}", err);
+        }
+    };
 }
 
 #[derive(Debug, Serialize, Deserialize)]

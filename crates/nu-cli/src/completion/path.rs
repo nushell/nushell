@@ -29,7 +29,7 @@ impl PathCompleter {
             {
                 let home_prefix = format!("~{}", SEP);
                 if base_dir_name.starts_with(&home_prefix) {
-                    let mut home_dir = dirs::home_dir().unwrap_or_else(|| PathBuf::from("~"));
+                    let mut home_dir = dirs_next::home_dir().unwrap_or_else(|| PathBuf::from("~"));
                     home_dir.push(&base_dir_name[2..]);
                     home_dir
                 } else {

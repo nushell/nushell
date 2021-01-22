@@ -8,6 +8,7 @@ use nu_source::Tagged;
 struct NthArgs {
     row_number: Tagged<u64>,
     rest: Vec<Tagged<u64>>,
+    skip: bool,
 }
 
 pub struct Nth;
@@ -26,10 +27,11 @@ impl WholeStreamCommand for Nth {
                 "the number of the row to return",
             )
             .rest(SyntaxShape::Any, "Optionally return more rows")
+            .switch("skip", "Skip the rows instead of selecting them", Some('s'))
     }
 
     fn usage(&self) -> &str {
-        "Return only the selected rows"
+        "Return or skip only the selected rows"
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -48,6 +50,11 @@ impl WholeStreamCommand for Nth {
                 example: "echo [first second third] | nth 0 2",
                 result: Some(vec![Value::from("first"), Value::from("third")]),
             },
+            Example {
+                description: "Skip the first and third rows",
+                example: "echo [first second third] | nth --skip 0 2",
+                result: Some(vec![Value::from("second")]),
+            },
         ]
     }
 }
@@ -57,6 +64,7 @@ async fn nth(args: CommandArgs) -> Result<OutputStream, ShellError> {
         NthArgs {
             row_number,
             rest: and_rows,
+            skip,
         },
         input,
     ) = args.process().await?;
@@ -67,22 +75,14 @@ async fn nth(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .map(|x| x.item)
         .collect::<Vec<u64>>();
 
-    let max_row_number = row_numbers
-        .iter()
-        .max()
-        .expect("Internal error: should be > 0 row numbers");
-
     Ok(input
-        .take(*max_row_number as usize + 1)
         .enumerate()
         .filter_map(move |(idx, item)| {
-            futures::future::ready(
-                if row_numbers.iter().any(|requested| *requested == idx as u64) {
-                    Some(ReturnSuccess::value(item))
-                } else {
-                    None
-                },
-            )
+            futures::future::ready(if row_numbers.contains(&(idx as u64)) ^ skip {
+                Some(ReturnSuccess::value(item))
+            } else {
+                None
+            })
         })
         .to_output_stream())
 }

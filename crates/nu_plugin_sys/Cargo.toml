@@ -15,15 +15,9 @@ nu-plugin = {path = "../nu-plugin", version = "0.25.2"}
 nu-protocol = {path = "../nu-protocol", version = "0.25.2"}
 nu-source = {path = "../nu-source", version = "0.25.2"}
 
-battery = "0.7.6"
 futures = {version = "0.3.5", features = ["compat", "io-compat"]}
 futures-util = "0.3.5"
 num-bigint = "0.3.0"
-
-[dependencies.heim]
-default-features = false
-version = "0.1.0-beta.3"
-
-features = ["host", "cpu", "memory", "disk", "net", "sensors"]
+sysinfo = "0.15.9"
 
 [build-dependencies]

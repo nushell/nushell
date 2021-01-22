@@ -4,7 +4,11 @@
 /// and stray printlns left by accident
 #[macro_export]
 macro_rules! out {
-    ($($tokens:tt)*) => { print!($($tokens)*) }
+    ($($tokens:tt)*) => {
+        use std::io::Write;
+        print!($($tokens)*);
+        let _ = std::io::stdout().flush();
+    }
 }
 
 /// Outputs to standard out with a newline added

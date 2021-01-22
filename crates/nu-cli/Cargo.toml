@@ -11,67 +11,65 @@ version = "0.25.2"
 doctest = false
 
 [dependencies]
-nu-command = {version = "0.25.2", path = "../nu-command"}
-nu-data = {version = "0.25.2", path = "../nu-data"}
-nu-engine = {version = "0.25.2", path = "../nu-engine"}
-nu-errors = {version = "0.25.2", path = "../nu-errors"}
-nu-json = {version = "0.25.2", path = "../nu-json"}
-nu-parser = {version = "0.25.2", path = "../nu-parser"}
-nu-plugin = {version = "0.25.2", path = "../nu-plugin"}
-nu-protocol = {version = "0.25.2", path = "../nu-protocol"}
-nu-source = {version = "0.25.2", path = "../nu-source"}
-nu-stream = {version = "0.25.2", path = "../nu-stream"}
-nu-table = {version = "0.25.2", path = "../nu-table"}
-nu-test-support = {version = "0.25.2", path = "../nu-test-support"}
-nu-value-ext = {version = "0.25.2", path = "../nu-value-ext"}
+nu-command = { version = "0.25.2", path = "../nu-command" }
+nu-data = { version = "0.25.2", path = "../nu-data" }
+nu-engine = { version = "0.25.2", path = "../nu-engine" }
+nu-errors = { version = "0.25.2", path = "../nu-errors" }
+nu-json = { version = "0.25.2", path = "../nu-json" }
+nu-parser = { version = "0.25.2", path = "../nu-parser" }
+nu-plugin = { version = "0.25.2", path = "../nu-plugin" }
+nu-protocol = { version = "0.25.2", path = "../nu-protocol" }
+nu-source = { version = "0.25.2", path = "../nu-source" }
+nu-stream = { version = "0.25.2", path = "../nu-stream" }
+nu-table = { version = "0.25.2", path = "../nu-table" }
+nu-test-support = { version = "0.25.2", path = "../nu-test-support" }
+nu-value-ext = { version = "0.25.2", path = "../nu-value-ext" }
 
 Inflector = "0.11"
 ansi_term = "0.12.1"
-arboard = {version = "1.1.0", optional = true}
+arboard = { version = "1.1.0", optional = true }
 async-recursion = "0.3.1"
 async-trait = "0.1.40"
 base64 = "0.13.0"
-bigdecimal = {version = "0.2.0", features = ["serde"]}
+bigdecimal = { version = "0.2.0", features = ["serde"] }
 byte-unit = "4.0.9"
 bytes = "0.5.6"
 calamine = "0.16.1"
-chrono = {version = "0.4.15", features = ["serde"]}
+chrono = { version = "0.4.15", features = ["serde"] }
 chrono-tz = "0.5.3"
 clap = "2.33.3"
 codespan-reporting = "0.11.0"
 csv = "1.1.3"
-ctrlc = {version = "3.1.6", optional = true}
+ctrlc = { version = "3.1.6", optional = true }
 derive-new = "0.5.8"
-directories = {version = "3.0.1", optional = true}
-dirs = {version = "3.0.1", optional = true}
+directories-next = { version = "2.0.0", optional = true }
+dirs-next = { version = "2.0.0", optional = true }
 dtparse = "1.2.0"
 dunce = "1.0.1"
 eml-parser = "0.1.0"
 encoding_rs = "0.8.24"
 filesize = "0.2.0"
 fs_extra = "1.2.0"
-futures = {version = "0.3.5", features = ["compat", "io-compat"]}
+futures = { version = "0.3.5", features = ["compat", "io-compat"] }
 futures-util = "0.3.8"
 futures_codec = "0.4.1"
 getset = "0.1.1"
-git2 = {version = "0.13.11", default_features = false, optional = true}
 glob = "0.3.0"
-heim = {version = "0.1.0-rc.1", optional = true}
 htmlescape = "0.3.1"
 ical = "0.7.0"
-ichwh = {version = "0.3.4", optional = true}
-indexmap = {version = "1.6.0", features = ["serde-1"]}
+ichwh = { version = "0.3.4", optional = true }
+indexmap = { version = "1.6.0", features = ["serde-1"] }
 itertools = "0.10.0"
 lazy_static = "1.*"
 log = "0.4.11"
 meval = "0.2.0"
-num-bigint = {version = "0.3.0", features = ["serde"]}
-num-format = {version = "0.4.0", features = ["with-num-bigint"]}
+num-bigint = { version = "0.3.0", features = ["serde"] }
+num-format = { version = "0.4.0", features = ["with-num-bigint"] }
 num-traits = "0.2.12"
 parking_lot = "0.11.0"
 pin-utils = "0.1.0"
 pretty-hex = "0.2.0"
-ptree = {version = "0.3.0", optional = true}
+ptree = { version = "0.3.0", optional = true }
 query_interface = "0.3.5"
 quick-xml = "0.20.0"
 rand = "0.7.3"
@@ -79,8 +77,8 @@ rayon = "1.4.0"
 regex = "1.3.9"
 roxmltree = "0.14.0"
 rust-embed = "5.8.0"
-rustyline = {version = "6.3.0", optional = true}
-serde = {version = "1.0.115", features = ["derive"]}
+rustyline = { version = "6.3.0", optional = true }
+serde = { version = "1.0.115", features = ["derive"] }
 serde_bytes = "0.11.5"
 serde_ini = "0.2.0"
 serde_json = "1.0.57"
@@ -92,18 +90,18 @@ strip-ansi-escapes = "0.1.0"
 sxd-document = "0.3.2"
 sxd-xpath = "0.4.2"
 tempfile = "3.1.0"
-term = {version = "0.6.1", optional = true}
+term = { version = "0.6.1", optional = true }
 term_size = "0.3.2"
 termcolor = "1.1.0"
 titlecase = "1.0"
 toml = "0.5.6"
-trash = {version = "1.2.0", optional = true}
+trash = { version = "1.2.0", optional = true }
 unicode-segmentation = "1.6.0"
-uom = {version = "0.30.0", features = ["f64", "try-from"]}
 url = "2.1.1"
-uuid_crate = {package = "uuid", version = "0.8.1", features = ["v4"], optional = true}
-which = {version = "4.0.2", optional = true}
-zip = {version = "0.5.7", optional = true}
+uuid_crate = { package = "uuid", version = "0.8.1", features = ["v4"], optional = true }
+which = { version = "4.0.2", optional = true }
+zip = { version = "0.5.7", optional = true }
+shadow-rs = { version = "0.5", default-features = false, optional = true }
 
 [target.'cfg(unix)'.dependencies]
 umask = "1.0.0"
@@ -128,8 +126,10 @@ quickcheck = "0.9.2"
 quickcheck_macros = "0.9.1"
 
 [features]
+default = ["shadow-rs"]
 clipboard-cli = ["arboard"]
-rich-benchmark = ["heim"]
-rustyline-support = ["rustyline"]
+rustyline-support = ["rustyline", "nu-engine/rustyline-support"]
 stable = []
 trash-support = ["trash"]
+dirs = ["dirs-next"]
+directories = ["directories-next"]

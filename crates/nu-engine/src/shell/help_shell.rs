@@ -144,7 +144,7 @@ impl Shell for HelpShell {
     fn homedir(&self) -> Option<PathBuf> {
         #[cfg(feature = "dirs")]
         {
-            dirs::home_dir()
+            dirs_next::home_dir()
         }
 
         #[cfg(not(feature = "dirs"))]
