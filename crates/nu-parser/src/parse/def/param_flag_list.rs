@@ -55,6 +55,7 @@ pub fn parse_signature(
 
     let mut parameters = vec![];
     let mut flags = vec![];
+    let mut rest = None;
     let mut i = 0;
 
     while i < tokens.len() {
@@ -66,6 +67,11 @@ pub fn parse_signature(
             err = err.or(error);
             i += advanced_by;
             flags.push(flag);
+        } else if is_rest(&tokens[i]) {
+            let (rest_, advanced_by, error) = parse_rest(&tokens[i..], signature_vec);
+            err = err.or(error);
+            i += advanced_by;
+            rest = rest_;
         } else {
             let (parameter, advanced_by, error) = parse_parameter(&tokens[i..], signature_vec);
             err = err.or(error);
@@ -74,7 +80,7 @@ pub fn parse_signature(
         }
     }
 
-    let signature = to_signature(name, parameters, flags);
+    let signature = to_signature(name, parameters, flags, rest);
     debug!("Signature: {:?}", signature);
 
     (signature, err)
@@ -166,6 +172,68 @@ fn parse_flag(
 
     debug!("Parsed flag: {:?}", flag);
     (flag, i, err)
+}
+
+fn parse_rest(
+    tokens: &[Token],
+    tokens_as_str: &Spanned<String>,
+) -> (
+    Option<(SyntaxShape, Description)>,
+    usize,
+    Option<ParseError>,
+) {
+    if tokens.is_empty() {
+        return (
+            None,
+            0,
+            Some(ParseError::unexpected_eof(
+                "rest argument",
+                tokens_as_str.span,
+            )),
+        );
+    }
+
+    let mut err = None;
+    let mut i = 0;
+
+    let error = parse_rest_name(&tokens[i]);
+    err = err.or(error);
+    i += 1;
+
+    let (type_, advanced_by, error) = parse_optional_type(&tokens[i..]);
+    err = err.or(error);
+    i += advanced_by;
+    let type_ = type_.unwrap_or(SyntaxShape::Any);
+
+    let (comment, advanced_by) = parse_optional_comment(&tokens[i..]);
+    i += advanced_by;
+    let comment = comment.unwrap_or_else(|| "".to_string());
+
+    return (Some((type_, comment)), i, err);
+
+    fn parse_rest_name(name_token: &Token) -> Option<ParseError> {
+        return if let TokenContents::Baseline(name) = &name_token.contents {
+            if !name.starts_with("...") {
+                parse_rest_name_err(name_token)
+            } else if !name.starts_with("...rest") {
+                Some(ParseError::mismatch(
+                    "rest argument name to be 'rest'",
+                    token_to_spanned_string(name_token),
+                ))
+            } else {
+                None
+            }
+        } else {
+            parse_rest_name_err(name_token)
+        };
+
+        fn parse_rest_name_err(token: &Token) -> Option<ParseError> {
+            Some(ParseError::mismatch(
+                "...rest",
+                token_to_spanned_string(token),
+            ))
+        }
+    }
 }
 
 fn parse_type(type_: &Spanned<String>) -> (SyntaxShape, Option<ParseError>) {
@@ -396,6 +464,14 @@ fn parse_comma(tokens: &[Token]) -> (bool, usize) {
     }
 }
 
+///Returns true if token potentially represents rest argument
+fn is_rest(token: &Token) -> bool {
+    match &token.contents {
+        TokenContents::Baseline(item) => item.starts_with("..."),
+        _ => false,
+    }
+}
+
 ///True for short or longform flags. False otherwise
 fn is_flag(token: &Token) -> bool {
     match &token.contents {
@@ -404,7 +480,12 @@ fn is_flag(token: &Token) -> bool {
     }
 }
 
-fn to_signature(name: &str, params: Vec<Parameter>, flags: Vec<Flag>) -> Signature {
+fn to_signature(
+    name: &str,
+    params: Vec<Parameter>,
+    flags: Vec<Flag>,
+    rest: Option<(SyntaxShape, Description)>,
+) -> Signature {
     let mut sign = Signature::new(name);
 
     for param in params.into_iter() {
@@ -419,6 +500,8 @@ fn to_signature(name: &str, params: Vec<Parameter>, flags: Vec<Flag>) -> Signatu
             (flag.named_type, flag.desc.unwrap_or_else(|| "".to_string())),
         );
     }
+
+    sign.rest_positional = rest;
 
     sign
 }
@@ -879,6 +962,66 @@ mod tests {
             "xxx",
             NamedType::Optional(Some('x'), SyntaxShape::String),
             "The all powerful x flag",
+        );
+    }
+
+    #[test]
+    fn simple_def_with_rest_arg() {
+        let name = "my_func";
+        let sign = "[ ...rest]";
+        let (sign, err) = parse_signature(name, &sign.to_string().spanned_unknown());
+        assert!(err.is_none());
+        assert_eq!(
+            sign.rest_positional,
+            Some((SyntaxShape::Any, "".to_string()))
+        );
+    }
+
+    #[test]
+    fn simple_def_with_rest_arg_with_type_and_comment() {
+        let name = "my_func";
+        let sign = "[ ...rest:path # My super cool rest arg]";
+        let (sign, err) = parse_signature(name, &sign.to_string().spanned_unknown());
+        assert!(err.is_none());
+        assert_eq!(
+            sign.rest_positional,
+            Some((SyntaxShape::FilePath, "My super cool rest arg".to_string()))
+        );
+    }
+
+    #[test]
+    fn simple_def_with_param_flag_and_rest() {
+        let name = "my_func";
+        let sign = "[
+        d:string          # The required d parameter
+        --xxx(-x)         # The all powerful x flag
+        --yyy (-y):int    #    The accompanying y flag
+        ...rest:table # Another rest
+        ]";
+        let (sign, err) = parse_signature(name, &sign.to_string().spanned_unknown());
+        assert!(err.is_none());
+        assert_signature_has_flag(
+            &sign,
+            "xxx",
+            NamedType::Optional(Some('x'), SyntaxShape::Any),
+            "The all powerful x flag",
+        );
+        assert_signature_has_flag(
+            &sign,
+            "yyy",
+            NamedType::Optional(Some('y'), SyntaxShape::Int),
+            "The accompanying y flag",
+        );
+        assert_eq!(
+            sign.positional,
+            vec![(
+                PositionalType::Mandatory("d".into(), SyntaxShape::String),
+                "The required d parameter".into()
+            )]
+        );
+        assert_eq!(
+            sign.rest_positional,
+            Some((SyntaxShape::Table, "Another rest".to_string()))
         );
     }
 }

@@ -48,13 +48,17 @@ impl Spanned<String> {
     ) -> impl Iterator<Item = &'a str> {
         items.map(|item| &item.item[..])
     }
-}
 
-impl Spanned<String> {
     /// Borrows the contained String
     pub fn borrow_spanned(&self) -> Spanned<&str> {
         let span = self.span;
         self.item[..].spanned(span)
+    }
+
+    pub fn slice_spanned(&self, span: impl Into<Span>) -> Spanned<&str> {
+        let span = span.into();
+        let item = &self.item[span.start()..span.end()];
+        item.spanned(span)
     }
 }
 
