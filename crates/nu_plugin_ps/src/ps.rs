@@ -35,10 +35,10 @@ pub async fn ps(tag: Tag, long: bool) -> Result<Vec<Value>, ShellError> {
             "cpu",
             UntaggedValue::decimal_from_float(process.cpu_usage() as f64, tag.span),
         );
-        dict.insert_untagged("mem", UntaggedValue::filesize(process.memory() * 1024));
+        dict.insert_untagged("mem", UntaggedValue::filesize(process.memory() * 1000));
         dict.insert_untagged(
             "virtual",
-            UntaggedValue::filesize(process.virtual_memory() * 1024),
+            UntaggedValue::filesize(process.virtual_memory() * 1000),
         );
 
         if long {
