@@ -100,10 +100,10 @@ pub fn mem(sys: &mut System, tag: Tag) -> Option<UntaggedValue> {
     let total_swap = sys.get_total_swap();
     let free_swap = sys.get_free_swap();
 
-    dict.insert_untagged("total", UntaggedValue::filesize(total_mem));
-    dict.insert_untagged("free", UntaggedValue::filesize(free_mem));
-    dict.insert_untagged("swap total", UntaggedValue::filesize(total_swap));
-    dict.insert_untagged("swap free", UntaggedValue::filesize(free_swap));
+    dict.insert_untagged("total", UntaggedValue::filesize(total_mem * 1024));
+    dict.insert_untagged("free", UntaggedValue::filesize(free_mem * 1024));
+    dict.insert_untagged("swap total", UntaggedValue::filesize(total_swap * 1024));
+    dict.insert_untagged("swap free", UntaggedValue::filesize(free_swap * 1024));
 
     Some(dict.into_untagged_value())
 }
