@@ -11,7 +11,7 @@
 
 A new type of shell.
 
-![Example of nushell](images/nushell-autocomplete.gif "Example of nushell")
+![Example of nushell](images/nushell-demo.svg "Example of nushell")
 
 ## Status
 
