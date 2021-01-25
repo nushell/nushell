@@ -203,7 +203,7 @@ mod tests {
             let new_file = dirs.test().join("updated_configuration.toml");
 
             let fake_config = FakeConfig::new(&file);
-            let mut actual = EnvironmentSyncer::with_config(Box::new(fake_config.clone()));
+            let mut actual = EnvironmentSyncer::with_config(Box::new(fake_config));
 
             // Here, the environment variables from the current session
             // are cleared since we will load and set them from the
