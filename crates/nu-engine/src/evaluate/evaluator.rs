@@ -108,20 +108,16 @@ pub async fn evaluate_baseline_expr(
 
             for row in cells {
                 if row.len() != headers.len() {
-                    match (row.first(), row.last()) {
-                        (Some(first), Some(last)) => {
-                            return Err(ShellError::labeled_error(
-                                "Cell count doesn't match header count",
-                                format!("expected {} columns", headers.len()),
-                                Span::new(first.span.start(), last.span.end()),
-                            ));
-                        }
-                        _ => {
-                            return Err(ShellError::untagged_runtime_error(
-                                "Cell count doesn't match header count",
-                            ));
-                        }
-                    }
+                    return match (row.first(), row.last()) {
+                        (Some(first), Some(last)) => Err(ShellError::labeled_error(
+                            "Cell count doesn't match header count",
+                            format!("expected {} columns", headers.len()),
+                            Span::new(first.span.start(), last.span.end()),
+                        )),
+                        _ => Err(ShellError::untagged_runtime_error(
+                            "Cell count doesn't match header count",
+                        )),
+                    };
                 }
 
                 let mut row_output = IndexMap::new();
@@ -172,29 +168,27 @@ pub async fn evaluate_baseline_expr(
                 let next = item.get_data_by_member(member);
 
                 match next {
-                    Err(err) => match &member.unspanned {
-                        UnspannedPathMember::String(_name) => {
-                            let possible_matches = did_you_mean(&item, member.as_string());
+                    Err(err) => {
+                        return match &member.unspanned {
+                            UnspannedPathMember::String(_name) => {
+                                let possible_matches = did_you_mean(&item, member.as_string());
 
-                            match possible_matches {
-                                Some(p) => {
-                                    return Err(ShellError::labeled_error(
+                                match possible_matches {
+                                    Some(p) => Err(ShellError::labeled_error(
                                         "Unknown column",
                                         format!("did you mean '{}'?", p[0]),
                                         &member.span,
-                                    ));
+                                    )),
+                                    None => Err(err),
                                 }
-                                None => return Err(err),
                             }
-                        }
-                        UnspannedPathMember::Int(_row) => {
-                            return Err(ShellError::labeled_error(
+                            UnspannedPathMember::Int(_row) => Err(ShellError::labeled_error(
                                 "Unknown row",
                                 "unknown row",
                                 &member.span,
-                            ));
+                            )),
                         }
-                    },
+                    }
                     Ok(next) => {
                         item = next.clone().value.into_value(&tag);
                     }

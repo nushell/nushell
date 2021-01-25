@@ -1757,14 +1757,14 @@ fn parse_call(
         return (Some(ClassifiedCommand::Expr(Box::new(expr))), error);
     } else if lite_cmd.parts[0].item == "alias" {
         let error = parse_alias(&lite_cmd, scope);
-        if error.is_none() {
-            return (None, None);
+        return if error.is_none() {
+            (None, None)
         } else {
-            return (
+            (
                 Some(ClassifiedCommand::Expr(Box::new(garbage(lite_cmd.span())))),
                 error,
-            );
-        }
+            )
+        };
     } else if lite_cmd.parts[0].item == "source" {
         if lite_cmd.parts.len() != 2 {
             return (

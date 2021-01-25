@@ -661,10 +661,10 @@ where
             Some(b'}') => return Ok(None), // handled later for root
             Some(_) => {}
             None => {
-                if self.root {
-                    return Ok(None);
+                return if self.root {
+                    Ok(None)
                 } else {
-                    return Err(self.de.rdr.error(ErrorCode::EOFWhileParsingObject));
+                    Err(self.de.rdr.error(ErrorCode::EOFWhileParsingObject))
                 }
             }
         }

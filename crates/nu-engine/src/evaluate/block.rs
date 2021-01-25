@@ -153,7 +153,7 @@ async fn run_pipeline(
                     }
                 }
 
-                match &call.head.expr {
+                return match &call.head.expr {
                     Expression::Block(block) => {
                         ctx.scope.enter_scope();
                         for (param, value) in block.params.positional.iter().zip(args.iter()) {
@@ -163,7 +163,7 @@ async fn run_pipeline(
                         ctx.scope.exit_scope();
 
                         let result = result?;
-                        return Ok(result);
+                        Ok(result)
                     }
                     Expression::Variable(v, span) => {
                         if let Some(value) = ctx.scope.get_var(v) {
@@ -184,24 +184,24 @@ async fn run_pipeline(
                                     ctx.scope.exit_scope();
 
                                     let result = result?;
-                                    return Ok(result);
+                                    Ok(result)
                                 }
                                 _ => {
-                                    return Err(ShellError::labeled_error("Dynamic commands must start with a block (or variable pointing to a block)", "needs to be a block", call.head.span));
+                                    Err(ShellError::labeled_error("Dynamic commands must start with a block (or variable pointing to a block)", "needs to be a block", call.head.span))
                                 }
                             }
                         } else {
-                            return Err(ShellError::labeled_error(
+                            Err(ShellError::labeled_error(
                                 "Variable not found",
                                 "variable not found",
                                 span,
-                            ));
+                            ))
                         }
                     }
                     _ => {
-                        return Err(ShellError::labeled_error("Dynamic commands must start with a block (or variable pointing to a block)", "needs to be a block", call.head.span));
+                        Err(ShellError::labeled_error("Dynamic commands must start with a block (or variable pointing to a block)", "needs to be a block", call.head.span))
                     }
-                }
+                };
             }
 
             ClassifiedCommand::Expr(expr) => run_expression_block(&*expr, ctx).await?,

@@ -210,18 +210,16 @@ fn add_month_to_table(
 
     let month_helper = match month_helper_result {
         Ok(month_helper) => month_helper,
-        Err(()) => match args.get("full-year") {
-            Some(full_year_value) => {
-                return Err(get_invalid_year_shell_error(&full_year_value.tag()))
-            }
-            None => {
-                return Err(ShellError::labeled_error(
+        Err(()) => {
+            return match args.get("full-year") {
+                Some(full_year_value) => Err(get_invalid_year_shell_error(&full_year_value.tag())),
+                None => Err(ShellError::labeled_error(
                     "Issue parsing command",
                     "invalid command",
                     tag,
-                ))
+                )),
             }
-        },
+        }
     };
 
     let mut days_of_the_week = [

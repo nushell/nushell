@@ -243,79 +243,81 @@ where
             let path_members_span = fields.maybe_span().unwrap_or_else(Span::unknown);
 
             match &obj_source.value {
-                UntaggedValue::Table(rows) => match column_path_tried {
-                    PathMember {
-                        unspanned: UnspannedPathMember::String(column),
-                        ..
-                    } => {
-                        let primary_label = format!("There isn't a column named '{}'", &column);
+                UntaggedValue::Table(rows) => {
+                    return match column_path_tried {
+                        PathMember {
+                            unspanned: UnspannedPathMember::String(column),
+                            ..
+                        } => {
+                            let primary_label = format!("There isn't a column named '{}'", &column);
 
-                        let suggestions: IndexSet<_> = rows
-                            .iter()
-                            .filter_map(|r| {
-                                nu_protocol::did_you_mean(&r, column_path_tried.as_string())
-                            })
-                            .map(|s| s[0].to_owned())
-                            .collect();
-                        let mut existing_columns: IndexSet<_> = IndexSet::default();
-                        let mut names: Vec<String> = vec![];
+                            let suggestions: IndexSet<_> = rows
+                                .iter()
+                                .filter_map(|r| {
+                                    nu_protocol::did_you_mean(&r, column_path_tried.as_string())
+                                })
+                                .map(|s| s[0].to_owned())
+                                .collect();
+                            let mut existing_columns: IndexSet<_> = IndexSet::default();
+                            let mut names: Vec<String> = vec![];
 
-                        for row in rows {
-                            for field in row.data_descriptors() {
-                                if !existing_columns.contains(&field[..]) {
-                                    existing_columns.insert(field.clone());
-                                    names.push(field);
+                            for row in rows {
+                                for field in row.data_descriptors() {
+                                    if !existing_columns.contains(&field[..]) {
+                                        existing_columns.insert(field.clone());
+                                        names.push(field);
+                                    }
                                 }
                             }
+
+                            if names.is_empty() {
+                                ShellError::labeled_error_with_secondary(
+                                    "Unknown column",
+                                    primary_label,
+                                    column_path_tried.span,
+                                    "Appears to contain rows. Try indexing instead.",
+                                    column_path_tried.span.since(path_members_span),
+                                )
+                            } else {
+                                ShellError::labeled_error_with_secondary(
+                                    "Unknown column",
+                                    primary_label,
+                                    column_path_tried.span,
+                                    format!(
+                                        "Perhaps you meant '{}'? Columns available: {}",
+                                        suggestions
+                                            .iter()
+                                            .map(|x| x.to_owned())
+                                            .collect::<Vec<String>>()
+                                            .join(","),
+                                        names.join(", ")
+                                    ),
+                                    column_path_tried.span.since(path_members_span),
+                                )
+                            }
                         }
+                        PathMember {
+                            unspanned: UnspannedPathMember::Int(idx),
+                            ..
+                        } => {
+                            let total = rows.len();
 
-                        if names.is_empty() {
-                            return ShellError::labeled_error_with_secondary(
-                                "Unknown column",
-                                primary_label,
+                            let secondary_label = if total == 1 {
+                                "The table only has 1 row".to_owned()
+                            } else {
+                                format!("The table only has {} rows (0 to {})", total, total - 1)
+                            };
+
+                            ShellError::labeled_error_with_secondary(
+                                "Row not found",
+                                format!("There isn't a row indexed at {}", idx),
                                 column_path_tried.span,
-                                "Appears to contain rows. Try indexing instead.",
+                                secondary_label,
                                 column_path_tried.span.since(path_members_span),
-                            );
-                        } else {
-                            return ShellError::labeled_error_with_secondary(
-                                "Unknown column",
-                                primary_label,
-                                column_path_tried.span,
-                                format!(
-                                    "Perhaps you meant '{}'? Columns available: {}",
-                                    suggestions
-                                        .iter()
-                                        .map(|x| x.to_owned())
-                                        .collect::<Vec<String>>()
-                                        .join(","),
-                                    names.join(", ")
-                                ),
-                                column_path_tried.span.since(path_members_span),
-                            );
-                        };
+                            )
+                        }
                     }
-                    PathMember {
-                        unspanned: UnspannedPathMember::Int(idx),
-                        ..
-                    } => {
-                        let total = rows.len();
-
-                        let secondary_label = if total == 1 {
-                            "The table only has 1 row".to_owned()
-                        } else {
-                            format!("The table only has {} rows (0 to {})", total, total - 1)
-                        };
-
-                        return ShellError::labeled_error_with_secondary(
-                            "Row not found",
-                            format!("There isn't a row indexed at {}", idx),
-                            column_path_tried.span,
-                            secondary_label,
-                            column_path_tried.span.since(path_members_span),
-                        );
-                    }
-                },
+                }
                 UntaggedValue::Row(columns) => match column_path_tried {
                     PathMember {
                         unspanned: UnspannedPathMember::String(column),
@@ -535,11 +537,11 @@ pub fn forgiving_insert_data_at_column_path(
             return Ok(original);
         }
 
-        if value
+        return if value
             .get_data_by_column_path(&cp, Box::new(move |_, _, err| err))
             .is_ok()
         {
-            return insert_data_at_column_path(&value, &cp, candidate);
+            insert_data_at_column_path(&value, &cp, candidate)
         } else if let Some((last, front)) = cp.split_last() {
             let mut current: &mut Value = &mut original;
 
@@ -556,12 +558,12 @@ pub fn forgiving_insert_data_at_column_path(
 
             insert_data_at_member(current, &last, candidate)?;
 
-            return Ok(original);
+            Ok(original)
         } else {
-            return Err(ShellError::untagged_runtime_error(
+            Err(ShellError::untagged_runtime_error(
                 "Internal error: could not split column path correctly",
-            ));
-        }
+            ))
+        };
     }
 
     insert_data_at_column_path(&value, split_path, new_value)
