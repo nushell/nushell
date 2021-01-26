@@ -4,13 +4,13 @@ description = "Core error subsystem for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-errors"
-version = "0.25.2"
+version = "0.26.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-source = {path = "../nu-source", version = "0.25.2"}
+nu-source = {path = "../nu-source", version = "0.26.0"}
 
 ansi_term = "0.12.1"
 bigdecimal = {version = "0.2.0", features = ["serde"]}

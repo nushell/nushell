@@ -4,16 +4,16 @@ description = "A regex match plugin for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu_plugin_match"
-version = "0.25.2"
+version = "0.26.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-errors = {path = "../nu-errors", version = "0.25.2"}
-nu-plugin = {path = "../nu-plugin", version = "0.25.2"}
-nu-protocol = {path = "../nu-protocol", version = "0.25.2"}
-nu-source = {path = "../nu-source", version = "0.25.2"}
+nu-errors = {path = "../nu-errors", version = "0.26.0"}
+nu-plugin = {path = "../nu-plugin", version = "0.26.0"}
+nu-protocol = {path = "../nu-protocol", version = "0.26.0"}
+nu-source = {path = "../nu-source", version = "0.26.0"}
 regex = "1.3.9"
 
 [build-dependencies]

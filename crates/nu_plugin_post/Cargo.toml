@@ -4,7 +4,7 @@ description = "An HTTP post plugin for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu_plugin_post"
-version = "0.25.2"
+version = "0.26.0"
 
 [lib]
 doctest = false
@@ -12,10 +12,10 @@ doctest = false
 [dependencies]
 base64 = "0.12.3"
 futures = {version = "0.3.5", features = ["compat", "io-compat"]}
-nu-errors = {path = "../nu-errors", version = "0.25.2"}
-nu-plugin = {path = "../nu-plugin", version = "0.25.2"}
-nu-protocol = {path = "../nu-protocol", version = "0.25.2"}
-nu-source = {path = "../nu-source", version = "0.25.2"}
+nu-errors = {path = "../nu-errors", version = "0.26.0"}
+nu-plugin = {path = "../nu-plugin", version = "0.26.0"}
+nu-protocol = {path = "../nu-protocol", version = "0.26.0"}
+nu-source = {path = "../nu-source", version = "0.26.0"}
 num-traits = "0.2.12"
 serde_json = "1.0.57"
 surf = "1.0.3"
