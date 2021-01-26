@@ -15,7 +15,7 @@ use log::debug;
 
 use crate::{
     lex::{lex, Token, TokenContents},
-    parse::def::lib_code::parse_lib::{AndThen, CheckedParse, IfSuccessThen, Maybe, Parse},
+    parse::def::lib_code::parse_lib::{And, CheckedParse, IfSuccessThen, Maybe, Parse},
 };
 use nu_errors::ParseError;
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape};
@@ -120,10 +120,9 @@ impl Parse for Parameter {
             value: (name, (optional, (type_, comment))),
             i,
             err,
-        } = AndThen::<
-            ParameterName,
-            AndThen<Maybe<OptionalModifier>, AndThen<OptionalType, ItemEnd>>,
-        >::parse(tokens, i);
+        } = And::<ParameterName, And<Maybe<OptionalModifier>, And<OptionalType, ItemEnd>>>::parse(
+            tokens, i,
+        );
 
         // let i_end = i;
 
@@ -164,10 +163,13 @@ impl Parse for Flag {
     fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         // let i_start = i;
 
-        let ParseResult{value: (name, (shortform, (type_, comment))), i, err } = AndThen::<
-            FlagName,
-            AndThen<Maybe<FlagShortName>, AndThen<OptionalType, ItemEnd>>,
-        >::parse(tokens, i);
+        let ParseResult {
+            value: (name, (shortform, (type_, comment))),
+            i,
+            err,
+        } = And::<FlagName, And<Maybe<FlagShortName>, And<OptionalType, ItemEnd>>>::parse(
+            tokens, i,
+        );
 
         // let i_end = i;
         // let span = tokens[i_start].span.until(tokens[i_end - 1].span);
@@ -208,7 +210,7 @@ impl Parse for Rest {
             value: (_, (type_, comment)),
             i,
             err,
-        } = AndThen::<RestName, AndThen<OptionalType, ItemEnd>>::parse(tokens, i);
+        } = And::<RestName, And<OptionalType, ItemEnd>>::parse(tokens, i);
 
         ParseResult::new(
             (
@@ -243,7 +245,7 @@ impl Parse for ItemEnd {
             value: (_, (comment, _)),
             i,
             err,
-        } = AndThen::<Maybe<Comma>, AndThen<Maybe<Comment>, Maybe<EOL>>>::parse(tokens, i);
+        } = And::<Maybe<Comma>, And<Maybe<Comment>, Maybe<EOL>>>::parse(tokens, i);
 
         ParseResult::new(comment, i, err)
     }

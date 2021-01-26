@@ -145,12 +145,12 @@ impl<Value: CheckedParse> Parse for Maybe<Value> {
 }
 
 ///Parse First and then Second
-pub(crate) struct AndThen<First, Second> {
+pub(crate) struct And<First, Second> {
     _marker1: marker::PhantomData<*const First>,
     _marker2: marker::PhantomData<*const Second>,
 }
 
-impl<First: CheckedParse, Second: CheckedParse> Parse for AndThen<First, Second> {
+impl<First: CheckedParse, Second: CheckedParse> Parse for And<First, Second> {
     type Output = (First::Output, Second::Output);
 
     fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
@@ -173,7 +173,7 @@ impl<First: CheckedParse, Second: CheckedParse> Parse for AndThen<First, Second>
 }
 
 //Always Checked because accepts only checked
-impl<T1: CheckedParse, T2: CheckedParse> CheckedParse for AndThen<T1, T2> {}
+impl<T1: CheckedParse, T2: CheckedParse> CheckedParse for And<T1, T2> {}
 
 pub(crate) struct IfSuccessThen<Try, AndThen> {
     _marker1: marker::PhantomData<*const Try>,
