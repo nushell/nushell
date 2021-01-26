@@ -18,7 +18,7 @@ impl Token {
     }
 }
 
-#[derive(Debug, PartialEq, is_enum_variant)]
+#[derive(Clone, Debug, PartialEq, is_enum_variant)]
 pub enum TokenContents {
     /// A baseline token is an atomic chunk of source code. This means that the
     /// token contains the entirety of string literals, as well as the entirety
