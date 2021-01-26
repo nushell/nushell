@@ -5,13 +5,15 @@ use crate::{lex::Token, parse::util::token_to_spanned_string};
 use nu_errors::ParseError;
 use nu_source::Span;
 
+use super::ParseResult;
+
 pub(crate) trait CheckedParse: Parse {}
 
 pub(crate) trait Parse {
     type Output;
-    fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>);
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output>;
 
-    fn parse_debug(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
+    fn parse_debug(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         let tokens_str = if i < tokens.len() {
             format!(
                 "{:?}",
@@ -43,11 +45,8 @@ pub(crate) trait Parse {
         ))
     }
 
-    fn mismatch_default_return(
-        token: &Token,
-        i: usize,
-    ) -> (Self::Output, usize, Option<ParseError>) {
-        (Self::default_error_value(), i, Self::mismatch_error(token))
+    fn mismatch_default_return(token: &Token, i: usize) -> ParseResult<Self::Output> {
+        ParseResult::new(Self::default_error_value(), i, Self::mismatch_error(token))
     }
 }
 
@@ -79,7 +78,7 @@ impl<T: Parse> CheckedParse for Expect<T> {}
 impl<Value: Parse> Parse for Expect<Value> {
     type Output = Value::Output;
 
-    fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Value::Output> {
         if i < tokens.len() {
             debug!(
                 "Expect<{:?}> {:?} {:?}",
@@ -97,8 +96,7 @@ impl<Value: Parse> Parse for Expect<Value> {
             } else {
                 Span::unknown()
             };
-
-            (
+            ParseResult::new(
                 Value::default_error_value(),
                 i,
                 Some(ParseError::unexpected_eof(Value::display_name(), last_span)),
@@ -125,15 +123,15 @@ impl<Value: CheckedParse> CheckedParse for Maybe<Value> {}
 impl<Value: CheckedParse> Parse for Maybe<Value> {
     type Output = Option<Value::Output>;
 
-    fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         debug!("Parsing Maybe<{:?}>", Value::display_name());
-        let (v, new_i, error) = Value::parse_debug(tokens, i);
-        if error.is_some() {
+        let result = Value::parse_debug(tokens, i);
+        if result.err.is_some() {
             debug!("Maybe<{:?}> not present", Value::display_name());
-            (None, i, None)
+            (None, i, None).into()
         } else {
             debug!("Maybe<{:?}> is present", Value::display_name());
-            (Some(v), new_i, error)
+            ParseResult::new(Some(result.value), result.i, result.err)
         }
     }
 
@@ -155,10 +153,14 @@ pub(crate) struct AndThen<First, Second> {
 impl<First: CheckedParse, Second: CheckedParse> Parse for AndThen<First, Second> {
     type Output = (First::Output, Second::Output);
 
-    fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
-        let (first, i, err_first) = First::parse(tokens, i);
-        let (second, i, err_second) = Second::parse(tokens, i);
-        ((first, second), i, err_first.or(err_second))
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
+        let first_result = First::parse(tokens, i);
+        let second_result = Second::parse(tokens, first_result.i);
+        ParseResult::new(
+            (first_result.value, second_result.value),
+            second_result.i,
+            first_result.err.or(second_result.err),
+        )
     }
 
     fn display_name() -> String {
@@ -173,8 +175,8 @@ impl<First: CheckedParse, Second: CheckedParse> Parse for AndThen<First, Second>
 //Always Checked because accepts only checked
 impl<T1: CheckedParse, T2: CheckedParse> CheckedParse for AndThen<T1, T2> {}
 
-pub(crate) struct IfSuccessThen<Maybe, AndThen> {
-    _marker1: marker::PhantomData<*const Maybe>,
+pub(crate) struct IfSuccessThen<Try, AndThen> {
+    _marker1: marker::PhantomData<*const Try>,
     _marker2: marker::PhantomData<*const AndThen>,
 }
 
@@ -184,15 +186,19 @@ impl<Try: CheckedParse, AndThen: CheckedParse> CheckedParse for IfSuccessThen<Tr
 impl<Try: CheckedParse, AndThen: CheckedParse> Parse for IfSuccessThen<Try, AndThen> {
     type Output = Option<(Try::Output, AndThen::Output)>;
 
-    fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
-        let (try_, new_i, err_try) = Maybe::<Try>::parse(tokens, i);
-        if let Some(try_v) = try_ {
-            //Succeeded at parsing Maybe. Now AndThen has to follow
-            let (and_then, new_i, err_second) = Expect::<AndThen>::parse(tokens, new_i);
-            (Some((try_v, and_then)), new_i, err_try.or(err_second))
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
+        let try_result = Maybe::<Try>::parse(tokens, i);
+        if let Some(try_v) = try_result.value {
+            //Succeeded at parsing Try. Now AndThen has to follow
+            let and_then_result = AndThen::parse(tokens, try_result.i);
+            ParseResult::new(
+                Some((try_v, and_then_result.value)),
+                and_then_result.i,
+                try_result.err.or(and_then_result.err),
+            )
         } else {
             //Okay Couldn't parse Try
-            (None, i, None)
+            ParseResult::new(None, i, None)
         }
     }
 
@@ -215,9 +221,9 @@ impl<Value: CheckedParse> CheckedParse for Discard<Value> {}
 impl<Value: CheckedParse> Parse for Discard<Value> {
     type Output = ();
 
-    fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
-        let (_, i, err) = Value::parse(tokens, i);
-        ((), i, err)
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
+        let ParseResult { value: _, i, err } = Value::parse(tokens, i);
+        ParseResult::new((), i, err)
     }
 
     fn display_name() -> String {

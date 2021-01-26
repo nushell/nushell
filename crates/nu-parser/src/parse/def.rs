@@ -12,8 +12,8 @@ use crate::ParserScope;
 
 use self::param_flag_list::parse_signature;
 
+mod lib_code;
 mod param_flag_list;
-mod parse_lib;
 mod primitives;
 mod tests;
 

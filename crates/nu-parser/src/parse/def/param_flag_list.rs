@@ -15,14 +15,14 @@ use log::debug;
 
 use crate::{
     lex::{lex, Token, TokenContents},
-    parse::def::parse_lib::{AndThen, IfSuccessThen, Maybe, Parse},
+    parse::def::lib_code::parse_lib::{AndThen, CheckedParse, IfSuccessThen, Maybe, Parse},
 };
 use nu_errors::ParseError;
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape};
 use nu_source::{Span, Spanned};
 
 use super::{
-    parse_lib::CheckedParse,
+    lib_code::ParseResult,
     primitives::{
         Comma, Comment, DoublePoint, FlagName, FlagShortName, OptionalModifier, ParameterName,
         RestName, Shape, EOL,
@@ -74,17 +74,29 @@ pub(crate) fn parse_signature(
             //Skip leading eol
             i += 1;
         } else if is_flag(&tokens[i]) {
-            let (flag, i_new, error) = Flag::parse_debug(&tokens, i);
+            let ParseResult {
+                value: flag,
+                i: i_new,
+                err: error,
+            } = Flag::parse_debug(&tokens, i);
             err = err.or(error);
             i = i_new;
             flags.push(flag);
         } else if is_rest(&tokens[i]) {
-            let (rest_, i_new, error) = Rest::parse_debug(&tokens, i);
+            let ParseResult {
+                value: rest_,
+                i: i_new,
+                err: error,
+            } = Rest::parse_debug(&tokens, i);
             err = err.or(error);
             i = i_new;
             rest = Some(rest_);
         } else {
-            let (parameter, i_new, error) = Parameter::parse_debug(&tokens, i);
+            let ParseResult {
+                value: parameter,
+                i: i_new,
+                err: error,
+            } = Parameter::parse_debug(&tokens, i);
             err = err.or(error);
             i = i_new;
             parameters.push(parameter);
@@ -101,10 +113,14 @@ impl CheckedParse for Parameter {}
 impl Parse for Parameter {
     type Output = Parameter;
 
-    fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         // let i_start = i;
 
-        let ((name, (optional, (type_, comment))), i, err) = AndThen::<
+        let ParseResult {
+            value: (name, (optional, (type_, comment))),
+            i,
+            err,
+        } = AndThen::<
             ParameterName,
             AndThen<Maybe<OptionalModifier>, AndThen<OptionalType, ItemEnd>>,
         >::parse(tokens, i);
@@ -129,7 +145,7 @@ impl Parse for Parameter {
             parameter.pos_type.syntax_type()
         );
 
-        (parameter, i, err)
+        ParseResult::new(parameter, i, err)
     }
 
     fn display_name() -> String {
@@ -145,10 +161,10 @@ impl CheckedParse for Flag {}
 impl Parse for Flag {
     type Output = Flag;
 
-    fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         // let i_start = i;
 
-        let ((name, (shortform, (type_, comment))), i, err) = AndThen::<
+        let ParseResult{value: (name, (shortform, (type_, comment))), i, err } = AndThen::<
             FlagName,
             AndThen<Maybe<FlagShortName>, AndThen<OptionalType, ItemEnd>>,
         >::parse(tokens, i);
@@ -170,7 +186,7 @@ impl Parse for Flag {
         let flag = Flag::new(name, named_type, comment, span);
 
         debug!("Parsed flag: {:?}", flag);
-        (flag, i, err)
+        ParseResult::new(flag, i, err)
     }
 
     fn display_name() -> String {
@@ -187,18 +203,21 @@ impl CheckedParse for Rest {}
 impl Parse for Rest {
     type Output = (SyntaxShape, Description);
 
-    fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
-        let ((_, (type_, comment)), i, err) =
-            AndThen::<RestName, AndThen<OptionalType, ItemEnd>>::parse(tokens, i);
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
+        let ParseResult {
+            value: (_, (type_, comment)),
+            i,
+            err,
+        } = AndThen::<RestName, AndThen<OptionalType, ItemEnd>>::parse(tokens, i);
 
-        return (
+        ParseResult::new(
             (
                 type_.unwrap_or(SyntaxShape::Any),
                 comment.unwrap_or("".to_string()),
             ),
             i,
             err,
-        );
+        )
     }
 
     fn display_name() -> String {
@@ -219,11 +238,14 @@ impl CheckedParse for ItemEnd {}
 impl Parse for ItemEnd {
     //Item end Output is optional Comment
     type Output = Option<Description>;
-    fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
-        let ((_, (comment, _)), i, err) =
-            AndThen::<Maybe<Comma>, AndThen<Maybe<Comment>, Maybe<EOL>>>::parse(tokens, i);
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
+        let ParseResult {
+            value: (_, (comment, _)),
+            i,
+            err,
+        } = AndThen::<Maybe<Comma>, AndThen<Maybe<Comment>, Maybe<EOL>>>::parse(tokens, i);
 
-        (comment, i, err)
+        ParseResult::new(comment, i, err)
     }
 
     fn display_name() -> String {
@@ -433,12 +455,16 @@ impl CheckedParse for OptionalType {}
 impl Parse for OptionalType {
     type Output = Option<SyntaxShape>;
 
-    fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
-        let (values, i_new, err) = IfSuccessThen::<DoublePoint, Shape>::parse(tokens, i);
-        if let Some((_, shape)) = values {
-            (Some(shape), i_new, err)
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
+        let ParseResult {
+            value,
+            i: i_new,
+            err,
+        } = IfSuccessThen::<DoublePoint, Shape>::parse(tokens, i);
+        if let Some((_, shape)) = value {
+            ParseResult::new(Some(shape), i_new, err)
         } else {
-            (None, i, None)
+            ParseResult::new(None, i, None)
         }
     }
 

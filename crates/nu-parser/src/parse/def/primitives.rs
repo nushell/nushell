@@ -1,13 +1,15 @@
 use crate::{
     lex::{Token, TokenContents},
-    parse::def::parse_lib::Parse,
     parse::util::token_to_spanned_string,
 };
 use nu_errors::ParseError;
 use nu_protocol::SyntaxShape;
 use nu_source::{Span, Spanned, SpannedItem};
 
-use super::parse_lib::Expect;
+use super::lib_code::{
+    parse_lib::{Expect, Parse},
+    ParseResult,
+};
 
 ///Better use Type
 ///Type parses (: shape)?
@@ -16,7 +18,7 @@ pub(crate) type Shape = Expect<ShapeUnchecked>;
 impl Parse for ShapeUnchecked {
     type Output = SyntaxShape;
 
-    fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         let shape_token = &tokens[i];
         match &shape_token.contents {
             TokenContents::Baseline(type_str) => {
@@ -37,7 +39,7 @@ impl Parse for ShapeUnchecked {
                     ),
                 };
 
-                (shape, i + 1, err)
+                (shape, i + 1, err).into()
             }
             _ => Self::mismatch_default_return(shape_token, i),
         }
@@ -57,9 +59,9 @@ pub(crate) type DoublePoint = Expect<DoublePointUnchecked>;
 impl Parse for DoublePointUnchecked {
     type Output = ();
 
-    fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         if is_baseline_token_matching(&tokens[i], ":") {
-            ((), i + 1, None)
+            ParseResult::new((), i + 1, None)
         } else {
             Self::mismatch_default_return(&tokens[i], i)
         }
@@ -79,9 +81,9 @@ pub(crate) type Comma = Expect<CommaUnchecked>;
 impl Parse for CommaUnchecked {
     type Output = ();
 
-    fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         if is_baseline_token_matching(&tokens[i], ",") {
-            ((), i + 1, None)
+            ParseResult::new((), i + 1, None)
         } else {
             Self::mismatch_default_return(&tokens[i], i)
         }
@@ -101,9 +103,9 @@ pub(crate) type EOL = Expect<EOLUnchecked>;
 impl Parse for EOLUnchecked {
     type Output = ();
 
-    fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         if tokens[i].contents.is_eol() {
-            ((), i + 1, None)
+            ParseResult::new((), i + 1, None)
         } else {
             Self::mismatch_default_return(&tokens[i], i)
         }
@@ -123,10 +125,10 @@ pub(crate) type Comment = Expect<CommentUnchecked>;
 impl Parse for CommentUnchecked {
     type Output = String;
 
-    fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         if let TokenContents::Comment(comment) = &tokens[i].contents {
             let comment_text = comment.trim().to_string();
-            (comment_text, i + 1, None)
+            ParseResult::new(comment_text, i + 1, None)
         } else {
             Self::mismatch_default_return(&tokens[i], i)
         }
@@ -146,9 +148,9 @@ pub(crate) type OptionalModifier = Expect<OptionalModifierUnchecked>;
 impl Parse for OptionalModifierUnchecked {
     type Output = ();
 
-    fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         if is_baseline_token_matching(&tokens[i], "?") {
-            ((), i + 1, None)
+            ParseResult::new((), i + 1, None)
         } else {
             Self::mismatch_default_return(&tokens[i], i)
         }
@@ -169,9 +171,9 @@ pub(crate) type ParameterName = Expect<ParameterNameUnchecked>;
 impl Parse for ParameterNameUnchecked {
     type Output = String;
 
-    fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         if let TokenContents::Baseline(name) = &tokens[i].contents {
-            (name.clone(), i + 1, None)
+            ParseResult::new(name.clone(), i + 1, None)
         } else {
             Self::mismatch_default_return(&tokens[i], i)
         }
@@ -191,11 +193,11 @@ pub(crate) type FlagName = Expect<FlagNameUnchecked>;
 impl Parse for FlagNameUnchecked {
     type Output = String;
 
-    fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         let flag_token = &tokens[i];
         if let TokenContents::Baseline(name) = &flag_token.contents {
             if !name.starts_with("--") {
-                (
+                ParseResult::new(
                     //Okay return name as flag name eventhough it does not start with --
                     name.clone(),
                     i + 1,
@@ -207,7 +209,7 @@ impl Parse for FlagNameUnchecked {
             } else {
                 //Discard preceding --
                 let name = name[2..].to_string();
-                (name.clone(), i + 1, None)
+                ParseResult::new(name.clone(), i + 1, None)
             }
         } else {
             Self::mismatch_default_return(flag_token, i)
@@ -228,7 +230,7 @@ pub(crate) type FlagShortName = Expect<FlagShortNameUnchecked>;
 impl Parse for FlagShortNameUnchecked {
     type Output = char;
 
-    fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         let flag_token = &tokens[i];
         return if let TokenContents::Baseline(shortform) = &flag_token.contents {
             let mut chars = shortform.chars();
@@ -250,7 +252,7 @@ impl Parse for FlagShortNameUnchecked {
                     err = err.or_else(|| err_on_name_too_long(name, c.clone().spanned(flag_span)));
                     let c = name.chars().next();
 
-                    (c.unwrap_or(Self::default_error_value()), i + 1, err)
+                    ParseResult::new(c.unwrap_or(Self::default_error_value()), i + 1, err)
                 }
                 _ => Self::mismatch_default_return(flag_token, i),
             }
@@ -304,7 +306,7 @@ pub(crate) type RestName = Expect<RestNameUnchecked>;
 impl Parse for RestNameUnchecked {
     type Output = bool;
 
-    fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         let name_token = &tokens[i];
         return if let TokenContents::Baseline(name) = &name_token.contents {
             if !name.starts_with("...") {
@@ -312,10 +314,10 @@ impl Parse for RestNameUnchecked {
                 Self::mismatch_default_return(name_token, i)
             } else if !name.starts_with("...rest") || name.len() != "...rest".len() {
                 //Okay accept this as rest, but give user warning
-                (true, i + 1, rest_name_must_be_rest_error(name_token))
+                ParseResult::new(true, i + 1, rest_name_must_be_rest_error(name_token))
             } else {
                 //Okay correct name
-                (true, i + 1, None)
+                ParseResult::new(true, i + 1, None)
             }
         } else {
             Self::mismatch_default_return(name_token, i)

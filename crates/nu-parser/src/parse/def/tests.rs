@@ -1,9 +1,13 @@
 #[allow(unused_imports)]
+use super::lib_code::parse_lib::Parse;
+#[allow(unused_imports)]
+use super::lib_code::ParseResult;
+#[allow(unused_imports)]
 use super::param_flag_list::{lex_split_baseline_tokens_on, lex_split_shortflag_from_longflag};
 #[allow(unused_imports)]
 use super::param_flag_list::{parse_signature, Flag};
 #[allow(unused_imports)]
-use super::{parse_lib::Parse, primitives::FlagShortName};
+use super::primitives::FlagShortName;
 #[allow(unused_imports)]
 use crate::lex;
 #[allow(unused_imports)]
@@ -18,9 +22,9 @@ fn parse_flag_shortname() {
     let (tokens, _) = lex("--flag(-f)", 0);
     let tokens = lex_split_baseline_tokens_on(tokens, &[',', ':', '?']);
     let tokens = lex_split_shortflag_from_longflag(tokens);
-    let (f, i, err) = Flag::parse(&tokens, 0);
-    assert_eq!("flag", &f.long_name);
-    assert_eq!(Some('f'), f.named_type.get_short());
+    let ParseResult { value, i, err } = Flag::parse(&tokens, 0);
+    assert_eq!("flag", &value.long_name);
+    assert_eq!(Some('f'), value.named_type.get_short());
     assert_eq!(2, i);
     assert!(err.is_none());
 }
