@@ -5,6 +5,8 @@ use crate::{lex::Token, parse::util::token_to_spanned_string};
 use nu_errors::ParseError;
 use nu_source::Span;
 
+pub(crate) trait CheckedParse: Parse {}
+
 pub(crate) trait Parse {
     type Output;
     fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>);
@@ -66,12 +68,17 @@ pub(crate) trait Parse {
 // }
 
 // parse_struct!(name: Test, A, B);
+
 pub(crate) struct Expect<Value> {
     _marker: marker::PhantomData<*const Value>,
 }
 
+//Expect is always checked
+impl<T: Parse> CheckedParse for Expect<T> {}
+
 impl<Value: Parse> Parse for Expect<Value> {
     type Output = Value::Output;
+
     fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
         if i < tokens.len() {
             debug!(
@@ -112,24 +119,21 @@ pub(crate) struct Maybe<Value> {
     _marker: marker::PhantomData<*const Value>,
 }
 
-impl<Value: Parse> Parse for Maybe<Value> {
+//Always Checked because accepts only checked
+impl<Value: CheckedParse> CheckedParse for Maybe<Value> {}
+
+impl<Value: CheckedParse> Parse for Maybe<Value> {
     type Output = Option<Value::Output>;
 
     fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
-        if i < tokens.len() {
-            debug!("Parsing Maybe<{:?}>", Value::display_name());
-            //Okay can safely slice tokens
-            let (v, new_i, error) = Value::parse_debug(tokens, i);
-            //Okay we couldn't parse it
-            if error.is_some() {
-                (None, i, None)
-            } else {
-                (Some(v), new_i, error)
-            }
-        } else {
+        debug!("Parsing Maybe<{:?}>", Value::display_name());
+        let (v, new_i, error) = Value::parse_debug(tokens, i);
+        if error.is_some() {
             debug!("Maybe<{:?}> not present", Value::display_name());
-            //If tokens is empty we can't parse it so its None
             (None, i, None)
+        } else {
+            debug!("Maybe<{:?}> is present", Value::display_name());
+            (Some(v), new_i, error)
         }
     }
 
@@ -148,7 +152,7 @@ pub(crate) struct AndThen<First, Second> {
     _marker2: marker::PhantomData<*const Second>,
 }
 
-impl<First: Parse, Second: Parse> Parse for AndThen<First, Second> {
+impl<First: CheckedParse, Second: CheckedParse> Parse for AndThen<First, Second> {
     type Output = (First::Output, Second::Output);
 
     fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
@@ -166,12 +170,18 @@ impl<First: Parse, Second: Parse> Parse for AndThen<First, Second> {
     }
 }
 
+//Always Checked because accepts only checked
+impl<T1: CheckedParse, T2: CheckedParse> CheckedParse for AndThen<T1, T2> {}
+
 pub(crate) struct IfSuccessThen<Maybe, AndThen> {
     _marker1: marker::PhantomData<*const Maybe>,
     _marker2: marker::PhantomData<*const AndThen>,
 }
 
-impl<Try: Parse, AndThen: Parse> Parse for IfSuccessThen<Try, AndThen> {
+//Always Checked because accepts only checked
+impl<Try: CheckedParse, AndThen: CheckedParse> CheckedParse for IfSuccessThen<Try, AndThen> {}
+
+impl<Try: CheckedParse, AndThen: CheckedParse> Parse for IfSuccessThen<Try, AndThen> {
     type Output = Option<(Try::Output, AndThen::Output)>;
 
     fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
@@ -192,5 +202,29 @@ impl<Try: Parse, AndThen: Parse> Parse for IfSuccessThen<Try, AndThen> {
 
     fn default_error_value() -> Self::Output {
         Some((Try::default_error_value(), AndThen::default_error_value()))
+    }
+}
+
+pub(crate) struct Discard<Value> {
+    _marker: marker::PhantomData<*const Value>,
+}
+
+//Always Checked because accepts only checked
+impl<Value: CheckedParse> CheckedParse for Discard<Value> {}
+
+impl<Value: CheckedParse> Parse for Discard<Value> {
+    type Output = ();
+
+    fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
+        let (_, i, err) = Value::parse(tokens, i);
+        ((), i, err)
+    }
+
+    fn display_name() -> String {
+        Value::display_name()
+    }
+
+    fn default_error_value() -> Self::Output {
+        ()
     }
 }

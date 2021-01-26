@@ -3,42 +3,40 @@ use crate::{
     parse::def::parse_lib::Parse,
     parse::util::token_to_spanned_string,
 };
-use log::debug;
 use nu_errors::ParseError;
 use nu_protocol::SyntaxShape;
 use nu_source::{Span, Spanned, SpannedItem};
 
-fn parse_type(type_: &Spanned<String>) -> (SyntaxShape, Option<ParseError>) {
-    debug!("Parsing type {:?}", type_);
-    match type_.item.as_str() {
-        "int" => (SyntaxShape::Int, None),
-        "string" => (SyntaxShape::String, None),
-        "path" => (SyntaxShape::FilePath, None),
-        "table" => (SyntaxShape::Table, None),
-        "unit" => (SyntaxShape::Unit, None),
-        "number" => (SyntaxShape::Number, None),
-        "pattern" => (SyntaxShape::GlobPattern, None),
-        "range" => (SyntaxShape::Range, None),
-        "block" => (SyntaxShape::Block, None),
-        "any" => (SyntaxShape::Any, None),
-        _ => (
-            SyntaxShape::Any,
-            Some(ParseError::mismatch("type", type_.clone())),
-        ),
-    }
-}
+use super::parse_lib::Expect;
 
-///Better use Type!
+///Better use Type
 ///Type parses (: shape)?
-pub(crate) struct Shape;
-impl Parse for Shape {
+pub(crate) struct ShapeUnchecked;
+pub(crate) type Shape = Expect<ShapeUnchecked>;
+impl Parse for ShapeUnchecked {
     type Output = SyntaxShape;
 
     fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
         let shape_token = &tokens[i];
         match &shape_token.contents {
             TokenContents::Baseline(type_str) => {
-                let (shape, err) = parse_type(&type_str.clone().spanned(shape_token.span));
+                let (shape, err) = match type_str.as_str() {
+                    "int" => (SyntaxShape::Int, None),
+                    "string" => (SyntaxShape::String, None),
+                    "path" => (SyntaxShape::FilePath, None),
+                    "table" => (SyntaxShape::Table, None),
+                    "unit" => (SyntaxShape::Unit, None),
+                    "number" => (SyntaxShape::Number, None),
+                    "pattern" => (SyntaxShape::GlobPattern, None),
+                    "range" => (SyntaxShape::Range, None),
+                    "block" => (SyntaxShape::Block, None),
+                    "any" => (SyntaxShape::Any, None),
+                    _ => (
+                        Self::default_error_value(),
+                        Self::mismatch_error(shape_token),
+                    ),
+                };
+
                 (shape, i + 1, err)
             }
             _ => Self::mismatch_default_return(shape_token, i),
@@ -54,8 +52,9 @@ impl Parse for Shape {
     }
 }
 
-pub(crate) struct DoublePoint {}
-impl Parse for DoublePoint {
+pub(crate) struct DoublePointUnchecked {}
+pub(crate) type DoublePoint = Expect<DoublePointUnchecked>;
+impl Parse for DoublePointUnchecked {
     type Output = ();
 
     fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
@@ -75,8 +74,9 @@ impl Parse for DoublePoint {
     }
 }
 
-pub(crate) struct Comma {}
-impl Parse for Comma {
+pub(crate) struct CommaUnchecked {}
+pub(crate) type Comma = Expect<CommaUnchecked>;
+impl Parse for CommaUnchecked {
     type Output = ();
 
     fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
@@ -96,8 +96,9 @@ impl Parse for Comma {
     }
 }
 
-pub(crate) struct EOL {}
-impl Parse for EOL {
+pub(crate) struct EOLUnchecked {}
+pub(crate) type EOL = Expect<EOLUnchecked>;
+impl Parse for EOLUnchecked {
     type Output = ();
 
     fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
@@ -117,8 +118,9 @@ impl Parse for EOL {
     }
 }
 
-pub(crate) struct Comment {}
-impl Parse for Comment {
+pub(crate) struct CommentUnchecked {}
+pub(crate) type Comment = Expect<CommentUnchecked>;
+impl Parse for CommentUnchecked {
     type Output = String;
 
     fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
@@ -139,8 +141,9 @@ impl Parse for Comment {
     }
 }
 
-pub(crate) struct OptionalModifier {}
-impl Parse for OptionalModifier {
+pub(crate) struct OptionalModifierUnchecked {}
+pub(crate) type OptionalModifier = Expect<OptionalModifierUnchecked>;
+impl Parse for OptionalModifierUnchecked {
     type Output = ();
 
     fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
@@ -160,8 +163,10 @@ impl Parse for OptionalModifier {
     }
 }
 
-pub(crate) struct ParameterName {}
-impl Parse for ParameterName {
+pub(crate) struct ParameterNameUnchecked {}
+pub(crate) type ParameterName = Expect<ParameterNameUnchecked>;
+
+impl Parse for ParameterNameUnchecked {
     type Output = String;
 
     fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
@@ -181,8 +186,9 @@ impl Parse for ParameterName {
     }
 }
 
-pub(crate) struct FlagName {}
-impl Parse for FlagName {
+pub(crate) struct FlagNameUnchecked {}
+pub(crate) type FlagName = Expect<FlagNameUnchecked>;
+impl Parse for FlagNameUnchecked {
     type Output = String;
 
     fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
@@ -217,8 +223,9 @@ impl Parse for FlagName {
     }
 }
 
-pub(crate) struct FlagShortName {}
-impl Parse for FlagShortName {
+pub(crate) struct FlagShortNameUnchecked {}
+pub(crate) type FlagShortName = Expect<FlagShortNameUnchecked>;
+impl Parse for FlagShortNameUnchecked {
     type Output = char;
 
     fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
@@ -292,8 +299,9 @@ impl Parse for FlagShortName {
     }
 }
 
-pub(crate) struct RestName {}
-impl Parse for RestName {
+pub(crate) struct RestNameUnchecked {}
+pub(crate) type RestName = Expect<RestNameUnchecked>;
+impl Parse for RestNameUnchecked {
     type Output = bool;
 
     fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {

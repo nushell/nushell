@@ -15,15 +15,18 @@ use log::debug;
 
 use crate::{
     lex::{lex, Token, TokenContents},
-    parse::def::parse_lib::{AndThen, Expect, IfSuccessThen, Maybe, Parse},
+    parse::def::parse_lib::{AndThen, IfSuccessThen, Maybe, Parse},
 };
 use nu_errors::ParseError;
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape};
 use nu_source::{Span, Spanned};
 
-use super::primitives::{
-    Comma, Comment, DoublePoint, FlagName, FlagShortName, OptionalModifier, ParameterName,
-    RestName, Shape, EOL,
+use super::{
+    parse_lib::CheckedParse,
+    primitives::{
+        Comma, Comment, DoublePoint, FlagName, FlagShortName, OptionalModifier, ParameterName,
+        RestName, Shape, EOL,
+    },
 };
 
 pub(crate) fn parse_signature(
@@ -94,6 +97,7 @@ pub(crate) fn parse_signature(
     (signature, err)
 }
 
+impl CheckedParse for Parameter {}
 impl Parse for Parameter {
     type Output = Parameter;
 
@@ -101,7 +105,7 @@ impl Parse for Parameter {
         // let i_start = i;
 
         let ((name, (optional, (type_, comment))), i, err) = AndThen::<
-            Expect<ParameterName>,
+            ParameterName,
             AndThen<Maybe<OptionalModifier>, AndThen<OptionalType, ItemEnd>>,
         >::parse(tokens, i);
 
@@ -137,6 +141,7 @@ impl Parse for Parameter {
     }
 }
 
+impl CheckedParse for Flag {}
 impl Parse for Flag {
     type Output = Flag;
 
@@ -144,7 +149,7 @@ impl Parse for Flag {
         // let i_start = i;
 
         let ((name, (shortform, (type_, comment))), i, err) = AndThen::<
-            Expect<FlagName>,
+            FlagName,
             AndThen<Maybe<FlagShortName>, AndThen<OptionalType, ItemEnd>>,
         >::parse(tokens, i);
 
@@ -178,12 +183,13 @@ impl Parse for Flag {
 }
 
 struct Rest;
+impl CheckedParse for Rest {}
 impl Parse for Rest {
     type Output = (SyntaxShape, Description);
 
     fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
         let ((_, (type_, comment)), i, err) =
-            AndThen::<Expect<RestName>, AndThen<OptionalType, ItemEnd>>::parse(tokens, i);
+            AndThen::<RestName, AndThen<OptionalType, ItemEnd>>::parse(tokens, i);
 
         return (
             (
@@ -207,11 +213,12 @@ impl Parse for Rest {
 ///Parses the end of a flag or a parameter
 ///Return value is Option<Comment>
 ///   (<,>)? (#Comment)? (<eol>)?
-type ItemEnd = Option<Description>;
+// type ItemEnd = Option<Description>;
+struct ItemEnd {}
+impl CheckedParse for ItemEnd {}
 impl Parse for ItemEnd {
     //Item end Output is optional Comment
     type Output = Option<Description>;
-
     fn parse(tokens: &[Token], i: usize) -> (Self::Output, usize, Option<ParseError>) {
         let ((_, (comment, _)), i, err) =
             AndThen::<Maybe<Comma>, AndThen<Maybe<Comment>, Maybe<EOL>>>::parse(tokens, i);
@@ -421,6 +428,8 @@ impl Flag {
 }
 
 struct OptionalType {}
+impl CheckedParse for OptionalType {}
+
 impl Parse for OptionalType {
     type Output = Option<SyntaxShape>;
 
