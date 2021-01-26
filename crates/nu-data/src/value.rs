@@ -155,6 +155,12 @@ pub fn compute_values(
                         }
                         Ok(x / bigdecimal::BigDecimal::from(y.clone()))
                     }
+                    Operator::Modulo => {
+                        if y.is_zero() {
+                            return Ok(zero_division_error());
+                        }
+                        Ok(x % bigdecimal::BigDecimal::from(y.clone()))
+                    }
                     _ => Err((left.type_name(), right.type_name())),
                 }?;
                 Ok(UntaggedValue::Primitive(Primitive::Decimal(result)))
@@ -170,6 +176,13 @@ pub fn compute_values(
                         }
                         Ok(bigdecimal::BigDecimal::from(x.clone()) / y)
                     }
+                    Operator::Modulo => {
+                        if y.is_zero() {
+                            return Ok(zero_division_error());
+                        }
+                        Ok(bigdecimal::BigDecimal::from(x.clone()) % y)
+                    }
+
                     _ => Err((left.type_name(), right.type_name())),
                 }?;
                 Ok(UntaggedValue::Primitive(Primitive::Decimal(result)))
@@ -185,6 +198,13 @@ pub fn compute_values(
                         }
                         Ok(x / y)
                     }
+                    Operator::Modulo => {
+                        if y.is_zero() {
+                            return Ok(zero_division_error());
+                        }
+                        Ok(x % y)
+                    }
+
                     _ => Err((left.type_name(), right.type_name())),
                 }?;
                 Ok(UntaggedValue::Primitive(Primitive::Decimal(result)))
