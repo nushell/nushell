@@ -25,6 +25,7 @@ pub fn apply_operator(
         Operator::Plus => value::compute_values(op, left, right),
         Operator::Minus => value::compute_values(op, left, right),
         Operator::Multiply => value::compute_values(op, left, right),
+        Operator::Pow => value::compute_values(op, left, right),
         Operator::Divide => value::compute_values(op, left, right).map(|res| match res {
             UntaggedValue::Error(_) => UntaggedValue::Error(ShellError::labeled_error(
                 "Evaluation error",

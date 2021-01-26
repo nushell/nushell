@@ -119,6 +119,13 @@ pub fn compute_values(
                 }?;
                 Ok(UntaggedValue::Primitive(Primitive::Filesize(result)))
             }
+            (Primitive::Filesize(x), Primitive::Int(y)) => match operator {
+                Operator::Plus => Ok(UntaggedValue::Primitive(Primitive::Int(x + y))),
+                Operator::Minus => Ok(UntaggedValue::Primitive(Primitive::Int(x - y))),
+                Operator::Multiply => Ok(UntaggedValue::Primitive(Primitive::Int(x * y))),
+                Operator::Divide => Ok(UntaggedValue::Primitive(Primitive::Int(x / y))),
+                _ => Err((left.type_name(), right.type_name())),
+            },
             (Primitive::Int(x), Primitive::Int(y)) => match operator {
                 Operator::Plus => Ok(UntaggedValue::Primitive(Primitive::Int(x + y))),
                 Operator::Minus => Ok(UntaggedValue::Primitive(Primitive::Int(x - y))),
@@ -142,6 +149,13 @@ pub fn compute_values(
                         Ok(UntaggedValue::Primitive(Primitive::Int(x % y)))
                     }
                 }
+                Operator::Pow => {
+                    // only get the first part of the u32 digits as the power multiplier
+                    let bigint_as_u32 = y.to_u32_digits();
+                    Ok(UntaggedValue::Primitive(Primitive::Int(
+                        x.pow(bigint_as_u32.1[0]),
+                    )))
+                }
                 _ => Err((left.type_name(), right.type_name())),
             },
             (Primitive::Decimal(x), Primitive::Int(y)) => {
@@ -160,6 +174,15 @@ pub fn compute_values(
                             return Ok(zero_division_error());
                         }
                         Ok(x % bigdecimal::BigDecimal::from(y.clone()))
+                    }
+                    Operator::Pow => {
+                        let xp = bigdecimal::ToPrimitive::to_f64(x).unwrap_or(0.0);
+                        let yp = bigdecimal::ToPrimitive::to_f64(y).unwrap_or(0.0);
+                        let pow = bigdecimal::FromPrimitive::from_f64(xp.powf(yp));
+                        match pow {
+                            Some(p) => Ok(p),
+                            None => Err((left.type_name(), right.type_name())),
+                        }
                     }
                     _ => Err((left.type_name(), right.type_name())),
                 }?;
@@ -182,7 +205,10 @@ pub fn compute_values(
                         }
                         Ok(bigdecimal::BigDecimal::from(x.clone()) % y)
                     }
-
+                    Operator::Pow => {
+                        let yp = bigdecimal::ToPrimitive::to_u32(y).unwrap_or(0);
+                        Ok(bigdecimal::BigDecimal::from(x.pow(yp)))
+                    }
                     _ => Err((left.type_name(), right.type_name())),
                 }?;
                 Ok(UntaggedValue::Primitive(Primitive::Decimal(result)))
@@ -204,7 +230,15 @@ pub fn compute_values(
                         }
                         Ok(x % y)
                     }
-
+                    Operator::Pow => {
+                        let xp = bigdecimal::ToPrimitive::to_f64(x).unwrap_or(0.0);
+                        let yp = bigdecimal::ToPrimitive::to_f64(y).unwrap_or(0.0);
+                        let pow = bigdecimal::FromPrimitive::from_f64(xp.powf(yp));
+                        match pow {
+                            Some(p) => Ok(p),
+                            None => Err((left.type_name(), right.type_name())),
+                        }
+                    }
                     _ => Err((left.type_name(), right.type_name())),
                 }?;
                 Ok(UntaggedValue::Primitive(Primitive::Decimal(result)))
