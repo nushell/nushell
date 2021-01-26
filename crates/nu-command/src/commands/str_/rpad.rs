@@ -11,7 +11,7 @@ use nu_value_ext::ValueExt;
 #[derive(Deserialize)]
 struct Arguments {
     length: Tagged<usize>,
-    character: Tagged<char>,
+    character: Tagged<String>,
     rest: Vec<ColumnPath>,
 }
 
@@ -67,6 +67,13 @@ impl WholeStreamCommand for SubCommand {
                 example: "echo '123456789' | str rpad -l 3 -c '0'",
                 result: Some(vec![UntaggedValue::string("123").into_untagged_value()]),
             },
+            Example {
+                description: "Use rpad to pad unicode",
+                example: "echo '▉' | str rpad -l 10 -c '▉'",
+                result: Some(vec![
+                    UntaggedValue::string("▉▉▉▉▉▉▉▉▉▉").into_untagged_value()
+                ]),
+            },
         ]
     }
 }
@@ -85,16 +92,17 @@ async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(input
         .map(move |v| {
             let len = length.item;
-            let character = character.item;
+            let character = character.item.clone();
             if column_paths.is_empty() {
                 ReturnSuccess::value(action(&v, len, character, v.tag())?)
             } else {
                 let mut ret = v;
 
                 for path in &column_paths {
+                    let str_clone = character.clone();
                     ret = ret.swap_data_by_column_path(
                         path,
-                        Box::new(move |old| action(old, len, character, old.tag())),
+                        Box::new(move |old| action(old, len, str_clone, old.tag())),
                     )?;
                 }
 
@@ -107,16 +115,19 @@ async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
 fn action(
     input: &Value,
     length: usize,
-    character: char,
+    character: String,
     tag: impl Into<Tag>,
 ) -> Result<Value, ShellError> {
     match &input.value {
         UntaggedValue::Primitive(Primitive::String(s)) => {
             if length < s.len() {
-                Ok(UntaggedValue::string(&s[0..length]).into_value(tag))
+                Ok(
+                    UntaggedValue::string(s.chars().take(length).collect::<String>())
+                        .into_value(tag),
+                )
             } else {
                 let mut res = s.to_string();
-                res += character.to_string().repeat(length - s.len()).as_str();
+                res += character.repeat(length - s.chars().count()).as_str();
                 Ok(UntaggedValue::string(res).into_value(tag))
             }
         }
@@ -149,7 +160,7 @@ mod tests {
     #[test]
     fn right_pad_with_zeros() {
         let word = string("123");
-        let pad_char = '0';
+        let pad_char = '0'.to_string();
         let pad_len = 10;
         let expected = UntaggedValue::string("1230000000").into_untagged_value();
 
@@ -160,7 +171,7 @@ mod tests {
     #[test]
     fn right_pad_but_truncate() {
         let word = string("123456789");
-        let pad_char = '0';
+        let pad_char = '0'.to_string();
         let pad_len = 3;
         let expected = UntaggedValue::string("123").into_untagged_value();
 
