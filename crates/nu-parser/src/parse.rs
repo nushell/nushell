@@ -304,7 +304,7 @@ fn parse_operator(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<Pars
         "/" => Operator::Divide,
         "in" => Operator::In,
         "not-in" => Operator::NotIn,
-        "%" | "mod" => Operator::Modulo,
+        "mod" => Operator::Modulo,
         "&&" => Operator::And,
         "||" => Operator::Or,
         _ => {
