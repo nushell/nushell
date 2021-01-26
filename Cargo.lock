@@ -2773,7 +2773,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "clap",
  "ctrlc",
@@ -2815,7 +2815,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cli"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "Inflector",
  "ansi_term 0.12.1",
@@ -2916,7 +2916,7 @@ dependencies = [
 
 [[package]]
 name = "nu-command"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "Inflector",
  "ansi_term 0.12.1",
@@ -3016,7 +3016,7 @@ dependencies = [
 
 [[package]]
 name = "nu-data"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "ansi_term 0.12.1",
  "bigdecimal",
@@ -3046,7 +3046,7 @@ dependencies = [
 
 [[package]]
 name = "nu-engine"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "ansi_term 0.12.1",
  "async-recursion",
@@ -3088,7 +3088,7 @@ dependencies = [
 
 [[package]]
 name = "nu-errors"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "ansi_term 0.12.1",
  "bigdecimal",
@@ -3107,7 +3107,7 @@ dependencies = [
 
 [[package]]
 name = "nu-json"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "lazy_static 1.4.0",
  "num-traits 0.2.14",
@@ -3117,7 +3117,7 @@ dependencies = [
 
 [[package]]
 name = "nu-parser"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "bigdecimal",
  "codespan-reporting",
@@ -3138,7 +3138,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "bigdecimal",
  "indexmap",
@@ -3154,7 +3154,7 @@ dependencies = [
 
 [[package]]
 name = "nu-protocol"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "bigdecimal",
  "byte-unit",
@@ -3177,7 +3177,7 @@ dependencies = [
 
 [[package]]
 name = "nu-source"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "derive-new",
  "getset",
@@ -3188,7 +3188,7 @@ dependencies = [
 
 [[package]]
 name = "nu-stream"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "futures 0.3.12",
  "nu-errors",
@@ -3198,7 +3198,7 @@ dependencies = [
 
 [[package]]
 name = "nu-table"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "ansi_term 0.12.1",
  "regex 1.4.3",
@@ -3207,7 +3207,7 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "bigdecimal",
  "chrono",
@@ -3225,7 +3225,7 @@ dependencies = [
 
 [[package]]
 name = "nu-value-ext"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "indexmap",
  "itertools",
@@ -3237,7 +3237,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_binaryview"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "ansi_term 0.12.1",
  "crossterm 0.18.2",
@@ -3253,7 +3253,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_chart"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "crossterm 0.19.0",
  "nu-cli",
@@ -3268,7 +3268,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_fetch"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "base64 0.13.0",
  "futures 0.3.12",
@@ -3282,7 +3282,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_from_bson"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "bigdecimal",
  "bson",
@@ -3296,7 +3296,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_from_sqlite"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "bigdecimal",
  "nu-errors",
@@ -3311,7 +3311,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_inc"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "nu-errors",
  "nu-plugin",
@@ -3324,7 +3324,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_match"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "nu-errors",
  "nu-plugin",
@@ -3335,7 +3335,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_post"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "base64 0.12.3",
  "futures 0.3.12",
@@ -3351,7 +3351,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_ps"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "futures 0.3.12",
  "futures-timer",
@@ -3365,7 +3365,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_s3"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "futures 0.3.12",
  "nu-errors",
@@ -3377,7 +3377,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_selector"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "nipper",
  "nu-errors",
@@ -3389,7 +3389,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_start"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "glob",
  "nu-errors",
@@ -3402,7 +3402,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_sys"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "futures 0.3.12",
  "futures-util",
@@ -3416,7 +3416,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_textview"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "ansi_term 0.12.1",
  "bat",
@@ -3431,7 +3431,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_to_bson"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "bson",
  "nu-errors",
@@ -3444,7 +3444,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_to_sqlite"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "hex 0.4.2",
  "nu-errors",
@@ -3459,7 +3459,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_tree"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "derive-new",
  "nu-errors",
@@ -3471,7 +3471,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_xpath"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "bigdecimal",
  "indexmap",

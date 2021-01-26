@@ -4,20 +4,20 @@ description = "A plugin to open files/URLs directly from Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu_plugin_start"
-version = "0.25.2"
+version = "0.26.0"
 
 [lib]
 doctest = false
 
 [dependencies]
 glob = "0.3.0"
-nu-errors = {path = "../nu-errors", version = "0.25.2"}
-nu-plugin = {path = "../nu-plugin", version = "0.25.2"}
-nu-protocol = {path = "../nu-protocol", version = "0.25.2"}
-nu-source = {path = "../nu-source", version = "0.25.2"}
+nu-errors = {path = "../nu-errors", version = "0.26.0"}
+nu-plugin = {path = "../nu-plugin", version = "0.26.0"}
+nu-protocol = {path = "../nu-protocol", version = "0.26.0"}
+nu-source = {path = "../nu-source", version = "0.26.0"}
 open = "1.4.0"
 url = "2.1.1"
 
 [build-dependencies]
-nu-errors = {version = "0.25.2", path = "../nu-errors"}
-nu-source = {version = "0.25.2", path = "../nu-source"}
+nu-errors = {version = "0.26.0", path = "../nu-errors"}
+nu-source = {version = "0.26.0", path = "../nu-source"}

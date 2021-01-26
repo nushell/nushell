@@ -5,24 +5,24 @@ description = "CLI for nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-command"
-version = "0.25.2"
+version = "0.26.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-data = { version = "0.25.2", path = "../nu-data" }
-nu-engine = { version = "0.25.2", path = "../nu-engine" }
-nu-errors = { version = "0.25.2", path = "../nu-errors" }
-nu-json = { version = "0.25.2", path = "../nu-json" }
-nu-parser = { version = "0.25.2", path = "../nu-parser" }
-nu-plugin = { version = "0.25.2", path = "../nu-plugin" }
-nu-protocol = { version = "0.25.2", path = "../nu-protocol" }
-nu-source = { version = "0.25.2", path = "../nu-source" }
-nu-stream = { version = "0.25.2", path = "../nu-stream" }
-nu-table = { version = "0.25.2", path = "../nu-table" }
-nu-test-support = { version = "0.25.2", path = "../nu-test-support" }
-nu-value-ext = { version = "0.25.2", path = "../nu-value-ext" }
+nu-data = { version = "0.26.0", path = "../nu-data" }
+nu-engine = { version = "0.26.0", path = "../nu-engine" }
+nu-errors = { version = "0.26.0", path = "../nu-errors" }
+nu-json = { version = "0.26.0", path = "../nu-json" }
+nu-parser = { version = "0.26.0", path = "../nu-parser" }
+nu-plugin = { version = "0.26.0", path = "../nu-plugin" }
+nu-protocol = { version = "0.26.0", path = "../nu-protocol" }
+nu-source = { version = "0.26.0", path = "../nu-source" }
+nu-stream = { version = "0.26.0", path = "../nu-stream" }
+nu-table = { version = "0.26.0", path = "../nu-table" }
+nu-test-support = { version = "0.26.0", path = "../nu-test-support" }
+nu-value-ext = { version = "0.26.0", path = "../nu-value-ext" }
 
 Inflector = "0.11"
 ansi_term = "0.12.1"
