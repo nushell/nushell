@@ -11,8 +11,6 @@ use super::lib_code::{
     ParseResult,
 };
 
-///Better use Type
-///Type parses (: shape)?
 pub(crate) struct ShapeUnchecked;
 pub(crate) type Shape = Expect<ShapeUnchecked>;
 impl Parse for ShapeUnchecked {

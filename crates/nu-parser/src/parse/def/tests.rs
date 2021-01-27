@@ -1,9 +1,11 @@
 #[allow(unused_imports)]
+use super::lex_fixup::{lex_split_baseline_tokens_on, lex_split_shortflag_from_longflag};
+#[allow(unused_imports)]
 use super::lib_code::parse_lib::Parse;
 #[allow(unused_imports)]
 use super::lib_code::ParseResult;
 #[allow(unused_imports)]
-use super::param_flag_list::{lex_split_baseline_tokens_on, lex_split_shortflag_from_longflag};
+use super::param_flag_list::{};
 #[allow(unused_imports)]
 use super::param_flag_list::{parse_signature, Flag};
 #[allow(unused_imports)]
@@ -166,6 +168,15 @@ fn err_wrong_type() {
         "def f [ param1:strig ] { echo hi }"
     );
     assert!(actual.err.contains("type"));
+}
+
+#[test]
+fn err_wrong_dash_count() {
+    let actual = nu!(
+        cwd: ".",
+        "def f [ --flag(--f)] { echo hi }"
+    );
+    assert!(actual.err.contains(""));
 }
 
 //For what ever reason, this gets reported as not used

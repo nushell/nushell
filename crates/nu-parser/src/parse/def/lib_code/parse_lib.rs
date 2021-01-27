@@ -3,7 +3,7 @@ use std::marker;
 
 use crate::{lex::Token, parse::util::token_to_spanned_string};
 use nu_errors::ParseError;
-use nu_source::{Span, Spanned, SpannedItem};
+use nu_source::Span;
 
 use super::ParseResult;
 
@@ -315,7 +315,7 @@ pub(crate) struct WithSpan<Parser: CheckedParse> {
 impl<Parser: CheckedParse> CheckedParse for WithSpan<Parser> {}
 
 impl<Parser: CheckedParse> Parse for WithSpan<Parser> {
-    type Output = Spanned<Parser::Output>;
+    type Output = (Span, Parser::Output);
 
     fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         let i_before = i;
@@ -331,7 +331,7 @@ impl<Parser: CheckedParse> Parse for WithSpan<Parser> {
             Span::unknown()
         };
 
-        ParseResult::new(value.spanned(span), i, err)
+        ParseResult::new((span, value), i, err)
     }
 
     fn display_name() -> String {
@@ -339,6 +339,6 @@ impl<Parser: CheckedParse> Parse for WithSpan<Parser> {
     }
 
     fn default_error_value() -> Self::Output {
-        Parser::default_error_value().spanned_unknown()
+        (Span::unknown(), Parser::default_error_value())
     }
 }

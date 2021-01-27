@@ -10,20 +10,19 @@
 ///    ...rest (<:> type)? item_end
 ///item_end:
 ///    (<,>)? (#Comment)? (<eol>)?
-///
-use log::debug;
-
 use crate::{
     lex::{lex, Token, TokenContents},
     parse::def::lib_code::parse_lib::{And2, CheckedParse, IfSuccessThen, Maybe, Parse},
 };
+use log::debug;
 use nu_errors::ParseError;
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape};
 use nu_source::{Span, Spanned};
 
 use super::{
+    lex_fixup::{lex_split_baseline_tokens_on, lex_split_shortflag_from_longflag},
     lib_code::{
-        parse_lib::{And3, ParseInto, WithSpan},
+        parse_lib::{And3, WithSpan},
         ParseResult,
     },
     primitives::{
@@ -85,7 +84,7 @@ pub(crate) fn parse_signature(
             err = err.or(error);
             i = i_new;
             flags.push(flag);
-        } else if is_rest(&tokens[i]) {
+        } else if can_be_rest(&tokens[i]) {
             let ParseResult {
                 value: rest_,
                 i: i_new,
@@ -112,21 +111,28 @@ pub(crate) fn parse_signature(
     (signature, err)
 }
 
+type Description = String;
+#[derive(Clone, new)]
+struct Parameter {
+    pub pos_type: PositionalType,
+    pub desc: Option<Description>,
+    pub span: Span,
+}
+
 impl CheckedParse for Parameter {}
-impl
-    From<(
-        Spanned<(String, Option<()>, Option<SyntaxShape>)>,
-        Option<String>,
-    )> for Parameter
-{
-    fn from(
-        (spanned_param, comment): (
-            Spanned<(String, Option<()>, Option<SyntaxShape>)>,
-            Option<String>,
-        ),
-    ) -> Self {
-        let span = spanned_param.span;
-        let (name, optional, type_) = spanned_param.item;
+impl Parse for Parameter {
+    type Output = Parameter;
+
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
+        let ParseResult {
+            value: ((span, (name, optional, type_)), comment),
+            i,
+            err }
+        = And2::<
+            WithSpan<And3<ParameterName, Maybe<OptionalModifier>, OptionalType>>,
+            ItemEnd,
+        >::parse(tokens, i);
+
         let type_ = type_.unwrap_or(SyntaxShape::Any);
 
         let pos_type = if optional.is_some() {
@@ -135,26 +141,14 @@ impl
             PositionalType::mandatory(&name, type_)
         };
 
-        Parameter::new(pos_type, comment, span)
-    }
-}
-
-impl Parse for Parameter {
-    type Output = Parameter;
-
-    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
-        let result = ParseInto::<
-            Parameter,
-            And2<WithSpan<And3<ParameterName, Maybe<OptionalModifier>, OptionalType>>, ItemEnd>,
-        >::parse(tokens, i);
-
+        let parameter = Parameter::new(pos_type, comment, span);
         debug!(
             "Parsed parameter: {} with shape {:?}",
-            result.value.pos_type.name(),
-            result.value.pos_type.syntax_type()
+            parameter.pos_type.name(),
+            parameter.pos_type.syntax_type()
         );
 
-        result
+        ParseResult::new(parameter, i, err)
     }
 
     fn display_name() -> String {
@@ -162,24 +156,35 @@ impl Parse for Parameter {
     }
 
     fn default_error_value() -> Self::Output {
-        Parameter::error()
+        Parameter::new(
+            PositionalType::optional("Error", SyntaxShape::Any),
+            Some("Garbage parameter, generated from the Parser".to_string()),
+            Span::unknown(),
+        )
     }
 }
 
-impl
-    From<(
-        Spanned<(String, Option<char>, Option<SyntaxShape>)>,
-        Option<String>,
-    )> for Flag
-{
-    fn from(
-        (spanned_flag, comment): (
-            Spanned<(String, Option<char>, Option<SyntaxShape>)>,
-            Option<String>,
-        ),
-    ) -> Self {
-        let span = spanned_flag.span;
-        let (name, shortform, type_) = spanned_flag.item;
+#[derive(Clone, Debug, new)]
+pub(crate) struct Flag {
+    pub long_name: String,
+    pub named_type: NamedType,
+    pub desc: Option<Description>,
+    pub span: Span,
+}
+
+impl CheckedParse for Flag {}
+impl Parse for Flag {
+    type Output = Flag;
+
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
+        let ParseResult {
+            value: ((span, (name, shortform, type_)), comment),
+            i,
+            err
+        } = And2::
+            <WithSpan<And3<FlagName, Maybe<FlagShortName>, OptionalType>>,
+            ItemEnd>
+                ::parse(tokens, i);
 
         //If no type is given, the flag is a switch. Otherwise its optional
         //Example:
@@ -191,22 +196,10 @@ impl
             NamedType::Switch(shortform)
         };
 
-        Flag::new(name, named_type, comment, span)
-    }
-}
+        let flag = Flag::new(name, named_type, comment, span);
+        debug!("Parsed flag: {:?}", flag);
 
-impl CheckedParse for Flag {}
-impl Parse for Flag {
-    type Output = Flag;
-
-    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
-        let result = ParseInto::<
-            Flag,
-            And2<WithSpan<And3<FlagName, Maybe<FlagShortName>, OptionalType>>, ItemEnd>,
-        >::parse(tokens, i);
-
-        debug!("Parsed flag: {:?}", result.value);
-        result
+        ParseResult::new(flag, i, err)
     }
 
     fn display_name() -> String {
@@ -214,7 +207,12 @@ impl Parse for Flag {
     }
 
     fn default_error_value() -> Self::Output {
-        Flag::error()
+        Flag::new(
+            "Error".to_string(),
+            NamedType::Switch(None),
+            Some("Garbage flag, generated from the Parser".to_string()),
+            Span::unknown(),
+        )
     }
 }
 
@@ -252,7 +250,6 @@ impl Parse for Rest {
 ///Parses the end of a flag or a parameter
 ///Return value is Option<Comment>
 ///   (<,>)? (#Comment)? (<eol>)?
-// type ItemEnd = Option<Description>;
 struct ItemEnd {}
 impl CheckedParse for ItemEnd {}
 impl Parse for ItemEnd {
@@ -260,10 +257,10 @@ impl Parse for ItemEnd {
     type Output = Option<Description>;
     fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         let ParseResult {
-            value: (_, (comment, _)),
+            value: (_, comment, _),
             i,
             err,
-        } = And2::<Maybe<Comma>, And2<Maybe<Comment>, Maybe<EOL>>>::parse(tokens, i);
+        } = And3::<Maybe<Comma>, Maybe<Comment>, Maybe<EOL>>::parse(tokens, i);
 
         ParseResult::new(comment, i, err)
     }
@@ -277,8 +274,36 @@ impl Parse for ItemEnd {
     }
 }
 
+struct OptionalType {}
+impl CheckedParse for OptionalType {}
+
+impl Parse for OptionalType {
+    type Output = Option<SyntaxShape>;
+
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
+        let ParseResult {
+            value,
+            i: i_new,
+            err,
+        } = IfSuccessThen::<DoublePoint, Shape>::parse(tokens, i);
+        if let Some((_, shape)) = value {
+            ParseResult::new(Some(shape), i_new, err)
+        } else {
+            ParseResult::new(None, i, None)
+        }
+    }
+
+    fn display_name() -> String {
+        "type".to_string()
+    }
+
+    fn default_error_value() -> Self::Output {
+        Some(SyntaxShape::Any)
+    }
+}
+
 ///Returns true if token potentially represents rest argument
-fn is_rest(token: &Token) -> bool {
+fn can_be_rest(token: &Token) -> bool {
     match &token.contents {
         TokenContents::Baseline(item) => item.starts_with("..."),
         _ => false,
@@ -317,182 +342,4 @@ fn to_signature(
     sign.rest_positional = rest;
 
     sign
-}
-
-//Currently the lexer does not split off baselines after existing text
-//Example --flag(-f) is lexed as one baseline token.
-//To properly parse the input, it is required that --flag and (-f) are 2 tokens.
-pub(crate) fn lex_split_shortflag_from_longflag(tokens: Vec<Token>) -> Vec<Token> {
-    let mut result = Vec::with_capacity(tokens.capacity());
-    for token in tokens {
-        let mut processed = false;
-        if let TokenContents::Baseline(base) = &token.contents {
-            if let Some(paren_start) = base.find('(') {
-                if paren_start != 0 {
-                    processed = true;
-                    //If token contains '(' and '(' is not the first char,
-                    //we split on '('
-                    //Example: Baseline(--flag(-f)) results in: [Baseline(--flag), Baseline((-f))]
-                    let paren_span_i = token.span.start() + paren_start;
-                    result.push(Token::new(
-                        TokenContents::Baseline(base[..paren_start].to_string()),
-                        Span::new(token.span.start(), paren_span_i),
-                    ));
-                    result.push(Token::new(
-                        TokenContents::Baseline(base[paren_start..].to_string()),
-                        Span::new(paren_span_i, token.span.end()),
-                    ));
-                }
-            }
-        }
-
-        if !processed {
-            result.push(token);
-        }
-    }
-    result
-}
-//Currently the lexer does not split baselines on ',' ':' '?'
-//The parameter list requires this. Therefore here is a hacky method doing this.
-pub(crate) fn lex_split_baseline_tokens_on(
-    tokens: Vec<Token>,
-    extra_baseline_terminal_tokens: &[char],
-) -> Vec<Token> {
-    debug!("Before lex fix up {:?}", tokens);
-    let make_new_token =
-        |token_new: String, token_new_end: usize, terminator_char: Option<char>| {
-            let end = token_new_end;
-            let start = end - token_new.len();
-
-            let mut result = vec![];
-            //Only add token if its not empty
-            if !token_new.is_empty() {
-                result.push(Token::new(
-                    TokenContents::Baseline(token_new),
-                    Span::new(start, end),
-                ));
-            }
-            //Insert terminator_char as baseline token
-            if let Some(ch) = terminator_char {
-                result.push(Token::new(
-                    TokenContents::Baseline(ch.to_string()),
-                    Span::new(end, end + 1),
-                ));
-            }
-
-            result
-        };
-    let mut result = Vec::with_capacity(tokens.len());
-    for token in tokens {
-        match token.contents {
-            TokenContents::Baseline(base) => {
-                let token_offset = token.span.start();
-                let mut current = "".to_string();
-                for (i, c) in base.chars().enumerate() {
-                    if extra_baseline_terminal_tokens.contains(&c) {
-                        result.extend(make_new_token(current, i + token_offset, Some(c)));
-                        current = "".to_string();
-                    } else {
-                        current.push(c);
-                    }
-                }
-                result.extend(make_new_token(current, base.len() + token_offset, None));
-            }
-            _ => result.push(token),
-        }
-    }
-    result
-}
-
-type Description = String;
-#[derive(Clone)]
-struct Parameter {
-    pub pos_type: PositionalType,
-    pub desc: Option<Description>,
-    pub span: Span,
-}
-
-impl Parameter {
-    pub fn new(pos_type: PositionalType, desc: Option<Description>, span: Span) -> Parameter {
-        Parameter {
-            pos_type,
-            desc,
-            span,
-        }
-    }
-
-    pub fn error() -> Parameter {
-        Parameter::new(
-            PositionalType::optional("Internal Error", SyntaxShape::Any),
-            Some(
-                "Wanted to parse a parameter, but no input present. Please report this error!"
-                    .to_string(),
-            ),
-            Span::unknown(),
-        )
-    }
-}
-
-#[derive(Clone, Debug)]
-pub(crate) struct Flag {
-    pub long_name: String,
-    pub named_type: NamedType,
-    pub desc: Option<Description>,
-    pub span: Span,
-}
-
-impl Flag {
-    pub fn new(
-        long_name: String,
-        named_type: NamedType,
-        desc: Option<Description>,
-        span: Span,
-    ) -> Flag {
-        Flag {
-            long_name,
-            named_type,
-            desc,
-            span,
-        }
-    }
-
-    pub fn error() -> Flag {
-        Flag::new(
-            "Internal Error".to_string(),
-            NamedType::Switch(None),
-            Some(
-                "Wanted to parse a flag, but no input present. Please report this error!"
-                    .to_string(),
-            ),
-            Span::unknown(),
-        )
-    }
-}
-
-struct OptionalType {}
-impl CheckedParse for OptionalType {}
-
-impl Parse for OptionalType {
-    type Output = Option<SyntaxShape>;
-
-    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
-        let ParseResult {
-            value,
-            i: i_new,
-            err,
-        } = IfSuccessThen::<DoublePoint, Shape>::parse(tokens, i);
-        if let Some((_, shape)) = value {
-            ParseResult::new(Some(shape), i_new, err)
-        } else {
-            ParseResult::new(None, i, None)
-        }
-    }
-
-    fn display_name() -> String {
-        "type".to_string()
-    }
-
-    fn default_error_value() -> Self::Output {
-        Some(SyntaxShape::Any)
-    }
 }

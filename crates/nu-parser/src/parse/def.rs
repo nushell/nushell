@@ -12,6 +12,7 @@ use crate::ParserScope;
 
 use self::param_flag_list::parse_signature;
 
+mod lex_fixup;
 mod lib_code;
 mod param_flag_list;
 mod primitives;
