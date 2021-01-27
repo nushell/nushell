@@ -127,6 +127,11 @@ pub fn action(
                 }
             }
             Primitive::Decimal(dec) => format_decimal(dec.clone(), digits, group_digits),
+            Primitive::String(a_string) => a_string.to_string(),
+            Primitive::Boolean(a_bool) => a_bool.to_string(),
+            Primitive::Date(a_date) => a_date.format("%c").to_string(),
+            Primitive::FilePath(a_filepath) => a_filepath.as_path().display().to_string(),
+            Primitive::Filesize(a_filesize) => a_filesize.to_string(),
             _ => {
                 return Err(ShellError::unimplemented(
                     "str from for non-numeric primitives",
