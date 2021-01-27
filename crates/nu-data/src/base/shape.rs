@@ -1,10 +1,9 @@
-// use crate::config::{Conf, NuConfig};
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, FixedOffset};
 use indexmap::map::IndexMap;
 use nu_protocol::RangeInclusion;
 use nu_protocol::{format_primitive, ColumnPath, Dictionary, Primitive, UntaggedValue, Value};
-use nu_source::{b, DebugDocBuilder, PrettyDebug, Tag};
+use nu_source::{DbgDocBldr, DebugDocBuilder, PrettyDebug, Tag};
 use num_bigint::BigInt;
 use num_format::{Locale, ToFormattedString};
 use serde::{Deserialize, Serialize};
@@ -128,6 +127,70 @@ impl InlineShape {
             column: None,
         }
     }
+
+    pub fn format_bytes(bytesize: &u64) -> (DbgDocBldr, String) {
+        // get the config value, if it doesn't exist make it 'auto' so it works how it originally did
+        let filesize_format_var = crate::config::config(Tag::unknown())
+            .expect("unable to get the config.toml file")
+            .get("filesize_format")
+            .map(|val| val.convert_to_string().to_ascii_lowercase())
+            .unwrap_or_else(|| "auto".to_string());
+        // if there is a value, match it to one of the valid values for byte units
+        let filesize_format = match filesize_format_var.as_str() {
+            "b" => (byte_unit::ByteUnit::B, ""),
+            "kb" => (byte_unit::ByteUnit::KB, ""),
+            "kib" => (byte_unit::ByteUnit::KiB, ""),
+            "mb" => (byte_unit::ByteUnit::MB, ""),
+            "mib" => (byte_unit::ByteUnit::MiB, ""),
+            "gb" => (byte_unit::ByteUnit::GB, ""),
+            "gib" => (byte_unit::ByteUnit::GiB, ""),
+            "tb" => (byte_unit::ByteUnit::TB, ""),
+            "tib" => (byte_unit::ByteUnit::TiB, ""),
+            "pb" => (byte_unit::ByteUnit::PB, ""),
+            "pib" => (byte_unit::ByteUnit::PiB, ""),
+            "eb" => (byte_unit::ByteUnit::EB, ""),
+            "eib" => (byte_unit::ByteUnit::EiB, ""),
+            "zb" => (byte_unit::ByteUnit::ZB, ""),
+            "zib" => (byte_unit::ByteUnit::ZiB, ""),
+            _ => (byte_unit::ByteUnit::B, "auto"),
+        };
+
+        let byte = byte_unit::Byte::from_bytes(*bytesize as u128);
+        let byte = if filesize_format.0 == byte_unit::ByteUnit::B && filesize_format.1 == "auto" {
+            byte.get_appropriate_unit(false)
+        } else {
+            byte.get_adjusted_unit(filesize_format.0)
+        };
+
+        match byte.get_unit() {
+            byte_unit::ByteUnit::B => {
+                let locale_byte = byte.get_value() as u64;
+                let locale_byte_string = locale_byte.to_formatted_string(&Locale::en);
+                if filesize_format.1 == "auto" {
+                    let doc = (DbgDocBldr::primitive(locale_byte_string)
+                        + DbgDocBldr::space()
+                        + DbgDocBldr::kind("B"))
+                    .group();
+                    (doc.clone(), InlineShape::render_doc(&doc))
+                } else {
+                    let doc = (DbgDocBldr::primitive(locale_byte_string)).group();
+                    (doc.clone(), InlineShape::render_doc(&doc))
+                }
+            }
+            _ => {
+                let doc = DbgDocBldr::primitive(byte.format(1));
+                (doc.clone(), InlineShape::render_doc(&doc))
+            }
+        }
+    }
+
+    pub fn render_doc(doc: &DebugDocBuilder) -> String {
+        let mut w = Vec::new();
+        doc.to_doc()
+            .render(1000, &mut w)
+            .expect("Error rendering bytes");
+        String::from_utf8_lossy(&w).to_string()
+    }
 }
 
 impl PrettyDebug for FormatInlineShape {
@@ -135,11 +198,12 @@ impl PrettyDebug for FormatInlineShape {
         let column = &self.column;
 
         match &self.shape {
-            InlineShape::Nothing => b::blank(),
-            InlineShape::Int(int) => b::primitive(format!("{}", int)),
-            InlineShape::Decimal(decimal) => {
-                b::description(format_primitive(&Primitive::Decimal(decimal.clone()), None))
-            }
+            InlineShape::Nothing => DbgDocBldr::blank(),
+            InlineShape::Int(int) => DbgDocBldr::primitive(format!("{}", int)),
+            InlineShape::Decimal(decimal) => DbgDocBldr::description(format_primitive(
+                &Primitive::Decimal(decimal.clone()),
+                None,
+            )),
             InlineShape::Range(range) => {
                 let (left, left_inclusion) = &range.from;
                 let (right, right_inclusion) = &range.to;
@@ -153,63 +217,22 @@ impl PrettyDebug for FormatInlineShape {
                     ),
                 };
 
-                left.clone().format().pretty() + b::operator(op) + right.clone().format().pretty()
+                left.clone().format().pretty()
+                    + DbgDocBldr::operator(op)
+                    + right.clone().format().pretty()
             }
             InlineShape::Bytesize(bytesize) => {
-                // get the config value, if it doesn't exist make it 'auto' so it works how it originally did
-                let filesize_format_var = crate::config::config(Tag::unknown())
-                    .expect("unable to get the config.toml file")
-                    .get("filesize_format")
-                    .map(|val| val.convert_to_string().to_ascii_lowercase())
-                    .unwrap_or_else(|| "auto".to_string());
-                // if there is a value, match it to one of the valid values for byte units
-                let filesize_format = match filesize_format_var.as_str() {
-                    "b" => (byte_unit::ByteUnit::B, ""),
-                    "kb" => (byte_unit::ByteUnit::KB, ""),
-                    "kib" => (byte_unit::ByteUnit::KiB, ""),
-                    "mb" => (byte_unit::ByteUnit::MB, ""),
-                    "mib" => (byte_unit::ByteUnit::MiB, ""),
-                    "gb" => (byte_unit::ByteUnit::GB, ""),
-                    "gib" => (byte_unit::ByteUnit::GiB, ""),
-                    "tb" => (byte_unit::ByteUnit::TB, ""),
-                    "tib" => (byte_unit::ByteUnit::TiB, ""),
-                    "pb" => (byte_unit::ByteUnit::PB, ""),
-                    "pib" => (byte_unit::ByteUnit::PiB, ""),
-                    "eb" => (byte_unit::ByteUnit::EB, ""),
-                    "eib" => (byte_unit::ByteUnit::EiB, ""),
-                    "zb" => (byte_unit::ByteUnit::ZB, ""),
-                    "zib" => (byte_unit::ByteUnit::ZiB, ""),
-                    _ => (byte_unit::ByteUnit::B, "auto"),
-                };
-
-                let byte = byte_unit::Byte::from_bytes(*bytesize as u128);
-                let byte =
-                    if filesize_format.0 == byte_unit::ByteUnit::B && filesize_format.1 == "auto" {
-                        byte.get_appropriate_unit(false)
-                    } else {
-                        byte.get_adjusted_unit(filesize_format.0)
-                    };
-
-                match byte.get_unit() {
-                    byte_unit::ByteUnit::B => {
-                        let locale_byte = byte.get_value() as u64;
-                        let locale_byte_string = locale_byte.to_formatted_string(&Locale::en);
-                        if filesize_format.1 == "auto" {
-                            (b::primitive(locale_byte_string) + b::space() + b::kind("B")).group()
-                        } else {
-                            (b::primitive(locale_byte_string)).group()
-                        }
-                    }
-                    _ => b::primitive(byte.format(1)),
-                }
+                let bytes = InlineShape::format_bytes(bytesize);
+                bytes.0
             }
-            InlineShape::String(string) => b::primitive(string),
-            InlineShape::Line(string) => b::primitive(string),
-            InlineShape::ColumnPath(path) => {
-                b::intersperse(path.iter().map(|member| member.pretty()), b::keyword("."))
-            }
-            InlineShape::GlobPattern(pattern) => b::primitive(pattern),
-            InlineShape::Boolean(boolean) => b::primitive(
+            InlineShape::String(string) => DbgDocBldr::primitive(string),
+            InlineShape::Line(string) => DbgDocBldr::primitive(string),
+            InlineShape::ColumnPath(path) => DbgDocBldr::intersperse(
+                path.iter().map(|member| member.pretty()),
+                DbgDocBldr::keyword("."),
+            ),
+            InlineShape::GlobPattern(pattern) => DbgDocBldr::primitive(pattern),
+            InlineShape::Boolean(boolean) => DbgDocBldr::primitive(
                 match (boolean, column) {
                     (true, None) => "Yes",
                     (false, None) => "No",
@@ -220,45 +243,47 @@ impl PrettyDebug for FormatInlineShape {
                 }
                 .to_owned(),
             ),
-            InlineShape::Date(date) => b::primitive(nu_protocol::format_date(date)),
-            InlineShape::Duration(duration) => b::description(format_primitive(
+            InlineShape::Date(date) => DbgDocBldr::primitive(nu_protocol::format_date(date)),
+            InlineShape::Duration(duration) => DbgDocBldr::description(format_primitive(
                 &Primitive::Duration(duration.clone()),
                 None,
             )),
-            InlineShape::FilePath(path) => b::primitive(path.display()),
-            InlineShape::Binary(length) => b::opaque(format!("<binary: {} bytes>", length)),
-            InlineShape::Row(row) => b::delimit(
+            InlineShape::FilePath(path) => DbgDocBldr::primitive(path.display()),
+            InlineShape::Binary(length) => {
+                DbgDocBldr::opaque(format!("<binary: {} bytes>", length))
+            }
+            InlineShape::Row(row) => DbgDocBldr::delimit(
                 "[",
-                b::kind("row")
-                    + b::space()
+                DbgDocBldr::kind("row")
+                    + DbgDocBldr::space()
                     + if row.map.keys().len() <= 6 {
-                        b::intersperse(
+                        DbgDocBldr::intersperse(
                             row.map.keys().map(|key| match key {
-                                Column::String(string) => b::description(string),
-                                Column::Value => b::blank(),
+                                Column::String(string) => DbgDocBldr::description(string),
+                                Column::Value => DbgDocBldr::blank(),
                             }),
-                            b::space(),
+                            DbgDocBldr::space(),
                         )
                     } else {
-                        b::description(format!("{} columns", row.map.keys().len()))
+                        DbgDocBldr::description(format!("{} columns", row.map.keys().len()))
                     },
                 "]",
             )
             .group(),
-            InlineShape::Table(rows) => b::delimit(
+            InlineShape::Table(rows) => DbgDocBldr::delimit(
                 "[",
-                b::kind("table")
-                    + b::space()
-                    + b::primitive(rows.len())
-                    + b::space()
-                    + b::description("rows"),
+                DbgDocBldr::kind("table")
+                    + DbgDocBldr::space()
+                    + DbgDocBldr::primitive(rows.len())
+                    + DbgDocBldr::space()
+                    + DbgDocBldr::description("rows"),
                 "]",
             )
             .group(),
-            InlineShape::Block => b::opaque("block"),
-            InlineShape::Error => b::error("error"),
-            InlineShape::BeginningOfStream => b::blank(),
-            InlineShape::EndOfStream => b::blank(),
+            InlineShape::Block => DbgDocBldr::opaque("block"),
+            InlineShape::Error => DbgDocBldr::error("error"),
+            InlineShape::BeginningOfStream => DbgDocBldr::blank(),
+            InlineShape::EndOfStream => DbgDocBldr::blank(),
         }
     }
 }

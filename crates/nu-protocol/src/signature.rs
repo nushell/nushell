@@ -1,7 +1,7 @@
 use crate::syntax_shape::SyntaxShape;
 use crate::type_shape::Type;
 use indexmap::IndexMap;
-use nu_source::{b, DebugDocBuilder, PrettyDebug, PrettyDebugWithSource};
+use nu_source::{DbgDocBldr, DebugDocBuilder, PrettyDebug, PrettyDebugWithSource};
 use serde::{Deserialize, Serialize};
 
 /// The types of named parameter that a command can have
@@ -39,12 +39,17 @@ impl PrettyDebug for PositionalType {
     fn pretty(&self) -> DebugDocBuilder {
         match self {
             PositionalType::Mandatory(string, shape) => {
-                b::description(string) + b::delimit("(", shape.pretty(), ")").into_kind().group()
+                DbgDocBldr::description(string)
+                    + DbgDocBldr::delimit("(", shape.pretty(), ")")
+                        .into_kind()
+                        .group()
             }
             PositionalType::Optional(string, shape) => {
-                b::description(string)
-                    + b::operator("?")
-                    + b::delimit("(", shape.pretty(), ")").into_kind().group()
+                DbgDocBldr::description(string)
+                    + DbgDocBldr::operator("?")
+                    + DbgDocBldr::delimit("(", shape.pretty(), ")")
+                        .into_kind()
+                        .group()
             }
         }
     }
@@ -165,16 +170,16 @@ impl Signature {
 impl PrettyDebugWithSource for Signature {
     /// Prepare a Signature for pretty-printing
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
-        b::typed(
+        DbgDocBldr::typed(
             "signature",
-            b::description(&self.name)
-                + b::preceded(
-                    b::space(),
-                    b::intersperse(
+            DbgDocBldr::description(&self.name)
+                + DbgDocBldr::preceded(
+                    DbgDocBldr::space(),
+                    DbgDocBldr::intersperse(
                         self.positional
                             .iter()
                             .map(|(ty, _)| ty.pretty_debug(source)),
-                        b::space(),
+                        DbgDocBldr::space(),
                     ),
                 ),
         )

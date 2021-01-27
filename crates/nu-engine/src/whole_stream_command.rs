@@ -8,7 +8,7 @@ use nu_errors::ShellError;
 use nu_parser::ParserScope;
 use nu_protocol::hir::Block;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
-use nu_source::{b, DebugDocBuilder, PrettyDebugWithSource, Span, Tag};
+use nu_source::{DbgDocBldr, DebugDocBuilder, PrettyDebugWithSource, Span, Tag};
 use nu_stream::{OutputStream, ToOutputStream};
 use std::sync::Arc;
 
@@ -172,12 +172,12 @@ pub struct Command(Arc<dyn WholeStreamCommand>);
 
 impl PrettyDebugWithSource for Command {
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
-        b::typed(
+        DbgDocBldr::typed(
             "whole stream command",
-            b::description(self.name())
-                + b::space()
-                + b::equals()
-                + b::space()
+            DbgDocBldr::description(self.name())
+                + DbgDocBldr::space()
+                + DbgDocBldr::equals()
+                + DbgDocBldr::space()
                 + self.signature().pretty_debug(source),
         )
     }

@@ -92,7 +92,7 @@ pub type PrettyDebugDoc =
 
 pub type PrettyDebugDocBuilder = pretty::DocBuilder<'static, pretty::BoxAllocator, ShellAnnotation>;
 
-pub use self::DebugDocBuilder as b;
+pub use self::DebugDocBuilder as DbgDocBldr;
 
 #[derive(Clone, new)]
 pub struct DebugDocBuilder {
@@ -102,15 +102,15 @@ pub struct DebugDocBuilder {
 impl PrettyDebug for bool {
     fn pretty(&self) -> DebugDocBuilder {
         match self {
-            true => b::primitive("true"),
-            false => b::primitive("false"),
+            true => DbgDocBldr::primitive("true"),
+            false => DbgDocBldr::primitive("false"),
         }
     }
 }
 
 impl PrettyDebug for () {
     fn pretty(&self) -> DebugDocBuilder {
-        b::primitive("nothing")
+        DbgDocBldr::primitive("nothing")
     }
 }
 
@@ -172,7 +172,7 @@ impl DebugDocBuilder {
     }
 
     pub fn typed(kind: &str, value: DebugDocBuilder) -> DebugDocBuilder {
-        b::kind(kind) + b::delimit("[", value.group(), "]")
+        DbgDocBldr::kind(kind) + DbgDocBldr::delimit("[", value.group(), "]")
     }
 
     pub fn subtyped(
@@ -180,10 +180,12 @@ impl DebugDocBuilder {
         subkind: impl std::fmt::Display,
         value: DebugDocBuilder,
     ) -> DebugDocBuilder {
-        b::delimit(
+        DbgDocBldr::delimit(
             "(",
-            (b::kind(kind) + b::delimit("[", b::kind(format!("{}", subkind)), "]")).group()
-                + b::space()
+            (DbgDocBldr::kind(kind)
+                + DbgDocBldr::delimit("[", DbgDocBldr::kind(format!("{}", subkind)), "]"))
+            .group()
+                + DbgDocBldr::space()
                 + value.group(),
             ")",
         )
@@ -237,7 +239,7 @@ impl DebugDocBuilder {
     ) -> DebugDocBuilder {
         match builder {
             None => DebugDocBuilder::blank(),
-            Some(b) => b::option(before) + b + b::option(after),
+            Some(b) => DbgDocBldr::option(before) + b + DbgDocBldr::option(after),
         }
     }
 
@@ -398,7 +400,7 @@ impl<T: PrettyDebug> PrettyDebugWithSource for T {
 impl<T: PrettyDebugWithSource, E> PrettyDebugWithSource for Result<T, E> {
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         match self {
-            Err(_) => b::error("error"),
+            Err(_) => DbgDocBldr::error("error"),
             Ok(val) => val.pretty_debug(source),
         }
     }

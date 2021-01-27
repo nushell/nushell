@@ -4,7 +4,7 @@ use crate::value::{UntaggedValue, Value};
 use derive_new::new;
 use getset::Getters;
 use indexmap::IndexMap;
-use nu_source::{b, DebugDocBuilder, PrettyDebug, Spanned, SpannedItem, Tag};
+use nu_source::{DbgDocBldr, DebugDocBuilder, PrettyDebug, Spanned, SpannedItem, Tag};
 use serde::{Deserialize, Serialize};
 use std::cmp::{Ord, Ordering, PartialOrd};
 use std::hash::{Hash, Hasher};
@@ -78,20 +78,23 @@ struct DebugEntry<'a> {
 impl<'a> PrettyDebug for DebugEntry<'a> {
     /// Build the the information to pretty-print the DebugEntry
     fn pretty(&self) -> DebugDocBuilder {
-        (b::key(self.key.to_string()) + b::equals() + self.value.pretty().into_value()).group()
+        (DbgDocBldr::key(self.key.to_string())
+            + DbgDocBldr::equals()
+            + self.value.pretty().into_value())
+        .group()
     }
 }
 
 impl PrettyDebug for Dictionary {
     /// Get a Dictionary ready to be pretty-printed
     fn pretty(&self) -> DebugDocBuilder {
-        b::delimit(
+        DbgDocBldr::delimit(
             "(",
-            b::intersperse(
+            DbgDocBldr::intersperse(
                 self.entries()
                     .iter()
                     .map(|(key, value)| DebugEntry::new(key, value)),
-                b::space(),
+                DbgDocBldr::space(),
             ),
             ")",
         )
