@@ -180,11 +180,10 @@ impl Parse for Flag {
         let ParseResult {
             value: ((span, (name, shortform, type_)), comment),
             i,
-            err
-        } = And2::
-            <WithSpan<And3<FlagName, Maybe<FlagShortName>, OptionalType>>,
-            ItemEnd>
-                ::parse(tokens, i);
+            err,
+        } = And2::<WithSpan<And3<FlagName, Maybe<FlagShortName>, OptionalType>>, ItemEnd>::parse(
+            tokens, i,
+        );
 
         //If no type is given, the flag is a switch. Otherwise its optional
         //Example:
