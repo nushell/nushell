@@ -7,8 +7,6 @@ use nu_source::{Span, Spanned, SpannedItem};
 
 use super::ParseResult;
 
-pub(crate) trait CheckedParse: Parse {}
-
 pub(crate) trait Parse {
     type Output;
     fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output>;
@@ -50,28 +48,30 @@ pub(crate) trait Parse {
     }
 }
 
-pub(crate) struct Expect<Value: Parse> {
-    _marker: marker::PhantomData<*const Value>,
+pub(crate) trait CheckedParse: Parse {}
+
+pub(crate) struct Expect<Parser: Parse> {
+    _marker: marker::PhantomData<*const Parser>,
 }
 
 //Expect is always checked
 impl<T: Parse> CheckedParse for Expect<T> {}
 
-impl<Value: Parse> Parse for Expect<Value> {
-    type Output = Value::Output;
+impl<Parser: Parse> Parse for Expect<Parser> {
+    type Output = Parser::Output;
 
-    fn parse(tokens: &[Token], i: usize) -> ParseResult<Value::Output> {
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Parser::Output> {
         if i < tokens.len() {
             debug!(
                 "Expect<{:?}> {:?} {:?}",
-                Value::display_name(),
+                Parser::display_name(),
                 &tokens[i..],
                 i
             );
             //Okay let underlying value parse tokens
-            Value::parse_debug(tokens, i)
+            Parser::parse_debug(tokens, i)
         } else {
-            debug!("Expect<{:?}> but no tokens", Value::display_name(),);
+            debug!("Expect<{:?}> but no tokens", Parser::display_name(),);
             //No tokens are present --> Error out
             let last_span = if let Some(last_token) = tokens.last() {
                 last_token.span
@@ -79,23 +79,26 @@ impl<Value: Parse> Parse for Expect<Value> {
                 Span::unknown()
             };
             ParseResult::new(
-                Value::default_error_value(),
+                Parser::default_error_value(),
                 i,
-                Some(ParseError::unexpected_eof(Value::display_name(), last_span)),
+                Some(ParseError::unexpected_eof(
+                    Parser::display_name(),
+                    last_span,
+                )),
             )
         }
     }
 
     fn display_name() -> String {
-        Value::display_name()
+        Parser::display_name()
     }
 
-    fn default_error_value() -> Value::Output {
-        Value::default_error_value()
+    fn default_error_value() -> Parser::Output {
+        Parser::default_error_value()
     }
 }
 
-pub(crate) struct Maybe<Value> {
+pub(crate) struct Maybe<Value: CheckedParse> {
     _marker: marker::PhantomData<*const Value>,
 }
 
@@ -127,7 +130,7 @@ impl<Value: CheckedParse> Parse for Maybe<Value> {
 }
 
 ///Parse First and (then) Second
-pub(crate) struct And2<P1, P2> {
+pub(crate) struct And2<P1: CheckedParse, P2: CheckedParse> {
     _marker1: marker::PhantomData<*const P1>,
     _marker2: marker::PhantomData<*const P2>,
 }
@@ -153,7 +156,7 @@ impl<P1: CheckedParse, P2: CheckedParse> Parse for And2<P1, P2> {
     }
 }
 
-pub(crate) struct And3<P1, P2, P3> {
+pub(crate) struct And3<P1: CheckedParse, P2: CheckedParse, P3: CheckedParse> {
     _marker1: marker::PhantomData<*const P1>,
     _marker2: marker::PhantomData<*const P2>,
     _marker3: marker::PhantomData<*const P3>,
@@ -189,7 +192,7 @@ impl<P1: CheckedParse, P2: CheckedParse, P3: CheckedParse> Parse for And3<P1, P2
     }
 }
 
-pub(crate) struct And4<P1, P2, P3, P4> {
+pub(crate) struct And4<P1: CheckedParse, P2: CheckedParse, P3: CheckedParse, P4: CheckedParse> {
     _marker1: marker::PhantomData<*const P1>,
     _marker2: marker::PhantomData<*const P2>,
     _marker3: marker::PhantomData<*const P3>,
@@ -239,7 +242,7 @@ impl<P1: CheckedParse, P2: CheckedParse, P3: CheckedParse, P4: CheckedParse> Par
     }
 }
 
-pub(crate) struct IfSuccessThen<Try, AndThen> {
+pub(crate) struct IfSuccessThen<Try: CheckedParse, AndThen: CheckedParse> {
     _marker1: marker::PhantomData<*const Try>,
     _marker2: marker::PhantomData<*const AndThen>,
 }
@@ -275,31 +278,7 @@ impl<Try: CheckedParse, AndThen: CheckedParse> Parse for IfSuccessThen<Try, AndT
     }
 }
 
-pub(crate) struct Discard<Value> {
-    _marker: marker::PhantomData<*const Value>,
-}
-
-//Always Checked because accepts only checked
-impl<Value: CheckedParse> CheckedParse for Discard<Value> {}
-
-impl<Value: CheckedParse> Parse for Discard<Value> {
-    type Output = ();
-
-    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
-        let ParseResult { value: _, i, err } = Value::parse(tokens, i);
-        ParseResult::new((), i, err)
-    }
-
-    fn display_name() -> String {
-        Value::display_name()
-    }
-
-    fn default_error_value() -> Self::Output {
-        ()
-    }
-}
-
-pub(crate) struct ParseInto<IntoValue, Parser> {
+pub(crate) struct ParseInto<IntoValue, Parser: CheckedParse> {
     _marker1: marker::PhantomData<*const IntoValue>,
     _marker2: marker::PhantomData<*const Parser>,
 }
@@ -328,7 +307,7 @@ impl<IntoValue: From<Parser::Output>, Parser: CheckedParse> Parse for ParseInto<
     }
 }
 
-pub(crate) struct WithSpan<Parser> {
+pub(crate) struct WithSpan<Parser: CheckedParse> {
     _marker2: marker::PhantomData<*const Parser>,
 }
 
