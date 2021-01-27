@@ -173,7 +173,7 @@ pub fn compute_values(
                         }
                         Ok(x % bigdecimal::BigDecimal::from(y.clone()))
                     }
-                    // leaving this hear for the hope that bigdecimal will one day support pow/powf/fpow
+                    // leaving this here for the hope that bigdecimal will one day support pow/powf/fpow
                     // Operator::Pow => {
                     //     let xp = bigdecimal::ToPrimitive::to_f64(x).unwrap_or(0.0);
                     //     let yp = bigdecimal::ToPrimitive::to_f64(y).unwrap_or(0.0);
