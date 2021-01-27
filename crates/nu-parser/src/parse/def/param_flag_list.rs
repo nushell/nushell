@@ -15,14 +15,17 @@ use log::debug;
 
 use crate::{
     lex::{lex, Token, TokenContents},
-    parse::def::lib_code::parse_lib::{And, CheckedParse, IfSuccessThen, Maybe, Parse},
+    parse::def::lib_code::parse_lib::{And2, CheckedParse, IfSuccessThen, Maybe, Parse},
 };
 use nu_errors::ParseError;
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape};
 use nu_source::{Span, Spanned};
 
 use super::{
-    lib_code::ParseResult,
+    lib_code::{
+        parse_lib::{And3, ParseInto, WithSpan},
+        ParseResult,
+    },
     primitives::{
         Comma, Comment, DoublePoint, FlagName, FlagShortName, OptionalModifier, ParameterName,
         RestName, Shape, EOL,
@@ -110,25 +113,21 @@ pub(crate) fn parse_signature(
 }
 
 impl CheckedParse for Parameter {}
-impl Parse for Parameter {
-    type Output = Parameter;
-
-    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
-        // let i_start = i;
-
-        let ParseResult {
-            value: (name, (optional, (type_, comment))),
-            i,
-            err,
-        } = And::<ParameterName, And<Maybe<OptionalModifier>, And<OptionalType, ItemEnd>>>::parse(
-            tokens, i,
-        );
-
-        // let i_end = i;
-
+impl
+    From<(
+        Spanned<(String, Option<()>, Option<SyntaxShape>)>,
+        Option<String>,
+    )> for Parameter
+{
+    fn from(
+        (spanned_param, comment): (
+            Spanned<(String, Option<()>, Option<SyntaxShape>)>,
+            Option<String>,
+        ),
+    ) -> Self {
+        let span = spanned_param.span;
+        let (name, optional, type_) = spanned_param.item;
         let type_ = type_.unwrap_or(SyntaxShape::Any);
-        // let span = tokens[i_start].span.until(tokens[i_end - 1].span);
-        let span = Span::unknown();
 
         let pos_type = if optional.is_some() {
             PositionalType::optional(&name, type_)
@@ -136,15 +135,26 @@ impl Parse for Parameter {
             PositionalType::mandatory(&name, type_)
         };
 
-        let parameter = Parameter::new(pos_type, comment, span);
+        Parameter::new(pos_type, comment, span)
+    }
+}
+
+impl Parse for Parameter {
+    type Output = Parameter;
+
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
+        let result = ParseInto::<
+            Parameter,
+            And2<WithSpan<And3<ParameterName, Maybe<OptionalModifier>, OptionalType>>, ItemEnd>,
+        >::parse(tokens, i);
 
         debug!(
             "Parsed parameter: {} with shape {:?}",
-            parameter.pos_type.name(),
-            parameter.pos_type.syntax_type()
+            result.value.pos_type.name(),
+            result.value.pos_type.syntax_type()
         );
 
-        ParseResult::new(parameter, i, err)
+        result
     }
 
     fn display_name() -> String {
@@ -156,24 +166,20 @@ impl Parse for Parameter {
     }
 }
 
-impl CheckedParse for Flag {}
-impl Parse for Flag {
-    type Output = Flag;
-
-    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
-        // let i_start = i;
-
-        let ParseResult {
-            value: (name, (shortform, (type_, comment))),
-            i,
-            err,
-        } = And::<FlagName, And<Maybe<FlagShortName>, And<OptionalType, ItemEnd>>>::parse(
-            tokens, i,
-        );
-
-        // let i_end = i;
-        // let span = tokens[i_start].span.until(tokens[i_end - 1].span);
-        let span = Span::unknown();
+impl
+    From<(
+        Spanned<(String, Option<char>, Option<SyntaxShape>)>,
+        Option<String>,
+    )> for Flag
+{
+    fn from(
+        (spanned_flag, comment): (
+            Spanned<(String, Option<char>, Option<SyntaxShape>)>,
+            Option<String>,
+        ),
+    ) -> Self {
+        let span = spanned_flag.span;
+        let (name, shortform, type_) = spanned_flag.item;
 
         //If no type is given, the flag is a switch. Otherwise its optional
         //Example:
@@ -185,14 +191,26 @@ impl Parse for Flag {
             NamedType::Switch(shortform)
         };
 
-        let flag = Flag::new(name, named_type, comment, span);
+        Flag::new(name, named_type, comment, span)
+    }
+}
 
-        debug!("Parsed flag: {:?}", flag);
-        ParseResult::new(flag, i, err)
+impl CheckedParse for Flag {}
+impl Parse for Flag {
+    type Output = Flag;
+
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
+        let result = ParseInto::<
+            Flag,
+            And2<WithSpan<And3<FlagName, Maybe<FlagShortName>, OptionalType>>, ItemEnd>,
+        >::parse(tokens, i);
+
+        debug!("Parsed flag: {:?}", result.value);
+        result
     }
 
     fn display_name() -> String {
-        "Flag item".to_string()
+        "flag item".to_string()
     }
 
     fn default_error_value() -> Self::Output {
@@ -210,7 +228,7 @@ impl Parse for Rest {
             value: (_, (type_, comment)),
             i,
             err,
-        } = And::<RestName, And<OptionalType, ItemEnd>>::parse(tokens, i);
+        } = And2::<RestName, And2<OptionalType, ItemEnd>>::parse(tokens, i);
 
         ParseResult::new(
             (
@@ -245,7 +263,7 @@ impl Parse for ItemEnd {
             value: (_, (comment, _)),
             i,
             err,
-        } = And::<Maybe<Comma>, And<Maybe<Comment>, Maybe<EOL>>>::parse(tokens, i);
+        } = And2::<Maybe<Comma>, And2<Maybe<Comment>, Maybe<EOL>>>::parse(tokens, i);
 
         ParseResult::new(comment, i, err)
     }

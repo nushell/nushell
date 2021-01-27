@@ -3,7 +3,7 @@ use std::marker;
 
 use crate::{lex::Token, parse::util::token_to_spanned_string};
 use nu_errors::ParseError;
-use nu_source::Span;
+use nu_source::{Span, Spanned, SpannedItem};
 
 use super::ParseResult;
 
@@ -50,25 +50,7 @@ pub(crate) trait Parse {
     }
 }
 
-// #[macro_export]
-// macro_rules! parse_struct {
-//     // (cwd: $cwd:expr, $path:expr, $($part:expr),*) => {{
-//     (name: $name:ident, $($x:ident),*) => {
-//             struct $name <
-//             $(
-//                 $x,
-//             )*
-//                 > {
-//                 $(
-//                     $x: marker::PhantomData<$x>,
-//                 )*
-//         }
-//     };
-// }
-
-// parse_struct!(name: Test, A, B);
-
-pub(crate) struct Expect<Value> {
+pub(crate) struct Expect<Value: Parse> {
     _marker: marker::PhantomData<*const Value>,
 }
 
@@ -144,36 +126,118 @@ impl<Value: CheckedParse> Parse for Maybe<Value> {
     }
 }
 
-///Parse First and then Second
-pub(crate) struct And<First, Second> {
-    _marker1: marker::PhantomData<*const First>,
-    _marker2: marker::PhantomData<*const Second>,
+///Parse First and (then) Second
+pub(crate) struct And2<P1, P2> {
+    _marker1: marker::PhantomData<*const P1>,
+    _marker2: marker::PhantomData<*const P2>,
 }
 
-impl<First: CheckedParse, Second: CheckedParse> Parse for And<First, Second> {
-    type Output = (First::Output, Second::Output);
+//Always Checked because accepts only checked
+impl<P1: CheckedParse, P2: CheckedParse> CheckedParse for And2<P1, P2> {}
+
+impl<P1: CheckedParse, P2: CheckedParse> Parse for And2<P1, P2> {
+    type Output = (P1::Output, P2::Output);
 
     fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
-        let first_result = First::parse(tokens, i);
-        let second_result = Second::parse(tokens, first_result.i);
+        let _1 = P1::parse(tokens, i);
+        let _2 = P2::parse(tokens, _1.i);
+        ParseResult::new((_1.value, _2.value), _2.i, _1.err.or(_2.err))
+    }
+
+    fn display_name() -> String {
+        P1::display_name() + " >> " + &P2::display_name()
+    }
+
+    fn default_error_value() -> Self::Output {
+        (P1::default_error_value(), P2::default_error_value())
+    }
+}
+
+pub(crate) struct And3<P1, P2, P3> {
+    _marker1: marker::PhantomData<*const P1>,
+    _marker2: marker::PhantomData<*const P2>,
+    _marker3: marker::PhantomData<*const P3>,
+}
+
+//Always Checked because accepts only checked
+impl<P1: CheckedParse, P2: CheckedParse, P3: CheckedParse> CheckedParse for And3<P1, P2, P3> {}
+
+impl<P1: CheckedParse, P2: CheckedParse, P3: CheckedParse> Parse for And3<P1, P2, P3> {
+    type Output = (P1::Output, P2::Output, P3::Output);
+
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
+        let _1 = P1::parse(tokens, i);
+        let _2 = P2::parse(tokens, _1.i);
+        let _3 = P3::parse(tokens, _2.i);
         ParseResult::new(
-            (first_result.value, second_result.value),
-            second_result.i,
-            first_result.err.or(second_result.err),
+            (_1.value, _2.value, _3.value),
+            _3.i,
+            _1.err.or(_2.err.or(_3.err)),
         )
     }
 
     fn display_name() -> String {
-        First::display_name() + " >> " + &Second::display_name()
+        P1::display_name() + " >> " + &P2::display_name() + " >> " + &P3::display_name()
     }
 
     fn default_error_value() -> Self::Output {
-        (First::default_error_value(), Second::default_error_value())
+        (
+            P1::default_error_value(),
+            P2::default_error_value(),
+            P3::default_error_value(),
+        )
     }
 }
 
+pub(crate) struct And4<P1, P2, P3, P4> {
+    _marker1: marker::PhantomData<*const P1>,
+    _marker2: marker::PhantomData<*const P2>,
+    _marker3: marker::PhantomData<*const P3>,
+    _marker4: marker::PhantomData<*const P4>,
+}
+
 //Always Checked because accepts only checked
-impl<T1: CheckedParse, T2: CheckedParse> CheckedParse for And<T1, T2> {}
+impl<P1: CheckedParse, P2: CheckedParse, P3: CheckedParse, P4: CheckedParse> CheckedParse
+    for And4<P1, P2, P3, P4>
+{
+}
+
+impl<P1: CheckedParse, P2: CheckedParse, P3: CheckedParse, P4: CheckedParse> Parse
+    for And4<P1, P2, P3, P4>
+{
+    type Output = (P1::Output, P2::Output, P3::Output, P4::Output);
+
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
+        let _1 = P1::parse(tokens, i);
+        let _2 = P2::parse(tokens, _1.i);
+        let _3 = P3::parse(tokens, _2.i);
+        let _4 = P4::parse(tokens, _3.i);
+        ParseResult::new(
+            (_1.value, _2.value, _3.value, _4.value),
+            _4.i,
+            _1.err.or(_2.err.or(_3.err.or(_4.err))),
+        )
+    }
+
+    fn display_name() -> String {
+        P1::display_name()
+            + " >> "
+            + &P2::display_name()
+            + " >> "
+            + &P3::display_name()
+            + " >> "
+            + &P4::display_name()
+    }
+
+    fn default_error_value() -> Self::Output {
+        (
+            P1::default_error_value(),
+            P2::default_error_value(),
+            P3::default_error_value(),
+            P4::default_error_value(),
+        )
+    }
+}
 
 pub(crate) struct IfSuccessThen<Try, AndThen> {
     _marker1: marker::PhantomData<*const Try>,
@@ -232,5 +296,70 @@ impl<Value: CheckedParse> Parse for Discard<Value> {
 
     fn default_error_value() -> Self::Output {
         ()
+    }
+}
+
+pub(crate) struct ParseInto<IntoValue, Parser> {
+    _marker1: marker::PhantomData<*const IntoValue>,
+    _marker2: marker::PhantomData<*const Parser>,
+}
+
+//Always Checked because accepts only checked
+impl<IntoValue: From<Parser::Output>, Parser: CheckedParse> CheckedParse
+    for ParseInto<IntoValue, Parser>
+{
+}
+
+impl<IntoValue: From<Parser::Output>, Parser: CheckedParse> Parse for ParseInto<IntoValue, Parser> {
+    type Output = IntoValue;
+
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
+        let ParseResult { value, i, err } = Parser::parse(tokens, i);
+        let converted: IntoValue = value.into();
+        ParseResult::new(converted, i, err)
+    }
+
+    fn display_name() -> String {
+        Parser::display_name()
+    }
+
+    fn default_error_value() -> Self::Output {
+        Parser::default_error_value().into()
+    }
+}
+
+pub(crate) struct WithSpan<Parser> {
+    _marker2: marker::PhantomData<*const Parser>,
+}
+
+//Always Checked because accepts only checked
+impl<Parser: CheckedParse> CheckedParse for WithSpan<Parser> {}
+
+impl<Parser: CheckedParse> Parse for WithSpan<Parser> {
+    type Output = Spanned<Parser::Output>;
+
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
+        let i_before = i;
+        let ParseResult { value, i, err } = Parser::parse(tokens, i);
+        let i_after = i;
+
+        let span = if tokens.len() > 0 {
+            //Clamp indices to make sure we never access out of bounds
+            let i_before = num_traits::clamp(i_before, 0, tokens.len() - 1);
+            let i_after = num_traits::clamp(i_after, 0, tokens.len() - 1);
+            tokens[i_before].span.until(tokens[i_after].span)
+        } else {
+            Span::unknown()
+        };
+
+        ParseResult::new(value.spanned(span), i, err)
+    }
+
+    fn display_name() -> String {
+        Parser::display_name()
+    }
+
+    fn default_error_value() -> Self::Output {
+        Parser::default_error_value().spanned_unknown()
     }
 }
