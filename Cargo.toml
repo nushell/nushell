@@ -18,7 +18,7 @@ members = ["crates/*/"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-cli = {version = "0.26.0", path = "./crates/nu-cli"}
+nu-cli = {version = "0.26.0", path = "./crates/nu-cli", default-features=false}
 nu-command = {version = "0.26.0", path = "./crates/nu-command"}
 nu-data = {version = "0.26.0", path = "./crates/nu-data"}
 nu-engine = {version = "0.26.0", path = "./crates/nu-engine"}
@@ -72,6 +72,7 @@ uuid-support = ["nu-cli/uuid_crate", "nu-command/uuid_crate"]
 which-support = ["nu-cli/ichwh", "nu-cli/which", "nu-command/ichwh", "nu-command/which"]
 
 default = [
+  "nu-cli/shadow-rs",
   "sys",
   "ps",
   "textview",
@@ -91,7 +92,7 @@ default = [
 extra = ["default", "binaryview", "tree", "clipboard-cli", "trash-support", "start", "bson", "sqlite", "s3", "chart", "xpath", "selector"]
 stable = ["default"]
 
-wasi = ["inc", "match", "directories-support", "ptree-support", "match", "tree", "rustyline-support"]
+wasi = ["inc", "match", "ptree-support", "match", "tree", "rustyline-support"]
 
 trace = ["nu-parser/trace"]
 
