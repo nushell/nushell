@@ -36,6 +36,10 @@ pub(crate) trait Parse {
     fn display_name() -> String;
     fn default_error_value() -> Self::Output;
 
+    fn tokens_are_begin(tokens: &[Token], i: usize) -> bool {
+        Self::parse(tokens, i).err.is_none()
+    }
+
     fn mismatch_error(token: &Token) -> Option<ParseError> {
         Some(ParseError::mismatch(
             Self::display_name(),
@@ -381,5 +385,66 @@ impl<Parser: CheckedParse> Parse for WithSpan<Parser> {
 
     fn default_error_value() -> Self::Output {
         (Span::unknown(), Parser::default_error_value())
+    }
+}
+
+pub(crate) enum OneOf4<V1, V2, V3, V4> {
+    V1(V1),
+    V2(V2),
+    V3(V3),
+    V4(V4),
+    NoRuleApplicable,
+}
+
+pub(crate) struct Or4Unchecked<
+    P1: CheckedParse,
+    P2: CheckedParse,
+    P3: CheckedParse,
+    P4: CheckedParse,
+> {
+    _marker1: marker::PhantomData<*const P1>,
+    _marker2: marker::PhantomData<*const P2>,
+    _marker3: marker::PhantomData<*const P3>,
+    _marker4: marker::PhantomData<*const P4>,
+}
+
+pub(crate) type Or4<P1: CheckedParse, P2: CheckedParse, P3: CheckedParse, P4: CheckedParse> =
+    Expect<Or4Unchecked<P1, P2, P3, P4>>;
+
+impl<P1: CheckedParse, P2: CheckedParse, P3: CheckedParse, P4: CheckedParse> Parse
+    for Or4Unchecked<P1, P2, P3, P4>
+{
+    type Output = OneOf4<P1::Output, P2::Output, P3::Output, P4::Output>;
+
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
+        if P1::tokens_are_begin(tokens, i) {
+            let (v, i, e, w) = P1::parse(tokens, i).into();
+            ParseResult::new(OneOf4::V1(v), i, e, w)
+        } else if P2::tokens_are_begin(tokens, i) {
+            let (v, i, e, w) = P2::parse(tokens, i).into();
+            ParseResult::new(OneOf4::V2(v), i, e, w)
+        } else if P3::tokens_are_begin(tokens, i) {
+            let (v, i, e, w) = P3::parse(tokens, i).into();
+            ParseResult::new(OneOf4::V3(v), i, e, w)
+        } else if P4::tokens_are_begin(tokens, i) {
+            let (v, i, e, w) = P4::parse(tokens, i).into();
+            ParseResult::new(OneOf4::V4(v), i, e, w)
+        } else {
+            Self::mismatch_default_return(&tokens[i], i)
+        }
+    }
+
+    fn display_name() -> String {
+        P1::display_name()
+            + "  |  "
+            + &P2::display_name()
+            + " | "
+            + &P3::display_name()
+            + " | "
+            + &P4::display_name()
+    }
+
+    fn default_error_value() -> Self::Output {
+        OneOf4::NoRuleApplicable
     }
 }

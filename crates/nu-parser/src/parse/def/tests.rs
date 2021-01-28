@@ -24,11 +24,17 @@ fn parse_flag_shortname() {
     let (tokens, _) = lex("--flag(-f)", 0);
     let tokens = lex_split_baseline_tokens_on(tokens, &[',', ':', '?']);
     let tokens = lex_split_shortflag_from_longflag(tokens);
-    let ParseResult { value, i, err } = Flag::parse(&tokens, 0);
+    let ParseResult {
+        value,
+        i,
+        err,
+        warnings,
+    } = Flag::parse(&tokens, 0);
     assert_eq!("flag", &value.long_name);
     assert_eq!(Some('f'), value.named_type.get_short());
     assert_eq!(2, i);
     assert!(err.is_none());
+    assert!(warnings.is_empty());
 }
 
 #[test]

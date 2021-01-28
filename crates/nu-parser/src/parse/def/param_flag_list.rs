@@ -211,6 +211,14 @@ impl Parse for Flag {
         "flag item".to_string()
     }
 
+    fn tokens_are_begin(tokens: &[Token], i: usize) -> bool {
+        if let TokenContents::Baseline(item) = &tokens[i].contents {
+            item.starts_with('-')
+        } else {
+            false
+        }
+    }
+
     fn default_error_value() -> Self::Output {
         Flag::new(
             "Error".to_string(),
@@ -243,6 +251,14 @@ impl Parse for Rest {
             err,
             warnings,
         )
+    }
+
+    fn tokens_are_begin(tokens: &[Token], i: usize) -> bool {
+        if let TokenContents::Baseline(item) = &tokens[i].contents {
+            item.starts_with("...")
+        } else {
+            false
+        }
     }
 
     fn display_name() -> String {
@@ -308,22 +324,6 @@ impl Parse for OptionalType {
 
     fn default_error_value() -> Self::Output {
         Some(SyntaxShape::Any)
-    }
-}
-
-///Returns true if token potentially represents rest argument
-fn can_be_rest(token: &Token) -> bool {
-    match &token.contents {
-        TokenContents::Baseline(item) => item.starts_with("..."),
-        _ => false,
-    }
-}
-
-///True for short or longform flags. False otherwise
-fn is_flag(token: &Token) -> bool {
-    match &token.contents {
-        TokenContents::Baseline(item) => item.starts_with('-'),
-        _ => false,
     }
 }
 

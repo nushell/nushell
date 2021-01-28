@@ -3,6 +3,7 @@ use crate::{
     parse::util::token_to_spanned_string,
 };
 use nu_errors::ParseError;
+use nu_errors::ParseWarning;
 use nu_protocol::SyntaxShape;
 use nu_source::{Span, Spanned, SpannedItem};
 
@@ -226,26 +227,34 @@ impl Parse for FlagShortNameUnchecked {
             let mut chars = shortform.chars();
             match (chars.next(), chars.next_back()) {
                 (Some('('), Some(')')) => {
-                    let mut err = None;
-
                     let flag_span = Span::new(
                         flag_token.span.start() + 1, //Skip '('
                         flag_token.span.end() - 1,   // Skip ')'
                     );
 
-                    let c: String = chars.collect();
-                    let dash_count = c.chars().take_while(|c| *c == '-').count();
-                    err = err.or_else(|| {
-                        err_on_too_many_dashes(dash_count, c.clone().spanned(flag_span))
-                    });
-                    let name = &c[dash_count..];
-                    err = err.or_else(|| err_on_name_too_long(name, c.clone().spanned(flag_span)));
+                    let shortform_flag: String = chars.collect();
+                    let dash_count = shortform_flag.chars().take_while(|c| *c == '-').count();
+
+                    let name = &shortform_flag[dash_count..];
+
                     let c = name
                         .chars()
                         .next()
                         .unwrap_or_else(Self::default_error_value);
 
-                    ParseResult::new(c, i + 1, err, vec![])
+                    //Check for warnings
+                    let warnings = vec![
+                        warning_on_wrong_dash_count(
+                            dash_count,
+                            shortform_flag.clone().spanned(flag_span),
+                        ),
+                        warning_on_wrong_name_len(name, shortform_flag.clone().spanned(flag_span)),
+                    ]
+                    .into_iter()
+                    .filter_map(|e| e)
+                    .collect::<Vec<_>>();
+
+                    ParseResult::new(c, i + 1, None, warnings)
                 }
                 _ => Self::mismatch_default_return(flag_token, i),
             }
@@ -253,10 +262,10 @@ impl Parse for FlagShortNameUnchecked {
             Self::mismatch_default_return(flag_token, i)
         };
 
-        fn err_on_too_many_dashes(
+        fn warning_on_wrong_dash_count(
             dash_count: usize,
             actual: Spanned<String>,
-        ) -> Option<ParseError> {
+        ) -> Option<ParseWarning> {
             match dash_count {
                 0 => {
                     //If no starting -
@@ -273,7 +282,7 @@ impl Parse for FlagShortNameUnchecked {
             }
         }
 
-        fn err_on_name_too_long(name: &str, actual: Spanned<String>) -> Option<ParseError> {
+        fn warning_on_wrong_name_len(name: &str, actual: Spanned<String>) -> Option<ParseError> {
             if name.len() != 1 {
                 Some(ParseError::mismatch(
                     "Shortflag of exactly 1 character",
@@ -311,7 +320,7 @@ impl Parse for RestNameUnchecked {
                     true,
                     i + 1,
                     None,
-                    vec![rest_name_must_be_rest_error(name_token)],
+                    vec![warning_rest_name_must_be_rest(name_token)],
                 )
             } else {
                 //Okay correct name
@@ -321,7 +330,7 @@ impl Parse for RestNameUnchecked {
             Self::mismatch_default_return(name_token, i)
         };
 
-        fn rest_name_must_be_rest_error(token: &Token) -> ParseError {
+        fn warning_rest_name_must_be_rest(token: &Token) -> ParseError {
             ParseError::mismatch(
                 "rest argument name to be 'rest'",
                 token_to_spanned_string(token),
