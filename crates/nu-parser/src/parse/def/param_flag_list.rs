@@ -75,7 +75,7 @@ pub(crate) fn parse_signature(
         if tokens[i].contents.is_eol() {
             //Skip leading eol
             i += 1;
-        } else if is_flag(&tokens[i]) {
+        } else if Flag::tokens_are_begin(&tokens, i) {
             let ParseResult {
                 value: flag,
                 i: i_new,
@@ -85,7 +85,7 @@ pub(crate) fn parse_signature(
             err = err.or(error);
             i = i_new;
             flags.push(flag);
-        } else if can_be_rest(&tokens[i]) {
+        } else if Rest::tokens_are_begin(&tokens, i) {
             let ParseResult {
                 value: rest_,
                 i: i_new,

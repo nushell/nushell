@@ -408,8 +408,8 @@ pub(crate) struct Or4Unchecked<
     _marker4: marker::PhantomData<*const P4>,
 }
 
-pub(crate) type Or4<P1: CheckedParse, P2: CheckedParse, P3: CheckedParse, P4: CheckedParse> =
-    Expect<Or4Unchecked<P1, P2, P3, P4>>;
+#[allow(dead_code)]
+pub(crate) type Or4<P1, P2, P3, P4> = Expect<Or4Unchecked<P1, P2, P3, P4>>;
 
 impl<P1: CheckedParse, P2: CheckedParse, P3: CheckedParse, P4: CheckedParse> Parse
     for Or4Unchecked<P1, P2, P3, P4>
@@ -446,5 +446,38 @@ impl<P1: CheckedParse, P2: CheckedParse, P3: CheckedParse, P4: CheckedParse> Par
 
     fn default_error_value() -> Self::Output {
         OneOf4::NoRuleApplicable
+    }
+}
+
+pub(crate) struct RepeatUntilFailure<Parser: CheckedParse> {
+    _marker: marker::PhantomData<*const Parser>,
+}
+
+impl<Parser: CheckedParse> Parse for RepeatUntilFailure<Parser> {
+    type Output = Vec<Parser::Output>;
+
+    fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
+        let mut values = vec![];
+        let mut warnings = vec![];
+        let mut last_i = i;
+        loop {
+            let mut result = Parser::parse(tokens, i);
+            if result.err.is_some() {
+                break;
+            }
+            values.push(result.value);
+            warnings.append(&mut result.warnings);
+            last_i = result.i;
+        }
+
+        ParseResult::new(values, last_i, None, warnings)
+    }
+
+    fn display_name() -> String {
+        Parser::display_name()
+    }
+
+    fn default_error_value() -> Self::Output {
+        Vec::new()
     }
 }
