@@ -142,9 +142,9 @@ impl<P1: CheckedParse, P2: CheckedParse> Parse for And2<P1, P2> {
     type Output = (P1::Output, P2::Output);
 
     fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
-        let _1 = P1::parse(tokens, i);
-        let _2 = P2::parse(tokens, _1.i);
-        ParseResult::new((_1.value, _2.value), _2.i, _1.err.or(_2.err))
+        let p1 = P1::parse(tokens, i);
+        let p2 = P2::parse(tokens, p1.i);
+        ParseResult::new((p1.value, p2.value), p2.i, p1.err.or(p2.err))
     }
 
     fn display_name() -> String {
@@ -169,13 +169,13 @@ impl<P1: CheckedParse, P2: CheckedParse, P3: CheckedParse> Parse for And3<P1, P2
     type Output = (P1::Output, P2::Output, P3::Output);
 
     fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
-        let _1 = P1::parse(tokens, i);
-        let _2 = P2::parse(tokens, _1.i);
-        let _3 = P3::parse(tokens, _2.i);
+        let p1 = P1::parse(tokens, i);
+        let p2 = P2::parse(tokens, p1.i);
+        let p3 = P3::parse(tokens, p2.i);
         ParseResult::new(
-            (_1.value, _2.value, _3.value),
-            _3.i,
-            _1.err.or(_2.err.or(_3.err)),
+            (p1.value, p2.value, p3.value),
+            p3.i,
+            p1.err.or(p2.err.or(p3.err)),
         )
     }
 
@@ -211,14 +211,14 @@ impl<P1: CheckedParse, P2: CheckedParse, P3: CheckedParse, P4: CheckedParse> Par
     type Output = (P1::Output, P2::Output, P3::Output, P4::Output);
 
     fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
-        let _1 = P1::parse(tokens, i);
-        let _2 = P2::parse(tokens, _1.i);
-        let _3 = P3::parse(tokens, _2.i);
-        let _4 = P4::parse(tokens, _3.i);
+        let p1 = P1::parse(tokens, i);
+        let p2 = P2::parse(tokens, p1.i);
+        let p3 = P3::parse(tokens, p2.i);
+        let p4 = P4::parse(tokens, p3.i);
         ParseResult::new(
-            (_1.value, _2.value, _3.value, _4.value),
-            _4.i,
-            _1.err.or(_2.err.or(_3.err.or(_4.err))),
+            (p1.value, p2.value, p3.value, p4.value),
+            p4.i,
+            p1.err.or(p2.err.or(p3.err.or(p4.err))),
         )
     }
 
