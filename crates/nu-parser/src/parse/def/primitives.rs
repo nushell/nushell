@@ -37,7 +37,7 @@ impl Parse for ShapeUnchecked {
                     ),
                 };
 
-                (shape, i + 1, err).into()
+                ParseResult::new(shape, i + 1, err, vec![])
             }
             _ => Self::mismatch_default_return(shape_token, i),
         }
@@ -59,7 +59,7 @@ impl Parse for DoublePointUnchecked {
 
     fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         if is_baseline_token_matching(&tokens[i], ":") {
-            ParseResult::new((), i + 1, None)
+            ParseResult::new((), i + 1, None, vec![])
         } else {
             Self::mismatch_default_return(&tokens[i], i)
         }
@@ -79,7 +79,7 @@ impl Parse for CommaUnchecked {
 
     fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         if is_baseline_token_matching(&tokens[i], ",") {
-            ParseResult::new((), i + 1, None)
+            ((), i + 1).into()
         } else {
             Self::mismatch_default_return(&tokens[i], i)
         }
@@ -99,7 +99,7 @@ impl Parse for EOLUnchecked {
 
     fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         if tokens[i].contents.is_eol() {
-            ParseResult::new((), i + 1, None)
+            ((), i + 1).into()
         } else {
             Self::mismatch_default_return(&tokens[i], i)
         }
@@ -120,7 +120,7 @@ impl Parse for CommentUnchecked {
     fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         if let TokenContents::Comment(comment) = &tokens[i].contents {
             let comment_text = comment.trim().to_string();
-            ParseResult::new(comment_text, i + 1, None)
+            (comment_text, i + 1).into()
         } else {
             Self::mismatch_default_return(&tokens[i], i)
         }
@@ -142,7 +142,7 @@ impl Parse for OptionalModifierUnchecked {
 
     fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         if is_baseline_token_matching(&tokens[i], "?") {
-            ParseResult::new((), i + 1, None)
+            ((), i + 1).into()
         } else {
             Self::mismatch_default_return(&tokens[i], i)
         }
@@ -163,7 +163,7 @@ impl Parse for ParameterNameUnchecked {
 
     fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         if let TokenContents::Baseline(name) = &tokens[i].contents {
-            ParseResult::new(name.clone(), i + 1, None)
+            (name.clone(), i + 1).into()
         } else {
             Self::mismatch_default_return(&tokens[i], i)
         }
@@ -188,18 +188,18 @@ impl Parse for FlagNameUnchecked {
         if let TokenContents::Baseline(name) = &flag_token.contents {
             if !name.starts_with("--") {
                 ParseResult::new(
-                    //Okay return name as flag name eventhough it does not start with --
                     name.clone(),
-                    i + 1,
+                    i,
                     Some(ParseError::mismatch(
                         "longform of a flag (Starting with --)",
                         token_to_spanned_string(flag_token),
                     )),
+                    vec![],
                 )
             } else {
                 //Discard preceding --
                 let name = name[2..].to_string();
-                ParseResult::new(name, i + 1, None)
+                ParseResult::new(name, i + 1, None, vec![])
             }
         } else {
             Self::mismatch_default_return(flag_token, i)
@@ -245,7 +245,7 @@ impl Parse for FlagShortNameUnchecked {
                         .next()
                         .unwrap_or_else(Self::default_error_value);
 
-                    ParseResult::new(c, i + 1, err)
+                    ParseResult::new(c, i + 1, err, vec![])
                 }
                 _ => Self::mismatch_default_return(flag_token, i),
             }
@@ -307,20 +307,25 @@ impl Parse for RestNameUnchecked {
                 Self::mismatch_default_return(name_token, i)
             } else if !name.starts_with("...rest") || name.len() != "...rest".len() {
                 //Okay accept this as rest, but give user warning
-                ParseResult::new(true, i + 1, rest_name_must_be_rest_error(name_token))
+                ParseResult::new(
+                    true,
+                    i + 1,
+                    None,
+                    vec![rest_name_must_be_rest_error(name_token)],
+                )
             } else {
                 //Okay correct name
-                ParseResult::new(true, i + 1, None)
+                ParseResult::new(true, i + 1, None, vec![])
             }
         } else {
             Self::mismatch_default_return(name_token, i)
         };
 
-        fn rest_name_must_be_rest_error(token: &Token) -> Option<ParseError> {
-            Some(ParseError::mismatch(
+        fn rest_name_must_be_rest_error(token: &Token) -> ParseError {
+            ParseError::mismatch(
                 "rest argument name to be 'rest'",
                 token_to_spanned_string(token),
-            ))
+            )
         }
     }
 

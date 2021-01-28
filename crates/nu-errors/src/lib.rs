@@ -37,6 +37,7 @@ pub enum ParseErrorReason {
     },
 }
 
+pub type ParseWarning = ParseError;
 /// A newtype for `ParseErrorReason`
 #[derive(Debug, Clone, Getters, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct ParseError {

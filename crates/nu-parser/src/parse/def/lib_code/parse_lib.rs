@@ -44,7 +44,12 @@ pub(crate) trait Parse {
     }
 
     fn mismatch_default_return(token: &Token, i: usize) -> ParseResult<Self::Output> {
-        ParseResult::new(Self::default_error_value(), i, Self::mismatch_error(token))
+        ParseResult::new(
+            Self::default_error_value(),
+            i,
+            Self::mismatch_error(token),
+            vec![],
+        )
     }
 }
 
@@ -85,6 +90,7 @@ impl<Parser: Parse> Parse for Expect<Parser> {
                     Parser::display_name(),
                     last_span,
                 )),
+                vec![],
             )
         }
     }
@@ -116,7 +122,7 @@ impl<Value: CheckedParse> Parse for Maybe<Value> {
             (None, i, None).into()
         } else {
             debug!("Maybe<{:?}> is present", Value::display_name());
-            ParseResult::new(Some(result.value), result.i, result.err)
+            ParseResult::new(Some(result.value), result.i, result.err, result.warnings)
         }
     }
 
@@ -150,7 +156,9 @@ impl<P1: CheckedParse, P2: CheckedParse> Parse for And2<P1, P2> {
             .find(|e| e.is_some())
             .cloned()
             .unwrap_or(None);
-        ParseResult::new((p1.value, p2.value), p2.i, err)
+        let warnings = [p1.warnings, p2.warnings].concat();
+
+        ParseResult::new((p1.value, p2.value), p2.i, err, warnings)
     }
 
     fn display_name() -> String {
@@ -184,7 +192,9 @@ impl<P1: CheckedParse, P2: CheckedParse, P3: CheckedParse> Parse for And3<P1, P2
             .find(|e| e.is_some())
             .cloned()
             .unwrap_or(None);
-        ParseResult::new((p1.value, p2.value, p3.value), p3.i, err)
+
+        let warnings = [p1.warnings, p2.warnings, p3.warnings].concat();
+        ParseResult::new((p1.value, p2.value, p3.value), p3.i, err, warnings)
     }
 
     fn display_name() -> String {
@@ -229,7 +239,14 @@ impl<P1: CheckedParse, P2: CheckedParse, P3: CheckedParse, P4: CheckedParse> Par
             .find(|e| e.is_some())
             .cloned()
             .unwrap_or(None);
-        ParseResult::new((p1.value, p2.value, p3.value, p4.value), p4.i, err)
+
+        let warnings = [p1.warnings, p2.warnings, p3.warnings, p4.warnings].concat();
+        ParseResult::new(
+            (p1.value, p2.value, p3.value, p4.value),
+            p4.i,
+            err,
+            warnings,
+        )
     }
 
     fn display_name() -> String {
@@ -268,14 +285,18 @@ impl<Try: CheckedParse, AndThen: CheckedParse> Parse for IfSuccessThen<Try, AndT
         if let Some(try_v) = try_result.value {
             //Succeeded at parsing Try. Now AndThen has to follow
             let and_then_result = AndThen::parse(tokens, try_result.i);
+
+            let err = try_result.err.or(and_then_result.err);
+            let warnings = [try_result.warnings, and_then_result.warnings].concat();
             ParseResult::new(
                 Some((try_v, and_then_result.value)),
                 and_then_result.i,
-                try_result.err.or(and_then_result.err),
+                err,
+                warnings,
             )
         } else {
             //Okay Couldn't parse Try
-            ParseResult::new(None, i, None)
+            ParseResult::new(None, i, None, vec![])
         }
     }
 
@@ -303,9 +324,14 @@ impl<IntoValue: From<Parser::Output>, Parser: CheckedParse> Parse for ParseInto<
     type Output = IntoValue;
 
     fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
-        let ParseResult { value, i, err } = Parser::parse(tokens, i);
+        let ParseResult {
+            value,
+            i,
+            err,
+            warnings,
+        } = Parser::parse(tokens, i);
         let converted: IntoValue = value.into();
-        ParseResult::new(converted, i, err)
+        ParseResult::new(converted, i, err, warnings)
     }
 
     fn display_name() -> String {
@@ -329,7 +355,12 @@ impl<Parser: CheckedParse> Parse for WithSpan<Parser> {
 
     fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         let i_before = i;
-        let ParseResult { value, i, err } = Parser::parse(tokens, i);
+        let ParseResult {
+            value,
+            i,
+            err,
+            warnings,
+        } = Parser::parse(tokens, i);
         let i_after = i;
 
         let span = if !tokens.is_empty() {
@@ -341,7 +372,7 @@ impl<Parser: CheckedParse> Parse for WithSpan<Parser> {
             Span::unknown()
         };
 
-        ParseResult::new((span, value), i, err)
+        ParseResult::new((span, value), i, err, warnings)
     }
 
     fn display_name() -> String {

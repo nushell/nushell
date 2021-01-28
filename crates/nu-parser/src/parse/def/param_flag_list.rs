@@ -80,6 +80,7 @@ pub(crate) fn parse_signature(
                 value: flag,
                 i: i_new,
                 err: error,
+                warnings: _,
             } = Flag::parse_debug(&tokens, i);
             err = err.or(error);
             i = i_new;
@@ -89,6 +90,7 @@ pub(crate) fn parse_signature(
                 value: rest_,
                 i: i_new,
                 err: error,
+                warnings: _,
             } = Rest::parse_debug(&tokens, i);
             err = err.or(error);
             i = i_new;
@@ -98,6 +100,7 @@ pub(crate) fn parse_signature(
                 value: parameter,
                 i: i_new,
                 err: error,
+                warnings: _,
             } = Parameter::parse_debug(&tokens, i);
             err = err.or(error);
             i = i_new;
@@ -127,7 +130,9 @@ impl Parse for Parameter {
         let ParseResult {
             value: ((span, (name, optional, type_)), comment),
             i,
-            err }
+            err,
+            warnings,
+        }
         = And2::<
             WithSpan<And3<ParameterName, Maybe<OptionalModifier>, OptionalType>>,
             ItemEnd,
@@ -148,7 +153,7 @@ impl Parse for Parameter {
             parameter.pos_type.syntax_type()
         );
 
-        ParseResult::new(parameter, i, err)
+        (parameter, i, err, warnings).into()
     }
 
     fn display_name() -> String {
@@ -181,6 +186,7 @@ impl Parse for Flag {
             value: ((span, (name, shortform, type_)), comment),
             i,
             err,
+            warnings,
         } = And2::<WithSpan<And3<FlagName, Maybe<FlagShortName>, OptionalType>>, ItemEnd>::parse(
             tokens, i,
         );
@@ -198,7 +204,7 @@ impl Parse for Flag {
         let flag = Flag::new(name, named_type, comment, span);
         debug!("Parsed flag: {:?}", flag);
 
-        ParseResult::new(flag, i, err)
+        ParseResult::new(flag, i, err, warnings)
     }
 
     fn display_name() -> String {
@@ -222,10 +228,11 @@ impl Parse for Rest {
 
     fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         let ParseResult {
-            value: (_, (type_, comment)),
+            value: (_, type_, comment),
             i,
             err,
-        } = And2::<RestName, And2<OptionalType, ItemEnd>>::parse(tokens, i);
+            warnings,
+        } = And3::<RestName, OptionalType, ItemEnd>::parse(tokens, i);
 
         ParseResult::new(
             (
@@ -234,6 +241,7 @@ impl Parse for Rest {
             ),
             i,
             err,
+            warnings,
         )
     }
 
@@ -259,9 +267,10 @@ impl Parse for ItemEnd {
             value: (_, comment, _),
             i,
             err,
+            warnings,
         } = And3::<Maybe<Comma>, Maybe<Comment>, Maybe<EOL>>::parse(tokens, i);
 
-        ParseResult::new(comment, i, err)
+        ParseResult::new(comment, i, err, warnings)
     }
 
     fn display_name() -> String {
@@ -284,11 +293,12 @@ impl Parse for OptionalType {
             value,
             i: i_new,
             err,
+            warnings,
         } = IfSuccessThen::<DoublePoint, Shape>::parse(tokens, i);
         if let Some((_, shape)) = value {
-            ParseResult::new(Some(shape), i_new, err)
+            ParseResult::new(Some(shape), i_new, err, warnings)
         } else {
-            ParseResult::new(None, i, None)
+            ParseResult::new(None, i, None, vec![])
         }
     }
 
