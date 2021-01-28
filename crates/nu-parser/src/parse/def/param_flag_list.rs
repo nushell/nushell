@@ -230,7 +230,7 @@ impl Parse for Rest {
         ParseResult::new(
             (
                 type_.unwrap_or(SyntaxShape::Any),
-                comment.unwrap_or("".to_string()),
+                comment.unwrap_or_else(String::new),
             ),
             i,
             err,
@@ -242,7 +242,7 @@ impl Parse for Rest {
     }
 
     fn default_error_value() -> Self::Output {
-        (SyntaxShape::Any, "".to_string())
+        (SyntaxShape::Any, String::new())
     }
 }
 
@@ -328,13 +328,13 @@ fn to_signature(
     for param in params.into_iter() {
         // pub positional: Vec<(PositionalType, Description)>,
         sign.positional
-            .push((param.pos_type, param.desc.unwrap_or_else(|| "".to_string())));
+            .push((param.pos_type, param.desc.unwrap_or_else(String::new)));
     }
 
     for flag in flags.into_iter() {
         sign.named.insert(
             flag.long_name,
-            (flag.named_type, flag.desc.unwrap_or_else(|| "".to_string())),
+            (flag.named_type, flag.desc.unwrap_or_else(String::new)),
         );
     }
 

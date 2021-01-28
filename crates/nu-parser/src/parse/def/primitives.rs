@@ -69,9 +69,7 @@ impl Parse for DoublePointUnchecked {
         ":".to_string()
     }
 
-    fn default_error_value() -> Self::Output {
-        ()
-    }
+    fn default_error_value() -> Self::Output {}
 }
 
 pub(crate) struct CommaUnchecked {}
@@ -91,9 +89,7 @@ impl Parse for CommaUnchecked {
         ",".to_string()
     }
 
-    fn default_error_value() -> Self::Output {
-        ()
-    }
+    fn default_error_value() -> Self::Output {}
 }
 
 pub(crate) struct EOLUnchecked {}
@@ -113,9 +109,7 @@ impl Parse for EOLUnchecked {
         "\\n".to_string()
     }
 
-    fn default_error_value() -> Self::Output {
-        ()
-    }
+    fn default_error_value() -> Self::Output {}
 }
 
 pub(crate) struct CommentUnchecked {}
@@ -158,9 +152,7 @@ impl Parse for OptionalModifierUnchecked {
         "optional modifier keyword".to_string()
     }
 
-    fn default_error_value() -> Self::Output {
-        ()
-    }
+    fn default_error_value() -> Self::Output {}
 }
 
 pub(crate) struct ParameterNameUnchecked {}
@@ -207,7 +199,7 @@ impl Parse for FlagNameUnchecked {
             } else {
                 //Discard preceding --
                 let name = name[2..].to_string();
-                ParseResult::new(name.clone(), i + 1, None)
+                ParseResult::new(name, i + 1, None)
             }
         } else {
             Self::mismatch_default_return(flag_token, i)
@@ -248,9 +240,12 @@ impl Parse for FlagShortNameUnchecked {
                     });
                     let name = &c[dash_count..];
                     err = err.or_else(|| err_on_name_too_long(name, c.clone().spanned(flag_span)));
-                    let c = name.chars().next();
+                    let c = name
+                        .chars()
+                        .next()
+                        .unwrap_or_else(Self::default_error_value);
 
-                    ParseResult::new(c.unwrap_or(Self::default_error_value()), i + 1, err)
+                    ParseResult::new(c, i + 1, err)
                 }
                 _ => Self::mismatch_default_return(flag_token, i),
             }

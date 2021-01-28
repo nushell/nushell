@@ -144,7 +144,13 @@ impl<P1: CheckedParse, P2: CheckedParse> Parse for And2<P1, P2> {
     fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         let p1 = P1::parse(tokens, i);
         let p2 = P2::parse(tokens, p1.i);
-        ParseResult::new((p1.value, p2.value), p2.i, p1.err.or(p2.err))
+
+        let err = [p1.err, p2.err]
+            .iter()
+            .find(|e| e.is_some())
+            .cloned()
+            .unwrap_or(None);
+        ParseResult::new((p1.value, p2.value), p2.i, err)
     }
 
     fn display_name() -> String {
@@ -172,11 +178,13 @@ impl<P1: CheckedParse, P2: CheckedParse, P3: CheckedParse> Parse for And3<P1, P2
         let p1 = P1::parse(tokens, i);
         let p2 = P2::parse(tokens, p1.i);
         let p3 = P3::parse(tokens, p2.i);
-        ParseResult::new(
-            (p1.value, p2.value, p3.value),
-            p3.i,
-            p1.err.or(p2.err.or(p3.err)),
-        )
+
+        let err = [p1.err, p2.err, p3.err]
+            .iter()
+            .find(|e| e.is_some())
+            .cloned()
+            .unwrap_or(None);
+        ParseResult::new((p1.value, p2.value, p3.value), p3.i, err)
     }
 
     fn display_name() -> String {
@@ -215,11 +223,13 @@ impl<P1: CheckedParse, P2: CheckedParse, P3: CheckedParse, P4: CheckedParse> Par
         let p2 = P2::parse(tokens, p1.i);
         let p3 = P3::parse(tokens, p2.i);
         let p4 = P4::parse(tokens, p3.i);
-        ParseResult::new(
-            (p1.value, p2.value, p3.value, p4.value),
-            p4.i,
-            p1.err.or(p2.err.or(p3.err.or(p4.err))),
-        )
+
+        let err = [p1.err, p2.err, p3.err, p4.err]
+            .iter()
+            .find(|e| e.is_some())
+            .cloned()
+            .unwrap_or(None);
+        ParseResult::new((p1.value, p2.value, p3.value, p4.value), p4.i, err)
     }
 
     fn display_name() -> String {
@@ -322,7 +332,7 @@ impl<Parser: CheckedParse> Parse for WithSpan<Parser> {
         let ParseResult { value, i, err } = Parser::parse(tokens, i);
         let i_after = i;
 
-        let span = if tokens.len() > 0 {
+        let span = if !tokens.is_empty() {
             //Clamp indices to make sure we never access out of bounds
             let i_before = num_traits::clamp(i_before, 0, tokens.len() - 1);
             let i_after = num_traits::clamp(i_after, 0, tokens.len() - 1);
