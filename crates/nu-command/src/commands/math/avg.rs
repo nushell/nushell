@@ -113,7 +113,7 @@ pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
             value: UntaggedValue::Primitive(Primitive::Filesize(num)),
             ..
         } => {
-            let left = UntaggedValue::from(Primitive::Int(num.into()));
+            let left = UntaggedValue::from(Primitive::Int(num));
             let result = nu_data::value::compute_values(Operator::Divide, &left, &total_rows);
 
             match result {
