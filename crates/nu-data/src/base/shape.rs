@@ -24,7 +24,7 @@ pub enum InlineShape {
     Int(BigInt),
     Decimal(BigDecimal),
     Range(Box<InlineRange>),
-    Bytesize(u64),
+    Bytesize(BigInt),
     String(String),
     Line(String),
     ColumnPath(ColumnPath),
@@ -68,7 +68,7 @@ impl InlineShape {
                 }))
             }
             Primitive::Decimal(decimal) => InlineShape::Decimal(decimal.clone()),
-            Primitive::Filesize(bytesize) => InlineShape::Bytesize(*bytesize),
+            Primitive::Filesize(bytesize) => InlineShape::Bytesize(bytesize.clone()),
             Primitive::String(string) => InlineShape::String(string.clone()),
             Primitive::ColumnPath(path) => InlineShape::ColumnPath(path.clone()),
             Primitive::GlobPattern(pattern) => InlineShape::GlobPattern(pattern.clone()),
@@ -128,7 +128,9 @@ impl InlineShape {
         }
     }
 
-    pub fn format_bytes(bytesize: &u64) -> (DbgDocBldr, String) {
+    pub fn format_bytes(bytesize: &BigInt) -> (DbgDocBldr, String) {
+        use bigdecimal::ToPrimitive;
+
         // get the config value, if it doesn't exist make it 'auto' so it works how it originally did
         let filesize_format_var = crate::config::config(Tag::unknown())
             .expect("unable to get the config.toml file")
@@ -155,32 +157,41 @@ impl InlineShape {
             _ => (byte_unit::ByteUnit::B, "auto"),
         };
 
-        let byte = byte_unit::Byte::from_bytes(*bytesize as u128);
-        let byte = if filesize_format.0 == byte_unit::ByteUnit::B && filesize_format.1 == "auto" {
-            byte.get_appropriate_unit(false)
-        } else {
-            byte.get_adjusted_unit(filesize_format.0)
-        };
+        if let Some(value) = bytesize.to_u128() {
+            let byte = byte_unit::Byte::from_bytes(value);
+            let byte = if filesize_format.0 == byte_unit::ByteUnit::B && filesize_format.1 == "auto"
+            {
+                byte.get_appropriate_unit(false)
+            } else {
+                byte.get_adjusted_unit(filesize_format.0)
+            };
 
-        match byte.get_unit() {
-            byte_unit::ByteUnit::B => {
-                let locale_byte = byte.get_value() as u64;
-                let locale_byte_string = locale_byte.to_formatted_string(&Locale::en);
-                if filesize_format.1 == "auto" {
-                    let doc = (DbgDocBldr::primitive(locale_byte_string)
-                        + DbgDocBldr::space()
-                        + DbgDocBldr::kind("B"))
-                    .group();
-                    (doc.clone(), InlineShape::render_doc(&doc))
-                } else {
-                    let doc = (DbgDocBldr::primitive(locale_byte_string)).group();
+            match byte.get_unit() {
+                byte_unit::ByteUnit::B => {
+                    let locale_byte = byte.get_value() as u64;
+                    let locale_byte_string = locale_byte.to_formatted_string(&Locale::en);
+                    if filesize_format.1 == "auto" {
+                        let doc = (DbgDocBldr::primitive(locale_byte_string)
+                            + DbgDocBldr::space()
+                            + DbgDocBldr::kind("B"))
+                        .group();
+                        (doc.clone(), InlineShape::render_doc(&doc))
+                    } else {
+                        let doc = (DbgDocBldr::primitive(locale_byte_string)).group();
+                        (doc.clone(), InlineShape::render_doc(&doc))
+                    }
+                }
+                _ => {
+                    let doc = DbgDocBldr::primitive(byte.format(1));
                     (doc.clone(), InlineShape::render_doc(&doc))
                 }
             }
-            _ => {
-                let doc = DbgDocBldr::primitive(byte.format(1));
-                (doc.clone(), InlineShape::render_doc(&doc))
-            }
+        } else {
+            let doc = (DbgDocBldr::primitive(format!("{}", bytesize))
+                + DbgDocBldr::space()
+                + DbgDocBldr::kind("B"))
+            .group();
+            (doc.clone(), InlineShape::render_doc(&doc))
         }
     }
 

@@ -116,7 +116,7 @@ pub fn clone_tagged_value(v: &Value) -> Value {
             UntaggedValue::Primitive(Primitive::FilePath(x.clone()))
         }
         UntaggedValue::Primitive(Primitive::Filesize(b)) => {
-            UntaggedValue::Primitive(Primitive::Filesize(*b))
+            UntaggedValue::Primitive(Primitive::Filesize(b.clone()))
         }
         UntaggedValue::Primitive(Primitive::Date(d)) => {
             UntaggedValue::Primitive(Primitive::Date(*d))

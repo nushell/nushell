@@ -108,60 +108,70 @@ fn convert_bytes_to_string_using_format(
 ) -> Result<Value, ShellError> {
     match bytes.value {
         Primitive(Filesize(b)) => {
-            let byte = byte_unit::Byte::from_bytes(b as u128);
-            let value = match format.item().to_lowercase().as_str() {
-                "b" => Ok(UntaggedValue::string(b.to_formatted_string(&Locale::en))),
-                "kb" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::KB).to_string(),
-                )),
-                "kib" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::KiB).to_string(),
-                )),
-                "mb" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::MB).to_string(),
-                )),
-                "mib" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::MiB).to_string(),
-                )),
-                "gb" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::GB).to_string(),
-                )),
-                "gib" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::GiB).to_string(),
-                )),
-                "tb" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::TB).to_string(),
-                )),
-                "tib" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::TiB).to_string(),
-                )),
-                "pb" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::PB).to_string(),
-                )),
-                "pib" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::PiB).to_string(),
-                )),
-                "eb" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::EB).to_string(),
-                )),
-                "eib" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::EiB).to_string(),
-                )),
-                "zb" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::ZB).to_string(),
-                )),
-                "zib" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::ZiB).to_string(),
-                )),
-                _ => Err(ShellError::labeled_error(
-                    format!("Invalid format code: {:}", format.item()),
-                    "invalid format",
-                    format.tag(),
-                )),
-            };
-            match value {
-                Ok(b) => Ok(Value { value: b, ..bytes }),
-                Err(e) => Err(e),
+            if let Some(value) = b.to_u128() {
+                let byte = byte_unit::Byte::from_bytes(value);
+                let value = match format.item().to_lowercase().as_str() {
+                    "b" => Ok(UntaggedValue::string(
+                        value.to_formatted_string(&Locale::en),
+                    )),
+                    "kb" => Ok(UntaggedValue::string(
+                        byte.get_adjusted_unit(byte_unit::ByteUnit::KB).to_string(),
+                    )),
+                    "kib" => Ok(UntaggedValue::string(
+                        byte.get_adjusted_unit(byte_unit::ByteUnit::KiB).to_string(),
+                    )),
+                    "mb" => Ok(UntaggedValue::string(
+                        byte.get_adjusted_unit(byte_unit::ByteUnit::MB).to_string(),
+                    )),
+                    "mib" => Ok(UntaggedValue::string(
+                        byte.get_adjusted_unit(byte_unit::ByteUnit::MiB).to_string(),
+                    )),
+                    "gb" => Ok(UntaggedValue::string(
+                        byte.get_adjusted_unit(byte_unit::ByteUnit::GB).to_string(),
+                    )),
+                    "gib" => Ok(UntaggedValue::string(
+                        byte.get_adjusted_unit(byte_unit::ByteUnit::GiB).to_string(),
+                    )),
+                    "tb" => Ok(UntaggedValue::string(
+                        byte.get_adjusted_unit(byte_unit::ByteUnit::TB).to_string(),
+                    )),
+                    "tib" => Ok(UntaggedValue::string(
+                        byte.get_adjusted_unit(byte_unit::ByteUnit::TiB).to_string(),
+                    )),
+                    "pb" => Ok(UntaggedValue::string(
+                        byte.get_adjusted_unit(byte_unit::ByteUnit::PB).to_string(),
+                    )),
+                    "pib" => Ok(UntaggedValue::string(
+                        byte.get_adjusted_unit(byte_unit::ByteUnit::PiB).to_string(),
+                    )),
+                    "eb" => Ok(UntaggedValue::string(
+                        byte.get_adjusted_unit(byte_unit::ByteUnit::EB).to_string(),
+                    )),
+                    "eib" => Ok(UntaggedValue::string(
+                        byte.get_adjusted_unit(byte_unit::ByteUnit::EiB).to_string(),
+                    )),
+                    "zb" => Ok(UntaggedValue::string(
+                        byte.get_adjusted_unit(byte_unit::ByteUnit::ZB).to_string(),
+                    )),
+                    "zib" => Ok(UntaggedValue::string(
+                        byte.get_adjusted_unit(byte_unit::ByteUnit::ZiB).to_string(),
+                    )),
+                    _ => Err(ShellError::labeled_error(
+                        format!("Invalid format code: {:}", format.item()),
+                        "invalid format",
+                        format.tag(),
+                    )),
+                };
+                match value {
+                    Ok(b) => Ok(Value { value: b, ..bytes }),
+                    Err(e) => Err(e),
+                }
+            } else {
+                Err(ShellError::labeled_error(
+                    "Value too large to fit in 128 bits",
+                    "value too large to fit in format",
+                    format.span(),
+                ))
             }
         }
         _ => Err(ShellError::labeled_error(
