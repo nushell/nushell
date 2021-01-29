@@ -1,4 +1,4 @@
-pub(crate) mod shape;
+pub mod shape;
 
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, FixedOffset, Utc};

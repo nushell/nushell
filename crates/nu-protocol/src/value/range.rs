@@ -1,6 +1,6 @@
 use crate::value::Primitive;
 use derive_new::new;
-use nu_source::{b, DebugDocBuilder, Spanned};
+use nu_source::{DbgDocBldr, DebugDocBuilder, Spanned};
 use serde::{Deserialize, Serialize};
 
 /// The two types of ways to include a range end. Inclusive means to include the value (eg 1..3 inclusive would include the 3 value).
@@ -14,7 +14,7 @@ pub enum RangeInclusion {
 impl RangeInclusion {
     /// Get a RangeInclusion left bracket ready for pretty printing
     pub fn debug_left_bracket(self) -> DebugDocBuilder {
-        b::delimiter(match self {
+        DbgDocBldr::delimiter(match self {
             RangeInclusion::Exclusive => "(",
             RangeInclusion::Inclusive => "[",
         })
@@ -22,7 +22,7 @@ impl RangeInclusion {
 
     /// Get a RangeInclusion right bracket ready for pretty printing
     pub fn debug_right_bracket(self) -> DebugDocBuilder {
-        b::delimiter(match self {
+        DbgDocBldr::delimiter(match self {
             RangeInclusion::Exclusive => ")",
             RangeInclusion::Inclusive => "]",
         })

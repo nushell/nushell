@@ -1,6 +1,6 @@
 use crate::value::Value;
 use nu_errors::ShellError;
-use nu_source::{b, DebugDocBuilder, PrettyDebug};
+use nu_source::{DbgDocBldr, DebugDocBuilder, PrettyDebug};
 use serde::{Deserialize, Serialize};
 
 /// The inner set of actions for the command processor. Each denotes a way to change state in the processor without changing it directly from the command itself.
@@ -34,19 +34,23 @@ impl PrettyDebug for CommandAction {
     /// Get a command action ready to be pretty-printed
     fn pretty(&self) -> DebugDocBuilder {
         match self {
-            CommandAction::ChangePath(path) => b::typed("change path", b::description(path)),
-            CommandAction::Exit => b::description("exit"),
-            CommandAction::Error(_) => b::error("error"),
-            CommandAction::AutoConvert(_, extension) => {
-                b::typed("auto convert", b::description(extension))
+            CommandAction::ChangePath(path) => {
+                DbgDocBldr::typed("change path", DbgDocBldr::description(path))
             }
-            CommandAction::EnterShell(s) => b::typed("enter shell", b::description(s)),
-            CommandAction::EnterValueShell(v) => b::typed("enter value shell", v.pretty()),
-            CommandAction::EnterHelpShell(v) => b::typed("enter help shell", v.pretty()),
-            CommandAction::AddPlugins(..) => b::description("add plugins"),
-            CommandAction::PreviousShell => b::description("previous shell"),
-            CommandAction::NextShell => b::description("next shell"),
-            CommandAction::LeaveShell => b::description("leave shell"),
+            CommandAction::Exit => DbgDocBldr::description("exit"),
+            CommandAction::Error(_) => DbgDocBldr::error("error"),
+            CommandAction::AutoConvert(_, extension) => {
+                DbgDocBldr::typed("auto convert", DbgDocBldr::description(extension))
+            }
+            CommandAction::EnterShell(s) => {
+                DbgDocBldr::typed("enter shell", DbgDocBldr::description(s))
+            }
+            CommandAction::EnterValueShell(v) => DbgDocBldr::typed("enter value shell", v.pretty()),
+            CommandAction::EnterHelpShell(v) => DbgDocBldr::typed("enter help shell", v.pretty()),
+            CommandAction::AddPlugins(..) => DbgDocBldr::description("add plugins"),
+            CommandAction::PreviousShell => DbgDocBldr::description("previous shell"),
+            CommandAction::NextShell => DbgDocBldr::description("next shell"),
+            CommandAction::LeaveShell => DbgDocBldr::description("leave shell"),
         }
     }
 }
@@ -66,9 +70,9 @@ impl PrettyDebug for ReturnSuccess {
     /// Get a return success ready to be pretty-printed
     fn pretty(&self) -> DebugDocBuilder {
         match self {
-            ReturnSuccess::Value(value) => b::typed("value", value.pretty()),
-            ReturnSuccess::DebugValue(value) => b::typed("debug value", value.pretty()),
-            ReturnSuccess::Action(action) => b::typed("action", action.pretty()),
+            ReturnSuccess::Value(value) => DbgDocBldr::typed("value", value.pretty()),
+            ReturnSuccess::DebugValue(value) => DbgDocBldr::typed("debug value", value.pretty()),
+            ReturnSuccess::Action(action) => DbgDocBldr::typed("action", action.pretty()),
         }
     }
 }

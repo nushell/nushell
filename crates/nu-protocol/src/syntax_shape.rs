@@ -1,4 +1,4 @@
-use nu_source::{b, DebugDocBuilder, PrettyDebug};
+use nu_source::{DbgDocBldr, DebugDocBuilder, PrettyDebug};
 use serde::{Deserialize, Serialize};
 
 /// The syntactic shapes that values must match to be passed into a command. You can think of this as the type-checking that occurs when you call a function.
@@ -40,7 +40,7 @@ pub enum SyntaxShape {
 impl PrettyDebug for SyntaxShape {
     /// Prepare SyntaxShape for pretty-printing
     fn pretty(&self) -> DebugDocBuilder {
-        b::kind(match self {
+        DbgDocBldr::kind(match self {
             SyntaxShape::Any => "any",
             SyntaxShape::String => "string",
             SyntaxShape::FullColumnPath => "column path (with variable)",

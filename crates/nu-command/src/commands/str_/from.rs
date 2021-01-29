@@ -6,8 +6,8 @@ use nu_protocol::{
 };
 use nu_source::Tagged;
 use num_bigint::{BigInt, BigUint, ToBigInt};
-
 // TODO num_format::SystemLocale once platform-specific dependencies are stable (see Cargo.toml)
+use nu_data::base::shape::InlineShape;
 use num_format::Locale;
 use num_traits::{Pow, Signed};
 use std::iter;
@@ -127,6 +127,14 @@ pub fn action(
                 }
             }
             Primitive::Decimal(dec) => format_decimal(dec.clone(), digits, group_digits),
+            Primitive::String(a_string) => a_string.to_string(),
+            Primitive::Boolean(a_bool) => a_bool.to_string(),
+            Primitive::Date(a_date) => a_date.format("%c").to_string(),
+            Primitive::FilePath(a_filepath) => a_filepath.as_path().display().to_string(),
+            Primitive::Filesize(a_filesize) => {
+                let byte_string = InlineShape::format_bytes(a_filesize);
+                byte_string.1
+            }
             _ => {
                 return Err(ShellError::unimplemented(
                     "str from for non-numeric primitives",

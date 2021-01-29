@@ -1,4 +1,4 @@
-use crate::pretty::{b, DebugDocBuilder, PrettyDebugWithSource};
+use crate::pretty::{DbgDocBldr, DebugDocBuilder, PrettyDebugWithSource};
 use crate::text::Text;
 
 use derive_new::new;
@@ -738,7 +738,7 @@ where
 impl PrettyDebugWithSource for Option<Span> {
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         match self {
-            None => b::description("no span"),
+            None => DbgDocBldr::description("no span"),
             Some(span) => span.pretty_debug(source),
         }
     }
@@ -752,9 +752,11 @@ impl HasFallibleSpan for Option<Span> {
 
 impl PrettyDebugWithSource for Span {
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
-        b::typed(
+        DbgDocBldr::typed(
             "span",
-            b::keyword("for") + b::space() + b::description(format!("{:?}", self.slice(source))),
+            DbgDocBldr::keyword("for")
+                + DbgDocBldr::space()
+                + DbgDocBldr::description(format!("{:?}", self.slice(source))),
         )
     }
 }
@@ -771,7 +773,7 @@ where
 {
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         match self {
-            None => b::description("nothing"),
+            None => DbgDocBldr::description("nothing"),
             Some(v) => v.pretty_debug(v.span.slice(source)),
         }
     }
@@ -792,7 +794,7 @@ where
 {
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         match self {
-            None => b::description("nothing"),
+            None => DbgDocBldr::description("nothing"),
             Some(d) => d.pretty_debug(source),
         }
     }
