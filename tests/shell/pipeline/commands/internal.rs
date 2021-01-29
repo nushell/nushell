@@ -751,6 +751,53 @@ fn range_with_mixed_types() {
 }
 
 #[test]
+fn filesize_math() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        = 100 * 10kb
+        "#
+    );
+
+    assert_eq!(actual.out, "1.0 MB");
+}
+
+#[test]
+fn filesize_math2() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        = 100 / 10kb
+        "#
+    );
+
+    assert!(actual.err.contains("Coercion"));
+}
+
+#[test]
+fn filesize_math3() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        = 100kb / 10
+        "#
+    );
+
+    assert_eq!(actual.out, "10.2 KB");
+}
+#[test]
+fn filesize_math4() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        = 100kb * 5
+        "#
+    );
+
+    assert_eq!(actual.out, "512.0 KB");
+}
+
+#[test]
 fn exclusive_range_with_mixed_types() {
     let actual = nu!(
         cwd: ".",
