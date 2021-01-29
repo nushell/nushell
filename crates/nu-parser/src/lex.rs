@@ -7,7 +7,7 @@ use nu_errors::ParseError;
 
 type Input<'t> = Peekable<CharIndices<'t>>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Token {
     pub contents: TokenContents,
     pub span: Span,

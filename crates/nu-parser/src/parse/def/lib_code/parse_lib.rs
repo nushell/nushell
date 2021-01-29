@@ -37,7 +37,11 @@ pub(crate) trait Parse {
     fn default_error_value() -> Self::Output;
 
     fn tokens_are_begin(tokens: &[Token], i: usize) -> bool {
-        Self::parse(tokens, i).err.is_none()
+        //Because the nu-grammar is LL(1) we will only pass the first token (if present)
+        //Passing more Tokens, parsing a long rule and checking for error may result in errors
+        //returned from some sub-rule not at the front
+        let begin: Vec<Token> = tokens.iter().skip(i).take(1).cloned().collect();
+        Self::parse(&begin, 0).err.is_none()
     }
 
     fn mismatch_error(token: &Token) -> Option<ParseError> {
@@ -52,6 +56,24 @@ pub(crate) trait Parse {
             Self::default_error_value(),
             i,
             Self::mismatch_error(token),
+            vec![],
+        )
+    }
+
+    fn eol_error(tokens: &[Token]) -> Option<ParseError> {
+        let last_span = if let Some(last_token) = tokens.last() {
+            last_token.span
+        } else {
+            Span::unknown()
+        };
+        Some(ParseError::unexpected_eof(Self::display_name(), last_span))
+    }
+
+    fn eol_default_return(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
+        ParseResult::new(
+            Self::default_error_value(),
+            i,
+            Self::eol_error(tokens),
             vec![],
         )
     }
@@ -82,20 +104,7 @@ impl<Parser: Parse> Parse for Expect<Parser> {
         } else {
             debug!("Expect<{:?}> but no tokens", Parser::display_name(),);
             //No tokens are present --> Error out
-            let last_span = if let Some(last_token) = tokens.last() {
-                last_token.span
-            } else {
-                Span::unknown()
-            };
-            ParseResult::new(
-                Parser::default_error_value(),
-                i,
-                Some(ParseError::unexpected_eof(
-                    Parser::display_name(),
-                    last_span,
-                )),
-                vec![],
-            )
+            Parser::eol_default_return(tokens, i)
         }
     }
 
@@ -105,6 +114,23 @@ impl<Parser: Parse> Parse for Expect<Parser> {
 
     fn default_error_value() -> Parser::Output {
         Parser::default_error_value()
+    }
+
+    fn eol_default_return(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
+        Parser::eol_default_return(tokens, i)
+    }
+
+    fn mismatch_default_return(token: &Token, i: usize) -> ParseResult<Self::Output> {
+        Parser::mismatch_default_return(token, i)
+    }
+
+    fn tokens_are_begin(tokens: &[Token], i: usize) -> bool {
+        //If there are no tokens left, underlying parser is not starting it
+        if tokens.len() < i {
+            false
+        } else {
+            Parser::tokens_are_begin(tokens, i)
+        }
     }
 }
 
@@ -393,26 +419,23 @@ pub(crate) enum OneOf4<V1, V2, V3, V4> {
     V2(V2),
     V3(V3),
     V4(V4),
-    NoRuleApplicable,
+    Err(Option<ParseError>),
 }
 
-pub(crate) struct Or4Unchecked<
-    P1: CheckedParse,
-    P2: CheckedParse,
-    P3: CheckedParse,
-    P4: CheckedParse,
-> {
+pub(crate) struct Or4<P1: CheckedParse, P2: CheckedParse, P3: CheckedParse, P4: CheckedParse> {
     _marker1: marker::PhantomData<*const P1>,
     _marker2: marker::PhantomData<*const P2>,
     _marker3: marker::PhantomData<*const P3>,
     _marker4: marker::PhantomData<*const P4>,
 }
 
-#[allow(dead_code)]
-pub(crate) type Or4<P1, P2, P3, P4> = Expect<Or4Unchecked<P1, P2, P3, P4>>;
+impl<P1: CheckedParse, P2: CheckedParse, P3: CheckedParse, P4: CheckedParse> CheckedParse
+    for Or4<P1, P2, P3, P4>
+{
+}
 
 impl<P1: CheckedParse, P2: CheckedParse, P3: CheckedParse, P4: CheckedParse> Parse
-    for Or4Unchecked<P1, P2, P3, P4>
+    for Or4<P1, P2, P3, P4>
 {
     type Output = OneOf4<P1::Output, P2::Output, P3::Output, P4::Output>;
 
@@ -430,7 +453,13 @@ impl<P1: CheckedParse, P2: CheckedParse, P3: CheckedParse, P4: CheckedParse> Par
             let (v, i, e, w) = P4::parse(tokens, i).into();
             ParseResult::new(OneOf4::V4(v), i, e, w)
         } else {
-            Self::mismatch_default_return(&tokens[i], i)
+            //No parser from above matched. Report this error
+            let e = if i < tokens.len() {
+                Self::mismatch_error(&tokens[i])
+            } else {
+                Self::eol_error(&tokens)
+            };
+            ParseResult::new(OneOf4::Err(e), i, None, vec![])
         }
     }
 
@@ -445,32 +474,53 @@ impl<P1: CheckedParse, P2: CheckedParse, P3: CheckedParse, P4: CheckedParse> Par
     }
 
     fn default_error_value() -> Self::Output {
-        OneOf4::NoRuleApplicable
+        OneOf4::Err(None)
     }
 }
 
-pub(crate) struct RepeatUntilFailure<Parser: CheckedParse> {
-    _marker: marker::PhantomData<*const Parser>,
+pub(crate) struct Repeat<Parser: CheckedParse, NoProgressRecovery: CheckedParse> {
+    _marker1: marker::PhantomData<*const Parser>,
+    _marker2: marker::PhantomData<*const NoProgressRecovery>,
 }
 
-impl<Parser: CheckedParse> Parse for RepeatUntilFailure<Parser> {
+impl<Parser: CheckedParse, NoProgressRecovery: CheckedParse> CheckedParse
+    for Repeat<Parser, NoProgressRecovery>
+{
+}
+
+impl<Parser: CheckedParse, NoProgressRecovery: CheckedParse> Parse
+    for Repeat<Parser, NoProgressRecovery>
+{
     type Output = Vec<Parser::Output>;
 
     fn parse(tokens: &[Token], i: usize) -> ParseResult<Self::Output> {
         let mut values = vec![];
-        let mut warnings = vec![];
         let mut last_i = i;
-        loop {
-            let mut result = Parser::parse(tokens, i);
-            if result.err.is_some() {
-                break;
-            }
+        let mut last_err = None;
+        let mut warnings = vec![];
+
+        while last_i < tokens.len() {
+            let i_before_parse = last_i;
+            let mut result = Parser::parse(tokens, last_i);
+            let i_after_parse = result.i;
+
+            //Update state
             values.push(result.value);
-            warnings.append(&mut result.warnings);
             last_i = result.i;
+            last_err = last_err.or(result.err);
+            warnings.append(&mut result.warnings);
+
+            //If no progress is made from parser
+            if i_before_parse == i_after_parse {
+                //To not repeat in an endless loop, we call the recovery rule
+                let (_, i, e, mut w) = NoProgressRecovery::parse(tokens, i).into();
+                last_i = i;
+                last_err = last_err.or(e);
+                warnings.append(&mut w);
+            }
         }
 
-        ParseResult::new(values, last_i, None, warnings)
+        ParseResult::new(values, last_i, last_err, warnings)
     }
 
     fn display_name() -> String {
@@ -480,4 +530,21 @@ impl<Parser: CheckedParse> Parse for RepeatUntilFailure<Parser> {
     fn default_error_value() -> Self::Output {
         Vec::new()
     }
+}
+
+///Recovery parser
+pub(crate) struct Skip {}
+impl CheckedParse for Skip {}
+impl Parse for Skip {
+    type Output = ();
+
+    fn parse(_: &[Token], i: usize) -> ParseResult<Self::Output> {
+        ((), i + 1).into()
+    }
+
+    fn display_name() -> String {
+        "internal parsing-rule: skip".to_string()
+    }
+
+    fn default_error_value() -> Self::Output {}
 }

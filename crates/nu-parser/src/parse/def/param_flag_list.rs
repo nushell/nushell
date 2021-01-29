@@ -11,7 +11,7 @@
 ///item_end:
 ///    (<,>)? (#Comment)? (<eol>)?
 use crate::{
-    lex::{lex, Token, TokenContents},
+    lex::{lex, Token},
     parse::def::lib_code::parse_lib::{And2, CheckedParse, IfSuccessThen, Maybe, Parse},
 };
 use log::debug;
@@ -22,7 +22,7 @@ use nu_source::{Span, Spanned};
 use super::{
     lex_fixup::{lex_split_baseline_tokens_on, lex_split_shortflag_from_longflag},
     lib_code::{
-        parse_lib::{And3, WithSpan},
+        parse_lib::{And3, OneOf4, Or4, Repeat, Skip, WithSpan},
         ParseResult,
     },
     primitives::{
@@ -69,47 +69,26 @@ pub(crate) fn parse_signature(
     let mut parameters = vec![];
     let mut flags = vec![];
     let mut rest = None;
-    let mut i = 0;
 
-    while i < tokens.len() {
-        if tokens[i].contents.is_eol() {
-            //Skip leading eol
-            i += 1;
-        } else if Flag::tokens_are_begin(&tokens, i) {
-            let ParseResult {
-                value: flag,
-                i: i_new,
-                err: error,
-                warnings: _,
-            } = Flag::parse_debug(&tokens, i);
-            err = err.or(error);
-            i = i_new;
-            flags.push(flag);
-        } else if Rest::tokens_are_begin(&tokens, i) {
-            let ParseResult {
-                value: rest_,
-                i: i_new,
-                err: error,
-                warnings: _,
-            } = Rest::parse_debug(&tokens, i);
-            err = err.or(error);
-            i = i_new;
-            rest = Some(rest_);
-        } else {
-            let ParseResult {
-                value: parameter,
-                i: i_new,
-                err: error,
-                warnings: _,
-            } = Parameter::parse_debug(&tokens, i);
-            err = err.or(error);
-            i = i_new;
-            parameters.push(parameter);
+    let (values, _, error, warnings) =
+        Repeat::<Or4<EOL, Flag, Rest, Parameter>, Skip>::parse(&tokens, 0).into();
+    err = err.or(error);
+
+    for v in values {
+        match v {
+            OneOf4::V1(_) => {}
+            OneOf4::V2(flag) => flags.push(flag),
+            OneOf4::V3(r) => rest = Some(r),
+            OneOf4::V4(param) => parameters.push(param),
+            OneOf4::Err(or_error) => err = err.or(or_error), //Err already given back from Or4
         }
     }
 
     let signature = to_signature(name, parameters, flags, rest);
     debug!("Signature: {:?}", signature);
+
+    //Caller can't handle warnings yet. Pass them as error for now
+    err = err.or_else(|| warnings.first().cloned());
 
     (signature, err)
 }
@@ -211,14 +190,6 @@ impl Parse for Flag {
         "flag item".to_string()
     }
 
-    fn tokens_are_begin(tokens: &[Token], i: usize) -> bool {
-        if let TokenContents::Baseline(item) = &tokens[i].contents {
-            item.starts_with('-')
-        } else {
-            false
-        }
-    }
-
     fn default_error_value() -> Self::Output {
         Flag::new(
             "Error".to_string(),
@@ -251,14 +222,6 @@ impl Parse for Rest {
             err,
             warnings,
         )
-    }
-
-    fn tokens_are_begin(tokens: &[Token], i: usize) -> bool {
-        if let TokenContents::Baseline(item) = &tokens[i].contents {
-            item.starts_with("...")
-        } else {
-            false
-        }
     }
 
     fn display_name() -> String {
