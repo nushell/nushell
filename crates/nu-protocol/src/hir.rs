@@ -656,7 +656,8 @@ impl SpannedExpression {
                 // Higher precedence binds tighter
 
                 match operator {
-                    Operator::Multiply | Operator::Divide | Operator::Modulo => 100,
+                    Operator::Pow => 100,
+                    Operator::Multiply | Operator::Divide | Operator::Modulo => 95,
                     Operator::Plus | Operator::Minus => 90,
                     Operator::NotContains
                     | Operator::Contains
@@ -848,6 +849,7 @@ pub enum Operator {
     Modulo,
     And,
     Or,
+    Pow,
 }
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize, new)]

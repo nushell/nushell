@@ -257,6 +257,7 @@ fn get_result_shape_of(
             }
         }
         Operator::Modulo => SyntaxShape::Number,
+        Operator::Pow => SyntaxShape::Number,
     })
 }
 
@@ -860,7 +861,7 @@ impl VarSyntaxShapeDeductor {
                         }
                     }
                 }
-                Operator::Multiply | Operator::Divide => {
+                Operator::Multiply | Operator::Divide | Operator::Pow => {
                     if let Some(shape) = self.get_shape_of_binary_arg_or_insert_dependency(
                         (var, expr),
                         bin_spanned,
