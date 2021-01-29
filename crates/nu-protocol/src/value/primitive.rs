@@ -31,7 +31,7 @@ pub enum Primitive {
     #[serde(with = "serde_bigdecimal")]
     Decimal(BigDecimal),
     /// A count in the number of bytes, used as a filesize
-    Filesize(u64),
+    Filesize(BigInt),
     /// A string value
     String(String),
     /// A path to travel to reach a value in a table
@@ -254,17 +254,21 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
         Primitive::EndOfStream => String::new(),
         Primitive::FilePath(p) => format!("{}", p.display()),
         Primitive::Filesize(num_bytes) => {
-            let byte = byte_unit::Byte::from_bytes(*num_bytes as u128);
+            if let Some(value) = num_bytes.to_u128() {
+                let byte = byte_unit::Byte::from_bytes(value);
 
-            if byte.get_bytes() == 0u128 {
-                return "—".to_string();
-            }
+                if byte.get_bytes() == 0u128 {
+                    return "—".to_string();
+                }
 
-            let byte = byte.get_appropriate_unit(false);
+                let byte = byte.get_appropriate_unit(false);
 
-            match byte.get_unit() {
-                byte_unit::ByteUnit::B => format!("{} B ", byte.get_value()),
-                _ => byte.format(1),
+                match byte.get_unit() {
+                    byte_unit::ByteUnit::B => format!("{} B ", byte.get_value()),
+                    _ => byte.format(1),
+                }
+            } else {
+                format!("{} B", num_bytes)
             }
         }
         Primitive::Duration(duration) => format_duration(duration),

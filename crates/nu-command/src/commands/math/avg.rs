@@ -59,12 +59,9 @@ impl WholeStreamCommand for SubCommand {
 
 fn to_byte(value: &Value) -> Option<Value> {
     match &value.value {
-        UntaggedValue::Primitive(Primitive::Int(num)) => Some(
-            UntaggedValue::Primitive(Primitive::Filesize(convert_number_to_u64(&Number::Int(
-                num.clone(),
-            ))))
-            .into_untagged_value(),
-        ),
+        UntaggedValue::Primitive(Primitive::Int(num)) => {
+            Some(UntaggedValue::Primitive(Primitive::Filesize(num.clone())).into_untagged_value())
+        }
         _ => None,
     }
 }
@@ -95,7 +92,7 @@ pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
                     Value {
                         value: UntaggedValue::Primitive(Primitive::Filesize(num)),
                         ..
-                    } => UntaggedValue::int(*num as usize).into_untagged_value(),
+                    } => UntaggedValue::int(num.clone()).into_untagged_value(),
                     other => other.clone(),
                 })
                 .collect::<Vec<_>>(),
@@ -116,7 +113,7 @@ pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
             value: UntaggedValue::Primitive(Primitive::Filesize(num)),
             ..
         } => {
-            let left = UntaggedValue::from(Primitive::Int(num.into()));
+            let left = UntaggedValue::from(Primitive::Int(num));
             let result = nu_data::value::compute_values(Operator::Divide, &left, &total_rows);
 
             match result {

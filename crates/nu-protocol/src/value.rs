@@ -186,7 +186,7 @@ impl UntaggedValue {
     }
 
     /// Helper for creating filesize values
-    pub fn filesize(s: impl Into<u64>) -> UntaggedValue {
+    pub fn filesize(s: impl Into<BigInt>) -> UntaggedValue {
         UntaggedValue::Primitive(Primitive::Filesize(s.into()))
     }
 
@@ -713,7 +713,7 @@ impl U64Ext for u64 {
 
     fn to_filesize_value(&self, the_tag: Tag) -> Value {
         Value {
-            value: UntaggedValue::Primitive(Primitive::Filesize(*self)),
+            value: UntaggedValue::Primitive(Primitive::Filesize(BigInt::from(*self))),
             tag: the_tag,
         }
     }

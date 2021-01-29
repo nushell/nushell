@@ -3,10 +3,7 @@ use crate::commands::math::utils::run_with_function;
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    hir::{convert_number_to_u64, Number},
-    Primitive, Signature, UntaggedValue, Value,
-};
+use nu_protocol::{Primitive, Signature, UntaggedValue, Value};
 
 pub struct SubCommand;
 
@@ -51,12 +48,9 @@ impl WholeStreamCommand for SubCommand {
 
 fn to_byte(value: &Value) -> Option<Value> {
     match &value.value {
-        UntaggedValue::Primitive(Primitive::Int(num)) => Some(
-            UntaggedValue::Primitive(Primitive::Filesize(convert_number_to_u64(&Number::Int(
-                num.clone(),
-            ))))
-            .into_untagged_value(),
-        ),
+        UntaggedValue::Primitive(Primitive::Int(num)) => {
+            Some(UntaggedValue::Primitive(Primitive::Filesize(num.clone())).into_untagged_value())
+        }
         _ => None,
     }
 }
@@ -78,7 +72,7 @@ pub fn product(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
                     Value {
                         value: UntaggedValue::Primitive(Primitive::Filesize(num)),
                         ..
-                    } => UntaggedValue::int(*num as usize).into_untagged_value(),
+                    } => UntaggedValue::int(num.clone()).into_untagged_value(),
                     other => other.clone(),
                 })
                 .collect::<Vec<_>>(),

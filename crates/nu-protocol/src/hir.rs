@@ -631,8 +631,8 @@ impl Unit {
     }
 }
 
-pub fn filesize(size_in_bytes: u64) -> UntaggedValue {
-    UntaggedValue::Primitive(Primitive::Filesize(size_in_bytes))
+pub fn filesize(size_in_bytes: impl Into<BigInt>) -> UntaggedValue {
+    UntaggedValue::Primitive(Primitive::Filesize(size_in_bytes.into()))
 }
 
 pub fn duration(nanos: BigInt) -> UntaggedValue {
