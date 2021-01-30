@@ -13,11 +13,11 @@ use crate::lex::lexer::{block, lex};
 
 use crate::ParserScope;
 
-use self::param_flag_list::parse_signature;
+use self::signature::parse_signature;
 
 mod data_structs;
-mod param_flag_list;
 mod primitives;
+mod signature;
 mod tests;
 
 pub(crate) fn parse_definition(call: &LiteCommand, scope: &dyn ParserScope) -> Option<ParseError> {
