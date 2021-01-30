@@ -15,7 +15,10 @@ use crate::ParserScope;
 
 use self::param_flag_list::parse_signature;
 
+mod data_structs;
 mod param_flag_list;
+mod primitives;
+mod tests;
 
 pub(crate) fn parse_definition(call: &LiteCommand, scope: &dyn ParserScope) -> Option<ParseError> {
     // A this point, we've already handled the prototype and put it into scope;
