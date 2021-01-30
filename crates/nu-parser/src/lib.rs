@@ -1,5 +1,7 @@
 #[macro_use]
 extern crate derive_is_enum_variant;
+#[macro_use]
+extern crate derive_new;
 
 mod errors;
 mod lex;

@@ -24,6 +24,8 @@ use nu_errors::ParseError;
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape};
 use nu_source::{Span, Spanned, SpannedItem};
 
+use super::data_structs::{Description, Flag, Parameter};
+
 pub fn parse_signature(
     name: &str,
     signature_vec: &Spanned<String>,
@@ -652,69 +654,4 @@ fn lex_split_baseline_tokens_on(
         }
     }
     result
-}
-
-type Description = String;
-#[derive(Clone)]
-struct Parameter {
-    pub pos_type: PositionalType,
-    pub desc: Option<Description>,
-    pub span: Span,
-}
-
-impl Parameter {
-    pub fn new(pos_type: PositionalType, desc: Option<Description>, span: Span) -> Parameter {
-        Parameter {
-            pos_type,
-            desc,
-            span,
-        }
-    }
-
-    pub fn error() -> Parameter {
-        Parameter::new(
-            PositionalType::optional("Internal Error", SyntaxShape::Any),
-            Some(
-                "Wanted to parse a parameter, but no input present. Please report this error!"
-                    .to_string(),
-            ),
-            Span::unknown(),
-        )
-    }
-}
-
-#[derive(Clone, Debug)]
-struct Flag {
-    pub long_name: String,
-    pub named_type: NamedType,
-    pub desc: Option<Description>,
-    pub span: Span,
-}
-
-impl Flag {
-    pub fn new(
-        long_name: String,
-        named_type: NamedType,
-        desc: Option<Description>,
-        span: Span,
-    ) -> Flag {
-        Flag {
-            long_name,
-            named_type,
-            desc,
-            span,
-        }
-    }
-
-    pub fn error() -> Flag {
-        Flag::new(
-            "Internal Error".to_string(),
-            NamedType::Switch(None),
-            Some(
-                "Wanted to parse a flag, but no input present. Please report this error!"
-                    .to_string(),
-            ),
-            Span::unknown(),
-        )
-    }
 }
