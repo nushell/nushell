@@ -140,6 +140,24 @@ fn oddly_but_correct_written_params() {
 }
 
 #[test]
+fn err_wrong_dash_count() {
+    let actual = nu!(
+        cwd: ".",
+        "def f [ --flag(--f)] { echo hi }"
+    );
+    assert!(actual.err.contains("single '-'"));
+}
+
+#[test]
+fn err_wrong_dash_count2() {
+    let actual = nu!(
+        cwd: ".",
+        "def f [ --flag(f)] { echo hi }"
+    );
+    assert!(actual.err.contains("'-'"));
+}
+
+#[test]
 fn err_wrong_type() {
     let actual = nu!(
         cwd: ".",
