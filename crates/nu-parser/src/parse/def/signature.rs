@@ -257,7 +257,7 @@ fn parse_rest(
         comment = parsed_comment.unwrap_or_else(|| "".to_string());
     }
 
-    return (Some((type_, comment)), i, err);
+    (Some((type_, comment)), i, err)
 }
 
 fn parse_optional_type(tokens: &[Token]) -> (Option<SyntaxShape>, usize, Option<ParseError>) {
