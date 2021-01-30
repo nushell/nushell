@@ -115,8 +115,17 @@ pub fn host(sys: &mut System, tag: Tag) -> Option<UntaggedValue> {
     if let Some(name) = sys.get_name() {
         dict.insert_untagged("name", UntaggedValue::string(trim_cstyle_null(name)));
     }
-    if let Some(version) = sys.get_version() {
-        dict.insert_untagged("version", UntaggedValue::string(trim_cstyle_null(version)));
+    if let Some(version) = sys.get_os_version() {
+        dict.insert_untagged(
+            "os version",
+            UntaggedValue::string(trim_cstyle_null(version)),
+        );
+    }
+    if let Some(version) = sys.get_kernel_version() {
+        dict.insert_untagged(
+            "kernel version",
+            UntaggedValue::string(trim_cstyle_null(version)),
+        );
     }
     if let Some(hostname) = sys.get_host_name() {
         dict.insert_untagged(
