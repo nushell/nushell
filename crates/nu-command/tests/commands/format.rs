@@ -61,6 +61,6 @@ fn format_filesize_works() {
             "#
         ));
 
-        assert_eq!(actual.out, "0.01 KB");
+        assert_eq!(actual.out, "0.0 KB");
     })
 }
