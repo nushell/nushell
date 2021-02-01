@@ -134,7 +134,7 @@ impl InlineShape {
         // get the config value, if it doesn't exist make it 'auto' so it works how it originally did
         let filesize_format_var;
         if let Some(fmt) = forced_format {
-            filesize_format_var = fmt.to_ascii_lowercase().to_string();
+            filesize_format_var = fmt.to_ascii_lowercase();
         } else {
             filesize_format_var = crate::config::config(Tag::unknown())
                 .expect("unable to get the config.toml file")

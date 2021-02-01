@@ -83,6 +83,10 @@ fn format_filesize_works_with_nonempty_files() {
                 "ls sample.toml | format filesize size B | get size | first"
             );
 
+            #[cfg(not(windows))]
+            assert_eq!(actual.out, "25");
+
+            #[cfg(windows)]
             assert_eq!(actual.out, "27");
         },
     )
