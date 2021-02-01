@@ -8,7 +8,6 @@ use nu_protocol::{
 };
 use nu_source::Tagged;
 use nu_value_ext::get_data_by_column_path;
-// use num_format::{Locale, ToFormattedString};
 
 pub struct FileSize;
 
