@@ -253,6 +253,11 @@ fn evaluate_reference(name: &str, ctx: &EvaluationContext, tag: Tag) -> Result<V
             )),
         },
 
+        "$nothing" => Ok(Value {
+            value: UntaggedValue::nothing(),
+            tag,
+        }),
+
         x => match ctx.scope.get_var(x) {
             Some(v) => Ok(v),
             None => Err(ShellError::labeled_error(
