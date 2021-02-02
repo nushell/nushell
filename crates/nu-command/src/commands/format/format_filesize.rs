@@ -3,8 +3,7 @@ use nu_data::base::shape::InlineShape;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    ColumnPath, Primitive::Filesize, ReturnSuccess, Signature, SyntaxShape,
-    UntaggedValue::Primitive, Value,
+    ColumnPath, Primitive::Filesize, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use nu_source::Tagged;
 use nu_value_ext::get_data_by_column_path;
@@ -70,32 +69,23 @@ async fn process_row(
         let replace_for = get_data_by_column_path(&input, &field, move |_, _, error| error);
         match replace_for {
             Ok(s) => {
-                let byte_num = match s.value {
-                    Primitive(Filesize(s)) => {
-                        if let Some(value) = s.to_u128() {
-                            value
-                        } else {
-                            return Err(ShellError::labeled_error(
-                                "Value too large to fit in 128 bits",
-                                "value too large to fit in format",
-                                input.tag(),
-                            ));
-                        }
-                    }
-                    _ => {
-                        return Err(ShellError::labeled_error(
-                            "the data in this row is not of the type filesize",
-                            "invalid row type",
-                            input.tag(),
-                        ));
-                    }
-                };
-                let byte_format =
-                    InlineShape::format_bytes(&BigInt::from(byte_num), Some(&format.item));
-                let byte_value = Value::from(byte_format.1);
-                OutputStream::one(ReturnSuccess::value(
-                    input.replace_data_at_column_path(&field, byte_value).expect("Given that the existence check was already done, this shouldn't trigger never"),
-                ))
+                if let Value {
+                    value: UntaggedValue::Primitive(Filesize(fs)),
+                    ..
+                } = s
+                {
+                    let byte_format = InlineShape::format_bytes(&fs, Some(&format.item));
+                    let byte_value = Value::from(byte_format.1);
+                    OutputStream::one(ReturnSuccess::value(
+                        input.replace_data_at_column_path(&field, byte_value).expect("Given that the existence check was already done, this shouldn't trigger never"),
+                    ))
+                } else {
+                    return Err(ShellError::labeled_error(
+                        "the data in this row is not of the type filesize",
+                        "invalid datatype in row",
+                        input.tag(),
+                    ));
+                }
             }
             Err(e) => OutputStream::one(Err(e)),
         }
