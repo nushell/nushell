@@ -920,6 +920,67 @@ impl DateTimeExt for DateTime<FixedOffset> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use indexmap::indexmap;
+
+    #[test]
+    fn test_merge_descriptors() {
+        let value = vec![
+            UntaggedValue::row(indexmap! {
+                "h1".into() => Value::from("Ecuador")
+            })
+            .into_untagged_value(),
+            UntaggedValue::row(indexmap! {
+                "h2".into() => Value::from("Ecuador")
+            })
+            .into_untagged_value(),
+            UntaggedValue::row(indexmap! {
+                "h3".into() => Value::from("Ecuador")
+            })
+            .into_untagged_value(),
+            UntaggedValue::row(indexmap! {
+                "h1".into() => Value::from("Ecuador"),
+                "h4".into() => Value::from("Ecuador"),
+            })
+            .into_untagged_value(),
+        ];
+
+        assert_eq!(
+            merge_descriptors(&value),
+            vec![
+                String::from("h1"),
+                String::from("h2"),
+                String::from("h3"),
+                String::from("h4")
+            ]
+        );
+    }
+
+    #[test]
+    fn test_data_descriptors() {
+        let value = vec![
+            UntaggedValue::row(indexmap! {
+                "h1".into() => Value::from("Ecuador")
+            }),
+            UntaggedValue::row(indexmap! {
+                "h2".into() => Value::from("Ecuador")
+            }),
+            UntaggedValue::row(indexmap! {
+                "h3".into() => Value::from("Ecuador")
+            }),
+            UntaggedValue::row(indexmap! {
+                "h1".into() => Value::from("Ecuador"),
+                "h4".into() => Value::from("Ecuador"),
+            }),
+        ];
+
+        assert_eq!(
+            value
+                .iter()
+                .map(|v| v.data_descriptors().len())
+                .collect::<Vec<_>>(),
+            vec![1, 1, 1, 2]
+        );
+    }
 
     #[test]
     fn test_decimal_from_float() {
