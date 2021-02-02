@@ -7,7 +7,7 @@ pub mod ls {
     pub fn file_listing() -> Vec<Value> {
         vec![
             row! {
-                   "name".to_string() => string("Andrés.txt"),
+                   "name".to_string() => string("Andres.txt"),
                    "type".to_string() =>       string("File"),
                "chickens".to_string() =>              int(10),
                "modified".to_string() =>   date("2019-07-23")
@@ -19,7 +19,7 @@ pub mod ls {
                "modified".to_string() =>   date("2019-07-23")
             },
             row! {
-                   "name".to_string() =>  string("Andrés.txt"),
+                   "name".to_string() =>  string("Darren.txt"),
                    "type".to_string() =>        string("File"),
                "chickens".to_string() =>               int(20),
                "modified".to_string() =>    date("2019-09-24")

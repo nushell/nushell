@@ -54,7 +54,7 @@ impl WholeStreamCommand for Command {
                 example: r#"ls | move type --before name | first"#,
                 result: Some(vec![row! {
                     "type".into() =>         string("File"),
-                    "name".into() =>   string("Andrés.txt"),
+                    "name".into() =>   string("Andres.txt"),
                     "chickens".into() =>            int(10),
                     "modified".into() => date("2019-07-23")
                 }]),
@@ -63,7 +63,7 @@ impl WholeStreamCommand for Command {
                 description: "or move the column \"chickens\" after \"name\"",
                 example: r#"ls | move chickens --after name | first"#,
                 result: Some(vec![row! {
-                    "name".into() =>   string("Andrés.txt"),
+                    "name".into() =>   string("Andres.txt"),
                     "chickens".into() =>            int(10),
                     "type".into() =>         string("File"),
                     "modified".into() => date("2019-07-23")
@@ -74,7 +74,7 @@ impl WholeStreamCommand for Command {
                 example: r#"ls | move name chickens --after type | first"#,
                 result: Some(vec![row! {
                     "type".into() =>         string("File"),
-                    "name".into() =>   string("Andrés.txt"),
+                    "name".into() =>   string("Andres.txt"),
                     "chickens".into() =>            int(10),
                     "modified".into() => date("2019-07-23")
                 }]),

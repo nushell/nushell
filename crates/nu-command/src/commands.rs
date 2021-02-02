@@ -269,7 +269,7 @@ pub(crate) use to::To;
 pub(crate) use to_csv::ToCSV;
 pub(crate) use to_html::ToHTML;
 pub(crate) use to_json::ToJSON;
-pub(crate) use to_md::ToMarkdown;
+pub(crate) use to_md::Command as ToMarkdown;
 pub(crate) use to_toml::ToTOML;
 pub(crate) use to_tsv::ToTSV;
 pub(crate) use to_url::ToURL;
@@ -327,6 +327,7 @@ mod tests {
             whole_stream_command(StrKebabCase),
             whole_stream_command(StrSnakeCase),
             whole_stream_command(StrScreamingSnakeCase),
+            whole_stream_command(ToMarkdown),
         ]
     }
 
