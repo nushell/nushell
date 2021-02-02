@@ -320,6 +320,27 @@ impl Value {
         }
     }
 
+    /// View the Value as a BigInt, if possible
+    pub fn as_bigint(&self) -> Result<BigInt, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(Primitive::Filesize(fs)) => Ok(fs.clone()),
+            UntaggedValue::Primitive(Primitive::Duration(dur)) => Ok(dur.clone()),
+            UntaggedValue::Primitive(Primitive::Int(n)) => Ok(n.clone()),
+            _ => Err(ShellError::type_error("bigint", self.spanned_type_name())),
+        }
+    }
+
+    /// View the Value as a BigDecimal, if possible
+    pub fn as_bigdecimal(&self) -> Result<BigDecimal, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(Primitive::Decimal(d)) => Ok(d.clone()),
+            _ => Err(ShellError::type_error(
+                "bigdecimal",
+                self.spanned_type_name(),
+            )),
+        }
+    }
+
     pub fn convert_to_string(&self) -> String {
         match &self.value {
             UntaggedValue::Primitive(Primitive::String(s)) => s.clone(),
