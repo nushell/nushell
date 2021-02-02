@@ -320,18 +320,39 @@ impl Value {
         }
     }
 
-    /// View the Value as a BigInt, if possible
-    pub fn as_bigint(&self) -> Result<BigInt, ShellError> {
+    /// View the Value as a FilePath (PathBuf), if possible
+    pub fn as_filepath(&self) -> Result<PathBuf, ShellError> {
         match &self.value {
-            UntaggedValue::Primitive(Primitive::Filesize(fs)) => Ok(fs.clone()),
-            UntaggedValue::Primitive(Primitive::Duration(dur)) => Ok(dur.clone()),
+            UntaggedValue::Primitive(Primitive::FilePath(path)) => Ok(path.clone()),
+            _ => Err(ShellError::type_error("string", self.spanned_type_name())),
+        }
+    }
+
+    /// View the Value as a Int (BigInt), if possible
+    pub fn as_int(&self) -> Result<BigInt, ShellError> {
+        match &self.value {
             UntaggedValue::Primitive(Primitive::Int(n)) => Ok(n.clone()),
             _ => Err(ShellError::type_error("bigint", self.spanned_type_name())),
         }
     }
 
-    /// View the Value as a BigDecimal, if possible
-    pub fn as_bigdecimal(&self) -> Result<BigDecimal, ShellError> {
+    /// View the Value as a Filesize (BigInt), if possible
+    pub fn as_filesize(&self) -> Result<BigInt, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(Primitive::Filesize(fs)) => Ok(fs.clone()),
+            _ => Err(ShellError::type_error("bigint", self.spanned_type_name())),
+        }
+    }
+
+    /// View the Value as a Duration (BigInt), if possible
+    pub fn as_duration(&self) -> Result<BigInt, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(Primitive::Duration(dur)) => Ok(dur.clone()),
+            _ => Err(ShellError::type_error("bigint", self.spanned_type_name())),
+        }
+    }
+    /// View the Value as a Decimal (BigDecimal), if possible
+    pub fn as_decimal(&self) -> Result<BigDecimal, ShellError> {
         match &self.value {
             UntaggedValue::Primitive(Primitive::Decimal(d)) => Ok(d.clone()),
             _ => Err(ShellError::type_error(
