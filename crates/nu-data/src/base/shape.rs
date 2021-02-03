@@ -128,15 +128,21 @@ impl InlineShape {
         }
     }
 
-    pub fn format_bytes(bytesize: &BigInt) -> (DbgDocBldr, String) {
+    pub fn format_bytes(bytesize: &BigInt, forced_format: Option<&str>) -> (DbgDocBldr, String) {
         use bigdecimal::ToPrimitive;
 
         // get the config value, if it doesn't exist make it 'auto' so it works how it originally did
-        let filesize_format_var = crate::config::config(Tag::unknown())
-            .expect("unable to get the config.toml file")
-            .get("filesize_format")
-            .map(|val| val.convert_to_string().to_ascii_lowercase())
-            .unwrap_or_else(|| "auto".to_string());
+        let filesize_format_var;
+        if let Some(fmt) = forced_format {
+            filesize_format_var = fmt.to_ascii_lowercase();
+        } else {
+            filesize_format_var = crate::config::config(Tag::unknown())
+                .expect("unable to get the config.toml file")
+                .get("filesize_format")
+                .map(|val| val.convert_to_string().to_ascii_lowercase())
+                .unwrap_or_else(|| "auto".to_string());
+        }
+
         // if there is a value, match it to one of the valid values for byte units
         let filesize_format = match filesize_format_var.as_str() {
             "b" => (byte_unit::ByteUnit::B, ""),
@@ -233,7 +239,7 @@ impl PrettyDebug for FormatInlineShape {
                     + right.clone().format().pretty()
             }
             InlineShape::Bytesize(bytesize) => {
-                let bytes = InlineShape::format_bytes(bytesize);
+                let bytes = InlineShape::format_bytes(bytesize, None);
                 bytes.0
             }
             InlineShape::String(string) => DbgDocBldr::primitive(string),

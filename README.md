@@ -318,7 +318,6 @@ Thanks to all the people who already contributed!
 <a href="https://github.com/nushell/nushell/graphs/contributors">
   <img src="https://contributors-img.web.app/image?repo=nushell/nushell" />
 </a>
-
 ## License
 
 The project is made available under the MIT license. See the `LICENSE` file for more information.
