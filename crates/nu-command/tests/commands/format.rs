@@ -1,4 +1,4 @@
-use nu_test_support::fs::Stub::EmptyFile;
+use nu_test_support::fs::Stub::{EmptyFile, FileWithContentToBeTrimmed};
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 
@@ -61,6 +61,33 @@ fn format_filesize_works() {
             "#
         ));
 
-        assert_eq!(actual.out, "0.01 KB");
+        assert_eq!(actual.out, "0.0 KB");
     })
+}
+
+#[test]
+fn format_filesize_works_with_nonempty_files() {
+    Playground::setup(
+        "format_filesize_works_with_nonempty_files",
+        |dirs, sandbox| {
+            sandbox.with_files(vec![FileWithContentToBeTrimmed(
+                "sample.toml",
+                r#"
+                    [dependency]
+                    name = "nu"
+                "#,
+            )]);
+
+            let actual = nu!(
+                cwd: dirs.test(),
+                "ls sample.toml | format filesize size B | get size | first"
+            );
+
+            #[cfg(not(windows))]
+            assert_eq!(actual.out, "25");
+
+            #[cfg(windows)]
+            assert_eq!(actual.out, "27");
+        },
+    )
 }

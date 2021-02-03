@@ -320,6 +320,48 @@ impl Value {
         }
     }
 
+    /// View the Value as a FilePath (PathBuf), if possible
+    pub fn as_filepath(&self) -> Result<PathBuf, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(Primitive::FilePath(path)) => Ok(path.clone()),
+            _ => Err(ShellError::type_error("string", self.spanned_type_name())),
+        }
+    }
+
+    /// View the Value as a Int (BigInt), if possible
+    pub fn as_int(&self) -> Result<BigInt, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(Primitive::Int(n)) => Ok(n.clone()),
+            _ => Err(ShellError::type_error("bigint", self.spanned_type_name())),
+        }
+    }
+
+    /// View the Value as a Filesize (BigInt), if possible
+    pub fn as_filesize(&self) -> Result<BigInt, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(Primitive::Filesize(fs)) => Ok(fs.clone()),
+            _ => Err(ShellError::type_error("bigint", self.spanned_type_name())),
+        }
+    }
+
+    /// View the Value as a Duration (BigInt), if possible
+    pub fn as_duration(&self) -> Result<BigInt, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(Primitive::Duration(dur)) => Ok(dur.clone()),
+            _ => Err(ShellError::type_error("bigint", self.spanned_type_name())),
+        }
+    }
+    /// View the Value as a Decimal (BigDecimal), if possible
+    pub fn as_decimal(&self) -> Result<BigDecimal, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(Primitive::Decimal(d)) => Ok(d.clone()),
+            _ => Err(ShellError::type_error(
+                "bigdecimal",
+                self.spanned_type_name(),
+            )),
+        }
+    }
+
     pub fn convert_to_string(&self) -> String {
         match &self.value {
             UntaggedValue::Primitive(Primitive::String(s)) => s.clone(),
@@ -920,6 +962,67 @@ impl DateTimeExt for DateTime<FixedOffset> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use indexmap::indexmap;
+
+    #[test]
+    fn test_merge_descriptors() {
+        let value = vec![
+            UntaggedValue::row(indexmap! {
+                "h1".into() => Value::from("Ecuador")
+            })
+            .into_untagged_value(),
+            UntaggedValue::row(indexmap! {
+                "h2".into() => Value::from("Ecuador")
+            })
+            .into_untagged_value(),
+            UntaggedValue::row(indexmap! {
+                "h3".into() => Value::from("Ecuador")
+            })
+            .into_untagged_value(),
+            UntaggedValue::row(indexmap! {
+                "h1".into() => Value::from("Ecuador"),
+                "h4".into() => Value::from("Ecuador"),
+            })
+            .into_untagged_value(),
+        ];
+
+        assert_eq!(
+            merge_descriptors(&value),
+            vec![
+                String::from("h1"),
+                String::from("h2"),
+                String::from("h3"),
+                String::from("h4")
+            ]
+        );
+    }
+
+    #[test]
+    fn test_data_descriptors() {
+        let value = vec![
+            UntaggedValue::row(indexmap! {
+                "h1".into() => Value::from("Ecuador")
+            }),
+            UntaggedValue::row(indexmap! {
+                "h2".into() => Value::from("Ecuador")
+            }),
+            UntaggedValue::row(indexmap! {
+                "h3".into() => Value::from("Ecuador")
+            }),
+            UntaggedValue::row(indexmap! {
+                "h1".into() => Value::from("Ecuador"),
+                "h4".into() => Value::from("Ecuador"),
+            }),
+        ];
+
+        assert_eq!(
+            value
+                .iter()
+                .map(|v| v.data_descriptors().len())
+                .collect::<Vec<_>>(),
+            vec![1, 1, 1, 2]
+        );
+    }
 
     #[test]
     fn test_decimal_from_float() {
