@@ -178,7 +178,7 @@ pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
 
         let block = parse_line(&pipeline_with_anchor, &ctx)?;
 
-        if let Some(_) = &sample_pipeline.result {
+        if sample_pipeline.result.is_some() {
             let result = block_on(evaluate_block(block, &mut ctx))?;
 
             ctx.with_errors(|reasons| reasons.iter().cloned().take(1).next())

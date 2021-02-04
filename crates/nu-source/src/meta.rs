@@ -500,6 +500,19 @@ impl Span {
         Span::new(0, 0)
     }
 
+    pub fn from_list(list: &[impl HasSpan]) -> Span {
+        let mut iterator = list.iter();
+
+        match iterator.next() {
+            None => Span::new(0, 0),
+            Some(first) => {
+                let last = iterator.last().unwrap_or(first);
+
+                Span::new(first.span().start, last.span().end)
+            }
+        }
+    }
+
     /// Creates a new `Span` from start and end inputs. The end parameter must be greater than or equal to the start parameter.
     pub fn new(start: usize, end: usize) -> Span {
         assert!(
