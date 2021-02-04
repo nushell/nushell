@@ -15,7 +15,7 @@ where
     T: HasSpan,
 {
     fn into(self) -> Vec<T> {
-        self.contents.unwrap_or_else(|| vec![])
+        self.contents.unwrap_or_else(Vec::new)
     }
 }
 
@@ -27,7 +27,7 @@ where
         match &self.contents {
             Some(vec) => {
                 let mut iter = vec.iter();
-                let head = iter.nth(0);
+                let head = iter.next();
                 let last = iter.last().or(head);
 
                 Span::new(head.unwrap().span().start(), last.unwrap().span().end())

@@ -68,7 +68,7 @@ impl LiteComment {
         }
     }
 
-    pub fn dedent(&self, excluded_spaces: usize) -> LiteComment {
+    pub fn unindent(&self, excluded_spaces: usize) -> LiteComment {
         match &self.leading_ws {
             // If there's no leading whitespace, there's no whitespace to exclude
             None => self.clone(),
@@ -189,7 +189,7 @@ pub struct LiteGroup {
 
 impl From<GroupBuilder> for LiteGroup {
     fn from(group: GroupBuilder) -> Self {
-        LiteGroup::new(group.map(|p| LitePipeline::new(p.map(|c| c.into()))))
+        LiteGroup::new(group.map(|p| LitePipeline::new(p.into())))
     }
 }
 

@@ -2143,7 +2143,7 @@ fn unit_parse_byte_units() -> Result<(), ParseError> {
         string: String,
         value: i64,
         unit: Unit,
-    };
+    }
 
     let cases = [
         TestCase {

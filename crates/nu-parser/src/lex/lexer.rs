@@ -254,7 +254,7 @@ impl BlockParser {
         }
 
         self.prev_comments
-            .push(token.dedent(self.prev_comment_indent));
+            .push(token.unindent(self.prev_comment_indent));
     }
 
     fn eoleol(&mut self) {
@@ -368,7 +368,7 @@ pub fn block(tokens: Vec<Token>) -> (LiteBlock, Option<ParseError>) {
                 // We encountered a pipe (`|`) character, which terminates a
                 // command.
 
-                if let Err(_) = parser.pipe() {
+                if parser.pipe().is_err() {
                     // If the current command doesn't have content, return an
                     // error that indicates that the `|` was unexpected.
                     return parser.fail(ParseError::extra_tokens(
