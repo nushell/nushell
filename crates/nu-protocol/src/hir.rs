@@ -12,7 +12,7 @@ use derive_new::new;
 
 use nu_errors::ParseError;
 use nu_source::{
-    b, DebugDocBuilder, HasSpan, PrettyDebug, PrettyDebugRefineKind, PrettyDebugWithSource,
+    DbgDocBldr, DebugDocBuilder, HasSpan, PrettyDebug, PrettyDebugRefineKind, PrettyDebugWithSource,
 };
 use nu_source::{IntoSpanned, Span, Spanned, SpannedItem, Tag};
 
@@ -390,9 +390,9 @@ impl Member {
 impl PrettyDebugWithSource for Member {
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         match self {
-            Member::String(outer, _) => b::value(outer.slice(source)),
-            Member::Int(int, _) => b::value(format!("{}", int)),
-            Member::Bare(span) => b::value(span.span.slice(source)),
+            Member::String(outer, _) => DbgDocBldr::value(outer.slice(source)),
+            Member::Int(int, _) => DbgDocBldr::value(format!("{}", int)),
+            Member::Bare(span) => DbgDocBldr::value(span.span.slice(source)),
         }
     }
 }
@@ -416,8 +416,8 @@ pub enum Number {
 impl PrettyDebug for Number {
     fn pretty(&self) -> DebugDocBuilder {
         match self {
-            Number::Int(int) => b::primitive(int),
-            Number::Decimal(decimal) => b::primitive(decimal),
+            Number::Int(int) => DbgDocBldr::primitive(int),
+            Number::Decimal(decimal) => DbgDocBldr::primitive(decimal),
         }
     }
 }
@@ -508,7 +508,7 @@ impl ToBigInt for Number {
 
 impl PrettyDebug for Unit {
     fn pretty(&self) -> DebugDocBuilder {
-        b::keyword(self.as_str())
+        DbgDocBldr::keyword(self.as_str())
     }
 }
 
@@ -631,8 +631,8 @@ impl Unit {
     }
 }
 
-pub fn filesize(size_in_bytes: u64) -> UntaggedValue {
-    UntaggedValue::Primitive(Primitive::Filesize(size_in_bytes))
+pub fn filesize(size_in_bytes: impl Into<BigInt>) -> UntaggedValue {
+    UntaggedValue::Primitive(Primitive::Filesize(size_in_bytes.into()))
 }
 
 pub fn duration(nanos: BigInt) -> UntaggedValue {
@@ -656,7 +656,8 @@ impl SpannedExpression {
                 // Higher precedence binds tighter
 
                 match operator {
-                    Operator::Multiply | Operator::Divide | Operator::Modulo => 100,
+                    Operator::Pow => 100,
+                    Operator::Multiply | Operator::Divide | Operator::Modulo => 95,
                     Operator::Plus | Operator::Minus => 90,
                     Operator::NotContains
                     | Operator::Contains
@@ -715,31 +716,35 @@ impl PrettyDebugWithSource for SpannedExpression {
                     .into_spanned(self.span)
                     .refined_pretty_debug(refine, source),
                 Expression::ExternalWord => {
-                    b::delimit("e\"", b::primitive(self.span.slice(source)), "\"").group()
+                    DbgDocBldr::delimit("e\"", DbgDocBldr::primitive(self.span.slice(source)), "\"")
+                        .group()
                 }
                 Expression::Synthetic(s) => match s {
-                    Synthetic::String(_) => {
-                        b::delimit("s\"", b::primitive(self.span.slice(source)), "\"").group()
-                    }
+                    Synthetic::String(_) => DbgDocBldr::delimit(
+                        "s\"",
+                        DbgDocBldr::primitive(self.span.slice(source)),
+                        "\"",
+                    )
+                    .group(),
                 },
-                Expression::Variable(_, _) => b::keyword(self.span.slice(source)),
+                Expression::Variable(_, _) => DbgDocBldr::keyword(self.span.slice(source)),
                 Expression::Binary(binary) => binary.pretty_debug(source),
                 Expression::Range(range) => range.pretty_debug(source),
-                Expression::Block(_) => b::opaque("block"),
-                Expression::Invocation(_) => b::opaque("invocation"),
-                Expression::Garbage => b::opaque("garbage"),
-                Expression::List(list) => b::delimit(
+                Expression::Block(_) => DbgDocBldr::opaque("block"),
+                Expression::Invocation(_) => DbgDocBldr::opaque("invocation"),
+                Expression::Garbage => DbgDocBldr::opaque("garbage"),
+                Expression::List(list) => DbgDocBldr::delimit(
                     "[",
-                    b::intersperse(
+                    DbgDocBldr::intersperse(
                         list.iter()
                             .map(|item| item.refined_pretty_debug(refine, source)),
-                        b::space(),
+                        DbgDocBldr::space(),
                     ),
                     "]",
                 ),
-                Expression::Table(_headers, cells) => b::delimit(
+                Expression::Table(_headers, cells) => DbgDocBldr::delimit(
                     "[",
-                    b::intersperse(
+                    DbgDocBldr::intersperse(
                         cells
                             .iter()
                             .map(|row| {
@@ -747,19 +752,21 @@ impl PrettyDebugWithSource for SpannedExpression {
                                     .map(|item| item.refined_pretty_debug(refine, source))
                             })
                             .flatten(),
-                        b::space(),
+                        DbgDocBldr::space(),
                     ),
                     "]",
                 ),
                 Expression::Path(path) => path.pretty_debug(source),
-                Expression::FilePath(path) => b::typed("path", b::primitive(path.display())),
-                Expression::ExternalCommand(external) => {
-                    b::keyword("^") + b::keyword(external.name.span.slice(source))
+                Expression::FilePath(path) => {
+                    DbgDocBldr::typed("path", DbgDocBldr::primitive(path.display()))
                 }
-                Expression::Command => b::keyword(self.span.slice(source)),
+                Expression::ExternalCommand(external) => {
+                    DbgDocBldr::keyword("^") + DbgDocBldr::keyword(external.name.span.slice(source))
+                }
+                Expression::Command => DbgDocBldr::keyword(self.span.slice(source)),
                 Expression::Boolean(boolean) => match boolean {
-                    true => b::primitive("$yes"),
-                    false => b::primitive("$no"),
+                    true => DbgDocBldr::primitive("$yes"),
+                    false => DbgDocBldr::primitive("$no"),
                 },
             },
         }
@@ -770,47 +777,54 @@ impl PrettyDebugWithSource for SpannedExpression {
             Expression::Literal(literal) => {
                 literal.clone().into_spanned(self.span).pretty_debug(source)
             }
-            Expression::ExternalWord => {
-                b::typed("external word", b::primitive(self.span.slice(source)))
-            }
+            Expression::ExternalWord => DbgDocBldr::typed(
+                "external word",
+                DbgDocBldr::primitive(self.span.slice(source)),
+            ),
             Expression::Synthetic(s) => match s {
-                Synthetic::String(s) => b::typed("synthetic", b::primitive(format!("{:?}", s))),
+                Synthetic::String(s) => {
+                    DbgDocBldr::typed("synthetic", DbgDocBldr::primitive(format!("{:?}", s)))
+                }
             },
-            Expression::Variable(_, _) => b::keyword(self.span.slice(source)),
+            Expression::Variable(_, _) => DbgDocBldr::keyword(self.span.slice(source)),
             Expression::Binary(binary) => binary.pretty_debug(source),
             Expression::Range(range) => range.pretty_debug(source),
-            Expression::Block(_) => b::opaque("block"),
-            Expression::Invocation(_) => b::opaque("invocation"),
-            Expression::Garbage => b::opaque("garbage"),
-            Expression::List(list) => b::delimit(
+            Expression::Block(_) => DbgDocBldr::opaque("block"),
+            Expression::Invocation(_) => DbgDocBldr::opaque("invocation"),
+            Expression::Garbage => DbgDocBldr::opaque("garbage"),
+            Expression::List(list) => DbgDocBldr::delimit(
                 "[",
-                b::intersperse(
+                DbgDocBldr::intersperse(
                     list.iter().map(|item| item.pretty_debug(source)),
-                    b::space(),
+                    DbgDocBldr::space(),
                 ),
                 "]",
             ),
-            Expression::Table(_headers, cells) => b::delimit(
+            Expression::Table(_headers, cells) => DbgDocBldr::delimit(
                 "[",
-                b::intersperse(
+                DbgDocBldr::intersperse(
                     cells
                         .iter()
                         .map(|row| row.iter().map(|item| item.pretty_debug(source)))
                         .flatten(),
-                    b::space(),
+                    DbgDocBldr::space(),
                 ),
                 "]",
             ),
             Expression::Path(path) => path.pretty_debug(source),
-            Expression::FilePath(path) => b::typed("path", b::primitive(path.display())),
-            Expression::ExternalCommand(external) => b::typed(
+            Expression::FilePath(path) => {
+                DbgDocBldr::typed("path", DbgDocBldr::primitive(path.display()))
+            }
+            Expression::ExternalCommand(external) => DbgDocBldr::typed(
                 "command",
-                b::keyword("^") + b::primitive(external.name.span.slice(source)),
+                DbgDocBldr::keyword("^") + DbgDocBldr::primitive(external.name.span.slice(source)),
             ),
-            Expression::Command => b::typed("command", b::primitive(self.span.slice(source))),
+            Expression::Command => {
+                DbgDocBldr::typed("command", DbgDocBldr::primitive(self.span.slice(source)))
+            }
             Expression::Boolean(boolean) => match boolean {
-                true => b::primitive("$yes"),
-                false => b::primitive("$no"),
+                true => DbgDocBldr::primitive("$yes"),
+                false => DbgDocBldr::primitive("$no"),
             },
         }
     }
@@ -835,6 +849,7 @@ pub enum Operator {
     Modulo,
     And,
     Or,
+    Pow,
 }
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize, new)]
@@ -846,12 +861,12 @@ pub struct Binary {
 
 impl PrettyDebugWithSource for Binary {
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
-        b::delimit(
+        DbgDocBldr::delimit(
             "<",
             self.left.pretty_debug(source)
-                + b::space()
-                + b::keyword(self.op.span.slice(source))
-                + b::space()
+                + DbgDocBldr::space()
+                + DbgDocBldr::keyword(self.op.span.slice(source))
+                + DbgDocBldr::space()
                 + self.right.pretty_debug(source),
             ">",
         )
@@ -881,15 +896,15 @@ pub struct Range {
 
 impl PrettyDebugWithSource for Range {
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
-        b::delimit(
+        DbgDocBldr::delimit(
             "<",
             (if let Some(left) = &self.left {
                 left.pretty_debug(source)
             } else {
                 DebugDocBuilder::blank()
-            }) + b::space()
-                + b::keyword(self.operator.span().slice(source))
-                + b::space()
+            }) + DbgDocBldr::space()
+                + DbgDocBldr::keyword(self.operator.span().slice(source))
+                + DbgDocBldr::space()
                 + (if let Some(right) = &self.right {
                     right.pretty_debug(source)
                 } else {
@@ -955,13 +970,15 @@ impl PrettyDebugWithSource for SpannedLiteral {
             PrettyDebugRefineKind::WithContext => match &self.literal {
                 Literal::Number(number) => number.pretty(),
                 Literal::Size(number, unit) => (number.pretty() + unit.pretty()).group(),
-                Literal::String(string) => b::primitive(format!("{:?}", string)), //string.slice(source))),
-                Literal::GlobPattern(pattern) => b::primitive(pattern),
+                Literal::String(string) => DbgDocBldr::primitive(format!("{:?}", string)), //string.slice(source))),
+                Literal::GlobPattern(pattern) => DbgDocBldr::primitive(pattern),
                 Literal::ColumnPath(path) => {
-                    b::intersperse_with_source(path.iter(), b::space(), source)
+                    DbgDocBldr::intersperse_with_source(path.iter(), DbgDocBldr::space(), source)
                 }
-                Literal::Bare(bare) => b::delimit("b\"", b::primitive(bare), "\""),
-                Literal::Operator(operator) => b::primitive(format!("{:?}", operator)),
+                Literal::Bare(bare) => {
+                    DbgDocBldr::delimit("b\"", DbgDocBldr::primitive(bare), "\"")
+                }
+                Literal::Operator(operator) => DbgDocBldr::primitive(format!("{:?}", operator)),
             },
         }
     }
@@ -970,20 +987,22 @@ impl PrettyDebugWithSource for SpannedLiteral {
         match &self.literal {
             Literal::Number(number) => number.pretty(),
             Literal::Size(number, unit) => {
-                b::typed("size", (number.pretty() + unit.pretty()).group())
+                DbgDocBldr::typed("size", (number.pretty() + unit.pretty()).group())
             }
-            Literal::String(string) => b::typed(
+            Literal::String(string) => DbgDocBldr::typed(
                 "string",
-                b::primitive(format!("{:?}", string)), //string.slice(source))),
+                DbgDocBldr::primitive(format!("{:?}", string)), //string.slice(source))),
             ),
-            Literal::GlobPattern(pattern) => b::typed("pattern", b::primitive(pattern)),
-            Literal::ColumnPath(path) => b::typed(
+            Literal::GlobPattern(pattern) => {
+                DbgDocBldr::typed("pattern", DbgDocBldr::primitive(pattern))
+            }
+            Literal::ColumnPath(path) => DbgDocBldr::typed(
                 "column path",
-                b::intersperse_with_source(path.iter(), b::space(), source),
+                DbgDocBldr::intersperse_with_source(path.iter(), DbgDocBldr::space(), source),
             ),
-            Literal::Bare(bare) => b::typed("bare", b::primitive(bare)),
+            Literal::Bare(bare) => DbgDocBldr::typed("bare", DbgDocBldr::primitive(bare)),
             Literal::Operator(operator) => {
-                b::typed("operator", b::primitive(format!("{:?}", operator)))
+                DbgDocBldr::typed("operator", DbgDocBldr::primitive(format!("{:?}", operator)))
             }
         }
     }
@@ -998,8 +1017,11 @@ pub struct Path {
 impl PrettyDebugWithSource for Path {
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         self.head.pretty_debug(source)
-            + b::operator(".")
-            + b::intersperse(self.tail.iter().map(|m| m.pretty()), b::operator("."))
+            + DbgDocBldr::operator(".")
+            + DbgDocBldr::intersperse(
+                self.tail.iter().map(|m| m.pretty()),
+                DbgDocBldr::operator("."),
+            )
     }
 }
 
@@ -1225,9 +1247,13 @@ impl NamedValue {
 impl PrettyDebugWithSource for NamedValue {
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         match self {
-            NamedValue::AbsentSwitch => b::typed("switch", b::description("absent")),
-            NamedValue::PresentSwitch(_) => b::typed("switch", b::description("present")),
-            NamedValue::AbsentValue => b::description("absent"),
+            NamedValue::AbsentSwitch => {
+                DbgDocBldr::typed("switch", DbgDocBldr::description("absent"))
+            }
+            NamedValue::PresentSwitch(_) => {
+                DbgDocBldr::typed("switch", DbgDocBldr::description("present"))
+            }
+            NamedValue::AbsentValue => DbgDocBldr::description("absent"),
             NamedValue::Value(_, value) => value.pretty_debug(source),
         }
     }
@@ -1236,9 +1262,9 @@ impl PrettyDebugWithSource for NamedValue {
         match refine {
             PrettyDebugRefineKind::ContextFree => self.pretty_debug(source),
             PrettyDebugRefineKind::WithContext => match self {
-                NamedValue::AbsentSwitch => b::value("absent"),
-                NamedValue::PresentSwitch(_) => b::value("present"),
-                NamedValue::AbsentValue => b::value("absent"),
+                NamedValue::AbsentSwitch => DbgDocBldr::value("absent"),
+                NamedValue::PresentSwitch(_) => DbgDocBldr::value("present"),
+                NamedValue::AbsentValue => DbgDocBldr::value("absent"),
                 NamedValue::Value(_, value) => value.refined_pretty_debug(refine, source),
             },
         }
@@ -1324,22 +1350,22 @@ impl PrettyDebugWithSource for Call {
             PrettyDebugRefineKind::WithContext => {
                 self.head
                     .refined_pretty_debug(PrettyDebugRefineKind::WithContext, source)
-                    + b::preceded_option(
-                        Some(b::space()),
+                    + DbgDocBldr::preceded_option(
+                        Some(DbgDocBldr::space()),
                         self.positional.as_ref().map(|pos| {
-                            b::intersperse(
+                            DbgDocBldr::intersperse(
                                 pos.iter().map(|expr| {
                                     expr.refined_pretty_debug(
                                         PrettyDebugRefineKind::WithContext,
                                         source,
                                     )
                                 }),
-                                b::space(),
+                                DbgDocBldr::space(),
                             )
                         }),
                     )
-                    + b::preceded_option(
-                        Some(b::space()),
+                    + DbgDocBldr::preceded_option(
+                        Some(DbgDocBldr::space()),
                         self.named.as_ref().map(|named| {
                             named.refined_pretty_debug(PrettyDebugRefineKind::WithContext, source)
                         }),
@@ -1349,7 +1375,7 @@ impl PrettyDebugWithSource for Call {
     }
 
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
-        b::typed(
+        DbgDocBldr::typed(
             "call",
             self.refined_pretty_debug(PrettyDebugRefineKind::WithContext, source),
         )
@@ -1538,19 +1564,19 @@ impl PrettyDebugWithSource for NamedArguments {
     fn refined_pretty_debug(&self, refine: PrettyDebugRefineKind, source: &str) -> DebugDocBuilder {
         match refine {
             PrettyDebugRefineKind::ContextFree => self.pretty_debug(source),
-            PrettyDebugRefineKind::WithContext => b::intersperse(
+            PrettyDebugRefineKind::WithContext => DbgDocBldr::intersperse(
                 self.named.iter().map(|(key, value)| {
-                    b::key(key)
-                        + b::equals()
+                    DbgDocBldr::key(key)
+                        + DbgDocBldr::equals()
                         + value.refined_pretty_debug(PrettyDebugRefineKind::WithContext, source)
                 }),
-                b::space(),
+                DbgDocBldr::space(),
             ),
         }
     }
 
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
-        b::delimit(
+        DbgDocBldr::delimit(
             "(",
             self.refined_pretty_debug(PrettyDebugRefineKind::WithContext, source),
             ")",
@@ -1573,11 +1599,11 @@ pub struct Flag {
 impl PrettyDebugWithSource for Flag {
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         let prefix = match self.kind {
-            FlagKind::Longhand => b::description("--"),
-            FlagKind::Shorthand => b::description("-"),
+            FlagKind::Longhand => DbgDocBldr::description("--"),
+            FlagKind::Shorthand => DbgDocBldr::description("-"),
         };
 
-        prefix + b::description(self.name.slice(source))
+        prefix + DbgDocBldr::description(self.name.slice(source))
     }
 }
 

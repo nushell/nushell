@@ -1,6 +1,6 @@
 use derive_new::new;
 use nu_protocol::{Dictionary, MaybeOwned, Primitive, UntaggedValue, Value};
-use nu_source::{b, DebugDocBuilder, PrettyDebug, Spanned, Tag};
+use nu_source::{DbgDocBldr, DebugDocBuilder, PrettyDebug, Spanned, Tag};
 
 #[derive(Debug, new)]
 struct DebugEntry<'a> {
@@ -10,7 +10,10 @@ struct DebugEntry<'a> {
 
 impl<'a> PrettyDebug for DebugEntry<'a> {
     fn pretty(&self) -> DebugDocBuilder {
-        (b::key(self.key.to_string()) + b::equals() + self.value.pretty().into_value()).group()
+        (DbgDocBldr::key(self.key.to_string())
+            + DbgDocBldr::equals()
+            + self.value.pretty().into_value())
+        .group()
     }
 }
 

@@ -4,15 +4,15 @@ description = "Extension traits for values in Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-value-ext"
-version = "0.25.2"
+version = "0.26.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-errors = {path = "../nu-errors", version = "0.25.2"}
-nu-protocol = {path = "../nu-protocol", version = "0.25.2"}
-nu-source = {path = "../nu-source", version = "0.25.2"}
+nu-errors = {path = "../nu-errors", version = "0.26.0"}
+nu-protocol = {path = "../nu-protocol", version = "0.26.0"}
+nu-source = {path = "../nu-source", version = "0.26.0"}
 
 indexmap = {version = "1.6.0", features = ["serde-1"]}
 itertools = "0.10.0"

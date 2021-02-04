@@ -1,4 +1,4 @@
-pub(crate) mod shape;
+pub mod shape;
 
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, FixedOffset, Utc};
@@ -129,20 +129,18 @@ pub fn coerce_compare_primitive(
         (Int(left), Decimal(right)) => {
             CompareValues::Decimals(BigDecimal::zero() + left, right.clone())
         }
-        (Int(left), Filesize(right)) => CompareValues::Ints(left.clone(), BigInt::from(*right)),
+        (Int(left), Filesize(right)) => CompareValues::Ints(left.clone(), right.clone()),
         (Decimal(left), Decimal(right)) => CompareValues::Decimals(left.clone(), right.clone()),
         (Decimal(left), Int(right)) => {
             CompareValues::Decimals(left.clone(), BigDecimal::zero() + right)
         }
         (Decimal(left), Filesize(right)) => {
-            CompareValues::Decimals(left.clone(), BigDecimal::from(*right))
+            CompareValues::Decimals(left.clone(), BigDecimal::from(right.clone()))
         }
-        (Filesize(left), Filesize(right)) => {
-            CompareValues::Ints(BigInt::from(*left), BigInt::from(*right))
-        }
-        (Filesize(left), Int(right)) => CompareValues::Ints(BigInt::from(*left), right.clone()),
+        (Filesize(left), Filesize(right)) => CompareValues::Ints(left.clone(), right.clone()),
+        (Filesize(left), Int(right)) => CompareValues::Ints(left.clone(), right.clone()),
         (Filesize(left), Decimal(right)) => {
-            CompareValues::Decimals(BigDecimal::from(*left), right.clone())
+            CompareValues::Decimals(BigDecimal::from(left.clone()), right.clone())
         }
         (Nothing, Nothing) => CompareValues::Booleans(true, true),
         (String(left), String(right)) => CompareValues::String(left.clone(), right.clone()),

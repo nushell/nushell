@@ -3,7 +3,9 @@ use bigdecimal::BigDecimal;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use derive_new::new;
 use getset::Getters;
-use nu_source::{b, DebugDocBuilder, HasFallibleSpan, PrettyDebug, Span, Spanned, SpannedItem};
+use nu_source::{
+    DbgDocBldr, DebugDocBuilder, HasFallibleSpan, PrettyDebug, Span, Spanned, SpannedItem,
+};
 use num_bigint::BigInt;
 use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
@@ -144,31 +146,31 @@ impl PrettyDebug for ArgumentError {
     fn pretty(&self) -> DebugDocBuilder {
         match self {
             ArgumentError::MissingMandatoryFlag(flag) => {
-                b::description("missing `")
-                    + b::description(flag)
-                    + b::description("` as mandatory flag")
+                DbgDocBldr::description("missing `")
+                    + DbgDocBldr::description(flag)
+                    + DbgDocBldr::description("` as mandatory flag")
             }
             ArgumentError::UnexpectedArgument(name) => {
-                b::description("unexpected `")
-                    + b::description(&name.item)
-                    + b::description("` is not supported")
+                DbgDocBldr::description("unexpected `")
+                    + DbgDocBldr::description(&name.item)
+                    + DbgDocBldr::description("` is not supported")
             }
             ArgumentError::UnexpectedFlag(name) => {
-                b::description("unexpected `")
-                    + b::description(&name.item)
-                    + b::description("` is not supported")
+                DbgDocBldr::description("unexpected `")
+                    + DbgDocBldr::description(&name.item)
+                    + DbgDocBldr::description("` is not supported")
             }
             ArgumentError::MissingMandatoryPositional(pos) => {
-                b::description("missing `")
-                    + b::description(pos)
-                    + b::description("` as mandatory positional argument")
+                DbgDocBldr::description("missing `")
+                    + DbgDocBldr::description(pos)
+                    + DbgDocBldr::description("` as mandatory positional argument")
             }
             ArgumentError::MissingValueForName(name) => {
-                b::description("missing value for flag `")
-                    + b::description(name)
-                    + b::description("`")
+                DbgDocBldr::description("missing value for flag `")
+                    + DbgDocBldr::description(name)
+                    + DbgDocBldr::description("`")
             }
-            ArgumentError::InvalidExternalWord => b::description("invalid word"),
+            ArgumentError::InvalidExternalWord => DbgDocBldr::description("invalid word"),
         }
     }
 }
@@ -187,73 +189,77 @@ impl PrettyDebug for ShellError {
     fn pretty(&self) -> DebugDocBuilder {
         match &self.error {
             ProximateShellError::SyntaxError { problem } => {
-                b::error("Syntax Error")
-                    + b::space()
-                    + b::delimit("(", b::description(&problem.item), ")")
+                DbgDocBldr::error("Syntax Error")
+                    + DbgDocBldr::space()
+                    + DbgDocBldr::delimit("(", DbgDocBldr::description(&problem.item), ")")
             }
-            ProximateShellError::UnexpectedEof { .. } => b::error("Unexpected end"),
+            ProximateShellError::UnexpectedEof { .. } => DbgDocBldr::error("Unexpected end"),
             ProximateShellError::TypeError { expected, actual } => {
-                b::error("Type Error")
-                    + b::space()
-                    + b::delimit(
+                DbgDocBldr::error("Type Error")
+                    + DbgDocBldr::space()
+                    + DbgDocBldr::delimit(
                         "(",
-                        b::description("expected:")
-                            + b::space()
-                            + b::description(expected)
-                            + b::description(",")
-                            + b::space()
-                            + b::description("actual:")
-                            + b::space()
-                            + b::option(actual.item.as_ref().map(b::description)),
+                        DbgDocBldr::description("expected:")
+                            + DbgDocBldr::space()
+                            + DbgDocBldr::description(expected)
+                            + DbgDocBldr::description(",")
+                            + DbgDocBldr::space()
+                            + DbgDocBldr::description("actual:")
+                            + DbgDocBldr::space()
+                            + DbgDocBldr::option(actual.item.as_ref().map(DbgDocBldr::description)),
                         ")",
                     )
             }
             ProximateShellError::MissingProperty { subpath, expr } => {
-                b::error("Missing Property")
-                    + b::space()
-                    + b::delimit(
+                DbgDocBldr::error("Missing Property")
+                    + DbgDocBldr::space()
+                    + DbgDocBldr::delimit(
                         "(",
-                        b::description("expr:")
-                            + b::space()
-                            + b::description(&expr.item)
-                            + b::description(",")
-                            + b::space()
-                            + b::description("subpath:")
-                            + b::space()
-                            + b::description(&subpath.item),
+                        DbgDocBldr::description("expr:")
+                            + DbgDocBldr::space()
+                            + DbgDocBldr::description(&expr.item)
+                            + DbgDocBldr::description(",")
+                            + DbgDocBldr::space()
+                            + DbgDocBldr::description("subpath:")
+                            + DbgDocBldr::space()
+                            + DbgDocBldr::description(&subpath.item),
                         ")",
                     )
             }
             ProximateShellError::InvalidIntegerIndex { subpath, .. } => {
-                b::error("Invalid integer index")
-                    + b::space()
-                    + b::delimit(
+                DbgDocBldr::error("Invalid integer index")
+                    + DbgDocBldr::space()
+                    + DbgDocBldr::delimit(
                         "(",
-                        b::description("subpath:") + b::space() + b::description(&subpath.item),
+                        DbgDocBldr::description("subpath:")
+                            + DbgDocBldr::space()
+                            + DbgDocBldr::description(&subpath.item),
                         ")",
                     )
             }
             ProximateShellError::MissingValue { reason, .. } => {
-                b::error("Missing Value")
-                    + b::space()
-                    + b::delimit(
+                DbgDocBldr::error("Missing Value")
+                    + DbgDocBldr::space()
+                    + DbgDocBldr::delimit(
                         "(",
-                        b::description("reason:") + b::space() + b::description(reason),
+                        DbgDocBldr::description("reason:")
+                            + DbgDocBldr::space()
+                            + DbgDocBldr::description(reason),
                         ")",
                     )
             }
             ProximateShellError::ArgumentError { command, error } => {
-                b::error("Argument Error")
-                    + b::space()
-                    + b::delimit(
+                DbgDocBldr::error("Argument Error")
+                    + DbgDocBldr::space()
+                    + DbgDocBldr::delimit(
                         "(",
-                        b::description("command:")
-                            + b::space()
-                            + b::description(&command.item)
-                            + b::description(",")
-                            + b::space()
-                            + b::description("error:")
-                            + b::space()
+                        DbgDocBldr::description("command:")
+                            + DbgDocBldr::space()
+                            + DbgDocBldr::description(&command.item)
+                            + DbgDocBldr::description(",")
+                            + DbgDocBldr::space()
+                            + DbgDocBldr::description("error:")
+                            + DbgDocBldr::space()
                             + error.pretty(),
                         ")",
                     )
@@ -263,48 +269,49 @@ impl PrettyDebug for ShellError {
                 actual_kind,
                 operation,
             } => {
-                b::error("Range Error")
-                    + b::space()
-                    + b::delimit(
+                DbgDocBldr::error("Range Error")
+                    + DbgDocBldr::space()
+                    + DbgDocBldr::delimit(
                         "(",
-                        b::description("expected:")
-                            + b::space()
+                        DbgDocBldr::description("expected:")
+                            + DbgDocBldr::space()
                             + kind.pretty()
-                            + b::description(",")
-                            + b::space()
-                            + b::description("actual:")
-                            + b::space()
-                            + b::description(&actual_kind.item)
-                            + b::description(",")
-                            + b::space()
-                            + b::description("operation:")
-                            + b::space()
-                            + b::description(operation),
+                            + DbgDocBldr::description(",")
+                            + DbgDocBldr::space()
+                            + DbgDocBldr::description("actual:")
+                            + DbgDocBldr::space()
+                            + DbgDocBldr::description(&actual_kind.item)
+                            + DbgDocBldr::description(",")
+                            + DbgDocBldr::space()
+                            + DbgDocBldr::description("operation:")
+                            + DbgDocBldr::space()
+                            + DbgDocBldr::description(operation),
                         ")",
                     )
             }
-            ProximateShellError::Diagnostic(_) => b::error("diagnostic"),
+            ProximateShellError::Diagnostic(_) => DbgDocBldr::error("diagnostic"),
             ProximateShellError::CoerceError { left, right } => {
-                b::error("Coercion Error")
-                    + b::space()
-                    + b::delimit(
+                DbgDocBldr::error("Coercion Error")
+                    + DbgDocBldr::space()
+                    + DbgDocBldr::delimit(
                         "(",
-                        b::description("left:")
-                            + b::space()
-                            + b::description(&left.item)
-                            + b::description(",")
-                            + b::space()
-                            + b::description("right:")
-                            + b::space()
-                            + b::description(&right.item),
+                        DbgDocBldr::description("left:")
+                            + DbgDocBldr::space()
+                            + DbgDocBldr::description(&left.item)
+                            + DbgDocBldr::description(",")
+                            + DbgDocBldr::space()
+                            + DbgDocBldr::description("right:")
+                            + DbgDocBldr::space()
+                            + DbgDocBldr::description(&right.item),
                         ")",
                     )
             }
             ProximateShellError::UntaggedRuntimeError { reason } => {
-                b::error("Unknown Error") + b::delimit("(", b::description(reason), ")")
+                DbgDocBldr::error("Unknown Error")
+                    + DbgDocBldr::delimit("(", DbgDocBldr::description(reason), ")")
             }
             ProximateShellError::ExternalPlaceholderError => {
-                b::error("non-zero external exit code")
+                DbgDocBldr::error("non-zero external exit code")
             }
         }
     }
@@ -676,7 +683,7 @@ impl From<Range<usize>> for ExpectedRange {
 
 impl PrettyDebug for ExpectedRange {
     fn pretty(&self) -> DebugDocBuilder {
-        b::description(match self {
+        DbgDocBldr::description(match self {
             ExpectedRange::I8 => "an 8-bit signed integer",
             ExpectedRange::I16 => "a 16-bit signed integer",
             ExpectedRange::I32 => "a 32-bit signed integer",
@@ -694,7 +701,7 @@ impl PrettyDebug for ExpectedRange {
             ExpectedRange::BigDecimal => "a decimal",
             ExpectedRange::BigInt => "an integer",
             ExpectedRange::Range { start, end } => {
-                return b::description(format!("{} to {}", start, end))
+                return DbgDocBldr::description(format!("{} to {}", start, end))
             }
         })
     }

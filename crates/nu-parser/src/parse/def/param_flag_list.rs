@@ -1,12 +1,15 @@
-///This module contains functions to parse the parameter and flag list (signature) of a
-///definition
+///This module contains functions to parse the parameter and flag list (signature)
 ///Such a signature can be of the following format:
-/// [ (parameter | flag | <eol>)* ]
+/// [ (parameter | flag | rest_param | <eol>)* ]
 ///Where
 ///parameter is:
-///    name (<:> type)? (<,> | <eol> | (#Comment <eol>))?
+///    name (<:> type)? (<?>)? item_end
 ///flag is:
-///    --name (-shortform)? (<:> type)? (<,> | <eol> | (#Comment <eol>))?
+///    --name (-shortform)? (<:> type)? item_end
+///rest is:
+///    ...rest (<:> type)? item_end
+///item_end:
+///    (<,>)? (#Comment)? (<eol>)?
 ///
 use log::debug;
 
@@ -52,12 +55,13 @@ pub fn parse_signature(
 
     //After normal lexing, tokens also need to be split on ',' and ':'
     //TODO this could probably be all done in a specialized lexing function
-    let tokens = lex_split_baseline_tokens_on(tokens, &[',', ':']);
+    let tokens = lex_split_baseline_tokens_on(tokens, &[',', ':', '?']);
     let tokens = lex_split_shortflag_from_longflag(tokens);
     debug!("Tokens are {:?}", tokens);
 
     let mut parameters = vec![];
     let mut flags = vec![];
+    let mut rest = None;
     let mut i = 0;
 
     while i < tokens.len() {
@@ -69,6 +73,11 @@ pub fn parse_signature(
             err = err.or(error);
             i += advanced_by;
             flags.push(flag);
+        } else if is_rest(&tokens[i]) {
+            let (rest_, advanced_by, error) = parse_rest(&tokens[i..], signature_vec);
+            err = err.or(error);
+            i += advanced_by;
+            rest = rest_;
         } else {
             let (parameter, advanced_by, error) = parse_parameter(&tokens[i..], signature_vec);
             err = err.or(error);
@@ -77,7 +86,7 @@ pub fn parse_signature(
         }
     }
 
-    let signature = to_signature(name, parameters, flags);
+    let signature = to_signature(name, parameters, flags, rest);
     debug!("Signature: {:?}", signature);
 
     (signature, err)
@@ -97,26 +106,43 @@ fn parse_parameter(
     }
 
     let mut err: Option<ParseError> = None;
-    //1 because name = tokens[0]
-    let mut i = 1;
+    let mut i = 0;
+    let mut type_ = SyntaxShape::Any;
+    let mut comment = None;
+    let mut optional = false;
 
     let (name, error) = parse_param_name(&tokens[0]);
+    i += 1;
     err = err.or(error);
 
-    let (type_, advanced_by, error) = parse_optional_type(&tokens[i..]);
-    let type_ = type_.unwrap_or(SyntaxShape::Any);
-    err = err.or(error);
-    i += advanced_by;
+    if i < tokens.len() {
+        let (parsed_opt_modifier, advanced_by) =
+            parse_optional_parameter_optional_modifier(&tokens[i]);
+        optional = parsed_opt_modifier;
+        i += advanced_by;
+    }
 
-    let (comment_text, advanced_by, error) = parse_signature_item_end(&tokens[i..]);
-    i += advanced_by;
-    err = err.or(error);
+    if i < tokens.len() {
+        let (parsed_type_, advanced_by, error) = parse_optional_type(&tokens[i..]);
+        type_ = parsed_type_.unwrap_or(SyntaxShape::Any);
+        err = err.or(error);
+        i += advanced_by;
+    }
 
-    let parameter = Parameter::new(
-        PositionalType::mandatory(&name.item, type_),
-        comment_text,
-        name.span,
-    );
+    if i < tokens.len() {
+        let (comment_text, advanced_by, error) = parse_signature_item_end(&tokens[i..]);
+        comment = comment_text;
+        i += advanced_by;
+        err = err.or(error);
+    }
+
+    let pos_type = if optional {
+        PositionalType::optional(&name.item, type_)
+    } else {
+        PositionalType::mandatory(&name.item, type_)
+    };
+
+    let parameter = Parameter::new(pos_type, comment, name.span);
 
     debug!(
         "Parsed parameter: {} with shape {:?}",
@@ -140,35 +166,118 @@ fn parse_flag(
     }
 
     let mut err: Option<ParseError> = None;
-    //1 because name = tokens[0]
-    let mut i = 1;
+    let mut i = 0;
+    let mut shortform = None;
+    let mut type_ = None;
+    let mut comment = None;
 
     let (name, error) = parse_flag_name(&tokens[0]);
     err = err.or(error);
+    i += 1;
 
-    let (shortform, advanced_by, error) = parse_flag_optional_shortform(&tokens[i..]);
-    i += advanced_by;
-    err = err.or(error);
+    if i < tokens.len() {
+        let (parsed_shortform, advanced_by, error) = parse_flag_optional_shortform(&tokens[i..]);
+        shortform = parsed_shortform;
+        i += advanced_by;
+        err = err.or(error);
+    }
 
-    let (type_, advanced_by, error) = parse_optional_type(&tokens[i..]);
-    let type_ = type_.unwrap_or(SyntaxShape::Any);
-    err = err.or(error);
-    i += advanced_by;
+    if i < tokens.len() {
+        let (parsed_type, advanced_by, error) = parse_optional_type(&tokens[i..]);
+        type_ = parsed_type;
+        i += advanced_by;
+        err = err.or(error);
+    }
 
-    let (comment, advanced_by, error) = parse_signature_item_end(&tokens[i..]);
-    i += advanced_by;
-    err = err.or(error);
+    if i < tokens.len() {
+        let (parsed_comment, advanced_by, error) = parse_signature_item_end(&tokens[i..]);
+        comment = parsed_comment;
+        i += advanced_by;
+        err = err.or(error);
+    }
 
-    //TODO Fixup span
-    let flag = Flag::new(
-        name.item.clone(),
-        NamedType::Optional(shortform, type_),
-        comment,
-        name.span,
-    );
+    //If no type is given, the flag is a switch. Otherwise its optional
+    //Example:
+    //--verbose(-v) # Switch
+    //--output(-o): path # Optional flag
+    let named_type = if let Some(shape) = type_ {
+        NamedType::Optional(shortform, shape)
+    } else {
+        NamedType::Switch(shortform)
+    };
+
+    let flag = Flag::new(name.item.clone(), named_type, comment, name.span);
 
     debug!("Parsed flag: {:?}", flag);
     (flag, i, err)
+}
+
+fn parse_rest(
+    tokens: &[Token],
+    tokens_as_str: &Spanned<String>,
+) -> (
+    Option<(SyntaxShape, Description)>,
+    usize,
+    Option<ParseError>,
+) {
+    if tokens.is_empty() {
+        return (
+            None,
+            0,
+            Some(ParseError::unexpected_eof(
+                "rest argument",
+                tokens_as_str.span,
+            )),
+        );
+    }
+
+    let mut err = None;
+    let mut i = 0;
+    let mut type_ = SyntaxShape::Any;
+    let mut comment = "".to_string();
+
+    let error = parse_rest_name(&tokens[i]);
+    err = err.or(error);
+    i += 1;
+
+    if i < tokens.len() {
+        let (parsed_type, advanced_by, error) = parse_optional_type(&tokens[i..]);
+        err = err.or(error);
+        i += advanced_by;
+        type_ = parsed_type.unwrap_or(SyntaxShape::Any);
+    }
+
+    if i < tokens.len() {
+        let (parsed_comment, advanced_by) = parse_optional_comment(&tokens[i..]);
+        i += advanced_by;
+        comment = parsed_comment.unwrap_or_else(|| "".to_string());
+    }
+
+    return (Some((type_, comment)), i, err);
+
+    fn parse_rest_name(name_token: &Token) -> Option<ParseError> {
+        return if let TokenContents::Baseline(name) = &name_token.contents {
+            if !name.starts_with("...") {
+                parse_rest_name_err(name_token)
+            } else if !name.starts_with("...rest") {
+                Some(ParseError::mismatch(
+                    "rest argument name to be 'rest'",
+                    token_to_spanned_string(name_token),
+                ))
+            } else {
+                None
+            }
+        } else {
+            parse_rest_name_err(name_token)
+        };
+
+        fn parse_rest_name_err(token: &Token) -> Option<ParseError> {
+            Some(ParseError::mismatch(
+                "...rest",
+                token_to_spanned_string(token),
+            ))
+        }
+    }
 }
 
 fn parse_type(type_: &Spanned<String>) -> (SyntaxShape, Option<ParseError>) {
@@ -255,8 +364,20 @@ fn parse_optional_type(tokens: &[Token]) -> (Option<SyntaxShape>, usize, Option<
     (type_, i, err)
 }
 
+///Parse token if it is a modifier to make
+fn parse_optional_parameter_optional_modifier(token: &Token) -> (bool, usize) {
+    fn is_questionmark(token: &Token) -> bool {
+        is_baseline_token_matching(token, "?")
+    }
+    if is_questionmark(token) {
+        (true, 1)
+    } else {
+        (false, 0)
+    }
+}
+
 ///Parses the end of a flag or a parameter
-///    ((<,> | <eol>) | (#Comment <eol>)
+///   (<,>)? (#Comment)? (<eol>)?
 fn parse_signature_item_end(tokens: &[Token]) -> (Option<String>, usize, Option<ParseError>) {
     if tokens.is_empty() {
         //If no more tokens, parameter/flag doesn't need ',' or comment to be properly finished
@@ -399,6 +520,14 @@ fn parse_comma(tokens: &[Token]) -> (bool, usize) {
     }
 }
 
+///Returns true if token potentially represents rest argument
+fn is_rest(token: &Token) -> bool {
+    match &token.contents {
+        TokenContents::Baseline(item) => item.starts_with("..."),
+        _ => false,
+    }
+}
+
 ///True for short or longform flags. False otherwise
 fn is_flag(token: &Token) -> bool {
     match &token.contents {
@@ -407,7 +536,12 @@ fn is_flag(token: &Token) -> bool {
     }
 }
 
-fn to_signature(name: &str, params: Vec<Parameter>, flags: Vec<Flag>) -> Signature {
+fn to_signature(
+    name: &str,
+    params: Vec<Parameter>,
+    flags: Vec<Flag>,
+    rest: Option<(SyntaxShape, Description)>,
+) -> Signature {
     let mut sign = Signature::new(name);
 
     for param in params.into_iter() {
@@ -422,6 +556,8 @@ fn to_signature(name: &str, params: Vec<Parameter>, flags: Vec<Flag>) -> Signatu
             (flag.named_type, flag.desc.unwrap_or_else(|| "".to_string())),
         );
     }
+
+    sign.rest_positional = rest;
 
     sign
 }
@@ -466,7 +602,7 @@ fn lex_split_shortflag_from_longflag(tokens: Vec<Token>) -> Vec<Token> {
     }
     result
 }
-//Currently the lexer does not split baselines on ',' ':'
+//Currently the lexer does not split baselines on ',' ':' '?'
 //The parameter list requires this. Therefore here is a hacky method doing this.
 fn lex_split_baseline_tokens_on(
     tokens: Vec<Token>,
@@ -592,18 +728,39 @@ mod tests {
     #[test]
     fn simple_def_with_params() {
         let name = "my_func";
-        let sign = "[param1:int, param2:string]";
+        let sign = "[param1?: int, param2: string]";
         let (sign, err) = parse_signature(name, &sign.to_string().spanned(Span::new(0, 27)));
         assert!(err.is_none());
         assert_eq!(
             sign.positional,
             vec![
                 (
-                    PositionalType::Mandatory("param1".into(), SyntaxShape::Int),
+                    PositionalType::Optional("param1".into(), SyntaxShape::Int),
                     "".into()
                 ),
                 (
                     PositionalType::Mandatory("param2".into(), SyntaxShape::String),
+                    "".into()
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn simple_def_with_optional_param_without_type() {
+        let name = "my_func";
+        let sign = "[param1 ?, param2?]";
+        let (sign, err) = parse_signature(name, &sign.to_string().spanned(Span::new(0, 27)));
+        assert!(err.is_none());
+        assert_eq!(
+            sign.positional,
+            vec![
+                (
+                    PositionalType::Optional("param1".into(), SyntaxShape::Any),
+                    "".into()
+                ),
+                (
+                    PositionalType::Optional("param2".into(), SyntaxShape::Any),
                     "".into()
                 ),
             ]
@@ -722,8 +879,8 @@ mod tests {
         let sign = "[
         --list (-l) : path  # First flag
         --verbose : number # Second flag
+        --all(-a) # My switch
         ]";
-        // --all(-a) # My switch
         let (sign, err) = parse_signature(name, &sign.to_string().spanned_unknown());
         assert!(err.is_none());
         assert_signature_has_flag(
@@ -738,12 +895,7 @@ mod tests {
             NamedType::Optional(None, SyntaxShape::Number),
             "Second flag",
         );
-        // assert_signature_has_flag(
-        //     &sign,
-        //     "verbose",
-        //     NamedType::Switch(Some('a')),
-        //     "Second flag",
-        // );
+        assert_signature_has_flag(&sign, "all", NamedType::Switch(Some('a')), "My switch");
     }
 
     #[test]
@@ -755,6 +907,7 @@ mod tests {
         --verbose # Second flag
         param3 : number,
         --flag3 # Third flag
+        param4 ?: table # Optional Param
         ]";
         let (sign, err) = parse_signature(name, &sign.to_string().spanned_unknown());
         assert!(err.is_none());
@@ -764,25 +917,10 @@ mod tests {
             NamedType::Optional(Some('l'), SyntaxShape::FilePath),
             "First flag",
         );
-        assert_signature_has_flag(
-            &sign,
-            "verbose",
-            NamedType::Optional(None, SyntaxShape::Any),
-            "Second flag",
-        );
-        assert_signature_has_flag(
-            &sign,
-            "flag3",
-            NamedType::Optional(None, SyntaxShape::Any),
-            "Third flag",
-        );
+        assert_signature_has_flag(&sign, "verbose", NamedType::Switch(None), "Second flag");
+        assert_signature_has_flag(&sign, "flag3", NamedType::Switch(None), "Third flag");
         assert_eq!(
             sign.positional,
-            // --list (-l) : path  # First flag
-            // param1, param2:table # Param2 Doc
-            // --verbose # Second flag
-            // param3 : number,
-            // --flag3 # Third flag
             vec![
                 (
                     PositionalType::Mandatory("param1".into(), SyntaxShape::Any),
@@ -796,6 +934,10 @@ mod tests {
                     PositionalType::Mandatory("param3".into(), SyntaxShape::Number),
                     "".into()
                 ),
+                (
+                    PositionalType::Optional("param4".into(), SyntaxShape::Table),
+                    "Optional Param".into()
+                ),
             ]
         );
     }
@@ -808,12 +950,7 @@ mod tests {
             ]";
         let (sign, err) = parse_signature(name, &sign.to_string().spanned_unknown());
         assert!(err.is_none());
-        assert_signature_has_flag(
-            &sign,
-            "force",
-            NamedType::Optional(Some('f'), SyntaxShape::Any),
-            "",
-        );
+        assert_signature_has_flag(&sign, "force", NamedType::Switch(Some('f')), "");
         assert_eq!(
             sign.positional,
             // --list (-l) : path  # First flag
@@ -882,6 +1019,66 @@ mod tests {
             "xxx",
             NamedType::Optional(Some('x'), SyntaxShape::String),
             "The all powerful x flag",
+        );
+    }
+
+    #[test]
+    fn simple_def_with_rest_arg() {
+        let name = "my_func";
+        let sign = "[ ...rest]";
+        let (sign, err) = parse_signature(name, &sign.to_string().spanned_unknown());
+        assert!(err.is_none());
+        assert_eq!(
+            sign.rest_positional,
+            Some((SyntaxShape::Any, "".to_string()))
+        );
+    }
+
+    #[test]
+    fn simple_def_with_rest_arg_with_type_and_comment() {
+        let name = "my_func";
+        let sign = "[ ...rest:path # My super cool rest arg]";
+        let (sign, err) = parse_signature(name, &sign.to_string().spanned_unknown());
+        assert!(err.is_none());
+        assert_eq!(
+            sign.rest_positional,
+            Some((SyntaxShape::FilePath, "My super cool rest arg".to_string()))
+        );
+    }
+
+    #[test]
+    fn simple_def_with_param_flag_and_rest() {
+        let name = "my_func";
+        let sign = "[
+        d:string          # The required d parameter
+        --xxx(-x)         # The all powerful x flag
+        --yyy (-y):int    #    The accompanying y flag
+        ...rest:table # Another rest
+        ]";
+        let (sign, err) = parse_signature(name, &sign.to_string().spanned_unknown());
+        assert!(err.is_none());
+        assert_signature_has_flag(
+            &sign,
+            "xxx",
+            NamedType::Switch(Some('x')),
+            "The all powerful x flag",
+        );
+        assert_signature_has_flag(
+            &sign,
+            "yyy",
+            NamedType::Optional(Some('y'), SyntaxShape::Int),
+            "The accompanying y flag",
+        );
+        assert_eq!(
+            sign.positional,
+            vec![(
+                PositionalType::Mandatory("d".into(), SyntaxShape::String),
+                "The required d parameter".into()
+            )]
+        );
+        assert_eq!(
+            sign.rest_positional,
+            Some((SyntaxShape::Table, "Another rest".to_string()))
         );
     }
 }

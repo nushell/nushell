@@ -8,8 +8,8 @@ pub use self::meta::{
     IntoSpanned, Span, Spanned, SpannedItem, Tag, Tagged, TaggedItem,
 };
 pub use self::pretty::{
-    b, DebugDoc, DebugDocBuilder, PrettyDebug, PrettyDebugRefineKind, PrettyDebugWithSource,
-    ShellAnnotation,
+    DbgDocBldr, DebugDoc, DebugDocBuilder, PrettyDebug, PrettyDebugRefineKind,
+    PrettyDebugWithSource, ShellAnnotation,
 };
 pub use self::term_colored::TermColored;
 pub use self::text::Text;

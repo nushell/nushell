@@ -11,7 +11,7 @@
 
 A new type of shell.
 
-![Example of nushell](images/nushell-autocomplete.gif "Example of nushell")
+![Example of nushell](images/nushell-autocomplete5.gif "Example of nushell")
 
 ## Status
 
@@ -44,19 +44,19 @@ Try it in Gitpod.
 
 ### Local
 
-Up-to-date installation instructions can be found in the [installation chapter of the book](https://www.nushell.sh/book/installation.html).  **Windows users**: please note that Nu works on Windows 10 and does not currently have Windows 7/8.1 support.
+Up-to-date installation instructions can be found in the [installation chapter of the book](https://www.nushell.sh/book/installation.html). **Windows users**: please note that Nu works on Windows 10 and does not currently have Windows 7/8.1 support.
 
 To build Nu, you will need to use the **latest stable (1.47 or later)** version of the compiler.
 
 Required dependencies:
 
-* pkg-config and libssl (only needed on Linux)
-  * On Debian/Ubuntu: `apt install pkg-config libssl-dev`
+-   pkg-config and libssl (only needed on Linux)
+    -   On Debian/Ubuntu: `apt install pkg-config libssl-dev`
 
 Optional dependencies:
 
-* To use Nu with all possible optional features enabled, you'll also need the following:
-  * On Linux (on Debian/Ubuntu): `apt install libxcb-composite0-dev libx11-dev`
+-   To use Nu with all possible optional features enabled, you'll also need the following:
+    -   On Linux (on Debian/Ubuntu): `apt install libxcb-composite0-dev libx11-dev`
 
 To install Nu via cargo (make sure you have installed [rustup](https://rustup.rs/) and the latest stable compiler via `rustup install stable`):
 
@@ -139,9 +139,9 @@ Just as the Unix philosophy, Nu allows commands to output from stdout and read f
 Additionally, commands can output structured data (you can think of this as a third kind of stream).
 Commands that work in the pipeline fit into one of three categories:
 
-* Commands that produce a stream (eg, `ls`)
-* Commands that filter a stream (eg, `where type == "Dir"`)
-* Commands that consume the output of the pipeline (eg, `autoview`)
+-   Commands that produce a stream (eg, `ls`)
+-   Commands that filter a stream (eg, `where type == "Dir"`)
+-   Commands that consume the output of the pipeline (eg, `autoview`)
 
 Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing left to right.
 
@@ -270,15 +270,15 @@ If the plugin is a sink, it is given the full vector of final data and is given 
 
 Nu adheres closely to a set of goals that make up its design philosophy. As features are added, they are checked against these goals.
 
-* First and foremost, Nu is cross-platform. Commands and techniques should carry between platforms and offer first-class consistent support for Windows, macOS, and Linux.
+-   First and foremost, Nu is cross-platform. Commands and techniques should carry between platforms and offer first-class consistent support for Windows, macOS, and Linux.
 
-* Nu ensures direct compatibility with existing platform-specific executables that make up people's workflows.
+-   Nu ensures direct compatibility with existing platform-specific executables that make up people's workflows.
 
-* Nu's workflow and tools should have the usability in day-to-day experience of using a shell in 2019 (and beyond).
+-   Nu's workflow and tools should have the usability in day-to-day experience of using a shell in 2019 (and beyond).
 
-* Nu views data as both structured and unstructured. It is a structured shell like PowerShell.
+-   Nu views data as both structured and unstructured. It is a structured shell like PowerShell.
 
-* Finally, Nu views data functionally. Rather than using mutation, pipelines act as a means to load, change, and save data without mutable state.
+-   Finally, Nu views data functionally. Rather than using mutation, pipelines act as a means to load, change, and save data without mutable state.
 
 ## Commands
 
@@ -286,24 +286,24 @@ You can find a list of Nu commands, complete with documentation, in [quick comma
 
 ## Progress
 
-Nu is in heavy development, and will naturally change as it matures and people use it.  The chart below isn't meant to be exhaustive, but rather helps give an idea for some of the areas of development and their relative completion:
+Nu is in heavy development, and will naturally change as it matures and people use it. The chart below isn't meant to be exhaustive, but rather helps give an idea for some of the areas of development and their relative completion:
 
-| Features | Not started | Prototype | MVP | Preview | Mature | Notes
-| -------- |:-----------:|:---------:|:---:|:-------:|:------:| -----
-| Aliases  |             |     X     |     |         |        | Initial implementation but lacks necessary features
-| Notebook |             |     X     |     |         |        | Initial jupyter support, but it loses state and lacks features
-| File ops |             |           |  X  |         |        | cp, mv, rm, mkdir have some support, but lacking others
-| Environment |          |     X     |     |         |        | Temporary environment, but no session-wide env variables
-| Shells   |             |     X     |     |         |        | Basic value and file shells, but no opt-in/opt-out for commands
-| Protocol |             |           |  X  |         |        | Streaming protocol is serviceable
-| Plugins  |             |     X     |     |         |        | Plugins work on one row at a time, lack batching and expression eval
-| Errors   |             |           |  X  |         |        | Error reporting works, but could use usability polish
-| Documentation |        |     X     |     |         |        | Book and related are barebones and lack task-based lessons
-| Paging   |             |     X     |     |         |        | Textview has paging, but we'd like paging for tables
-| Functions |            |     X     |     |         |        | No functions, yet, only aliases
-| Variables|             |     X     |     |         |        | Nu doesn't yet support variables
-| Completions |          |     X     |     |         |        | Completions are currently barebones, at best
-| Type-checking |        |     X     |     |         |        | Commands check basic types, but input/output isn't checked
+| Features      | Not started | Prototype | MVP | Preview | Mature | Notes                                                                |
+| ------------- | :---------: | :-------: | :-: | :-----: | :----: | -------------------------------------------------------------------- |
+| Aliases       |             |     X     |     |         |        | Initial implementation but lacks necessary features                  |
+| Notebook      |             |     X     |     |         |        | Initial jupyter support, but it loses state and lacks features       |
+| File ops      |             |           |  X  |         |        | cp, mv, rm, mkdir have some support, but lacking others              |
+| Environment   |             |     X     |     |         |        | Temporary environment, but no session-wide env variables             |
+| Shells        |             |     X     |     |         |        | Basic value and file shells, but no opt-in/opt-out for commands      |
+| Protocol      |             |           |  X  |         |        | Streaming protocol is serviceable                                    |
+| Plugins       |             |     X     |     |         |        | Plugins work on one row at a time, lack batching and expression eval |
+| Errors        |             |           |  X  |         |        | Error reporting works, but could use usability polish                |
+| Documentation |             |     X     |     |         |        | Book and related are barebones and lack task-based lessons           |
+| Paging        |             |     X     |     |         |        | Textview has paging, but we'd like paging for tables                 |
+| Functions     |             |     X     |     |         |        | No functions, yet, only aliases                                      |
+| Variables     |             |     X     |     |         |        | Nu doesn't yet support variables                                     |
+| Completions   |             |     X     |     |         |        | Completions are currently barebones, at best                         |
+| Type-checking |             |     X     |     |         |        | Commands check basic types, but input/output isn't checked           |
 
 ## Current Roadmap
 
@@ -313,6 +313,11 @@ We've added a `Roadmap Board` to help collaboratively capture the direction we'r
 
 See [Contributing](CONTRIBUTING.md) for details.
 
+Thanks to all the people who already contributed!
+
+<a href="https://github.com/nushell/nushell/graphs/contributors">
+  <img src="https://contributors-img.web.app/image?repo=nushell/nushell" />
+</a>
 ## License
 
 The project is made available under the MIT license. See the `LICENSE` file for more information.

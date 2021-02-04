@@ -4,7 +4,7 @@ description = "Fork of serde-hjson"
 edition = "2018"
 license = "MIT"
 name = "nu-json"
-version = "0.25.2"
+version = "0.26.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

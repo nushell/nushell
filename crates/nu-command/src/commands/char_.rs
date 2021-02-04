@@ -19,7 +19,7 @@ impl WholeStreamCommand for Char {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("ansi")
+        Signature::build("char")
             .required(
                 "character",
                 SyntaxShape::Any,
@@ -129,24 +129,6 @@ fn str_to_character(s: &str) -> Option<String> {
         "mist" | "haze" => Some("\u{2591}".to_string()),
         "snowy" | "snow" => Some("❄️".to_string()),
         "thunderstorm" | "thunder" => Some("🌩️".to_string()),
-
-        // Reference for ansi codes https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
-        // Another good reference http://ascii-table.com/ansi-escape-sequences.php
-
-        // For setting title like `echo [$(char title) $(pwd) $(char bel)] | str collect`
-        "title" => Some("\x1b]2;".to_string()), // ESC]2; xterm sets window title
-        "bel" => Some('\x07'.to_string()),      // Terminal Bell
-        "backspace" => Some('\x08'.to_string()), // Backspace
-
-        // Ansi Erase Sequences
-        "clear_screen" => Some("\x1b[J".to_string()), // clears the screen
-        "clear_screen_from_cursor_to_end" => Some("\x1b[0J".to_string()), // clears from cursor until end of screen
-        "clear_screen_from_cursor_to_beginning" => Some("\x1b[1J".to_string()), // clears from cursor to beginning of screen
-        "cls" | "clear_entire_screen" => Some("\x1b[2J".to_string()), // clears the entire screen
-        "erase_line" => Some("\x1b[K".to_string()),                   // clears the current line
-        "erase_line_from_cursor_to_end" => Some("\x1b[0K".to_string()), // clears from cursor to end of line
-        "erase_line_from_cursor_to_beginning" => Some("\x1b[1K".to_string()), // clears from cursor to start of line
-        "erase_entire_line" => Some("\x1b[2K".to_string()),                   // clears entire line
 
         _ => None,
     }

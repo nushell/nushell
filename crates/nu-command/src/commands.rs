@@ -269,7 +269,7 @@ pub(crate) use to::To;
 pub(crate) use to_csv::ToCSV;
 pub(crate) use to_html::ToHTML;
 pub(crate) use to_json::ToJSON;
-pub(crate) use to_md::ToMarkdown;
+pub(crate) use to_md::Command as ToMarkdown;
 pub(crate) use to_toml::ToTOML;
 pub(crate) use to_tsv::ToTSV;
 pub(crate) use to_url::ToURL;
@@ -299,6 +299,35 @@ mod tests {
             whole_stream_command(Move),
             whole_stream_command(Update),
             whole_stream_command(Empty),
+            // Str Command Suite
+            whole_stream_command(Str),
+            whole_stream_command(StrToDecimal),
+            whole_stream_command(StrToInteger),
+            whole_stream_command(StrDowncase),
+            whole_stream_command(StrUpcase),
+            whole_stream_command(StrCapitalize),
+            whole_stream_command(StrFindReplace),
+            whole_stream_command(StrFrom),
+            whole_stream_command(StrSubstring),
+            whole_stream_command(StrToDatetime),
+            whole_stream_command(StrContains),
+            whole_stream_command(StrIndexOf),
+            whole_stream_command(StrTrim),
+            whole_stream_command(StrTrimLeft),
+            whole_stream_command(StrTrimRight),
+            whole_stream_command(StrStartsWith),
+            whole_stream_command(StrEndsWith),
+            //whole_stream_command(StrCollect),
+            whole_stream_command(StrLength),
+            whole_stream_command(StrLPad),
+            whole_stream_command(StrReverse),
+            whole_stream_command(StrRPad),
+            whole_stream_command(StrCamelCase),
+            whole_stream_command(StrPascalCase),
+            whole_stream_command(StrKebabCase),
+            whole_stream_command(StrSnakeCase),
+            whole_stream_command(StrScreamingSnakeCase),
+            whole_stream_command(ToMarkdown),
         ]
     }
 

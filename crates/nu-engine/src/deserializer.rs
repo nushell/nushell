@@ -602,8 +602,8 @@ mod tests {
         let tuple = type_name::<()>();
         let tagged_tuple = type_name::<Tagged<()>>();
         let tagged_value = type_name::<Value>();
-        assert!(tuple != tagged_tuple);
-        assert!(tuple != tagged_value);
-        assert!(tagged_tuple != tagged_value);
+        assert_ne!(tuple, tagged_tuple);
+        assert_ne!(tuple, tagged_value);
+        assert_ne!(tagged_tuple, tagged_value);
     }
 }

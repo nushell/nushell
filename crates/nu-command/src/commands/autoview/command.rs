@@ -174,6 +174,13 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                         out!("{}", output);
                     }
                     Value {
+                        value: UntaggedValue::Primitive(Primitive::Filesize(_)),
+                        ..
+                    } => {
+                        let output = format_leaf(&x).plain_string(100_000);
+                        out!("{}", output);
+                    }
+                    Value {
                         value: UntaggedValue::Primitive(Primitive::Date(d)),
                         ..
                     } => {

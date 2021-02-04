@@ -65,7 +65,7 @@ fn multiple_reports_of_multiple_alias() {
     );
 
     let count: i32 = actual.out.parse().unwrap();
-    assert!(count == 2);
+    assert_eq!(count, 2);
 }
 
 #[ignore]
@@ -77,7 +77,7 @@ fn multiple_reports_of_multiple_defs() {
     );
 
     let count: i32 = actual.out.parse().unwrap();
-    assert!(count == 2);
+    assert_eq!(count, 2);
 }
 
 //Fails due to ParserScope::add_definition
@@ -92,5 +92,5 @@ fn def_only_seen_once() {
     );
     //count is 2. One custom_command (def) one built in ("wrongly" added)
     let count: i32 = actual.out.parse().unwrap();
-    assert!(count == 1);
+    assert_eq!(count, 1);
 }

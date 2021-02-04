@@ -4,16 +4,16 @@ description = "Traverses xml"
 edition = "2018"
 license = "MIT"
 name = "nu_plugin_xpath"
-version = "0.25.2"
+version = "0.26.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-errors = {version = "0.25.2", path = "../nu-errors"}
-nu-plugin = {path = "../nu-plugin", version = "0.25.2"}
-nu-protocol = {version = "0.25.2", path = "../nu-protocol"}
-nu-source = {version = "0.25.2", path = "../nu-source"}
+nu-errors = {version = "0.26.0", path = "../nu-errors"}
+nu-plugin = {path = "../nu-plugin", version = "0.26.0"}
+nu-protocol = {version = "0.26.0", path = "../nu-protocol"}
+nu-source = {version = "0.26.0", path = "../nu-source"}
 
 bigdecimal = {version = "0.2.0", features = ["serde"]}
 indexmap = {version = "1.6.0", features = ["serde-1"]}
@@ -21,4 +21,4 @@ sxd-document = "0.3.2"
 sxd-xpath = "0.4.2"
 
 [dev-dependencies]
-nu-test-support = {path = "../nu-test-support", version = "0.25.2"}
+nu-test-support = {path = "../nu-test-support", version = "0.26.0"}

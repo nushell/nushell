@@ -4,7 +4,7 @@ description = "A binary viewer plugin for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu_plugin_binaryview"
-version = "0.25.2"
+version = "0.26.0"
 
 [lib]
 doctest = false
@@ -14,10 +14,10 @@ ansi_term = "0.12.1"
 crossterm = "0.18"
 image = {version = "0.22.4", default_features = false, features = ["png_codec", "jpeg"]}
 neso = "0.5.0"
-nu-errors = {path = "../nu-errors", version = "0.25.2"}
-nu-plugin = {path = "../nu-plugin", version = "0.25.2"}
-nu-protocol = {path = "../nu-protocol", version = "0.25.2"}
-nu-source = {path = "../nu-source", version = "0.25.2"}
+nu-errors = {path = "../nu-errors", version = "0.26.0"}
+nu-plugin = {path = "../nu-plugin", version = "0.26.0"}
+nu-protocol = {path = "../nu-protocol", version = "0.26.0"}
+nu-source = {path = "../nu-source", version = "0.26.0"}
 pretty-hex = "0.2.0"
 rawkey = "0.1.3"
 

@@ -19,11 +19,15 @@ pub fn disks(sys: &mut System, tag: Tag) -> Option<UntaggedValue> {
         let mut dict = TaggedDictBuilder::new(&tag);
         dict.insert_untagged(
             "device",
-            UntaggedValue::string(disk.get_name().to_string_lossy()),
+            UntaggedValue::string(trim_cstyle_null(
+                disk.get_name().to_string_lossy().to_string(),
+            )),
         );
         dict.insert_untagged(
             "type",
-            UntaggedValue::string(String::from_utf8_lossy(disk.get_file_system())),
+            UntaggedValue::string(trim_cstyle_null(
+                String::from_utf8_lossy(disk.get_file_system()).to_string(),
+            )),
         );
         dict.insert_untagged("mount", UntaggedValue::filepath(disk.get_mount_point()));
         dict.insert_untagged("total", UntaggedValue::filesize(disk.get_total_space()));
@@ -43,7 +47,10 @@ pub fn net(sys: &mut System, tag: Tag) -> Option<UntaggedValue> {
     let mut output = vec![];
     for (iface, data) in sys.get_networks() {
         let mut dict = TaggedDictBuilder::new(&tag);
-        dict.insert_untagged("name", UntaggedValue::string(iface));
+        dict.insert_untagged(
+            "name",
+            UntaggedValue::string(trim_cstyle_null(iface.to_string())),
+        );
         dict.insert_untagged(
             "sent",
             UntaggedValue::filesize(data.get_total_transmitted()),
@@ -65,8 +72,14 @@ pub fn cpu(sys: &mut System, tag: Tag) -> Option<UntaggedValue> {
     let mut output = vec![];
     for cpu in sys.get_processors() {
         let mut dict = TaggedDictBuilder::new(&tag);
-        dict.insert_untagged("name", UntaggedValue::string(cpu.get_name()));
-        dict.insert_untagged("brand", UntaggedValue::string(cpu.get_brand()));
+        dict.insert_untagged(
+            "name",
+            UntaggedValue::string(trim_cstyle_null(cpu.get_name().to_string())),
+        );
+        dict.insert_untagged(
+            "brand",
+            UntaggedValue::string(trim_cstyle_null(cpu.get_brand().to_string())),
+        );
         dict.insert_untagged("freq", UntaggedValue::int(cpu.get_frequency()));
 
         output.push(dict.into_value());
@@ -87,10 +100,10 @@ pub fn mem(sys: &mut System, tag: Tag) -> Option<UntaggedValue> {
     let total_swap = sys.get_total_swap();
     let free_swap = sys.get_free_swap();
 
-    dict.insert_untagged("total", UntaggedValue::filesize(total_mem));
-    dict.insert_untagged("free", UntaggedValue::filesize(free_mem));
-    dict.insert_untagged("swap total", UntaggedValue::filesize(total_swap));
-    dict.insert_untagged("swap free", UntaggedValue::filesize(free_swap));
+    dict.insert_untagged("total", UntaggedValue::filesize(total_mem * 1000));
+    dict.insert_untagged("free", UntaggedValue::filesize(free_mem * 1000));
+    dict.insert_untagged("swap total", UntaggedValue::filesize(total_swap * 1000));
+    dict.insert_untagged("swap free", UntaggedValue::filesize(free_swap * 1000));
 
     Some(dict.into_untagged_value())
 }
@@ -100,13 +113,25 @@ pub fn host(sys: &mut System, tag: Tag) -> Option<UntaggedValue> {
 
     let mut dict = TaggedDictBuilder::new(&tag);
     if let Some(name) = sys.get_name() {
-        dict.insert_untagged("name", UntaggedValue::string(name));
+        dict.insert_untagged("name", UntaggedValue::string(trim_cstyle_null(name)));
     }
-    if let Some(version) = sys.get_version() {
-        dict.insert_untagged("version", UntaggedValue::string(version));
+    if let Some(version) = sys.get_os_version() {
+        dict.insert_untagged(
+            "os version",
+            UntaggedValue::string(trim_cstyle_null(version)),
+        );
+    }
+    if let Some(version) = sys.get_kernel_version() {
+        dict.insert_untagged(
+            "kernel version",
+            UntaggedValue::string(trim_cstyle_null(version)),
+        );
     }
     if let Some(hostname) = sys.get_host_name() {
-        dict.insert_untagged("hostname", UntaggedValue::string(hostname));
+        dict.insert_untagged(
+            "hostname",
+            UntaggedValue::string(trim_cstyle_null(hostname)),
+        );
     }
     dict.insert_untagged(
         "uptime",
@@ -116,11 +141,15 @@ pub fn host(sys: &mut System, tag: Tag) -> Option<UntaggedValue> {
     let mut users = vec![];
     for user in sys.get_users() {
         let mut user_dict = TaggedDictBuilder::new(&tag);
-        user_dict.insert_untagged("name", UntaggedValue::string(user.get_name()));
+        user_dict.insert_untagged(
+            "name",
+            UntaggedValue::string(trim_cstyle_null(user.get_name().to_string())),
+        );
 
         let mut groups = vec![];
         for group in user.get_groups() {
-            groups.push(UntaggedValue::string(group).into_value(&tag));
+            groups
+                .push(UntaggedValue::string(trim_cstyle_null(group.to_string())).into_value(&tag));
         }
         user_dict.insert_untagged("groups", UntaggedValue::Table(groups));
 
@@ -192,4 +221,8 @@ pub async fn sysinfo(tag: Tag) -> Vec<Value> {
     }
 
     vec![sysinfo.into_value()]
+}
+
+pub fn trim_cstyle_null(s: String) -> String {
+    s.trim_matches(char::from(0)).to_string()
 }

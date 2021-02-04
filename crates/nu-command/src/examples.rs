@@ -1,27 +1,27 @@
+mod sample;
+
+mod double_echo;
+mod double_ls;
+mod stub_generate;
+
+use double_echo::Command as DoubleEcho;
+use double_ls::Command as DoubleLs;
+use stub_generate::{mock_path, Command as StubOpen};
+
 use nu_engine::basic_evaluation_context;
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
 use nu_protocol::hir::ClassifiedBlock;
-use nu_protocol::{
-    Primitive, ReturnSuccess, ShellTypeName, Signature, SyntaxShape, UntaggedValue, Value,
-};
-use nu_source::{AnchorLocation, TaggedItem};
-
-use crate::prelude::*;
-
-use num_bigint::BigInt;
+use nu_protocol::{ShellTypeName, Value};
+use nu_source::AnchorLocation;
 
 use crate::commands::{
-    BuildString, Each, Echo, First, Get, Keep, Last, Let, Nth, StrCollect, Wrap,
+    Append, BuildString, Each, Echo, First, Get, Keep, Last, Let, Nth, Select, StrCollect, Wrap,
 };
-use nu_engine::{
-    run_block, whole_stream_command, Command, CommandArgs, EvaluationContext, WholeStreamCommand,
-};
-use nu_stream::{InputStream, OutputStream};
+use nu_engine::{run_block, whole_stream_command, Command, EvaluationContext, WholeStreamCommand};
+use nu_stream::InputStream;
 
-use async_trait::async_trait;
 use futures::executor::block_on;
-use serde::Deserialize;
 
 pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
     let examples = cmd.examples();
@@ -29,9 +29,10 @@ pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
     let base_context = basic_evaluation_context()?;
 
     base_context.add_commands(vec![
-        // Mocks
-        whole_stream_command(MockLs {}),
+        // Command Doubles
+        whole_stream_command(DoubleLs {}),
         // Minimal restricted commands to aid in testing
+        whole_stream_command(Append {}),
         whole_stream_command(Echo {}),
         whole_stream_command(BuildString {}),
         whole_stream_command(First {}),
@@ -41,6 +42,7 @@ pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
         whole_stream_command(Last {}),
         whole_stream_command(Nth {}),
         whole_stream_command(Let {}),
+        whole_stream_command(Select),
         whole_stream_command(StrCollect),
         whole_stream_command(Wrap),
         cmd,
@@ -100,6 +102,7 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
         whole_stream_command(Each {}),
         whole_stream_command(Let {}),
         whole_stream_command(cmd),
+        whole_stream_command(Select),
         whole_stream_command(StrCollect),
         whole_stream_command(Wrap),
     ]);
@@ -150,9 +153,10 @@ pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
 
     base_context.add_commands(vec![
         // Minimal restricted commands to aid in testing
-        whole_stream_command(MockCommand {}),
-        whole_stream_command(MockEcho {}),
-        whole_stream_command(MockLs {}),
+        whole_stream_command(StubOpen {}),
+        whole_stream_command(DoubleEcho {}),
+        whole_stream_command(DoubleLs {}),
+        whole_stream_command(Append {}),
         whole_stream_command(BuildString {}),
         whole_stream_command(First {}),
         whole_stream_command(Get {}),
@@ -161,32 +165,36 @@ pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
         whole_stream_command(Last {}),
         whole_stream_command(Nth {}),
         whole_stream_command(Let {}),
+        whole_stream_command(Select),
         whole_stream_command(StrCollect),
         whole_stream_command(Wrap),
         cmd,
     ]);
 
     for sample_pipeline in examples {
-        let pipeline_with_anchor = format!("mock --open --path | {}", sample_pipeline.example);
+        let pipeline_with_anchor = format!("stub open --path | {}", sample_pipeline.example);
 
         let mut ctx = base_context.clone();
 
         let block = parse_line(&pipeline_with_anchor, &ctx)?;
-        let result = block_on(evaluate_block(block, &mut ctx))?;
 
-        ctx.with_errors(|reasons| reasons.iter().cloned().take(1).next())
-            .map_or(Ok(()), Err)?;
+        if let Some(_) = &sample_pipeline.result {
+            let result = block_on(evaluate_block(block, &mut ctx))?;
 
-        for actual in result.iter() {
-            if !is_anchor_carried(actual, mock_path()) {
-                let failed_call = format!("command: {}\n", pipeline_with_anchor);
+            ctx.with_errors(|reasons| reasons.iter().cloned().take(1).next())
+                .map_or(Ok(()), Err)?;
 
-                panic!(
-                    "example command didn't carry anchor tag correctly.\n {} {:#?} {:#?}",
-                    failed_call,
-                    actual,
-                    mock_path()
-                );
+            for actual in result.iter() {
+                if !is_anchor_carried(actual, mock_path()) {
+                    let failed_call = format!("command: {}\n", pipeline_with_anchor);
+
+                    panic!(
+                        "example command didn't carry anchor tag correctly.\n {} {:#?} {:#?}",
+                        failed_call,
+                        actual,
+                        mock_path()
+                    );
+                }
             }
         }
     }
@@ -261,233 +269,4 @@ fn values_equal(expected: &Value, actual: &Value) -> bool {
 
 fn is_anchor_carried(actual: &Value, anchor: AnchorLocation) -> bool {
     actual.tag.anchor() == Some(anchor)
-}
-
-#[derive(Deserialize)]
-struct Arguments {
-    path: Option<bool>,
-    open: bool,
-}
-
-struct MockCommand;
-
-#[async_trait]
-impl WholeStreamCommand for MockCommand {
-    fn name(&self) -> &str {
-        "mock"
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build("mock")
-            .switch("open", "fake opening sources", Some('o'))
-            .switch("path", "file open", Some('p'))
-    }
-
-    fn usage(&self) -> &str {
-        "Generates tables and metadata that mimics behavior of real commands in controlled ways."
-    }
-
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let name_tag = args.call_info.name_tag.clone();
-
-        let (
-            Arguments {
-                path: mocked_path,
-                open: open_mock,
-            },
-            _input,
-        ) = args.process().await?;
-
-        let out = UntaggedValue::string("Yehuda Katz in Ecuador");
-
-        if open_mock {
-            if let Some(true) = mocked_path {
-                return Ok(OutputStream::one(Ok(ReturnSuccess::Value(Value {
-                    value: out,
-                    tag: Tag {
-                        anchor: Some(mock_path()),
-                        span: name_tag.span,
-                    },
-                }))));
-            }
-        }
-
-        Ok(OutputStream::one(Ok(ReturnSuccess::Value(
-            out.into_value(name_tag),
-        ))))
-    }
-}
-
-struct MockEcho;
-
-#[derive(Deserialize)]
-struct MockEchoArgs {
-    pub rest: Vec<Value>,
-}
-
-#[async_trait]
-impl WholeStreamCommand for MockEcho {
-    fn name(&self) -> &str {
-        "echo"
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build("echo").rest(SyntaxShape::Any, "the values to echo")
-    }
-
-    fn usage(&self) -> &str {
-        "Mock echo."
-    }
-
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let name_tag = args.call_info.name_tag.clone();
-        let (MockEchoArgs { rest }, input) = args.process().await?;
-
-        let mut base_value = UntaggedValue::string("Yehuda Katz in Ecuador").into_value(name_tag);
-        let input: Vec<Value> = input.collect().await;
-
-        if let Some(first) = input.get(0) {
-            base_value = first.clone()
-        }
-
-        let stream = rest.into_iter().map(move |i| {
-            let base_value = base_value.clone();
-            match i.as_string() {
-                Ok(s) => OutputStream::one(Ok(ReturnSuccess::Value(Value {
-                    value: UntaggedValue::Primitive(Primitive::String(s)),
-                    tag: base_value.tag,
-                }))),
-                _ => match i {
-                    Value {
-                        value: UntaggedValue::Table(table),
-                        ..
-                    } => {
-                        if table.len() == 1 && table[0].is_table() {
-                            let mut values: Vec<Value> =
-                                table[0].table_entries().map(Clone::clone).collect();
-
-                            for v in values.iter_mut() {
-                                v.tag = base_value.tag();
-                            }
-
-                            let subtable =
-                                vec![UntaggedValue::Table(values).into_value(base_value.tag())];
-
-                            futures::stream::iter(subtable.into_iter().map(ReturnSuccess::value))
-                                .to_output_stream()
-                        } else {
-                            futures::stream::iter(
-                                table
-                                    .into_iter()
-                                    .map(move |mut v| {
-                                        v.tag = base_value.tag();
-                                        v
-                                    })
-                                    .map(ReturnSuccess::value),
-                            )
-                            .to_output_stream()
-                        }
-                    }
-                    _ => OutputStream::one(Ok(ReturnSuccess::Value(Value {
-                        value: i.value.clone(),
-                        tag: base_value.tag,
-                    }))),
-                },
-            }
-        });
-
-        Ok(futures::stream::iter(stream).flatten().to_output_stream())
-    }
-}
-
-struct MockLs;
-
-#[async_trait]
-impl WholeStreamCommand for MockLs {
-    fn name(&self) -> &str {
-        "ls"
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build("ls")
-    }
-
-    fn usage(&self) -> &str {
-        "Mock ls."
-    }
-
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let name_tag = args.call_info.name_tag.clone();
-
-        let mut base_value =
-            UntaggedValue::string("Andrés N. Robalino in Portland").into_value(name_tag);
-        let input: Vec<Value> = args.input.collect().await;
-
-        if let Some(first) = input.get(0) {
-            base_value = first.clone()
-        }
-
-        Ok(futures::stream::iter(
-            file_listing()
-                .iter()
-                .map(|row| Value {
-                    value: row.value.clone(),
-                    tag: base_value.tag.clone(),
-                })
-                .collect::<Vec<_>>()
-                .into_iter()
-                .map(ReturnSuccess::value),
-        )
-        .to_output_stream())
-    }
-}
-
-fn int(s: impl Into<BigInt>) -> Value {
-    UntaggedValue::int(s).into_untagged_value()
-}
-
-fn string(input: impl Into<String>) -> Value {
-    UntaggedValue::string(input.into()).into_untagged_value()
-}
-
-fn date(input: impl Into<String>) -> Value {
-    let key = input.into().tagged_unknown();
-    crate::value::Date::naive_from_str(key.borrow_tagged())
-        .expect("date from string failed")
-        .into_untagged_value()
-}
-
-fn file_listing() -> Vec<Value> {
-    vec![
-        row! {
-               "name".to_string() => string("Andrés.txt"),
-               "type".to_string() =>       string("File"),
-           "chickens".to_string() =>              int(10),
-           "modified".to_string() =>   date("2019-07-23")
-        },
-        row! {
-               "name".to_string() =>   string("Jonathan"),
-               "type".to_string() =>        string("Dir"),
-           "chickens".to_string() =>               int(5),
-           "modified".to_string() =>   date("2019-07-23")
-        },
-        row! {
-               "name".to_string() =>  string("Andrés.txt"),
-               "type".to_string() =>        string("File"),
-           "chickens".to_string() =>               int(20),
-           "modified".to_string() =>    date("2019-09-24")
-        },
-        row! {
-               "name".to_string() =>      string("Yehuda"),
-               "type".to_string() =>         string("Dir"),
-           "chickens".to_string() =>                int(4),
-           "modified".to_string() =>    date("2019-09-24")
-        },
-    ]
-}
-
-fn mock_path() -> AnchorLocation {
-    let path = String::from("path/to/las_best_arepas_in_the_world.txt");
-
-    AnchorLocation::File(path)
 }

@@ -308,6 +308,7 @@ fn parse_operator(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<Pars
         "mod" => Operator::Modulo,
         "&&" => Operator::And,
         "||" => Operator::Or,
+        "**" => Operator::Pow,
         _ => {
             return (
                 garbage(lite_arg.span),

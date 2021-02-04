@@ -429,6 +429,42 @@ fn run_broken_inner_custom_command() {
 }
 
 #[test]
+fn run_custom_command_with_rest() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            def rest-me [...rest: string] { echo $rest.1 $rest.0}; rest-me "hello" "world" | to json
+        "#
+    );
+
+    assert_eq!(actual.out, r#"["world","hello"]"#);
+}
+
+#[test]
+fn run_custom_command_with_rest_and_arg() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            def rest-me-with-arg [name: string, ...rest: string] { echo $rest.1 $rest.0 $name}; rest-me-with-arg "hello" "world" "yay" | to json
+        "#
+    );
+
+    assert_eq!(actual.out, r#"["yay","world","hello"]"#);
+}
+
+#[test]
+fn run_custom_command_with_rest_and_flag() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            def rest-me-with-flag [--name: string, ...rest: string] { echo $rest.1 $rest.0 $name}; rest-me-with-flag "hello" "world" --name "yay" | to json
+        "#
+    );
+
+    assert_eq!(actual.out, r#"["world","hello","yay"]"#);
+}
+
+#[test]
 fn set_variable() {
     let actual = nu!(
         cwd: ".",
@@ -520,6 +556,54 @@ fn can_process_one_row_from_internal_and_pipes_it_to_stdin_of_external() {
     );
 
     assert_eq!(actual.out, "nushell");
+}
+
+#[test]
+fn index_out_of_bounds() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            let foo = [1, 2, 3]; echo $foo.5
+        "#
+    );
+
+    assert!(actual.err.contains("unknown row"));
+}
+
+#[test]
+fn index_row() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        let foo = [[name]; [joe] [bob]]; echo $foo.1 | to json
+        "#
+    );
+
+    assert_eq!(actual.out, r#"{"name":"bob"}"#);
+}
+
+#[test]
+fn index_cell() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        let foo = [[name]; [joe] [bob]]; echo $foo.name.1
+        "#
+    );
+
+    assert_eq!(actual.out, "bob");
+}
+
+#[test]
+fn index_cell_alt() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        let foo = [[name]; [joe] [bob]]; echo $foo.1.name
+        "#
+    );
+
+    assert_eq!(actual.out, "bob");
 }
 
 #[test]
@@ -664,6 +748,53 @@ fn range_with_mixed_types() {
     );
 
     assert_eq!(actual.out, "55");
+}
+
+#[test]
+fn filesize_math() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        = 100 * 10kb
+        "#
+    );
+
+    assert_eq!(actual.out, "1.0 MB");
+}
+
+#[test]
+fn filesize_math2() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        = 100 / 10kb
+        "#
+    );
+
+    assert!(actual.err.contains("Coercion"));
+}
+
+#[test]
+fn filesize_math3() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        = 100kb / 10
+        "#
+    );
+
+    assert_eq!(actual.out, "10.2 KB");
+}
+#[test]
+fn filesize_math4() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        = 100kb * 5
+        "#
+    );
+
+    assert_eq!(actual.out, "512.0 KB");
 }
 
 #[test]

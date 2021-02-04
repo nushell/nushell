@@ -46,13 +46,13 @@ impl WholeStreamCommand for Command {
                 result: Some(vec![UntaggedValue::row(indexmap! {
                     "File".to_string() => UntaggedValue::Table(vec![
                         UntaggedValue::row(indexmap! {
-                                "name".to_string() =>          UntaggedValue::string("Andrés.txt").into(),
+                                "name".to_string() =>          UntaggedValue::string("Andres.txt").into(),
                                 "type".to_string() =>                UntaggedValue::string("File").into(),
                             "chickens".to_string() =>                       UntaggedValue::int(10).into(),
                             "modified".to_string() => date("2019-07-23".tagged_unknown()).unwrap().into(),
                         }).into(),
                         UntaggedValue::row(indexmap! {
-                                "name".to_string() =>          UntaggedValue::string("Andrés.txt").into(),
+                                "name".to_string() =>          UntaggedValue::string("Darren.txt").into(),
                                 "type".to_string() =>                UntaggedValue::string("File").into(),
                             "chickens".to_string() =>                       UntaggedValue::int(20).into(),
                             "modified".to_string() => date("2019-09-24".tagged_unknown()).unwrap().into(),

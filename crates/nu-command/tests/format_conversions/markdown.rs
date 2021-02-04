@@ -5,7 +5,7 @@ fn md_empty() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-            echo "{}" | from json | to md
+            echo [[]; []] | from json | to md
         "#
     ));
 
@@ -53,7 +53,7 @@ fn md_table() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-            echo '{"name": "jason"}' | from json | to md
+            echo [[name]; [jason]] | to md
         "#
     ));
 
@@ -65,9 +65,34 @@ fn md_table_pretty() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-            echo '{"name": "joseph"}' | from json | to md -p
+            echo [[name]; [joseph]] | to md -p
         "#
     ));
 
     assert_eq!(actual.out, "| name   || ------ || joseph |");
+}
+
+#[test]
+fn md_combined() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            def title [] {
+                echo [[H1]; ["Nu top meals"]]
+            };
+
+            def meals [] {
+                echo [[dish]; [Arepa] [Taco] [Pizza]]
+            };
+
+            title
+            | append $(meals)
+            | to md --per-element --pretty
+        "#
+    ));
+
+    assert_eq!(
+        actual.out,
+        "# Nu top meals| dish  || ----- || Arepa || Taco  || Pizza |"
+    );
 }

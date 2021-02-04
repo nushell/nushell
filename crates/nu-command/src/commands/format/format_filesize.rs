@@ -1,15 +1,12 @@
 use crate::prelude::*;
-use nu_errors::ShellError;
-
+use nu_data::base::shape::InlineShape;
 use nu_engine::WholeStreamCommand;
+use nu_errors::ShellError;
 use nu_protocol::{
-    ColumnPath, Primitive::Filesize, ReturnSuccess, Signature, SyntaxShape, UntaggedValue,
-    UntaggedValue::Primitive, Value,
+    ColumnPath, Primitive::Filesize, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use nu_source::Tagged;
 use nu_value_ext::get_data_by_column_path;
-
-use num_format::{Locale, ToFormattedString};
 
 pub struct FileSize;
 
@@ -71,12 +68,25 @@ async fn process_row(
     Ok({
         let replace_for = get_data_by_column_path(&input, &field, move |_, _, error| error);
         match replace_for {
-            Ok(s) => match convert_bytes_to_string_using_format(s, format) {
-                Ok(b) => OutputStream::one(ReturnSuccess::value(
-                    input.replace_data_at_column_path(&field, b).expect("Given that the existence check was already done, this shouldn't trigger never"),
-                )),
-                Err(e) => OutputStream::one(Err(e)),
-            },
+            Ok(s) => {
+                if let Value {
+                    value: UntaggedValue::Primitive(Filesize(fs)),
+                    ..
+                } = s
+                {
+                    let byte_format = InlineShape::format_bytes(&fs, Some(&format.item));
+                    let byte_value = Value::from(byte_format.1);
+                    OutputStream::one(ReturnSuccess::value(
+                        input.replace_data_at_column_path(&field, byte_value).expect("Given that the existence check was already done, this shouldn't trigger never"),
+                    ))
+                } else {
+                    return Err(ShellError::labeled_error(
+                        "the data in this row is not of the type filesize",
+                        "invalid datatype in row",
+                        input.tag(),
+                    ));
+                }
+            }
             Err(e) => OutputStream::one(Err(e)),
         }
     })
@@ -100,76 +110,6 @@ async fn filesize(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         })
         .flatten()
         .to_output_stream())
-}
-
-fn convert_bytes_to_string_using_format(
-    bytes: Value,
-    format: Tagged<String>,
-) -> Result<Value, ShellError> {
-    match bytes.value {
-        Primitive(Filesize(b)) => {
-            let byte = byte_unit::Byte::from_bytes(b as u128);
-            let value = match format.item().to_lowercase().as_str() {
-                "b" => Ok(UntaggedValue::string(b.to_formatted_string(&Locale::en))),
-                "kb" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::KB).to_string(),
-                )),
-                "kib" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::KiB).to_string(),
-                )),
-                "mb" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::MB).to_string(),
-                )),
-                "mib" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::MiB).to_string(),
-                )),
-                "gb" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::GB).to_string(),
-                )),
-                "gib" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::GiB).to_string(),
-                )),
-                "tb" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::TB).to_string(),
-                )),
-                "tib" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::TiB).to_string(),
-                )),
-                "pb" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::PB).to_string(),
-                )),
-                "pib" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::PiB).to_string(),
-                )),
-                "eb" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::EB).to_string(),
-                )),
-                "eib" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::EiB).to_string(),
-                )),
-                "zb" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::ZB).to_string(),
-                )),
-                "zib" => Ok(UntaggedValue::string(
-                    byte.get_adjusted_unit(byte_unit::ByteUnit::ZiB).to_string(),
-                )),
-                _ => Err(ShellError::labeled_error(
-                    format!("Invalid format code: {:}", format.item()),
-                    "invalid format",
-                    format.tag(),
-                )),
-            };
-            match value {
-                Ok(b) => Ok(Value { value: b, ..bytes }),
-                Err(e) => Err(e),
-            }
-        }
-        _ => Err(ShellError::labeled_error(
-            "the data in this row is not of the type filesize",
-            "invalid row type",
-            bytes.tag(),
-        )),
-    }
 }
 
 #[cfg(test)]

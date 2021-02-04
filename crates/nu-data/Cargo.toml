@@ -4,7 +4,7 @@ description = "CLI for nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-data"
-version = "0.25.2"
+version = "0.26.0"
 
 [lib]
 doctest = false
@@ -29,12 +29,12 @@ query_interface = "0.3.5"
 serde = { version = "1.0.115", features = ["derive"] }
 toml = "0.5.6"
 
-nu-errors = { version = "0.25.2", path = "../nu-errors" }
-nu-protocol = { version = "0.25.2", path = "../nu-protocol" }
-nu-source = { version = "0.25.2", path = "../nu-source" }
-nu-table = { version = "0.25.2", path = "../nu-table" }
-nu-test-support = { version = "0.25.2", path = "../nu-test-support" }
-nu-value-ext = { version = "0.25.2", path = "../nu-value-ext" }
+nu-errors = { version = "0.26.0", path = "../nu-errors" }
+nu-protocol = { version = "0.26.0", path = "../nu-protocol" }
+nu-source = { version = "0.26.0", path = "../nu-source" }
+nu-table = { version = "0.26.0", path = "../nu-table" }
+nu-test-support = { version = "0.26.0", path = "../nu-test-support" }
+nu-value-ext = { version = "0.26.0", path = "../nu-value-ext" }
 
 [target.'cfg(unix)'.dependencies]
 users = "0.10.0"

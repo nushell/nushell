@@ -40,7 +40,17 @@ impl WholeStreamCommand for ToTOML {
 fn helper(v: &Value) -> Result<toml::Value, ShellError> {
     Ok(match &v.value {
         UntaggedValue::Primitive(Primitive::Boolean(b)) => toml::Value::Boolean(*b),
-        UntaggedValue::Primitive(Primitive::Filesize(b)) => toml::Value::Integer(*b as i64),
+        UntaggedValue::Primitive(Primitive::Filesize(b)) => {
+            if let Some(value) = b.to_i64() {
+                toml::Value::Integer(value)
+            } else {
+                return Err(ShellError::labeled_error(
+                    "Value too large to write to toml",
+                    "value too large for toml",
+                    v.tag.span,
+                ));
+            }
+        }
         UntaggedValue::Primitive(Primitive::Duration(i)) => toml::Value::String(i.to_string()),
         UntaggedValue::Primitive(Primitive::Date(d)) => toml::Value::String(d.to_string()),
         UntaggedValue::Primitive(Primitive::EndOfStream) => {

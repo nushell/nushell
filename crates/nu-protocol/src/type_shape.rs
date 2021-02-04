@@ -10,7 +10,7 @@ use crate::value::range::RangeInclusion;
 use crate::value::{UntaggedValue, Value};
 use derive_new::new;
 use indexmap::map::IndexMap;
-use nu_source::{b, DebugDoc, DebugDocBuilder, PrettyDebug};
+use nu_source::{DbgDocBldr, DebugDoc, DebugDocBuilder, PrettyDebug};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::fmt::Debug;
@@ -197,22 +197,22 @@ impl PrettyDebug for Type {
                 let (left, left_inclusion) = &range.from;
                 let (right, right_inclusion) = &range.to;
 
-                let left_bracket = b::delimiter(match left_inclusion {
+                let left_bracket = DbgDocBldr::delimiter(match left_inclusion {
                     RangeInclusion::Exclusive => "(",
                     RangeInclusion::Inclusive => "[",
                 });
 
-                let right_bracket = b::delimiter(match right_inclusion {
+                let right_bracket = DbgDocBldr::delimiter(match right_inclusion {
                     RangeInclusion::Exclusive => ")",
                     RangeInclusion::Inclusive => "]",
                 });
 
-                b::typed(
+                DbgDocBldr::typed(
                     "range",
                     (left_bracket
                         + left.pretty()
-                        + b::operator(",")
-                        + b::space()
+                        + DbgDocBldr::operator(",")
+                        + DbgDocBldr::space()
                         + right.pretty()
                         + right_bracket)
                         .group(),
@@ -229,20 +229,20 @@ impl PrettyDebug for Type {
             Type::Duration => ty("duration"),
             Type::FilePath => ty("path"),
             Type::Binary => ty("binary"),
-            Type::Error => b::error("error"),
-            Type::BeginningOfStream => b::keyword("beginning-of-stream"),
-            Type::EndOfStream => b::keyword("end-of-stream"),
-            Type::Row(row) => (b::kind("row")
-                + b::space()
-                + b::intersperse(
+            Type::Error => DbgDocBldr::error("error"),
+            Type::BeginningOfStream => DbgDocBldr::keyword("beginning-of-stream"),
+            Type::EndOfStream => DbgDocBldr::keyword("end-of-stream"),
+            Type::Row(row) => (DbgDocBldr::kind("row")
+                + DbgDocBldr::space()
+                + DbgDocBldr::intersperse(
                     row.map.iter().map(|(key, ty)| {
-                        (b::key(match key {
+                        (DbgDocBldr::key(match key {
                             Column::String(string) => string.clone(),
                             Column::Value => "".to_string(),
-                        }) + b::delimit("(", ty.pretty(), ")").into_kind())
+                        }) + DbgDocBldr::delimit("(", ty.pretty(), ")").into_kind())
                         .nest()
                     }),
-                    b::space(),
+                    DbgDocBldr::space(),
                 )
                 .nest())
             .nest(),
@@ -254,34 +254,35 @@ impl PrettyDebug for Type {
                     group.add(item.to_doc(), i);
                 }
 
-                (b::kind("table") + b::space() + b::keyword("of")).group()
-                    + b::space()
+                (DbgDocBldr::kind("table") + DbgDocBldr::space() + DbgDocBldr::keyword("of"))
+                    .group()
+                    + DbgDocBldr::space()
                     + (if group.len() == 1 {
                         let (doc, _) = group.into_iter().collect::<Vec<_>>()[0].clone();
                         DebugDocBuilder::from_doc(doc)
                     } else {
-                        b::intersperse(
+                        DbgDocBldr::intersperse(
                             group.into_iter().map(|(doc, rows)| {
-                                (b::intersperse(
+                                (DbgDocBldr::intersperse(
                                     rows.iter().map(|(from, to)| {
                                         if from == to {
-                                            b::description(from)
+                                            DbgDocBldr::description(from)
                                         } else {
-                                            (b::description(from)
-                                                + b::space()
-                                                + b::keyword("to")
-                                                + b::space()
-                                                + b::description(to))
+                                            (DbgDocBldr::description(from)
+                                                + DbgDocBldr::space()
+                                                + DbgDocBldr::keyword("to")
+                                                + DbgDocBldr::space()
+                                                + DbgDocBldr::description(to))
                                             .group()
                                         }
                                     }),
-                                    b::description(", "),
-                                ) + b::description(":")
-                                    + b::space()
+                                    DbgDocBldr::description(", "),
+                                ) + DbgDocBldr::description(":")
+                                    + DbgDocBldr::space()
                                     + DebugDocBuilder::from_doc(doc))
                                 .nest()
                             }),
-                            b::space(),
+                            DbgDocBldr::space(),
                         )
                     })
             }
@@ -300,16 +301,16 @@ struct DebugEntry<'a> {
 impl<'a> PrettyDebug for DebugEntry<'a> {
     /// Prepare debug entries for pretty-printing
     fn pretty(&self) -> DebugDocBuilder {
-        b::key(match self.key {
+        DbgDocBldr::key(match self.key {
             Column::String(string) => string.clone(),
             Column::Value => "".to_string(),
-        }) + b::delimit("(", self.value.pretty(), ")").into_kind()
+        }) + DbgDocBldr::delimit("(", self.value.pretty(), ")").into_kind()
     }
 }
 
 /// Helper to create a pretty-print for the type
 fn ty(name: impl std::fmt::Display) -> DebugDocBuilder {
-    b::kind(format!("{}", name))
+    DbgDocBldr::kind(format!("{}", name))
 }
 
 pub trait GroupedValue: Debug + Clone {

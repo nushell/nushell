@@ -4,17 +4,17 @@ description = "web scraping using css selector"
 edition = "2018"
 license = "MIT"
 name = "nu_plugin_selector"
-version = "0.25.2"
+version = "0.26.0"
 
 [lib]
 doctest = false
 
 [dependencies]
 nipper = "0.1.8"
-nu-errors = {version = "0.25.2", path = "../nu-errors"}
-nu-plugin = {version = "0.25.2", path = "../nu-plugin"}
-nu-protocol = {version = "0.25.2", path = "../nu-protocol"}
-nu-source = {version = "0.25.2", path = "../nu-source"}
+nu-errors = {version = "0.26.0", path = "../nu-errors"}
+nu-plugin = {version = "0.26.0", path = "../nu-plugin"}
+nu-protocol = {version = "0.26.0", path = "../nu-protocol"}
+nu-source = {version = "0.26.0", path = "../nu-source"}
 
 [dev-dependencies]
-nu-test-support = {path = "../nu-test-support", version = "0.25.2"}
+nu-test-support = {path = "../nu-test-support", version = "0.26.0"}
