@@ -31,12 +31,8 @@ where
                 let last = iter.last().or(head);
 
                 match (head, last) {
-                    (Some(head), Some(last)) => {
-                        Span::new(head.span().start(), last.span().end())
-                    }
-                    _ => {
-                        Span::default()
-                    }
+                    (Some(head), Some(last)) => Span::new(head.span().start(), last.span().end()),
+                    _ => Span::default(),
                 }
             }
             None => Span::new(0, 0),
