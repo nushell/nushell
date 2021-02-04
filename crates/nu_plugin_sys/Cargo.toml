@@ -18,6 +18,6 @@ nu-source = { path = "../nu-source", version = "0.26.0" }
 futures = { version = "0.3.5", features = ["compat", "io-compat"] }
 futures-util = "0.3.5"
 num-bigint = "0.3.0"
-sysinfo = "0.15.11"
+sysinfo = "0.16.1"
 
 [build-dependencies]
