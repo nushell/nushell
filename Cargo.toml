@@ -102,6 +102,20 @@ default = [
     "zip-support",
 ]
 stable = ["default"]
+extra = [
+    "default",
+    "binaryview",
+    "tree",
+    "clipboard-cli",
+    "trash-support",
+    "start",
+    "bson",
+    "sqlite",
+    "s3",
+    "chart",
+    "xpath",
+    "selector",
+]
 
 wasi = [
     "inc",
