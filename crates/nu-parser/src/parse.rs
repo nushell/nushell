@@ -9,10 +9,11 @@ use nu_protocol::hir::{
     Unit,
 };
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPathMember};
-use nu_source::{Span, Spanned, SpannedItem};
+use nu_source::{HasSpan, Span, Spanned, SpannedItem};
 use num_bigint::BigInt;
 
-use crate::lex::{block, lex, LiteBlock, LiteCommand, LitePipeline};
+use crate::lex::lexer::{block, lex};
+use crate::lex::tokens::{LiteBlock, LiteCommand, LitePipeline};
 use crate::path::expand_path;
 use crate::scope::ParserScope;
 use bigdecimal::BigDecimal;
@@ -2142,7 +2143,7 @@ fn unit_parse_byte_units() -> Result<(), ParseError> {
         string: String,
         value: i64,
         unit: Unit,
-    };
+    }
 
     let cases = [
         TestCase {

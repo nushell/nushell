@@ -1,12 +1,15 @@
-use crate::parse::{classify_block, util::trim_quotes};
+use crate::{
+    lex::tokens::LiteCommand,
+    parse::{classify_block, util::trim_quotes},
+};
 
 use indexmap::IndexMap;
 use nu_errors::ParseError;
 use nu_protocol::hir::Block;
-use nu_source::SpannedItem;
+use nu_source::{HasSpan, SpannedItem};
 
 //use crate::errors::{ParseError, ParseResult};
-use crate::lex::{block, lex, LiteCommand};
+use crate::lex::lexer::{block, lex};
 
 use crate::ParserScope;
 
