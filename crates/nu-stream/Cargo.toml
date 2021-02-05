@@ -11,7 +11,7 @@ nu-errors = { version = "0.26.1", path = "../nu-errors" }
 nu-protocol = { version = "0.26.1", path = "../nu-protocol" }
 nu-source = { version = "0.26.1", path = "../nu-source" }
 
-futures = { version = "0.3.5", features = ["compat", "io-compat"] }
+futures = { version = "0.3.12", features = ["compat", "io-compat"] }
 
 [features]
 stable = []

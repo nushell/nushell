@@ -14,10 +14,10 @@ codespan-reporting = "0.11.0"
 derive-new = "0.5.8"
 derive_is_enum_variant = "0.1.1"
 indexmap = { version = "1.6.1", features = ["serde-1"] }
-log = "0.4.11"
+log = "0.4"
 num-bigint = { version = "0.3.1", features = ["serde"] }
 num-traits = "0.2.14"
-serde = "1.0.118"
+serde = "1.0"
 shellexpand = "2.1.0"
 itertools = "0.10.0"
 smart-default = "0.6.0"

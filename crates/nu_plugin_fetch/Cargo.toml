@@ -11,7 +11,7 @@ doctest = false
 
 [dependencies]
 base64 = "0.13.0"
-futures = { version = "0.3.5", features = ["compat", "io-compat"] }
+futures = { version = "0.3.12", features = ["compat", "io-compat"] }
 nu-errors = { path = "../nu-errors", version = "0.26.1" }
 nu-plugin = { path = "../nu-plugin", version = "0.26.1" }
 nu-protocol = { path = "../nu-protocol", version = "0.26.1" }

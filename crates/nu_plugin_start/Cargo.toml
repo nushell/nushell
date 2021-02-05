@@ -16,7 +16,7 @@ nu-plugin = { path = "../nu-plugin", version = "0.26.1" }
 nu-protocol = { path = "../nu-protocol", version = "0.26.1" }
 nu-source = { path = "../nu-source", version = "0.26.1" }
 open = "1.4.0"
-url = "2.1.1"
+url = "2.2.0"
 
 [build-dependencies]
 nu-errors = { version = "0.26.1", path = "../nu-errors" }
