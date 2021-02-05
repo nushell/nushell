@@ -50,10 +50,10 @@ nu_plugin_xpath = { version = "0.26.1", path = "./crates/nu_plugin_xpath", optio
 
 # Required to bootstrap the main binary
 clap = "2.33.3"
-ctrlc = { version = "3.1.6", optional = true }
-futures = { version = "0.3.5", features = ["compat", "io-compat"] }
+ctrlc = { version = "3.1.7", optional = true }
+futures = { version = "0.3.12", features = ["compat", "io-compat"] }
 itertools = "0.10.0"
-log = "0.4.11"
+log = "0.4.14"
 pretty_env_logger = "0.4.0"
 
 [dev-dependencies]
@@ -119,14 +119,7 @@ extra = [
     "selector",
 ]
 
-wasi = [
-    "inc",
-    "match",
-    "ptree-support",
-    "match",
-    "tree",
-    "rustyline-support",
-]
+wasi = ["inc", "match", "ptree-support", "match", "tree", "rustyline-support"]
 
 trace = ["nu-parser/trace"]
 

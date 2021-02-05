@@ -10,7 +10,7 @@ version = "0.26.1"
 doctest = false
 
 [dependencies]
-base64 = "0.12.3"
+base64 = "0.13.0"
 futures = { version = "0.3.5", features = ["compat", "io-compat"] }
 nu-errors = { path = "../nu-errors", version = "0.26.1" }
 nu-plugin = { path = "../nu-plugin", version = "0.26.1" }

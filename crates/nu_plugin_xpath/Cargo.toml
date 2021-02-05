@@ -16,7 +16,7 @@ nu-protocol = { version = "0.26.1", path = "../nu-protocol" }
 nu-source = { version = "0.26.1", path = "../nu-source" }
 
 bigdecimal = { version = "0.2.0", features = ["serde"] }
-indexmap = { version = "1.6.0", features = ["serde-1"] }
+indexmap = { version = "1.6.1", features = ["serde-1"] }
 sxd-document = "0.3.2"
 sxd-xpath = "0.4.2"
 

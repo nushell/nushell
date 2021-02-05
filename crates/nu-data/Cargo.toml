@@ -14,20 +14,20 @@ ansi_term = "0.12.1"
 bigdecimal = "0.2.0"
 byte-unit = "4.0.9"
 
-chrono = "0.4.15"
+chrono = "0.4.19"
 derive-new = "0.5.8"
 directories-next = { version = "2.0.0", optional = true }
 dirs-next = { version = "2.0.0", optional = true }
 getset = "0.1.1"
-indexmap = { version = "1.6.0", features = ["serde-1"] }
-log = "0.4.11"
-num-bigint = { version = "0.3.0", features = ["serde"] }
+indexmap = { version = "1.6.1", features = ["serde-1"] }
+log = "0.4.14"
+num-bigint = { version = "0.3.1", features = ["serde"] }
 num-format = "0.4.0"
-num-traits = "0.2.12"
-parking_lot = "0.11.0"
+num-traits = "0.2.14"
+parking_lot = "0.11.1"
 query_interface = "0.3.5"
-serde = { version = "1.0.115", features = ["derive"] }
-toml = "0.5.6"
+serde = { version = "1.0.123", features = ["derive"] }
+toml = "0.5.8"
 
 nu-errors = { version = "0.26.1", path = "../nu-errors" }
 nu-protocol = { version = "0.26.1", path = "../nu-protocol" }
@@ -37,7 +37,7 @@ nu-test-support = { version = "0.26.1", path = "../nu-test-support" }
 nu-value-ext = { version = "0.26.1", path = "../nu-value-ext" }
 
 [target.'cfg(unix)'.dependencies]
-users = "0.10.0"
+users = "0.11.0"
 
 [features]
 directories = ["directories-next"]

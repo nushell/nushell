@@ -14,6 +14,6 @@ nu-errors = { path = "../nu-errors", version = "0.26.1" }
 nu-protocol = { path = "../nu-protocol", version = "0.26.1" }
 nu-source = { path = "../nu-source", version = "0.26.1" }
 
-indexmap = { version = "1.6.0", features = ["serde-1"] }
+indexmap = { version = "1.6.1", features = ["serde-1"] }
 itertools = "0.10.0"
-num-traits = "0.2.12"
+num-traits = "0.2.14"

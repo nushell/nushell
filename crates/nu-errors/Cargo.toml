@@ -19,12 +19,12 @@ derive-new = "0.5.8"
 getset = "0.1.1"
 num-bigint = { version = "0.3.1", features = ["serde"] }
 num-traits = "0.2.14"
-serde = { version = "1.0.118", features = ["derive"] }
+serde = { version = "1.0.123", features = ["derive"] }
 
 # implement conversions
 glob = "0.3.0"
 serde_json = "1.0.61"
-serde_yaml = "0.8.15"
+serde_yaml = "0.8.16"
 toml = "0.5.8"
 
 [build-dependencies]
