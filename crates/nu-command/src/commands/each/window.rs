@@ -51,7 +51,7 @@ impl WholeStreamCommand for EachWindow {
     }
 
     async fn run(&self, raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let context = Arc::new(EvaluationContext::from_raw(&raw_args));
+        let context = Arc::new(EvaluationContext::from_args(&raw_args));
         let (each_args, mut input): (EachWindowArgs, _) = raw_args.process().await?;
         let block = Arc::new(Box::new(each_args.block));
 

@@ -1,30 +1,27 @@
 use crate::prelude::*;
+use crate::utils::arguments::arguments;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    ColumnPath, PathMember, Primitive, ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder,
-    UnspannedPathMember, UntaggedValue, Value,
+    hir::CapturedBlock, ColumnPath, PathMember, Primitive, ReturnSuccess, Signature, SyntaxShape,
+    TaggedDictBuilder, UnspannedPathMember, UntaggedValue, Value,
 };
 use nu_value_ext::{as_string, get_data_by_column_path};
-
 #[derive(Deserialize)]
-struct SelectArgs {
-    rest: Vec<ColumnPath>,
+struct Arguments {
+    rest: Vec<Value>,
 }
 
-pub struct Select;
+pub struct Command;
 
 #[async_trait]
-impl WholeStreamCommand for Select {
+impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "select"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("select").rest(
-            SyntaxShape::ColumnPath,
-            "the columns to select from the table",
-        )
+        Signature::build("select").rest(SyntaxShape::Any, "the columns to select from the table")
     }
 
     fn usage(&self) -> &str {
@@ -53,8 +50,10 @@ impl WholeStreamCommand for Select {
 
 async fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (SelectArgs { rest: mut fields }, mut input) = args.process().await?;
-    if fields.is_empty() {
+    let (Arguments { mut rest }, mut input) = args.process().await?;
+    let (columns, _): (Vec<ColumnPath>, Option<Box<CapturedBlock>>) = arguments(&mut rest)?;
+
+    if columns.is_empty() {
         return Err(ShellError::labeled_error(
             "Select requires columns to select",
             "needs parameter",
@@ -62,18 +61,10 @@ async fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
         ));
     }
 
-    let member = fields.remove(0);
-    let member = vec![member];
-
-    let column_paths = vec![&member, &fields]
-        .into_iter()
-        .flatten()
-        .cloned()
-        .collect::<Vec<ColumnPath>>();
     let mut bring_back: indexmap::IndexMap<String, Vec<Value>> = indexmap::IndexMap::new();
 
     while let Some(value) = input.next().await {
-        for path in &column_paths {
+        for path in &columns {
             let fetcher = get_data_by_column_path(
                 &value,
                 &path,
@@ -164,17 +155,4 @@ async fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
         ReturnSuccess::value(out.into_value())
     }))
     .to_output_stream())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::Select;
-    use super::ShellError;
-
-    #[test]
-    fn examples_work_as_expected() -> Result<(), ShellError> {
-        use crate::examples::test as test_examples;
-
-        Ok(test_examples(Select {})?)
-    }
 }

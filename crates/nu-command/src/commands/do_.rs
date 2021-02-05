@@ -55,7 +55,7 @@ impl WholeStreamCommand for Do {
 async fn do_(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let external_redirection = raw_args.call_info.args.external_redirection;
 
-    let context = EvaluationContext::from_raw(&raw_args);
+    let context = EvaluationContext::from_args(&raw_args);
     let (
         DoArgs {
             ignore_errors,

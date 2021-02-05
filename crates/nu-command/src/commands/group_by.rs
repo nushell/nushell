@@ -130,7 +130,7 @@ enum Grouper {
 
 pub async fn group_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let context = Arc::new(EvaluationContext::from_raw(&args));
+    let context = Arc::new(EvaluationContext::from_args(&args));
     let (Arguments { grouper }, input) = args.process().await?;
 
     let values: Vec<Value> = input.collect().await;

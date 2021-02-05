@@ -70,7 +70,7 @@ impl WholeStreamCommand for Benchmark {
 
 async fn benchmark(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = raw_args.call_info.args.span;
-    let mut context = EvaluationContext::from_raw(&raw_args);
+    let mut context = EvaluationContext::from_args(&raw_args);
     let scope = raw_args.scope.clone();
     let (BenchmarkArgs { block, passthrough }, input) = raw_args.process().await?;
 

@@ -245,7 +245,7 @@ pub(crate) use reverse::Reverse;
 pub(crate) use rm::Remove;
 pub(crate) use run_external::RunExternalCommand;
 pub(crate) use save::Save;
-pub(crate) use select::Select;
+pub(crate) use select::Command as Select;
 pub(crate) use seq::Seq;
 pub(crate) use seq_dates::SeqDates;
 pub(crate) use shells::Shells;
@@ -299,6 +299,7 @@ mod tests {
             whole_stream_command(Move),
             whole_stream_command(Update),
             whole_stream_command(Empty),
+            //whole_stream_command(Select),
             // Str Command Suite
             whole_stream_command(Str),
             whole_stream_command(StrToDecimal),

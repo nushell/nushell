@@ -27,18 +27,6 @@ pub struct EvaluationContext {
 }
 
 impl EvaluationContext {
-    pub fn from_raw(raw_args: &CommandArgs) -> EvaluationContext {
-        EvaluationContext {
-            scope: raw_args.scope.clone(),
-            host: raw_args.host.clone(),
-            current_errors: raw_args.current_errors.clone(),
-            ctrl_c: raw_args.ctrl_c.clone(),
-            shell_manager: raw_args.shell_manager.clone(),
-            user_recently_used_autoenv_untrust: Arc::new(AtomicBool::new(false)),
-            windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
-        }
-    }
-
     pub fn from_args(args: &CommandArgs) -> EvaluationContext {
         EvaluationContext {
             scope: args.scope.clone(),
