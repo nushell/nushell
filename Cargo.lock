@@ -3357,12 +3357,13 @@ version = "0.26.0"
 dependencies = [
  "futures 0.3.12",
  "futures-timer",
+ "log 0.4.13",
  "nu-errors",
  "nu-plugin",
  "nu-protocol",
  "nu-source",
  "num-bigint 0.3.1",
- "sysinfo",
+ "sysinfo 0.16.1",
 ]
 
 [[package]]
@@ -3413,7 +3414,7 @@ dependencies = [
  "nu-protocol",
  "nu-source",
  "num-bigint 0.3.1",
- "sysinfo",
+ "sysinfo 0.15.11",
 ]
 
 [[package]]
@@ -5288,6 +5289,21 @@ name = "sysinfo"
 version = "0.15.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd024ccff6b09c6be38d41f168b7f3e132bac86338ee4b24fa485caf601ee158"
+dependencies = [
+ "cc",
+ "cfg-if 1.0.0",
+ "core-foundation-sys",
+ "doc-comment",
+ "libc",
+ "ntapi",
+ "once_cell",
+ "rayon",
+ "winapi 0.3.9",
+]
+
+[[package]]
+name = "sysinfo"
+version = "0.16.1"
 dependencies = [
  "cc",
  "cfg-if 1.0.0",
