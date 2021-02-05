@@ -17,39 +17,41 @@ pub async fn ps(tag: Tag, long: bool) -> Result<Vec<Value>, ShellError> {
     sys.refresh_all();
     let duration = std::time::Duration::from_millis(500);
     std::thread::sleep(duration);
-    sys.refresh_all();
 
     let mut output = vec![];
 
-    let result = sys.get_processes();
+    let result: Vec<_> = sys.get_processes().iter().map(|x| *x.0).collect();
 
-    for (pid, process) in result.iter() {
-        let mut dict = TaggedDictBuilder::new(&tag);
-        dict.insert_untagged("pid", UntaggedValue::int(*pid));
-        dict.insert_untagged("name", UntaggedValue::string(process.name()));
-        dict.insert_untagged(
-            "status",
-            UntaggedValue::string(format!("{:?}", process.status())),
-        );
-        dict.insert_untagged(
-            "cpu",
-            UntaggedValue::decimal_from_float(process.cpu_usage() as f64, tag.span),
-        );
-        dict.insert_untagged("mem", UntaggedValue::filesize(process.memory() * 1000));
-        dict.insert_untagged(
-            "virtual",
-            UntaggedValue::filesize(process.virtual_memory() * 1000),
-        );
+    for pid in result.into_iter() {
+        sys.refresh_process(pid);
+        if let Some(result) = sys.get_process(pid) {
+            let mut dict = TaggedDictBuilder::new(&tag);
+            dict.insert_untagged("pid", UntaggedValue::int(pid));
+            dict.insert_untagged("name", UntaggedValue::string(result.name()));
+            dict.insert_untagged(
+                "status",
+                UntaggedValue::string(format!("{:?}", result.status())),
+            );
+            dict.insert_untagged(
+                "cpu",
+                UntaggedValue::decimal_from_float(result.cpu_usage() as f64, tag.span),
+            );
+            dict.insert_untagged("mem", UntaggedValue::filesize(result.memory() * 1000));
+            dict.insert_untagged(
+                "virtual",
+                UntaggedValue::filesize(result.virtual_memory() * 1000),
+            );
 
-        if long {
-            if let Some(parent) = process.parent() {
-                dict.insert_untagged("parent", UntaggedValue::int(parent));
+            if long {
+                if let Some(parent) = result.parent() {
+                    dict.insert_untagged("parent", UntaggedValue::int(parent));
+                }
+                dict.insert_untagged("exe", UntaggedValue::filepath(result.exe()));
+                dict.insert_untagged("command", UntaggedValue::string(result.cmd().join(" ")));
             }
-            dict.insert_untagged("exe", UntaggedValue::filepath(process.exe()));
-            dict.insert_untagged("command", UntaggedValue::string(process.cmd().join(" ")));
-        }
 
-        output.push(dict.into_value());
+            output.push(dict.into_value());
+        }
     }
 
     Ok(output)
