@@ -154,7 +154,7 @@ async fn process_row(
 }
 
 async fn insert(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let context = Arc::new(EvaluationContext::from_raw(&raw_args));
+    let context = Arc::new(EvaluationContext::from_args(&raw_args));
     let (Arguments { column, value }, input) = raw_args.process().await?;
     let value = Arc::new(value);
     let column = Arc::new(column);

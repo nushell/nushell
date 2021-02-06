@@ -61,7 +61,7 @@ impl WholeStreamCommand for Where {
     }
 }
 async fn where_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let ctx = Arc::new(EvaluationContext::from_raw(&raw_args));
+    let ctx = Arc::new(EvaluationContext::from_args(&raw_args));
     let tag = raw_args.call_info.name_tag.clone();
     let (WhereArgs { block }, input) = raw_args.process().await?;
     let condition = {

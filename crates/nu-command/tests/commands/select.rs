@@ -4,29 +4,22 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn regular_columns() {
-    Playground::setup("select_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "los_tres_caballeros.csv",
-            r#"
-                first_name,last_name,rusty_at,type
-                Andrés,Robalino,10/11/2013,A
-                Jonathan,Turner,10/12/2013,B
-                Yehuda,Katz,10/11/2013,A
-            "#,
-        )]);
+    let actual = nu!(cwd: ".", pipeline(
+        r#"
+            echo [
+                [first_name, last_name, rusty_at, type];
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open los_tres_caballeros.csv
-                | select rusty_at last_name
-                | nth 0
-                | get last_name
-            "#
-        ));
+                [Andrés Robalino 10/11/2013 A]
+                [Jonathan Turner 10/12/2013 B]
+                [Yehuda Katz 10/11/2013 A]
+            ]
+            | select rusty_at last_name
+            | nth 0
+            | get last_name
+        "#
+    ));
 
-        assert_eq!(actual.out, "Robalino");
-    })
+    assert_eq!(actual.out, "Robalino");
 }
 
 #[test]
@@ -73,52 +66,57 @@ fn complex_nested_columns() {
 
 #[test]
 fn allows_if_given_unknown_column_name_is_missing() {
-    Playground::setup("select_test_3", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "los_tres_caballeros.csv",
-            r#"
-                    first_name,last_name,rusty_at,type
-                    Andrés,Robalino,10/11/2013,A
-                    Jonathan,Turner,10/12/2013,B
-                    Yehuda,Katz,10/11/2013,A
-                "#,
-        )]);
+    let actual = nu!(cwd: ".", pipeline(
+        r#"
+            echo [
+                [first_name, last_name, rusty_at, type];
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open los_tres_caballeros.csv
-                | select rrusty_at first_name
-                | count
-            "#
-        ));
+                [Andrés Robalino 10/11/2013 A]
+                [Jonathan Turner 10/12/2013 B]
+                [Yehuda Katz 10/11/2013 A]
+            ]
+            | select rrusty_at first_name
+            | count
+        "#
+    ));
 
-        assert_eq!(actual.out, "3");
-    })
+    assert_eq!(actual.out, "3");
 }
 
 #[test]
 fn column_names_with_spaces() {
-    Playground::setup("select_test_4", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "test_data.csv",
-            r#"
-                    first name,last name
-                    Jonathan,Turner
-                    Jonathan,Arns
-                "#,
-        )]);
+    let actual = nu!(cwd: ".", pipeline(
+        r#"
+            echo [
+                ["first name", "last name"];
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open test_data.csv
-                | select "last name"
-                | to json
-            "#
-        ));
+                [Andrés Robalino]
+                [Andrés Jnth]
+            ]
+            | select "last name"
+            | get "last name"
+            | str collect " "
+        "#
+    ));
 
-        let expected_output = r#"[{"last name":"Turner"},{"last name":"Arns"}]"#;
-        assert_eq!(actual.out, expected_output);
-    })
+    assert_eq!(actual.out, "Robalino Jnth");
+}
+
+#[test]
+fn ignores_duplicate_columns_selected() {
+    let actual = nu!(cwd: ".", pipeline(
+        r#"
+            echo [
+                ["first name", "last name"];
+
+                [Andrés Robalino]
+                [Andrés Jnth]
+            ]
+            | select "first name" "last name" "first name"
+            | get
+            | str collect " "
+        "#
+    ));
+
+    assert_eq!(actual.out, "first name last name");
 }

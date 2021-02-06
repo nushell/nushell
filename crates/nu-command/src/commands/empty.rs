@@ -6,10 +6,10 @@ use nu_protocol::{
     hir::CapturedBlock, ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape,
     UntaggedValue, Value,
 };
-use nu_source::Tagged;
-use nu_value_ext::{as_string, ValueExt};
 
+use crate::utils::arguments::arguments;
 use futures::stream::once;
+use nu_value_ext::{as_string, ValueExt};
 
 #[derive(Deserialize)]
 pub struct Arguments {
@@ -84,9 +84,10 @@ impl WholeStreamCommand for Command {
 async fn is_empty(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let name_tag = Arc::new(args.call_info.name_tag.clone());
-    let context = Arc::new(EvaluationContext::from_raw(&args));
-    let (Arguments { rest }, input) = args.process().await?;
-    let (columns, default_block): (Vec<ColumnPath>, Option<Box<CapturedBlock>>) = arguments(rest)?;
+    let context = Arc::new(EvaluationContext::from_args(&args));
+    let (Arguments { mut rest }, input) = args.process().await?;
+    let (columns, default_block): (Vec<ColumnPath>, Option<Box<CapturedBlock>>) =
+        arguments(&mut rest)?;
     let default_block = Arc::new(default_block);
 
     if input.is_empty() {
@@ -128,37 +129,6 @@ async fn is_empty(args: CommandArgs) -> Result<OutputStream, ShellError> {
         })
         .flatten()
         .to_output_stream())
-}
-
-fn arguments(
-    rest: Vec<Value>,
-) -> Result<(Vec<ColumnPath>, Option<Box<CapturedBlock>>), ShellError> {
-    let mut rest = rest;
-    let mut columns = vec![];
-    let mut default = None;
-
-    let last_argument = rest.pop();
-
-    match last_argument {
-        Some(Value {
-            value: UntaggedValue::Block(call),
-            ..
-        }) => default = Some(call),
-        Some(other) => {
-            let Tagged { item: path, .. } = other.as_column_path()?;
-
-            columns = vec![path];
-        }
-        None => {}
-    };
-
-    for argument in rest {
-        let Tagged { item: path, .. } = argument.as_column_path()?;
-
-        columns.push(path);
-    }
-
-    Ok((columns, default))
 }
 
 async fn process_row(
