@@ -45,6 +45,8 @@ pub async fn ps(tag: Tag, long: bool) -> Result<Vec<Value>, ShellError> {
             if long {
                 if let Some(parent) = result.parent() {
                     dict.insert_untagged("parent", UntaggedValue::int(parent));
+                } else {
+                    dict.insert_untagged("parent", UntaggedValue::nothing());
                 }
                 dict.insert_untagged("exe", UntaggedValue::filepath(result.exe()));
                 dict.insert_untagged("command", UntaggedValue::string(result.cmd().join(" ")));
