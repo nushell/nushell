@@ -13,9 +13,12 @@ use crate::lex::lexer::{block, lex};
 
 use crate::ParserScope;
 
-use self::param_flag_list::parse_signature;
+use self::signature::parse_signature;
 
-mod param_flag_list;
+mod data_structs;
+mod primitives;
+mod signature;
+mod tests;
 
 pub(crate) fn parse_definition(call: &LiteCommand, scope: &dyn ParserScope) -> Option<ParseError> {
     // A this point, we've already handled the prototype and put it into scope;
