@@ -172,61 +172,70 @@ struct WhichArgs {
 }
 
 async fn which_single(application: Tagged<String>, all: bool, scope: &Scope) -> Vec<Value> {
-	let (external, prog_name) = if application.starts_with('^') {
-	    (true, application.item[1..].to_string())
-	} else {
-	    (false, application.item.clone())
-	};
+    let (external, prog_name) = if application.starts_with('^') {
+        (true, application.item[1..].to_string())
+    } else {
+        (false, application.item.clone())
+    };
 
-	//If prog_name is an external command, don't search for nu-specific programs
-	//If all is false, we can save some time by only searching for the first matching
-	//program
-	//This match handles all different cases
-	match (all, external) {
-	    (true, true) => {
-	        return get_all_entries_in_path(&prog_name, application.tag.clone()).await;
-	    }
-	    (true, false) => {
-	    	let mut output: Vec<Value> = vec![];
-	        output.extend(get_entries_in_nu(
-	            scope,
-	            &prog_name,
-	            application.tag.clone(),
-	            false,
-	        ));
-	        output.extend(get_all_entries_in_path(&prog_name, application.tag.clone()).await);
-	        return output;
-	    }
-	    (false, true) => {
-	        if let Some(entry) = get_first_entry_in_path(&prog_name, application.tag.clone()).await
-	        {
-	            return vec![entry];
-	        }
-	        return vec![];
-	    }
-	    (false, false) => {
-	        let nu_entries = get_entries_in_nu(scope, &prog_name, application.tag.clone(), true);
-	        if !nu_entries.is_empty() {
-	            return vec![nu_entries[0].clone()];
-	        } else if let Some(entry) = get_first_entry_in_path(&prog_name, application.tag.clone()).await {
-	            return vec![entry];
-	        }
-	        return vec![];
-	    }
-	}
+    //If prog_name is an external command, don't search for nu-specific programs
+    //If all is false, we can save some time by only searching for the first matching
+    //program
+    //This match handles all different cases
+    match (all, external) {
+        (true, true) => {
+            return get_all_entries_in_path(&prog_name, application.tag.clone()).await;
+        }
+        (true, false) => {
+            let mut output: Vec<Value> = vec![];
+            output.extend(get_entries_in_nu(
+                scope,
+                &prog_name,
+                application.tag.clone(),
+                false,
+            ));
+            output.extend(get_all_entries_in_path(&prog_name, application.tag.clone()).await);
+            return output;
+        }
+        (false, true) => {
+            if let Some(entry) = get_first_entry_in_path(&prog_name, application.tag.clone()).await
+            {
+                return vec![entry];
+            }
+            return vec![];
+        }
+        (false, false) => {
+            let nu_entries = get_entries_in_nu(scope, &prog_name, application.tag.clone(), true);
+            if !nu_entries.is_empty() {
+                return vec![nu_entries[0].clone()];
+            } else if let Some(entry) =
+                get_first_entry_in_path(&prog_name, application.tag.clone()).await
+            {
+                return vec![entry];
+            }
+            return vec![];
+        }
+    }
 }
 
 async fn which(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let scope = args.scope.clone();
 
-    let (WhichArgs { application, rest, all }, _) = args.process().await?;
+    let (
+        WhichArgs {
+            application,
+            rest,
+            all,
+        },
+        _,
+    ) = args.process().await?;
 
-	let mut output = vec![];
+    let mut output = vec![];
 
     for app in vec![application].into_iter().chain(rest.into_iter()) {
-		let values = which_single(app, all, &scope).await;
-		output.extend(values);
-	}
+        let values = which_single(app, all, &scope).await;
+        output.extend(values);
+    }
 
     Ok(futures::stream::iter(output.into_iter().map(ReturnSuccess::value)).to_output_stream())
 }
