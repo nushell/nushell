@@ -54,7 +54,7 @@ impl WholeStreamCommand for SortBy {
             },
             Example {
                 description: "Sort list by decreasing value",
-                example: "echo [4 2 3 1] | sort-by -r",
+                example: "echo [2 3 4 1] | sort-by -r",
                 result: Some(vec![
                     UntaggedValue::int(4).into(),
                     UntaggedValue::int(3).into(),
