@@ -12,6 +12,7 @@ pub struct SortBy;
 pub struct SortByArgs {
     rest: Vec<Tagged<String>>,
     insensitive: bool,
+    reverse: bool,
 }
 
 #[async_trait]
@@ -24,9 +25,10 @@ impl WholeStreamCommand for SortBy {
         Signature::build("sort-by")
             .switch(
                 "insensitive",
-                "Sort string-based columns case insensitively",
+                "Sort string-based columns case-insensitively",
                 Some('i'),
             )
+            .switch("reverse", "Sort in reverse order", Some('r'))
             .rest(SyntaxShape::String, "the column(s) to sort by")
     }
 
@@ -51,6 +53,16 @@ impl WholeStreamCommand for SortBy {
                 ]),
             },
             Example {
+                description: "Sort list by decreasing value",
+                example: "echo [2 3 4 1] | sort-by -r",
+                result: Some(vec![
+                    UntaggedValue::int(4).into(),
+                    UntaggedValue::int(3).into(),
+                    UntaggedValue::int(2).into(),
+                    UntaggedValue::int(1).into(),
+                ]),
+            },
+            Example {
                 description: "Sort output by increasing file size",
                 example: "ls | sort-by size",
                 result: None,
@@ -61,7 +73,7 @@ impl WholeStreamCommand for SortBy {
                 result: None,
             },
             Example {
-                description: "Sort strings (case sensitive)",
+                description: "Sort strings (case-sensitive)",
                 example: "echo [airplane Truck Car] | sort-by",
                 result: Some(vec![
                     UntaggedValue::string("Car").into(),
@@ -70,12 +82,30 @@ impl WholeStreamCommand for SortBy {
                 ]),
             },
             Example {
-                description: "Sort strings (case insensitive)",
+                description: "Sort strings (reversed case-sensitive)",
+                example: "echo [airplane Truck Car] | sort-by -r",
+                result: Some(vec![
+                    UntaggedValue::string("airplane").into(),
+                    UntaggedValue::string("Truck").into(),
+                    UntaggedValue::string("Car").into(),
+                ]),
+            },
+            Example {
+                description: "Sort strings (case-insensitive)",
                 example: "echo [airplane Truck Car] | sort-by -i",
                 result: Some(vec![
                     UntaggedValue::string("airplane").into(),
                     UntaggedValue::string("Car").into(),
                     UntaggedValue::string("Truck").into(),
+                ]),
+            },
+            Example {
+                description: "Sort strings (reversed case-insensitive)",
+                example: "echo [airplane Truck Car] | sort-by -i -r",
+                result: Some(vec![
+                    UntaggedValue::string("Truck").into(),
+                    UntaggedValue::string("Car").into(),
+                    UntaggedValue::string("airplane").into(),
                 ]),
             },
         ]
@@ -85,10 +115,21 @@ impl WholeStreamCommand for SortBy {
 async fn sort_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
 
-    let (SortByArgs { rest, insensitive }, mut input) = args.process().await?;
+    let (
+        SortByArgs {
+            rest,
+            insensitive,
+            reverse,
+        },
+        mut input,
+    ) = args.process().await?;
     let mut vec = input.drain_vec().await;
 
     sort(&mut vec, &rest, &tag, insensitive)?;
+
+    if reverse {
+        vec.reverse()
+    }
 
     Ok(futures::stream::iter(vec.into_iter()).to_output_stream())
 }
