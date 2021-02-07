@@ -55,8 +55,8 @@ fn complex_nested_columns() {
             r#"
                 open los_tres_caballeros.json
                 | select nu."0xATYKARNU" nu.committers.name nu.releases.version
-                | where "nu.releases.version" > "0.8"
-                | get "nu.releases.version"
+                | where nu_releases_version > "0.8"
+                | get nu_releases_version
             "#
         ));
 

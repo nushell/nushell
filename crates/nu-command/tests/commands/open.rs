@@ -210,7 +210,7 @@ fn parses_ini() {
 fn parses_utf16_ini() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "open utf16.ini | get '.ShellClassInfo' | get IconIndex"
+        "open utf16.ini | rename info | get info | get IconIndex"
     );
 
     assert_eq!(actual.out, "-236")
