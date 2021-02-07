@@ -1,9 +1,7 @@
 ///All of the functions in this mod parse only 1 Token per invocation.
 ///Therefore they are primitives
-use crate::{
-    lex::{Token, TokenContents},
-    parse::util::token_to_spanned_string,
-};
+use crate::lex::{lexer::Token, tokens::TokenContents};
+use crate::parse::util::token_to_spanned_string;
 use nu_errors::ParseError;
 use nu_protocol::SyntaxShape;
 use nu_source::{Span, Spanned, SpannedItem};

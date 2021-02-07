@@ -1,5 +1,5 @@
 #[allow(unused_imports)]
-use super::*;
+use super::parse_signature;
 #[allow(unused_imports)]
 use nu_errors::ParseError;
 #[allow(unused_imports)]

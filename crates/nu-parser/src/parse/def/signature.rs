@@ -13,10 +13,14 @@
 ///
 use log::debug;
 
-use crate::lex::{lex, Token, TokenContents};
 use nu_errors::ParseError;
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape};
 use nu_source::{Span, Spanned};
+
+use crate::lex::{
+    lexer::{lex, Token},
+    tokens::TokenContents,
+};
 
 use super::{
     data_structs::{Description, Flag, Parameter},
