@@ -197,7 +197,7 @@ pub(crate) use from_xlsx::FromXLSX;
 pub(crate) use from_xml::FromXML;
 pub(crate) use from_yaml::FromYAML;
 pub(crate) use from_yaml::FromYML;
-pub(crate) use get::Get;
+pub(crate) use get::Command as Get;
 pub(crate) use group_by::Command as GroupBy;
 pub(crate) use group_by_date::GroupByDate;
 pub(crate) use hash_::{Hash, HashBase64};
@@ -299,7 +299,8 @@ mod tests {
             whole_stream_command(Move),
             whole_stream_command(Update),
             whole_stream_command(Empty),
-            //whole_stream_command(Select),
+            // whole_stream_command(Select),
+            // whole_stream_command(Get),
             // Str Command Suite
             whole_stream_command(Str),
             whole_stream_command(StrToDecimal),

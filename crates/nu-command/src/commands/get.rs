@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use crate::utils::arguments::arguments;
 use indexmap::set::IndexSet;
 use log::trace;
 use nu_engine::WholeStreamCommand;
@@ -10,22 +11,22 @@ use nu_protocol::{
 use nu_source::HasFallibleSpan;
 use nu_value_ext::get_data_by_column_path;
 
-pub struct Get;
+pub struct Command;
 
 #[derive(Deserialize)]
-pub struct GetArgs {
-    rest: Vec<ColumnPath>,
+pub struct Arguments {
+    rest: Vec<Value>,
 }
 
 #[async_trait]
-impl WholeStreamCommand for Get {
+impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "get"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("get").rest(
-            SyntaxShape::ColumnPath,
+            SyntaxShape::Any,
             "optionally return additional data by path",
         )
     }
@@ -55,7 +56,9 @@ impl WholeStreamCommand for Get {
 }
 
 pub async fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (GetArgs { rest: column_paths }, mut input) = args.process().await?;
+    let (Arguments { mut rest }, mut input) = args.process().await?;
+    let (column_paths, _) = arguments(&mut rest)?;
+
     if column_paths.is_empty() {
         let vec = input.drain_vec().await;
 
@@ -253,18 +256,5 @@ pub fn get_column_from_row_error(
             ),
             column_path_tried.span.since(path_members_span),
         )),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::Get;
-    use super::ShellError;
-
-    #[test]
-    fn examples_work_as_expected() -> Result<(), ShellError> {
-        use crate::examples::test as test_examples;
-
-        Ok(test_examples(Get {})?)
     }
 }
