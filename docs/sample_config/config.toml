@@ -1,3 +1,4 @@
+filesize_format = "B" # can be b, kb, kib, mb, mib, gb, gib, etc
 skip_welcome_message = true
 disable_table_indexes = false
 nonzero_exit_errors = true
@@ -8,7 +9,7 @@ startup = [
     ]
 table_mode = "other" # basic, compact, compact_double, light, thin, with_love, rounded, reinforced, heavy, none, other
 plugin_dirs = ["D:\\Src\\GitHub\\nu-plugin-lib\\samples\\Nu.Plugin.Len\\bin\\Debug\\netcoreapp3.1"]
-pivot_mode = "auto"
+pivot_mode = "auto" # auto, always, never
 ctrlc_exit = false
 complete_from_path = true
 rm_always_trash = true
@@ -69,7 +70,7 @@ color_mode = "enabled" # enabled, forced, disabled
 tab_stop = 4
 
 [textview]
-term_width = "default"
+term_width = "default" # "default" or a number
 tab_width = 4
 colored_output = true
 true_color = true
@@ -78,9 +79,9 @@ line_numbers = true
 grid = false
 vcs_modification_markers = true
 snip = true
-wrapping_mode = "NoWrapping"
+wrapping_mode = "NoWrapping" # Character, NoWrapping
 use_italics = true
-paging_mode = "QuitIfOneScreen"
+paging_mode = "QuitIfOneScreen" # Always, QuitIfOneScreen, Never
 pager = "less"
 theme = "TwoDark"
 
