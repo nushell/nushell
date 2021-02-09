@@ -218,7 +218,10 @@ mod lite_parse {
     #[test]
     fn incomplete_result() {
         let (result, err) = lex("my_command \"foo' --test", 10);
-        assert!(matches!(err.unwrap().reason(), nu_errors::ParseErrorReason::Eof { .. }));
+        assert!(matches!(
+            err.unwrap().reason(),
+            nu_errors::ParseErrorReason::Eof { .. }
+        ));
         let (result, _) = block(result);
 
         assert_eq!(result.block.len(), 1);
