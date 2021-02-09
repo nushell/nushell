@@ -7,7 +7,7 @@ use nu_test_support::pipeline;
 fn filters_by_unit_size_comparison() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "ls | where size > 1kb | sort-by size | get name | first 1 | str trim"
+        "ls | where size > 1kib | sort-by size | get name | first 1 | str trim"
     );
 
     assert_eq!(actual.out, "cargo_sample.toml");

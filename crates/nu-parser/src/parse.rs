@@ -332,6 +332,9 @@ fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseErr
         (Unit::Gigabyte, vec!["gb", "GB", "Gb", "gB"]),
         (Unit::Terabyte, vec!["tb", "TB", "Tb", "tB"]),
         (Unit::Petabyte, vec!["pb", "PB", "Pb", "pB"]),
+        (Unit::Kibibyte, vec!["KiB", "kib", "kiB", "Kib"]),
+        (Unit::Mebibyte, vec!["MiB", "mib", "miB", "Mib"]),
+        (Unit::Gibibyte, vec!["GiB", "gib", "giB", "Gib"]),
         (Unit::Nanosecond, vec!["ns"]),
         (Unit::Microsecond, vec!["us"]),
         (Unit::Millisecond, vec!["ms"]),
@@ -2214,6 +2217,41 @@ fn unit_parse_byte_units() -> Result<(), ParseError> {
             string: String::from("27pB"),
             value: 27,
             unit: Unit::Petabyte,
+        },
+        TestCase {
+            string: String::from("10kib"),
+            value: 10,
+            unit: Unit::Kibibyte,
+        },
+        TestCase {
+            string: String::from("123KiB"),
+            value: 123,
+            unit: Unit::Kibibyte,
+        },
+        TestCase {
+            string: String::from("24kiB"),
+            value: 24,
+            unit: Unit::Kibibyte,
+        },
+        TestCase {
+            string: String::from("10mib"),
+            value: 10,
+            unit: Unit::Mebibyte,
+        },
+        TestCase {
+            string: String::from("123MiB"),
+            value: 123,
+            unit: Unit::Mebibyte,
+        },
+        TestCase {
+            string: String::from("10gib"),
+            value: 10,
+            unit: Unit::Gibibyte,
+        },
+        TestCase {
+            string: String::from("123GiB"),
+            value: 123,
+            unit: Unit::Gibibyte,
         },
     ];
 

@@ -759,7 +759,9 @@ fn filesize_math() {
         "#
     );
 
-    assert_eq!(actual.out, "1.0 MB");
+    assert_eq!(actual.out, "1000.0 KB");
+    // why 1000.0 KB instead of 1.0 MB?
+    // looks like `byte.get_appropriate_unit(false)` behaves this way
 }
 
 #[test]
@@ -783,7 +785,7 @@ fn filesize_math3() {
         "#
     );
 
-    assert_eq!(actual.out, "10.2 KB");
+    assert_eq!(actual.out, "10.0 KB");
 }
 #[test]
 fn filesize_math4() {
@@ -794,7 +796,43 @@ fn filesize_math4() {
         "#
     );
 
-    assert_eq!(actual.out, "512.0 KB");
+    assert_eq!(actual.out, "500.0 KB");
+}
+
+#[test]
+fn filesize_math5() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        = 1001 * 1kb
+        "#
+    );
+
+    assert_eq!(actual.out, "1.0 MB");
+}
+
+#[test]
+fn filesize_math6() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        = 1001 * 1mb
+        "#
+    );
+
+    assert_eq!(actual.out, "1.0 GB");
+}
+
+#[test]
+fn filesize_math7() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        = 1001 * 1gb
+        "#
+    );
+
+    assert_eq!(actual.out, "1.0 TB");
 }
 
 #[test]
