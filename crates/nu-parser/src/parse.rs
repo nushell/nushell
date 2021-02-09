@@ -346,27 +346,26 @@ fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseErr
 
     for unit_group in unit_groups.iter() {
         for unit in unit_group.1.iter() {
-            if lite_arg.item.ends_with(unit) {
-                let mut lhs = lite_arg.item.clone();
+            if !lite_arg.item.ends_with(unit) {
+                continue;
+            }
+            let mut lhs = lite_arg.item.clone();
 
-                for _ in 0..unit.len() {
-                    lhs.pop();
-                }
+            for _ in 0..unit.len() {
+                lhs.pop();
+            }
 
-                // these units are allowed to be signed
-                if let Ok(x) = lhs.parse::<i64>() {
-                    let lhs_span =
-                        Span::new(lite_arg.span.start(), lite_arg.span.start() + lhs.len());
-                    let unit_span =
-                        Span::new(lite_arg.span.start() + lhs.len(), lite_arg.span.end());
-                    return (
-                        SpannedExpression::new(
-                            Expression::unit(x.spanned(lhs_span), unit_group.0.spanned(unit_span)),
-                            lite_arg.span,
-                        ),
-                        None,
-                    );
-                }
+            // these units are allowed to be signed
+            if let Ok(x) = lhs.parse::<i64>() {
+                let lhs_span = Span::new(lite_arg.span.start(), lite_arg.span.start() + lhs.len());
+                let unit_span = Span::new(lite_arg.span.start() + lhs.len(), lite_arg.span.end());
+                return (
+                    SpannedExpression::new(
+                        Expression::unit(x.spanned(lhs_span), unit_group.0.spanned(unit_span)),
+                        lite_arg.span,
+                    ),
+                    None,
+                );
             }
         }
     }
