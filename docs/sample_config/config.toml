@@ -6,7 +6,7 @@ startup = [
     "def nudown [] {fetch https://api.github.com/repos/nushell/nushell/releases | get assets | select name download_count}",
     "def nuver [] {version | insert nushell_features {get features | str collect ', '} | reject features}",
     ]
-table_mode = "other"
+table_mode = "other" # basic, compact, compact_double, light, thin, with_love, rounded, reinforced, heavy, none, other
 plugin_dirs = ["D:\\Src\\GitHub\\nu-plugin-lib\\samples\\Nu.Plugin.Len\\bin\\Debug\\netcoreapp3.1"]
 pivot_mode = "auto"
 ctrlc_exit = false
