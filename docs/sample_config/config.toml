@@ -2,9 +2,9 @@ skip_welcome_message = true
 disable_table_indexes = false
 nonzero_exit_errors = true
 startup = [
-    "alias la [path] {ls --long $path}",
-    "alias nudown [] {fetch https://api.github.com/repos/nushell/nushell/releases | get assets | select name download_count}",
-    "alias nuver [] {version | insert nushell_features {get features | str collect ', '} | reject features}",
+    "alias la = ls --long",
+    "def nudown [] {fetch https://api.github.com/repos/nushell/nushell/releases | get assets | select name download_count}",
+    "def nuver [] {version | insert nushell_features {get features | str collect ', '} | reject features}",
     ]
 table_mode = "other"
 plugin_dirs = ["D:\\Src\\GitHub\\nu-plugin-lib\\samples\\Nu.Plugin.Len\\bin\\Debug\\netcoreapp3.1"]
@@ -12,7 +12,7 @@ pivot_mode = "auto"
 ctrlc_exit = false
 complete_from_path = true
 rm_always_trash = true
-prompt = "echo [ $(ansi gb) $(pwd) $(ansi reset) \"(\" $(ansi cb) $(do -i { git rev-parse --abbrev-ref HEAD | str trim }) $(ansi reset) \")\" $(char newline) $(ansi yb) $(date --format \"%m/%d/%Y %I:%M:%S%.3f %p\" --raw) $(ansi reset) \"> \" ] | str collect"
+prompt = "echo $(ansi gb) $(pwd) $(ansi reset) \"(\" $(ansi cb) $(do -i { git rev-parse --abbrev-ref HEAD | str trim }) $(ansi reset) \")\" $(char newline) $(ansi yb) $(date --format \"%m/%d/%Y %I:%M:%S%.3f %p\" --raw) $(ansi reset) \"> \" | str collect"
 
 # for each of the options in the color_config section, you are able to set
 # the color alone or with one of the following attributes.
