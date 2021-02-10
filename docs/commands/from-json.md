@@ -27,6 +27,6 @@ Syntax: `from json {flags}`
 ━━━━━━━━━━━┯━━━━━━━━━┯━━━━━━━
  title     │ type    │ flags
 ───────────┼─────────┼───────
- from json │ command │ Yes
+ from json │ command │ true
 ━━━━━━━━━━━┷━━━━━━━━━┷━━━━━━━
 ```

@@ -24,12 +24,12 @@ Given the following meals
 Show the empty contents
 ```shell
 > echo [[meal size]; [arepa small] [taco '']] | empty? meal size
-═══╦══════╦══════
- # ║ meal ║ size
-═══╬══════╬══════
- 0 ║ No   ║ No
- 1 ║ No   ║ Yes
-═══╩══════╩══════
+═══╦═══════╦═══════
+ # ║ meal  ║ size
+═══╬═══════╬═══════
+ 0 ║ false ║ false
+ 1 ║ false ║ true
+═══╩═══════╩═══════
 ```
 
 Let's assume we have a report of totals per day. For simplicity we show just for three days `2020/04/16`, `2020/07/10`, and `2020/11/16`. Like so

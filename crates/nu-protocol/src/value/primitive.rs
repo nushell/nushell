@@ -314,12 +314,12 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
             f
         }
         Primitive::Boolean(b) => match (b, field_name) {
-            (true, None) => "Yes",
-            (false, None) => "No",
+            (true, None) => "true",
+            (false, None) => "false",
             (true, Some(s)) if !s.is_empty() => s,
             (false, Some(s)) if !s.is_empty() => "",
-            (true, Some(_)) => "Yes",
-            (false, Some(_)) => "No",
+            (true, Some(_)) => "true",
+            (false, Some(_)) => "false",
         }
         .to_owned(),
         Primitive::Binary(_) => "<binary>".to_owned(),
