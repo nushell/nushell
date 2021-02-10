@@ -1,7 +1,8 @@
 use crate::prelude::*;
+use indexmap::IndexMap;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, UntaggedValue};
+use nu_protocol::{Dictionary, Signature, UntaggedValue};
 
 pub struct TermSize;
 
@@ -39,9 +40,11 @@ impl WholeStreamCommand for TermSize {
                 } else if !wide && tall {
                     Ok(OutputStream::one(UntaggedValue::int(h).into_value(tag)))
                 } else {
-                    Ok(OutputStream::one(
-                        UntaggedValue::string(format!("{} {}", w, h)).into_value(tag),
-                    ))
+                    let mut indexmap = IndexMap::with_capacity(2);
+                    indexmap.insert("width".to_string(), UntaggedValue::int(w).into_value(&tag));
+                    indexmap.insert("height".to_string(), UntaggedValue::int(h).into_value(&tag));
+                    let value = UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag);
+                    Ok(OutputStream::one(value))
                 }
             }
             _ => Ok(OutputStream::one(
