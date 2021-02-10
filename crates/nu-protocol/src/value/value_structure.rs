@@ -3,7 +3,10 @@ use nu_errors::ShellError;
 use std::path::{Component, Path, PathBuf};
 
 fn is_value_tagged_dir(value: &Value) -> bool {
-    matches!(&value.value, UntaggedValue::Row(_) | UntaggedValue::Table(_))
+    matches!(
+        &value.value,
+        UntaggedValue::Row(_) | UntaggedValue::Table(_)
+    )
 }
 
 #[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]

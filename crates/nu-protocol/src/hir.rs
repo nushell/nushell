@@ -346,13 +346,18 @@ impl HasSpan for ExternalCommand {
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Copy, Deserialize, Serialize)]
 pub enum Unit {
-    // Filesize units
+    // Filesize units: metric
     Byte,
     Kilobyte,
     Megabyte,
     Gigabyte,
     Terabyte,
     Petabyte,
+
+    // Filesize units: ISO/IEC 80000
+    Kibibyte,
+    Mebibyte,
+    Gibibyte,
 
     // Duration units
     Nanosecond,
@@ -540,6 +545,9 @@ impl Unit {
             Unit::Gigabyte => "GB",
             Unit::Terabyte => "TB",
             Unit::Petabyte => "PB",
+            Unit::Kibibyte => "KiB",
+            Unit::Mebibyte => "MiB",
+            Unit::Gibibyte => "GiB",
             Unit::Nanosecond => "ns",
             Unit::Microsecond => "us",
             Unit::Millisecond => "ms",
@@ -558,13 +566,18 @@ impl Unit {
 
         match self {
             Unit::Byte => filesize(convert_number_to_u64(&size)),
-            Unit::Kilobyte => filesize(convert_number_to_u64(&size) * 1024),
-            Unit::Megabyte => filesize(convert_number_to_u64(&size) * 1024 * 1024),
-            Unit::Gigabyte => filesize(convert_number_to_u64(&size) * 1024 * 1024 * 1024),
-            Unit::Terabyte => filesize(convert_number_to_u64(&size) * 1024 * 1024 * 1024 * 1024),
+            Unit::Kilobyte => filesize(convert_number_to_u64(&size) * 1000),
+            Unit::Megabyte => filesize(convert_number_to_u64(&size) * 1000 * 1000),
+            Unit::Gigabyte => filesize(convert_number_to_u64(&size) * 1000 * 1000 * 1000),
+            Unit::Terabyte => filesize(convert_number_to_u64(&size) * 1000 * 1000 * 1000 * 1000),
             Unit::Petabyte => {
-                filesize(convert_number_to_u64(&size) * 1024 * 1024 * 1024 * 1024 * 1024)
+                filesize(convert_number_to_u64(&size) * 1000 * 1000 * 1000 * 1000 * 1000)
             }
+
+            Unit::Kibibyte => filesize(convert_number_to_u64(&size) * 1024),
+            Unit::Mebibyte => filesize(convert_number_to_u64(&size) * 1024 * 1024),
+            Unit::Gibibyte => filesize(convert_number_to_u64(&size) * 1024 * 1024 * 1024),
+
             Unit::Nanosecond => duration(size.to_bigint().expect("Conversion should never fail.")),
             Unit::Microsecond => {
                 duration(size.to_bigint().expect("Conversion should never fail.") * 1000)
