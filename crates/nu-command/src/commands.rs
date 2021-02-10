@@ -115,6 +115,7 @@ pub(crate) mod split_by;
 pub(crate) mod str_;
 pub(crate) mod table;
 pub(crate) mod tags;
+pub(crate) mod termsize;
 pub(crate) mod to;
 pub(crate) mod to_csv;
 pub(crate) mod to_html;
@@ -265,6 +266,7 @@ pub(crate) use str_::{
 };
 pub(crate) use table::Table;
 pub(crate) use tags::Tags;
+pub(crate) use termsize::TermSize;
 pub(crate) use to::To;
 pub(crate) use to_csv::ToCSV;
 pub(crate) use to_html::ToHTML;
