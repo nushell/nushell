@@ -1,7 +1,8 @@
 use crate::prelude::*;
+use indexmap::IndexMap;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, UntaggedValue};
+use nu_protocol::{Dictionary, Signature, UntaggedValue};
 
 pub struct TermSize;
 
@@ -34,31 +35,41 @@ impl WholeStreamCommand for TermSize {
         let size = term_size::dimensions();
         match size {
             Some((w, h)) => {
-                if wide == true && tall == false {
-                    Ok(OutputStream::one(
-                        UntaggedValue::string(format!("{}", w)).into_value(tag),
-                    ))
-                } else if wide == false && tall == true {
-                    Ok(OutputStream::one(
-                        UntaggedValue::string(format!("{}", h)).into_value(tag),
-                    ))
+                if wide && !tall {
+                    Ok(OutputStream::one(UntaggedValue::int(w).into_value(tag)))
+                } else if !wide && tall {
+                    Ok(OutputStream::one(UntaggedValue::int(h).into_value(tag)))
                 } else {
-                    Ok(OutputStream::one(
-                        UntaggedValue::string(format!("{} {}", w, h)).into_value(tag),
-                    ))
+                    let mut indexmap = IndexMap::with_capacity(2);
+                    indexmap.insert("width".to_string(), UntaggedValue::int(w).into_value(&tag));
+                    indexmap.insert("height".to_string(), UntaggedValue::int(h).into_value(&tag));
+                    let value = UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag);
+                    Ok(OutputStream::one(value))
                 }
             }
             _ => Ok(OutputStream::one(
-                UntaggedValue::string(format!("0 0")).into_value(tag),
+                UntaggedValue::string("0 0".to_string()).into_value(tag),
             )),
         }
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Return the terminal size",
-            example: "term size",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Return the width height of the terminal as W H",
+                example: "term size",
+                result: None,
+            },
+            Example {
+                description: "Return the width of the terminal",
+                example: "term size -w",
+                result: None,
+            },
+            Example {
+                description: "Return the height (t for tall) of the terminal",
+                example: "term size -t",
+                result: None,
+            },
+        ]
     }
 }

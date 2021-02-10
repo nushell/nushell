@@ -5,7 +5,7 @@ nonzero_exit_errors = true
 startup = [
     "alias la = ls --long",
     "def nudown [] {fetch https://api.github.com/repos/nushell/nushell/releases | get assets | select name download_count}",
-    "def nuver [] {version | insert nushell_features {get features | str collect ', '} | reject features}",
+    "def nuver [] {version | pivot key value}",
     ]
 table_mode = "other" # basic, compact, compact_double, light, thin, with_love, rounded, reinforced, heavy, none, other
 plugin_dirs = ["D:\\Src\\GitHub\\nu-plugin-lib\\samples\\Nu.Plugin.Len\\bin\\Debug\\netcoreapp3.1"]
