@@ -53,6 +53,19 @@ pub struct FormatInlineShape {
     column: Option<Column>,
 }
 
+pub fn get_config_filesize_metric() -> bool {
+    let res = crate::config::config(Tag::unknown());
+    if res.is_err() {
+        return true;
+    }
+    let value = res
+        .unwrap_or_default()
+        .get("filesize_metric")
+        .map(|s| s.value.is_true())
+        .unwrap_or(true);
+    value
+}
+
 impl InlineShape {
     pub fn from_primitive(primitive: &Primitive) -> InlineShape {
         match primitive {
@@ -165,16 +178,16 @@ impl InlineShape {
 
         if let Some(value) = bytesize.to_u128() {
             let byte = byte_unit::Byte::from_bytes(value);
-            let byte = if filesize_format.0 == byte_unit::ByteUnit::B && filesize_format.1 == "auto"
-            {
-                byte.get_appropriate_unit(false)
-            } else {
-                byte.get_adjusted_unit(filesize_format.0)
-            };
+            let adj_byte =
+                if filesize_format.0 == byte_unit::ByteUnit::B && filesize_format.1 == "auto" {
+                    byte.get_appropriate_unit(!get_config_filesize_metric())
+                } else {
+                    byte.get_adjusted_unit(filesize_format.0)
+                };
 
-            match byte.get_unit() {
+            match adj_byte.get_unit() {
                 byte_unit::ByteUnit::B => {
-                    let locale_byte = byte.get_value() as u64;
+                    let locale_byte = adj_byte.get_value() as u64;
                     let locale_byte_string = locale_byte.to_formatted_string(&Locale::en);
                     if filesize_format.1 == "auto" {
                         let doc = (DbgDocBldr::primitive(locale_byte_string)
@@ -188,7 +201,7 @@ impl InlineShape {
                     }
                 }
                 _ => {
-                    let doc = DbgDocBldr::primitive(byte.format(1));
+                    let doc = DbgDocBldr::primitive(adj_byte.format(1));
                     (doc.clone(), InlineShape::render_doc(&doc))
                 }
             }
