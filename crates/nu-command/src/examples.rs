@@ -215,7 +215,7 @@ fn parse_line(line: &str, ctx: &EvaluationContext) -> Result<ClassifiedBlock, Sh
     if let Some(err) = err {
         return Err(err.into());
     }
-    let (lite_result, err) = nu_parser::block(lite_result);
+    let (lite_result, err) = nu_parser::parse_block(lite_result);
     if let Some(err) = err {
         return Err(err.into());
     }

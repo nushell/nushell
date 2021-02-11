@@ -9,7 +9,7 @@ use nu_protocol::hir::Block;
 use nu_source::{HasSpan, SpannedItem};
 
 //use crate::errors::{ParseError, ParseResult};
-use crate::lex::lexer::{block, lex};
+use crate::lex::lexer::{lex, parse_block};
 
 use crate::ParserScope;
 
@@ -56,7 +56,7 @@ pub(crate) fn parse_definition(call: &LiteCommand, scope: &dyn ParserScope) -> O
                 if err.is_some() {
                     return err;
                 };
-                let (lite_block, err) = block(tokens);
+                let (lite_block, err) = parse_block(tokens);
                 if err.is_some() {
                     return err;
                 };
