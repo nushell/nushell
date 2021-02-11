@@ -251,12 +251,12 @@ impl PrettyDebug for FormatInlineShape {
             InlineShape::GlobPattern(pattern) => DbgDocBldr::primitive(pattern),
             InlineShape::Boolean(boolean) => DbgDocBldr::primitive(
                 match (boolean, column) {
-                    (true, None) => "Yes",
-                    (false, None) => "No",
+                    (true, None) => "true",
+                    (false, None) => "false",
                     (true, Some(Column::String(s))) if !s.is_empty() => s,
                     (false, Some(Column::String(s))) if !s.is_empty() => "",
-                    (true, Some(_)) => "Yes",
-                    (false, Some(_)) => "No",
+                    (true, Some(_)) => "true",
+                    (false, Some(_)) => "false",
                 }
                 .to_owned(),
             ),
