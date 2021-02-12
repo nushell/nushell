@@ -14,6 +14,6 @@ where
     D: serde::Deserializer<'de>,
 {
     let x: String = serde::Deserialize::deserialize(deserializer)?;
-    Ok(BigDecimal::parse_bytes(x.as_bytes(), 10)
-        .ok_or_else(|| serde::de::Error::custom("expected a bigdecimal"))?)
+    BigDecimal::parse_bytes(x.as_bytes(), 10)
+        .ok_or_else(|| serde::de::Error::custom("expected a bigdecimal"))
 }

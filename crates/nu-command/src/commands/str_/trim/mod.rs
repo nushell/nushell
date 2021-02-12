@@ -103,7 +103,7 @@ where
                     let values: Result<Vec<Value>, ShellError> = values
                         .iter()
                         .map(|v| -> Result<_, ShellError> {
-                            Ok(action(v, tag.clone(), char_, trim_operation, mode)?)
+                            action(v, tag.clone(), char_, trim_operation, mode)
                         })
                         .collect();
                     Ok(UntaggedValue::Table(values?).into_value(tag))

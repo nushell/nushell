@@ -8,7 +8,7 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::{AnchorLocation, Span, Tagged};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub struct Open;
 
@@ -180,13 +180,13 @@ async fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
 // Note that we do not output a Stream in "fetch" since it is only used by "enter" command
 // Which we expect to use a concrete Value a not a Stream
 pub async fn fetch(
-    cwd: &PathBuf,
-    location: &PathBuf,
+    cwd: &Path,
+    location: &Path,
     span: Span,
     encoding_choice: Option<Tagged<String>>,
 ) -> Result<(Option<String>, Value), ShellError> {
     // TODO: I don't understand the point of this? Maybe for better error reporting
-    let mut cwd = cwd.clone();
+    let mut cwd = PathBuf::from(cwd);
     cwd.push(location);
     let nice_location = dunce::canonicalize(&cwd).map_err(|e| match e.kind() {
         std::io::ErrorKind::NotFound => ShellError::labeled_error(
@@ -254,6 +254,6 @@ mod tests {
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        Ok(test_examples(Open {})?)
+        test_examples(Open {})
     }
 }

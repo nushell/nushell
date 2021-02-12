@@ -98,9 +98,9 @@ fn action(
     match &input.value {
         UntaggedValue::Primitive(Primitive::String(s)) => {
             let contains = if insensitive {
-                s.to_lowercase().find(&pattern.to_lowercase()).is_some()
+                s.to_lowercase().contains(&pattern.to_lowercase())
             } else {
-                s.find(pattern).is_some()
+                s.contains(pattern)
             };
 
             Ok(UntaggedValue::boolean(contains).into_value(tag))
@@ -128,7 +128,7 @@ mod tests {
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        Ok(test_examples(SubCommand {})?)
+        test_examples(SubCommand {})
     }
 
     #[test]

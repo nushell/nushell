@@ -561,9 +561,9 @@ impl From<Value> for UntaggedValue {
 }
 
 /// Convert a borrowed Value into a borrowed UntaggedValue
-impl<'a> Into<&'a UntaggedValue> for &'a Value {
-    fn into(self) -> &'a UntaggedValue {
-        &self.value
+impl<'a> From<&'a Value> for &'a UntaggedValue {
+    fn from(x: &'a Value) -> Self {
+        &x.value
     }
 }
 

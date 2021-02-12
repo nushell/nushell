@@ -24,7 +24,7 @@ impl WholeStreamCommand for Size {
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        size(args)
+        Ok(size(args))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -55,12 +55,12 @@ impl WholeStreamCommand for Size {
     }
 }
 
-fn size(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn size(args: CommandArgs) -> OutputStream {
     let input = args.input;
     let tag = args.call_info.name_tag;
     let name_span = tag.span;
 
-    Ok(input
+    input
         .map(move |v| {
             if let Ok(s) = v.as_string() {
                 ReturnSuccess::value(count(&s, &v.tag))
@@ -74,7 +74,7 @@ fn size(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 ))
             }
         })
-        .to_output_stream())
+        .to_output_stream()
 }
 
 fn count(contents: &str, tag: impl Into<Tag>) -> Value {
@@ -122,6 +122,6 @@ mod tests {
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        Ok(test_examples(Size {})?)
+        test_examples(Size {})
     }
 }

@@ -187,6 +187,6 @@ mod tests {
         assert!(elapsed >= std::time::Duration::from_secs(1));
         assert!(elapsed < std::time::Duration::from_secs(2));
 
-        Ok(results?)
+        results
     }
 }

@@ -707,7 +707,7 @@ impl Shell for FilesystemShell {
 
     fn open(
         &self,
-        path: &PathBuf,
+        path: &Path,
         name: Span,
         with_encoding: Option<&'static Encoding>,
     ) -> Result<BoxStream<'static, Result<StringOrBinary, ShellError>>, ShellError> {
@@ -764,7 +764,7 @@ impl Shell for FilesystemShell {
 
     fn save(
         &mut self,
-        full_path: &PathBuf,
+        full_path: &Path,
         save_data: &[u8],
         name: Span,
     ) -> Result<OutputStream, ShellError> {
@@ -1091,7 +1091,7 @@ pub(crate) fn dir_entry_dict(
     Ok(dict.into_value())
 }
 
-fn path_contains_hidden_folder(path: &PathBuf, folders: &[PathBuf]) -> bool {
+fn path_contains_hidden_folder(path: &Path, folders: &[PathBuf]) -> bool {
     let path_str = path.to_str().expect("failed to read path");
     if folders
         .iter()

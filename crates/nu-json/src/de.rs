@@ -688,7 +688,7 @@ where
     {
         self.de.parse_object_colon()?;
 
-        Ok(de::Deserialize::deserialize(self.de)?)
+        de::Deserialize::deserialize(self.de)
     }
 
     fn end(&mut self) -> Result<()> {
