@@ -1176,7 +1176,7 @@ impl<'a> de::MapVisitor for MapDeserializer<'a> {
     {
         let value = self.value.take().expect("value is missing");
         self.de.value = Some(value);
-        Ok(de::Deserialize::deserialize(self.de)?)
+        de::Deserialize::deserialize(self.de)
     }
 
     fn end(&mut self) -> Result<(), Error> {

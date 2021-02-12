@@ -170,7 +170,7 @@ mod tests {
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        Ok(test_examples(Seq {})?)
+        test_examples(Seq {})
     }
 }
 
@@ -259,7 +259,7 @@ pub fn run_seq(
         Some(term) => escape_sequences(&term[..]),
         None => separator.clone(),
     };
-    print_seq(
+    Ok(print_seq(
         first,
         step,
         last,
@@ -268,7 +268,7 @@ pub fn run_seq(
         terminator,
         widths,
         padding,
-    )
+    ))
 }
 
 fn done_printing(next: f64, step: f64, last: f64) -> bool {
@@ -289,7 +289,7 @@ fn print_seq(
     terminator: String,
     pad: bool,
     padding: usize,
-) -> Result<OutputStream, ShellError> {
+) -> OutputStream {
     let mut i = 0isize;
     let mut value = first + i as f64 * step;
     let mut ret_str = "".to_owned();
@@ -318,5 +318,5 @@ fn print_seq(
         .lines()
         .map(|v| v.to_str_value_create_tag())
         .collect();
-    Ok(futures::stream::iter(rows.into_iter().map(ReturnSuccess::value)).to_output_stream())
+    futures::stream::iter(rows.into_iter().map(ReturnSuccess::value)).to_output_stream()
 }

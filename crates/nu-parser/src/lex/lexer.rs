@@ -332,7 +332,7 @@ impl BlockParser {
 }
 
 /// Try to parse a list of tokens into a block.
-pub fn block(tokens: Vec<Token>) -> (LiteBlock, Option<ParseError>) {
+pub fn parse_block(tokens: Vec<Token>) -> (LiteBlock, Option<ParseError>) {
     let mut parser = BlockParser::default();
 
     let mut tokens = tokens.iter().peekable();

@@ -177,7 +177,7 @@ mod lite_parse {
     fn pipeline() {
         let (result, err) = lex("cmd1 | cmd2 ; deploy", 0);
         assert!(err.is_none());
-        let (result, err) = block(result);
+        let (result, err) = parse_block(result);
         assert!(err.is_none());
         assert_eq!(result.span(), span(0, 20));
         assert_eq!(result.block[0].pipelines[0].span(), span(0, 11));
@@ -188,7 +188,7 @@ mod lite_parse {
     fn simple_1() {
         let (result, err) = lex("foo", 0);
         assert!(err.is_none());
-        let (result, err) = block(result);
+        let (result, err) = parse_block(result);
         assert!(err.is_none());
         assert_eq!(result.block.len(), 1);
         assert_eq!(result.block[0].pipelines.len(), 1);
@@ -204,7 +204,7 @@ mod lite_parse {
     fn simple_offset() {
         let (result, err) = lex("foo", 10);
         assert!(err.is_none());
-        let (result, err) = block(result);
+        let (result, err) = parse_block(result);
         assert!(err.is_none());
         assert_eq!(result.block[0].pipelines.len(), 1);
         assert_eq!(result.block[0].pipelines[0].commands.len(), 1);
@@ -222,7 +222,7 @@ mod lite_parse {
             err.unwrap().reason(),
             nu_errors::ParseErrorReason::Eof { .. }
         ));
-        let (result, _) = block(result);
+        let (result, _) = parse_block(result);
 
         assert_eq!(result.block.len(), 1);
         assert_eq!(result.block[0].pipelines.len(), 1);
@@ -247,7 +247,7 @@ def my_echo [arg] { echo $arg }
         "#;
         let (result, err) = lex(code, 0);
         assert!(err.is_none());
-        let (result, err) = block(result);
+        let (result, err) = parse_block(result);
         assert!(err.is_none());
 
         assert_eq!(result.block.len(), 1);
@@ -281,7 +281,7 @@ echo 42
         let (result, err) = lex(code, 0);
         assert!(err.is_none());
         // assert_eq!(format!("{:?}", result), "");
-        let (result, err) = block(result);
+        let (result, err) = parse_block(result);
         assert!(err.is_none());
         assert_eq!(result.block.len(), 1);
         assert_eq!(result.block[0].pipelines.len(), 1);
@@ -301,7 +301,7 @@ echo 42
     let (result, err) = lex(code, 0);
     assert!(err.is_none());
     // assert_eq!(format!("{:?}", result), "");
-    let (result, err) = block(result);
+    let (result, err) = parse_block(result);
     assert!(err.is_none());
     assert_eq!(result.block.len(), 1);
     assert_eq!(result.block[0].pipelines.len(), 1);
@@ -335,7 +335,7 @@ echo 42
     let (result, err) = lex(code, 0);
     assert!(err.is_none());
     // assert_eq!(format!("{:?}", result), "");
-    let (result, err) = block(result);
+    let (result, err) = parse_block(result);
     assert!(err.is_none());
     assert_eq!(result.block.len(), 1);
     assert_eq!(result.block[0].pipelines.len(), 1);

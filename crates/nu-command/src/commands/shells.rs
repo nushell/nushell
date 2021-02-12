@@ -21,11 +21,11 @@ impl WholeStreamCommand for Shells {
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        shells(args)
+        Ok(shells(args))
     }
 }
 
-fn shells(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn shells(args: CommandArgs) -> OutputStream {
     let mut shells_out = VecDeque::new();
     let tag = args.call_info.name_tag;
 
@@ -43,7 +43,7 @@ fn shells(args: CommandArgs) -> Result<OutputStream, ShellError> {
         shells_out.push_back(dict.into_value());
     }
 
-    Ok(shells_out.into())
+    shells_out.into()
 }
 
 #[cfg(test)]
@@ -55,6 +55,6 @@ mod tests {
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        Ok(test_examples(Shells {})?)
+        test_examples(Shells {})
     }
 }

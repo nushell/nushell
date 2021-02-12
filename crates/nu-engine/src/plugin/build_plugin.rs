@@ -163,7 +163,6 @@ pub fn scan(
                     None
                 }
             }).map(|p| p.build())
-            .filter_map(Result::ok)
             .collect::<Vec<crate::whole_stream_command::Command>>();
         plugins.extend(plugs);
     }

@@ -209,10 +209,8 @@ impl Block {
     pub fn set_redirect(&mut self, external_redirection: ExternalRedirection) {
         if let Some(group) = self.block.last_mut() {
             if let Some(pipeline) = group.pipelines.last_mut() {
-                if let Some(command) = pipeline.list.last_mut() {
-                    if let ClassifiedCommand::Internal(internal) = command {
-                        internal.args.external_redirection = external_redirection;
-                    }
+                if let Some(ClassifiedCommand::Internal(internal)) = pipeline.list.last_mut() {
+                    internal.args.external_redirection = external_redirection;
                 }
             }
         }

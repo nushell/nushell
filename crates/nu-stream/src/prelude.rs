@@ -76,6 +76,7 @@ pub(crate) use std::sync::Arc;
 
 pub(crate) use crate::{InputStream, OutputStream};
 
+#[allow(clippy::wrong_self_convention)]
 pub trait ToOutputStream {
     fn to_output_stream(self) -> OutputStream;
 }

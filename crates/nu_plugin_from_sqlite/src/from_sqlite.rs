@@ -38,7 +38,7 @@ pub fn convert_sqlite_file_to_nu_value(
         let mut table_stmt = conn.prepare(&format!("select * from [{}]", table_name))?;
         let mut table_rows = table_stmt.query(NO_PARAMS)?;
         while let Some(table_row) = table_rows.next()? {
-            out.push(convert_sqlite_row_to_nu_value(table_row, tag.clone())?)
+            out.push(convert_sqlite_row_to_nu_value(table_row, tag.clone()))
         }
         meta_dict.insert_value(
             "table_name".to_string(),
@@ -54,10 +54,7 @@ pub fn convert_sqlite_file_to_nu_value(
     Ok(UntaggedValue::Table(meta_out).into_value(tag))
 }
 
-fn convert_sqlite_row_to_nu_value(
-    row: &Row,
-    tag: impl Into<Tag> + Clone,
-) -> Result<Value, rusqlite::Error> {
+fn convert_sqlite_row_to_nu_value(row: &Row, tag: impl Into<Tag> + Clone) -> Value {
     let mut collected = TaggedDictBuilder::new(tag.clone());
     for (i, c) in row.column_names().iter().enumerate() {
         collected.insert_value(
@@ -65,7 +62,7 @@ fn convert_sqlite_row_to_nu_value(
             convert_sqlite_value_to_nu_value(row.get_raw(i), tag.clone()),
         );
     }
-    Ok(collected.into_value())
+    collected.into_value()
 }
 
 fn convert_sqlite_value_to_nu_value(value: ValueRef, tag: impl Into<Tag> + Clone) -> Value {

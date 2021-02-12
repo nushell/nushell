@@ -51,7 +51,7 @@ impl DirectorySpecificEnvironment {
         }
     }
 
-    fn toml_if_trusted(&mut self, nu_env_file: &PathBuf) -> Result<NuEnvDoc, ShellError> {
+    fn toml_if_trusted(&mut self, nu_env_file: &Path) -> Result<NuEnvDoc, ShellError> {
         let content = std::fs::read(&nu_env_file)?;
 
         if autoenv::file_is_trusted(&nu_env_file, &content)? {
@@ -161,7 +161,7 @@ impl DirectorySpecificEnvironment {
     pub fn maybe_add_key(
         &mut self,
         seen_vars: &mut IndexSet<EnvKey>,
-        dir: &PathBuf,
+        dir: &Path,
         key: &str,
         val: &str,
     ) {
@@ -169,7 +169,7 @@ impl DirectorySpecificEnvironment {
         if !seen_vars.contains(key) {
             seen_vars.insert(key.to_string());
             self.added_vars
-                .entry(dir.clone())
+                .entry(PathBuf::from(dir))
                 .or_insert(IndexMap::new())
                 .insert(key.to_string(), var_os(key));
 

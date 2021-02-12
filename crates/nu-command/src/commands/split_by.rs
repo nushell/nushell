@@ -166,6 +166,6 @@ mod tests {
         use super::SplitBy;
         use crate::examples::test as test_examples;
 
-        Ok(test_examples(SplitBy {})?)
+        test_examples(SplitBy {})
     }
 }

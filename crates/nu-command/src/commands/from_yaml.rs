@@ -130,7 +130,7 @@ pub fn from_yaml_string_to_value(s: String, tag: impl Into<Tag>) -> Result<Value
             &tag,
         )
     })?;
-    Ok(convert_yaml_value_to_nu_value(&v, tag)?)
+    convert_yaml_value_to_nu_value(&v, tag)
 }
 
 async fn from_yaml(args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -169,7 +169,7 @@ mod tests {
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        Ok(test_examples(FromYAML {})?)
+        test_examples(FromYAML {})
     }
 
     #[test]

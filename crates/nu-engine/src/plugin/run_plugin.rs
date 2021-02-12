@@ -31,10 +31,10 @@ enum PluginCommand {
 }
 
 impl PluginCommand {
-    fn command(self) -> Result<crate::whole_stream_command::Command, ShellError> {
+    fn command(self) -> crate::whole_stream_command::Command {
         match self {
-            PluginCommand::Filter(cmd) => Ok(whole_stream_command(cmd)),
-            PluginCommand::Sink(cmd) => Ok(whole_stream_command(cmd)),
+            PluginCommand::Filter(cmd) => whole_stream_command(cmd),
+            PluginCommand::Sink(cmd) => whole_stream_command(cmd),
         }
     }
 }
@@ -71,7 +71,7 @@ impl PluginCommandBuilder {
         }
     }
 
-    pub fn build(&self) -> Result<crate::whole_stream_command::Command, ShellError> {
+    pub fn build(&self) -> crate::whole_stream_command::Command {
         let mode = &self.mode;
 
         let name = self.name.clone();

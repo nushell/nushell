@@ -21,12 +21,12 @@ impl WholeStreamCommand for Previous {
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        previous(args)
+        Ok(previous(args))
     }
 }
 
-fn previous(_args: CommandArgs) -> Result<OutputStream, ShellError> {
-    Ok(vec![Ok(ReturnSuccess::Action(CommandAction::PreviousShell))].into())
+fn previous(_args: CommandArgs) -> OutputStream {
+    vec![Ok(ReturnSuccess::Action(CommandAction::PreviousShell))].into()
 }
 
 #[cfg(test)]
@@ -38,6 +38,6 @@ mod tests {
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        Ok(test_examples(Previous {})?)
+        test_examples(Previous {})
     }
 }

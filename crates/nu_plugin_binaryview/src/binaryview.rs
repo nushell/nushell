@@ -49,7 +49,7 @@ impl RenderContext {
         self.frame_buffer = vec![(0, 0, 0); self.width * self.height as usize];
     }
 
-    fn render_to_screen_lores(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    fn render_to_screen_lores(&mut self) {
         let mut prev_color: Option<(u8, u8, u8)> = None;
         let mut prev_count = 1;
 
@@ -86,9 +86,8 @@ impl RenderContext {
             }
         }
         outln!("{}", Attribute::Reset);
-        Ok(())
     }
-    fn render_to_screen_hires(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    fn render_to_screen_hires(&mut self) {
         let mut prev_fg: Option<(u8, u8, u8)> = None;
         let mut prev_bg: Option<(u8, u8, u8)> = None;
         let mut prev_count = 1;
@@ -139,9 +138,8 @@ impl RenderContext {
             }
         }
         outln!("{}", Attribute::Reset);
-        Ok(())
     }
-    pub fn flush(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn flush(&mut self) {
         if self.lores_mode {
             self.render_to_screen_lores()
         } else {
@@ -277,7 +275,7 @@ pub fn view_contents(
         }
     }
 
-    render_context.flush()?;
+    render_context.flush();
 
     let _ = std::io::stdout().execute(crossterm::cursor::Show);
 
@@ -353,7 +351,7 @@ pub fn view_contents_interactive(
 
                 render_context.frame_buffer[count] = (rgb[0], rgb[1], rgb[2]);
             }
-            render_context.flush()?;
+            render_context.flush();
 
             if rawkey.is_pressed(rawkey::KeyCode::Escape) {
                 break 'gameloop;

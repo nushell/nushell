@@ -48,16 +48,14 @@ pub fn search_paths() -> Vec<std::path::PathBuf> {
     }
 
     if let Ok(config) = nu_data::config::config(Tag::unknown()) {
-        if let Some(plugin_dirs) = config.get("plugin_dirs") {
-            if let Value {
-                value: UntaggedValue::Table(pipelines),
-                ..
-            } = plugin_dirs
-            {
-                for pipeline in pipelines {
-                    if let Ok(plugin_dir) = pipeline.as_string() {
-                        search_paths.push(PathBuf::from(plugin_dir));
-                    }
+        if let Some(Value {
+            value: UntaggedValue::Table(pipelines),
+            ..
+        }) = config.get("plugin_dirs")
+        {
+            for pipeline in pipelines {
+                if let Ok(plugin_dir) = pipeline.as_string() {
+                    search_paths.push(PathBuf::from(plugin_dir));
                 }
             }
         }
@@ -412,7 +410,7 @@ mod tests {
     #[quickcheck]
     fn quickcheck_parse(data: String) -> bool {
         let (tokens, err) = nu_parser::lex(&data, 0);
-        let (lite_block, err2) = nu_parser::block(tokens);
+        let (lite_block, err2) = nu_parser::parse_block(tokens);
         if err.is_none() && err2.is_none() {
             let context = basic_evaluation_context().unwrap();
             let _ = nu_parser::classify_block(&lite_block, &context.scope);

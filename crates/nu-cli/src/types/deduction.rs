@@ -211,7 +211,7 @@ fn get_result_shape_of(
     l_shape: SyntaxShape,
     op_expr: &SpannedExpression,
     r_shape: SyntaxShape,
-) -> Result<SyntaxShape, ShellError> {
+) -> SyntaxShape {
     let op = match op_expr.expr {
         Expression::Literal(Literal::Operator(op)) => op,
         _ => unreachable!("Passing anything but the op expr is invalid"),
@@ -220,7 +220,7 @@ fn get_result_shape_of(
     //There is some code for that in the evaluator already.
     //One might reuse it.
     //For now we ignore this issue
-    Ok(match op {
+    match op {
         Operator::Equal
         | Operator::NotEqual
         | Operator::LessThan
@@ -258,7 +258,7 @@ fn get_result_shape_of(
         }
         Operator::Modulo => SyntaxShape::Number,
         Operator::Pow => SyntaxShape::Number,
-    })
+    }
 }
 
 fn get_shape_of_expr(expr: &SpannedExpression) -> Option<SyntaxShape> {
@@ -334,7 +334,7 @@ fn get_result_shape_of_math_expr(
     //match lhs, rhs
     match (shapes[0], shapes[1]) {
         (None, None) | (None, _) | (_, None) => Ok(None),
-        (Some(left), Some(right)) => get_result_shape_of(left, &bin.op, right).map(Some),
+        (Some(left), Some(right)) => Ok(Some(get_result_shape_of(left, &bin.op, right))),
     }
 }
 
