@@ -57,9 +57,7 @@ async fn flatten(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let (Arguments { rest: columns }, input) = args.process().await?;
 
     Ok(input
-        .map(move |item| {
-            futures::stream::iter(flat_value(&columns, &item, &tag).into_iter().flatten())
-        })
+        .map(move |item| futures::stream::iter(flat_value(&columns, &item, &tag).into_iter()))
         .flatten()
         .to_output_stream())
 }
@@ -72,7 +70,7 @@ fn flat_value(
     columns: &[Tagged<String>],
     item: &Value,
     name_tag: impl Into<Tag>,
-) -> Result<Vec<Result<ReturnSuccess, ShellError>>, ShellError> {
+) -> Vec<Result<ReturnSuccess, ShellError>> {
     let tag = item.tag.clone();
     let name_tag = name_tag.into();
 
@@ -121,7 +119,7 @@ fn flat_value(
                                 name_tag.span
                             };
 
-                        return Ok(vec![ReturnSuccess::value(
+                        return vec![ReturnSuccess::value(
                             UntaggedValue::Error(ShellError::labeled_error_with_secondary(
                                 "can only flatten one inner table at the same time",
                                 "tried flattening more than one column with inner tables",
@@ -130,7 +128,7 @@ fn flat_value(
                                 already_flattened,
                             ))
                             .into_value(name_tag),
-                        )]);
+                        )];
                     }
 
                     if !columns.is_empty() {
@@ -179,5 +177,5 @@ fn flat_value(
         }
     };
 
-    Ok(res.into_iter().map(ReturnSuccess::value).collect())
+    res.into_iter().map(ReturnSuccess::value).collect()
 }

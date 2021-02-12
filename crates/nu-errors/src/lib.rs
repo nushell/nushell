@@ -564,9 +564,7 @@ impl ShellError {
                     diag.message = format!("Missing property (for {})", subpath.item);
                 } else {
                     let subpath = Label::primary(0, subpath.span).with_message(subpath.item);
-                    let mut labels = vec![];
-
-                    labels.push(subpath);
+                    let mut labels = vec![subpath];
 
                     if expr.span != Span::unknown() {
                         let expr = Label::primary(0, expr.span).with_message(expr.item);

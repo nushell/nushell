@@ -15,6 +15,6 @@ where
 {
     let x: String = serde::Deserialize::deserialize(deserializer)?;
 
-    Ok(BigInt::parse_bytes(x.as_bytes(), 10)
-        .ok_or_else(|| serde::de::Error::custom("expected a bignum"))?)
+    BigInt::parse_bytes(x.as_bytes(), 10)
+        .ok_or_else(|| serde::de::Error::custom("expected a bignum"))
 }

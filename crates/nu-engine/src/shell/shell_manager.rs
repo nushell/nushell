@@ -9,7 +9,7 @@ use encoding_rs::Encoding;
 use nu_errors::ShellError;
 use nu_source::{Span, Tag};
 use parking_lot::Mutex;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 
@@ -71,7 +71,7 @@ impl ShellManager {
 
     pub fn open(
         &self,
-        full_path: &PathBuf,
+        full_path: &Path,
         name: Span,
         with_encoding: Option<&'static Encoding>,
     ) -> Result<impl Stream<Item = Result<StringOrBinary, ShellError>> + Send + 'static, ShellError>
@@ -81,7 +81,7 @@ impl ShellManager {
 
     pub fn save(
         &self,
-        full_path: &PathBuf,
+        full_path: &Path,
         save_data: &[u8],
         name: Span,
     ) -> Result<OutputStream, ShellError> {

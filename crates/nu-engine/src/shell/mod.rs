@@ -7,7 +7,7 @@ use encoding_rs::Encoding;
 use futures::stream::BoxStream;
 use nu_errors::ShellError;
 use nu_source::{Span, Tag};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
@@ -38,13 +38,13 @@ pub trait Shell: std::fmt::Debug {
     fn set_path(&mut self, path: String);
     fn open(
         &self,
-        path: &PathBuf,
+        path: &Path,
         name: Span,
         with_encoding: Option<&'static Encoding>,
     ) -> Result<BoxStream<'static, Result<StringOrBinary, ShellError>>, ShellError>;
     fn save(
         &mut self,
-        path: &PathBuf,
+        path: &Path,
         contents: &[u8],
         name: Span,
     ) -> Result<OutputStream, ShellError>;
