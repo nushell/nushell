@@ -1,5 +1,4 @@
 use nipper::Document;
-use nu_errors::ShellError;
 use nu_protocol::{value::StringExt, Value};
 use nu_source::{Tag, Tagged};
 
@@ -25,11 +24,7 @@ impl Default for Selector {
     }
 }
 
-pub fn begin_selector_query(
-    input: String,
-    query: Tagged<&str>,
-    as_html: bool,
-) -> Result<Vec<Value>, ShellError> {
+pub fn begin_selector_query(input: String, query: Tagged<&str>, as_html: bool) -> Vec<Value> {
     execute_selector_query(input, query.item.to_string(), query.tag(), as_html)
 }
 
@@ -38,7 +33,7 @@ fn execute_selector_query(
     query_string: String,
     tag: impl Into<Tag>,
     as_html: bool,
-) -> Result<Vec<Value>, ShellError> {
+) -> Vec<Value> {
     let _tag = tag.into();
     let mut ret = vec![];
     let doc = Document::from(&input_string);
@@ -64,28 +59,25 @@ fn execute_selector_query(
             ret.push(athing.text().to_string().to_string_value_create_tag());
         });
     }
-    Ok(ret)
+    ret
 }
 
 #[cfg(test)]
 mod tests {
     use nipper::Document;
-    use nu_errors::ShellError;
 
     #[test]
-    fn create_document_from_string() -> Result<(), ShellError> {
+    fn create_document_from_string() {
         let html = r#"<div name="foo" value="bar"></div>"#;
         let document = Document::from(html);
         let shouldbe =
             r#"<html><head></head><body><div name="foo" value="bar"></div></body></html>"#;
 
         assert_eq!(shouldbe.to_string(), document.html().to_string());
-
-        Ok(())
     }
 
     #[test]
-    fn modify_html_document() -> Result<(), ShellError> {
+    fn modify_html_document() {
         let html = r#"<div name="foo" value="bar"></div>"#;
         let document = Document::from(html);
         let mut input = document.select(r#"div[name="foo"]"#);
@@ -96,8 +88,6 @@ mod tests {
         let actual = input.attr("value").unwrap().to_string();
 
         assert_eq!(shouldbe, actual);
-
-        Ok(())
     }
 
     // #[test]

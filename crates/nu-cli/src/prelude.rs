@@ -58,6 +58,7 @@ pub(crate) use nu_value_ext::ValueExt;
 #[allow(unused_imports)]
 pub(crate) use std::sync::atomic::Ordering;
 
+#[allow(clippy::clippy::wrong_self_convention)]
 pub trait FromInputStream {
     fn from_input_stream(self) -> OutputStream;
 }
@@ -73,6 +74,7 @@ where
     }
 }
 
+#[allow(clippy::clippy::wrong_self_convention)]
 pub trait ToOutputStream {
     fn to_output_stream(self) -> OutputStream;
 }

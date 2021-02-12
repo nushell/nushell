@@ -83,7 +83,7 @@ mod tests {
     fn arguments_test_2() -> Result<(), Box<dyn std::error::Error>> {
         // cmd name [type]
         let arg1 = string("name");
-        let arg2 = table(&vec![string("type")]);
+        let arg2 = table(&[string("type")]);
 
         let expected = vec![
             string("name").as_column_path()?.item,

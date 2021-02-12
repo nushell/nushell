@@ -10,12 +10,12 @@ pub struct TokenBuilder<T: HasSpan> {
     contents: Option<Vec<T>>,
 }
 
-impl<T> Into<Vec<T>> for TokenBuilder<T>
+impl<T> From<TokenBuilder<T>> for Vec<T>
 where
     T: HasSpan,
 {
-    fn into(self) -> Vec<T> {
-        self.contents.unwrap_or_else(Vec::new)
+    fn from(x: TokenBuilder<T>) -> Self {
+        x.contents.unwrap_or_else(Vec::new)
     }
 }
 

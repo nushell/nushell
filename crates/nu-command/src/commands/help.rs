@@ -217,6 +217,6 @@ mod tests {
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        Ok(test_examples(Help {})?)
+        test_examples(Help {})
     }
 }

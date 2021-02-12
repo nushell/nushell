@@ -28,12 +28,12 @@ impl Inc {
         Default::default()
     }
 
-    fn apply(&self, input: &str) -> Result<UntaggedValue, ShellError> {
-        let applied = match &self.action {
+    fn apply(&self, input: &str) -> UntaggedValue {
+        match &self.action {
             Some(Action::SemVerAction(act_on)) => {
                 let mut ver = match semver::Version::parse(&input) {
                     Ok(parsed_ver) => parsed_ver,
-                    Err(_) => return Ok(UntaggedValue::string(input.to_string())),
+                    Err(_) => return UntaggedValue::string(input.to_string()),
                 };
 
                 match act_on {
@@ -48,9 +48,7 @@ impl Inc {
                 Ok(v) => UntaggedValue::string(format!("{}", v + 1)),
                 Err(_) => UntaggedValue::string(input),
             },
-        };
-
-        Ok(applied)
+        }
     }
 
     pub fn for_semver(&mut self, part: SemVerAction) {
@@ -82,7 +80,7 @@ impl Inc {
                 Ok(UntaggedValue::filesize(b + 1_u64).into_value(value.tag()))
             }
             UntaggedValue::Primitive(Primitive::String(ref s)) => {
-                Ok(self.apply(&s)?.into_value(value.tag()))
+                Ok(self.apply(&s).into_value(value.tag()))
             }
             UntaggedValue::Table(values) => {
                 if values.len() == 1 {
@@ -153,27 +151,24 @@ mod tests {
         use nu_test_support::value::string;
 
         #[test]
-        fn major() -> Result<(), Box<dyn std::error::Error>> {
+        fn major() {
             let mut inc = Inc::new();
             inc.for_semver(SemVerAction::Major);
-            assert_eq!(inc.apply("0.1.3")?, string("1.0.0").value);
-            Ok(())
+            assert_eq!(inc.apply("0.1.3"), string("1.0.0").value);
         }
 
         #[test]
-        fn minor() -> Result<(), Box<dyn std::error::Error>> {
+        fn minor() {
             let mut inc = Inc::new();
             inc.for_semver(SemVerAction::Minor);
-            assert_eq!(inc.apply("0.1.3")?, string("0.2.0").value);
-            Ok(())
+            assert_eq!(inc.apply("0.1.3"), string("0.2.0").value);
         }
 
         #[test]
-        fn patch() -> Result<(), Box<dyn std::error::Error>> {
+        fn patch() {
             let mut inc = Inc::new();
             inc.for_semver(SemVerAction::Patch);
-            assert_eq!(inc.apply("0.1.3")?, string("0.1.4").value);
-            Ok(())
+            assert_eq!(inc.apply("0.1.3"), string("0.1.4").value);
         }
     }
 }

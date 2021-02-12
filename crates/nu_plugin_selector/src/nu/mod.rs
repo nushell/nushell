@@ -39,7 +39,7 @@ impl Plugin for Selector {
                 value: UntaggedValue::Primitive(Primitive::String(s)),
                 ..
             } => Ok(
-                begin_selector_query(s, (*self.query).tagged(&self.tag), self.as_html)?
+                begin_selector_query(s, (*self.query).tagged(&self.tag), self.as_html)
                     .into_iter()
                     .map(ReturnSuccess::value)
                     .collect(),

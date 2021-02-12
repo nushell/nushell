@@ -74,6 +74,7 @@ pub(crate) use std::future::Future;
 pub(crate) use std::sync::atomic::{AtomicBool, Ordering};
 pub(crate) use std::sync::Arc;
 
+#[allow(clippy::wrong_self_convention)]
 pub trait FromInputStream {
     fn from_input_stream(self) -> OutputStream;
 }
@@ -89,6 +90,7 @@ where
     }
 }
 
+#[allow(clippy::wrong_self_convention)]
 pub trait ToOutputStream {
     fn to_output_stream(self) -> OutputStream;
 }

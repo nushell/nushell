@@ -187,11 +187,9 @@ async fn save(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         if !input.is_empty() {
             let anchor = input[0].tag.anchor();
 
-            if let Some(path) = anchor {
-                if let AnchorLocation::File(file) = path {
-                    should_return_file_path_error = false;
-                    full_path.push(Path::new(&file));
-                }
+            if let Some(AnchorLocation::File(file)) = anchor {
+                should_return_file_path_error = false;
+                full_path.push(Path::new(&file));
             }
         }
 
@@ -282,6 +280,6 @@ mod tests {
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        Ok(test_examples(Save {})?)
+        test_examples(Save {})
     }
 }

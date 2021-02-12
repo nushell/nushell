@@ -48,16 +48,14 @@ pub fn search_paths() -> Vec<std::path::PathBuf> {
     }
 
     if let Ok(config) = nu_data::config::config(Tag::unknown()) {
-        if let Some(plugin_dirs) = config.get("plugin_dirs") {
-            if let Value {
-                value: UntaggedValue::Table(pipelines),
-                ..
-            } = plugin_dirs
-            {
-                for pipeline in pipelines {
-                    if let Ok(plugin_dir) = pipeline.as_string() {
-                        search_paths.push(PathBuf::from(plugin_dir));
-                    }
+        if let Some(Value {
+            value: UntaggedValue::Table(pipelines),
+            ..
+        }) = config.get("plugin_dirs")
+        {
+            for pipeline in pipelines {
+                if let Ok(plugin_dir) = pipeline.as_string() {
+                    search_paths.push(PathBuf::from(plugin_dir));
                 }
             }
         }
