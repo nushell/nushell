@@ -151,7 +151,7 @@ xpath = ["nu_plugin_xpath"]
 codegen-units = 1 #Reduce parallel codegen units
 lto = true #Link Time Optimization
 opt-level = 'z' #Optimize for size
-debug = true
+# debug = true
 
 # Core plugins that ship with `cargo install nu` by default
 # Currently, Cargo limits us to installing only one binary
