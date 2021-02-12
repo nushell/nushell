@@ -470,9 +470,9 @@ pub trait PrettyDebug {
     }
 }
 
-impl Into<DebugDocBuilder> for PrettyDebugDocBuilder {
-    fn into(self) -> DebugDocBuilder {
-        DebugDocBuilder { inner: self }
+impl From<PrettyDebugDocBuilder> for DebugDocBuilder {
+    fn from(x: PrettyDebugDocBuilder) -> Self {
+        DebugDocBuilder { inner: x }
     }
 }
 
@@ -490,9 +490,9 @@ impl From<DebugDoc> for PrettyDebugDoc {
     }
 }
 
-impl Into<PrettyDebugDoc> for DebugDocBuilder {
-    fn into(self) -> PrettyDebugDoc {
-        self.inner.into()
+impl From<DebugDocBuilder> for PrettyDebugDoc {
+    fn from(x: DebugDocBuilder) -> Self {
+        x.inner.into()
     }
 }
 

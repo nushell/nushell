@@ -175,6 +175,7 @@ impl From<Vec<Value>> for InputStream {
     }
 }
 
+#[allow(clippy::clippy::wrong_self_convention)]
 pub trait ToInputStream {
     fn to_input_stream(self) -> InputStream;
 }

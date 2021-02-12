@@ -235,7 +235,7 @@ impl Shell for ValueShell {
 
     fn open(
         &self,
-        _path: &PathBuf,
+        _path: &Path,
         _name: Span,
         _with_encoding: Option<&'static Encoding>,
     ) -> Result<BoxStream<'static, Result<StringOrBinary, ShellError>>, ShellError> {
@@ -246,7 +246,7 @@ impl Shell for ValueShell {
 
     fn save(
         &mut self,
-        _path: &PathBuf,
+        _path: &Path,
         _contents: &[u8],
         _name: Span,
     ) -> Result<OutputStream, ShellError> {

@@ -227,7 +227,7 @@ fn from_ssv_string_to_value(
     aligned_columns: bool,
     split_at: usize,
     tag: impl Into<Tag>,
-) -> Option<Value> {
+) -> Value {
     let tag = tag.into();
     let rows = string_to_table(s, headerless, aligned_columns, split_at)
         .iter()
@@ -244,7 +244,7 @@ fn from_ssv_string_to_value(
         })
         .collect();
 
-    Some(UntaggedValue::Table(rows).into_value(&tag))
+    UntaggedValue::Table(rows).into_value(&tag)
 }
 
 async fn from_ssv(args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -271,23 +271,13 @@ async fn from_ssv(args: CommandArgs) -> Result<OutputStream, ShellError> {
             split_at,
             name.clone(),
         ) {
-            Some(x) => match x {
-                Value {
-                    value: UntaggedValue::Table(list),
-                    ..
-                } => futures::stream::iter(list.into_iter().map(ReturnSuccess::value))
-                    .to_output_stream(),
-                x => OutputStream::one(ReturnSuccess::value(x)),
-            },
-            None => {
-                return Err(ShellError::labeled_error_with_secondary(
-                    "Could not parse as SSV",
-                    "input cannot be parsed ssv",
-                    &name,
-                    "value originates from here",
-                    &concat_string.tag,
-                ));
+            Value {
+                value: UntaggedValue::Table(list),
+                ..
+            } => {
+                futures::stream::iter(list.into_iter().map(ReturnSuccess::value)).to_output_stream()
             }
+            x => OutputStream::one(ReturnSuccess::value(x)),
         },
     )
 }
@@ -502,6 +492,6 @@ mod tests {
         use super::FromSSV;
         use crate::examples::test as test_examples;
 
-        Ok(test_examples(FromSSV {})?)
+        test_examples(FromSSV {})
     }
 }

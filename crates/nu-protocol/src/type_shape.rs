@@ -389,20 +389,20 @@ pub enum Column {
     Value,
 }
 
-impl Into<Column> for String {
-    fn into(self) -> Column {
-        Column::String(self)
+impl From<String> for Column {
+    fn from(x: String) -> Self {
+        Column::String(x)
     }
 }
 
-impl Into<Column> for &String {
-    fn into(self) -> Column {
-        Column::String(self.clone())
+impl From<&String> for Column {
+    fn from(x: &String) -> Self {
+        Column::String(x.clone())
     }
 }
 
-impl Into<Column> for &str {
-    fn into(self) -> Column {
-        Column::String(self.to_string())
+impl From<&str> for Column {
+    fn from(x: &str) -> Self {
+        Column::String(x.to_string())
     }
 }

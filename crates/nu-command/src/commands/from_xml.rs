@@ -301,6 +301,6 @@ mod tests {
         use super::FromXML;
         use crate::examples::test as test_examples;
 
-        Ok(test_examples(FromXML {})?)
+        test_examples(FromXML {})
     }
 }

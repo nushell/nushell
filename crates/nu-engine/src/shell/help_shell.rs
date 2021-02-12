@@ -17,7 +17,7 @@ use nu_stream::OutputStream;
 use nu_value_ext::ValueExt;
 use std::collections::VecDeque;
 use std::ffi::OsStr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
@@ -225,7 +225,7 @@ impl Shell for HelpShell {
 
     fn open(
         &self,
-        _path: &PathBuf,
+        _path: &Path,
         _name: Span,
         _with_encoding: Option<&'static Encoding>,
     ) -> Result<BoxStream<'static, Result<StringOrBinary, ShellError>>, ShellError> {
@@ -236,7 +236,7 @@ impl Shell for HelpShell {
 
     fn save(
         &mut self,
-        _path: &PathBuf,
+        _path: &Path,
         _contents: &[u8],
         _name: Span,
     ) -> Result<OutputStream, ShellError> {

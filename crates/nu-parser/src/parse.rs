@@ -2140,7 +2140,7 @@ pub fn parse(
 }
 
 #[test]
-fn unit_parse_byte_units() -> Result<(), ParseError> {
+fn unit_parse_byte_units() {
     struct TestCase {
         string: String,
         value: i64,
@@ -2275,5 +2275,4 @@ fn unit_parse_byte_units() -> Result<(), ParseError> {
             )
         );
     }
-    Ok(())
 }

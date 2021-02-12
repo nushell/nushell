@@ -20,13 +20,12 @@ impl WholeStreamCommand for Tags {
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        tags(args)
+        Ok(tags(args))
     }
 }
 
-fn tags(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    Ok(args
-        .input
+fn tags(args: CommandArgs) -> OutputStream {
+    args.input
         .map(move |v| {
             let mut tags = TaggedDictBuilder::new(v.tag());
             {
@@ -50,7 +49,7 @@ fn tags(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             tags.into_value()
         })
-        .to_output_stream())
+        .to_output_stream()
 }
 
 #[cfg(test)]
@@ -62,6 +61,6 @@ mod tests {
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        Ok(test_examples(Tags {})?)
+        test_examples(Tags {})
     }
 }

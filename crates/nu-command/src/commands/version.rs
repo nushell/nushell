@@ -146,9 +146,7 @@ pub fn version(args: CommandArgs) -> Result<OutputStream, ShellError> {
 }
 
 fn features_enabled() -> Vec<String> {
-    let mut names = vec![];
-
-    names.push("default".to_string());
+    let mut names = vec!["default".to_string()];
 
     #[cfg(feature = "ctrlc")]
     {
@@ -289,6 +287,6 @@ mod tests {
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        Ok(test_examples(Version {})?)
+        test_examples(Version {})
     }
 }
