@@ -4,6 +4,7 @@ use nu_protocol::{
     hir::CapturedBlock, CallInfo, ColumnPath, Primitive, RangeInclusion, ShellTypeName,
     UntaggedValue, Value,
 };
+use nu_source::Span;
 use nu_source::{HasSpan, Spanned, SpannedItem, Tagged, TaggedItem};
 use nu_value_ext::ValueExt;
 use serde::de;
@@ -401,6 +402,13 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
                     value: UntaggedValue::Primitive(Primitive::ColumnPath(path)),
                     ..
                 } => path,
+                Value {
+                    value: UntaggedValue::Primitive(Primitive::String(path)),
+                    ..
+                } => {
+                    let s = path.spanned(Span::unknown());
+                    ColumnPath::build(&s)
+                }
                 other => {
                     return Err(ShellError::type_error(
                         "column path",
