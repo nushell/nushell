@@ -12,7 +12,7 @@ use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPa
 use nu_source::{HasSpan, Span, Spanned, SpannedItem};
 use num_bigint::BigInt;
 
-use crate::lex::lexer::{block, lex};
+use crate::lex::lexer::{lex, parse_block};
 use crate::lex::tokens::{LiteBlock, LiteCommand, LitePipeline};
 use crate::path::expand_path;
 use crate::scope::ParserScope;
@@ -396,7 +396,7 @@ fn parse_invocation(
     if err.is_some() {
         return (garbage(lite_arg.span), err);
     };
-    let (lite_block, err) = block(tokens);
+    let (lite_block, err) = parse_block(tokens);
     if err.is_some() {
         return (garbage(lite_arg.span), err);
     };
@@ -702,7 +702,7 @@ fn parse_table(
         return (garbage(lite_inner.span()), err);
     }
 
-    let (lite_header, err) = block(tokens);
+    let (lite_header, err) = parse_block(tokens);
     if err.is_some() {
         return (garbage(lite_inner.span()), err);
     }
@@ -725,7 +725,7 @@ fn parse_table(
         if err.is_some() {
             return (garbage(arg.span), err);
         }
-        let (lite_cell, err) = block(tokens);
+        let (lite_cell, err) = parse_block(tokens);
         if err.is_some() {
             return (garbage(arg.span), err);
         }
@@ -856,7 +856,7 @@ fn parse_arg(
                         return (garbage(lite_arg.span), err);
                     }
 
-                    let (lite_block, err) = block(tokens);
+                    let (lite_block, err) = parse_block(tokens);
                     if err.is_some() {
                         return (garbage(lite_arg.span), err);
                     }
@@ -911,7 +911,7 @@ fn parse_arg(
                         return (garbage(lite_arg.span), err);
                     }
 
-                    let (lite_block, err) = block(tokens);
+                    let (lite_block, err) = parse_block(tokens);
                     if err.is_some() {
                         return (garbage(lite_arg.span), err);
                     }
@@ -1139,7 +1139,7 @@ fn parse_parenthesized_expression(
                 return (garbage(lite_arg.span), err);
             }
 
-            let (lite_block, err) = block(tokens);
+            let (lite_block, err) = parse_block(tokens);
             if err.is_some() {
                 return (garbage(lite_arg.span), err);
             }
@@ -2131,7 +2131,7 @@ pub fn parse(
     if error.is_some() {
         return (Block::basic(), error);
     }
-    let (lite_block, error) = block(output);
+    let (lite_block, error) = parse_block(output);
     if error.is_some() {
         return (Block::basic(), error);
     }

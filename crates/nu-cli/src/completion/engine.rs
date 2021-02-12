@@ -256,7 +256,7 @@ pub fn completion_location(line: &str, block: &Block, pos: usize) -> Vec<Complet
 mod tests {
     use super::*;
 
-    use nu_parser::{block, classify_block, lex, ParserScope};
+    use nu_parser::{classify_block, lex, parse_block, ParserScope};
     use nu_protocol::{Signature, SyntaxShape};
 
     #[derive(Clone, Debug)]
@@ -307,7 +307,7 @@ mod tests {
             pos: usize,
         ) -> Vec<LocationType> {
             let (tokens, _) = lex(line, 0);
-            let (lite_block, _) = block(tokens);
+            let (lite_block, _) = parse_block(tokens);
 
             scope.enter_scope();
             let (block, _) = classify_block(&lite_block, scope);
