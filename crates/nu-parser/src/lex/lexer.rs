@@ -68,6 +68,8 @@ pub fn baseline(src: &mut Input, span_offset: usize) -> (Spanned<String>, Option
     // closing quote.
     let mut quote_start: Option<char> = None;
 
+    let mut in_comment = false;
+
     // This Vec tracks paired delimiters
     let mut block_level: Vec<BlockKind> = vec![];
 
@@ -97,6 +99,20 @@ pub fn baseline(src: &mut Input, span_offset: usize) -> (Spanned<String>, Option
             // string, we're done with the current string.
             if Some(c) == quote_start {
                 quote_start = None;
+            }
+        } else if c == '#' {
+            if is_termination(&block_level, c) {
+                break;
+            }
+            in_comment = true;
+        } else if c == '\n' {
+            in_comment = false;
+            if is_termination(&block_level, c) {
+                break;
+            }
+        } else if in_comment {
+            if is_termination(&block_level, c) {
+                break;
             }
         } else if c == '\'' || c == '"' || c == '`' {
             // We encountered the opening quote of a string literal.
