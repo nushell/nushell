@@ -56,7 +56,7 @@ impl WholeStreamCommand for TermSize {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Return the width height of the terminal as W H",
+                description: "Return the width height of the terminal",
                 example: "term size",
                 result: None,
             },
