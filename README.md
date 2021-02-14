@@ -282,7 +282,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 
 ## Commands
 
-You can find a list of Nu commands, complete with documentation, in [quick command references](https://www.nushell.sh/documentation.html#quick-command-references).
+You can find a list of Nu commands, complete with documentation, in [quick command references](https://www.nushell.sh/book/command_reference.html).
 
 ## Progress
 
