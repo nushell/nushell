@@ -132,6 +132,46 @@ def e [] {echo hi}
     }
 
     #[test]
+    fn def_comment_with_sinqle_quote() {
+        let input = r#"def f [] {
+	    	# shouldn't return error
+			echo hi
+		}"#;
+        let (_result, err) = lex(input, 0);
+        assert!(err.is_none());
+    }
+
+    #[test]
+    fn def_comment_with_double_quote() {
+        let input = r#"def f [] {
+	    	# should "not return error
+			echo hi
+		}"#;
+        let (_result, err) = lex(input, 0);
+        assert!(err.is_none());
+    }
+
+    #[test]
+    fn def_comment_with_bracks() {
+        let input = r#"def f [] {
+	    	# should not [return error
+			echo hi
+		}"#;
+        let (_result, err) = lex(input, 0);
+        assert!(err.is_none());
+    }
+
+    #[test]
+    fn def_comment_with_curly() {
+        let input = r#"def f [] {
+	    	# should not return {error
+			echo hi
+		}"#;
+        let (_result, err) = lex(input, 0);
+        assert!(err.is_none());
+    }
+
+    #[test]
     fn ignore_future() {
         let input = "foo 'bar";
 
