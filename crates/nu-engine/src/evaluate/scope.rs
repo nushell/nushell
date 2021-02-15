@@ -186,6 +186,12 @@ impl Scope {
             frame.env.extend(env_vars)
         }
     }
+
+    pub fn add_env_to_base(&self, env_vars: IndexMap<String, String>) {
+        if let Some(frame) = self.frames.lock().first_mut() {
+            frame.env.extend(env_vars)
+        }
+    }
 }
 
 impl ParserScope for Scope {
