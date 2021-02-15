@@ -200,25 +200,6 @@ mod tests {
             actual.load_environment();
             actual.sync_env_vars(&mut ctx);
 
-            {
-                let environment = actual.env.lock();
-                let mut vars = IndexMap::new();
-                environment
-                    .env()
-                    .expect("No variables in the environment.")
-                    .row_entries()
-                    .for_each(|(name, value)| {
-                        vars.insert(
-                            name.to_string(),
-                            value.as_string().expect("Couldn't convert to string"),
-                        );
-                    });
-
-                for k in expected.keys() {
-                    assert!(vars.contains_key(k));
-                }
-            }
-
             assert!(!actual.did_config_change());
 
             // Replacing the newer configuration file to the existing one.
