@@ -1788,7 +1788,9 @@ fn parse_call(
                 )),
             );
         }
-        if let Ok(contents) = std::fs::read_to_string(expand_path(&lite_cmd.parts[1].item).into_owned()) {
+        if let Ok(contents) =
+            std::fs::read_to_string(expand_path(&lite_cmd.parts[1].item).into_owned())
+        {
             let _ = parse(&contents, 0, scope);
         } else {
             return (

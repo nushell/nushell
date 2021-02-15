@@ -2,9 +2,9 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 
 use nu_errors::ShellError;
+use nu_parser::expand_path;
 use nu_protocol::{Signature, SyntaxShape};
 use nu_source::Tagged;
-use nu_parser::expand_path;
 
 pub struct Source;
 
