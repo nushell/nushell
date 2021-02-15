@@ -14,7 +14,7 @@ pivot_mode = "auto" # auto, always, never
 ctrlc_exit = false
 complete_from_path = true
 rm_always_trash = true
-prompt = "echo $(ansi gb) $(pwd) $(ansi reset) \"(\" $(ansi cb) $(do -i { git rev-parse --abbrev-ref HEAD | str trim }) $(ansi reset) \")\" $(char newline) $(ansi yb) $(date --format \"%m/%d/%Y %I:%M:%S%.3f %p\" --raw) $(ansi reset) \"> \" | str collect"
+prompt = "build-string $(ansi gb) $(pwd) $(ansi reset) '(' $(ansi cb) $(do -i { git rev-parse --abbrev-ref HEAD } | str trim ) $(ansi reset) ')' $(ansi yb) $(date format '%m/%d/%Y %I:%M:%S%.3f %p' ) $(ansi reset) '> ' "
 
 # for each of the options in the color_config section, you are able to set
 # the color alone or with one of the following attributes.
