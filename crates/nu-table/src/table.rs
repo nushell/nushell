@@ -963,9 +963,29 @@ fn get_max_column_widths(processed_table: &ProcessedTable) -> Vec<usize> {
     output
 }
 
-pub fn maybe_truncate_columns(termwidth: usize, processed_table: &mut ProcessedTable) {
+pub fn maybe_truncate_columns(
+    termwidth: usize,
+    processed_table: &mut ProcessedTable,
+    max_column_widths: &Vec<usize>,
+) {
+    // How many of the real columns will fit in this max width
+    let mut _running_width = 0usize;
+    let mut running_column_count = 0usize;
+    let mut last_width = 0usize;
+    for w in max_column_widths.iter() {
+        if _running_width > termwidth {
+            _running_width -= last_width;
+            running_column_count -= 1;
+            break;
+        } else {
+            _running_width += w;
+            running_column_count += 1;
+            last_width = *w;
+        }
+    }
+
     // Make sure we have enough space for the columns we have
-    let max_num_of_columns = termwidth / 10;
+    let max_num_of_columns = running_column_count;
 
     // If we have too many columns, truncate the table
     if max_num_of_columns < processed_table.headers.len() {
@@ -1009,7 +1029,7 @@ pub fn draw_table(table: &Table, termwidth: usize, color_hm: &HashMap<String, St
 
     let max_per_column = get_max_column_widths(&processed_table);
 
-    maybe_truncate_columns(termwidth, &mut processed_table);
+    maybe_truncate_columns(termwidth, &mut processed_table, &max_per_column);
 
     let headers_len = processed_table.headers.len();
 
