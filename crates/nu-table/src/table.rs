@@ -966,7 +966,7 @@ fn get_max_column_widths(processed_table: &ProcessedTable) -> Vec<usize> {
 pub fn maybe_truncate_columns(
     termwidth: usize,
     processed_table: &mut ProcessedTable,
-    max_column_widths: &Vec<usize>,
+    max_column_widths: &[usize],
 ) {
     // How many of the real columns will fit in this max width
     let mut _running_width = 0usize;
