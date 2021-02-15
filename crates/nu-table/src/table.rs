@@ -963,6 +963,38 @@ fn get_max_column_widths(processed_table: &ProcessedTable) -> Vec<usize> {
     output
 }
 
+pub fn maybe_truncate_columns(termwidth: usize, processed_table: &mut ProcessedTable) {
+    // Make sure we have enough space for the columns we have
+    let max_num_of_columns = termwidth / 10;
+
+    // If we have too many columns, truncate the table
+    if max_num_of_columns < processed_table.headers.len() {
+        processed_table.headers.truncate(max_num_of_columns);
+
+        for entry in processed_table.data.iter_mut() {
+            entry.truncate(max_num_of_columns);
+        }
+
+        processed_table.headers.push(ProcessedCell {
+            contents: vec![vec![Subline {
+                subline: "...",
+                width: 3,
+            }]],
+            style: TextStyle::basic_center(),
+        });
+
+        for entry in processed_table.data.iter_mut() {
+            entry.push(ProcessedCell {
+                contents: vec![vec![Subline {
+                    subline: "...",
+                    width: 3,
+                }]],
+                style: TextStyle::basic_center(),
+            }); // ellipsis is centred
+        }
+    }
+}
+
 pub fn draw_table(table: &Table, termwidth: usize, color_hm: &HashMap<String, Style>) {
     // Remove the edges, if used
     let termwidth = if table.theme.print_left_border && table.theme.print_right_border {
@@ -973,12 +1005,13 @@ pub fn draw_table(table: &Table, termwidth: usize, color_hm: &HashMap<String, St
         termwidth
     };
 
-    let processed_table = process_table(table);
+    let mut processed_table = process_table(table);
 
     let max_per_column = get_max_column_widths(&processed_table);
 
-    // maybe_truncate_columns(&mut headers, &mut entries, termwidth);
-    let headers_len = table.headers.len();
+    maybe_truncate_columns(termwidth, &mut processed_table);
+
+    let headers_len = processed_table.headers.len();
 
     // fix the length of the table if there are no headers:
     let headers_len = if headers_len == 0 {
