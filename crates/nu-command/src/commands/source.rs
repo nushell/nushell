@@ -2,6 +2,7 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 
 use nu_errors::ShellError;
+use nu_parser::expand_path;
 use nu_protocol::{Signature, SyntaxShape};
 use nu_source::Tagged;
 
@@ -46,7 +47,7 @@ pub async fn source(args: CommandArgs) -> Result<OutputStream, ShellError> {
     // Note: this is a special case for setting the context from a command
     // In this case, if we don't set it now, we'll lose the scope that this
     // variable should be set into.
-    let contents = std::fs::read_to_string(&filename.item);
+    let contents = std::fs::read_to_string(expand_path(&filename.item).into_owned());
     match contents {
         Ok(contents) => {
             let result = crate::script::run_script_standalone(contents, true, &ctx, false).await;

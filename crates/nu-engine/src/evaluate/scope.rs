@@ -176,12 +176,19 @@ impl Scope {
 
     pub fn add_env_var(&self, name: impl Into<String>, value: String) {
         if let Some(frame) = self.frames.lock().last_mut() {
-            frame.env.insert(name.into(), value);
+            let name = name.into();
+            frame.env.insert(name, value);
         }
     }
 
     pub fn add_env(&self, env_vars: IndexMap<String, String>) {
         if let Some(frame) = self.frames.lock().last_mut() {
+            frame.env.extend(env_vars)
+        }
+    }
+
+    pub fn add_env_to_base(&self, env_vars: IndexMap<String, String>) {
+        if let Some(frame) = self.frames.lock().first_mut() {
             frame.env.extend(env_vars)
         }
     }
