@@ -69,9 +69,17 @@ impl WholeStreamCommand for WithEnv {
 }
 
 async fn with_env(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let redirection = raw_args.call_info.args.external_redirection;
     let context = EvaluationContext::from_args(&raw_args);
-    let (WithEnvArgs { variable, block }, input) = raw_args.process().await?;
+    let (
+        WithEnvArgs {
+            variable,
+            mut block,
+        },
+        input,
+    ) = raw_args.process().await?;
 
+    block.block.set_redirect(redirection);
     let mut env = IndexMap::new();
 
     match &variable.value {

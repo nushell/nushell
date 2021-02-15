@@ -29,7 +29,7 @@ use rustyline::{self, error::ReadlineError};
 use crate::EnvironmentSyncer;
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
-use nu_protocol::{UntaggedValue, Value};
+use nu_protocol::{hir::ExternalRedirection, UntaggedValue, Value};
 
 use std::error::Error;
 use std::iter::Iterator;
@@ -158,7 +158,9 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
                 let prompt_line = prompt.as_string()?;
 
                 context.scope.enter_scope();
-                let (prompt_block, err) = nu_parser::parse(&prompt_line, 0, &context.scope);
+                let (mut prompt_block, err) = nu_parser::parse(&prompt_line, 0, &context.scope);
+
+                prompt_block.set_redirect(ExternalRedirection::Stdout);
 
                 if err.is_some() {
                     context.scope.exit_scope();
