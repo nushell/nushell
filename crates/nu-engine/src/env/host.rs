@@ -15,6 +15,7 @@ pub trait Host: Debug + Send {
     fn env_rm(&mut self, k: OsString);
 
     fn width(&self) -> usize;
+    fn height(&self) -> usize;
 }
 
 impl Host for Box<dyn Host> {
@@ -52,6 +53,10 @@ impl Host for Box<dyn Host> {
 
     fn width(&self) -> usize {
         (**self).width()
+    }
+
+    fn height(&self) -> usize {
+        (**self).height()
     }
 }
 
@@ -122,6 +127,10 @@ impl Host for FakeHost {
     }
 
     fn width(&self) -> usize {
+        1
+    }
+
+    fn height(&self) -> usize {
         1
     }
 }

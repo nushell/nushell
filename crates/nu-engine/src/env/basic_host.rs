@@ -74,4 +74,9 @@ impl Host for BasicHost {
         term_width -= 1;
         term_width
     }
+
+    fn height(&self) -> usize {
+        let (_, term_height) = term_size::dimensions().unwrap_or((80, 20));
+        term_height
+    }
 }
