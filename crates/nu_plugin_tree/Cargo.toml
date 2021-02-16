@@ -4,17 +4,17 @@ description = "Tree viewer plugin for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu_plugin_tree"
-version = "0.26.1"
+version = "0.27.0"
 
 [lib]
 doctest = false
 
 [dependencies]
 derive-new = "0.5.8"
-nu-errors = { path = "../nu-errors", version = "0.26.1" }
-nu-plugin = { path = "../nu-plugin", version = "0.26.1" }
-nu-protocol = { path = "../nu-protocol", version = "0.26.1" }
-nu-source = { path = "../nu-source", version = "0.26.1" }
+nu-errors = { path = "../nu-errors", version = "0.27.0" }
+nu-plugin = { path = "../nu-plugin", version = "0.27.0" }
+nu-protocol = { path = "../nu-protocol", version = "0.27.0" }
+nu-source = { path = "../nu-source", version = "0.27.0" }
 ptree = "0.3.1"
 
 [build-dependencies]
