@@ -1,6 +1,6 @@
 filesize_format = "B" # can be b, kb, kib, mb, mib, gb, gib, etc
 filesize_metric = true # true => (KB, MB, GB), false => (KiB, MiB, GiB)
-skip_welcome_message = true
+skip_welcome_message = false # Note to nushell developer: This is expected to be false, when testing nushell itself
 disable_table_indexes = false
 nonzero_exit_errors = true
 startup = [
