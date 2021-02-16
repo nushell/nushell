@@ -4,7 +4,7 @@ description = "A source string characterizer for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-source"
-version = "0.26.1"
+version = "0.27.0"
 
 [lib]
 doctest = false
