@@ -186,6 +186,7 @@ pub async fn process_script(
 
         ctx.scope.add_env_to_base(env);
         let result = run_block(&block, ctx, input_stream).await;
+
         match result {
             Ok(input) => {
                 // Running a pipeline gives us back a stream that we can then

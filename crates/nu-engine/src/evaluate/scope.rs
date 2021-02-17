@@ -176,8 +176,7 @@ impl Scope {
 
     pub fn add_env_var(&self, name: impl Into<String>, value: String) {
         if let Some(frame) = self.frames.lock().last_mut() {
-            let name = name.into();
-            frame.env.insert(name, value);
+            frame.env.insert(name.into(), value);
         }
     }
 
