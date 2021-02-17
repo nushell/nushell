@@ -67,7 +67,7 @@ impl EnvironmentSyncer {
         let recently_used = ctx
             .user_recently_used_autoenv_untrust
             .load(Ordering::SeqCst);
-        let auto = environment.autoenv(recently_used);
+        let auto = environment.autoenv(recently_used, ctx);
         ctx.user_recently_used_autoenv_untrust
             .store(false, Ordering::SeqCst);
         auto
@@ -91,7 +91,7 @@ impl EnvironmentSyncer {
 
         for (name, value) in ctx.with_host(|host| host.vars()) {
             if name != "path" && name != "PATH" && !nu_env_vars.contains_key(&name) {
-                ctx.scope.add_env_var(name, value);
+                ctx.scope.add_env_var_to_base(name, value);
             }
         }
     }
@@ -99,25 +99,35 @@ impl EnvironmentSyncer {
     pub fn sync_path_vars(&mut self, ctx: &mut EvaluationContext) {
         let mut environment = self.env.lock();
 
+        environment.clear_path();
+
         let native_paths = ctx.with_host(|host| host.env_get(std::ffi::OsString::from("PATH")));
 
-        if let Some(native_paths) = native_paths {
-            for path in std::env::split_paths(&native_paths) {
-                environment.add_path(path.as_os_str().to_os_string());
+        let split_native_paths = if let Some(native_paths) = native_paths {
+            std::env::split_paths(&native_paths)
+                .map(|path| path.as_os_str().to_os_string())
+                .collect()
+        } else {
+            vec![]
+        };
+
+        // if let Some(new_paths) = environment.path() {
+        if let Some(new_paths) = self.config.lock().path() {
+            let new_paths: Vec<_> = new_paths
+                .table_entries()
+                .map(|p| p.as_string())
+                .filter_map(Result::ok)
+                .map(std::ffi::OsString::from)
+                .chain(split_native_paths)
+                .collect();
+
+            for new_path in &new_paths {
+                environment.add_path(new_path.clone());
             }
-        }
 
-        if let Some(new_paths) = environment.path() {
-            let prepared = std::env::join_paths(
-                new_paths
-                    .table_entries()
-                    .map(|p| p.as_string())
-                    .filter_map(Result::ok),
-            );
-
-            if let Ok(paths_ready) = prepared {
+            if let Ok(paths_ready) = std::env::join_paths(new_paths) {
                 ctx.scope
-                    .add_env_var("PATH", paths_ready.to_string_lossy().to_string());
+                    .add_env_var_to_base("PATH", paths_ready.to_string_lossy().to_string());
             }
         }
     }
@@ -145,6 +155,7 @@ mod tests {
     use nu_engine::basic_evaluation_context;
     use nu_errors::ShellError;
     use nu_test_support::fs::Stub::FileWithContent;
+    use nu_test_support::nu;
     use nu_test_support::playground::Playground;
     use parking_lot::Mutex;
     use std::path::PathBuf;
@@ -392,6 +403,53 @@ mod tests {
             assert_eq!(paths, &expected);
         });
 
+        Ok(())
+    }
+
+    #[test]
+    fn nu_let_env_overwrites() -> Result<(), ShellError> {
+        let mut ctx = basic_evaluation_context()?;
+        ctx.host = Arc::new(Mutex::new(Box::new(nu_engine::FakeHost::new())));
+        Playground::setup("syncs_env_test_1", |dirs, sandbox| {
+            sandbox.with_files(vec![FileWithContent(
+                "configuration.toml",
+                r#"
+                [env]
+                SHELL = "/usr/bin/you_already_made_the_nu_choice"
+            "#,
+            )]);
+
+            let mut file = dirs.test().clone();
+            file.push("configuration.toml");
+
+            let fake_config = FakeConfig::new(&file);
+            let mut actual = EnvironmentSyncer::new();
+            actual.set_config(Box::new(fake_config));
+
+            // Here, the environment variables from the current session
+            // are cleared since we will load and set them from the
+            // configuration file (if any)
+            actual.clear_env_vars(&mut ctx);
+
+            // Nu loads the environment variables from the configuration file (if any)
+            actual.load_environment();
+
+            // By this point, Nu has already loaded the environment variables
+            // stored in the configuration file. Before continuing we check
+            // if any new environment variables have been added from the ones loaded
+            // in the configuration file.
+            //
+            // Nu sees the missing "USER" variable and accounts for it.
+            actual.sync_env_vars(&mut ctx);
+
+            let actual = nu!(
+                cwd: dirs.test(),
+                r#"let-env SHELL = bob
+                echo $nu.env.SHELL
+                "#
+            );
+            assert_eq!(actual.out, "bob")
+        });
         Ok(())
     }
 

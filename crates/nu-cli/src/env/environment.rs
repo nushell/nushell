@@ -1,7 +1,7 @@
 use crate::env::directory_specific_environment::*;
 use indexmap::{indexmap, IndexSet};
 use nu_data::config::Conf;
-use nu_engine::Env;
+use nu_engine::{Env, EvaluationContext};
 use nu_errors::ShellError;
 use nu_protocol::{UntaggedValue, Value};
 
@@ -31,12 +31,20 @@ impl Environment {
         }
     }
 
-    pub fn autoenv(&mut self, reload_trusted: bool) -> Result<(), ShellError> {
-        self.autoenv.maintain_autoenv()?;
+    pub fn autoenv(
+        &mut self,
+        reload_trusted: bool,
+        ctx: &mut EvaluationContext,
+    ) -> Result<(), ShellError> {
+        self.autoenv.maintain_autoenv(ctx)?;
         if reload_trusted {
-            self.autoenv.clear_recently_untrusted_file()?;
+            self.autoenv.clear_recently_untrusted_file(ctx)?;
         }
         Ok(())
+    }
+
+    pub fn clear_path(&mut self) {
+        self.path_vars = None;
     }
 
     pub fn morph<T: Conf>(&mut self, configuration: &T) {

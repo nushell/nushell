@@ -21,10 +21,11 @@ pub fn nu(env: &IndexMap<String, String>, tag: impl Into<Tag>) -> Result<Value, 
     nu_dict.insert_value("config", UntaggedValue::row(config).into_value(&tag));
 
     let mut table = vec![];
-    let path = std::env::var_os("PATH");
-    if let Some(paths) = path {
-        for path in std::env::split_paths(&paths) {
-            table.push(UntaggedValue::filepath(path).into_value(&tag));
+    for v in env.iter() {
+        if v.0 == "PATH" || v.0 == "Path" {
+            for path in std::env::split_paths(&v.1) {
+                table.push(UntaggedValue::filepath(path).into_value(&tag));
+            }
         }
     }
     nu_dict.insert_value("path", UntaggedValue::table(&table).into_value(&tag));

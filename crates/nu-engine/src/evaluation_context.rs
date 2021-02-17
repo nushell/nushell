@@ -4,7 +4,6 @@ use crate::env::host::Host;
 use crate::evaluate::scope::Scope;
 use crate::shell::shell_manager::ShellManager;
 use crate::whole_stream_command::Command;
-use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_protocol::hir;
 use nu_source::Tag;
@@ -111,13 +110,5 @@ impl EvaluationContext {
             scope: self.scope.clone(),
             input,
         }
-    }
-
-    pub fn get_env(&self) -> IndexMap<String, String> {
-        let mut output = IndexMap::new();
-        for (var, value) in self.host.lock().vars() {
-            output.insert(var, value);
-        }
-        output
     }
 }

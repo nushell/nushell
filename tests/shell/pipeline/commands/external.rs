@@ -1,6 +1,6 @@
 use nu_test_support::nu;
 
-#[cfg(feature = "which")]
+#[cfg(feature = "which-support")]
 #[test]
 fn shows_error_for_command_not_found() {
     let actual = nu!(
@@ -11,7 +11,7 @@ fn shows_error_for_command_not_found() {
     assert!(actual.err.contains("Command not found"));
 }
 
-#[cfg(feature = "which")]
+#[cfg(feature = "which-support")]
 #[test]
 fn shows_error_for_command_not_found_in_pipeline() {
     let actual = nu!(
@@ -22,7 +22,7 @@ fn shows_error_for_command_not_found_in_pipeline() {
     assert!(actual.err.contains("Command not found"));
 }
 
-#[cfg(feature = "which")]
+#[cfg(feature = "which-support")]
 #[test]
 fn automatically_change_directory() {
     use nu_test_support::playground::Playground;

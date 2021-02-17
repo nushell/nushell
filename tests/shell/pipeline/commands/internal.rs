@@ -1,5 +1,3 @@
-#[cfg(feature = "which")]
-use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::nu;
 use nu_test_support::pipeline;
@@ -218,51 +216,6 @@ fn autoenv() {
         );
         assert!(actual.out.ends_with("set_in_foo"))
     })
-}
-
-#[cfg(feature = "which")]
-#[test]
-fn nu_let_env_overwrites() {
-    Playground::setup("syncs_env_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
-            "configuration.toml",
-            r#"
-            [env]
-            SHELL = "/usr/bin/you_already_made_the_nu_choice"
-        "#,
-        )]);
-
-        let mut file = dirs.test().clone();
-        file.push("configuration.toml");
-
-        let fake_config = FakeConfig::new(&file);
-        let mut actual = EnvironmentSyncer::new();
-        actual.set_config(Box::new(fake_config));
-
-        // Here, the environment variables from the current session
-        // are cleared since we will load and set them from the
-        // configuration file (if any)
-        actual.clear_env_vars(&mut ctx);
-
-        // Nu loads the environment variables from the configuration file (if any)
-        actual.load_environment();
-
-        // By this point, Nu has already loaded the environment variables
-        // stored in the configuration file. Before continuing we check
-        // if any new environment variables have been added from the ones loaded
-        // in the configuration file.
-        //
-        // Nu sees the missing "USER" variable and accounts for it.
-        actual.sync_env_vars(&mut ctx);
-
-        let actual = nu!(
-            cwd: dirs.test(),
-            r#"let-env SHELL = bob
-            echo $nu.env.SHELL
-            "#
-        );
-        assert!(actual.out.ends_with("set_in_foo"))
-    });
 }
 
 #[test]
@@ -582,7 +535,7 @@ fn proper_shadow_set_aliases() {
     assert_eq!(actual.out, "falsetruefalse");
 }
 
-#[cfg(feature = "which")]
+#[cfg(feature = "which-support")]
 #[test]
 fn argument_invocation_reports_errors() {
     let actual = nu!(

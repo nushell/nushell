@@ -1,9 +1,9 @@
 use indexmap::{IndexMap, IndexSet};
 use nu_command::commands::autoenv;
+use nu_engine::EvaluationContext;
 use nu_errors::ShellError;
 use serde::Deserialize;
-use std::env::*;
-use std::process::Command;
+use std::{process::Command, str::FromStr};
 
 use std::{
     ffi::OsString,
@@ -73,8 +73,8 @@ impl DirectorySpecificEnvironment {
                 format!("{:?} is untrusted. Run 'autoenv trust {:?}' to trust it.\nThis needs to be done after each change to the file.", nu_env_file, nu_env_file.parent().unwrap_or_else(|| &Path::new("")))))
     }
 
-    pub fn maintain_autoenv(&mut self) -> Result<(), ShellError> {
-        let mut dir = current_dir()?;
+    pub fn maintain_autoenv(&mut self, ctx: &mut EvaluationContext) -> Result<(), ShellError> {
+        let mut dir = std::env::current_dir()?;
 
         if self.last_seen_directory == dir {
             return Ok(());
@@ -93,7 +93,7 @@ impl DirectorySpecificEnvironment {
                 //add regular variables from the [env section]
                 if let Some(env) = nu_env_doc.env {
                     for (env_key, env_val) in env {
-                        self.maybe_add_key(&mut added_keys, &dir, &env_key, &env_val);
+                        self.maybe_add_key(&mut added_keys, &dir, &env_key, &env_val, ctx);
                     }
                 }
 
@@ -105,6 +105,7 @@ impl DirectorySpecificEnvironment {
                             &dir,
                             &key,
                             value_from_script(&script)?.as_str(),
+                            ctx,
                         );
                     }
                 }
@@ -131,9 +132,10 @@ impl DirectorySpecificEnvironment {
             } else {
                 for (k, v) in dirmap {
                     if let Some(v) = v {
-                        std::env::set_var(k, v);
+                        ctx.scope
+                            .add_env_var_to_base(k, v.to_string_lossy().to_string());
                     } else {
-                        std::env::remove_var(k);
+                        ctx.scope.remove_env_var_from_base(k);
                     }
                 }
             }
@@ -154,7 +156,7 @@ impl DirectorySpecificEnvironment {
         self.visited_dirs = new_visited_dirs;
         self.exitscripts = new_exitscripts;
         self.added_vars = new_vars;
-        self.last_seen_directory = current_dir()?;
+        self.last_seen_directory = std::env::current_dir()?;
         Ok(())
     }
 
@@ -164,6 +166,7 @@ impl DirectorySpecificEnvironment {
         dir: &Path,
         key: &str,
         val: &str,
+        ctx: &mut EvaluationContext,
     ) {
         //This condition is to make sure variables in parent directories don't overwrite variables set by subdirectories.
         if !seen_vars.contains(key) {
@@ -171,14 +174,22 @@ impl DirectorySpecificEnvironment {
             self.added_vars
                 .entry(PathBuf::from(dir))
                 .or_insert(IndexMap::new())
-                .insert(key.to_string(), var_os(key));
+                .insert(
+                    key.to_string(),
+                    ctx.scope.get_env_vars().get(key).map(|x| {
+                        std::ffi::OsString::from_str(x).expect("Can't convert string to OS string")
+                    }),
+                );
 
-            std::env::set_var(key, val);
+            ctx.scope.add_env_var_to_base(key, val.to_string());
         }
     }
 
     // If the user recently ran autoenv untrust on a file, we clear the environment variables it set and make sure to not run any possible exitscripts.
-    pub fn clear_recently_untrusted_file(&mut self) -> Result<(), ShellError> {
+    pub fn clear_recently_untrusted_file(
+        &mut self,
+        ctx: &mut EvaluationContext,
+    ) -> Result<(), ShellError> {
         // Figure out which file was untrusted
         // Remove all vars set by it
         let current_trusted_files: IndexSet<PathBuf> = autoenv::read_trusted()?
@@ -203,7 +214,7 @@ impl DirectorySpecificEnvironment {
         for path in untrusted_files {
             if let Some(added_keys) = self.added_vars.get(&path) {
                 for (key, _) in added_keys {
-                    remove_var(key);
+                    ctx.scope.remove_env_var_from_base(key);
                 }
             }
             self.exitscripts.remove(&path);

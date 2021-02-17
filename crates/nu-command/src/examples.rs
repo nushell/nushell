@@ -230,7 +230,7 @@ async fn evaluate_block(
     ctx: &mut EvaluationContext,
 ) -> Result<Vec<Value>, ShellError> {
     let input_stream = InputStream::empty();
-    let env = ctx.get_env();
+    let env = ctx.scope.get_env_vars();
 
     ctx.scope.enter_scope();
     ctx.scope.add_env(env);

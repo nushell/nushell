@@ -167,8 +167,6 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
 
                     format!("\x1b[32m{}{}\x1b[m> ", cwd, current_branch())
                 } else {
-                    // let env = context.get_env();
-
                     let run_result = run_block(&prompt_block, &context, InputStream::empty()).await;
                     context.scope.exit_scope();
 
@@ -380,8 +378,6 @@ pub async fn parse_and_eval(line: &str, ctx: &EvaluationContext) -> Result<Strin
     }
 
     let input_stream = InputStream::empty();
-    let env = ctx.get_env();
-    ctx.scope.add_env(env);
 
     let result = run_block(&classified_block, ctx, input_stream).await;
     ctx.scope.exit_scope();
