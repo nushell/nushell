@@ -7,7 +7,7 @@ use nu_protocol::hir::Operator;
 use nu_protocol::ShellTypeName;
 use nu_protocol::{Primitive, Type, UntaggedValue};
 use nu_source::{DebugDocBuilder, PrettyDebug, Span, Tagged};
-use nu_table::TextStyle;
+use nu_table::text_style::TextStyle;
 use num_traits::{ToPrimitive, Zero};
 use std::collections::HashMap;
 

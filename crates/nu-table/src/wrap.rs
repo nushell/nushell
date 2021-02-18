@@ -1,6 +1,5 @@
-use crate::table::TextStyle;
+use crate::text_style::TextStyle;
 use ansi_term::Style;
-use std::collections::HashMap;
 use std::{fmt::Display, iter::Iterator};
 use unicode_width::UnicodeWidthStr;
 
@@ -56,18 +55,21 @@ pub fn split_sublines(input: &str) -> Vec<Vec<Subline>> {
     input
         .split_terminator('\n')
         .map(|line| {
-            line.split_terminator(' ')
-                .map(|x| Subline {
-                    subline: x,
-                    width: {
-                        // We've tried UnicodeWidthStr::width(x), UnicodeSegmentation::graphemes(x, true).count()
-                        // and x.chars().count() with all types of combinations. Currently, it appears that
-                        // getting the max of char count and unicode width seems to produce the best layout.
-                        // However, it's not perfect.
-                        let c = x.chars().count();
-                        let u = UnicodeWidthStr::width(x);
-                        std::cmp::max(c, u)
-                    },
+            line.split_terminator(&[' ', ';'][..])
+                .map(|x| {
+                    // eprintln!("subline=[{}]", &x);
+                    Subline {
+                        subline: x,
+                        width: {
+                            // We've tried UnicodeWidthStr::width(x), UnicodeSegmentation::graphemes(x, true).count()
+                            // and x.chars().count() with all types of combinations. Currently, it appears that
+                            // getting the max of char count and unicode width seems to produce the best layout.
+                            // However, it's not perfect.
+                            let c = x.chars().count();
+                            let u = UnicodeWidthStr::width(x);
+                            std::cmp::max(c, u)
+                        },
+                    }
                 })
                 .collect::<Vec<_>>()
         })
@@ -138,19 +140,15 @@ fn split_word(cell_width: usize, word: &str) -> Vec<Subline> {
 pub fn wrap<'a>(
     cell_width: usize,
     mut input: impl Iterator<Item = Subline<'a>>,
-    color_hm: &HashMap<String, Style>,
     re_leading: &regex::Regex,
     re_trailing: &regex::Regex,
+    lead_trail_space_bg_color: &Style,
 ) -> (Vec<WrappedLine>, usize) {
     let mut lines = vec![];
     let mut current_line: Vec<Subline> = vec![];
     let mut current_width = 0;
     let mut first = true;
     let mut max_width = 0;
-    let lead_trail_space_bg_color = color_hm
-        .get("leading_trailing_space_bg")
-        .unwrap_or(&Style::default())
-        .to_owned();
 
     loop {
         match input.next() {
@@ -243,23 +241,12 @@ pub fn wrap<'a>(
             current_max = current_line_width;
         }
 
-        // highlight leading and trailing spaces so they stand out.
-        let mut bg_color_string = Style::default().prefix().to_string();
-        // right now config settings can only set foreground colors so, in this
-        // instance we take the foreground color and make it a background color
-        if let Some(bg) = lead_trail_space_bg_color.foreground {
-            bg_color_string = Style::default().on(bg).prefix().to_string()
-        };
-
-        if let Some(leading_match) = re_leading.find(&current_line.clone()) {
-            String::insert_str(&mut current_line, leading_match.end(), "\x1b[0m");
-            String::insert_str(&mut current_line, leading_match.start(), &bg_color_string);
-        }
-
-        if let Some(trailing_match) = re_trailing.find(&current_line.clone()) {
-            String::insert_str(&mut current_line, trailing_match.start(), &bg_color_string);
-            current_line += "\x1b[0m";
-        }
+        highligh_leading_trailing_space(
+            &mut current_line,
+            *lead_trail_space_bg_color,
+            &re_leading,
+            &re_trailing,
+        );
 
         output.push(WrappedLine {
             line: current_line,
@@ -268,4 +255,29 @@ pub fn wrap<'a>(
     }
 
     (output, current_max)
+}
+
+fn highligh_leading_trailing_space(
+    current_line: &mut String,
+    lead_trail_space_bg_color: Style,
+    re_leading: &regex::Regex,
+    re_trailing: &regex::Regex,
+) {
+    // highlight leading and trailing spaces so they stand out.
+    let mut bg_color_string = Style::default().prefix().to_string();
+    // right now config settings can only set foreground colors so, in this
+    // instance we take the foreground color and make it a background color
+    if let Some(bg) = lead_trail_space_bg_color.foreground {
+        bg_color_string = Style::default().on(bg).prefix().to_string()
+    };
+
+    if let Some(leading_match) = re_leading.find(&current_line.clone()) {
+        current_line.insert_str(leading_match.end(), "\x1b[0m");
+        current_line.insert_str(leading_match.start(), &bg_color_string);
+    }
+
+    if let Some(trailing_match) = re_trailing.find(&current_line.clone()) {
+        current_line.insert_str(trailing_match.start(), &bg_color_string);
+        current_line.insert_str(current_line.len(), "\x1b[0m");
+    }
 }
