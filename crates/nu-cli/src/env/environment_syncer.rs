@@ -74,24 +74,34 @@ impl EnvironmentSyncer {
     }
 
     pub fn sync_env_vars(&mut self, ctx: &mut EvaluationContext) {
-        let nu_env_vars = ctx.scope.get_env_vars();
+        let mut environment = self.env.lock();
 
-        let environment = self.env.lock();
-        if let Some(variables) = environment.env() {
-            for var in variables.row_entries() {
-                if let Ok(string) = var.1.as_string() {
-                    if var.0 != "path" && var.0 != "PATH" && !nu_env_vars.contains_key(var.0) {
-                        ctx.scope.add_env_var(var.0, string);
-                    }
+        if environment.env().is_some() {
+            for (name, value) in ctx.with_host(|host| host.vars()) {
+                if name != "path" && name != "PATH" {
+                    // account for new env vars present in the current session
+                    // that aren't loaded from config.
+                    environment.add_env(&name, &value);
+
+                    // clear the env var from the session
+                    // we are about to replace them
+                    ctx.with_host(|host| host.env_rm(std::ffi::OsString::from(name)));
                 }
             }
-        }
 
-        let nu_env_vars = ctx.scope.get_env_vars();
+            if let Some(variables) = environment.env() {
+                for var in variables.row_entries() {
+                    if let Ok(string) = var.1.as_string() {
+                        ctx.with_host(|host| {
+                            host.env_set(
+                                std::ffi::OsString::from(var.0),
+                                std::ffi::OsString::from(&string),
+                            )
+                        });
 
-        for (name, value) in ctx.with_host(|host| host.vars()) {
-            if name != "path" && name != "PATH" && !nu_env_vars.contains_key(&name) {
-                ctx.scope.add_env_var(name, value);
+                        ctx.scope.add_env_var_to_base(var.0, string);
+                    }
+                }
             }
         }
     }
@@ -99,25 +109,36 @@ impl EnvironmentSyncer {
     pub fn sync_path_vars(&mut self, ctx: &mut EvaluationContext) {
         let mut environment = self.env.lock();
 
-        let native_paths = ctx.with_host(|host| host.env_get(std::ffi::OsString::from("PATH")));
+        if environment.path().is_some() {
+            let native_paths = ctx.with_host(|host| host.env_get(std::ffi::OsString::from("PATH")));
 
-        if let Some(native_paths) = native_paths {
-            for path in std::env::split_paths(&native_paths) {
-                environment.add_path(path.as_os_str().to_os_string());
+            if let Some(native_paths) = native_paths {
+                environment.add_path(native_paths);
+
+                ctx.with_host(|host| {
+                    host.env_rm(std::ffi::OsString::from("PATH"));
+                });
             }
-        }
 
-        if let Some(new_paths) = environment.path() {
-            let prepared = std::env::join_paths(
-                new_paths
-                    .table_entries()
-                    .map(|p| p.as_string())
-                    .filter_map(Result::ok),
-            );
+            if let Some(new_paths) = environment.path() {
+                let prepared = std::env::join_paths(
+                    new_paths
+                        .table_entries()
+                        .map(|p| p.as_string())
+                        .filter_map(Result::ok),
+                );
 
-            if let Ok(paths_ready) = prepared {
-                ctx.scope
-                    .add_env_var("PATH", paths_ready.to_string_lossy().to_string());
+                if let Ok(paths_ready) = prepared {
+                    ctx.with_host(|host| {
+                        host.env_set(
+                            std::ffi::OsString::from("PATH"),
+                            std::ffi::OsString::from(&paths_ready),
+                        );
+                    });
+
+                    ctx.scope
+                        .add_env_var_to_base("PATH", paths_ready.to_string_lossy().to_string());
+                }
             }
         }
     }
@@ -143,6 +164,7 @@ mod tests {
     use indexmap::IndexMap;
     use nu_data::config::tests::FakeConfig;
     use nu_engine::basic_evaluation_context;
+    use nu_engine::Env;
     use nu_errors::ShellError;
     use nu_test_support::fs::Stub::FileWithContent;
     use nu_test_support::playground::Playground;
@@ -200,6 +222,25 @@ mod tests {
             actual.load_environment();
             actual.sync_env_vars(&mut ctx);
 
+            {
+                let environment = actual.env.lock();
+                let mut vars = IndexMap::new();
+                environment
+                    .env()
+                    .expect("No variables in the environment.")
+                    .row_entries()
+                    .for_each(|(name, value)| {
+                        vars.insert(
+                            name.to_string(),
+                            value.as_string().expect("Couldn't convert to string"),
+                        );
+                    });
+
+                for k in expected.keys() {
+                    assert!(vars.contains_key(k));
+                }
+            }
+
             assert!(!actual.did_config_change());
 
             // Replacing the newer configuration file to the existing one.
@@ -213,12 +254,26 @@ mod tests {
             actual.reload();
             actual.sync_env_vars(&mut ctx);
 
-            let env_vars = ctx.scope.get_env_vars();
-            let result = env_vars.get("SHELL").unwrap();
-            assert_eq!(result, "/usr/bin/you_already_made_the_nu_choice");
+            expected.insert("USER".to_string(), "NUNO".to_string());
 
-            let result = env_vars.get("USER").unwrap();
-            assert_eq!(result, "NUNO");
+            {
+                let environment = actual.env.lock();
+                let mut vars = IndexMap::new();
+                environment
+                    .env()
+                    .expect("No variables in the environment.")
+                    .row_entries()
+                    .for_each(|(name, value)| {
+                        vars.insert(
+                            name.to_string(),
+                            value.as_string().expect("Couldn't convert to string"),
+                        );
+                    });
+
+                for k in expected.keys() {
+                    assert!(vars.contains_key(k));
+                }
+            }
         });
 
         Ok(())
@@ -278,12 +333,48 @@ mod tests {
             // Nu sees the missing "USER" variable and accounts for it.
             actual.sync_env_vars(&mut ctx);
 
-            let env_vars = ctx.scope.get_env_vars();
-            let result = env_vars.get("SHELL").unwrap();
-            assert_eq!(result, "/usr/bin/you_already_made_the_nu_choice");
+            // Confirms session environment variables are replaced from Nu configuration file
+            // including the newer one accounted for.
+            ctx.with_host(|test_host| {
+                let var_user = test_host
+                    .env_get(std::ffi::OsString::from("USER"))
+                    .expect("Couldn't get USER var from host.")
+                    .into_string()
+                    .expect("Couldn't convert to string.");
 
-            let result = env_vars.get("USER").unwrap();
-            assert_eq!(result, "NUNO");
+                let var_shell = test_host
+                    .env_get(std::ffi::OsString::from("SHELL"))
+                    .expect("Couldn't get SHELL var from host.")
+                    .into_string()
+                    .expect("Couldn't convert to string.");
+
+                let mut found = IndexMap::new();
+                found.insert("SHELL".to_string(), var_shell);
+                found.insert("USER".to_string(), var_user);
+
+                for k in found.keys() {
+                    assert!(expected.contains_key(k));
+                }
+            });
+
+            // Now confirm in-memory environment variables synced appropriately
+            // including the newer one accounted for.
+            let environment = actual.env.lock();
+
+            let mut vars = IndexMap::new();
+            environment
+                .env()
+                .expect("No variables in the environment.")
+                .row_entries()
+                .for_each(|(name, value)| {
+                    vars.insert(
+                        name.to_string(),
+                        value.as_string().expect("Couldn't convert to string"),
+                    );
+                });
+            for k in expected.keys() {
+                assert!(vars.contains_key(k));
+            }
         });
         Ok(())
     }
@@ -292,6 +383,12 @@ mod tests {
     fn nu_envs_have_higher_priority_and_does_not_get_overwritten() -> Result<(), ShellError> {
         let mut ctx = basic_evaluation_context()?;
         ctx.host = Arc::new(Mutex::new(Box::new(nu_engine::FakeHost::new())));
+
+        let mut expected = IndexMap::new();
+        expected.insert(
+            "SHELL".to_string(),
+            "/usr/bin/you_already_made_the_nu_choice".to_string(),
+        );
 
         Playground::setup("syncs_env_test_2", |dirs, sandbox| {
             sandbox.with_files(vec![FileWithContent(
@@ -321,10 +418,37 @@ mod tests {
             actual.load_environment();
             actual.sync_env_vars(&mut ctx);
 
-            let env_vars = ctx.scope.get_env_vars();
-            let result = env_vars.get("SHELL").unwrap();
+            ctx.with_host(|test_host| {
+                let var_shell = test_host
+                    .env_get(std::ffi::OsString::from("SHELL"))
+                    .expect("Couldn't get SHELL var from host.")
+                    .into_string()
+                    .expect("Couldn't convert to string.");
 
-            assert_eq!(result, "/usr/bin/you_already_made_the_nu_choice");
+                let mut found = IndexMap::new();
+                found.insert("SHELL".to_string(), var_shell);
+
+                for k in found.keys() {
+                    assert!(expected.contains_key(k));
+                }
+            });
+
+            let environment = actual.env.lock();
+
+            let mut vars = IndexMap::new();
+            environment
+                .env()
+                .expect("No variables in the environment.")
+                .row_entries()
+                .for_each(|(name, value)| {
+                    vars.insert(
+                        name.to_string(),
+                        value.as_string().expect("couldn't convert to string"),
+                    );
+                });
+            for k in expected.keys() {
+                assert!(vars.contains_key(k));
+            }
         });
 
         Ok(())
@@ -386,10 +510,32 @@ mod tests {
             // Nu sees the missing "/path/to/be/added" and accounts for it.
             actual.sync_path_vars(&mut ctx);
 
-            let env_vars = ctx.scope.get_env_vars();
-            let paths = env_vars.get("PATH").unwrap();
+            ctx.with_host(|test_host| {
+                let actual = test_host
+                    .env_get(std::ffi::OsString::from("PATH"))
+                    .expect("Couldn't get PATH var from host.")
+                    .into_string()
+                    .expect("Couldn't convert to string.");
 
-            assert_eq!(paths, &expected);
+                assert_eq!(actual, expected);
+            });
+
+            let environment = actual.env.lock();
+
+            let paths = std::env::join_paths(
+                &environment
+                    .path()
+                    .expect("No path variable in the environment.")
+                    .table_entries()
+                    .map(|value| value.as_string().expect("Couldn't convert to string"))
+                    .map(PathBuf::from)
+                    .collect::<Vec<_>>(),
+            )
+            .expect("Couldn't join paths.")
+            .into_string()
+            .expect("Couldn't convert to string.");
+
+            assert_eq!(paths, expected);
         });
 
         Ok(())
@@ -438,10 +584,32 @@ mod tests {
             actual.load_environment();
             actual.sync_path_vars(&mut ctx);
 
-            let env_vars = ctx.scope.get_env_vars();
-            let paths = env_vars.get("PATH").unwrap();
+            ctx.with_host(|test_host| {
+                let actual = test_host
+                    .env_get(std::ffi::OsString::from("PATH"))
+                    .expect("Couldn't get PATH var from host.")
+                    .into_string()
+                    .expect("Couldn't convert to string.");
 
-            assert_eq!(paths, &expected);
+                assert_eq!(actual, expected);
+            });
+
+            let environment = actual.env.lock();
+
+            let paths = std::env::join_paths(
+                &environment
+                    .path()
+                    .expect("No path variable in the environment.")
+                    .table_entries()
+                    .map(|value| value.as_string().expect("Couldn't convert to string"))
+                    .map(PathBuf::from)
+                    .collect::<Vec<_>>(),
+            )
+            .expect("Couldn't join paths.")
+            .into_string()
+            .expect("Couldn't convert to string.");
+
+            assert_eq!(paths, expected);
         });
 
         Ok(())
