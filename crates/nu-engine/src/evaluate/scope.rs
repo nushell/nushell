@@ -191,6 +191,12 @@ impl Scope {
             frame.env.extend(env_vars)
         }
     }
+
+    pub fn add_env_var_to_base(&self, name: impl Into<String>, value: String) {
+        if let Some(frame) = self.frames.lock().first_mut() {
+            frame.env.insert(name.into(), value);
+        }
+    }
 }
 
 impl ParserScope for Scope {

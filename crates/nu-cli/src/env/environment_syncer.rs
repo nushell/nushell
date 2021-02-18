@@ -95,9 +95,11 @@ impl EnvironmentSyncer {
                         ctx.with_host(|host| {
                             host.env_set(
                                 std::ffi::OsString::from(var.0),
-                                std::ffi::OsString::from(string),
+                                std::ffi::OsString::from(&string),
                             )
                         });
+
+                        ctx.scope.add_env_var_to_base(var.0, string);
                     }
                 }
             }
@@ -128,8 +130,14 @@ impl EnvironmentSyncer {
 
                 if let Ok(paths_ready) = prepared {
                     ctx.with_host(|host| {
-                        host.env_set(std::ffi::OsString::from("PATH"), paths_ready);
+                        host.env_set(
+                            std::ffi::OsString::from("PATH"),
+                            std::ffi::OsString::from(&paths_ready),
+                        );
                     });
+
+                    ctx.scope
+                        .add_env_var_to_base("PATH", paths_ready.to_string_lossy().to_string());
                 }
             }
         }

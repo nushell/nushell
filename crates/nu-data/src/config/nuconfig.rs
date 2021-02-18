@@ -127,6 +127,10 @@ impl NuConfig {
             return Some(env_vars.clone());
         }
 
+        if let Some(env_vars) = vars.get("PATH") {
+            return Some(env_vars.clone());
+        }
+
         None
     }
 }
