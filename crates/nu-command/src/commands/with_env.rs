@@ -80,6 +80,7 @@ async fn with_env(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     ) = raw_args.process().await?;
 
     block.block.set_redirect(redirection);
+
     let mut env = IndexMap::new();
 
     match &variable.value {
