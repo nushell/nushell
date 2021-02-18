@@ -5,7 +5,7 @@ use nu_data::value::{format_leaf, style_leaf};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
-use nu_table::{draw_table, Alignment, StyledString, TextStyle};
+use nu_table::{draw_table, styled_string::StyledString, text_style::TextStyle, Alignment};
 use std::collections::HashMap;
 use std::time::Instant;
 

@@ -6,7 +6,7 @@ use nu_engine::{UnevaluatedCallInfo, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::hir::{self, Expression, ExternalRedirection, Literal, SpannedExpression};
 use nu_protocol::{Primitive, Signature, UntaggedValue, Value};
-use nu_table::TextStyle;
+use nu_table::text_style::TextStyle;
 use parking_lot::Mutex;
 use std::sync::atomic::AtomicBool;
 
@@ -236,22 +236,25 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                         let mut entries = vec![];
                         for (key, value) in row.entries.iter() {
                             entries.push(vec![
-                                nu_table::StyledString::new(
+                                nu_table::styled_string::StyledString::new(
                                     key.to_string(),
                                     TextStyle::new()
                                         .alignment(nu_table::Alignment::Left)
                                         .fg(ansi_term::Color::Green)
                                         .bold(Some(true)),
                                 ),
-                                nu_table::StyledString::new(
+                                nu_table::styled_string::StyledString::new(
                                     format_leaf(value).plain_string(100_000),
-                                    nu_table::TextStyle::basic_left(),
+                                    nu_table::text_style::TextStyle::basic_left(),
                                 ),
                             ]);
                         }
 
-                        let table =
-                            nu_table::Table::new(vec![], entries, nu_table::Theme::compact());
+                        let table = nu_table::Table::new(
+                            vec![],
+                            entries,
+                            nu_table::table_theme::TableTheme::compact(),
+                        );
 
                         nu_table::draw_table(&table, term_width, &color_hm);
                     }

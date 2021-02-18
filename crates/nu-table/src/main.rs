@@ -1,4 +1,6 @@
-use nu_table::{draw_table, StyledString, Table, TextStyle, Theme};
+use nu_table::{
+    draw_table, styled_string::StyledString, table_theme::TableTheme, text_style::TextStyle, Table,
+};
 use std::collections::HashMap;
 
 fn main() {
@@ -13,7 +15,7 @@ fn main() {
     // The table rows
     let rows = vec_of_str_to_vec_of_styledstr(&row_data, false);
     // The table itself
-    let table = Table::new(headers, vec![rows; 3], Theme::rounded());
+    let table = Table::new(headers, vec![rows; 3], TableTheme::rounded());
 
     // FIXME: Config isn't available from here so just put these here to compile
     let color_hm: HashMap<String, ansi_term::Style> = HashMap::new();

@@ -1,7 +1,7 @@
 use ansi_term::{Color, Style};
 use nu_protocol::{hir::Number, Primitive, Value};
 use nu_source::Tag;
-use nu_table::{Alignment, TextStyle};
+use nu_table::{text_style::TextStyle, Alignment};
 use std::collections::HashMap;
 
 pub fn number(number: impl Into<Number>) -> Primitive {

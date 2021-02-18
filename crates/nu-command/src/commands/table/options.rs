@@ -1,11 +1,11 @@
 pub use nu_data::config::NuConfig;
 use nu_data::primitive::lookup_ansi_color_style;
 use nu_protocol::Value;
-use nu_table::{Alignment, TextStyle};
+use nu_table::{table_theme::TableTheme, text_style::TextStyle, Alignment};
 use std::fmt::Debug;
 
 pub trait ConfigExtensions: Debug + Send {
-    fn table_mode(&self) -> nu_table::Theme;
+    fn table_mode(&self) -> TableTheme;
     fn disabled_indexes(&self) -> bool;
     fn header_style(&self) -> TextStyle;
 }
@@ -46,22 +46,22 @@ pub fn header_bold_from_value(bold_value: Option<&Value>) -> bool {
         .unwrap_or(true)
 }
 
-pub fn table_mode(config: &NuConfig) -> nu_table::Theme {
+pub fn table_mode(config: &NuConfig) -> TableTheme {
     let vars = &config.vars;
 
     vars.get("table_mode")
-        .map_or(nu_table::Theme::compact(), |mode| match mode.as_string() {
-            Ok(m) if m == "basic" => nu_table::Theme::basic(),
-            Ok(m) if m == "compact" => nu_table::Theme::compact(),
-            Ok(m) if m == "light" => nu_table::Theme::light(),
-            Ok(m) if m == "thin" => nu_table::Theme::thin(),
-            Ok(m) if m == "with_love" => nu_table::Theme::with_love(),
-            Ok(m) if m == "compact_double" => nu_table::Theme::compact_double(),
-            Ok(m) if m == "rounded" => nu_table::Theme::rounded(),
-            Ok(m) if m == "reinforced" => nu_table::Theme::reinforced(),
-            Ok(m) if m == "heavy" => nu_table::Theme::heavy(),
-            Ok(m) if m == "none" => nu_table::Theme::none(),
-            _ => nu_table::Theme::compact(),
+        .map_or(TableTheme::compact(), |mode| match mode.as_string() {
+            Ok(m) if m == "basic" => TableTheme::basic(),
+            Ok(m) if m == "compact" => TableTheme::compact(),
+            Ok(m) if m == "light" => TableTheme::light(),
+            Ok(m) if m == "thin" => TableTheme::thin(),
+            Ok(m) if m == "with_love" => TableTheme::with_love(),
+            Ok(m) if m == "compact_double" => TableTheme::compact_double(),
+            Ok(m) if m == "rounded" => TableTheme::rounded(),
+            Ok(m) if m == "reinforced" => TableTheme::reinforced(),
+            Ok(m) if m == "heavy" => TableTheme::heavy(),
+            Ok(m) if m == "none" => TableTheme::none(),
+            _ => TableTheme::compact(),
         })
 }
 
@@ -101,7 +101,7 @@ impl ConfigExtensions for NuConfig {
                 .unwrap_or(ansi_term::Color::Green))
     }
 
-    fn table_mode(&self) -> nu_table::Theme {
+    fn table_mode(&self) -> TableTheme {
         table_mode(self)
     }
 
