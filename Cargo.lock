@@ -2850,6 +2850,7 @@ dependencies = [
  "nu_plugin_tree",
  "nu_plugin_xpath",
  "pretty_env_logger",
+ "serial_test",
 ]
 
 [[package]]
@@ -5010,6 +5011,28 @@ dependencies = [
  "linked-hash-map 0.5.4",
  "serde 1.0.123",
  "yaml-rust",
+]
+
+[[package]]
+name = "serial_test"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0bccbcf40c8938196944a3da0e133e031a33f4d6b72db3bda3cc556e361905d"
+dependencies = [
+ "lazy_static 1.4.0",
+ "parking_lot 0.11.1",
+ "serial_test_derive",
+]
+
+[[package]]
+name = "serial_test_derive"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b2acd6defeddb41eb60bb468f8825d0cfd0c2a76bc03bfd235b6a1dc4f6a1ad5"
+dependencies = [
+ "proc-macro2",
+ "quote 1.0.8",
+ "syn 1.0.60",
 ]
 
 [[package]]

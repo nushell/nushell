@@ -57,8 +57,10 @@ log = "0.4.14"
 pretty_env_logger = "0.4.0"
 
 [dev-dependencies]
-dunce = "1.0.1"
 nu-test-support = { version = "0.27.1", path = "./crates/nu-test-support" }
+dunce = "1.0.1"
+serial_test = "0.5.1"
+
 
 [build-dependencies]
 
