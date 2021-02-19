@@ -3,9 +3,18 @@ use std::collections::HashMap;
 
 fn main() {
     let args: Vec<_> = std::env::args().collect();
+    let mut width = 0;
 
-    // Width in terminal characters
-    let width = args[1].parse::<usize>().expect("Need a width in columns");
+    if args.len() > 1 {
+        // Width in terminal characters
+        width = args[1].parse::<usize>().expect("Need a width in columns");
+    }
+
+    if width < 4 {
+        println!("Width must be greater than or equal to 4, setting width to 80");
+        width = 80;
+    }
+
     // The mocked up table data
     let (table_headers, row_data) = make_table_data();
     // The table headers
