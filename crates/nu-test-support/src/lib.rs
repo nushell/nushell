@@ -4,6 +4,17 @@ pub mod macros;
 pub mod playground;
 pub mod value;
 
+pub struct Outcome {
+    pub out: String,
+    pub err: String,
+}
+
+impl Outcome {
+    pub fn new(out: String, err: String) -> Outcome {
+        Outcome { out, err }
+    }
+}
+
 pub fn pipeline(commands: &str) -> String {
     commands
         .lines()

@@ -25,6 +25,7 @@ pub fn file_is_trusted(nu_env_file: &Path, content: &[u8]) -> Result<bool, Shell
     let nufile = std::fs::canonicalize(nu_env_file)?;
 
     let trusted = read_trusted()?;
+
     Ok(trusted.files.get(&nufile.to_string_lossy().to_string()) == Some(&contentdigest))
 }
 

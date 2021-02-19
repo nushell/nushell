@@ -1,5 +1,9 @@
 use nu_test_support::{nu, pipeline};
 
+#[cfg(feature = "directories-support")]
+#[cfg(feature = "which-support")]
+mod environment;
+
 mod pipeline;
 
 #[test]
