@@ -31,6 +31,7 @@ use nu_errors::ShellError;
 use nu_parser::ParserScope;
 use nu_protocol::{hir::ExternalRedirection, UntaggedValue, Value};
 
+use log::trace;
 use std::error::Error;
 use std::iter::Iterator;
 use std::path::PathBuf;
@@ -116,7 +117,19 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
         rl.set_helper(helper);
     });
 
+    // start time for command duration
+    let startup_commands_start_time = std::time::Instant::now();
+    // run the startup commands
     let _ = run_startup_commands(&mut context, &configuration).await;
+    // Store cmd duration in an env var
+    context.scope.add_env_var(
+        "CMD_DURATION",
+        format!("{:?}", startup_commands_start_time.elapsed()),
+    );
+    trace!(
+        "startup commands took {:?}",
+        startup_commands_start_time.elapsed()
+    );
 
     // Give ourselves a scope to work in
     context.scope.enter_scope();
@@ -227,6 +240,9 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
             session_text.push('\n');
         }
 
+        // start time for command duration
+        let cmd_start_time = std::time::Instant::now();
+
         let line = match convert_rustyline_result_to_string(readline) {
             LineResult::Success(_) => {
                 process_script(
@@ -240,6 +256,11 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
             }
             x => x,
         };
+
+        // Store cmd duration in an env var
+        context
+            .scope
+            .add_env_var("CMD_DURATION", format!("{:?}", cmd_start_time.elapsed()));
 
         // Check the config to see if we need to update the path
         // TODO: make sure config is cached so we don't path this load every call
