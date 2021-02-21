@@ -29,7 +29,10 @@ where
 
             (absolute, relative)
         } else {
-            (relative_to.as_ref().to_path_buf(), path)
+            (
+                relative_to.as_ref().to_path_buf(),
+                components.iter().collect::<PathBuf>(),
+            )
         }
     };
 
