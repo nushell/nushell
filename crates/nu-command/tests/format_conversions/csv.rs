@@ -64,7 +64,7 @@ fn table_to_csv_text_skipping_headers_after_conversion() {
                 | str trim
                 | split column "," a b c d origin
                 | last 1
-                | to csv --headerless
+                | to csv --noheaders
             "#
         ));
 
@@ -198,7 +198,7 @@ fn from_csv_text_skipping_headers_to_table() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_amigos.txt
-                | from csv --headerless
+                | from csv --noheaders
                 | get Column3
                 | count
             "#

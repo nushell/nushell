@@ -10,7 +10,7 @@ pub struct FromXLSX;
 
 #[derive(Deserialize)]
 pub struct FromXLSXArgs {
-    headerless: bool,
+    noheaders: bool,
 }
 
 #[async_trait]
@@ -21,9 +21,9 @@ impl WholeStreamCommand for FromXLSX {
 
     fn signature(&self) -> Signature {
         Signature::build("from xlsx").switch(
-            "headerless",
+            "noheaders",
             "don't treat the first row as column names",
-            None,
+            Some('n'),
         )
     }
 
@@ -41,7 +41,7 @@ async fn from_xlsx(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let span = tag.span;
     let (
         FromXLSXArgs {
-            headerless: _headerless,
+            noheaders: _noheaders,
         },
         input,
     ) = args.process().await?;

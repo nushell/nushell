@@ -72,7 +72,7 @@ fn from_ssv_text_treating_first_line_as_data_with_flag() {
         cwd: dirs.test(), pipeline(
             r#"
                 open oc_get_svc.txt
-                | from ssv --headerless -a
+                | from ssv --noheaders -a
                 | first
                 | get Column1
             "#
@@ -82,7 +82,7 @@ fn from_ssv_text_treating_first_line_as_data_with_flag() {
             cwd: dirs.test(), pipeline(
             r#"
                 open oc_get_svc.txt
-                | from ssv --headerless
+                | from ssv --noheaders
                 | first
                 | get Column1
                 

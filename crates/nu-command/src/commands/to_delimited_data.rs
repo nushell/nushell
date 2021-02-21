@@ -165,7 +165,7 @@ fn merge_descriptors(values: &[Value]) -> Vec<Spanned<String>> {
 }
 
 pub async fn to_delimited_data(
-    headerless: bool,
+    noheaders: bool,
     sep: char,
     format_name: &'static str,
     input: InputStream,
@@ -192,7 +192,7 @@ pub async fn to_delimited_data(
         futures::stream::iter(to_process_input.into_iter().map(move |value| {
             match from_value_to_delimited_string(&clone_tagged_value(&value), sep) {
                 Ok(mut x) => {
-                    if headerless {
+                    if noheaders {
                         if let Some(second_line) = x.find('\n') {
                             let start = second_line + 1;
                             x.replace_range(0..start, "");

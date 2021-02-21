@@ -70,7 +70,7 @@ fn table_to_tsv_text_skipping_headers_after_conversion() {
                 | lines
                 | split column "\t" a b c d origin
                 | last 1
-                | to tsv --headerless
+                | to tsv --noheaders
             "#
         ));
 
@@ -121,7 +121,7 @@ fn from_tsv_text_skipping_headers_to_table() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_amigos.txt
-                | from tsv --headerless
+                | from tsv --noheaders
                 | get Column3
                 | count
             "#

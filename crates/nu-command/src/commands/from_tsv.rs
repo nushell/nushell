@@ -8,7 +8,7 @@ pub struct FromTSV;
 
 #[derive(Deserialize)]
 pub struct FromTSVArgs {
-    headerless: bool,
+    noheaders: bool,
 }
 
 #[async_trait]
@@ -19,9 +19,9 @@ impl WholeStreamCommand for FromTSV {
 
     fn signature(&self) -> Signature {
         Signature::build("from tsv").switch(
-            "headerless",
+            "noheaders",
             "don't treat the first row as column names",
-            None,
+            Some('n'),
         )
     }
 
@@ -36,9 +36,9 @@ impl WholeStreamCommand for FromTSV {
 
 async fn from_tsv(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (FromTSVArgs { headerless }, input) = args.process().await?;
+    let (FromTSVArgs { noheaders }, input) = args.process().await?;
 
-    from_delimited_data(headerless, '\t', "TSV", input, name).await
+    from_delimited_data(noheaders, '\t', "TSV", input, name).await
 }
 
 #[cfg(test)]
