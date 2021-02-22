@@ -1,5 +1,5 @@
 use crate::table::TextStyle;
-use ansi_term::Style;
+use nu_ansi_term::Style;
 use std::collections::HashMap;
 use std::{fmt::Display, iter::Iterator};
 use unicode_width::UnicodeWidthStr;

@@ -42,7 +42,7 @@ pub fn from_list(
     values: &[Value],
     configuration: &TableConfiguration,
     starting_idx: usize,
-    color_hm: &HashMap<String, ansi_term::Style>,
+    color_hm: &HashMap<String, nu_ansi_term::Style>,
 ) -> nu_table::Table {
     let header_style = configuration.header_style();
     let mut headers: Vec<StyledString> = nu_protocol::merge_descriptors(values)
@@ -62,7 +62,7 @@ fn values_to_entries(
     headers: &mut Vec<StyledString>,
     configuration: &TableConfiguration,
     starting_idx: usize,
-    color_hm: &HashMap<String, ansi_term::Style>,
+    color_hm: &HashMap<String, nu_ansi_term::Style>,
 ) -> Vec<Vec<StyledString>> {
     let disable_indexes = configuration.disabled_indexes();
     let mut entries = vec![];
@@ -122,9 +122,9 @@ fn values_to_entries(
                         color_hm
                             .get("index_color")
                             .unwrap_or(
-                                &ansi_term::Style::default()
+                                &nu_ansi_term::Style::default()
                                     .bold()
-                                    .fg(ansi_term::Color::Green),
+                                    .fg(nu_ansi_term::Color::Green),
                             )
                             .to_owned(),
                     ),
@@ -142,7 +142,7 @@ fn values_to_entries(
                 "#".to_owned(),
                 TextStyle::new()
                     .alignment(Alignment::Center)
-                    .fg(ansi_term::Color::Green)
+                    .fg(nu_ansi_term::Color::Green)
                     .bold(Some(true)),
             ),
         );

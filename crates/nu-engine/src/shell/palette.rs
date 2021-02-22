@@ -1,4 +1,4 @@
-use ansi_term::{Color, Style};
+use nu_ansi_term::{Color, Style};
 use nu_protocol::hir::FlatShape;
 use nu_source::{Span, Spanned};
 use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
@@ -278,7 +278,7 @@ fn single_style_span(style: Style, span: Span) -> Vec<Spanned<Style>> {
 #[cfg(test)]
 mod tests {
     use super::{Palette, ThemedPalette};
-    use ansi_term::Color;
+    use nu_ansi_term::Color;
     use nu_protocol::hir::FlatShape;
     use nu_source::{Span, Spanned};
     use std::io::Cursor;
