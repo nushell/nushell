@@ -210,7 +210,9 @@ pub async fn process_script(
                 // values to compute them.
                 use futures::stream::TryStreamExt;
 
-                let autoview_cmd = ctx.get_command("autoview").unwrap();
+                let autoview_cmd = ctx
+                    .get_command("autoview")
+                    .expect("Could not find autoview command");
 
                 if let Ok(mut output_stream) = ctx
                     .run_command(
