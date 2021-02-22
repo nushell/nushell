@@ -336,7 +336,7 @@ pub fn format_leaf<'a>(value: impl Into<&'a UntaggedValue>) -> DebugDocBuilder {
 
 pub fn style_leaf<'a>(
     value: impl Into<&'a UntaggedValue>,
-    color_hash_map: &HashMap<String, ansi_term::Style>,
+    color_hash_map: &HashMap<String, nu_ansi_term::Style>,
 ) -> TextStyle {
     match value.into() {
         UntaggedValue::Primitive(p) => {

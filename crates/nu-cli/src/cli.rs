@@ -153,7 +153,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
 
     #[cfg(windows)]
     {
-        let _ = ansi_term::enable_ansi_support();
+        let _ = nu_ansi_term::enable_ansi_support();
     }
 
     let mut ctrlcbreak = false;

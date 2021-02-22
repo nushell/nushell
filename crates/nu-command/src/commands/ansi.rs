@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use ansi_term::Color;
+use nu_ansi_term::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};

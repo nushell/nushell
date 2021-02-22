@@ -1,8 +1,8 @@
-use ansi_term::Color;
 use bigdecimal::BigDecimal;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use derive_new::new;
 use getset::Getters;
+use nu_ansi_term::Color;
 use nu_source::{
     DbgDocBldr, DebugDocBuilder, HasFallibleSpan, PrettyDebug, Span, Spanned, SpannedItem,
 };
