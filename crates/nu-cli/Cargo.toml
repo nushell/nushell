@@ -24,9 +24,9 @@ nu-stream = { version = "0.27.1", path = "../nu-stream" }
 nu-table = { version = "0.27.1", path = "../nu-table" }
 nu-test-support = { version = "0.27.1", path = "../nu-test-support" }
 nu-value-ext = { version = "0.27.1", path = "../nu-value-ext" }
+nu-ansi-term = { version = "0.27.1", path = "../nu-ansi-term" }
 
 Inflector = "0.11"
-ansi_term = "0.12.1"
 arboard = { version = "1.1.0", optional = true }
 async-recursion = "0.3.2"
 async-trait = "0.1.42"

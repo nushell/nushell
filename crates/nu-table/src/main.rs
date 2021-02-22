@@ -25,7 +25,7 @@ fn main() {
     let table = Table::new(headers, vec![rows; 3], Theme::rounded());
 
     // FIXME: Config isn't available from here so just put these here to compile
-    let color_hm: HashMap<String, ansi_term::Style> = HashMap::new();
+    let color_hm: HashMap<String, nu_ansi_term::Style> = HashMap::new();
     // Draw the table
     draw_table(&table, width, &color_hm);
 }

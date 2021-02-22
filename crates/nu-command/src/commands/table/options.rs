@@ -80,7 +80,7 @@ impl ConfigExtensions for NuConfig {
             Some(s) => {
                 lookup_ansi_color_style(s.as_string().unwrap_or_else(|_| "green".to_string()))
             }
-            None => ansi_term::Color::Green.normal(),
+            None => nu_ansi_term::Color::Green.normal(),
         };
         let head_bold = get_color_from_key_and_subkey(self, "color_config", "header_bold");
         let head_bold_bool = match head_bold {
@@ -98,7 +98,7 @@ impl ConfigExtensions for NuConfig {
             .bold(Some(head_bold_bool))
             .fg(head_color_style
                 .foreground
-                .unwrap_or(ansi_term::Color::Green))
+                .unwrap_or(nu_ansi_term::Color::Green))
     }
 
     fn table_mode(&self) -> nu_table::Theme {

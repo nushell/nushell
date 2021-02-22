@@ -10,7 +10,6 @@ version = "0.27.1"
 doctest = false
 
 [dependencies]
-ansi_term = "0.12.1"
 bigdecimal = "0.2.0"
 byte-unit = "4.0.9"
 
@@ -35,6 +34,7 @@ nu-source = { version = "0.27.1", path = "../nu-source" }
 nu-table = { version = "0.27.1", path = "../nu-table" }
 nu-test-support = { version = "0.27.1", path = "../nu-test-support" }
 nu-value-ext = { version = "0.27.1", path = "../nu-value-ext" }
+nu-ansi-term = { version = "0.27.1", path = "../nu-ansi-term" }
 
 [target.'cfg(unix)'.dependencies]
 users = "0.11.0"

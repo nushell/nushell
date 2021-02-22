@@ -1,5 +1,5 @@
 use crate::wrap::{column_width, split_sublines, wrap, Alignment, Subline, WrappedCell};
-use ansi_term::{Color, Style};
+use nu_ansi_term::{Color, Style};
 use std::collections::HashMap;
 
 enum SeparatorPosition {
@@ -867,7 +867,7 @@ impl WrappedTable {
     fn print_table(&self, color_hm: &HashMap<String, Style>) {
         #[cfg(windows)]
         {
-            let _ = ansi_term::enable_ansi_support();
+            let _ = nu_ansi_term::enable_ansi_support();
         }
 
         if self.data.is_empty() {

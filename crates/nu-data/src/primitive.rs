@@ -1,4 +1,4 @@
-use ansi_term::{Color, Style};
+use nu_ansi_term::{Color, Style};
 use nu_protocol::{hir::Number, Primitive, Value};
 use nu_source::Tag;
 use nu_table::{Alignment, TextStyle};

@@ -2854,11 +2854,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu-ansi-term"
+version = "0.27.1"
+dependencies = [
+ "doc-comment",
+ "regex 1.4.3",
+ "serde 1.0.123",
+ "serde_json",
+ "winapi 0.3.9",
+]
+
+[[package]]
 name = "nu-cli"
 version = "0.27.1"
 dependencies = [
  "Inflector",
- "ansi_term 0.12.1",
  "arboard",
  "async-recursion",
  "async-trait",
@@ -2895,6 +2905,7 @@ dependencies = [
  "lazy_static 1.4.0",
  "log 0.4.14",
  "meval",
+ "nu-ansi-term",
  "nu-command",
  "nu-data",
  "nu-engine",
@@ -2959,7 +2970,6 @@ name = "nu-command"
 version = "0.27.1"
 dependencies = [
  "Inflector",
- "ansi_term 0.12.1",
  "arboard",
  "async-recursion",
  "async-trait",
@@ -2996,6 +3006,7 @@ dependencies = [
  "lazy_static 1.4.0",
  "log 0.4.14",
  "meval",
+ "nu-ansi-term",
  "nu-data",
  "nu-engine",
  "nu-errors",
@@ -3058,7 +3069,6 @@ dependencies = [
 name = "nu-data"
 version = "0.27.1"
 dependencies = [
- "ansi_term 0.12.1",
  "bigdecimal",
  "byte-unit",
  "chrono",
@@ -3068,6 +3078,7 @@ dependencies = [
  "getset",
  "indexmap",
  "log 0.4.14",
+ "nu-ansi-term",
  "nu-errors",
  "nu-protocol",
  "nu-source",
@@ -3088,7 +3099,6 @@ dependencies = [
 name = "nu-engine"
 version = "0.27.1"
 dependencies = [
- "ansi_term 0.12.1",
  "async-recursion",
  "async-trait",
  "bytes 0.5.6",
@@ -3106,6 +3116,7 @@ dependencies = [
  "indexmap",
  "itertools",
  "log 0.4.14",
+ "nu-ansi-term",
  "nu-data",
  "nu-errors",
  "nu-parser",
@@ -3130,12 +3141,12 @@ dependencies = [
 name = "nu-errors"
 version = "0.27.1"
 dependencies = [
- "ansi_term 0.12.1",
  "bigdecimal",
  "codespan-reporting",
  "derive-new",
  "getset",
  "glob",
+ "nu-ansi-term",
  "nu-source",
  "num-bigint 0.3.1",
  "num-traits 0.2.14",
@@ -3242,7 +3253,7 @@ dependencies = [
 name = "nu-table"
 version = "0.27.1"
 dependencies = [
- "ansi_term 0.12.1",
+ "nu-ansi-term",
  "regex 1.4.3",
  "unicode-width",
 ]
@@ -3281,10 +3292,10 @@ dependencies = [
 name = "nu_plugin_binaryview"
 version = "0.27.1"
 dependencies = [
- "ansi_term 0.12.1",
  "crossterm 0.19.0",
  "image 0.22.5",
  "neso",
+ "nu-ansi-term",
  "nu-errors",
  "nu-plugin",
  "nu-protocol",
@@ -3460,8 +3471,8 @@ dependencies = [
 name = "nu_plugin_textview"
 version = "0.27.1"
 dependencies = [
- "ansi_term 0.12.1",
  "bat",
+ "nu-ansi-term",
  "nu-data",
  "nu-errors",
  "nu-plugin",
