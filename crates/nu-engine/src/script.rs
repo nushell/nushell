@@ -1,19 +1,22 @@
-use crate::maybe_print_errors;
-use crate::prelude::*;
+use crate::path::canonicalize;
+use crate::run_block;
+use crate::{MaybeTextCodec, StringOrBinary};
+use futures::StreamExt;
 use futures_codec::FramedRead;
-use nu_engine::path::canonicalize;
-use nu_engine::run_block;
-use nu_engine::EvaluationContext;
-use nu_engine::{MaybeTextCodec, StringOrBinary};
 use nu_errors::ShellError;
-use nu_protocol::hir::{ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments};
+use nu_protocol::hir::{
+    Call, ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments,
+    SpannedExpression,
+};
 use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue, Value};
-use nu_stream::ToInputStream;
+use nu_stream::{InputStream, ToInputStream};
 
+use crate::EvaluationContext;
 use log::{debug, trace};
-use std::error::Error;
+use nu_source::{Span, Tag, Text};
 use std::iter::Iterator;
 use std::path::Path;
+use std::{error::Error, sync::atomic::Ordering};
 
 #[derive(Debug)]
 pub enum LineResult {
@@ -30,6 +33,21 @@ fn chomp_newline(s: &str) -> &str {
         s
     } else {
         s
+    }
+}
+
+pub fn maybe_print_errors(context: &EvaluationContext, source: Text) -> bool {
+    let errors = context.current_errors.clone();
+    let mut errors = errors.lock();
+
+    if errors.len() > 0 {
+        let error = errors[0].clone();
+        *errors = vec![];
+
+        print_err(error, &source);
+        true
+    } else {
+        false
     }
 }
 
@@ -113,7 +131,7 @@ pub async fn process_script(
                         .unwrap_or(true)
                     && canonicalize(ctx.shell_manager.path(), name).is_ok()
                     && Path::new(&name).is_dir()
-                    && !crate::commands::classified::external::did_find_command(&name)
+                    && !crate::external::is_external_cmd(&name)
                 {
                     // Here we work differently if we're in Windows because of the expected Windows behavior
                     #[cfg(windows)]
@@ -192,18 +210,22 @@ pub async fn process_script(
                 // values to compute them.
                 use futures::stream::TryStreamExt;
 
-                let context = RunnableContext {
-                    input,
-                    shell_manager: ctx.shell_manager.clone(),
-                    host: ctx.host.clone(),
-                    ctrl_c: ctx.ctrl_c.clone(),
-                    current_errors: ctx.current_errors.clone(),
-                    scope: ctx.scope.clone(),
-                    name: Tag::unknown(),
-                };
+                let autoview_cmd = ctx.get_command("autoview").unwrap();
 
-                if let Ok(mut output_stream) =
-                    crate::commands::autoview::command::autoview(context).await
+                if let Ok(mut output_stream) = ctx
+                    .run_command(
+                        autoview_cmd,
+                        Tag::unknown(),
+                        Call::new(
+                            Box::new(SpannedExpression::new(
+                                Expression::string("autoview".to_string()),
+                                Span::unknown(),
+                            )),
+                            Span::unknown(),
+                        ),
+                        input,
+                    )
+                    .await
                 {
                     loop {
                         match output_stream.try_next().await {

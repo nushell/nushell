@@ -1,12 +1,13 @@
 use crate::line_editor::configure_ctrl_c;
 use nu_command::commands::default_context::create_default_context;
-#[allow(unused_imports)]
-use nu_command::maybe_print_errors;
-use nu_engine::run_block;
-use nu_engine::EvaluationContext;
+use nu_engine::{run_block, script::maybe_print_errors};
+use nu_engine::{
+    script::{print_err, run_script_standalone},
+    EvaluationContext,
+};
 
 #[allow(unused_imports)]
-pub(crate) use nu_command::script::{process_script, LineResult};
+pub(crate) use nu_engine::script::{process_script, LineResult};
 
 #[cfg(feature = "rustyline-support")]
 use crate::line_editor::{
@@ -20,8 +21,6 @@ use nu_source::{Tag, Text};
 use nu_stream::InputStream;
 #[allow(unused_imports)]
 use std::sync::atomic::Ordering;
-
-use nu_command::script::{print_err, run_script_standalone};
 
 #[cfg(feature = "rustyline-support")]
 use rustyline::{self, error::ReadlineError};
