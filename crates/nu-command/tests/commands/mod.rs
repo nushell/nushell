@@ -43,6 +43,7 @@ mod reduce;
 mod rename;
 mod reverse;
 mod rm;
+mod rotate;
 mod save;
 mod select;
 mod semicolon;

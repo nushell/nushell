@@ -161,6 +161,8 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Pivot),
             whole_stream_command(Headers),
             whole_stream_command(Reduce),
+            whole_stream_command(Rotate),
+            whole_stream_command(RotateCounterClockwise),
             // Data processing
             whole_stream_command(Histogram),
             whole_stream_command(Autoenv),
