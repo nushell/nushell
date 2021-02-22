@@ -84,6 +84,7 @@ which-support = [
     "nu-cli/which",
     "nu-command/ichwh",
     "nu-command/which",
+    "nu-engine/which",
 ]
 
 default = [
