@@ -8,7 +8,7 @@ pub struct ToCSV;
 
 #[derive(Deserialize)]
 pub struct ToCSVArgs {
-    headerless: bool,
+    noheaders: bool,
     separator: Option<Value>,
 }
 
@@ -27,9 +27,9 @@ impl WholeStreamCommand for ToCSV {
                 Some('s'),
             )
             .switch(
-                "headerless",
+                "noheaders",
                 "do not output the columns names as the first row",
-                None,
+                Some('n'),
             )
     }
 
@@ -47,7 +47,7 @@ async fn to_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let (
         ToCSVArgs {
             separator,
-            headerless,
+            noheaders,
         },
         input,
     ) = args.process().await?;
@@ -74,7 +74,7 @@ async fn to_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
         _ => ',',
     };
 
-    to_delimited_data(headerless, sep, "CSV", input, name).await
+    to_delimited_data(noheaders, sep, "CSV", input, name).await
 }
 
 #[cfg(test)]

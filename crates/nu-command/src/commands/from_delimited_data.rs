@@ -5,18 +5,18 @@ use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
 
 fn from_delimited_string_to_value(
     s: String,
-    headerless: bool,
+    noheaders: bool,
     separator: char,
     tag: impl Into<Tag>,
 ) -> Result<Value, csv::Error> {
     let mut reader = ReaderBuilder::new()
-        .has_headers(!headerless)
+        .has_headers(!noheaders)
         .delimiter(separator as u8)
         .from_reader(s.as_bytes());
     let tag = tag.into();
     let span = tag.span;
 
-    let headers = if headerless {
+    let headers = if noheaders {
         (1..=reader.headers()?.len())
             .map(|i| format!("Column{}", i))
             .collect::<Vec<String>>()
@@ -46,7 +46,7 @@ fn from_delimited_string_to_value(
 }
 
 pub async fn from_delimited_data(
-    headerless: bool,
+    noheaders: bool,
     sep: char,
     format_name: &'static str,
     input: InputStream,
@@ -56,7 +56,7 @@ pub async fn from_delimited_data(
     let concat_string = input.collect_string(name_tag.clone()).await?;
     let sample_lines = concat_string.item.lines().take(3).collect_vec().join("\n");
 
-    match from_delimited_string_to_value(concat_string.item, headerless, sep, name_tag.clone()) {
+    match from_delimited_string_to_value(concat_string.item, noheaders, sep, name_tag.clone()) {
         Ok(x) => match x {
             Value {
                 value: UntaggedValue::Table(list),
