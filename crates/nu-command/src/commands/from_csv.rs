@@ -55,7 +55,7 @@ impl WholeStreamCommand for FromCSV {
             },
             Example {
                 description: "Convert comma-separated data to a table, ignoring headers",
-                example: "open data.txt | from csv -0",
+                example: "open data.txt | from csv -n",
                 result: None,
             },
             Example {
