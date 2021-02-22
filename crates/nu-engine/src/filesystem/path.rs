@@ -95,6 +95,17 @@ mod tests {
     }
 
     #[test]
+    fn absolutize_with_curdir() {
+        let relative_to = Path::new("/foo");
+        let path = Path::new("./bar/./baz");
+
+        assert_eq!(
+            PathBuf::from("/foo/bar/baz").to_str(), // missing path
+            absolutize(relative_to, path).to_str()
+        );
+    }
+
+    #[test]
     fn canonicalize_should_succeed() -> io::Result<()> {
         let relative_to = Path::new("/foo/bar");
         let path = Path::new("../..");
