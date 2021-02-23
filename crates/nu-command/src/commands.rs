@@ -141,6 +141,7 @@ pub(crate) use autoview::Autoview;
 pub(crate) use cd::Cd;
 
 pub(crate) use ansi::Ansi;
+pub(crate) use ansi::AnsiStrip;
 pub(crate) use append::Command as Append;
 pub(crate) use autoenv::Autoenv;
 pub(crate) use autoenv_trust::AutoenvTrust;
