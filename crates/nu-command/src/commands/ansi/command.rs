@@ -5,7 +5,7 @@ use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
-pub struct Ansi;
+pub struct Command;
 
 #[derive(Deserialize)]
 struct AnsiArgs {
@@ -15,7 +15,7 @@ struct AnsiArgs {
 }
 
 #[async_trait]
-impl WholeStreamCommand for Ansi {
+impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "ansi"
     }
@@ -279,13 +279,13 @@ pub fn str_to_ansi(s: String) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::Ansi;
+    use super::Command;
     use super::ShellError;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(Ansi {})
+        test_examples(Command {})
     }
 }
