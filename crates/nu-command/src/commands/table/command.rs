@@ -238,7 +238,8 @@ async fn table(
         if !input.is_empty() {
             let t = from_list(&input, &configuration, start_number, &color_hm);
 
-            draw_table(&t, term_width, &color_hm);
+            let output = draw_table(&t, term_width, &color_hm);
+            println!("{}", output);
         }
 
         start_number += input.len();
