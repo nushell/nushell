@@ -147,6 +147,8 @@ start = ["nu_plugin_start"]
 trash-support = ["nu-cli/trash-support", "nu-command/trash-support"]
 tree = ["nu_plugin_tree"]
 xpath = ["nu_plugin_xpath"]
+#This is disabled in extra for now
+table-pager = ["nu-command/table-pager"]
 
 [profile.release]
 #strip = "symbols" #Couldn't get working +nightly

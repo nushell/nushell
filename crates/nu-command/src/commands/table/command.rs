@@ -8,6 +8,12 @@ use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_table::{draw_table, Alignment, StyledString, TextStyle};
 use std::collections::HashMap;
 use std::time::Instant;
+#[cfg(feature = "table-pager")]
+use {
+    futures::future::join,
+    minus::{ExitStrategy, Pager},
+    std::fmt::Write,
+};
 
 const STREAM_PAGE_SIZE: usize = 1000;
 const STREAM_TIMEOUT_CHECK_INTERVAL: usize = 100;
@@ -187,63 +193,101 @@ async fn table(
 
     let term_width = args.host.lock().width();
 
-    while !finished {
-        let mut new_input: VecDeque<Value> = VecDeque::new();
+    #[cfg(feature = "table-pager")]
+    let pager = Pager::new()
+        .set_exit_strategy(ExitStrategy::PagerQuit)
+        .set_searchable(true)
+        .set_page_if_havent_overflowed(false)
+        .finish();
 
-        let start_time = Instant::now();
-        for idx in 0..STREAM_PAGE_SIZE {
-            if let Some(val) = delay_slot {
-                new_input.push_back(val);
-                delay_slot = None;
-            } else {
-                match args.input.next().await {
-                    Some(a) => {
-                        if !new_input.is_empty() {
-                            if let Some(descs) = new_input.get(0) {
-                                let descs = descs.data_descriptors();
-                                let compare = a.data_descriptors();
-                                if descs != compare {
-                                    delay_slot = Some(a);
-                                    break;
+    let stream_data = async {
+        while !finished {
+            let mut new_input: VecDeque<Value> = VecDeque::new();
+
+            let start_time = Instant::now();
+            for idx in 0..STREAM_PAGE_SIZE {
+                if let Some(val) = delay_slot {
+                    new_input.push_back(val);
+                    delay_slot = None;
+                } else {
+                    match args.input.next().await {
+                        Some(a) => {
+                            if !new_input.is_empty() {
+                                if let Some(descs) = new_input.get(0) {
+                                    let descs = descs.data_descriptors();
+                                    let compare = a.data_descriptors();
+                                    if descs != compare {
+                                        delay_slot = Some(a);
+                                        break;
+                                    } else {
+                                        new_input.push_back(a);
+                                    }
                                 } else {
                                     new_input.push_back(a);
                                 }
                             } else {
                                 new_input.push_back(a);
                             }
-                        } else {
-                            new_input.push_back(a);
+                        }
+                        _ => {
+                            finished = true;
+                            break;
                         }
                     }
-                    _ => {
-                        finished = true;
-                        break;
-                    }
-                }
 
-                // Check if we've gone over our buffering threshold
-                if (idx + 1) % STREAM_TIMEOUT_CHECK_INTERVAL == 0 {
-                    let end_time = Instant::now();
+                    // Check if we've gone over our buffering threshold
+                    if (idx + 1) % STREAM_TIMEOUT_CHECK_INTERVAL == 0 {
+                        let end_time = Instant::now();
 
-                    // If we've been buffering over a second, go ahead and send out what we have so far
-                    if (end_time - start_time).as_secs() >= 1 {
-                        break;
+                        // If we've been buffering over a second, go ahead and send out what we have so far
+                        if (end_time - start_time).as_secs() >= 1 {
+                            break;
+                        }
                     }
                 }
             }
+
+            let input: Vec<Value> = new_input.into();
+
+            if !input.is_empty() {
+                let t = from_list(&input, &configuration, start_number, &color_hm);
+                let output = draw_table(&t, term_width, &color_hm);
+                #[cfg(feature = "table-pager")]
+                {
+                    let mut pager = pager.lock().await;
+                    writeln!(pager.lines, "{}", output).map_err(|_| {
+                        ShellError::untagged_runtime_error("Error writing to pager")
+                    })?;
+                }
+
+                #[cfg(not(feature = "table-pager"))]
+                println!("{}", output);
+            }
+
+            start_number += input.len();
         }
 
-        let input: Vec<Value> = new_input.into();
-
-        if !input.is_empty() {
-            let t = from_list(&input, &configuration, start_number, &color_hm);
-
-            let output = draw_table(&t, term_width, &color_hm);
-            println!("{}", output);
+        #[cfg(feature = "table-pager")]
+        {
+            let mut pager_lock = pager.lock().await;
+            pager_lock.data_finished();
         }
 
-        start_number += input.len();
+        Result::<_, ShellError>::Ok(())
+    };
+
+    #[cfg(feature = "table-pager")]
+    {
+        let (minus_result, streaming_result) =
+            join(minus::async_std_updating(pager.clone()), stream_data).await;
+        minus_result.map_err(|_| ShellError::untagged_runtime_error("Error paging data"))?;
+        streaming_result?;
     }
+
+    #[cfg(not(feature = "table-pager"))]
+    stream_data
+        .await
+        .map_err(|_| ShellError::untagged_runtime_error("Error streaming data"))?;
 
     Ok(OutputStream::empty())
 }
