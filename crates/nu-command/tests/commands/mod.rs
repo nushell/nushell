@@ -43,6 +43,7 @@ mod reduce;
 mod rename;
 mod reverse;
 mod rm;
+mod roll;
 mod rotate;
 mod save;
 mod select;
