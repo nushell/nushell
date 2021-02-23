@@ -40,7 +40,7 @@ impl WholeStreamCommand for SubCommand {
         vec![Example {
             description: "strip ansi escape sequences from string",
             example: "echo [$(ansi gb) 'hello' $(ansi reset)] | str collect | ansi strip",
-            result: Some(vec![UntaggedValue::string("hello").into_untagged_value()]),
+            result: None,
         }]
     }
 }
@@ -97,12 +97,25 @@ fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
 #[cfg(test)]
 mod tests {
     use super::ShellError;
-    use super::SubCommand;
+    use super::{action, SubCommand};
+    use nu_protocol::UntaggedValue;
+    use nu_source::Tag;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
         test_examples(SubCommand {})
+    }
+
+    #[test]
+    fn test_stripping() {
+        let input_string =
+            UntaggedValue::string("\u{1b}[3;93;41mHello\u{1b}[0m \u{1b}[1;32mNu \u{1b}[1;35mWorld")
+                .into_untagged_value();
+        let expected = UntaggedValue::string("Hello Nu World").into_untagged_value();
+
+        let actual = action(&input_string, Tag::unknown()).unwrap();
+        assert_eq!(actual, expected);
     }
 }
