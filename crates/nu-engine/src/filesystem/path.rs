@@ -29,7 +29,10 @@ where
 
             (absolute, relative)
         } else {
-            (relative_to.as_ref().to_path_buf(), path)
+            (
+                relative_to.as_ref().to_path_buf(),
+                components.iter().collect::<PathBuf>(),
+            )
         }
     };
 
@@ -89,6 +92,17 @@ mod tests {
             PathBuf::from("/foo"), // missing path
             absolutize(relative_to, path)
         );
+    }
+
+    #[test]
+    fn absolutize_with_curdir() {
+        let relative_to = Path::new("/foo");
+        let path = Path::new("./bar/./baz");
+
+        assert!(!absolutize(relative_to, path)
+            .to_str()
+            .unwrap()
+            .contains("."));
     }
 
     #[test]
