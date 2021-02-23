@@ -162,7 +162,7 @@ async fn table(
     args: CommandArgs,
 ) -> Result<OutputStream, ShellError> {
     let mut args = args.evaluate_once().await?;
-    let mut finished = false;
+
     // Ideally, get_color_config would get all the colors configured in the config.toml
     // and create a style based on those settings. However, there are few places where
     // this just won't work right now, like header styling, because a style needs to know
@@ -201,7 +201,20 @@ async fn table(
         .finish();
 
     let stream_data = async {
-        while !finished {
+        let finished = Arc::new(AtomicBool::new(false));
+        #[cfg(feature = "table-pager")]
+        let finished_within_callback = finished.clone();
+        #[cfg(feature = "table-pager")]
+        {
+            pager
+                .lock()
+                .await
+                .on_finished_callbacks
+                .push(Box::new(move || {
+                    finished_within_callback.store(true, Ordering::Relaxed);
+                }));
+        }
+        while !finished.clone().load(Ordering::Relaxed) {
             let mut new_input: VecDeque<Value> = VecDeque::new();
 
             let start_time = Instant::now();
@@ -230,7 +243,7 @@ async fn table(
                             }
                         }
                         _ => {
-                            finished = true;
+                            finished.store(true, Ordering::Relaxed);
                             break;
                         }
                     }
@@ -241,6 +254,10 @@ async fn table(
 
                         // If we've been buffering over a second, go ahead and send out what we have so far
                         if (end_time - start_time).as_secs() >= 1 {
+                            break;
+                        }
+
+                        if finished.load(Ordering::Relaxed) {
                             break;
                         }
                     }
