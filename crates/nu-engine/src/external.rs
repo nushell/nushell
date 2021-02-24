@@ -1,10 +1,12 @@
 /// Returns true if `name` refers to an external command
+
+#[cfg(target_arch = "wasm32")]
 pub fn is_external_cmd(#[allow(unused)] name: &str) -> bool {
-    #[cfg(target_arch = "wasm32")]
-    {
-        //Can't make statements about wasm with which crate. Return true by default
-        true
-    }
+    true
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn is_external_cmd(#[allow(unused)] name: &str) -> bool {
     #[cfg(not(feature = "which"))]
     {
         // we can't perform this check, so just assume it can be found

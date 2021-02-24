@@ -53,7 +53,6 @@ users = "0.11.0"
 nu-test-support = { version = "0.28.0", path = "../nu-test-support" }
 
 [features]
-default = ["which"]
 rustyline-support = []
 dirs = ["dirs-next"]
 trash-support = ["trash"]
