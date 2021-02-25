@@ -9,7 +9,7 @@ description = "Library for ANSI terminal colors and styles (bold, underline)"
 edition = "2018"
 license = "MIT"
 name = "nu-ansi-term"
-version = "0.27.1"
+version = "0.27.2"
 
 [lib]
 doctest = false

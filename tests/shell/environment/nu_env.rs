@@ -78,7 +78,7 @@ fn picks_up_env_keys_when_entering_trusted_directory_indirectly() {
         sandbox.with_files(vec![FileWithContent(
             ".nu-env",
             r#"[env]
-                nu-version = "0.27.1" "#,
+                nu-version = "0.27.2" "#,
         )]);
 
         let expected = "0.27.1";
