@@ -4,15 +4,15 @@ use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 
-pub struct Drop;
+pub struct Command;
 
 #[derive(Deserialize)]
-pub struct DropArgs {
+pub struct Arguments {
     rows: Option<Tagged<u64>>,
 }
 
 #[async_trait]
-impl WholeStreamCommand for Drop {
+impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "drop"
     }
@@ -26,7 +26,7 @@ impl WholeStreamCommand for Drop {
     }
 
     fn usage(&self) -> &str {
-        "Remove the last number of rows. If you want to remove columns, try 'reject'."
+        "Remove the last number of rows. If you want to remove columns, try 'drop column'."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -53,7 +53,7 @@ impl WholeStreamCommand for Drop {
 }
 
 async fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (DropArgs { rows }, input) = args.process().await?;
+    let (Arguments { rows }, input) = args.process().await?;
     let v: Vec<_> = input.into_vec().await;
 
     let rows_to_drop = if let Some(quantity) = rows {
@@ -75,17 +75,4 @@ async fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         futures::stream::iter(iter).to_output_stream()
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::Drop;
-    use super::ShellError;
-
-    #[test]
-    fn examples_work_as_expected() -> Result<(), ShellError> {
-        use crate::examples::test as test_examples;
-
-        test_examples(Drop {})
-    }
 }
