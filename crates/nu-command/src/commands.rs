@@ -163,7 +163,7 @@ pub(crate) use def::Def;
 pub(crate) use default::Default;
 pub(crate) use describe::Describe;
 pub(crate) use do_::Do;
-pub(crate) use drop::Drop;
+pub(crate) use drop::{Drop, DropColumn};
 pub(crate) use du::Du;
 pub(crate) use each::Each;
 pub(crate) use each::EachGroup;
