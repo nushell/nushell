@@ -22,6 +22,7 @@ mod get;
 mod group_by;
 mod hash_;
 mod headers;
+mod help;
 mod histogram;
 mod insert;
 mod into_int;
