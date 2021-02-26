@@ -202,10 +202,14 @@ async fn table(
 
     let stream_data = async {
         let finished = Arc::new(AtomicBool::new(false));
+        // we are required to clone finished, for use within the callback, otherwise we get borrow errors
         #[cfg(feature = "table-pager")]
         let finished_within_callback = finished.clone();
         #[cfg(feature = "table-pager")]
         {
+            // This is called when the pager finishes, to indicate to the
+            // while loop below to finish, in case of long running InputStream consumer
+            // that doesnt finish by the time the user quits out of the pager
             pager
                 .lock()
                 .await
