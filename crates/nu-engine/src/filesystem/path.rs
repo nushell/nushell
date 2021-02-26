@@ -102,7 +102,7 @@ mod tests {
         assert!(!absolutize(relative_to, path)
             .to_str()
             .unwrap()
-            .contains("."));
+            .contains('.'));
     }
 
     #[test]
