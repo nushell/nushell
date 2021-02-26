@@ -1093,8 +1093,9 @@ pub fn parse_math_expression(
     shorthand_mode: bool,
 ) -> (usize, SpannedExpression, Option<ParseError>) {
     // Precedence parsing is included
-    // Short_hand mode means that the left-hand side of an expression can point to a column-path. To make this possible,
-    //   we parse as normal, but then go back and when we detect a left-hand side, reparse that value if it's a string
+    // shorthand_mode means that the left-hand side of an expression can point to a column-path.
+    // To make this possible, we parse as normal, but then go back and when we detect a
+    // left-hand side, reparse that value if it's a string
 
     let mut idx = 0;
     let mut error = None;
@@ -1121,68 +1122,7 @@ pub fn parse_math_expression(
         }
         idx += 1;
 
-        if idx < lite_args.len() {
-            trace!(
-                "idx: {} working_exprs: {:#?} prec: {:?}",
-                idx,
-                working_exprs,
-                prec
-            );
-
-            let (rhs_working_expr, err) =
-                parse_possibly_parenthesized(&lite_args[idx], scope, shorthand_mode);
-
-            if error.is_none() {
-                error = err;
-            }
-
-            let next_prec = op.precedence();
-
-            if !prec.is_empty() && next_prec > *prec.last().expect("this shouldn't happen") {
-                prec.push(next_prec);
-                working_exprs.push((None, op));
-                working_exprs.push(rhs_working_expr);
-            } else {
-                while !prec.is_empty()
-                    && *prec.last().expect("This shouldn't happen") >= next_prec
-                    && next_prec > 0 // Not garbage
-                    && working_exprs.len() >= 3
-                {
-                    // Pop 3 and create and expression, push and repeat
-                    trace!(
-                        "idx: {} working_exprs: {:#?} prec: {:?}",
-                        idx,
-                        working_exprs,
-                        prec
-                    );
-                    let (_, right) = working_exprs.pop().expect("This shouldn't be possible");
-                    let (_, op) = working_exprs.pop().expect("This shouldn't be possible");
-                    let (orig_left, left) =
-                        working_exprs.pop().expect("This shouldn't be possible");
-
-                    // If we're in shorthand mode, we need to reparse the left-hand side if possible
-                    let (left, err) = shorthand_reparse(left, orig_left, scope, shorthand_mode);
-                    if error.is_none() {
-                        error = err;
-                    }
-
-                    let span = Span::new(left.span.start(), right.span.end());
-                    working_exprs.push((
-                        None,
-                        SpannedExpression {
-                            expr: Expression::Binary(Box::new(Binary { left, op, right })),
-                            span,
-                        },
-                    ));
-                    prec.pop();
-                }
-                working_exprs.push((None, op));
-                working_exprs.push(rhs_working_expr);
-                prec.push(next_prec);
-            }
-
-            idx += 1;
-        } else {
+        if idx == lite_args.len() {
             if error.is_none() {
                 error = Some(ParseError::argument_error(
                     lite_args[idx - 1].clone(),
@@ -1192,7 +1132,69 @@ pub fn parse_math_expression(
             working_exprs.push((None, garbage(op.span)));
             working_exprs.push((None, garbage(op.span)));
             prec.push(0);
+            break;
         }
+
+        trace!(
+            "idx: {} working_exprs: {:#?} prec: {:?}",
+            idx,
+            working_exprs,
+            prec
+        );
+
+        let (rhs_working_expr, err) =
+            parse_possibly_parenthesized(&lite_args[idx], scope, shorthand_mode);
+
+        if error.is_none() {
+            error = err;
+        }
+
+        let next_prec = op.precedence();
+
+        if !prec.is_empty() && next_prec > *prec.last().expect("this shouldn't happen") {
+            prec.push(next_prec);
+            working_exprs.push((None, op));
+            working_exprs.push(rhs_working_expr);
+            idx += 1;
+            continue;
+        }
+        while !prec.is_empty()
+                    && *prec.last().expect("This shouldn't happen") >= next_prec
+                    && next_prec > 0 // Not garbage
+                    && working_exprs.len() >= 3
+        {
+            // Pop 3 and create and expression, push and repeat
+            trace!(
+                "idx: {} working_exprs: {:#?} prec: {:?}",
+                idx,
+                working_exprs,
+                prec
+            );
+            let (_, right) = working_exprs.pop().expect("This shouldn't be possible");
+            let (_, op) = working_exprs.pop().expect("This shouldn't be possible");
+            let (orig_left, left) = working_exprs.pop().expect("This shouldn't be possible");
+
+            // If we're in shorthand mode, we need to reparse the left-hand side if possible
+            let (left, err) = shorthand_reparse(left, orig_left, scope, shorthand_mode);
+            if error.is_none() {
+                error = err;
+            }
+
+            let span = Span::new(left.span.start(), right.span.end());
+            working_exprs.push((
+                None,
+                SpannedExpression {
+                    expr: Expression::Binary(Box::new(Binary { left, op, right })),
+                    span,
+                },
+            ));
+            prec.pop();
+        }
+        working_exprs.push((None, op));
+        working_exprs.push(rhs_working_expr);
+        prec.push(next_prec);
+
+        idx += 1;
     }
 
     while working_exprs.len() >= 3 {
