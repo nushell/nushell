@@ -13,10 +13,24 @@ impl Plugin for Match {
             .desc("Filter rows by Regex pattern")
             .required("member", SyntaxShape::String, "the column name to match")
             .required("regex", SyntaxShape::String, "the regex to match with")
+            .switch("insensitive", "case-insensitive search", Some('i'))
+            .switch(
+                "multiline",
+                "multi-line mode: ^ and $ match begin/end of line",
+                Some('m'),
+            )
+            .switch(
+                "dotall",
+                "dotall mode: allow a dot . to match newline character \\n",
+                Some('s'),
+            )
             .filter())
     }
 
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
+        let insensitive = call_info.args.has("insensitive");
+        let multiline = call_info.args.has("multiline");
+        let dotall = call_info.args.has("dotall");
         if let Some(args) = call_info.args.positional {
             match &args[0] {
                 Value {
@@ -33,12 +47,23 @@ impl Plugin for Match {
                     ));
                 }
             }
+            let flags = match (insensitive, multiline, dotall) {
+                (false, false, false) => "",
+                (true, false, false) => "(?i)",
+                (false, true, false) => "(?m)",
+                (false, false, true) => "(?s)",
+                (true, true, false) => "(?im)",
+                (true, false, true) => "(?is)",
+                (false, true, true) => "(?ms)",
+                (true, true, true) => "(?ims)",
+            }
+            .to_owned();
             match &args[1] {
                 Value {
                     value: UntaggedValue::Primitive(Primitive::String(s)),
                     tag,
                 } => {
-                    self.regex = Regex::new(s).map_err(|_| {
+                    self.regex = Regex::new(&(flags + s)).map_err(|_| {
                         ShellError::labeled_error(
                             "Internal error while creating regex",
                             "internal error created by pattern",
@@ -55,6 +80,7 @@ impl Plugin for Match {
                 }
             }
         }
+
         Ok(vec![])
     }
 
