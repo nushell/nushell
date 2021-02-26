@@ -10,7 +10,7 @@ license = "MIT"
 name = "nu"
 readme = "README.md"
 repository = "https://github.com/nushell/nushell"
-version = "0.27.1"
+version = "0.27.2"
 
 [workspace]
 members = ["crates/*/"]
@@ -18,35 +18,35 @@ members = ["crates/*/"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-cli = { version = "0.27.1", path = "./crates/nu-cli", default-features = false }
-nu-command = { version = "0.27.1", path = "./crates/nu-command" }
-nu-data = { version = "0.27.1", path = "./crates/nu-data" }
-nu-engine = { version = "0.27.1", path = "./crates/nu-engine" }
-nu-errors = { version = "0.27.1", path = "./crates/nu-errors" }
-nu-parser = { version = "0.27.1", path = "./crates/nu-parser" }
-nu-plugin = { version = "0.27.1", path = "./crates/nu-plugin" }
-nu-protocol = { version = "0.27.1", path = "./crates/nu-protocol" }
-nu-source = { version = "0.27.1", path = "./crates/nu-source" }
-nu-value-ext = { version = "0.27.1", path = "./crates/nu-value-ext" }
+nu-cli = { version = "0.27.2", path = "./crates/nu-cli", default-features = false }
+nu-command = { version = "0.27.2", path = "./crates/nu-command" }
+nu-data = { version = "0.27.2", path = "./crates/nu-data" }
+nu-engine = { version = "0.27.2", path = "./crates/nu-engine" }
+nu-errors = { version = "0.27.2", path = "./crates/nu-errors" }
+nu-parser = { version = "0.27.2", path = "./crates/nu-parser" }
+nu-plugin = { version = "0.27.2", path = "./crates/nu-plugin" }
+nu-protocol = { version = "0.27.2", path = "./crates/nu-protocol" }
+nu-source = { version = "0.27.2", path = "./crates/nu-source" }
+nu-value-ext = { version = "0.27.2", path = "./crates/nu-value-ext" }
 
-nu_plugin_binaryview = { version = "0.27.1", path = "./crates/nu_plugin_binaryview", optional = true }
-nu_plugin_chart = { version = "0.27.1", path = "./crates/nu_plugin_chart", optional = true }
-nu_plugin_fetch = { version = "0.27.1", path = "./crates/nu_plugin_fetch", optional = true }
-nu_plugin_from_bson = { version = "0.27.1", path = "./crates/nu_plugin_from_bson", optional = true }
-nu_plugin_from_sqlite = { version = "0.27.1", path = "./crates/nu_plugin_from_sqlite", optional = true }
-nu_plugin_inc = { version = "0.27.1", path = "./crates/nu_plugin_inc", optional = true }
-nu_plugin_match = { version = "0.27.1", path = "./crates/nu_plugin_match", optional = true }
-nu_plugin_post = { version = "0.27.1", path = "./crates/nu_plugin_post", optional = true }
-nu_plugin_ps = { version = "0.27.1", path = "./crates/nu_plugin_ps", optional = true }
-nu_plugin_s3 = { version = "0.27.1", path = "./crates/nu_plugin_s3", optional = true }
-nu_plugin_selector = { version = "0.27.1", path = "./crates/nu_plugin_selector", optional = true }
-nu_plugin_start = { version = "0.27.1", path = "./crates/nu_plugin_start", optional = true }
-nu_plugin_sys = { version = "0.27.1", path = "./crates/nu_plugin_sys", optional = true }
-nu_plugin_textview = { version = "0.27.1", path = "./crates/nu_plugin_textview", optional = true }
-nu_plugin_to_bson = { version = "0.27.1", path = "./crates/nu_plugin_to_bson", optional = true }
-nu_plugin_to_sqlite = { version = "0.27.1", path = "./crates/nu_plugin_to_sqlite", optional = true }
-nu_plugin_tree = { version = "0.27.1", path = "./crates/nu_plugin_tree", optional = true }
-nu_plugin_xpath = { version = "0.27.1", path = "./crates/nu_plugin_xpath", optional = true }
+nu_plugin_binaryview = { version = "0.27.2", path = "./crates/nu_plugin_binaryview", optional = true }
+nu_plugin_chart = { version = "0.27.2", path = "./crates/nu_plugin_chart", optional = true }
+nu_plugin_fetch = { version = "0.27.2", path = "./crates/nu_plugin_fetch", optional = true }
+nu_plugin_from_bson = { version = "0.27.2", path = "./crates/nu_plugin_from_bson", optional = true }
+nu_plugin_from_sqlite = { version = "0.27.2", path = "./crates/nu_plugin_from_sqlite", optional = true }
+nu_plugin_inc = { version = "0.27.2", path = "./crates/nu_plugin_inc", optional = true }
+nu_plugin_match = { version = "0.27.2", path = "./crates/nu_plugin_match", optional = true }
+nu_plugin_post = { version = "0.27.2", path = "./crates/nu_plugin_post", optional = true }
+nu_plugin_ps = { version = "0.27.2", path = "./crates/nu_plugin_ps", optional = true }
+nu_plugin_s3 = { version = "0.27.2", path = "./crates/nu_plugin_s3", optional = true }
+nu_plugin_selector = { version = "0.27.2", path = "./crates/nu_plugin_selector", optional = true }
+nu_plugin_start = { version = "0.27.2", path = "./crates/nu_plugin_start", optional = true }
+nu_plugin_sys = { version = "0.27.2", path = "./crates/nu_plugin_sys", optional = true }
+nu_plugin_textview = { version = "0.27.2", path = "./crates/nu_plugin_textview", optional = true }
+nu_plugin_to_bson = { version = "0.27.2", path = "./crates/nu_plugin_to_bson", optional = true }
+nu_plugin_to_sqlite = { version = "0.27.2", path = "./crates/nu_plugin_to_sqlite", optional = true }
+nu_plugin_tree = { version = "0.27.2", path = "./crates/nu_plugin_tree", optional = true }
+nu_plugin_xpath = { version = "0.27.2", path = "./crates/nu_plugin_xpath", optional = true }
 
 # Required to bootstrap the main binary
 clap = "2.33.3"
@@ -57,7 +57,7 @@ log = "0.4.14"
 pretty_env_logger = "0.4.0"
 
 [dev-dependencies]
-nu-test-support = { version = "0.27.1", path = "./crates/nu-test-support" }
+nu-test-support = { version = "0.27.2", path = "./crates/nu-test-support" }
 dunce = "1.0.1"
 serial_test = "0.5.1"
 

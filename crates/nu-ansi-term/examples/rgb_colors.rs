@@ -18,6 +18,6 @@ fn main() {
             print!("{}", Style::default().on(Color::RGB(r, g, b)).paint(" "));
         }
 
-        print!("\n");
+        println!();
     }
 }
