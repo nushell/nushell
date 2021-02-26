@@ -67,10 +67,12 @@ pub fn generate_docs(scope: &Scope) -> Value {
         if name.contains(' ') {
             let split_name = name.split_whitespace().collect_vec();
             let parent_name = split_name.first().expect("Expected a parent command name");
-            let sub_names = cmap
-                .get_mut(*parent_name)
-                .expect("Expected a entry for parent");
-            sub_names.push(name.to_owned());
+            if cmap.contains_key(*parent_name) {
+                let sub_names = cmap
+                    .get_mut(*parent_name)
+                    .expect("Expected a entry for parent");
+                sub_names.push(name.to_owned());
+            }
         } else {
             cmap.insert(name.to_owned(), Vec::new());
         };
