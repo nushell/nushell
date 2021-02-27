@@ -78,7 +78,7 @@ impl Plugin for Match {
                     })?;
                 }
                 Value { tag, .. } => {
-                return Err(ShellError::labeled_error(
+                    return Err(ShellError::labeled_error(
                         "Unrecognized type in params",
                         "unexpected value",
                         tag,
