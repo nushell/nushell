@@ -1,35 +1,25 @@
-/// Returns true if `name` refers to an external command
-#[cfg(target_arch = "wasm32")]
+#[cfg(any(target_arch = "wasm32", not(feature = "which")))]
 pub fn is_external_cmd(#[allow(unused)] name: &str) -> bool {
     true
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(unix, feature = "which"))]
 pub fn is_external_cmd(#[allow(unused)] name: &str) -> bool {
-    #[cfg(not(feature = "which"))]
-    {
-        // we can't perform this check, so just assume it can be found
+    which::which(name).is_ok()
+}
+
+#[cfg(all(windows, feature = "which"))]
+pub fn is_external_cmd(#[allow(unused)] name: &str) -> bool {
+    if which::which(name).is_ok() {
         true
-    }
+    } else {
+        // Reference: https://ss64.com/nt/syntax-internal.html
+        let cmd_builtins = [
+            "assoc", "break", "color", "copy", "date", "del", "dir", "dpath", "echo", "erase",
+            "for", "ftype", "md", "mkdir", "mklink", "move", "path", "ren", "rename", "rd",
+            "rmdir", "start", "time", "title", "type", "ver", "verify", "vol",
+        ];
 
-    #[cfg(all(feature = "which", unix))]
-    {
-        which::which(name).is_ok()
-    }
-
-    #[cfg(all(feature = "which", windows))]
-    {
-        if which::which(name).is_ok() {
-            true
-        } else {
-            // Reference: https://ss64.com/nt/syntax-internal.html
-            let cmd_builtins = [
-                "assoc", "break", "color", "copy", "date", "del", "dir", "dpath", "echo", "erase",
-                "for", "ftype", "md", "mkdir", "mklink", "move", "path", "ren", "rename", "rd",
-                "rmdir", "start", "time", "title", "type", "ver", "verify", "vol",
-            ];
-
-            cmd_builtins.contains(&name)
-        }
+        cmd_builtins.contains(&name)
     }
 }
