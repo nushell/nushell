@@ -9,7 +9,7 @@ pub fn maybe_print_errors(context: &EvaluationContext, source: Text) -> bool {
         let error = errors[0].clone();
         *errors = vec![];
 
-        crate::script::print_err(error, &source);
+        crate::script::print_err(error, &source, context);
         true
     } else {
         false
