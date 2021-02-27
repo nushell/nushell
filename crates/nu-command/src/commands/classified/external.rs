@@ -1,6 +1,6 @@
 use crate::futures::ThreadedReceiver;
 use crate::prelude::*;
-use nu_engine::{evaluate_baseline_expr, external};
+use nu_engine::evaluate_baseline_expr;
 use nu_engine::{MaybeTextCodec, StringOrBinary};
 
 use std::borrow::Cow;
@@ -28,7 +28,7 @@ pub(crate) async fn run_external_command(
 ) -> Result<InputStream, ShellError> {
     trace!(target: "nu::run::external", "-> {}", command.name);
 
-    if !external::is_external_cmd(&command.name) {
+    if !nu_platform_specifics::is_external_cmd(&command.name) {
         return Err(ShellError::labeled_error(
             "Command not found",
             "command not found",

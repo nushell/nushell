@@ -147,7 +147,7 @@ async fn maybe_autocd_dir<'a>(
         || (cmd.args.is_empty()
             && PathBuf::from(name).is_dir()
             && dunce::canonicalize(name).is_ok()
-            && !nu_engine::external::is_external_cmd(&name))
+            && !nu_platform_specifics::is_external_cmd(&name))
     {
         Some(name)
     } else {

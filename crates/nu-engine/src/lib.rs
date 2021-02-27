@@ -8,7 +8,6 @@ mod env;
 mod evaluate;
 mod evaluation_context;
 mod example;
-pub mod external;
 pub mod filesystem;
 mod history_path;
 mod maybe_text_codec;
