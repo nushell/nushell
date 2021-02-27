@@ -16,6 +16,8 @@ pub trait Host: Debug + Send {
 
     fn width(&self) -> usize;
     fn height(&self) -> usize;
+
+    fn is_external_cmd(&self, cmd_name: &str) -> bool;
 }
 
 impl Host for Box<dyn Host> {
@@ -57,6 +59,10 @@ impl Host for Box<dyn Host> {
 
     fn height(&self) -> usize {
         (**self).height()
+    }
+
+    fn is_external_cmd(&self, name: &str) -> bool {
+        (**self).is_external_cmd(name)
     }
 }
 
@@ -132,5 +138,9 @@ impl Host for FakeHost {
 
     fn height(&self) -> usize {
         1
+    }
+
+    fn is_external_cmd(&self, _: &str) -> bool {
+        true
     }
 }

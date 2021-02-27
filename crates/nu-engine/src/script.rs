@@ -131,7 +131,7 @@ pub async fn process_script(
                         .unwrap_or(true)
                     && canonicalize(ctx.shell_manager.path(), name).is_ok()
                     && Path::new(&name).is_dir()
-                    && !nu_platform_specifics::is_external_cmd(&name)
+                    && !ctx.host.lock().is_external_cmd(&name)
                 {
                     // Here we work differently if we're in Windows because of the expected Windows behavior
                     #[cfg(windows)]

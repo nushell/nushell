@@ -79,4 +79,8 @@ impl Host for BasicHost {
         let (_, term_height) = term_size::dimensions().unwrap_or((80, 20));
         term_height
     }
+
+    fn is_external_cmd(&self, cmd_name: &str) -> bool {
+        nu_platform_specifics::is_external_cmd(cmd_name)
+    }
 }
