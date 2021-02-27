@@ -3093,6 +3093,7 @@ dependencies = [
  "nu-engine",
  "nu-errors",
  "nu-parser",
+ "nu-platform-specifics",
  "nu-plugin",
  "nu-protocol",
  "nu-source",
@@ -3281,6 +3282,7 @@ dependencies = [
  "nu-errors",
  "nu-json",
  "nu-parser",
+ "nu-platform-specifics",
  "nu-plugin",
  "nu-protocol",
  "nu-source",
@@ -3388,6 +3390,7 @@ dependencies = [
  "nu-data",
  "nu-errors",
  "nu-parser",
+ "nu-platform-specifics",
  "nu-plugin",
  "nu-protocol",
  "nu-source",
@@ -3460,6 +3463,13 @@ dependencies = [
  "serde 1.0.123",
  "shellexpand",
  "smart-default",
+]
+
+[[package]]
+name = "nu-platform-specifics"
+version = "0.27.1"
+dependencies = [
+ "which",
 ]
 
 [[package]]
