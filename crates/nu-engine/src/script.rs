@@ -44,7 +44,7 @@ pub fn maybe_print_errors(context: &EvaluationContext, source: Text) -> bool {
         let error = errors[0].clone();
         *errors = vec![];
 
-        print_err(error, &source);
+        print_err(error, &source, context);
         true
     } else {
         false
