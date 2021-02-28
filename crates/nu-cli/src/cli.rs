@@ -1,8 +1,9 @@
 use crate::line_editor::configure_ctrl_c;
 use nu_command::commands::default_context::create_default_context;
-use nu_engine::{run_block, script::maybe_print_errors};
 use nu_engine::{
-    script::{print_err, run_script_standalone},
+    print::{maybe_print_errors, print_err},
+    run_block,
+    script::run_script_standalone,
     EvaluationContext,
 };
 

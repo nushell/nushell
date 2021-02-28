@@ -12,6 +12,7 @@ pub mod filesystem;
 mod history_path;
 mod maybe_text_codec;
 pub mod plugin;
+pub mod print;
 mod runnable_context;
 pub mod script;
 pub mod shell;
