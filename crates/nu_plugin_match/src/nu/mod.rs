@@ -25,9 +25,9 @@ impl Plugin for Match {
                 Some('s'),
             )
             .switch(
-                "exclude",
-                "exclude rows matching the regex instead of including them",
-                Some('x'),
+                "invert",
+                "invert the match",
+                Some('v'),
             )
             .filter())
     }
@@ -36,7 +36,7 @@ impl Plugin for Match {
         let insensitive = call_info.args.has("insensitive");
         let multiline = call_info.args.has("multiline");
         let dotall = call_info.args.has("dotall");
-        self.exclude = call_info.args.has("exclude");
+        self.invert = call_info.args.has("invert");
         if let Some(args) = call_info.args.positional {
             match &args[0] {
                 Value {
@@ -119,7 +119,7 @@ impl Plugin for Match {
                 return Err(ShellError::labeled_error("Expected row", "value", tag));
             }
         }
-        if flag ^ self.exclude {
+        if flag ^ self.invert {
             Ok(vec![Ok(ReturnSuccess::Value(input))])
         } else {
             Ok(vec![])
