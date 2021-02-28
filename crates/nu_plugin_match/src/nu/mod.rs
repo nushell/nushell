@@ -24,11 +24,7 @@ impl Plugin for Match {
                 "dotall mode: allow a dot . to match newline character \\n",
                 Some('s'),
             )
-            .switch(
-                "invert",
-                "invert the match",
-                Some('v'),
-            )
+            .switch("invert", "invert the match", Some('v'))
             .filter())
     }
 
