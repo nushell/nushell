@@ -3372,6 +3372,7 @@ dependencies = [
  "async-recursion",
  "async-trait",
  "bytes 0.5.6",
+ "codespan-reporting",
  "derive-new",
  "dirs-next 2.0.0",
  "dunce",
@@ -3407,6 +3408,7 @@ dependencies = [
  "trash",
  "umask",
  "users",
+ "which",
 ]
 
 [[package]]
