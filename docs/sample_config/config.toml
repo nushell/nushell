@@ -68,6 +68,7 @@ edit_mode = "emacs" # vi, emacs
 auto_add_history = true
 bell_style = "audible" # audible, none, visible
 color_mode = "enabled" # enabled, forced, disabled
+prompt_color_enabled = true
 tab_stop = 4
 
 [textview]
