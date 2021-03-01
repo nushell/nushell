@@ -33,15 +33,13 @@ fn chomp_newline(s: &str) -> &str {
     }
 }
 
-pub fn print_err(err: ShellError, source: &Text) {
+pub fn print_err(err: ShellError, source: &Text, ctx: &EvaluationContext) {
     if let Some(diag) = err.into_diagnostic() {
         let source = source.to_string();
         let mut files = codespan_reporting::files::SimpleFiles::new();
         files.add("shell", source);
 
-        let writer = codespan_reporting::term::termcolor::StandardStream::stderr(
-            codespan_reporting::term::termcolor::ColorChoice::Always,
-        );
+        let writer = ctx.host.lock().err_termcolor();
         let config = codespan_reporting::term::Config::default();
 
         let _ = std::panic::catch_unwind(move || {
@@ -260,7 +258,7 @@ pub async fn run_script_standalone(
 
         LineResult::Error(line, err) => {
             context.with_host(|_host| {
-                print_err(err, &Text::from(line.clone()));
+                print_err(err, &Text::from(line.clone()), &context);
             });
 
             maybe_print_errors(&context, Text::from(line));

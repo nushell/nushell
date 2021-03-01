@@ -79,7 +79,7 @@ pub async fn run_script_file(
         syncer.sync_path_vars(ctx);
 
         if let Err(reason) = syncer.autoenv(ctx) {
-            print_err(reason, &Text::from(""));
+            print_err(reason, &Text::from(""), ctx);
         }
 
         let _ = register_plugins(ctx);
@@ -107,7 +107,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
         syncer.sync_path_vars(ctx);
 
         if let Err(reason) = syncer.autoenv(ctx) {
-            print_err(reason, &Text::from(""));
+            print_err(reason, &Text::from(""), ctx);
         }
 
         let _ = configure_ctrl_c(ctx);
@@ -199,14 +199,14 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
                                 }
                             }
                             Err(e) => {
-                                crate::cli::print_err(e, &Text::from(prompt_line));
+                                crate::cli::print_err(e, &Text::from(prompt_line), &context);
                                 context.clear_errors();
 
                                 "> ".to_string()
                             }
                         },
                         Err(e) => {
-                            crate::cli::print_err(e, &Text::from(prompt_line));
+                            crate::cli::print_err(e, &Text::from(prompt_line), &context);
                             context.clear_errors();
 
                             "> ".to_string()
@@ -274,7 +274,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
             }
 
             if let Err(reason) = syncer.autoenv(ctx) {
-                print_err(reason, &Text::from(""));
+                print_err(reason, &Text::from(""), ctx);
             }
 
             let _ = configure_rustyline_editor(&mut rl, config);
@@ -296,9 +296,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
                 rl.add_history_entry(&line);
                 let _ = rl.save_history(&history_path);
 
-                context.with_host(|_host| {
-                    print_err(err, &Text::from(session_text.clone()));
-                });
+                print_err(err, &Text::from(session_text.clone()), &context);
 
                 maybe_print_errors(&context, Text::from(session_text.clone()));
             }
