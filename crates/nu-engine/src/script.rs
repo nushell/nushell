@@ -264,6 +264,5 @@ pub async fn run_script_standalone(
 
         _ => {}
     }
-
     Ok(())
 }
