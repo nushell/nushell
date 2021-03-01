@@ -24,6 +24,7 @@ impl Plugin for Match {
                 "dotall mode: allow a dot . to match newline character \\n",
                 Some('s'),
             )
+            .switch("invert", "invert the match", Some('v'))
             .filter())
     }
 
@@ -31,6 +32,7 @@ impl Plugin for Match {
         let insensitive = call_info.args.has("insensitive");
         let multiline = call_info.args.has("multiline");
         let dotall = call_info.args.has("dotall");
+        self.invert = call_info.args.has("invert");
         if let Some(args) = call_info.args.positional {
             match &args[0] {
                 Value {
@@ -113,7 +115,7 @@ impl Plugin for Match {
                 return Err(ShellError::labeled_error("Expected row", "value", tag));
             }
         }
-        if flag {
+        if flag ^ self.invert {
             Ok(vec![Ok(ReturnSuccess::Value(input))])
         } else {
             Ok(vec![])
