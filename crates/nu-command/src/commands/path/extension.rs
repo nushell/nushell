@@ -1,4 +1,4 @@
-use super::{operate, DefaultArguments};
+use super::{operate, PathSubcommandArguments};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
@@ -12,6 +12,12 @@ pub struct PathExtension;
 struct PathExtensionArguments {
     replace: Option<Tagged<String>>,
     rest: Vec<ColumnPath>,
+}
+
+impl PathSubcommandArguments for PathExtensionArguments {
+    fn get_column_paths(&self) -> &Vec<ColumnPath> {
+        &self.rest
+    }
 }
 
 #[async_trait]
@@ -38,13 +44,7 @@ impl WholeStreamCommand for PathExtension {
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let (PathExtensionArguments { replace, rest }, input) = args.process().await?;
-        let args = Arc::new(DefaultArguments {
-            replace: replace.map(|v| v.item),
-            prefix: None,
-            suffix: None,
-            num_levels: None,
-            paths: rest,
-        });
+        let args = Arc::new(PathExtensionArguments { replace, rest });
         operate(input, &action, tag.span, args).await
     }
 
@@ -74,9 +74,9 @@ impl WholeStreamCommand for PathExtension {
     }
 }
 
-fn action(path: &Path, args: Arc<DefaultArguments>) -> UntaggedValue {
+fn action(path: &Path, args: &PathExtensionArguments) -> UntaggedValue {
     match args.replace {
-        Some(ref extension) => UntaggedValue::filepath(path.with_extension(extension)),
+        Some(ref extension) => UntaggedValue::filepath(path.with_extension(&extension.item)),
         None => UntaggedValue::string(match path.extension() {
             Some(extension) => extension.to_string_lossy(),
             None => "".into(),
