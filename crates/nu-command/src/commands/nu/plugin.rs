@@ -101,7 +101,7 @@ impl WholeStreamCommand for SubCommand {
         }
 
         Ok(OutputStream::one(ReturnSuccess::value(
-            UntaggedValue::string(get_help(&SubCommand, &scope)).into_value(Tag::unknown()),
+            UntaggedValue::string(get_full_help(&SubCommand, &scope)).into_value(Tag::unknown()),
         )))
     }
 }

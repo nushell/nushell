@@ -21,7 +21,7 @@ impl WholeStreamCommand for Command {
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(Ok(ReturnSuccess::Value(
-            UntaggedValue::string(get_help(&Command, &args.scope)).into_value(Tag::unknown()),
+            UntaggedValue::string(get_full_help(&Command, &args.scope)).into_value(Tag::unknown()),
         ))))
     }
 }
@@ -154,7 +154,7 @@ mod tests {
                         "col2".to_owned() => table(&[int(5), int(6), int(7), int(8)])
                         ]),
                     Ok(row![
-                        "col1".to_owned() => decimal(BigDecimal::from_str("1.118033988749894848204586834365638117720309179805762862135448622705260462818902449707207204189391137").expect("Could not convert to decimal from string")), 
+                        "col1".to_owned() => decimal(BigDecimal::from_str("1.118033988749894848204586834365638117720309179805762862135448622705260462818902449707207204189391137").expect("Could not convert to decimal from string")),
                         "col2".to_owned() => decimal(BigDecimal::from_str("1.118033988749894848204586834365638117720309179805762862135448622705260462818902449707207204189391137").expect("Could not convert to decimal from string"))
                     ]),
                     Ok(row!["col1".to_owned() => int(10), "col2".to_owned() => int(26)]),
