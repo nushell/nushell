@@ -107,6 +107,12 @@ async fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
         _,
     ) = args.process().await?;
 
+    if path.is_dir() {
+        return Ok(OutputStream::one(ReturnSuccess::action(
+            CommandAction::EnterShell(path.display().to_string()),
+        )));
+    }
+
     // TODO: Remove once Streams are supported everywhere!
     // As a short term workaround for getting AutoConvert and Bat functionality (Those don't currently support Streams)
 
