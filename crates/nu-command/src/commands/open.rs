@@ -72,6 +72,11 @@ documentation link at https://docs.rs/encoding_rs/0.8.23/encoding_rs/#statics"#
                 example: "open file.csv --encoding iso-8859-1 | from csv",
                 result: None,
             },
+            Example {
+                description: "Enters a path as a new shell (identical to `enter ../projectB`)",
+                example: "open ../projectB",
+                result: None,
+            },
         ]
     }
 }
