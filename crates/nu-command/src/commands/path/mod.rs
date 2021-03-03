@@ -5,6 +5,7 @@ mod exists;
 mod expand;
 mod extension;
 mod filestem;
+mod join;
 mod r#type;
 
 use crate::prelude::*;
@@ -21,6 +22,7 @@ pub use exists::PathExists;
 pub use expand::PathExpand;
 pub use extension::PathExtension;
 pub use filestem::PathFilestem;
+pub use join::PathJoin;
 pub use r#type::PathType;
 
 trait PathSubcommandArguments {
