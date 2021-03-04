@@ -2771,7 +2771,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d262045c5b87c0861b3f004610afd0e2c851e2908d08b6c870cbb9d5f494ecd"
 dependencies = [
  "serde 0.8.23",
- "serde_test",
+ "serde_test 0.8.23",
 ]
 
 [[package]]
@@ -2779,6 +2779,10 @@ name = "linked-hash-map"
 version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fb9b38af92608140b86b693604b9ffcc5824240a484d1ecd4795bacb2fe88f3"
+dependencies = [
+ "serde 1.0.123",
+ "serde_test 1.0.123",
+]
 
 [[package]]
 name = "lock_api"
@@ -3496,10 +3500,14 @@ dependencies = [
 name = "nu-json"
 version = "0.27.2"
 dependencies = [
+ "dunce",
  "lazy_static 1.4.0",
+ "linked-hash-map 0.5.4",
+ "nu-test-support",
  "num-traits 0.2.14",
  "regex 1.4.3",
- "serde 0.8.23",
+ "serde 1.0.123",
+ "serde_json",
 ]
 
 [[package]]
@@ -5384,6 +5392,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "110b3dbdf8607ec493c22d5d947753282f3bae73c0f56d322af1e8c78e4c23d5"
 dependencies = [
  "serde 0.8.23",
+]
+
+[[package]]
+name = "serde_test"
+version = "1.0.123"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38145a8510bdf71d9a8cceeb57664049538446e77f24648328bdbcf22dc7e169"
+dependencies = [
+ "serde 1.0.123",
 ]
 
 [[package]]

@@ -1,0 +1,6 @@
+// a object with the root braces omitted
+database:
+{
+  host: 127.0.0.1
+  port: 555
+}

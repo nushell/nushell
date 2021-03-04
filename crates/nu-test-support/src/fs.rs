@@ -256,6 +256,10 @@ pub fn fixtures() -> PathBuf {
     root().join("tests/fixtures")
 }
 
+pub fn assets() -> PathBuf {
+    root().join("tests/assets")
+}
+
 pub fn in_directory(str: impl AsRef<Path>) -> String {
     let path = str.as_ref();
     let path = if path.is_relative() {
