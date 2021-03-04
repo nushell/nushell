@@ -210,13 +210,9 @@ async fn table(
             // This is called when the pager finishes, to indicate to the
             // while loop below to finish, in case of long running InputStream consumer
             // that doesnt finish by the time the user quits out of the pager
-            pager
-                .lock()
-                .await
-                .on_finished_callbacks
-                .push(Box::new(move || {
-                    finished_within_callback.store(true, Ordering::Relaxed);
-                }));
+            pager.lock().await.add_exit_callback(move || {
+                finished_within_callback.store(true, Ordering::Relaxed);
+            });
         }
         while !finished.clone().load(Ordering::Relaxed) {
             let mut new_input: VecDeque<Value> = VecDeque::new();
