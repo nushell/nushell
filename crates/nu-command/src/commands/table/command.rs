@@ -198,7 +198,7 @@ async fn table(
         .set_exit_strategy(ExitStrategy::PagerQuit)
         .set_searchable(true)
         .set_page_if_havent_overflowed(false)
-        .set_input_handler(Box::new(input_handling::NushellMinusInputHandler {}))
+        .set_input_handler(Box::new(input_handling::MinusInputHandler {}))
         .finish();
 
     let stream_data = async {
@@ -314,9 +314,9 @@ async fn table(
 mod input_handling {
     use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
     use minus::{InputEvent, InputHandler, LineNumbers, SearchMode};
-    pub struct NushellMinusInputHandler;
+    pub struct MinusInputHandler;
 
-    impl InputHandler for NushellMinusInputHandler {
+    impl InputHandler for MinusInputHandler {
         fn handle_input(
             &self,
             ev: Event,
@@ -331,13 +331,13 @@ mod input_handling {
                     code: KeyCode::Up,
                     modifiers: KeyModifiers::NONE,
                 }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_sub(1))),
-        
+
                 // Scroll down by one.
                 Event::Key(KeyEvent {
                     code: KeyCode::Down,
                     modifiers: KeyModifiers::NONE,
                 }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_add(1))),
-        
+
                 // Mouse scroll up/down
                 Event::Mouse(MouseEvent {
                     kind: MouseEventKind::ScrollUp,
@@ -357,7 +357,7 @@ mod input_handling {
                     code: KeyCode::End,
                     modifiers: KeyModifiers::NONE,
                 }) => Some(InputEvent::UpdateUpperMark(usize::MAX)),
-        
+
                 // Page Up/Down
                 Event::Key(KeyEvent {
                     code: KeyCode::PageUp,
@@ -371,7 +371,7 @@ mod input_handling {
                 }) => Some(InputEvent::UpdateUpperMark(
                     upper_mark.saturating_add(rows - 1),
                 )),
-        
+
                 // Resize event from the terminal.
                 Event::Resize(_, height) => Some(InputEvent::UpdateRows(height as usize)),
                 // Switch line number display.
