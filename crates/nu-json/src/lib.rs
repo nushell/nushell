@@ -5,9 +5,6 @@ pub use self::error::{Error, ErrorCode, Result};
 pub use self::ser::{to_string, to_vec, to_writer, Serializer};
 pub use self::value::{from_value, to_value, Map, Value};
 
-#[macro_use]
-mod forward;
-
 pub mod builder;
 pub mod de;
 pub mod error;

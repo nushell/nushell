@@ -58,6 +58,10 @@ where
         Ok(Some(self.ch[idx]))
     }
 
+    // pub fn peek_next_or_null(&mut self, idx: usize) -> Result<u8> {
+    //     Ok(try!(self.peek_next(idx)).unwrap_or(b'\x00'))
+    // }
+
     pub fn peek(&mut self) -> Result<Option<u8>> {
         self.peek_next(0)
     }
@@ -234,6 +238,7 @@ impl<Iter: Iterator<Item = u8>> ParseNumber<Iter> {
         if self.rdr.peek_or_null()? == b'0' {
             self.result.push(self.rdr.eat_char());
             has_value = true;
+
             // There can be only one leading '0'.
             if let b'0'..=b'9' = self.rdr.peek_or_null()? {
                 return Err(Error::Syntax(ErrorCode::InvalidNumber, 0, 0));
