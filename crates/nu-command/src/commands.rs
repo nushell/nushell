@@ -230,7 +230,7 @@ pub(crate) use open::Open;
 pub(crate) use parse::Parse;
 pub(crate) use path::{
     PathBasename, PathCommand, PathDirname, PathExists, PathExpand, PathExtension, PathFilestem,
-    PathType,
+    PathJoin, PathType,
 };
 pub(crate) use pivot::Pivot;
 pub(crate) use prepend::Prepend;
