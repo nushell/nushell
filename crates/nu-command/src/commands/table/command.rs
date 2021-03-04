@@ -198,6 +198,7 @@ async fn table(
         .set_exit_strategy(ExitStrategy::PagerQuit)
         .set_searchable(true)
         .set_page_if_havent_overflowed(false)
+        .set_input_handler(Box::new(input_handling::MinusInputHandler {}))
         .finish();
 
     let stream_data = async {
@@ -307,6 +308,122 @@ async fn table(
         .map_err(|_| ShellError::untagged_runtime_error("Error streaming data"))?;
 
     Ok(OutputStream::empty())
+}
+
+#[cfg(feature = "table-pager")]
+mod input_handling {
+    use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
+    use minus::{InputEvent, InputHandler, LineNumbers, SearchMode};
+    pub struct MinusInputHandler;
+
+    impl InputHandler for MinusInputHandler {
+        fn handle_input(
+            &self,
+            ev: Event,
+            upper_mark: usize,
+            search_mode: SearchMode,
+            ln: LineNumbers,
+            rows: usize,
+        ) -> Option<InputEvent> {
+            match ev {
+                // Scroll up by one.
+                Event::Key(KeyEvent {
+                    code: KeyCode::Up,
+                    modifiers: KeyModifiers::NONE,
+                }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_sub(1))),
+
+                // Scroll down by one.
+                Event::Key(KeyEvent {
+                    code: KeyCode::Down,
+                    modifiers: KeyModifiers::NONE,
+                }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_add(1))),
+
+                // Mouse scroll up/down
+                Event::Mouse(MouseEvent {
+                    kind: MouseEventKind::ScrollUp,
+                    ..
+                }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_sub(5))),
+                Event::Mouse(MouseEvent {
+                    kind: MouseEventKind::ScrollDown,
+                    ..
+                }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_add(5))),
+                // Go to top.
+                Event::Key(KeyEvent {
+                    code: KeyCode::Home,
+                    modifiers: KeyModifiers::NONE,
+                }) => Some(InputEvent::UpdateUpperMark(0)),
+                // Go to bottom.
+                Event::Key(KeyEvent {
+                    code: KeyCode::End,
+                    modifiers: KeyModifiers::NONE,
+                }) => Some(InputEvent::UpdateUpperMark(usize::MAX)),
+
+                // Page Up/Down
+                Event::Key(KeyEvent {
+                    code: KeyCode::PageUp,
+                    modifiers: KeyModifiers::NONE,
+                }) => Some(InputEvent::UpdateUpperMark(
+                    upper_mark.saturating_sub(rows - 1),
+                )),
+                Event::Key(KeyEvent {
+                    code: KeyCode::PageDown,
+                    modifiers: KeyModifiers::NONE,
+                }) => Some(InputEvent::UpdateUpperMark(
+                    upper_mark.saturating_add(rows - 1),
+                )),
+
+                // Resize event from the terminal.
+                Event::Resize(_, height) => Some(InputEvent::UpdateRows(height as usize)),
+                // Switch line number display.
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('l'),
+                    modifiers: KeyModifiers::CONTROL,
+                }) => Some(InputEvent::UpdateLineNumber(!ln)),
+                // Quit.
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('q'),
+                    modifiers: KeyModifiers::NONE,
+                })
+                | Event::Key(KeyEvent {
+                    code: KeyCode::Char('Q'),
+                    modifiers: KeyModifiers::SHIFT,
+                })
+                | Event::Key(KeyEvent {
+                    code: KeyCode::Esc,
+                    modifiers: KeyModifiers::NONE,
+                })
+                | Event::Key(KeyEvent {
+                    code: KeyCode::Char('c'),
+                    modifiers: KeyModifiers::CONTROL,
+                }) => Some(InputEvent::Exit),
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('/'),
+                    modifiers: KeyModifiers::NONE,
+                }) => Some(InputEvent::Search(SearchMode::Unknown)),
+                Event::Key(KeyEvent {
+                    code: KeyCode::Down,
+                    modifiers: KeyModifiers::CONTROL,
+                }) => {
+                    if search_mode == SearchMode::Unknown {
+                        Some(InputEvent::NextMatch)
+                    } else {
+                        None
+                    }
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Up,
+                    modifiers: KeyModifiers::CONTROL,
+                }) => {
+                    if search_mode == SearchMode::Unknown {
+                        Some(InputEvent::PrevMatch)
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            }
+        }
+    }
 }
 
 #[cfg(test)]
