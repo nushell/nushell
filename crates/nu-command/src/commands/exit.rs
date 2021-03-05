@@ -1,6 +1,6 @@
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{CommandAction, ReturnSuccess, Signature};
+use nu_protocol::{CommandAction, ReturnSuccess, Signature, SyntaxShape};
 
 pub struct Exit;
 
@@ -11,7 +11,13 @@ impl WholeStreamCommand for Exit {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("exit").switch("now", "exit out of the shell immediately", Some('n'))
+        Signature::build("exit")
+            .optional(
+                "code",
+                SyntaxShape::Number,
+                "Status code to return if this was the last shell or --now was specified",
+            )
+            .switch("now", "Exit out of the shell immediately", Some('n'))
     }
 
     fn usage(&self) -> &str {
@@ -41,10 +47,16 @@ impl WholeStreamCommand for Exit {
 pub async fn exit(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once().await?;
 
-    let command_action = if args.call_info.args.has("now") {
-        CommandAction::Exit
+    let code = if let Some(value) = args.call_info.args.nth(0) {
+        value.as_i32()?
     } else {
-        CommandAction::LeaveShell
+        0
+    };
+
+    let command_action = if args.call_info.args.has("now") {
+        CommandAction::Exit(code)
+    } else {
+        CommandAction::LeaveShell(code)
     };
 
     Ok(OutputStream::one(ReturnSuccess::action(command_action)))

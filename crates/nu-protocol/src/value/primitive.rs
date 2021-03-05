@@ -107,6 +107,29 @@ impl Primitive {
         }
     }
 
+    pub fn as_i32(&self, span: Span) -> Result<i32, ShellError> {
+        match self {
+            Primitive::Int(int) => int.to_i32().ok_or_else(|| {
+                ShellError::range_error(
+                    ExpectedRange::I32,
+                    &format!("{}", int).spanned(span),
+                    "converting an integer into a signed 32-bit integer",
+                )
+            }),
+            Primitive::Decimal(decimal) => decimal.to_i32().ok_or_else(|| {
+                ShellError::range_error(
+                    ExpectedRange::I32,
+                    &format!("{}", decimal).spanned(span),
+                    "converting a decimal into a signed 32-bit integer",
+                )
+            }),
+            other => Err(ShellError::type_error(
+                "number",
+                other.type_name().spanned(span),
+            )),
+        }
+    }
+
     // FIXME: This is a bad name, but no other way to differentiate with our own Duration.
     pub fn into_chrono_duration(self, span: Span) -> Result<chrono::Duration, ShellError> {
         match self {
