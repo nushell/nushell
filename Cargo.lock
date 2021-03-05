@@ -2949,7 +2949,7 @@ dependencies = [
 [[package]]
 name = "minus"
 version = "3.2.0"
-source = "git+https://github.com/rezural/minus?branch=add-finished-callback#b943ed5c9143924ca1f871e4911a82c2e784001a"
+source = "git+https://github.com/arijit79/minus?branch=main#eadb315644dcc051a0a3a7d4739bd59dfb37f0bd"
 dependencies = [
  "async-std",
  "crossterm 0.19.0",
@@ -3322,6 +3322,7 @@ dependencies = [
  "chrono-tz",
  "clap",
  "codespan-reporting",
+ "crossterm 0.19.0",
  "csv",
  "ctrlc",
  "derive-new",
