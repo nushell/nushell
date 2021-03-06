@@ -40,7 +40,7 @@ impl WholeStreamCommand for Command {
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        table(TableConfiguration::new(), (args)).await
+        table(TableConfiguration::new(), args).await
     }
 }
 

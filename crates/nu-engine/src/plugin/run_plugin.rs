@@ -109,7 +109,7 @@ impl WholeStreamCommand for PluginFilter {
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        run_filter(self.path.clone(), (args)).await
+        run_filter(self.path.clone(), args).await
     }
 }
 

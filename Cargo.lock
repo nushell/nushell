@@ -2948,8 +2948,9 @@ dependencies = [
 
 [[package]]
 name = "minus"
-version = "3.2.0"
-source = "git+https://github.com/arijit79/minus?branch=main#eadb315644dcc051a0a3a7d4739bd59dfb37f0bd"
+version = "3.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eaddc201fbde99703a9a33c1909b9cc5a8ff57dd6237e014fd04b03b30e8b3b8"
 dependencies = [
  "async-std",
  "crossterm 0.19.0",
