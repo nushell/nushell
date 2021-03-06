@@ -25,7 +25,7 @@ impl WholeStreamCommand for SubCommand {
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        operate((args), &to_screaming_snake_case).await
+        operate(args, &to_screaming_snake_case).await
     }
 
     fn examples(&self) -> Vec<Example> {
