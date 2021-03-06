@@ -63,7 +63,7 @@ itertools = "0.10.0"
 lazy_static = "1.*"
 log = "0.4.14"
 meval = "0.2.0"
-minus = { optional = true, features = ["async_std_lib", "search"], git = "https://github.com/arijit79/minus", branch = "main" }
+minus = { version = "3.3.0", optional = true, features = ["async_std_lib", "search"]}
 num-bigint = { version = "0.3.1", features = ["serde"] }
 num-format = { version = "0.4.0", features = ["with-num-bigint"] }
 num-traits = "0.2.14"
