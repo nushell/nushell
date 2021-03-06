@@ -253,7 +253,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                         let table =
                             nu_table::Table::new(vec![], entries, nu_table::Theme::compact());
 
-                        nu_table::draw_table(&table, term_width, &color_hm);
+                        println!("{}", nu_table::draw_table(&table, term_width, &color_hm));
                     }
                     Value {
                         value: UntaggedValue::Primitive(Primitive::Nothing),
