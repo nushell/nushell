@@ -42,9 +42,11 @@ impl WholeStreamCommand for Command {
     }
 
     fn usage(&self) -> &str {
-        r#"Output ANSI codes to change color
+        "Output ANSI codes to change color."
+    }
 
-For escape sequences:
+    fn extra_usage(&self) -> &str {
+        r#"For escape sequences:
 Escape: '\x1b[' is not required for --escape parameter
 Format: #(;#)m
 Example: 1;31m for bold red or 2;37;41m for dimmed white fg with red bg

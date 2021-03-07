@@ -19,7 +19,7 @@ impl WholeStreamCommand for Headers {
     }
 
     fn usage(&self) -> &str {
-        "Use the first row of the table as column names"
+        "Use the first row of the table as column names."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

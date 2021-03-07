@@ -16,7 +16,7 @@ impl WholeStreamCommand for Uniq {
     }
 
     fn usage(&self) -> &str {
-        "Return the unique rows"
+        "Return the unique rows."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

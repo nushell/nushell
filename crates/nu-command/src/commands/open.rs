@@ -46,14 +46,16 @@ impl WholeStreamCommand for Open {
     }
 
     fn usage(&self) -> &str {
-        r#"Load a file into a cell, convert to table if possible (avoid by appending '--raw').
-        
-Multiple encodings are supported for reading text files by using
+        "Load a file into a cell, convert to table if possible (avoid by appending '--raw')."
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"Multiple encodings are supported for reading text files by using
 the '--encoding <encoding>' parameter. Here is an example of a few:
 big5, euc-jp, euc-kr, gbk, iso-8859-1, utf-16, cp1252, latin5
 
 For a more complete list of encodings please refer to the encoding_rs
-documentation link at https://docs.rs/encoding_rs/0.8.23/encoding_rs/#statics"#
+documentation link at https://docs.rs/encoding_rs/0.8.28/encoding_rs/#statics"#
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

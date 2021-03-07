@@ -11,6 +11,7 @@ const COMMANDS_DOCS_DIR: &str = "docs/commands";
 pub struct DocumentationConfig {
     no_subcommands: bool,
     no_color: bool,
+    brief: bool,
 }
 
 impl Default for DocumentationConfig {
@@ -18,6 +19,7 @@ impl Default for DocumentationConfig {
         DocumentationConfig {
             no_subcommands: false,
             no_color: false,
+            brief: false,
         }
     }
 }
@@ -49,6 +51,7 @@ fn generate_doc(name: &str, scope: &Scope) -> IndexMap<String, Value> {
             &DocumentationConfig {
                 no_subcommands: true,
                 no_color: true,
+                brief: false,
             },
         ))
         .into_untagged_value(),
@@ -70,7 +73,7 @@ pub fn generate_docs(scope: &Scope) -> Value {
             if cmap.contains_key(*parent_name) {
                 let sub_names = cmap
                     .get_mut(*parent_name)
-                    .expect("Expected a entry for parent");
+                    .expect("Expected an entry for parent");
                 sub_names.push(name.to_owned());
             }
         } else {
@@ -132,6 +135,12 @@ pub fn get_documentation(
     let usage = &cmd.usage();
     if !usage.is_empty() {
         long_desc.push_str(usage);
+        long_desc.push_str("\n\n");
+    }
+
+    let extra_usage = if config.brief { "" } else { &cmd.extra_usage() };
+    if !extra_usage.is_empty() {
+        long_desc.push_str(extra_usage);
         long_desc.push_str("\n\n");
     }
 
@@ -296,6 +305,18 @@ fn get_flags_section(signature: &Signature) -> String {
     long_desc
 }
 
-pub fn get_help(cmd: &dyn WholeStreamCommand, scope: &Scope) -> String {
+pub fn get_brief_help(cmd: &dyn WholeStreamCommand, scope: &Scope) -> String {
+    get_documentation(
+        cmd,
+        scope,
+        &DocumentationConfig {
+            no_subcommands: false,
+            no_color: false,
+            brief: true,
+        },
+    )
+}
+
+pub fn get_full_help(cmd: &dyn WholeStreamCommand, scope: &Scope) -> String {
     get_documentation(cmd, scope, &DocumentationConfig::default())
 }

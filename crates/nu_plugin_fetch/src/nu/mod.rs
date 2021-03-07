@@ -9,7 +9,7 @@ use crate::Fetch;
 impl Plugin for Fetch {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("fetch")
-            .desc("Load from a URL into a cell, convert to table if possible (avoid by appending '--raw')")
+            .desc("Load from a URL into a cell, convert to table if possible (avoid by appending '--raw').")
             .required(
                 "URL",
                 SyntaxShape::String,

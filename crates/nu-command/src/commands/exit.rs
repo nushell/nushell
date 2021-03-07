@@ -21,7 +21,7 @@ impl WholeStreamCommand for Exit {
     }
 
     fn usage(&self) -> &str {
-        "Exit the current shell (or all shells)"
+        "Exit the current shell (or all shells)."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

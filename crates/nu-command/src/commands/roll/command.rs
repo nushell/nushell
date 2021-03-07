@@ -24,7 +24,7 @@ impl WholeStreamCommand for Command {
     }
 
     fn usage(&self) -> &str {
-        "Rolls the table rows"
+        "Rolls the table rows."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

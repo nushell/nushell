@@ -16,12 +16,12 @@ impl WholeStreamCommand for Url {
     }
 
     fn usage(&self) -> &str {
-        "Apply url function"
+        "Apply url function."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(ReturnSuccess::value(
-            UntaggedValue::string(get_help(&Url, &args.scope)).into_value(Tag::unknown()),
+            UntaggedValue::string(get_full_help(&Url, &args.scope)).into_value(Tag::unknown()),
         )))
     }
 }
