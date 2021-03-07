@@ -73,7 +73,7 @@ pub fn generate_docs(scope: &Scope) -> Value {
             if cmap.contains_key(*parent_name) {
                 let sub_names = cmap
                     .get_mut(*parent_name)
-                    .expect("Expected a entry for parent");
+                    .expect("Expected an entry for parent");
                 sub_names.push(name.to_owned());
             }
         } else {
