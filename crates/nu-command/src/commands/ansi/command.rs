@@ -42,7 +42,7 @@ impl WholeStreamCommand for Command {
     }
 
     fn usage(&self) -> &str {
-        "Output ANSI codes to change color"
+        "Output ANSI codes to change color."
     }
 
     fn extra_usage(&self) -> &str {
