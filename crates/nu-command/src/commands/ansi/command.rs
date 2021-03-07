@@ -75,7 +75,7 @@ following values:
     https://en.wikipedia.org/wiki/ANSI_escape_code
 
 OSC: '\x1b]' is not required for --osc parameter
-Example: echo [$(ansi -o '0') 'some title' $(char bel)] | str collect
+Example: echo [$(ansi -o '0') 'some title' $(ansi bel)] | str collect
 Format: #
     0 Set window title and icon name
     1 Set icon name
