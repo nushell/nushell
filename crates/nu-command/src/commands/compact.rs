@@ -24,7 +24,7 @@ impl WholeStreamCommand for Compact {
     }
 
     fn usage(&self) -> &str {
-        "Creates a table with non-empty rows"
+        "Creates a table with non-empty rows."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

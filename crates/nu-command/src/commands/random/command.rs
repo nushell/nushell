@@ -16,7 +16,7 @@ impl WholeStreamCommand for Command {
     }
 
     fn usage(&self) -> &str {
-        "Generate random values"
+        "Generate random values."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

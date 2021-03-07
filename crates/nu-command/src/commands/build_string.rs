@@ -24,7 +24,7 @@ impl WholeStreamCommand for BuildString {
     }
 
     fn usage(&self) -> &str {
-        "Builds a string from the arguments"
+        "Builds a string from the arguments."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

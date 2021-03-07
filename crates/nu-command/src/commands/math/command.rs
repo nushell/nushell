@@ -16,7 +16,7 @@ impl WholeStreamCommand for Command {
     }
 
     fn usage(&self) -> &str {
-        "Use mathematical functions as aggregate functions on a list of numbers or tables"
+        "Use mathematical functions as aggregate functions on a list of numbers or tables."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

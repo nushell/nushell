@@ -16,7 +16,7 @@ impl WholeStreamCommand for Url {
     }
 
     fn usage(&self) -> &str {
-        "Apply url function"
+        "Apply url function."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

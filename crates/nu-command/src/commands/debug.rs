@@ -21,7 +21,7 @@ impl WholeStreamCommand for Debug {
     }
 
     fn usage(&self) -> &str {
-        "Print the Rust debug representation of the values"
+        "Print the Rust debug representation of the values."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

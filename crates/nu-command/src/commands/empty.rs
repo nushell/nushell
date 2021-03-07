@@ -32,7 +32,7 @@ impl WholeStreamCommand for Command {
     }
 
     fn usage(&self) -> &str {
-        "Check for empty values"
+        "Check for empty values."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

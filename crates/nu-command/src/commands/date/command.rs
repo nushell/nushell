@@ -16,7 +16,7 @@ impl WholeStreamCommand for Command {
     }
 
     fn usage(&self) -> &str {
-        "Apply date function"
+        "Apply date function."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

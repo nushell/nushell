@@ -16,7 +16,7 @@ impl WholeStreamCommand for Path {
     }
 
     fn usage(&self) -> &str {
-        "Explore and manipulate paths"
+        "Explore and manipulate paths."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

@@ -30,7 +30,7 @@ impl WholeStreamCommand for Remove {
     }
 
     fn usage(&self) -> &str {
-        "Remove file(s)"
+        "Remove file(s)."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

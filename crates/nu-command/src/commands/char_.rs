@@ -29,7 +29,7 @@ impl WholeStreamCommand for Char {
     }
 
     fn usage(&self) -> &str {
-        "Output special characters (eg. 'newline')"
+        "Output special characters (eg. 'newline')."
     }
 
     fn examples(&self) -> Vec<Example> {

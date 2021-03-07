@@ -16,7 +16,7 @@ impl WholeStreamCommand for From {
     }
 
     fn usage(&self) -> &str {
-        "Parse content (string or binary) as a table (input format based on subcommand, like csv, ini, json, toml)"
+        "Parse content (string or binary) as a table (input format based on subcommand, like csv, ini, json, toml)."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
