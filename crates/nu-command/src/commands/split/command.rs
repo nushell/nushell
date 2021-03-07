@@ -17,7 +17,7 @@ impl WholeStreamCommand for Command {
     }
 
     fn usage(&self) -> &str {
-        "split contents across desired subcommand (like row, column) via the separator."
+        "Split contents across desired subcommand (like row, column) via the separator."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
