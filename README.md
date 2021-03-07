@@ -240,7 +240,7 @@ Nu has early support for configuring the shell. You can refer to the book for a 
 To set one of these variables, you can use `config set`. For example:
 
 ```shell
-> config set edit_mode "vi"
+> config set line_editor.edit_mode "vi"
 > config set path $nu.path
 ```
 

@@ -257,9 +257,7 @@ pub async fn run_script_standalone(
         }
 
         LineResult::Error(line, err) => {
-            context.with_host(|_host| {
-                print_err(err, &Text::from(line.clone()), &context);
-            });
+            print_err(err, &Text::from(line.clone()), &context);
 
             maybe_print_errors(&context, Text::from(line));
             if exit_on_error {
