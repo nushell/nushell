@@ -298,8 +298,6 @@ pub fn str_to_ansi(s: String) -> Option<String> {
 
         // For setting title like `echo [$(char title) $(pwd) $(char bel)] | str collect`
         "title" => Some("\x1b]2;".to_string()), // ESC]2; xterm sets window title using OSC syntax escapes
-        "bel" => Some('\x07'.to_string()),      // Terminal Bell
-        "backspace" => Some('\x08'.to_string()), // Backspace
 
         // Ansi Erase Sequences
         "clear_screen" => Some("\x1b[J".to_string()), // clears the screen

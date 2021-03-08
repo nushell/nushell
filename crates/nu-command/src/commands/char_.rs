@@ -130,6 +130,9 @@ fn str_to_character(s: &str) -> Option<String> {
         "snowy" | "snow" => Some("❄️".to_string()),
         "thunderstorm" | "thunder" => Some("🌩️".to_string()),
 
+        "bel" => Some('\x07'.to_string()),       // Terminal Bell
+        "backspace" => Some('\x08'.to_string()), // Backspace
+
         _ => None,
     }
 }
