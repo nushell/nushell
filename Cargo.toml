@@ -28,7 +28,6 @@ nu-plugin = { version = "0.28.0", path = "./crates/nu-plugin" }
 nu-protocol = { version = "0.28.0", path = "./crates/nu-protocol" }
 nu-source = { version = "0.28.0", path = "./crates/nu-source" }
 nu-value-ext = { version = "0.28.0", path = "./crates/nu-value-ext" }
-nu-platform-specifics = { version = "0.28.0", path = "./crates/nu-platform-specifics" }
 
 nu_plugin_binaryview = { version = "0.28.0", path = "./crates/nu_plugin_binaryview", optional = true }
 nu_plugin_chart = { version = "0.28.0", path = "./crates/nu_plugin_chart", optional = true }
@@ -85,7 +84,7 @@ which-support = [
     "nu-cli/which",
     "nu-command/ichwh",
     "nu-command/which",
-    "nu-platform-specifics/which"
+    "nu-engine/which"
 ]
 
 default = [

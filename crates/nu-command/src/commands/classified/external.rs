@@ -28,7 +28,7 @@ pub(crate) async fn run_external_command(
 ) -> Result<InputStream, ShellError> {
     trace!(target: "nu::run::external", "-> {}", command.name);
 
-    if !nu_platform_specifics::is_external_cmd(&command.name) {
+    if !context.host.lock().is_external_cmd(&command.name) {
         return Err(ShellError::labeled_error(
             "Command not found",
             "command not found",

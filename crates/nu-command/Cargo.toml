@@ -24,7 +24,6 @@ nu-table = { version = "0.28.0", path = "../nu-table" }
 nu-test-support = { version = "0.28.0", path = "../nu-test-support" }
 nu-value-ext = { version = "0.28.0", path = "../nu-value-ext" }
 nu-ansi-term = { version = "0.28.0", path = "../nu-ansi-term" }
-nu-platform-specifics = { version = "0.28.0", path = "../nu-platform-specifics" }
 
 Inflector = "0.11"
 arboard = { version = "1.1.0", optional = true }
