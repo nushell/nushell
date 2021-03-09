@@ -3475,6 +3475,7 @@ dependencies = [
  "tempfile",
  "term_size",
  "termcolor",
+ "trash",
  "umask",
  "users",
 ]
