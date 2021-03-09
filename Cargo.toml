@@ -144,7 +144,7 @@ s3 = ["nu_plugin_s3"]
 selector = ["nu_plugin_selector"]
 sqlite = ["nu_plugin_from_sqlite", "nu_plugin_to_sqlite"]
 start = ["nu_plugin_start"]
-trash-support = ["nu-cli/trash-support", "nu-command/trash-support"]
+trash-support = ["nu-cli/trash-support", "nu-command/trash-support", "nu-engine/trash-support"]
 tree = ["nu_plugin_tree"]
 xpath = ["nu_plugin_xpath"]
 #This is disabled in extra for now
