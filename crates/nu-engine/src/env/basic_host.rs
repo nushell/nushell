@@ -1,5 +1,7 @@
 use crate::Host;
+use nu_errors::ShellError;
 use nu_protocol::{errln, outln};
+use nu_source::Text;
 use std::ffi::OsString;
 
 #[derive(Debug)]
@@ -17,6 +19,21 @@ impl Host for BasicHost {
         match out {
             "\n" => errln!(""),
             other => errln!("{}", other),
+        }
+    }
+
+    fn print_err(&mut self, err: ShellError, source: &Text) {
+        if let Some(diag) = err.into_diagnostic() {
+            let source = source.to_string();
+            let mut files = codespan_reporting::files::SimpleFiles::new();
+            files.add("shell", source);
+
+            let writer = termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto);
+            let config = codespan_reporting::term::Config::default();
+
+            let _ = std::panic::catch_unwind(move || {
+                let _ = codespan_reporting::term::emit(&mut writer.lock(), &config, &files, &diag);
+            });
         }
     }
 
@@ -61,14 +78,6 @@ impl Host for BasicHost {
         }
     }
 
-    fn out_termcolor(&self) -> termcolor::StandardStream {
-        termcolor::StandardStream::stdout(termcolor::ColorChoice::Auto)
-    }
-
-    fn err_termcolor(&self) -> termcolor::StandardStream {
-        termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto)
-    }
-
     fn width(&self) -> usize {
         let (mut term_width, _) = term_size::dimensions().unwrap_or((80, 20));
         term_width -= 1;
@@ -81,6 +90,31 @@ impl Host for BasicHost {
     }
 
     fn is_external_cmd(&self, cmd_name: &str) -> bool {
-        nu_platform_specifics::is_external_cmd(cmd_name)
+        #[cfg(any(target_arch = "wasm32", not(feature = "which")))]
+        {
+            true
+        }
+
+        #[cfg(all(unix, feature = "which"))]
+        {
+            which::which(cmd_name).is_ok()
+        }
+
+        #[cfg(all(windows, feature = "which"))]
+        {
+            if which::which(cmd_name).is_ok() {
+                true
+            } else {
+                // Reference: https://ss64.com/nt/syntax-internal.html
+                let cmd_builtins = [
+                    "assoc", "break", "color", "copy", "date", "del", "dir", "dpath", "echo",
+                    "erase", "for", "ftype", "md", "mkdir", "mklink", "move", "path", "ren",
+                    "rename", "rd", "rmdir", "start", "time", "title", "type", "ver", "verify",
+                    "vol",
+                ];
+
+                cmd_builtins.contains(cmd_name)
+            }
+        }
     }
 }

@@ -1,8 +1,5 @@
 use crate::run_block;
-use crate::{
-    path::canonicalize,
-    print::{maybe_print_errors, print_err},
-};
+use crate::{path::canonicalize, print::maybe_print_errors};
 use crate::{MaybeTextCodec, StringOrBinary};
 use futures::StreamExt;
 use futures_codec::FramedRead;
@@ -254,7 +251,10 @@ pub async fn run_script_standalone(
         }
 
         LineResult::Error(line, err) => {
-            print_err(err, &Text::from(line.clone()), &context);
+            context
+                .host
+                .lock()
+                .print_err(err, &Text::from(line.clone()));
 
             maybe_print_errors(&context, Text::from(line));
             if exit_on_error {

@@ -1,13 +1,15 @@
 use indexmap::IndexMap;
+use nu_errors::ShellError;
+use nu_source::Text;
 use std::ffi::OsString;
 use std::fmt::Debug;
 
-pub trait Host: Debug + Send {
-    fn out_termcolor(&self) -> termcolor::StandardStream;
-    fn err_termcolor(&self) -> termcolor::StandardStream;
+use super::basic_host::BasicHost;
 
+pub trait Host: Debug + Send {
     fn stdout(&mut self, out: &str);
     fn stderr(&mut self, out: &str);
+    fn print_err(&mut self, err: ShellError, source: &Text);
 
     fn vars(&mut self) -> Vec<(String, String)>;
     fn env_get(&mut self, key: OsString) -> Option<OsString>;
@@ -29,6 +31,10 @@ impl Host for Box<dyn Host> {
         (**self).stderr(out)
     }
 
+    fn print_err(&mut self, err: ShellError, source: &Text) {
+        (**self).print_err(err, source)
+    }
+
     fn vars(&mut self) -> Vec<(String, String)> {
         (**self).vars()
     }
@@ -43,14 +49,6 @@ impl Host for Box<dyn Host> {
 
     fn env_rm(&mut self, key: OsString) {
         (**self).env_rm(key)
-    }
-
-    fn out_termcolor(&self) -> termcolor::StandardStream {
-        (**self).out_termcolor()
-    }
-
-    fn err_termcolor(&self) -> termcolor::StandardStream {
-        (**self).err_termcolor()
     }
 
     fn width(&self) -> usize {
@@ -96,6 +94,10 @@ impl Host for FakeHost {
         self.line_written = out.to_string();
     }
 
+    fn print_err(&mut self, err: ShellError, source: &Text) {
+        BasicHost {}.print_err(err, source);
+    }
+
     fn vars(&mut self) -> Vec<(String, String)> {
         self.env_vars
             .iter()
@@ -122,14 +124,6 @@ impl Host for FakeHost {
     fn env_rm(&mut self, key: OsString) {
         self.env_vars
             .shift_remove(&key.into_string().expect("Couldn't convert to string."));
-    }
-
-    fn out_termcolor(&self) -> termcolor::StandardStream {
-        termcolor::StandardStream::stdout(termcolor::ColorChoice::Auto)
-    }
-
-    fn err_termcolor(&self) -> termcolor::StandardStream {
-        termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto)
     }
 
     fn width(&self) -> usize {
