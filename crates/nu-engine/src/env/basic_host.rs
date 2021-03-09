@@ -89,7 +89,7 @@ impl Host for BasicHost {
         term_height
     }
 
-    fn is_external_cmd(&self, cmd_name: &str) -> bool {
+    fn is_external_cmd(&self, #[allow(unused)] cmd_name: &str) -> bool {
         #[cfg(any(target_arch = "wasm32", not(feature = "which")))]
         {
             true
