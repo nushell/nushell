@@ -113,7 +113,7 @@ impl Host for BasicHost {
                     "vol",
                 ];
 
-                cmd_builtins.contains(cmd_name)
+                cmd_builtins.contains(&cmd_name)
             }
         }
     }
