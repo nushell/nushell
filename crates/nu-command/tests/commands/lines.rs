@@ -46,5 +46,5 @@ fn lines_multi_value_split() {
         "#
     ));
 
-    assert_eq!(actual.out, "6");
+    assert_eq!(actual.out, "5");
 }

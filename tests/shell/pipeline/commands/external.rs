@@ -122,6 +122,17 @@ mod it_evaluation {
     }
 
     #[test]
+    fn can_properly_buffer_lines_externally() {
+        let actual = nu!(
+            cwd: ".",
+            r#"
+                nu --testbin repeater c 8197 | lines | count
+            "#
+        );
+
+        assert_eq!(actual.out, "1");
+    }
+    #[test]
     fn supports_fetching_given_a_column_path_to_it() {
         Playground::setup("it_argument_test_3", |dirs, sandbox| {
             sandbox.with_files(vec![FileWithContent(
