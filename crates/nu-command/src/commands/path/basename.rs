@@ -1,4 +1,4 @@
-use super::{operate, DefaultArguments};
+use super::{operate, PathSubcommandArguments};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
@@ -12,6 +12,12 @@ pub struct PathBasename;
 struct PathBasenameArguments {
     replace: Option<Tagged<String>>,
     rest: Vec<ColumnPath>,
+}
+
+impl PathSubcommandArguments for PathBasenameArguments {
+    fn get_column_paths(&self) -> &Vec<ColumnPath> {
+        &self.rest
+    }
 }
 
 #[async_trait]
@@ -38,13 +44,7 @@ impl WholeStreamCommand for PathBasename {
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let (PathBasenameArguments { replace, rest }, input) = args.process().await?;
-        let args = Arc::new(DefaultArguments {
-            replace: replace.map(|v| v.item),
-            prefix: None,
-            suffix: None,
-            num_levels: None,
-            paths: rest,
-        });
+        let args = Arc::new(PathBasenameArguments { replace, rest });
         operate(input, &action, tag.span, args).await
     }
 
@@ -85,9 +85,9 @@ impl WholeStreamCommand for PathBasename {
     }
 }
 
-fn action(path: &Path, args: Arc<DefaultArguments>) -> UntaggedValue {
+fn action(path: &Path, args: &PathBasenameArguments) -> UntaggedValue {
     match args.replace {
-        Some(ref basename) => UntaggedValue::filepath(path.with_file_name(basename)),
+        Some(ref basename) => UntaggedValue::filepath(path.with_file_name(&basename.item)),
         None => UntaggedValue::string(match path.file_name() {
             Some(filename) => filename.to_string_lossy(),
             None => "".into(),

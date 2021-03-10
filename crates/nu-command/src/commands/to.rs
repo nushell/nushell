@@ -22,7 +22,7 @@ impl WholeStreamCommand for To {
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(ReturnSuccess::value(
-            UntaggedValue::string(get_help(&To, &args.scope)).into_value(Tag::unknown()),
+            UntaggedValue::string(get_full_help(&To, &args.scope)).into_value(Tag::unknown()),
         )))
     }
 }

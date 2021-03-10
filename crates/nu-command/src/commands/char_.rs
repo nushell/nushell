@@ -29,7 +29,7 @@ impl WholeStreamCommand for Char {
     }
 
     fn usage(&self) -> &str {
-        "Output special characters (eg. 'newline')"
+        "Output special characters (eg. 'newline')."
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -129,6 +129,9 @@ fn str_to_character(s: &str) -> Option<String> {
         "mist" | "haze" => Some("\u{2591}".to_string()),
         "snowy" | "snow" => Some("❄️".to_string()),
         "thunderstorm" | "thunder" => Some("🌩️".to_string()),
+
+        "bel" => Some('\x07'.to_string()),       // Terminal Bell
+        "backspace" => Some('\x08'.to_string()), // Backspace
 
         _ => None,
     }

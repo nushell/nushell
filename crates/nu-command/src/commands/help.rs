@@ -161,7 +161,7 @@ async fn help(args: CommandArgs) -> Result<OutputStream, ShellError> {
             let command_name = format!("{} {}", rest[0].item, rest[1].item);
             if let Some(command) = scope.get_command(&command_name) {
                 Ok(OutputStream::one(ReturnSuccess::value(
-                    UntaggedValue::string(get_help(command.stream_command(), &scope))
+                    UntaggedValue::string(get_full_help(command.stream_command(), &scope))
                         .into_value(Tag::unknown()),
                 )))
             } else {
@@ -169,7 +169,7 @@ async fn help(args: CommandArgs) -> Result<OutputStream, ShellError> {
             }
         } else if let Some(command) = scope.get_command(&rest[0].item) {
             Ok(OutputStream::one(ReturnSuccess::value(
-                UntaggedValue::string(get_help(command.stream_command(), &scope))
+                UntaggedValue::string(get_full_help(command.stream_command(), &scope))
                     .into_value(Tag::unknown()),
             )))
         } else {

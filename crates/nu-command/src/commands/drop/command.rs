@@ -26,7 +26,7 @@ impl WholeStreamCommand for Command {
     }
 
     fn usage(&self) -> &str {
-        "Remove the last number of rows. If you want to remove columns, try 'drop column'."
+        "Remove the last number of rows or columns."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

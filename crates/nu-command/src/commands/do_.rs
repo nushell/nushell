@@ -29,7 +29,7 @@ impl WholeStreamCommand for Do {
     }
 
     fn usage(&self) -> &str {
-        "Runs a block, optionally ignoring errors"
+        "Runs a block, optionally ignoring errors."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

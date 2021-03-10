@@ -27,7 +27,7 @@ impl WholeStreamCommand for Range {
     }
 
     fn usage(&self) -> &str {
-        "Return only the selected rows"
+        "Return only the selected rows."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

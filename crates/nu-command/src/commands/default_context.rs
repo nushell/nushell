@@ -235,6 +235,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(PathExpand),
             whole_stream_command(PathExtension),
             whole_stream_command(PathFilestem),
+            whole_stream_command(PathJoin),
             whole_stream_command(PathType),
             // Url
             whole_stream_command(UrlCommand),

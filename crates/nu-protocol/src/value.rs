@@ -445,6 +445,14 @@ impl Value {
         }
     }
 
+    /// View the Value as signed 64-bit, if possible
+    pub fn as_i32(&self) -> Result<i32, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(primitive) => primitive.as_i32(self.tag.span),
+            _ => Err(ShellError::type_error("integer", self.spanned_type_name())),
+        }
+    }
+
     /// View the Value as boolean, if possible
     pub fn as_bool(&self) -> Result<bool, ShellError> {
         match &self.value {

@@ -35,7 +35,7 @@ impl WholeStreamCommand for WithEnv {
     }
 
     fn usage(&self) -> &str {
-        "Runs a block with an environment set. Eg) with-env [NAME 'foo'] { echo $nu.env.NAME }"
+        "Runs a block with an environment variable set."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

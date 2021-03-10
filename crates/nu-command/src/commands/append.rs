@@ -25,7 +25,7 @@ impl WholeStreamCommand for Command {
     }
 
     fn usage(&self) -> &str {
-        "Append a row to the table"
+        "Append a row to the table."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

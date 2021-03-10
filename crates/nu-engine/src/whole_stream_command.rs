@@ -1,5 +1,5 @@
 use crate::command_args::CommandArgs;
-use crate::documentation::get_help;
+use crate::documentation::get_full_help;
 use crate::evaluate::block::run_block;
 use crate::evaluation_context::EvaluationContext;
 use crate::example::Example;
@@ -21,6 +21,10 @@ pub trait WholeStreamCommand: Send + Sync {
     }
 
     fn usage(&self) -> &str;
+
+    fn extra_usage(&self) -> &str {
+        ""
+    }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError>;
 
@@ -210,7 +214,7 @@ impl Command {
         if args.call_info.switch_present("help") {
             let cl = self.0.clone();
             Ok(OutputStream::one(Ok(ReturnSuccess::Value(
-                UntaggedValue::string(get_help(&*cl, &args.scope)).into_value(Tag::unknown()),
+                UntaggedValue::string(get_full_help(&*cl, &args.scope)).into_value(Tag::unknown()),
             ))))
         } else {
             self.0.run(args).await

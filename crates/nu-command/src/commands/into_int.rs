@@ -23,7 +23,7 @@ impl WholeStreamCommand for IntoInt {
     }
 
     fn usage(&self) -> &str {
-        "Convert value to integer"
+        "Convert value to integer."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

@@ -1,11 +1,9 @@
 use base64::encode;
-use mime::Mime;
 use nu_errors::ShellError;
 use nu_protocol::{CallInfo, CommandAction, ReturnSuccess, ReturnValue, UntaggedValue, Value};
 use nu_source::{AnchorLocation, Span, Tag};
 use std::path::PathBuf;
 use std::str::FromStr;
-use surf::mime;
 
 #[derive(Default)]
 pub struct Fetch {
@@ -97,25 +95,31 @@ async fn helper(
     has_raw: bool,
     user: Option<String>,
     password: Option<String>,
-) -> Result<(Option<String>, Value), ShellError> {
-    if let Err(e) = url::Url::parse(location) {
-        return Err(ShellError::labeled_error(
-            format!("Incomplete or incorrect url:\n{:?}", e),
-            "expected a full url",
-            span,
-        ));
-    }
+) -> std::result::Result<(Option<String>, Value), ShellError> {
+    let url = match url::Url::parse(location) {
+        Ok(u) => u,
+        Err(e) => {
+            return Err(ShellError::labeled_error(
+                format!("Incomplete or incorrect url:\n{:?}", e),
+                "expected a full url",
+                span,
+            ));
+        }
+    };
 
     let login = match (user, password) {
         (Some(user), Some(password)) => Some(encode(&format!("{}:{}", user, password))),
         (Some(user), _) => Some(encode(&format!("{}:", user))),
         _ => None,
     };
-    let mut response = surf::get(location);
+
+    let mut response = surf::RequestBuilder::new(surf::http::Method::Get, url);
+
     if let Some(login) = login {
-        response = response.set_header("Authorization", format!("Basic {}", login));
+        response = surf::get(location).header("Authorization", format!("Basic {}", login));
     }
-    let generate_error = |t: &str, e: Box<dyn std::error::Error>, span: &Span| {
+
+    let generate_error = |t: &str, e: surf::Error, span: &Span| {
         ShellError::labeled_error(
             format!("Could not load {} from remote url: {:?}", t, e),
             "could not load",
@@ -126,16 +130,29 @@ async fn helper(
         span,
         anchor: Some(AnchorLocation::Url(location.to_string())),
     };
+
     match response.await {
-        Ok(mut r) => match r.headers().get("content-type") {
+        Ok(mut r) => match r.header("content-type") {
             Some(content_type) => {
-                let content_type = Mime::from_str(content_type).map_err(|_| {
-                    ShellError::labeled_error(
-                        format!("MIME type unknown: {}", content_type),
-                        "given unknown MIME type",
-                        span,
-                    )
-                })?;
+                let content_type_header_value = content_type.get(0);
+                let content_type_header_value = match content_type_header_value {
+                    Some(h) => h,
+                    None => {
+                        return Err(ShellError::labeled_error(
+                            "no content type found",
+                            "no content type found",
+                            span,
+                        ))
+                    }
+                };
+                let content_type = mime::Mime::from_str(content_type_header_value.as_str())
+                    .map_err(|_| {
+                        ShellError::labeled_error(
+                            format!("MIME type unknown: {}", content_type_header_value),
+                            "given unknown MIME type",
+                            span,
+                        )
+                    })?;
                 match (content_type.type_(), content_type.subtype()) {
                     (mime::APPLICATION, mime::XML) => Ok((
                         Some("xml".to_string()),
@@ -159,7 +176,7 @@ async fn helper(
                         let buf: Vec<u8> = r
                             .body_bytes()
                             .await
-                            .map_err(|e| generate_error("binary", Box::new(e), &span))?;
+                            .map_err(|e| generate_error("binary", e, &span))?;
                         Ok((None, UntaggedValue::binary(buf).into_value(tag)))
                     }
                     (mime::IMAGE, mime::SVG) => Ok((
@@ -175,7 +192,7 @@ async fn helper(
                         let buf: Vec<u8> = r
                             .body_bytes()
                             .await
-                            .map_err(|e| generate_error("image", Box::new(e), &span))?;
+                            .map_err(|e| generate_error("image", e, &span))?;
                         Ok((
                             Some(image_ty.to_string()),
                             UntaggedValue::binary(buf).into_value(tag),
@@ -228,7 +245,17 @@ async fn helper(
                         ))
                     }
                     (_ty, _sub_ty) if has_raw => {
-                        let raw_bytes = r.body_bytes().await?;
+                        let raw_bytes = r.body_bytes().await;
+                        let raw_bytes = match raw_bytes {
+                            Ok(r) => r,
+                            Err(e) => {
+                                return Err(ShellError::labeled_error(
+                                    "error with raw_bytes",
+                                    e.to_string(),
+                                    &span,
+                                ));
+                            }
+                        };
 
                         // For unsupported MIME types, we do not know if the data is UTF-8,
                         // so we get the raw body bytes and try to convert to UTF-8 if possible.
@@ -251,9 +278,9 @@ async fn helper(
                 UntaggedValue::string("No content type found".to_owned()).into_value(tag),
             )),
         },
-        Err(_) => Err(ShellError::labeled_error(
-            "URL could not be opened",
-            "url not found",
+        Err(e) => Err(ShellError::labeled_error(
+            "url could not be opened",
+            e.to_string(),
             span,
         )),
     }

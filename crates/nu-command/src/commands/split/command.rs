@@ -17,12 +17,12 @@ impl WholeStreamCommand for Command {
     }
 
     fn usage(&self) -> &str {
-        "split contents across desired subcommand (like row, column) via the separator."
+        "Split contents across desired subcommand (like row, column) via the separator."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(Ok(ReturnSuccess::Value(
-            UntaggedValue::string(get_help(&Command, &args.scope)).into_value(Tag::unknown()),
+            UntaggedValue::string(get_full_help(&Command, &args.scope)).into_value(Tag::unknown()),
         ))))
     }
 }

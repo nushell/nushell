@@ -16,12 +16,12 @@ impl WholeStreamCommand for Path {
     }
 
     fn usage(&self) -> &str {
-        "Explore and manipulate paths"
+        "Explore and manipulate paths."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(ReturnSuccess::value(
-            UntaggedValue::string(get_help(&Path, &args.scope)).into_value(Tag::unknown()),
+            UntaggedValue::string(get_full_help(&Path, &args.scope)).into_value(Tag::unknown()),
         )))
     }
 }

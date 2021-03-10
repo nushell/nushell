@@ -1,4 +1,4 @@
-use super::{operate, DefaultArguments};
+use super::{operate, PathSubcommandArguments};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
@@ -14,6 +14,12 @@ struct PathDirnameArguments {
     #[serde(rename = "num-levels")]
     num_levels: Option<Tagged<u32>>,
     rest: Vec<ColumnPath>,
+}
+
+impl PathSubcommandArguments for PathDirnameArguments {
+    fn get_column_paths(&self) -> &Vec<ColumnPath> {
+        &self.rest
+    }
 }
 
 #[async_trait]
@@ -53,12 +59,10 @@ impl WholeStreamCommand for PathDirname {
             },
             input,
         ) = args.process().await?;
-        let args = Arc::new(DefaultArguments {
-            replace: replace.map(|v| v.item),
-            prefix: None,
-            suffix: None,
-            num_levels: num_levels.map(|v| v.item),
-            paths: rest,
+        let args = Arc::new(PathDirnameArguments {
+            replace,
+            num_levels,
+            rest,
         });
         operate(input, &action, tag.span, args).await
     }
@@ -113,8 +117,8 @@ impl WholeStreamCommand for PathDirname {
     }
 }
 
-fn action(path: &Path, args: Arc<DefaultArguments>) -> UntaggedValue {
-    let num_levels = args.num_levels.unwrap_or(1);
+fn action(path: &Path, args: &PathDirnameArguments) -> UntaggedValue {
+    let num_levels = args.num_levels.as_ref().map_or(1, |tagged| tagged.item);
 
     let mut dirname = path;
     let mut reached_top = false; // end early if somebody passes -n 99999999
@@ -132,9 +136,9 @@ fn action(path: &Path, args: Arc<DefaultArguments>) -> UntaggedValue {
         Some(ref newdir) => {
             let remainder = path.strip_prefix(dirname).unwrap_or(dirname);
             if !remainder.as_os_str().is_empty() {
-                UntaggedValue::filepath(Path::new(newdir).join(remainder))
+                UntaggedValue::filepath(Path::new(&newdir.item).join(remainder))
             } else {
-                UntaggedValue::filepath(Path::new(newdir))
+                UntaggedValue::filepath(Path::new(&newdir.item))
             }
         }
         None => UntaggedValue::filepath(dirname),

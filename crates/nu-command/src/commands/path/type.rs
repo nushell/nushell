@@ -1,4 +1,4 @@
-use super::{operate, DefaultArguments};
+use super::{operate, PathSubcommandArguments};
 use crate::prelude::*;
 use nu_engine::filesystem::filesystem_shell::get_file_type;
 use nu_engine::WholeStreamCommand;
@@ -11,6 +11,12 @@ pub struct PathType;
 #[derive(Deserialize)]
 struct PathTypeArguments {
     rest: Vec<ColumnPath>,
+}
+
+impl PathSubcommandArguments for PathTypeArguments {
+    fn get_column_paths(&self) -> &Vec<ColumnPath> {
+        &self.rest
+    }
 }
 
 #[async_trait]
@@ -31,13 +37,7 @@ impl WholeStreamCommand for PathType {
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let (PathTypeArguments { rest }, input) = args.process().await?;
-        let args = Arc::new(DefaultArguments {
-            replace: None,
-            prefix: None,
-            suffix: None,
-            num_levels: None,
-            paths: rest,
-        });
+        let args = Arc::new(PathTypeArguments { rest });
         operate(input, &action, tag.span, args).await
     }
 
@@ -50,7 +50,7 @@ impl WholeStreamCommand for PathType {
     }
 }
 
-fn action(path: &Path, _args: Arc<DefaultArguments>) -> UntaggedValue {
+fn action(path: &Path, _args: &PathTypeArguments) -> UntaggedValue {
     let meta = std::fs::symlink_metadata(path);
     UntaggedValue::string(match &meta {
         Ok(md) => get_file_type(md),
