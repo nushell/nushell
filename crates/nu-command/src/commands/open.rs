@@ -103,6 +103,9 @@ async fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let cwd = PathBuf::from(args.shell_manager.path());
     let shell_manager = args.shell_manager.clone();
 
+    let name = args.call_info.name_tag.clone();
+    let ctrl_c = args.ctrl_c.clone();
+
     let (
         OpenArgs {
             path,
@@ -113,9 +116,14 @@ async fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
     ) = args.process().await?;
 
     if path.is_dir() {
-        return Ok(OutputStream::one(ReturnSuccess::action(
-            CommandAction::EnterShell(path.display().to_string()),
-        )));
+        let args = nu_engine::shell::LsArgs {
+            path: Some(path),
+            all: false,
+            long: false,
+            short_names: false,
+            du: false,
+        };
+        return shell_manager.ls(args, name, ctrl_c);
     }
 
     // TODO: Remove once Streams are supported everywhere!
