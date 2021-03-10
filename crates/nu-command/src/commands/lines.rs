@@ -56,59 +56,70 @@ async fn lines(args: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(args
         .input
         .chain(eos)
-        .map(move |item| {
+        .filter_map(move |item| {
             let leftover_string = leftover_string.clone();
+            async move {
+                match item {
+                    Value {
+                        value: UntaggedValue::Primitive(Primitive::String(st)),
+                        ..
+                    } => {
+                        let mut leftover_string = leftover_string.lock();
 
-            match item {
-                Value {
-                    value: UntaggedValue::Primitive(Primitive::String(st)),
-                    ..
-                } => {
-                    let mut leftover_string = leftover_string.lock();
+                        let mut buffer = leftover_string.clone();
+                        buffer.push_str(&st);
 
-                    let lo_lines = (&*leftover_string).lines().map(|x| x.to_string());
-                    let st_lines = st.lines().map(|x| x.to_string());
-                    let mut lines: Vec<String> = lo_lines.chain(st_lines).collect();
+                        let mut lines: Vec<String> =
+                            buffer.lines().map(|x| x.to_string()).collect();
 
-                    leftover_string.clear();
+                        leftover_string.clear();
 
-                    if !ends_with_line_ending(&st) {
-                        if let Some(last) = lines.pop() {
-                            leftover_string.push_str(&last);
+                        if !ends_with_line_ending(&st) {
+                            if let Some(last) = lines.pop() {
+                                leftover_string.push_str(&last);
+                            }
+                        }
+
+                        if !lines.is_empty() {
+                            let success_lines: Vec<_> = lines
+                                .iter()
+                                .map(|x| {
+                                    ReturnSuccess::value(
+                                        UntaggedValue::string(x).into_untagged_value(),
+                                    )
+                                })
+                                .collect();
+
+                            Some(futures::stream::iter(success_lines))
+                        } else {
+                            None
                         }
                     }
-
-                    let success_lines: Vec<_> = lines
-                        .iter()
-                        .map(|x| {
-                            ReturnSuccess::value(UntaggedValue::string(x).into_untagged_value())
-                        })
-                        .collect();
-
-                    futures::stream::iter(success_lines)
-                }
-                Value {
-                    value: UntaggedValue::Primitive(Primitive::EndOfStream),
-                    ..
-                } => {
-                    let st = (&*leftover_string).lock().clone();
-                    if !st.is_empty() {
-                        futures::stream::iter(vec![ReturnSuccess::value(
-                            UntaggedValue::string(st).into_untagged_value(),
-                        )])
-                    } else {
-                        futures::stream::iter(vec![])
+                    Value {
+                        value: UntaggedValue::Primitive(Primitive::EndOfStream),
+                        ..
+                    } => {
+                        let st = (&*leftover_string).lock().clone();
+                        if !st.is_empty() {
+                            Some(futures::stream::iter(vec![ReturnSuccess::value(
+                                UntaggedValue::string(st).into_untagged_value(),
+                            )]))
+                        } else {
+                            None
+                        }
                     }
+                    Value {
+                        tag: value_span, ..
+                    } => Some(futures::stream::iter(vec![Err(
+                        ShellError::labeled_error_with_secondary(
+                            "Expected a string from pipeline",
+                            "requires string input",
+                            name_span,
+                            "value originates from here",
+                            value_span,
+                        ),
+                    )])),
                 }
-                Value {
-                    tag: value_span, ..
-                } => futures::stream::iter(vec![Err(ShellError::labeled_error_with_secondary(
-                    "Expected a string from pipeline",
-                    "requires string input",
-                    name_span,
-                    "value originates from here",
-                    value_span,
-                ))]),
             }
         })
         .flatten()
