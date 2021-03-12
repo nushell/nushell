@@ -216,7 +216,7 @@ async fn save(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                     let new_args = RawCommandArgs {
                         host,
                         ctrl_c,
-                        configs: configs,
+                        configs,
                         current_errors,
                         shell_manager: shell_manager.clone(),
                         call_info: UnevaluatedCallInfo {

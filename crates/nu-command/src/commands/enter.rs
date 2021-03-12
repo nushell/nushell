@@ -133,7 +133,7 @@ async fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                         let new_args = RawCommandArgs {
                             host,
                             ctrl_c,
-                            configs: configs,
+                            configs,
                             current_errors,
                             shell_manager,
                             call_info: UnevaluatedCallInfo {
