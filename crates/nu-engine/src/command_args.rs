@@ -68,7 +68,7 @@ impl CommandArgs {
         let ctx = EvaluationContext::from_args(&self);
         let host = self.host.clone();
         let ctrl_c = self.ctrl_c.clone();
-        let config_holder = self.configs.clone();
+        let configs = self.configs.clone();
         let shell_manager = self.shell_manager.clone();
         let input = self.input;
         let call_info = self.call_info.evaluate(&ctx).await?;
@@ -77,7 +77,7 @@ impl CommandArgs {
         Ok(EvaluatedWholeStreamCommandArgs::new(
             host,
             ctrl_c,
-            config_holder,
+            configs,
             shell_manager,
             call_info,
             input,
@@ -111,7 +111,7 @@ impl EvaluatedWholeStreamCommandArgs {
     pub fn new(
         host: Arc<parking_lot::Mutex<dyn Host>>,
         ctrl_c: Arc<AtomicBool>,
-        config_holder: Arc<Mutex<ConfigHolder>>,
+        configs: Arc<Mutex<ConfigHolder>>,
         shell_manager: ShellManager,
         call_info: CallInfo,
         input: impl Into<InputStream>,
@@ -121,7 +121,7 @@ impl EvaluatedWholeStreamCommandArgs {
             args: EvaluatedCommandArgs {
                 host,
                 ctrl_c,
-                config_holder,
+                configs,
                 shell_manager,
                 call_info,
                 scope,
@@ -152,7 +152,7 @@ impl EvaluatedWholeStreamCommandArgs {
 pub struct EvaluatedCommandArgs {
     pub host: Arc<parking_lot::Mutex<dyn Host>>,
     pub ctrl_c: Arc<AtomicBool>,
-    pub config_holder: Arc<Mutex<ConfigHolder>>,
+    pub configs: Arc<Mutex<ConfigHolder>>,
     pub shell_manager: ShellManager,
     pub call_info: CallInfo,
     pub scope: Scope,
