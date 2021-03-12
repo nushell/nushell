@@ -3474,13 +3474,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nu-platform-specifics"
-version = "0.27.1"
-dependencies = [
- "which",
-]
-
-[[package]]
 name = "nu-plugin"
 version = "0.28.0"
 dependencies = [
