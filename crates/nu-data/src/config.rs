@@ -3,8 +3,6 @@ mod config_trust;
 mod local_config;
 mod nuconfig;
 
-pub mod tests;
-
 pub use conf::Conf;
 pub use config_trust::is_file_trusted;
 pub use config_trust::read_trusted;
