@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use nu_engine::WholeStreamCommand;
+use nu_engine::{script, WholeStreamCommand};
 
 use nu_errors::ShellError;
 use nu_parser::expand_path;
@@ -50,7 +50,7 @@ pub async fn source(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let contents = std::fs::read_to_string(expand_path(&filename.item).into_owned());
     match contents {
         Ok(contents) => {
-            let result = crate::script::run_script_standalone(contents, true, &ctx, false).await;
+            let result = script::run_script_standalone(contents, true, &ctx, false).await;
 
             if let Err(err) = result {
                 ctx.error(err.into());

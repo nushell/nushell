@@ -388,7 +388,7 @@ fn parse_invocation(
         .item
         .chars()
         .skip(2)
-        .take(lite_arg.item.len() - 3)
+        .take(lite_arg.item.chars().count() - 3)
         .collect();
 
     // We haven't done much with the inner string, so let's go ahead and work with it

@@ -147,7 +147,7 @@ async fn maybe_autocd_dir<'a>(
         || (cmd.args.is_empty()
             && PathBuf::from(name).is_dir()
             && dunce::canonicalize(name).is_ok()
-            && !crate::commands::classified::external::did_find_command(&name))
+            && !ctx.host.lock().is_external_cmd(&name))
     {
         Some(name)
     } else {

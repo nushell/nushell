@@ -5,7 +5,7 @@ use std::error::Error;
 use crate::prelude::*;
 
 #[allow(unused_imports)]
-use nu_command::script::LineResult;
+use nu_engine::script::LineResult;
 
 #[cfg(feature = "rustyline-support")]
 use crate::shell::Helper;

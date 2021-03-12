@@ -29,7 +29,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .hidden(true)
                 .long("testbin")
                 .value_name("TESTBIN")
-                .possible_values(&["cococo", "iecho", "fail", "nonu", "chop"])
+                .possible_values(&["cococo", "iecho", "fail", "nonu", "chop", "repeater"])
                 .takes_value(true),
         )
         .arg(
@@ -77,6 +77,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             "fail" => binaries::fail(),
             "nonu" => binaries::nonu(),
             "chop" => binaries::chop(),
+            "repeater" => binaries::repeater(),
             _ => unreachable!(),
         }
 

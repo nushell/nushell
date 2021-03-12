@@ -1,12 +1,11 @@
 use crate::line_editor::configure_ctrl_c;
 use nu_command::commands::default_context::create_default_context;
-#[allow(unused_imports)]
-use nu_command::maybe_print_errors;
-use nu_engine::run_block;
-use nu_engine::EvaluationContext;
+use nu_engine::{
+    print::maybe_print_errors, run_block, script::run_script_standalone, EvaluationContext,
+};
 
 #[allow(unused_imports)]
-pub(crate) use nu_command::script::{process_script, LineResult};
+pub(crate) use nu_engine::script::{process_script, LineResult};
 
 #[cfg(feature = "rustyline-support")]
 use crate::line_editor::{
@@ -20,8 +19,6 @@ use nu_source::{Tag, Text};
 use nu_stream::InputStream;
 #[allow(unused_imports)]
 use std::sync::atomic::Ordering;
-
-use nu_command::script::{print_err, run_script_standalone};
 
 #[cfg(feature = "rustyline-support")]
 use rustyline::{self, error::ReadlineError};
@@ -79,7 +76,7 @@ pub async fn run_script_file(
         syncer.sync_path_vars(ctx);
 
         if let Err(reason) = syncer.autoenv(ctx) {
-            print_err(reason, &Text::from(""), ctx);
+            ctx.host.lock().print_err(reason, &Text::from(""));
         }
 
         let _ = register_plugins(ctx);
@@ -107,7 +104,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
         syncer.sync_path_vars(ctx);
 
         if let Err(reason) = syncer.autoenv(ctx) {
-            print_err(reason, &Text::from(""), ctx);
+            ctx.host.lock().print_err(reason, &Text::from(""));
         }
 
         let _ = configure_ctrl_c(ctx);
@@ -199,14 +196,14 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
                                 }
                             }
                             Err(e) => {
-                                crate::cli::print_err(e, &Text::from(prompt_line), &context);
+                                context.host.lock().print_err(e, &Text::from(prompt_line));
                                 context.clear_errors();
 
                                 "> ".to_string()
                             }
                         },
                         Err(e) => {
-                            crate::cli::print_err(e, &Text::from(prompt_line), &context);
+                            context.host.lock().print_err(e, &Text::from(prompt_line));
                             context.clear_errors();
 
                             "> ".to_string()
@@ -274,7 +271,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
             }
 
             if let Err(reason) = syncer.autoenv(ctx) {
-                print_err(reason, &Text::from(""), ctx);
+                ctx.host.lock().print_err(reason, &Text::from(""));
             }
 
             let _ = configure_rustyline_editor(&mut rl, config);
@@ -296,7 +293,10 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
                 rl.add_history_entry(&line);
                 let _ = rl.save_history(&history_path);
 
-                print_err(err, &Text::from(session_text.clone()), &context);
+                context
+                    .host
+                    .lock()
+                    .print_err(err, &Text::from(session_text.clone()));
 
                 maybe_print_errors(&context, Text::from(session_text.clone()));
             }

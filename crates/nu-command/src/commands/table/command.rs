@@ -7,7 +7,9 @@ use nu_errors::ShellError;
 use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_table::{draw_table, Alignment, StyledString, TextStyle};
 use std::collections::HashMap;
+use std::sync::atomic::Ordering;
 use std::time::Instant;
+
 #[cfg(feature = "table-pager")]
 use {
     futures::future::join,
