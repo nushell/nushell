@@ -6,8 +6,6 @@ use nu_test_support::{nu, pipeline};
 
 use serial_test::serial;
 
-// Windows uses a different command to create an empty file
-// so we need to have different content on windows.
 const SCRIPTS: &str = r#"startup = ["touch hello.txt"]
     on_exit = ["touch bye.txt"]"#;
 
