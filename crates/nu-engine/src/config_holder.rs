@@ -3,7 +3,7 @@ use std::path::Path;
 use nu_data::config::NuConfig;
 use nu_protocol::ConfigPath;
 
-/// ConfigHolder holds information which configs have been loaded and the according configs.
+/// ConfigHolder holds information which configs have been loaded.
 #[derive(Clone)]
 pub struct ConfigHolder {
     pub global_config: Option<NuConfig>,
