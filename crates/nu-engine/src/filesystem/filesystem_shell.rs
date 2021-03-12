@@ -272,8 +272,8 @@ impl Shell for FilesystemShell {
             path.to_string_lossy().to_string(),
         ));
 
-        //Loading local configs in script mode makes script behave different on different pc
-        //and might surprise the user. Therefore we only load themn cli mode.
+        //Loading local configs in script mode, makes scripts behave different on different
+        //filesystems and might therefore surprise users. That's why we only load them in cli mode.
         if self.mode == FilesystemShellMode::Cli {
             match dunce::canonicalize(self.path()) {
                 Err(e) => {
