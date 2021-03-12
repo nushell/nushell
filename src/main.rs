@@ -157,7 +157,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut context = create_default_context(true)?;
 
             if !matches.is_present("skip-plugins") {
-                let _ = nu_cli::register_plugins(&mut context);
+                let _ = nu_cli::register_plugins(&context);
             }
 
             #[cfg(feature = "rustyline-support")]
