@@ -75,7 +75,7 @@ documentation link at https://docs.rs/encoding_rs/0.8.28/encoding_rs/#statics"#
                 result: None,
             },
             Example {
-                description: "Enters a path as a new shell (identical to `enter ../projectB`)",
+                description: "Lists the contents of a directory (identical to `ls ../projectB`)",
                 example: "open ../projectB",
                 result: None,
             },
@@ -104,7 +104,6 @@ async fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let scope = args.scope.clone();
     let cwd = PathBuf::from(args.shell_manager.path());
     let shell_manager = args.shell_manager.clone();
-
     let name = args.call_info.name_tag.clone();
     let ctrl_c = args.ctrl_c.clone();
 
