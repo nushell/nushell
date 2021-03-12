@@ -1,5 +1,6 @@
-use nu_engine::EvaluationContext;
 use nu_source::Text;
+
+use crate::EvaluationContext;
 
 pub fn maybe_print_errors(context: &EvaluationContext, source: Text) -> bool {
     let errors = context.current_errors.clone();
@@ -9,7 +10,7 @@ pub fn maybe_print_errors(context: &EvaluationContext, source: Text) -> bool {
         let error = errors[0].clone();
         *errors = vec![];
 
-        crate::script::print_err(error, &source, context);
+        context.host.lock().print_err(error, &source);
         true
     } else {
         false

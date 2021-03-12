@@ -12,6 +12,9 @@ pub mod filesystem;
 mod history_path;
 mod maybe_text_codec;
 pub mod plugin;
+pub mod print;
+mod runnable_context;
+pub mod script;
 pub mod shell;
 mod whole_stream_command;
 
@@ -35,6 +38,7 @@ pub use crate::filesystem::filesystem_shell::FilesystemShell;
 pub use crate::filesystem::path;
 pub use crate::history_path::history_path;
 pub use crate::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
+pub use crate::runnable_context::RunnableContext;
 pub use crate::shell::help_shell::{command_dict, HelpShell};
 pub use crate::shell::painter::Painter;
 pub use crate::shell::palette::{DefaultPalette, Palette};

@@ -20,7 +20,6 @@ pub(crate) mod chart;
 pub(crate) mod classified;
 #[cfg(feature = "clipboard-cli")]
 pub(crate) mod clip;
-pub mod command;
 pub(crate) mod compact;
 pub(crate) mod config;
 pub(crate) mod constants;
