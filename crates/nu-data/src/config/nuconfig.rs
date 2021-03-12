@@ -1,7 +1,7 @@
 use crate::config::{last_modified, read, Conf, Status};
 use indexmap::IndexMap;
 use nu_errors::ShellError;
-use nu_protocol::{UntaggedValue, Value};
+use nu_protocol::Value;
 use nu_source::{Span, Tag};
 use std::{fmt::Debug, path::PathBuf};
 
