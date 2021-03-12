@@ -19,7 +19,7 @@ impl Default for ConfigHolder {
 impl ConfigHolder {
     pub fn new() -> ConfigHolder {
         ConfigHolder {
-            global_config: NuConfig::load(None).ok(),
+            global_config: None,
             local_configs: vec![],
         }
     }
