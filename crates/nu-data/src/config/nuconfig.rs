@@ -176,28 +176,26 @@ impl NuConfig {
         }
     }
 
-    fn load_scripts(&self, scripts_name: &str) -> Result<Vec<String>, ShellError> {
-        let err = Err(ShellError::untagged_runtime_error(format!(
-            "expected an array of strings as {} commands",
-            scripts_name
-        )));
-
+    fn load_scripts_if_present(&self, scripts_name: &str) -> Result<Vec<String>, ShellError> {
         if let Some(array) = self.var(scripts_name) {
             if !array.is_table() {
-                err
+                Err(ShellError::untagged_runtime_error(format!(
+                    "expected an array of strings as {} commands",
+                    scripts_name
+                )))
             } else {
                 array.table_entries().map(Value::as_string).collect()
             }
         } else {
-            err
+            Ok(vec![])
         }
     }
 
     pub fn exit_scripts(&self) -> Result<Vec<String>, ShellError> {
-        self.load_scripts("on_exit")
+        self.load_scripts_if_present("on_exit")
     }
 
     pub fn startup_scripts(&self) -> Result<Vec<String>, ShellError> {
-        self.load_scripts("startup")
+        self.load_scripts_if_present("startup")
     }
 }
