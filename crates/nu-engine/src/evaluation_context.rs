@@ -4,7 +4,6 @@ use crate::shell::shell_manager::ShellManager;
 use crate::whole_stream_command::Command;
 use crate::{call_info::UnevaluatedCallInfo, config_holder::ConfigHolder};
 use crate::{command_args::CommandArgs, script};
-use indexmap::IndexMap;
 use log::trace;
 use nu_data::config::{self, NuConfig};
 use nu_errors::ShellError;
