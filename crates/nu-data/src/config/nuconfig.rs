@@ -176,34 +176,28 @@ impl NuConfig {
         }
     }
 
-    fn toml_str_array_to_vec(&self, name: &str) -> Result<Vec<String>, ShellError> {
-        let mut scripts = vec![];
-        if let Some(commands) = self.var(name) {
-            match commands {
-                Value {
-                    value: UntaggedValue::Table(pipelines),
-                    ..
-                } => {
-                    for pipeline in pipelines {
-                        scripts.push(pipeline.as_string()?);
-                    }
-                }
-                _ => {
-                    return Err(ShellError::untagged_runtime_error(format!(
-                        "expected a table of pipeline strings as {} commands",
-                        name
-                    )));
-                }
+    fn load_scripts(&self, scripts_name: &str) -> Result<Vec<String>, ShellError> {
+        let err = Err(ShellError::untagged_runtime_error(format!(
+            "expected an array of strings as {} commands",
+            scripts_name
+        )));
+
+        if let Some(array) = self.var(scripts_name) {
+            if !array.is_table() {
+                err
+            } else {
+                array.table_entries().map(Value::as_string).collect()
             }
+        } else {
+            err
         }
-        Ok(scripts)
     }
 
     pub fn exit_scripts(&self) -> Result<Vec<String>, ShellError> {
-        self.toml_str_array_to_vec("on_exit")
+        self.load_scripts("on_exit")
     }
 
     pub fn startup_scripts(&self) -> Result<Vec<String>, ShellError> {
-        self.toml_str_array_to_vec("startup")
+        self.load_scripts("startup")
     }
 }
