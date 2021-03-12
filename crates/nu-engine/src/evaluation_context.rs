@@ -116,14 +116,6 @@ impl EvaluationContext {
         }
     }
 
-    pub fn get_env(&self) -> IndexMap<String, String> {
-        let mut output = IndexMap::new();
-        for (var, value) in self.host.lock().vars() {
-            output.insert(var, value);
-        }
-        output
-    }
-
     /// Loads config under cfg_path.
     /// If an error occurs while loading the config:
     ///     The config is not loaded
