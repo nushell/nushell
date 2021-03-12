@@ -22,7 +22,7 @@ use std::sync::Arc;
 pub struct CommandArgs {
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub ctrl_c: Arc<AtomicBool>,
-    pub config_holder: Arc<Mutex<ConfigHolder>>,
+    pub configs: Arc<Mutex<ConfigHolder>>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub shell_manager: ShellManager,
     pub call_info: UnevaluatedCallInfo,
@@ -36,7 +36,7 @@ pub struct RawCommandArgs {
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub ctrl_c: Arc<AtomicBool>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
-    pub config_holder: Arc<Mutex<ConfigHolder>>,
+    pub configs: Arc<Mutex<ConfigHolder>>,
     pub shell_manager: ShellManager,
     pub scope: Scope,
     pub call_info: UnevaluatedCallInfo,
@@ -47,7 +47,7 @@ impl RawCommandArgs {
         CommandArgs {
             host: self.host,
             ctrl_c: self.ctrl_c,
-            config_holder: self.config_holder,
+            configs: self.configs,
             current_errors: self.current_errors,
             shell_manager: self.shell_manager,
             call_info: self.call_info,
@@ -68,7 +68,7 @@ impl CommandArgs {
         let ctx = EvaluationContext::from_args(&self);
         let host = self.host.clone();
         let ctrl_c = self.ctrl_c.clone();
-        let config_holder = self.config_holder.clone();
+        let config_holder = self.configs.clone();
         let shell_manager = self.shell_manager.clone();
         let input = self.input;
         let call_info = self.call_info.evaluate(&ctx).await?;

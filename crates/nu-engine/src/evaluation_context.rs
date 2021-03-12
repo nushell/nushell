@@ -21,7 +21,7 @@ pub struct EvaluationContext {
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub ctrl_c: Arc<AtomicBool>,
-    pub config_holder: Arc<Mutex<ConfigHolder>>,
+    pub configs: Arc<Mutex<ConfigHolder>>,
     pub shell_manager: ShellManager,
 
     /// Windows-specific: keep track of previous cwd on each drive
@@ -35,7 +35,7 @@ impl EvaluationContext {
             host: args.host.clone(),
             current_errors: args.current_errors.clone(),
             ctrl_c: args.ctrl_c.clone(),
-            config_holder: args.config_holder.clone(),
+            configs: args.configs.clone(),
             shell_manager: args.shell_manager.clone(),
             windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
         }
@@ -107,7 +107,7 @@ impl EvaluationContext {
         CommandArgs {
             host: self.host.clone(),
             ctrl_c: self.ctrl_c.clone(),
-            config_holder: self.config_holder.clone(),
+            configs: self.configs.clone(),
             current_errors: self.current_errors.clone(),
             shell_manager: self.shell_manager.clone(),
             call_info: self.call_info(args, name_tag),
@@ -174,9 +174,9 @@ impl EvaluationContext {
         self.scope.set_exit_scripts(exit_scripts);
 
         match cfg_path {
-            ConfigPath::Global(_) => self.config_holder.lock().set_global_cfg(cfg),
+            ConfigPath::Global(_) => self.configs.lock().set_global_cfg(cfg),
             ConfigPath::Local(_) => {
-                self.config_holder.lock().add_local_cfg(cfg);
+                self.configs.lock().add_local_cfg(cfg);
             }
         }
 
@@ -204,7 +204,7 @@ impl EvaluationContext {
         }
 
         //Unload config
-        self.config_holder.lock().remove_cfg(&cfg_path);
+        self.configs.lock().remove_cfg(&cfg_path);
         self.scope.exit_scope_with_tag(&tag);
     }
 

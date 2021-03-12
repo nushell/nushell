@@ -51,7 +51,7 @@ pub struct RunnableContextWithoutInput {
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub ctrl_c: Arc<AtomicBool>,
-    pub config_holder: Arc<Mutex<ConfigHolder>>,
+    pub configs: Arc<Mutex<ConfigHolder>>,
     pub scope: Scope,
     pub name: Tag,
 }
@@ -62,7 +62,7 @@ impl RunnableContextWithoutInput {
             shell_manager: context.shell_manager,
             host: context.host,
             ctrl_c: context.ctrl_c,
-            config_holder: context.config_holder,
+            configs: context.configs,
             current_errors: context.current_errors,
             scope: context.scope,
             name: context.name,
@@ -281,7 +281,7 @@ fn create_default_command_args(context: &RunnableContextWithoutInput) -> RawComm
     RawCommandArgs {
         host: context.host.clone(),
         ctrl_c: context.ctrl_c.clone(),
-        config_holder: context.config_holder.clone(),
+        configs: context.configs.clone(),
         current_errors: context.current_errors.clone(),
         shell_manager: context.shell_manager.clone(),
         call_info: UnevaluatedCallInfo {

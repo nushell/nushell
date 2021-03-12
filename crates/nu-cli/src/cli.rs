@@ -95,7 +95,7 @@ pub async fn cli(context: EvaluationContext) -> Result<(), Box<dyn Error>> {
 
     //Configure rustyline
     let mut rl = default_rustyline_editor_configuration();
-    let history_path = if let Some(cfg) = &context.config_holder.lock().global_config {
+    let history_path = if let Some(cfg) = &context.configs.lock().global_config {
         let _ = configure_rustyline_editor(&mut rl, cfg);
         let helper = Some(nu_line_editor_helper(&context, cfg));
         rl.set_helper(helper);
@@ -108,17 +108,16 @@ pub async fn cli(context: EvaluationContext) -> Result<(), Box<dyn Error>> {
     };
 
     //set vars from cfg if present
-    let (skip_welcome_message, prompt) =
-        if let Some(cfg) = &context.config_holder.lock().global_config {
-            (
-                cfg.var("skip_welcome_message")
-                    .map(|x| x.is_true())
-                    .unwrap_or(false),
-                cfg.var("prompt"),
-            )
-        } else {
-            (false, None)
-        };
+    let (skip_welcome_message, prompt) = if let Some(cfg) = &context.configs.lock().global_config {
+        (
+            cfg.var("skip_welcome_message")
+                .map(|x| x.is_true())
+                .unwrap_or(false),
+            cfg.var("prompt"),
+        )
+    } else {
+        (false, None)
+    };
 
     //Check whether dir we start in contains local cfg file and if so load it.
     load_local_cfg_if_present(&context).await;

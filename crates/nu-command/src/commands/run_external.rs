@@ -85,7 +85,7 @@ impl WholeStreamCommand for RunExternalCommand {
                 host: args.host.clone(),
                 shell_manager: args.shell_manager.clone(),
                 ctrl_c: args.ctrl_c.clone(),
-                config_holder: args.config_holder.clone(),
+                configs: args.configs.clone(),
                 current_errors: Arc::new(Mutex::new(vec![])),
                 windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
             }
