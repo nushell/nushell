@@ -58,6 +58,7 @@ fn picks_up_env_keys_when_entering_trusted_directory() {
 
 #[test]
 #[serial]
+#[ignore]
 fn picks_up_script_vars_when_entering_trusted_directory() {
     Playground::setup("autoenv_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
@@ -74,13 +75,13 @@ fn picks_up_script_vars_when_entering_trusted_directory() {
             ),
         )]);
 
-        let _expected = "myval";
+        let expected = "myval";
 
-        let _actual = Trusted::in_path(&dirs, || nu!(cwd: dirs.test(), "echo $nu.env.myscript"));
+        let actual = Trusted::in_path(&dirs, || nu!(cwd: dirs.test(), "echo $nu.env.myscript"));
 
         // scriptvars are not supported
         // and why is myval expected when myscript is "echo myval"
-        // assert_eq!(actual.out, expected);
+        assert_eq!(actual.out, expected);
     })
 }
 
