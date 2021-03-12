@@ -176,7 +176,7 @@ impl NuConfig {
         }
     }
 
-    fn scripts_with_name(&self, name: &str) -> Result<Vec<String>, ShellError> {
+    fn toml_str_array_to_vec(&self, name: &str) -> Result<Vec<String>, ShellError> {
         let mut scripts = vec![];
         if let Some(commands) = self.var(name) {
             match commands {
@@ -189,9 +189,10 @@ impl NuConfig {
                     }
                 }
                 _ => {
-                    return Err(ShellError::untagged_runtime_error(
-                        "expected a table of pipeline strings as startup commands",
-                    ));
+                    return Err(ShellError::untagged_runtime_error(format!(
+                        "expected a table of pipeline strings as {} commands",
+                        name
+                    )));
                 }
             }
         }
@@ -199,10 +200,10 @@ impl NuConfig {
     }
 
     pub fn exit_scripts(&self) -> Result<Vec<String>, ShellError> {
-        self.scripts_with_name("on_exit")
+        self.toml_str_array_to_vec("on_exit")
     }
 
     pub fn startup_scripts(&self) -> Result<Vec<String>, ShellError> {
-        self.scripts_with_name("startup")
+        self.toml_str_array_to_vec("startup")
     }
 }
