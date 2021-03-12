@@ -247,15 +247,6 @@ pub async fn cli(context: EvaluationContext) -> Result<(), Box<dyn Error>> {
             .scope
             .add_env_var("CMD_DURATION", format!("{:?}", cmd_start_time.elapsed()));
 
-        //The old code suggests that at this point the global config should be reloaded for
-        //changed path / env variables.
-        //I don't think we should automatically reload the config without user explicitly
-        //asking for it. I am happy to discuss this :)
-        //Following is the old comment.
-        //        // Check the config to see if we need to update the path
-        //        // TODO: make sure config is cached so we don't path this load every call
-        //        // FIXME: we probably want to be a bit more graceful if we can't set the environment
-
         match line {
             LineResult::Success(line) => {
                 rl.add_history_entry(&line);
