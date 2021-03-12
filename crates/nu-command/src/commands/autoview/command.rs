@@ -2,7 +2,7 @@ use crate::commands::autoview::options::{ConfigExtensions, NuConfig as AutoViewC
 use crate::prelude::*;
 use crate::primitive::get_color_config;
 use nu_data::value::format_leaf;
-use nu_engine::{UnevaluatedCallInfo, WholeStreamCommand};
+use nu_engine::{ConfigHolder, RunnableContext, UnevaluatedCallInfo, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::hir::{self, Expression, ExternalRedirection, Literal, SpannedExpression};
 use nu_protocol::{Primitive, Signature, UntaggedValue, Value};
@@ -27,16 +27,7 @@ impl WholeStreamCommand for Command {
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        autoview(RunnableContext {
-            input: args.input,
-            scope: args.scope.clone(),
-            shell_manager: args.shell_manager,
-            host: args.host,
-            ctrl_c: args.ctrl_c,
-            current_errors: args.current_errors,
-            name: args.call_info.name_tag,
-        })
-        .await
+        autoview(RunnableContext::from_command_args(args)).await
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -60,6 +51,7 @@ pub struct RunnableContextWithoutInput {
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub ctrl_c: Arc<AtomicBool>,
+    pub config_holder: Arc<Mutex<ConfigHolder>>,
     pub scope: Scope,
     pub name: Tag,
 }
@@ -70,6 +62,7 @@ impl RunnableContextWithoutInput {
             shell_manager: context.shell_manager,
             host: context.host,
             ctrl_c: context.ctrl_c,
+            config_holder: context.config_holder,
             current_errors: context.current_errors,
             scope: context.scope,
             name: context.name,
@@ -288,6 +281,7 @@ fn create_default_command_args(context: &RunnableContextWithoutInput) -> RawComm
     RawCommandArgs {
         host: context.host.clone(),
         ctrl_c: context.ctrl_c.clone(),
+        config_holder: context.config_holder.clone(),
         current_errors: context.current_errors.clone(),
         shell_manager: context.shell_manager.clone(),
         call_info: UnevaluatedCallInfo {

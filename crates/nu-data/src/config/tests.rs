@@ -37,9 +37,10 @@ impl Conf for FakeConfig {
 impl FakeConfig {
     pub fn new(config_file: &Path) -> FakeConfig {
         let config_file = Some(PathBuf::from(config_file));
+        let cfg = NuConfig::load(config_file.clone()).expect("Err on fake config file");
 
         FakeConfig {
-            config: NuConfig::with(config_file.clone()),
+            config: cfg,
             source_file: config_file,
         }
     }
@@ -61,6 +62,7 @@ impl FakeConfig {
     }
 
     pub fn reload(&mut self) {
-        self.config = NuConfig::with(self.source_file.clone());
+        self.config =
+            NuConfig::load(self.source_file.clone()).expect("Couldn't reload fakeconfig file");
     }
 }

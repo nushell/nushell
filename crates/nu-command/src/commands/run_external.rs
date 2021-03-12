@@ -83,9 +83,9 @@ impl WholeStreamCommand for RunExternalCommand {
             EvaluationContext {
                 scope: args.scope.clone(),
                 host: args.host.clone(),
-                user_recently_used_autoenv_untrust: Arc::new(AtomicBool::new(false)),
                 shell_manager: args.shell_manager.clone(),
                 ctrl_c: args.ctrl_c.clone(),
+                config_holder: args.config_holder.clone(),
                 current_errors: Arc::new(Mutex::new(vec![])),
                 windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
             }

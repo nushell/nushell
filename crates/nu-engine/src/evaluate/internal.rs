@@ -1,7 +1,7 @@
 use crate::call_info::UnevaluatedCallInfo;
 use crate::command_args::RawCommandArgs;
 use crate::evaluation_context::EvaluationContext;
-use crate::filesystem::filesystem_shell::FilesystemShell;
+use crate::filesystem::filesystem_shell::{FilesystemShell, FilesystemShellMode};
 use crate::shell::help_shell::HelpShell;
 use crate::shell::value_shell::ValueShell;
 use futures::StreamExt;
@@ -11,7 +11,6 @@ use nu_protocol::hir::{ExternalRedirection, InternalCommand};
 use nu_protocol::{CommandAction, Primitive, ReturnSuccess, UntaggedValue, Value};
 use nu_source::{PrettyDebug, Span, Tag};
 use nu_stream::{trace_stream, InputStream, ToInputStream};
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 pub(crate) async fn run_internal_command(
@@ -27,12 +26,6 @@ pub(crate) async fn run_internal_command(
     let objects: InputStream = trace_stream!(target: "nu::trace_stream::internal", "input" = input);
 
     let internal_command = context.scope.expect_command(&command.name);
-
-    if command.name == "autoenv untrust" {
-        context
-            .user_recently_used_autoenv_untrust
-            .store(true, Ordering::SeqCst);
-    }
 
     let result = {
         context
@@ -75,6 +68,7 @@ pub(crate) async fn run_internal_command(
                                     let new_args = RawCommandArgs {
                                         host: context.host.clone(),
                                         ctrl_c: context.ctrl_c.clone(),
+                                        config_holder: context.config_holder.clone(),
                                         current_errors: context.current_errors.clone(),
                                         shell_manager: context.shell_manager.clone(),
                                         call_info: UnevaluatedCallInfo {
@@ -172,8 +166,13 @@ pub(crate) async fn run_internal_command(
                                 InputStream::from_stream(futures::stream::iter(vec![]))
                             }
                             CommandAction::EnterShell(location) => {
+                                let mode = if context.shell_manager.is_interactive() {
+                                    FilesystemShellMode::Cli
+                                } else {
+                                    FilesystemShellMode::Script
+                                };
                                 context.shell_manager.insert_at_current(Box::new(
-                                    match FilesystemShell::with_location(location) {
+                                    match FilesystemShell::with_location(location, mode) {
                                         Ok(v) => v,
                                         Err(err) => {
                                             context.error(err.into());
@@ -218,6 +217,14 @@ pub(crate) async fn run_internal_command(
                                 if context.shell_manager.is_empty() {
                                     std::process::exit(code); // TODO: save history.txt
                                 }
+                                InputStream::empty()
+                            }
+                            CommandAction::UnloadConfig(cfg_path) => {
+                                context.unload_config(&cfg_path).await;
+                                InputStream::empty()
+                            }
+                            CommandAction::LoadConfig(cfg_path) => {
+                                context.load_config(&cfg_path).await;
                                 InputStream::empty()
                             }
                         },

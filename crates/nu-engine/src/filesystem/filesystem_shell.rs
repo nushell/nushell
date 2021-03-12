@@ -10,7 +10,8 @@ use futures::stream::BoxStream;
 use futures::StreamExt;
 use futures_codec::FramedRead;
 use futures_util::TryStreamExt;
-use nu_protocol::{TaggedDictBuilder, Value};
+use nu_data::config::LocalConfigDiff;
+use nu_protocol::{CommandAction, ConfigPath, TaggedDictBuilder, Value};
 use nu_source::{Span, Tag};
 use nu_stream::{Interruptible, OutputStream, ToOutputStream};
 use std::collections::HashMap;
@@ -27,9 +28,16 @@ use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue};
 use nu_source::Tagged;
 
+#[derive(Eq, PartialEq, Clone, Copy)]
+pub enum FilesystemShellMode {
+    Cli,
+    Script,
+}
+
 pub struct FilesystemShell {
     pub(crate) path: String,
     pub(crate) last_path: String,
+    pub(crate) mode: FilesystemShellMode,
 }
 
 impl std::fmt::Debug for FilesystemShell {
@@ -43,12 +51,13 @@ impl Clone for FilesystemShell {
         FilesystemShell {
             path: self.path.clone(),
             last_path: self.path.clone(),
+            mode: self.mode,
         }
     }
 }
 
 impl FilesystemShell {
-    pub fn basic() -> Result<FilesystemShell, Error> {
+    pub fn basic(mode: FilesystemShellMode) -> Result<FilesystemShell, Error> {
         let path = match std::env::current_dir() {
             Ok(path) => path,
             Err(_) => PathBuf::from("/"),
@@ -57,15 +66,23 @@ impl FilesystemShell {
         Ok(FilesystemShell {
             path: path.to_string_lossy().to_string(),
             last_path: path.to_string_lossy().to_string(),
+            mode,
         })
     }
 
-    pub fn with_location(path: String) -> Result<FilesystemShell, std::io::Error> {
+    pub fn with_location(
+        path: String,
+        mode: FilesystemShellMode,
+    ) -> Result<FilesystemShell, std::io::Error> {
         let path = canonicalize(std::env::current_dir()?, &path)?;
         let path = path.display().to_string();
         let last_path = path.clone();
 
-        Ok(FilesystemShell { path, last_path })
+        Ok(FilesystemShell {
+            path,
+            last_path,
+            mode,
+        })
     }
 }
 
@@ -254,6 +271,43 @@ impl Shell for FilesystemShell {
         stream.push_back(ReturnSuccess::change_cwd(
             path.to_string_lossy().to_string(),
         ));
+
+        //Loading local configs in script mode makes script behave different on different pc
+        //and might surprise the user. Therefore we only load themn cli mode.
+        if self.mode == FilesystemShellMode::Cli {
+            match dunce::canonicalize(self.path()) {
+                Err(e) => {
+                    let err = ShellError::untagged_runtime_error(format!(
+                        "Could not get absolute path from current fs shell. The error was: {:?}",
+                        e
+                    ));
+                    stream.push_back(ReturnSuccess::value(
+                        UntaggedValue::Error(err).into_value(Tag::unknown()),
+                    ));
+                }
+                Ok(current_pwd) => {
+                    let (changes, errs) = LocalConfigDiff::between(current_pwd, path);
+
+                    for err in errs {
+                        stream.push_back(ReturnSuccess::value(
+                            UntaggedValue::Error(err).into_value(Tag::unknown()),
+                        ));
+                    }
+
+                    for unload_cfg in changes.cfgs_to_unload {
+                        stream.push_back(ReturnSuccess::action(CommandAction::UnloadConfig(
+                            ConfigPath::Local(unload_cfg),
+                        )));
+                    }
+
+                    for load_cfg in changes.cfgs_to_load {
+                        stream.push_back(ReturnSuccess::action(CommandAction::LoadConfig(
+                            ConfigPath::Local(load_cfg),
+                        )));
+                    }
+                }
+            };
+        }
 
         Ok(stream.into())
     }
@@ -776,6 +830,10 @@ impl Shell for FilesystemShell {
                 name,
             )),
         }
+    }
+
+    fn is_interactive(&self) -> bool {
+        self.mode == FilesystemShellMode::Cli
     }
 }
 

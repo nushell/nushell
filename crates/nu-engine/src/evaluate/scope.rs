@@ -197,6 +197,37 @@ impl Scope {
             frame.env.insert(name.into(), value);
         }
     }
+
+    pub fn set_exit_scripts(&self, scripts: Vec<String>) {
+        if let Some(frame) = self.frames.lock().last_mut() {
+            frame.exitscripts = scripts
+        }
+    }
+
+    pub fn enter_scope_with_tag(&self, tag: String) {
+        self.frames.lock().push(ScopeFrame::with_tag(tag));
+    }
+
+    //Removes the scopeframe with tag.
+    pub fn exit_scope_with_tag(&self, tag: &str) {
+        let mut frames = self.frames.lock();
+        let tag = Some(tag);
+        if let Some(i) = frames.iter().rposition(|f| f.tag.as_deref() == tag) {
+            frames.remove(i);
+        }
+    }
+
+    pub fn get_exitscripts_of_frame_with_tag(&self, tag: &str) -> Option<Vec<String>> {
+        let frames = self.frames.lock();
+        let tag = Some(tag);
+        frames.iter().find_map(|f| {
+            if f.tag.as_deref() == tag {
+                Some(f.exitscripts.clone())
+            } else {
+                None
+            }
+        })
+    }
 }
 
 impl ParserScope for Scope {
@@ -259,6 +290,9 @@ pub struct ScopeFrame {
     pub commands: IndexMap<String, Command>,
     pub custom_commands: IndexMap<String, Block>,
     pub aliases: IndexMap<String, Vec<Spanned<String>>>,
+    ///Optional tag to better identify this scope frame later
+    pub tag: Option<String>,
+    pub exitscripts: Vec<String>,
 }
 
 impl ScopeFrame {
@@ -293,6 +327,15 @@ impl ScopeFrame {
             commands: IndexMap::new(),
             custom_commands: IndexMap::new(),
             aliases: IndexMap::new(),
+            tag: None,
+            exitscripts: Vec::new(),
         }
+    }
+
+    pub fn with_tag(tag: String) -> ScopeFrame {
+        let mut scope = ScopeFrame::new();
+        scope.tag = Some(tag);
+
+        scope
     }
 }

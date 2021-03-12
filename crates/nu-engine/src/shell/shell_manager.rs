@@ -1,6 +1,6 @@
-use crate::command_args::EvaluatedWholeStreamCommandArgs;
-use crate::maybe_text_codec::StringOrBinary;
 use crate::shell::Shell;
+use crate::{command_args::EvaluatedWholeStreamCommandArgs, FilesystemShell};
+use crate::{filesystem::filesystem_shell::FilesystemShellMode, maybe_text_codec::StringOrBinary};
 use futures::Stream;
 use nu_stream::OutputStream;
 
@@ -20,6 +20,13 @@ pub struct ShellManager {
 }
 
 impl ShellManager {
+    pub fn enter_script_mode(&self) -> Result<(), std::io::Error> {
+        //New fs_shell starting from current path
+        let fs_shell = FilesystemShell::with_location(self.path(), FilesystemShellMode::Script)?;
+        self.insert_at_current(Box::new(fs_shell));
+        Ok(())
+    }
+
     pub fn insert_at_current(&self, shell: Box<dyn Shell + Send>) {
         self.shells.lock().push(shell);
         self.current_shell
@@ -53,6 +60,10 @@ impl ShellManager {
 
     pub fn is_empty(&self) -> bool {
         self.shells.lock().is_empty()
+    }
+
+    pub fn is_interactive(&self) -> bool {
+        self.shells.lock()[self.current_shell()].is_interactive()
     }
 
     pub fn path(&self) -> String {

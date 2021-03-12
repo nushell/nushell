@@ -1,8 +1,6 @@
 use crate::line_editor::configure_ctrl_c;
 use nu_command::commands::default_context::create_default_context;
-use nu_engine::{
-    print::maybe_print_errors, run_block, script::run_script_standalone, EvaluationContext,
-};
+use nu_engine::{maybe_print_errors, run_block, script::run_script_standalone, EvaluationContext};
 
 #[allow(unused_imports)]
 pub(crate) use nu_engine::script::{process_script, LineResult};
@@ -23,10 +21,9 @@ use std::sync::atomic::Ordering;
 #[cfg(feature = "rustyline-support")]
 use rustyline::{self, error::ReadlineError};
 
-use crate::EnvironmentSyncer;
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
-use nu_protocol::{hir::ExternalRedirection, UntaggedValue, Value};
+use nu_protocol::{hir::ExternalRedirection, ConfigPath, UntaggedValue, Value};
 
 use log::trace;
 use std::error::Error;
@@ -66,24 +63,12 @@ pub async fn run_script_file(
     file_contents: String,
     redirect_stdin: bool,
 ) -> Result<(), Box<dyn Error>> {
-    let mut syncer = EnvironmentSyncer::new();
-    let mut context = create_default_context(false)?;
-    let config = syncer.get_config();
+    let context = create_default_context(false)?;
 
-    context.configure(&config, |_, ctx| {
-        syncer.load_environment();
-        syncer.sync_env_vars(ctx);
-        syncer.sync_path_vars(ctx);
+    load_global_cfg(&context).await;
 
-        if let Err(reason) = syncer.autoenv(ctx) {
-            ctx.host.lock().print_err(reason, &Text::from(""));
-        }
-
-        let _ = register_plugins(ctx);
-        let _ = configure_ctrl_c(ctx);
-    });
-
-    let _ = run_startup_commands(&mut context, &config).await;
+    let _ = register_plugins(&context);
+    let _ = configure_ctrl_c(&context);
 
     run_script_standalone(file_contents, redirect_stdin, &context, true).await?;
 
@@ -92,32 +77,12 @@ pub async fn run_script_file(
 
 /// The entry point for the CLI. Will register all known internal commands, load experimental commands, load plugins, then prepare the prompt and line reader for input.
 #[cfg(feature = "rustyline-support")]
-pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
-    let mut syncer = EnvironmentSyncer::new();
-    let configuration = syncer.get_config();
+pub async fn cli(context: EvaluationContext) -> Result<(), Box<dyn Error>> {
+    let _ = configure_ctrl_c(&context);
 
-    let mut rl = default_rustyline_editor_configuration();
-
-    context.configure(&configuration, |config, ctx| {
-        syncer.load_environment();
-        syncer.sync_env_vars(ctx);
-        syncer.sync_path_vars(ctx);
-
-        if let Err(reason) = syncer.autoenv(ctx) {
-            ctx.host.lock().print_err(reason, &Text::from(""));
-        }
-
-        let _ = configure_ctrl_c(ctx);
-        let _ = configure_rustyline_editor(&mut rl, config);
-
-        let helper = Some(nu_line_editor_helper(ctx, config));
-        rl.set_helper(helper);
-    });
-
-    // start time for command duration
+    // start time for running startup scripts (this metric includes loading of the cfg, but w/e)
     let startup_commands_start_time = std::time::Instant::now();
-    // run the startup commands
-    let _ = run_startup_commands(&mut context, &configuration).await;
+    load_global_cfg(&context).await;
     // Store cmd duration in an env var
     context.scope.add_env_var(
         "CMD_DURATION",
@@ -128,19 +93,42 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
         startup_commands_start_time.elapsed()
     );
 
+    //Configure rustyline
+    let mut rl = default_rustyline_editor_configuration();
+    let history_path = if let Some(cfg) = &context.config_holder.lock().global_config {
+        let _ = configure_rustyline_editor(&mut rl, cfg);
+        let helper = Some(nu_line_editor_helper(&context, cfg));
+        rl.set_helper(helper);
+        let history_path = nu_engine::history_path(cfg);
+        let _ = rl.load_history(&history_path);
+
+        history_path
+    } else {
+        nu_engine::default_history_path()
+    };
+
+    //set vars from cfg if present
+    let (skip_welcome_message, prompt) =
+        if let Some(cfg) = &context.config_holder.lock().global_config {
+            (
+                cfg.var("skip_welcome_message")
+                    .map(|x| x.is_true())
+                    .unwrap_or(false),
+                cfg.var("prompt"),
+            )
+        } else {
+            (false, None)
+        };
+
+    //Check whether dir we start in contains local cfg file and if so load it.
+    load_local_cfg_if_present(&context).await;
+
     // Give ourselves a scope to work in
     context.scope.enter_scope();
-
-    let history_path = nu_engine::history_path(&configuration);
-    let _ = rl.load_history(&history_path);
 
     let mut session_text = String::new();
     let mut line_start: usize = 0;
 
-    let skip_welcome_message = configuration
-        .var("skip_welcome_message")
-        .map(|x| x.is_true())
-        .unwrap_or(false);
     if !skip_welcome_message {
         println!(
             "Welcome to Nushell {} (type 'help' for more info)",
@@ -164,7 +152,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
         let cwd = context.shell_manager.path();
 
         let colored_prompt = {
-            if let Some(prompt) = configuration.var("prompt") {
+            if let Some(prompt) = &prompt {
                 let prompt_line = prompt.as_string()?;
 
                 context.scope.enter_scope();
@@ -259,23 +247,14 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
             .scope
             .add_env_var("CMD_DURATION", format!("{:?}", cmd_start_time.elapsed()));
 
-        // Check the config to see if we need to update the path
-        // TODO: make sure config is cached so we don't path this load every call
-        // FIXME: we probably want to be a bit more graceful if we can't set the environment
-
-        context.configure(&configuration, |config, ctx| {
-            if syncer.did_config_change() {
-                syncer.reload();
-                syncer.sync_env_vars(ctx);
-                syncer.sync_path_vars(ctx);
-            }
-
-            if let Err(reason) = syncer.autoenv(ctx) {
-                ctx.host.lock().print_err(reason, &Text::from(""));
-            }
-
-            let _ = configure_rustyline_editor(&mut rl, config);
-        });
+        //The old code suggests that at this point the global config should be reloaded for
+        //changed path / env variables.
+        //I don't think we should automatically reload the config without user explicitly
+        //asking for it. I am happy to discuss this :)
+        //Following is the old comment.
+        //        // Check the config to see if we need to update the path
+        //        // TODO: make sure config is cached so we don't path this load every call
+        //        // FIXME: we probably want to be a bit more graceful if we can't set the environment
 
         match line {
             LineResult::Success(line) => {
@@ -341,7 +320,37 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub fn register_plugins(context: &mut EvaluationContext) -> Result<(), ShellError> {
+pub async fn load_local_cfg_if_present(context: &EvaluationContext) {
+    match config::local_cfg_should_be_loaded(PathBuf::from(context.shell_manager.path())) {
+        Ok(Some(cfg_path)) => {
+            if let Some(err) = context.load_config(&ConfigPath::Local(cfg_path)).await {
+                context.host.lock().print_err(err, &Text::from(""))
+            }
+        }
+        Err(e) => {
+            //Report error while checking for local cfg file
+            context.host.lock().print_err(e, &Text::from(""))
+        }
+        Ok(None) => {
+            //No local cfg file present in start dir
+        }
+    }
+}
+
+pub async fn load_global_cfg(context: &EvaluationContext) {
+    match config::default_path() {
+        Ok(path) => {
+            if let Some(err) = context.load_config(&ConfigPath::Global(path)).await {
+                context.host.lock().print_err(err, &Text::from(""));
+            }
+        }
+        Err(e) => {
+            context.host.lock().print_err(e, &Text::from(""));
+        }
+    }
+}
+
+pub fn register_plugins(context: &EvaluationContext) -> Result<(), ShellError> {
     if let Ok(plugins) = nu_engine::plugin::build_plugin::scan(search_paths()) {
         context.add_commands(
             plugins
@@ -349,34 +358,6 @@ pub fn register_plugins(context: &mut EvaluationContext) -> Result<(), ShellErro
                 .filter(|p| !context.is_command_registered(p.name()))
                 .collect(),
         );
-    }
-
-    Ok(())
-}
-
-async fn run_startup_commands(
-    context: &mut EvaluationContext,
-    config: &dyn nu_data::config::Conf,
-) -> Result<(), ShellError> {
-    if let Some(commands) = config.var("startup") {
-        match commands {
-            Value {
-                value: UntaggedValue::Table(pipelines),
-                ..
-            } => {
-                let mut script_file = String::new();
-                for pipeline in pipelines {
-                    script_file.push_str(&pipeline.as_string()?);
-                    script_file.push('\n');
-                }
-                let _ = run_script_standalone(script_file, false, context, false).await;
-            }
-            _ => {
-                return Err(ShellError::untagged_runtime_error(
-                    "expected a table of pipeline strings as startup commands",
-                ));
-            }
-        }
     }
 
     Ok(())

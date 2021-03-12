@@ -1,17 +1,19 @@
-use crate::call_info::UnevaluatedCallInfo;
-use crate::command_args::CommandArgs;
 use crate::env::host::Host;
 use crate::evaluate::scope::Scope;
 use crate::shell::shell_manager::ShellManager;
 use crate::whole_stream_command::Command;
+use crate::{call_info::UnevaluatedCallInfo, config_holder::ConfigHolder};
+use crate::{command_args::CommandArgs, script};
 use indexmap::IndexMap;
+use log::trace;
+use nu_data::config::{self, NuConfig};
 use nu_errors::ShellError;
-use nu_protocol::hir;
+use nu_protocol::{hir, ConfigPath};
 use nu_source::Tag;
 use nu_stream::{InputStream, OutputStream};
 use parking_lot::Mutex;
 use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 
 #[derive(Clone)]
 pub struct EvaluationContext {
@@ -19,7 +21,7 @@ pub struct EvaluationContext {
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub ctrl_c: Arc<AtomicBool>,
-    pub user_recently_used_autoenv_untrust: Arc<AtomicBool>,
+    pub config_holder: Arc<Mutex<ConfigHolder>>,
     pub shell_manager: ShellManager,
 
     /// Windows-specific: keep track of previous cwd on each drive
@@ -33,8 +35,8 @@ impl EvaluationContext {
             host: args.host.clone(),
             current_errors: args.current_errors.clone(),
             ctrl_c: args.ctrl_c.clone(),
+            config_holder: args.config_holder.clone(),
             shell_manager: args.shell_manager.clone(),
-            user_recently_used_autoenv_untrust: Arc::new(AtomicBool::new(false)),
             windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
         }
     }
@@ -105,6 +107,7 @@ impl EvaluationContext {
         CommandArgs {
             host: self.host.clone(),
             ctrl_c: self.ctrl_c.clone(),
+            config_holder: self.config_holder.clone(),
             current_errors: self.current_errors.clone(),
             shell_manager: self.shell_manager.clone(),
             call_info: self.call_info(args, name_tag),
@@ -119,5 +122,109 @@ impl EvaluationContext {
             output.insert(var, value);
         }
         output
+    }
+
+    /// Loads config under cfg_path.
+    /// If an error occurs while loading the config:
+    ///     The config is not loaded
+    ///     The error is added to `self.current_errors`
+    ///     False is returned
+    /// After successfull loading of the config the startup scripts are run
+    /// as normal scripts (Errors are printed out, ...)
+    /// After executing the startup scripts true is returned to indicate successfull loading
+    /// of the config
+    //
+    // The rational here is that, we should not partially load any config
+    // that might be damaged. However, startup scripts might fail for various reasons.
+    // A failure there is not as crucial as wrong config files.
+    pub async fn load_config(&self, cfg_path: &ConfigPath) -> Option<ShellError> {
+        trace!("Loading cfg {:?}", cfg_path);
+
+        let cfg = match NuConfig::load(Some(cfg_path.get_path().clone())) {
+            Ok(cfg) => cfg,
+            Err(e) => {
+                return Some(e);
+            }
+        };
+        let exit_scripts = match cfg.exit_scripts() {
+            Ok(scripts) => scripts,
+            Err(e) => {
+                return Some(e);
+            }
+        };
+        let startup_scripts = match cfg.startup_scripts() {
+            Ok(scripts) => scripts,
+            Err(e) => {
+                return Some(e);
+            }
+        };
+        let paths = match cfg.path_joined() {
+            Some(Err(e)) => return Some(e),
+            Some(Ok(path)) => Some(path),
+            None => None,
+        };
+
+        let tag = config::cfg_path_to_scope_tag(cfg_path);
+
+        self.scope.enter_scope_with_tag(tag);
+        self.scope.add_env(cfg.env_map());
+        if let Some(path) = paths {
+            self.scope.add_env_var("PATH", path);
+        }
+        self.scope.set_exit_scripts(exit_scripts);
+
+        match cfg_path {
+            ConfigPath::Global(_) => self.config_holder.lock().set_global_cfg(cfg),
+            ConfigPath::Local(_) => {
+                self.config_holder.lock().add_local_cfg(cfg);
+            }
+        }
+
+        if !startup_scripts.is_empty() {
+            self.run_scripts(startup_scripts, cfg_path.get_path().parent())
+                .await;
+        }
+
+        None
+    }
+
+    /// Runs all exit_scripts before unloading the config with path of cfg_path
+    /// If an error occurs while running exit scripts:
+    ///     The error is added to `self.current_errors`
+    /// If no config with path of `cfg_path` is present, this method does nothing
+    pub async fn unload_config(&self, cfg_path: &ConfigPath) {
+        trace!("UnLoading cfg {:?}", cfg_path);
+
+        let tag = config::cfg_path_to_scope_tag(cfg_path);
+
+        //Run exitscripts with scope frame and cfg still applied
+        if let Some(scripts) = self.scope.get_exitscripts_of_frame_with_tag(&tag) {
+            self.run_scripts(scripts, cfg_path.get_path().parent())
+                .await;
+        }
+
+        //Unload config
+        self.config_holder.lock().remove_cfg(&cfg_path);
+        self.scope.exit_scope_with_tag(&tag);
+    }
+
+    /// Runs scripts with cwd of dir. If dir is None, this method does nothing.
+    /// Each error is added to `self.current_errors`
+    pub async fn run_scripts(&self, scripts: Vec<String>, dir: Option<&Path>) {
+        if let Some(dir) = dir {
+            for script in scripts {
+                match script::run_script_in_dir(script.clone(), dir, &self).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        let err = ShellError::untagged_runtime_error(format!(
+                            "Err while executing exitscript. Err was\n{:?}",
+                            e
+                        ));
+                        let text = script.into();
+                        self.host.lock().print_err(err, &text);
+                    }
+                }
+            }
+        }
     }
 }

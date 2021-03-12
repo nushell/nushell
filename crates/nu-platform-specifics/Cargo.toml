@@ -1,0 +1,10 @@
+[package]
+authors = ["The Nu Project Contributors"]
+description = "Platform specific functionality for nushell"
+edition = "2018"
+license = "MIT"
+name = "nu-platform-specifics"
+version = "0.27.1"
+
+[dependencies]
+which = { version = "4.0.2", optional = true }

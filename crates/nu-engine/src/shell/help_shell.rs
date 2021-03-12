@@ -244,4 +244,9 @@ impl Shell for HelpShell {
             "save on help shell is not supported",
         ))
     }
+
+    fn is_interactive(&self) -> bool {
+        //Help shell is always interactive
+        true
+    }
 }

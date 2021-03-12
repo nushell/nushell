@@ -168,6 +168,7 @@ async fn save(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let scope = raw_args.scope.clone();
     let host = raw_args.host.clone();
     let ctrl_c = raw_args.ctrl_c.clone();
+    let config_holder = raw_args.config_holder.clone();
     let current_errors = raw_args.current_errors.clone();
     let shell_manager = raw_args.shell_manager.clone();
 
@@ -215,6 +216,7 @@ async fn save(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                     let new_args = RawCommandArgs {
                         host,
                         ctrl_c,
+                        config_holder,
                         current_errors,
                         shell_manager: shell_manager.clone(),
                         call_info: UnevaluatedCallInfo {

@@ -23,15 +23,7 @@ impl WholeStreamCommand for SubCommand {
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         run_with_numerical_functions_on_stream(
-            RunnableContext {
-                input: args.input,
-                scope: args.scope.clone(),
-                shell_manager: args.shell_manager,
-                host: args.host,
-                ctrl_c: args.ctrl_c,
-                current_errors: args.current_errors,
-                name: args.call_info.name_tag,
-            },
+            RunnableContext::from_command_args(args),
             ceil_big_int,
             ceil_big_decimal,
             ceil_default,

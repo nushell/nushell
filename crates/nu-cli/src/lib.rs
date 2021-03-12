@@ -1,9 +1,5 @@
 #![recursion_limit = "2048"]
 
-#[cfg(test)]
-#[macro_use]
-extern crate indexmap;
-
 #[macro_use]
 mod prelude;
 
@@ -16,7 +12,6 @@ extern crate quickcheck_macros;
 mod cli;
 #[cfg(feature = "rustyline-support")]
 mod completion;
-mod env;
 mod format;
 #[cfg(feature = "rustyline-support")]
 mod keybinding;
@@ -29,7 +24,6 @@ pub use crate::cli::cli;
 
 pub use crate::cli::{parse_and_eval, register_plugins, run_script_file};
 
-pub use crate::env::environment_syncer::EnvironmentSyncer;
 pub use nu_command::commands::default_context::create_default_context;
 pub use nu_data::config;
 pub use nu_data::dict::TaggedListBuilder;

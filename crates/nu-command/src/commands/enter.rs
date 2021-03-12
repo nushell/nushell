@@ -81,6 +81,7 @@ async fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let shell_manager = raw_args.shell_manager.clone();
     let head = raw_args.call_info.args.head.clone();
     let ctrl_c = raw_args.ctrl_c.clone();
+    let config_holder = raw_args.config_holder.clone();
     let current_errors = raw_args.current_errors.clone();
     let host = raw_args.host.clone();
     let tag = raw_args.call_info.name_tag.clone();
@@ -132,6 +133,7 @@ async fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                         let new_args = RawCommandArgs {
                             host,
                             ctrl_c,
+                            config_holder,
                             current_errors,
                             shell_manager,
                             call_info: UnevaluatedCallInfo {

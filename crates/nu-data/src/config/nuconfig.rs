@@ -1,12 +1,14 @@
 use crate::config::{last_modified, read, Conf, Status};
 use indexmap::IndexMap;
-use nu_protocol::Value;
-use nu_source::Tag;
-use std::fmt::Debug;
+use nu_errors::ShellError;
+use nu_protocol::{UntaggedValue, Value};
+use nu_source::{Span, Tag};
+use std::{fmt::Debug, path::PathBuf};
 
 #[derive(Debug, Clone, Default)]
 pub struct NuConfig {
     pub vars: IndexMap<String, Value>,
+    pub file_path: PathBuf,
     pub modified_at: Status,
 }
 
@@ -30,7 +32,7 @@ impl Conf for NuConfig {
     fn reload(&mut self) {
         let vars = &mut self.vars;
 
-        if let Ok(variables) = read(Tag::unknown(), &None) {
+        if let Ok(variables) = read(Tag::unknown(), &Some(self.file_path.clone())) {
             vars.extend(variables);
 
             self.modified_at = if let Ok(status) = last_modified(&None) {
@@ -47,22 +49,20 @@ impl Conf for NuConfig {
 }
 
 impl NuConfig {
-    pub fn with(config_file: Option<std::path::PathBuf>) -> NuConfig {
-        match &config_file {
-            None => NuConfig::new(),
-            Some(_) => {
-                let vars = if let Ok(variables) = read(Tag::unknown(), &config_file) {
-                    variables
-                } else {
-                    IndexMap::default()
-                };
+    pub fn load(cfg_file_path: Option<PathBuf>) -> Result<NuConfig, ShellError> {
+        let vars = read(Tag::unknown(), &cfg_file_path)?;
+        let modified_at = NuConfig::get_last_modified(&cfg_file_path);
+        let file_path = if let Some(file_path) = cfg_file_path {
+            file_path
+        } else {
+            crate::config::default_path()?
+        };
 
-                NuConfig {
-                    vars,
-                    modified_at: NuConfig::get_last_modified(&config_file),
-                }
-            }
-        }
+        Ok(NuConfig {
+            file_path,
+            vars,
+            modified_at,
+        })
     }
 
     pub fn new() -> NuConfig {
@@ -71,10 +71,16 @@ impl NuConfig {
         } else {
             IndexMap::default()
         };
+        let path = if let Ok(path) = crate::config::default_path() {
+            path
+        } else {
+            PathBuf::new()
+        };
 
         NuConfig {
             vars,
             modified_at: NuConfig::get_last_modified(&None),
+            file_path: path,
         }
     }
 
@@ -110,6 +116,19 @@ impl NuConfig {
         None
     }
 
+    /// Return environment variables as map
+    pub fn env_map(&self) -> IndexMap<String, String> {
+        let mut result = IndexMap::new();
+        if let Some(variables) = self.env() {
+            for var in variables.row_entries() {
+                if let Ok(value) = var.1.as_string() {
+                    result.insert(var.0.clone(), value);
+                }
+            }
+        }
+        result
+    }
+
     pub fn env(&self) -> Option<Value> {
         let vars = &self.vars;
 
@@ -132,5 +151,58 @@ impl NuConfig {
         }
 
         None
+    }
+
+    pub fn path_joined(&self) -> Option<Result<String, ShellError>> {
+        if let Some(paths) = self.path() {
+            Some(
+                std::env::join_paths(
+                    paths
+                        .table_entries()
+                        .map(|p| p.as_string())
+                        .filter_map(Result::ok),
+                )
+                .map_err(|e| {
+                    ShellError::labeled_error(
+                        &format!("Error while joining paths from config: {:?}", e),
+                        "Config path error",
+                        Span::unknown(),
+                    )
+                })
+                .map(|os_str| os_str.to_string_lossy().to_string()),
+            )
+        } else {
+            None
+        }
+    }
+
+    fn scripts_with_name(&self, name: &str) -> Result<Vec<String>, ShellError> {
+        let mut scripts = vec![];
+        if let Some(commands) = self.var(name) {
+            match commands {
+                Value {
+                    value: UntaggedValue::Table(pipelines),
+                    ..
+                } => {
+                    for pipeline in pipelines {
+                        scripts.push(pipeline.as_string()?);
+                    }
+                }
+                _ => {
+                    return Err(ShellError::untagged_runtime_error(
+                        "expected a table of pipeline strings as startup commands",
+                    ));
+                }
+            }
+        }
+        Ok(scripts)
+    }
+
+    pub fn exit_scripts(&self) -> Result<Vec<String>, ShellError> {
+        self.scripts_with_name("on_exit")
+    }
+
+    pub fn startup_scripts(&self) -> Result<Vec<String>, ShellError> {
+        self.scripts_with_name("startup")
     }
 }
