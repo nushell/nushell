@@ -154,7 +154,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
 
         None => {
-            let mut context = create_default_context(true)?;
+            let context = create_default_context(true)?;
 
             if !matches.is_present("skip-plugins") {
                 let _ = nu_cli::register_plugins(&context);
