@@ -311,7 +311,7 @@ pub async fn cli(context: EvaluationContext) -> Result<(), Box<dyn Error>> {
 }
 
 pub async fn load_local_cfg_if_present(context: &EvaluationContext) {
-    match config::local_cfg_should_be_loaded(PathBuf::from(context.shell_manager.path())) {
+    match config::loadable_cfg_exists_in_dir(PathBuf::from(context.shell_manager.path())) {
         Ok(Some(cfg_path)) => {
             if let Some(err) = context.load_config(&ConfigPath::Local(cfg_path)).await {
                 context.host.lock().print_err(err, &Text::from(""))

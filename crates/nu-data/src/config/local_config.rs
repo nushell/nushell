@@ -85,7 +85,7 @@ fn walk_up(
     //and then iterate over the vec
     let dirs: Vec<_> = to_inclusive.ancestors().map(Path::to_path_buf).collect();
     for dir in dirs.iter().rev().skip(skip_ahead) {
-        match local_cfg_should_be_loaded(dir.clone()) {
+        match loadable_cfg_exists_in_dir(dir.clone()) {
             Ok(Some(cfg)) => all_cfgs_to_load.push(cfg),
             Err(e) => all_err.push(e),
             _ => {}
@@ -95,7 +95,7 @@ fn walk_up(
     (all_cfgs_to_load, all_err)
 }
 
-fn is_good_local_cfg_path(cfg_file_path: &PathBuf) -> Result<bool, ShellError> {
+fn is_existent_local_cfg(cfg_file_path: &PathBuf) -> Result<bool, ShellError> {
     if !cfg_file_path.exists() || cfg_file_path.parent() == super::default_path()?.parent() {
         //Don't treat global cfg as local one
         Ok(false)
@@ -104,7 +104,10 @@ fn is_good_local_cfg_path(cfg_file_path: &PathBuf) -> Result<bool, ShellError> {
     }
 }
 
-fn is_good_local_cfg_content(cfg_file_path: &PathBuf, content: &[u8]) -> Result<bool, ShellError> {
+fn is_trusted_local_cfg_content(
+    cfg_file_path: &PathBuf,
+    content: &[u8],
+) -> Result<bool, ShellError> {
     //This checks whether user used `autoenv trust` to mark this cfg as secure
     if !super::is_file_trusted(&cfg_file_path, &content)? {
         //Notify user about present config, but not trusted
@@ -119,7 +122,7 @@ fn is_good_local_cfg_content(cfg_file_path: &PathBuf, content: &[u8]) -> Result<
 fn local_cfg_should_be_unloaded<P: AsRef<Path>>(cfg_dir: P) -> Result<Option<PathBuf>, ShellError> {
     let mut cfg = cfg_dir.as_ref().to_path_buf();
     cfg.push(LOCAL_CFG_FILE_NAME);
-    if is_good_local_cfg_path(&cfg)? {
+    if is_existent_local_cfg(&cfg)? {
         //No need to compute whether content is good. If it is not loaded before, unloading does
         //nothing
         Ok(Some(cfg))
@@ -128,18 +131,21 @@ fn local_cfg_should_be_unloaded<P: AsRef<Path>>(cfg_dir: P) -> Result<Option<Pat
     }
 }
 
-// Wrapper around is_good_local_cfg_x methods
-pub fn local_cfg_should_be_loaded(mut cfg_dir: PathBuf) -> Result<Option<PathBuf>, ShellError> {
+/// Checks whether a local_cfg exists in cfg_dir and returns:
+/// Ok(Some(cfg_path)) if cfg exists and is good to load
+/// Ok(None) if no cfg exists
+/// Err(error) if cfg exits, but is not good to load
+pub fn loadable_cfg_exists_in_dir(mut cfg_dir: PathBuf) -> Result<Option<PathBuf>, ShellError> {
     cfg_dir.push(LOCAL_CFG_FILE_NAME);
     let cfg_path = cfg_dir;
 
-    if !is_good_local_cfg_path(&cfg_path)? {
+    if !is_existent_local_cfg(&cfg_path)? {
         return Ok(None);
     }
 
     let content = std::fs::read(&cfg_path)?;
 
-    if !is_good_local_cfg_content(&cfg_path, &content)? {
+    if !is_trusted_local_cfg_content(&cfg_path, &content)? {
         return Ok(None);
     }
 

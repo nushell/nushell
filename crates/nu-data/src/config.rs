@@ -9,7 +9,7 @@ pub use conf::Conf;
 pub use config_trust::is_file_trusted;
 pub use config_trust::read_trusted;
 pub use config_trust::Trusted;
-pub use local_config::local_cfg_should_be_loaded;
+pub use local_config::loadable_cfg_exists_in_dir;
 pub use local_config::LocalConfigDiff;
 pub use nuconfig::NuConfig;
 
