@@ -13,6 +13,25 @@ const SCRIPTS: &str = r#"startup = ["touch hello.txt"]
 
 #[test]
 #[serial]
+#[cfg(unix)]
+fn picks_up_path_from_local_config() {
+    Playground::setup("autoenv_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            ".nu-env",
+            r#"
+            path = ["/hi", "/nushell"]
+            "#,
+        )]);
+
+        let expected = "[\"/hi\",\"/nushell\"]";
+
+        let actual = Trusted::in_path(&dirs, || nu!(cwd: dirs.test(), "echo $nu.path | to json"));
+
+        assert_eq!(actual.out, expected);
+    })
+}
+#[test]
+#[serial]
 fn picks_up_env_keys_when_entering_trusted_directory() {
     Playground::setup("autoenv_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
