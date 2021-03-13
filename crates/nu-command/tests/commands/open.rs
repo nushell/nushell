@@ -245,7 +245,7 @@ fn open_dir_is_ls() {
             cwd: dirs.test(), pipeline(
             r#"
                 open .
-                | count
+                | length
             "#
         ));
 
