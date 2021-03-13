@@ -1,3 +1,4 @@
+use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
@@ -229,4 +230,25 @@ fn errors_if_file_not_found() {
         actual.err,
         expected
     );
+}
+
+#[test]
+fn open_dir_is_ls() {
+    Playground::setup("open_dir", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("yehuda.txt"),
+            EmptyFile("jonathan.txt"),
+            EmptyFile("andres.txt"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open .
+                | count
+            "#
+        ));
+
+        assert_eq!(actual.out, "3");
+    })
 }

@@ -74,6 +74,11 @@ documentation link at https://docs.rs/encoding_rs/0.8.28/encoding_rs/#statics"#
                 example: "open file.csv --encoding iso-8859-1 | from csv",
                 result: None,
             },
+            Example {
+                description: "Lists the contents of a directory (identical to `ls ../projectB`)",
+                example: "open ../projectB",
+                result: None,
+            },
         ]
     }
 }
@@ -99,6 +104,8 @@ async fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let scope = args.scope.clone();
     let cwd = PathBuf::from(args.shell_manager.path());
     let shell_manager = args.shell_manager.clone();
+    let name = args.call_info.name_tag.clone();
+    let ctrl_c = args.ctrl_c.clone();
 
     let (
         OpenArgs {
@@ -108,6 +115,17 @@ async fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
         },
         _,
     ) = args.process().await?;
+
+    if path.is_dir() {
+        let args = nu_engine::shell::LsArgs {
+            path: Some(path),
+            all: false,
+            long: false,
+            short_names: false,
+            du: false,
+        };
+        return shell_manager.ls(args, name, ctrl_c);
+    }
 
     // TODO: Remove once Streams are supported everywhere!
     // As a short term workaround for getting AutoConvert and Bat functionality (Those don't currently support Streams)
