@@ -1,4 +1,4 @@
-# count
+# length
 
 Obtain the row or column count of a table.
 
@@ -36,31 +36,31 @@ Obtain the row or column count of a table.
 ────┴────────────────────┴──────┴──────────┴──────────────
 ```
 
-By default, `count` will return the number of rows in a table
+By default, `length` will return the number of rows in a table
 
 ```shell
-> ls | count
+> ls | length
 20
 ```
 
 The `-c` flag will produce a count of the columns in the table
 
 ```shell
-> ls | count -c
+> ls | length -c
 4
 ```
 
 ```shell
-> ls | where type == File | count
+> ls | where type == File | length
 11
 ```
 
 ```shell
-> ls | where type == Dir | count
+> ls | where type == Dir | length
 9
 ```
 
 ```shell
-> ls | where size > 2KB | count
+> ls | where size > 2KB | length
 4
 ```
