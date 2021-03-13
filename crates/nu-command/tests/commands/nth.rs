@@ -28,7 +28,7 @@ fn selects_many_rows() {
                 ls
                 | get name
                 | nth 1 0
-                | count
+                | length
             "#
         ));
 

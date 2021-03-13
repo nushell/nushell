@@ -1,11 +1,11 @@
 use nu_test_support::{nu, pipeline};
 
 #[test]
-fn help_commands_count() {
+fn help_commands_length() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        help commands | count
+        help commands | length
         "#
     ));
 
@@ -16,11 +16,11 @@ fn help_commands_count() {
 }
 
 #[test]
-fn help_generate_docs_count() {
+fn help_generate_docs_length() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        help generate_docs | flatten | count
+        help generate_docs | flatten | length
         "#
     ));
 

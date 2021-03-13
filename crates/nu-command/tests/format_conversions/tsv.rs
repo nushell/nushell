@@ -97,7 +97,7 @@ fn from_tsv_text_to_table() {
                 open los_tres_amigos.txt
                 | from tsv
                 | get rusty_luck
-                | count
+                | length
             "#
         ));
 
@@ -123,7 +123,7 @@ fn from_tsv_text_skipping_headers_to_table() {
                 open los_tres_amigos.txt
                 | from tsv --noheaders
                 | get Column3
-                | count
+                | length
             "#
         ));
 

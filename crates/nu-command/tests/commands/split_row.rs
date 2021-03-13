@@ -19,7 +19,7 @@ fn to_row() {
                 | lines
                 | str trim
                 | split row ","
-                | count
+                | length
             "#
         ));
 

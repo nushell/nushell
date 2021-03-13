@@ -76,7 +76,7 @@ fn allows_if_given_unknown_column_name_is_missing() {
                 [Yehuda Katz 10/11/2013 A]
             ]
             | select rrusty_at first_name
-            | count
+            | length
         "#
     ));
 

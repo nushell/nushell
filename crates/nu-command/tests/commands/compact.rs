@@ -25,7 +25,7 @@ fn discards_rows_where_given_column_is_empty() {
                 open los_tres_amigos.json
                 | get amigos
                 | compact rusty_luck
-                | count
+                | length
             "#
         ));
 
@@ -41,7 +41,7 @@ fn discards_empty_rows_by_default() {
                 echo "[1,2,3,14,null]"
                 | from json
                 | compact
-                | count
+                | length
             "#
         ));
 

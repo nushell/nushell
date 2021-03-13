@@ -27,7 +27,7 @@ fn gets_last_rows_by_amount() {
             r#"
                 ls
                 | last 3
-                | count
+                | length
             "#
         ));
 
@@ -45,7 +45,7 @@ fn gets_last_row_when_no_amount_given() {
             r#"
                 ls
                 | last
-                | count
+                | length
             "#
         ));
 
@@ -58,7 +58,7 @@ fn requests_more_rows_than_table_has() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        date | last 50 | count
+        date | last 50 | length
         "#
     ));
 

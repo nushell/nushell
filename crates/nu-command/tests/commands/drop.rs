@@ -13,7 +13,7 @@ fn columns() {
             ]
             | drop column
             | get
-            | count
+            | length
         "#)
     );
 
@@ -62,7 +62,7 @@ fn rows() {
 
 #[test]
 fn more_rows_than_table_has() {
-    let actual = nu!(cwd: ".", "date | drop 50 | count");
+    let actual = nu!(cwd: ".", "date | drop 50 | length");
 
     assert_eq!(actual.out, "0");
 }

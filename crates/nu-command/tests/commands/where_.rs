@@ -145,7 +145,7 @@ fn contains_operator() {
             | where table_name == strings
             | get table_values
             | where x =~ ell
-            | count
+            | length
         "#
     ));
 
@@ -158,7 +158,7 @@ fn contains_operator() {
             | where table_name == strings
             | get table_values
             | where x !~ ell
-            | count
+            | length
         "#
     ));
 

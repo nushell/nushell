@@ -126,7 +126,7 @@ mod it_evaluation {
         let actual = nu!(
             cwd: ".",
             r#"
-                nu --testbin repeater c 8197 | lines | count
+                nu --testbin repeater c 8197 | lines | length
             "#
         );
 
@@ -165,7 +165,7 @@ mod stdin_evaluation {
             cwd: ".",
             pipeline(r#"
                 nu --testbin nonu "where's the nuline?"
-                | count
+                | length
             "#
         ));
 

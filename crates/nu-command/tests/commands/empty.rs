@@ -13,7 +13,7 @@ fn reports_emptiness() {
             | get are_empty
             | empty? check
             | where check
-            | count
+            | length
         "#
     ));
 
