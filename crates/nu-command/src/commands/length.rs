@@ -4,21 +4,21 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, UntaggedValue, Value};
 
-pub struct Count;
+pub struct Length;
 
 #[derive(Deserialize)]
-pub struct CountArgs {
+pub struct LengthArgs {
     column: bool,
 }
 
 #[async_trait]
-impl WholeStreamCommand for Count {
+impl WholeStreamCommand for Length {
     fn name(&self) -> &str {
-        "count"
+        "length"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("count").switch(
+        Signature::build("length").switch(
             "column",
             "Calculate number of columns in table",
             Some('c'),
@@ -31,10 +31,10 @@ impl WholeStreamCommand for Count {
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (CountArgs { column }, input) = args.process().await?;
+        let (LengthArgs { column }, input) = args.process().await?;
         let rows: Vec<Value> = input.collect().await;
 
-        let count = if column {
+        let length = if column {
             if rows.is_empty() {
                 0
             } else {
@@ -42,8 +42,8 @@ impl WholeStreamCommand for Count {
                     UntaggedValue::Row(dictionary) => dictionary.length(),
                     _ => {
                         return Err(ShellError::labeled_error(
-                            "Cannot obtain column count",
-                            "cannot obtain column count",
+                            "Cannot obtain column length",
+                            "cannot obtain column length",
                             tag,
                         ));
                     }
@@ -53,19 +53,19 @@ impl WholeStreamCommand for Count {
             rows.len()
         };
 
-        Ok(OutputStream::one(UntaggedValue::int(count).into_value(tag)))
+        Ok(OutputStream::one(UntaggedValue::int(length).into_value(tag)))
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
                 description: "Count the number of entries in a list",
-                example: "echo [1 2 3 4 5] | count",
+                example: "echo [1 2 3 4 5] | length",
                 result: Some(vec![UntaggedValue::int(5).into()]),
             },
             Example {
                 description: "Count the number of columns in the calendar table",
-                example: "cal | count -c",
+                example: "cal | length -c",
                 result: None,
             },
         ]
@@ -74,13 +74,13 @@ impl WholeStreamCommand for Count {
 
 #[cfg(test)]
 mod tests {
-    use super::Count;
+    use super::Length;
     use super::ShellError;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(Count {})
+        test_examples(Length {})
     }
 }
