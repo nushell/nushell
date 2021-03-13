@@ -70,7 +70,7 @@ fn show_created_paths() {
          pipeline(
              r#"
                  mkdir -s dir_1 dir_2 dir_3
-                 | count
+                 | length
              "#
         ));
 

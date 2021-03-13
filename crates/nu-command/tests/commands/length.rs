@@ -1,11 +1,11 @@
 use nu_test_support::{nu, pipeline};
 
 #[test]
-fn count_columns_in_cal_table() {
+fn length_columns_in_cal_table() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        cal | count -c
+        cal | length -c
         "#
     ));
 
@@ -13,11 +13,11 @@ fn count_columns_in_cal_table() {
 }
 
 #[test]
-fn count_columns_no_rows() {
+fn length_columns_no_rows() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo [] | count -c
+        echo [] | length -c
         "#
     ));
 
