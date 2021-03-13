@@ -53,7 +53,9 @@ impl WholeStreamCommand for Length {
             rows.len()
         };
 
-        Ok(OutputStream::one(UntaggedValue::int(length).into_value(tag)))
+        Ok(OutputStream::one(
+            UntaggedValue::int(length).into_value(tag),
+        ))
     }
 
     fn examples(&self) -> Vec<Example> {
