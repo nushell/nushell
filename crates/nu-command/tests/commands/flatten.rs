@@ -71,7 +71,7 @@ fn flatten_row_column_explicitly() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "open katz.json | flatten people | where name == Andres | count"
+            "open katz.json | flatten people | where name == Andres | length"
         );
 
         assert_eq!(actual.out, "1");
@@ -105,7 +105,7 @@ fn flatten_row_columns_having_same_column_names_flats_separately() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "open katz.json | flatten | flatten people city | get city_name | count"
+            "open katz.json | flatten | flatten people city | get city_name | length"
         );
 
         assert_eq!(actual.out, "4");
@@ -139,7 +139,7 @@ fn flatten_table_columns_explicitly() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "open katz.json | flatten city | where people.name == Katz | count"
+            "open katz.json | flatten city | where people.name == Katz | length"
         );
 
         assert_eq!(actual.out, "2");

@@ -89,7 +89,7 @@ fn column_paths_are_either_double_quoted_or_regular_unquoted_words_separated_by_
             r#"
                 open sample.toml
                 | get package."9999"
-                | count
+                | length
             "#
         ));
 

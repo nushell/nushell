@@ -42,7 +42,7 @@ fn lines_multi_value_split() {
             open sample-simple.json
             | get first second
             | lines
-            | count
+            | length
         "#
     ));
 

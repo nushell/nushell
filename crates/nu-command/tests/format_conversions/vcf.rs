@@ -35,7 +35,7 @@ fn infers_types() {
             cwd: dirs.test(), pipeline(
             r#"
                 open contacts.vcf
-                | count
+                | length
             "#
         ));
 

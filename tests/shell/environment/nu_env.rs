@@ -207,7 +207,7 @@ fn given_a_trusted_directory_with_entry_scripts_when_entering_a_subdirectory_ent
         let actual = Trusted::in_path(&dirs, || {
             nu!(cwd: dirs.test(), r#"
                 cd time_to_cook_arepas
-                ls | where name == "hello.txt" | count
+                ls | where name == "hello.txt" | length
             "#)
         });
 
@@ -238,7 +238,7 @@ fn given_a_trusted_directory_with_exit_scripts_when_entering_a_subdirectory_exit
         let actual = Trusted::in_path(&dirs, || {
             nu!(cwd: dirs.test(), r#"
                 cd time_to_cook_arepas
-                ls | where name == "bye.txt" | count
+                ls | where name == "bye.txt" | length
             "#)
         });
 

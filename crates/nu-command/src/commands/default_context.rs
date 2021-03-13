@@ -57,7 +57,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Sleep),
             // Statistics
             whole_stream_command(Size),
-            whole_stream_command(Count),
+            whole_stream_command(Length),
             whole_stream_command(Benchmark),
             // Metadata
             whole_stream_command(Tags),
