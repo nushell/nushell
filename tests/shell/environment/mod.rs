@@ -1,3 +1,4 @@
+mod configuration;
 mod nu_env;
 
 pub mod support {

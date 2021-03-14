@@ -1,5 +1,5 @@
 use nu_test_support::fs::Stub::EmptyFile;
-use nu_test_support::playground::{Dirs, Playground};
+use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 
 #[test]
@@ -269,61 +269,57 @@ fn lists_files_including_starting_with_dot() {
 
 #[test]
 fn list_all_columns() {
-    Playground::setup(
-        "ls_test_all_columns",
-        |dirs: Dirs, sandbox: &mut Playground| {
-            sandbox.with_files(vec![
-                EmptyFile("Leonardo.yaml"),
-                EmptyFile("Raphael.json"),
-                EmptyFile("Donatello.xml"),
-                EmptyFile("Michelangelo.txt"),
-            ]);
-            // Normal Operation
-            let actual = nu!(
-                cwd: dirs.test(),
-                "ls | get | to md"
-            );
-            let expected = ["name", "type", "size", "modified"].join("");
-            assert_eq!(actual.out, expected, "column names are incorrect for ls");
-            // Long
-            let actual = nu!(
-                cwd: dirs.test(),
-                "ls -l | get | to md"
-            );
-            let expected = {
-                #[cfg(unix)]
-                {
-                    [
-                        "name",
-                        "type",
-                        "target",
-                        "num_links",
-                        "inode",
-                        "readonly",
-                        "mode",
-                        "uid",
-                        "group",
-                        "size",
-                        "created",
-                        "accessed",
-                        "modified",
-                    ]
-                    .join("")
-                }
+    Playground::setup("ls_test_all_columns", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("Leonardo.yaml"),
+            EmptyFile("Raphael.json"),
+            EmptyFile("Donatello.xml"),
+            EmptyFile("Michelangelo.txt"),
+        ]);
+        // Normal Operation
+        let actual = nu!(
+            cwd: dirs.test(),
+            "ls | get | to md"
+        );
+        let expected = ["name", "type", "size", "modified"].join("");
+        assert_eq!(actual.out, expected, "column names are incorrect for ls");
+        // Long
+        let actual = nu!(
+            cwd: dirs.test(),
+            "ls -l | get | to md"
+        );
+        let expected = {
+            #[cfg(unix)]
+            {
+                [
+                    "name",
+                    "type",
+                    "target",
+                    "num_links",
+                    "inode",
+                    "readonly",
+                    "mode",
+                    "uid",
+                    "group",
+                    "size",
+                    "created",
+                    "accessed",
+                    "modified",
+                ]
+                .join("")
+            }
 
-                #[cfg(windows)]
-                {
-                    [
-                        "name", "type", "target", "readonly", "size", "created", "accessed",
-                        "modified",
-                    ]
-                    .join("")
-                }
-            };
-            assert_eq!(
-                actual.out, expected,
-                "column names are incorrect for ls long"
-            );
-        },
-    );
+            #[cfg(windows)]
+            {
+                [
+                    "name", "type", "target", "readonly", "size", "created", "accessed", "modified",
+                ]
+                .join("")
+            }
+        };
+        assert_eq!(
+            actual.out, expected,
+            "column names are incorrect for ls long"
+        );
+    });
 }

@@ -152,7 +152,7 @@ pub(crate) use char_::Char;
 pub(crate) use chart::Chart;
 pub(crate) use compact::Compact;
 pub(crate) use config::{
-    Config, ConfigClear, ConfigGet, ConfigLoad, ConfigPath, ConfigRemove, ConfigSet, ConfigSetInto,
+    Config, ConfigClear, ConfigGet, ConfigPath, ConfigRemove, ConfigSet, ConfigSetInto,
 };
 pub(crate) use cp::Cpy;
 pub(crate) use date::{Date, DateFormat, DateListTimeZone, DateNow, DateToTable, DateToTimeZone};

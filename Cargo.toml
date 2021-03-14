@@ -60,6 +60,7 @@ pretty_env_logger = "0.4.0"
 nu-test-support = { version = "0.28.0", path = "./crates/nu-test-support" }
 dunce = "1.0.1"
 serial_test = "0.5.1"
+hamcrest2 = "0.3.0"
 
 
 [build-dependencies]

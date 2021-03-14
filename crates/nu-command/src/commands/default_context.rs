@@ -29,7 +29,6 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(ConfigSet),
             whole_stream_command(ConfigSetInto),
             whole_stream_command(ConfigClear),
-            whole_stream_command(ConfigLoad),
             whole_stream_command(ConfigRemove),
             whole_stream_command(ConfigPath),
             whole_stream_command(Help),

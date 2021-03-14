@@ -2098,6 +2098,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "hamcrest2"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "49f837c62de05dc9cc71ff6486cd85de8856a330395ae338a04bfcefe5e91075"
+dependencies = [
+ "num",
+ "regex 1.4.3",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3065,6 +3075,7 @@ dependencies = [
  "ctrlc",
  "dunce",
  "futures 0.3.13",
+ "hamcrest2",
  "itertools",
  "log 0.4.14",
  "nu-cli",
@@ -3246,6 +3257,7 @@ dependencies = [
  "futures_codec",
  "getset",
  "glob",
+ "hamcrest2",
  "htmlescape",
  "ical",
  "ichwh",
@@ -3362,6 +3374,7 @@ dependencies = [
  "futures_codec",
  "getset",
  "glob",
+ "hamcrest2",
  "indexmap",
  "itertools",
  "log 0.4.14",
@@ -3522,6 +3535,7 @@ dependencies = [
  "dunce",
  "getset",
  "glob",
+ "hamcrest2",
  "indexmap",
  "nu-errors",
  "nu-protocol",

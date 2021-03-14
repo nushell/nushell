@@ -124,6 +124,7 @@ shadow-rs = "0.5"
 [dev-dependencies]
 quickcheck = "1.0.3"
 quickcheck_macros = "1.0.0"
+hamcrest2 = "0.3.0"
 
 [features]
 clipboard-cli = ["arboard"]
