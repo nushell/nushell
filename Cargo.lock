@@ -1164,7 +1164,7 @@ version = "3.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c15b8ec3b5755a188c141c1f6a98e76de31b936209bf066b647979e2a84764a9"
 dependencies = [
- "nix 0.20.0",
+ "nix",
  "winapi 0.3.9",
 ]
 
@@ -1324,16 +1324,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "142995ed02755914747cc6ca76fc7e4583cd18578746716d0508ea6ed558b9ff"
 dependencies = [
  "dirs-sys",
-]
-
-[[package]]
-name = "dirs-next"
-version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf36e65a80337bea855cd4ef9b8401ffce06a7baedf2e85ec467b1ac3f6e82b6"
-dependencies = [
- "cfg-if 1.0.0",
- "dirs-sys-next",
 ]
 
 [[package]]
@@ -1513,6 +1503,12 @@ checksum = "80df024fbc5ac80f87dfef0d9f5209a252f2a497f7f42944cff24d8253cac065"
 dependencies = [
  "cfg-if 1.0.0",
 ]
+
+[[package]]
+name = "endian-type"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c34f04666d835ff5d62e058c3995147c06f42fe86ff053337632bca83e42702d"
 
 [[package]]
 name = "env_logger"
@@ -2996,6 +2992,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4a24736216ec316047a1fc4252e27dabb04218aa4a3f37c6e7ddbf1f9782b54"
 
 [[package]]
+name = "nibble_vec"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77a5d83df9f36fe23f0c3648c6bbb8b0298bb5f1939c8f2704431371f4b84d43"
+dependencies = [
+ "smallvec 1.6.1",
+]
+
+[[package]]
 name = "nipper"
 version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3006,30 +3011,6 @@ dependencies = [
  "markup5ever",
  "selectors",
  "tendril",
-]
-
-[[package]]
-name = "nix"
-version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83450fe6a6142ddd95fb064b746083fc4ef1705fe81f64a64e1d4b39f54a1055"
-dependencies = [
- "bitflags",
- "cc",
- "cfg-if 0.1.10",
- "libc",
-]
-
-[[package]]
-name = "nix"
-version = "0.19.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2ccba0cfe4fdf15982d1674c69b1fd80bad427d293849982668dfe454bd61f2"
-dependencies = [
- "bitflags",
- "cc",
- "cfg-if 1.0.0",
- "libc",
 ]
 
 [[package]]
@@ -3151,7 +3132,7 @@ dependencies = [
  "ctrlc",
  "derive-new",
  "directories-next",
- "dirs-next 2.0.0",
+ "dirs-next",
  "dtparse",
  "dunce",
  "eml-parser",
@@ -3202,7 +3183,7 @@ dependencies = [
  "roxmltree",
  "rusqlite",
  "rust-embed",
- "rustyline 6.3.0",
+ "rustyline",
  "serde 1.0.124",
  "serde_bytes",
  "serde_ini",
@@ -3253,7 +3234,7 @@ dependencies = [
  "ctrlc",
  "derive-new",
  "directories-next",
- "dirs-next 2.0.0",
+ "dirs-next",
  "dtparse",
  "dunce",
  "eml-parser",
@@ -3304,7 +3285,7 @@ dependencies = [
  "roxmltree",
  "rusqlite",
  "rust-embed",
- "rustyline 7.1.0",
+ "rustyline",
  "serde 1.0.124",
  "serde_bytes",
  "serde_ini",
@@ -3342,7 +3323,7 @@ dependencies = [
  "chrono",
  "derive-new",
  "directories-next",
- "dirs-next 2.0.0",
+ "dirs-next",
  "getset",
  "indexmap",
  "log 0.4.14",
@@ -3371,7 +3352,7 @@ dependencies = [
  "bytes 0.5.6",
  "codespan-reporting",
  "derive-new",
- "dirs-next 2.0.0",
+ "dirs-next",
  "dunce",
  "encoding_rs",
  "filesize",
@@ -4534,6 +4515,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "radix_trie"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c069c179fcdc6a2fe24d8d18305cf085fdbd4f922c041943e203685d6a1c58fd"
+dependencies = [
+ "endian-type",
+ "nibble_vec",
+]
+
+[[package]]
 name = "rand"
 version = "0.3.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4987,38 +4978,21 @@ checksum = "cb5d2a036dc6d2d8fd16fde3498b04306e29bd193bf306a57427019b823d5acd"
 
 [[package]]
 name = "rustyline"
-version = "6.3.0"
+version = "8.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f0d5e7b0219a3eadd5439498525d4765c59b7c993ef0c12244865cd2d988413"
-dependencies = [
- "cfg-if 0.1.10",
- "dirs-next 1.0.2",
- "libc",
- "log 0.4.14",
- "memchr",
- "nix 0.18.0",
- "scopeguard",
- "unicode-segmentation",
- "unicode-width",
- "utf8parse 0.2.0",
- "winapi 0.3.9",
-]
-
-[[package]]
-name = "rustyline"
-version = "7.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8227301bfc717136f0ecbd3d064ba8199e44497a0bdd46bb01ede4387cfd2cec"
+checksum = "b9e1b597fcd1eeb1d6b25b493538e5aa19629eb08932184b85fef931ba87e893"
 dependencies = [
  "bitflags",
  "cfg-if 1.0.0",
- "dirs-next 2.0.0",
+ "dirs-next",
  "fs2",
  "libc",
  "log 0.4.14",
  "memchr",
- "nix 0.19.1",
+ "nix",
+ "radix_trie",
  "scopeguard",
+ "smallvec 1.6.1",
  "unicode-segmentation",
  "unicode-width",
  "utf8parse 0.2.0",
@@ -5424,7 +5398,7 @@ version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83bdb7831b2d85ddf4a7b148aa19d0587eddbe8671a436b7bd1182eaad0f2829"
 dependencies = [
- "dirs-next 2.0.0",
+ "dirs-next",
 ]
 
 [[package]]
@@ -5851,7 +5825,7 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c59df8ac95d96ff9bede18eb7300b0fda5e5d8d90960e76f8e14ae765eedbf1f"
 dependencies = [
- "dirs-next 2.0.0",
+ "dirs-next",
  "rustversion",
  "winapi 0.3.9",
 ]
