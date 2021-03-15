@@ -202,7 +202,7 @@ pub fn configure_rustyline_editor(
 
 #[cfg(feature = "rustyline-support")]
 pub fn nu_line_editor_helper(
-    context: &mut EvaluationContext,
+    context: &EvaluationContext,
     config: &dyn nu_data::config::Conf,
 ) -> crate::shell::Helper {
     let hinter = rustyline_hinter(config);
@@ -224,7 +224,7 @@ pub fn rustyline_hinter(
     Some(rustyline::hint::HistoryHinter {})
 }
 
-pub fn configure_ctrl_c(_context: &mut EvaluationContext) -> Result<(), Box<dyn Error>> {
+pub fn configure_ctrl_c(_context: &EvaluationContext) -> Result<(), Box<dyn Error>> {
     #[cfg(feature = "ctrlc")]
     {
         let cc = _context.ctrl_c.clone();
