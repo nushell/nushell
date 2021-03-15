@@ -1,7 +1,4 @@
 mod append;
-mod autoenv;
-mod autoenv_trust;
-mod autoenv_untrust;
 mod cal;
 mod cd;
 mod compact;

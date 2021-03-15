@@ -15,8 +15,10 @@ use crate::line_editor::{
 
 #[allow(unused_imports)]
 use nu_data::config;
-use nu_source::{Tag, Text};
+use nu_data::config::{Conf, NuConfig};
+use nu_source::{AnchorLocation, Tag, Text};
 use nu_stream::InputStream;
+use std::ffi::{OsStr, OsString};
 #[allow(unused_imports)]
 use std::sync::atomic::Ordering;
 
@@ -32,6 +34,67 @@ use log::trace;
 use std::error::Error;
 use std::iter::Iterator;
 use std::path::PathBuf;
+
+pub struct Options {
+    pub config: Option<OsString>,
+    pub stdin: bool,
+    pub scripts: Vec<NuScript>,
+}
+
+impl Default for Options {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Options {
+    pub fn new() -> Self {
+        Self {
+            config: None,
+            stdin: false,
+            scripts: vec![],
+        }
+    }
+}
+
+pub struct NuScript {
+    pub filepath: Option<OsString>,
+    pub contents: String,
+}
+
+impl NuScript {
+    pub fn code<'a>(content: impl Iterator<Item = &'a str>) -> Result<Self, ShellError> {
+        let text = content
+            .map(|x| x.to_string())
+            .collect::<Vec<String>>()
+            .join("\n");
+
+        Ok(Self {
+            filepath: None,
+            contents: text,
+        })
+    }
+
+    pub fn get_code(&self) -> &str {
+        &self.contents
+    }
+
+    pub fn source_file(path: &OsStr) -> Result<Self, ShellError> {
+        use std::fs::File;
+        use std::io::Read;
+
+        let path = path.to_os_string();
+        let mut file = File::open(&path)?;
+        let mut buffer = String::new();
+
+        file.read_to_string(&mut buffer)?;
+
+        Ok(Self {
+            filepath: Some(path),
+            contents: buffer,
+        })
+    }
+}
 
 pub fn search_paths() -> Vec<std::path::PathBuf> {
     use std::env;
@@ -62,12 +125,9 @@ pub fn search_paths() -> Vec<std::path::PathBuf> {
     search_paths
 }
 
-pub async fn run_script_file(
-    file_contents: String,
-    redirect_stdin: bool,
-) -> Result<(), Box<dyn Error>> {
-    let mut syncer = EnvironmentSyncer::new();
+pub async fn run_script_file(options: Options) -> Result<(), Box<dyn Error>> {
     let mut context = create_default_context(false)?;
+    let mut syncer = create_environment_syncer(&context, &options);
     let config = syncer.get_config();
 
     context.configure(&config, |_, ctx| {
@@ -85,15 +145,38 @@ pub async fn run_script_file(
 
     let _ = run_startup_commands(&mut context, &config).await;
 
-    run_script_standalone(file_contents, redirect_stdin, &context, true).await?;
+    let script = options
+        .scripts
+        .get(0)
+        .ok_or_else(|| ShellError::unexpected("Nu source code not available"))?;
+
+    run_script_standalone(script.get_code().to_string(), options.stdin, &context, true).await?;
 
     Ok(())
 }
 
-/// The entry point for the CLI. Will register all known internal commands, load experimental commands, load plugins, then prepare the prompt and line reader for input.
+fn create_environment_syncer(context: &EvaluationContext, options: &Options) -> EnvironmentSyncer {
+    if let Some(config_file) = &options.config {
+        let location = Some(AnchorLocation::File(
+            config_file.to_string_lossy().to_string(),
+        ));
+        let tag = Tag::unknown().anchored(location);
+
+        context.scope.add_var(
+            "config-path",
+            UntaggedValue::filepath(PathBuf::from(&config_file)).into_value(tag),
+        );
+
+        EnvironmentSyncer::with_config(Box::new(NuConfig::with(Some(config_file.into()))))
+    } else {
+        EnvironmentSyncer::new()
+    }
+}
+
 #[cfg(feature = "rustyline-support")]
-pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
-    let mut syncer = EnvironmentSyncer::new();
+pub async fn cli(mut context: EvaluationContext, options: Options) -> Result<(), Box<dyn Error>> {
+    let mut syncer = create_environment_syncer(&context, &options);
+
     let configuration = syncer.get_config();
 
     let mut rl = default_rustyline_editor_configuration();

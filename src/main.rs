@@ -1,14 +1,21 @@
 use clap::{App, Arg};
 use log::LevelFilter;
-use nu_cli::create_default_context;
+use nu_cli::{create_default_context, NuScript, Options};
 use nu_command::utils::test_bins as binaries;
 use std::error::Error;
-use std::fs::File;
-use std::io::prelude::*;
 
 fn main() -> Result<(), Box<dyn Error>> {
+    let mut options = Options::new();
+
     let matches = App::new("nushell")
         .version(clap::crate_version!())
+        .arg(
+            Arg::with_name("config-file")
+                .long("config-file")
+                .help("custom configuration source file")
+                .hidden(true)
+                .takes_value(true),
+        )
         .arg(
             Arg::with_name("loglevel")
                 .short("l")
@@ -84,6 +91,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
+    options.config = matches
+        .value_of("config-file")
+        .map(std::ffi::OsString::from);
+    options.stdin = matches.is_present("stdin");
+
     let loglevel = match matches.value_of("loglevel") {
         None => LevelFilter::Warn,
         Some("error") => LevelFilter::Error,
@@ -125,28 +137,20 @@ fn main() -> Result<(), Box<dyn Error>> {
     match matches.values_of("commands") {
         None => {}
         Some(values) => {
-            let script_text: String = values
-                .map(|x| x.to_string())
-                .collect::<Vec<String>>()
-                .join("\n");
-            futures::executor::block_on(nu_cli::run_script_file(
-                script_text,
-                matches.is_present("stdin"),
-            ))?;
+            options.scripts = vec![NuScript::code(values)?];
+
+            futures::executor::block_on(nu_cli::run_script_file(options))?;
             return Ok(());
         }
     }
 
     match matches.value_of("script") {
-        Some(script) => {
-            let mut file = File::open(script)?;
-            let mut buffer = String::new();
-            file.read_to_string(&mut buffer)?;
+        Some(filepath) => {
+            let filepath = std::ffi::OsString::from(filepath);
 
-            futures::executor::block_on(nu_cli::run_script_file(
-                buffer,
-                matches.is_present("stdin"),
-            ))?;
+            options.scripts = vec![NuScript::source_file(filepath.as_os_str())?];
+
+            futures::executor::block_on(nu_cli::run_script_file(options))?;
             return Ok(());
         }
 
@@ -159,7 +163,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             #[cfg(feature = "rustyline-support")]
             {
-                futures::executor::block_on(nu_cli::cli(context))?;
+                futures::executor::block_on(nu_cli::cli(context, options))?;
             }
 
             #[cfg(not(feature = "rustyline-support"))]

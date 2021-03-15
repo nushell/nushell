@@ -1,13 +1,13 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct SubCommand;
 
 #[derive(Deserialize)]
-pub struct RemoveArgs {
+pub struct Arguments {
     remove: Tagged<String>,
 }
 
@@ -44,15 +44,24 @@ impl WholeStreamCommand for SubCommand {
 
 pub async fn remove(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_span = args.call_info.name_tag.clone();
-    let (RemoveArgs { remove }, _) = args.process().await?;
+    let scope = args.scope.clone();
+    let (Arguments { remove }, _) = args.process().await?;
 
-    let mut result = nu_data::config::read(name_span, &None)?;
+    let path = match scope.get_var("config-path") {
+        Some(Value {
+            value: UntaggedValue::Primitive(Primitive::FilePath(path)),
+            ..
+        }) => Some(path),
+        _ => nu_data::config::default_path().ok(),
+    };
+
+    let mut result = nu_data::config::read(name_span, &path)?;
 
     let key = remove.to_string();
 
     if result.contains_key(&key) {
         result.swap_remove(&key);
-        config::write(&result, &None)?;
+        config::write(&result, &path)?;
         Ok(futures::stream::iter(vec![ReturnSuccess::value(
             UntaggedValue::Row(result.into()).into_value(remove.tag()),
         )])

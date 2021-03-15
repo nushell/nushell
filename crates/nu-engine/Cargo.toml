@@ -51,6 +51,7 @@ users = "0.11.0"
 
 [dev-dependencies]
 nu-test-support = { version = "0.28.0", path = "../nu-test-support" }
+hamcrest2 = "0.3.0"
 
 [features]
 rustyline-support = []

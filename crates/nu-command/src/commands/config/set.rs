@@ -1,13 +1,15 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ColumnPath, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{
+    ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+};
 
 pub struct SubCommand;
 
 #[derive(Deserialize)]
-pub struct SetArgs {
-    path: ColumnPath,
+pub struct Arguments {
+    column_path: ColumnPath,
     value: Value,
 }
 
@@ -58,13 +60,26 @@ impl WholeStreamCommand for SubCommand {
 }
 
 pub async fn set(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let name_tag = args.call_info.name_tag.clone();
-    let (SetArgs { path, mut value }, _) = args.process().await?;
+    let name = args.call_info.name_tag.clone();
+    let scope = args.scope.clone();
+    let (
+        Arguments {
+            column_path,
+            mut value,
+        },
+        _,
+    ) = args.process().await?;
 
-    // NOTE: None because we are not loading a new config file, we just want to read from the
-    // existing config
-    let raw_entries = nu_data::config::read(&name_tag, &None)?;
-    let configuration = UntaggedValue::row(raw_entries).into_value(&name_tag);
+    let path = match scope.get_var("config-path") {
+        Some(Value {
+            value: UntaggedValue::Primitive(Primitive::FilePath(path)),
+            ..
+        }) => Some(path),
+        _ => nu_data::config::default_path().ok(),
+    };
+
+    let raw_entries = nu_data::config::read(&name, &path)?;
+    let configuration = UntaggedValue::row(raw_entries).into_value(&name);
 
     if let UntaggedValue::Table(rows) = &value.value {
         if rows.len() == 1 && rows[0].is_row() {
@@ -72,15 +87,15 @@ pub async fn set(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     }
 
-    match configuration.forgiving_insert_data_at_column_path(&path, value) {
+    match configuration.forgiving_insert_data_at_column_path(&column_path, value) {
         Ok(Value {
             value: UntaggedValue::Row(changes),
             ..
         }) => {
-            config::write(&changes.entries, &None)?;
+            config::write(&changes.entries, &path)?;
 
             Ok(OutputStream::one(ReturnSuccess::value(
-                UntaggedValue::Row(changes).into_value(name_tag),
+                UntaggedValue::Row(changes).into_value(name),
             )))
         }
         Ok(_) => Ok(OutputStream::empty()),

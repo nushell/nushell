@@ -23,5 +23,4 @@ glob = "0.3.0"
 indexmap = { version = "1.6.1", features = ["serde-1"] }
 num-bigint = { version = "0.3.1", features = ["serde"] }
 tempfile = "3.2.0"
-
-[build-dependencies]
+hamcrest2 = "0.3.0"
