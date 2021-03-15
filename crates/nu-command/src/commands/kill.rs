@@ -13,6 +13,7 @@ pub struct KillArgs {
     pub rest: Vec<Tagged<u64>>,
     pub force: Tagged<bool>,
     pub quiet: Tagged<bool>,
+    pub signal: Option<Tagged<u32>>,
 }
 
 #[async_trait]
@@ -22,7 +23,7 @@ impl WholeStreamCommand for Kill {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("kill")
+        let signature = Signature::build("kill")
             .required(
                 "pid",
                 SyntaxShape::Int,
@@ -30,7 +31,18 @@ impl WholeStreamCommand for Kill {
             )
             .rest(SyntaxShape::Int, "rest of processes to kill")
             .switch("force", "forcefully kill the process", Some('f'))
-            .switch("quiet", "won't print anything to the console", Some('q'))
+            .switch("quiet", "won't print anything to the console", Some('q'));
+
+        if cfg!(windows) {
+            return signature;
+        }
+
+        signature.named(
+            "signal",
+            SyntaxShape::Int,
+            "signal decimal number to be sent instead of the default 15 (unsupported on Windows)",
+            Some('s'),
+        )
     }
 
     fn usage(&self) -> &str {
@@ -53,6 +65,11 @@ impl WholeStreamCommand for Kill {
                 example: "kill --force 12345",
                 result: None,
             },
+            Example {
+                description: "Send INT signal",
+                example: "kill -s 2 12345",
+                result: None,
+            },
         ]
     }
 }
@@ -64,6 +81,7 @@ async fn kill(args: CommandArgs) -> Result<OutputStream, ShellError> {
             rest,
             force,
             quiet,
+            signal,
         },
         ..,
     ) = args.process().await?;
@@ -89,7 +107,18 @@ async fn kill(args: CommandArgs) -> Result<OutputStream, ShellError> {
         let mut cmd = Command::new("kill");
 
         if *force {
+            if let Some(signal_value) = signal {
+                return Err(ShellError::labeled_error_with_secondary(
+                    "mixing force and signal options is not supported",
+                    "signal option",
+                    signal_value.tag(),
+                    "force option",
+                    force.tag(),
+                ));
+            }
             cmd.arg("-9");
+        } else if let Some(signal_value) = signal {
+            cmd.arg(format!("-{}", signal_value.item().to_string()));
         }
 
         cmd.arg(pid.item().to_string());
