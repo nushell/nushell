@@ -183,9 +183,7 @@ pub async fn process_script(
         };
 
         trace!("{:#?}", block);
-        let env = ctx.get_env();
 
-        ctx.scope.add_env_to_base(env);
         let result = run_block(&block, ctx, input_stream).await;
 
         match result {
