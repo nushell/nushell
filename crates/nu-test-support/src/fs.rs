@@ -246,10 +246,15 @@ pub fn root() -> PathBuf {
 }
 
 pub fn binaries() -> PathBuf {
+    let mut build_type = "debug";
+    if !cfg!(debug_assertions) {
+        build_type = "release"
+    }
+
     std::env::var("CARGO_TARGET_DIR")
         .ok()
-        .map(|target_dir| PathBuf::from(target_dir).join("debug"))
-        .unwrap_or_else(|| root().join("target/debug"))
+        .map(|target_dir| PathBuf::from(target_dir).join(&build_type))
+        .unwrap_or_else(|| root().join(format!("target/{}", &build_type)))
 }
 
 pub fn fixtures() -> PathBuf {
