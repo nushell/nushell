@@ -125,7 +125,7 @@ pub async fn run_script_file(options: Options) -> Result<(), Box<dyn Error>> {
     let context = create_default_context(false)?;
 
     if let Some(cfg) = options.config {
-        load_cfg(&context, &ConfigPath::Global(PathBuf::from(cfg))).await;
+        load_cfg_as_global_cfg(&context, PathBuf::from(cfg)).await;
     } else {
         load_global_cfg(&context).await;
     }
@@ -151,7 +151,7 @@ pub async fn cli(context: EvaluationContext, options: Options) -> Result<(), Box
     let startup_commands_start_time = std::time::Instant::now();
 
     if let Some(cfg) = options.config {
-        load_cfg(&context, &ConfigPath::Global(PathBuf::from(cfg))).await;
+        load_cfg_as_global_cfg(&context, PathBuf::from(cfg)).await;
     } else {
         load_global_cfg(&context).await;
     }
@@ -383,6 +383,7 @@ pub async fn cli(context: EvaluationContext, options: Options) -> Result<(), Box
 }
 
 pub async fn load_local_cfg_if_present(context: &EvaluationContext) {
+    trace!("Loading local cfg if present");
     match config::loadable_cfg_exists_in_dir(PathBuf::from(context.shell_manager.path())) {
         Ok(Some(cfg_path)) => {
             if let Some(err) = context.load_config(&ConfigPath::Local(cfg_path)).await {
@@ -399,16 +400,23 @@ pub async fn load_local_cfg_if_present(context: &EvaluationContext) {
     }
 }
 
-pub async fn load_cfg(context: &EvaluationContext, path: &ConfigPath) {
-    if let Some(err) = context.load_config(path).await {
+async fn load_cfg_as_global_cfg(context: &EvaluationContext, path: PathBuf) {
+    if let Some(err) = context.load_config(&ConfigPath::Global(path.clone())).await {
         context.host.lock().print_err(err, &Text::from(""));
+    } else {
+        //TODO current commands assume to find path to global cfg file under config-path
+        //TODO use newly introduced nuconfig::file_path instead
+        context.scope.add_var(
+            "config-path",
+            UntaggedValue::filepath(path).into_untagged_value(),
+        );
     }
 }
 
 pub async fn load_global_cfg(context: &EvaluationContext) {
     match config::default_path() {
         Ok(path) => {
-            load_cfg(context, &ConfigPath::Global(path)).await;
+            load_cfg_as_global_cfg(context, path).await;
         }
         Err(e) => {
             context.host.lock().print_err(e, &Text::from(""));
