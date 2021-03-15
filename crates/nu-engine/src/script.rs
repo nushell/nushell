@@ -1,5 +1,4 @@
-use crate::run_block;
-use crate::{path::canonicalize, print::maybe_print_errors};
+use crate::{maybe_print_errors, path::canonicalize, run_block};
 use crate::{MaybeTextCodec, StringOrBinary};
 use futures::StreamExt;
 use futures_codec::FramedRead;
@@ -34,6 +33,22 @@ fn chomp_newline(s: &str) -> &str {
     } else {
         s
     }
+}
+
+pub async fn run_script_in_dir(
+    script: String,
+    dir: &Path,
+    ctx: &EvaluationContext,
+) -> Result<(), Box<dyn Error>> {
+    //Save path before to switch back to it after executing script
+    let path_before = ctx.shell_manager.path();
+
+    ctx.shell_manager
+        .set_path(dir.to_string_lossy().to_string());
+    run_script_standalone(script, false, ctx, false).await?;
+    ctx.shell_manager.set_path(path_before);
+
+    Ok(())
 }
 
 /// Process the line by parsing the text to turn it into commands, classify those commands so that we understand what is being called in the pipeline, and then run this pipeline
@@ -229,6 +244,10 @@ pub async fn run_script_standalone(
     context: &EvaluationContext,
     exit_on_error: bool,
 ) -> Result<(), Box<dyn Error>> {
+    context
+        .shell_manager
+        .enter_script_mode()
+        .map_err(Box::new)?;
     let line = process_script(&script_text, context, redirect_stdin, 0, false).await;
 
     match line {
@@ -264,5 +283,9 @@ pub async fn run_script_standalone(
 
         _ => {}
     }
+
+    //exit script mode shell
+    context.shell_manager.remove_at_current();
+
     Ok(())
 }
