@@ -550,7 +550,7 @@ fn autoenv_test_entry_scripts() {
                cd foo
                rm hello.txt
                cd bar
-               ls .. | where name == "../hello.txt" | count"#
+               ls .. | where name == "../hello.txt" | length"#
         );
         assert!(actual.out.contains("0"));
     });
@@ -576,7 +576,7 @@ fn autoenv_test_exit_scripts() {
             r#"autoenv trust foo | = $nothing
                cd foo
                cd ..
-               ls foo | where name =~ "bye.txt" | count
+               ls foo | where name =~ "bye.txt" | length
                rm foo/bye.txt; cd .
                "#
         );
@@ -588,7 +588,7 @@ fn autoenv_test_exit_scripts() {
             r#"autoenv trust foo | = $nothing
                cd foo
                cd bar
-               ls .. | where name =~ "bye.txt" | count"#
+               ls .. | where name =~ "bye.txt" | length"#
         );
         assert_eq!(actual.out, "0");
 
@@ -598,7 +598,7 @@ fn autoenv_test_exit_scripts() {
             r#"autoenv trust foo | = $nothing
                cd foo/bar
                cd ../..
-               ls foo | where name =~ "bye.txt" | count
+               ls foo | where name =~ "bye.txt" | length
                rm foo/bye.txt; cd ."#
         );
         assert_eq!(actual.out, "1");
