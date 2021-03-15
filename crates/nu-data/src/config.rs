@@ -1,17 +1,22 @@
 mod conf;
+mod config_trust;
+mod local_config;
 mod nuconfig;
 
-pub mod tests;
-
 pub use conf::Conf;
+pub use config_trust::is_file_trusted;
+pub use config_trust::read_trusted;
+pub use config_trust::Trusted;
+pub use local_config::loadable_cfg_exists_in_dir;
+pub use local_config::LocalConfigDiff;
 pub use nuconfig::NuConfig;
 
 use indexmap::IndexMap;
 use log::trace;
 use nu_errors::{CoerceInto, ShellError};
 use nu_protocol::{
-    Dictionary, Primitive, ShellTypeName, TaggedDictBuilder, UnspannedPathMember, UntaggedValue,
-    Value,
+    ConfigPath, Dictionary, Primitive, ShellTypeName, TaggedDictBuilder, UnspannedPathMember,
+    UntaggedValue, Value,
 };
 use nu_source::{SpannedItem, Tag, TaggedItem};
 use std::fs::{self, OpenOptions};
@@ -323,4 +328,8 @@ fn touch(path: &Path) -> io::Result<()> {
         Ok(_) => Ok(()),
         Err(e) => Err(e),
     }
+}
+
+pub fn cfg_path_to_scope_tag(cfg_path: &ConfigPath) -> String {
+    cfg_path.get_path().to_string_lossy().to_string()
 }

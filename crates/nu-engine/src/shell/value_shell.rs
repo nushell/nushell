@@ -254,4 +254,9 @@ impl Shell for ValueShell {
             "save on help shell is not supported",
         ))
     }
+
+    fn is_interactive(&self) -> bool {
+        //Value shell is always interactive
+        true
+    }
 }

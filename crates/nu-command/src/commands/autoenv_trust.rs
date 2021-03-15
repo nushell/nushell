@@ -1,5 +1,5 @@
-use super::autoenv::read_trusted;
 use crate::prelude::*;
+use nu_data::config::read_trusted;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::SyntaxShape;
