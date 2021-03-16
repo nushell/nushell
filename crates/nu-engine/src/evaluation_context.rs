@@ -139,9 +139,7 @@ impl EvaluationContext {
             .map(|mut paths| {
                 //existing paths are prepended to path
                 if let Some(existing) = self.scope.get_env("PATH") {
-                    let existing = std::env::split_paths(&existing).collect::<Vec<_>>();
-                    //PATH should start with existing path entries
-                    paths = existing.into_iter().chain(paths).collect();
+                    paths.extend(std::env::split_paths(&existing).collect::<Vec<_>>());
                 }
                 paths
             })
