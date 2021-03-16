@@ -133,19 +133,20 @@ impl EvaluationContext {
         let cfg = NuConfig::load(Some(cfg_path.get_path().clone()))?;
         let exit_scripts = cfg.exit_scripts()?;
         let startup_scripts = cfg.startup_scripts()?;
-        let paths = cfg.path()?;
+        let cfg_paths = cfg.path()?;
 
-        let joined_paths = paths
-            .map(|mut paths| {
+        let joined_paths = cfg_paths
+            .map(|mut cfg_paths| {
                 //existing paths are prepended to path
-                if let Some(existing) = self.scope.get_env("PATH") {
-                    let mut existing = std::env::split_paths(&existing).collect::<Vec<_>>();
-                    existing.retain(|new| !paths.contains(new));
-                    //Existing path entries are appended at the end
+                if let Some(env_paths) = self.scope.get_env("PATH") {
+                    let mut env_paths = std::env::split_paths(&env_paths).collect::<Vec<_>>();
+                    //No duplicates! Remove env_paths already existing in cfg_paths
+                    env_paths.retain(|env_path| !cfg_paths.contains(env_path));
+                    //env_paths entries are appended at the end
                     //nu config paths have a higher priority
-                    paths.extend(existing);
+                    cfg_paths.extend(env_paths);
                 }
-                paths
+                cfg_paths
             })
             .map(|paths| {
                 std::env::join_paths(paths)
