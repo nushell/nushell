@@ -384,7 +384,7 @@ pub async fn load_local_cfg_if_present(context: &EvaluationContext) {
     trace!("Loading local cfg if present");
     match config::loadable_cfg_exists_in_dir(PathBuf::from(context.shell_manager.path())) {
         Ok(Some(cfg_path)) => {
-            if let Some(err) = context.load_config(&ConfigPath::Local(cfg_path)).await {
+            if let Err(err) = context.load_config(&ConfigPath::Local(cfg_path)).await {
                 context.host.lock().print_err(err, &Text::from(""))
             }
         }
@@ -399,7 +399,7 @@ pub async fn load_local_cfg_if_present(context: &EvaluationContext) {
 }
 
 async fn load_cfg_as_global_cfg(context: &EvaluationContext, path: PathBuf) {
-    if let Some(err) = context.load_config(&ConfigPath::Global(path.clone())).await {
+    if let Err(err) = context.load_config(&ConfigPath::Global(path.clone())).await {
         context.host.lock().print_err(err, &Text::from(""));
     } else {
         //TODO current commands assume to find path to global cfg file under config-path

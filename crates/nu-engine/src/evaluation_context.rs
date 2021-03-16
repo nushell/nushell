@@ -4,12 +4,11 @@ use crate::shell::shell_manager::ShellManager;
 use crate::whole_stream_command::Command;
 use crate::{call_info::UnevaluatedCallInfo, config_holder::ConfigHolder};
 use crate::{command_args::CommandArgs, script};
-use indexmap::IndexMap;
 use log::trace;
 use nu_data::config::{self, NuConfig};
 use nu_errors::ShellError;
 use nu_protocol::{hir, ConfigPath};
-use nu_source::Tag;
+use nu_source::{Span, Tag};
 use nu_stream::{InputStream, OutputStream};
 use parking_lot::Mutex;
 use std::sync::atomic::AtomicBool;
@@ -116,14 +115,6 @@ impl EvaluationContext {
         }
     }
 
-    pub fn get_env(&self) -> IndexMap<String, String> {
-        let mut output = IndexMap::new();
-        for (var, value) in self.host.lock().vars() {
-            output.insert(var, value);
-        }
-        output
-    }
-
     /// Loads config under cfg_path.
     /// If an error occurs while loading the config:
     ///     The config is not loaded
@@ -136,38 +127,42 @@ impl EvaluationContext {
     // The rational here is that, we should not partially load any config
     // that might be damaged. However, startup scripts might fail for various reasons.
     // A failure there is not as crucial as wrong config files.
-    pub async fn load_config(&self, cfg_path: &ConfigPath) -> Option<ShellError> {
+    pub async fn load_config(&self, cfg_path: &ConfigPath) -> Result<(), ShellError> {
         trace!("Loading cfg {:?}", cfg_path);
 
-        let cfg = match NuConfig::load(Some(cfg_path.get_path().clone())) {
-            Ok(cfg) => cfg,
-            Err(e) => {
-                return Some(e);
-            }
-        };
-        let exit_scripts = match cfg.exit_scripts() {
-            Ok(scripts) => scripts,
-            Err(e) => {
-                return Some(e);
-            }
-        };
-        let startup_scripts = match cfg.startup_scripts() {
-            Ok(scripts) => scripts,
-            Err(e) => {
-                return Some(e);
-            }
-        };
-        let paths = match cfg.path_joined() {
-            Some(Err(e)) => return Some(e),
-            Some(Ok(path)) => Some(path),
-            None => None,
-        };
+        let cfg = NuConfig::load(Some(cfg_path.get_path().clone()))?;
+        let exit_scripts = cfg.exit_scripts()?;
+        let startup_scripts = cfg.startup_scripts()?;
+        let paths = cfg.path()?;
+
+        let joined_paths = paths
+            .map(|mut paths| {
+                //existing paths are prepended to path
+                if let Some(existing) = self.scope.get_env("PATH") {
+                    let existing = std::env::split_paths(&existing).collect::<Vec<_>>();
+                    //PATH should start with existing path entries
+                    paths = existing.into_iter().chain(paths).collect();
+                }
+                paths
+            })
+            .map(|paths| {
+                std::env::join_paths(paths)
+                    .map(|s| s.to_string_lossy().to_string())
+                    .map_err(|e| {
+                        ShellError::labeled_error(
+                            &format!("Error while joining paths from config: {:?}", e),
+                            "Config path error",
+                            Span::unknown(),
+                        )
+                    })
+            })
+            .transpose()?;
 
         let tag = config::cfg_path_to_scope_tag(cfg_path);
 
         self.scope.enter_scope_with_tag(tag);
         self.scope.add_env(cfg.env_map());
-        if let Some(path) = paths {
+        if let Some(path) = joined_paths {
             self.scope.add_env_var("PATH", path);
         }
         self.scope.set_exit_scripts(exit_scripts);
@@ -184,7 +179,7 @@ impl EvaluationContext {
                 .await;
         }
 
-        None
+        Ok(())
     }
 
     /// Runs all exit_scripts before unloading the config with path of cfg_path

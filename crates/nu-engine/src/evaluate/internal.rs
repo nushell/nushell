@@ -224,8 +224,11 @@ pub(crate) async fn run_internal_command(
                                 InputStream::empty()
                             }
                             CommandAction::LoadConfig(cfg_path) => {
-                                context.load_config(&cfg_path).await;
-                                InputStream::empty()
+                                if let Err(e) = context.load_config(&cfg_path).await {
+                                    InputStream::one(UntaggedValue::Error(e).into_untagged_value())
+                                } else {
+                                    InputStream::empty()
+                                }
                             }
                         },
 

@@ -2,7 +2,7 @@ use crate::config::{last_modified, read, Conf, Status};
 use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_protocol::Value;
-use nu_source::{Span, Tag};
+use nu_source::Tag;
 use std::{fmt::Debug, path::PathBuf};
 
 #[derive(Debug, Clone, Default)]
@@ -25,7 +25,7 @@ impl Conf for NuConfig {
         self.env()
     }
 
-    fn path(&self) -> Option<Value> {
+    fn path(&self) -> Result<Option<Vec<PathBuf>>, ShellError> {
         self.path()
     }
 
@@ -139,40 +139,20 @@ impl NuConfig {
         None
     }
 
-    pub fn path(&self) -> Option<Value> {
+    pub fn path(&self) -> Result<Option<Vec<PathBuf>>, ShellError> {
         let vars = &self.vars;
 
-        if let Some(env_vars) = vars.get("path") {
-            return Some(env_vars.clone());
-        }
-
-        if let Some(env_vars) = vars.get("PATH") {
-            return Some(env_vars.clone());
-        }
-
-        None
-    }
-
-    pub fn path_joined(&self) -> Option<Result<String, ShellError>> {
-        if let Some(paths) = self.path() {
-            Some(
-                std::env::join_paths(
-                    paths
-                        .table_entries()
-                        .map(|p| p.as_string())
-                        .filter_map(Result::ok),
-                )
-                .map_err(|e| {
-                    ShellError::labeled_error(
-                        &format!("Error while joining paths from config: {:?}", e),
-                        "Config path error",
-                        Span::unknown(),
-                    )
+        if let Some(path) = vars.get("path").or_else(|| vars.get("PATH")) {
+            path
+                .table_entries()
+                .map(|p| {
+                    p.as_string().map(PathBuf::from).map_err(|_| {
+                        ShellError::untagged_runtime_error("Could not format path entry as string!\nPath entry from config won't be added")
+                    })
                 })
-                .map(|os_str| os_str.to_string_lossy().to_string()),
-            )
+            .collect::<Result<Vec<PathBuf>, ShellError>>().map(Some)
         } else {
-            None
+            Ok(None)
         }
     }
 

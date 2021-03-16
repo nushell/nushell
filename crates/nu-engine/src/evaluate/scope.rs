@@ -150,6 +150,16 @@ impl Scope {
         output
     }
 
+    pub fn get_env(&self, name: &str) -> Option<String> {
+        for frame in self.frames.lock().iter().rev() {
+            if let Some(v) = frame.env.get(name) {
+                return Some(v.clone());
+            }
+        }
+
+        None
+    }
+
     pub fn get_var(&self, name: &str) -> Option<Value> {
         for frame in self.frames.lock().iter().rev() {
             if let Some(v) = frame.vars.get(name) {
