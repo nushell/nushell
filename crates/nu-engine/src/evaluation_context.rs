@@ -139,7 +139,11 @@ impl EvaluationContext {
             .map(|mut paths| {
                 //existing paths are prepended to path
                 if let Some(existing) = self.scope.get_env("PATH") {
-                    paths.extend(std::env::split_paths(&existing).collect::<Vec<_>>());
+                    let mut existing = std::env::split_paths(&existing).collect::<Vec<_>>();
+                    existing.retain(|new| !paths.contains(new));
+                    //Existing path entries are appended at the end
+                    //nu config paths have a higher priority
+                    paths.extend(existing);
                 }
                 paths
             })
