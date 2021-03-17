@@ -214,6 +214,9 @@ pub async fn cli(mut context: EvaluationContext, options: Options) -> Result<(),
     // Give ourselves a scope to work in
     context.scope.enter_scope();
 
+    let env = context.get_env();
+    context.scope.add_env_to_base(env);
+
     let history_path = nu_engine::history_path(&configuration);
     let _ = rl.load_history(&history_path);
 
