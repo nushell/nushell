@@ -335,11 +335,9 @@ mod tests {
         fn completes_external_command_names() {
             let registry: VecRegistry = Vec::new().into();
             let line = "echo 1 | echo 2";
-
-            assert_eq!(
-                completion_location(line, &registry, 10),
-                vec![LocationType::Command],
-            );
+            let completions = completion_location(line, &registry, 10);
+            println!("{:#?}", completions);
+            assert_eq!(completions, vec![LocationType::Command],);
         }
 
         #[test]

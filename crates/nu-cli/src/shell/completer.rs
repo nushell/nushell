@@ -4,8 +4,10 @@ use crate::completion::matchers;
 use crate::completion::matchers::Matcher;
 use crate::completion::path::{PathCompleter, PathSuggestion};
 use crate::completion::{self, Completer, Suggestion};
+use completion::bash::BashCompleter;
 use nu_engine::EvaluationContext;
 use nu_parser::ParserScope;
+use nu_protocol::hir::{Block, ClassifiedCommand};
 use nu_source::Tag;
 
 use std::borrow::Cow;
@@ -46,6 +48,12 @@ impl NuCompleter {
             "case-insensitive" => &matchers::case_insensitive::Matcher,
             _ => &matchers::case_sensitive::Matcher,
         };
+
+        if is_external_command_parsed(block) {
+            let completer = BashCompleter;
+            let completions = completer.complete(context, line, matcher);
+            return (pos, completions);
+        }
 
         if locations.is_empty() {
             (pos, Vec::new())
@@ -113,6 +121,30 @@ impl NuCompleter {
             (pos, suggestions)
         }
     }
+}
+
+fn get_last_cmd_in_block(block: Block) -> Option<ClassifiedCommand> {
+    if let Some(last_block) = block.block.last() {
+        if let Some(last_pipeline) = last_block.pipelines.last() {
+            if let Some(last_command_in_pipeline) = last_pipeline.list.last() {
+                return Some(last_command_in_pipeline.clone());
+            }
+        }
+    }
+    None
+}
+
+fn is_external_command_parsed(block: Block) -> bool {
+    if let Some(last_command_in_pipeline) = get_last_cmd_in_block(block) {
+        return match last_command_in_pipeline {
+            nu_protocol::hir::ClassifiedCommand::Internal(command) => {
+                command.name == "run_external"
+            }
+            _ => false,
+        };
+    }
+
+    false
 }
 
 fn select_directory_suggestions(completed_paths: Vec<PathSuggestion>) -> Vec<PathSuggestion> {

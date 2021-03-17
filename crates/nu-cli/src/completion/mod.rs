@@ -1,3 +1,4 @@
+pub(crate) mod bash;
 pub(crate) mod command;
 pub(crate) mod engine;
 pub(crate) mod flag;
