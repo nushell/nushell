@@ -1487,7 +1487,6 @@ fn parse_internal_command(
 
     (internal_command, error)
 }
-
 fn parse_external_call(
     lite_cmd: &LiteCommand,
     end_of_pipeline: bool,
@@ -1573,20 +1572,34 @@ fn parse_value_call(
     )
 }
 
-fn expand_aliases_in_call(call: &mut LiteCommand, scope: &dyn ParserScope) {
+fn expand_aliases_in_call(
+    call: &mut LiteCommand,
+    scope: &dyn ParserScope,
+) -> Option<(Option<std::ops::Range<usize>>, Span)> {
+    // dbg!("TODO XXX do all the expansion work here and set the spans to be good");
+    let mut expansion_range = None;
     if let Some(name) = call.parts.get(0) {
         if let Some(mut expansion) = scope.get_alias(name) {
             // set the expansion's spans to point to the alias itself
+            // this doesn't cover all cases e.g. alias gitt = git push $(echo break)
+            // the rest is handled in the calling function
             for item in expansion.iter_mut() {
                 item.span = name.span;
             }
 
+            // the expansion_range is needed for potentionally adjusting the spans of items in the
+            // LiteCommand in the calling function that will get parsed only after this point
+            // counting from zero is ok based on the logic of the if call.parts.get(0)
+            // otherwise this may break
+            expansion_range = Some((Some(0..expansion.len()), name.span.clone()));
             // replace the alias with the expansion
             call.parts.remove(0);
+            dbg!(&expansion);
             expansion.append(&mut call.parts);
             call.parts = expansion;
         }
     }
+    expansion_range
 }
 
 fn parse_call(
@@ -1594,10 +1607,13 @@ fn parse_call(
     end_of_pipeline: bool,
     scope: &dyn ParserScope,
 ) -> (Option<ClassifiedCommand>, Option<ParseError>) {
-    expand_aliases_in_call(&mut lite_cmd, scope);
+    // dbg!("is here something broken with the spans");
+    let expanded_alias_exists = expand_aliases_in_call(&mut lite_cmd, scope);
+    // dbg!(&lite_cmd);
 
     let mut error = None;
     if lite_cmd.parts.is_empty() {
+        dbg!();
         return (None, None);
     } else if lite_cmd.parts[0].item.starts_with('^') {
         let name = lite_cmd.parts[0]
@@ -1622,6 +1638,7 @@ fn parse_call(
             args.push(expr);
         }
 
+        dbg!();
         return (
             Some(ClassifiedCommand::Internal(InternalCommand {
                 name: "run_external".to_string(),
@@ -1644,6 +1661,7 @@ fn parse_call(
             error,
         );
     } else if lite_cmd.parts[0].item.starts_with('$') || lite_cmd.parts[0].item.starts_with('{') {
+        dbg!();
         return parse_value_call(lite_cmd, scope);
     } else if lite_cmd.parts[0].item == "=" {
         let expr = if lite_cmd.parts.len() > 1 {
@@ -1659,12 +1677,15 @@ fn parse_call(
             });
             garbage(lite_cmd.span())
         };
+        dbg!();
         return (Some(ClassifiedCommand::Expr(Box::new(expr))), error);
     } else if lite_cmd.parts[0].item == "alias" {
         let error = parse_alias(&lite_cmd, scope);
         if error.is_none() {
+            dbg!();
             return (None, None);
         } else {
+            dbg!();
             return (
                 Some(ClassifiedCommand::Expr(Box::new(garbage(lite_cmd.span())))),
                 error,
@@ -1672,6 +1693,7 @@ fn parse_call(
         }
     } else if lite_cmd.parts[0].item == "source" {
         if lite_cmd.parts.len() != 2 {
+            dbg!();
             return (
                 None,
                 Some(ParseError::argument_error(
@@ -1681,6 +1703,7 @@ fn parse_call(
             );
         }
         if lite_cmd.parts[1].item.starts_with('$') {
+            dbg!();
             return (
                 None,
                 Some(ParseError::mismatch(
@@ -1694,6 +1717,7 @@ fn parse_call(
         {
             let _ = parse(&contents, 0, scope);
         } else {
+            dbg!();
             return (
                 None,
                 Some(ParseError::mismatch(
@@ -1717,6 +1741,10 @@ fn parse_call(
             } else {
                 ExternalRedirection::Stdout
             };
+            dbg!();
+            if let Some((_, span)) = expanded_alias_exists {
+                internal_apply_span(&mut internal_command, (None, span));
+            }
             return (Some(ClassifiedCommand::Internal(internal_command)), error);
         }
     }
@@ -1725,6 +1753,7 @@ fn parse_call(
         if lite_cmd.parts[0].item == "def" {
             let error = parse_definition(&lite_cmd, scope);
             if error.is_some() {
+                dbg!();
                 return (
                     Some(ClassifiedCommand::Expr(Box::new(garbage(lite_cmd.span())))),
                     error,
@@ -1739,9 +1768,136 @@ fn parse_call(
         } else {
             ExternalRedirection::Stdout
         };
+        dbg!();
+        if let Some((_, span)) = expanded_alias_exists {
+            internal_apply_span(&mut internal_command, (None, span));
+        }
         (Some(ClassifiedCommand::Internal(internal_command)), error)
     } else {
-        parse_external_call(&lite_cmd, end_of_pipeline, scope)
+        dbg!();
+        let (mut x, y) = parse_external_call(&lite_cmd, end_of_pipeline, scope);
+        // here we adjust the spans of expanded aliases, wrong spans here can crash the painter
+        if let (Some(ref mut command), Some(expanded_alias_exists)) =
+            (&mut x, expanded_alias_exists)
+        {
+            classifiedcommand_apply_span(command, expanded_alias_exists);
+        }
+        (x, y)
+    }
+}
+
+fn pipeline_apply_span(pipeline: &mut Pipeline, span: Span) {
+    pipeline.span = span;
+    for classifiedcommand in &mut pipeline.list {
+        classifiedcommand_apply_span(classifiedcommand, (None, span));
+    }
+}
+fn group_apply_span(group: &mut Group, span: Span) {
+    group.span = span;
+    for pipeline in &mut group.pipelines {
+        pipeline_apply_span(pipeline, span);
+    }
+}
+
+fn hirblock_apply_span(hirblock: &mut hir::Block, span: Span) {
+    //     pub params: Signature, not
+    //     pub definitions: IndexMap<String, Block>,
+    hirblock.span = span;
+    for group in &mut hirblock.block {
+        group_apply_span(group, span);
+    }
+}
+fn range_apply_span(range: &mut hir::Range, span: Span) {
+    if let Some(left) = &mut range.left {
+        spannedexpression_apply_span(left, span);
+    }
+    range.operator.span = span;
+    if let Some(right) = &mut range.right {
+        spannedexpression_apply_span(right, span);
+    }
+}
+fn spanned_apply_span<T>(spanned: &mut Spanned<T>, span: Span) {
+    spanned.span = span;
+}
+
+fn literal_apply_span(literal: &mut hir::Literal, span: Span) {
+    match literal {
+        hir::Literal::Number(_number) => {}
+        hir::Literal::Size(spannednumber, spannedunit) => {
+            spanned_apply_span(spannednumber, span);
+            spanned_apply_span(spannedunit, span);
+        }
+        hir::Literal::Operator(_operator) => {}
+        hir::Literal::String(_string) => {}
+        hir::Literal::GlobPattern(_string) => {}
+        hir::Literal::ColumnPath(vecmember) => {}
+        hir::Literal::Bare(_string) => {}
+    }
+}
+fn spannedexpression_apply_span(span_expr: &mut SpannedExpression, span: Span) {
+    span_expr.span = span;
+    match &mut span_expr.expr {
+        Expression::Literal(lit) => {
+            literal_apply_span(lit, span);
+        }
+        Expression::ExternalWord => {}
+        Expression::Synthetic(x) => {}
+        Expression::Variable(x, y) => {}
+        Expression::Binary(x) => {}
+        Expression::Range(range) => {
+            range_apply_span(range, span);
+        }
+        Expression::Block(x) => {}
+        Expression::List(x) => {}
+        Expression::Table(x, y) => {}
+        Expression::Path(x) => {}
+        Expression::FilePath(x) => {}
+        Expression::ExternalCommand(x) => {}
+        Expression::Command => {}
+        Expression::Invocation(x) => {
+            hirblock_apply_span(x, span);
+        }
+        Expression::Boolean(x) => {}
+        Expression::Garbage => {}
+    }
+}
+fn hircall_apply_span(
+    hircall: &mut hir::Call,
+    (range, span): (Option<std::ops::Range<usize>>, Span),
+) {
+    spannedexpression_apply_span(&mut hircall.head, span);
+    // hircall.named;
+    hircall.span = span;
+    if let Some(positionals) = &mut hircall.positional {
+        if let Some(range) = range {
+            for span_expr in positionals[range].iter_mut() {
+                spannedexpression_apply_span(span_expr, span.clone());
+            }
+        } else {
+            for span_expr in positionals[..].iter_mut() {
+                spannedexpression_apply_span(span_expr, span.clone());
+            }
+        }
+    }
+}
+fn internal_apply_span(
+    internal: &mut InternalCommand,
+    (range, span): (Option<std::ops::Range<usize>>, Span),
+) {
+    internal.name_span = span;
+    hircall_apply_span(&mut internal.args, (range, span));
+}
+fn classifiedcommand_apply_span(
+    command: &mut ClassifiedCommand,
+    (range, span): (Option<std::ops::Range<usize>>, Span),
+) {
+    match command {
+        ClassifiedCommand::Expr(span_expr) => {}
+        ClassifiedCommand::Dynamic(call) => {}
+        ClassifiedCommand::Error(err) => {}
+        ClassifiedCommand::Internal(internal) => {
+            internal_apply_span(internal, (range, span));
+        }
     }
 }
 
@@ -1752,6 +1908,7 @@ fn parse_pipeline(
     lite_pipeline: LitePipeline,
     scope: &dyn ParserScope,
 ) -> (Pipeline, Option<ParseError>) {
+    // dbg!(&lite_pipeline);
     let mut commands = Pipeline::new(lite_pipeline.span());
     let mut error = None;
 
@@ -1762,10 +1919,11 @@ fn parse_pipeline(
             error = err;
         }
         if let Some(call) = call {
+            dbg!(&call);
             commands.push(call);
         }
     }
-
+    // dbg!(&commands);
     (commands, error)
 }
 
@@ -1953,6 +2111,7 @@ pub fn classify_block(
             }
 
             let (out_pipe, err) = parse_pipeline(pipeline.clone(), scope);
+            // dbg!(&out_pipe);
             if error.is_none() {
                 error = err;
             }
@@ -2012,7 +2171,9 @@ pub fn classify_block(
         if !out_group.pipelines.is_empty() {
             output.push(out_group);
         }
+        // dbg!(&output);
     }
+    // dbg!(&output);
 
     let definitions = scope.get_definitions();
     for definition in definitions.into_iter() {
@@ -2039,7 +2200,10 @@ pub fn parse(
         return (Block::basic(), error);
     }
 
-    classify_block(&lite_block, scope)
+    // dbg!(&lite_block);
+    let x = classify_block(&lite_block, scope);
+    // dbg!(&x);
+    x
 }
 
 #[test]
