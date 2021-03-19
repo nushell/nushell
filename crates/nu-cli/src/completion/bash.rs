@@ -22,7 +22,7 @@ impl BashCompleter {
             .stdout(Stdio::piped())
             .spawn()
             .expect("BashCompleter: Failed to spawn child process");
-        let mut stdout = child.stdout.unwrap();
+        let mut stdout = child.stdout.expect("Error opening bash stdout");
         let suggestions = &mut String::new();
         let _strlen = stdout.read_to_string(suggestions);
         let suggestions: Vec<Suggestion> = suggestions
