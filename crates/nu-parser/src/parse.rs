@@ -1594,7 +1594,6 @@ fn expand_aliases_in_call(
             expansion_range = Some((Some(0..expansion.len()), name.span.clone()));
             // replace the alias with the expansion
             call.parts.remove(0);
-            dbg!(&expansion);
             expansion.append(&mut call.parts);
             call.parts = expansion;
         }
@@ -1613,7 +1612,6 @@ fn parse_call(
 
     let mut error = None;
     if lite_cmd.parts.is_empty() {
-        dbg!();
         return (None, None);
     } else if lite_cmd.parts[0].item.starts_with('^') {
         let name = lite_cmd.parts[0]
@@ -1638,7 +1636,6 @@ fn parse_call(
             args.push(expr);
         }
 
-        dbg!();
         return (
             Some(ClassifiedCommand::Internal(InternalCommand {
                 name: "run_external".to_string(),
@@ -1661,7 +1658,6 @@ fn parse_call(
             error,
         );
     } else if lite_cmd.parts[0].item.starts_with('$') || lite_cmd.parts[0].item.starts_with('{') {
-        dbg!();
         return parse_value_call(lite_cmd, scope);
     } else if lite_cmd.parts[0].item == "=" {
         let expr = if lite_cmd.parts.len() > 1 {
@@ -1677,15 +1673,12 @@ fn parse_call(
             });
             garbage(lite_cmd.span())
         };
-        dbg!();
         return (Some(ClassifiedCommand::Expr(Box::new(expr))), error);
     } else if lite_cmd.parts[0].item == "alias" {
         let error = parse_alias(&lite_cmd, scope);
         if error.is_none() {
-            dbg!();
             return (None, None);
         } else {
-            dbg!();
             return (
                 Some(ClassifiedCommand::Expr(Box::new(garbage(lite_cmd.span())))),
                 error,
@@ -1693,7 +1686,6 @@ fn parse_call(
         }
     } else if lite_cmd.parts[0].item == "source" {
         if lite_cmd.parts.len() != 2 {
-            dbg!();
             return (
                 None,
                 Some(ParseError::argument_error(
@@ -1703,7 +1695,6 @@ fn parse_call(
             );
         }
         if lite_cmd.parts[1].item.starts_with('$') {
-            dbg!();
             return (
                 None,
                 Some(ParseError::mismatch(
@@ -1717,7 +1708,6 @@ fn parse_call(
         {
             let _ = parse(&contents, 0, scope);
         } else {
-            dbg!();
             return (
                 None,
                 Some(ParseError::mismatch(
@@ -1741,7 +1731,6 @@ fn parse_call(
             } else {
                 ExternalRedirection::Stdout
             };
-            dbg!();
             if let Some((_, span)) = expanded_alias_exists {
                 internal_apply_span(&mut internal_command, (None, span));
             }
@@ -1753,7 +1742,6 @@ fn parse_call(
         if lite_cmd.parts[0].item == "def" {
             let error = parse_definition(&lite_cmd, scope);
             if error.is_some() {
-                dbg!();
                 return (
                     Some(ClassifiedCommand::Expr(Box::new(garbage(lite_cmd.span())))),
                     error,
@@ -1768,13 +1756,11 @@ fn parse_call(
         } else {
             ExternalRedirection::Stdout
         };
-        dbg!();
         if let Some((_, span)) = expanded_alias_exists {
             internal_apply_span(&mut internal_command, (None, span));
         }
         (Some(ClassifiedCommand::Internal(internal_command)), error)
     } else {
-        dbg!();
         let (mut x, y) = parse_external_call(&lite_cmd, end_of_pipeline, scope);
         // here we adjust the spans of expanded aliases, wrong spans here can crash the painter
         if let (Some(ref mut command), Some(expanded_alias_exists)) =
@@ -1919,7 +1905,6 @@ fn parse_pipeline(
             error = err;
         }
         if let Some(call) = call {
-            dbg!(&call);
             commands.push(call);
         }
     }
