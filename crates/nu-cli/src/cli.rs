@@ -31,28 +31,6 @@ use std::error::Error;
 use std::iter::Iterator;
 use std::path::PathBuf;
 
-pub struct Options {
-    pub config: Option<OsString>,
-    pub stdin: bool,
-    pub scripts: Vec<NuScript>,
-}
-
-impl Default for Options {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Options {
-    pub fn new() -> Self {
-        Self {
-            config: None,
-            stdin: false,
-            scripts: vec![],
-        }
-    }
-}
-
 pub struct NuScript {
     pub filepath: Option<OsString>,
     pub contents: String,
