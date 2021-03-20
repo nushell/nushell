@@ -40,8 +40,8 @@ fn chomp_newline(s: &str) -> &str {
 }
 
 pub async fn run_script(script: NuScript, options: &RunScriptOptions, ctx: &EvaluationContext) {
-    let content = match script.get_code() {
-        Ok(content) => content,
+    let code = match script.get_code() {
+        Ok(code) => code,
         Err(e) => {
             ctx.host.lock().print_err(e, &Text::empty());
             return;
@@ -53,7 +53,7 @@ pub async fn run_script(script: NuScript, options: &RunScriptOptions, ctx: &Eval
         return;
     }
 
-    let line_result = process_script(&content, options, ctx).await;
+    let line_result = process_script(&code, options, ctx).await;
     evaluate_line_result(line_result, options, ctx).await;
 
     //Leave script shell
