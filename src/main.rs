@@ -1,12 +1,15 @@
-use clap::{App, Arg};
+use clap::{App, Arg, ArgMatches};
+use itertools::Itertools;
 use log::LevelFilter;
-use nu_cli::{create_default_context, NuScript, Options};
+use nu_cli::{config, create_default_context};
 use nu_command::utils::test_bins as binaries;
-use std::error::Error;
+use nu_engine::{script, EvaluationContext};
+use nu_errors::ShellError;
+use nu_protocol::{ConfigPath, NuScript, RunScriptOptions, UntaggedValue, Value};
+use nu_source::{Tag, Text};
+use std::{error::Error, path::PathBuf};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut options = Options::new();
-
     let matches = App::new("nushell")
         .version(clap::crate_version!())
         .arg(
@@ -79,6 +82,149 @@ fn main() -> Result<(), Box<dyn Error>> {
         )
         .get_matches();
 
+    if executed_test_bin(&matches) {
+        return Ok(());
+    }
+
+    init_logger(&matches)?;
+
+    let ctx = create_context_from_args(&matches)?;
+
+    // Execute nu according to matches
+    if let Some(values) = matches.values_of("commands") {
+        // Execute commands
+        let commands: String = values.intersperse("\n").collect();
+        let cmds_as_script = NuScript::Content(commands);
+        let options = script_options_from_matches(&matches);
+        futures::executor::block_on(script::run_script(cmds_as_script, &options, &ctx));
+    } else if let Some(filepath) = matches.value_of("script") {
+        // Execute script
+        let script = NuScript::File(PathBuf::from(filepath));
+        let options = script_options_from_matches(&matches);
+        futures::executor::block_on(script::run_script(script, &options, &ctx));
+    } else {
+        // No matches
+        // Go into cli mode
+        #[cfg(feature = "rustyline-support")]
+        {
+            futures::executor::block_on(nu_cli::cli(ctx))?;
+        }
+        #[cfg(not(feature = "rustyline-support"))]
+        {
+            println!("Nushell needs the 'rustyline-support' feature for CLI support");
+        }
+    }
+
+    Ok(())
+}
+
+fn script_options_from_matches(matches: &ArgMatches) -> RunScriptOptions {
+    RunScriptOptions::default().with_stdin(matches.is_present("stdin"))
+}
+
+fn create_context_from_args(matches: &ArgMatches) -> Result<EvaluationContext, Box<dyn Error>> {
+    //TODO interactive should be derived from current shell
+    //TODO stop passing true
+    let ctx = create_default_context(true)?;
+
+    if !matches.is_present("skip-plugins") {
+        let _ = register_plugins(&ctx);
+    }
+
+    configure_ctrl_c(&ctx)?;
+
+    if let Some(cfg) = matches.value_of("config-file") {
+        futures::executor::block_on(load_cfg_as_global_cfg(&ctx, PathBuf::from(cfg)));
+    } else {
+        futures::executor::block_on(load_global_cfg(&ctx));
+    }
+
+    Ok(ctx)
+}
+
+async fn load_cfg_as_global_cfg(context: &EvaluationContext, path: PathBuf) {
+    if let Err(err) = context.load_config(&ConfigPath::Global(path.clone())).await {
+        context.host.lock().print_err(err, &Text::empty());
+    } else {
+        //TODO current commands assume to find path to global cfg file under config-path
+        //TODO use newly introduced nuconfig::file_path instead
+        context.scope.add_var(
+            "config-path",
+            UntaggedValue::filepath(path).into_untagged_value(),
+        );
+    }
+}
+
+async fn load_global_cfg(context: &EvaluationContext) {
+    match config::default_path() {
+        Ok(path) => {
+            load_cfg_as_global_cfg(context, path).await;
+        }
+        Err(e) => {
+            context.host.lock().print_err(e, &Text::from(""));
+        }
+    }
+}
+
+fn configure_ctrl_c(_context: &EvaluationContext) -> Result<(), Box<dyn Error>> {
+    #[cfg(feature = "ctrlc")]
+    {
+        let cc = _context.ctrl_c.clone();
+
+        ctrlc::set_handler(move || {
+            cc.store(true, Ordering::SeqCst);
+        })?;
+
+        if _context.ctrl_c.load(Ordering::SeqCst) {
+            _context.ctrl_c.store(false, Ordering::SeqCst);
+        }
+    }
+
+    Ok(())
+}
+
+fn register_plugins(context: &EvaluationContext) -> Result<(), ShellError> {
+    if let Ok(plugins) = nu_engine::plugin::build_plugin::scan(search_paths()) {
+        context.add_commands(
+            plugins
+                .into_iter()
+                .filter(|p| !context.is_command_registered(p.name()))
+                .collect(),
+        );
+    }
+
+    Ok(())
+}
+
+fn search_paths() -> Vec<std::path::PathBuf> {
+    use std::env;
+
+    let mut search_paths = Vec::new();
+
+    // Automatically add path `nu` is in as a search path
+    if let Ok(exe_path) = env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            search_paths.push(exe_dir.to_path_buf());
+        }
+    }
+
+    if let Ok(config) = nu_data::config::config(Tag::unknown()) {
+        if let Some(Value {
+            value: UntaggedValue::Table(pipelines),
+            ..
+        }) = config.get("plugin_dirs")
+        {
+            for pipeline in pipelines {
+                if let Ok(plugin_dir) = pipeline.as_string() {
+                    search_paths.push(PathBuf::from(plugin_dir));
+                }
+            }
+        }
+    }
+    search_paths
+}
+
+fn executed_test_bin(matches: &ArgMatches) -> bool {
     if let Some(bin) = matches.value_of("testbin") {
         match bin {
             "echo_env" => binaries::echo_env(),
@@ -90,15 +236,13 @@ fn main() -> Result<(), Box<dyn Error>> {
             "repeater" => binaries::repeater(),
             _ => unreachable!(),
         }
-
-        return Ok(());
+        true
+    } else {
+        false
     }
+}
 
-    options.config = matches
-        .value_of("config-file")
-        .map(std::ffi::OsString::from);
-    options.stdin = matches.is_present("stdin");
-
+fn init_logger(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     let loglevel = match matches.value_of("loglevel") {
         None => LevelFilter::Warn,
         Some("error") => LevelFilter::Error,
@@ -117,6 +261,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     builder.filter_module("nu", loglevel);
 
+    //TODO the following 2 match statements seem to duplicate above logic?
     match matches.values_of("develop") {
         None => {}
         Some(values) => {
@@ -136,45 +281,5 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     builder.try_init()?;
-
-    match matches.values_of("commands") {
-        None => {}
-        Some(values) => {
-            options.scripts = vec![NuScript::code(values)?];
-
-            futures::executor::block_on(nu_cli::run_script_file(options))?;
-            return Ok(());
-        }
-    }
-
-    match matches.value_of("script") {
-        Some(filepath) => {
-            let filepath = std::ffi::OsString::from(filepath);
-
-            options.scripts = vec![NuScript::source_file(filepath.as_os_str())?];
-
-            futures::executor::block_on(nu_cli::run_script_file(options))?;
-            return Ok(());
-        }
-
-        None => {
-            let context = create_default_context(true)?;
-
-            if !matches.is_present("skip-plugins") {
-                let _ = nu_cli::register_plugins(&context);
-            }
-
-            #[cfg(feature = "rustyline-support")]
-            {
-                futures::executor::block_on(nu_cli::cli(context, options))?;
-            }
-
-            #[cfg(not(feature = "rustyline-support"))]
-            {
-                println!("Nushell needs the 'rustyline-support' feature for CLI support");
-            }
-        }
-    }
-
     Ok(())
 }
