@@ -128,7 +128,7 @@ fn create_context_from_args(matches: &ArgMatches) -> Result<EvaluationContext, B
     let ctx = create_default_context(true)?;
 
     if !matches.is_present("skip-plugins") {
-        let _ = register_plugins(&ctx);
+        register_plugins(&ctx);
     }
 
     configure_ctrl_c(&ctx)?;
@@ -183,7 +183,8 @@ fn configure_ctrl_c(_context: &EvaluationContext) -> Result<(), Box<dyn Error>> 
     Ok(())
 }
 
-fn register_plugins(context: &EvaluationContext) -> Result<(), ShellError> {
+fn register_plugins(context: &EvaluationContext) {
+    //TODO we should probably report the error here
     if let Ok(plugins) = nu_engine::plugin::build_plugin::scan(search_paths()) {
         context.add_commands(
             plugins
@@ -192,8 +193,6 @@ fn register_plugins(context: &EvaluationContext) -> Result<(), ShellError> {
                 .collect(),
         );
     }
-
-    Ok(())
 }
 
 fn search_paths() -> Vec<std::path::PathBuf> {
