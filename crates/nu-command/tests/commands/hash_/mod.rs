@@ -83,3 +83,16 @@ fn error_use_both_flags() {
         .err
         .contains("only one of --decode and --encode flags can be used"));
 }
+
+#[test]
+fn md5_works_with_file() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+        open sample.db | hash md5 
+        "#
+        )
+    );
+
+    assert_eq!(actual.out, "4de97601d232c427977ef11db396c951");
+}

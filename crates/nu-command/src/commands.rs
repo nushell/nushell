@@ -202,7 +202,7 @@ pub(crate) use from_yaml::FromYML;
 pub(crate) use get::Command as Get;
 pub(crate) use group_by::Command as GroupBy;
 pub(crate) use group_by_date::GroupByDate;
-pub(crate) use hash_::{Hash, HashBase64};
+pub(crate) use hash_::{Hash, HashBase64, HashMd5};
 pub(crate) use headers::Headers;
 pub(crate) use help::Help;
 pub(crate) use histogram::Histogram;
