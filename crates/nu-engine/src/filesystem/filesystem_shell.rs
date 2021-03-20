@@ -16,7 +16,7 @@ use nu_source::{Span, Tag};
 use nu_stream::{Interruptible, OutputStream, ToOutputStream};
 use std::collections::HashMap;
 use std::collections::VecDeque;
-use std::io::{Error, ErrorKind};
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -57,7 +57,8 @@ impl Clone for FilesystemShell {
 }
 
 impl FilesystemShell {
-    pub fn basic(mode: FilesystemShellMode) -> Result<FilesystemShell, Error> {
+    pub fn basic(mode: FilesystemShellMode) -> Result<FilesystemShell, ShellError> {
+        //TODO return proper err
         let path = match std::env::current_dir() {
             Ok(path) => path,
             Err(_) => PathBuf::from("/"),
@@ -74,6 +75,7 @@ impl FilesystemShell {
         path: String,
         mode: FilesystemShellMode,
     ) -> Result<FilesystemShell, std::io::Error> {
+        //TODO use nu::fs layer and return ShellError
         let path = canonicalize(std::env::current_dir()?, &path)?;
         let path = path.display().to_string();
         let last_path = path.clone();
