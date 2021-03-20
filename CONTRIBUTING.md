@@ -2,7 +2,7 @@
 
 Welcome to nushell!
 
-*Note: for a more complete guide see [The nu contributor book](https://github.com/nushell/contributor-book)*
+*Note: for a more complete guide see [The nu contributor book](https://www.nushell.sh/contributor-book/)*
 
 For speedy contributions open it in Gitpod, nu will be pre-installed with the latest build in a VSCode like editor all from your browser.
 
