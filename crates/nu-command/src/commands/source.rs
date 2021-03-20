@@ -3,7 +3,7 @@ use nu_engine::{script, WholeStreamCommand};
 
 use nu_errors::ShellError;
 use nu_parser::expand_path;
-use nu_protocol::{Signature, SyntaxShape};
+use nu_protocol::{NuScript, RunScriptOptions, Signature, SyntaxShape};
 use nu_source::Tagged;
 
 pub struct Source;
@@ -50,11 +50,10 @@ pub async fn source(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let contents = std::fs::read_to_string(expand_path(&filename.item).into_owned());
     match contents {
         Ok(contents) => {
-            let result = script::run_script_standalone(contents, true, &ctx, false).await;
-
-            if let Err(err) = result {
-                ctx.error(err.into());
-            }
+            let options = RunScriptOptions::default()
+                .redirect_stdin(true)
+                .exit_on_error(false);
+            script::run_script(NuScript::Content(contents), &options, &ctx).await;
             Ok(OutputStream::empty())
         }
         Err(_) => {

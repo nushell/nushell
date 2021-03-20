@@ -3146,7 +3146,6 @@ dependencies = [
  "clap",
  "codespan-reporting",
  "csv",
- "ctrlc",
  "derive-new",
  "directories-next",
  "dirs-next",
