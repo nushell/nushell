@@ -127,6 +127,9 @@ impl EvaluationContext {
     // The rational here is that, we should not partially load any config
     // that might be damaged. However, startup scripts might fail for various reasons.
     // A failure there is not as crucial as wrong config files.
+    //
+    // TODO evaluate how users use this func
+    // TODO should error on load be printed out?
     pub async fn load_config(&self, cfg_path: &ConfigPath) -> Result<(), ShellError> {
         trace!("Loading cfg {:?}", cfg_path);
 
@@ -190,8 +193,6 @@ impl EvaluationContext {
     }
 
     /// Runs all exit_scripts before unloading the config with path of cfg_path
-    /// If an error occurs while running exit scripts:
-    ///     The error is added to `self.current_errors`
     /// If no config with path of `cfg_path` is present, this method does nothing
     pub async fn unload_config(&self, cfg_path: &ConfigPath) {
         trace!("UnLoading cfg {:?}", cfg_path);
