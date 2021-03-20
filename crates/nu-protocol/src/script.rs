@@ -1,9 +1,26 @@
 use std::path::PathBuf;
 
-extern crate derive_builder;
+use nu_errors::ShellError;
 
-#[derive(Default, Debug, Clone, Builder)]
-#[builder(setter(into))]
+/// NuScript is either directly some nu code or
+/// a file path to a nu-script file.
+pub enum NuScript {
+    Content(String),
+    File(PathBuf),
+}
+
+impl NuScript {
+    pub fn get_code(self) -> Result<String, ShellError> {
+        match self {
+            NuScript::Content(code) => Ok(code),
+            NuScript::File(path) => std::fs::read_to_string(path).map_err(|e| {
+                ShellError::untagged_runtime_error(format!("Reading of script failed with: {}", e))
+            }),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct RunScriptOptions {
     pub with_cwd: Option<PathBuf>,
     pub with_stdin: bool,
@@ -13,8 +30,8 @@ pub struct RunScriptOptions {
     pub span_offset: usize,
 }
 
-impl RunScriptOptions {
-    pub fn new() -> Self {
+impl Default for RunScriptOptions {
+    fn default() -> Self {
         Self {
             with_cwd: None,
             with_stdin: true,
@@ -23,5 +40,37 @@ impl RunScriptOptions {
             cli_mode: false,
             span_offset: 0,
         }
+    }
+}
+
+impl RunScriptOptions {
+    pub fn with_cwd(mut self, path: PathBuf) -> Self {
+        self.with_cwd = Some(path);
+        self
+    }
+
+    pub fn with_stdin(mut self, stdin: bool) -> Self {
+        self.with_stdin = stdin;
+        self
+    }
+
+    pub fn redirect_stdin(mut self, redirect: bool) -> Self {
+        self.redirect_stdin = redirect;
+        self
+    }
+
+    pub fn exit_on_error(mut self, exit_on_error: bool) -> Self {
+        self.exit_on_error = exit_on_error;
+        self
+    }
+
+    pub fn cli_mode(mut self, cli_mode: bool) -> Self {
+        self.cli_mode = cli_mode;
+        self
+    }
+
+    pub fn span_offset(mut self, span_offset: usize) -> Self {
+        self.span_offset = span_offset;
+        self
     }
 }

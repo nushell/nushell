@@ -1,7 +1,5 @@
 #[macro_use]
 mod macros;
-#[macro_use]
-extern crate derive_builder;
 
 mod call_info;
 pub mod config_path;
@@ -19,7 +17,7 @@ pub use crate::call_info::{CallInfo, EvaluatedArgs};
 pub use crate::config_path::ConfigPath;
 pub use crate::maybe_owned::MaybeOwned;
 pub use crate::return_value::{CommandAction, ReturnSuccess, ReturnValue};
-pub use crate::script::RunScriptOptions;
+pub use crate::script::{NuScript, RunScriptOptions};
 pub use crate::signature::{NamedType, PositionalType, Signature};
 pub use crate::syntax_shape::SyntaxShape;
 pub use crate::type_name::{PrettyType, ShellTypeName, SpannedTypeName};
