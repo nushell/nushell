@@ -15,9 +15,12 @@ use crate::line_editor::{
 use nu_data::config;
 use nu_source::{Tag, Text};
 use nu_stream::InputStream;
-use std::ffi::{OsStr, OsString};
 #[allow(unused_imports)]
 use std::sync::atomic::Ordering;
+use std::{
+    ffi::{OsStr, OsString},
+    fs::File,
+};
 
 #[cfg(feature = "rustyline-support")]
 use rustyline::{self, error::ReadlineError};
@@ -30,45 +33,6 @@ use log::trace;
 use std::error::Error;
 use std::iter::Iterator;
 use std::path::PathBuf;
-
-pub struct NuScript {
-    pub filepath: Option<OsString>,
-    pub contents: String,
-}
-
-impl NuScript {
-    pub fn code<'a>(content: impl Iterator<Item = &'a str>) -> Result<Self, ShellError> {
-        let text = content
-            .map(|x| x.to_string())
-            .collect::<Vec<String>>()
-            .join("\n");
-
-        Ok(Self {
-            filepath: None,
-            contents: text,
-        })
-    }
-
-    pub fn get_code(&self) -> &str {
-        &self.contents
-    }
-
-    pub fn source_file(path: &OsStr) -> Result<Self, ShellError> {
-        use std::fs::File;
-        use std::io::Read;
-
-        let path = path.to_os_string();
-        let mut file = File::open(&path)?;
-        let mut buffer = String::new();
-
-        file.read_to_string(&mut buffer)?;
-
-        Ok(Self {
-            filepath: Some(path),
-            contents: buffer,
-        })
-    }
-}
 
 pub fn search_paths() -> Vec<std::path::PathBuf> {
     use std::env;
