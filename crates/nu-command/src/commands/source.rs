@@ -49,7 +49,7 @@ pub async fn source(args: CommandArgs) -> Result<OutputStream, ShellError> {
     // Note: this is a special case for setting the context from a command
     // In this case, if we don't set it now, we'll lose the scope that this
     // variable should be set into.
-    let script = NuScript::File(PathBuf::from(expand_path(&filename.item)));
+    let script = NuScript::File(PathBuf::from(expand_path(&filename.item).to_string()));
     let options = RunScriptOptions::default()
         .use_existing_scope(true)
         .redirect_stdin(true)
