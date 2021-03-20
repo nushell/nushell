@@ -4,7 +4,6 @@ use log::LevelFilter;
 use nu_cli::{config, create_default_context};
 use nu_command::utils::test_bins as binaries;
 use nu_engine::{script, EvaluationContext};
-use nu_errors::ShellError;
 use nu_protocol::{ConfigPath, NuScript, RunScriptOptions, UntaggedValue, Value};
 use nu_source::{Tag, Text};
 use std::{error::Error, path::PathBuf, sync::atomic::Ordering};
