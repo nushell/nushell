@@ -28,6 +28,7 @@ pub struct RunScriptOptions {
     pub exit_on_error: bool,
     pub cli_mode: bool,
     pub span_offset: usize,
+    pub use_existing_scope: bool,
 }
 
 impl Default for RunScriptOptions {
@@ -39,6 +40,7 @@ impl Default for RunScriptOptions {
             exit_on_error: true,
             cli_mode: false,
             span_offset: 0,
+            use_existing_scope: false,
         }
     }
 }
@@ -71,6 +73,11 @@ impl RunScriptOptions {
 
     pub fn span_offset(mut self, span_offset: usize) -> Self {
         self.span_offset = span_offset;
+        self
+    }
+
+    pub fn use_existing_scope(mut self, use_existing_scope: bool) -> Self {
+        self.use_existing_scope = use_existing_scope;
         self
     }
 }

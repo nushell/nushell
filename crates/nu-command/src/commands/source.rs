@@ -51,6 +51,7 @@ pub async fn source(args: CommandArgs) -> Result<OutputStream, ShellError> {
     match contents {
         Ok(contents) => {
             let options = RunScriptOptions::default()
+                .use_existing_scope(true)
                 .redirect_stdin(true)
                 .exit_on_error(false);
             script::run_script(NuScript::Content(contents), &options, &ctx).await;

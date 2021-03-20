@@ -3,6 +3,7 @@ use crate::{MaybeTextCodec, StringOrBinary};
 use futures::StreamExt;
 use futures_codec::FramedRead;
 use nu_errors::ShellError;
+use nu_parser::ParserScope;
 use nu_protocol::{
     hir::{
         Call, ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments,
@@ -53,8 +54,16 @@ pub async fn run_script(script: NuScript, options: &RunScriptOptions, ctx: &Eval
         return;
     }
 
+    if !options.use_existing_scope {
+        ctx.scope.enter_scope()
+    }
+
     let line_result = process_script(&code, options, ctx).await;
     evaluate_line_result(line_result, options, ctx).await;
+
+    if !options.use_existing_scope {
+        ctx.scope.exit_scope()
+    }
 
     //Leave script shell
     ctx.shell_manager.remove_at_current();
