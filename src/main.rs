@@ -7,7 +7,7 @@ use nu_engine::{script, EvaluationContext};
 use nu_errors::ShellError;
 use nu_protocol::{ConfigPath, NuScript, RunScriptOptions, UntaggedValue, Value};
 use nu_source::{Tag, Text};
-use std::{error::Error, path::PathBuf};
+use std::{error::Error, path::PathBuf, sync::atomic::Ordering};
 
 fn main() -> Result<(), Box<dyn Error>> {
     let matches = App::new("nushell")
