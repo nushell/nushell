@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::prelude::*;
 use nu_engine::{script, WholeStreamCommand};
 
@@ -47,24 +49,11 @@ pub async fn source(args: CommandArgs) -> Result<OutputStream, ShellError> {
     // Note: this is a special case for setting the context from a command
     // In this case, if we don't set it now, we'll lose the scope that this
     // variable should be set into.
-    let contents = std::fs::read_to_string(expand_path(&filename.item).into_owned());
-    match contents {
-        Ok(contents) => {
-            let options = RunScriptOptions::default()
-                .use_existing_scope(true)
-                .redirect_stdin(true)
-                .exit_on_error(false);
-            script::run_script(NuScript::Content(contents), &options, &ctx).await;
-            Ok(OutputStream::empty())
-        }
-        Err(_) => {
-            ctx.error(ShellError::labeled_error(
-                "Can't load file to source",
-                "can't load file",
-                filename.span(),
-            ));
-
-            Ok(OutputStream::empty())
-        }
-    }
+    let script = NuScript::File(PathBuf::from(expand_path(&filename.item)));
+    let options = RunScriptOptions::default()
+        .use_existing_scope(true)
+        .redirect_stdin(true)
+        .exit_on_error(false);
+    script::run_script(script, &options, &ctx).await;
+    Ok(OutputStream::empty())
 }
