@@ -16,7 +16,8 @@ use nu_protocol::{ShellTypeName, Value};
 use nu_source::AnchorLocation;
 
 use crate::commands::{
-    Append, BuildString, Each, Echo, First, Get, Keep, Last, Let, Nth, Select, StrCollect, Wrap,
+    Append, BuildString, Each, Echo, First, Get, Keep, Last, Length, Let, Nth, Select, StrCollect,
+    Wrap,
 };
 use nu_engine::{run_block, whole_stream_command, Command, EvaluationContext, WholeStreamCommand};
 use nu_stream::InputStream;
@@ -45,6 +46,7 @@ pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
         whole_stream_command(Select),
         whole_stream_command(StrCollect),
         whole_stream_command(Wrap),
+        whole_stream_command(Length),
         cmd,
     ]);
 
@@ -105,6 +107,7 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
         whole_stream_command(Select),
         whole_stream_command(StrCollect),
         whole_stream_command(Wrap),
+        whole_stream_command(Length),
     ]);
 
     for sample_pipeline in examples {
