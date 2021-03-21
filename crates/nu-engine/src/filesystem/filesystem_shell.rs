@@ -665,6 +665,7 @@ impl Shell for FilesystemShell {
                         let result;
                         #[cfg(feature = "trash-support")]
                         {
+                            use std::error::Error;
                             let rm_always_trash = nu_data::config::config(Tag::unknown())?
                                 .get("rm_always_trash")
                                 .map(|val| val.is_true())
