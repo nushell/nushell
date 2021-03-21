@@ -6,7 +6,7 @@ use nu_command::utils::test_bins as binaries;
 use nu_engine::{script, EvaluationContext};
 use nu_protocol::{ConfigPath, NuScript, RunScriptOptions, UntaggedValue, Value};
 use nu_source::{Tag, Text};
-use std::{error::Error, path::PathBuf, sync::atomic::Ordering};
+use std::{error::Error, path::PathBuf};
 
 fn main() -> Result<(), Box<dyn Error>> {
     let matches = App::new("nushell")
@@ -168,6 +168,7 @@ async fn load_global_cfg(context: &EvaluationContext) {
 fn configure_ctrl_c(_context: &EvaluationContext) -> Result<(), Box<dyn Error>> {
     #[cfg(feature = "ctrlc")]
     {
+        use std::sync::atomic::Ordering;
         let cc = _context.ctrl_c.clone();
 
         ctrlc::set_handler(move || {
