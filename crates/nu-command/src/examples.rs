@@ -171,6 +171,7 @@ pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
         whole_stream_command(Select),
         whole_stream_command(StrCollect),
         whole_stream_command(Wrap),
+        whole_stream_command(Length),
         cmd,
     ]);
 
