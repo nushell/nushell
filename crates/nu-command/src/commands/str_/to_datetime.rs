@@ -42,9 +42,10 @@ impl Zone {
         }
     }
     fn from_string(s: String) -> Self {
-        match s.as_str() {
-            "Utc" | "UTC" | "utc" | "u" => Self::Utc,
-            "Local" | "lOCAL" | "local" | "l" => Self::Local,
+        let l = s.to_lowercase();
+        match l.as_str() {
+            "utc" | "u" => Self::Utc,
+            "local" | "l" => Self::Local,
             _ => Self::Error,
         }
     }
@@ -63,7 +64,7 @@ impl WholeStreamCommand for SubCommand {
             .named(
                 "timezone",
                 SyntaxShape::String,
-                "Specify timezone if the input is timestamp, like 'UTC/Utc/utc/u' or 'LOCAL/Local/local/l'",
+                "Specify timezone if the input is timestamp, like 'UTC/u' or 'LOCAL/l'",
                 Some('z'),
             )
             .named(
@@ -115,7 +116,8 @@ impl WholeStreamCommand for SubCommand {
                 result: None,
             },
             Example {
-                description: "Convert to datetime using a specified timezone offset (between -12 and 12)",
+                description:
+                    "Convert to datetime using a specified timezone offset (between -12 and 12)",
                 example: "echo '1614434140' | str to-datetime -o '+9'",
                 result: None,
             },
@@ -141,13 +143,24 @@ async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     // if zone-offset is specified, then zone will be neglected
     let zone_options = if let Some(Tagged {
-        item: zone_offset, tag: _tag
+        item: zone_offset,
+        tag: _tag,
     }) = offset
     {
-        Some(Tagged{item: Zone::new(zone_offset), tag: _tag })
+        Some(Tagged {
+            item: Zone::new(zone_offset),
+            tag: _tag,
+        })
     } else {
-        if let Some(Tagged { item: zone, tag: _tag }) = timezone {
-            Some(Tagged{ item: Zone::from_string(zone), tag: _tag })
+        if let Some(Tagged {
+            item: zone,
+            tag: _tag,
+        }) = timezone
+        {
+            Some(Tagged {
+                item: Zone::from_string(zone),
+                tag: _tag,
+            })
         } else {
             None
         }
@@ -309,9 +322,24 @@ mod tests {
     }
 
     #[test]
+    fn takes_timestamp_offset() {
+        let date_str = string("1614434140");
+        let timezone_option = Some(Tagged {
+            item: Zone::East(8),
+        });
+        let actual = action(&date_str, &timezone_option, &None, Tag::unknown()).unwrap();
+        match actual.value {
+            UntaggedValue::Primitive(Primitive::Date(_)) => {}
+            _ => panic!("Didn't convert to date"),
+        }
+    }
+
+    #[test]
     fn takes_timestamp() {
         let date_str = string("1614434140");
-        let timezone_option = Some(Zone::East(8));
+        let timezone_option = Some(Tagged {
+            item: Zone::Local,
+        });
         let actual = action(&date_str, &timezone_option, &None, Tag::unknown()).unwrap();
         match actual.value {
             UntaggedValue::Primitive(Primitive::Date(_)) => {}
