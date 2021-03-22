@@ -135,6 +135,8 @@ pub enum ArgumentError {
     MissingValueForName(String),
     /// An argument was found, but the command does not recognize it
     UnexpectedArgument(Spanned<String>),
+    /// An number argument has a missing closing bracket
+    MissingClosingBracket(String),
     /// An flag was found, but the command does not recognize it
     UnexpectedFlag(Spanned<String>),
     /// A sequence of characters was found that was not syntactically valid (but would have
@@ -171,6 +173,11 @@ impl PrettyDebug for ArgumentError {
                     + DbgDocBldr::description("`")
             }
             ArgumentError::InvalidExternalWord => DbgDocBldr::description("invalid word"),
+            ArgumentError::MissingClosingBracket(name ) => {
+                DbgDocBldr::description("missing )")
+                    + DbgDocBldr::description(name)
+                    + DbgDocBldr::description(" ")
+            }
         }
     }
 }
@@ -503,6 +510,17 @@ impl ShellError {
                     ),
                 )
                 .with_labels(vec![Label::primary(0, command.span)]),
+                ArgumentError::MissingClosingBracket(name) => {
+                    Diagnostic::error().with_message(
+                        format!(
+                            "{} is missing ) for number argument {}{}",
+                            Color::Cyan.paint(&command.item),
+                            Color::Green.bold().paint("--"),
+                            Color::Green.bold().paint(name)
+                        ),
+                    )
+                    .with_labels(vec![Label::primary(0, command.span)])
+                }
             }),
             ProximateShellError::TypeError {
                 expected,

@@ -742,6 +742,34 @@ fn parse_table(
     )
 }
 
+/// Parse the given argument in brackets () as a number
+fn parse_number_in_brackets(
+    expected_type: SyntaxShape,
+    scope: &dyn ParserScope,
+    lite_arg: &Spanned<String>,
+    ) -> (SpannedExpression, Option<ParseError>) {
+
+        if lite_arg.item.starts_with('(') && lite_arg.item.len() > 1 {
+
+            if lite_arg.item.chars().last().unwrap() != ')'{
+                let error = Some(ParseError::argument_error(
+                    lite_arg.clone(),
+                    ArgumentError::MissingClosingBracket(format!("{:?}", "don't knwo what should be here".to_string())),
+                ));
+
+                (garbage(lite_arg.span), error)
+            } else {
+                // number is wrapped around paranthesis (), thus we remove them
+                let number_as_string = String::from(&lite_arg.item[1..lite_arg.item.len()-1].to_string());
+                let span_number = Spanned{span: lite_arg.span, item: number_as_string};
+                parse_arg(expected_type, scope, &span_number)
+        }
+    } else {
+        (garbage(lite_arg.span),
+        Some(ParseError::mismatch("number", lite_arg.clone())))
+    }
+}
+
 /// Parses the given argument using the shape as a guide for how to correctly parse the argument
 fn parse_arg(
     expected_type: SyntaxShape,
@@ -750,6 +778,10 @@ fn parse_arg(
 ) -> (SpannedExpression, Option<ParseError>) {
     if lite_arg.item.starts_with('$') {
         return parse_dollar_expr(&lite_arg, scope);
+    }
+
+    if lite_arg.item.starts_with('(') && lite_arg.item.chars().last().unwrap() == ')' {
+        return parse_number_in_brackets(expected_type, scope, &lite_arg);
     }
 
     match expected_type {
@@ -1367,7 +1399,16 @@ fn parse_internal_command(
     idx += 1; // Start where the arguments begin
 
     while idx < lite_cmd.parts.len() {
-        if lite_cmd.parts[idx].item.starts_with('-') && lite_cmd.parts[idx].item.len() > 1 {
+        if lite_cmd.parts[idx].item.starts_with('(') && lite_cmd.parts[idx].item.len() > 1 {
+            let (number, err) = parse_number_in_brackets(SyntaxShape::Number, scope, &lite_cmd.parts[idx]);
+            if err.is_none(){
+                positional.push(number);
+                current_positional +=1;
+            } else {
+                error = err;
+            }
+        }
+        else if lite_cmd.parts[idx].item.starts_with('-') && lite_cmd.parts[idx].item.len() > 1 {
             let (named_types, err) =
                 get_flags_from_flag(&signature, &lite_cmd.parts[0], &lite_cmd.parts[idx]);
 
