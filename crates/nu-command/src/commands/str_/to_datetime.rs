@@ -337,9 +337,7 @@ mod tests {
     #[test]
     fn takes_timestamp() {
         let date_str = string("1614434140");
-        let timezone_option = Some(Tagged {
-            item: Zone::Local,
-        });
+        let timezone_option = Some(Tagged { item: Zone::Local });
         let actual = action(&date_str, &timezone_option, &None, Tag::unknown()).unwrap();
         match actual.value {
             UntaggedValue::Primitive(Primitive::Date(_)) => {}
