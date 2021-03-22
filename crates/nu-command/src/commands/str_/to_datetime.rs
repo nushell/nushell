@@ -42,8 +42,7 @@ impl Zone {
         }
     }
     fn from_string(s: String) -> Self {
-        let l = s.to_lowercase();
-        match l.as_str() {
+        match s.to_lowercase().as_str() {
             "utc" | "u" => Self::Utc,
             "local" | "l" => Self::Local,
             _ => Self::Error,
@@ -151,19 +150,17 @@ async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
             item: Zone::new(zone_offset),
             tag: _tag,
         })
-    } else {
-        if let Some(Tagged {
-            item: zone,
+    } else if let Some(Tagged {
+        item: zone,
+        tag: _tag,
+    }) = timezone
+    {
+        Some(Tagged {
+            item: Zone::from_string(zone),
             tag: _tag,
-        }) = timezone
-        {
-            Some(Tagged {
-                item: Zone::from_string(zone),
-                tag: _tag,
-            })
-        } else {
-            None
-        }
+        })
+    } else {
+        None
     };
 
     let format_options = if let Some(Tagged { item: fmt, .. }) = format {
@@ -287,7 +284,7 @@ mod tests {
     use super::ShellError;
     use super::{action, DatetimeFormat, SubCommand, Zone};
     use nu_protocol::{Primitive, UntaggedValue};
-    use nu_source::Tag;
+    use nu_source::{Tag, Tagged};
     use nu_test_support::value::string;
 
     #[test]
