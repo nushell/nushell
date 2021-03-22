@@ -200,31 +200,32 @@ fn action(
 ) -> Result<Value, ShellError> {
     match &input.value {
         UntaggedValue::Primitive(Primitive::String(s)) => {
-            let t = s.parse::<i64>();
+            let ts = s.parse::<i64>();
             // if timezone if specified, first check if the input is a timestamp.
-            if timezone.is_some() && t.is_ok() {
-                let t = t.unwrap();
-                const HOUR: i32 = 3600;
-                let stampout = match timezone.as_ref().unwrap().item {
-                    Zone::Utc => UntaggedValue::date(Utc.timestamp(t, 0)),
-                    Zone::Local => UntaggedValue::date(Local.timestamp(t, 0)),
-                    Zone::East(i) => {
-                        let eastoffset = FixedOffset::east((i as i32) * HOUR);
-                        UntaggedValue::date(eastoffset.timestamp(t, 0))
-                    }
-                    Zone::West(i) => {
-                        let westoffset = FixedOffset::west((i as i32) * HOUR);
-                        UntaggedValue::date(westoffset.timestamp(t, 0))
-                    }
-                    Zone::Error => {
-                        return Err(ShellError::labeled_error(
-                            "could not continue to convert timestamp",
-                            "given timezone or offset is invalid",
-                            timezone.as_ref().unwrap().tag().span,
-                        ));
-                    }
-                };
-                return Ok(stampout.into_value(tag));
+            if let Some(tz) = timezone {
+                if let Ok(t) = ts {
+                    const HOUR: i32 = 3600;
+                    let stampout = match tz.item {
+                        Zone::Utc => UntaggedValue::date(Utc.timestamp(t, 0)),
+                        Zone::Local => UntaggedValue::date(Local.timestamp(t, 0)),
+                        Zone::East(i) => {
+                            let eastoffset = FixedOffset::east((i as i32) * HOUR);
+                            UntaggedValue::date(eastoffset.timestamp(t, 0))
+                        }
+                        Zone::West(i) => {
+                            let westoffset = FixedOffset::west((i as i32) * HOUR);
+                            UntaggedValue::date(westoffset.timestamp(t, 0))
+                        }
+                        Zone::Error => {
+                            return Err(ShellError::labeled_error(
+                                "could not continue to convert timestamp",
+                                "given timezone or offset is invalid",
+                                tz.tag().span,
+                            ));
+                        }
+                    };
+                    return Ok(stampout.into_value(tag));
+                }
             };
             // if it's not, continue and negelect the timezone option.
             let out = match dateformat {
@@ -323,6 +324,7 @@ mod tests {
         let date_str = string("1614434140");
         let timezone_option = Some(Tagged {
             item: Zone::East(8),
+            tag: Tag::unknown(),
         });
         let actual = action(&date_str, &timezone_option, &None, Tag::unknown()).unwrap();
         match actual.value {
@@ -334,7 +336,10 @@ mod tests {
     #[test]
     fn takes_timestamp() {
         let date_str = string("1614434140");
-        let timezone_option = Some(Tagged { item: Zone::Local });
+        let timezone_option = Some(Tagged {
+            item: Zone::Local,
+            tag: Tag::unknown(),
+        });
         let actual = action(&date_str, &timezone_option, &None, Tag::unknown()).unwrap();
         match actual.value {
             UntaggedValue::Primitive(Primitive::Date(_)) => {}
