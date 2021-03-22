@@ -1407,8 +1407,7 @@ fn parse_internal_command(
             } else {
                 error = err;
             }
-        }
-        else if lite_cmd.parts[idx].item.starts_with('-') && lite_cmd.parts[idx].item.len() > 1 {
+        } else if lite_cmd.parts[idx].item.starts_with('-') && lite_cmd.parts[idx].item.len() > 1 {
             let (named_types, err) =
                 get_flags_from_flag(&signature, &lite_cmd.parts[0], &lite_cmd.parts[idx]);
 
