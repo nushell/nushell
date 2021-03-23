@@ -1,4 +1,3 @@
-use dirs_next::home_dir;
 use std::io;
 use std::path::{Component, Path, PathBuf};
 
@@ -13,6 +12,7 @@ where
         // path on all supported systems.
         relative_to.as_ref().to_owned()
     } else {
+        #[cfg(feature = "dirs")]
         // If it starts with ~ let's expand it
         if path.as_ref().starts_with("~") {
             let expanded_path = expand_tilde(path.as_ref());
@@ -23,6 +23,8 @@ where
         } else {
             relative_to.as_ref().join(path)
         }
+        #[cfg(not(feature = "dirs"))]
+        relative_to.as_ref().join(path)
     };
 
     let (relative_to, path) = {
@@ -65,15 +67,18 @@ where
 }
 
 // borrowed from here https://stackoverflow.com/questions/54267608/expand-tilde-in-rust-path-idiomatically
+#[cfg(feature = "dirs")]
 fn expand_tilde<P: AsRef<Path>>(path_user_input: P) -> Option<PathBuf> {
     let p = path_user_input.as_ref();
     if !p.starts_with("~") {
         return Some(p.to_path_buf());
     }
+
     if p == Path::new("~") {
-        return home_dir();
+        return dirs_next::home_dir();
     }
-    home_dir().map(|mut h| {
+
+    dirs_next::home_dir().map(|mut h| {
         if h == Path::new("/") {
             // Corner case: `h` root directory;
             // don't prepend extra `/`, just drop the tilde.
