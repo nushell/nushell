@@ -13,10 +13,12 @@ where
         relative_to.as_ref().to_owned()
     } else if path.as_ref().starts_with("~") {
         #[cfg(feature = "dirs")]
-        let expanded_path = expand_tilde(path.as_ref());
-        match expanded_path {
-            Some(p) => p,
-            _ => path.as_ref().to_owned(),
+        {
+            let expanded_path = expand_tilde(path.as_ref());
+            match expanded_path {
+                Some(p) => p,
+                _ => path.as_ref().to_owned(),
+            }
         }
         #[cfg(not(feature = "dirs"))]
         relative_to.as_ref().join(path)
