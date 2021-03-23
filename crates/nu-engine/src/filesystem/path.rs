@@ -11,19 +11,16 @@ where
         // more ugly - so we don't do anything, which should result in an equal
         // path on all supported systems.
         relative_to.as_ref().to_owned()
-    } else {
+    } else if path.as_ref().starts_with("~") {
         #[cfg(feature = "dirs")]
-        // If it starts with ~ let's expand it
-        if path.as_ref().starts_with("~") {
-            let expanded_path = expand_tilde(path.as_ref());
-            match expanded_path {
-                Some(p) => p,
-                _ => path.as_ref().to_owned(),
-            }
-        } else {
-            relative_to.as_ref().join(path)
+        let expanded_path = expand_tilde(path.as_ref());
+        match expanded_path {
+            Some(p) => p,
+            _ => path.as_ref().to_owned(),
         }
         #[cfg(not(feature = "dirs"))]
+        relative_to.as_ref().join(path)
+    } else {
         relative_to.as_ref().join(path)
     };
 
