@@ -26,7 +26,7 @@ impl WholeStreamCommand for Command {
     }
 
     fn usage(&self) -> &str {
-        "Keep the number of rows only"
+        "Keep the number of rows only."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

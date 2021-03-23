@@ -240,7 +240,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                                     key.to_string(),
                                     TextStyle::new()
                                         .alignment(nu_table::Alignment::Left)
-                                        .fg(ansi_term::Color::Green)
+                                        .fg(nu_ansi_term::Color::Green)
                                         .bold(Some(true)),
                                 ),
                                 nu_table::StyledString::new(
@@ -253,7 +253,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                         let table =
                             nu_table::Table::new(vec![], entries, nu_table::Theme::compact());
 
-                        nu_table::draw_table(&table, term_width, &color_hm);
+                        println!("{}", nu_table::draw_table(&table, term_width, &color_hm));
                     }
                     Value {
                         value: UntaggedValue::Primitive(Primitive::Nothing),

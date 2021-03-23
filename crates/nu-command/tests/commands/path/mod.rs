@@ -4,6 +4,7 @@ mod exists;
 mod expand;
 mod extension;
 mod filestem;
+mod join;
 mod type_;
 
 use std::path::MAIN_SEPARATOR;

@@ -36,7 +36,7 @@ fn from_json_text_to_table() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "open katz.txt | from json | get katz | get rusty_luck | count "
+            "open katz.txt | from json | get katz | get rusty_luck | length "
         );
 
         assert_eq!(actual.out, "4");

@@ -74,9 +74,9 @@ where
         matches!(ch, b'{' | b'}' | b'[' | b']' | b',' | b':')
     }
 
-    fn parse_keyname<V>(&mut self, mut visitor: V) -> Result<V::Value>
+    fn parse_keyname<'de, V>(&mut self, visitor: V) -> Result<V::Value>
     where
-        V: de::Visitor,
+        V: de::Visitor<'de>,
     {
         // quotes for keys are optional in Hjson
         // unless they include {}[],: or whitespace.
@@ -117,9 +117,9 @@ where
         }
     }
 
-    fn parse_value<V>(&mut self, mut visitor: V) -> Result<V::Value>
+    fn parse_value<'de, V>(&mut self, visitor: V) -> Result<V::Value>
     where
-        V: de::Visitor,
+        V: de::Visitor<'de>,
     {
         self.rdr.parse_whitespace()?;
 
@@ -134,18 +134,18 @@ where
             }
             State::Root => {
                 self.state = State::Normal;
-                return visitor.visit_map(MapVisitor::new(self, true));
+                return self.visit_map(true, visitor);
             }
             _ => {}
         }
 
-        let value = match self.rdr.peek_or_null()? {
+        match self.rdr.peek_or_null()? {
             /*
             b'-' => {
                 self.rdr.eat_char();
                 self.parse_integer(false, visitor)
             }
-            b'0' ..= b'9' => {
+            b'0' ... b'9' => {
                 self.parse_integer(true, visitor)
             }
             */
@@ -157,20 +157,45 @@ where
             }
             b'[' => {
                 self.rdr.eat_char();
-                visitor.visit_seq(SeqVisitor::new(self))
+                let ret = visitor.visit_seq(SeqVisitor::new(self))?;
+                self.rdr.parse_whitespace()?;
+                match self.rdr.next_char()? {
+                    Some(b']') => Ok(ret),
+                    Some(_) => Err(self.rdr.error(ErrorCode::TrailingCharacters)),
+                    None => Err(self.rdr.error(ErrorCode::EOFWhileParsingList)),
+                }
             }
             b'{' => {
                 self.rdr.eat_char();
-                visitor.visit_map(MapVisitor::new(self, false))
+                self.visit_map(false, visitor)
             }
             b'\x00' => Err(self.rdr.error(ErrorCode::ExpectedSomeValue)),
             _ => self.parse_tfnns(visitor),
-        };
+        }
+    }
 
-        match value {
-            Ok(value) => Ok(value),
-            Err(Error::Syntax(code, _, _)) => Err(self.rdr.error(code)),
-            Err(err) => Err(err),
+    fn visit_map<'de, V>(&mut self, root: bool, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let ret = visitor.visit_map(MapVisitor::new(self, root))?;
+        self.rdr.parse_whitespace()?;
+        match self.rdr.next_char()? {
+            Some(b'}') => {
+                if !root {
+                    Ok(ret)
+                } else {
+                    Err(self.rdr.error(ErrorCode::TrailingCharacters))
+                } // todo
+            }
+            Some(_) => Err(self.rdr.error(ErrorCode::TrailingCharacters)),
+            None => {
+                if root {
+                    Ok(ret)
+                } else {
+                    Err(self.rdr.error(ErrorCode::EOFWhileParsingObject))
+                }
+            }
         }
     }
 
@@ -184,9 +209,9 @@ where
         Ok(())
     }
 
-    fn parse_tfnns<V>(&mut self, mut visitor: V) -> Result<V::Value>
+    fn parse_tfnns<'de, V>(&mut self, visitor: V) -> Result<V::Value>
     where
-        V: de::Visitor,
+        V: de::Visitor<'de>,
     {
         // Hjson strings can be quoteless
         // returns string, true, false, or null.
@@ -244,7 +269,7 @@ where
                     }
                     _ => {
                         if chf == b'-' || (b'0'..=b'9').contains(&chf) {
-                            let mut pn = ParseNumber::new(self.str_buf.iter().cloned());
+                            let mut pn = ParseNumber::new(self.str_buf.iter().copied());
                             match pn.parse(false) {
                                 Ok(Number::F64(v)) => {
                                     self.rdr.uneat_char(ch);
@@ -274,7 +299,7 @@ where
             }
             self.str_buf.push(ch);
 
-            if self.str_buf == vec![b'\''; 3] {
+            if self.str_buf == b"'''" {
                 return self.parse_ml_string(visitor);
             }
         }
@@ -283,7 +308,7 @@ where
     fn decode_hex_escape(&mut self) -> Result<u16> {
         let mut i = 0;
         let mut n = 0u16;
-        while i < 4 && !(self.rdr.eof()?) {
+        while i < 4 && !self.rdr.eof()? {
             n = match self.rdr.next_char_or_null()? {
                 c @ b'0'..=b'9' => n * 16_u16 + ((c as u16) - (b'0' as u16)),
                 b'a' | b'A' => n * 16_u16 + 10_u16,
@@ -326,9 +351,9 @@ where
         Ok(())
     }
 
-    fn parse_ml_string<V>(&mut self, mut visitor: V) -> Result<V::Value>
+    fn parse_ml_string<'de, V>(&mut self, visitor: V) -> Result<V::Value>
     where
-        V: de::Visitor,
+        V: de::Visitor<'de>,
     {
         self.str_buf.clear();
 
@@ -464,11 +489,7 @@ where
                                 },
                             };
 
-                            // FIXME: this allocation is required in order to be compatible with stable
-                            // rust, which doesn't support encoding a `char` into a stack buffer.
-                            let mut buf = String::new();
-                            buf.push(c);
-                            self.str_buf.extend(buf.bytes());
+                            self.str_buf.extend(c.encode_utf8(&mut [0; 4]).as_bytes());
                         }
                         _ => {
                             return Err(self.rdr.error(ErrorCode::InvalidEscape));
@@ -493,25 +514,27 @@ where
     }
 }
 
-impl<Iter> de::Deserializer for Deserializer<Iter>
+impl<'de, 'a, Iter> de::Deserializer<'de> for &'a mut Deserializer<Iter>
 where
     Iter: Iterator<Item = u8>,
 {
     type Error = Error;
 
     #[inline]
-    fn deserialize<V>(&mut self, visitor: V) -> Result<V::Value>
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
     where
-        V: de::Visitor,
+        V: de::Visitor<'de>,
     {
+        if let State::Root = self.state {}
+
         self.parse_value(visitor)
     }
 
     /// Parses a `null` as a None, and any other values as a `Some(...)`.
     #[inline]
-    fn deserialize_option<V>(&mut self, mut visitor: V) -> Result<V::Value>
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
     where
-        V: de::Visitor,
+        V: de::Visitor<'de>,
     {
         self.rdr.parse_whitespace()?;
 
@@ -527,42 +550,17 @@ where
 
     /// Parses a newtype struct as the underlying value.
     #[inline]
-    fn deserialize_newtype_struct<V>(&mut self, _name: &str, mut visitor: V) -> Result<V::Value>
+    fn deserialize_newtype_struct<V>(self, _name: &str, visitor: V) -> Result<V::Value>
     where
-        V: de::Visitor,
+        V: de::Visitor<'de>,
     {
         visitor.visit_newtype_struct(self)
     }
 
-    forward_to_deserialize! {
-        deserialize_bool();
-        deserialize_usize();
-        deserialize_u8();
-        deserialize_u16();
-        deserialize_u32();
-        deserialize_u64();
-        deserialize_isize();
-        deserialize_i8();
-        deserialize_i16();
-        deserialize_i32();
-        deserialize_i64();
-        deserialize_f32();
-        deserialize_f64();
-        deserialize_char();
-        deserialize_str();
-        deserialize_string();
-        deserialize_unit();
-        deserialize_seq();
-        deserialize_seq_fixed_size(len: usize);
-        deserialize_bytes();
-        deserialize_map();
-        deserialize_unit_struct(name: &'static str);
-        deserialize_tuple_struct(name: &'static str, len: usize);
-        deserialize_struct(name: &'static str, fields: &'static [&'static str]);
-        deserialize_struct_field();
-        deserialize_tuple(len: usize);
-        deserialize_enum(name: &'static str, variants: &'static [&'static str]);
-        deserialize_ignored_any();
+    serde::forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
+        bytes byte_buf unit unit_struct seq tuple map
+        tuple_struct struct enum identifier ignored_any
     }
 }
 
@@ -576,15 +574,15 @@ impl<'a, Iter: Iterator<Item = u8>> SeqVisitor<'a, Iter> {
     }
 }
 
-impl<'a, Iter> de::SeqVisitor for SeqVisitor<'a, Iter>
+impl<'de, 'a, Iter> de::SeqAccess<'de> for SeqVisitor<'a, Iter>
 where
     Iter: Iterator<Item = u8>,
 {
     type Error = Error;
 
-    fn visit<T>(&mut self) -> Result<Option<T>>
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
     where
-        T: de::Deserialize,
+        T: de::DeserializeSeed<'de>,
     {
         self.de.rdr.parse_whitespace()?;
 
@@ -598,7 +596,7 @@ where
             }
         }
 
-        let value = de::Deserialize::deserialize(self.de)?;
+        let value = seed.deserialize(&mut *self.de)?;
 
         // in Hjson the comma is optional and trailing commas are allowed
         self.de.rdr.parse_whitespace()?;
@@ -608,16 +606,6 @@ where
         }
 
         Ok(Some(value))
-    }
-
-    fn end(&mut self) -> Result<()> {
-        self.de.rdr.parse_whitespace()?;
-
-        match self.de.rdr.next_char()? {
-            Some(b']') => Ok(()),
-            Some(_) => Err(self.de.rdr.error(ErrorCode::TrailingCharacters)),
-            None => Err(self.de.rdr.error(ErrorCode::EOFWhileParsingList)),
-        }
     }
 }
 
@@ -637,15 +625,15 @@ impl<'a, Iter: Iterator<Item = u8>> MapVisitor<'a, Iter> {
     }
 }
 
-impl<'a, Iter> de::MapVisitor for MapVisitor<'a, Iter>
+impl<'de, 'a, Iter> de::MapAccess<'de> for MapVisitor<'a, Iter>
 where
     Iter: Iterator<Item = u8>,
 {
     type Error = Error;
 
-    fn visit_key<K>(&mut self) -> Result<Option<K>>
+    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>
     where
-        K: de::Deserialize,
+        K: de::DeserializeSeed<'de>,
     {
         self.de.rdr.parse_whitespace()?;
 
@@ -676,146 +664,51 @@ where
                 } else {
                     State::Keyname
                 };
-                Ok(Some(de::Deserialize::deserialize(self.de)?))
+                Ok(Some(seed.deserialize(&mut *self.de)?))
             }
             None => Err(self.de.rdr.error(ErrorCode::EOFWhileParsingValue)),
         }
     }
 
-    fn visit_value<V>(&mut self) -> Result<V>
+    fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value>
     where
-        V: de::Deserialize,
+        V: de::DeserializeSeed<'de>,
     {
         self.de.parse_object_colon()?;
 
-        de::Deserialize::deserialize(self.de)
-    }
-
-    fn end(&mut self) -> Result<()> {
-        self.de.rdr.parse_whitespace()?;
-
-        match self.de.rdr.next_char()? {
-            Some(b'}') => {
-                if !self.root {
-                    Ok(())
-                } else {
-                    Err(self.de.rdr.error(ErrorCode::TrailingCharacters))
-                } // todo
-            }
-            Some(_) => Err(self.de.rdr.error(ErrorCode::TrailingCharacters)),
-            None => {
-                if self.root {
-                    Ok(())
-                } else {
-                    Err(self.de.rdr.error(ErrorCode::EOFWhileParsingObject))
-                }
-            }
-        }
-    }
-
-    fn missing_field<V>(&mut self, field: &'static str) -> Result<V>
-    where
-        V: de::Deserialize,
-    {
-        struct MissingFieldDeserializer(&'static str);
-
-        impl de::Deserializer for MissingFieldDeserializer {
-            type Error = de::value::Error;
-
-            fn deserialize<V>(&mut self, _visitor: V) -> std::result::Result<V::Value, Self::Error>
-            where
-                V: de::Visitor,
-            {
-                let &mut MissingFieldDeserializer(field) = self;
-                Err(de::value::Error::MissingField(field))
-            }
-
-            fn deserialize_option<V>(
-                &mut self,
-                mut visitor: V,
-            ) -> std::result::Result<V::Value, Self::Error>
-            where
-                V: de::Visitor,
-            {
-                visitor.visit_none()
-            }
-
-            forward_to_deserialize! {
-                deserialize_bool();
-                deserialize_usize();
-                deserialize_u8();
-                deserialize_u16();
-                deserialize_u32();
-                deserialize_u64();
-                deserialize_isize();
-                deserialize_i8();
-                deserialize_i16();
-                deserialize_i32();
-                deserialize_i64();
-                deserialize_f32();
-                deserialize_f64();
-                deserialize_char();
-                deserialize_str();
-                deserialize_string();
-                deserialize_unit();
-                deserialize_seq();
-                deserialize_seq_fixed_size(len: usize);
-                deserialize_bytes();
-                deserialize_map();
-                deserialize_unit_struct(name: &'static str);
-                deserialize_newtype_struct(name: &'static str);
-                deserialize_tuple_struct(name: &'static str, len: usize);
-                deserialize_struct(name: &'static str, fields: &'static [&'static str]);
-                deserialize_struct_field();
-                deserialize_tuple(len: usize);
-                deserialize_enum(name: &'static str, variants: &'static [&'static str]);
-                deserialize_ignored_any();
-            }
-        }
-
-        let mut de = MissingFieldDeserializer(field);
-        Ok(de::Deserialize::deserialize(&mut de)?)
+        Ok(seed.deserialize(&mut *self.de)?)
     }
 }
 
-impl<Iter> de::VariantVisitor for Deserializer<Iter>
+impl<'de, 'a, Iter> de::VariantAccess<'de> for &'a mut Deserializer<Iter>
 where
     Iter: Iterator<Item = u8>,
 {
     type Error = Error;
 
-    fn visit_variant<V>(&mut self) -> Result<V>
-    where
-        V: de::Deserialize,
-    {
-        let val = de::Deserialize::deserialize(self)?;
-        self.parse_object_colon()?;
-        Ok(val)
-    }
-
-    fn visit_unit(&mut self) -> Result<()> {
+    fn unit_variant(self) -> Result<()> {
         de::Deserialize::deserialize(self)
     }
 
-    fn visit_newtype<T>(&mut self) -> Result<T>
+    fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value>
     where
-        T: de::Deserialize,
+        T: de::DeserializeSeed<'de>,
     {
-        de::Deserialize::deserialize(self)
+        seed.deserialize(self)
     }
 
-    fn visit_tuple<V>(&mut self, _len: usize, visitor: V) -> Result<V::Value>
+    fn tuple_variant<V>(self, _len: usize, visitor: V) -> Result<V::Value>
     where
-        V: de::Visitor,
+        V: de::Visitor<'de>,
     {
-        de::Deserializer::deserialize(self, visitor)
+        de::Deserializer::deserialize_any(self, visitor)
     }
 
-    fn visit_struct<V>(&mut self, _fields: &'static [&'static str], visitor: V) -> Result<V::Value>
+    fn struct_variant<V>(self, _fields: &'static [&'static str], visitor: V) -> Result<V::Value>
     where
-        V: de::Visitor,
+        V: de::Visitor<'de>,
     {
-        de::Deserializer::deserialize(self, visitor)
+        de::Deserializer::deserialize_any(self, visitor)
     }
 }
 
@@ -825,7 +718,7 @@ where
 pub struct StreamDeserializer<T, Iter>
 where
     Iter: Iterator<Item = u8>,
-    T: de::Deserialize,
+    T: de::DeserializeOwned,
 {
     deser: Deserializer<Iter>,
     _marker: PhantomData<T>,
@@ -834,7 +727,7 @@ where
 impl<T, Iter> StreamDeserializer<T, Iter>
 where
     Iter: Iterator<Item = u8>,
-    T: de::Deserialize,
+    T: de::DeserializeOwned,
 {
     /// Returns an `Iterator` of decoded Hjson values from an iterator over
     /// `Iterator<Item=u8>`.
@@ -849,7 +742,7 @@ where
 impl<T, Iter> Iterator for StreamDeserializer<T, Iter>
 where
     Iter: Iterator<Item = u8>,
-    T: de::Deserialize,
+    T: de::DeserializeOwned,
 {
     type Item = Result<T>;
 
@@ -879,9 +772,10 @@ where
 pub fn from_iter<I, T>(iter: I) -> Result<T>
 where
     I: Iterator<Item = io::Result<u8>>,
-    T: de::Deserialize,
+    T: de::DeserializeOwned,
 {
     let fold: io::Result<Vec<_>> = iter.collect();
+
     if let Err(e) = fold {
         return Err(Error::Io(e));
     }
@@ -893,43 +787,31 @@ where
     // todo: add compile switch
 
     // deserialize and make sure the whole stream has been consumed
-    let mut de = Deserializer::new_for_root(bytes.iter().cloned());
-    let value = match de::Deserialize::deserialize(&mut de).and_then(|x| {
-        de.end()?;
-        Ok(x)
-    }) {
-        Ok(v) => Ok(v),
-        Err(_) => {
-            let mut de2 = Deserializer::new(bytes.iter().cloned());
-            match de::Deserialize::deserialize(&mut de2).and_then(|x| {
-                de2.end()?;
-                Ok(x)
-            }) {
-                Ok(v) => Ok(v),
-                Err(e) => Err(e),
-            }
-        }
-    };
+    let mut de = Deserializer::new_for_root(bytes.iter().copied());
+    de::Deserialize::deserialize(&mut de)
+        .and_then(|x| de.end().map(|()| x))
+        .or_else(|_| {
+            let mut de2 = Deserializer::new(bytes.iter().copied());
+            de::Deserialize::deserialize(&mut de2).and_then(|x| de2.end().map(|()| x))
+        })
 
     /* without legacy support:
     // deserialize and make sure the whole stream has been consumed
     let mut de = Deserializer::new(bytes.iter().map(|b| *b));
     let value = match de::Deserialize::deserialize(&mut de)
-        .and_then(|x| { de.end()); Ok(x) })
+        .and_then(|x| { try!(de.end()); Ok(x) })
     {
         Ok(v) => Ok(v),
         Err(e) => Err(e),
     };
     */
-
-    value
 }
 
 /// Decodes a Hjson value from a `std::io::Read`.
 pub fn from_reader<R, T>(rdr: R) -> Result<T>
 where
     R: io::Read,
-    T: de::Deserialize,
+    T: de::DeserializeOwned,
 {
     from_iter(rdr.bytes())
 }
@@ -937,7 +819,7 @@ where
 /// Decodes a Hjson value from a byte slice `&[u8]`.
 pub fn from_slice<T>(v: &[u8]) -> Result<T>
 where
-    T: de::Deserialize,
+    T: de::DeserializeOwned,
 {
     from_iter(v.iter().map(|byte| Ok(*byte)))
 }
@@ -945,7 +827,7 @@ where
 /// Decodes a Hjson value from a `&str`.
 pub fn from_str<T>(s: &str) -> Result<T>
 where
-    T: de::Deserialize,
+    T: de::DeserializeOwned,
 {
     from_slice(s.as_bytes())
 }

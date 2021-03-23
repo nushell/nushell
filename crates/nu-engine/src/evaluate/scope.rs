@@ -176,8 +176,7 @@ impl Scope {
 
     pub fn add_env_var(&self, name: impl Into<String>, value: String) {
         if let Some(frame) = self.frames.lock().last_mut() {
-            let name = name.into();
-            frame.env.insert(name, value);
+            frame.env.insert(name.into(), value);
         }
     }
 
@@ -190,6 +189,12 @@ impl Scope {
     pub fn add_env_to_base(&self, env_vars: IndexMap<String, String>) {
         if let Some(frame) = self.frames.lock().first_mut() {
             frame.env.extend(env_vars)
+        }
+    }
+
+    pub fn add_env_var_to_base(&self, name: impl Into<String>, value: String) {
+        if let Some(frame) = self.frames.lock().first_mut() {
+            frame.env.insert(name.into(), value);
         }
     }
 }
@@ -291,86 +296,3 @@ impl ScopeFrame {
         }
     }
 }
-
-// impl Scope {
-//     pub fn vars(&self) -> IndexMap<String, Value> {
-//         //FIXME: should this be an iterator?
-
-//         let mut output = IndexMap::new();
-
-//         for v in &self.vars {
-//             output.insert(v.0.clone(), v.1.clone());
-//         }
-
-//         if let Some(parent) = &self.parent {
-//             for v in parent.vars() {
-//                 if !output.contains_key(&v.0) {
-//                     output.insert(v.0.clone(), v.1.clone());
-//                 }
-//             }
-//         }
-
-//         output
-//     }
-
-//     pub fn env(&self) -> IndexMap<String, String> {
-//         //FIXME: should this be an iterator?
-
-//         let mut output = IndexMap::new();
-
-//         for v in &self.env {
-//             output.insert(v.0.clone(), v.1.clone());
-//         }
-
-//         if let Some(parent) = &self.parent {
-//             for v in parent.env() {
-//                 if !output.contains_key(&v.0) {
-//                     output.insert(v.0.clone(), v.1.clone());
-//                 }
-//             }
-//         }
-
-//         output
-//     }
-
-//     pub fn var(&self, name: &str) -> Option<Value> {
-//         if let Some(value) = self.vars().get(name) {
-//             Some(value.clone())
-//         } else {
-//             None
-//         }
-//     }
-
-//     pub fn append_var(this: Arc<Self>, name: impl Into<String>, value: Value) -> Arc<Scope> {
-//         let mut vars = IndexMap::new();
-//         vars.insert(name.into(), value);
-//         Arc::new(Scope {
-//             vars,
-//             env: IndexMap::new(),
-//             commands: IndexMap::new(),
-//             aliases: IndexMap::new(),
-//             parent: Some(this),
-//         })
-//     }
-
-//     pub fn append_vars(this: Arc<Self>, vars: IndexMap<String, Value>) -> Arc<Scope> {
-//         Arc::new(Scope {
-//             vars,
-//             env: IndexMap::new(),
-//             commands: IndexMap::new(),
-//             aliases: IndexMap::new(),
-//             parent: Some(this),
-//         })
-//     }
-
-//     pub fn append_env(this: Arc<Self>, env: IndexMap<String, String>) -> Arc<Scope> {
-//         Arc::new(Scope {
-//             vars: IndexMap::new(),
-//             env,
-//             commands: IndexMap::new(),
-//             aliases: IndexMap::new(),
-//             parent: Some(this),
-//         })
-//     }
-
-// }

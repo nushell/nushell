@@ -46,14 +46,16 @@ impl WholeStreamCommand for Open {
     }
 
     fn usage(&self) -> &str {
-        r#"Load a file into a cell, convert to table if possible (avoid by appending '--raw').
-        
-Multiple encodings are supported for reading text files by using
+        "Load a file into a cell, convert to table if possible (avoid by appending '--raw')."
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"Multiple encodings are supported for reading text files by using
 the '--encoding <encoding>' parameter. Here is an example of a few:
 big5, euc-jp, euc-kr, gbk, iso-8859-1, utf-16, cp1252, latin5
 
 For a more complete list of encodings please refer to the encoding_rs
-documentation link at https://docs.rs/encoding_rs/0.8.23/encoding_rs/#statics"#
+documentation link at https://docs.rs/encoding_rs/0.8.28/encoding_rs/#statics"#
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -70,6 +72,11 @@ documentation link at https://docs.rs/encoding_rs/0.8.23/encoding_rs/#statics"#
             Example {
                 description: "Opens file with iso-8859-1 encoding",
                 example: "open file.csv --encoding iso-8859-1 | from csv",
+                result: None,
+            },
+            Example {
+                description: "Lists the contents of a directory (identical to `ls ../projectB`)",
+                example: "open ../projectB",
                 result: None,
             },
         ]
@@ -97,6 +104,8 @@ async fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let scope = args.scope.clone();
     let cwd = PathBuf::from(args.shell_manager.path());
     let shell_manager = args.shell_manager.clone();
+    let name = args.call_info.name_tag.clone();
+    let ctrl_c = args.ctrl_c.clone();
 
     let (
         OpenArgs {
@@ -106,6 +115,17 @@ async fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
         },
         _,
     ) = args.process().await?;
+
+    if path.is_dir() {
+        let args = nu_engine::shell::LsArgs {
+            path: Some(path),
+            all: false,
+            long: false,
+            short_names: false,
+            du: false,
+        };
+        return shell_manager.ls(args, name, ctrl_c);
+    }
 
     // TODO: Remove once Streams are supported everywhere!
     // As a short term workaround for getting AutoConvert and Bat functionality (Those don't currently support Streams)

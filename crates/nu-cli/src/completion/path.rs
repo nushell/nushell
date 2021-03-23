@@ -15,7 +15,8 @@ pub struct PathSuggestion {
 impl PathCompleter {
     pub fn path_suggestions(&self, partial: &str, matcher: &dyn Matcher) -> Vec<PathSuggestion> {
         let expanded = nu_parser::expand_ndots(partial);
-        let expanded = expanded.as_ref();
+        let expanded = expanded.replace(std::path::is_separator, &SEP.to_string());
+        let expanded: &str = expanded.as_ref();
 
         let (base_dir_name, partial) = match expanded.rfind(SEP) {
             Some(pos) => expanded.split_at(pos + SEP.len_utf8()),

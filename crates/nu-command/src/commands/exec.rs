@@ -29,7 +29,7 @@ impl WholeStreamCommand for Exec {
     }
 
     fn usage(&self) -> &str {
-        "Execute command"
+        "Execute command."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

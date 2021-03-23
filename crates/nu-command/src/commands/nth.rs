@@ -31,7 +31,7 @@ impl WholeStreamCommand for Nth {
     }
 
     fn usage(&self) -> &str {
-        "Return or skip only the selected rows"
+        "Return or skip only the selected rows."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

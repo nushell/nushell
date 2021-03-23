@@ -1,4 +1,4 @@
-use super::{operate, DefaultArguments};
+use super::{operate, PathSubcommandArguments};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
@@ -14,6 +14,12 @@ struct PathFilestemArguments {
     suffix: Option<Tagged<String>>,
     replace: Option<Tagged<String>>,
     rest: Vec<ColumnPath>,
+}
+
+impl PathSubcommandArguments for PathFilestemArguments {
+    fn get_column_paths(&self) -> &Vec<ColumnPath> {
+        &self.rest
+    }
 }
 
 #[async_trait]
@@ -53,19 +59,18 @@ impl WholeStreamCommand for PathFilestem {
         let tag = args.call_info.name_tag.clone();
         let (
             PathFilestemArguments {
-                replace,
                 prefix,
                 suffix,
+                replace,
                 rest,
             },
             input,
         ) = args.process().await?;
-        let args = Arc::new(DefaultArguments {
-            replace: replace.map(|v| v.item),
-            prefix: prefix.map(|v| v.item),
-            suffix: suffix.map(|v| v.item),
-            num_levels: None,
-            paths: rest,
+        let args = Arc::new(PathFilestemArguments {
+            prefix,
+            suffix,
+            replace,
+            rest,
         });
         operate(input, &action, tag.span, args).await
     }
@@ -113,14 +118,14 @@ impl WholeStreamCommand for PathFilestem {
     }
 }
 
-fn action(path: &Path, args: Arc<DefaultArguments>) -> UntaggedValue {
+fn action(path: &Path, args: &PathFilestemArguments) -> UntaggedValue {
     let basename = match path.file_name() {
         Some(name) => name.to_string_lossy().to_string(),
         None => "".to_string(),
     };
 
     let suffix = match args.suffix {
-        Some(ref suf) => match basename.rmatch_indices(suf).next() {
+        Some(ref suf) => match basename.rmatch_indices(&suf.item).next() {
             Some((i, _)) => basename.split_at(i).1.to_string(),
             None => "".to_string(),
         },
@@ -132,7 +137,7 @@ fn action(path: &Path, args: Arc<DefaultArguments>) -> UntaggedValue {
     };
 
     let prefix = match args.prefix {
-        Some(ref pre) => match basename.matches(pre).next() {
+        Some(ref pre) => match basename.matches(&pre.item).next() {
             Some(m) => basename.split_at(m.len()).0.to_string(),
             None => "".to_string(),
         },
@@ -151,7 +156,7 @@ fn action(path: &Path, args: Arc<DefaultArguments>) -> UntaggedValue {
 
     match args.replace {
         Some(ref replace) => {
-            let new_name = prefix + replace + &suffix;
+            let new_name = prefix + &replace.item + &suffix;
             UntaggedValue::filepath(path.with_file_name(&new_name))
         }
         None => UntaggedValue::string(stem),

@@ -17,7 +17,7 @@ impl WholeStreamCommand for Clear {
     }
 
     fn usage(&self) -> &str {
-        "Clears the terminal"
+        "Clears the terminal."
     }
 
     async fn run(&self, _: CommandArgs) -> Result<OutputStream, ShellError> {

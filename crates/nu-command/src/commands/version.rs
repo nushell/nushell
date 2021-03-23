@@ -21,7 +21,7 @@ impl WholeStreamCommand for Version {
     }
 
     fn usage(&self) -> &str {
-        "Display Nu version"
+        "Display Nu version."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

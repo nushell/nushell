@@ -29,7 +29,7 @@ impl WholeStreamCommand for Touch {
             .rest(SyntaxShape::FilePath, "additional files to create")
     }
     fn usage(&self) -> &str {
-        "creates one or more files"
+        "Creates one or more files."
     }
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         touch(args).await

@@ -23,7 +23,7 @@ fn changes_the_column_name() {
                 | wrap name
                 | rename mosqueteros
                 | get mosqueteros
-                | count
+                | length
                 "#
         ));
 
@@ -53,7 +53,7 @@ fn keeps_remaining_original_names_given_less_new_names_than_total_original_names
                 | default hit "arepa!"
                 | rename mosqueteros
                 | get hit
-                | count
+                | length
                 "#
         ));
 

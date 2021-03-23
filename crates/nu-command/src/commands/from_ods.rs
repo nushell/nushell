@@ -10,7 +10,7 @@ pub struct FromODS;
 
 #[derive(Deserialize)]
 pub struct FromODSArgs {
-    headerless: bool,
+    noheaders: bool,
 }
 
 #[async_trait]
@@ -21,9 +21,9 @@ impl WholeStreamCommand for FromODS {
 
     fn signature(&self) -> Signature {
         Signature::build("from ods").switch(
-            "headerless",
+            "noheaders",
             "don't treat the first row as column names",
-            None,
+            Some('n'),
         )
     }
 
@@ -42,7 +42,7 @@ async fn from_ods(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let (
         FromODSArgs {
-            headerless: _headerless,
+            noheaders: _noheaders,
         },
         input,
     ) = args.process().await?;

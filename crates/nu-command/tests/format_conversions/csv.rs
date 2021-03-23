@@ -64,7 +64,7 @@ fn table_to_csv_text_skipping_headers_after_conversion() {
                 | str trim
                 | split column "," a b c d origin
                 | last 1
-                | to csv --headerless
+                | to csv --noheaders
             "#
         ));
 
@@ -93,7 +93,7 @@ fn infers_types() {
             r#"
                 open los_cuatro_mosqueteros.csv
                 | where rusty_luck > 0
-                | count
+                | length
             "#
         ));
 
@@ -120,7 +120,7 @@ fn from_csv_text_to_table() {
                 open los_tres_caballeros.txt
                 | from csv
                 | get rusty_luck
-                | count
+                | length
             "#
         ));
 
@@ -147,7 +147,7 @@ fn from_csv_text_with_separator_to_table() {
                 open los_tres_caballeros.txt
                 | from csv --separator ';'
                 | get rusty_luck
-                | count
+                | length
             "#
         ));
 
@@ -174,7 +174,7 @@ fn from_csv_text_with_tab_separator_to_table() {
                 open los_tres_caballeros.txt
                 | from csv --separator '\t'
                 | get rusty_luck
-                | count
+                | length
             "#
         ));
 
@@ -198,9 +198,9 @@ fn from_csv_text_skipping_headers_to_table() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_amigos.txt
-                | from csv --headerless
+                | from csv --noheaders
                 | get Column3
-                | count
+                | length
             "#
         ));
 

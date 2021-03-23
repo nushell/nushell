@@ -36,11 +36,11 @@ impl Conf for FakeConfig {
 
 impl FakeConfig {
     pub fn new(config_file: &Path) -> FakeConfig {
-        let config_file = Some(PathBuf::from(config_file));
+        let config_file = config_file.to_path_buf();
 
         FakeConfig {
-            config: NuConfig::with(config_file.clone()),
-            source_file: config_file,
+            config: NuConfig::with(Some(config_file.clone().into_os_string())),
+            source_file: Some(config_file),
         }
     }
 
@@ -61,6 +61,6 @@ impl FakeConfig {
     }
 
     pub fn reload(&mut self) {
-        self.config = NuConfig::with(self.source_file.clone());
+        self.config = NuConfig::with(self.source_file.clone().map(|x| x.into_os_string()));
     }
 }

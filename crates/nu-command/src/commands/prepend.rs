@@ -25,7 +25,7 @@ impl WholeStreamCommand for Prepend {
     }
 
     fn usage(&self) -> &str {
-        "Prepend the given row to the front of the table"
+        "Prepend the given row to the front of the table."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

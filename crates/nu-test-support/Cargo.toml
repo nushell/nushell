@@ -4,16 +4,16 @@ description = "Support for writing Nushell tests"
 edition = "2018"
 license = "MIT"
 name = "nu-test-support"
-version = "0.27.0"
+version = "0.28.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-errors = { version = "0.27.0", path = "../nu-errors" }
-nu-protocol = { path = "../nu-protocol", version = "0.27.0" }
-nu-source = { path = "../nu-source", version = "0.27.0" }
-nu-value-ext = { version = "0.27.0", path = "../nu-value-ext" }
+nu-errors = { version = "0.28.0", path = "../nu-errors" }
+nu-protocol = { path = "../nu-protocol", version = "0.28.0" }
+nu-source = { path = "../nu-source", version = "0.28.0" }
+nu-value-ext = { version = "0.28.0", path = "../nu-value-ext" }
 
 bigdecimal = { version = "0.2.0", features = ["serde"] }
 chrono = "0.4.19"
@@ -23,5 +23,4 @@ glob = "0.3.0"
 indexmap = { version = "1.6.1", features = ["serde-1"] }
 num-bigint = { version = "0.3.1", features = ["serde"] }
 tempfile = "3.2.0"
-
-[build-dependencies]
+hamcrest2 = "0.3.0"

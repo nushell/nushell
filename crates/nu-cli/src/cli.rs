@@ -1,12 +1,11 @@
 use crate::line_editor::configure_ctrl_c;
 use nu_command::commands::default_context::create_default_context;
-#[allow(unused_imports)]
-use nu_command::maybe_print_errors;
-use nu_engine::run_block;
-use nu_engine::EvaluationContext;
+use nu_engine::{
+    print::maybe_print_errors, run_block, script::run_script_standalone, EvaluationContext,
+};
 
 #[allow(unused_imports)]
-pub(crate) use nu_command::script::{process_script, LineResult};
+pub(crate) use nu_engine::script::{process_script, LineResult};
 
 #[cfg(feature = "rustyline-support")]
 use crate::line_editor::{
@@ -16,12 +15,12 @@ use crate::line_editor::{
 
 #[allow(unused_imports)]
 use nu_data::config;
-use nu_source::{Tag, Text};
+use nu_data::config::{Conf, NuConfig};
+use nu_source::{AnchorLocation, Tag, Text};
 use nu_stream::InputStream;
+use std::ffi::{OsStr, OsString};
 #[allow(unused_imports)]
 use std::sync::atomic::Ordering;
-
-use nu_command::script::{print_err, run_script_standalone};
 
 #[cfg(feature = "rustyline-support")]
 use rustyline::{self, error::ReadlineError};
@@ -31,9 +30,71 @@ use nu_errors::ShellError;
 use nu_parser::ParserScope;
 use nu_protocol::{hir::ExternalRedirection, UntaggedValue, Value};
 
+use log::trace;
 use std::error::Error;
 use std::iter::Iterator;
 use std::path::PathBuf;
+
+pub struct Options {
+    pub config: Option<OsString>,
+    pub stdin: bool,
+    pub scripts: Vec<NuScript>,
+}
+
+impl Default for Options {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Options {
+    pub fn new() -> Self {
+        Self {
+            config: None,
+            stdin: false,
+            scripts: vec![],
+        }
+    }
+}
+
+pub struct NuScript {
+    pub filepath: Option<OsString>,
+    pub contents: String,
+}
+
+impl NuScript {
+    pub fn code<'a>(content: impl Iterator<Item = &'a str>) -> Result<Self, ShellError> {
+        let text = content
+            .map(|x| x.to_string())
+            .collect::<Vec<String>>()
+            .join("\n");
+
+        Ok(Self {
+            filepath: None,
+            contents: text,
+        })
+    }
+
+    pub fn get_code(&self) -> &str {
+        &self.contents
+    }
+
+    pub fn source_file(path: &OsStr) -> Result<Self, ShellError> {
+        use std::fs::File;
+        use std::io::Read;
+
+        let path = path.to_os_string();
+        let mut file = File::open(&path)?;
+        let mut buffer = String::new();
+
+        file.read_to_string(&mut buffer)?;
+
+        Ok(Self {
+            filepath: Some(path),
+            contents: buffer,
+        })
+    }
+}
 
 pub fn search_paths() -> Vec<std::path::PathBuf> {
     use std::env;
@@ -64,12 +125,9 @@ pub fn search_paths() -> Vec<std::path::PathBuf> {
     search_paths
 }
 
-pub async fn run_script_file(
-    file_contents: String,
-    redirect_stdin: bool,
-) -> Result<(), Box<dyn Error>> {
-    let mut syncer = EnvironmentSyncer::new();
+pub async fn run_script_file(options: Options) -> Result<(), Box<dyn Error>> {
     let mut context = create_default_context(false)?;
+    let mut syncer = create_environment_syncer(&context, &options);
     let config = syncer.get_config();
 
     context.configure(&config, |_, ctx| {
@@ -78,7 +136,7 @@ pub async fn run_script_file(
         syncer.sync_path_vars(ctx);
 
         if let Err(reason) = syncer.autoenv(ctx) {
-            print_err(reason, &Text::from(""));
+            ctx.host.lock().print_err(reason, &Text::from(""));
         }
 
         let _ = register_plugins(ctx);
@@ -87,15 +145,38 @@ pub async fn run_script_file(
 
     let _ = run_startup_commands(&mut context, &config).await;
 
-    run_script_standalone(file_contents, redirect_stdin, &context, true).await?;
+    let script = options
+        .scripts
+        .get(0)
+        .ok_or_else(|| ShellError::unexpected("Nu source code not available"))?;
+
+    run_script_standalone(script.get_code().to_string(), options.stdin, &context, true).await?;
 
     Ok(())
 }
 
-/// The entry point for the CLI. Will register all known internal commands, load experimental commands, load plugins, then prepare the prompt and line reader for input.
+fn create_environment_syncer(context: &EvaluationContext, options: &Options) -> EnvironmentSyncer {
+    if let Some(config_file) = &options.config {
+        let location = Some(AnchorLocation::File(
+            config_file.to_string_lossy().to_string(),
+        ));
+        let tag = Tag::unknown().anchored(location);
+
+        context.scope.add_var(
+            "config-path",
+            UntaggedValue::filepath(PathBuf::from(&config_file)).into_value(tag),
+        );
+
+        EnvironmentSyncer::with_config(Box::new(NuConfig::with(Some(config_file.into()))))
+    } else {
+        EnvironmentSyncer::new()
+    }
+}
+
 #[cfg(feature = "rustyline-support")]
-pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
-    let mut syncer = EnvironmentSyncer::new();
+pub async fn cli(mut context: EvaluationContext, options: Options) -> Result<(), Box<dyn Error>> {
+    let mut syncer = create_environment_syncer(&context, &options);
+
     let configuration = syncer.get_config();
 
     let mut rl = default_rustyline_editor_configuration();
@@ -106,7 +187,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
         syncer.sync_path_vars(ctx);
 
         if let Err(reason) = syncer.autoenv(ctx) {
-            print_err(reason, &Text::from(""));
+            ctx.host.lock().print_err(reason, &Text::from(""));
         }
 
         let _ = configure_ctrl_c(ctx);
@@ -116,10 +197,25 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
         rl.set_helper(helper);
     });
 
+    // start time for command duration
+    let startup_commands_start_time = std::time::Instant::now();
+    // run the startup commands
     let _ = run_startup_commands(&mut context, &configuration).await;
+    // Store cmd duration in an env var
+    context.scope.add_env_var(
+        "CMD_DURATION",
+        format!("{:?}", startup_commands_start_time.elapsed()),
+    );
+    trace!(
+        "startup commands took {:?}",
+        startup_commands_start_time.elapsed()
+    );
 
     // Give ourselves a scope to work in
     context.scope.enter_scope();
+
+    let env = context.get_env();
+    context.scope.add_env_to_base(env);
 
     let history_path = nu_engine::history_path(&configuration);
     let _ = rl.load_history(&history_path);
@@ -140,7 +236,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
 
     #[cfg(windows)]
     {
-        let _ = ansi_term::enable_ansi_support();
+        let _ = nu_ansi_term::enable_ansi_support();
     }
 
     let mut ctrlcbreak = false;
@@ -186,14 +282,14 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
                                 }
                             }
                             Err(e) => {
-                                crate::cli::print_err(e, &Text::from(prompt_line));
+                                context.host.lock().print_err(e, &Text::from(prompt_line));
                                 context.clear_errors();
 
                                 "> ".to_string()
                             }
                         },
                         Err(e) => {
-                            crate::cli::print_err(e, &Text::from(prompt_line));
+                            context.host.lock().print_err(e, &Text::from(prompt_line));
                             context.clear_errors();
 
                             "> ".to_string()
@@ -227,6 +323,9 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
             session_text.push('\n');
         }
 
+        // start time for command duration
+        let cmd_start_time = std::time::Instant::now();
+
         let line = match convert_rustyline_result_to_string(readline) {
             LineResult::Success(_) => {
                 process_script(
@@ -241,6 +340,11 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
             x => x,
         };
 
+        // Store cmd duration in an env var
+        context
+            .scope
+            .add_env_var("CMD_DURATION", format!("{:?}", cmd_start_time.elapsed()));
+
         // Check the config to see if we need to update the path
         // TODO: make sure config is cached so we don't path this load every call
         // FIXME: we probably want to be a bit more graceful if we can't set the environment
@@ -253,7 +357,7 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
             }
 
             if let Err(reason) = syncer.autoenv(ctx) {
-                print_err(reason, &Text::from(""));
+                ctx.host.lock().print_err(reason, &Text::from(""));
             }
 
             let _ = configure_rustyline_editor(&mut rl, config);
@@ -275,9 +379,10 @@ pub async fn cli(mut context: EvaluationContext) -> Result<(), Box<dyn Error>> {
                 rl.add_history_entry(&line);
                 let _ = rl.save_history(&history_path);
 
-                context.with_host(|_host| {
-                    print_err(err, &Text::from(session_text.clone()));
-                });
+                context
+                    .host
+                    .lock()
+                    .print_err(err, &Text::from(session_text.clone()));
 
                 maybe_print_errors(&context, Text::from(session_text.clone()));
             }

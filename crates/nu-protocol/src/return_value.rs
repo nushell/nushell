@@ -9,7 +9,7 @@ pub enum CommandAction {
     /// Change to a new directory or path (in non-filesystem situations)
     ChangePath(String),
     /// Exit out of Nu
-    Exit,
+    Exit(i32),
     /// Display an error
     Error(ShellError),
     /// Enter a new shell at the given path
@@ -27,7 +27,7 @@ pub enum CommandAction {
     /// Go to the next shell in the shell ring buffer
     NextShell,
     /// Leave the current shell. If it's the last shell, exit out of Nu
-    LeaveShell,
+    LeaveShell(i32),
 }
 
 impl PrettyDebug for CommandAction {
@@ -37,7 +37,7 @@ impl PrettyDebug for CommandAction {
             CommandAction::ChangePath(path) => {
                 DbgDocBldr::typed("change path", DbgDocBldr::description(path))
             }
-            CommandAction::Exit => DbgDocBldr::description("exit"),
+            CommandAction::Exit(_) => DbgDocBldr::description("exit"),
             CommandAction::Error(_) => DbgDocBldr::error("error"),
             CommandAction::AutoConvert(_, extension) => {
                 DbgDocBldr::typed("auto convert", DbgDocBldr::description(extension))
@@ -50,7 +50,7 @@ impl PrettyDebug for CommandAction {
             CommandAction::AddPlugins(..) => DbgDocBldr::description("add plugins"),
             CommandAction::PreviousShell => DbgDocBldr::description("previous shell"),
             CommandAction::NextShell => DbgDocBldr::description("next shell"),
-            CommandAction::LeaveShell => DbgDocBldr::description("leave shell"),
+            CommandAction::LeaveShell(_) => DbgDocBldr::description("leave shell"),
         }
     }
 }

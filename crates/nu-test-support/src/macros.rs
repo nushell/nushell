@@ -71,7 +71,7 @@ macro_rules! nu {
 
             println!("=== stderr\n{}", err);
 
-        $crate::macros::Outcome::new(out,err.into_owned())
+        $crate::Outcome::new(out,err.into_owned())
     }};
 }
 
@@ -147,19 +147,8 @@ macro_rules! nu_with_plugins {
 
             println!("=== stderr\n{}", err);
 
-        $crate::macros::Outcome::new(out,err.into_owned())
+        $crate::Outcome::new(out,err.into_owned())
     }};
-}
-
-pub struct Outcome {
-    pub out: String,
-    pub err: String,
-}
-
-impl Outcome {
-    pub fn new(out: String, err: String) -> Outcome {
-        Outcome { out, err }
-    }
 }
 
 pub fn read_std(std: &[u8]) -> String {

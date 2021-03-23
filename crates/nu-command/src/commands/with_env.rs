@@ -35,7 +35,7 @@ impl WholeStreamCommand for WithEnv {
     }
 
     fn usage(&self) -> &str {
-        "Runs a block with an environment set. Eg) with-env [NAME 'foo'] { echo $nu.env.NAME }"
+        "Runs a block with an environment variable set."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -80,6 +80,7 @@ async fn with_env(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     ) = raw_args.process().await?;
 
     block.block.set_redirect(redirection);
+
     let mut env = IndexMap::new();
 
     match &variable.value {

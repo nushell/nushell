@@ -122,6 +122,17 @@ mod it_evaluation {
     }
 
     #[test]
+    fn can_properly_buffer_lines_externally() {
+        let actual = nu!(
+            cwd: ".",
+            r#"
+                nu --testbin repeater c 8197 | lines | length
+            "#
+        );
+
+        assert_eq!(actual.out, "1");
+    }
+    #[test]
     fn supports_fetching_given_a_column_path_to_it() {
         Playground::setup("it_argument_test_3", |dirs, sandbox| {
             sandbox.with_files(vec![FileWithContent(
@@ -154,7 +165,7 @@ mod stdin_evaluation {
             cwd: ".",
             pipeline(r#"
                 nu --testbin nonu "where's the nuline?"
-                | count
+                | length
             "#
         ));
 

@@ -1,13 +1,15 @@
 use indexmap::IndexMap;
+use nu_errors::ShellError;
+use nu_source::Text;
 use std::ffi::OsString;
 use std::fmt::Debug;
 
-pub trait Host: Debug + Send {
-    fn out_termcolor(&self) -> termcolor::StandardStream;
-    fn err_termcolor(&self) -> termcolor::StandardStream;
+use super::basic_host::BasicHost;
 
+pub trait Host: Debug + Send {
     fn stdout(&mut self, out: &str);
     fn stderr(&mut self, out: &str);
+    fn print_err(&mut self, err: ShellError, source: &Text);
 
     fn vars(&mut self) -> Vec<(String, String)>;
     fn env_get(&mut self, key: OsString) -> Option<OsString>;
@@ -15,6 +17,9 @@ pub trait Host: Debug + Send {
     fn env_rm(&mut self, k: OsString);
 
     fn width(&self) -> usize;
+    fn height(&self) -> usize;
+
+    fn is_external_cmd(&self, cmd_name: &str) -> bool;
 }
 
 impl Host for Box<dyn Host> {
@@ -24,6 +29,10 @@ impl Host for Box<dyn Host> {
 
     fn stderr(&mut self, out: &str) {
         (**self).stderr(out)
+    }
+
+    fn print_err(&mut self, err: ShellError, source: &Text) {
+        (**self).print_err(err, source)
     }
 
     fn vars(&mut self) -> Vec<(String, String)> {
@@ -42,16 +51,16 @@ impl Host for Box<dyn Host> {
         (**self).env_rm(key)
     }
 
-    fn out_termcolor(&self) -> termcolor::StandardStream {
-        (**self).out_termcolor()
-    }
-
-    fn err_termcolor(&self) -> termcolor::StandardStream {
-        (**self).err_termcolor()
-    }
-
     fn width(&self) -> usize {
         (**self).width()
+    }
+
+    fn height(&self) -> usize {
+        (**self).height()
+    }
+
+    fn is_external_cmd(&self, name: &str) -> bool {
+        (**self).is_external_cmd(name)
     }
 }
 
@@ -85,6 +94,10 @@ impl Host for FakeHost {
         self.line_written = out.to_string();
     }
 
+    fn print_err(&mut self, err: ShellError, source: &Text) {
+        BasicHost {}.print_err(err, source);
+    }
+
     fn vars(&mut self) -> Vec<(String, String)> {
         self.env_vars
             .iter()
@@ -113,15 +126,15 @@ impl Host for FakeHost {
             .shift_remove(&key.into_string().expect("Couldn't convert to string."));
     }
 
-    fn out_termcolor(&self) -> termcolor::StandardStream {
-        termcolor::StandardStream::stdout(termcolor::ColorChoice::Auto)
-    }
-
-    fn err_termcolor(&self) -> termcolor::StandardStream {
-        termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto)
-    }
-
     fn width(&self) -> usize {
         1
+    }
+
+    fn height(&self) -> usize {
+        1
+    }
+
+    fn is_external_cmd(&self, _: &str) -> bool {
+        true
     }
 }

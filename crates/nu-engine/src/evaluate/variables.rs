@@ -1,10 +1,11 @@
+use crate::evaluate::scope::Scope;
 use crate::history_path::history_path;
-use indexmap::IndexMap;
 use nu_errors::ShellError;
-use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
+use nu_protocol::{Primitive, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::Tag;
 
-pub fn nu(env: &IndexMap<String, String>, tag: impl Into<Tag>) -> Result<Value, ShellError> {
+pub fn nu(scope: &Scope, tag: impl Into<Tag>) -> Result<Value, ShellError> {
+    let env = &scope.get_env_vars();
     let tag = tag.into();
 
     let mut nu_dict = TaggedDictBuilder::new(&tag);
@@ -17,14 +18,23 @@ pub fn nu(env: &IndexMap<String, String>, tag: impl Into<Tag>) -> Result<Value, 
     }
     nu_dict.insert_value("env", dict.into_value());
 
-    let config = nu_data::config::read(&tag, &None)?;
+    let config_file = match scope.get_var("config-path") {
+        Some(Value {
+            value: UntaggedValue::Primitive(Primitive::FilePath(path)),
+            ..
+        }) => Some(path),
+        _ => None,
+    };
+
+    let config = nu_data::config::read(&tag, &config_file)?;
     nu_dict.insert_value("config", UntaggedValue::row(config).into_value(&tag));
 
     let mut table = vec![];
-    let path = std::env::var_os("PATH");
-    if let Some(paths) = path {
-        for path in std::env::split_paths(&paths) {
-            table.push(UntaggedValue::filepath(path).into_value(&tag));
+    for v in env.iter() {
+        if v.0 == "PATH" || v.0 == "Path" {
+            for path in std::env::split_paths(&v.1) {
+                table.push(UntaggedValue::filepath(path).into_value(&tag));
+            }
         }
     }
     nu_dict.insert_value("path", UntaggedValue::table(&table).into_value(&tag));
@@ -39,7 +49,12 @@ pub fn nu(env: &IndexMap<String, String>, tag: impl Into<Tag>) -> Result<Value, 
     let temp = std::env::temp_dir();
     nu_dict.insert_value("temp-dir", UntaggedValue::filepath(temp).into_value(&tag));
 
-    let config = nu_data::config::default_path()?;
+    let config = if let Some(path) = config_file {
+        path
+    } else {
+        nu_data::config::default_path()?
+    };
+
     nu_dict.insert_value(
         "config-path",
         UntaggedValue::filepath(config).into_value(&tag),

@@ -42,9 +42,9 @@ fn lines_multi_value_split() {
             open sample-simple.json
             | get first second
             | lines
-            | count
+            | length
         "#
     ));
 
-    assert_eq!(actual.out, "6");
+    assert_eq!(actual.out, "5");
 }

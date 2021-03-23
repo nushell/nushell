@@ -1,5 +1,5 @@
 use nu_test_support::fs::Stub::EmptyFile;
-use nu_test_support::playground::{Dirs, Playground};
+use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 
 #[test]
@@ -15,7 +15,7 @@ fn lists_regular_files() {
             cwd: dirs.test(), pipeline(
             r#"
                 ls
-                | count
+                | length
             "#
         ));
 
@@ -37,7 +37,7 @@ fn lists_regular_files_using_asterisk_wildcard() {
             cwd: dirs.test(), pipeline(
             r#"
                 ls *.txt
-                | count
+                | length
             "#
         ));
 
@@ -59,7 +59,7 @@ fn lists_regular_files_using_question_mark_wildcard() {
             cwd: dirs.test(), pipeline(
             r#"
                 ls *.??.txt
-                | count
+                | length
             "#
         ));
 
@@ -88,7 +88,7 @@ fn lists_all_files_in_directories_from_stream() {
             r#"
                 echo dir_a dir_b
                 | each { ls $it }
-                | count
+                | length
             "#
         ));
 
@@ -105,7 +105,7 @@ fn does_not_fail_if_glob_matches_empty_directory() {
             cwd: dirs.test(), pipeline(
             r#"
                 ls dir_a
-                | count
+                | length
             "#
         ));
 
@@ -142,7 +142,7 @@ fn list_files_from_two_parents_up_using_multiple_dots() {
         let actual = nu!(
             cwd: dirs.test().join("foo/bar"),
             r#"
-                ls ... | count
+                ls ... | length
             "#
         );
 
@@ -165,7 +165,7 @@ fn lists_hidden_file_when_explicitly_specified() {
             cwd: dirs.test(), pipeline(
             r#"
                 ls .testdotfile
-                | count
+                | length
             "#
         ));
 
@@ -199,7 +199,7 @@ fn lists_all_hidden_files_when_glob_contains_dot() {
             cwd: dirs.test(), pipeline(
             r#"
                 ls **/.*
-                | count
+                | length
             "#
         ));
 
@@ -236,7 +236,7 @@ fn lists_all_hidden_files_when_glob_does_not_contain_dot() {
             cwd: dirs.test(), pipeline(
             r#"
                 ls **/*
-                | count
+                | length
             "#
         ));
 
@@ -259,7 +259,7 @@ fn lists_files_including_starting_with_dot() {
             cwd: dirs.test(), pipeline(
             r#"
                 ls -a
-                | count
+                | length
             "#
         ));
 
@@ -269,61 +269,57 @@ fn lists_files_including_starting_with_dot() {
 
 #[test]
 fn list_all_columns() {
-    Playground::setup(
-        "ls_test_all_columns",
-        |dirs: Dirs, sandbox: &mut Playground| {
-            sandbox.with_files(vec![
-                EmptyFile("Leonardo.yaml"),
-                EmptyFile("Raphael.json"),
-                EmptyFile("Donatello.xml"),
-                EmptyFile("Michelangelo.txt"),
-            ]);
-            // Normal Operation
-            let actual = nu!(
-                cwd: dirs.test(),
-                "ls | get | to md"
-            );
-            let expected = ["name", "type", "size", "modified"].join("");
-            assert_eq!(actual.out, expected, "column names are incorrect for ls");
-            // Long
-            let actual = nu!(
-                cwd: dirs.test(),
-                "ls -l | get | to md"
-            );
-            let expected = {
-                #[cfg(unix)]
-                {
-                    [
-                        "name",
-                        "type",
-                        "target",
-                        "num_links",
-                        "inode",
-                        "readonly",
-                        "mode",
-                        "uid",
-                        "group",
-                        "size",
-                        "created",
-                        "accessed",
-                        "modified",
-                    ]
-                    .join("")
-                }
+    Playground::setup("ls_test_all_columns", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("Leonardo.yaml"),
+            EmptyFile("Raphael.json"),
+            EmptyFile("Donatello.xml"),
+            EmptyFile("Michelangelo.txt"),
+        ]);
+        // Normal Operation
+        let actual = nu!(
+            cwd: dirs.test(),
+            "ls | get | to md"
+        );
+        let expected = ["name", "type", "size", "modified"].join("");
+        assert_eq!(actual.out, expected, "column names are incorrect for ls");
+        // Long
+        let actual = nu!(
+            cwd: dirs.test(),
+            "ls -l | get | to md"
+        );
+        let expected = {
+            #[cfg(unix)]
+            {
+                [
+                    "name",
+                    "type",
+                    "target",
+                    "num_links",
+                    "inode",
+                    "readonly",
+                    "mode",
+                    "uid",
+                    "group",
+                    "size",
+                    "created",
+                    "accessed",
+                    "modified",
+                ]
+                .join("")
+            }
 
-                #[cfg(windows)]
-                {
-                    [
-                        "name", "type", "target", "readonly", "size", "created", "accessed",
-                        "modified",
-                    ]
-                    .join("")
-                }
-            };
-            assert_eq!(
-                actual.out, expected,
-                "column names are incorrect for ls long"
-            );
-        },
-    );
+            #[cfg(windows)]
+            {
+                [
+                    "name", "type", "target", "readonly", "size", "created", "accessed", "modified",
+                ]
+                .join("")
+            }
+        };
+        assert_eq!(
+            actual.out, expected,
+            "column names are incorrect for ls long"
+        );
+    });
 }

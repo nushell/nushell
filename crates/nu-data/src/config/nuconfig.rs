@@ -47,11 +47,13 @@ impl Conf for NuConfig {
 }
 
 impl NuConfig {
-    pub fn with(config_file: Option<std::path::PathBuf>) -> NuConfig {
+    pub fn with(config_file: Option<std::ffi::OsString>) -> NuConfig {
         match &config_file {
             None => NuConfig::new(),
             Some(_) => {
-                let vars = if let Ok(variables) = read(Tag::unknown(), &config_file) {
+                let source_file = config_file.map(std::path::PathBuf::from);
+
+                let vars = if let Ok(variables) = read(Tag::unknown(), &source_file) {
                     variables
                 } else {
                     IndexMap::default()
@@ -59,7 +61,7 @@ impl NuConfig {
 
                 NuConfig {
                     vars,
-                    modified_at: NuConfig::get_last_modified(&config_file),
+                    modified_at: NuConfig::get_last_modified(&source_file),
                 }
             }
         }
@@ -124,6 +126,10 @@ impl NuConfig {
         let vars = &self.vars;
 
         if let Some(env_vars) = vars.get("path") {
+            return Some(env_vars.clone());
+        }
+
+        if let Some(env_vars) = vars.get("PATH") {
             return Some(env_vars.clone());
         }
 

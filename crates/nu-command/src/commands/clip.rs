@@ -19,7 +19,7 @@ impl WholeStreamCommand for Clip {
     }
 
     fn usage(&self) -> &str {
-        "Copy the contents of the pipeline to the copy/paste buffer"
+        "Copy the contents of the pipeline to the copy/paste buffer."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

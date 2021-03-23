@@ -4,13 +4,12 @@ description = "CLI for nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-data"
-version = "0.27.0"
+version = "0.28.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-ansi_term = "0.12.1"
 bigdecimal = "0.2.0"
 byte-unit = "4.0.9"
 
@@ -24,17 +23,17 @@ log = "0.4.14"
 num-bigint = { version = "0.3.1", features = ["serde"] }
 num-format = "0.4.0"
 num-traits = "0.2.14"
-parking_lot = "0.11.1"
 query_interface = "0.3.5"
 serde = { version = "1.0.123", features = ["derive"] }
 toml = "0.5.8"
 
-nu-errors = { version = "0.27.0", path = "../nu-errors" }
-nu-protocol = { version = "0.27.0", path = "../nu-protocol" }
-nu-source = { version = "0.27.0", path = "../nu-source" }
-nu-table = { version = "0.27.0", path = "../nu-table" }
-nu-test-support = { version = "0.27.0", path = "../nu-test-support" }
-nu-value-ext = { version = "0.27.0", path = "../nu-value-ext" }
+nu-errors = { version = "0.28.0", path = "../nu-errors" }
+nu-protocol = { version = "0.28.0", path = "../nu-protocol" }
+nu-source = { version = "0.28.0", path = "../nu-source" }
+nu-table = { version = "0.28.0", path = "../nu-table" }
+nu-test-support = { version = "0.28.0", path = "../nu-test-support" }
+nu-value-ext = { version = "0.28.0", path = "../nu-value-ext" }
+nu-ansi-term = { version = "0.28.0", path = "../nu-ansi-term" }
 
 [target.'cfg(unix)'.dependencies]
 users = "0.11.0"

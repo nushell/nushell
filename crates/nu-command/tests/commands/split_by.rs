@@ -22,7 +22,7 @@ fn splits() {
                 | group-by rusty_at
                 | split-by type
                 | get A."10/11/2013"
-                | count
+                | length
             "#
         ));
 

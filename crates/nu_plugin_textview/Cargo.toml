@@ -4,19 +4,19 @@ description = "Text viewer plugin for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu_plugin_textview"
-version = "0.27.0"
+version = "0.28.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-data = { path = "../nu-data", version = "0.27.0" }
-nu-errors = { path = "../nu-errors", version = "0.27.0" }
-nu-plugin = { path = "../nu-plugin", version = "0.27.0" }
-nu-protocol = { path = "../nu-protocol", version = "0.27.0" }
-nu-source = { path = "../nu-source", version = "0.27.0" }
+nu-data = { path = "../nu-data", version = "0.28.0" }
+nu-errors = { path = "../nu-errors", version = "0.28.0" }
+nu-plugin = { path = "../nu-plugin", version = "0.28.0" }
+nu-protocol = { path = "../nu-protocol", version = "0.28.0" }
+nu-source = { path = "../nu-source", version = "0.28.0" }
+nu-ansi-term = { version = "0.28.0", path = "../nu-ansi-term" }
 
-ansi_term = "0.12.1"
 bat = { version = "0.17.1", features = ["regex-fancy", "paging"] }
 term_size = "0.3.2"
 url = "2.2.0"

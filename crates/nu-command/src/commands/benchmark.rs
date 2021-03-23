@@ -45,7 +45,7 @@ impl WholeStreamCommand for Benchmark {
     }
 
     fn usage(&self) -> &str {
-        "Runs a block and returns the time it took to execute it"
+        "Runs a block and returns the time it took to execute it."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

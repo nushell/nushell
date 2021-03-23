@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue};
+use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 
 pub struct SubCommand;
 
@@ -33,9 +33,18 @@ impl WholeStreamCommand for SubCommand {
 }
 
 pub async fn path(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let path = config::default_path()?;
-
     Ok(OutputStream::one(ReturnSuccess::value(
-        UntaggedValue::Primitive(Primitive::FilePath(path)).into_value(args.call_info.name_tag),
+        match args.scope.get_var("config-path") {
+            Some(
+                path
+                @
+                Value {
+                    value: UntaggedValue::Primitive(Primitive::FilePath(_)),
+                    ..
+                },
+            ) => path,
+            _ => UntaggedValue::Primitive(Primitive::FilePath(nu_data::config::default_path()?))
+                .into_value(args.call_info.name_tag),
+        },
     )))
 }

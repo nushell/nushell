@@ -9,6 +9,7 @@ pub struct Char;
 #[derive(Deserialize)]
 struct CharArgs {
     name: Tagged<String>,
+    rest: Vec<Tagged<String>>,
     unicode: bool,
 }
 
@@ -25,11 +26,12 @@ impl WholeStreamCommand for Char {
                 SyntaxShape::Any,
                 "the name of the character to output",
             )
+            .rest(SyntaxShape::String, "multiple unicode bytes")
             .switch("unicode", "unicode string i.e. 1f378", Some('u'))
     }
 
     fn usage(&self) -> &str {
-        "Output special characters (eg. 'newline')"
+        "Output special characters (eg. 'newline')."
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -53,24 +55,60 @@ impl WholeStreamCommand for Char {
                 example: r#"char -u 1f378"#,
                 result: Some(vec![Value::from("\u{1f378}")]),
             },
+            Example {
+                description: "Output multi-byte unicode character",
+                example: r#"char -u 1F468 200D 1F466 200D 1F466"#,
+                result: Some(vec![Value::from(
+                    "\u{1F468}\u{200D}\u{1F466}\u{200D}\u{1F466}",
+                )]),
+            },
         ]
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let (CharArgs { name, unicode }, _) = args.process().await?;
+        let (
+            CharArgs {
+                name,
+                rest,
+                unicode,
+            },
+            _,
+        ) = args.process().await?;
 
         if unicode {
-            let decoded_char = string_to_unicode_char(&name.item);
-            if let Some(output) = decoded_char {
+            if !rest.is_empty() {
+                // Setup a new buffer to put all the unicode bytes in
+                let mut multi_byte = String::new();
+                // Get the first byte
+                let decoded_char = string_to_unicode_char(&name.item, &name.tag);
+                match decoded_char {
+                    Ok(ch) => multi_byte.push(ch),
+                    Err(e) => return Err(e),
+                }
+                // Get the rest of the bytes
+                for byte_part in rest {
+                    let decoded_char = string_to_unicode_char(&byte_part, &byte_part.tag);
+                    match decoded_char {
+                        Ok(ch) => multi_byte.push(ch),
+                        Err(e) => return Err(e),
+                    }
+                }
                 Ok(OutputStream::one(ReturnSuccess::value(
-                    UntaggedValue::string(output).into_value(name.tag()),
+                    UntaggedValue::string(multi_byte).into_value(name.tag),
                 )))
             } else {
-                Err(ShellError::labeled_error(
-                    "error decoding unicode character",
-                    "error decoding unicode character",
-                    name.tag(),
-                ))
+                let decoded_char = string_to_unicode_char(&name.item, &name.tag);
+                if let Ok(ch) = decoded_char {
+                    Ok(OutputStream::one(ReturnSuccess::value(
+                        UntaggedValue::string(ch).into_value(name.tag()),
+                    )))
+                } else {
+                    Err(ShellError::labeled_error(
+                        "error decoding unicode character",
+                        "error decoding unicode character",
+                        name.tag(),
+                    ))
+                }
             }
         } else {
             let special_character = str_to_character(&name.item);
@@ -89,10 +127,20 @@ impl WholeStreamCommand for Char {
     }
 }
 
-fn string_to_unicode_char(s: &str) -> Option<char> {
-    u32::from_str_radix(s, 16)
+fn string_to_unicode_char(s: &str, t: &Tag) -> Result<char, ShellError> {
+    let decoded_char = u32::from_str_radix(s, 16)
         .ok()
-        .and_then(std::char::from_u32)
+        .and_then(std::char::from_u32);
+
+    if let Some(ch) = decoded_char {
+        Ok(ch)
+    } else {
+        Err(ShellError::labeled_error(
+            "error decoding unicode character",
+            "error decoding unicode character",
+            t,
+        ))
+    }
 }
 
 fn str_to_character(s: &str) -> Option<String> {
@@ -129,6 +177,9 @@ fn str_to_character(s: &str) -> Option<String> {
         "mist" | "haze" => Some("\u{2591}".to_string()),
         "snowy" | "snow" => Some("❄️".to_string()),
         "thunderstorm" | "thunder" => Some("🌩️".to_string()),
+
+        "bel" => Some('\x07'.to_string()),       // Terminal Bell
+        "backspace" => Some('\x08'.to_string()), // Backspace
 
         _ => None,
     }

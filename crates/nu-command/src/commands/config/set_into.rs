@@ -1,13 +1,13 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct SubCommand;
 
 #[derive(Deserialize)]
-pub struct SetIntoArgs {
+pub struct Arguments {
     set_into: Tagged<String>,
 }
 
@@ -43,17 +43,19 @@ impl WholeStreamCommand for SubCommand {
 }
 
 pub async fn set_into(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let name_span = args.call_info.name_tag.clone();
     let name = args.call_info.name_tag.clone();
+    let scope = args.scope.clone();
+    let (Arguments { set_into: v }, input) = args.process().await?;
 
-    let (SetIntoArgs { set_into: v }, input) = args.process().await?;
+    let path = match scope.get_var("config-path") {
+        Some(Value {
+            value: UntaggedValue::Primitive(Primitive::FilePath(path)),
+            ..
+        }) => Some(path),
+        _ => nu_data::config::default_path().ok(),
+    };
 
-    // NOTE: None because we are not loading a new config file, we just want to read from the
-    // existing config
-    let mut result = nu_data::config::read(name_span, &None)?;
-
-    // In the original code, this is set to `Some` if the `load flag is set`
-    let configuration = None;
+    let mut result = nu_data::config::read(&name, &path)?;
 
     let rows: Vec<Value> = input.collect().await;
     let key = v.to_string();
@@ -70,7 +72,7 @@ pub async fn set_into(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         result.insert(key, value.clone());
 
-        config::write(&result, &configuration)?;
+        config::write(&result, &path)?;
 
         OutputStream::one(ReturnSuccess::value(
             UntaggedValue::Row(result.into()).into_value(name),
@@ -81,7 +83,7 @@ pub async fn set_into(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         result.insert(key, value);
 
-        config::write(&result, &configuration)?;
+        config::write(&result, &path)?;
 
         OutputStream::one(ReturnSuccess::value(
             UntaggedValue::Row(result.into()).into_value(name),

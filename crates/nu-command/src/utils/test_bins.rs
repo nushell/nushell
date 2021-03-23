@@ -17,6 +17,21 @@ pub fn nonu() {
     args().iter().skip(1).for_each(|arg| print!("{}", arg));
 }
 
+pub fn repeater() {
+    let mut stdout = io::stdout();
+    let args = args();
+    let mut args = args.iter().skip(1);
+    let letter = args.next().expect("needs a character to iterate");
+    let count = args.next().expect("need the number of times to iterate");
+
+    let count: u64 = count.parse().expect("can't convert count to number");
+
+    for _ in 0..count {
+        let _ = write!(stdout, "{}", letter);
+    }
+    let _ = stdout.flush();
+}
+
 pub fn iecho() {
     // println! panics if stdout gets closed, whereas writeln gives us an error
     let mut stdout = io::stdout();

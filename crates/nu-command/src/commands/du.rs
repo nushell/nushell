@@ -68,7 +68,7 @@ impl WholeStreamCommand for Du {
     }
 
     fn usage(&self) -> &str {
-        "Find disk usage sizes of specified items"
+        "Find disk usage sizes of specified items."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

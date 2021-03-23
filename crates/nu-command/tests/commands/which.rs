@@ -44,11 +44,11 @@ fn correct_precedence_alias_def_custom() {
 fn multiple_reports_for_alias_def_custom() {
     let actual = nu!(
         cwd: ".",
-        "def ls [] {echo def}; alias ls = echo alias; which -a ls | count"
+        "def ls [] {echo def}; alias ls = echo alias; which -a ls | length"
     );
 
-    let count: i32 = actual.out.parse().unwrap();
-    assert!(count >= 3);
+    let length: i32 = actual.out.parse().unwrap();
+    assert!(length >= 3);
 }
 
 // `get_aliases_with_name` and `get_custom_commands_with_name` don't return the correct count of
@@ -61,11 +61,11 @@ fn multiple_reports_for_alias_def_custom() {
 fn multiple_reports_of_multiple_alias() {
     let actual = nu!(
         cwd: ".",
-        "alias xaz = echo alias1; def helper [] {alias xaz = echo alias2; which -a xaz}; helper | count"
+        "alias xaz = echo alias1; def helper [] {alias xaz = echo alias2; which -a xaz}; helper | length"
     );
 
-    let count: i32 = actual.out.parse().unwrap();
-    assert_eq!(count, 2);
+    let length: i32 = actual.out.parse().unwrap();
+    assert_eq!(length, 2);
 }
 
 #[ignore]
@@ -73,11 +73,11 @@ fn multiple_reports_of_multiple_alias() {
 fn multiple_reports_of_multiple_defs() {
     let actual = nu!(
         cwd: ".",
-        "def xaz [] {echo def1}; def helper [] { def xaz [] { echo def2 }; which -a xaz }; helper | count"
+        "def xaz [] {echo def1}; def helper [] { def xaz [] { echo def2 }; which -a xaz }; helper | length"
     );
 
-    let count: i32 = actual.out.parse().unwrap();
-    assert_eq!(count, 2);
+    let length: i32 = actual.out.parse().unwrap();
+    assert_eq!(length, 2);
 }
 
 //Fails due to ParserScope::add_definition
@@ -88,9 +88,9 @@ fn multiple_reports_of_multiple_defs() {
 fn def_only_seen_once() {
     let actual = nu!(
         cwd: ".",
-        "def xaz [] {echo def1}; which -a xaz | count"
+        "def xaz [] {echo def1}; which -a xaz | length"
     );
-    //count is 2. One custom_command (def) one built in ("wrongly" added)
-    let count: i32 = actual.out.parse().unwrap();
-    assert_eq!(count, 1);
+    //length is 2. One custom_command (def) one built in ("wrongly" added)
+    let length: i32 = actual.out.parse().unwrap();
+    assert_eq!(length, 1);
 }

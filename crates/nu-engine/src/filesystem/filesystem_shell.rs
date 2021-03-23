@@ -609,7 +609,7 @@ impl Shell for FilesystemShell {
                         let result;
                         #[cfg(feature = "trash-support")]
                         {
-                            let rm_always_trash = config::config(Tag::unknown())?
+                            let rm_always_trash = nu_data::config::config(Tag::unknown())?
                                 .get("rm_always_trash")
                                 .map(|val| val.is_true())
                                 .unwrap_or(false);

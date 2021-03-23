@@ -3,6 +3,7 @@ use regex::Regex;
 pub struct Match {
     pub column: String,
     pub regex: Regex,
+    pub invert: bool,
 }
 
 impl Match {
@@ -11,6 +12,7 @@ impl Match {
         Ok(Match {
             column: String::new(),
             regex: Regex::new("")?,
+            invert: false,
         })
     }
 }

@@ -42,8 +42,11 @@ impl WholeStreamCommand for Reduce {
     }
 
     fn usage(&self) -> &str {
-        "Aggregate a list table to a single value using an accumulator block. Block must be
-        (A, A) -> A unless --fold is selected, in which case it may be A, B -> A."
+        "Aggregate a list table to a single value using an accumulator block."
+    }
+
+    fn extra_usage(&self) -> &str {
+        "Block must be (A, A) -> A unless --fold is selected, in which case it may be A, B -> A."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

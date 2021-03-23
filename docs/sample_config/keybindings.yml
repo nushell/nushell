@@ -74,7 +74,7 @@
     Enter:
   binding:
     AcceptLine:
-  
+
 # Next match from history
 - key:
     Down: #Down Arrow Key
@@ -150,7 +150,7 @@
   binding:
     Undo: 1
 
-#     KeyPress::UnknownEscSeq => Cmd::Noop,
+#     KeyEvent::UnknownEscSeq => Cmd::Noop,
 - key:
     UnknownEscSeq:
   binding:
@@ -161,7 +161,7 @@
 ##########################################################
 # /// Unsupported escape sequence (on unix platform)
 # UnknownEscSeq,
-# /// ⌫ or `KeyPress::Ctrl('H')`
+# /// ⌫ or `KeyEvent::Ctrl('H')`
 # Backspace,
 # /// ⇤ (usually Shift-Tab)
 # BackTab,
@@ -187,9 +187,9 @@
 # Down,
 # /// ⇲
 # End,
-# /// ↵ or `KeyPress::Ctrl('M')`
+# /// ↵ or `KeyEvent::Ctrl('M')`
 # Enter,
-# /// Escape or `KeyPress::Ctrl('[')`
+# /// Escape or `KeyEvent::Ctrl('[')`
 # Esc,
 # /// Function key
 # F(u8),
@@ -201,7 +201,7 @@
 # Left,
 # /// Escape-char or Alt-char
 # Meta(char),
-# /// `KeyPress::Char('\0')`
+# /// `KeyEvent::Char('\0')`
 # Null,
 # /// ⇟
 # PageDown,
@@ -217,7 +217,7 @@
 # ShiftRight,
 # /// Shift-↑
 # ShiftUp,
-# /// ⇥ or `KeyPress::Ctrl('I')`
+# /// ⇥ or `KeyEvent::Ctrl('I')`
 # Tab,
 # /// ↑ arrow key
 # Up,
@@ -330,7 +330,7 @@
 # BeforeEnd,
 # /// After end of word.
 # AfterEnd,
-    
+
 ##########################################################
 # Possible options for Anchor
 ##########################################################

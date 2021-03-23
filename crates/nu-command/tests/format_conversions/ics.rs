@@ -48,7 +48,7 @@ fn infers_types() {
             r#"
                 open calendar.ics
                 | get events
-                | count
+                | length
             "#
         ));
 

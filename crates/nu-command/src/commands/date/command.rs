@@ -16,12 +16,12 @@ impl WholeStreamCommand for Command {
     }
 
     fn usage(&self) -> &str {
-        "Apply date function"
+        "Apply date function."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(ReturnSuccess::value(
-            UntaggedValue::string(get_help(&Command, &args.scope)).into_value(Tag::unknown()),
+            UntaggedValue::string(get_full_help(&Command, &args.scope)).into_value(Tag::unknown()),
         )))
     }
 }

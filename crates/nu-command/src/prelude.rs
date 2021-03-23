@@ -46,7 +46,6 @@ macro_rules! trace_out_stream {
     }};
 }
 
-pub(crate) use crate::commands::command::RunnableContext;
 pub(crate) use async_trait::async_trait;
 pub(crate) use bigdecimal::BigDecimal;
 pub(crate) use futures::{Stream, StreamExt};
@@ -58,11 +57,12 @@ pub(crate) use nu_engine::EvaluationContext;
 pub(crate) use nu_engine::Example;
 pub(crate) use nu_engine::Host;
 pub(crate) use nu_engine::RawCommandArgs;
+pub(crate) use nu_engine::RunnableContext;
 pub(crate) use nu_engine::ShellManager;
-pub(crate) use nu_engine::{get_help, CommandArgs, Scope, WholeStreamCommand};
+pub(crate) use nu_engine::{get_full_help, CommandArgs, Scope, WholeStreamCommand};
 pub(crate) use nu_parser::ParserScope;
 pub(crate) use nu_protocol::{out, row};
-pub(crate) use nu_source::{AnchorLocation, PrettyDebug, Span, SpannedItem, Tag, TaggedItem, Text};
+pub(crate) use nu_source::{AnchorLocation, PrettyDebug, Span, SpannedItem, Tag, TaggedItem};
 pub(crate) use nu_stream::ToInputStream;
 pub(crate) use nu_stream::{InputStream, Interruptible, OutputStream};
 pub(crate) use nu_value_ext::ValueExt;
@@ -71,7 +71,7 @@ pub(crate) use num_traits::cast::ToPrimitive;
 pub(crate) use serde::Deserialize;
 pub(crate) use std::collections::VecDeque;
 pub(crate) use std::future::Future;
-pub(crate) use std::sync::atomic::{AtomicBool, Ordering};
+pub(crate) use std::sync::atomic::AtomicBool;
 pub(crate) use std::sync::Arc;
 
 #[allow(clippy::wrong_self_convention)]

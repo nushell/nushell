@@ -1,4 +1,4 @@
-use super::{operate, DefaultArguments};
+use super::{operate, PathSubcommandArguments};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
@@ -10,6 +10,12 @@ pub struct PathExists;
 #[derive(Deserialize)]
 struct PathExistsArguments {
     rest: Vec<ColumnPath>,
+}
+
+impl PathSubcommandArguments for PathExistsArguments {
+    fn get_column_paths(&self) -> &Vec<ColumnPath> {
+        &self.rest
+    }
 }
 
 #[async_trait]
@@ -30,13 +36,7 @@ impl WholeStreamCommand for PathExists {
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let (PathExistsArguments { rest }, input) = args.process().await?;
-        let args = Arc::new(DefaultArguments {
-            replace: None,
-            prefix: None,
-            suffix: None,
-            num_levels: None,
-            paths: rest,
-        });
+        let args = Arc::new(PathExistsArguments { rest });
         operate(input, &action, tag.span, args).await
     }
 
@@ -59,7 +59,7 @@ impl WholeStreamCommand for PathExists {
     }
 }
 
-fn action(path: &Path, _args: Arc<DefaultArguments>) -> UntaggedValue {
+fn action(path: &Path, _args: &PathExistsArguments) -> UntaggedValue {
     UntaggedValue::boolean(path.exists())
 }
 

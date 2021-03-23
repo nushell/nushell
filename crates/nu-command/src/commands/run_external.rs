@@ -143,11 +143,11 @@ async fn maybe_autocd_dir<'a>(
     //   - the command name ends in a path separator, or
     //   - it's not a command on the path and no arguments were given.
     let name = &cmd.name;
-    let path_name = if name.ends_with(std::path::MAIN_SEPARATOR)
+    let path_name = if name.ends_with(std::path::is_separator)
         || (cmd.args.is_empty()
             && PathBuf::from(name).is_dir()
             && dunce::canonicalize(name).is_ok()
-            && !crate::commands::classified::external::did_find_command(&name))
+            && !ctx.host.lock().is_external_cmd(&name))
     {
         Some(name)
     } else {

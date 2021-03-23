@@ -29,7 +29,6 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(ConfigSet),
             whole_stream_command(ConfigSetInto),
             whole_stream_command(ConfigClear),
-            whole_stream_command(ConfigLoad),
             whole_stream_command(ConfigRemove),
             whole_stream_command(ConfigPath),
             whole_stream_command(Help),
@@ -57,7 +56,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Sleep),
             // Statistics
             whole_stream_command(Size),
-            whole_stream_command(Count),
+            whole_stream_command(Length),
             whole_stream_command(Benchmark),
             // Metadata
             whole_stream_command(Tags),
@@ -75,6 +74,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             // Text manipulation
             whole_stream_command(Hash),
             whole_stream_command(HashBase64),
+            whole_stream_command(HashMd5),
             whole_stream_command(Split),
             whole_stream_command(SplitColumn),
             whole_stream_command(SplitRow),
@@ -111,8 +111,10 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(StrScreamingSnakeCase),
             whole_stream_command(BuildString),
             whole_stream_command(Ansi),
+            whole_stream_command(AnsiStrip),
             whole_stream_command(Char),
             // Column manipulation
+            whole_stream_command(DropColumn),
             whole_stream_command(Move),
             whole_stream_command(Reject),
             whole_stream_command(Select),
@@ -161,6 +163,11 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Pivot),
             whole_stream_command(Headers),
             whole_stream_command(Reduce),
+            whole_stream_command(Roll),
+            whole_stream_command(RollColumn),
+            whole_stream_command(RollUp),
+            whole_stream_command(Rotate),
+            whole_stream_command(RotateCounterClockwise),
             // Data processing
             whole_stream_command(Histogram),
             whole_stream_command(Autoenv),
@@ -228,6 +235,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(PathExpand),
             whole_stream_command(PathExtension),
             whole_stream_command(PathFilestem),
+            whole_stream_command(PathJoin),
             whole_stream_command(PathType),
             // Url
             whole_stream_command(UrlCommand),

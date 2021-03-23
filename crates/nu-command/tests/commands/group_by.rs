@@ -21,7 +21,7 @@ fn groups() {
                 open los_tres_caballeros.csv
                 | group-by rusty_at
                 | get "10/11/2013"
-                | count
+                | length
             "#
         ));
 

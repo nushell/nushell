@@ -20,11 +20,9 @@ pub(crate) mod chart;
 pub(crate) mod classified;
 #[cfg(feature = "clipboard-cli")]
 pub(crate) mod clip;
-pub mod command;
 pub(crate) mod compact;
 pub(crate) mod config;
 pub(crate) mod constants;
-pub(crate) mod count;
 pub(crate) mod cp;
 pub(crate) mod date;
 pub(crate) mod debug;
@@ -73,6 +71,7 @@ pub(crate) mod insert;
 pub(crate) mod into_int;
 pub(crate) mod keep;
 pub(crate) mod last;
+pub(crate) mod length;
 pub(crate) mod let_;
 pub(crate) mod let_env;
 pub(crate) mod lines;
@@ -98,6 +97,8 @@ pub(crate) mod reject;
 pub(crate) mod rename;
 pub(crate) mod reverse;
 pub(crate) mod rm;
+pub(crate) mod roll;
+pub(crate) mod rotate;
 pub(crate) mod run_external;
 pub(crate) mod save;
 pub(crate) mod select;
@@ -139,6 +140,7 @@ pub(crate) use autoview::Autoview;
 pub(crate) use cd::Cd;
 
 pub(crate) use ansi::Ansi;
+pub(crate) use ansi::AnsiStrip;
 pub(crate) use append::Command as Append;
 pub(crate) use autoenv::Autoenv;
 pub(crate) use autoenv_trust::AutoenvTrust;
@@ -150,9 +152,8 @@ pub(crate) use char_::Char;
 pub(crate) use chart::Chart;
 pub(crate) use compact::Compact;
 pub(crate) use config::{
-    Config, ConfigClear, ConfigGet, ConfigLoad, ConfigPath, ConfigRemove, ConfigSet, ConfigSetInto,
+    Config, ConfigClear, ConfigGet, ConfigPath, ConfigRemove, ConfigSet, ConfigSetInto,
 };
-pub(crate) use count::Count;
 pub(crate) use cp::Cpy;
 pub(crate) use date::{Date, DateFormat, DateListTimeZone, DateNow, DateToTable, DateToTimeZone};
 pub(crate) use debug::Debug;
@@ -160,7 +161,7 @@ pub(crate) use def::Def;
 pub(crate) use default::Default;
 pub(crate) use describe::Describe;
 pub(crate) use do_::Do;
-pub(crate) use drop::Drop;
+pub(crate) use drop::{Drop, DropColumn};
 pub(crate) use du::Du;
 pub(crate) use each::Each;
 pub(crate) use each::EachGroup;
@@ -201,7 +202,7 @@ pub(crate) use from_yaml::FromYML;
 pub(crate) use get::Command as Get;
 pub(crate) use group_by::Command as GroupBy;
 pub(crate) use group_by_date::GroupByDate;
-pub(crate) use hash_::{Hash, HashBase64};
+pub(crate) use hash_::{Hash, HashBase64, HashMd5};
 pub(crate) use headers::Headers;
 pub(crate) use help::Help;
 pub(crate) use histogram::Histogram;
@@ -210,6 +211,7 @@ pub(crate) use insert::Command as Insert;
 pub(crate) use into_int::IntoInt;
 pub(crate) use keep::{Keep, KeepUntil, KeepWhile};
 pub(crate) use last::Last;
+pub(crate) use length::Length;
 pub(crate) use let_::Let;
 pub(crate) use let_env::LetEnv;
 pub(crate) use lines::Lines;
@@ -227,7 +229,7 @@ pub(crate) use open::Open;
 pub(crate) use parse::Parse;
 pub(crate) use path::{
     PathBasename, PathCommand, PathDirname, PathExists, PathExpand, PathExtension, PathFilestem,
-    PathType,
+    PathJoin, PathType,
 };
 pub(crate) use pivot::Pivot;
 pub(crate) use prepend::Prepend;
@@ -244,6 +246,8 @@ pub(crate) use reject::Reject;
 pub(crate) use rename::Rename;
 pub(crate) use reverse::Reverse;
 pub(crate) use rm::Remove;
+pub(crate) use roll::{Roll, RollColumn, RollUp};
+pub(crate) use rotate::{Rotate, RotateCounterClockwise};
 pub(crate) use run_external::RunExternalCommand;
 pub(crate) use save::Save;
 pub(crate) use select::Command as Select;

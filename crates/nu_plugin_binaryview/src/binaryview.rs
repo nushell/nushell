@@ -63,7 +63,7 @@ impl RenderContext {
                 Some(c) => {
                     print!(
                         "{}",
-                        ansi_term::Colour::RGB(c.0, c.1, c.2)
+                        nu_ansi_term::Color::RGB(c.0, c.1, c.2)
                             .paint((0..prev_count).map(|_| "█").collect::<String>())
                     );
                     prev_color = Some(*pixel);
@@ -80,7 +80,7 @@ impl RenderContext {
             if let Some(color) = prev_color {
                 print!(
                     "{}",
-                    ansi_term::Colour::RGB(color.0, color.1, color.2)
+                    nu_ansi_term::Color::RGB(color.0, color.1, color.2)
                         .paint((0..prev_count).map(|_| "█").collect::<String>())
                 );
             }
@@ -108,8 +108,8 @@ impl RenderContext {
                 (Some(c), Some(d)) => {
                     print!(
                         "{}",
-                        ansi_term::Colour::RGB(c.0, c.1, c.2)
-                            .on(ansi_term::Colour::RGB(d.0, d.1, d.2,))
+                        nu_ansi_term::Color::RGB(c.0, c.1, c.2)
+                            .on(nu_ansi_term::Color::RGB(d.0, d.1, d.2,))
                             .paint((0..prev_count).map(|_| "▀").collect::<String>())
                     );
                     prev_fg = Some(top_pixel);
@@ -131,8 +131,8 @@ impl RenderContext {
             if let (Some(c), Some(d)) = (prev_fg, prev_bg) {
                 print!(
                     "{}",
-                    ansi_term::Colour::RGB(c.0, c.1, c.2)
-                        .on(ansi_term::Colour::RGB(d.0, d.1, d.2,))
+                    nu_ansi_term::Color::RGB(c.0, c.1, c.2)
+                        .on(nu_ansi_term::Color::RGB(d.0, d.1, d.2,))
                         .paint((0..prev_count).map(|_| "▀").collect::<String>())
                 );
             }

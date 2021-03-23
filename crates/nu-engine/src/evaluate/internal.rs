@@ -62,7 +62,7 @@ pub(crate) async fn run_internal_command(
                                 context.shell_manager.set_path(path);
                                 InputStream::empty()
                             }
-                            CommandAction::Exit => std::process::exit(0), // TODO: save history.txt
+                            CommandAction::Exit(code) => std::process::exit(code), // TODO: save history.txt
                             CommandAction::Error(err) => {
                                 context.error(err);
                                 InputStream::empty()
@@ -213,10 +213,10 @@ pub(crate) async fn run_internal_command(
                                 context.shell_manager.next();
                                 InputStream::empty()
                             }
-                            CommandAction::LeaveShell => {
+                            CommandAction::LeaveShell(code) => {
                                 context.shell_manager.remove_at_current();
                                 if context.shell_manager.is_empty() {
-                                    std::process::exit(0); // TODO: save history.txt
+                                    std::process::exit(code); // TODO: save history.txt
                                 }
                                 InputStream::empty()
                             }

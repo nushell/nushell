@@ -45,7 +45,7 @@ impl WholeStreamCommand for Seq {
     }
 
     fn usage(&self) -> &str {
-        "print sequences of numbers"
+        "Print sequences of numbers."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
