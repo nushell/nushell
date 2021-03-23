@@ -1,3 +1,4 @@
+use dirs_next::home_dir;
 use std::io;
 use std::path::{Component, Path, PathBuf};
 
@@ -70,9 +71,9 @@ fn expand_tilde<P: AsRef<Path>>(path_user_input: P) -> Option<PathBuf> {
         return Some(p.to_path_buf());
     }
     if p == Path::new("~") {
-        return dirs_next::home_dir();
+        return home_dir();
     }
-    dirs_next::home_dir().map(|mut h| {
+    home_dir().map(|mut h| {
         if h == Path::new("/") {
             // Corner case: `h` root directory;
             // don't prepend extra `/`, just drop the tilde.
