@@ -1,23 +1,24 @@
 use crate::env::host::Host;
 use crate::evaluate::scope::Scope;
 use crate::shell::shell_manager::ShellManager;
-use crate::whole_stream_command::Command;
-use crate::{call_info::UnevaluatedCallInfo, config_holder::ConfigHolder};
 use crate::{command_args::CommandArgs, script};
+use crate::{config_holder::ConfigHolder, Command};
 use log::trace;
 use nu_data::config::{self, NuConfig};
 use nu_errors::ShellError;
-use nu_protocol::{hir, ConfigPath};
-use nu_source::{Span, Tag};
-use nu_stream::{InputStream, OutputStream};
+use nu_protocol::{ConfigPath, NuScript, RunScriptOptions};
+use nu_source::Span;
 use parking_lot::Mutex;
-use std::sync::atomic::AtomicBool;
-use std::{path::Path, sync::Arc};
+use std::path::PathBuf;
+use std::{
+    path::Path,
+    sync::{atomic::AtomicBool, Arc},
+};
 
 #[derive(Clone)]
 pub struct EvaluationContext {
     pub scope: Scope,
-    pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
+    pub host: Arc<Mutex<Box<dyn Host>>>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub ctrl_c: Arc<AtomicBool>,
     pub configs: Arc<Mutex<ConfigHolder>>,
@@ -87,34 +88,6 @@ impl EvaluationContext {
         self.scope.has_command(name)
     }
 
-    pub(crate) async fn run_command(
-        &self,
-        command: Command,
-        name_tag: Tag,
-        args: hir::Call,
-        input: InputStream,
-    ) -> Result<OutputStream, ShellError> {
-        let command_args = self.command_args(args, input, name_tag);
-        command.run(command_args).await
-    }
-
-    fn call_info(&self, args: hir::Call, name_tag: Tag) -> UnevaluatedCallInfo {
-        UnevaluatedCallInfo { args, name_tag }
-    }
-
-    fn command_args(&self, args: hir::Call, input: InputStream, name_tag: Tag) -> CommandArgs {
-        CommandArgs {
-            host: self.host.clone(),
-            ctrl_c: self.ctrl_c.clone(),
-            configs: self.configs.clone(),
-            current_errors: self.current_errors.clone(),
-            shell_manager: self.shell_manager.clone(),
-            call_info: self.call_info(args, name_tag),
-            scope: self.scope.clone(),
-            input,
-        }
-    }
-
     /// Loads config under cfg_path.
     /// If an error occurs while loading the config:
     ///     The config is not loaded
@@ -127,6 +100,9 @@ impl EvaluationContext {
     // The rational here is that, we should not partially load any config
     // that might be damaged. However, startup scripts might fail for various reasons.
     // A failure there is not as crucial as wrong config files.
+    //
+    // TODO evaluate how users use this func
+    // TODO should error on load be printed out?
     pub async fn load_config(&self, cfg_path: &ConfigPath) -> Result<(), ShellError> {
         trace!("Loading cfg {:?}", cfg_path);
 
@@ -177,17 +153,19 @@ impl EvaluationContext {
             }
         }
 
-        if !startup_scripts.is_empty() {
-            self.run_scripts(startup_scripts, cfg_path.get_path().parent())
-                .await;
+        for script in startup_scripts {
+            script::run_script(
+                NuScript::Content(script),
+                &exit_entry_script_options(&cfg_path),
+                &self,
+            )
+            .await;
         }
 
         Ok(())
     }
 
     /// Runs all exit_scripts before unloading the config with path of cfg_path
-    /// If an error occurs while running exit scripts:
-    ///     The error is added to `self.current_errors`
     /// If no config with path of `cfg_path` is present, this method does nothing
     pub async fn unload_config(&self, cfg_path: &ConfigPath) {
         trace!("UnLoading cfg {:?}", cfg_path);
@@ -196,32 +174,31 @@ impl EvaluationContext {
 
         //Run exitscripts with scope frame and cfg still applied
         if let Some(scripts) = self.scope.get_exitscripts_of_frame_with_tag(&tag) {
-            self.run_scripts(scripts, cfg_path.get_path().parent())
+            for script in scripts {
+                script::run_script(
+                    NuScript::Content(script),
+                    &exit_entry_script_options(&cfg_path),
+                    self,
+                )
                 .await;
+            }
         }
 
         //Unload config
         self.configs.lock().remove_cfg(&cfg_path);
         self.scope.exit_scope_with_tag(&tag);
     }
+}
 
-    /// Runs scripts with cwd of dir. If dir is None, this method does nothing.
-    /// Each error is added to `self.current_errors`
-    pub async fn run_scripts(&self, scripts: Vec<String>, dir: Option<&Path>) {
-        if let Some(dir) = dir {
-            for script in scripts {
-                match script::run_script_in_dir(script.clone(), dir, &self).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        let err = ShellError::untagged_runtime_error(format!(
-                            "Err while executing exitscript. Err was\n{:?}",
-                            e
-                        ));
-                        let text = script.into();
-                        self.host.lock().print_err(err, &text);
-                    }
-                }
-            }
-        }
-    }
+fn exit_entry_script_options(cfg_path: &ConfigPath) -> RunScriptOptions {
+    let root = PathBuf::from("/");
+    RunScriptOptions::default()
+        .with_cwd(
+            cfg_path
+                .get_path()
+                .parent()
+                .map(Path::to_path_buf)
+                .unwrap_or(root),
+        )
+        .exit_on_error(false)
 }

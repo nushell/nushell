@@ -1,44 +1,46 @@
-use crate::call_info::UnevaluatedCallInfo;
 use crate::command_args::RawCommandArgs;
 use crate::evaluation_context::EvaluationContext;
 use crate::filesystem::filesystem_shell::{FilesystemShell, FilesystemShellMode};
 use crate::shell::help_shell::HelpShell;
 use crate::shell::value_shell::ValueShell;
+use crate::{call_info::UnevaluatedCallInfo, CommandArgs};
+use async_recursion::async_recursion;
 use futures::StreamExt;
 use log::{log_enabled, trace};
 use nu_errors::ShellError;
-use nu_protocol::hir::{ExternalRedirection, InternalCommand};
+use nu_protocol::hir::{Call, ExternalRedirection, InternalCommand};
 use nu_protocol::{CommandAction, Primitive, ReturnSuccess, UntaggedValue, Value};
 use nu_source::{PrettyDebug, Span, Tag};
 use nu_stream::{trace_stream, InputStream, ToInputStream};
-use std::sync::Arc;
+use std::sync::{atomic::Ordering, Arc};
 
-pub(crate) async fn run_internal_command(
+#[async_recursion]
+pub async fn run_internal_command(
     command: InternalCommand,
-    context: &EvaluationContext,
     input: InputStream,
+    context: &EvaluationContext,
 ) -> Result<InputStream, ShellError> {
     if log_enabled!(log::Level::Trace) {
         trace!(target: "nu::run::internal", "->");
         trace!(target: "nu::run::internal", "{}", command.name);
     }
 
-    let objects: InputStream = trace_stream!(target: "nu::trace_stream::internal", "input" = input);
+    let input_stream: InputStream =
+        trace_stream!(target: "nu::trace_stream::internal", "input" = input);
 
-    let internal_command = context.scope.expect_command(&command.name);
+    let internal_command = context.scope.expect_command(&command.name)?;
 
-    let result = {
-        context
-            .run_command(
-                internal_command?,
-                Tag::unknown_anchor(command.name_span),
-                command.args.clone(),
-                objects,
-            )
-            .await?
-    };
+    let command_args = CommandArgs::from_context(
+        command.args.clone(),
+        input_stream,
+        Tag::unknown_anchor(command.name_span),
+        context,
+    );
+
+    let result = internal_command.run(command_args).await?;
 
     let head = Arc::new(command.args.head.clone());
+    let ctrl_c = context.ctrl_c.clone();
     let context = context.clone();
     let command = Arc::new(command);
 
@@ -72,7 +74,7 @@ pub(crate) async fn run_internal_command(
                                         current_errors: context.current_errors.clone(),
                                         shell_manager: context.shell_manager.clone(),
                                         call_info: UnevaluatedCallInfo {
-                                            args: nu_protocol::hir::Call {
+                                            args: Call {
                                                 head: (&*head).clone(),
                                                 positional: None,
                                                 named: None,
@@ -175,7 +177,7 @@ pub(crate) async fn run_internal_command(
                                     match FilesystemShell::with_location(location, mode) {
                                         Ok(v) => v,
                                         Err(err) => {
-                                            context.error(err.into());
+                                            context.error(err);
                                             return InputStream::empty();
                                         }
                                     },
@@ -264,6 +266,8 @@ pub(crate) async fn run_internal_command(
                 }
             })
             .flatten()
-            .take_while(|x| futures::future::ready(!x.is_error())),
+            .take_while(move |x| {
+                futures::future::ready(!x.is_error() || ctrl_c.load(Ordering::SeqCst))
+            }),
     ))
 }

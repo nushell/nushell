@@ -6,6 +6,7 @@ extern crate indexmap;
 
 #[macro_use]
 mod prelude;
+mod all_commands;
 pub mod commands;
 mod futures;
 pub mod utils;
@@ -13,6 +14,7 @@ pub mod utils;
 #[cfg(test)]
 mod examples;
 
+pub use self::all_commands::all_cmds;
 pub use nu_data::config;
 pub use nu_data::dict::TaggedListBuilder;
 pub use nu_data::primitive;

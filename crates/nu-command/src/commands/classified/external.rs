@@ -529,12 +529,13 @@ mod tests {
 
     #[cfg(feature = "which")]
     async fn non_existent_run() -> Result<(), ShellError> {
+        use nu_engine::FilesystemShellMode;
         use nu_protocol::hir::ExternalRedirection;
         let cmd = ExternalBuilder::for_name("i_dont_exist.exe").build();
 
         let input = InputStream::empty();
-        let mut ctx =
-            basic_evaluation_context().expect("There was a problem creating a basic context.");
+        let mut ctx = basic_evaluation_context(FilesystemShellMode::Cli)
+            .expect("There was a problem creating a basic context.");
 
         assert!(
             run_external_command(cmd, &mut ctx, input, ExternalRedirection::Stdout)

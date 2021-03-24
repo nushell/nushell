@@ -16,9 +16,13 @@ use nu_protocol::{ShellTypeName, Value};
 use nu_source::AnchorLocation;
 
 use crate::commands::{
-    Append, BuildString, Each, Echo, First, Get, Keep, Last, Let, Nth, Select, StrCollect, Wrap,
+    Append, BuildString, Each, Echo, First, Get, Keep, Last, Length, Let, Nth, Select, StrCollect,
+    Wrap,
 };
-use nu_engine::{run_block, whole_stream_command, Command, EvaluationContext, WholeStreamCommand};
+use nu_engine::{
+    run_block, whole_stream_command, Command, EvaluationContext, FilesystemShellMode,
+    WholeStreamCommand,
+};
 use nu_stream::InputStream;
 
 use futures::executor::block_on;
@@ -26,7 +30,7 @@ use futures::executor::block_on;
 pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
     let examples = cmd.examples();
 
-    let base_context = basic_evaluation_context()?;
+    let base_context = basic_evaluation_context(FilesystemShellMode::Cli)?;
 
     base_context.add_commands(vec![
         // Command Doubles
@@ -45,6 +49,7 @@ pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
         whole_stream_command(Select),
         whole_stream_command(StrCollect),
         whole_stream_command(Wrap),
+        whole_stream_command(Length),
         cmd,
     ]);
 
@@ -92,7 +97,7 @@ pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
 pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
     let examples = cmd.examples();
 
-    let base_context = basic_evaluation_context()?;
+    let base_context = basic_evaluation_context(FilesystemShellMode::Cli)?;
 
     base_context.add_commands(vec![
         whole_stream_command(Echo {}),
@@ -105,6 +110,7 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
         whole_stream_command(Select),
         whole_stream_command(StrCollect),
         whole_stream_command(Wrap),
+        whole_stream_command(Length),
     ]);
 
     for sample_pipeline in examples {
@@ -149,7 +155,7 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
 pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
     let examples = cmd.examples();
 
-    let base_context = basic_evaluation_context()?;
+    let base_context = basic_evaluation_context(FilesystemShellMode::Cli)?;
 
     base_context.add_commands(vec![
         // Minimal restricted commands to aid in testing
@@ -168,6 +174,7 @@ pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
         whole_stream_command(Select),
         whole_stream_command(StrCollect),
         whole_stream_command(Wrap),
+        whole_stream_command(Length),
         cmd,
     ]);
 

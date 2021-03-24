@@ -7,7 +7,7 @@ use crate::{call_info::UnevaluatedCallInfo, config_holder::ConfigHolder};
 use derive_new::new;
 use getset::Getters;
 use nu_errors::ShellError;
-use nu_protocol::EvaluatedArgs;
+use nu_protocol::{hir, EvaluatedArgs};
 use nu_protocol::{CallInfo, Value};
 use nu_source::Tag;
 use nu_stream::InputStream;
@@ -64,6 +64,24 @@ impl std::fmt::Debug for CommandArgs {
 }
 
 impl CommandArgs {
+    pub fn from_context(
+        args: hir::Call,
+        input: InputStream,
+        name_tag: Tag,
+        ctx: &EvaluationContext,
+    ) -> CommandArgs {
+        CommandArgs {
+            host: ctx.host.clone(),
+            ctrl_c: ctx.ctrl_c.clone(),
+            configs: ctx.configs.clone(),
+            current_errors: ctx.current_errors.clone(),
+            shell_manager: ctx.shell_manager.clone(),
+            call_info: UnevaluatedCallInfo { args, name_tag },
+            scope: ctx.scope.clone(),
+            input,
+        }
+    }
+
     pub async fn evaluate_once(self) -> Result<EvaluatedWholeStreamCommandArgs, ShellError> {
         let ctx = EvaluationContext::from_args(&self);
         let host = self.host.clone();

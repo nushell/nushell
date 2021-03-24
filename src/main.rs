@@ -1,12 +1,14 @@
-use clap::{App, Arg};
-use log::LevelFilter;
-use nu_cli::{create_default_context, NuScript, Options};
+mod init;
+
+use clap::{App, Arg, ArgMatches};
+use init::init_from_args;
+use itertools::Itertools;
 use nu_command::utils::test_bins as binaries;
-use std::error::Error;
+use nu_engine::script;
+use nu_protocol::{NuScript, RunScriptOptions};
+use std::{error::Error, path::PathBuf};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut options = Options::new();
-
     let matches = App::new("nushell")
         .version(clap::crate_version!())
         .arg(
@@ -79,6 +81,45 @@ fn main() -> Result<(), Box<dyn Error>> {
         )
         .get_matches();
 
+    if executed_test_bin(&matches) {
+        return Ok(());
+    }
+
+    let ctx = init_from_args(&matches)?;
+
+    // Execute nu according to matches
+    if let Some(values) = matches.values_of("commands") {
+        // Execute commands
+        let commands: String = values.intersperse("\n").collect();
+        let cmds_as_script = NuScript::Content(commands);
+        let options = script_options_from_matches(&matches);
+        futures::executor::block_on(script::run_script(cmds_as_script, &options, &ctx));
+    } else if let Some(filepath) = matches.value_of("script") {
+        // Execute script
+        let script = NuScript::File(PathBuf::from(filepath));
+        let options = script_options_from_matches(&matches);
+        futures::executor::block_on(script::run_script(script, &options, &ctx));
+    } else {
+        // No matches
+        // Go into cli mode
+        #[cfg(feature = "rustyline-support")]
+        {
+            futures::executor::block_on(nu_cli::cli(ctx))?;
+        }
+        #[cfg(not(feature = "rustyline-support"))]
+        {
+            println!("Nushell needs the 'rustyline-support' feature for CLI support");
+        }
+    }
+
+    Ok(())
+}
+
+fn script_options_from_matches(matches: &ArgMatches) -> RunScriptOptions {
+    RunScriptOptions::default().with_stdin(matches.is_present("stdin"))
+}
+
+fn executed_test_bin(matches: &ArgMatches) -> bool {
     if let Some(bin) = matches.value_of("testbin") {
         match bin {
             "echo_env" => binaries::echo_env(),
@@ -90,91 +131,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             "repeater" => binaries::repeater(),
             _ => unreachable!(),
         }
-
-        return Ok(());
+        true
+    } else {
+        false
     }
-
-    options.config = matches
-        .value_of("config-file")
-        .map(std::ffi::OsString::from);
-    options.stdin = matches.is_present("stdin");
-
-    let loglevel = match matches.value_of("loglevel") {
-        None => LevelFilter::Warn,
-        Some("error") => LevelFilter::Error,
-        Some("warn") => LevelFilter::Warn,
-        Some("info") => LevelFilter::Info,
-        Some("debug") => LevelFilter::Debug,
-        Some("trace") => LevelFilter::Trace,
-        _ => unreachable!(),
-    };
-
-    let mut builder = pretty_env_logger::formatted_builder();
-
-    if let Ok(s) = std::env::var("RUST_LOG") {
-        builder.parse_filters(&s);
-    }
-
-    builder.filter_module("nu", loglevel);
-
-    match matches.values_of("develop") {
-        None => {}
-        Some(values) => {
-            for item in values {
-                builder.filter_module(&format!("nu::{}", item), LevelFilter::Trace);
-            }
-        }
-    }
-
-    match matches.values_of("debug") {
-        None => {}
-        Some(values) => {
-            for item in values {
-                builder.filter_module(&format!("nu::{}", item), LevelFilter::Debug);
-            }
-        }
-    }
-
-    builder.try_init()?;
-
-    match matches.values_of("commands") {
-        None => {}
-        Some(values) => {
-            options.scripts = vec![NuScript::code(values)?];
-
-            futures::executor::block_on(nu_cli::run_script_file(options))?;
-            return Ok(());
-        }
-    }
-
-    match matches.value_of("script") {
-        Some(filepath) => {
-            let filepath = std::ffi::OsString::from(filepath);
-
-            options.scripts = vec![NuScript::source_file(filepath.as_os_str())?];
-
-            futures::executor::block_on(nu_cli::run_script_file(options))?;
-            return Ok(());
-        }
-
-        None => {
-            let context = create_default_context(true)?;
-
-            if !matches.is_present("skip-plugins") {
-                let _ = nu_cli::register_plugins(&context);
-            }
-
-            #[cfg(feature = "rustyline-support")]
-            {
-                futures::executor::block_on(nu_cli::cli(context, options))?;
-            }
-
-            #[cfg(not(feature = "rustyline-support"))]
-            {
-                println!("Nushell needs the 'rustyline-support' feature for CLI support");
-            }
-        }
-    }
-
-    Ok(())
 }

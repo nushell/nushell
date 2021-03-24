@@ -1,7 +1,6 @@
 use crate::commands::classified::external;
 use crate::prelude::*;
 
-use derive_new::new;
 use parking_lot::Mutex;
 use std::path::PathBuf;
 
@@ -15,11 +14,7 @@ use nu_source::Tagged;
 #[derive(Deserialize)]
 pub struct RunExternalArgs {}
 
-#[derive(new)]
-pub struct RunExternalCommand {
-    /// Whether or not nushell is being used in an interactive context
-    pub(crate) interactive: bool,
-}
+pub struct RunExternalCommand;
 
 fn spanned_expression_to_string(expr: SpannedExpression) -> Result<String, ShellError> {
     if let SpannedExpression {
@@ -91,7 +86,7 @@ impl WholeStreamCommand for RunExternalCommand {
             }
         };
 
-        let is_interactive = self.interactive;
+        let is_interactive = external_context.shell_manager.is_interactive();
 
         let command = ExternalCommand {
             name,

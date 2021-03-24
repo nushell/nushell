@@ -2,17 +2,34 @@ use crate::evaluate::expr::run_expression_block;
 use crate::evaluate::internal::run_internal_command;
 use crate::evaluation_context::EvaluationContext;
 use async_recursion::async_recursion;
-use futures::stream::TryStreamExt;
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
-use nu_protocol::hir::{
-    Block, Call, ClassifiedCommand, Expression, Pipeline, SpannedExpression, Synthetic,
-};
-use nu_protocol::{ReturnSuccess, UntaggedValue, Value};
-use nu_source::{Span, Tag};
+use nu_protocol::hir::{Block, ClassifiedCommand, Expression, InternalCommand, Pipeline};
+use nu_protocol::UntaggedValue;
+use nu_source::Span;
 use nu_stream::InputStream;
-use nu_stream::ToOutputStream;
 use std::sync::atomic::Ordering;
+
+/// checks exit condition, returning with Err or Ok from current function if exit condition is met
+/// Otherwise does nothing
+/// $output is an InputStream
+macro_rules! check_exit_condition {
+    ($output:ident, $ctx:ident) => {{
+        //Check wether we need to exit
+        if let Some(err) = $ctx.get_errors().get(0) {
+            $ctx.clear_errors();
+            return Err(err.clone());
+        }
+        if $ctx.ctrl_c.swap(false, Ordering::SeqCst) {
+            // This early return doesn't return the result
+            // we have so far, but breaking out of this loop
+            // causes lifetime issues. A future contribution
+            // could attempt to return the current output.
+            // https://github.com/nushell/nushell/pull/2830#discussion_r550319687
+            return Ok($output);
+        }
+    }};
+}
 
 #[async_recursion]
 pub async fn run_block(
@@ -20,120 +37,90 @@ pub async fn run_block(
     ctx: &EvaluationContext,
     mut input: InputStream,
 ) -> Result<InputStream, ShellError> {
-    let mut output: Result<InputStream, ShellError> = Ok(InputStream::empty());
     for (_, definition) in block.definitions.iter() {
         ctx.scope.add_definition(definition.clone());
     }
 
-    for group in &block.block {
-        match output {
-            Ok(inp) if inp.is_empty() => {}
-            Ok(inp) => {
-                // Run autoview on the values we've seen so far
-                // We may want to make this configurable for other kinds of hosting
-                if let Some(autoview) = ctx.get_command("autoview") {
-                    let mut output_stream = match ctx
-                        .run_command(
-                            autoview,
-                            Tag::unknown(),
-                            Call::new(
-                                Box::new(SpannedExpression::new(
-                                    Expression::Synthetic(Synthetic::String("autoview".into())),
-                                    Span::unknown(),
-                                )),
-                                Span::unknown(),
-                            ),
-                            inp,
-                        )
-                        .await
-                    {
-                        Ok(x) => x,
-                        Err(e) => {
-                            return Err(e);
-                        }
-                    };
-                    match output_stream.try_next().await {
-                        Ok(Some(ReturnSuccess::Value(Value {
-                            value: UntaggedValue::Error(e),
-                            ..
-                        }))) => {
-                            return Err(e);
-                        }
-                        Ok(Some(_item)) => {
-                            if let Some(err) = ctx.get_errors().get(0) {
-                                ctx.clear_errors();
-                                return Err(err.clone());
-                            }
-                            if ctx.ctrl_c.load(Ordering::SeqCst) {
-                                return Ok(InputStream::empty());
-                            }
-                        }
-                        Ok(None) => {
-                            if let Some(err) = ctx.get_errors().get(0) {
-                                ctx.clear_errors();
-                                return Err(err.clone());
-                            }
-                        }
-                        Err(e) => {
-                            return Err(e);
-                        }
-                    }
-                }
-            }
-            Err(e) => {
-                return Err(e);
-            }
-        }
-        output = Ok(InputStream::empty());
-        for pipeline in &group.pipelines {
-            match output {
-                Ok(inp) if inp.is_empty() => {}
-                Ok(inp) => {
-                    let mut output_stream = inp.to_output_stream();
+    //We need to return the output stream of the last pipeline in the last group.
+    //Other last pipelines in each group get printed
 
-                    match output_stream.try_next().await {
-                        Ok(Some(ReturnSuccess::Value(Value {
-                            value: UntaggedValue::Error(e),
-                            ..
-                        }))) => {
-                            return Err(e);
-                        }
-                        Ok(Some(_item)) => {
-                            if let Some(err) = ctx.get_errors().get(0) {
-                                ctx.clear_errors();
-                                return Err(err.clone());
-                            }
-                            if ctx.ctrl_c.load(Ordering::SeqCst) {
-                                // This early return doesn't return the result
-                                // we have so far, but breaking out of this loop
-                                // causes lifetime issues. A future contribution
-                                // could attempt to return the current output.
-                                // https://github.com/nushell/nushell/pull/2830#discussion_r550319687
-                                return Ok(InputStream::empty());
-                            }
-                        }
-                        Ok(None) => {
-                            if let Some(err) = ctx.get_errors().get(0) {
-                                ctx.clear_errors();
-                                return Err(err.clone());
-                            }
-                        }
-                        Err(e) => {
-                            return Err(e);
-                        }
-                    }
-                }
-                Err(e) => {
-                    return Err(e);
-                }
-            }
-            output = run_pipeline(pipeline, ctx, input).await;
+    //So we handle groups[0..-1] (printing last pipeline)
+    if block.block.len() > 1 {
+        for group in &block.block[..block.block.len() - 1] {
+            let pipe_len = group.pipelines.len();
 
-            input = InputStream::empty();
+            if pipe_len > 1 {
+                //Don't print values of intermediate pipelines
+                let output = run_pipelines(&group.pipelines[..pipe_len - 1], input, ctx).await?;
+
+                check_exit_condition!(output, ctx);
+
+                //Input consumed from pipe. Set it to empty, so rust compiler doesn't cry because of
+                //moved var
+                input = InputStream::empty();
+            }
+
+            if let Some(last_pipe) = group.pipelines.last() {
+                let output = run_pipeline(last_pipe, ctx, input).await?;
+
+                check_exit_condition!(output, ctx);
+
+                print_stream(output, ctx).await?;
+
+                //Input consumed from pipe. Set it to empty, so rust compiler doesn't cry because of
+                //moved var
+                input = InputStream::empty();
+            }
         }
     }
 
-    output
+    //And the last group gets handled special (returning last pipeline output)
+    let mut output = InputStream::empty();
+    if let Some(last_group) = block.block.last() {
+        let pipe_len = last_group.pipelines.len();
+
+        if pipe_len > 1 {
+            //Don't print values of intermediate pipelines
+            let output = run_pipelines(&last_group.pipelines[..pipe_len - 1], input, ctx).await?;
+
+            check_exit_condition!(output, ctx);
+
+            //Input consumed from pipe. Set it to empty, so rust compiler doesn't cry because of
+            //moved var
+            input = InputStream::empty();
+        }
+
+        if let Some(last_pipe) = last_group.pipelines.last() {
+            output = run_pipeline(last_pipe, ctx, input).await?;
+            //Last output gets returned. No printing
+        }
+    }
+
+    Ok(output)
+}
+
+async fn print_stream(output: InputStream, ctx: &EvaluationContext) -> Result<(), ShellError> {
+    let autoview = InternalCommand::new("autoview".to_string(), Span::unknown(), Span::unknown());
+    run_internal_command(autoview, output, ctx)
+        .await
+        .map(|_| ()) //autoviews output stream is empty
+}
+
+async fn run_pipelines(
+    pipelines: &[Pipeline],
+    mut input: InputStream,
+    ctx: &EvaluationContext,
+) -> Result<InputStream, ShellError> {
+    let mut output = InputStream::empty();
+    for pipeline in pipelines {
+        output = run_pipeline(pipeline, ctx, input).await?;
+
+        // Only first pipeline of first block might have input, all other inputs are empty
+        input = InputStream::empty();
+
+        check_exit_condition!(output, ctx);
+    }
+    Ok(output)
 }
 
 #[async_recursion]
@@ -208,8 +195,10 @@ async fn run_pipeline(
 
             ClassifiedCommand::Error(err) => return Err(err.into()),
 
-            ClassifiedCommand::Internal(left) => run_internal_command(left, ctx, input).await?,
+            ClassifiedCommand::Internal(left) => run_internal_command(left, input, ctx).await?,
         };
+
+        check_exit_condition!(input, ctx);
     }
 
     Ok(input)

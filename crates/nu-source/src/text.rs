@@ -17,6 +17,14 @@ pub struct Text {
 }
 
 impl Text {
+    pub fn empty() -> Self {
+        Text {
+            text: "".to_string(),
+            start: 0,
+            end: 0,
+        }
+    }
+
     /// Modifies this restrict to a subset of its current range.
     pub fn select(&mut self, range: Range<usize>) {
         let len = range.end - range.start;

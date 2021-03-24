@@ -16,7 +16,7 @@ use nu_source::{Span, Tag};
 use nu_stream::{Interruptible, OutputStream, ToOutputStream};
 use std::collections::HashMap;
 use std::collections::VecDeque;
-use std::io::{Error, ErrorKind};
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -57,15 +57,17 @@ impl Clone for FilesystemShell {
 }
 
 impl FilesystemShell {
-    pub fn basic(mode: FilesystemShellMode) -> Result<FilesystemShell, Error> {
+    pub fn basic(mode: FilesystemShellMode) -> Result<FilesystemShell, ShellError> {
+        //TODO return proper err
         let path = match std::env::current_dir() {
             Ok(path) => path,
             Err(_) => PathBuf::from("/"),
         };
+        let path = path.to_string_lossy().to_string();
 
         Ok(FilesystemShell {
-            path: path.to_string_lossy().to_string(),
-            last_path: path.to_string_lossy().to_string(),
+            path: path.clone(),
+            last_path: path,
             mode,
         })
     }
@@ -73,7 +75,8 @@ impl FilesystemShell {
     pub fn with_location(
         path: String,
         mode: FilesystemShellMode,
-    ) -> Result<FilesystemShell, std::io::Error> {
+    ) -> Result<FilesystemShell, ShellError> {
+        //TODO use nu::fs layer and return ShellError
         let path = canonicalize(std::env::current_dir()?, &path)?;
         let path = path.display().to_string();
         let last_path = path.clone();
@@ -663,6 +666,7 @@ impl Shell for FilesystemShell {
                         let result;
                         #[cfg(feature = "trash-support")]
                         {
+                            use std::error::Error;
                             let rm_always_trash = nu_data::config::config(Tag::unknown())?
                                 .get("rm_always_trash")
                                 .map(|val| val.is_true())

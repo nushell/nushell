@@ -35,7 +35,7 @@ pub use crate::evaluate::scope::Scope;
 pub use crate::evaluation_context::EvaluationContext;
 pub use crate::example::Example;
 pub use crate::filesystem::dir_info::{DirBuilder, DirInfo, FileInfo};
-pub use crate::filesystem::filesystem_shell::FilesystemShell;
+pub use crate::filesystem::filesystem_shell::{FilesystemShell, FilesystemShellMode};
 pub use crate::filesystem::path;
 pub use crate::history_path::{default_history_path, history_path};
 pub use crate::maybe_text_codec::{MaybeTextCodec, StringOrBinary};

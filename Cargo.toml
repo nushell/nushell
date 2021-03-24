@@ -66,7 +66,7 @@ hamcrest2 = "0.3.0"
 [build-dependencies]
 
 [features]
-ctrlc-support = ["nu-cli/ctrlc", "nu-command/ctrlc"]
+ctrlc-support = ["ctrlc", "nu-command/ctrlc"]
 directories-support = [
     "nu-cli/directories",
     "nu-cli/dirs",

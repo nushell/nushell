@@ -541,12 +541,11 @@ fn autoenv_test_entry_scripts() {
 #[cfg(feature = "which-support")]
 #[test]
 #[serial]
-fn autoenv_test_exit_scripts() {
+fn autoenv_test_exit_scripts_1() {
     use nu_test_support::fs::Stub::FileWithContent;
     Playground::setup("autoenv_test", |dirs, sandbox| {
         sandbox.mkdir("foo/bar");
 
-        // Windows uses a different command to create an empty file so we need to have different content on windows.
         let nu_env = r#"on_exit = ["touch bye.txt"]"#;
 
         sandbox.with_files(vec![FileWithContent("foo/.nu-env", nu_env)]);
@@ -562,6 +561,21 @@ fn autoenv_test_exit_scripts() {
                "#
         );
         assert_eq!(actual.out, "1");
+    });
+}
+
+#[cfg(feature = "directories-support")]
+#[cfg(feature = "which-support")]
+#[test]
+#[serial]
+fn autoenv_test_exit_scripts_2() {
+    use nu_test_support::fs::Stub::FileWithContent;
+    Playground::setup("autoenv_test", |dirs, sandbox| {
+        sandbox.mkdir("foo/bar");
+
+        let nu_env = r#"on_exit = ["touch bye.txt"]"#;
+
+        sandbox.with_files(vec![FileWithContent("foo/.nu-env", nu_env)]);
 
         // Entering a subdir should not trigger exitscripts
         let actual = nu!(
@@ -572,6 +586,21 @@ fn autoenv_test_exit_scripts() {
                ls .. | where name =~ "bye.txt" | length"#
         );
         assert_eq!(actual.out, "0");
+    });
+}
+
+#[cfg(feature = "directories-support")]
+#[cfg(feature = "which-support")]
+#[test]
+#[serial]
+fn autoenv_test_exit_scripts_3() {
+    use nu_test_support::fs::Stub::FileWithContent;
+    Playground::setup("autoenv_test", |dirs, sandbox| {
+        sandbox.mkdir("foo/bar");
+
+        let nu_env = r#"on_exit = ["touch bye.txt"]"#;
+
+        sandbox.with_files(vec![FileWithContent("foo/.nu-env", nu_env)]);
 
         // Also run exitscripts when jumping over directory
         let actual = nu!(

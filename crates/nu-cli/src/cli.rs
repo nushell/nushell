@@ -1,6 +1,4 @@
-use crate::line_editor::configure_ctrl_c;
-use nu_command::commands::default_context::create_default_context;
-use nu_engine::{maybe_print_errors, run_block, script::run_script_standalone, EvaluationContext};
+use nu_engine::{maybe_print_errors, run_block, EvaluationContext};
 
 #[allow(unused_imports)]
 pub(crate) use nu_engine::script::{process_script, LineResult};
@@ -15,7 +13,6 @@ use crate::line_editor::{
 use nu_data::config;
 use nu_source::{Tag, Text};
 use nu_stream::InputStream;
-use std::ffi::{OsStr, OsString};
 #[allow(unused_imports)]
 use std::sync::atomic::Ordering;
 
@@ -24,147 +21,14 @@ use rustyline::{self, error::ReadlineError};
 
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
-use nu_protocol::{hir::ExternalRedirection, ConfigPath, UntaggedValue, Value};
+use nu_protocol::{hir::ExternalRedirection, ConfigPath, RunScriptOptions};
 
 use log::trace;
 use std::error::Error;
-use std::iter::Iterator;
 use std::path::PathBuf;
 
-pub struct Options {
-    pub config: Option<OsString>,
-    pub stdin: bool,
-    pub scripts: Vec<NuScript>,
-}
-
-impl Default for Options {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Options {
-    pub fn new() -> Self {
-        Self {
-            config: None,
-            stdin: false,
-            scripts: vec![],
-        }
-    }
-}
-
-pub struct NuScript {
-    pub filepath: Option<OsString>,
-    pub contents: String,
-}
-
-impl NuScript {
-    pub fn code<'a>(content: impl Iterator<Item = &'a str>) -> Result<Self, ShellError> {
-        let text = content
-            .map(|x| x.to_string())
-            .collect::<Vec<String>>()
-            .join("\n");
-
-        Ok(Self {
-            filepath: None,
-            contents: text,
-        })
-    }
-
-    pub fn get_code(&self) -> &str {
-        &self.contents
-    }
-
-    pub fn source_file(path: &OsStr) -> Result<Self, ShellError> {
-        use std::fs::File;
-        use std::io::Read;
-
-        let path = path.to_os_string();
-        let mut file = File::open(&path)?;
-        let mut buffer = String::new();
-
-        file.read_to_string(&mut buffer)?;
-
-        Ok(Self {
-            filepath: Some(path),
-            contents: buffer,
-        })
-    }
-}
-
-pub fn search_paths() -> Vec<std::path::PathBuf> {
-    use std::env;
-
-    let mut search_paths = Vec::new();
-
-    // Automatically add path `nu` is in as a search path
-    if let Ok(exe_path) = env::current_exe() {
-        if let Some(exe_dir) = exe_path.parent() {
-            search_paths.push(exe_dir.to_path_buf());
-        }
-    }
-
-    if let Ok(config) = nu_data::config::config(Tag::unknown()) {
-        if let Some(Value {
-            value: UntaggedValue::Table(pipelines),
-            ..
-        }) = config.get("plugin_dirs")
-        {
-            for pipeline in pipelines {
-                if let Ok(plugin_dir) = pipeline.as_string() {
-                    search_paths.push(PathBuf::from(plugin_dir));
-                }
-            }
-        }
-    }
-
-    search_paths
-}
-
-pub async fn run_script_file(options: Options) -> Result<(), Box<dyn Error>> {
-    let context = create_default_context(false)?;
-
-    if let Some(cfg) = options.config {
-        load_cfg_as_global_cfg(&context, PathBuf::from(cfg)).await;
-    } else {
-        load_global_cfg(&context).await;
-    }
-
-    let _ = register_plugins(&context);
-    let _ = configure_ctrl_c(&context);
-
-    let script = options
-        .scripts
-        .get(0)
-        .ok_or_else(|| ShellError::unexpected("Nu source code not available"))?;
-
-    run_script_standalone(script.get_code().to_string(), options.stdin, &context, true).await?;
-
-    Ok(())
-}
-
 #[cfg(feature = "rustyline-support")]
-pub async fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn Error>> {
-    let _ = configure_ctrl_c(&context);
-
-    // start time for running startup scripts (this metric includes loading of the cfg, but w/e)
-    let startup_commands_start_time = std::time::Instant::now();
-
-    if let Some(cfg) = options.config {
-        load_cfg_as_global_cfg(&context, PathBuf::from(cfg)).await;
-    } else {
-        load_global_cfg(&context).await;
-    }
-    // Store cmd duration in an env var
-    context.scope.add_env_var(
-        "CMD_DURATION",
-        format!("{:?}", startup_commands_start_time.elapsed()),
-    );
-    trace!(
-        "startup commands took {:?}",
-        startup_commands_start_time.elapsed()
-    );
-
+pub async fn cli(context: EvaluationContext) -> Result<(), Box<dyn Error>> {
     //Configure rustyline
     let mut rl = default_rustyline_editor_configuration();
     let history_path = if let Some(cfg) = &context.configs.lock().global_config {
@@ -213,6 +77,10 @@ pub async fn cli(context: EvaluationContext, options: Options) -> Result<(), Box
     }
 
     let mut ctrlcbreak = false;
+
+    let mut run_options = RunScriptOptions::default()
+        .cli_mode(true)
+        .redirect_stdin(false);
 
     loop {
         if context.ctrl_c.load(Ordering::SeqCst) {
@@ -297,16 +165,10 @@ pub async fn cli(context: EvaluationContext, options: Options) -> Result<(), Box
         // start time for command duration
         let cmd_start_time = std::time::Instant::now();
 
+        run_options = run_options.span_offset(line_start);
         let line = match convert_rustyline_result_to_string(readline) {
             LineResult::Success(_) => {
-                process_script(
-                    &session_text[line_start..],
-                    &context,
-                    false,
-                    line_start,
-                    true,
-                )
-                .await
+                process_script(&session_text[line_start..], &run_options, &context).await
             }
             x => x,
         };
@@ -398,43 +260,6 @@ pub async fn load_local_cfg_if_present(context: &EvaluationContext) {
     }
 }
 
-async fn load_cfg_as_global_cfg(context: &EvaluationContext, path: PathBuf) {
-    if let Err(err) = context.load_config(&ConfigPath::Global(path.clone())).await {
-        context.host.lock().print_err(err, &Text::from(""));
-    } else {
-        //TODO current commands assume to find path to global cfg file under config-path
-        //TODO use newly introduced nuconfig::file_path instead
-        context.scope.add_var(
-            "config-path",
-            UntaggedValue::filepath(path).into_untagged_value(),
-        );
-    }
-}
-
-pub async fn load_global_cfg(context: &EvaluationContext) {
-    match config::default_path() {
-        Ok(path) => {
-            load_cfg_as_global_cfg(context, path).await;
-        }
-        Err(e) => {
-            context.host.lock().print_err(e, &Text::from(""));
-        }
-    }
-}
-
-pub fn register_plugins(context: &EvaluationContext) -> Result<(), ShellError> {
-    if let Ok(plugins) = nu_engine::plugin::build_plugin::scan(search_paths()) {
-        context.add_commands(
-            plugins
-                .into_iter()
-                .filter(|p| !context.is_command_registered(p.name()))
-                .collect(),
-        );
-    }
-
-    Ok(())
-}
-
 pub async fn parse_and_eval(line: &str, ctx: &EvaluationContext) -> Result<String, ShellError> {
     // FIXME: do we still need this?
     let line = if let Some(s) = line.strip_suffix('\n') {
@@ -477,14 +302,14 @@ fn current_branch() -> String {
 
 #[cfg(test)]
 mod tests {
-    use nu_engine::basic_evaluation_context;
+    use nu_engine::{basic_evaluation_context, FilesystemShellMode};
 
     #[quickcheck]
     fn quickcheck_parse(data: String) -> bool {
         let (tokens, err) = nu_parser::lex(&data, 0);
         let (lite_block, err2) = nu_parser::parse_block(tokens);
         if err.is_none() && err2.is_none() {
-            let context = basic_evaluation_context().unwrap();
+            let context = basic_evaluation_context(FilesystemShellMode::Cli).unwrap();
             let _ = nu_parser::classify_block(&lite_block, &context.scope);
         }
         true
