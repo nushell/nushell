@@ -8,7 +8,7 @@ use nu_engine::{basic_evaluation_context, EvaluationContext, FilesystemShellMode
 use nu_errors::ShellError;
 use nu_source::Text;
 
-use std::{path::PathBuf, sync::atomic::Ordering};
+use std::path::PathBuf;
 
 use self::init_logger::init_logger;
 use self::load_configs::{load_cfg_as_global_cfg, load_global_cfg};
@@ -61,6 +61,7 @@ fn create_default_context(matches: &ArgMatches) -> Result<EvaluationContext, She
 fn configure_ctrl_c(_context: &EvaluationContext) -> Result<(), ShellError> {
     #[cfg(feature = "ctrlc")]
     {
+        use std::sync::atomic::Ordering;
         let cc = _context.ctrl_c.clone();
 
         ctrlc::set_handler(move || {
