@@ -6,18 +6,18 @@ use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue};
 use nu_source::Tagged;
 
-pub struct FromEML;
+pub struct FromEml;
 
 const DEFAULT_BODY_PREVIEW: usize = 50;
 
 #[derive(Deserialize, Clone)]
-pub struct FromEMLArgs {
+pub struct FromEmlArgs {
     #[serde(rename(deserialize = "preview-body"))]
     preview_body: Option<Tagged<usize>>,
 }
 
 #[async_trait]
-impl WholeStreamCommand for FromEML {
+impl WholeStreamCommand for FromEml {
     fn name(&self) -> &str {
         "from eml"
     }
@@ -75,7 +75,7 @@ fn headerfieldvalue_to_value(tag: &Tag, value: &HeaderFieldValue) -> UntaggedVal
 
 async fn from_eml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let (eml_args, input): (FromEMLArgs, _) = args.process().await?;
+    let (eml_args, input): (FromEmlArgs, _) = args.process().await?;
     let value = input.collect_string(tag.clone()).await?;
 
     let body_preview = eml_args
@@ -121,13 +121,13 @@ async fn from_eml(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
 #[cfg(test)]
 mod tests {
-    use super::FromEML;
+    use super::FromEml;
     use super::ShellError;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(FromEML {})
+        test_examples(FromEml {})
     }
 }

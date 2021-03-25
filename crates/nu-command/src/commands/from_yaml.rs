@@ -3,10 +3,10 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, Signature, TaggedDictBuilder, UntaggedValue, Value};
 
-pub struct FromYAML;
+pub struct FromYaml;
 
 #[async_trait]
-impl WholeStreamCommand for FromYAML {
+impl WholeStreamCommand for FromYaml {
     fn name(&self) -> &str {
         "from yaml"
     }
@@ -24,10 +24,10 @@ impl WholeStreamCommand for FromYAML {
     }
 }
 
-pub struct FromYML;
+pub struct FromYml;
 
 #[async_trait]
-impl WholeStreamCommand for FromYML {
+impl WholeStreamCommand for FromYml {
     fn name(&self) -> &str {
         "from yml"
     }
@@ -169,7 +169,7 @@ mod tests {
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(FromYAML {})
+        test_examples(FromYaml {})
     }
 
     #[test]

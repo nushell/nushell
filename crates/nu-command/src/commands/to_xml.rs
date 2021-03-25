@@ -8,15 +8,15 @@ use std::collections::HashSet;
 use std::io::Cursor;
 use std::io::Write;
 
-pub struct ToXML;
+pub struct ToXml;
 
 #[derive(Deserialize)]
-pub struct ToXMLArgs {
+pub struct ToXmlArgs {
     pretty: Option<Value>,
 }
 
 #[async_trait]
-impl WholeStreamCommand for ToXML {
+impl WholeStreamCommand for ToXml {
     fn name(&self) -> &str {
         "to xml"
     }
@@ -135,7 +135,7 @@ pub fn write_xml_events<W: Write>(
 async fn to_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
     let name_span = name_tag.span;
-    let (ToXMLArgs { pretty }, input) = args.process().await?;
+    let (ToXmlArgs { pretty }, input) = args.process().await?;
     let input: Vec<Value> = input.collect().await;
 
     let to_process_input = match input.len() {
@@ -189,12 +189,12 @@ async fn to_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
 #[cfg(test)]
 mod tests {
     use super::ShellError;
-    use super::ToXML;
+    use super::ToXml;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(ToXML {})
+        test_examples(ToXml {})
     }
 }

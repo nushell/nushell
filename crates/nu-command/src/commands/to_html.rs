@@ -79,10 +79,10 @@ impl Default for HtmlTheme {
 #[folder = "assets/"]
 struct Assets;
 
-pub struct ToHTML;
+pub struct ToHtml;
 
 #[derive(Deserialize)]
-pub struct ToHTMLArgs {
+pub struct ToHtmlArgs {
     html_color: bool,
     no_color: bool,
     dark: bool,
@@ -92,7 +92,7 @@ pub struct ToHTMLArgs {
 }
 
 #[async_trait]
-impl WholeStreamCommand for ToHTML {
+impl WholeStreamCommand for ToHtml {
     fn name(&self) -> &str {
         "to html"
     }
@@ -271,7 +271,7 @@ fn get_list_of_theme_names() -> Vec<String> {
 async fn to_html(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
     let (
-        ToHTMLArgs {
+        ToHtmlArgs {
             html_color,
             no_color,
             dark,
@@ -758,6 +758,6 @@ mod tests {
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(ToHTML {})
+        test_examples(ToHtml {})
     }
 }

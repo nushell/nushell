@@ -259,10 +259,7 @@ mod tilde_expansion {
         "#
         );
 
-        assert!(
-            !actual.out.contains('~'),
-            format!("'{}' should not contain ~", actual.out)
-        );
+        assert!(!actual.out.contains('~'));
     }
 
     #[test]

@@ -6,10 +6,10 @@ use nu_protocol::{
 };
 use nu_source::Tagged;
 
-pub struct FromSSV;
+pub struct FromSsv;
 
 #[derive(Deserialize)]
-pub struct FromSSVArgs {
+pub struct FromSsvArgs {
     noheaders: bool,
     #[serde(rename(deserialize = "aligned-columns"))]
     aligned_columns: bool,
@@ -21,7 +21,7 @@ const STRING_REPRESENTATION: &str = "from ssv";
 const DEFAULT_MINIMUM_SPACES: usize = 2;
 
 #[async_trait]
-impl WholeStreamCommand for FromSSV {
+impl WholeStreamCommand for FromSsv {
     fn name(&self) -> &str {
         STRING_REPRESENTATION
     }
@@ -250,7 +250,7 @@ fn from_ssv_string_to_value(
 async fn from_ssv(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let (
-        FromSSVArgs {
+        FromSsvArgs {
             noheaders,
             aligned_columns,
             minimum_spaces,
@@ -489,9 +489,9 @@ mod tests {
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
-        use super::FromSSV;
+        use super::FromSsv;
         use crate::examples::test as test_examples;
 
-        test_examples(FromSSV {})
+        test_examples(FromSsv {})
     }
 }
