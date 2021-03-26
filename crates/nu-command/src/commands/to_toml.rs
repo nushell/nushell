@@ -3,10 +3,10 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::{CoerceInto, ShellError};
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UnspannedPathMember, UntaggedValue, Value};
 
-pub struct ToTOML;
+pub struct ToToml;
 
 #[async_trait]
-impl WholeStreamCommand for ToTOML {
+impl WholeStreamCommand for ToToml {
     fn name(&self) -> &str {
         "to toml"
     }
@@ -195,7 +195,7 @@ mod tests {
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(ToTOML {})
+        test_examples(ToToml {})
     }
 
     #[test]

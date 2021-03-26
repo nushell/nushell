@@ -103,7 +103,7 @@ impl Color {
             Color::Cyan => write!(f, "36"),
             Color::White => write!(f, "37"),
             Color::Fixed(num) => write!(f, "38;5;{}", &num),
-            Color::RGB(r, g, b) => write!(f, "38;2;{};{};{}", &r, &g, &b),
+            Color::Rgb(r, g, b) => write!(f, "38;2;{};{};{}", &r, &g, &b),
             Color::DarkGray => write!(f, "90"),
             Color::LightRed => write!(f, "91"),
             Color::LightGreen => write!(f, "92"),
@@ -128,7 +128,7 @@ impl Color {
             Color::Cyan => write!(f, "46"),
             Color::White => write!(f, "47"),
             Color::Fixed(num) => write!(f, "48;5;{}", &num),
-            Color::RGB(r, g, b) => write!(f, "48;2;{};{};{}", &r, &g, &b),
+            Color::Rgb(r, g, b) => write!(f, "48;2;{};{};{}", &r, &g, &b),
             Color::DarkGray => write!(f, "100"),
             Color::LightRed => write!(f, "101"),
             Color::LightGreen => write!(f, "102"),
@@ -372,10 +372,10 @@ mod test {
     test!(fixed:                 Fixed(100);                        "hi" => "\x1B[38;5;100mhi\x1B[0m");
     test!(fixed_on_purple:       Fixed(100).on(Purple);             "hi" => "\x1B[45;38;5;100mhi\x1B[0m");
     test!(fixed_on_fixed:        Fixed(100).on(Fixed(200));         "hi" => "\x1B[48;5;200;38;5;100mhi\x1B[0m");
-    test!(rgb:                   RGB(70,130,180);                   "hi" => "\x1B[38;2;70;130;180mhi\x1B[0m");
-    test!(rgb_on_blue:           RGB(70,130,180).on(Blue);          "hi" => "\x1B[44;38;2;70;130;180mhi\x1B[0m");
-    test!(blue_on_rgb:           Blue.on(RGB(70,130,180));          "hi" => "\x1B[48;2;70;130;180;34mhi\x1B[0m");
-    test!(rgb_on_rgb:            RGB(70,130,180).on(RGB(5,10,15));  "hi" => "\x1B[48;2;5;10;15;38;2;70;130;180mhi\x1B[0m");
+    test!(rgb:                   Rgb(70,130,180);                   "hi" => "\x1B[38;2;70;130;180mhi\x1B[0m");
+    test!(rgb_on_blue:           Rgb(70,130,180).on(Blue);          "hi" => "\x1B[44;38;2;70;130;180mhi\x1B[0m");
+    test!(blue_on_rgb:           Blue.on(Rgb(70,130,180));          "hi" => "\x1B[48;2;70;130;180;34mhi\x1B[0m");
+    test!(rgb_on_rgb:            Rgb(70,130,180).on(Rgb(5,10,15));  "hi" => "\x1B[48;2;5;10;15;38;2;70;130;180mhi\x1B[0m");
     test!(bold:                  Style::new().bold();               "hi" => "\x1B[1mhi\x1B[0m");
     test!(underline:             Style::new().underline();          "hi" => "\x1B[4mhi\x1B[0m");
     test!(bunderline:            Style::new().bold().underline();   "hi" => "\x1B[1;4mhi\x1B[0m");

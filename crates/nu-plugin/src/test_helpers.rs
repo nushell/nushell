@@ -71,10 +71,7 @@ impl<'a, T: Plugin> PluginTest<'a, T> {
                 for flag in flags {
                     assert!(
                         flags_configured.iter().any(|f| *f == flag),
-                        format!(
-                            "The flag you passed ({}) is not configured in the plugin.",
-                            flag
-                        )
+                        "The flag you passed is not configured in the plugin.",
                     );
                 }
             }
@@ -143,7 +140,7 @@ pub fn expect_return_value_at(
     for (idx, item) in return_values.iter().enumerate() {
         let item = match item {
             Ok(return_value) => return_value,
-            Err(reason) => panic!(format!("{}", reason)),
+            Err(_) => panic!("Unexpected value"),
         };
 
         if idx == at {
@@ -155,9 +152,5 @@ pub fn expect_return_value_at(
         }
     }
 
-    panic!(format!(
-        "Couldn't get return value from stream at {}. (There are {} items)",
-        at,
-        return_values.len() - 1
-    ))
+    panic!("Couldn't get return value from stream.")
 }

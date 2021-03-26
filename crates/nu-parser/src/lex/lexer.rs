@@ -360,12 +360,12 @@ pub fn parse_block(tokens: Vec<Token>) -> (LiteBlock, Option<ParseError>) {
     // - semicolon
     while let Some(token) = tokens.next() {
         match &token.contents {
-            TokenContents::EOL => {
+            TokenContents::Eol => {
                 // If we encounter two newline characters in a row, use a special eoleol event,
                 // which allows the parser to discard comments that shouldn't be treated as
                 // documentation for the following item.
                 if let Some(Token {
-                    contents: TokenContents::EOL,
+                    contents: TokenContents::Eol,
                     ..
                 }) = tokens.peek()
                 {
@@ -480,7 +480,7 @@ pub fn lex(input: &str, span_offset: usize) -> (Vec<Token>, Option<ParseError>) 
             let idx = *idx;
             let _ = char_indices.next();
             output.push(Token::new(
-                TokenContents::EOL,
+                TokenContents::Eol,
                 Span::new(span_offset + idx, span_offset + idx + 1),
             ));
         } else if *c == '#' {

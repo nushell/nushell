@@ -3,15 +3,15 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
 
-pub struct FromJSON;
+pub struct FromJson;
 
 #[derive(Deserialize)]
-pub struct FromJSONArgs {
+pub struct FromJsonArgs {
     objects: bool,
 }
 
 #[async_trait]
-impl WholeStreamCommand for FromJSON {
+impl WholeStreamCommand for FromJson {
     fn name(&self) -> &str {
         "from json"
     }
@@ -71,7 +71,7 @@ pub fn from_json_string_to_value(s: String, tag: impl Into<Tag>) -> nu_json::Res
 async fn from_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
 
-    let (FromJSONArgs { objects }, input) = args.process().await?;
+    let (FromJsonArgs { objects }, input) = args.process().await?;
     let concat_string = input.collect_string(name_tag.clone()).await?;
 
     let string_clone: Vec<_> = concat_string.item.lines().map(|x| x.to_string()).collect();
@@ -135,13 +135,13 @@ async fn from_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
 #[cfg(test)]
 mod tests {
-    use super::FromJSON;
+    use super::FromJson;
     use super::ShellError;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(FromJSON {})
+        test_examples(FromJson {})
     }
 }
