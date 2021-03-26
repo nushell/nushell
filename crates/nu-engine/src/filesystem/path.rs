@@ -11,6 +11,17 @@ where
         // more ugly - so we don't do anything, which should result in an equal
         // path on all supported systems.
         relative_to.as_ref().to_owned()
+    } else if path.as_ref().starts_with("~") {
+        #[cfg(feature = "dirs")]
+        {
+            let expanded_path = expand_tilde(path.as_ref());
+            match expanded_path {
+                Some(p) => p,
+                _ => path.as_ref().to_owned(),
+            }
+        }
+        #[cfg(not(feature = "dirs"))]
+        relative_to.as_ref().join(path)
     } else {
         relative_to.as_ref().join(path)
     };
@@ -52,6 +63,32 @@ where
     };
 
     dunce::simplified(&path).to_path_buf()
+}
+
+// borrowed from here https://stackoverflow.com/questions/54267608/expand-tilde-in-rust-path-idiomatically
+#[cfg(feature = "dirs")]
+fn expand_tilde<P: AsRef<Path>>(path_user_input: P) -> Option<PathBuf> {
+    let p = path_user_input.as_ref();
+    if !p.starts_with("~") {
+        return Some(p.to_path_buf());
+    }
+
+    if p == Path::new("~") {
+        return dirs_next::home_dir();
+    }
+
+    dirs_next::home_dir().map(|mut h| {
+        if h == Path::new("/") {
+            // Corner case: `h` root directory;
+            // don't prepend extra `/`, just drop the tilde.
+            p.strip_prefix("~")
+                .expect("cannot strip ~ prefix")
+                .to_path_buf()
+        } else {
+            h.push(p.strip_prefix("~/").expect("cannot strip ~/ prefix"));
+            h
+        }
+    })
 }
 
 pub fn canonicalize<P, Q>(relative_to: P, path: Q) -> io::Result<PathBuf>
