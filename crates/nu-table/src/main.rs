@@ -31,37 +31,39 @@ fn main() {
 }
 
 fn make_table_data() -> (Vec<&'static str>, Vec<&'static str>) {
-    let mut table_headers = vec![];
-    table_headers.push("category");
-    table_headers.push("description");
-    table_headers.push("emoji");
-    table_headers.push("ios_version");
-    table_headers.push("unicode_version");
-    table_headers.push("aliases");
-    table_headers.push("tags");
-    table_headers.push("category2");
-    table_headers.push("description2");
-    table_headers.push("emoji2");
-    table_headers.push("ios_version2");
-    table_headers.push("unicode_version2");
-    table_headers.push("aliases2");
-    table_headers.push("tags2");
+    let table_headers = vec![
+        "category",
+        "description",
+        "emoji",
+        "ios_version",
+        "unicode_version",
+        "aliases",
+        "tags",
+        "category2",
+        "description2",
+        "emoji2",
+        "ios_version2",
+        "unicode_version2",
+        "aliases2",
+        "tags2",
+    ];
 
-    let mut row_data = vec![];
-    row_data.push("Smileys & Emotion");
-    row_data.push("grinning face");
-    row_data.push("😀");
-    row_data.push("6");
-    row_data.push("6.1");
-    row_data.push("grinning");
-    row_data.push("smile");
-    row_data.push("Smileys & Emotion");
-    row_data.push("grinning face");
-    row_data.push("😀");
-    row_data.push("6");
-    row_data.push("6.1");
-    row_data.push("grinning");
-    row_data.push("smile");
+    let row_data = vec![
+        "Smileys & Emotion",
+        "grinning face",
+        "😀",
+        "6",
+        "6.1",
+        "grinning",
+        "smile",
+        "Smileys & Emotion",
+        "grinning face",
+        "😀",
+        "6",
+        "6.1",
+        "grinning",
+        "smile",
+    ];
 
     (table_headers, row_data)
 }

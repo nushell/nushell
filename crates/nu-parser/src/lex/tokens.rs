@@ -19,7 +19,7 @@ pub enum TokenContents {
     Comment(LiteComment),
     Pipe,
     Semicolon,
-    EOL,
+    Eol,
 }
 
 impl fmt::Display for TokenContents {
@@ -29,7 +29,7 @@ impl fmt::Display for TokenContents {
             TokenContents::Comment(comm) => write!(f, "{}", comm),
             TokenContents::Pipe => write!(f, "|"),
             TokenContents::Semicolon => write!(f, ";"),
-            TokenContents::EOL => write!(f, "\\n"),
+            TokenContents::Eol => write!(f, "\\n"),
         }
     }
 }

@@ -3,10 +3,10 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::{CoerceInto, ShellError};
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UnspannedPathMember, UntaggedValue, Value};
 
-pub struct ToYAML;
+pub struct ToYaml;
 
 #[async_trait]
-impl WholeStreamCommand for ToYAML {
+impl WholeStreamCommand for ToYaml {
     fn name(&self) -> &str {
         "to yaml"
     }
@@ -164,12 +164,12 @@ async fn to_yaml(args: CommandArgs) -> Result<OutputStream, ShellError> {
 #[cfg(test)]
 mod tests {
     use super::ShellError;
-    use super::ToYAML;
+    use super::ToYaml;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(ToYAML {})
+        test_examples(ToYaml {})
     }
 }

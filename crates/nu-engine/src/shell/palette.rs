@@ -241,7 +241,7 @@ impl ThemeColor {
         let r = ThemeColor::xtoi(&mut bytes)?;
         let g = ThemeColor::xtoi(&mut bytes)?;
         let b = ThemeColor::xtoi(&mut bytes)?;
-        Ok(ThemeColor(Color::RGB(r, g, b)))
+        Ok(ThemeColor(Color::Rgb(r, g, b)))
     }
 
     fn xtoi<E>(b: &mut Bytes) -> Result<u8, E>
@@ -329,7 +329,7 @@ mod tests {
         assert_eq!(
             styled[0],
             Spanned {
-                item: Color::RGB(163, 89, 204).bold(),
+                item: Color::Rgb(163, 89, 204).bold(),
                 span: Span::new(4, 9),
             },
         );

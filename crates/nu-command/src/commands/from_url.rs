@@ -3,10 +3,10 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue};
 
-pub struct FromURL;
+pub struct FromUrl;
 
 #[async_trait]
-impl WholeStreamCommand for FromURL {
+impl WholeStreamCommand for FromUrl {
     fn name(&self) -> &str {
         "from url"
     }
@@ -55,13 +55,13 @@ async fn from_url(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
 #[cfg(test)]
 mod tests {
-    use super::FromURL;
+    use super::FromUrl;
     use super::ShellError;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(FromURL {})
+        test_examples(FromUrl {})
     }
 }

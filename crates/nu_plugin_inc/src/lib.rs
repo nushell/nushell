@@ -14,24 +14,21 @@ mod tests {
         pub fn expect_action(&self, action: Action) {
             match &self.action {
                 Some(set) if set == &action => {}
-                Some(other) => panic!(format!("\nExpected {:#?}\n\ngot {:#?}", action, other)),
-                None => panic!(format!("\nAction {:#?} not found.", action)),
+                Some(_) => panic!("\nUnexpected action"),
+                None => panic!("\nAction not found."),
             }
         }
 
         pub fn expect_field(&self, field: Value) {
             let field = match field.as_column_path() {
                 Ok(column_path) => column_path,
-                Err(reason) => panic!(format!(
-                    "\nExpected {:#?} to be a ColumnPath, \n\ngot {:#?}",
-                    field, reason
-                )),
+                Err(_) => panic!("\nExpected a ColumnPath",),
             };
 
             match &self.field {
                 Some(column_path) if column_path == &field => {}
-                Some(other) => panic!(format!("\nExpected {:#?} \n\ngot {:#?}", field, other)),
-                None => panic!(format!("\nField {:#?} not found.", field)),
+                Some(_) => panic!("\nUnexpected field."),
+                None => panic!("\nField not found."),
             }
         }
     }

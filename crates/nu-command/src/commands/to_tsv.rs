@@ -4,15 +4,15 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::Signature;
 
-pub struct ToTSV;
+pub struct ToTsv;
 
 #[derive(Deserialize)]
-pub struct ToTSVArgs {
+pub struct ToTsvArgs {
     noheaders: bool,
 }
 
 #[async_trait]
-impl WholeStreamCommand for ToTSV {
+impl WholeStreamCommand for ToTsv {
     fn name(&self) -> &str {
         "to tsv"
     }
@@ -36,7 +36,7 @@ impl WholeStreamCommand for ToTSV {
 
 async fn to_tsv(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (ToTSVArgs { noheaders }, input) = args.process().await?;
+    let (ToTsvArgs { noheaders }, input) = args.process().await?;
 
     to_delimited_data(noheaders, '\t', "TSV", input, name).await
 }
@@ -44,12 +44,12 @@ async fn to_tsv(args: CommandArgs) -> Result<OutputStream, ShellError> {
 #[cfg(test)]
 mod tests {
     use super::ShellError;
-    use super::ToTSV;
+    use super::ToTsv;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(ToTSV {})
+        test_examples(ToTsv {})
     }
 }
