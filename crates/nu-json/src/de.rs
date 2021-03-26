@@ -105,7 +105,7 @@ where
                 return visitor.visit_str(s);
             } else if ch <= b' ' {
                 if ch == 0 {
-                    return Err(self.rdr.error(ErrorCode::EOFWhileParsingObject));
+                    return Err(self.rdr.error(ErrorCode::EofWhileParsingObject));
                 } else if space.is_none() {
                     space = Some(self.str_buf.len());
                 }
@@ -124,7 +124,7 @@ where
         self.rdr.parse_whitespace()?;
 
         if self.rdr.eof()? {
-            return Err(self.rdr.error(ErrorCode::EOFWhileParsingValue));
+            return Err(self.rdr.error(ErrorCode::EofWhileParsingValue));
         }
 
         match self.state {
@@ -162,7 +162,7 @@ where
                 match self.rdr.next_char()? {
                     Some(b']') => Ok(ret),
                     Some(_) => Err(self.rdr.error(ErrorCode::TrailingCharacters)),
-                    None => Err(self.rdr.error(ErrorCode::EOFWhileParsingList)),
+                    None => Err(self.rdr.error(ErrorCode::EofWhileParsingList)),
                 }
             }
             b'{' => {
@@ -193,7 +193,7 @@ where
                 if root {
                     Ok(ret)
                 } else {
-                    Err(self.rdr.error(ErrorCode::EOFWhileParsingObject))
+                    Err(self.rdr.error(ErrorCode::EofWhileParsingObject))
                 }
             }
         }
@@ -374,7 +374,7 @@ where
         // When parsing multiline string values, we must look for ' characters.
         loop {
             if self.rdr.eof()? {
-                return Err(self.rdr.error(ErrorCode::EOFWhileParsingString));
+                return Err(self.rdr.error(ErrorCode::EofWhileParsingString));
             } // todo error("Bad multiline string");
             let ch = self.rdr.next_char_or_null()?;
 
@@ -413,7 +413,7 @@ where
             let ch = match self.rdr.next_char()? {
                 Some(ch) => ch,
                 None => {
-                    return Err(self.rdr.error(ErrorCode::EOFWhileParsingString));
+                    return Err(self.rdr.error(ErrorCode::EofWhileParsingString));
                 }
             };
 
@@ -425,7 +425,7 @@ where
                     let ch = match self.rdr.next_char()? {
                         Some(ch) => ch,
                         None => {
-                            return Err(self.rdr.error(ErrorCode::EOFWhileParsingString));
+                            return Err(self.rdr.error(ErrorCode::EofWhileParsingString));
                         }
                     };
 
@@ -509,7 +509,7 @@ where
         match self.rdr.next_char()? {
             Some(b':') => Ok(()),
             Some(_) => Err(self.rdr.error(ErrorCode::ExpectedColon)),
-            None => Err(self.rdr.error(ErrorCode::EOFWhileParsingObject)),
+            None => Err(self.rdr.error(ErrorCode::EofWhileParsingObject)),
         }
     }
 }
@@ -592,7 +592,7 @@ where
             }
             Some(_) => {}
             None => {
-                return Err(self.de.rdr.error(ErrorCode::EOFWhileParsingList));
+                return Err(self.de.rdr.error(ErrorCode::EofWhileParsingList));
             }
         }
 
@@ -652,7 +652,7 @@ where
                 if self.root {
                     return Ok(None);
                 } else {
-                    return Err(self.de.rdr.error(ErrorCode::EOFWhileParsingObject));
+                    return Err(self.de.rdr.error(ErrorCode::EofWhileParsingObject));
                 }
             }
         }
@@ -666,7 +666,7 @@ where
                 };
                 Ok(Some(seed.deserialize(&mut *self.de)?))
             }
-            None => Err(self.de.rdr.error(ErrorCode::EOFWhileParsingValue)),
+            None => Err(self.de.rdr.error(ErrorCode::EofWhileParsingValue)),
         }
     }
 
@@ -676,7 +676,7 @@ where
     {
         self.de.parse_object_colon()?;
 
-        Ok(seed.deserialize(&mut *self.de)?)
+        seed.deserialize(&mut *self.de)
     }
 }
 

@@ -7,15 +7,15 @@ use nu_protocol::{
 use serde::Serialize;
 use serde_json::json;
 
-pub struct ToJSON;
+pub struct ToJson;
 
 #[derive(Deserialize)]
-pub struct ToJSONArgs {
+pub struct ToJsonArgs {
     pretty: Option<Value>,
 }
 
 #[async_trait]
-impl WholeStreamCommand for ToJSON {
+impl WholeStreamCommand for ToJson {
     fn name(&self) -> &str {
         "to json"
     }
@@ -160,7 +160,7 @@ fn json_list(input: &[Value]) -> Result<Vec<serde_json::Value>, ShellError> {
 
 async fn to_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
-    let (ToJSONArgs { pretty }, input) = args.process().await?;
+    let (ToJsonArgs { pretty }, input) = args.process().await?;
     let name_span = name_tag.span;
     let input: Vec<Value> = input.collect().await;
 
@@ -256,12 +256,12 @@ async fn to_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
 #[cfg(test)]
 mod tests {
     use super::ShellError;
-    use super::ToJSON;
+    use super::ToJson;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(ToJSON {})
+        test_examples(ToJson {})
     }
 }

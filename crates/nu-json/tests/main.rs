@@ -115,7 +115,7 @@ fn fix_pass1(json: String) -> String {
 fn test_hjson() {
     let mut done: Vec<String> = Vec::new();
 
-    println!("");
+    println!();
     run_test!(charset, done, std_fix);
     run_test!(comments, done, std_fix);
     run_test!(empty, done, std_fix);
@@ -197,18 +197,17 @@ fn test_hjson() {
 
     let all = paths
         .map(|item| String::from(item.unwrap().path().file_stem().unwrap().to_str().unwrap()))
-        .filter(|x| x.contains("_test"))
-        .collect::<Vec<String>>();
+        .filter(|x| x.contains("_test"));
 
     let missing = all
         .into_iter()
         .filter(|x| done.iter().find(|y| &x == y) == None)
         .collect::<Vec<String>>();
 
-    if missing.len() > 0 {
+    if !missing.is_empty() {
         for item in missing {
             println!("missing: {}", item);
         }
-        assert!(false);
+        panic!();
     }
 }

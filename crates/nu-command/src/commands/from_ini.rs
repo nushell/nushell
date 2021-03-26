@@ -4,10 +4,10 @@ use nu_errors::ShellError;
 use nu_protocol::{Primitive, Signature, TaggedDictBuilder, UntaggedValue, Value};
 use std::collections::HashMap;
 
-pub struct FromINI;
+pub struct FromIni;
 
 #[async_trait]
-impl WholeStreamCommand for FromINI {
+impl WholeStreamCommand for FromIni {
     fn name(&self) -> &str {
         "from ini"
     }
@@ -86,13 +86,13 @@ async fn from_ini(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
 #[cfg(test)]
 mod tests {
-    use super::FromINI;
+    use super::FromIni;
     use super::ShellError;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(FromINI {})
+        test_examples(FromIni {})
     }
 }

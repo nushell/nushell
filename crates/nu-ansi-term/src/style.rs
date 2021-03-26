@@ -365,7 +365,7 @@ pub enum Color {
     Fixed(u8),
 
     /// A 24-bit RGB color, as specified by ISO-8613-3.
-    RGB(u8, u8, u8),
+    Rgb(u8, u8, u8),
 }
 
 impl Color {

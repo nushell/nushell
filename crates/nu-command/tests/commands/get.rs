@@ -151,24 +151,12 @@ fn errors_fetching_by_column_not_present() {
             "#
         ));
 
-        assert!(
-            actual.err.contains("Unknown column"),
-            format!("actual: {:?}", actual.err)
-        );
-        assert!(
-            actual.err.contains("There isn't a column named 'taco'"),
-            format!("actual: {:?}", actual.err)
-        );
-        assert!(
-            actual.err.contains("Perhaps you meant 'taconushell'?"),
-            format!("actual: {:?}", actual.err)
-        );
-        assert!(
-            actual
-                .err
-                .contains("Columns available: pizzanushell, taconushell"),
-            format!("actual: {:?}", actual.err)
-        );
+        assert!(actual.err.contains("Unknown column"),);
+        assert!(actual.err.contains("There isn't a column named 'taco'"),);
+        assert!(actual.err.contains("Perhaps you meant 'taconushell'?"),);
+        assert!(actual
+            .err
+            .contains("Columns available: pizzanushell, taconushell"),);
     })
 }
 
@@ -191,20 +179,11 @@ fn errors_fetching_by_column_using_a_number() {
             "#
         ));
 
-        assert!(
-            actual.err.contains("No rows available"),
-            format!("actual: {:?}", actual.err)
-        );
-        assert!(
-            actual.err.contains("A row at '0' can't be indexed."),
-            format!("actual: {:?}", actual.err)
-        );
-        assert!(
-            actual
-                .err
-                .contains("Appears to contain columns. Columns available: 0"),
-            format!("actual: {:?}", actual.err)
-        )
+        assert!(actual.err.contains("No rows available"),);
+        assert!(actual.err.contains("A row at '0' can't be indexed."),);
+        assert!(actual
+            .err
+            .contains("Appears to contain columns. Columns available: 0"),)
     })
 }
 #[test]
@@ -226,18 +205,9 @@ fn errors_fetching_by_index_out_of_bounds() {
             "#
         ));
 
-        assert!(
-            actual.err.contains("Row not found"),
-            format!("actual: {:?}", actual.err)
-        );
-        assert!(
-            actual.err.contains("There isn't a row indexed at 3"),
-            format!("actual: {:?}", actual.err)
-        );
-        assert!(
-            actual.err.contains("The table only has 3 rows (0 to 2)"),
-            format!("actual: {:?}", actual.err)
-        )
+        assert!(actual.err.contains("Row not found"),);
+        assert!(actual.err.contains("There isn't a row indexed at 3"),);
+        assert!(actual.err.contains("The table only has 3 rows (0 to 2)"),)
     })
 }
 

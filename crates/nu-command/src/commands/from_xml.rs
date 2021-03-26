@@ -3,10 +3,10 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
 
-pub struct FromXML;
+pub struct FromXml;
 
 #[async_trait]
-impl WholeStreamCommand for FromXML {
+impl WholeStreamCommand for FromXml {
     fn name(&self) -> &str {
         "from xml"
     }
@@ -298,9 +298,9 @@ mod tests {
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
-        use super::FromXML;
+        use super::FromXml;
         use crate::examples::test as test_examples;
 
-        test_examples(FromXML {})
+        test_examples(FromXml {})
     }
 }
