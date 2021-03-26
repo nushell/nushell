@@ -2,7 +2,6 @@ mod init;
 
 use clap::{App, Arg, ArgMatches};
 use init::init_from_args;
-use itertools::Itertools;
 use nu_command::utils::test_bins as binaries;
 use nu_engine::script;
 use nu_protocol::{NuScript, RunScriptOptions};
@@ -90,7 +89,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Execute nu according to matches
     if let Some(values) = matches.values_of("commands") {
         // Execute commands
-        let commands: String = values.intersperse("\n").collect();
+        // intersperse might be added to std soon. So fully qualify so compiler doesn't cry for
+        // potential future ambiguity
+        let commands: String = itertools::Itertools::intersperse(values, "\n").collect();
         let cmds_as_script = NuScript::Content(commands);
         let options = script_options_from_matches(&matches);
         futures::executor::block_on(script::run_script(cmds_as_script, &options, &ctx));
