@@ -39,7 +39,7 @@ impl LocalConfigDiff {
 ///filesystem
 ///Returns tuple of (configs to remove, errors from io).
 fn walk_down(
-    from_inclusive: &PathBuf,
+    from_inclusive: &Path,
     to_exclusive: &Option<PathBuf>,
 ) -> (Vec<PathBuf>, Vec<ShellError>) {
     let mut all_err = vec![];
@@ -95,7 +95,7 @@ fn walk_up(
     (all_cfgs_to_load, all_err)
 }
 
-fn is_existent_local_cfg(cfg_file_path: &PathBuf) -> Result<bool, ShellError> {
+fn is_existent_local_cfg(cfg_file_path: &Path) -> Result<bool, ShellError> {
     if !cfg_file_path.exists() || cfg_file_path.parent() == super::default_path()?.parent() {
         //Don't treat global cfg as local one
         Ok(false)
@@ -104,10 +104,7 @@ fn is_existent_local_cfg(cfg_file_path: &PathBuf) -> Result<bool, ShellError> {
     }
 }
 
-fn is_trusted_local_cfg_content(
-    cfg_file_path: &PathBuf,
-    content: &[u8],
-) -> Result<bool, ShellError> {
+fn is_trusted_local_cfg_content(cfg_file_path: &Path, content: &[u8]) -> Result<bool, ShellError> {
     //This checks whether user used `autoenv trust` to mark this cfg as secure
     if !super::is_file_trusted(&cfg_file_path, &content)? {
         //Notify user about present config, but not trusted

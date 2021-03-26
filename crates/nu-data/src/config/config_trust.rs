@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use std::{io::Read, path::PathBuf};
+use std::{io::Read, path::Path, path::PathBuf};
 
 use indexmap::IndexMap;
 use nu_errors::ShellError;
@@ -19,7 +19,7 @@ impl Trusted {
     }
 }
 
-pub fn is_file_trusted(nu_env_file: &PathBuf, content: &[u8]) -> Result<bool, ShellError> {
+pub fn is_file_trusted(nu_env_file: &Path, content: &[u8]) -> Result<bool, ShellError> {
     let contentdigest = Sha256::digest(&content).as_slice().to_vec();
     let nufile = std::fs::canonicalize(nu_env_file)?;
 
