@@ -11,6 +11,7 @@ use std::ops::Deref;
 /// display that string.  `ANSIString` and `ANSIByteString` are aliases for
 /// this type on `str` and `\[u8]`, respectively.
 #[derive(PartialEq, Debug)]
+#[allow(clippy::upper_case_acronyms)]
 pub struct ANSIGenericString<'a, S: 'a + ToOwned + ?Sized>
 where
     <S as ToOwned>::Owned: fmt::Debug,
@@ -85,10 +86,12 @@ where
 /// let plain_string = ANSIString::from("a plain string");
 /// assert_eq!(&*plain_string, "a plain string");
 /// ```
+#[allow(clippy::upper_case_acronyms)]
 pub type ANSIString<'a> = ANSIGenericString<'a, str>;
 
 /// An `ANSIByteString` represents a formatted series of bytes.  Use
 /// `ANSIByteString` when styling text with an unknown encoding.
+#[allow(clippy::upper_case_acronyms)]
 pub type ANSIByteString<'a> = ANSIGenericString<'a, [u8]>;
 
 impl<'a, I, S: 'a + ToOwned + ?Sized> From<I> for ANSIGenericString<'a, S>
@@ -132,6 +135,7 @@ where
 
 /// A set of `ANSIGenericString`s collected together, in order to be
 /// written with a minimum of control characters.
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, PartialEq)]
 pub struct ANSIGenericStrings<'a, S: 'a + ToOwned + ?Sized>(pub &'a [ANSIGenericString<'a, S>])
 where
@@ -140,6 +144,7 @@ where
 
 /// A set of `ANSIString`s collected together, in order to be written with a
 /// minimum of control characters.
+#[allow(clippy::upper_case_acronyms)]
 pub type ANSIStrings<'a> = ANSIGenericStrings<'a, str>;
 
 /// A function to construct an `ANSIStrings` instance.
@@ -150,6 +155,7 @@ pub fn ANSIStrings<'a>(arg: &'a [ANSIString<'a>]) -> ANSIStrings<'a> {
 
 /// A set of `ANSIByteString`s collected together, in order to be
 /// written with a minimum of control characters.
+#[allow(clippy::upper_case_acronyms)]
 pub type ANSIByteStrings<'a> = ANSIGenericStrings<'a, [u8]>;
 
 /// A function to construct an `ANSIByteStrings` instance.

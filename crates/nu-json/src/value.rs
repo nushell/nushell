@@ -1092,7 +1092,7 @@ impl<'de, 'a> de::MapAccess<'de> for MapDeserializer {
         V: de::DeserializeSeed<'de>,
     {
         let value = self.value.take().expect("value is missing");
-        Ok(seed.deserialize(value)?)
+        seed.deserialize(value)
     }
 
     fn size_hint(&self) -> Option<usize> {
@@ -1150,18 +1150,18 @@ mod test {
 
         let v: Value = from_str("{\"a\":1.1}").unwrap();
         let vo = v.as_object().unwrap();
-        assert_eq!(vo["a"].as_f64().unwrap(), 1.1);
+        assert!(vo["a"].as_f64().unwrap() - 1.1 < std::f64::EPSILON);
 
         let v: Value = from_str("{\"a\":-1.1}").unwrap();
         let vo = v.as_object().unwrap();
-        assert_eq!(vo["a"].as_f64().unwrap(), -1.1);
+        assert!(vo["a"].as_f64().unwrap() + -1.1 > -(std::f64::EPSILON));
 
         let v: Value = from_str("{\"a\":1e6}").unwrap();
         let vo = v.as_object().unwrap();
-        assert_eq!(vo["a"].as_f64().unwrap(), 1e6);
+        assert!(vo["a"].as_f64().unwrap() - 1e6 < std::f64::EPSILON);
 
         let v: Value = from_str("{\"a\":-1e6}").unwrap();
         let vo = v.as_object().unwrap();
-        assert_eq!(vo["a"].as_f64().unwrap(), -1e6);
+        assert!(vo["a"].as_f64().unwrap() + -1e6 > -(std::f64::EPSILON));
     }
 }

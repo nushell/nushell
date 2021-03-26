@@ -196,7 +196,7 @@ pub fn delete_file_at(full_path: impl AsRef<Path>) {
 pub fn create_file_at(full_path: impl AsRef<Path>) -> Result<(), std::io::Error> {
     let full_path = full_path.as_ref();
 
-    if let Some(_) = full_path.parent() {
+    if full_path.parent().is_some() {
         panic!("path exists");
     }
 

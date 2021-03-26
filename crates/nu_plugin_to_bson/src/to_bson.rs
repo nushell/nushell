@@ -9,13 +9,13 @@ use num_traits::ToPrimitive;
 use std::convert::TryInto;
 
 #[derive(Default)]
-pub struct ToBSON {
+pub struct ToBson {
     pub state: Vec<Value>,
 }
 
-impl ToBSON {
-    pub fn new() -> ToBSON {
-        ToBSON { state: vec![] }
+impl ToBson {
+    pub fn new() -> ToBson {
+        ToBson { state: vec![] }
     }
 }
 

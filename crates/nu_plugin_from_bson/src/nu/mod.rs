@@ -1,13 +1,13 @@
 #[cfg(test)]
 mod tests;
 
-use crate::FromBSON;
+use crate::FromBson;
 use nu_errors::ShellError;
 use nu_plugin::Plugin;
 use nu_protocol::{CallInfo, Primitive, ReturnValue, Signature, UntaggedValue, Value};
 use nu_source::Tag;
 
-impl Plugin for FromBSON {
+impl Plugin for FromBson {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("from bson")
             .desc("Convert from .bson binary into table")

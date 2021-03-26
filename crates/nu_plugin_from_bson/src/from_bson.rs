@@ -6,14 +6,14 @@ use nu_source::{SpannedItem, Tag};
 use std::str::FromStr;
 
 #[derive(Default)]
-pub struct FromBSON {
+pub struct FromBson {
     pub state: Vec<u8>,
     pub name_tag: Tag,
 }
 
-impl FromBSON {
-    pub fn new() -> FromBSON {
-        FromBSON {
+impl FromBson {
+    pub fn new() -> FromBson {
+        FromBson {
             state: vec![],
             name_tag: Tag::unknown(),
         }
