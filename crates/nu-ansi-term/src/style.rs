@@ -281,7 +281,6 @@ impl Default for Style {
 /// These use the standard numeric sequences.
 /// See <http://invisible-island.net/xterm/ctlseqs/ctlseqs.html>
 #[derive(PartialEq, Clone, Copy, Debug)]
-#[allow(clippy::upper_case_acronyms)]
 #[cfg_attr(
     feature = "derive_serde_style",
     derive(serde::Deserialize, serde::Serialize)
@@ -366,7 +365,7 @@ pub enum Color {
     Fixed(u8),
 
     /// A 24-bit RGB color, as specified by ISO-8613-3.
-    RGB(u8, u8, u8),
+    Rgb(u8, u8, u8),
 }
 
 impl Color {

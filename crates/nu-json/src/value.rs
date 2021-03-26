@@ -1154,7 +1154,7 @@ mod test {
 
         let v: Value = from_str("{\"a\":-1.1}").unwrap();
         let vo = v.as_object().unwrap();
-        assert!(vo["a"].as_f64().unwrap() + -1.1 > -(std::f64::EPSILON));
+        assert!(vo["a"].as_f64().unwrap() + 1.1 > -(std::f64::EPSILON));
 
         let v: Value = from_str("{\"a\":1e6}").unwrap();
         let vo = v.as_object().unwrap();
@@ -1162,6 +1162,6 @@ mod test {
 
         let v: Value = from_str("{\"a\":-1e6}").unwrap();
         let vo = v.as_object().unwrap();
-        assert!(vo["a"].as_f64().unwrap() + -1e6 > -(std::f64::EPSILON));
+        assert!(vo["a"].as_f64().unwrap() + 1e6 > -(std::f64::EPSILON));
     }
 }

@@ -146,7 +146,7 @@ pub fn get_color_config() -> HashMap<String, Style> {
     hm.insert("index_color".to_string(), Color::Green.bold());
     hm.insert(
         "leading_trailing_space_bg".to_string(),
-        Style::default().on(Color::RGB(128, 128, 128)),
+        Style::default().on(Color::Rgb(128, 128, 128)),
     );
 
     // populate hashmap from config values

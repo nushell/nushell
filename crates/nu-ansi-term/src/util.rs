@@ -1,12 +1,12 @@
-use crate::display::{ANSIString, ANSIStrings};
+use crate::display::{AnsiString, AnsiStrings};
 use std::ops::Deref;
 
 /// Return a substring of the given ANSIStrings sequence, while keeping the formatting.
 pub fn sub_string<'a>(
     start: usize,
     len: usize,
-    strs: &ANSIStrings<'a>,
-) -> Vec<ANSIString<'static>> {
+    strs: &AnsiStrings<'a>,
+) -> Vec<AnsiString<'static>> {
     let mut vec = Vec::new();
     let mut pos = start;
     let mut len_rem = len;
@@ -39,7 +39,7 @@ pub fn sub_string<'a>(
 }
 
 /// Return a concatenated copy of `strs` without the formatting, as an allocated `String`.
-pub fn unstyle(strs: &ANSIStrings) -> String {
+pub fn unstyle(strs: &AnsiStrings) -> String {
     let mut s = String::new();
 
     for i in strs.0.iter() {
@@ -50,7 +50,7 @@ pub fn unstyle(strs: &ANSIStrings) -> String {
 }
 
 /// Return the unstyled length of ANSIStrings. This is equaivalent to `unstyle(strs).len()`.
-pub fn unstyled_len(strs: &ANSIStrings) -> usize {
+pub fn unstyled_len(strs: &AnsiStrings) -> usize {
     let mut l = 0;
     for i in strs.0.iter() {
         l += i.deref().len();
@@ -70,7 +70,7 @@ mod test {
             Red.paint("-second"),
             White.paint("-third"),
         ];
-        let a = ANSIStrings(&l);
+        let a = AnsiStrings(&l);
         assert_eq!(unstyle(&a), "first-second-third");
         assert_eq!(unstyled_len(&a), 18);
 
