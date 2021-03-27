@@ -30,10 +30,8 @@ impl Conf for NuConfig {
     }
 
     fn reload(&mut self) {
-        let vars = &mut self.vars;
-
         if let Ok(variables) = read(Tag::unknown(), &Some(self.file_path.clone())) {
-            vars.extend(variables);
+            self.vars = variables;
 
             self.modified_at = if let Ok(status) = last_modified(&None) {
                 status
