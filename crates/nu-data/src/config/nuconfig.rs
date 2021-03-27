@@ -33,7 +33,7 @@ impl Conf for NuConfig {
         if let Ok(variables) = read(Tag::unknown(), &Some(self.file_path.clone())) {
             self.vars = variables;
 
-            self.modified_at = if let Ok(status) = last_modified(&None) {
+            self.modified_at = if let Ok(status) = last_modified(&Some(self.file_path.clone())) {
                 status
             } else {
                 Status::Unavailable
