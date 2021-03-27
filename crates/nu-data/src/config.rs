@@ -301,14 +301,11 @@ pub fn config(tag: impl Into<Tag>) -> Result<IndexMap<String, Value>, ShellError
 }
 
 pub fn write(config: &IndexMap<String, Value>, at: &Option<PathBuf>) -> Result<(), ShellError> {
-    let filename = &mut default_path()?;
+    let filename = default_path()?;
+
     let filename = match at {
         None => filename,
-        Some(file) => {
-            filename.pop();
-            filename.push(file);
-            filename
-        }
+        Some(ref file) => file.clone(),
     };
 
     let contents = value_to_toml_value(
