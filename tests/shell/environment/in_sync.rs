@@ -7,8 +7,6 @@ use std::path::PathBuf;
 use hamcrest2::assert_that;
 use hamcrest2::prelude::*;
 
-use super::*;
-
 #[test]
 fn setting_environment_value_to_configuration_should_pick_up_into_in_memory_environment_on_runtime()
 {
