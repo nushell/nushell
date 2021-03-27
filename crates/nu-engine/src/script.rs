@@ -1,5 +1,5 @@
+use crate::path::canonicalize;
 use crate::run_block;
-use crate::{path::canonicalize, print::maybe_print_errors};
 use crate::{MaybeTextCodec, StringOrBinary};
 use futures::StreamExt;
 use futures_codec::FramedRead;
@@ -11,7 +11,7 @@ use nu_protocol::hir::{
 use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue, Value};
 use nu_stream::{InputStream, ToInputStream};
 
-use crate::EvaluationContext;
+use crate::{evaluation_context, EvaluationContext};
 use log::{debug, trace};
 use nu_source::{Span, Tag, Text};
 use std::iter::Iterator;
@@ -244,19 +244,16 @@ pub async fn run_script_standalone(
                 }
             };
 
-            maybe_print_errors(&context, Text::from(line));
+            evaluation_context::maybe_print_errors(&context, Text::from(line));
             if error_code != 0 && exit_on_error {
                 std::process::exit(error_code);
             }
         }
 
         LineResult::Error(line, err) => {
-            context
-                .host
-                .lock()
-                .print_err(err, &Text::from(line.clone()));
+            context.with_host(|host| host.print_err(err, &Text::from(line.clone())));
 
-            maybe_print_errors(&context, Text::from(line));
+            evaluation_context::maybe_print_errors(&context, Text::from(line));
             if exit_on_error {
                 std::process::exit(1);
             }
