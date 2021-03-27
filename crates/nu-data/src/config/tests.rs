@@ -1,5 +1,6 @@
 use crate::config::{Conf, NuConfig, Status};
 use nu_protocol::Value;
+use std::any::Any;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
@@ -9,6 +10,10 @@ pub struct FakeConfig {
 }
 
 impl Conf for FakeConfig {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn is_modified(&self) -> Result<bool, Box<dyn std::error::Error>> {
         self.is_modified()
     }

@@ -1,5 +1,6 @@
 mod conf;
 mod nuconfig;
+pub mod path;
 
 pub mod tests;
 
@@ -185,7 +186,7 @@ pub fn default_path_for(file: &Option<PathBuf>) -> Result<PathBuf, ShellError> {
     let file: &Path = file
         .as_ref()
         .map(AsRef::as_ref)
-        .unwrap_or_else(|| "config.toml".as_ref());
+        .unwrap_or_else(|| self::path::DEFAULT_CONFIG_LOCATION.as_ref());
     filename.push(file);
 
     Ok(filename)
