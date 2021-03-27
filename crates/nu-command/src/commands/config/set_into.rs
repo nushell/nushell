@@ -1,7 +1,9 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{
+    ConfigPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+};
 use nu_source::Tagged;
 
 pub struct SubCommand;
@@ -44,6 +46,7 @@ impl WholeStreamCommand for SubCommand {
 
 pub async fn set_into(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
+    let ctx = EvaluationContext::from_args(&args);
     let scope = args.scope.clone();
     let (Arguments { set_into: v }, input) = args.process().await?;
 
@@ -73,6 +76,10 @@ pub async fn set_into(args: CommandArgs) -> Result<OutputStream, ShellError> {
         result.insert(key, value.clone());
 
         config::write(&result, &path)?;
+        ctx.reload_config(&ConfigPath::Global(
+            path.expect("Global config path is always some"),
+        ))
+        .await?;
 
         OutputStream::one(ReturnSuccess::value(
             UntaggedValue::Row(result.into()).into_value(name),
@@ -84,6 +91,10 @@ pub async fn set_into(args: CommandArgs) -> Result<OutputStream, ShellError> {
         result.insert(key, value);
 
         config::write(&result, &path)?;
+        ctx.reload_config(&ConfigPath::Global(
+            path.expect("Global config path is always some"),
+        ))
+        .await?;
 
         OutputStream::one(ReturnSuccess::value(
             UntaggedValue::Row(result.into()).into_value(name),
