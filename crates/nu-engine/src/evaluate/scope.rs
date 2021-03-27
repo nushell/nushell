@@ -265,6 +265,35 @@ impl Scope {
             }
         })
     }
+
+    pub fn get_frame_with_tag(&self, tag: &str) -> Option<ScopeFrame> {
+        let frames = self.frames.lock();
+        let tag = Some(tag);
+        frames.iter().rev().find_map(|f| {
+            if f.tag.as_deref() == tag {
+                Some(f.clone())
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn update_frame_with_tag(&self, frame: ScopeFrame, tag: &str) -> Result<(), ShellError> {
+        let mut frames = self.frames.lock();
+        let tag = Some(tag);
+        for f in frames.iter_mut().rev() {
+            if f.tag.as_deref() == tag {
+                *f = frame;
+                return Ok(());
+            }
+        }
+
+        // Frame not found, return err
+        Err(ShellError::untagged_runtime_error(format!(
+            "Can't update frame with tag {:?}. No such frame present!",
+            tag
+        )))
+    }
 }
 
 impl ParserScope for Scope {
@@ -330,6 +359,12 @@ pub struct ScopeFrame {
     ///Optional tag to better identify this scope frame later
     pub tag: Option<String>,
     pub exitscripts: Vec<String>,
+}
+
+impl Default for ScopeFrame {
+    fn default() -> Self {
+        ScopeFrame::new()
+    }
 }
 
 impl ScopeFrame {
