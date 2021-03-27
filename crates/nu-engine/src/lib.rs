@@ -1,25 +1,19 @@
-pub mod basic_evaluation_context;
-pub mod basic_shell_manager;
 mod call_info;
 mod command_args;
 pub mod deserializer;
 pub mod documentation;
 mod env;
 mod evaluate;
-mod evaluation_context;
+pub mod evaluation_context;
 mod example;
 pub mod filesystem;
-mod history_path;
 mod maybe_text_codec;
 pub mod plugin;
-pub mod print;
 mod runnable_context;
 pub mod script;
 pub mod shell;
 mod whole_stream_command;
 
-pub use crate::basic_evaluation_context::basic_evaluation_context;
-pub use crate::basic_shell_manager::basic_shell_manager;
 pub use crate::call_info::UnevaluatedCallInfo;
 pub use crate::command_args::{
     CommandArgs, EvaluatedCommandArgs, EvaluatedWholeStreamCommandArgs, RawCommandArgs,
@@ -36,7 +30,6 @@ pub use crate::example::Example;
 pub use crate::filesystem::dir_info::{DirBuilder, DirInfo, FileInfo};
 pub use crate::filesystem::filesystem_shell::FilesystemShell;
 pub use crate::filesystem::path;
-pub use crate::history_path::history_path;
 pub use crate::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
 pub use crate::runnable_context::RunnableContext;
 pub use crate::shell::help_shell::{command_dict, HelpShell};

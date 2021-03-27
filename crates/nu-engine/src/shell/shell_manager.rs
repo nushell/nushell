@@ -1,10 +1,12 @@
 use crate::command_args::EvaluatedWholeStreamCommandArgs;
 use crate::maybe_text_codec::StringOrBinary;
-use crate::shell::Shell;
 use futures::Stream;
 use nu_stream::OutputStream;
 
+use crate::filesystem::filesystem_shell::FilesystemShell;
 use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
+use crate::shell::Shell;
+
 use encoding_rs::Encoding;
 use nu_errors::ShellError;
 use nu_source::{Span, Tag};
@@ -20,6 +22,13 @@ pub struct ShellManager {
 }
 
 impl ShellManager {
+    pub fn basic() -> Result<Self, ShellError> {
+        Ok(ShellManager {
+            current_shell: Arc::new(AtomicUsize::new(0)),
+            shells: Arc::new(Mutex::new(vec![Box::new(FilesystemShell::basic()?)])),
+        })
+    }
+
     pub fn insert_at_current(&self, shell: Box<dyn Shell + Send>) {
         self.shells.lock().push(shell);
         self.current_shell
