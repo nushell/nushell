@@ -1,13 +1,13 @@
 use crate::call_info::UnevaluatedCallInfo;
 use crate::command_args::CommandArgs;
-use crate::env::host::Host;
+use crate::env::{basic_host::BasicHost, host::Host};
 use crate::evaluate::scope::Scope;
 use crate::shell::shell_manager::ShellManager;
 use crate::whole_stream_command::Command;
 use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_protocol::hir;
-use nu_source::Tag;
+use nu_source::{Tag, Text};
 use nu_stream::{InputStream, OutputStream};
 use parking_lot::Mutex;
 use std::sync::atomic::AtomicBool;
@@ -27,6 +27,18 @@ pub struct EvaluationContext {
 }
 
 impl EvaluationContext {
+    pub fn basic() -> Result<EvaluationContext, ShellError> {
+        Ok(EvaluationContext {
+            scope: Scope::new(),
+            host: Arc::new(parking_lot::Mutex::new(Box::new(BasicHost))),
+            current_errors: Arc::new(Mutex::new(vec![])),
+            ctrl_c: Arc::new(AtomicBool::new(false)),
+            user_recently_used_autoenv_untrust: Arc::new(AtomicBool::new(false)),
+            shell_manager: ShellManager::basic()?,
+            windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
+        })
+    }
+
     pub fn from_args(args: &CommandArgs) -> EvaluationContext {
         EvaluationContext {
             scope: args.scope.clone(),
@@ -119,5 +131,20 @@ impl EvaluationContext {
             output.insert(var, value);
         }
         output
+    }
+}
+
+pub fn maybe_print_errors(context: &EvaluationContext, source: Text) -> bool {
+    let errors = context.current_errors.clone();
+    let mut errors = errors.lock();
+
+    if errors.len() > 0 {
+        let error = errors[0].clone();
+        *errors = vec![];
+
+        context.host.lock().print_err(error, &source);
+        true
+    } else {
+        false
     }
 }
