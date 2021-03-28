@@ -349,6 +349,11 @@ pub async fn cli(context: EvaluationContext, options: Options) -> Result<(), Box
                     .lock()
                     .print_err(err, &Text::from(session_text.clone()));
 
+                // I am not so sure, we don't need maybe_print_errors here (as we printed an err
+                // above), because maybe_print_errors also clears the errors.
+                // TODO Analyze where above err comes from, and whether we need to clear
+                // context.errors here
+                // Or just be consistent and return errors always in context.errors...
                 maybe_print_errors(&context, Text::from(session_text.clone()));
             }
 
