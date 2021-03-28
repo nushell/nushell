@@ -358,9 +358,14 @@ pub async fn cli(context: EvaluationContext, options: Options) -> Result<(), Box
             }
 
             LineResult::CtrlC => {
-                let config_ctrlc_exit = config::config(Tag::unknown())?
-                    .get("ctrlc_exit")
-                    .map(|s| s.value.is_true())
+                let config_ctrlc_exit = context
+                    .configs
+                    .lock()
+                    .global_config
+                    .as_ref()
+                    .map(|cfg| cfg.var("ctrlc_exit"))
+                    .flatten()
+                    .map(|ctrl_c| ctrl_c.is_true())
                     .unwrap_or(false); // default behavior is to allow CTRL-C spamming similar to other shells
 
                 if !config_ctrlc_exit {
