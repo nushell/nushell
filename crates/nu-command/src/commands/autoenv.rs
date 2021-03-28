@@ -15,11 +15,12 @@ impl WholeStreamCommand for Autoenv {
 
     fn extra_usage(&self) -> &str {
         // "Mark a .nu-env file in a directory as trusted. Needs to be re-run after each change to the file or its filepath."
-        r#"Create a file called .nu-env in any directory and run 'autoenv trust' to let nushell read it when entering the directory.
-The file can contain several optional sections:
-    env: environment variables to set when visiting the directory. The variables are unset after leaving the directory and any overwritten values are restored.
-    scriptvars: environment variables that should be set to the return value of a script. After they have been set, they behave in the same way as variables set in the env section.
-    scripts: scripts to run when entering the directory or leaving it."#
+        r#"Create a file called .nu-env in any directory and run 'autoenv trust' to let nushell load it when entering the directory.
+The .nu-env file has the same format as your $HOME/nu/config.toml file. By loading a .nu-env file the following applies:
+    - environment variables (section \"[env]\") are loaded from the .nu-env file. Those env variables are only existend in this directory (and children directories)
+    - the \"startup\" commands are run when entering the directory
+    - the \"on_exit\" commands are run when leaving the directory
+"#
     }
 
     fn signature(&self) -> Signature {
@@ -35,15 +36,12 @@ The file can contain several optional sections:
         vec![Example {
             description: "Example .nu-env file",
             example: r#"cat .nu-env
+        startup = ["echo ...entering the directory", "echo 1 2 3"]
+        on_exit = ["echo ...leaving the directory"]
+
         [env]
         mykey = "myvalue"
-
-        [scriptvars]
-        myscript = "echo myval"
-
-        [scripts]
-        entryscripts = ["touch hello.txt", "touch hello2.txt"]
-        exitscripts = ["touch bye.txt"]"#,
+            "#,
             result: None,
         }]
     }
