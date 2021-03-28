@@ -60,6 +60,7 @@ impl Director {
         }
 
         process.arg("--skip-plugins");
+        process.arg("--no-history");
         if let Some(config_file) = self.config.as_ref() {
             process.args(&[
                 "--config-file",

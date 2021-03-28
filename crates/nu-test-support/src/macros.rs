@@ -48,6 +48,7 @@ macro_rules! nu {
         let mut process = match Command::new($crate::fs::executable_path())
             .env("PATH", paths_joined)
             .arg("--skip-plugins")
+            .arg("--no-history")
             .arg("--config-file")
             .arg($crate::fs::DisplayPath::display_path(&$crate::fs::fixtures().join("playground/config/default.toml")))
             .stdout(Stdio::piped())
