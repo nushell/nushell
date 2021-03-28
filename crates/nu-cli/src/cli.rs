@@ -175,15 +175,15 @@ pub async fn cli(context: EvaluationContext, options: Options) -> Result<(), Box
         rl.set_helper(helper);
         let history_path = nu_data::config::path::history_path(cfg);
 
-        // Don't load history if it's not necessary
-        if options.save_history {
-            let _ = rl.load_history(&history_path);
-        }
-
         history_path
     } else {
         nu_data::config::path::default_history_path()
     };
+
+    // Don't load history if it's not necessary
+    if options.save_history {
+        let _ = rl.load_history(&history_path);
+    }
 
     //set vars from cfg if present
     let (skip_welcome_message, prompt) = if let Some(cfg) = &context.configs.lock().global_config {
