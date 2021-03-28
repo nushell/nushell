@@ -35,6 +35,7 @@ pub struct Options {
     pub config: Option<OsString>,
     pub stdin: bool,
     pub scripts: Vec<NuScript>,
+    pub save_history: bool,
 }
 
 impl Default for Options {
@@ -49,6 +50,7 @@ impl Options {
             config: None,
             stdin: false,
             scripts: vec![],
+            save_history: true,
         }
     }
 }
@@ -172,7 +174,11 @@ pub async fn cli(context: EvaluationContext, options: Options) -> Result<(), Box
         let helper = Some(nu_line_editor_helper(&context, cfg));
         rl.set_helper(helper);
         let history_path = nu_engine::history_path(cfg);
-        let _ = rl.load_history(&history_path);
+
+        // Don't load history if it's not necessary
+        if options.save_history {
+            let _ = rl.load_history(&history_path);
+        }
 
         history_path
     } else {
@@ -318,19 +324,25 @@ pub async fn cli(context: EvaluationContext, options: Options) -> Result<(), Box
 
         match line {
             LineResult::Success(line) => {
-                rl.add_history_entry(&line);
-                let _ = rl.save_history(&history_path);
+                if options.save_history {
+                    rl.add_history_entry(&line);
+                    let _ = rl.save_history(&history_path);
+                }
                 maybe_print_errors(&context, Text::from(session_text.clone()));
             }
 
             LineResult::ClearHistory => {
-                rl.clear_history();
-                let _ = rl.save_history(&history_path);
+                if options.save_history {
+                    rl.clear_history();
+                    let _ = rl.save_history(&history_path);
+                }
             }
 
             LineResult::Error(line, err) => {
-                rl.add_history_entry(&line);
-                let _ = rl.save_history(&history_path);
+                if options.save_history {
+                    rl.add_history_entry(&line);
+                    let _ = rl.save_history(&history_path);
+                }
 
                 context
                     .host
@@ -351,7 +363,9 @@ pub async fn cli(context: EvaluationContext, options: Options) -> Result<(), Box
                 }
 
                 if ctrlcbreak {
-                    let _ = rl.save_history(&history_path);
+                    if options.save_history {
+                        let _ = rl.save_history(&history_path);
+                    }
                     std::process::exit(0);
                 } else {
                     context.with_host(|host| host.stdout("CTRL-C pressed (again to quit)"));
@@ -375,7 +389,9 @@ pub async fn cli(context: EvaluationContext, options: Options) -> Result<(), Box
     }
 
     // we are ok if we can not save history
-    let _ = rl.save_history(&history_path);
+    if options.save_history {
+        let _ = rl.save_history(&history_path);
+    }
 
     Ok(())
 }

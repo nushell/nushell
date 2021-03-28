@@ -17,6 +17,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .takes_value(true),
         )
         .arg(
+            Arg::with_name("no-history")
+                .hidden(true)
+                .long("no-history")
+                .multiple(false)
+                .takes_value(false),
+        )
+        .arg(
             Arg::with_name("loglevel")
                 .short("l")
                 .long("loglevel")
@@ -98,6 +105,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .value_of("config-file")
         .map(std::ffi::OsString::from);
     options.stdin = matches.is_present("stdin");
+    options.save_history = !matches.is_present("no-history");
 
     let loglevel = match matches.value_of("loglevel") {
         None => LevelFilter::Warn,
