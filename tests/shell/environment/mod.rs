@@ -1,4 +1,5 @@
 mod configuration;
+mod in_sync;
 mod nu_env;
 
 pub mod support {

@@ -1,8 +1,6 @@
 use crate::line_editor::configure_ctrl_c;
 use nu_command::commands::default_context::create_default_context;
-use nu_engine::{
-    print::maybe_print_errors, run_block, script::run_script_standalone, EvaluationContext,
-};
+use nu_engine::{evaluation_context, run_block, script::run_script_standalone, EvaluationContext};
 
 #[allow(unused_imports)]
 pub(crate) use nu_engine::script::{process_script, LineResult};
@@ -37,6 +35,8 @@ use std::path::PathBuf;
 
 pub struct Options {
     pub config: Option<OsString>,
+    pub history: Option<PathBuf>,
+    pub save_history: bool,
     pub stdin: bool,
     pub scripts: Vec<NuScript>,
 }
@@ -51,8 +51,20 @@ impl Options {
     pub fn new() -> Self {
         Self {
             config: None,
+            history: None,
+            save_history: true,
             stdin: false,
             scripts: vec![],
+        }
+    }
+
+    pub fn history(&self, block: impl FnOnce(&std::path::Path)) {
+        if !self.save_history {
+            return;
+        }
+
+        if let Some(file) = &self.history {
+            block(&file)
         }
     }
 }
@@ -125,9 +137,9 @@ pub fn search_paths() -> Vec<std::path::PathBuf> {
     search_paths
 }
 
-pub async fn run_script_file(options: Options) -> Result<(), Box<dyn Error>> {
+pub async fn run_script_file(mut options: Options) -> Result<(), Box<dyn Error>> {
     let mut context = create_default_context(false)?;
-    let mut syncer = create_environment_syncer(&context, &options);
+    let mut syncer = create_environment_syncer(&context, &mut options);
     let config = syncer.get_config();
 
     context.configure(&config, |_, ctx| {
@@ -136,7 +148,7 @@ pub async fn run_script_file(options: Options) -> Result<(), Box<dyn Error>> {
         syncer.sync_path_vars(ctx);
 
         if let Err(reason) = syncer.autoenv(ctx) {
-            ctx.host.lock().print_err(reason, &Text::from(""));
+            ctx.with_host(|host| host.print_err(reason, &Text::from("")));
         }
 
         let _ = register_plugins(ctx);
@@ -155,27 +167,51 @@ pub async fn run_script_file(options: Options) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn create_environment_syncer(context: &EvaluationContext, options: &Options) -> EnvironmentSyncer {
-    if let Some(config_file) = &options.config {
-        let location = Some(AnchorLocation::File(
-            config_file.to_string_lossy().to_string(),
-        ));
-        let tag = Tag::unknown().anchored(location);
+fn create_environment_syncer(
+    context: &EvaluationContext,
+    options: &mut Options,
+) -> EnvironmentSyncer {
+    let configuration = match &options.config {
+        Some(config_file) => {
+            let location = Some(AnchorLocation::File(
+                config_file.to_string_lossy().to_string(),
+            ));
 
-        context.scope.add_var(
-            "config-path",
-            UntaggedValue::filepath(PathBuf::from(&config_file)).into_value(tag),
-        );
+            let tag = Tag::unknown().anchored(location);
 
-        EnvironmentSyncer::with_config(Box::new(NuConfig::with(Some(config_file.into()))))
-    } else {
-        EnvironmentSyncer::new()
-    }
+            context.scope.add_var(
+                "config-path",
+                UntaggedValue::filepath(PathBuf::from(&config_file)).into_value(tag),
+            );
+
+            NuConfig::with(Some(config_file.into()))
+        }
+        None => NuConfig::new(),
+    };
+
+    let history_path = configuration.history_path();
+    options.history = Some(history_path.clone());
+
+    let location = Some(AnchorLocation::File(
+        history_path.to_string_lossy().to_string(),
+    ));
+
+    let tag = Tag::unknown().anchored(location);
+
+    context.scope.add_var(
+        "history-path",
+        UntaggedValue::filepath(history_path).into_value(tag),
+    );
+
+    EnvironmentSyncer::with_config(Box::new(configuration))
 }
 
 #[cfg(feature = "rustyline-support")]
-pub async fn cli(mut context: EvaluationContext, options: Options) -> Result<(), Box<dyn Error>> {
-    let mut syncer = create_environment_syncer(&context, &options);
+pub async fn cli(
+    mut context: EvaluationContext,
+    mut options: Options,
+) -> Result<(), Box<dyn Error>> {
+    let mut syncer = create_environment_syncer(&context, &mut options);
 
     let configuration = syncer.get_config();
 
@@ -187,7 +223,7 @@ pub async fn cli(mut context: EvaluationContext, options: Options) -> Result<(),
         syncer.sync_path_vars(ctx);
 
         if let Err(reason) = syncer.autoenv(ctx) {
-            ctx.host.lock().print_err(reason, &Text::from(""));
+            ctx.with_host(|host| host.print_err(reason, &Text::from("")));
         }
 
         let _ = configure_ctrl_c(ctx);
@@ -214,11 +250,9 @@ pub async fn cli(mut context: EvaluationContext, options: Options) -> Result<(),
     // Give ourselves a scope to work in
     context.scope.enter_scope();
 
-    let env = context.get_env();
-    context.scope.add_env_to_base(env);
-
-    let history_path = nu_engine::history_path(&configuration);
-    let _ = rl.load_history(&history_path);
+    options.history(|file| {
+        let _ = rl.load_history(&file);
+    });
 
     let mut session_text = String::new();
     let mut line_start: usize = 0;
@@ -254,6 +288,7 @@ pub async fn cli(mut context: EvaluationContext, options: Options) -> Result<(),
                 let prompt_line = prompt.as_string()?;
 
                 context.scope.enter_scope();
+
                 let (mut prompt_block, err) = nu_parser::parse(&prompt_line, 0, &context.scope);
 
                 prompt_block.set_redirect(ExternalRedirection::Stdout);
@@ -263,8 +298,6 @@ pub async fn cli(mut context: EvaluationContext, options: Options) -> Result<(),
 
                     format!("\x1b[32m{}{}\x1b[m> ", cwd, current_branch())
                 } else {
-                    // let env = context.get_env();
-
                     let run_result = run_block(&prompt_block, &context, InputStream::empty()).await;
                     context.scope.exit_scope();
 
@@ -272,7 +305,10 @@ pub async fn cli(mut context: EvaluationContext, options: Options) -> Result<(),
                         Ok(result) => match result.collect_string(Tag::unknown()).await {
                             Ok(string_result) => {
                                 let errors = context.get_errors();
-                                maybe_print_errors(&context, Text::from(prompt_line));
+                                evaluation_context::maybe_print_errors(
+                                    &context,
+                                    Text::from(prompt_line),
+                                );
                                 context.clear_errors();
 
                                 if !errors.is_empty() {
@@ -357,7 +393,7 @@ pub async fn cli(mut context: EvaluationContext, options: Options) -> Result<(),
             }
 
             if let Err(reason) = syncer.autoenv(ctx) {
-                ctx.host.lock().print_err(reason, &Text::from(""));
+                ctx.with_host(|host| host.print_err(reason, &Text::from("")));
             }
 
             let _ = configure_rustyline_editor(&mut rl, config);
@@ -365,31 +401,33 @@ pub async fn cli(mut context: EvaluationContext, options: Options) -> Result<(),
 
         match line {
             LineResult::Success(line) => {
-                rl.add_history_entry(&line);
-                let _ = rl.save_history(&history_path);
-                maybe_print_errors(&context, Text::from(session_text.clone()));
+                options.history(|file| {
+                    rl.add_history_entry(&line);
+                    let _ = rl.save_history(&file);
+                });
+
+                evaluation_context::maybe_print_errors(&context, Text::from(session_text.clone()));
             }
 
             LineResult::ClearHistory => {
-                rl.clear_history();
-                let _ = rl.save_history(&history_path);
+                options.history(|file| {
+                    rl.clear_history();
+                    let _ = rl.save_history(&file);
+                });
             }
 
-            LineResult::Error(line, err) => {
-                rl.add_history_entry(&line);
-                let _ = rl.save_history(&history_path);
+            LineResult::Error(line, reason) => {
+                options.history(|file| {
+                    rl.add_history_entry(&line);
+                    let _ = rl.save_history(&file);
+                });
 
-                context
-                    .host
-                    .lock()
-                    .print_err(err, &Text::from(session_text.clone()));
-
-                maybe_print_errors(&context, Text::from(session_text.clone()));
+                context.with_host(|host| host.print_err(reason, &Text::from(session_text.clone())));
             }
 
             LineResult::CtrlC => {
-                let config_ctrlc_exit = config::config(Tag::unknown())?
-                    .get("ctrlc_exit")
+                let config_ctrlc_exit = configuration
+                    .var("ctrlc_exit")
                     .map(|s| s.value.is_true())
                     .unwrap_or(false); // default behavior is to allow CTRL-C spamming similar to other shells
 
@@ -398,7 +436,10 @@ pub async fn cli(mut context: EvaluationContext, options: Options) -> Result<(),
                 }
 
                 if ctrlcbreak {
-                    let _ = rl.save_history(&history_path);
+                    options.history(|file| {
+                        let _ = rl.save_history(&file);
+                    });
+
                     std::process::exit(0);
                 } else {
                     context.with_host(|host| host.stdout("CTRL-C pressed (again to quit)"));
@@ -422,7 +463,9 @@ pub async fn cli(mut context: EvaluationContext, options: Options) -> Result<(),
     }
 
     // we are ok if we can not save history
-    let _ = rl.save_history(&history_path);
+    options.history(|file| {
+        let _ = rl.save_history(&file);
+    });
 
     Ok(())
 }
@@ -512,14 +555,14 @@ fn current_branch() -> String {
 
 #[cfg(test)]
 mod tests {
-    use nu_engine::basic_evaluation_context;
+    use nu_engine::EvaluationContext;
 
     #[quickcheck]
     fn quickcheck_parse(data: String) -> bool {
         let (tokens, err) = nu_parser::lex(&data, 0);
         let (lite_block, err2) = nu_parser::parse_block(tokens);
         if err.is_none() && err2.is_none() {
-            let context = basic_evaluation_context().unwrap();
+            let context = EvaluationContext::basic().unwrap();
             let _ = nu_parser::classify_block(&lite_block, &context.scope);
         }
         true

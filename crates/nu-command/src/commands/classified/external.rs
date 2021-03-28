@@ -509,7 +509,7 @@ mod tests {
     #[cfg(feature = "which")]
     use futures::executor::block_on;
     #[cfg(feature = "which")]
-    use nu_engine::basic_evaluation_context;
+    use nu_engine::EvaluationContext;
     #[cfg(feature = "which")]
     use nu_errors::ShellError;
     #[cfg(feature = "which")]
@@ -534,7 +534,7 @@ mod tests {
 
         let input = InputStream::empty();
         let mut ctx =
-            basic_evaluation_context().expect("There was a problem creating a basic context.");
+            EvaluationContext::basic().expect("There was a problem creating a basic context.");
 
         assert!(
             run_external_command(cmd, &mut ctx, input, ExternalRedirection::Stdout)
@@ -548,7 +548,7 @@ mod tests {
     // async fn failure_run() -> Result<(), ShellError> {
     //     let cmd = ExternalBuilder::for_name("fail").build();
 
-    //     let mut ctx = crate::cli::basic_evaluation_context().expect("There was a problem creating a basic context.");
+    //     let mut ctx = crate::cli::EvaluationContext::basic().expect("There was a problem creating a basic context.");
     //     let stream = run_external_command(cmd, &mut ctx, None, false)
     //         .await?
     //         .expect("There was a problem running the external command.");
