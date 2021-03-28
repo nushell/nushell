@@ -173,9 +173,7 @@ pub async fn cli(context: EvaluationContext, options: Options) -> Result<(), Box
         let _ = configure_rustyline_editor(&mut rl, cfg);
         let helper = Some(nu_line_editor_helper(&context, cfg));
         rl.set_helper(helper);
-        let history_path = nu_data::config::path::history_path(cfg);
-
-        history_path
+        nu_data::config::path::history_path(cfg)
     } else {
         nu_data::config::path::default_history_path()
     };
