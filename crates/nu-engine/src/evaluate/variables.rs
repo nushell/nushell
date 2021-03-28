@@ -1,6 +1,5 @@
 use crate::evaluate::scope::Scope;
-use crate::history_path::history_path;
-use indexmap::IndexMap;
+use nu_data::config::path::history_path;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::{Spanned, Tag};

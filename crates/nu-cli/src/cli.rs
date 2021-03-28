@@ -173,7 +173,7 @@ pub async fn cli(context: EvaluationContext, options: Options) -> Result<(), Box
         let _ = configure_rustyline_editor(&mut rl, cfg);
         let helper = Some(nu_line_editor_helper(&context, cfg));
         rl.set_helper(helper);
-        let history_path = nu_engine::history_path(cfg);
+        let history_path = nu_data::config::path::history_path(cfg);
 
         // Don't load history if it's not necessary
         if options.save_history {
@@ -182,7 +182,7 @@ pub async fn cli(context: EvaluationContext, options: Options) -> Result<(), Box
 
         history_path
     } else {
-        nu_engine::default_history_path()
+        nu_data::config::path::default_history_path()
     };
 
     //set vars from cfg if present

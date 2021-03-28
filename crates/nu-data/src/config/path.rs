@@ -1,10 +1,10 @@
-use nu_data::config::Conf;
+use crate::config::Conf;
 use std::path::PathBuf;
 
 const DEFAULT_LOCATION: &str = "history.txt";
 
 pub fn default_history_path() -> PathBuf {
-    nu_data::config::user_data()
+    crate::config::user_data()
         .map(|mut p| {
             p.push(DEFAULT_LOCATION);
             p
