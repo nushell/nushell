@@ -7,27 +7,11 @@ use std::path::{Path, PathBuf};
 use std::str;
 use tempfile::{tempdir, TempDir};
 
-#[derive(Default, Clone, Debug)]
-pub struct EnvironmentVariable {
-    pub name: String,
-    pub value: String,
-}
-
-impl EnvironmentVariable {
-    fn new(name: &str, value: &str) -> Self {
-        Self {
-            name: name.to_string(),
-            value: value.to_string(),
-        }
-    }
-}
-
 pub struct Playground<'a> {
     root: TempDir,
     tests: String,
     cwd: PathBuf,
     config: PathBuf,
-    environment_vars: Vec<EnvironmentVariable>,
     dirs: &'a Dirs,
 }
 
@@ -87,7 +71,6 @@ impl<'a> Playground<'a> {
             tests: topic.to_string(),
             cwd: nuplay_dir,
             config: fixtures.join("playground/config/default.toml"),
-            environment_vars: Vec::default(),
             dirs: &Dirs::default(),
         };
 
@@ -125,12 +108,6 @@ impl<'a> Playground<'a> {
         self
     }
 
-    pub fn with_env(&mut self, name: &str, value: &str) -> &mut Self {
-        self.environment_vars
-            .push(EnvironmentVariable::new(name, value));
-        self
-    }
-
     pub fn get_config(&self) -> &str {
         self.config.to_str().expect("could not convert path.")
     }
@@ -139,7 +116,6 @@ impl<'a> Playground<'a> {
         Director {
             cwd: Some(self.dirs.test().into()),
             config: Some(self.config.clone().into()),
-            environment_vars: self.environment_vars.clone(),
             ..Default::default()
         }
     }

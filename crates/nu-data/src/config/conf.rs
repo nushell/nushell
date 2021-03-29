@@ -1,9 +1,7 @@
 use nu_protocol::Value;
-use std::any::Any;
 use std::fmt::Debug;
 
 pub trait Conf: Debug + Send {
-    fn as_any(&self) -> &dyn Any;
     fn is_modified(&self) -> Result<bool, Box<dyn std::error::Error>>;
     fn var(&self, key: &str) -> Option<Value>;
     fn env(&self) -> Option<Value>;
@@ -13,10 +11,6 @@ pub trait Conf: Debug + Send {
 }
 
 impl Conf for Box<dyn Conf> {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn is_modified(&self) -> Result<bool, Box<dyn std::error::Error>> {
         (**self).is_modified()
     }

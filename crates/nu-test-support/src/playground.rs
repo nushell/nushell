@@ -9,4 +9,4 @@ mod tests;
 pub use director::Director;
 pub use matchers::says;
 pub use nu_process::{Executable, NuProcess, NuResult, Outcome};
-pub use play::{Dirs, EnvironmentVariable, Playground};
+pub use play::{Dirs, Playground};

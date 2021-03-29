@@ -1,12 +1,12 @@
-use super::EnvironmentVariable;
-use crate::fs::{binaries as test_bins_path, executable_path};
+use crate::fs::executable_path;
+use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::path::Path;
 use std::process::{Command, ExitStatus};
 
 pub trait Executable {
-    fn execute(&mut self) -> NuResult;
+    fn execute(&self) -> NuResult;
 }
 
 #[derive(Clone, Debug)]
@@ -36,7 +36,7 @@ pub struct NuError {
 #[derive(Clone, Debug)]
 pub struct NuProcess {
     pub arguments: Vec<OsString>,
-    pub environment_vars: Vec<EnvironmentVariable>,
+    pub environment_vars: HashMap<String, Option<OsString>>,
     pub cwd: Option<OsString>,
 }
 
@@ -56,7 +56,7 @@ impl Default for NuProcess {
     fn default() -> Self {
         Self {
             arguments: vec![],
-            environment_vars: Vec::default(),
+            environment_vars: HashMap::default(),
             cwd: None,
         }
     }
@@ -88,21 +88,6 @@ impl NuProcess {
 
         if let Some(cwd) = self.get_cwd() {
             command.current_dir(cwd);
-        }
-
-        command.env_clear();
-
-        let paths = vec![test_bins_path()];
-
-        let paths_joined = match std::env::join_paths(paths.iter()) {
-            Ok(all) => all,
-            Err(_) => panic!("Couldn't join paths for PATH var."),
-        };
-
-        command.env("PATH", paths_joined);
-
-        for env_var in &self.environment_vars {
-            command.env(&env_var.name, &env_var.value);
         }
 
         for arg in &self.arguments {

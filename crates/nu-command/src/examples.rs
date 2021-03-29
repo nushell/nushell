@@ -6,12 +6,14 @@ mod stub_generate;
 
 use double_echo::Command as DoubleEcho;
 use double_ls::Command as DoubleLs;
+use stub_generate::{mock_path, Command as StubOpen};
+
+use nu_engine::basic_evaluation_context;
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
 use nu_protocol::hir::ClassifiedBlock;
 use nu_protocol::{ShellTypeName, Value};
 use nu_source::AnchorLocation;
-use stub_generate::{mock_path, Command as StubOpen};
 
 use crate::commands::{
     Append, BuildString, Each, Echo, First, Get, Keep, Last, Let, Nth, Select, StrCollect, Wrap,
@@ -24,7 +26,7 @@ use futures::executor::block_on;
 pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
     let examples = cmd.examples();
 
-    let base_context = EvaluationContext::basic()?;
+    let base_context = basic_evaluation_context()?;
 
     base_context.add_commands(vec![
         // Command Doubles
@@ -90,7 +92,7 @@ pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
 pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
     let examples = cmd.examples();
 
-    let base_context = EvaluationContext::basic()?;
+    let base_context = basic_evaluation_context()?;
 
     base_context.add_commands(vec![
         whole_stream_command(Echo {}),
@@ -147,7 +149,7 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
 pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
     let examples = cmd.examples();
 
-    let base_context = EvaluationContext::basic()?;
+    let base_context = basic_evaluation_context()?;
 
     base_context.add_commands(vec![
         // Minimal restricted commands to aid in testing

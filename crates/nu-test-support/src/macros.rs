@@ -48,9 +48,6 @@ macro_rules! nu {
         let mut process = match Command::new($crate::fs::executable_path())
             .env("PATH", paths_joined)
             .arg("--skip-plugins")
-            .arg("--no-history")
-            .arg("--config-file")
-            .arg($crate::fs::DisplayPath::display_path(&$crate::fs::fixtures().join("playground/config/default.toml")))
             .stdout(Stdio::piped())
             .stdin(Stdio::piped())
             .stderr(Stdio::piped())
@@ -156,7 +153,7 @@ macro_rules! nu_with_plugins {
 
 pub fn read_std(std: &[u8]) -> String {
     let out = String::from_utf8_lossy(std);
-    let out = out.lines().collect::<Vec<_>>().join("\n");
+    let out = out.lines().skip(1).collect::<Vec<_>>().join("\n");
     let out = out.replace("\r\n", "");
     out.replace("\n", "")
 }

@@ -1,43 +1,24 @@
 use super::nu_process::*;
-use super::EnvironmentVariable;
 use std::ffi::OsString;
 use std::fmt;
 
 #[derive(Default, Debug)]
 pub struct Director {
     pub cwd: Option<OsString>,
-    pub environment_vars: Vec<EnvironmentVariable>,
     pub config: Option<OsString>,
-    pub pipeline: Option<Vec<String>>,
+    pub pipeline: Option<String>,
     pub executable: Option<NuProcess>,
 }
 
 impl Director {
     pub fn cococo(&self, arg: &str) -> Self {
-        let mut process = NuProcess {
-            environment_vars: self.environment_vars.clone(),
-            ..Default::default()
-        };
-
+        let mut process = NuProcess::default();
         process.args(&["--testbin", "cococo", arg]);
         Director {
             config: self.config.clone(),
             executable: Some(process),
-            environment_vars: self.environment_vars.clone(),
             ..Default::default()
         }
-    }
-
-    pub fn and_then(&mut self, commands: &str) -> &mut Self {
-        let commands = commands.to_string();
-
-        if let Some(ref mut pipeline) = self.pipeline {
-            pipeline.push(commands);
-        } else {
-            self.pipeline = Some(vec![commands]);
-        }
-
-        self
     }
 
     pub fn pipeline(&self, commands: &str) -> Self {
@@ -45,22 +26,23 @@ impl Director {
             pipeline: if commands.is_empty() {
                 None
             } else {
-                Some(vec![commands.to_string()])
+                Some(format!(
+                    "
+                                {}
+                                exit",
+                    commands
+                ))
             },
             ..Default::default()
         };
 
-        let mut process = NuProcess {
-            environment_vars: self.environment_vars.clone(),
-            ..Default::default()
-        };
+        let mut process = NuProcess::default();
 
         if let Some(working_directory) = &self.cwd {
             process.cwd(working_directory);
         }
 
         process.arg("--skip-plugins");
-        process.arg("--no-history");
         if let Some(config_file) = self.config.as_ref() {
             process.args(&[
                 "--config-file",
@@ -82,7 +64,7 @@ impl Director {
 }
 
 impl Executable for Director {
-    fn execute(&mut self) -> NuResult {
+    fn execute(&self) -> NuResult {
         use std::io::Write;
         use std::process::Stdio;
 
@@ -99,16 +81,13 @@ impl Executable for Director {
                     Err(why) => panic!("Can't run test {}", why.to_string()),
                 };
 
-                if let Some(pipelines) = &self.pipeline {
-                    let child = process.stdin.as_mut().expect("Failed to open stdin");
-
-                    for pipeline in pipelines.iter() {
-                        child
-                            .write_all(format!("{}\n", pipeline).as_bytes())
-                            .expect("Could not write to");
-                    }
-
-                    child.write_all(b"exit\n").expect("Could not write to");
+                if let Some(pipeline) = &self.pipeline {
+                    process
+                        .stdin
+                        .as_mut()
+                        .expect("couldn't open stdin")
+                        .write_all(pipeline.as_bytes())
+                        .expect("couldn't write to stdin");
                 }
 
                 process
