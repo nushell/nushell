@@ -188,6 +188,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(MathRound),
             whole_stream_command(MathFloor),
             whole_stream_command(MathCeil),
+            whole_stream_command(MathSqrt),
             // File format output
             whole_stream_command(To),
             whole_stream_command(ToCsv),
