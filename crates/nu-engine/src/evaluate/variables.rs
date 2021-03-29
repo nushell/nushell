@@ -1,8 +1,9 @@
 use crate::evaluate::scope::Scope;
+use indexmap::IndexMap;
 use nu_data::config::NuConfig;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, TaggedDictBuilder, UntaggedValue, Value};
-use nu_source::Tag;
+use nu_source::{Spanned, Tag};
 
 pub fn nu(scope: &Scope, tag: impl Into<Tag>) -> Result<Value, ShellError> {
     let tag = tag.into();
@@ -74,4 +75,29 @@ pub fn nu(scope: &Scope, tag: impl Into<Tag>) -> Result<Value, ShellError> {
     );
 
     Ok(nu_dict.into_value())
+}
+
+pub fn scope(
+    aliases: &IndexMap<String, Vec<Spanned<String>>>,
+    tag: impl Into<Tag>,
+) -> Result<Value, ShellError> {
+    let tag = tag.into();
+
+    let mut scope_dict = TaggedDictBuilder::new(&tag);
+
+    let mut dict = TaggedDictBuilder::new(&tag);
+    for v in aliases.iter() {
+        let values = v.1.clone();
+        let mut vec = Vec::new();
+
+        for k in values.iter() {
+            vec.push(k.to_string());
+        }
+
+        let alias = vec.join(" ");
+        dict.insert_untagged(v.0, UntaggedValue::string(alias));
+    }
+
+    scope_dict.insert_value("aliases", dict.into_value());
+    Ok(scope_dict.into_value())
 }
