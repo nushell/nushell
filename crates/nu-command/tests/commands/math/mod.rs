@@ -1,6 +1,7 @@
 mod avg;
 mod eval;
 mod median;
+mod round;
 mod sum;
 
 use nu_test_support::{nu, pipeline};
