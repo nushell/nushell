@@ -78,7 +78,10 @@ fn round_big_decimal(val: BigDecimal, precision: i64) -> Value {
     if precision > 0 {
         UntaggedValue::decimal(val.with_scale(precision + 1).round(precision)).into()
     } else {
-        let (rounded, _) = val.with_scale(precision + 1).round(precision).as_bigint_and_exponent();
+        let (rounded, _) = val
+            .with_scale(precision + 1)
+            .round(precision)
+            .as_bigint_and_exponent();
         UntaggedValue::int(rounded).into()
     }
 }
