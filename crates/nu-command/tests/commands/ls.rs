@@ -248,8 +248,7 @@ fn lists_all_hidden_files_when_glob_does_not_contain_dot() {
 #[cfg(unix)]
 fn fails_with_ls_to_dir_without_permission() {
     Playground::setup("ls_test_1", |dirs, sandbox| {
-        sandbox.within("dir_a")
-        .with_files(vec![
+        sandbox.within("dir_a").with_files(vec![
             EmptyFile("yehuda.10.txt"),
             EmptyFile("jonathan.10.txt"),
         ]);
@@ -260,7 +259,9 @@ fn fails_with_ls_to_dir_without_permission() {
                 chmod 000 dir_a; ls dir_a
             "#
         ));
-        assert!(actual.err.contains("The permissions of 0 do not allow access for this user"));
+        assert!(actual
+            .err
+            .contains("The permissions of 0 do not allow access for this user"));
     })
 }
 
