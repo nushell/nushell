@@ -26,10 +26,9 @@ impl WholeStreamCommand for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Apply the square root function to a list of numbers",
-            example: "echo [9 4 16] | math sqrt",
+            example: "echo [0.25 16] | math sqrt",
             result: Some(vec![
-                UntaggedValue::int(3).into(),
-                UntaggedValue::int(2).into(),
+                UntaggedValue::decimal(BigDecimal::new(BigInt::from(05), 1)).into(),
                 UntaggedValue::int(4).into(),
             ]),
         }]
@@ -50,7 +49,7 @@ fn sqrt_big_decimal(val: BigDecimal) -> Value {
     match squared {
         None => UntaggedValue::Error(ShellError::unexpected("Cant square root a negative number"))
             .into(),
-        Some(val) if !val.is_integer() => UntaggedValue::decimal(val).into(),
+        Some(val) if !val.is_integer() => UntaggedValue::decimal(val.normalized()).into(),
         Some(val) => UntaggedValue::int(val.with_scale(0).as_bigint_and_exponent().0).into(),
     }
 }
@@ -60,4 +59,17 @@ fn sqrt_default(_: UntaggedValue) -> Value {
         "Only numerical values are supported",
     ))
     .into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ShellError;
+    use super::SubCommand;
+
+    #[test]
+    fn examples_work_as_expected() -> Result<(), ShellError> {
+        use crate::examples::test as test_examples;
+
+        test_examples(SubCommand {})
+    }
 }
