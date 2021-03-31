@@ -17,6 +17,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .takes_value(true),
         )
         .arg(
+            Arg::with_name("no-history")
+                .hidden(true)
+                .long("no-history")
+                .multiple(false)
+                .takes_value(false),
+        )
+        .arg(
             Arg::with_name("loglevel")
                 .short("l")
                 .long("loglevel")
@@ -36,7 +43,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .hidden(true)
                 .long("testbin")
                 .value_name("TESTBIN")
-                .possible_values(&["cococo", "iecho", "fail", "nonu", "chop", "repeater"])
+                .possible_values(&[
+                    "echo_env", "cococo", "iecho", "fail", "nonu", "chop", "repeater",
+                ])
                 .takes_value(true),
         )
         .arg(
@@ -65,13 +74,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .takes_value(false),
         )
         .arg(
-            Arg::with_name("no-history")
-                .hidden(true)
-                .long("no-history")
-                .multiple(false)
-                .takes_value(false),
-        )
-        .arg(
             Arg::with_name("script")
                 .help("the nu script to run")
                 .index(1),
@@ -86,6 +88,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     if let Some(bin) = matches.value_of("testbin") {
         match bin {
+            "echo_env" => binaries::echo_env(),
             "cococo" => binaries::cococo(),
             "iecho" => binaries::iecho(),
             "fail" => binaries::fail(),
@@ -163,10 +166,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
 
         None => {
-            let mut context = create_default_context(true)?;
+            let context = create_default_context(true)?;
 
             if !matches.is_present("skip-plugins") {
-                let _ = nu_cli::register_plugins(&mut context);
+                let _ = nu_cli::register_plugins(&context);
             }
 
             #[cfg(feature = "rustyline-support")]

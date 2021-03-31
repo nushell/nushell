@@ -6,17 +6,8 @@ use nu_test_support::{nu, pipeline};
 
 use serial_test::serial;
 
-// Windows uses a different command to create an empty file
-// so we need to have different content on windows.
-const SCRIPTS: &str = if cfg!(target_os = "windows") {
-    r#"[scripts]
-        entryscripts = ["echo nul > hello.txt"]
-        exitscripts = ["echo nul > bye.txt"]"#
-} else {
-    r#"[scripts]
-        entryscripts = ["touch hello.txt"]
-        exitscripts = ["touch bye.txt"]"#
-};
+const SCRIPTS: &str = r#"startup = ["touch hello.txt"]
+    on_exit = ["touch bye.txt"]"#;
 
 #[test]
 #[serial]
@@ -26,13 +17,13 @@ fn picks_up_env_keys_when_entering_trusted_directory() {
             ".nu-env",
             &format!(
                 "{}\n{}",
+                SCRIPTS,
                 r#"[env]
                 testkey = "testvalue"
         
                [scriptvars]
                 myscript = "echo myval"
-            "#,
-                SCRIPTS
+            "#
             ),
         )]);
 
@@ -46,19 +37,20 @@ fn picks_up_env_keys_when_entering_trusted_directory() {
 
 #[test]
 #[serial]
+#[ignore]
 fn picks_up_script_vars_when_entering_trusted_directory() {
     Playground::setup("autoenv_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
             ".nu-env",
             &format!(
                 "{}\n{}",
+                SCRIPTS,
                 r#"[env]
                 testkey = "testvalue"
         
                [scriptvars]
                 myscript = "echo myval"
-            "#,
-                SCRIPTS
+            "#
             ),
         )]);
 
@@ -66,6 +58,8 @@ fn picks_up_script_vars_when_entering_trusted_directory() {
 
         let actual = Trusted::in_path(&dirs, || nu!(cwd: dirs.test(), "echo $nu.env.myscript"));
 
+        // scriptvars are not supported
+        // and why is myval expected when myscript is "echo myval"
         assert_eq!(actual.out, expected);
     })
 }
@@ -78,10 +72,10 @@ fn picks_up_env_keys_when_entering_trusted_directory_indirectly() {
         sandbox.with_files(vec![FileWithContent(
             ".nu-env",
             r#"[env]
-                nu-version = "0.29.0" "#,
+                nu-version = "0.29.1" "#,
         )]);
 
-        let expected = "0.29.0";
+        let expected = "0.29.1";
 
         let actual = Trusted::in_path(&dirs, || {
             nu!(cwd: dirs.test().join("crates"), r#"
@@ -102,13 +96,10 @@ fn entering_a_trusted_directory_runs_entry_scripts() {
             ".nu-env",
             &format!(
                 "{}\n{}",
+                SCRIPTS,
                 r#"[env]
                 testkey = "testvalue"
-        
-               [scriptvars]
-                myscript = "echo myval"
-            "#,
-                SCRIPTS
+            "#
             ),
         )]);
 
@@ -132,13 +123,13 @@ fn leaving_a_trusted_directory_runs_exit_scripts() {
             ".nu-env",
             &format!(
                 "{}\n{}",
+                SCRIPTS,
                 r#"[env]
                 testkey = "testvalue"
         
                [scriptvars]
                 myscript = "echo myval"
-            "#,
-                SCRIPTS
+            "#
             ),
         )]);
 
@@ -161,13 +152,13 @@ fn entry_scripts_are_called_when_revisiting_a_trusted_directory() {
             ".nu-env",
             &format!(
                 "{}\n{}",
+                SCRIPTS,
                 r#"[env]
                 testkey = "testvalue"
         
                [scriptvars]
                 myscript = "echo myval"
-            "#,
-                SCRIPTS
+            "#
             ),
         )]);
 
@@ -194,13 +185,13 @@ fn given_a_trusted_directory_with_entry_scripts_when_entering_a_subdirectory_ent
             ".nu-env",
             &format!(
                 "{}\n{}",
+                SCRIPTS,
                 r#"[env]
                 testkey = "testvalue"
         
                [scriptvars]
                 myscript = "echo myval"
-            "#,
-                SCRIPTS
+            "#
             ),
         )]);
 
@@ -225,13 +216,13 @@ fn given_a_trusted_directory_with_exit_scripts_when_entering_a_subdirectory_exit
             ".nu-env",
             &format!(
                 "{}\n{}",
+                SCRIPTS,
                 r#"[env]
                 testkey = "testvalue"
         
                [scriptvars]
                 myscript = "echo myval"
-            "#,
-                SCRIPTS
+            "#
             ),
         )]);
 
@@ -310,6 +301,40 @@ fn given_a_hierachy_of_trusted_directories_nested_ones_should_overwrite_variable
 
 #[test]
 #[serial]
+#[cfg(not(windows))] //TODO figure out why this test doesn't work on windows
+fn local_config_should_not_be_added_when_running_scripts() {
+    Playground::setup("autoenv_test_10", |dirs, sandbox| {
+        sandbox.mkdir("foo");
+        sandbox.with_files(vec![
+            FileWithContent(
+                ".nu-env",
+                r#"[env]
+                organization = "nu""#,
+            ),
+            FileWithContent(
+                "foo/.nu-env",
+                r#"[env]
+                organization = "foo""#,
+            ),
+            FileWithContent(
+                "script.nu",
+                r#"cd foo
+                echo $nu.env.organization"#,
+            ),
+        ]);
+
+        let actual = Trusted::in_path(&dirs, || {
+            nu!(cwd: dirs.test(), r#"
+                do { autoenv trust foo ; = $nothing } # Silence autoenv trust message from output
+                nu script.nu
+            "#)
+        });
+
+        assert_eq!(actual.out, "nu");
+    })
+}
+#[test]
+#[serial]
 fn given_a_hierachy_of_trusted_directories_going_back_restores_overwritten_variables() {
     Playground::setup("autoenv_test_11", |dirs, sandbox| {
         sandbox.mkdir("nu_plugin_rb");
@@ -338,5 +363,248 @@ fn given_a_hierachy_of_trusted_directories_going_back_restores_overwritten_varia
         });
 
         assert_eq!(actual.out, "nushell");
+    })
+}
+
+#[cfg(feature = "directories-support")]
+#[cfg(feature = "which-support")]
+#[test]
+#[serial]
+fn local_config_env_var_present_and_removed_correctly() {
+    use nu_test_support::fs::Stub::FileWithContent;
+    Playground::setup("autoenv_test", |dirs, sandbox| {
+        sandbox.mkdir("foo");
+        sandbox.mkdir("foo/bar");
+        sandbox.with_files(vec![FileWithContent(
+            "foo/.nu-env",
+            r#"[env]
+               testkey = "testvalue"
+                "#,
+        )]);
+        //Assert testkey is not present before entering directory
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust foo;
+               echo $nu.env.testkey"#
+        );
+        assert!(actual.err.contains("Unknown"));
+        //Assert testkey is present in foo
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust foo; cd foo
+               echo $nu.env.testkey"#
+        );
+        assert_eq!(actual.out, "testvalue");
+        //Assert testkey is present also in subdirectories
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust foo; cd foo
+               cd bar
+               echo $nu.env.testkey"#
+        );
+        assert_eq!(actual.out, "testvalue");
+        //Assert testkey is present also when jumping over foo
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust foo; cd foo/bar
+               echo $nu.env.testkey"#
+        );
+        assert_eq!(actual.out, "testvalue");
+        //Assert testkey removed after leaving foo
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust foo; cd foo
+               cd ..
+               echo $nu.env.testkey"#
+        );
+        assert!(actual.err.contains("Unknown"));
+    });
+}
+
+#[cfg(feature = "directories-support")]
+#[cfg(feature = "which-support")]
+#[test]
+#[serial]
+fn local_config_env_var_gets_overwritten() {
+    use nu_test_support::fs::Stub::FileWithContent;
+    Playground::setup("autoenv_test", |dirs, sandbox| {
+        sandbox.mkdir("foo");
+        sandbox.mkdir("foo/bar");
+        sandbox.with_files(vec![
+            FileWithContent(
+                "foo/.nu-env",
+                r#"[env]
+                overwrite_me = "foo"
+                "#,
+            ),
+            FileWithContent(
+                "foo/bar/.nu-env",
+                r#"[env]
+                overwrite_me = "bar"
+                "#,
+            ),
+        ]);
+        //Assert overwrite_me is not present before entering directory
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust foo;
+               echo $nu.env.overwrite_me"#
+        );
+        assert!(actual.err.contains("Unknown"));
+        //Assert overwrite_me is foo in foo
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust foo; cd foo
+               echo $nu.env.overwrite_me"#
+        );
+        assert_eq!(actual.out, "foo");
+        //Assert overwrite_me is bar in bar
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust foo | = $nothing
+               autoenv trust foo/bar | = $nothing
+               cd foo
+               cd bar
+               echo $nu.env.overwrite_me"#
+        );
+        assert_eq!(actual.out, "bar");
+        //Assert overwrite_me is present also when jumping over foo
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust foo; autoenv trust foo/bar; cd foo/bar
+               echo $nu.env.overwrite_me
+            "#
+        );
+        assert_eq!(actual.out, "bar");
+        //Assert overwrite_me removed after leaving bar
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust foo; autoenv trust foo/bar; cd foo
+               cd bar
+               cd ..
+               echo $nu.env.overwrite_me"#
+        );
+        assert_eq!(actual.out, "foo");
+    });
+}
+
+#[cfg(feature = "directories-support")]
+#[cfg(feature = "which-support")]
+#[test]
+#[serial]
+fn autoenv_test_entry_scripts() {
+    use nu_test_support::fs::Stub::FileWithContent;
+    Playground::setup("autoenv_test", |dirs, sandbox| {
+        sandbox.mkdir("foo/bar");
+
+        // Windows uses a different command to create an empty file so we need to have different content on windows.
+        let nu_env = if cfg!(target_os = "windows") {
+            r#"startup = ["echo nul > hello.txt"]"#
+        } else {
+            r#"startup = ["touch hello.txt"]"#
+        };
+
+        sandbox.with_files(vec![FileWithContent("foo/.nu-env", nu_env)]);
+
+        // Make sure entryscript is run when entering directory
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust foo
+               cd foo
+               ls | where name == "hello.txt" | get name"#
+        );
+        assert!(actual.out.contains("hello.txt"));
+
+        // Make sure entry scripts are also run when jumping over directory
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust foo
+               cd foo/bar
+               ls .. | where name == "../hello.txt" | get name"#
+        );
+        assert!(actual.out.contains("hello.txt"));
+
+        // Entryscripts should not run after changing to a subdirectory.
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust foo | = $nothing
+               cd foo
+               rm hello.txt
+               cd bar
+               ls .. | where name == "../hello.txt" | length"#
+        );
+        assert!(actual.out.contains("0"));
+    });
+}
+
+#[cfg(feature = "directories-support")]
+#[cfg(feature = "which-support")]
+#[test]
+#[serial]
+fn autoenv_test_exit_scripts() {
+    use nu_test_support::fs::Stub::FileWithContent;
+    Playground::setup("autoenv_test", |dirs, sandbox| {
+        sandbox.mkdir("foo/bar");
+
+        // Windows uses a different command to create an empty file so we need to have different content on windows.
+        let nu_env = r#"on_exit = ["touch bye.txt"]"#;
+
+        sandbox.with_files(vec![FileWithContent("foo/.nu-env", nu_env)]);
+
+        // Make sure exitscript is run
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust foo | = $nothing
+               cd foo
+               cd ..
+               ls foo | where name =~ "bye.txt" | length
+               rm foo/bye.txt; cd .
+               "#
+        );
+        assert_eq!(actual.out, "1");
+
+        // Entering a subdir should not trigger exitscripts
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust foo | = $nothing
+               cd foo
+               cd bar
+               ls .. | where name =~ "bye.txt" | length"#
+        );
+        assert_eq!(actual.out, "0");
+
+        // Also run exitscripts when jumping over directory
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust foo | = $nothing
+               cd foo/bar
+               cd ../..
+               ls foo | where name =~ "bye.txt" | length
+               rm foo/bye.txt; cd ."#
+        );
+        assert_eq!(actual.out, "1");
+    });
+}
+
+#[test]
+#[serial]
+#[cfg(unix)]
+fn prepends_path_from_local_config() {
+    //If this test fails for you, make sure that your environment from which you start nu
+    //contains some env vars
+    Playground::setup("autoenv_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            ".nu-env",
+            r#"
+            path = ["/hi", "/nushell"]
+            "#,
+        )]);
+
+        let expected = "[\"/hi\",\"/nushell\",";
+
+        let actual = Trusted::in_path(&dirs, || nu!(cwd: dirs.test(), "echo $nu.path | to json"));
+        // assert_eq!("", actual.out);
+        assert!(actual.out.starts_with(expected));
+        assert!(actual.out.len() > expected.len());
     })
 }
