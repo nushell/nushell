@@ -1,5 +1,17 @@
 use std::io::{self, BufRead, Write};
 
+/// Echo's value of env keys from args
+/// Example: nu --testbin env_echo FOO BAR
+/// If it it's not present echo's nothing
+pub fn echo_env() {
+    let args = args();
+    for arg in args {
+        if let Ok(v) = std::env::var(arg) {
+            println!("{}", v);
+        }
+    }
+}
+
 pub fn cococo() {
     let args: Vec<String> = args();
 

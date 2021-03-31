@@ -1,18 +1,23 @@
 mod conf;
+mod config_trust;
+mod local_config;
 mod nuconfig;
 pub mod path;
 
-pub mod tests;
-
 pub use conf::Conf;
+pub use config_trust::is_file_trusted;
+pub use config_trust::read_trusted;
+pub use config_trust::Trusted;
+pub use local_config::loadable_cfg_exists_in_dir;
+pub use local_config::LocalConfigDiff;
 pub use nuconfig::NuConfig;
 
 use indexmap::IndexMap;
 use log::trace;
 use nu_errors::{CoerceInto, ShellError};
 use nu_protocol::{
-    Dictionary, Primitive, ShellTypeName, TaggedDictBuilder, UnspannedPathMember, UntaggedValue,
-    Value,
+    ConfigPath, Dictionary, Primitive, ShellTypeName, TaggedDictBuilder, UnspannedPathMember,
+    UntaggedValue, Value,
 };
 use nu_source::{SpannedItem, Tag, TaggedItem};
 use std::fs::{self, OpenOptions};
@@ -186,7 +191,7 @@ pub fn default_path_for(file: &Option<PathBuf>) -> Result<PathBuf, ShellError> {
     let file: &Path = file
         .as_ref()
         .map(AsRef::as_ref)
-        .unwrap_or_else(|| self::path::DEFAULT_CONFIG_LOCATION.as_ref());
+        .unwrap_or_else(|| "config.toml".as_ref());
     filename.push(file);
 
     Ok(filename)
@@ -297,14 +302,11 @@ pub fn config(tag: impl Into<Tag>) -> Result<IndexMap<String, Value>, ShellError
 }
 
 pub fn write(config: &IndexMap<String, Value>, at: &Option<PathBuf>) -> Result<(), ShellError> {
-    let filename = &mut default_path()?;
+    let filename = default_path()?;
+
     let filename = match at {
         None => filename,
-        Some(file) => {
-            filename.pop();
-            filename.push(file);
-            filename
-        }
+        Some(ref file) => file.clone(),
     };
 
     let contents = value_to_toml_value(
@@ -324,4 +326,8 @@ fn touch(path: &Path) -> io::Result<()> {
         Ok(_) => Ok(()),
         Err(e) => Err(e),
     }
+}
+
+pub fn cfg_path_to_scope_tag(cfg_path: &ConfigPath) -> String {
+    cfg_path.get_path().to_string_lossy().to_string()
 }

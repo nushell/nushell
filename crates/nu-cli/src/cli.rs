@@ -1,6 +1,6 @@
 use crate::line_editor::configure_ctrl_c;
 use nu_command::commands::default_context::create_default_context;
-use nu_engine::{evaluation_context, run_block, script::run_script_standalone, EvaluationContext};
+use nu_engine::{maybe_print_errors, run_block, script::run_script_standalone, EvaluationContext};
 
 #[allow(unused_imports)]
 pub(crate) use nu_engine::script::{process_script, LineResult};
@@ -13,8 +13,7 @@ use crate::line_editor::{
 
 #[allow(unused_imports)]
 use nu_data::config;
-use nu_data::config::{Conf, NuConfig};
-use nu_source::{AnchorLocation, Tag, Text};
+use nu_source::{Tag, Text};
 use nu_stream::InputStream;
 use std::ffi::{OsStr, OsString};
 #[allow(unused_imports)]
@@ -23,10 +22,9 @@ use std::sync::atomic::Ordering;
 #[cfg(feature = "rustyline-support")]
 use rustyline::{self, error::ReadlineError};
 
-use crate::EnvironmentSyncer;
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
-use nu_protocol::{hir::ExternalRedirection, UntaggedValue, Value};
+use nu_protocol::{hir::ExternalRedirection, ConfigPath, UntaggedValue, Value};
 
 use log::trace;
 use std::error::Error;
@@ -35,10 +33,9 @@ use std::path::PathBuf;
 
 pub struct Options {
     pub config: Option<OsString>,
-    pub history: Option<PathBuf>,
-    pub save_history: bool,
     pub stdin: bool,
     pub scripts: Vec<NuScript>,
+    pub save_history: bool,
 }
 
 impl Default for Options {
@@ -51,20 +48,9 @@ impl Options {
     pub fn new() -> Self {
         Self {
             config: None,
-            history: None,
-            save_history: true,
             stdin: false,
             scripts: vec![],
-        }
-    }
-
-    pub fn history(&self, block: impl FnOnce(&std::path::Path)) {
-        if !self.save_history {
-            return;
-        }
-
-        if let Some(file) = &self.history {
-            block(&file)
+            save_history: true,
         }
     }
 }
@@ -137,25 +123,17 @@ pub fn search_paths() -> Vec<std::path::PathBuf> {
     search_paths
 }
 
-pub async fn run_script_file(mut options: Options) -> Result<(), Box<dyn Error>> {
-    let mut context = create_default_context(false)?;
-    let mut syncer = create_environment_syncer(&context, &mut options);
-    let config = syncer.get_config();
+pub async fn run_script_file(options: Options) -> Result<(), Box<dyn Error>> {
+    let context = create_default_context(false)?;
 
-    context.configure(&config, |_, ctx| {
-        syncer.load_environment();
-        syncer.sync_env_vars(ctx);
-        syncer.sync_path_vars(ctx);
+    if let Some(cfg) = options.config {
+        load_cfg_as_global_cfg(&context, PathBuf::from(cfg)).await;
+    } else {
+        load_global_cfg(&context).await;
+    }
 
-        if let Err(reason) = syncer.autoenv(ctx) {
-            ctx.with_host(|host| host.print_err(reason, &Text::from("")));
-        }
-
-        let _ = register_plugins(ctx);
-        let _ = configure_ctrl_c(ctx);
-    });
-
-    let _ = run_startup_commands(&mut context, &config).await;
+    let _ = register_plugins(&context);
+    let _ = configure_ctrl_c(&context);
 
     let script = options
         .scripts
@@ -167,76 +145,18 @@ pub async fn run_script_file(mut options: Options) -> Result<(), Box<dyn Error>>
     Ok(())
 }
 
-fn create_environment_syncer(
-    context: &EvaluationContext,
-    options: &mut Options,
-) -> EnvironmentSyncer {
-    let configuration = match &options.config {
-        Some(config_file) => {
-            let location = Some(AnchorLocation::File(
-                config_file.to_string_lossy().to_string(),
-            ));
-
-            let tag = Tag::unknown().anchored(location);
-
-            context.scope.add_var(
-                "config-path",
-                UntaggedValue::filepath(PathBuf::from(&config_file)).into_value(tag),
-            );
-
-            NuConfig::with(Some(config_file.into()))
-        }
-        None => NuConfig::new(),
-    };
-
-    let history_path = configuration.history_path();
-    options.history = Some(history_path.clone());
-
-    let location = Some(AnchorLocation::File(
-        history_path.to_string_lossy().to_string(),
-    ));
-
-    let tag = Tag::unknown().anchored(location);
-
-    context.scope.add_var(
-        "history-path",
-        UntaggedValue::filepath(history_path).into_value(tag),
-    );
-
-    EnvironmentSyncer::with_config(Box::new(configuration))
-}
-
 #[cfg(feature = "rustyline-support")]
-pub async fn cli(
-    mut context: EvaluationContext,
-    mut options: Options,
-) -> Result<(), Box<dyn Error>> {
-    let mut syncer = create_environment_syncer(&context, &mut options);
+pub async fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn Error>> {
+    let _ = configure_ctrl_c(&context);
 
-    let configuration = syncer.get_config();
-
-    let mut rl = default_rustyline_editor_configuration();
-
-    context.configure(&configuration, |config, ctx| {
-        syncer.load_environment();
-        syncer.sync_env_vars(ctx);
-        syncer.sync_path_vars(ctx);
-
-        if let Err(reason) = syncer.autoenv(ctx) {
-            ctx.with_host(|host| host.print_err(reason, &Text::from("")));
-        }
-
-        let _ = configure_ctrl_c(ctx);
-        let _ = configure_rustyline_editor(&mut rl, config);
-
-        let helper = Some(nu_line_editor_helper(ctx, config));
-        rl.set_helper(helper);
-    });
-
-    // start time for command duration
+    // start time for running startup scripts (this metric includes loading of the cfg, but w/e)
     let startup_commands_start_time = std::time::Instant::now();
-    // run the startup commands
-    let _ = run_startup_commands(&mut context, &configuration).await;
+
+    if let Some(cfg) = options.config {
+        load_cfg_as_global_cfg(&context, PathBuf::from(cfg)).await;
+    } else {
+        load_global_cfg(&context).await;
+    }
     // Store cmd duration in an env var
     context.scope.add_env_var(
         "CMD_DURATION",
@@ -247,20 +167,43 @@ pub async fn cli(
         startup_commands_start_time.elapsed()
     );
 
+    //Configure rustyline
+    let mut rl = default_rustyline_editor_configuration();
+    let history_path = if let Some(cfg) = &context.configs.lock().global_config {
+        let _ = configure_rustyline_editor(&mut rl, cfg);
+        let helper = Some(nu_line_editor_helper(&context, cfg));
+        rl.set_helper(helper);
+        nu_data::config::path::history_path(cfg)
+    } else {
+        nu_data::config::path::default_history_path()
+    };
+
+    // Don't load history if it's not necessary
+    if options.save_history {
+        let _ = rl.load_history(&history_path);
+    }
+
+    //set vars from cfg if present
+    let (skip_welcome_message, prompt) = if let Some(cfg) = &context.configs.lock().global_config {
+        (
+            cfg.var("skip_welcome_message")
+                .map(|x| x.is_true())
+                .unwrap_or(false),
+            cfg.var("prompt"),
+        )
+    } else {
+        (false, None)
+    };
+
+    //Check whether dir we start in contains local cfg file and if so load it.
+    load_local_cfg_if_present(&context).await;
+
     // Give ourselves a scope to work in
     context.scope.enter_scope();
-
-    options.history(|file| {
-        let _ = rl.load_history(&file);
-    });
 
     let mut session_text = String::new();
     let mut line_start: usize = 0;
 
-    let skip_welcome_message = configuration
-        .var("skip_welcome_message")
-        .map(|x| x.is_true())
-        .unwrap_or(false);
     if !skip_welcome_message {
         println!(
             "Welcome to Nushell {} (type 'help' for more info)",
@@ -284,11 +227,10 @@ pub async fn cli(
         let cwd = context.shell_manager.path();
 
         let colored_prompt = {
-            if let Some(prompt) = configuration.var("prompt") {
+            if let Some(prompt) = &prompt {
                 let prompt_line = prompt.as_string()?;
 
                 context.scope.enter_scope();
-
                 let (mut prompt_block, err) = nu_parser::parse(&prompt_line, 0, &context.scope);
 
                 prompt_block.set_redirect(ExternalRedirection::Stdout);
@@ -305,10 +247,7 @@ pub async fn cli(
                         Ok(result) => match result.collect_string(Tag::unknown()).await {
                             Ok(string_result) => {
                                 let errors = context.get_errors();
-                                evaluation_context::maybe_print_errors(
-                                    &context,
-                                    Text::from(prompt_line),
-                                );
+                                maybe_print_errors(&context, Text::from(prompt_line));
                                 context.clear_errors();
 
                                 if !errors.is_empty() {
@@ -381,54 +320,50 @@ pub async fn cli(
             .scope
             .add_env_var("CMD_DURATION", format!("{:?}", cmd_start_time.elapsed()));
 
-        // Check the config to see if we need to update the path
-        // TODO: make sure config is cached so we don't path this load every call
-        // FIXME: we probably want to be a bit more graceful if we can't set the environment
-
-        context.configure(&configuration, |config, ctx| {
-            if syncer.did_config_change() {
-                syncer.reload();
-                syncer.sync_env_vars(ctx);
-                syncer.sync_path_vars(ctx);
-            }
-
-            if let Err(reason) = syncer.autoenv(ctx) {
-                ctx.with_host(|host| host.print_err(reason, &Text::from("")));
-            }
-
-            let _ = configure_rustyline_editor(&mut rl, config);
-        });
-
         match line {
             LineResult::Success(line) => {
-                options.history(|file| {
+                if options.save_history {
                     rl.add_history_entry(&line);
-                    let _ = rl.save_history(&file);
-                });
-
-                evaluation_context::maybe_print_errors(&context, Text::from(session_text.clone()));
+                    let _ = rl.save_history(&history_path);
+                }
+                maybe_print_errors(&context, Text::from(session_text.clone()));
             }
 
             LineResult::ClearHistory => {
-                options.history(|file| {
+                if options.save_history {
                     rl.clear_history();
-                    let _ = rl.save_history(&file);
-                });
+                    let _ = rl.save_history(&history_path);
+                }
             }
 
-            LineResult::Error(line, reason) => {
-                options.history(|file| {
+            LineResult::Error(line, err) => {
+                if options.save_history {
                     rl.add_history_entry(&line);
-                    let _ = rl.save_history(&file);
-                });
+                    let _ = rl.save_history(&history_path);
+                }
 
-                context.with_host(|host| host.print_err(reason, &Text::from(session_text.clone())));
+                context
+                    .host
+                    .lock()
+                    .print_err(err, &Text::from(session_text.clone()));
+
+                // I am not so sure, we don't need maybe_print_errors here (as we printed an err
+                // above), because maybe_print_errors also clears the errors.
+                // TODO Analyze where above err comes from, and whether we need to clear
+                // context.errors here
+                // Or just be consistent and return errors always in context.errors...
+                maybe_print_errors(&context, Text::from(session_text.clone()));
             }
 
             LineResult::CtrlC => {
-                let config_ctrlc_exit = configuration
-                    .var("ctrlc_exit")
-                    .map(|s| s.value.is_true())
+                let config_ctrlc_exit = context
+                    .configs
+                    .lock()
+                    .global_config
+                    .as_ref()
+                    .map(|cfg| cfg.var("ctrlc_exit"))
+                    .flatten()
+                    .map(|ctrl_c| ctrl_c.is_true())
                     .unwrap_or(false); // default behavior is to allow CTRL-C spamming similar to other shells
 
                 if !config_ctrlc_exit {
@@ -436,10 +371,9 @@ pub async fn cli(
                 }
 
                 if ctrlcbreak {
-                    options.history(|file| {
-                        let _ = rl.save_history(&file);
-                    });
-
+                    if options.save_history {
+                        let _ = rl.save_history(&history_path);
+                    }
                     std::process::exit(0);
                 } else {
                     context.with_host(|host| host.stdout("CTRL-C pressed (again to quit)"));
@@ -463,14 +397,56 @@ pub async fn cli(
     }
 
     // we are ok if we can not save history
-    options.history(|file| {
-        let _ = rl.save_history(&file);
-    });
+    if options.save_history {
+        let _ = rl.save_history(&history_path);
+    }
 
     Ok(())
 }
 
-pub fn register_plugins(context: &mut EvaluationContext) -> Result<(), ShellError> {
+pub async fn load_local_cfg_if_present(context: &EvaluationContext) {
+    trace!("Loading local cfg if present");
+    match config::loadable_cfg_exists_in_dir(PathBuf::from(context.shell_manager.path())) {
+        Ok(Some(cfg_path)) => {
+            if let Err(err) = context.load_config(&ConfigPath::Local(cfg_path)).await {
+                context.host.lock().print_err(err, &Text::from(""))
+            }
+        }
+        Err(e) => {
+            //Report error while checking for local cfg file
+            context.host.lock().print_err(e, &Text::from(""))
+        }
+        Ok(None) => {
+            //No local cfg file present in start dir
+        }
+    }
+}
+
+async fn load_cfg_as_global_cfg(context: &EvaluationContext, path: PathBuf) {
+    if let Err(err) = context.load_config(&ConfigPath::Global(path.clone())).await {
+        context.host.lock().print_err(err, &Text::from(""));
+    } else {
+        //TODO current commands assume to find path to global cfg file under config-path
+        //TODO use newly introduced nuconfig::file_path instead
+        context.scope.add_var(
+            "config-path",
+            UntaggedValue::filepath(path).into_untagged_value(),
+        );
+    }
+}
+
+pub async fn load_global_cfg(context: &EvaluationContext) {
+    match config::default_path() {
+        Ok(path) => {
+            load_cfg_as_global_cfg(context, path).await;
+        }
+        Err(e) => {
+            context.host.lock().print_err(e, &Text::from(""));
+        }
+    }
+}
+
+pub fn register_plugins(context: &EvaluationContext) -> Result<(), ShellError> {
     if let Ok(plugins) = nu_engine::plugin::build_plugin::scan(search_paths()) {
         context.add_commands(
             plugins
@@ -478,34 +454,6 @@ pub fn register_plugins(context: &mut EvaluationContext) -> Result<(), ShellErro
                 .filter(|p| !context.is_command_registered(p.name()))
                 .collect(),
         );
-    }
-
-    Ok(())
-}
-
-async fn run_startup_commands(
-    context: &mut EvaluationContext,
-    config: &dyn nu_data::config::Conf,
-) -> Result<(), ShellError> {
-    if let Some(commands) = config.var("startup") {
-        match commands {
-            Value {
-                value: UntaggedValue::Table(pipelines),
-                ..
-            } => {
-                let mut script_file = String::new();
-                for pipeline in pipelines {
-                    script_file.push_str(&pipeline.as_string()?);
-                    script_file.push('\n');
-                }
-                let _ = run_script_standalone(script_file, false, context, false).await;
-            }
-            _ => {
-                return Err(ShellError::untagged_runtime_error(
-                    "expected a table of pipeline strings as startup commands",
-                ));
-            }
-        }
     }
 
     Ok(())
@@ -528,8 +476,6 @@ pub async fn parse_and_eval(line: &str, ctx: &EvaluationContext) -> Result<Strin
     }
 
     let input_stream = InputStream::empty();
-    let env = ctx.get_env();
-    ctx.scope.add_env(env);
 
     let result = run_block(&classified_block, ctx, input_stream).await;
     ctx.scope.exit_scope();
@@ -555,14 +501,14 @@ fn current_branch() -> String {
 
 #[cfg(test)]
 mod tests {
-    use nu_engine::EvaluationContext;
+    use nu_engine::basic_evaluation_context;
 
     #[quickcheck]
     fn quickcheck_parse(data: String) -> bool {
         let (tokens, err) = nu_parser::lex(&data, 0);
         let (lite_block, err2) = nu_parser::parse_block(tokens);
         if err.is_none() && err2.is_none() {
-            let context = EvaluationContext::basic().unwrap();
+            let context = basic_evaluation_context().unwrap();
             let _ = nu_parser::classify_block(&lite_block, &context.scope);
         }
         true

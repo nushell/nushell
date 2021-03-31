@@ -1,5 +1,4 @@
-use crate::path::canonicalize;
-use crate::run_block;
+use crate::{maybe_print_errors, path::canonicalize, run_block};
 use crate::{MaybeTextCodec, StringOrBinary};
 use futures::StreamExt;
 use futures_codec::FramedRead;
@@ -11,7 +10,7 @@ use nu_protocol::hir::{
 use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue, Value};
 use nu_stream::{InputStream, ToInputStream};
 
-use crate::{evaluation_context, EvaluationContext};
+use crate::EvaluationContext;
 use log::{debug, trace};
 use nu_source::{Span, Tag, Text};
 use std::iter::Iterator;
@@ -34,6 +33,22 @@ fn chomp_newline(s: &str) -> &str {
     } else {
         s
     }
+}
+
+pub async fn run_script_in_dir(
+    script: String,
+    dir: &Path,
+    ctx: &EvaluationContext,
+) -> Result<(), Box<dyn Error>> {
+    //Save path before to switch back to it after executing script
+    let path_before = ctx.shell_manager.path();
+
+    ctx.shell_manager
+        .set_path(dir.to_string_lossy().to_string());
+    run_script_standalone(script, false, ctx, false).await?;
+    ctx.shell_manager.set_path(path_before);
+
+    Ok(())
 }
 
 /// Process the line by parsing the text to turn it into commands, classify those commands so that we understand what is being called in the pipeline, and then run this pipeline
@@ -168,9 +183,7 @@ pub async fn process_script(
         };
 
         trace!("{:#?}", block);
-        let env = ctx.get_env();
 
-        ctx.scope.add_env_to_base(env);
         let result = run_block(&block, ctx, input_stream).await;
 
         match result {
@@ -229,6 +242,10 @@ pub async fn run_script_standalone(
     context: &EvaluationContext,
     exit_on_error: bool,
 ) -> Result<(), Box<dyn Error>> {
+    context
+        .shell_manager
+        .enter_script_mode()
+        .map_err(Box::new)?;
     let line = process_script(&script_text, context, redirect_stdin, 0, false).await;
 
     match line {
@@ -244,16 +261,19 @@ pub async fn run_script_standalone(
                 }
             };
 
-            evaluation_context::maybe_print_errors(&context, Text::from(line));
+            maybe_print_errors(&context, Text::from(line));
             if error_code != 0 && exit_on_error {
                 std::process::exit(error_code);
             }
         }
 
         LineResult::Error(line, err) => {
-            context.with_host(|host| host.print_err(err, &Text::from(line.clone())));
+            context
+                .host
+                .lock()
+                .print_err(err, &Text::from(line.clone()));
 
-            evaluation_context::maybe_print_errors(&context, Text::from(line));
+            maybe_print_errors(&context, Text::from(line));
             if exit_on_error {
                 std::process::exit(1);
             }
@@ -261,5 +281,9 @@ pub async fn run_script_standalone(
 
         _ => {}
     }
+
+    //exit script mode shell
+    context.shell_manager.remove_at_current();
+
     Ok(())
 }

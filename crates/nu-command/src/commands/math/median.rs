@@ -26,19 +26,7 @@ impl WholeStreamCommand for SubCommand {
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        run_with_function(
-            RunnableContext {
-                input: args.input,
-                scope: args.scope.clone(),
-                shell_manager: args.shell_manager,
-                host: args.host,
-                ctrl_c: args.ctrl_c,
-                current_errors: args.current_errors,
-                name: args.call_info.name_tag,
-            },
-            median,
-        )
-        .await
+        run_with_function(RunnableContext::from_command_args(args), median).await
     }
 
     fn examples(&self) -> Vec<Example> {

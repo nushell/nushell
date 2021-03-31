@@ -1,9 +1,9 @@
-use crate::call_info::UnevaluatedCallInfo;
 use crate::deserializer::ConfigDeserializer;
 use crate::env::host::Host;
 use crate::evaluate::scope::Scope;
 use crate::evaluation_context::EvaluationContext;
 use crate::shell::shell_manager::ShellManager;
+use crate::{call_info::UnevaluatedCallInfo, config_holder::ConfigHolder};
 use derive_new::new;
 use getset::Getters;
 use nu_errors::ShellError;
@@ -22,6 +22,7 @@ use std::sync::Arc;
 pub struct CommandArgs {
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub ctrl_c: Arc<AtomicBool>,
+    pub configs: Arc<Mutex<ConfigHolder>>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub shell_manager: ShellManager,
     pub call_info: UnevaluatedCallInfo,
@@ -35,6 +36,7 @@ pub struct RawCommandArgs {
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub ctrl_c: Arc<AtomicBool>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
+    pub configs: Arc<Mutex<ConfigHolder>>,
     pub shell_manager: ShellManager,
     pub scope: Scope,
     pub call_info: UnevaluatedCallInfo,
@@ -45,6 +47,7 @@ impl RawCommandArgs {
         CommandArgs {
             host: self.host,
             ctrl_c: self.ctrl_c,
+            configs: self.configs,
             current_errors: self.current_errors,
             shell_manager: self.shell_manager,
             call_info: self.call_info,
@@ -65,6 +68,7 @@ impl CommandArgs {
         let ctx = EvaluationContext::from_args(&self);
         let host = self.host.clone();
         let ctrl_c = self.ctrl_c.clone();
+        let configs = self.configs.clone();
         let shell_manager = self.shell_manager.clone();
         let input = self.input;
         let call_info = self.call_info.evaluate(&ctx).await?;
@@ -73,6 +77,7 @@ impl CommandArgs {
         Ok(EvaluatedWholeStreamCommandArgs::new(
             host,
             ctrl_c,
+            configs,
             shell_manager,
             call_info,
             input,
@@ -106,6 +111,7 @@ impl EvaluatedWholeStreamCommandArgs {
     pub fn new(
         host: Arc<parking_lot::Mutex<dyn Host>>,
         ctrl_c: Arc<AtomicBool>,
+        configs: Arc<Mutex<ConfigHolder>>,
         shell_manager: ShellManager,
         call_info: CallInfo,
         input: impl Into<InputStream>,
@@ -115,6 +121,7 @@ impl EvaluatedWholeStreamCommandArgs {
             args: EvaluatedCommandArgs {
                 host,
                 ctrl_c,
+                configs,
                 shell_manager,
                 call_info,
                 scope,
@@ -145,6 +152,7 @@ impl EvaluatedWholeStreamCommandArgs {
 pub struct EvaluatedCommandArgs {
     pub host: Arc<parking_lot::Mutex<dyn Host>>,
     pub ctrl_c: Arc<AtomicBool>,
+    pub configs: Arc<Mutex<ConfigHolder>>,
     pub shell_manager: ShellManager,
     pub call_info: CallInfo,
     pub scope: Scope,
