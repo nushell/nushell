@@ -245,6 +245,27 @@ fn lists_all_hidden_files_when_glob_does_not_contain_dot() {
 }
 
 #[test]
+#[cfg(unix)]
+fn fails_with_ls_to_dir_without_permission() {
+    Playground::setup("ls_test_1", |dirs, sandbox| {
+        sandbox.within("dir_a").with_files(vec![
+            EmptyFile("yehuda.11.txt"),
+            EmptyFile("jonathan.10.txt"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                chmod 000 dir_a; ls dir_a
+            "#
+        ));
+        assert!(actual
+            .err
+            .contains("The permissions of 0 do not allow access for this user"));
+    })
+}
+
+#[test]
 fn lists_files_including_starting_with_dot() {
     Playground::setup("ls_test_9", |dirs, sandbox| {
         sandbox.with_files(vec![

@@ -1,6 +1,7 @@
 mod avg;
 mod eval;
 mod median;
+mod round;
 mod sqrt;
 mod sum;
 
