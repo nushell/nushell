@@ -33,6 +33,19 @@ impl Scope {
         None
     }
 
+    pub fn get_aliases(&self) -> IndexMap<String, Vec<Spanned<String>>> {
+        let mut output = IndexMap::new();
+
+        for frame in self.frames.lock().iter().rev() {
+            for v in frame.aliases.iter() {
+                if !output.contains_key(v.0) {
+                    output.insert(v.0.clone(), v.1.clone());
+                }
+            }
+        }
+        output
+    }
+
     pub fn get_aliases_with_name(&self, name: &str) -> Option<Vec<Vec<Spanned<String>>>> {
         let aliases: Vec<_> = self
             .frames
@@ -69,6 +82,20 @@ impl Scope {
         if let Some(frame) = self.frames.lock().last_mut() {
             frame.add_command(name, command)
         }
+    }
+
+    pub fn get_alias_names(&self) -> Vec<String> {
+        let mut names = vec![];
+
+        for frame in self.frames.lock().iter() {
+            let mut frame_command_names = frame.get_alias_names();
+            names.append(&mut frame_command_names);
+        }
+
+        names.dedup();
+        names.sort();
+
+        names
     }
 
     pub fn get_command_names(&self) -> Vec<String> {
@@ -150,6 +177,16 @@ impl Scope {
         output
     }
 
+    pub fn get_env(&self, name: &str) -> Option<String> {
+        for frame in self.frames.lock().iter().rev() {
+            if let Some(v) = frame.env.get(name) {
+                return Some(v.clone());
+            }
+        }
+
+        None
+    }
+
     pub fn get_var(&self, name: &str) -> Option<Value> {
         for frame in self.frames.lock().iter().rev() {
             if let Some(v) = frame.vars.get(name) {
@@ -196,6 +233,66 @@ impl Scope {
         if let Some(frame) = self.frames.lock().first_mut() {
             frame.env.insert(name.into(), value);
         }
+    }
+
+    pub fn set_exit_scripts(&self, scripts: Vec<String>) {
+        if let Some(frame) = self.frames.lock().last_mut() {
+            frame.exitscripts = scripts
+        }
+    }
+
+    pub fn enter_scope_with_tag(&self, tag: String) {
+        self.frames.lock().push(ScopeFrame::with_tag(tag));
+    }
+
+    //Removes the scopeframe with tag.
+    pub fn exit_scope_with_tag(&self, tag: &str) {
+        let mut frames = self.frames.lock();
+        let tag = Some(tag);
+        if let Some(i) = frames.iter().rposition(|f| f.tag.as_deref() == tag) {
+            frames.remove(i);
+        }
+    }
+
+    pub fn get_exitscripts_of_frame_with_tag(&self, tag: &str) -> Option<Vec<String>> {
+        let frames = self.frames.lock();
+        let tag = Some(tag);
+        frames.iter().find_map(|f| {
+            if f.tag.as_deref() == tag {
+                Some(f.exitscripts.clone())
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn get_frame_with_tag(&self, tag: &str) -> Option<ScopeFrame> {
+        let frames = self.frames.lock();
+        let tag = Some(tag);
+        frames.iter().rev().find_map(|f| {
+            if f.tag.as_deref() == tag {
+                Some(f.clone())
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn update_frame_with_tag(&self, frame: ScopeFrame, tag: &str) -> Result<(), ShellError> {
+        let mut frames = self.frames.lock();
+        let tag = Some(tag);
+        for f in frames.iter_mut().rev() {
+            if f.tag.as_deref() == tag {
+                *f = frame;
+                return Ok(());
+            }
+        }
+
+        // Frame not found, return err
+        Err(ShellError::untagged_runtime_error(format!(
+            "Can't update frame with tag {:?}. No such frame present!",
+            tag
+        )))
     }
 }
 
@@ -259,6 +356,15 @@ pub struct ScopeFrame {
     pub commands: IndexMap<String, Command>,
     pub custom_commands: IndexMap<String, Block>,
     pub aliases: IndexMap<String, Vec<Spanned<String>>>,
+    ///Optional tag to better identify this scope frame later
+    pub tag: Option<String>,
+    pub exitscripts: Vec<String>,
+}
+
+impl Default for ScopeFrame {
+    fn default() -> Self {
+        ScopeFrame::new()
+    }
 }
 
 impl ScopeFrame {
@@ -272,6 +378,10 @@ impl ScopeFrame {
 
     pub fn has_alias(&self, name: &str) -> bool {
         self.aliases.contains_key(name)
+    }
+
+    pub fn get_alias_names(&self) -> Vec<String> {
+        self.aliases.keys().map(|x| x.to_string()).collect()
     }
 
     pub fn get_command_names(&self) -> Vec<String> {
@@ -293,6 +403,15 @@ impl ScopeFrame {
             commands: IndexMap::new(),
             custom_commands: IndexMap::new(),
             aliases: IndexMap::new(),
+            tag: None,
+            exitscripts: Vec::new(),
         }
+    }
+
+    pub fn with_tag(tag: String) -> ScopeFrame {
+        let mut scope = ScopeFrame::new();
+        scope.tag = Some(tag);
+
+        scope
     }
 }

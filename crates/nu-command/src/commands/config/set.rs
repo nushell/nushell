@@ -2,7 +2,7 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+    ColumnPath, ConfigPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
 };
 
 pub struct SubCommand;
@@ -61,6 +61,7 @@ impl WholeStreamCommand for SubCommand {
 
 pub async fn set(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
+    let ctx = EvaluationContext::from_args(&args);
     let scope = args.scope.clone();
     let (
         Arguments {
@@ -93,6 +94,10 @@ pub async fn set(args: CommandArgs) -> Result<OutputStream, ShellError> {
             ..
         }) => {
             config::write(&changes.entries, &path)?;
+            ctx.reload_config(&ConfigPath::Global(
+                path.expect("Global config path is always some"),
+            ))
+            .await?;
 
             Ok(OutputStream::one(ReturnSuccess::value(
                 UntaggedValue::Row(changes).into_value(name),
