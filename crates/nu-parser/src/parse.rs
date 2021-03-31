@@ -371,7 +371,9 @@ fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseErr
                     parse_decimal_str_to_number(decimal_part_str),
                 ) {
                     (Ok(number), Some(decimal_part)) => (
-                        Some((number * unit_to_convert_to.1) + (unit_to_convert_to.1 / decimal_part)),
+                        Some(
+                            (number * unit_to_convert_to.1) + (unit_to_convert_to.1 / decimal_part),
+                        ),
                         unit_to_convert_to.0,
                     ),
                     _ => (None, unit.0),
