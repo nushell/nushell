@@ -26,9 +26,9 @@ impl WholeStreamCommand for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Apply the square root function to a list of numbers",
-            example: "echo [0.25 16] | math sqrt",
+            example: "echo [9 16] | math sqrt",
             result: Some(vec![
-                UntaggedValue::decimal(BigDecimal::new(BigInt::from(05), 1)).into(),
+                UntaggedValue::int(3).into(),
                 UntaggedValue::int(4).into(),
             ]),
         }]
