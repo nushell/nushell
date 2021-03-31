@@ -125,6 +125,26 @@ impl Shell for FilesystemShell {
                 let p_tag = p.tag;
                 let mut p = p.item;
                 if p.is_dir() {
+                    if permission_denied(&p) {
+                        #[cfg(unix)]
+                        let error_msg = format!(
+                            "The permissions of {:o} do not allow access for this user",
+                            p.metadata()
+                                .expect(
+                                    "this shouldn't be called since we already know there is a dir"
+                                )
+                                .permissions()
+                                .mode()
+                                & 0o0777
+                        );
+                        #[cfg(not(unix))]
+                        let error_msg = String::from("Permission denied");
+                        return Err(ShellError::labeled_error(
+                            "Permission denied",
+                            error_msg,
+                            &p_tag,
+                        ));
+                    }
                     if is_empty_dir(&p) {
                         return Ok(OutputStream::empty());
                     }
@@ -912,6 +932,13 @@ fn is_empty_dir(dir: impl AsRef<Path>) -> bool {
     match dir.as_ref().read_dir() {
         Err(_) => true,
         Ok(mut s) => s.next().is_none(),
+    }
+}
+
+fn permission_denied(dir: impl AsRef<Path>) -> bool {
+    match dir.as_ref().read_dir() {
+        Err(e) => matches!(e.kind(), std::io::ErrorKind::PermissionDenied),
+        Ok(_) => false,
     }
 }
 
