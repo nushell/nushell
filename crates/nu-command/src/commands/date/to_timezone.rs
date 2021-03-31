@@ -27,10 +27,11 @@ impl WholeStreamCommand for Date {
     }
 
     fn usage(&self) -> &str {
-        "Convert a date to a given time zone.
-        
-Use `date list-timezone` to list all supported time zones.
-        "
+        "Convert a date to a given time zone."
+    }
+
+    fn extra_usage(&self) -> &str {
+        "Use 'date list-timezone' to list all supported time zones."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
