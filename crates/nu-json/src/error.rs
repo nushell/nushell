@@ -63,7 +63,7 @@ pub enum ErrorCode {
     /// JSON has non-whitespace trailing characters after the value.
     TrailingCharacters,
 
-    /// Unexpected end of hex excape.
+    /// Unexpected end of hex escape.
     UnexpectedEndOfHexEscape,
 
     /// Found a punctuator character when expecting a quoteless string.
@@ -105,7 +105,7 @@ impl fmt::Debug for ErrorCode {
 /// value into JSON.
 #[derive(Debug)]
 pub enum Error {
-    /// The JSON value had some syntatic error.
+    /// The JSON value had some syntactic error.
     Syntax(ErrorCode, usize, usize),
 
     /// Some IO error occurred when serializing or deserializing a value.

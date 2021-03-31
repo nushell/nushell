@@ -40,7 +40,7 @@ function print_good_response {
 #     int_value["item"] = int_item
 #     return int_value
 
-# functino get_length {
+# function get_length {
 #     param($string_val)
 #     $string_len = $string_val[`"item`"][`"Primitive`"][`"String`"].Length
 # }
