@@ -114,7 +114,7 @@ impl Shell for FilesystemShell {
                             "The permissions of {:o} do not allow access for this user",
                             p.metadata()
                                 .expect(
-                                    "this shouldnt be called since we already know there is a dir"
+                                    "this shouldn't be called since we already know there is a dir"
                                 )
                                 .permissions()
                                 .mode()
