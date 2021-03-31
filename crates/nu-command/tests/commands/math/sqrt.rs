@@ -1,4 +1,4 @@
-use nu_test_support::{nu};
+use nu_test_support::nu;
 
 #[test]
 fn can_sqrt_numbers() {
