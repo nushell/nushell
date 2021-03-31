@@ -328,7 +328,7 @@ fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseErr
     fn parse_decimal_str_to_number(decimal: &str) -> Option<i64> {
         let string_to_parse = format!("0.{}", decimal);
         if let Ok(x) = string_to_parse.parse::<f64>() {
-            return Some((1 as f64 / x) as i64);
+            return Some((1_f64 / x) as i64);
         }
         None
     }
