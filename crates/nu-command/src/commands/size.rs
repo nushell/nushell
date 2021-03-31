@@ -41,7 +41,7 @@ impl WholeStreamCommand for Size {
                 .into()]),
             },
             Example {
-                description: "Counts unicode characters correctly in a string",
+                description: "Counts Unicode characters correctly in a string",
                 example: r#"echo "Amélie Amelie" | size"#,
                 result: Some(vec![UntaggedValue::row(indexmap! {
                         "lines".to_string() => UntaggedValue::int(0).into(),

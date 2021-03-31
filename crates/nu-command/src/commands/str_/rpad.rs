@@ -68,7 +68,7 @@ impl WholeStreamCommand for SubCommand {
                 result: Some(vec![UntaggedValue::string("123").into_untagged_value()]),
             },
             Example {
-                description: "Use rpad to pad unicode",
+                description: "Use rpad to pad Unicode",
                 example: "echo '▉' | str rpad -l 10 -c '▉'",
                 result: Some(vec![
                     UntaggedValue::string("▉▉▉▉▉▉▉▉▉▉").into_untagged_value()
