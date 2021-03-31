@@ -624,6 +624,7 @@ impl Shell for FilesystemShell {
                         || metadata.file_type().is_symlink()
                         || recursive.item
                         || is_socket
+                        || metadata.file_type().is_fifo()
                         || is_empty()
                     {
                         let result;
@@ -645,7 +646,7 @@ impl Shell for FilesystemShell {
                         }
                         #[cfg(not(feature = "trash-support"))]
                         {
-                            result = if metadata.is_file() || is_socket {
+                            result = if metadata.is_file() || is_socket || metadata.file_type().is_fifo() {
                                 std::fs::remove_file(&f)
                             } else {
                                 std::fs::remove_dir_all(&f)
