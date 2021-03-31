@@ -19,6 +19,7 @@ pub(crate) mod shell_manager;
 pub(crate) mod value_shell;
 
 pub trait Shell: std::fmt::Debug {
+    fn is_interactive(&self) -> bool;
     fn name(&self) -> String;
     fn homedir(&self) -> Option<PathBuf>;
 
