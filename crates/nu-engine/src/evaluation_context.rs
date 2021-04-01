@@ -246,7 +246,7 @@ impl EvaluationContext {
             .transpose()?;
 
         let tag = config::cfg_path_to_scope_tag(cfg_path);
-        let mut frame = ScopeFrame::new();
+        let mut frame = ScopeFrame::with_tag(tag.clone());
 
         frame.env = cfg.env_map();
         if let Some(path) = joined_paths {
