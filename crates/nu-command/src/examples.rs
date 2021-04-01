@@ -6,6 +6,7 @@ mod stub_generate;
 
 use double_echo::Command as DoubleEcho;
 use double_ls::Command as DoubleLs;
+use nu_engine::filesystem::filesystem_shell::FilesystemShellMode;
 use stub_generate::{mock_path, Command as StubOpen};
 
 use nu_engine::basic_evaluation_context;
@@ -24,7 +25,7 @@ use nu_stream::InputStream;
 pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
     let examples = cmd.examples();
 
-    let base_context = basic_evaluation_context()?;
+    let base_context = basic_evaluation_context(FilesystemShellMode::Cli)?;
 
     base_context.add_commands(vec![
         // Command Doubles
@@ -90,7 +91,7 @@ pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
 pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
     let examples = cmd.examples();
 
-    let base_context = basic_evaluation_context()?;
+    let base_context = basic_evaluation_context(FilesystemShellMode::Cli)?;
 
     base_context.add_commands(vec![
         whole_stream_command(Echo {}),
@@ -147,7 +148,7 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
 pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
     let examples = cmd.examples();
 
-    let base_context = basic_evaluation_context()?;
+    let base_context = basic_evaluation_context(FilesystemShellMode::Cli)?;
 
     base_context.add_commands(vec![
         // Minimal restricted commands to aid in testing

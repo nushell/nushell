@@ -298,6 +298,11 @@ impl Shell for FilesystemShell {
         if self.is_cli() {
             match dunce::canonicalize(self.path()) {
                 Err(e) => {
+                    trace!(
+                        "Err canonicalize current path: {:?}, err: {:?}",
+                        self.path(),
+                        e
+                    );
                     let err = ShellError::untagged_runtime_error(format!(
                         "Could not get absolute path from current fs shell. The error was: {:?}",
                         e
