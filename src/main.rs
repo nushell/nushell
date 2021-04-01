@@ -154,6 +154,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .map(|cmd| NuScript::Content(cmd.to_string()))
                 .collect();
             let run_options = script_options_from_matches(&matches);
+            // we always exit on err
+            run_options.exit_on_error = true;
             nu_cli::run_script_file(options, run_options)?;
             return Ok(());
         }
@@ -163,6 +165,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some(filepath) => {
             options.scripts = vec![NuScript::File(PathBuf::from(filepath))];
             let run_options = script_options_from_matches(&matches);
+            // we always exit on err
+            run_options.exit_on_error = true;
             nu_cli::run_script_file(options, run_options)?;
             return Ok(());
         }
