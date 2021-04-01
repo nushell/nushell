@@ -153,7 +153,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             options.scripts = values
                 .map(|cmd| NuScript::Content(cmd.to_string()))
                 .collect();
-            let run_options = script_options_from_matches(&matches);
+            let mut run_options = script_options_from_matches(&matches);
             // we always exit on err
             run_options.exit_on_error = true;
             futures::executor::block_on(nu_cli::run_script_file(options, run_options))?;
@@ -164,7 +164,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     match matches.value_of("script") {
         Some(filepath) => {
             options.scripts = vec![NuScript::File(PathBuf::from(filepath))];
-            let run_options = script_options_from_matches(&matches);
+            let mut run_options = script_options_from_matches(&matches);
             // we always exit on err
             run_options.exit_on_error = true;
             futures::executor::block_on(nu_cli::run_script_file(options, run_options))?;
