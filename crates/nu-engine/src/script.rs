@@ -40,7 +40,7 @@ fn chomp_newline(s: &str) -> &str {
 
 /// Runs script `script` configurable by `options`
 /// All errors are printed out.
-pub async fn run_script(script: NuScript, options: &RunScriptOptions, ctx: &EvaluationContext) {
+pub fn run_script(script: NuScript, options: &RunScriptOptions, ctx: &EvaluationContext) {
     let code = match script.get_code() {
         Ok(code) => code,
         Err(e) => {
@@ -58,8 +58,8 @@ pub async fn run_script(script: NuScript, options: &RunScriptOptions, ctx: &Eval
         ctx.scope.enter_scope()
     }
 
-    let line_result = process_script(&code, options, ctx).await;
-    evaluate_line_result(line_result, options, ctx).await;
+    let line_result = process_script(&code, options, ctx);
+    evaluate_line_result(line_result, options, ctx);
 
     if !options.use_existing_scope {
         ctx.scope.exit_scope()
@@ -86,7 +86,7 @@ fn setup_shell(options: &RunScriptOptions, ctx: &EvaluationContext) -> Result<()
     Ok(())
 }
 
-async fn evaluate_line_result(
+fn evaluate_line_result(
     line_result: LineResult,
     options: &RunScriptOptions,
     context: &EvaluationContext,
@@ -233,17 +233,11 @@ pub fn process_script(
             }
         }
 
-<<<<<<< HEAD
-        let input_stream = if redirect_stdin {
+        let input_stream = if options.redirect_stdin {
             let file = std::io::stdin();
             let buf_reader = BufReader::new(file);
             let buf_codec = BufCodecReader::new(buf_reader, MaybeTextCodec::default());
             let stream = buf_codec.map(|line| {
-=======
-        let input_stream = if options.redirect_stdin {
-            let file = futures::io::AllowStdIo::new(std::io::stdin());
-            let stream = FramedRead::new(file, MaybeTextCodec::default()).map(|line| {
->>>>>>> 255bfef7 (Impl one func to run scripts)
                 if let Ok(line) = line {
                     let primitive = match line {
                         StringOrBinary::String(s) => Primitive::String(s),
@@ -311,64 +305,4 @@ pub fn process_script(
             Err(err) => LineResult::Error(line.to_string(), err),
         }
     }
-}
-
-pub fn run_script_standalone(
-    script_text: String,
-    redirect_stdin: bool,
-    context: &EvaluationContext,
-    exit_on_error: bool,
-) -> Result<(), Box<dyn Error>> {
-    context
-        .shell_manager
-        .enter_script_mode()
-        .map_err(Box::new)?;
-<<<<<<< HEAD
-    let line = process_script(&script_text, context, redirect_stdin, 0, false);
-=======
-
-    let options = RunScriptOptions::default()
-        .cli_mode(false)
-        .redirect_stdin(redirect_stdin);
-    let line = process_script(&script_text, &options, context).await;
->>>>>>> 255bfef7 (Impl one func to run scripts)
-
-    match line {
-        LineResult::Success(line) => {
-            let error_code = {
-                let errors = context.current_errors.clone();
-                let errors = errors.lock();
-
-                if errors.len() > 0 {
-                    1
-                } else {
-                    0
-                }
-            };
-
-            maybe_print_errors(&context, Text::from(line));
-            if error_code != 0 && exit_on_error {
-                std::process::exit(error_code);
-            }
-        }
-
-        LineResult::Error(line, err) => {
-            context
-                .host
-                .lock()
-                .print_err(err, &Text::from(line.clone()));
-
-            maybe_print_errors(&context, Text::from(line));
-            if exit_on_error {
-                std::process::exit(1);
-            }
-        }
-
-        _ => {}
-    }
-
-    //exit script mode shell
-    context.shell_manager.remove_at_current();
-
-    Ok(())
 }
