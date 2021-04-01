@@ -11,7 +11,6 @@ use nu_protocol::{
 };
 use nu_protocol::{Primitive, UntaggedValue, Value};
 use nu_stream::{InputStream, ToInputStream};
-use std::error::Error;
 
 use crate::EvaluationContext;
 use log::{debug, trace};
