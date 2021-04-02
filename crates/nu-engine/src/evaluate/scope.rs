@@ -103,6 +103,8 @@ impl Scope {
 
         for frame in self.frames.lock().iter() {
             let mut frame_command_names = frame.get_command_names();
+            frame_command_names.extend(frame.get_alias_names());
+            frame_command_names.extend(frame.get_custom_command_names());
             names.append(&mut frame_command_names);
         }
 
@@ -386,6 +388,10 @@ impl ScopeFrame {
 
     pub fn get_command_names(&self) -> Vec<String> {
         self.commands.keys().map(|x| x.to_string()).collect()
+    }
+
+    pub fn get_custom_command_names(&self) -> Vec<String> {
+        self.custom_commands.keys().map(|x| x.to_string()).collect()
     }
 
     pub fn add_command(&mut self, name: String, command: Command) {
