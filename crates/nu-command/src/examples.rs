@@ -6,45 +6,30 @@ mod stub_generate;
 
 use double_echo::Command as DoubleEcho;
 use double_ls::Command as DoubleLs;
+use nu_test_support::context::get_test_context;
 use stub_generate::{mock_path, Command as StubOpen};
 
-use nu_engine::basic_evaluation_context;
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
 use nu_protocol::hir::ClassifiedBlock;
 use nu_protocol::{ShellTypeName, Value};
 use nu_source::AnchorLocation;
 
-use crate::commands::{
-    Append, BuildString, Each, Echo, First, Get, Keep, Last, Let, Nth, Select, StrCollect, Wrap,
-};
 use nu_engine::{run_block, whole_stream_command, Command, EvaluationContext, WholeStreamCommand};
 use nu_stream::InputStream;
 
 use futures::executor::block_on;
 
+#[cfg(test)]
 pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
     let examples = cmd.examples();
 
-    let base_context = basic_evaluation_context()?;
+    let base_context = get_test_context();
 
     base_context.add_commands(vec![
         // Command Doubles
         whole_stream_command(DoubleLs {}),
         // Minimal restricted commands to aid in testing
-        whole_stream_command(Append {}),
-        whole_stream_command(Echo {}),
-        whole_stream_command(BuildString {}),
-        whole_stream_command(First {}),
-        whole_stream_command(Get {}),
-        whole_stream_command(Keep {}),
-        whole_stream_command(Each {}),
-        whole_stream_command(Last {}),
-        whole_stream_command(Nth {}),
-        whole_stream_command(Let {}),
-        whole_stream_command(Select),
-        whole_stream_command(StrCollect),
-        whole_stream_command(Wrap),
         cmd,
     ]);
 
@@ -89,23 +74,13 @@ pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
     Ok(())
 }
 
+#[cfg(test)]
 pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
     let examples = cmd.examples();
 
-    let base_context = basic_evaluation_context()?;
+    let base_context = get_test_context();
 
-    base_context.add_commands(vec![
-        whole_stream_command(Echo {}),
-        whole_stream_command(BuildString {}),
-        whole_stream_command(Get {}),
-        whole_stream_command(Keep {}),
-        whole_stream_command(Each {}),
-        whole_stream_command(Let {}),
-        whole_stream_command(cmd),
-        whole_stream_command(Select),
-        whole_stream_command(StrCollect),
-        whole_stream_command(Wrap),
-    ]);
+    base_context.add_commands(vec![whole_stream_command(cmd)]);
 
     for sample_pipeline in examples {
         let mut ctx = base_context.clone();
@@ -146,28 +121,18 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
     Ok(())
 }
 
+#[cfg(test)]
 pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
     let examples = cmd.examples();
 
-    let base_context = basic_evaluation_context()?;
+    let base_context = get_test_context();
 
+    //Add some more
     base_context.add_commands(vec![
         // Minimal restricted commands to aid in testing
         whole_stream_command(StubOpen {}),
         whole_stream_command(DoubleEcho {}),
         whole_stream_command(DoubleLs {}),
-        whole_stream_command(Append {}),
-        whole_stream_command(BuildString {}),
-        whole_stream_command(First {}),
-        whole_stream_command(Get {}),
-        whole_stream_command(Keep {}),
-        whole_stream_command(Each {}),
-        whole_stream_command(Last {}),
-        whole_stream_command(Nth {}),
-        whole_stream_command(Let {}),
-        whole_stream_command(Select),
-        whole_stream_command(StrCollect),
-        whole_stream_command(Wrap),
         cmd,
     ]);
 
@@ -201,6 +166,9 @@ pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
 
     Ok(())
 }
+
+///TODO we should double check whether we can't remove this code
+///and just use run_script
 
 /// Parse and run a nushell pipeline
 fn parse_line(line: &str, ctx: &EvaluationContext) -> Result<ClassifiedBlock, ShellError> {

@@ -18,7 +18,7 @@ pub struct RunExternalArgs {}
 #[derive(new)]
 pub struct RunExternalCommand {
     /// Whether or not nushell is being used in an interactive context
-    pub(crate) interactive: bool,
+    pub interactive: bool,
 }
 
 fn spanned_expression_to_string(expr: SpannedExpression) -> Result<String, ShellError> {
