@@ -46,7 +46,7 @@ impl WholeStreamCommand for Command {
     }
 
     fn examples(&self) -> Vec<Example> {
-        use nu_test_support::value::*;
+        use nu_protocol::value_shortcuts::*;
 
         vec![
             Example {

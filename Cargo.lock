@@ -3478,6 +3478,16 @@ dependencies = [
 name = "nu-plugin"
 version = "0.29.1"
 dependencies = [
+ "nu-errors",
+ "nu-protocol",
+ "serde 1.0.124",
+ "serde_json",
+]
+
+[[package]]
+name = "nu-plugin-test-support"
+version = "0.29.1"
+dependencies = [
  "bigdecimal",
  "indexmap",
  "nu-errors",
@@ -3554,6 +3564,8 @@ dependencies = [
  "glob",
  "hamcrest2",
  "indexmap",
+ "nu-command",
+ "nu-engine",
  "nu-errors",
  "nu-protocol",
  "nu-source",

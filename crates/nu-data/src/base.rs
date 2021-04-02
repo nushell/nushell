@@ -168,6 +168,12 @@ mod tests {
 
     use indexmap::indexmap;
 
+    pub fn error_callback(
+        reason: &'static str,
+    ) -> impl FnOnce(&Value, &PathMember, ShellError) -> ShellError {
+        move |_obj_source, _column_path_tried, _err| ShellError::unimplemented(reason)
+    }
+
     #[test]
     fn gets_matching_field_from_a_row() -> Result<(), ShellError> {
         let row = UntaggedValue::row(indexmap! {

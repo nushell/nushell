@@ -7,6 +7,7 @@ use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape};
 #[allow(unused_imports)]
 use nu_source::{Span, Spanned, SpannedItem};
 #[allow(unused_imports)]
+#[cfg(test)]
 use nu_test_support::nu;
 
 #[test]

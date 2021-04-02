@@ -2,7 +2,6 @@ pub mod commands;
 pub mod fs;
 pub mod macros;
 pub mod playground;
-pub mod value;
 
 pub struct Outcome {
     pub out: String,

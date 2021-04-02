@@ -11,6 +11,7 @@ mod syntax_shape;
 mod type_name;
 mod type_shape;
 pub mod value;
+pub mod value_shortcuts;
 
 pub use crate::call_info::{CallInfo, EvaluatedArgs};
 pub use crate::config_path::ConfigPath;

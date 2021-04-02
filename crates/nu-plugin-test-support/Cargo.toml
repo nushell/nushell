@@ -1,0 +1,25 @@
+[package]
+authors = ["The Nu Project Contributors"]
+description = "Nushell Plugin test support"
+edition = "2018"
+license = "MIT"
+name = "nu-plugin-test-support"
+version = "0.29.1"
+
+[lib]
+doctest = false
+
+[dependencies]
+nu-errors = { path = "../nu-errors", version = "0.29.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.29.1" }
+nu-source = { path = "../nu-source", version = "0.29.1" }
+nu-value-ext = { path = "../nu-value-ext", version = "0.29.1" }
+
+bigdecimal = { version = "0.2.0", features = ["serde"] }
+indexmap = { version = "1.6.1", features = ["serde-1"] }
+num-bigint = { version = "0.3.1", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+nu-test-support = { path = "../nu-test-support", version = "0.29.1" }
+
+[build-dependencies]

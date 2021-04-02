@@ -21,7 +21,6 @@ nu-protocol = { version = "0.29.1", path = "../nu-protocol" }
 nu-source = { version = "0.29.1", path = "../nu-source" }
 nu-stream = { version = "0.29.1", path = "../nu-stream" }
 nu-table = { version = "0.29.1", path = "../nu-table" }
-nu-test-support = { version = "0.29.1", path = "../nu-test-support" }
 nu-value-ext = { version = "0.29.1", path = "../nu-value-ext" }
 nu-ansi-term = { version = "0.29.1", path = "../nu-ansi-term" }
 
@@ -124,6 +123,7 @@ shadow-rs = "0.5"
 
 [dev-dependencies]
 quickcheck = "1.0.3"
+nu-test-support = { version = "0.29.1", path = "../nu-test-support" }
 quickcheck_macros = "1.0.0"
 hamcrest2 = "0.3.0"
 

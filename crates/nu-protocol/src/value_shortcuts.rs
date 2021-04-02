@@ -1,8 +1,7 @@
+use crate::{Primitive, UntaggedValue, Value};
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, NaiveDate, Utc};
 use indexmap::IndexMap;
-use nu_errors::ShellError;
-use nu_protocol::{PathMember, Primitive, UntaggedValue, Value};
 use nu_source::{Span, TaggedItem};
 use num_bigint::BigInt;
 
@@ -48,10 +47,4 @@ pub fn date(input: impl Into<String>) -> Value {
 
 pub fn column_path(paths: &str) -> Value {
     UntaggedValue::column_path(paths, Span::unknown()).into_untagged_value()
-}
-
-pub fn error_callback(
-    reason: &'static str,
-) -> impl FnOnce(&Value, &PathMember, ShellError) -> ShellError {
-    move |_obj_source, _column_path_tried, _err| ShellError::unimplemented(reason)
 }

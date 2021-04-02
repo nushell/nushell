@@ -98,12 +98,13 @@ pub fn report(
 
 pub mod helpers {
     use nu_errors::ShellError;
-    use nu_protocol::{row, Value};
-    use nu_source::{Tag, TaggedItem};
+    use nu_protocol::Value;
+    #[cfg(test)]
     use nu_test_support::value::{date, int, string, table};
-    use nu_value_ext::ValueExt;
 
+    #[cfg(test)]
     pub fn committers() -> Vec<Value> {
+        use nu_protocol::row;
         vec![
             row! {
                    "date".into() => date("2019-07-23"),
@@ -162,7 +163,10 @@ pub mod helpers {
         ]
     }
 
+    #[cfg(test)]
     pub fn committers_grouped_by_date() -> Value {
+        use nu_source::{Tag, TaggedItem};
+        use nu_value_ext::ValueExt;
         let sample = table(&committers());
 
         let grouper = Box::new(move |_, row: &Value| {
