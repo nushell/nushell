@@ -264,7 +264,7 @@ fn evaluate_reference(name: &str, ctx: &EvaluationContext, tag: Tag) -> Result<V
             Some(v) => Ok(v),
             None => Err(ShellError::labeled_error(
                 "Variable not in scope",
-                "unknown variable",
+                format!("unknown variable: {}", x),
                 tag.span,
             )),
         },
