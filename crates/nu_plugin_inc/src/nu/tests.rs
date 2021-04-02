@@ -1,10 +1,11 @@
+#[cfg(test)]
 mod integration {
     use crate::inc::{Action, SemVerAction};
     use crate::Inc;
     use nu_errors::ShellError;
-    use nu_plugin::test_helpers::{plugin, CallStub};
+    use nu_plugin_test_support::{plugin, CallStub};
+    use nu_protocol::value_shortcuts::column_path;
     use nu_protocol::{Primitive, UntaggedValue};
-    use nu_test_support::value::column_path;
     use nu_value_ext::ValueExt;
 
     #[test]
@@ -72,10 +73,10 @@ mod integration {
     mod sem_ver {
         use crate::Inc;
         use nu_errors::ShellError;
-        use nu_plugin::test_helpers::{expect_return_value_at, plugin, CallStub};
+        use nu_plugin_test_support::{expect_return_value_at, plugin, CallStub};
+        use nu_protocol::value_shortcuts::string;
         use nu_protocol::TaggedDictBuilder;
         use nu_source::Tag;
-        use nu_test_support::value::string;
         use nu_value_ext::get_data;
 
         fn cargo_sample_record(with_version: &str) -> nu_protocol::Value {

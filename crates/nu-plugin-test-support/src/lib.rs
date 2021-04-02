@@ -1,11 +1,11 @@
-use crate::Plugin;
 use indexmap::IndexMap;
 use nu_errors::ShellError;
+use nu_plugin::Plugin;
+use nu_protocol::value_shortcuts::column_path;
 use nu_protocol::{
     CallInfo, EvaluatedArgs, Primitive, ReturnSuccess, ReturnValue, UntaggedValue, Value,
 };
 use nu_source::Tag;
-use nu_test_support::value::column_path;
 use nu_value_ext::ValueExt;
 
 pub struct PluginTest<'a, T: Plugin> {
