@@ -263,10 +263,11 @@ pub fn group(
 #[cfg(test)]
 mod tests {
     use super::group;
+    #[cfg(test)]
     use nu_data::utils::helpers::committers;
     use nu_errors::ShellError;
+    use nu_protocol::value_shortcuts::{date, int, row, string, table};
     use nu_source::*;
-    use nu_test_support::value::{date, int, row, string, table};
 
     #[test]
     fn groups_table_by_date_column() -> Result<(), ShellError> {

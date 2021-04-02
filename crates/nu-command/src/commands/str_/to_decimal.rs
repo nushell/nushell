@@ -104,8 +104,8 @@ fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
 mod tests {
     use super::ShellError;
     use super::{action, SubCommand};
+    use nu_protocol::value_shortcuts::{decimal_from_float, string};
     use nu_source::Tag;
-    use nu_test_support::value::{decimal_from_float, string};
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {

@@ -106,9 +106,9 @@ fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
 #[cfg(test)]
 mod tests {
     use super::action;
+    use nu_protocol::value_shortcuts::string;
     use nu_protocol::{Primitive, UntaggedValue};
     use nu_source::Tag;
-    use nu_test_support::value::string;
 
     #[test]
     fn md5_encode_string() {

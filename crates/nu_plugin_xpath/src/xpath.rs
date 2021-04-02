@@ -127,8 +127,8 @@ fn build_xpath(xpath_str: &str) -> Result<sxd_xpath::XPath, ShellError> {
 mod tests {
     use super::string_to_value as query;
     use nu_errors::ShellError;
+    use nu_protocol::value_shortcuts::{decimal_from_float, row};
     use nu_source::TaggedItem;
-    use nu_test_support::value::{decimal_from_float, row};
 
     use indexmap::indexmap;
 

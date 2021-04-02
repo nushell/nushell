@@ -161,9 +161,11 @@ pub fn coerce_compare_primitive(
 #[cfg(test)]
 mod tests {
     use nu_errors::ShellError;
+    use nu_protocol::value_shortcuts::*;
+    use nu_protocol::PathMember;
     use nu_protocol::UntaggedValue;
+    use nu_protocol::Value;
     use nu_source::SpannedItem;
-    use nu_test_support::value::*;
     use nu_value_ext::ValueExt;
 
     use indexmap::indexmap;
@@ -171,7 +173,9 @@ mod tests {
     pub fn error_callback(
         reason: &'static str,
     ) -> impl FnOnce(&Value, &PathMember, ShellError) -> ShellError {
-        move |_obj_source, _column_path_tried, _err| ShellError::unimplemented(reason)
+        move |_obj_source: &Value, _column_path_tried: &PathMember, _err: ShellError| {
+            ShellError::unimplemented(reason)
+        }
     }
 
     #[test]

@@ -148,7 +148,7 @@ mod tests {
     mod semver {
         use crate::inc::SemVerAction;
         use crate::Inc;
-        use nu_test_support::value::string;
+        use nu_protocol::value_shortcuts::string;
 
         #[test]
         fn major() {

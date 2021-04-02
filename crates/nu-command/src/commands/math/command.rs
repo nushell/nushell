@@ -33,8 +33,8 @@ mod tests {
         avg::average, max::maximum, median::median, min::minimum, mode::mode, stddev::stddev,
         sum::summation, utils::calculate, utils::MathFunction, variance::variance,
     };
+    use nu_protocol::value_shortcuts::{decimal, decimal_from_float, int, table};
     use nu_protocol::{row, Value};
-    use nu_test_support::value::{decimal, decimal_from_float, int, table};
     use std::str::FromStr;
 
     #[test]

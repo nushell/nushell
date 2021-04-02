@@ -63,7 +63,7 @@ fn collect_as_column_paths(values: &[Value]) -> Result<Vec<ColumnPath>, ShellErr
 #[cfg(test)]
 mod tests {
     use super::arguments;
-    use nu_test_support::value::*;
+    use nu_protocol::value_shortcuts::*;
     use nu_value_ext::ValueExt;
 
     #[test]

@@ -1,5 +1,5 @@
 use super::*;
-use nu_test_support::value::*;
+use nu_protocol::value_shortcuts::*;
 
 use indexmap::indexmap;
 

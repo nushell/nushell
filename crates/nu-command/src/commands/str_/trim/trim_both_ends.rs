@@ -62,8 +62,8 @@ mod tests {
     use super::{trim, SubCommand};
     use crate::commands::str_::trim::{action, ActionMode};
     use nu_protocol::row;
+    use nu_protocol::value_shortcuts::{int, string, table};
     use nu_source::Tag;
-    use nu_test_support::value::{int, string, table};
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {

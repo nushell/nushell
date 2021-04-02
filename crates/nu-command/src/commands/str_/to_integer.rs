@@ -159,8 +159,8 @@ fn action(input: &Value, tag: impl Into<Tag>, radix: u32) -> Result<Value, Shell
 mod tests {
     use super::ShellError;
     use super::{action, SubCommand};
+    use nu_protocol::value_shortcuts::{int, string};
     use nu_source::Tag;
-    use nu_test_support::value::{int, string};
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {

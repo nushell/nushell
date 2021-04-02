@@ -284,9 +284,9 @@ fn action(
 mod tests {
     use super::ShellError;
     use super::{action, DatetimeFormat, SubCommand, Zone};
+    use nu_protocol::value_shortcuts::string;
     use nu_protocol::{Primitive, UntaggedValue};
     use nu_source::{Tag, Tagged};
-    use nu_test_support::value::string;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {

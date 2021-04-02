@@ -1,5 +1,5 @@
+use nu_protocol::value_shortcuts::{date, int, string};
 use nu_protocol::{row, Value};
-use nu_test_support::value::{date, int, string};
 
 pub mod ls {
     use super::*;

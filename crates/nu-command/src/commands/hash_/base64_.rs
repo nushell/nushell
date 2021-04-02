@@ -230,9 +230,9 @@ fn action(
 #[cfg(test)]
 mod tests {
     use super::{action, ActionType, Base64Config};
+    use nu_protocol::value_shortcuts::string;
     use nu_protocol::UntaggedValue;
     use nu_source::Tag;
-    use nu_test_support::value::string;
 
     #[test]
     fn base64_encode_standard() {
