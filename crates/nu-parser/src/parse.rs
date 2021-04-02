@@ -2220,6 +2220,12 @@ fn unit_parse_byte_units_decimal() {
             unit: Unit::Byte,
         },
         TestCase {
+            string: String::from("2.5Mb"),
+            value: 2500,
+            value_str: String::from("2.5"),
+            unit: Unit::Kilobyte,
+        },
+        TestCase {
             string: String::from("0.5Gb"),
             value: 500,
             value_str: String::from("0.5"),
@@ -2238,20 +2244,26 @@ fn unit_parse_byte_units_decimal() {
             unit: Unit::Gigabyte,
         },
         TestCase {
+            string: String::from("12.5Pb"),
+            value: 12500,
+            value_str: String::from("12.5"),
+            unit: Unit::Terabyte,
+        },
+        TestCase {
             string: String::from("10.5kib"),
-            value: 10500,
+            value: 10752,
             value_str: String::from("10.5"),
-            unit: Unit::Petabyte,
+            unit: Unit::Byte,
         },
         TestCase {
             string: String::from("0.5mib"),
-            value: 500,
+            value: 512,
             value_str: String::from("0.5"),
             unit: Unit::Kibibyte,
         },
         TestCase {
             string: String::from("3.25gib"),
-            value: 3250,
+            value: 3328,
             value_str: String::from("3.25"),
             unit: Unit::Mebibyte,
         },
