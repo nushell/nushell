@@ -1,3 +1,6 @@
+use nu_errors::ShellError;
+use nu_protocol::{PathMember, Value};
+
 pub mod commands;
 pub mod context;
 pub mod fs;
@@ -34,6 +37,14 @@ pub fn shell_os_paths() -> Vec<std::path::PathBuf> {
     }
 
     original_paths
+}
+
+pub fn error_callback(
+    reason: &'static str,
+) -> impl FnOnce(&Value, &PathMember, ShellError) -> ShellError {
+    move |_obj_source: &Value, _column_path_tried: &PathMember, _err: ShellError| {
+        ShellError::unimplemented(reason)
+    }
 }
 
 #[cfg(test)]

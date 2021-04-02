@@ -162,21 +162,12 @@ pub fn coerce_compare_primitive(
 mod tests {
     use nu_errors::ShellError;
     use nu_protocol::value_shortcuts::*;
-    use nu_protocol::PathMember;
     use nu_protocol::UntaggedValue;
-    use nu_protocol::Value;
     use nu_source::SpannedItem;
+    use nu_test_support::error_callback;
     use nu_value_ext::ValueExt;
 
     use indexmap::indexmap;
-
-    pub fn error_callback(
-        reason: &'static str,
-    ) -> impl FnOnce(&Value, &PathMember, ShellError) -> ShellError {
-        move |_obj_source: &Value, _column_path_tried: &PathMember, _err: ShellError| {
-            ShellError::unimplemented(reason)
-        }
-    }
 
     #[test]
     fn gets_matching_field_from_a_row() -> Result<(), ShellError> {

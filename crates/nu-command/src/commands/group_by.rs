@@ -263,7 +263,6 @@ pub fn group(
 #[cfg(test)]
 mod tests {
     use super::group;
-    #[cfg(test)]
     use nu_data::utils::helpers::committers;
     use nu_errors::ShellError;
     use nu_protocol::value_shortcuts::{date, int, row, string, table};
