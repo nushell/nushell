@@ -2202,3 +2202,79 @@ fn unit_parse_byte_units() {
         );
     }
 }
+
+#[test]
+fn unit_parse_byte_units_decimal() {
+    struct TestCase {
+        string: String,
+        value: i64,
+        value_str: String,
+        unit: Unit,
+    }
+
+    let cases = [
+        TestCase {
+            string: String::from("0.25KB"),
+            value: 250,
+            value_str: String::from("0.25"),
+            unit: Unit::Byte,
+        },
+        TestCase {
+            string: String::from("0.5Gb"),
+            value: 500,
+            value_str: String::from("0.5"),
+            unit: Unit::Megabyte,
+        },
+        TestCase {
+            string: String::from("811.5Gb"),
+            value: 811500,
+            value_str: String::from("811.5"),
+            unit: Unit::Megabyte,
+        },
+        TestCase {
+            string: String::from("11.5Tb"),
+            value: 11500,
+            value_str: String::from("11.5"),
+            unit: Unit::Gigabyte,
+        },
+        TestCase {
+            string: String::from("10.5kib"),
+            value: 10500,
+            value_str: String::from("10.5"),
+            unit: Unit::Petabyte,
+        },
+        TestCase {
+            string: String::from("0.5mib"),
+            value: 500,
+            value_str: String::from("0.5"),
+            unit: Unit::Kibibyte,
+        },
+        TestCase {
+            string: String::from("3.25gib"),
+            value: 3250,
+            value_str: String::from("3.25"),
+            unit: Unit::Mebibyte,
+        },
+    ];
+
+    for case in cases.iter() {
+        let input_len = case.string.len();
+        let value_len = case.value_str.to_string().len();
+        let input = case.string.clone().spanned(Span::new(0, input_len));
+        let result = parse_unit(&input);
+        assert_eq!(result.1, None);
+        assert_eq!(
+            result.0.expr,
+            Expression::unit(
+                Spanned {
+                    span: Span::new(0, value_len),
+                    item: case.value
+                },
+                Spanned {
+                    span: Span::new(value_len, input_len),
+                    item: case.unit
+                }
+            )
+        );
+    }
+}
