@@ -89,24 +89,7 @@ async fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let location_string = location.display().to_string();
     let location_clone = location_string.clone();
 
-    if location_string.starts_with("help") {
-        let spec = location_string.split(':').collect::<Vec<&str>>();
-
-        if spec.len() == 2 {
-            let (_, command) = (spec[0], spec[1]);
-
-            if scope.has_command(command) {
-                return Ok(OutputStream::one(ReturnSuccess::action(
-                    CommandAction::EnterHelpShell(
-                        UntaggedValue::string(command).into_value(Tag::unknown()),
-                    ),
-                )));
-            }
-        }
-        Ok(OutputStream::one(ReturnSuccess::action(
-            CommandAction::EnterHelpShell(UntaggedValue::nothing().into_value(Tag::unknown())),
-        )))
-    } else if location.is_dir() {
+    if location.is_dir() {
         Ok(OutputStream::one(ReturnSuccess::action(
             CommandAction::EnterShell(location_clone),
         )))
