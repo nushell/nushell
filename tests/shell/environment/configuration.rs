@@ -204,3 +204,38 @@ fn runs_configuration_startup_commands_with_cwd_of_dir_config_is_in() {
         assert!(dirs.test().join("foo/bar").exists());
     })
 }
+
+#[test]
+fn updates_config_even_if_config_changed_externally() {
+    Playground::setup("config_remove_test", |dirs, nu| {
+        let file = AbsolutePath::new(dirs.test().join("config.toml"));
+        let file2 = AbsolutePath::new(dirs.test().join("config.toml.2"));
+
+        nu.with_config(&file);
+        nu.with_files(vec![
+            FileWithContent(
+                "config.toml",
+                r#"
+            skip_welcome_message = true
+            "#,
+            ),
+            FileWithContent(
+                "config.toml.2",
+                r#"
+            skip_welcome_message = false
+            "#,
+            ),
+        ]);
+
+        assert_that!(
+            nu.pipeline("config get skip_welcome_message")
+                .and_then(&format!(
+                    "cp {} {}",
+                    file2.inner.to_string_lossy().to_string(),
+                    file.inner.to_string_lossy().to_string()
+                ))
+                .and_then("config get skip_welcome_message"),
+            says().to_stdout("truefalse")
+        );
+    })
+}

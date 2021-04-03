@@ -195,6 +195,16 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
             continue;
         }
 
+        if let Err(err) = reload_config_if_modified(&context) {
+            context.host.lock().print_err(
+                ShellError::untagged_runtime_error(format!(
+                    "Could not reload your config.\nThe error was: {:?}",
+                    err
+                )),
+                &Text::from("".to_string()),
+            );
+        }
+
         let cwd = context.shell_manager.path();
 
         let colored_prompt = {
@@ -434,6 +444,15 @@ pub fn register_plugins(context: &EvaluationContext) -> Result<(), ShellError> {
         );
     }
 
+    Ok(())
+}
+
+fn reload_config_if_modified(ctx: &EvaluationContext) -> Result<(), ShellError> {
+    if let Some(global_cfg) = &mut ctx.configs.lock().global_config {
+        if global_cfg.is_modified()? {
+            ctx.reload_config(global_cfg)?;
+        }
+    }
     Ok(())
 }
 
