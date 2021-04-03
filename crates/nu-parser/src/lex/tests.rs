@@ -134,9 +134,9 @@ def e [] {echo hi}
     #[test]
     fn def_comment_with_single_quote() {
         let input = r#"def f [] {
-	    	# shouldn't return error
-			echo hi
-		}"#;
+            # shouldn't return error
+            echo hi
+        }"#;
         let (_result, err) = lex(input, 0);
         assert!(err.is_none());
     }
@@ -144,9 +144,9 @@ def e [] {echo hi}
     #[test]
     fn def_comment_with_double_quote() {
         let input = r#"def f [] {
-	    	# should "not return error
-			echo hi
-		}"#;
+            # should "not return error
+            echo hi
+        }"#;
         let (_result, err) = lex(input, 0);
         assert!(err.is_none());
     }
@@ -154,9 +154,9 @@ def e [] {echo hi}
     #[test]
     fn def_comment_with_bracket() {
         let input = r#"def f [] {
-	    	# should not [return error
-			echo hi
-		}"#;
+            # should not [return error
+            echo hi
+        }"#;
         let (_result, err) = lex(input, 0);
         assert!(err.is_none());
     }
@@ -164,9 +164,9 @@ def e [] {echo hi}
     #[test]
     fn def_comment_with_curly_brace() {
         let input = r#"def f [] {
-	    	# should not return {error
-			echo hi
-		}"#;
+            # should not return {error
+            echo hi
+        }"#;
         let (_result, err) = lex(input, 0);
         assert!(err.is_none());
     }
