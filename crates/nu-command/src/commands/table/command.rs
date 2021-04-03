@@ -212,7 +212,7 @@ async fn table(
         {
             // This is called when the pager finishes, to indicate to the
             // while loop below to finish, in case of long running InputStream consumer
-            // that doesnt finish by the time the user quits out of the pager
+            // that doesn't finish by the time the user quits out of the pager
             pager.lock().await.add_exit_callback(move || {
                 finished_within_callback.store(true, Ordering::Relaxed);
             });

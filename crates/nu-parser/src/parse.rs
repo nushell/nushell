@@ -62,8 +62,8 @@ pub fn parse_simple_column_path(
                 output.push(Member::Bare(trimmed.clone().spanned(part_span)));
             }
             current_part.clear();
-            // Note: I believe this is safe because of the delimiter we're using, but if we get fancy with
-            // unicode we'll need to change this
+            // Note: I believe this is safe because of the delimiter we're using,
+            // but if we get fancy with Unicode we'll need to change this.
             start_index = idx + '.'.len_utf8();
             continue;
         }
@@ -143,8 +143,8 @@ pub fn parse_full_column_path(
                 );
             }
             current_part.clear();
-            // Note: I believe this is safe because of the delimiter we're using, but if we get fancy with
-            // unicode we'll need to change this
+            // Note: I believe this is safe because of the delimiter we're using,
+            // but if we get fancy with Unicode we'll need to change this.
             start_index = idx + '.'.len_utf8();
             continue;
         }

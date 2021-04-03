@@ -119,9 +119,9 @@ impl EvaluationContext {
     /// If an error occurs while loading the config:
     ///     The config is not loaded
     ///     The error is returned
-    /// After successfull loading of the config the startup scripts are run
+    /// After successful loading of the config the startup scripts are run
     /// as normal scripts (Errors are printed out, ...)
-    /// After executing the startup scripts, true is returned to indicate successfull loading
+    /// After executing the startup scripts, true is returned to indicate successful loading
     /// of the config
     //
     // The rational here is that, we should not partially load any config

@@ -50,7 +50,7 @@ It is possible to comment them by appending `# Comment text`!
 Example
 ```shell
 def cmd [
-parameter # Paramter Comment
+parameter # Parameter comment
 --flag: int # Flag comment
 ...rest: path # Rest comment
 ] { ... }

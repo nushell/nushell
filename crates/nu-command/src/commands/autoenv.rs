@@ -17,7 +17,7 @@ impl WholeStreamCommand for Autoenv {
         // "Mark a .nu-env file in a directory as trusted. Needs to be re-run after each change to the file or its filepath."
         r#"Create a file called .nu-env in any directory and run 'autoenv trust' to let nushell load it when entering the directory.
 The .nu-env file has the same format as your $HOME/nu/config.toml file. By loading a .nu-env file the following applies:
-    - environment variables (section \"[env]\") are loaded from the .nu-env file. Those env variables are only existend in this directory (and children directories)
+    - environment variables (section \"[env]\") are loaded from the .nu-env file. Those env variables only exist in this directory (and children directories)
     - the \"startup\" commands are run when entering the directory
     - the \"on_exit\" commands are run when leaving the directory
 "#
