@@ -20,7 +20,7 @@ impl WholeStreamCommand for Command {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("all?").required(
+        Signature::build("any?").required(
             "condition",
             SyntaxShape::RowCondition,
             "the condition that must match",
