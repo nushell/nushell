@@ -1,10 +1,27 @@
+use nu_test_support::fs::AbsolutePath;
+use nu_test_support::playground::{says, Playground};
 use nu_test_support::{nu, pipeline};
+
+use hamcrest2::assert_that;
+use hamcrest2::prelude::*;
 
 #[cfg(feature = "directories-support")]
 #[cfg(feature = "which-support")]
 mod environment;
 
 mod pipeline;
+
+#[should_panic]
+#[test]
+fn runs_configuration_startup_commands() {
+    Playground::setup("init_config_startup_commands_test", |dirs, nu| {
+        let file = AbsolutePath::new(dirs.test().join("startup.toml"));
+
+        nu.with_config(&file);
+
+        assert_that!(nu.pipeline("hello-world"), says().to_stdout("Nu World"));
+    });
+}
 
 #[test]
 fn plugins_are_declared_with_wix() {

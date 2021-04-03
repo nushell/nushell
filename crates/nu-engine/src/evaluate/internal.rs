@@ -2,13 +2,12 @@ use crate::call_info::UnevaluatedCallInfo;
 use crate::command_args::RawCommandArgs;
 use crate::evaluation_context::EvaluationContext;
 use crate::filesystem::filesystem_shell::{FilesystemShell, FilesystemShellMode};
-use crate::shell::help_shell::HelpShell;
 use crate::shell::value_shell::ValueShell;
 use futures::StreamExt;
 use log::{log_enabled, trace};
 use nu_errors::ShellError;
 use nu_protocol::hir::{ExternalRedirection, InternalCommand};
-use nu_protocol::{CommandAction, Primitive, ReturnSuccess, UntaggedValue, Value};
+use nu_protocol::{CommandAction, ReturnSuccess, UntaggedValue, Value};
 use nu_source::{PrettyDebug, Span, Tag};
 use nu_stream::{trace_stream, InputStream, ToInputStream};
 use std::sync::Arc;
@@ -127,38 +126,6 @@ pub(crate) async fn run_internal_command(
                                     InputStream::one(tagged_contents)
                                 }
                             }
-                            CommandAction::EnterHelpShell(value) => match value {
-                                Value {
-                                    value: UntaggedValue::Primitive(Primitive::String(cmd)),
-                                    tag,
-                                } => {
-                                    context.shell_manager.insert_at_current(Box::new(
-                                        match HelpShell::for_command(
-                                            UntaggedValue::string(cmd).into_value(tag),
-                                            &context.scope,
-                                        ) {
-                                            Ok(v) => v,
-                                            Err(err) => {
-                                                context.error(err);
-                                                return InputStream::empty();
-                                            }
-                                        },
-                                    ));
-                                    InputStream::from_stream(futures::stream::iter(vec![]))
-                                }
-                                _ => {
-                                    context.shell_manager.insert_at_current(Box::new(
-                                        match HelpShell::index(&context.scope) {
-                                            Ok(v) => v,
-                                            Err(err) => {
-                                                context.error(err);
-                                                return InputStream::empty();
-                                            }
-                                        },
-                                    ));
-                                    InputStream::from_stream(futures::stream::iter(vec![]))
-                                }
-                            },
                             CommandAction::EnterValueShell(value) => {
                                 context
                                     .shell_manager
