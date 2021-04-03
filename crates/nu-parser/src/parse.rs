@@ -325,51 +325,74 @@ fn parse_operator(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<Pars
 
 /// Parse a unit type, eg '10kb'
 fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
+    fn parse_decimal_str_to_number(decimal: &str) -> Option<i64> {
+        let string_to_parse = format!("0.{}", decimal);
+        if let Ok(x) = string_to_parse.parse::<f64>() {
+            return Some((1_f64 / x) as i64);
+        }
+        None
+    }
     let unit_groups = [
-        (Unit::Byte, vec!["b", "B"]),
-        (Unit::Kilobyte, vec!["kb", "KB", "Kb", "kB"]),
-        (Unit::Megabyte, vec!["mb", "MB", "Mb", "mB"]),
-        (Unit::Gigabyte, vec!["gb", "GB", "Gb", "gB"]),
-        (Unit::Terabyte, vec!["tb", "TB", "Tb", "tB"]),
-        (Unit::Petabyte, vec!["pb", "PB", "Pb", "pB"]),
-        (Unit::Kibibyte, vec!["KiB", "kib", "kiB", "Kib"]),
-        (Unit::Mebibyte, vec!["MiB", "mib", "miB", "Mib"]),
-        (Unit::Gibibyte, vec!["GiB", "gib", "giB", "Gib"]),
-        (Unit::Nanosecond, vec!["ns"]),
-        (Unit::Microsecond, vec!["us"]),
-        (Unit::Millisecond, vec!["ms"]),
-        (Unit::Second, vec!["sec"]),
-        (Unit::Minute, vec!["min"]),
-        (Unit::Hour, vec!["hr"]),
-        (Unit::Day, vec!["day"]),
-        (Unit::Week, vec!["wk"]),
-        (Unit::Month, vec!["mon"]),
-        (Unit::Year, vec!["yr"]),
+        (Unit::Kilobyte, "KB", Some((Unit::Byte, 1000))),
+        (Unit::Megabyte, "MB", Some((Unit::Kilobyte, 1000))),
+        (Unit::Gigabyte, "GB", Some((Unit::Megabyte, 1000))),
+        (Unit::Terabyte, "TB", Some((Unit::Gigabyte, 1000))),
+        (Unit::Petabyte, "PB", Some((Unit::Terabyte, 1000))),
+        (Unit::Kibibyte, "KIB", Some((Unit::Byte, 1024))),
+        (Unit::Mebibyte, "MIB", Some((Unit::Kibibyte, 1024))),
+        (Unit::Gibibyte, "GIB", Some((Unit::Mebibyte, 1024))),
+        (Unit::Byte, "B", None),
+        (Unit::Nanosecond, "NS", None),
+        (Unit::Microsecond, "US", Some((Unit::Nanosecond, 1000))),
+        (Unit::Millisecond, "MS", Some((Unit::Microsecond, 1000))),
+        (Unit::Second, "SEC", Some((Unit::Millisecond, 1000))),
+        (Unit::Minute, "MIN", Some((Unit::Second, 60))),
+        (Unit::Hour, "HR", Some((Unit::Minute, 60))),
+        (Unit::Day, "DAY", Some((Unit::Minute, 1440))),
+        (Unit::Week, "WK", Some((Unit::Day, 7))),
+        (Unit::Month, "MON", Some((Unit::Day, 30))),
+        (Unit::Year, "YR", Some((Unit::Day, 365))),
     ];
+    if let Some(unit) = unit_groups
+        .iter()
+        .find(|&x| lite_arg.to_uppercase().ends_with(x.1))
+    {
+        let mut lhs = lite_arg.item.clone();
+        for _ in 0..unit.1.len() {
+            lhs.pop();
+        }
 
-    for unit_group in unit_groups.iter() {
-        for unit in unit_group.1.iter() {
-            if !lite_arg.item.ends_with(unit) {
-                continue;
-            }
-            let mut lhs = lite_arg.item.clone();
-
-            for _ in 0..unit.len() {
-                lhs.pop();
-            }
-
-            // these units are allowed to be signed
-            if let Ok(x) = lhs.parse::<i64>() {
-                let lhs_span = Span::new(lite_arg.span.start(), lite_arg.span.start() + lhs.len());
-                let unit_span = Span::new(lite_arg.span.start() + lhs.len(), lite_arg.span.end());
-                return (
-                    SpannedExpression::new(
-                        Expression::unit(x.spanned(lhs_span), unit_group.0.spanned(unit_span)),
-                        lite_arg.span,
+        let input: Vec<&str> = lhs.split('.').collect();
+        let (value, unit_to_use) = match &input[..] {
+            [number_str] => (number_str.parse::<i64>().ok(), unit.0),
+            [number_str, decimal_part_str] => match unit.2 {
+                Some(unit_to_convert_to) => match (
+                    number_str.parse::<i64>(),
+                    parse_decimal_str_to_number(decimal_part_str),
+                ) {
+                    (Ok(number), Some(decimal_part)) => (
+                        Some(
+                            (number * unit_to_convert_to.1) + (unit_to_convert_to.1 / decimal_part),
+                        ),
+                        unit_to_convert_to.0,
                     ),
-                    None,
-                );
-            }
+                    _ => (None, unit.0),
+                },
+                None => (None, unit.0),
+            },
+            _ => (None, unit.0),
+        };
+
+        if let Some(x) = value {
+            let lhs_span = Span::new(lite_arg.span.start(), lite_arg.span.start() + lhs.len());
+            let unit_span = Span::new(lite_arg.span.start() + lhs.len(), lite_arg.span.end());
+            return (
+                SpannedExpression::new(
+                    Expression::unit(x.spanned(lhs_span), unit_to_use.spanned(unit_span)),
+                    lite_arg.span,
+                ),
+                None,
+            );
         }
     }
 
@@ -2161,6 +2184,94 @@ fn unit_parse_byte_units() {
     for case in cases.iter() {
         let input_len = case.string.len();
         let value_len = case.value.to_string().len();
+        let input = case.string.clone().spanned(Span::new(0, input_len));
+        let result = parse_unit(&input);
+        assert_eq!(result.1, None);
+        assert_eq!(
+            result.0.expr,
+            Expression::unit(
+                Spanned {
+                    span: Span::new(0, value_len),
+                    item: case.value
+                },
+                Spanned {
+                    span: Span::new(value_len, input_len),
+                    item: case.unit
+                }
+            )
+        );
+    }
+}
+
+#[test]
+fn unit_parse_byte_units_decimal() {
+    struct TestCase {
+        string: String,
+        value: i64,
+        value_str: String,
+        unit: Unit,
+    }
+
+    let cases = [
+        TestCase {
+            string: String::from("0.25KB"),
+            value: 250,
+            value_str: String::from("0.25"),
+            unit: Unit::Byte,
+        },
+        TestCase {
+            string: String::from("2.5Mb"),
+            value: 2500,
+            value_str: String::from("2.5"),
+            unit: Unit::Kilobyte,
+        },
+        TestCase {
+            string: String::from("0.5Gb"),
+            value: 500,
+            value_str: String::from("0.5"),
+            unit: Unit::Megabyte,
+        },
+        TestCase {
+            string: String::from("811.5Gb"),
+            value: 811500,
+            value_str: String::from("811.5"),
+            unit: Unit::Megabyte,
+        },
+        TestCase {
+            string: String::from("11.5Tb"),
+            value: 11500,
+            value_str: String::from("11.5"),
+            unit: Unit::Gigabyte,
+        },
+        TestCase {
+            string: String::from("12.5Pb"),
+            value: 12500,
+            value_str: String::from("12.5"),
+            unit: Unit::Terabyte,
+        },
+        TestCase {
+            string: String::from("10.5kib"),
+            value: 10752,
+            value_str: String::from("10.5"),
+            unit: Unit::Byte,
+        },
+        TestCase {
+            string: String::from("0.5mib"),
+            value: 512,
+            value_str: String::from("0.5"),
+            unit: Unit::Kibibyte,
+        },
+        TestCase {
+            string: String::from("3.25gib"),
+            value: 3328,
+            value_str: String::from("3.25"),
+            unit: Unit::Mebibyte,
+        },
+    ];
+
+    for case in cases.iter() {
+        let input_len = case.string.len();
+        let value_len = case.value_str.to_string().len();
         let input = case.string.clone().spanned(Span::new(0, input_len));
         let result = parse_unit(&input);
         assert_eq!(result.1, None);

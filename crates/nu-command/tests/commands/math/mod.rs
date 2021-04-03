@@ -188,6 +188,18 @@ fn duration_math() {
 }
 
 #[test]
+fn duration_decimal_math() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            = 0.5mon + 1day
+        "#
+    ));
+
+    assert_eq!(actual.out, "16day");
+}
+
+#[test]
 fn duration_math_with_nanoseconds() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
@@ -197,6 +209,18 @@ fn duration_math_with_nanoseconds() {
     ));
 
     assert_eq!(actual.out, "7day 10ns");
+}
+
+#[test]
+fn duration_decimal_math_with_nanoseconds() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            = 1.5wk + 10ns
+        "#
+    ));
+
+    assert_eq!(actual.out, "10day 10ns");
 }
 
 #[test]
