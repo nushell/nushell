@@ -3,7 +3,7 @@ use nu_engine::evaluate_baseline_expr;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::CapturedBlock, hir::ClassifiedCommand, ReturnSuccess, Signature, SyntaxShape,
+    hir::CapturedBlock, hir::ClassifiedCommand, Signature, SyntaxShape, UntaggedValue,
 };
 
 pub struct Command;
@@ -16,11 +16,11 @@ pub struct Arguments {
 #[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
-        "where"
+        "all?"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("where").required(
+        Signature::build("all?").required(
             "condition",
             SyntaxShape::RowCondition,
             "the condition that must match",
@@ -28,42 +28,36 @@ impl WholeStreamCommand for Command {
     }
 
     fn usage(&self) -> &str {
-        "Filter table to match the condition."
+        "Find if the table rows matches the condition."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        where_command(args).await
+        all(args).await
     }
 
     fn examples(&self) -> Vec<Example> {
+        use nu_protocol::Value;
+
         vec![
             Example {
-                description: "List all files in the current directory with sizes greater than 2kb",
-                example: "ls | where size > 2kb",
-                result: None,
+                description: "Find if services are running",
+                example: "echo [[status]; [UP] [UP]] | all? status == UP",
+                result: Some(vec![Value::from(true)]),
             },
             Example {
-                description: "List only the files in the current directory",
-                example: "ls | where type == File",
-                result: None,
-            },
-            Example {
-                description: "List all files with names that contain \"Car\"",
-                example: "ls | where name =~ \"Car\"",
-                result: None,
-            },
-            Example {
-                description: "List all files that were modified in the last two months",
-                example: "ls | where modified <= 2mon",
-                result: None,
+                description: "Check that all values are even",
+                example: "echo [2 4 6 8] | all? $(= $it mod 2) == 0",
+                result: Some(vec![Value::from(true)]),
             },
         ]
     }
 }
-async fn where_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let ctx = Arc::new(EvaluationContext::from_args(&raw_args));
-    let tag = raw_args.call_info.name_tag.clone();
-    let (Arguments { block }, input) = raw_args.process().await?;
+
+async fn all(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let ctx = Arc::new(EvaluationContext::from_args(&args));
+    let tag = args.call_info.name_tag.clone();
+    let (Arguments { block }, input) = args.process().await?;
+
     let condition = {
         if block.block.block.len() != 1 {
             return Err(ShellError::labeled_error(
@@ -93,35 +87,40 @@ async fn where_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError
         }
     };
 
+    let init = Ok(InputStream::one(
+        UntaggedValue::boolean(true).into_value(&tag),
+    ));
+
     Ok(input
-        .filter_map(move |input| {
+        .fold(init, move |acc, row| {
             let condition = condition.clone();
             let ctx = ctx.clone();
-
             ctx.scope.enter_scope();
             ctx.scope.add_vars(&block.captured.entries);
-            ctx.scope.add_var("$it", input.clone());
+            ctx.scope.add_var("$it", row);
 
             async move {
-                //FIXME: should we use the scope that's brought in as well?
-                let condition = evaluate_baseline_expr(&condition, &*ctx).await;
+                let condition = evaluate_baseline_expr(&condition, &*ctx).await.clone();
                 ctx.scope.exit_scope();
+
+                let curr = acc?.drain_vec().await;
+                let curr = curr
+                    .get(0)
+                    .ok_or_else(|| ShellError::unexpected("No value to check with"))?;
+                let cond = curr.as_bool()?;
 
                 match condition {
                     Ok(condition) => match condition.as_bool() {
-                        Ok(b) => {
-                            if b {
-                                Some(Ok(ReturnSuccess::Value(input)))
-                            } else {
-                                None
-                            }
-                        }
-                        Err(e) => Some(Err(e)),
+                        Ok(b) => Ok(InputStream::one(
+                            UntaggedValue::boolean(cond && b).into_value(&curr.tag),
+                        )),
+                        Err(e) => Err(e),
                     },
-                    Err(e) => Some(Err(e)),
+                    Err(e) => Err(e),
                 }
             }
         })
+        .await?
         .to_output_stream())
 }
 
