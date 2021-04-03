@@ -356,6 +356,8 @@ pub enum Unit {
     Kibibyte,
     Mebibyte,
     Gibibyte,
+    Tebibyte,
+    Pebibyte,
 
     // Duration units
     Nanosecond,
@@ -546,6 +548,8 @@ impl Unit {
             Unit::Kibibyte => "KiB",
             Unit::Mebibyte => "MiB",
             Unit::Gibibyte => "GiB",
+            Unit::Tebibyte => "TiB",
+            Unit::Pebibyte => "PiB",
             Unit::Nanosecond => "ns",
             Unit::Microsecond => "us",
             Unit::Millisecond => "ms",
@@ -575,6 +579,10 @@ impl Unit {
             Unit::Kibibyte => filesize(convert_number_to_u64(&size) * 1024),
             Unit::Mebibyte => filesize(convert_number_to_u64(&size) * 1024 * 1024),
             Unit::Gibibyte => filesize(convert_number_to_u64(&size) * 1024 * 1024 * 1024),
+            Unit::Tebibyte => filesize(convert_number_to_u64(&size) * 1024 * 1024 * 1024 * 1024),
+            Unit::Pebibyte => {
+                filesize(convert_number_to_u64(&size) * 1024 * 1024 * 1024 * 1024 * 1024)
+            }
 
             Unit::Nanosecond => duration(size.to_bigint().expect("Conversion should never fail.")),
             Unit::Microsecond => {
