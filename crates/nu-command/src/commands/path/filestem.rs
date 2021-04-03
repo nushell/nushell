@@ -117,7 +117,8 @@ impl WholeStreamCommand for PathFilestem {
     }
 }
 
-fn action(path: &Path, args: &PathFilestemArguments) -> UntaggedValue {
+#[allow(clippy::unnecessary_wraps)]
+fn action(path: &Path, tag: Tag, args: &PathFilestemArguments) -> Result<Value, ShellError> {
     let basename = match path.file_name() {
         Some(name) => name.to_string_lossy().to_string(),
         None => "".to_string(),
@@ -153,13 +154,15 @@ fn action(path: &Path, args: &PathFilestemArguments) -> UntaggedValue {
         None => basename_without_prefix,
     };
 
-    match args.replace {
+    let untagged = match args.replace {
         Some(ref replace) => {
             let new_name = prefix + &replace.item + &suffix;
             UntaggedValue::filepath(path.with_file_name(&new_name))
         }
         None => UntaggedValue::string(stem),
-    }
+    };
+
+    Ok(untagged.into_value(tag))
 }
 
 #[cfg(test)]

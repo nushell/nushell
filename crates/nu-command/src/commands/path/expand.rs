@@ -2,7 +2,7 @@ use super::{operate, PathSubcommandArguments};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue, Value};
 use std::path::{Path, PathBuf};
 
 pub struct PathExpand;
@@ -60,11 +60,15 @@ impl WholeStreamCommand for PathExpand {
     }
 }
 
-fn action(path: &Path, _args: &PathExpandArguments) -> UntaggedValue {
+#[allow(clippy::unnecessary_wraps)]
+fn action(path: &Path, tag: Tag, _args: &PathExpandArguments) -> Result<Value, ShellError> {
     let ps = path.to_string_lossy();
     let expanded = shellexpand::tilde(&ps);
     let path: &Path = expanded.as_ref().as_ref();
-    UntaggedValue::filepath(dunce::canonicalize(path).unwrap_or_else(|_| PathBuf::from(path)))
+    Ok(
+        UntaggedValue::filepath(dunce::canonicalize(path).unwrap_or_else(|_| PathBuf::from(path)))
+            .into_value(tag),
+    )
 }
 
 #[cfg(test)]

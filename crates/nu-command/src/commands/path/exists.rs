@@ -58,8 +58,9 @@ impl WholeStreamCommand for PathExists {
     }
 }
 
-fn action(path: &Path, _args: &PathExistsArguments) -> UntaggedValue {
-    UntaggedValue::boolean(path.exists())
+#[allow(clippy::unnecessary_wraps)]
+fn action(path: &Path, tag: Tag, _args: &PathExistsArguments) -> Result<Value, ShellError> {
+    Ok(UntaggedValue::boolean(path.exists()).into_value(tag))
 }
 
 #[cfg(test)]

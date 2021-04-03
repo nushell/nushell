@@ -65,8 +65,9 @@ impl WholeStreamCommand for PathJoin {
     }
 }
 
-fn action(path: &Path, args: &PathJoinArguments) -> UntaggedValue {
-    UntaggedValue::filepath(path.join(&args.path.item))
+#[allow(clippy::unnecessary_wraps)]
+fn action(path: &Path, tag: Tag, args: &PathJoinArguments) -> Result<Value, ShellError> {
+    Ok(UntaggedValue::filepath(path.join(&args.path.item)).into_value(tag))
 }
 
 #[cfg(test)]

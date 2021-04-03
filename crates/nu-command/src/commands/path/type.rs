@@ -49,12 +49,15 @@ impl WholeStreamCommand for PathType {
     }
 }
 
-fn action(path: &Path, _args: &PathTypeArguments) -> UntaggedValue {
+#[allow(clippy::unnecessary_wraps)]
+fn action(path: &Path, tag: Tag, _args: &PathTypeArguments) -> Result<Value, ShellError> {
     let meta = std::fs::symlink_metadata(path);
-    UntaggedValue::string(match &meta {
+    let untagged = UntaggedValue::string(match &meta {
         Ok(md) => get_file_type(md),
         Err(_) => "",
-    })
+    });
+
+    Ok(untagged.into_value(tag))
 }
 
 #[cfg(test)]

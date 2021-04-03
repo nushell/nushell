@@ -73,14 +73,17 @@ impl WholeStreamCommand for PathExtension {
     }
 }
 
-fn action(path: &Path, args: &PathExtensionArguments) -> UntaggedValue {
-    match args.replace {
+#[allow(clippy::unnecessary_wraps)]
+fn action(path: &Path, tag: Tag, args: &PathExtensionArguments) -> Result<Value, ShellError> {
+    let untagged = match args.replace {
         Some(ref extension) => UntaggedValue::filepath(path.with_extension(&extension.item)),
         None => UntaggedValue::string(match path.extension() {
             Some(extension) => extension.to_string_lossy(),
             None => "".into(),
         }),
-    }
+    };
+
+    Ok(untagged.into_value(tag))
 }
 
 #[cfg(test)]

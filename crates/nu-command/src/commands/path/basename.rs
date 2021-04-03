@@ -84,14 +84,17 @@ impl WholeStreamCommand for PathBasename {
     }
 }
 
-fn action(path: &Path, args: &PathBasenameArguments) -> UntaggedValue {
-    match args.replace {
+#[allow(clippy::unnecessary_wraps)]
+fn action(path: &Path, tag: Tag, args: &PathBasenameArguments) -> Result<Value, ShellError> {
+    let untagged = match args.replace {
         Some(ref basename) => UntaggedValue::filepath(path.with_file_name(&basename.item)),
         None => UntaggedValue::string(match path.file_name() {
             Some(filename) => filename.to_string_lossy(),
             None => "".into(),
         }),
-    }
+    };
+
+    Ok(untagged.into_value(tag))
 }
 
 #[cfg(test)]
