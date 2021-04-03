@@ -1,8 +1,10 @@
-use clap::{App, Arg};
+use clap::{App, Arg, ArgMatches};
 use log::LevelFilter;
-use nu_cli::{create_default_context, NuScript, Options};
+use nu_cli::{create_default_context, Options};
 use nu_command::utils::test_bins as binaries;
-use std::error::Error;
+use nu_engine::filesystem::filesystem_shell::FilesystemShellMode;
+use nu_protocol::{NuScript, RunScriptOptions};
+use std::{error::Error, path::PathBuf};
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut options = Options::new();
@@ -148,25 +150,29 @@ fn main() -> Result<(), Box<dyn Error>> {
     match matches.values_of("commands") {
         None => {}
         Some(values) => {
-            options.scripts = vec![NuScript::code(values)?];
-
-            futures::executor::block_on(nu_cli::run_script_file(options))?;
+            options.scripts = values
+                .map(|cmd| NuScript::Content(cmd.to_string()))
+                .collect();
+            let mut run_options = script_options_from_matches(&matches);
+            // we always exit on err
+            run_options.exit_on_error = true;
+            futures::executor::block_on(nu_cli::run_script_file(options, run_options))?;
             return Ok(());
         }
     }
 
     match matches.value_of("script") {
         Some(filepath) => {
-            let filepath = std::ffi::OsString::from(filepath);
-
-            options.scripts = vec![NuScript::source_file(filepath.as_os_str())?];
-
-            futures::executor::block_on(nu_cli::run_script_file(options))?;
+            options.scripts = vec![NuScript::File(PathBuf::from(filepath))];
+            let mut run_options = script_options_from_matches(&matches);
+            // we always exit on err
+            run_options.exit_on_error = true;
+            futures::executor::block_on(nu_cli::run_script_file(options, run_options))?;
             return Ok(());
         }
 
         None => {
-            let context = create_default_context(true)?;
+            let context = create_default_context(FilesystemShellMode::Cli, true)?;
 
             if !matches.is_present("skip-plugins") {
                 let _ = nu_cli::register_plugins(&context);
@@ -185,4 +191,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     Ok(())
+}
+
+fn script_options_from_matches(matches: &ArgMatches) -> RunScriptOptions {
+    RunScriptOptions::default().with_stdin(matches.is_present("stdin"))
 }

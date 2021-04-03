@@ -3,19 +3,22 @@ use crate::{MaybeTextCodec, StringOrBinary};
 use futures::StreamExt;
 use futures_codec::FramedRead;
 use nu_errors::ShellError;
-use nu_protocol::hir::{
-    Call, ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments,
-    SpannedExpression,
+use nu_parser::ParserScope;
+use nu_protocol::{
+    hir::{
+        Call, ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments,
+        SpannedExpression,
+    },
+    NuScript, ReturnSuccess, RunScriptOptions,
 };
-use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue, Value};
+use nu_protocol::{Primitive, UntaggedValue, Value};
 use nu_stream::{InputStream, ToInputStream};
 
 use crate::EvaluationContext;
 use log::{debug, trace};
 use nu_source::{Span, Tag, Text};
-use std::iter::Iterator;
 use std::path::Path;
-use std::{error::Error, sync::atomic::Ordering};
+use std::{iter::Iterator, sync::atomic::Ordering};
 
 #[derive(Debug)]
 pub enum LineResult {
@@ -27,6 +30,7 @@ pub enum LineResult {
     ClearHistory,
 }
 
+//TODO is this still needed
 fn chomp_newline(s: &str) -> &str {
     if let Some(s) = s.strip_suffix('\n') {
         s
@@ -35,36 +39,106 @@ fn chomp_newline(s: &str) -> &str {
     }
 }
 
-pub async fn run_script_in_dir(
-    script: String,
-    dir: &Path,
-    ctx: &EvaluationContext,
-) -> Result<(), Box<dyn Error>> {
-    //Save path before to switch back to it after executing script
-    let path_before = ctx.shell_manager.path();
+/// Runs script `script` configurable by `options`
+/// All errors are printed out.
+pub async fn run_script(script: NuScript, options: &RunScriptOptions, ctx: &EvaluationContext) {
+    let code = match script.get_code() {
+        Ok(code) => code,
+        Err(e) => {
+            ctx.host.lock().print_err(e, &Text::from("".to_string()));
+            return;
+        }
+    };
 
-    ctx.shell_manager
-        .set_path(dir.to_string_lossy().to_string());
-    run_script_standalone(script, false, ctx, false).await?;
-    ctx.shell_manager.set_path(path_before);
+    if let Err(e) = setup_shell(options, ctx) {
+        ctx.host.lock().print_err(e, &Text::from("".to_string()));
+        return;
+    }
+
+    if !options.use_existing_scope {
+        ctx.scope.enter_scope()
+    }
+
+    let line_result = process_script(&code, options, ctx).await;
+    evaluate_line_result(line_result, options, ctx).await;
+
+    if !options.use_existing_scope {
+        ctx.scope.exit_scope()
+    }
+
+    //Leave script shell
+    ctx.shell_manager.remove_at_current();
+}
+
+fn setup_shell(options: &RunScriptOptions, ctx: &EvaluationContext) -> Result<(), ShellError> {
+    //Switch to correct shell
+    if options.cli_mode {
+        ctx.shell_manager.enter_cli_mode()?;
+    } else {
+        ctx.shell_manager.enter_script_mode()?;
+    }
+
+    //Switch to cwd if given
+    if let Some(path) = &options.with_cwd {
+        ctx.shell_manager
+            .set_path(path.to_string_lossy().to_string());
+    }
 
     Ok(())
+}
+
+async fn evaluate_line_result(
+    line_result: LineResult,
+    options: &RunScriptOptions,
+    context: &EvaluationContext,
+) {
+    match line_result {
+        LineResult::Success(line) => {
+            let error_code = {
+                let errors = context.current_errors.clone();
+                let errors = errors.lock();
+
+                if errors.len() > 0 {
+                    1
+                } else {
+                    0
+                }
+            };
+
+            maybe_print_errors(&context, Text::from(line));
+            if error_code != 0 && options.exit_on_error {
+                std::process::exit(error_code);
+            }
+        }
+
+        LineResult::Error(line, err) => {
+            context
+                .host
+                .lock()
+                .print_err(err, &Text::from(line.clone()));
+
+            maybe_print_errors(&context, Text::from(line));
+            if options.exit_on_error {
+                std::process::exit(1);
+            }
+        }
+
+        _ => {}
+    }
 }
 
 /// Process the line by parsing the text to turn it into commands, classify those commands so that we understand what is being called in the pipeline, and then run this pipeline
 pub async fn process_script(
     script_text: &str,
+    options: &RunScriptOptions,
     ctx: &EvaluationContext,
-    redirect_stdin: bool,
-    span_offset: usize,
-    cli_mode: bool,
 ) -> LineResult {
     if script_text.trim() == "" {
         LineResult::Success(script_text.to_string())
     } else {
         let line = chomp_newline(script_text);
 
-        let (block, err) = nu_parser::parse(&line, span_offset, &ctx.scope);
+        let (block, err) = nu_parser::parse(&line, options.span_offset, &ctx.scope);
 
         debug!("{:#?}", block);
         //println!("{:#?}", pipeline);
@@ -79,7 +153,7 @@ pub async fn process_script(
         // ...and it doesn't have any arguments
         // ...and we're in the CLI
         // ...then change to this directory
-        if cli_mode
+        if options.cli_mode
             && block.block.len() == 1
             && block.block[0].pipelines.len() == 1
             && block.block[0].pipelines[0].list.len() == 1
@@ -160,7 +234,7 @@ pub async fn process_script(
             }
         }
 
-        let input_stream = if redirect_stdin {
+        let input_stream = if options.redirect_stdin {
             let file = futures::io::AllowStdIo::new(std::io::stdin());
             let stream = FramedRead::new(file, MaybeTextCodec::default()).map(|line| {
                 if let Ok(line) = line {
@@ -234,56 +308,4 @@ pub async fn process_script(
             Err(err) => LineResult::Error(line.to_string(), err),
         }
     }
-}
-
-pub async fn run_script_standalone(
-    script_text: String,
-    redirect_stdin: bool,
-    context: &EvaluationContext,
-    exit_on_error: bool,
-) -> Result<(), Box<dyn Error>> {
-    context
-        .shell_manager
-        .enter_script_mode()
-        .map_err(Box::new)?;
-    let line = process_script(&script_text, context, redirect_stdin, 0, false).await;
-
-    match line {
-        LineResult::Success(line) => {
-            let error_code = {
-                let errors = context.current_errors.clone();
-                let errors = errors.lock();
-
-                if errors.len() > 0 {
-                    1
-                } else {
-                    0
-                }
-            };
-
-            maybe_print_errors(&context, Text::from(line));
-            if error_code != 0 && exit_on_error {
-                std::process::exit(error_code);
-            }
-        }
-
-        LineResult::Error(line, err) => {
-            context
-                .host
-                .lock()
-                .print_err(err, &Text::from(line.clone()));
-
-            maybe_print_errors(&context, Text::from(line));
-            if exit_on_error {
-                std::process::exit(1);
-            }
-        }
-
-        _ => {}
-    }
-
-    //exit script mode shell
-    context.shell_manager.remove_at_current();
-
-    Ok(())
 }

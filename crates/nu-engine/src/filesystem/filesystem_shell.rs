@@ -10,6 +10,7 @@ use futures::stream::BoxStream;
 use futures::StreamExt;
 use futures_codec::FramedRead;
 use futures_util::TryStreamExt;
+use log::trace;
 use nu_data::config::LocalConfigDiff;
 use nu_protocol::{CommandAction, ConfigPath, TaggedDictBuilder, Value};
 use nu_source::{Span, Tag};
@@ -297,6 +298,11 @@ impl Shell for FilesystemShell {
         if self.mode == FilesystemShellMode::Cli {
             match dunce::canonicalize(self.path()) {
                 Err(e) => {
+                    trace!(
+                        "Err canonicalize current path: {:?}, err: {:?}",
+                        self.path(),
+                        e
+                    );
                     let err = ShellError::untagged_runtime_error(format!(
                         "Could not get absolute path from current fs shell. The error was: {:?}",
                         e

@@ -27,6 +27,13 @@ impl ShellManager {
         Ok(())
     }
 
+    pub fn enter_cli_mode(&self) -> Result<(), std::io::Error> {
+        //New fs_shell starting from current path
+        let fs_shell = FilesystemShell::with_location(self.path(), FilesystemShellMode::Cli)?;
+        self.insert_at_current(Box::new(fs_shell));
+        Ok(())
+    }
+
     pub fn insert_at_current(&self, shell: Box<dyn Shell + Send>) {
         self.shells.lock().push(shell);
         self.current_shell
