@@ -30,7 +30,11 @@ impl WholeStreamCommand for PathParse {
     }
 
     fn usage(&self) -> &str {
-        "Convert path into structured data"
+        "Convert a path into structured data"
+    }
+
+    fn extra_usage(&self) -> &str {
+        "On Windows, extra 'prefix' column is added."
     }
 
     async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
