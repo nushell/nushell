@@ -3394,6 +3394,7 @@ dependencies = [
  "itertools",
  "log 0.4.14",
  "nu-ansi-term",
+ "nu-command",
  "nu-data",
  "nu-errors",
  "nu-parser",
