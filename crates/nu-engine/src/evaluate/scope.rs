@@ -280,12 +280,16 @@ impl Scope {
         })
     }
 
-    pub fn update_frame_with_tag(&self, frame: ScopeFrame, tag: &str) -> Result<(), ShellError> {
+    pub fn update_frame_with_tag(
+        &self,
+        tag: &str,
+        cb: impl FnOnce(&mut ScopeFrame) -> (),
+    ) -> Result<(), ShellError> {
         let mut frames = self.frames.lock();
         let tag = Some(tag);
         for f in frames.iter_mut().rev() {
             if f.tag.as_deref() == tag {
-                *f = frame;
+                cb(f);
                 return Ok(());
             }
         }

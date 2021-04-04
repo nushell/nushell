@@ -47,7 +47,7 @@ pub fn source(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let script = NuScript::File(PathBuf::from(expand_path(&filename.item).to_string()));
     let options = RunScriptOptions::default()
-        .use_existing_scope(true)
+        .source_script(true)
         .redirect_stdin(true)
         .exit_on_error(false);
     script::run_script(script, &options, &ctx);

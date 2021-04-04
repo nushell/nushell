@@ -140,3 +140,66 @@ fn removes_config_values() {
         assert!(file_contents(&file).is_empty());
     })
 }
+
+#[test]
+fn runs_configuration_startup_commands() {
+    Playground::setup("init_config_startup_commands_test", |dirs, nu| {
+        let file = AbsolutePath::new(dirs.config_fixtures().join("startup.toml"));
+
+        nu.with_config(&file);
+
+        assert_that!(nu.pipeline("hello-world"), says().to_stdout("Nu World"));
+    });
+}
+
+#[test]
+fn runs_configuration_startup_commands_hard() {
+    Playground::setup("config_startup_is_sourced", |dirs, nu| {
+        let file = AbsolutePath::new(dirs.test().join("config.toml"));
+
+        nu.with_config(&file);
+        nu.with_files(vec![
+            //Normal def is sourced, source is run and sources file
+            FileWithContent(
+                "config.toml",
+                r#"
+                skip_welcome_message = true
+                startup = ["def def_in_startup [] { echo 'get ready' }", "source defs.nu"]
+                "#,
+            ),
+            FileWithContent(
+                "defs.nu",
+                r#"
+                def def_in_script [] { echo "we are going to the moon" }
+            "#,
+            ),
+        ]);
+
+        assert_that!(
+            nu.pipeline("def_in_startup").and_then("def_in_script"),
+            says().to_stdout("get readywe are going to the moon")
+        );
+    })
+}
+
+#[test]
+fn runs_configuration_startup_commands_in_current_dir() {
+    Playground::setup("config_startup_is_sourced", |dirs, nu| {
+        let file = AbsolutePath::new(dirs.test().join("foo/config.toml"));
+        nu.within("foo");
+        nu.with_config(&file);
+        nu.with_files(vec![
+            //touch is executed in current dir
+            FileWithContent(
+                "config.toml",
+                r#"
+                skip_welcome_message = true
+                startup = ["touch bar"]
+                "#,
+            ),
+        ]);
+
+        assert_that!(nu.pipeline("echo hi"), says().to_stdout("hi"));
+        assert!(dirs.test().join("foo/bar").exists());
+    })
+}

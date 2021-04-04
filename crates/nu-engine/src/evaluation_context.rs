@@ -1,5 +1,5 @@
 use crate::env::host::Host;
-use crate::evaluate::scope::{Scope, ScopeFrame};
+use crate::evaluate::scope::Scope;
 use crate::shell::shell_manager::ShellManager;
 use crate::whole_stream_command::Command;
 use crate::{call_info::UnevaluatedCallInfo, config_holder::ConfigHolder};
@@ -243,16 +243,15 @@ impl EvaluationContext {
             })
             .transpose()?;
 
-        let tag = config::cfg_path_to_scope_tag(&cfg.file_path);
-        let mut frame = ScopeFrame::with_tag(tag.clone());
+        let tag = config::cfg_path_to_scope_tag(cfg_path);
 
-        frame.env = cfg.env_map();
-        if let Some(path) = joined_paths {
-            frame.env.insert("PATH".to_string(), path);
-        }
-        frame.exitscripts = exit_scripts;
-
-        self.scope.update_frame_with_tag(frame, &tag)?;
+        self.scope.update_frame_with_tag(&tag, |frame| {
+            frame.env = cfg.env_map();
+            if let Some(path) = joined_paths {
+                frame.env.insert("PATH".to_string(), path);
+            }
+            frame.exitscripts = exit_scripts;
+        })?;
 
         Ok(())
     }
