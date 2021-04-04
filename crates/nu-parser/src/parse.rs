@@ -341,6 +341,8 @@ fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseErr
         (Unit::Kibibyte, "KIB", Some((Unit::Byte, 1024))),
         (Unit::Mebibyte, "MIB", Some((Unit::Kibibyte, 1024))),
         (Unit::Gibibyte, "GIB", Some((Unit::Mebibyte, 1024))),
+        (Unit::Tebibyte, "TIB", Some((Unit::Gibibyte, 1024))),
+        (Unit::Pebibyte, "PIB", Some((Unit::Tebibyte, 1024))),
         (Unit::Byte, "B", None),
         (Unit::Nanosecond, "NS", None),
         (Unit::Microsecond, "US", Some((Unit::Nanosecond, 1000))),
@@ -2178,6 +2180,26 @@ fn unit_parse_byte_units() {
             string: String::from("123GiB"),
             value: 123,
             unit: Unit::Gibibyte,
+        },
+        TestCase {
+            string: String::from("10tib"),
+            value: 10,
+            unit: Unit::Tebibyte,
+        },
+        TestCase {
+            string: String::from("123TiB"),
+            value: 123,
+            unit: Unit::Tebibyte,
+        },
+        TestCase {
+            string: String::from("10pib"),
+            value: 10,
+            unit: Unit::Pebibyte,
+        },
+        TestCase {
+            string: String::from("123PiB"),
+            value: 123,
+            unit: Unit::Pebibyte,
         },
     ];
 
