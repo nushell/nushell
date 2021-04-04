@@ -7,12 +7,12 @@ use crate::{command_args::CommandArgs, script};
 use log::trace;
 use nu_data::config::{self, Conf, NuConfig};
 use nu_errors::ShellError;
-use nu_protocol::{hir, ConfigPath, NuScript, RunScriptOptions};
+use nu_protocol::{hir, ConfigPath};
 use nu_source::{Span, Tag};
 use nu_stream::{InputStream, OutputStream};
 use parking_lot::Mutex;
+use std::sync::atomic::AtomicBool;
 use std::{path::Path, sync::Arc};
-use std::{path::PathBuf, sync::atomic::AtomicBool};
 
 #[derive(Clone)]
 pub struct EvaluationContext {
@@ -177,9 +177,9 @@ impl EvaluationContext {
             }
         }
 
-        let options = exit_entry_script_options(&cfg_path);
-        for script in startup_scripts {
-            script::run_script(NuScript::Content(script), &options, self).await;
+        if !startup_scripts.is_empty() {
+            self.run_scripts(startup_scripts, cfg_path.get_path().parent())
+                .await;
         }
 
         Ok(())
@@ -270,27 +270,32 @@ impl EvaluationContext {
 
         //Run exitscripts with scope frame and cfg still applied
         if let Some(scripts) = self.scope.get_exitscripts_of_frame_with_tag(&tag) {
-            let options = exit_entry_script_options(&cfg_path);
-            for script in scripts {
-                script::run_script(NuScript::Content(script), &options, self).await;
-            }
+            self.run_scripts(scripts, cfg_path.get_path().parent())
+                .await;
         }
 
         //Unload config
         self.configs.lock().remove_cfg(&cfg_path);
         self.scope.exit_scope_with_tag(&tag);
     }
-}
 
-fn exit_entry_script_options(cfg_path: &ConfigPath) -> RunScriptOptions {
-    let root = PathBuf::from("/");
-    RunScriptOptions::default()
-        .with_cwd(
-            cfg_path
-                .get_path()
-                .parent()
-                .map(Path::to_path_buf)
-                .unwrap_or(root),
-        )
-        .exit_on_error(false)
+    /// Runs scripts with cwd of dir. If dir is None, this method does nothing.
+    /// Each error is added to `self.current_errors`
+    pub async fn run_scripts(&self, scripts: Vec<String>, dir: Option<&Path>) {
+        if let Some(dir) = dir {
+            for script in scripts {
+                match script::run_script_in_dir(script.clone(), dir, &self).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        let err = ShellError::untagged_runtime_error(format!(
+                            "Err while executing exitscript. Err was\n{:?}",
+                            e
+                        ));
+                        let text = script.into();
+                        self.host.lock().print_err(err, &text);
+                    }
+                }
+            }
+        }
+    }
 }

@@ -6,9 +6,11 @@ use std::error::Error;
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 
-pub fn basic_shell_manager(mode: FilesystemShellMode) -> Result<ShellManager, Box<dyn Error>> {
+pub fn basic_shell_manager() -> Result<ShellManager, Box<dyn Error>> {
     Ok(ShellManager {
         current_shell: Arc::new(AtomicUsize::new(0)),
-        shells: Arc::new(Mutex::new(vec![Box::new(FilesystemShell::basic(mode)?)])),
+        shells: Arc::new(Mutex::new(vec![Box::new(FilesystemShell::basic(
+            FilesystemShellMode::Cli,
+        )?)])),
     })
 }
