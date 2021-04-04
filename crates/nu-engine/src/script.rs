@@ -37,6 +37,11 @@ fn chomp_newline(s: &str) -> &str {
     }
 }
 
+struct PathChange {
+    pub from: String,
+    pub to: String,
+}
+
 /// Runs script `script` configurable by `options`
 /// All errors are printed out.
 pub fn run_script(script: NuScript, options: &RunScriptOptions, ctx: &EvaluationContext) {
@@ -53,6 +58,16 @@ pub fn run_script(script: NuScript, options: &RunScriptOptions, ctx: &Evaluation
         return;
     }
 
+    //Switch to cwd if given
+    let path_change = if let Some(path) = &options.with_cwd {
+        let from = ctx.shell_manager.path();
+        let to = path.to_string_lossy().to_string();
+        ctx.shell_manager.set_path(to.clone());
+        Some(PathChange { from, to })
+    } else {
+        None
+    };
+
     if !options.source_script {
         ctx.scope.enter_scope()
     }
@@ -63,8 +78,17 @@ pub fn run_script(script: NuScript, options: &RunScriptOptions, ctx: &Evaluation
     if !options.source_script {
         ctx.scope.exit_scope();
 
-        //Leave shell
+        //Leave shell (undoing with_cwd)
         ctx.shell_manager.remove_at_current();
+    } else {
+        // If we are in source mode, with_cwd won't be undone by popping of old shell
+        // Therefore we need to set old path manually.
+        // But we should only set old path, if sourcing the script, did not change cwd
+        if let Some(path_change) = path_change {
+            if ctx.shell_manager.path() == path_change.to {
+                ctx.shell_manager.set_path(path_change.from);
+            }
+        }
     }
 }
 
@@ -76,12 +100,6 @@ fn setup_shell(options: &RunScriptOptions, ctx: &EvaluationContext) -> Result<()
         } else {
             ctx.shell_manager.enter_script_mode()?;
         }
-    }
-
-    //Switch to cwd if given
-    if let Some(path) = &options.with_cwd {
-        ctx.shell_manager
-            .set_path(path.to_string_lossy().to_string());
     }
 
     Ok(())
