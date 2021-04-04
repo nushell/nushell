@@ -270,4 +270,5 @@ fn exit_entry_script_options(cfg_path: &ConfigPath) -> RunScriptOptions {
                 .unwrap_or(root),
         )
         .exit_on_error(false)
+        .source_script(true)
 }
