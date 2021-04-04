@@ -678,7 +678,7 @@ fn duration_overflow() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        ls | get modified | each { = $it + 1000000000000000000yr }
+        ls | get modified | each { = $it + 10000000000000000day }
         "#)
     );
 
@@ -690,7 +690,7 @@ fn date_and_duration_overflow() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        ls | get modified | each { = $it + 1000000yr }
+        ls | get modified | each { = $it + 1000000000day }
         "#)
     );
 
