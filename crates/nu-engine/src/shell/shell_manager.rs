@@ -19,6 +19,7 @@ pub struct ShellManager {
 }
 
 impl ShellManager {
+    /// Enters script mode at the current location
     pub fn enter_script_mode(&self) -> Result<(), std::io::Error> {
         //New fs_shell starting from current path
         let fs_shell = FilesystemShell::with_location(self.path(), FilesystemShellMode::Script)?;
@@ -26,6 +27,7 @@ impl ShellManager {
         Ok(())
     }
 
+    /// Enters cli mode at the current location
     pub fn enter_cli_mode(&self) -> Result<(), std::io::Error> {
         //New fs_shell starting from current path
         let fs_shell = FilesystemShell::with_location(self.path(), FilesystemShellMode::Cli)?;
