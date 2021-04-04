@@ -150,7 +150,6 @@ impl rustyline::Helper for Helper {}
 mod tests {
     use super::*;
     use nu_engine::basic_evaluation_context;
-    use nu_engine::filesystem::filesystem_shell::FilesystemShellMode;
     use rustyline::completion::Completer;
     use rustyline::line_buffer::LineBuffer;
 
@@ -164,10 +163,7 @@ mod tests {
         buffer.insert_str(0, text);
         buffer.set_pos(text.len() - 1);
 
-        let helper = Helper::new(
-            basic_evaluation_context(FilesystemShellMode::Cli).unwrap(),
-            None,
-        );
+        let helper = Helper::new(basic_evaluation_context().unwrap(), None);
 
         helper.update(&mut buffer, "cd ".len(), &replacement);
 
@@ -187,10 +183,7 @@ mod tests {
         buffer.insert_str(0, text);
         buffer.set_pos(text.len() - 30);
 
-        let helper = Helper::new(
-            basic_evaluation_context(FilesystemShellMode::Cli).unwrap(),
-            None,
-        );
+        let helper = Helper::new(basic_evaluation_context().unwrap(), None);
 
         helper.update(&mut buffer, "cd ".len(), &replacement);
 

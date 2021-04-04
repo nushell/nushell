@@ -1,13 +1,10 @@
 use crate::prelude::*;
+use nu_engine::basic_evaluation_context;
 use nu_engine::whole_stream_command;
-use nu_engine::{basic_evaluation_context, filesystem::filesystem_shell::FilesystemShellMode};
 use std::error::Error;
 
-pub fn create_default_context(
-    mode: FilesystemShellMode,
-    interactive: bool,
-) -> Result<EvaluationContext, Box<dyn Error>> {
-    let context = basic_evaluation_context(mode)?;
+pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Box<dyn Error>> {
+    let context = basic_evaluation_context()?;
 
     {
         use crate::commands::*;

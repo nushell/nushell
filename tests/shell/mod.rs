@@ -11,11 +11,10 @@ mod environment;
 
 mod pipeline;
 
-#[should_panic]
 #[test]
 fn runs_configuration_startup_commands() {
     Playground::setup("init_config_startup_commands_test", |dirs, nu| {
-        let file = AbsolutePath::new(dirs.test().join("startup.toml"));
+        let file = AbsolutePath::new(dirs.config_fixtures().join("startup.toml"));
 
         nu.with_config(&file);
 
