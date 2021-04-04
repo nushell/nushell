@@ -368,8 +368,6 @@ pub enum Unit {
     Hour,
     Day,
     Week,
-    Month,
-    Year,
 }
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
@@ -558,8 +556,6 @@ impl Unit {
             Unit::Hour => "hr",
             Unit::Day => "day",
             Unit::Week => "wk",
-            Unit::Month => "mon",
-            Unit::Year => "yr",
         }
     }
 
@@ -617,28 +613,6 @@ impl Unit {
             Unit::Week => duration(
                 size.to_bigint().expect("Conversion should never fail.")
                     * 7
-                    * 24
-                    * 60
-                    * 60
-                    * 1000
-                    * 1000
-                    * 1000,
-            ),
-            // FIXME: Number of days per month should not always be 30.
-            Unit::Month => duration(
-                size.to_bigint().expect("Conversion should never fail.")
-                    * 30
-                    * 24
-                    * 60
-                    * 60
-                    * 1000
-                    * 1000
-                    * 1000,
-            ),
-            // FIXME: Number of days per year should not be 365.
-            Unit::Year => duration(
-                size.to_bigint().expect("Conversion should never fail.")
-                    * 365
                     * 24
                     * 60
                     * 60

@@ -53,8 +53,8 @@ impl WholeStreamCommand for Command {
                 result: None,
             },
             Example {
-                description: "List all files that were modified in the last two months",
-                example: "ls | where modified <= 2mon",
+                description: "List all files that were modified in the last two weeks",
+                example: "ls | where modified <= 2wk",
                 result: None,
             },
         ]

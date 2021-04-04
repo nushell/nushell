@@ -192,11 +192,11 @@ fn duration_decimal_math() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            = 0.5mon + 1day
+            = 5.5day + 0.5day
         "#
     ));
 
-    assert_eq!(actual.out, "16day");
+    assert_eq!(actual.out, "6day");
 }
 
 #[test]

@@ -352,8 +352,6 @@ fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseErr
         (Unit::Hour, "HR", Some((Unit::Minute, 60))),
         (Unit::Day, "DAY", Some((Unit::Minute, 1440))),
         (Unit::Week, "WK", Some((Unit::Day, 7))),
-        (Unit::Month, "MON", Some((Unit::Day, 30))),
-        (Unit::Year, "YR", Some((Unit::Day, 365))),
     ];
     if let Some(unit) = unit_groups
         .iter()
