@@ -53,7 +53,7 @@ impl WholeStreamCommand for PathParse {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Parse a path",
-            example: r"echo '/home/viking/spam.txt | path parse",
+            example: r"echo '/home/viking/spam.txt' | path parse",
             result: None,
         }]
     }

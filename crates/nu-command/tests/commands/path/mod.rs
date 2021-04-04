@@ -2,8 +2,6 @@ mod basename;
 mod dirname;
 mod exists;
 mod expand;
-mod extension;
-mod filestem;
 mod join;
 mod type_;
 

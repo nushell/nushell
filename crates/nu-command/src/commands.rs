@@ -234,8 +234,7 @@ pub(crate) use nth::Nth;
 pub(crate) use open::Open;
 pub(crate) use parse::Parse;
 pub(crate) use path::{
-    PathBasename, PathCommand, PathDirname, PathExists, PathExpand, PathExtension, PathFilestem,
-    PathJoin, PathParse, PathType,
+    PathBasename, PathCommand, PathDirname, PathExists, PathExpand, PathJoin, PathParse, PathType,
 };
 pub(crate) use pivot::Pivot;
 pub(crate) use prepend::Prepend;
