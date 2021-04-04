@@ -53,27 +53,29 @@ pub fn run_script(script: NuScript, options: &RunScriptOptions, ctx: &Evaluation
         return;
     }
 
-    if !options.use_existing_scope {
+    if !options.source_script {
         ctx.scope.enter_scope()
     }
 
     let line_result = process_script(&code, options, ctx);
     evaluate_line_result(line_result, options, ctx);
 
-    if !options.use_existing_scope {
-        ctx.scope.exit_scope()
-    }
+    if !options.source_script {
+        ctx.scope.exit_scope();
 
-    //Leave script shell
-    ctx.shell_manager.remove_at_current();
+        //Leave shell
+        ctx.shell_manager.remove_at_current();
+    }
 }
 
 fn setup_shell(options: &RunScriptOptions, ctx: &EvaluationContext) -> Result<(), ShellError> {
-    //Switch to correct shell
-    if options.cli_mode {
-        ctx.shell_manager.enter_cli_mode()?;
-    } else {
-        ctx.shell_manager.enter_script_mode()?;
+    if !options.source_script {
+        //Switch to correct shell
+        if options.cli_mode {
+            ctx.shell_manager.enter_cli_mode()?;
+        } else {
+            ctx.shell_manager.enter_script_mode()?;
+        }
     }
 
     //Switch to cwd if given

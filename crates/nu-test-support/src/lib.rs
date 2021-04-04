@@ -2,6 +2,7 @@ pub mod commands;
 pub mod fs;
 pub mod macros;
 pub mod playground;
+pub mod trusted;
 pub mod value;
 
 pub struct Outcome {
@@ -12,6 +13,10 @@ pub struct Outcome {
 impl Outcome {
     pub fn new(out: String, err: String) -> Outcome {
         Outcome { out, err }
+    }
+
+    pub fn empty() -> Outcome {
+        Outcome::new("".to_string(), "".to_string())
     }
 }
 
