@@ -37,11 +37,6 @@ fn chomp_newline(s: &str) -> &str {
     }
 }
 
-struct PathChange {
-    pub from: String,
-    pub to: String,
-}
-
 /// Runs script `script` configurable by `options`
 /// All errors are printed out.
 pub fn run_script(script: NuScript, options: &RunScriptOptions, ctx: &EvaluationContext) {
@@ -59,14 +54,10 @@ pub fn run_script(script: NuScript, options: &RunScriptOptions, ctx: &Evaluation
     }
 
     //Switch to cwd if given
-    let path_change = if let Some(path) = &options.with_cwd {
-        let from = ctx.shell_manager.path();
-        let to = path.to_string_lossy().to_string();
-        ctx.shell_manager.set_path(to.clone());
-        Some(PathChange { from, to })
-    } else {
-        None
-    };
+    if let Some(path) = &options.with_cwd {
+        ctx.shell_manager
+            .set_path(path.to_string_lossy().to_string());
+    }
 
     if !options.source_script {
         ctx.scope.enter_scope()
@@ -81,25 +72,27 @@ pub fn run_script(script: NuScript, options: &RunScriptOptions, ctx: &Evaluation
         //Leave shell (undoing with_cwd)
         ctx.shell_manager.remove_at_current();
     } else {
-        // If we are in source mode, with_cwd won't be undone by popping of old shell
-        // Therefore we need to set old path manually.
-        // But we should only set old path, if sourcing the script, did not change cwd
-        if let Some(path_change) = path_change {
-            if ctx.shell_manager.path() == path_change.to {
-                ctx.shell_manager.set_path(path_change.from);
-            }
+        // We are in source mode
+
+        // Save script_shell path
+        let cur_path = ctx.shell_manager.path();
+        // Leave shell (undoing with_cwd)
+        ctx.shell_manager.remove_at_current();
+        // We don't update shell which called run_script with `with_cwd` path.
+        // But if a script got sourced, and it executed cd, this path change has to be propagated
+        // to the caller shell.
+        if Some(&cur_path) != options.cwd_as_string().as_ref() {
+            ctx.shell_manager.set_path(cur_path);
         }
     }
 }
 
 fn setup_shell(options: &RunScriptOptions, ctx: &EvaluationContext) -> Result<(), ShellError> {
-    if !options.source_script {
-        //Switch to correct shell
-        if options.cli_mode {
-            ctx.shell_manager.enter_cli_mode()?;
-        } else {
-            ctx.shell_manager.enter_script_mode()?;
-        }
+    //Switch to correct shell
+    if options.cli_mode {
+        ctx.shell_manager.enter_cli_mode()?;
+    } else {
+        ctx.shell_manager.enter_script_mode()?;
     }
 
     Ok(())

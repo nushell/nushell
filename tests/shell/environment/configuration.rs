@@ -183,7 +183,7 @@ fn runs_configuration_startup_commands_hard() {
 }
 
 #[test]
-fn runs_configuration_startup_commands_in_current_dir() {
+fn runs_configuration_startup_commands_with_cwd_of_dir_config_is_in() {
     Playground::setup("config_startup_is_sourced", |dirs, nu| {
         let file = AbsolutePath::new(dirs.test().join("foo/config.toml"));
         nu.within("foo");
@@ -199,6 +199,7 @@ fn runs_configuration_startup_commands_in_current_dir() {
             ),
         ]);
 
+        //Run nu so that startup is run
         assert_that!(nu.pipeline("echo hi"), says().to_stdout("hi"));
         assert!(dirs.test().join("foo/bar").exists());
     })
