@@ -120,8 +120,8 @@ Format: #
         ]
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let (AnsiArgs { code, escape, osc }, _) = args.process().await?;
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        let (AnsiArgs { code, escape, osc }, _) = args.process()?;
 
         if let Some(e) = escape {
             let esc_vec: Vec<char> = e.item.chars().collect();

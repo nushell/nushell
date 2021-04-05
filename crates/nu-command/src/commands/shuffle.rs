@@ -18,14 +18,14 @@ impl WholeStreamCommand for Shuffle {
         "Shuffle rows randomly."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        shuffle(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        shuffle(args)
     }
 }
 
-async fn shuffle(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn shuffle(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let input = args.input;
-    let mut values: Vec<Value> = input.collect().await;
+    let mut values: Vec<Value> = input.collect();
 
     values.shuffle(&mut thread_rng());
 

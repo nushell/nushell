@@ -21,8 +21,8 @@ impl WholeStreamCommand for SubCommand {
         "Finds the product of a list of numbers or tables"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        run_with_function(RunnableContext::from_command_args(args), product).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        run_with_function(RunnableContext::from_command_args(args), product)
     }
 
     fn examples(&self) -> Vec<Example> {

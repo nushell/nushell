@@ -49,8 +49,8 @@ impl WholeStreamCommand for Reduce {
         "Block must be (A, A) -> A unless --fold is selected, in which case it may be A, B -> A."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        reduce(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        reduce(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -79,7 +79,7 @@ impl WholeStreamCommand for Reduce {
     }
 }
 
-async fn process_row(
+fn process_row(
     block: Arc<CapturedBlock>,
     context: &EvaluationContext,
     row: Value,
@@ -90,21 +90,21 @@ async fn process_row(
     context.scope.enter_scope();
     context.scope.add_vars(&block.captured.entries);
     context.scope.add_var("$it", row);
-    let result = run_block(&block.block, context, input_stream).await;
+    let result = run_block(&block.block, context, input_stream);
     context.scope.exit_scope();
 
     Ok(result?)
 }
 
-async fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let span = raw_args.call_info.name_tag.span;
     let context = Arc::new(EvaluationContext::from_args(&raw_args));
-    let (reduce_args, mut input): (ReduceArgs, _) = raw_args.process().await?;
+    let (reduce_args, mut input): (ReduceArgs, _) = raw_args.process()?;
     let block = Arc::new(reduce_args.block);
     let (ioffset, start) = if !input.is_empty() {
         match reduce_args.fold {
             None => {
-                let first = input.next().await.expect("non-empty stream");
+                let first = input.next().expect("non-empty stream");
 
                 (1, first)
             }
@@ -133,7 +133,7 @@ async fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                 let row = each::make_indexed_item(input.0 + ioffset, input.1);
 
                 async move {
-                    let values = acc?.drain_vec().await;
+                    let values = acc?.drain_vec();
 
                     let f = if values.len() == 1 {
                         let value = values
@@ -148,13 +148,13 @@ async fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
 
                     context.scope.enter_scope();
                     context.scope.add_var("$acc", f);
-                    let result = process_row(block, &*context, row).await;
+                    let result = process_row(block, &*context, row);
                     context.scope.exit_scope();
 
                     result
                 }
             })
-            .await?
+            ?
             .to_output_stream())
     } else {
         let initial = Ok(InputStream::one(start));
@@ -164,7 +164,7 @@ async fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                 let context = context.clone();
 
                 async move {
-                    let values = acc?.drain_vec().await;
+                    let values = acc?.drain_vec();
 
                     let f = if values.len() == 1 {
                         let value = values
@@ -179,12 +179,12 @@ async fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
 
                     context.scope.enter_scope();
                     context.scope.add_var("$acc", f);
-                    let result = process_row(block, &*context, row).await;
+                    let result = process_row(block, &*context, row);
                     context.scope.exit_scope();
                     result
                 }
             })
-            .await?
+            ?
             .to_output_stream())
     }
 }

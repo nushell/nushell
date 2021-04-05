@@ -21,14 +21,14 @@ impl WholeStreamCommand for SubCommand {
         "Applies the floor function to a list of numbers"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         run_with_numerical_functions_on_stream(
             RunnableContext::from_command_args(args),
             floor_big_int,
             floor_big_decimal,
             floor_default,
         )
-        .await
+        
     }
 
     fn examples(&self) -> Vec<Example> {

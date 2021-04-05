@@ -19,8 +19,8 @@ impl WholeStreamCommand for Uniq {
         "Return the unique rows."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        uniq(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        uniq(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -54,13 +54,13 @@ impl WholeStreamCommand for Uniq {
     }
 }
 
-async fn uniq(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+fn uniq(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
     let should_show_count = args.has("count");
     let input = args.input;
     let uniq_values = {
         let mut counter = IndexMap::<nu_protocol::Value, usize>::new();
-        for line in input.into_vec().await {
+        for line in input.into_vec() {
             *counter.entry(line).or_insert(0) += 1;
         }
         counter

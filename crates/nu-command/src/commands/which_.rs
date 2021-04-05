@@ -25,8 +25,8 @@ impl WholeStreamCommand for Which {
         "Finds a program file, alias or custom command."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        which(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        which(args)
     }
 }
 
@@ -137,22 +137,22 @@ macro_rules! entry_path {
 }
 
 #[cfg(feature = "ichwh")]
-async fn get_first_entry_in_path(item: &str, tag: Tag) -> Option<Value> {
+fn get_first_entry_in_path(item: &str, tag: Tag) -> Option<Value> {
     ichwh::which(item)
-        .await
+        
         .unwrap_or(None)
         .map(|path| entry_path!(item, path.into(), tag))
 }
 
 #[cfg(not(feature = "ichwh"))]
-async fn get_first_entry_in_path(_: &str, _: Tag) -> Option<Value> {
+fn get_first_entry_in_path(_: &str, _: Tag) -> Option<Value> {
     None
 }
 
 #[cfg(feature = "ichwh")]
-async fn get_all_entries_in_path(item: &str, tag: Tag) -> Vec<Value> {
+fn get_all_entries_in_path(item: &str, tag: Tag) -> Vec<Value> {
     ichwh::which_all(&item)
-        .await
+        
         .unwrap_or_default()
         .into_iter()
         .map(|path| entry_path!(item, path.into(), tag.clone()))
@@ -160,7 +160,7 @@ async fn get_all_entries_in_path(item: &str, tag: Tag) -> Vec<Value> {
 }
 
 #[cfg(not(feature = "ichwh"))]
-async fn get_all_entries_in_path(_: &str, _: Tag) -> Vec<Value> {
+fn get_all_entries_in_path(_: &str, _: Tag) -> Vec<Value> {
     vec![]
 }
 
@@ -171,7 +171,7 @@ struct WhichArgs {
     all: bool,
 }
 
-async fn which_single(application: Tagged<String>, all: bool, scope: &Scope) -> Vec<Value> {
+fn which_single(application: Tagged<String>, all: bool, scope: &Scope) -> Vec<Value> {
     let (external, prog_name) = if application.starts_with('^') {
         (true, application.item[1..].to_string())
     } else {
@@ -184,7 +184,7 @@ async fn which_single(application: Tagged<String>, all: bool, scope: &Scope) -> 
     //This match handles all different cases
     match (all, external) {
         (true, true) => {
-            return get_all_entries_in_path(&prog_name, application.tag.clone()).await;
+            return get_all_entries_in_path(&prog_name, application.tag.clone());
         }
         (true, false) => {
             let mut output: Vec<Value> = vec![];
@@ -194,11 +194,11 @@ async fn which_single(application: Tagged<String>, all: bool, scope: &Scope) -> 
                 application.tag.clone(),
                 false,
             ));
-            output.extend(get_all_entries_in_path(&prog_name, application.tag.clone()).await);
+            output.extend(get_all_entries_in_path(&prog_name, application.tag.clone()));
             return output;
         }
         (false, true) => {
-            if let Some(entry) = get_first_entry_in_path(&prog_name, application.tag.clone()).await
+            if let Some(entry) = get_first_entry_in_path(&prog_name, application.tag.clone())
             {
                 return vec![entry];
             }
@@ -209,7 +209,7 @@ async fn which_single(application: Tagged<String>, all: bool, scope: &Scope) -> 
             if !nu_entries.is_empty() {
                 return vec![nu_entries[0].clone()];
             } else if let Some(entry) =
-                get_first_entry_in_path(&prog_name, application.tag.clone()).await
+                get_first_entry_in_path(&prog_name, application.tag.clone())
             {
                 return vec![entry];
             }
@@ -218,7 +218,7 @@ async fn which_single(application: Tagged<String>, all: bool, scope: &Scope) -> 
     }
 }
 
-async fn which(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn which(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let scope = args.scope.clone();
 
     let (
@@ -228,12 +228,12 @@ async fn which(args: CommandArgs) -> Result<OutputStream, ShellError> {
             all,
         },
         _,
-    ) = args.process().await?;
+    ) = args.process()?;
 
     let mut output = vec![];
 
     for app in vec![application].into_iter().chain(rest.into_iter()) {
-        let values = which_single(app, all, &scope).await;
+        let values = which_single(app, all, &scope);
         output.extend(values);
     }
 

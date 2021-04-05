@@ -27,8 +27,8 @@ impl WholeStreamCommand for Compact {
         "Creates a table with non-empty rows."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        compact(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        compact(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -40,8 +40,8 @@ impl WholeStreamCommand for Compact {
     }
 }
 
-pub async fn compact(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (CompactArgs { rest: columns }, input) = args.process().await?;
+pub fn compact(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (CompactArgs { rest: columns }, input) = args.process()?;
     Ok(input
         .filter_map(move |item| {
             future::ready(if columns.is_empty() {

@@ -19,8 +19,8 @@ impl WholeStreamCommand for SubCommand {
         "splits a string's characters into separate rows"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        split_chars(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        split_chars(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -38,7 +38,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-async fn split_chars(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn split_chars(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let input = args.input;
     Ok(input

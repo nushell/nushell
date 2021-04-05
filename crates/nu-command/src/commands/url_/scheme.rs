@@ -22,9 +22,9 @@ impl WholeStreamCommand for UrlScheme {
         "gets the scheme (eg http, file) of a url"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let (DefaultArguments { rest }, input) = args.process().await?;
-        operate(input, rest, &Url::scheme).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        let (DefaultArguments { rest }, input) = args.process()?;
+        operate(input, rest, &Url::scheme)
     }
 
     fn examples(&self) -> Vec<Example> {

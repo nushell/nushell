@@ -39,8 +39,8 @@ impl WholeStreamCommand for SubCommand {
         "Generate a random dice roll"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        dice(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        dice(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -59,9 +59,9 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn dice(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn dice(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let (DiceArgs { dice, sides }, _) = args.process().await?;
+    let (DiceArgs { dice, sides }, _) = args.process()?;
 
     let dice = if let Some(dice_tagged) = dice {
         *dice_tagged

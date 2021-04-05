@@ -27,15 +27,15 @@ impl WholeStreamCommand for History {
         "Display command history."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        history(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        history(args)
     }
 }
 
-async fn history(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn history(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let config: Box<dyn Conf> = Box::new(NuConfig::new());
     let tag = args.call_info.name_tag.clone();
-    let (Arguments { clear }, _) = args.process().await?;
+    let (Arguments { clear }, _) = args.process()?;
 
     let path = nu_data::config::path::history_path(&config);
 

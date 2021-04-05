@@ -42,7 +42,7 @@ where
     Ok(v)
 }
 
-async fn operate<F>(
+fn operate<F>(
     input: crate::InputStream,
     paths: Vec<ColumnPath>,
     action: &'static F,

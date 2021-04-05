@@ -35,8 +35,8 @@ impl WholeStreamCommand for Let {
         "Create a variable and give it a value."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        letcmd(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        letcmd(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -44,11 +44,11 @@ impl WholeStreamCommand for Let {
     }
 }
 
-pub async fn letcmd(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn letcmd(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let ctx = EvaluationContext::from_args(&args);
 
-    let (LetArgs { name, rhs, .. }, _) = args.process().await?;
+    let (LetArgs { name, rhs, .. }, _) = args.process()?;
 
     let (expr, captured) = {
         if rhs.block.block.len() != 1 {
@@ -82,7 +82,7 @@ pub async fn letcmd(args: CommandArgs) -> Result<OutputStream, ShellError> {
     ctx.scope.enter_scope();
     ctx.scope.add_vars(&captured.entries);
 
-    let value = evaluate_baseline_expr(&expr, &ctx).await;
+    let value = evaluate_baseline_expr(&expr, &ctx);
 
     ctx.scope.exit_scope();
 

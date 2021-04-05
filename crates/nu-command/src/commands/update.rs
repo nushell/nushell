@@ -42,8 +42,8 @@ impl WholeStreamCommand for Command {
         "Update an existing column to have a new value."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        update(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        update(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -67,7 +67,7 @@ impl WholeStreamCommand for Command {
     }
 }
 
-async fn process_row(
+fn process_row(
     context: Arc<EvaluationContext>,
     input: Value,
     mut replacement: Arc<Value>,
@@ -89,13 +89,13 @@ async fn process_row(
             context.scope.add_var("$it", input.clone());
             context.scope.add_vars(&captured_block.captured.entries);
 
-            let result = run_block(&captured_block.block, &*context, input_stream).await;
+            let result = run_block(&captured_block.block, &*context, input_stream);
 
             context.scope.exit_scope();
 
             match result {
                 Ok(mut stream) => {
-                    let values = stream.drain_vec().await;
+                    let values = stream.drain_vec();
 
                     let errors = context.get_errors();
                     if let Some(error) = errors.first() {
@@ -172,10 +172,10 @@ async fn process_row(
     })
 }
 
-async fn update(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn update(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = Arc::new(raw_args.call_info.name_tag.clone());
     let context = Arc::new(EvaluationContext::from_args(&raw_args));
-    let (Arguments { field, replacement }, input) = raw_args.process().await?;
+    let (Arguments { field, replacement }, input) = raw_args.process()?;
     let replacement = Arc::new(replacement);
     let field = Arc::new(field);
 
@@ -187,7 +187,7 @@ async fn update(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
             let field = field.clone();
 
             async {
-                match process_row(context, input, replacement, field, tag).await {
+                match process_row(context, input, replacement, field, tag) {
                     Ok(s) => s,
                     Err(e) => OutputStream::one(Err(e)),
                 }

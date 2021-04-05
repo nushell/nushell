@@ -23,8 +23,8 @@ impl WholeStreamCommand for Mkdir {
         "Make directories, creates intermediary directories as required."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        mkdir(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        mkdir(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -36,10 +36,10 @@ impl WholeStreamCommand for Mkdir {
     }
 }
 
-async fn mkdir(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn mkdir(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let shell_manager = args.shell_manager.clone();
-    let (args, _) = args.process().await?;
+    let (args, _) = args.process()?;
 
     shell_manager.mkdir(args, name)
 }

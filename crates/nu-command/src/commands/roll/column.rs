@@ -48,13 +48,13 @@ impl WholeStreamCommand for SubCommand {
         "Rolls the table columns"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        roll(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        roll(args)
     }
 }
 
-pub async fn roll(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (args, input) = args.process().await?;
+pub fn roll(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (args, input) = args.process()?;
 
     Ok(input
         .map(move |value| {

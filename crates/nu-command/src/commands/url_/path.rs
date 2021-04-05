@@ -23,9 +23,9 @@ impl WholeStreamCommand for UrlPath {
         "gets the path of a url"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let (DefaultArguments { rest }, input) = args.process().await?;
-        operate(input, rest, &Url::path).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        let (DefaultArguments { rest }, input) = args.process()?;
+        operate(input, rest, &Url::path)
     }
 
     fn examples(&self) -> Vec<Example> {

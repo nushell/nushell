@@ -19,7 +19,7 @@ impl WholeStreamCommand for SubCommand {
         "Returns absolute values of a list of numbers"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let mapped = args.input.map(move |val| match val.value {
             UntaggedValue::Primitive(Primitive::Int(val)) => {
                 UntaggedValue::int(val.magnitude().clone()).into()

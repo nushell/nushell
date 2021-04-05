@@ -50,16 +50,16 @@ impl WholeStreamCommand for EachWindow {
         }]
     }
 
-    async fn run(&self, raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         let context = Arc::new(EvaluationContext::from_args(&raw_args));
-        let (each_args, mut input): (EachWindowArgs, _) = raw_args.process().await?;
+        let (each_args, mut input): (EachWindowArgs, _) = raw_args.process()?;
         let block = Arc::new(Box::new(each_args.block));
 
         let mut window: Vec<_> = input
             .by_ref()
             .take(*each_args.window_size - 1)
             .collect::<Vec<_>>()
-            .await;
+            ;
 
         // `window` must start with dummy values, which will be removed on the first iteration
         let stride = each_args.stride.map(|x| *x).unwrap_or(1);
@@ -79,7 +79,7 @@ impl WholeStreamCommand for EachWindow {
 
                 async move {
                     if i % stride == 0 {
-                        Some(run_block_on_vec(local_window, block, context).await)
+                        Some(run_block_on_vec(local_window, block, context))
                     } else {
                         None
                     }

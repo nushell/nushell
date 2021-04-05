@@ -25,10 +25,10 @@ impl WholeStreamCommand for Cd {
         "Change to a new path."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let name = args.call_info.name_tag.clone();
         let shell_manager = args.shell_manager.clone();
-        let (args, _): (CdArgs, _) = args.process().await?;
+        let (args, _): (CdArgs, _) = args.process()?;
         shell_manager.cd(args, name)
     }
 

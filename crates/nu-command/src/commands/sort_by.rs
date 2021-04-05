@@ -36,8 +36,8 @@ impl WholeStreamCommand for SortBy {
         "Sort by the given columns, in increasing order."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        sort_by(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        sort_by(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -112,7 +112,7 @@ impl WholeStreamCommand for SortBy {
     }
 }
 
-async fn sort_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn sort_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
 
     let (
@@ -122,8 +122,8 @@ async fn sort_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
             reverse,
         },
         mut input,
-    ) = args.process().await?;
-    let mut vec = input.drain_vec().await;
+    ) = args.process()?;
+    let mut vec = input.drain_vec();
 
     sort(&mut vec, &rest, &tag, insensitive)?;
 

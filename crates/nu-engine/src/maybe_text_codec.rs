@@ -38,11 +38,8 @@ impl Default for MaybeTextCodec {
     }
 }
 
-impl futures_codec::Encoder for MaybeTextCodec {
-    type Item = StringOrBinary;
-    type Error = std::io::Error;
-
-    fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
+impl MaybeTextCodec {
+    fn encode(&mut self, item: StringOrBinary, dst: &mut BytesMut) -> Result<(), std::io::Error> {
         match item {
             StringOrBinary::String(s) => {
                 dst.reserve(s.len());
@@ -58,11 +55,8 @@ impl futures_codec::Encoder for MaybeTextCodec {
     }
 }
 
-impl futures_codec::Decoder for MaybeTextCodec {
-    type Item = StringOrBinary;
-    type Error = ShellError;
-
-    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+impl MaybeTextCodec {
+    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<StringOrBinary>, ShellError> {
         if src.is_empty() {
             return Ok(None);
         }

@@ -46,8 +46,8 @@ impl WholeStreamCommand for FromSsv {
         "Parse text as space-separated values and create a table. The default minimum number of spaces counted as a separator is 2."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        from_ssv(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        from_ssv(args)
     }
 }
 
@@ -247,7 +247,7 @@ fn from_ssv_string_to_value(
     UntaggedValue::Table(rows).into_value(&tag)
 }
 
-async fn from_ssv(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn from_ssv(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let (
         FromSsvArgs {
@@ -256,8 +256,8 @@ async fn from_ssv(args: CommandArgs) -> Result<OutputStream, ShellError> {
             minimum_spaces,
         },
         input,
-    ) = args.process().await?;
-    let concat_string = input.collect_string(name.clone()).await?;
+    ) = args.process()?;
+    let concat_string = input.collect_string(name.clone())?;
     let split_at = match minimum_spaces {
         Some(number) => number.item,
         None => DEFAULT_MINIMUM_SPACES,

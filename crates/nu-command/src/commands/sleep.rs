@@ -39,10 +39,10 @@ impl WholeStreamCommand for Sleep {
         "Delay for a specified amount of time."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let ctrl_c = args.ctrl_c().clone();
 
-        let (SleepArgs { duration, rest }, input) = args.process().await?;
+        let (SleepArgs { duration, rest }, input) = args.process()?;
 
         let total_dur = Duration::from_nanos(duration.item)
             + rest
@@ -50,7 +50,7 @@ impl WholeStreamCommand for Sleep {
                 .map(|val| Duration::from_nanos(val.item))
                 .sum::<Duration>();
 
-        SleepFuture::new(total_dur, ctrl_c).await;
+        SleepFuture::new(total_dur, ctrl_c);
         // this is necessary because the following 2 commands gave different results:
         // `echo | sleep 1sec` - nothing
         // `sleep 1sec`        - table with 0 elements

@@ -63,7 +63,7 @@ impl WholeStreamCommand for RunExternalCommand {
         true
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let positionals = args.call_info.args.positional.clone().ok_or_else(|| {
             ShellError::untagged_runtime_error("positional arguments unexpectedly empty")
         })?;
@@ -105,7 +105,7 @@ impl WholeStreamCommand for RunExternalCommand {
         // If we're in interactive mode, we will "auto cd". That is, instead of interpreting
         // this as an external command, we will see it as a path and `cd` into it.
         if is_interactive {
-            if let Some(path) = maybe_autocd_dir(&command, &mut external_context).await {
+            if let Some(path) = maybe_autocd_dir(&command, &mut external_context) {
                 let cd_args = CdArgs {
                     path: Some(Tagged {
                         item: PathBuf::from(path),
@@ -128,14 +128,14 @@ impl WholeStreamCommand for RunExternalCommand {
             input,
             external_redirection,
         )
-        .await;
+        ;
 
         Ok(result?.to_output_stream())
     }
 }
 
 #[allow(unused_variables)]
-async fn maybe_autocd_dir<'a>(
+fn maybe_autocd_dir<'a>(
     cmd: &ExternalCommand,
     ctx: &mut EvaluationContext,
 ) -> Option<String> {

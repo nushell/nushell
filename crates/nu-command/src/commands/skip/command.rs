@@ -25,8 +25,8 @@ impl WholeStreamCommand for Command {
         "Skip some number of rows."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        skip(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        skip(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -41,8 +41,8 @@ impl WholeStreamCommand for Command {
     }
 }
 
-async fn skip(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (Arguments { rows }, input) = args.process().await?;
+fn skip(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (Arguments { rows }, input) = args.process()?;
     let rows_desired = if let Some(quantity) = rows {
         *quantity
     } else {

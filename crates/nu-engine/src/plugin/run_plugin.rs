@@ -108,12 +108,12 @@ impl WholeStreamCommand for PluginFilter {
         &self.config.usage
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        run_filter(self.path.clone(), args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        run_filter(self.path.clone(), args)
     }
 }
 
-async fn run_filter(path: String, args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn run_filter(path: String, args: CommandArgs) -> Result<OutputStream, ShellError> {
     trace!("filter_plugin :: {}", path);
 
     let bos = futures::stream::iter(vec![
@@ -123,7 +123,7 @@ async fn run_filter(path: String, args: CommandArgs) -> Result<OutputStream, She
         UntaggedValue::Primitive(Primitive::EndOfStream).into_untagged_value()
     ]);
 
-    let args = args.evaluate_once().await?;
+    let args = args.evaluate_once()?;
 
     let real_path = Path::new(&path);
     let ext = real_path.extension();
@@ -383,16 +383,16 @@ impl WholeStreamCommand for PluginSink {
         &self.config.usage
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        run_sink(self.path.clone(), args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        run_sink(self.path.clone(), args)
     }
 }
 
-async fn run_sink(path: String, args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+fn run_sink(path: String, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
     let call_info = args.call_info.clone();
 
-    let input: Vec<Value> = args.input.collect().await;
+    let input: Vec<Value> = args.input.collect();
 
     let request = JsonRpc::new("sink", (call_info.clone(), input));
     let request_raw = serde_json::to_string(&request);

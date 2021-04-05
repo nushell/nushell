@@ -41,8 +41,8 @@ impl WholeStreamCommand for Cal {
         "Display a calendar."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        cal(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        cal(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -66,8 +66,8 @@ impl WholeStreamCommand for Cal {
     }
 }
 
-pub async fn cal(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+pub fn cal(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
     let mut calendar_vec_deque = VecDeque::new();
     let tag = args.call_info.name_tag.clone();
 

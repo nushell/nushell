@@ -64,14 +64,14 @@ impl std::fmt::Debug for CommandArgs {
 }
 
 impl CommandArgs {
-    pub async fn evaluate_once(self) -> Result<EvaluatedWholeStreamCommandArgs, ShellError> {
+    pub fn evaluate_once(self) -> Result<EvaluatedWholeStreamCommandArgs, ShellError> {
         let ctx = EvaluationContext::from_args(&self);
         let host = self.host.clone();
         let ctrl_c = self.ctrl_c.clone();
         let configs = self.configs.clone();
         let shell_manager = self.shell_manager.clone();
         let input = self.input;
-        let call_info = self.call_info.evaluate(&ctx).await?;
+        let call_info = self.call_info.evaluate(&ctx)?;
         let scope = self.scope.clone();
 
         Ok(EvaluatedWholeStreamCommandArgs::new(
@@ -85,8 +85,8 @@ impl CommandArgs {
         ))
     }
 
-    pub async fn process<'de, T: Deserialize<'de>>(self) -> Result<(T, InputStream), ShellError> {
-        let args = self.evaluate_once().await?;
+    pub fn process<'de, T: Deserialize<'de>>(self) -> Result<(T, InputStream), ShellError> {
+        let args = self.evaluate_once()?;
         let call_info = args.call_info.clone();
 
         let mut deserializer = ConfigDeserializer::from_call_info(call_info);

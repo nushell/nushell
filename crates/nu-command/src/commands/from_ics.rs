@@ -23,17 +23,17 @@ impl WholeStreamCommand for FromIcs {
         "Parse text as .ics and create table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        from_ics(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        from_ics(args)
     }
 }
 
-async fn from_ics(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+fn from_ics(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let input = args.input;
 
-    let input_string = input.collect_string(tag.clone()).await?.item;
+    let input_string = input.collect_string(tag.clone())?.item;
     let input_bytes = input_string.as_bytes();
     let buf_reader = BufReader::new(input_bytes);
     let parser = ical::IcalParser::new(buf_reader);

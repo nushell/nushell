@@ -55,7 +55,7 @@ where
     Ok(v)
 }
 
-async fn operate<F, T>(
+fn operate<F, T>(
     input: crate::InputStream,
     action: &'static F,
     span: Span,

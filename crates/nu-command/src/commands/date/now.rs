@@ -20,13 +20,13 @@ impl WholeStreamCommand for Date {
         "Get the current date."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        now(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        now(args)
     }
 }
 
-pub async fn now(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+pub fn now(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
     let tag = args.call_info.name_tag.clone();
 
     let now: DateTime<Local> = Local::now();

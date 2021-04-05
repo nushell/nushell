@@ -164,7 +164,7 @@ fn merge_descriptors(values: &[Value]) -> Vec<Spanned<String>> {
     ret
 }
 
-pub async fn to_delimited_data(
+pub fn to_delimited_data(
     noheaders: bool,
     sep: char,
     format_name: &'static str,
@@ -174,7 +174,7 @@ pub async fn to_delimited_data(
     let name_tag = name;
     let name_span = name_tag.span;
 
-    let input: Vec<Value> = input.collect().await;
+    let input: Vec<Value> = input.collect();
 
     let to_process_input = match input.len() {
         x if x > 1 => {

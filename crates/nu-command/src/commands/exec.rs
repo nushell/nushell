@@ -32,8 +32,8 @@ impl WholeStreamCommand for Exec {
         "Execute command."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        exec(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        exec(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -53,12 +53,12 @@ impl WholeStreamCommand for Exec {
 }
 
 #[cfg(unix)]
-async fn exec(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn exec(args: CommandArgs) -> Result<OutputStream, ShellError> {
     use std::os::unix::process::CommandExt;
     use std::process::Command;
 
     let name = args.call_info.name_tag.clone();
-    let (args, _): (ExecArgs, _) = args.process().await?;
+    let (args, _): (ExecArgs, _) = args.process()?;
 
     let mut command = Command::new(args.command.item);
     for tagged_arg in args.rest {
@@ -75,7 +75,7 @@ async fn exec(args: CommandArgs) -> Result<OutputStream, ShellError> {
 }
 
 #[cfg(not(unix))]
-async fn exec(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn exec(args: CommandArgs) -> Result<OutputStream, ShellError> {
     Err(ShellError::labeled_error(
         "Error on exec",
         "exec is not supported on your platform",

@@ -34,8 +34,8 @@ impl WholeStreamCommand for Command {
         "Parse columns from string data using a simple pattern."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        operate(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        operate(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -50,9 +50,9 @@ impl WholeStreamCommand for Command {
     }
 }
 
-pub async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
-    let (Arguments { regex, pattern }, mut input) = args.process().await?;
+    let (Arguments { regex, pattern }, mut input) = args.process()?;
 
     let regex_pattern = if let Tagged { item: true, tag } = regex {
         Regex::new(&pattern.item)
@@ -68,7 +68,7 @@ pub async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let columns = column_names(&regex_pattern);
     let mut parsed: VecDeque<Value> = VecDeque::new();
 
-    while let Some(v) = input.next().await {
+    while let Some(v) = input.next() {
         match v.as_string() {
             Ok(s) => {
                 let results = regex_pattern.captures_iter(&s);

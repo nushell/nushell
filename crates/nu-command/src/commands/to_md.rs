@@ -38,8 +38,8 @@ impl WholeStreamCommand for Command {
         "Convert table into simple Markdown"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        to_md(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        to_md(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -83,11 +83,11 @@ impl WholeStreamCommand for Command {
     }
 }
 
-async fn to_md(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn to_md(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
-    let (arguments, input) = args.process().await?;
+    let (arguments, input) = args.process()?;
 
-    let input: Vec<Value> = input.collect().await;
+    let input: Vec<Value> = input.collect();
 
     Ok(OutputStream::one(ReturnSuccess::value(
         UntaggedValue::string(process(&input, arguments)).into_value(if input.is_empty() {

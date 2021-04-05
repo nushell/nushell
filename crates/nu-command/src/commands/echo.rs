@@ -27,8 +27,8 @@ impl WholeStreamCommand for Echo {
         "Echo the arguments back to the user."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        echo(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        echo(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -47,8 +47,8 @@ impl WholeStreamCommand for Echo {
     }
 }
 
-async fn echo(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (args, _): (EchoArgs, _) = args.process().await?;
+fn echo(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (args, _): (EchoArgs, _) = args.process()?;
 
     let stream = args.rest.into_iter().map(|i| match i.as_string() {
         Ok(s) => OutputStream::one(Ok(ReturnSuccess::Value(

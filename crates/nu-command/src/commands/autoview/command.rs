@@ -26,8 +26,8 @@ impl WholeStreamCommand for Command {
         "View the contents of the pipeline as a table or list."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        autoview(RunnableContext::from_command_args(args)).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        autoview(RunnableContext::from_command_args(args))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -71,7 +71,7 @@ impl RunnableContextWithoutInput {
     }
 }
 
-pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
+pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
     let configuration = AutoViewConfiguration::new();
 
     let binary = context.get_command("binaryview");
@@ -84,8 +84,8 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
     let term_width = context.host.lock().width();
     let color_hm = get_color_config();
 
-    if let Some(x) = input_stream.next().await {
-        match input_stream.next().await {
+    if let Some(x) = input_stream.next() {
+        match input_stream.next() {
             Some(y) => {
                 let ctrl_c = context.ctrl_c.clone();
                 let xy = vec![x, y];
@@ -97,8 +97,8 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
 
                 if let Some(table) = table {
                     let command_args = create_default_command_args(&context).with_input(stream);
-                    let result = table.run(command_args).await?;
-                    result.collect::<Vec<_>>().await;
+                    let result = table.run(command_args)?;
+                    result.collect::<Vec<_>>();
                 }
             }
             _ => {
@@ -114,8 +114,8 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                             );
                             let command_args =
                                 create_default_command_args(&context).with_input(stream);
-                            let result = text.run(command_args).await?;
-                            result.collect::<Vec<_>>().await;
+                            let result = text.run(command_args)?;
+                            result.collect::<Vec<_>>();
                         } else {
                             out!("{}", s);
                         }
@@ -196,8 +196,8 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                             stream.push_back(x);
                             let command_args =
                                 create_default_command_args(&context).with_input(stream);
-                            let result = binary.run(command_args).await?;
-                            result.collect::<Vec<_>>().await;
+                            let result = binary.run(command_args)?;
+                            result.collect::<Vec<_>>();
                         } else {
                             use pretty_hex::*;
                             out!("{:?}", b.hex_dump());
@@ -262,8 +262,8 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                             stream.push_back(x);
                             let command_args =
                                 create_default_command_args(&context).with_input(stream);
-                            let result = table.run(command_args).await?;
-                            result.collect::<Vec<_>>().await;
+                            let result = table.run(command_args)?;
+                            result.collect::<Vec<_>>();
                         } else {
                             out!("{:?}", item);
                         }

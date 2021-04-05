@@ -19,8 +19,8 @@ impl WholeStreamCommand for ToYaml {
         "Convert table into .yaml/.yml text"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        to_yaml(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        to_yaml(args)
     }
 }
 
@@ -114,12 +114,12 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
     })
 }
 
-async fn to_yaml(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+fn to_yaml(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
     let name_tag = args.name_tag();
     let name_span = name_tag.span;
 
-    let input: Vec<Value> = args.input.collect().await;
+    let input: Vec<Value> = args.input.collect();
 
     let to_process_input = match input.len() {
         x if x > 1 => {

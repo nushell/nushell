@@ -22,17 +22,17 @@ impl WholeStreamCommand for FromVcf {
         "Parse text as .vcf and create table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        from_vcf(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        from_vcf(args)
     }
 }
 
-async fn from_vcf(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+fn from_vcf(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let input = args.input;
 
-    let input_string = input.collect_string(tag.clone()).await?.item;
+    let input_string = input.collect_string(tag.clone())?.item;
     let input_bytes = input_string.into_bytes();
     let cursor = std::io::Cursor::new(input_bytes);
     let parser = ical::VcardParser::new(cursor);

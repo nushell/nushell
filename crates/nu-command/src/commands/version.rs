@@ -24,7 +24,7 @@ impl WholeStreamCommand for Version {
         "Display Nu version."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         version(args)
     }
 

@@ -31,8 +31,8 @@ impl WholeStreamCommand for Format {
         "Format columns into a string using a simple pattern."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        format_command(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        format_command(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -44,9 +44,9 @@ impl WholeStreamCommand for Format {
     }
 }
 
-async fn format_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn format_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let ctx = Arc::new(EvaluationContext::from_args(&args));
-    let (FormatArgs { pattern }, input) = args.process().await?;
+    let (FormatArgs { pattern }, input) = args.process()?;
 
     let format_pattern = format(&pattern);
     let commands = Arc::new(format_pattern);
@@ -72,7 +72,7 @@ async fn format_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
                             ctx.scope.enter_scope();
                             ctx.scope.add_var("$it", value.clone());
-                            let result = evaluate_baseline_expr(&full_column_path.0, &*ctx).await;
+                            let result = evaluate_baseline_expr(&full_column_path.0, &*ctx);
                             ctx.scope.exit_scope();
 
                             if let Ok(c) = result {

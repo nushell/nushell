@@ -24,12 +24,12 @@ impl WholeStreamCommand for Command {
         "Mock ls."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let name_tag = args.call_info.name_tag.clone();
 
         let mut base_value =
             UntaggedValue::string("Andrés N. Robalino in Portland").into_value(name_tag);
-        let input: Vec<Value> = args.input.collect().await;
+        let input: Vec<Value> = args.input.collect();
 
         if let Some(first) = input.get(0) {
             base_value = first.clone()

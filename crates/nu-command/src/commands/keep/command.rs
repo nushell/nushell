@@ -29,8 +29,8 @@ impl WholeStreamCommand for Command {
         "Keep the number of rows only."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        keep(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        keep(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -54,8 +54,8 @@ impl WholeStreamCommand for Command {
     }
 }
 
-async fn keep(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (Arguments { rows }, input) = args.process().await?;
+fn keep(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (Arguments { rows }, input) = args.process()?;
     let rows_desired = if let Some(quantity) = rows {
         *quantity
     } else {

@@ -30,14 +30,14 @@ impl WholeStreamCommand for SubCommand {
         "splits contents over multiple rows via the separator."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        split_row(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        split_row(args)
     }
 }
 
-async fn split_row(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn split_row(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (SplitRowArgs { separator }, input) = args.process().await?;
+    let (SplitRowArgs { separator }, input) = args.process()?;
     Ok(input
         .flat_map(move |v| {
             if let Ok(s) = v.as_string() {

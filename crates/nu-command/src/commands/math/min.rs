@@ -21,8 +21,8 @@ impl WholeStreamCommand for SubCommand {
         "Finds the minimum within a list of numbers or tables"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        run_with_function(RunnableContext::from_command_args(args), minimum).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        run_with_function(RunnableContext::from_command_args(args), minimum)
     }
 
     fn examples(&self) -> Vec<Example> {

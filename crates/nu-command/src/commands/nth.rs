@@ -34,8 +34,8 @@ impl WholeStreamCommand for Nth {
         "Return or skip only the selected rows."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        nth(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        nth(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -59,7 +59,7 @@ impl WholeStreamCommand for Nth {
     }
 }
 
-async fn nth(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn nth(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let (
         NthArgs {
             row_number,
@@ -67,7 +67,7 @@ async fn nth(args: CommandArgs) -> Result<OutputStream, ShellError> {
             skip,
         },
         input,
-    ) = args.process().await?;
+    ) = args.process()?;
 
     let row_numbers = vec![vec![row_number], and_rows]
         .into_iter()

@@ -32,15 +32,15 @@ impl WholeStreamCommand for Help {
         "Display help information about commands."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        help(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        help(args)
     }
 }
 
-async fn help(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn help(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let scope = args.scope.clone();
-    let (HelpArgs { rest }, ..) = args.process().await?;
+    let (HelpArgs { rest }, ..) = args.process()?;
 
     if !rest.is_empty() {
         if rest[0].item == "commands" {

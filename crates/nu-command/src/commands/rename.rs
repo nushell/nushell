@@ -33,8 +33,8 @@ impl WholeStreamCommand for Rename {
         "Creates a new table with columns renamed."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        rename(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        rename(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -62,9 +62,9 @@ impl WholeStreamCommand for Rename {
     }
 }
 
-pub async fn rename(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn rename(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (Arguments { column_name, rest }, input) = args.process().await?;
+    let (Arguments { column_name, rest }, input) = args.process()?;
     let mut new_column_names = vec![vec![column_name]];
     new_column_names.push(rest);
 

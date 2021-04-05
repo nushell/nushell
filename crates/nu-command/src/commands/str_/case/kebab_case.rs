@@ -24,8 +24,8 @@ impl WholeStreamCommand for SubCommand {
         "converts a string to kebab-case"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        operate(args, &to_kebab_case).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        operate(args, &to_kebab_case)
     }
 
     fn examples(&self) -> Vec<Example> {

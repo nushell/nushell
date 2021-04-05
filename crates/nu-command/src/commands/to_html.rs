@@ -124,8 +124,8 @@ impl WholeStreamCommand for ToHtml {
         "Convert table into simple HTML"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        to_html(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        to_html(args)
     }
 }
 
@@ -268,7 +268,7 @@ fn get_list_of_theme_names() -> Vec<String> {
     theme_names
 }
 
-async fn to_html(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn to_html(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
     let (
         ToHtmlArgs {
@@ -280,8 +280,8 @@ async fn to_html(args: CommandArgs) -> Result<OutputStream, ShellError> {
             list,
         },
         input,
-    ) = args.process().await?;
-    let input: Vec<Value> = input.collect().await;
+    ) = args.process()?;
+    let input: Vec<Value> = input.collect();
     let headers = nu_protocol::merge_descriptors(&input);
     let headers = Some(headers)
         .filter(|headers| !headers.is_empty() && (headers.len() > 1 || !headers[0].is_empty()));

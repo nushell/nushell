@@ -21,14 +21,14 @@ impl WholeStreamCommand for SubCommand {
         "Applies the ceil function to a list of numbers"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         run_with_numerical_functions_on_stream(
             RunnableContext::from_command_args(args),
             ceil_big_int,
             ceil_big_decimal,
             ceil_default,
         )
-        .await
+        
     }
 
     fn examples(&self) -> Vec<Example> {

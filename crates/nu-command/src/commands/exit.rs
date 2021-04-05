@@ -24,8 +24,8 @@ impl WholeStreamCommand for Exit {
         "Exit the current shell (or all shells)."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        exit(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        exit(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -44,8 +44,8 @@ impl WholeStreamCommand for Exit {
     }
 }
 
-pub async fn exit(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+pub fn exit(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
 
     let code = if let Some(value) = args.call_info.args.nth(0) {
         value.as_i32()?

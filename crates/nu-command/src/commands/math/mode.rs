@@ -21,8 +21,8 @@ impl WholeStreamCommand for SubCommand {
         "Gets the most frequent element(s) from a list of numbers or tables"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        run_with_function(RunnableContext::from_command_args(args), mode).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        run_with_function(RunnableContext::from_command_args(args), mode)
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -23,9 +23,9 @@ impl WholeStreamCommand for UrlHost {
         "gets the host of a url"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let (DefaultArguments { rest }, input) = args.process().await?;
-        operate(input, rest, &host).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        let (DefaultArguments { rest }, input) = args.process()?;
+        operate(input, rest, &host)
     }
 
     fn examples(&self) -> Vec<Example> {

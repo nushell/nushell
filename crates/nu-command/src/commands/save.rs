@@ -156,12 +156,12 @@ impl WholeStreamCommand for Save {
         "Save the contents of the pipeline to a file."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        save(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        save(args)
     }
 }
 
-async fn save(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn save(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut full_path = PathBuf::from(raw_args.shell_manager.path());
     let name_tag = raw_args.call_info.name_tag.clone();
     let name = raw_args.call_info.name_tag.clone();
@@ -179,8 +179,8 @@ async fn save(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
             raw: save_raw,
         },
         input,
-    ) = raw_args.process().await?;
-    let input: Vec<Value> = input.collect().await;
+    ) = raw_args.process()?;
+    let input: Vec<Value> = input.collect();
     if path.is_none() {
         let mut should_return_file_path_error = true;
 
@@ -231,9 +231,9 @@ async fn save(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                         },
                         scope,
                     };
-                    let mut result = converter.run(new_args.with_input(input)).await?;
+                    let mut result = converter.run(new_args.with_input(input))?;
                     let result_vec: Vec<Result<ReturnSuccess, ShellError>> =
-                        result.drain_vec().await;
+                        result.drain_vec();
                     if converter.is_binary() {
                         process_binary_return_success!('scope, result_vec, name_tag)
                     } else {

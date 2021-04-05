@@ -32,8 +32,8 @@ impl WholeStreamCommand for Wrap {
         "Wraps the given data in a table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        wrap(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        wrap(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -78,12 +78,12 @@ impl WholeStreamCommand for Wrap {
     }
 }
 
-async fn wrap(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (WrapArgs { column }, mut input) = args.process().await?;
+fn wrap(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (WrapArgs { column }, mut input) = args.process()?;
     let mut result_table = vec![];
     let mut are_all_rows = true;
 
-    while let Some(value) = input.next().await {
+    while let Some(value) = input.next() {
         match value {
             Value {
                 value: UntaggedValue::Row(_),

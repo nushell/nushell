@@ -19,8 +19,8 @@ impl WholeStreamCommand for Reverse {
         "Reverses the table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        reverse(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        reverse(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -38,11 +38,11 @@ impl WholeStreamCommand for Reverse {
     }
 }
 
-async fn reverse(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+fn reverse(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
     let (input, _args) = args.parts();
 
-    let input = input.collect::<Vec<_>>().await;
+    let input = input.collect::<Vec<_>>();
     Ok(futures::stream::iter(input.into_iter().rev().map(ReturnSuccess::value)).to_output_stream())
 }
 

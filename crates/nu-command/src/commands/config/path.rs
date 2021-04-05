@@ -19,8 +19,8 @@ impl WholeStreamCommand for SubCommand {
         "return the path to the config file"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        path(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        path(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -32,7 +32,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn path(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn path(args: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(OutputStream::one(ReturnSuccess::value(
         match args.scope.get_var("config-path") {
             Some(

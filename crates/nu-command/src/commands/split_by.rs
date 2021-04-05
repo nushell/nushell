@@ -31,15 +31,15 @@ impl WholeStreamCommand for SplitBy {
         "Creates a new table with the data from the inner tables split by the column given."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        split_by(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        split_by(args)
     }
 }
 
-pub async fn split_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn split_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (SplitByArgs { column_name }, input) = args.process().await?;
-    let values: Vec<Value> = input.collect().await;
+    let (SplitByArgs { column_name }, input) = args.process()?;
+    let values: Vec<Value> = input.collect();
 
     if values.len() > 1 || values.is_empty() {
         return Err(ShellError::labeled_error(

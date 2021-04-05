@@ -35,8 +35,8 @@ impl WholeStreamCommand for SubCommand {
         "converts text into decimal"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        operate(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        operate(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -48,8 +48,8 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (Arguments { rest }, input) = args.process().await?;
+fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (Arguments { rest }, input) = args.process()?;
 
     let column_paths: Vec<_> = rest;
 

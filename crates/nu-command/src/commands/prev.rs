@@ -20,7 +20,7 @@ impl WholeStreamCommand for Previous {
         "Go to previous shell."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(previous(args))
     }
 }

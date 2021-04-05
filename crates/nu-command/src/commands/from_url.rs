@@ -19,17 +19,17 @@ impl WholeStreamCommand for FromUrl {
         "Parse url-encoded string as a table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        from_url(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        from_url(args)
     }
 }
 
-async fn from_url(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+fn from_url(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let input = args.input;
 
-    let concat_string = input.collect_string(tag.clone()).await?;
+    let concat_string = input.collect_string(tag.clone())?;
 
     let result = serde_urlencoded::from_str::<Vec<(String, String)>>(&concat_string.item);
 

@@ -45,9 +45,9 @@ impl WholeStreamCommand for EachGroup {
         }]
     }
 
-    async fn run(&self, raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         let context = Arc::new(EvaluationContext::from_args(&raw_args));
-        let (each_args, input): (EachGroupArgs, _) = raw_args.process().await?;
+        let (each_args, input): (EachGroupArgs, _) = raw_args.process()?;
         let block = Arc::new(Box::new(each_args.block));
 
         Ok(input
@@ -69,11 +69,11 @@ pub(crate) fn run_block_on_vec(
     };
 
     async {
-        match process_row(block, context, value).await {
+        match process_row(block, context, value) {
             Ok(s) => {
                 // We need to handle this differently depending on whether process_row
                 // returned just 1 value or if it returned multiple as a stream.
-                let vec = s.collect::<Vec<_>>().await;
+                let vec = s.collect::<Vec<_>>();
 
                 // If it returned just one value, just take that value
                 if vec.len() == 1 {

@@ -32,8 +32,8 @@ impl WholeStreamCommand for Do {
         "Runs a block, optionally ignoring errors."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        do_(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        do_(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -52,7 +52,7 @@ impl WholeStreamCommand for Do {
     }
 }
 
-async fn do_(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn do_(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let external_redirection = raw_args.call_info.args.external_redirection;
 
     let context = EvaluationContext::from_args(&raw_args);
@@ -62,7 +62,7 @@ async fn do_(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
             mut block,
         },
         input,
-    ) = raw_args.process().await?;
+    ) = raw_args.process()?;
 
     let block_redirection = match external_redirection {
         ExternalRedirection::None => {
@@ -84,7 +84,7 @@ async fn do_(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     block.block.set_redirect(block_redirection);
     context.scope.enter_scope();
-    let result = run_block(&block.block, &context, input).await;
+    let result = run_block(&block.block, &context, input);
     context.scope.exit_scope();
 
     if ignore_errors {
@@ -93,7 +93,7 @@ async fn do_(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         match result {
             Ok(mut stream) => {
-                let output = stream.drain_vec().await;
+                let output = stream.drain_vec();
                 context.clear_errors();
                 Ok(futures::stream::iter(output).to_output_stream())
             }

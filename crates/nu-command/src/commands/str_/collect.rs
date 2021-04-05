@@ -29,8 +29,8 @@ impl WholeStreamCommand for SubCommand {
         "collects a list of strings into a string"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        collect(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        collect(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -42,13 +42,13 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn collect(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn collect(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let (SubCommandArgs { separator }, input) = args.process().await?;
+    let (SubCommandArgs { separator }, input) = args.process()?;
     let separator = separator.map(|tagged| tagged.item).unwrap_or_default();
 
     let strings: Vec<Result<String, ShellError>> =
-        input.map(|value| value.as_string()).collect().await;
+        input.map(|value| value.as_string()).collect();
     let strings: Result<Vec<_>, _> = strings.into_iter().collect::<Result<_, _>>();
 
     match strings {

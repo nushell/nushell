@@ -24,8 +24,8 @@ impl WholeStreamCommand for SubCommand {
         "converts a string to snake_case"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        operate(args, &to_snake_case).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        operate(args, &to_snake_case)
     }
 
     fn examples(&self) -> Vec<Example> {

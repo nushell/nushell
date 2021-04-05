@@ -26,8 +26,8 @@ impl WholeStreamCommand for Reject {
         "Remove the given columns from the table. If you want to remove rows, try 'drop'."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        reject(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        reject(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -39,9 +39,9 @@ impl WholeStreamCommand for Reject {
     }
 }
 
-async fn reject(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn reject(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (RejectArgs { rest: fields }, input) = args.process().await?;
+    let (RejectArgs { rest: fields }, input) = args.process()?;
     if fields.is_empty() {
         return Err(ShellError::labeled_error(
             "Reject requires fields",

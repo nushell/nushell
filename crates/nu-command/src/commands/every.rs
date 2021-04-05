@@ -36,8 +36,8 @@ impl WholeStreamCommand for Every {
         "Show (or skip) every n-th row, starting from the first one."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        every(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        every(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -63,8 +63,8 @@ impl WholeStreamCommand for Every {
     }
 }
 
-async fn every(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (EveryArgs { stride, skip }, input) = args.process().await?;
+fn every(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (EveryArgs { stride, skip }, input) = args.process()?;
 
     let stride = stride.item;
     let skip = skip.item;

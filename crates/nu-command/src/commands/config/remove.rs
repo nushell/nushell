@@ -29,8 +29,8 @@ impl WholeStreamCommand for SubCommand {
         "Removes a value from the config"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        remove(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        remove(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -42,10 +42,10 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn remove(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn remove(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_span = args.call_info.name_tag.clone();
     let scope = args.scope.clone();
-    let (Arguments { remove }, _) = args.process().await?;
+    let (Arguments { remove }, _) = args.process()?;
 
     let path = match scope.get_var("config-path") {
         Some(Value {

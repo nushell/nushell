@@ -19,8 +19,8 @@ impl WholeStreamCommand for FromXml {
         "Parse text as .xml and create table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        from_xml(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        from_xml(args)
     }
 }
 
@@ -95,12 +95,12 @@ pub fn from_xml_string_to_value(s: String, tag: impl Into<Tag>) -> Result<Value,
     Ok(from_document_to_value(&parsed, tag))
 }
 
-async fn from_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+fn from_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let input = args.input;
 
-    let concat_string = input.collect_string(tag.clone()).await?;
+    let concat_string = input.collect_string(tag.clone())?;
 
     Ok(
         match from_xml_string_to_value(concat_string.item, tag.clone()) {

@@ -32,16 +32,16 @@ impl WholeStreamCommand for Command {
         "Rotates the table by 90 degrees clockwise."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        rotate(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        rotate(args)
     }
 }
 
-pub async fn rotate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn rotate(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (Arguments { rest }, input) = args.process().await?;
+    let (Arguments { rest }, input) = args.process()?;
 
-    let input = input.into_vec().await;
+    let input = input.into_vec();
     let total_rows = input.len();
     let descs = merge_descriptors(&input);
     let total_descriptors = descs.len();

@@ -22,8 +22,8 @@ impl WholeStreamCommand for Headers {
         "Use the first row of the table as column names."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        headers(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        headers(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -42,9 +42,9 @@ impl WholeStreamCommand for Headers {
     }
 }
 
-pub async fn headers(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn headers(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let input = args.input;
-    let rows: Vec<Value> = input.collect().await;
+    let rows: Vec<Value> = input.collect();
 
     if rows.is_empty() {
         return Err(ShellError::untagged_runtime_error(

@@ -51,8 +51,8 @@ For a more complete list of encodings please refer to the encoding_rs
 documentation link at https://docs.rs/encoding_rs/0.8.28/encoding_rs/#statics"#
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        enter(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        enter(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -76,7 +76,7 @@ documentation link at https://docs.rs/encoding_rs/0.8.28/encoding_rs/#statics"#
     }
 }
 
-async fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let scope = raw_args.scope.clone();
     let shell_manager = raw_args.shell_manager.clone();
     let head = raw_args.call_info.args.head.clone();
@@ -85,7 +85,7 @@ async fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let current_errors = raw_args.current_errors.clone();
     let host = raw_args.host.clone();
     let tag = raw_args.call_info.name_tag.clone();
-    let (EnterArgs { location, encoding }, _) = raw_args.process().await?;
+    let (EnterArgs { location, encoding }, _) = raw_args.process()?;
     let location_string = location.display().to_string();
     let location_clone = location_string.clone();
 
@@ -106,7 +106,7 @@ async fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
             span,
             encoding,
         )
-        .await?;
+        ?;
 
         match tagged_contents.value {
             UntaggedValue::Primitive(Primitive::String(_)) => {
@@ -134,9 +134,9 @@ async fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                         let tag = tagged_contents.tag.clone();
                         let mut result = converter
                             .run(new_args.with_input(vec![tagged_contents]))
-                            .await?;
+                            ?;
                         let result_vec: Vec<Result<ReturnSuccess, ShellError>> =
-                            result.drain_vec().await;
+                            result.drain_vec();
                         Ok(futures::stream::iter(result_vec.into_iter().map(
                             move |res| match res {
                                 Ok(ReturnSuccess::Value(Value { value, .. })) => Ok(

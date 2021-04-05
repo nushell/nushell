@@ -30,8 +30,8 @@ impl WholeStreamCommand for SubCommand {
         "Remove the last number of columns. If you want to remove columns by name, try 'reject'."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        drop(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        drop(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -48,8 +48,8 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-async fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (Arguments { columns }, input) = args.process().await?;
+fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (Arguments { columns }, input) = args.process()?;
 
     let to_drop = if let Some(quantity) = columns {
         *quantity as usize

@@ -37,8 +37,8 @@ impl WholeStreamCommand for Command {
         "Insert a new column with a given value."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        insert(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        insert(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -64,7 +64,7 @@ impl WholeStreamCommand for Command {
     }
 }
 
-async fn process_row(
+fn process_row(
     context: Arc<EvaluationContext>,
     input: Value,
     mut value: Arc<Value>,
@@ -84,13 +84,13 @@ async fn process_row(
             context.scope.add_vars(&block.captured.entries);
             context.scope.add_var("$it", input.clone());
 
-            let result = run_block(&block.block, &*context, input_stream).await;
+            let result = run_block(&block.block, &*context, input_stream);
 
             context.scope.exit_scope();
 
             match result {
                 Ok(mut stream) => {
-                    let values = stream.drain_vec().await;
+                    let values = stream.drain_vec();
 
                     let errors = context.get_errors();
                     if let Some(error) = errors.first() {
@@ -153,9 +153,9 @@ async fn process_row(
     })
 }
 
-async fn insert(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn insert(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let context = Arc::new(EvaluationContext::from_args(&raw_args));
-    let (Arguments { column, value }, input) = raw_args.process().await?;
+    let (Arguments { column, value }, input) = raw_args.process()?;
     let value = Arc::new(value);
     let column = Arc::new(column);
 
@@ -166,7 +166,7 @@ async fn insert(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
             let column = column.clone();
 
             async {
-                match process_row(context, input, value, column).await {
+                match process_row(context, input, value, column) {
                     Ok(s) => s,
                     Err(e) => OutputStream::one(Err(e)),
                 }

@@ -33,11 +33,11 @@ impl WholeStreamCommand for PathExists {
         "Checks whether a path exists"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathExistsArguments { rest }, input) = args.process().await?;
+        let (PathExistsArguments { rest }, input) = args.process()?;
         let args = Arc::new(PathExistsArguments { rest });
-        operate(input, &action, tag.span, args).await
+        operate(input, &action, tag.span, args)
     }
 
     #[cfg(windows)]

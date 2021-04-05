@@ -33,8 +33,8 @@ impl WholeStreamCommand for ToJson {
         "Converts table data into JSON text."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        to_json(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        to_json(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -158,11 +158,11 @@ fn json_list(input: &[Value]) -> Result<Vec<serde_json::Value>, ShellError> {
     Ok(out)
 }
 
-async fn to_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn to_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
-    let (ToJsonArgs { pretty }, input) = args.process().await?;
+    let (ToJsonArgs { pretty }, input) = args.process()?;
     let name_span = name_tag.span;
-    let input: Vec<Value> = input.collect().await;
+    let input: Vec<Value> = input.collect();
 
     let to_process_input = match input.len() {
         x if x > 1 => {

@@ -225,7 +225,7 @@ fn parse_line(line: &str, ctx: &EvaluationContext) -> Result<ClassifiedBlock, Sh
     Ok(ClassifiedBlock { block, failed: err })
 }
 
-async fn evaluate_block(
+fn evaluate_block(
     block: ClassifiedBlock,
     ctx: &mut EvaluationContext,
 ) -> Result<Vec<Value>, ShellError> {
@@ -233,11 +233,11 @@ async fn evaluate_block(
 
     ctx.scope.enter_scope();
 
-    let result = run_block(&block.block, ctx, input_stream).await;
+    let result = run_block(&block.block, ctx, input_stream);
 
     ctx.scope.exit_scope();
 
-    let result = result?.drain_vec().await;
+    let result = result?.drain_vec();
     Ok(result)
 }
 

@@ -49,8 +49,8 @@ impl WholeStreamCommand for Kill {
         "Kill a process using the process id."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        kill(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        kill(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -74,7 +74,7 @@ impl WholeStreamCommand for Kill {
     }
 }
 
-async fn kill(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn kill(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let (
         KillArgs {
             pid,
@@ -84,7 +84,7 @@ async fn kill(args: CommandArgs) -> Result<OutputStream, ShellError> {
             signal,
         },
         ..,
-    ) = args.process().await?;
+    ) = args.process()?;
     let mut cmd = if cfg!(windows) {
         let mut cmd = Command::new("taskkill");
 

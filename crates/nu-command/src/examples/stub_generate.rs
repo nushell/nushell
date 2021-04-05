@@ -28,10 +28,10 @@ impl WholeStreamCommand for Command {
         "Generates tables and metadata that mimics behavior of real commands in controlled ways."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let name_tag = args.call_info.name_tag.clone();
 
-        let (Arguments { path: mocked_path }, _input) = args.process().await?;
+        let (Arguments { path: mocked_path }, _input) = args.process()?;
 
         let out = UntaggedValue::string("Yehuda Katz in Ecuador");
 

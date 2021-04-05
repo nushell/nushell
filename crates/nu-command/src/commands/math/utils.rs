@@ -6,13 +6,13 @@ use indexmap::map::IndexMap;
 
 pub type MathFunction = fn(values: &[Value], tag: &Tag) -> Result<Value, ShellError>;
 
-pub async fn run_with_function(
+pub fn run_with_function(
     RunnableContext {
         mut input, name, ..
     }: RunnableContext,
     mf: MathFunction,
 ) -> Result<OutputStream, ShellError> {
-    let values: Vec<Value> = input.drain_vec().await;
+    let values: Vec<Value> = input.drain_vec();
 
     let res = calculate(&values, &name, mf);
     match res {
@@ -37,7 +37,7 @@ pub type DecimalFunction = fn(val: BigDecimal) -> Value;
 
 pub type DefaultFunction = fn(val: UntaggedValue) -> Value;
 
-pub async fn run_with_numerical_functions_on_stream(
+pub fn run_with_numerical_functions_on_stream(
     RunnableContext { input, .. }: RunnableContext,
     int_function: IntFunction,
     decimal_function: DecimalFunction,

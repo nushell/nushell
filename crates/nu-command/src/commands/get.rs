@@ -35,8 +35,8 @@ impl WholeStreamCommand for Command {
         "Open given cells as text."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        get(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        get(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -55,12 +55,12 @@ impl WholeStreamCommand for Command {
     }
 }
 
-pub async fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (Arguments { mut rest }, mut input) = args.process().await?;
+pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (Arguments { mut rest }, mut input) = args.process()?;
     let (column_paths, _) = arguments(&mut rest)?;
 
     if column_paths.is_empty() {
-        let vec = input.drain_vec().await;
+        let vec = input.drain_vec();
 
         let descs = nu_protocol::merge_descriptors(&vec);
 

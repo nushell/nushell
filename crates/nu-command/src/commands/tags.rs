@@ -19,7 +19,7 @@ impl WholeStreamCommand for Tags {
         "Read the tags (metadata) for values."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(tags(args))
     }
 }

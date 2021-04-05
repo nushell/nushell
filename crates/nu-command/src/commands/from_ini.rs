@@ -20,8 +20,8 @@ impl WholeStreamCommand for FromIni {
         "Parse text as .ini and create table"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        from_ini(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        from_ini(args)
     }
 }
 
@@ -60,11 +60,11 @@ pub fn from_ini_string_to_value(
     Ok(convert_ini_top_to_nu_value(&v, tag))
 }
 
-async fn from_ini(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+fn from_ini(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let input = args.input;
-    let concat_string = input.collect_string(tag.clone()).await?;
+    let concat_string = input.collect_string(tag.clone())?;
 
     match from_ini_string_to_value(concat_string.item, tag.clone()) {
         Ok(x) => match x {

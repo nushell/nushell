@@ -87,7 +87,7 @@ impl EvaluationContext {
         self.scope.has_command(name)
     }
 
-    pub(crate) async fn run_command(
+    pub(crate) fn run_command(
         &self,
         command: Command,
         name_tag: Tag,
@@ -95,7 +95,7 @@ impl EvaluationContext {
         input: InputStream,
     ) -> Result<OutputStream, ShellError> {
         let command_args = self.command_args(args, input, name_tag);
-        command.run(command_args).await
+        command.run(command_args)
     }
 
     fn call_info(&self, args: hir::Call, name_tag: Tag) -> UnevaluatedCallInfo {
@@ -127,7 +127,7 @@ impl EvaluationContext {
     // The rational here is that, we should not partially load any config
     // that might be damaged. However, startup scripts might fail for various reasons.
     // A failure there is not as crucial as wrong config files.
-    pub async fn load_config(&self, cfg_path: &ConfigPath) -> Result<(), ShellError> {
+    pub fn load_config(&self, cfg_path: &ConfigPath) -> Result<(), ShellError> {
         trace!("Loading cfg {:?}", cfg_path);
 
         let cfg = NuConfig::load(Some(cfg_path.get_path().clone()))?;
@@ -178,8 +178,7 @@ impl EvaluationContext {
         }
 
         if !startup_scripts.is_empty() {
-            self.run_scripts(startup_scripts, cfg_path.get_path().parent())
-                .await;
+            self.run_scripts(startup_scripts, cfg_path.get_path().parent());
         }
 
         Ok(())
@@ -189,7 +188,7 @@ impl EvaluationContext {
     /// If an error occurs while reloading the config:
     ///     The config is not reloaded
     ///     The error is returned
-    pub async fn reload_config(&self, cfg_path: &ConfigPath) -> Result<(), ShellError> {
+    pub fn reload_config(&self, cfg_path: &ConfigPath) -> Result<(), ShellError> {
         trace!("Reloading cfg {:?}", cfg_path);
 
         let mut configs = self.configs.lock();
@@ -263,15 +262,14 @@ impl EvaluationContext {
     /// If an error occurs while running exit scripts:
     ///     The error is added to `self.current_errors`
     /// If no config with path of `cfg_path` is present, this method does nothing
-    pub async fn unload_config(&self, cfg_path: &ConfigPath) {
+    pub fn unload_config(&self, cfg_path: &ConfigPath) {
         trace!("UnLoading cfg {:?}", cfg_path);
 
         let tag = config::cfg_path_to_scope_tag(cfg_path);
 
         //Run exitscripts with scope frame and cfg still applied
         if let Some(scripts) = self.scope.get_exitscripts_of_frame_with_tag(&tag) {
-            self.run_scripts(scripts, cfg_path.get_path().parent())
-                .await;
+            self.run_scripts(scripts, cfg_path.get_path().parent());
         }
 
         //Unload config
@@ -281,10 +279,10 @@ impl EvaluationContext {
 
     /// Runs scripts with cwd of dir. If dir is None, this method does nothing.
     /// Each error is added to `self.current_errors`
-    pub async fn run_scripts(&self, scripts: Vec<String>, dir: Option<&Path>) {
+    pub fn run_scripts(&self, scripts: Vec<String>, dir: Option<&Path>) {
         if let Some(dir) = dir {
             for script in scripts {
-                match script::run_script_in_dir(script.clone(), dir, &self).await {
+                match script::run_script_in_dir(script.clone(), dir, &self) {
                     Ok(_) => {}
                     Err(e) => {
                         let err = ShellError::untagged_runtime_error(format!(

@@ -26,10 +26,10 @@ impl WholeStreamCommand for Cpy {
         "Copy files."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let shell_manager = args.shell_manager.clone();
         let name = args.call_info.name_tag.clone();
-        let (args, _) = args.process().await?;
+        let (args, _) = args.process()?;
         shell_manager.cp(args, name)
     }
 

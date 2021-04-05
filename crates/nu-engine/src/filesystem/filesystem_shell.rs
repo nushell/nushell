@@ -183,49 +183,50 @@ impl Shell for FilesystemShell {
 
         // Generated stream: impl Stream<Item = Result<ReturnSuccess, ShellError>
 
-        Ok(futures::stream::iter(paths.filter_map(move |path| {
-            let path = match path.map_err(|e| ShellError::from(e.into_error())) {
-                Ok(path) => path,
-                Err(err) => return Some(Err(err)),
-            };
+        Ok(paths
+            .filter_map(move |path| {
+                let path = match path.map_err(|e| ShellError::from(e.into_error())) {
+                    Ok(path) => path,
+                    Err(err) => return Some(Err(err)),
+                };
 
-            if path_contains_hidden_folder(&path, &hidden_dirs) {
-                return None;
-            }
-
-            if !all && !hidden_dir_specified && is_hidden_dir(&path) {
-                if path.is_dir() {
-                    hidden_dirs.push(path);
+                if path_contains_hidden_folder(&path, &hidden_dirs) {
+                    return None;
                 }
-                return None;
-            }
 
-            let metadata = match std::fs::symlink_metadata(&path) {
-                Ok(metadata) => Some(metadata),
-                Err(e) => {
-                    if e.kind() == ErrorKind::PermissionDenied || e.kind() == ErrorKind::Other {
-                        None
-                    } else {
-                        return Some(Err(e.into()));
+                if !all && !hidden_dir_specified && is_hidden_dir(&path) {
+                    if path.is_dir() {
+                        hidden_dirs.push(path);
                     }
+                    return None;
                 }
-            };
 
-            let entry = dir_entry_dict(
-                &path,
-                metadata.as_ref(),
-                name_tag.clone(),
-                long,
-                short_names,
-                du,
-                ctrl_c.clone(),
-            )
-            .map(ReturnSuccess::Value);
+                let metadata = match std::fs::symlink_metadata(&path) {
+                    Ok(metadata) => Some(metadata),
+                    Err(e) => {
+                        if e.kind() == ErrorKind::PermissionDenied || e.kind() == ErrorKind::Other {
+                            None
+                        } else {
+                            return Some(Err(e.into()));
+                        }
+                    }
+                };
 
-            Some(entry)
-        }))
-        .interruptible(ctrl_c_copy)
-        .to_output_stream())
+                let entry = dir_entry_dict(
+                    &path,
+                    metadata.as_ref(),
+                    name_tag.clone(),
+                    long,
+                    short_names,
+                    du,
+                    ctrl_c.clone(),
+                )
+                .map(ReturnSuccess::Value);
+
+                Some(entry)
+            })
+            .interruptible(ctrl_c_copy)
+            .to_output_stream())
     }
 
     fn cd(&self, args: CdArgs, name: Tag) -> Result<OutputStream, ShellError> {
@@ -665,8 +666,9 @@ impl Shell for FilesystemShell {
             ));
         }
 
-        Ok(
-            futures::stream::iter(all_targets.into_iter().map(move |(f, tag)| {
+        Ok(all_targets
+            .into_iter()
+            .map(move |(f, tag)| {
                 let is_empty = || match f.read_dir() {
                     Ok(mut p) => p.next().is_none(),
                     Err(_) => false,
@@ -741,9 +743,8 @@ impl Shell for FilesystemShell {
                         tag,
                     ))
                 }
-            }))
-            .to_output_stream(),
-        )
+            })
+            .to_output_stream())
     }
 
     fn path(&self) -> String {

@@ -29,12 +29,12 @@ impl WholeStreamCommand for Command {
         "Mock echo."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let name_tag = args.call_info.name_tag.clone();
-        let (Arguments { rest }, input) = args.process().await?;
+        let (Arguments { rest }, input) = args.process()?;
 
         let mut base_value = UntaggedValue::string("Yehuda Katz in Ecuador").into_value(name_tag);
-        let input: Vec<Value> = input.collect().await;
+        let input: Vec<Value> = input.collect();
 
         if let Some(first) = input.get(0) {
             base_value = first.clone()

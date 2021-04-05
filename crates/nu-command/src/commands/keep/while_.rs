@@ -27,9 +27,9 @@ impl WholeStreamCommand for SubCommand {
         "Keeps rows while the condition matches."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let ctx = Arc::new(EvaluationContext::from_args(&args));
-        let call_info = args.evaluate_once().await?;
+        let call_info = args.evaluate_once()?;
 
         let block = call_info.args.expect_nth(0)?.clone();
 
@@ -88,7 +88,7 @@ impl WholeStreamCommand for SubCommand {
                 trace!("ITEM = {:?}", item);
 
                 async move {
-                    let result = evaluate_baseline_expr(&*condition, &*ctx).await;
+                    let result = evaluate_baseline_expr(&*condition, &*ctx);
                     ctx.scope.exit_scope();
                     trace!("RESULT = {:?}", result);
 

@@ -21,7 +21,7 @@ impl WholeStreamCommand for Command {
         "Configuration management."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let name = args.call_info.name_tag;
 
         if let Some(global_cfg) = &args.configs.lock().global_config {

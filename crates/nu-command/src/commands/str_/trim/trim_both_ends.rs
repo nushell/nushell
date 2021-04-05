@@ -30,8 +30,8 @@ impl WholeStreamCommand for SubCommand {
         "trims text"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        operate(args, &trim).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        operate(args, &trim)
     }
 
     fn examples(&self) -> Vec<Example> {

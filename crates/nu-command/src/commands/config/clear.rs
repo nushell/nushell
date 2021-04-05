@@ -19,8 +19,8 @@ impl WholeStreamCommand for SubCommand {
         "clear the config"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        clear(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        clear(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -32,7 +32,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn clear(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn clear(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_span = args.call_info.name_tag.clone();
 
     let path = match args.scope.get_var("config-path") {

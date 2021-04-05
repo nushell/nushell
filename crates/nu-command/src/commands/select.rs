@@ -29,8 +29,8 @@ impl WholeStreamCommand for Command {
         "Down-select table to only these columns."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        select(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        select(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -49,9 +49,9 @@ impl WholeStreamCommand for Command {
     }
 }
 
-async fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (Arguments { mut rest }, mut input) = args.process().await?;
+    let (Arguments { mut rest }, mut input) = args.process()?;
     let (columns, _) = arguments(&mut rest)?;
 
     if columns.is_empty() {
@@ -64,7 +64,7 @@ async fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let mut bring_back: indexmap::IndexMap<String, Vec<Value>> = indexmap::IndexMap::new();
 
-    while let Some(value) = input.next().await {
+    while let Some(value) = input.next() {
         for path in &columns {
             let fetcher = get_data_by_column_path(
                 &value,

@@ -34,8 +34,8 @@ impl WholeStreamCommand for ToXml {
         "Convert table into .xml text"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        to_xml(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        to_xml(args)
     }
 }
 
@@ -132,11 +132,11 @@ pub fn write_xml_events<W: Write>(
     Ok(())
 }
 
-async fn to_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn to_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
     let name_span = name_tag.span;
-    let (ToXmlArgs { pretty }, input) = args.process().await?;
-    let input: Vec<Value> = input.collect().await;
+    let (ToXmlArgs { pretty }, input) = args.process()?;
+    let input: Vec<Value> = input.collect();
 
     let to_process_input = match input.len() {
         x if x > 1 => {

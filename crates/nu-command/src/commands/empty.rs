@@ -35,8 +35,8 @@ impl WholeStreamCommand for Command {
         "Check for empty values."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        is_empty(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        is_empty(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -81,11 +81,11 @@ impl WholeStreamCommand for Command {
     }
 }
 
-async fn is_empty(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn is_empty(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let name_tag = Arc::new(args.call_info.name_tag.clone());
     let context = Arc::new(EvaluationContext::from_args(&args));
-    let (Arguments { mut rest }, input) = args.process().await?;
+    let (Arguments { mut rest }, input) = args.process()?;
     let (columns, default_block): (Vec<ColumnPath>, Option<Box<CapturedBlock>>) =
         arguments(&mut rest)?;
     let default_block = Arc::new(default_block);
@@ -103,7 +103,7 @@ async fn is_empty(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 let columns = vec![];
 
                 async {
-                    match process_row(context, input, block, columns, tag).await {
+                    match process_row(context, input, block, columns, tag) {
                         Ok(s) => s,
                         Err(e) => OutputStream::one(Err(e)),
                     }
@@ -121,7 +121,7 @@ async fn is_empty(args: CommandArgs) -> Result<OutputStream, ShellError> {
             let columns = columns.clone();
 
             async {
-                match process_row(context, input, block, columns, tag).await {
+                match process_row(context, input, block, columns, tag) {
                     Ok(s) => s,
                     Err(e) => OutputStream::one(Err(e)),
                 }
@@ -131,7 +131,7 @@ async fn is_empty(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .to_output_stream())
 }
 
-async fn process_row(
+fn process_row(
     context: Arc<EvaluationContext>,
     input: Value,
     default_block: Arc<Option<Box<CapturedBlock>>>,
@@ -150,12 +150,12 @@ async fn process_row(
         context.scope.add_vars(&default_block.captured.entries);
         context.scope.add_var("$it", input.clone());
 
-        let stream = run_block(&default_block.block, &*context, input_stream).await;
+        let stream = run_block(&default_block.block, &*context, input_stream);
         context.scope.exit_scope();
 
         let mut stream = stream?;
         *results = Some({
-            let values = stream.drain_vec().await;
+            let values = stream.drain_vec();
 
             let errors = context.get_errors();
 

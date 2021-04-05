@@ -19,8 +19,8 @@ impl WholeStreamCommand for FromToml {
         "Parse text as .toml and create table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        from_toml(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        from_toml(args)
     }
 }
 
@@ -61,12 +61,12 @@ pub fn from_toml_string_to_value(s: String, tag: impl Into<Tag>) -> Result<Value
     Ok(convert_toml_value_to_nu_value(&v, tag))
 }
 
-pub async fn from_toml(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+pub fn from_toml(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let input = args.input;
 
-    let concat_string = input.collect_string(tag.clone()).await?;
+    let concat_string = input.collect_string(tag.clone())?;
     Ok(
         match from_toml_string_to_value(concat_string.item, tag.clone()) {
             Ok(x) => match x {

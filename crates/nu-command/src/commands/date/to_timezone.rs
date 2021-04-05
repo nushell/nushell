@@ -34,8 +34,8 @@ impl WholeStreamCommand for Date {
         "Use 'date list-timezone' to list all supported time zones."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        to_timezone(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        to_timezone(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -59,9 +59,9 @@ impl WholeStreamCommand for Date {
     }
 }
 
-async fn to_timezone(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn to_timezone(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let (DateToTimeZoneArgs { timezone }, input) = args.process().await?;
+    let (DateToTimeZoneArgs { timezone }, input) = args.process()?;
 
     Ok(input
         .map(move |value| match value {

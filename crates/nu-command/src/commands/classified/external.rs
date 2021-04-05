@@ -20,7 +20,7 @@ use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
 use nu_source::Tag;
 use nu_stream::trace_stream;
 
-pub(crate) async fn run_external_command(
+pub(crate) fn run_external_command(
     command: ExternalCommand,
     context: &mut EvaluationContext,
     input: InputStream,
@@ -36,10 +36,10 @@ pub(crate) async fn run_external_command(
         ));
     }
 
-    run_with_stdin(command, context, input, external_redirection).await
+    run_with_stdin(command, context, input, external_redirection)
 }
 
-async fn run_with_stdin(
+fn run_with_stdin(
     command: ExternalCommand,
     context: &mut EvaluationContext,
     input: InputStream,
@@ -52,7 +52,7 @@ async fn run_with_stdin(
     let mut command_args = vec![];
     for arg in command.args.iter() {
         let is_literal = matches!(arg.expr, Expression::Literal(_));
-        let value = evaluate_baseline_expr(arg, context).await?;
+        let value = evaluate_baseline_expr(arg, context)?;
 
         // Skip any arguments that don't really exist, treating them as optional
         // FIXME: we may want to preserve the gap in the future, though it's hard to say
@@ -514,8 +514,8 @@ mod tests {
     use nu_errors::ShellError;
     #[cfg(feature = "which")]
     use nu_test_support::commands::ExternalBuilder;
-    // async fn read(mut stream: OutputStream) -> Option<Value> {
-    //     match stream.try_next().await {
+    // fn read(mut stream: OutputStream) -> Option<Value> {
+    //     match stream.try_next() {
     //         Ok(val) => {
     //             if let Some(val) = val {
     //                 val.raw_value()
@@ -528,7 +528,7 @@ mod tests {
     // }
 
     #[cfg(feature = "which")]
-    async fn non_existent_run() -> Result<(), ShellError> {
+    fn non_existent_run() -> Result<(), ShellError> {
         use nu_protocol::hir::ExternalRedirection;
         let cmd = ExternalBuilder::for_name("i_dont_exist.exe").build();
 
@@ -538,22 +538,22 @@ mod tests {
 
         assert!(
             run_external_command(cmd, &mut ctx, input, ExternalRedirection::Stdout)
-                .await
+                
                 .is_err()
         );
 
         Ok(())
     }
 
-    // async fn failure_run() -> Result<(), ShellError> {
+    // fn failure_run() -> Result<(), ShellError> {
     //     let cmd = ExternalBuilder::for_name("fail").build();
 
     //     let mut ctx = crate::cli::basic_evaluation_context().expect("There was a problem creating a basic context.");
     //     let stream = run_external_command(cmd, &mut ctx, None, false)
-    //         .await?
+    //         ?
     //         .expect("There was a problem running the external command.");
 
-    //     match read(stream.into()).await {
+    //     match read(stream.into()) {
     //         Some(Value {
     //             value: UntaggedValue::Error(_),
     //             ..

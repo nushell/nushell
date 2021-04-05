@@ -27,16 +27,16 @@ impl WholeStreamCommand for SubCommand {
         "Rolls the table rows"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        roll(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        roll(args)
     }
 }
 
-pub async fn roll(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn roll(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (args, mut input) = args.process().await?;
+    let (args, mut input) = args.process()?;
 
-    let values = input.drain_vec().await;
+    let values = input.drain_vec();
 
     Ok(futures::stream::iter(
         roll_up(values, &args)

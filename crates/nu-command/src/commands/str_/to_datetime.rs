@@ -88,8 +88,8 @@ impl WholeStreamCommand for SubCommand {
         "converts text into datetime"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        operate(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        operate(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -127,7 +127,7 @@ impl WholeStreamCommand for SubCommand {
 #[derive(Clone)]
 struct DatetimeFormat(String);
 
-async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let (
         Arguments {
             timezone,
@@ -136,7 +136,7 @@ async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
             rest,
         },
         input,
-    ) = args.process().await?;
+    ) = args.process()?;
 
     let column_paths: Vec<_> = rest;
 

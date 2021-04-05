@@ -65,7 +65,7 @@ impl WholeStreamCommand for Char {
         ]
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let (
             CharArgs {
                 name,
@@ -73,7 +73,7 @@ impl WholeStreamCommand for Char {
                 unicode,
             },
             _,
-        ) = args.process().await?;
+        ) = args.process()?;
 
         if unicode {
             if !rest.is_empty() {
