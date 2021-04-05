@@ -9,7 +9,10 @@ mod r#type;
 
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ColumnPath, Dictionary, MaybeOwned, Primitive, ReturnSuccess, ShellTypeName, UntaggedValue, Value};
+use nu_protocol::{
+    ColumnPath, Dictionary, MaybeOwned, Primitive, ReturnSuccess, ShellTypeName, UntaggedValue,
+    Value,
+};
 use nu_source::Span;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -35,7 +38,9 @@ trait PathSubcommandArguments {
 
 fn join_path(entries: &Dictionary) -> Result<PathBuf, ShellError> {
     if entries.length() == 0 {
-        return Err(ShellError::untagged_runtime_error("Empty rows are not allowed"));
+        return Err(ShellError::untagged_runtime_error(
+            "Empty rows are not allowed",
+        ));
     }
 
     //TODO: check out `get` error for wrong column:
@@ -96,17 +101,13 @@ where
     F: Fn(&Path, Tag, &T) -> Result<Value, ShellError> + Send + 'static,
 {
     match &v.value {
-        UntaggedValue::Primitive(Primitive::FilePath(buf)) => {
-            action(buf, v.tag(), &args)
-        }
-        UntaggedValue::Primitive(Primitive::String(s)) => {
-            action(s.as_ref(), v.tag(), &args)
-        }
+        UntaggedValue::Primitive(Primitive::FilePath(buf)) => action(buf, v.tag(), &args),
+        UntaggedValue::Primitive(Primitive::String(s)) => action(s.as_ref(), v.tag(), &args),
         UntaggedValue::Row(entries) => {
             // implicit join makes all subcommands understand the structured path
             let path_buf = join_path(entries)?;
             action(&path_buf, v.tag(), &args)
-        },
+        }
         other => {
             let got = format!("got {}", other.type_name());
             Err(ShellError::labeled_error_with_secondary(
