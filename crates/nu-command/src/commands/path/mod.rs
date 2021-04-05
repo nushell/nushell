@@ -28,9 +28,9 @@ pub use r#type::PathType;
 
 // columns of a structured path
 #[cfg(windows)]
-const ALLOWED_COLUMNS: [&'static str; 4] = ["prefix", "parent", "stem", "extension"];
+const ALLOWED_COLUMNS: [&str; 4] = ["prefix", "parent", "stem", "extension"];
 #[cfg(not(windows))]
-const ALLOWED_COLUMNS: [&'static str; 3] = ["parent", "stem", "extension"];
+const ALLOWED_COLUMNS: [&str; 3] = ["parent", "stem", "extension"];
 
 trait PathSubcommandArguments {
     fn get_column_paths(&self) -> &Vec<ColumnPath>;
