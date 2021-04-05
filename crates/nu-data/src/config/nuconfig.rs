@@ -65,6 +65,7 @@ impl NuConfig {
         })
     }
 
+    /// Writes self.values under self.file_path
     pub fn write(&self) -> Result<(), ShellError> {
         write(&self.vars, &Some(self.file_path.clone()))
     }
