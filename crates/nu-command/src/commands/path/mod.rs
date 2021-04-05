@@ -28,7 +28,6 @@ pub use parse::PathParse;
 pub use r#type::PathType;
 pub use split::PathSplit;
 
-// columns of a structured path
 #[cfg(windows)]
 const ALLOWED_COLUMNS: [&str; 4] = ["prefix", "parent", "stem", "extension"];
 #[cfg(not(windows))]
@@ -38,7 +37,7 @@ trait PathSubcommandArguments {
     fn get_column_paths(&self) -> &Vec<ColumnPath>;
 }
 
-fn join_path(entries: &Dictionary) -> Result<PathBuf, ShellError> {
+fn encode_path(entries: &Dictionary) -> Result<PathBuf, ShellError> {
     if entries.length() == 0 {
         return Err(ShellError::untagged_runtime_error(
             "Empty rows are not allowed",
@@ -97,6 +96,19 @@ fn join_path(entries: &Dictionary) -> Result<PathBuf, ShellError> {
     Ok(result)
 }
 
+fn join_path(parts: &[Value]) -> Result<PathBuf, ShellError> {
+    parts
+        .iter()
+        .map(|part| match &part.value {
+            UntaggedValue::Primitive(Primitive::String(s)) => Ok(Path::new(s)),
+            UntaggedValue::Primitive(Primitive::FilePath(pb)) => Ok(pb.as_path()),
+            _ => Err(ShellError::untagged_runtime_error(
+                "Cannot join path parts that are not paths or strings.",
+            )),
+        })
+        .collect()
+}
+
 fn handle_value<F, T>(action: &F, v: &Value, span: Span, args: Arc<T>) -> Result<Value, ShellError>
 where
     T: PathSubcommandArguments + Send + 'static,
@@ -106,14 +118,19 @@ where
         UntaggedValue::Primitive(Primitive::FilePath(buf)) => action(buf, v.tag(), &args),
         UntaggedValue::Primitive(Primitive::String(s)) => action(s.as_ref(), v.tag(), &args),
         UntaggedValue::Row(entries) => {
-            // implicit join makes all subcommands understand the structured path
-            let path_buf = join_path(entries)?;
+            // implicit path join makes all subcommands understand the structured path
+            let path_buf = encode_path(entries)?;
+            action(&path_buf, v.tag(), &args)
+        }
+        UntaggedValue::Table(parts) => {
+            // implicit path join makes all subcommands understand path split into parts
+            let path_buf = join_path(parts)?;
             action(&path_buf, v.tag(), &args)
         }
         other => {
             let got = format!("got {}", other.type_name());
             Err(ShellError::labeled_error_with_secondary(
-                "value is not string, path or a table with relevant columns",
+                "value is not string, path or table",
                 got,
                 span,
                 "originates from here".to_string(),
