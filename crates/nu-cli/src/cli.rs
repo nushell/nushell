@@ -173,7 +173,7 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
         let _ = configure_rustyline_editor(&mut rl, cfg);
         let helper = Some(nu_line_editor_helper(&context, cfg));
         rl.set_helper(helper);
-        nu_data::config::path::history_path(cfg)
+        nu_data::config::path::history_path_or_default(cfg)
     } else {
         nu_data::config::path::default_history_path()
     };
@@ -422,13 +422,6 @@ pub fn load_local_cfg_if_present(context: &EvaluationContext) {
 fn load_cfg_as_global_cfg(context: &EvaluationContext, path: PathBuf) {
     if let Err(err) = context.load_config(&ConfigPath::Global(path.clone())) {
         context.host.lock().print_err(err, &Text::from(""));
-    } else {
-        //TODO current commands assume to find path to global cfg file under config-path
-        //TODO use newly introduced nuconfig::file_path instead
-        context.scope.add_var(
-            "config-path",
-            UntaggedValue::filepath(path).into_untagged_value(),
-        );
     }
 }
 

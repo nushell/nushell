@@ -230,7 +230,7 @@ fn evaluate_literal(literal: &hir::Literal, span: Span) -> Value {
 
 fn evaluate_reference(name: &str, ctx: &EvaluationContext, tag: Tag) -> Result<Value, ShellError> {
     match name {
-        "$nu" => crate::evaluate::variables::nu(&ctx.scope, tag),
+        "$nu" => crate::evaluate::variables::nu(&ctx.scope, tag, ctx),
 
         "$scope" => crate::evaluate::variables::scope(&ctx.scope.get_aliases(), tag),
 
