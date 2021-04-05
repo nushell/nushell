@@ -283,7 +283,7 @@ impl Scope {
     pub fn update_frame_with_tag(
         &self,
         tag: &str,
-        cb: impl FnOnce(&mut ScopeFrame) -> (),
+        cb: impl FnOnce(&mut ScopeFrame),
     ) -> Result<(), ShellError> {
         let mut frames = self.frames.lock();
         let tag = Some(tag);
