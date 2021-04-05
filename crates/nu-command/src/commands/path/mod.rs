@@ -5,6 +5,7 @@ mod exists;
 mod expand;
 mod join;
 mod parse;
+mod split;
 mod r#type;
 
 use crate::prelude::*;
@@ -25,6 +26,7 @@ pub use expand::PathExpand;
 pub use join::PathJoin;
 pub use parse::PathParse;
 pub use r#type::PathType;
+pub use split::PathSplit;
 
 // columns of a structured path
 #[cfg(windows)]
