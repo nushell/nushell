@@ -10,7 +10,7 @@ pub struct PathJoin;
 
 #[derive(Deserialize)]
 struct PathJoinArguments {
-    path: Tagged<String>,
+    appendix: Option<Tagged<String>>,
     rest: Vec<ColumnPath>,
 }
 
@@ -27,18 +27,28 @@ impl WholeStreamCommand for PathJoin {
 
     fn signature(&self) -> Signature {
         Signature::build("path join")
-            .required("path", SyntaxShape::String, "Path to join the input path")
+            .named(
+                "appendix",
+                SyntaxShape::String,
+                "Path to append to the input",
+                Some('a'),
+            )
             .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
     }
 
     fn usage(&self) -> &str {
-        "Joins an input path with another path"
+        "Join a structured path or a list of path parts."
+    }
+
+    fn extra_usage(&self) -> &str {
+        "Optionally, append additional to the result. It is designed to accept the output of 'path
+parse' and 'path split' subdommands."
     }
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathJoinArguments { path, rest }, input) = args.process()?;
-        let args = Arc::new(PathJoinArguments { path, rest });
+        let (PathJoinArguments { appendix, rest }, input) = args.process()?;
+        let args = Arc::new(PathJoinArguments { rest, appendix });
         Ok(operate(input, &action, tag.span, args))
     }
 
@@ -46,7 +56,7 @@ impl WholeStreamCommand for PathJoin {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Append a filename to a path",
-            example: "echo 'C:\\Users\\viking' | path join spam.txt",
+            example: "echo 'C:\\Users\\viking' | path join -a spam.txt",
             result: Some(vec![Value::from(UntaggedValue::filepath(
                 "C:\\Users\\viking\\spam.txt",
             ))]),
@@ -57,7 +67,7 @@ impl WholeStreamCommand for PathJoin {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Append a filename to a path",
-            example: "echo '/home/viking' | path join spam.txt",
+            example: "echo '/home/viking' | path join -a spam.txt",
             result: Some(vec![Value::from(UntaggedValue::filepath(
                 "/home/viking/spam.txt",
             ))]),
@@ -67,7 +77,11 @@ impl WholeStreamCommand for PathJoin {
 
 #[allow(clippy::unnecessary_wraps)]
 fn action(path: &Path, tag: Tag, args: &PathJoinArguments) -> Result<Value, ShellError> {
-    Ok(UntaggedValue::filepath(path.join(&args.path.item)).into_value(tag))
+    if let Some(ref appendix) = args.appendix {
+        Ok(UntaggedValue::filepath(path.join(&appendix.item)).into_value(tag))
+    } else {
+        Ok(UntaggedValue::filepath(path).into_value(tag))
+    }
 }
 
 #[cfg(test)]

@@ -4,6 +4,8 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ColumnPath, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value};
 use std::path::Path;
+#[cfg(windows)]
+use std::path::Component;
 
 pub struct PathParse;
 
