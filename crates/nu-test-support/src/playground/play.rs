@@ -43,6 +43,10 @@ impl Dirs {
     pub fn formats(&self) -> PathBuf {
         self.fixtures.join("formats")
     }
+
+    pub fn config_fixtures(&self) -> PathBuf {
+        self.fixtures.join("playground/config")
+    }
 }
 
 impl<'a> Playground<'a> {

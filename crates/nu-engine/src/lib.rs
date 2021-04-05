@@ -39,7 +39,6 @@ pub use crate::filesystem::path;
 pub use crate::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
 pub use crate::print::maybe_print_errors;
 pub use crate::runnable_context::RunnableContext;
-pub use crate::shell::help_shell::{command_dict, HelpShell};
 pub use crate::shell::painter::Painter;
 pub use crate::shell::palette::{DefaultPalette, Palette};
 pub use crate::shell::shell_manager::ShellManager;

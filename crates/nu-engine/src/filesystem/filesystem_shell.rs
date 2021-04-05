@@ -57,6 +57,10 @@ impl Clone for FilesystemShell {
 }
 
 impl FilesystemShell {
+    fn is_cli(&self) -> bool {
+        matches!(&self.mode, FilesystemShellMode::Cli)
+    }
+
     pub fn basic(mode: FilesystemShellMode) -> Result<FilesystemShell, Error> {
         let path = match std::env::current_dir() {
             Ok(path) => path,
@@ -294,7 +298,7 @@ impl Shell for FilesystemShell {
 
         //Loading local configs in script mode, makes scripts behave different on different
         //filesystems and might therefore surprise users. That's why we only load them in cli mode.
-        if self.mode == FilesystemShellMode::Cli {
+        if self.is_cli() {
             match dunce::canonicalize(self.path()) {
                 Err(e) => {
                     let err = ShellError::untagged_runtime_error(format!(

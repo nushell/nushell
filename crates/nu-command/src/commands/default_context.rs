@@ -124,6 +124,8 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(IntoInt),
             whole_stream_command(SplitBy),
             // Row manipulation
+            whole_stream_command(All),
+            whole_stream_command(Any),
             whole_stream_command(Reverse),
             whole_stream_command(Append),
             whole_stream_command(Prepend),

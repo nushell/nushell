@@ -51,7 +51,7 @@ pub enum ErrorCode {
     /// Invalid number.
     InvalidNumber,
 
-    /// Invalid unicode code point.
+    /// Invalid Unicode code point.
     InvalidUnicodeCodePoint,
 
     /// Object key is not a string.
@@ -63,7 +63,7 @@ pub enum ErrorCode {
     /// JSON has non-whitespace trailing characters after the value.
     TrailingCharacters,
 
-    /// Unexpected end of hex excape.
+    /// Unexpected end of hex escape.
     UnexpectedEndOfHexEscape,
 
     /// Found a punctuator character when expecting a quoteless string.
@@ -87,7 +87,7 @@ impl fmt::Debug for ErrorCode {
             ErrorCode::ExpectedSomeValue => "expected value".fmt(f),
             ErrorCode::InvalidEscape => "invalid escape".fmt(f),
             ErrorCode::InvalidNumber => "invalid number".fmt(f),
-            ErrorCode::InvalidUnicodeCodePoint => "invalid unicode code point".fmt(f),
+            ErrorCode::InvalidUnicodeCodePoint => "invalid Unicode code point".fmt(f),
             ErrorCode::KeyMustBeAString => "key must be a string".fmt(f),
             ErrorCode::LoneLeadingSurrogateInHexEscape => {
                 "lone leading surrogate in hex escape".fmt(f)
@@ -105,7 +105,7 @@ impl fmt::Debug for ErrorCode {
 /// value into JSON.
 #[derive(Debug)]
 pub enum Error {
-    /// The JSON value had some syntatic error.
+    /// The JSON value had some syntactic error.
     Syntax(ErrorCode, usize, usize),
 
     /// Some IO error occurred when serializing or deserializing a value.

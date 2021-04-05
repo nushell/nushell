@@ -12,7 +12,7 @@ impl matchers::Matcher for Matcher {
 mod tests {
     use super::*;
 
-    // TODO: check some unicode matches if this becomes relevant
+    // TODO: check some Unicode matches if this becomes relevant
 
     // FIXME: could work exhaustively through ['-', '--'. ''] in a loop for each test
     #[test]

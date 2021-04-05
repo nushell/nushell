@@ -1,5 +1,6 @@
 # textview config
-The configuration for textview, which is used to autoview text files, uses [bat](https://docs.rs/bat/0.15.4/bat/struct.PrettyPrinter.html). The textview configurtion will **not** use any existing `bat` configuration you may have.
+
+The configuration for textview, which is used to autoview text files, uses [bat](https://docs.rs/bat/0.15.4/bat/struct.PrettyPrinter.html). The textview configuration will **not** use any existing `bat` configuration you may have.
 
 ## Configuration Points and Defaults
 
@@ -23,7 +24,7 @@ The configuration for textview, which is used to autoview text files, uses [bat]
 | highlight_range | Specify a range of lines that should be highlighted (default: none). This can be called multiple times to highlight more than one range of lines. | no |
 | theme | Specify the highlighting theme (default: OneHalfDark) | yes |
 
-## Example textview confguration for `config.toml`
+## Example textview configuration for `config.toml`
 
 ```toml
 [textview]
@@ -59,4 +60,4 @@ theme = "TwoDark"
 
 ## Help
 
-For a more detailed description of the configuration points that textview uses, please visit the `bat` repo at https://github.com/sharkdp/bat
+For a more detailed description of the configuration points that textview uses, please visit the `bat` repo at <https://github.com/sharkdp/bat>.

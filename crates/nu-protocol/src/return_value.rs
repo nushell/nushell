@@ -18,8 +18,6 @@ pub enum CommandAction {
     AutoConvert(Value, String),
     /// Enter a value shell, one that allows exploring inside of a Value
     EnterValueShell(Value),
-    /// Enter the help shell, which allows exploring the help system
-    EnterHelpShell(Value),
     /// Add plugins from path given
     AddPlugins(String),
     /// Unload the config specified by PathBuf if present
@@ -50,7 +48,6 @@ impl PrettyDebug for CommandAction {
                 DbgDocBldr::typed("enter shell", DbgDocBldr::description(s))
             }
             CommandAction::EnterValueShell(v) => DbgDocBldr::typed("enter value shell", v.pretty()),
-            CommandAction::EnterHelpShell(v) => DbgDocBldr::typed("enter help shell", v.pretty()),
             CommandAction::AddPlugins(..) => DbgDocBldr::description("add plugins"),
             CommandAction::PreviousShell => DbgDocBldr::description("previous shell"),
             CommandAction::NextShell => DbgDocBldr::description("next shell"),

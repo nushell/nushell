@@ -14,7 +14,7 @@ pub struct LocalConfigDiff {
 /// Every config seen while going down the filesystem (e.G. from `/foo/bar` to `/foo/bar`) is
 /// returned as a config to unload
 /// If both paths are unrelated to each other, (e.G. windows paths as: `C:/foo` and `D:/bar`)
-/// this function first walks `from` completly down the filesystem and then it walks up until `to`.
+/// this function first walks `from` completely down the filesystem and then it walks up until `to`.
 ///
 /// Both paths are required to be absolute.
 impl LocalConfigDiff {
@@ -35,7 +35,7 @@ impl LocalConfigDiff {
 
 ///Walks from the first parameter down the filesystem to the second parameter. Marking all
 ///configs found in directories on the way as to remove.
-///If to is None, this method walks from the first paramter down to the beginning of the
+///If to is None, this method walks from the first parameter down to the beginning of the
 ///filesystem
 ///Returns tuple of (configs to remove, errors from io).
 fn walk_down(
