@@ -6,11 +6,15 @@ use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, Remo
 use crate::shell::Shell;
 use crate::{command_args::EvaluatedWholeStreamCommandArgs, BufCodecReader};
 use encoding_rs::Encoding;
+#[cfg(windows)]
+use indexmap::IndexMap;
 use log::trace;
 use nu_data::config::LocalConfigDiff;
 use nu_protocol::{CommandAction, ConfigPath, TaggedDictBuilder, Value};
 use nu_source::{Span, Tag};
 use nu_stream::{Interruptible, OutputStream, ToOutputStream};
+#[cfg(windows)]
+use parking_lot::Mutex;
 use std::collections::VecDeque;
 use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
@@ -35,6 +39,8 @@ pub struct FilesystemShell {
     pub(crate) path: String,
     pub(crate) last_path: String,
     pub(crate) mode: FilesystemShellMode,
+    #[cfg(windows)]
+    pub(crate) windows_drives_previous_cwd: Arc<Mutex<IndexMap<String, String>>>,
 }
 
 impl std::fmt::Debug for FilesystemShell {
@@ -84,6 +90,45 @@ impl FilesystemShell {
             last_path,
             mode,
         })
+    }
+
+    fn get_previous_drive_location_if_shortcut(
+        &self,
+        #[allow(unused_variables)] path: &Path,
+    ) -> Option<PathBuf> {
+        #[cfg(windows)]
+        {
+            if name.ends_with(':') {
+                // This looks like a drive shortcut.
+                // We need to a) switch drives and b) go back to the previous directory
+                // we were viewing on that drive
+                //
+                // But first, we need to save where we are now
+                let current_path = self.path();
+
+                let split_path: Vec<_> = current_path.split(':').collect();
+                if split_path.len() > 1 {
+                    self.windows_drives_previous_cwd
+                        .insert(split_path[0].to_string(), current_path);
+                }
+
+                let name = name.to_uppercase();
+                let new_drive: Vec<_> = name.split(':').collect();
+
+                if let Some(val) = self.windows_drives_previous_cwd.get(new_drive[0]) {
+                    Some(PathBuf::from(val.to_string()))
+                } else {
+                    Some(PathBuf::from(format!("{}\\", name.to_string())))
+                }
+            } else {
+                None
+            }
+        }
+
+        #[cfg(not(windows))]
+        {
+            None
+        }
     }
 }
 
@@ -242,6 +287,10 @@ impl Shell for FilesystemShell {
                 let Tagged { item: target, tag } = v;
                 if target == Path::new("-") {
                     PathBuf::from(&self.last_path)
+                } else if let Some(previous_drive_cwd) =
+                    self.get_previous_drive_location_if_shortcut(&target)
+                {
+                    previous_drive_cwd
                 } else {
                     let path = canonicalize(self.path(), target).map_err(|_| {
                         ShellError::labeled_error(

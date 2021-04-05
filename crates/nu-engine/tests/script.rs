@@ -24,7 +24,7 @@ mod test {
             whole_stream_command(Echo {}),
             whole_stream_command(Def {}),
             whole_stream_command(Autoview {}),
-            whole_stream_command(RunExternalCommand { interactive: true }),
+            whole_stream_command(RunExternalCommand),
             whole_stream_command(Ls {}),
             whole_stream_command(Autoenv {}),
             whole_stream_command(AutoenvTrust {}),

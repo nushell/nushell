@@ -172,7 +172,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
 
         None => {
-            let context = create_default_context(FilesystemShellMode::Cli, true)?;
+            let context = create_default_context(FilesystemShellMode::Cli)?;
 
             if !matches.is_present("skip-plugins") {
                 let _ = nu_cli::register_plugins(&context);

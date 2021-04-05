@@ -2,7 +2,7 @@ use nu_source::Tagged;
 use serde::{self, Deserialize};
 use std::path::PathBuf;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct CdArgs {
     pub path: Option<Tagged<PathBuf>>,
 }

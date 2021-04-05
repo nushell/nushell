@@ -22,9 +22,6 @@ pub struct EvaluationContext {
     pub ctrl_c: Arc<AtomicBool>,
     pub configs: Arc<Mutex<ConfigHolder>>,
     pub shell_manager: ShellManager,
-
-    /// Windows-specific: keep track of previous cwd on each drive
-    pub windows_drives_previous_cwd: Arc<Mutex<std::collections::HashMap<String, String>>>,
 }
 
 impl EvaluationContext {
@@ -36,7 +33,6 @@ impl EvaluationContext {
             ctrl_c: args.ctrl_c.clone(),
             configs: args.configs.clone(),
             shell_manager: args.shell_manager.clone(),
-            windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
         }
     }
 

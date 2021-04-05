@@ -33,6 +33,73 @@ fn picks_up_env_keys_when_entering_trusted_directory() {
     })
 }
 
+#[cfg(feature = "directories-support")]
+#[cfg(feature = "which-support")]
+#[test]
+#[serial]
+fn picks_up_and_lets_go_env_keys_when_entering_trusted_directory_with_implied_cd() {
+    use nu_test_support::fs::Stub::FileWithContent;
+    Playground::setup("autoenv_test", |dirs, sandbox| {
+        sandbox.mkdir("foo");
+        sandbox.mkdir("foo/bar");
+        sandbox.with_files(vec![
+            FileWithContent(
+                "foo/.nu-env",
+                r#"[env]
+               testkey = "testvalue"
+                "#,
+            ),
+            FileWithContent(
+                "foo/bar/.nu-env",
+                r#"
+                [env]
+               bar = "true"
+                "#,
+            ),
+        ]);
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"
+            do {autoenv trust foo ; = $nothing }
+            foo
+            echo $nu.env.testkey"#
+        );
+        assert_eq!(actual.out, "testvalue");
+        //Assert testkey is gone when leaving foo
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"
+            do {autoenv trust foo; = $nothing } ;
+            foo
+            ..
+            echo $nu.env.testkey
+            "#
+        );
+        assert!(actual.err.contains("Unknown"));
+        //Assert testkey is present also when jumping over foo
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"
+            do {autoenv trust foo; = $nothing } ;
+            do {autoenv trust foo/bar; = $nothing } ;
+            foo/bar
+            echo $nu.env.testkey
+            echo $nu.env.bar
+            "#
+        );
+        assert_eq!(actual.out, "testvaluetrue");
+        //Assert bar removed after leaving bar
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"autoenv trust foo;
+               foo/bar
+               ../..
+               echo $nu.env.bar"#
+        );
+        assert!(actual.err.contains("Unknown"));
+    });
+}
+
 #[test]
 #[serial]
 #[ignore]

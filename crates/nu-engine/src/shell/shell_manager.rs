@@ -1,6 +1,8 @@
 use crate::shell::Shell;
 use crate::{command_args::EvaluatedWholeStreamCommandArgs, FilesystemShell};
 use crate::{filesystem::filesystem_shell::FilesystemShellMode, maybe_text_codec::StringOrBinary};
+#[cfg(windows)]
+use indexmap::IndexMap;
 use nu_stream::OutputStream;
 
 use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
@@ -16,13 +18,19 @@ use std::sync::Arc;
 pub struct ShellManager {
     pub current_shell: Arc<AtomicUsize>,
     pub shells: Arc<Mutex<Vec<Box<dyn Shell + Send>>>>,
+
+    /// Windows-specific: keep track of previous cwd on each drive across fs_shell instances
+    #[cfg(windows)]
+    windows_drives_previous_cwd: Arc<Mutex<IndexMap<String, String>>>,
 }
 
 impl ShellManager {
     /// Enters script mode at the current location
     pub fn enter_script_mode(&self) -> Result<(), std::io::Error> {
         //New fs_shell starting from current path
-        let fs_shell = FilesystemShell::with_location(self.path(), FilesystemShellMode::Script)?;
+        let mut fs_shell =
+            FilesystemShell::with_location(self.path(), FilesystemShellMode::Script)?;
+        self.add_windows_drives_previous_cwd_to_shell(&mut fs_shell);
         self.shells.lock().push(Box::new(fs_shell));
         self.current_shell
             .store(self.shells.lock().len() - 1, Ordering::SeqCst);
@@ -32,7 +40,8 @@ impl ShellManager {
     /// Enters cli mode at the current location
     pub fn enter_cli_mode(&self) -> Result<(), std::io::Error> {
         //New fs_shell starting from current path
-        let fs_shell = FilesystemShell::with_location(self.path(), FilesystemShellMode::Cli)?;
+        let mut fs_shell = FilesystemShell::with_location(self.path(), FilesystemShellMode::Cli)?;
+        self.add_windows_drives_previous_cwd_to_shell(&mut fs_shell);
         self.shells.lock().push(Box::new(fs_shell));
         self.current_shell
             .store(self.shells.lock().len() - 1, Ordering::SeqCst);
@@ -44,6 +53,13 @@ impl ShellManager {
         self.current_shell
             .store(self.shells.lock().len() - 1, Ordering::SeqCst);
         self.set_path(self.path());
+    }
+
+    fn add_windows_drives_previous_cwd_to_shell(&self, _fs_shell: &mut FilesystemShell) {
+        #[cfg(windows)]
+        {
+            _fs_shell.windows_drives_previous_cwd = self.windows_drives_previous_cwd.clone();
+        }
     }
 
     pub fn current_shell(&self) -> usize {

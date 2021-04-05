@@ -5,7 +5,6 @@ use std::error::Error;
 
 pub fn create_default_context(
     mode: FilesystemShellMode,
-    interactive: bool,
 ) -> Result<EvaluationContext, Box<dyn Error>> {
     let context = basic_evaluation_context(mode)?;
 
@@ -223,7 +222,7 @@ pub fn create_default_context(
             whole_stream_command(FromIcs),
             whole_stream_command(FromVcf),
             // "Private" commands (not intended to be accessed directly)
-            whole_stream_command(RunExternalCommand { interactive }),
+            whole_stream_command(RunExternalCommand),
             // Random value generation
             whole_stream_command(Random),
             whole_stream_command(RandomBool),

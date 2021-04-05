@@ -15,8 +15,8 @@ use nu_stream::{InputStream, ToInputStream};
 use crate::EvaluationContext;
 use log::{debug, trace};
 use nu_source::{Span, Tag, Text};
-use std::io::BufReader;
 use std::path::Path;
+use std::{io::BufReader, sync::Arc};
 use std::{iter::Iterator, sync::atomic::Ordering};
 
 #[derive(Debug)]
@@ -150,7 +150,7 @@ pub fn process_script(
     } else {
         let line = chomp_newline(script_text);
 
-        let (block, err) = nu_parser::parse(&line, options.span_offset, &ctx.scope);
+        let (mut block, err) = nu_parser::parse(&line, options.span_offset, &ctx.scope);
 
         debug!("{:#?}", block);
         //println!("{:#?}", pipeline);
@@ -171,25 +171,30 @@ pub fn process_script(
             && block.block[0].pipelines[0].list.len() == 1
         {
             if let ClassifiedCommand::Internal(InternalCommand {
-                ref name, ref args, ..
-            }) = block.block[0].pipelines[0].list[0]
+                ref mut name,
+                ref args,
+                ..
+            }) = Arc::get_mut(&mut block)
+                .expect("Block is not cloned by someone else!")
+                .block[0]
+                .pipelines[0]
+                .list[0]
             {
-                let internal_name = name;
-                let name = args
+                let dir = args
                     .positional
                     .as_ref()
                     .and_then(|positionals| {
                         positionals.get(0).map(|e| {
                             if let Expression::Literal(Literal::String(ref s)) = e.expr {
-                                &s
+                                s.clone()
                             } else {
-                                ""
+                                "".to_string()
                             }
                         })
                     })
-                    .unwrap_or("");
+                    .unwrap_or_else(String::new);
 
-                if internal_name == "run_external"
+                if name == "run_external"
                     && args
                         .positional
                         .as_ref()
@@ -200,48 +205,13 @@ pub fn process_script(
                         .as_ref()
                         .map(NamedArguments::is_empty)
                         .unwrap_or(true)
-                    && canonicalize(ctx.shell_manager.path(), name).is_ok()
-                    && Path::new(&name).is_dir()
-                    && !ctx.host.lock().is_external_cmd(&name)
+                    && canonicalize(ctx.shell_manager.path(), &dir).is_ok()
+                    && Path::new(&dir).is_dir()
+                    && !ctx.host.lock().is_external_cmd(&dir)
                 {
-                    // Here we work differently if we're in Windows because of the expected Windows behavior
-                    #[cfg(windows)]
-                    {
-                        if name.ends_with(':') {
-                            // This looks like a drive shortcut. We need to a) switch drives and b) go back to the previous directory we were viewing on that drive
-                            // But first, we need to save where we are now
-                            let current_path = ctx.shell_manager.path();
-
-                            let split_path: Vec<_> = current_path.split(':').collect();
-                            if split_path.len() > 1 {
-                                ctx.windows_drives_previous_cwd
-                                    .lock()
-                                    .insert(split_path[0].to_string(), current_path);
-                            }
-
-                            let name = name.to_uppercase();
-                            let new_drive: Vec<_> = name.split(':').collect();
-
-                            if let Some(val) =
-                                ctx.windows_drives_previous_cwd.lock().get(new_drive[0])
-                            {
-                                ctx.shell_manager.set_path(val.to_string());
-                                return LineResult::Success(line.to_string());
-                            } else {
-                                ctx.shell_manager
-                                    .set_path(format!("{}\\", name.to_string()));
-                                return LineResult::Success(line.to_string());
-                            }
-                        } else {
-                            ctx.shell_manager.set_path(name.to_string());
-                            return LineResult::Success(line.to_string());
-                        }
-                    }
-                    #[cfg(not(windows))]
-                    {
-                        ctx.shell_manager.set_path(name.to_string());
-                        return LineResult::Success(line.to_string());
-                    }
+                    // Change block InternalCommand name from run_external to cd
+                    // This will run internal cd command after this if
+                    *name = "cd".to_string();
                 }
             }
         }

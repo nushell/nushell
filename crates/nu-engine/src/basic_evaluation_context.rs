@@ -23,6 +23,5 @@ pub fn basic_evaluation_context(
         ctrl_c: Arc::new(AtomicBool::new(false)),
         configs: Arc::new(Mutex::new(ConfigHolder::new())),
         shell_manager: basic_shell_manager::basic_shell_manager(mode)?,
-        windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
     })
 }

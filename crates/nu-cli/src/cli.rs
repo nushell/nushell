@@ -94,7 +94,7 @@ pub fn run_script_file(
     options: Options,
     run_options: RunScriptOptions,
 ) -> Result<(), Box<dyn Error>> {
-    let context = create_default_context(FilesystemShellMode::Script, false)?;
+    let context = create_default_context(FilesystemShellMode::Script)?;
 
     if let Some(cfg) = options.config {
         load_cfg_as_global_cfg(&context, PathBuf::from(cfg));
