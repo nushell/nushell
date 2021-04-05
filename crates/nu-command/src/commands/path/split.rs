@@ -45,12 +45,12 @@ impl WholeStreamCommand for PathSplit {
         vec![Example {
             description: "Split a path into parts",
             example: r"echo 'C:\Users\viking\spam.txt' | path split",
-            result: Some(vec![
+            result: Some(vec![Value::from(UntaggedValue::table(&[
                 Value::from(UntaggedValue::string("C:")),
                 Value::from(UntaggedValue::string("Users")),
                 Value::from(UntaggedValue::string("viking")),
                 Value::from(UntaggedValue::string("spam.txt")),
-            ]),
+            ]))]),
         }]
     }
 
@@ -59,12 +59,12 @@ impl WholeStreamCommand for PathSplit {
         vec![Example {
             description: "Split a path into parts",
             example: r"echo '/home/viking/spam.txt' | path split",
-            result: Some(vec![
+            result: Some(vec![Value::from(UntaggedValue::table(&[
                 Value::from(UntaggedValue::string("/")),
                 Value::from(UntaggedValue::string("home")),
                 Value::from(UntaggedValue::string("viking")),
                 Value::from(UntaggedValue::string("spam.txt")),
-            ]),
+            ]))]),
         }]
     }
 }
