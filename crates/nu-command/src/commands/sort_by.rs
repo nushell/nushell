@@ -130,7 +130,7 @@ fn sort_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
         vec.reverse()
     }
 
-    Ok(futures::stream::iter(vec.into_iter()).to_output_stream())
+    Ok((vec.into_iter()).to_output_stream())
 }
 
 pub fn sort(

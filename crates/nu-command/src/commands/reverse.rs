@@ -42,7 +42,7 @@ fn reverse(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let (input, _args) = args.parts();
 
     let input = input.collect::<Vec<_>>();
-    Ok(futures::stream::iter(input.into_iter().rev().map(ReturnSuccess::value)).to_output_stream())
+    Ok((input.into_iter().rev().map(ReturnSuccess::value)).to_output_stream())
 }
 
 #[cfg(test)]

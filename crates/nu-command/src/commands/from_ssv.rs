@@ -273,9 +273,10 @@ fn from_ssv(args: CommandArgs) -> Result<OutputStream, ShellError> {
             Value {
                 value: UntaggedValue::Table(list),
                 ..
-            } => {
-                futures::stream::iter(list.into_iter().map(ReturnSuccess::value)).to_output_stream()
-            }
+            } => list
+                .into_iter()
+                .map(ReturnSuccess::value)
+                .to_output_stream(),
             x => OutputStream::one(ReturnSuccess::value(x)),
         },
     )

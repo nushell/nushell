@@ -57,7 +57,7 @@ pub fn roll(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     Ok(input
         .map(move |value| {
-            futures::stream::iter({
+            ({
                 let tag = value.tag();
 
                 roll_by(value, &args)

@@ -317,5 +317,5 @@ fn print_seq(
         .lines()
         .map(|v| v.to_str_value_create_tag())
         .collect();
-    futures::stream::iter(rows.into_iter().map(ReturnSuccess::value)).to_output_stream()
+    (rows.into_iter().map(ReturnSuccess::value)).to_output_stream()
 }

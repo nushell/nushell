@@ -95,7 +95,7 @@ pub fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     }
 
-    Ok(futures::stream::iter(parsed).to_output_stream())
+    Ok(parsed.into_iter().to_output_stream())
 }
 
 fn build_regex(input: &str, tag: Tag) -> Result<String, ShellError> {

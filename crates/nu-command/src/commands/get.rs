@@ -63,17 +63,19 @@ pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         let descs = nu_protocol::merge_descriptors(&vec);
 
-        Ok(futures::stream::iter(descs.into_iter().map(ReturnSuccess::value)).to_output_stream())
+        Ok(descs
+            .into_iter()
+            .map(ReturnSuccess::value)
+            .to_output_stream())
     } else {
         trace!("get {:?}", column_paths);
         let output_stream = input
             .map(move |item| {
-                let output = column_paths
+                column_paths
                     .iter()
                     .map(move |path| get_output(&item, path))
                     .flatten()
-                    .collect::<Vec<_>>();
-                futures::stream::iter(output)
+                    .collect::<Vec<_>>()
             })
             .flatten()
             .to_output_stream();

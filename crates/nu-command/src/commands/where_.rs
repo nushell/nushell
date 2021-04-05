@@ -101,24 +101,22 @@ fn where_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
             ctx.scope.add_vars(&block.captured.entries);
             ctx.scope.add_var("$it", input.clone());
 
-            async move {
-                //FIXME: should we use the scope that's brought in as well?
-                let condition = evaluate_baseline_expr(&condition, &*ctx);
-                ctx.scope.exit_scope();
+            //FIXME: should we use the scope that's brought in as well?
+            let condition = evaluate_baseline_expr(&condition, &*ctx);
+            ctx.scope.exit_scope();
 
-                match condition {
-                    Ok(condition) => match condition.as_bool() {
-                        Ok(b) => {
-                            if b {
-                                Some(Ok(ReturnSuccess::Value(input)))
-                            } else {
-                                None
-                            }
+            match condition {
+                Ok(condition) => match condition.as_bool() {
+                    Ok(b) => {
+                        if b {
+                            Some(Ok(ReturnSuccess::Value(input)))
+                        } else {
+                            None
                         }
-                        Err(e) => Some(Err(e)),
-                    },
+                    }
                     Err(e) => Some(Err(e)),
-                }
+                },
+                Err(e) => Some(Err(e)),
             }
         })
         .to_output_stream())

@@ -90,22 +90,18 @@ fn is_empty(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let default_block = Arc::new(default_block);
 
     if input.is_empty() {
-        let stream = futures::stream::iter(vec![
-            UntaggedValue::Primitive(Primitive::Nothing).into_value(tag)
-        ]);
+        let stream = vec![UntaggedValue::Primitive(Primitive::Nothing).into_value(tag)].into_iter();
 
         return Ok(InputStream::from_stream(stream)
-            .then(move |input| {
+            .map(move |input| {
                 let tag = name_tag.clone();
                 let context = context.clone();
                 let block = default_block.clone();
                 let columns = vec![];
 
-                async {
-                    match process_row(context, input, block, columns, tag) {
-                        Ok(s) => s,
-                        Err(e) => OutputStream::one(Err(e)),
-                    }
+                match process_row(context, input, block, columns, tag) {
+                    Ok(s) => s,
+                    Err(e) => OutputStream::one(Err(e)),
                 }
             })
             .flatten()
@@ -113,17 +109,15 @@ fn is_empty(args: CommandArgs) -> Result<OutputStream, ShellError> {
     }
 
     Ok(input
-        .then(move |input| {
+        .map(move |input| {
             let tag = name_tag.clone();
             let context = context.clone();
             let block = default_block.clone();
             let columns = columns.clone();
 
-            async {
-                match process_row(context, input, block, columns, tag) {
-                    Ok(s) => s,
-                    Err(e) => OutputStream::one(Err(e)),
-                }
+            match process_row(context, input, block, columns, tag) {
+                Ok(s) => s,
+                Err(e) => OutputStream::one(Err(e)),
             }
         })
         .flatten()
@@ -143,7 +137,7 @@ fn process_row(
 
     if let Some(default_block) = &*default_block {
         let for_block = input.clone();
-        let input_stream = once(async { Ok(for_block) }).to_input_stream();
+        let input_stream = vec![Ok(for_block)].into_iter().to_input_stream();
 
         context.scope.enter_scope();
         context.scope.add_vars(&default_block.captured.entries);

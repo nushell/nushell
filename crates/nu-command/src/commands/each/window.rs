@@ -57,8 +57,7 @@ impl WholeStreamCommand for EachWindow {
         let mut window: Vec<_> = input
             .by_ref()
             .take(*each_args.window_size - 1)
-            .collect::<Vec<_>>()
-            ;
+            .collect::<Vec<_>>();
 
         // `window` must start with dummy values, which will be removed on the first iteration
         let stride = each_args.stride.map(|x| *x).unwrap_or(1);
@@ -66,7 +65,7 @@ impl WholeStreamCommand for EachWindow {
 
         Ok(input
             .enumerate()
-            .then(move |(i, input)| {
+            .map(move |(i, input)| {
                 // This would probably be more efficient if `last` was a VecDeque
                 // But we can't have that because it needs to be put into a Table
                 window.remove(0);
@@ -76,15 +75,13 @@ impl WholeStreamCommand for EachWindow {
                 let context = context.clone();
                 let local_window = window.clone();
 
-                async move {
-                    if i % stride == 0 {
-                        Some(run_block_on_vec(local_window, block, context))
-                    } else {
-                        None
-                    }
+                if i % stride == 0 {
+                    Some(run_block_on_vec(local_window, block, context))
+                } else {
+                    None
                 }
             })
-            .filter_map(|x| async { x })
+            .filter_map(|x| x)
             .flatten()
             .to_output_stream())
     }

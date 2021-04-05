@@ -137,8 +137,9 @@ macro_rules! entry_path {
 
 #[cfg(feature = "ichwh")]
 fn get_first_entry_in_path(item: &str, tag: Tag) -> Option<Value> {
-    ichwh::which(item)
-        
+    use futures::executor::block_on;
+
+    block_on(ichwh::which(item))
         .unwrap_or(None)
         .map(|path| entry_path!(item, path.into(), tag))
 }
@@ -150,8 +151,9 @@ fn get_first_entry_in_path(_: &str, _: Tag) -> Option<Value> {
 
 #[cfg(feature = "ichwh")]
 fn get_all_entries_in_path(item: &str, tag: Tag) -> Vec<Value> {
-    ichwh::which_all(&item)
-        
+    use futures::executor::block_on;
+
+    block_on(ichwh::which_all(&item))
         .unwrap_or_default()
         .into_iter()
         .map(|path| entry_path!(item, path.into(), tag.clone()))
@@ -197,8 +199,7 @@ fn which_single(application: Tagged<String>, all: bool, scope: &Scope) -> Vec<Va
             return output;
         }
         (false, true) => {
-            if let Some(entry) = get_first_entry_in_path(&prog_name, application.tag.clone())
-            {
+            if let Some(entry) = get_first_entry_in_path(&prog_name, application.tag.clone()) {
                 return vec![entry];
             }
             return vec![];
@@ -207,8 +208,7 @@ fn which_single(application: Tagged<String>, all: bool, scope: &Scope) -> Vec<Va
             let nu_entries = get_entries_in_nu(scope, &prog_name, application.tag.clone(), true);
             if !nu_entries.is_empty() {
                 return vec![nu_entries[0].clone()];
-            } else if let Some(entry) =
-                get_first_entry_in_path(&prog_name, application.tag.clone())
+            } else if let Some(entry) = get_first_entry_in_path(&prog_name, application.tag.clone())
             {
                 return vec![entry];
             }
@@ -236,7 +236,7 @@ fn which(args: CommandArgs) -> Result<OutputStream, ShellError> {
         output.extend(values);
     }
 
-    Ok(futures::stream::iter(output.into_iter().map(ReturnSuccess::value)).to_output_stream())
+    Ok((output.into_iter().map(ReturnSuccess::value)).to_output_stream())
 }
 
 #[cfg(test)]

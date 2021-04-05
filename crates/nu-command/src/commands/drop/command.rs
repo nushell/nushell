@@ -62,7 +62,7 @@ fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
     };
 
     Ok(if rows_to_drop == 0 {
-        futures::stream::iter(v).to_output_stream()
+        v.into_iter().to_output_stream()
     } else {
         let k = if v.len() < rows_to_drop {
             0
@@ -72,6 +72,6 @@ fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         let iter = v.into_iter().take(k);
 
-        futures::stream::iter(iter).to_output_stream()
+        iter.to_output_stream()
     })
 }

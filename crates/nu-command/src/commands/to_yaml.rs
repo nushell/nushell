@@ -133,7 +133,7 @@ fn to_yaml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     };
 
     Ok(
-        futures::stream::iter(to_process_input.into_iter().map(move |value| {
+        (to_process_input.into_iter().map(move |value| {
             let value_span = value.tag.span;
 
             match value_to_yaml_value(&value) {

@@ -154,7 +154,7 @@ fn help(args: CommandArgs) -> Result<OutputStream, ShellError> {
                         ReturnSuccess::value(short_desc.into_value())
                     });
 
-            Ok(futures::stream::iter(iterator).to_output_stream())
+            Ok(iterator.to_output_stream())
         } else if rest[0].item == "generate_docs" {
             Ok(OutputStream::one(ReturnSuccess::value(generate_docs(
                 &scope,

@@ -48,7 +48,7 @@ impl WholeStreamCommand for Prepend {
 fn prepend(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let (PrependArgs { row }, input) = args.process()?;
 
-    let bos = futures::stream::iter(vec![row]);
+    let bos = vec![row].into_iter();
 
     Ok(bos.chain(input).to_output_stream())
 }

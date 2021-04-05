@@ -4,7 +4,9 @@ use ical::parser::vcard::component::*;
 use ical::property::Property;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
+use nu_protocol::{
+    Primitive, ReturnSuccess, ReturnValue, Signature, TaggedDictBuilder, UntaggedValue, Value,
+};
 
 pub struct FromVcf;
 
@@ -45,7 +47,9 @@ fn from_vcf(args: CommandArgs) -> Result<OutputStream, ShellError> {
         )),
     });
 
-    Ok(futures::stream::iter(iter).to_output_stream())
+    let collected: Vec<_> = iter.collect();
+
+    Ok(collected.into_iter().to_output_stream())
 }
 
 fn contact_to_value(contact: VcardContact, tag: Tag) -> Value {

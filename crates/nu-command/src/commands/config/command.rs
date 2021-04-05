@@ -25,17 +25,17 @@ impl WholeStreamCommand for Command {
 
         if let Some(global_cfg) = &args.configs.lock().global_config {
             let result = global_cfg.vars.clone();
-            Ok(futures::stream::iter(vec![ReturnSuccess::value(
+            Ok(vec![ReturnSuccess::value(
                 UntaggedValue::Row(result.into()).into_value(name),
-            )])
+            )]
+            .into_iter()
             .to_output_stream())
         } else {
-            Ok(
-                futures::stream::iter(vec![ReturnSuccess::value(UntaggedValue::Error(
-                    ShellError::untagged_runtime_error("No global config found!"),
-                ))])
-                .to_output_stream(),
-            )
+            Ok(vec![ReturnSuccess::value(UntaggedValue::Error(
+                ShellError::untagged_runtime_error("No global config found!"),
+            ))]
+            .into_iter()
+            .to_output_stream())
         }
     }
 }

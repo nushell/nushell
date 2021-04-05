@@ -130,7 +130,7 @@ fn du(args: CommandArgs) -> Result<OutputStream, ShellError> {
         all,
     };
 
-    let inp = futures::stream::iter(paths);
+    let inp = paths.into_iter();
 
     Ok(inp
         .flat_map(move |path| match path {
@@ -145,9 +145,9 @@ fn du(args: CommandArgs) -> Result<OutputStream, ShellError> {
                         output.push(Ok(ReturnSuccess::Value(v.into())));
                     }
                 }
-                futures::stream::iter(output)
+                output
             }
-            Err(e) => futures::stream::iter(vec![Err(e)]),
+            Err(e) => vec![Err(e)],
         })
         .interruptible(ctrl_c_copy)
         .to_output_stream())

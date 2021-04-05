@@ -1,16 +1,14 @@
 use crate::futures::ThreadedReceiver;
 use crate::prelude::*;
-use nu_engine::evaluate_baseline_expr;
+use nu_engine::{evaluate_baseline_expr, BufCodecReader};
 use nu_engine::{MaybeTextCodec, StringOrBinary};
 
-use std::borrow::Cow;
 use std::io::Write;
 use std::ops::Deref;
 use std::process::{Command, Stdio};
 use std::sync::mpsc;
+use std::{borrow::Cow, io::BufReader};
 
-use futures::executor::block_on_stream;
-use futures_codec::FramedRead;
 use log::trace;
 
 use nu_errors::ShellError;
@@ -136,7 +134,7 @@ fn spawn(
     command: &ExternalCommand,
     path: &str,
     args: &[String],
-    input: InputStream,
+    mut input: InputStream,
     external_redirection: ExternalRedirection,
     scope: &Scope,
 ) -> Result<InputStream, ShellError> {
@@ -216,7 +214,7 @@ fn spawn(
                     .take()
                     .expect("Internal error: could not get stdin pipe for external command");
 
-                for value in block_on_stream(input) {
+                for value in input {
                     match &value.value {
                         UntaggedValue::Primitive(Primitive::Nothing) => continue,
                         UntaggedValue::Primitive(Primitive::String(s)) => {
@@ -271,10 +269,12 @@ fn spawn(
                     return Err(());
                 };
 
-                let file = futures::io::AllowStdIo::new(stdout);
-                let stream = FramedRead::new(file, MaybeTextCodec::default());
+                // let file = futures::io::AllowStdIo::new(stdout);
+                // let stream = FramedRead::new(file, MaybeTextCodec::default());
+                let buf_read = BufReader::new(stdout);
+                let mut buf_codec = BufCodecReader::new(buf_read, MaybeTextCodec::default());
 
-                for line in block_on_stream(stream) {
+                for line in buf_codec {
                     match line {
                         Ok(line) => match line {
                             StringOrBinary::String(s) => {
@@ -342,10 +342,12 @@ fn spawn(
                     return Err(());
                 };
 
-                let file = futures::io::AllowStdIo::new(stderr);
-                let stream = FramedRead::new(file, MaybeTextCodec::default());
+                // let file = futures::io::AllowStdIo::new(stderr);
+                // let stream = FramedRead::new(file, MaybeTextCodec::default());
+                let buf_reader = BufReader::new(stderr);
+                let buf_codec = BufCodecReader::new(buf_reader, MaybeTextCodec::default());
 
-                for line in block_on_stream(stream) {
+                for line in buf_codec {
                     match line {
                         Ok(line) => match line {
                             StringOrBinary::String(s) => {
@@ -504,8 +506,6 @@ mod tests {
     use super::{run_external_command, InputStream};
 
     #[cfg(feature = "which")]
-    use futures::executor::block_on;
-    #[cfg(feature = "which")]
     use nu_engine::basic_evaluation_context;
     #[cfg(feature = "which")]
     use nu_errors::ShellError;
@@ -565,7 +565,7 @@ mod tests {
     #[cfg(feature = "which")]
     #[test]
     fn identifies_command_not_found() -> Result<(), ShellError> {
-        block_on(non_existent_run())
+        non_existent_run()
     }
 
     #[test]

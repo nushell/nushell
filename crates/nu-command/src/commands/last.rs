@@ -70,7 +70,7 @@ fn last(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let iter = v.into_iter().skip(beginning_rows_to_skip);
 
-    Ok(futures::stream::iter(iter).to_output_stream())
+    Ok((iter).to_output_stream())
 }
 
 #[cfg(test)]

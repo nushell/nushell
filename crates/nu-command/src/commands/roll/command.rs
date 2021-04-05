@@ -37,12 +37,10 @@ pub fn roll(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let values = input.drain_vec();
 
-    Ok(futures::stream::iter(
-        roll_down(values, &args)
-            .unwrap_or_else(|| vec![UntaggedValue::nothing().into_value(&name)])
-            .into_iter()
-            .map(ReturnSuccess::value),
-    )
+    Ok((roll_down(values, &args)
+        .unwrap_or_else(|| vec![UntaggedValue::nothing().into_value(&name)])
+        .into_iter()
+        .map(ReturnSuccess::value))
     .to_output_stream())
 }
 

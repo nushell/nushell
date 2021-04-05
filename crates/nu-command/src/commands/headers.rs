@@ -76,8 +76,10 @@ pub fn headers(args: CommandArgs) -> Result<OutputStream, ShellError> {
         )),
     }?;
 
-    Ok(
-        futures::stream::iter(rows.into_iter().skip(1).map(move |r| {
+    Ok(rows
+        .into_iter()
+        .skip(1)
+        .map(move |r| {
             //Each row is a dictionary with the headers as keys
             match &r.value {
                 UntaggedValue::Row(d) => {
@@ -99,9 +101,8 @@ pub fn headers(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     r.tag.span,
                 )),
             }
-        }))
-        .to_output_stream(),
-    )
+        })
+        .to_output_stream())
 }
 
 #[cfg(test)]

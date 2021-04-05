@@ -836,9 +836,7 @@ impl Shell for FilesystemShell {
             let buf_reader = BufReader::new(f);
             let buf_codec = BufCodecReader::new(buf_reader, MaybeTextCodec::new(with_encoding));
 
-            let sob_stream = buf_codec.into_iter();
-
-            Ok(Box::new(sob_stream))
+            Ok(Box::new(buf_codec))
         }
     }
 

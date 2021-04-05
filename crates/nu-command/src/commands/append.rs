@@ -47,13 +47,11 @@ impl WholeStreamCommand for Command {
             }
         }
 
-        Ok(futures::stream::iter(
-            input
-                .into_iter()
-                .chain(vec![value])
-                .map(ReturnSuccess::value),
-        )
-        .to_output_stream())
+        Ok(input
+            .into_iter()
+            .chain(vec![value])
+            .map(ReturnSuccess::value)
+            .to_output_stream())
     }
 
     fn examples(&self) -> Vec<Example> {

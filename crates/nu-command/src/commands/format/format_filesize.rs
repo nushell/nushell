@@ -96,15 +96,13 @@ fn filesize(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let field = Arc::new(field);
 
     Ok(input
-        .then(move |input| {
+        .map(move |input| {
             let format = format.clone();
             let field = field.clone();
 
-            async {
-                match process_row(input, format, field) {
-                    Ok(s) => s,
-                    Err(e) => OutputStream::one(Err(e)),
-                }
+            match process_row(input, format, field) {
+                Ok(s) => s,
+                Err(e) => OutputStream::one(Err(e)),
             }
         })
         .flatten()

@@ -150,7 +150,7 @@ fn to_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     };
 
     Ok(
-        futures::stream::iter(to_process_input.into_iter().map(move |value| {
+        (to_process_input.into_iter().map(move |value| {
             let mut w = pretty.as_ref().map_or_else(
                 || quick_xml::Writer::new(Cursor::new(Vec::new())),
                 |p| {

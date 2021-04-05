@@ -79,42 +79,39 @@ pub fn rotate(args: CommandArgs) -> Result<OutputStream, ShellError> {
         &name,
     )?;
 
-    Ok(futures::stream::iter(
-        (0..total_descriptors)
-            .map(move |row_number| {
-                let mut row = TaggedDictBuilder::new(&name);
+    Ok(((0..total_descriptors)
+        .map(move |row_number| {
+            let mut row = TaggedDictBuilder::new(&name);
 
-                for (current_numbered_column, (column_name, _)) in values.row_entries().enumerate()
-                {
-                    let raw_column_path =
-                        format!("{}.0.{}", column_name, descs[row_number]).spanned_unknown();
-                    let path = ColumnPath::build(&raw_column_path);
+            for (current_numbered_column, (column_name, _)) in values.row_entries().enumerate() {
+                let raw_column_path =
+                    format!("{}.0.{}", column_name, descs[row_number]).spanned_unknown();
+                let path = ColumnPath::build(&raw_column_path);
 
-                    match &values.get_data_by_column_path(&path, Box::new(move |_, _, error| error))
-                    {
-                        Ok(x) => {
-                            row.insert_value(
-                                rest.get(current_numbered_column)
-                                    .map(|c| c.item.clone())
-                                    .unwrap_or_else(|| column_name.to_string()),
-                                x.clone(),
-                            );
-                        }
-                        Err(_) => {}
+                match &values.get_data_by_column_path(&path, Box::new(move |_, _, error| error)) {
+                    Ok(x) => {
+                        row.insert_value(
+                            rest.get(current_numbered_column)
+                                .map(|c| c.item.clone())
+                                .unwrap_or_else(|| column_name.to_string()),
+                            x.clone(),
+                        );
                     }
+                    Err(_) => {}
                 }
+            }
 
-                row.insert_value(
-                    rest.get(total_rows)
-                        .map(|c| c.item.clone())
-                        .unwrap_or_else(|| format!("Column{}", total_rows)),
-                    UntaggedValue::string(&descs[row_number]).into_untagged_value(),
-                );
+            row.insert_value(
+                rest.get(total_rows)
+                    .map(|c| c.item.clone())
+                    .unwrap_or_else(|| format!("Column{}", total_rows)),
+                UntaggedValue::string(&descs[row_number]).into_untagged_value(),
+            );
 
-                ReturnSuccess::value(row.into_value())
-            })
-            .rev()
-            .collect::<Vec<_>>(),
-    )
+            ReturnSuccess::value(row.into_value())
+        })
+        .rev()
+        .collect::<Vec<_>>())
+    .into_iter()
     .to_output_stream())
 }

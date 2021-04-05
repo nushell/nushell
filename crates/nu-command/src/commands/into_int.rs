@@ -70,7 +70,7 @@ fn into_int(args: CommandArgs) -> Result<OutputStream, ShellError> {
         _ => OutputStream::one(Ok(ReturnSuccess::Value(i))),
     });
 
-    Ok(futures::stream::iter(stream).flatten().to_output_stream())
+    Ok(stream.flatten().to_output_stream())
 }
 
 #[cfg(test)]

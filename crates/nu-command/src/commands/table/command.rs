@@ -158,10 +158,7 @@ fn values_to_entries(
     entries
 }
 
-fn table(
-    configuration: TableConfiguration,
-    args: CommandArgs,
-) -> Result<OutputStream, ShellError> {
+fn table(configuration: TableConfiguration, args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut args = args.evaluate_once()?;
 
     // Ideally, get_color_config would get all the colors configured in the config.toml
@@ -202,7 +199,7 @@ fn table(
         .set_input_handler(Box::new(input_handling::MinusInputHandler {}))
         .finish();
 
-    let stream_data = async {
+    let stream_data = {
         let finished = Arc::new(AtomicBool::new(false));
         // we are required to clone finished, for use within the callback, otherwise we get borrow errors
         #[cfg(feature = "table-pager")]
@@ -304,9 +301,7 @@ fn table(
     }
 
     #[cfg(not(feature = "table-pager"))]
-    stream_data
-        
-        .map_err(|_| ShellError::untagged_runtime_error("Error streaming data"))?;
+    stream_data.map_err(|_| ShellError::untagged_runtime_error("Error streaming data"))?;
 
     Ok(OutputStream::empty())
 }

@@ -61,9 +61,10 @@ pub fn remove(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if result.contains_key(&key) {
         result.swap_remove(&key);
         config::write(&result, &path)?;
-        Ok(futures::stream::iter(vec![ReturnSuccess::value(
+        Ok(vec![ReturnSuccess::value(
             UntaggedValue::Row(result.into()).into_value(remove.tag()),
-        )])
+        )]
+        .into_iter()
         .to_output_stream())
     } else {
         Err(ShellError::labeled_error(

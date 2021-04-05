@@ -87,13 +87,11 @@ impl WholeStreamCommand for SubCommand {
                 ctx.scope.add_var("$it", item.clone());
                 trace!("ITEM = {:?}", item);
 
-                async move {
-                    let result = evaluate_baseline_expr(&*condition, &*ctx);
-                    ctx.scope.exit_scope();
-                    trace!("RESULT = {:?}", result);
+                let result = evaluate_baseline_expr(&*condition, &*ctx);
+                ctx.scope.exit_scope();
+                trace!("RESULT = {:?}", result);
 
-                    !matches!(result, Ok(ref v) if v.is_true())
-                }
+                !matches!(result, Ok(ref v) if v.is_true())
             })
             .to_output_stream())
     }

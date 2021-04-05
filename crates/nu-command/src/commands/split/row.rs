@@ -55,7 +55,7 @@ fn split_row(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
                 trace!("split result = {:?}", split_result);
 
-                futures::stream::iter(split_result.into_iter().map(move |s| {
+                (split_result.into_iter().map(move |s| {
                     ReturnSuccess::value(
                         UntaggedValue::Primitive(Primitive::String(s)).into_value(&v.tag),
                     )

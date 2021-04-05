@@ -69,7 +69,7 @@ pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 .map(|x| ReturnSuccess::value(x.clone()))
                 .collect();
 
-            futures::stream::iter(list).to_output_stream()
+            list.into_iter().to_output_stream()
         }
         x => OutputStream::one(ReturnSuccess::value(x)),
     })

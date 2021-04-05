@@ -113,73 +113,71 @@ pub fn histogram(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let labels = results.labels.y.clone();
     let mut idx = 0;
 
-    Ok(futures::stream::iter(
-        results
-            .data
-            .table_entries()
-            .cloned()
-            .collect::<Vec<_>>()
-            .into_iter()
-            .zip(
-                results
-                    .percentages
-                    .table_entries()
-                    .cloned()
-                    .collect::<Vec<_>>()
-                    .into_iter(),
-            )
-            .map(move |(counts, percentages)| {
-                let percentage = percentages
-                    .table_entries()
-                    .cloned()
-                    .last()
-                    .unwrap_or_else(|| {
-                        UntaggedValue::decimal_from_float(0.0, name.span).into_value(&name)
-                    });
-                let value = counts
-                    .table_entries()
-                    .cloned()
-                    .last()
-                    .unwrap_or_else(|| UntaggedValue::int(0).into_value(&name));
+    Ok(results
+        .data
+        .table_entries()
+        .cloned()
+        .collect::<Vec<_>>()
+        .into_iter()
+        .zip(
+            results
+                .percentages
+                .table_entries()
+                .cloned()
+                .collect::<Vec<_>>()
+                .into_iter(),
+        )
+        .map(move |(counts, percentages)| {
+            let percentage = percentages
+                .table_entries()
+                .cloned()
+                .last()
+                .unwrap_or_else(|| {
+                    UntaggedValue::decimal_from_float(0.0, name.span).into_value(&name)
+                });
+            let value = counts
+                .table_entries()
+                .cloned()
+                .last()
+                .unwrap_or_else(|| UntaggedValue::int(0).into_value(&name));
 
-                let mut fact = TaggedDictBuilder::new(&name);
-                let column_value = labels
-                    .get(idx)
-                    .ok_or_else(|| {
-                        ShellError::labeled_error(
-                            "Unable to load group labels",
-                            "unable to load group labels",
-                            &name,
-                        )
-                    })?
-                    .clone();
+            let mut fact = TaggedDictBuilder::new(&name);
+            let column_value = labels
+                .get(idx)
+                .ok_or_else(|| {
+                    ShellError::labeled_error(
+                        "Unable to load group labels",
+                        "unable to load group labels",
+                        &name,
+                    )
+                })?
+                .clone();
 
-                fact.insert_value(&column.item, column_value);
-                fact.insert_untagged("count", value);
+            fact.insert_value(&column.item, column_value);
+            fact.insert_untagged("count", value);
 
-                let fmt_percentage = format!(
-                    "{}%",
-                    // Some(2) < the number of digits
-                    // true < group the digits
-                    crate::commands::str_::from::action(&percentage, &name, Some(2), true)?
-                        .as_string()?
-                );
-                fact.insert_untagged("percentage", UntaggedValue::string(fmt_percentage));
+            let fmt_percentage = format!(
+                "{}%",
+                // Some(2) < the number of digits
+                // true < group the digits
+                crate::commands::str_::from::action(&percentage, &name, Some(2), true)?
+                    .as_string()?
+            );
+            fact.insert_untagged("percentage", UntaggedValue::string(fmt_percentage));
 
-                let string = std::iter::repeat("*")
-                    .take(percentage.as_u64().map_err(|_| {
-                        ShellError::labeled_error("expected a number", "expected a number", &name)
-                    })? as usize)
-                    .collect::<String>();
+            let string = std::iter::repeat("*")
+                .take(percentage.as_u64().map_err(|_| {
+                    ShellError::labeled_error("expected a number", "expected a number", &name)
+                })? as usize)
+                .collect::<String>();
 
-                fact.insert_untagged(&frequency_column_name, UntaggedValue::string(string));
+            fact.insert_untagged(&frequency_column_name, UntaggedValue::string(string));
 
-                idx += 1;
+            idx += 1;
 
-                ReturnSuccess::value(fact.into_value())
-            }),
-    )
-    .to_output_stream())
+            ReturnSuccess::value(fact.into_value())
+        })
+        .to_output_stream())
 }
 
 fn evaluator(by: ColumnPath) -> Box<dyn Fn(usize, &Value) -> Result<Value, ShellError> + Send> {

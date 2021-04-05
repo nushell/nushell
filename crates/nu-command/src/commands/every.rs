@@ -70,7 +70,7 @@ fn every(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     Ok(input
         .enumerate()
-        .filter_map(move |(i, value)| async move {
+        .filter_map(move |(i, value)| {
             let stride_desired = if stride < 1 { 1 } else { stride } as usize;
             let should_include = skip == (i % stride_desired != 0);
 

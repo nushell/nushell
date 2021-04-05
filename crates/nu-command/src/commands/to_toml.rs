@@ -157,31 +157,29 @@ fn to_toml(args: CommandArgs) -> Result<OutputStream, ShellError> {
         _ => vec![],
     };
 
-    Ok(
-        futures::stream::iter(to_process_input.into_iter().map(move |value| {
-            let value_span = value.tag.span;
-            match value_to_toml_value(&value) {
-                Ok(toml_value) => match toml::to_string(&toml_value) {
-                    Ok(x) => ReturnSuccess::value(
-                        UntaggedValue::Primitive(Primitive::String(x)).into_value(&name_tag),
-                    ),
-                    _ => Err(ShellError::labeled_error_with_secondary(
-                        "Expected a table with TOML-compatible structure.tag() from pipeline",
-                        "requires TOML-compatible input",
-                        name_span,
-                        "originates from here".to_string(),
-                        value_span,
-                    )),
-                },
-                _ => Err(ShellError::labeled_error(
-                    "Expected a table with TOML-compatible structure from pipeline",
+    Ok((to_process_input.into_iter().map(move |value| {
+        let value_span = value.tag.span;
+        match value_to_toml_value(&value) {
+            Ok(toml_value) => match toml::to_string(&toml_value) {
+                Ok(x) => ReturnSuccess::value(
+                    UntaggedValue::Primitive(Primitive::String(x)).into_value(&name_tag),
+                ),
+                _ => Err(ShellError::labeled_error_with_secondary(
+                    "Expected a table with TOML-compatible structure.tag() from pipeline",
                     "requires TOML-compatible input",
-                    &name_tag,
+                    name_span,
+                    "originates from here".to_string(),
+                    value_span,
                 )),
-            }
-        }))
-        .to_output_stream(),
-    )
+            },
+            _ => Err(ShellError::labeled_error(
+                "Expected a table with TOML-compatible structure from pipeline",
+                "requires TOML-compatible input",
+                &name_tag,
+            )),
+        }
+    }))
+    .to_output_stream())
 }
 
 #[cfg(test)]

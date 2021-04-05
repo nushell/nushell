@@ -34,17 +34,15 @@ impl WholeStreamCommand for Command {
             base_value = first.clone()
         }
 
-        Ok(futures::stream::iter(
-            file_listing()
-                .iter()
-                .map(|row| Value {
-                    value: row.value.clone(),
-                    tag: base_value.tag.clone(),
-                })
-                .collect::<Vec<_>>()
-                .into_iter()
-                .map(ReturnSuccess::value),
-        )
+        Ok((file_listing()
+            .iter()
+            .map(|row| Value {
+                value: row.value.clone(),
+                tag: base_value.tag.clone(),
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .map(ReturnSuccess::value))
         .to_output_stream())
     }
 }

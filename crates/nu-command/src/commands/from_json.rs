@@ -76,8 +76,9 @@ fn from_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let string_clone: Vec<_> = concat_string.item.lines().map(|x| x.to_string()).collect();
 
     if objects {
-        Ok(
-            futures::stream::iter(string_clone.into_iter().filter_map(move |json_str| {
+        Ok(string_clone
+            .into_iter()
+            .filter_map(move |json_str| {
                 if json_str.is_empty() {
                     return None;
                 }
@@ -98,19 +99,19 @@ fn from_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
                         )))
                     }
                 }
-            }))
-            .to_output_stream(),
-        )
+            })
+            .to_output_stream())
     } else {
         match from_json_string_to_value(concat_string.item, name_tag.clone()) {
             Ok(x) => match x {
                 Value {
                     value: UntaggedValue::Table(list),
                     ..
-                } => Ok(
-                    futures::stream::iter(list.into_iter().map(ReturnSuccess::value))
-                        .to_output_stream(),
-                ),
+                } => Ok(list
+                    .into_iter()
+                    .map(ReturnSuccess::value)
+                    .to_output_stream()),
+
                 x => Ok(OutputStream::one(ReturnSuccess::value(x))),
             },
             Err(e) => {

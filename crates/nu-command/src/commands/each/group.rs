@@ -3,7 +3,7 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::CapturedBlock, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+    hir::CapturedBlock, ReturnSuccess, ReturnValue, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use nu_source::Tagged;
 use serde::Deserialize;
@@ -49,11 +49,47 @@ impl WholeStreamCommand for EachGroup {
         let (each_args, input): (EachGroupArgs, _) = raw_args.process()?;
         let block = Arc::new(Box::new(each_args.block));
 
-        Ok(input
-            .chunks(each_args.group_size.item)
-            .then(move |input| run_block_on_vec(input, block.clone(), context.clone()))
-            .flatten()
-            .to_output_stream())
+        let each_group_iterator = EachGroupIterator {
+            block,
+            context,
+            group_size: each_args.group_size.item,
+            input,
+        };
+
+        Ok(each_group_iterator.flatten().to_output_stream())
+    }
+}
+
+struct EachGroupIterator {
+    block: Arc<Box<CapturedBlock>>,
+    context: Arc<EvaluationContext>,
+    group_size: usize,
+    input: InputStream,
+}
+
+impl Iterator for EachGroupIterator {
+    type Item = OutputStream;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut group = vec![];
+        let mut current_count = 0;
+
+        while let Some(next) = self.input.next() {
+            current_count += 1;
+            if current_count >= self.group_size {
+                break;
+            }
+        }
+
+        if group.len() == 0 {
+            return None;
+        }
+
+        Some(run_block_on_vec(
+            group,
+            self.block.clone(),
+            self.context.clone(),
+        ))
     }
 }
 
@@ -61,43 +97,43 @@ pub(crate) fn run_block_on_vec(
     input: Vec<Value>,
     block: Arc<Box<CapturedBlock>>,
     context: Arc<EvaluationContext>,
-) -> impl Future<Output = OutputStream> {
+) -> OutputStream {
     let value = Value {
         value: UntaggedValue::Table(input),
         tag: Tag::unknown(),
     };
 
-    async {
-        match process_row(block, context, value) {
-            Ok(s) => {
-                // We need to handle this differently depending on whether process_row
-                // returned just 1 value or if it returned multiple as a stream.
-                let vec = s.collect::<Vec<_>>();
+    match process_row(block, context, value) {
+        Ok(s) => {
+            // We need to handle this differently depending on whether process_row
+            // returned just 1 value or if it returned multiple as a stream.
+            let vec = s.collect::<Vec<_>>();
 
-                // If it returned just one value, just take that value
-                if vec.len() == 1 {
-                    return OutputStream::one(vec.into_iter().next().expect(
-                        "This should be impossible, we just checked that vec.len() == 1.",
-                    ));
-                }
-
-                // If it returned multiple values, we need to put them into a table and
-                // return that.
-                let result = vec.into_iter().collect::<Result<Vec<ReturnSuccess>, _>>();
-                let result_table = match result {
-                    Ok(t) => t,
-                    Err(e) => return OutputStream::one(Err(e)),
-                };
-
-                let table = result_table
-                    .into_iter()
-                    .filter_map(|x| x.raw_value())
-                    .collect();
-
-                OutputStream::one(Ok(ReturnSuccess::Value(UntaggedValue::Table(table).into())))
+            // If it returned just one value, just take that value
+            if vec.len() == 1 {
+                return OutputStream::one(
+                    vec.into_iter()
+                        .next()
+                        .expect("This should be impossible, we just checked that vec.len() == 1."),
+                );
             }
-            Err(e) => OutputStream::one(Err(e)),
+
+            // If it returned multiple values, we need to put them into a table and
+            // return that.
+            let result = vec.into_iter().collect::<Result<Vec<ReturnSuccess>, _>>();
+            let result_table = match result {
+                Ok(t) => t,
+                Err(e) => return OutputStream::one(Err(e)),
+            };
+
+            let table = result_table
+                .into_iter()
+                .filter_map(|x| x.raw_value())
+                .collect();
+
+            OutputStream::one(Ok(ReturnSuccess::Value(UntaggedValue::Table(table).into())))
         }
+        Err(e) => OutputStream::one(Err(e)),
     }
 }
 

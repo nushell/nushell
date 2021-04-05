@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use futures::stream::iter;
 use nu_protocol::{ReturnSuccess, ReturnValue, Value};
 use std::{iter::IntoIterator, process::Output};
 

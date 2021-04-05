@@ -56,7 +56,7 @@ fn flatten(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let (Arguments { rest: columns }, input) = args.process()?;
 
     Ok(input
-        .map(move |item| futures::stream::iter(flat_value(&columns, &item, &tag).into_iter()))
+        .map(move |item| flat_value(&columns, &item, &tag).into_iter())
         .flatten()
         .to_output_stream())
 }

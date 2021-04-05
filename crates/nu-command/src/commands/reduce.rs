@@ -84,7 +84,7 @@ fn process_row(
     row: Value,
 ) -> Result<InputStream, ShellError> {
     let row_clone = row.clone();
-    let input_stream = once(async { Ok(row_clone) }).to_input_stream();
+    let input_stream = vec![Ok(row_clone)].into_iter().to_input_stream();
 
     context.scope.enter_scope();
     context.scope.add_vars(&block.captured.entries);
@@ -131,29 +131,26 @@ fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                 let block = Arc::clone(&block);
                 let row = each::make_indexed_item(input.0 + ioffset, input.1);
 
-                async move {
-                    let values = acc?.drain_vec();
+                let values = acc?.drain_vec();
 
-                    let f = if values.len() == 1 {
-                        let value = values
-                            .get(0)
-                            .ok_or_else(|| ShellError::unexpected("No value to update with"))?;
-                        value.clone()
-                    } else if values.is_empty() {
-                        UntaggedValue::nothing().into_untagged_value()
-                    } else {
-                        UntaggedValue::table(&values).into_untagged_value()
-                    };
+                let f = if values.len() == 1 {
+                    let value = values
+                        .get(0)
+                        .ok_or_else(|| ShellError::unexpected("No value to update with"))?;
+                    value.clone()
+                } else if values.is_empty() {
+                    UntaggedValue::nothing().into_untagged_value()
+                } else {
+                    UntaggedValue::table(&values).into_untagged_value()
+                };
 
-                    context.scope.enter_scope();
-                    context.scope.add_var("$acc", f);
-                    let result = process_row(block, &*context, row);
-                    context.scope.exit_scope();
+                context.scope.enter_scope();
+                context.scope.add_var("$acc", f);
+                let result = process_row(block, &*context, row);
+                context.scope.exit_scope();
 
-                    result
-                }
-            })
-            ?
+                result
+            })?
             .to_output_stream())
     } else {
         let initial = Ok(InputStream::one(start));
@@ -162,28 +159,25 @@ fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                 let block = Arc::clone(&block);
                 let context = context.clone();
 
-                async move {
-                    let values = acc?.drain_vec();
+                let values = acc?.drain_vec();
 
-                    let f = if values.len() == 1 {
-                        let value = values
-                            .get(0)
-                            .ok_or_else(|| ShellError::unexpected("No value to update with"))?;
-                        value.clone()
-                    } else if values.is_empty() {
-                        UntaggedValue::nothing().into_untagged_value()
-                    } else {
-                        UntaggedValue::table(&values).into_untagged_value()
-                    };
+                let f = if values.len() == 1 {
+                    let value = values
+                        .get(0)
+                        .ok_or_else(|| ShellError::unexpected("No value to update with"))?;
+                    value.clone()
+                } else if values.is_empty() {
+                    UntaggedValue::nothing().into_untagged_value()
+                } else {
+                    UntaggedValue::table(&values).into_untagged_value()
+                };
 
-                    context.scope.enter_scope();
-                    context.scope.add_var("$acc", f);
-                    let result = process_row(block, &*context, row);
-                    context.scope.exit_scope();
-                    result
-                }
-            })
-            ?
+                context.scope.enter_scope();
+                context.scope.add_var("$acc", f);
+                let result = process_row(block, &*context, row);
+                context.scope.exit_scope();
+                result
+            })?
             .to_output_stream())
     }
 }

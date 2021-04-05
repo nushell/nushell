@@ -54,11 +54,11 @@ pub trait FromInputStream {
 
 impl<T> FromInputStream for T
 where
-    T: Iterator<Item = nu_protocol::Value> + Send + 'static,
+    T: Iterator<Item = nu_protocol::Value> + Send + Sync + 'static,
 {
     fn from_input_stream(self) -> OutputStream {
         OutputStream {
-            values: self.map(nu_protocol::ReturnSuccess::value).boxed(),
+            values: Box::new(self.map(nu_protocol::ReturnSuccess::value)),
         }
     }
 }
@@ -70,12 +70,12 @@ pub trait ToOutputStream {
 
 impl<T, U> ToOutputStream for T
 where
-    T: Iterator<Item = U> + Send + 'static,
+    T: Iterator<Item = U> + Send + Sync + 'static,
     U: Into<nu_protocol::ReturnValue>,
 {
     fn to_output_stream(self) -> OutputStream {
         OutputStream {
-            values: self.map(|item| item.into()).boxed(),
+            values: Box::new(self.map(|item| item.into())),
         }
     }
 }

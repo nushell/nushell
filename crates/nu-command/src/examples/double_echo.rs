@@ -62,18 +62,15 @@ impl WholeStreamCommand for Command {
                             let subtable =
                                 vec![UntaggedValue::Table(values).into_value(base_value.tag())];
 
-                            futures::stream::iter(subtable.into_iter().map(ReturnSuccess::value))
-                                .to_output_stream()
+                            (subtable.into_iter().map(ReturnSuccess::value)).to_output_stream()
                         } else {
-                            futures::stream::iter(
-                                table
-                                    .into_iter()
-                                    .map(move |mut v| {
-                                        v.tag = base_value.tag();
-                                        v
-                                    })
-                                    .map(ReturnSuccess::value),
-                            )
+                            (table
+                                .into_iter()
+                                .map(move |mut v| {
+                                    v.tag = base_value.tag();
+                                    v
+                                })
+                                .map(ReturnSuccess::value))
                             .to_output_stream()
                         }
                     }
@@ -85,6 +82,6 @@ impl WholeStreamCommand for Command {
             }
         });
 
-        Ok(futures::stream::iter(stream).flatten().to_output_stream())
+        Ok((stream).flatten().to_output_stream())
     }
 }

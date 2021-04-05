@@ -72,7 +72,9 @@ pub fn from_toml(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 Value {
                     value: UntaggedValue::Table(list),
                     ..
-                } => futures::stream::iter(list.into_iter().map(ReturnSuccess::value))
+                } => list
+                    .into_iter()
+                    .map(ReturnSuccess::value)
                     .to_output_stream(),
                 x => OutputStream::one(ReturnSuccess::value(x)),
             },

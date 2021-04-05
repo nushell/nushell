@@ -43,7 +43,7 @@ pub fn compact(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let (CompactArgs { rest: columns }, input) = args.process()?;
     Ok(input
         .filter_map(move |item| {
-            future::ready(if columns.is_empty() {
+            if columns.is_empty() {
                 if !item.is_empty() {
                     Some(ReturnSuccess::value(item))
                 } else {
@@ -66,7 +66,7 @@ pub fn compact(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     }
                     _ => None,
                 }
-            })
+            }
         })
         .to_output_stream())
 }

@@ -188,36 +188,34 @@ pub fn to_delimited_data(
         _ => vec![],
     };
 
-    Ok(
-        futures::stream::iter(to_process_input.into_iter().map(move |value| {
-            match from_value_to_delimited_string(&clone_tagged_value(&value), sep) {
-                Ok(mut x) => {
-                    if noheaders {
-                        if let Some(second_line) = x.find('\n') {
-                            let start = second_line + 1;
-                            x.replace_range(0..start, "");
-                        }
+    Ok((to_process_input.into_iter().map(move |value| {
+        match from_value_to_delimited_string(&clone_tagged_value(&value), sep) {
+            Ok(mut x) => {
+                if noheaders {
+                    if let Some(second_line) = x.find('\n') {
+                        let start = second_line + 1;
+                        x.replace_range(0..start, "");
                     }
-                    ReturnSuccess::value(
-                        UntaggedValue::Primitive(Primitive::String(x)).into_value(&name_tag),
-                    )
                 }
-                Err(_) => {
-                    let expected = format!(
-                        "Expected a table with {}-compatible structure from pipeline",
-                        format_name
-                    );
-                    let requires = format!("requires {}-compatible input", format_name);
-                    Err(ShellError::labeled_error_with_secondary(
-                        expected,
-                        requires,
-                        name_span,
-                        "originates from here".to_string(),
-                        value.tag.span,
-                    ))
-                }
+                ReturnSuccess::value(
+                    UntaggedValue::Primitive(Primitive::String(x)).into_value(&name_tag),
+                )
             }
-        }))
-        .to_output_stream(),
-    )
+            Err(_) => {
+                let expected = format!(
+                    "Expected a table with {}-compatible structure from pipeline",
+                    format_name
+                );
+                let requires = format!("requires {}-compatible input", format_name);
+                Err(ShellError::labeled_error_with_secondary(
+                    expected,
+                    requires,
+                    name_span,
+                    "originates from here".to_string(),
+                    value.tag.span,
+                ))
+            }
+        }
+    }))
+    .to_output_stream())
 }

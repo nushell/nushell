@@ -2,7 +2,6 @@ use crate::prelude::*;
 use nu_engine::run_block;
 use nu_engine::WholeStreamCommand;
 
-use futures::stream::once;
 use nu_errors::ShellError;
 use nu_protocol::{
     hir::CapturedBlock, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
@@ -79,7 +78,7 @@ pub fn process_row(
     let input_stream = if !captured_block.block.params.positional.is_empty() {
         InputStream::empty()
     } else {
-        once(async { Ok(input_clone) }).to_input_stream()
+        vec![Ok(input_clone)].into_iter().to_input_stream()
     };
 
     context.scope.enter_scope();
@@ -118,31 +117,27 @@ fn each(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     if each_args.numbered.item {
         Ok(input
             .enumerate()
-            .then(move |input| {
+            .map(move |input| {
                 let block = block.clone();
                 let context = context.clone();
                 let row = make_indexed_item(input.0, input.1);
 
-                async {
-                    match process_row(block, context, row) {
-                        Ok(s) => s,
-                        Err(e) => OutputStream::one(Err(e)),
-                    }
+                match process_row(block, context, row) {
+                    Ok(s) => s,
+                    Err(e) => OutputStream::one(Err(e)),
                 }
             })
             .flatten()
             .to_output_stream())
     } else {
         Ok(input
-            .then(move |input| {
+            .map(move |input| {
                 let block = block.clone();
                 let context = context.clone();
 
-                async {
-                    match process_row(block, context, input) {
-                        Ok(s) => s,
-                        Err(e) => OutputStream::one(Err(e)),
-                    }
+                match process_row(block, context, input) {
+                    Ok(s) => s,
+                    Err(e) => OutputStream::one(Err(e)),
                 }
             })
             .flatten()

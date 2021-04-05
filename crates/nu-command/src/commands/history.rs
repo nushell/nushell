@@ -54,7 +54,7 @@ fn history(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     Err(_) => None,
                 });
 
-                Ok(futures::stream::iter(output).to_output_stream())
+                Ok(output.to_output_stream())
             } else {
                 Err(ShellError::labeled_error(
                     "Could not open history",

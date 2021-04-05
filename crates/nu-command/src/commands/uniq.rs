@@ -115,7 +115,7 @@ fn uniq(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     }
 
-    Ok(futures::stream::iter(values_vec_deque).to_output_stream())
+    Ok(values_vec_deque.into_iter().to_output_stream())
 }
 
 #[cfg(test)]

@@ -114,7 +114,7 @@ pub fn pivot(args: CommandArgs) -> Result<OutputStream, ShellError> {
         descs
     };
 
-    Ok(futures::stream::iter(descs.into_iter().map(move |desc| {
+    Ok((descs.into_iter().map(move |desc| {
         let mut column_num: usize = 0;
         let mut dict = TaggedDictBuilder::new(&name);
 

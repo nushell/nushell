@@ -28,7 +28,7 @@ fn shuffle(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     values.shuffle(&mut thread_rng());
 
-    Ok(futures::stream::iter(values.into_iter().map(ReturnSuccess::value)).to_output_stream())
+    Ok((values.into_iter().map(ReturnSuccess::value)).to_output_stream())
 }
 
 #[cfg(test)]

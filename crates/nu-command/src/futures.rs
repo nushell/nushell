@@ -76,20 +76,38 @@ impl<T: Send + 'static> ThreadedReceiver<T> {
     }
 }
 
-impl<T: Send + 'static> Stream for ThreadedReceiver<T> {
+// impl<T: Send + 'static> Stream for ThreadedReceiver<T> {
+//     type Item = T;
+
+//     fn poll_next(self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> Poll<Option<Self::Item>> {
+//         let mut shared_state = self
+//             .shared_state
+//             .lock()
+//             .expect("ThreadedFuture shared state shouldn't be poisoned");
+
+//         if let Some(result) = shared_state.result.take() {
+//             Poll::Ready(result)
+//         } else {
+//             shared_state.waker = Some(cx.waker().clone());
+//             Poll::Pending
+//         }
+//     }
+// }
+
+impl<T: Send + 'static> Iterator for ThreadedReceiver<T> {
     type Item = T;
 
-    fn poll_next(self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> Poll<Option<Self::Item>> {
+    fn next(&mut self) -> Option<Self::Item> {
         let mut shared_state = self
             .shared_state
             .lock()
             .expect("ThreadedFuture shared state shouldn't be poisoned");
 
         if let Some(result) = shared_state.result.take() {
-            Poll::Ready(result)
+            result
         } else {
-            shared_state.waker = Some(cx.waker().clone());
-            Poll::Pending
+            // WARNING: this may not be correct, but it's hard to tell from here
+            None
         }
     }
 }
@@ -110,7 +128,6 @@ impl<T: Send + 'static> Drop for ThreadedReceiver<T> {
 mod tests {
     mod threaded_receiver {
         use super::super::ThreadedReceiver;
-        use futures::executor::block_on_stream;
         use std::sync::mpsc;
 
         #[test]
@@ -123,7 +140,7 @@ mod tests {
             });
 
             let stream = ThreadedReceiver::new(rx);
-            let mut result = block_on_stream(stream);
+            let mut result = stream;
             assert_eq!(Some(1), result.next());
             assert_eq!(Some(2), result.next());
             assert_eq!(Some(3), result.next());
@@ -139,7 +156,7 @@ mod tests {
 
             {
                 let stream = ThreadedReceiver::new(rx);
-                let mut result = block_on_stream(stream);
+                let mut result = stream;
                 assert_eq!(Some(1), result.next());
             }
             let result = th.join();

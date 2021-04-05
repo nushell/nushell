@@ -57,17 +57,19 @@ fn echo(args: CommandArgs) -> Result<OutputStream, ShellError> {
             Value {
                 value: UntaggedValue::Table(table),
                 ..
-            } => futures::stream::iter(table.into_iter().map(ReturnSuccess::value))
+            } => table
+                .into_iter()
+                .map(ReturnSuccess::value)
                 .to_output_stream(),
             Value {
                 value: UntaggedValue::Primitive(Primitive::Range(range)),
                 tag,
-            } => futures::stream::iter(RangeIterator::new(*range, tag)).to_output_stream(),
+            } => RangeIterator::new(*range, tag).to_output_stream(),
             x => OutputStream::one(Ok(ReturnSuccess::Value(x))),
         },
     });
 
-    Ok(futures::stream::iter(stream).flatten().to_output_stream())
+    Ok(stream.flatten().to_output_stream())
 }
 
 struct RangeIterator {

@@ -94,7 +94,7 @@ fn do_(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
             Ok(mut stream) => {
                 let output = stream.drain_vec();
                 context.clear_errors();
-                Ok(futures::stream::iter(output).to_output_stream())
+                Ok(output.into_iter().to_output_stream())
             }
             Err(_) => Ok(OutputStream::empty()),
         }

@@ -136,7 +136,7 @@ fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let keys = bring_back.keys().cloned().collect::<Vec<String>>();
 
-    Ok(futures::stream::iter((0..max).map(move |current| {
+    Ok(((0..max).map(move |current| {
         let mut out = TaggedDictBuilder::new(name.clone());
 
         for k in &keys {

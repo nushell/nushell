@@ -121,9 +121,9 @@ fn if_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
 
                 result.map(|x| x.to_output_stream())
             }
-            Err(e) => Ok(futures::stream::iter(vec![Err(e)].into_iter()).to_output_stream()),
+            Err(e) => Ok(vec![Err(e)].into_iter().to_output_stream()),
         },
-        Err(e) => Ok(futures::stream::iter(vec![Err(e)].into_iter()).to_output_stream()),
+        Err(e) => Ok(vec![Err(e)].into_iter().to_output_stream()),
     }
 }
 

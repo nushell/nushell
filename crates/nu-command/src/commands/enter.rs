@@ -104,8 +104,7 @@ fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
             &PathBuf::from(location_clone),
             span,
             encoding,
-        )
-        ?;
+        )?;
 
         match tagged_contents.value {
             UntaggedValue::Primitive(Primitive::String(_)) => {
@@ -131,13 +130,12 @@ fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                             scope: scope.clone(),
                         };
                         let tag = tagged_contents.tag.clone();
-                        let mut result = converter
-                            .run(new_args.with_input(vec![tagged_contents]))
-                            ?;
-                        let result_vec: Vec<Result<ReturnSuccess, ShellError>> =
-                            result.drain_vec();
-                        Ok(futures::stream::iter(result_vec.into_iter().map(
-                            move |res| match res {
+                        let mut result =
+                            converter.run(new_args.with_input(vec![tagged_contents]))?;
+                        let result_vec: Vec<Result<ReturnSuccess, ShellError>> = result.drain_vec();
+                        Ok(result_vec
+                            .into_iter()
+                            .map(move |res| match res {
                                 Ok(ReturnSuccess::Value(Value { value, .. })) => Ok(
                                     ReturnSuccess::Action(CommandAction::EnterValueShell(Value {
                                         value,
@@ -145,9 +143,8 @@ fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                                     })),
                                 ),
                                 x => x,
-                            },
-                        ))
-                        .to_output_stream())
+                            })
+                            .to_output_stream())
                     } else {
                         Ok(OutputStream::one(ReturnSuccess::action(
                             CommandAction::EnterValueShell(tagged_contents),

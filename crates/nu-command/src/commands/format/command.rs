@@ -51,41 +51,38 @@ fn format_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let commands = Arc::new(format_pattern);
 
     Ok(input
-        .then(move |value| {
+        .map(move |value| {
             let mut output = String::new();
             let commands = commands.clone();
             let ctx = ctx.clone();
 
-            async move {
-                for command in &*commands {
-                    match command {
-                        FormatCommand::Text(s) => {
-                            output.push_str(&s);
-                        }
-                        FormatCommand::Column(c) => {
-                            // FIXME: use the correct spans
-                            let full_column_path = nu_parser::parse_full_column_path(
-                                &(c.to_string()).spanned(Span::unknown()),
-                                &ctx.scope,
-                            );
+            for command in &*commands {
+                match command {
+                    FormatCommand::Text(s) => {
+                        output.push_str(&s);
+                    }
+                    FormatCommand::Column(c) => {
+                        // FIXME: use the correct spans
+                        let full_column_path = nu_parser::parse_full_column_path(
+                            &(c.to_string()).spanned(Span::unknown()),
+                            &ctx.scope,
+                        );
 
-                            ctx.scope.enter_scope();
-                            ctx.scope.add_var("$it", value.clone());
-                            let result = evaluate_baseline_expr(&full_column_path.0, &*ctx);
-                            ctx.scope.exit_scope();
+                        ctx.scope.enter_scope();
+                        ctx.scope.add_var("$it", value.clone());
+                        let result = evaluate_baseline_expr(&full_column_path.0, &*ctx);
+                        ctx.scope.exit_scope();
 
-                            if let Ok(c) = result {
-                                output
-                                    .push_str(&value::format_leaf(c.borrow()).plain_string(100_000))
-                            } else {
-                                // That column doesn't match, so don't emit anything
-                            }
+                        if let Ok(c) = result {
+                            output.push_str(&value::format_leaf(c.borrow()).plain_string(100_000))
+                        } else {
+                            // That column doesn't match, so don't emit anything
                         }
                     }
                 }
-
-                ReturnSuccess::value(UntaggedValue::string(output).into_untagged_value())
             }
+
+            ReturnSuccess::value(UntaggedValue::string(output).into_untagged_value())
         })
         .to_output_stream())
 }

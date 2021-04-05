@@ -57,7 +57,7 @@ fn list_timezone(args: CommandArgs) -> Result<OutputStream, ShellError> {
         ))
     });
 
-    Ok(futures::stream::iter(list).to_output_stream())
+    Ok(list.into_iter().to_output_stream())
 }
 
 #[cfg(test)]

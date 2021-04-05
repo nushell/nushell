@@ -121,10 +121,7 @@ fn wrap(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         Ok(OutputStream::one(ReturnSuccess::value(row)))
     } else {
-        Ok(
-            futures::stream::iter(result_table.into_iter().map(ReturnSuccess::value))
-                .to_output_stream(),
-        )
+        Ok((result_table.into_iter().map(ReturnSuccess::value)).to_output_stream())
     }
 }
 

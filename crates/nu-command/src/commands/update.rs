@@ -82,7 +82,7 @@ fn process_row(
             tag: block_tag,
         } => {
             let for_block = input.clone();
-            let input_stream = once(async { Ok(for_block) }).to_input_stream();
+            let input_stream = vec![Ok(for_block)].into_iter().to_input_stream();
 
             context.scope.enter_scope();
             context.scope.add_var("$it", input.clone());
@@ -179,17 +179,15 @@ fn update(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let field = Arc::new(field);
 
     Ok(input
-        .then(move |input| {
+        .map(move |input| {
             let tag = name_tag.clone();
             let context = context.clone();
             let replacement = replacement.clone();
             let field = field.clone();
 
-            async {
-                match process_row(context, input, replacement, field, tag) {
-                    Ok(s) => s,
-                    Err(e) => OutputStream::one(Err(e)),
-                }
+            match process_row(context, input, replacement, field, tag) {
+                Ok(s) => s,
+                Err(e) => OutputStream::one(Err(e)),
             }
         })
         .flatten()

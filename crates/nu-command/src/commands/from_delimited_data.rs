@@ -61,7 +61,7 @@ pub fn from_delimited_data(
             Value {
                 value: UntaggedValue::Table(list),
                 ..
-            } => Ok(futures::stream::iter(list).to_output_stream()),
+            } => Ok(list.into_iter().to_output_stream()),
             x => Ok(OutputStream::one(x)),
         },
         Err(err) => {

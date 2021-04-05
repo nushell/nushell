@@ -88,9 +88,7 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
             Some(y) => {
                 let ctrl_c = context.ctrl_c.clone();
                 let xy = vec![x, y];
-                let xy_stream = futures::stream::iter(xy)
-                    .chain(input_stream)
-                    .interruptible(ctrl_c);
+                let xy_stream = xy.into_iter().chain(input_stream).interruptible(ctrl_c);
 
                 let stream = InputStream::from_stream(xy_stream);
 

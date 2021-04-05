@@ -43,13 +43,11 @@ fn split_chars(args: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(input
         .flat_map(move |v| {
             if let Ok(s) = v.as_string() {
-                futures::stream::iter(
-                    s.chars()
-                        .collect::<Vec<_>>()
-                        .into_iter()
-                        .map(move |x| ReturnSuccess::value(Value::from(x.to_string()))),
-                )
-                .to_output_stream()
+                s.chars()
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .map(move |x| ReturnSuccess::value(Value::from(x.to_string())))
+                    .to_output_stream()
             } else {
                 OutputStream::one(Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",

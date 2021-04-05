@@ -77,11 +77,11 @@ fn nth(args: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(input
         .enumerate()
         .filter_map(move |(idx, item)| {
-            futures::future::ready(if row_numbers.contains(&(idx as u64)) ^ skip {
+            if row_numbers.contains(&(idx as u64)) ^ skip {
                 Some(ReturnSuccess::value(item))
             } else {
                 None
-            })
+            }
         })
         .to_output_stream())
 }

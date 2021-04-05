@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use futures::stream::iter;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, Type, UntaggedValue, Value};
 use nu_source::{HasFallibleSpan, PrettyDebug, Tag, Tagged, TaggedItem};

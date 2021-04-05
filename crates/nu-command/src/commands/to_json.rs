@@ -175,8 +175,9 @@ fn to_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
         _ => vec![],
     };
 
-    Ok(futures::stream::iter(to_process_input.into_iter().map(
-        move |value| match value_to_json_value(&value) {
+    Ok((to_process_input
+        .into_iter()
+        .map(move |value| match value_to_json_value(&value) {
             Ok(json_value) => {
                 let value_span = value.tag.span;
 
@@ -247,8 +248,7 @@ fn to_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 "requires JSON-compatible input",
                 &name_tag,
             )),
-        },
-    ))
+        }))
     .to_output_stream())
 }
 
