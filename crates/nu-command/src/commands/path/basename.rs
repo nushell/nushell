@@ -10,8 +10,8 @@ pub struct PathBasename;
 
 #[derive(Deserialize)]
 struct PathBasenameArguments {
-    replace: Option<Tagged<String>>,
     rest: Vec<ColumnPath>,
+    replace: Option<Tagged<String>>,
 }
 
 impl PathSubcommandArguments for PathBasenameArguments {
@@ -27,13 +27,13 @@ impl WholeStreamCommand for PathBasename {
 
     fn signature(&self) -> Signature {
         Signature::build("path basename")
+            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
             .named(
                 "replace",
                 SyntaxShape::String,
                 "Return original path with basename replaced by this string",
                 Some('r'),
             )
-            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
     }
 
     fn usage(&self) -> &str {
@@ -42,8 +42,8 @@ impl WholeStreamCommand for PathBasename {
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathBasenameArguments { replace, rest }, input) = args.process()?;
-        let args = Arc::new(PathBasenameArguments { replace, rest });
+        let (PathBasenameArguments { rest, replace }, input) = args.process()?;
+        let args = Arc::new(PathBasenameArguments { rest, replace });
         Ok(operate(input, &action, tag.span, args))
     }
 

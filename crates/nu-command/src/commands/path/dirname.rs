@@ -10,10 +10,10 @@ pub struct PathDirname;
 
 #[derive(Deserialize)]
 struct PathDirnameArguments {
+    rest: Vec<ColumnPath>,
     replace: Option<Tagged<String>>,
     #[serde(rename = "num-levels")]
     num_levels: Option<Tagged<u32>>,
-    rest: Vec<ColumnPath>,
 }
 
 impl PathSubcommandArguments for PathDirnameArguments {
@@ -29,6 +29,7 @@ impl WholeStreamCommand for PathDirname {
 
     fn signature(&self) -> Signature {
         Signature::build("path dirname")
+            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
             .named(
                 "replace",
                 SyntaxShape::String,
@@ -41,7 +42,6 @@ impl WholeStreamCommand for PathDirname {
                 "Number of directories to walk up",
                 Some('n'),
             )
-            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
     }
 
     fn usage(&self) -> &str {
@@ -52,16 +52,16 @@ impl WholeStreamCommand for PathDirname {
         let tag = args.call_info.name_tag.clone();
         let (
             PathDirnameArguments {
+                rest,
                 replace,
                 num_levels,
-                rest,
             },
             input,
         ) = args.process()?;
         let args = Arc::new(PathDirnameArguments {
+            rest,
             replace,
             num_levels,
-            rest,
         });
         Ok(operate(input, &action, tag.span, args))
     }

@@ -10,8 +10,8 @@ pub struct PathJoin;
 
 #[derive(Deserialize)]
 struct PathJoinArguments {
-    appendix: Option<Tagged<String>>,
     rest: Vec<ColumnPath>,
+    appendix: Option<Tagged<String>>,
 }
 
 impl PathSubcommandArguments for PathJoinArguments {
@@ -27,13 +27,13 @@ impl WholeStreamCommand for PathJoin {
 
     fn signature(&self) -> Signature {
         Signature::build("path join")
+            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
             .named(
                 "appendix",
                 SyntaxShape::String,
                 "Path to append to the input",
                 Some('a'),
             )
-            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
     }
 
     fn usage(&self) -> &str {
@@ -47,7 +47,7 @@ parse' and 'path split' subdommands."
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathJoinArguments { appendix, rest }, input) = args.process()?;
+        let (PathJoinArguments { rest, appendix }, input) = args.process()?;
         let args = Arc::new(PathJoinArguments { rest, appendix });
         Ok(operate(input, &action, tag.span, args))
     }
