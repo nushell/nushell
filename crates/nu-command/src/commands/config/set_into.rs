@@ -69,7 +69,6 @@ pub fn set_into(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
 
         global_cfg.write()?;
-
         ctx.reload_config(global_cfg)?;
 
         Ok(OutputStream::one(ReturnSuccess::value(
