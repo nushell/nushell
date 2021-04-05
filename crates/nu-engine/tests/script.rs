@@ -163,6 +163,12 @@ mod test {
     #[test]
     #[serial]
     fn run_script_does_not_pick_up_nu_env_if_set_into_nu_env_dir_by_with_cwd() {
+        //TODO I am not sure, what the most desired behaviour for this case would be
+        // Currently we don't load the .nu-env in this case
+        // However this slightly differs from the "normal cli" interaction (where
+        // the nu-env in the dir you start gets sourced...)
+        //
+        // But automatically loading nu-env's can be surprising...
         Playground::setup("run_script_test_7", |dirs, sandbox| {
             assert!(std::env::set_current_dir(dirs.test()).is_ok());
             sandbox.with_files(vec![FileWithContent(
