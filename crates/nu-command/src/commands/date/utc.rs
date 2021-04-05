@@ -8,7 +8,6 @@ use nu_protocol::Signature;
 
 pub struct Date;
 
-#[async_trait]
 impl WholeStreamCommand for Date {
     fn name(&self) -> &str {
         "date utc"

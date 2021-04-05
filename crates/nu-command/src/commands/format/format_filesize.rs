@@ -16,7 +16,6 @@ pub struct Arguments {
     format: Tagged<String>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for FileSize {
     fn name(&self) -> &str {
         "format filesize"

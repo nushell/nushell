@@ -8,7 +8,6 @@ use rand::thread_rng;
 
 pub struct Shuffle;
 
-#[async_trait]
 impl WholeStreamCommand for Shuffle {
     fn name(&self) -> &str {
         "shuffle"

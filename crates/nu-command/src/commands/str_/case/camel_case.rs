@@ -7,7 +7,6 @@ use nu_protocol::{Signature, SyntaxShape, Value};
 
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "str camel-case"

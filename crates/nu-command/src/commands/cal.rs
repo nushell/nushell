@@ -7,7 +7,6 @@ use nu_protocol::{Dictionary, Signature, SyntaxShape, UntaggedValue, Value};
 
 pub struct Cal;
 
-#[async_trait]
 impl WholeStreamCommand for Cal {
     fn name(&self) -> &str {
         "cal"

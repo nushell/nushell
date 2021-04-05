@@ -13,7 +13,6 @@ pub struct Arguments {
     grouper: Option<Value>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "group-by"

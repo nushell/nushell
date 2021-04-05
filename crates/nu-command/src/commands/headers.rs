@@ -8,7 +8,6 @@ use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 
 pub struct Headers;
 
-#[async_trait]
 impl WholeStreamCommand for Headers {
     fn name(&self) -> &str {
         "headers"

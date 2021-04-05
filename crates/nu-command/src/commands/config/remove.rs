@@ -11,7 +11,6 @@ pub struct Arguments {
     remove: Tagged<String>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "config remove"

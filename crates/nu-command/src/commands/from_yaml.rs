@@ -5,7 +5,6 @@ use nu_protocol::{Primitive, Signature, TaggedDictBuilder, UntaggedValue, Value}
 
 pub struct FromYaml;
 
-#[async_trait]
 impl WholeStreamCommand for FromYaml {
     fn name(&self) -> &str {
         "from yaml"
@@ -26,7 +25,6 @@ impl WholeStreamCommand for FromYaml {
 
 pub struct FromYml;
 
-#[async_trait]
 impl WholeStreamCommand for FromYml {
     fn name(&self) -> &str {
         "from yml"

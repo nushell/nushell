@@ -1,7 +1,5 @@
 use crate::{maybe_print_errors, path::canonicalize, run_block};
-use crate::{MaybeTextCodec, StringOrBinary};
-use futures::StreamExt;
-use futures_codec::FramedRead;
+use crate::{BufCodecReader, MaybeTextCodec, StringOrBinary};
 use nu_errors::ShellError;
 use nu_protocol::hir::{
     Call, ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments,
@@ -163,7 +161,8 @@ pub fn process_script(
         let input_stream = if redirect_stdin {
             let file = std::io::stdin();
             let buf_reader = BufReader::new(file);
-            let stream = buf_reader.map(|line| {
+            let buf_codec = BufCodecReader::new(buf_reader, MaybeTextCodec::default());
+            let stream = buf_codec.map(|line| {
                 if let Ok(line) = line {
                     let primitive = match line {
                         StringOrBinary::String(s) => Primitive::String(s),

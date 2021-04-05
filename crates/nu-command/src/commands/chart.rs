@@ -6,7 +6,6 @@ use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 #[derive(Clone)]
 pub struct Chart;
 
-#[async_trait]
 impl WholeStreamCommand for Chart {
     fn name(&self) -> &str {
         "chart"

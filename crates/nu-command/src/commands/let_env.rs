@@ -14,7 +14,6 @@ pub struct LetEnvArgs {
     pub rhs: CapturedBlock,
 }
 
-#[async_trait]
 impl WholeStreamCommand for LetEnv {
     fn name(&self) -> &str {
         "let-env"

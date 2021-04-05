@@ -10,7 +10,6 @@ pub mod shadow {
 
 pub struct Version;
 
-#[async_trait]
 impl WholeStreamCommand for Version {
     fn name(&self) -> &str {
         "version"

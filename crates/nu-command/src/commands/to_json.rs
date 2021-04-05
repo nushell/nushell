@@ -14,7 +14,6 @@ pub struct ToJsonArgs {
     pretty: Option<Value>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for ToJson {
     fn name(&self) -> &str {
         "to json"

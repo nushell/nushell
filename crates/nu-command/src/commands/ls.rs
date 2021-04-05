@@ -5,7 +5,6 @@ use nu_protocol::{Signature, SyntaxShape};
 
 pub struct Ls;
 
-#[async_trait]
 impl WholeStreamCommand for Ls {
     fn name(&self) -> &str {
         "ls"

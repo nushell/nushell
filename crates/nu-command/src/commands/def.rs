@@ -14,7 +14,6 @@ pub struct DefArgs {
     pub block: CapturedBlock,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Def {
     fn name(&self) -> &str {
         "def"

@@ -22,7 +22,6 @@ impl PathSubcommandArguments for PathFilestemArguments {
     }
 }
 
-#[async_trait]
 impl WholeStreamCommand for PathFilestem {
     fn name(&self) -> &str {
         "path filestem"

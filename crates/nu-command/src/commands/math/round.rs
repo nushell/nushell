@@ -11,7 +11,6 @@ struct Arguments {
     precision: Option<Tagged<i64>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "math round"

@@ -13,7 +13,6 @@ pub struct GroupByDateArgs {
     format: Option<Tagged<String>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for GroupByDate {
     fn name(&self) -> &str {
         "group-by date"

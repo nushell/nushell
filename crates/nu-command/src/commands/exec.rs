@@ -13,7 +13,6 @@ pub struct ExecArgs {
     pub rest: Vec<Tagged<String>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Exec {
     fn name(&self) -> &str {
         "exec"

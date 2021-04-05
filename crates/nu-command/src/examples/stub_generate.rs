@@ -14,7 +14,6 @@ struct Arguments {
     path: Option<bool>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "stub open"

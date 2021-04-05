@@ -13,7 +13,6 @@ pub struct FormatArgs {
     pattern: Tagged<String>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Format {
     fn name(&self) -> &str {
         "format"

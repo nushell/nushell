@@ -17,7 +17,6 @@ pub struct EachGroupArgs {
     //numbered: Tagged<bool>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for EachGroup {
     fn name(&self) -> &str {
         "each group"

@@ -1,3 +1,5 @@
+use std::io::{BufReader, Read};
+
 use bytes::{BufMut, Bytes, BytesMut};
 
 use nu_errors::ShellError;
@@ -17,6 +19,32 @@ pub enum StringOrBinary {
 
 pub struct MaybeTextCodec {
     decoder: Decoder,
+}
+
+pub struct BufCodecReader<R: Read> {
+    maybe_text_codec: MaybeTextCodec,
+    input: BufReader<R>,
+}
+
+impl<R: Read> BufCodecReader<R> {
+    pub fn new(input: BufReader<R>, maybe_text_codec: MaybeTextCodec) -> Self {
+        BufCodecReader {
+            input,
+            maybe_text_codec,
+        }
+    }
+}
+
+impl<R: Read> Iterator for BufCodecReader<R> {
+    type Item = Result<StringOrBinary, ShellError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut buf = BytesMut::with_capacity(OUTPUT_BUFFER_SIZE);
+        match self.input.read(&mut buf) {
+            Ok(s) => self.maybe_text_codec.decode(&mut buf).transpose(),
+            Err(e) => None,
+        }
+    }
 }
 
 impl MaybeTextCodec {
@@ -39,15 +67,13 @@ impl Default for MaybeTextCodec {
 }
 
 impl MaybeTextCodec {
-    fn encode(&mut self, item: StringOrBinary, dst: &mut BytesMut) -> Result<(), std::io::Error> {
+    fn encode(&mut self, item: StringOrBinary, mut dst: &mut [u8]) -> Result<(), std::io::Error> {
         match item {
             StringOrBinary::String(s) => {
-                dst.reserve(s.len());
                 dst.put(s.as_bytes());
                 Ok(())
             }
             StringOrBinary::Binary(b) => {
-                dst.reserve(b.len());
                 dst.put(Bytes::from(b));
                 Ok(())
             }
@@ -56,7 +82,7 @@ impl MaybeTextCodec {
 }
 
 impl MaybeTextCodec {
-    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<StringOrBinary>, ShellError> {
+    pub fn decode(&mut self, src: &mut BytesMut) -> Result<Option<StringOrBinary>, ShellError> {
         if src.is_empty() {
             return Ok(None);
         }

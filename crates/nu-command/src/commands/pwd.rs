@@ -5,7 +5,6 @@ use nu_protocol::Signature;
 
 pub struct Pwd;
 
-#[async_trait]
 impl WholeStreamCommand for Pwd {
     fn name(&self) -> &str {
         "pwd"

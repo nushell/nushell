@@ -9,7 +9,6 @@ pub struct Describe;
 #[derive(Deserialize)]
 pub struct DescribeArgs {}
 
-#[async_trait]
 impl WholeStreamCommand for Describe {
     fn name(&self) -> &str {
         "describe"

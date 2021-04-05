@@ -5,7 +5,6 @@ use nu_protocol::{Primitive, ReturnSuccess, Signature, UnspannedPathMember, Unta
 
 pub struct ToYaml;
 
-#[async_trait]
 impl WholeStreamCommand for ToYaml {
     fn name(&self) -> &str {
         "to yaml"

@@ -5,7 +5,6 @@ use nu_protocol::{CommandAction, ReturnSuccess, Signature};
 
 pub struct Next;
 
-#[async_trait]
 impl WholeStreamCommand for Next {
     fn name(&self) -> &str {
         "n"

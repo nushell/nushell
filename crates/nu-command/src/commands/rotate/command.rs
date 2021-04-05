@@ -15,7 +15,6 @@ pub struct Arguments {
     rest: Vec<Tagged<String>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "rotate"

@@ -13,7 +13,6 @@ pub struct Arguments {
     set_into: Tagged<String>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "config set_into"
@@ -78,8 +77,7 @@ pub fn set_into(args: CommandArgs) -> Result<OutputStream, ShellError> {
         config::write(&result, &path)?;
         ctx.reload_config(&ConfigPath::Global(
             path.expect("Global config path is always some"),
-        ))
-        ?;
+        ))?;
 
         OutputStream::one(ReturnSuccess::value(
             UntaggedValue::Row(result.into()).into_value(name),
@@ -93,8 +91,7 @@ pub fn set_into(args: CommandArgs) -> Result<OutputStream, ShellError> {
         config::write(&result, &path)?;
         ctx.reload_config(&ConfigPath::Global(
             path.expect("Global config path is always some"),
-        ))
-        ?;
+        ))?;
 
         OutputStream::one(ReturnSuccess::value(
             UntaggedValue::Row(result.into()).into_value(name),

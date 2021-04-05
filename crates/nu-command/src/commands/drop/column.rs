@@ -12,7 +12,6 @@ pub struct Arguments {
     columns: Option<Tagged<u64>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "drop column"

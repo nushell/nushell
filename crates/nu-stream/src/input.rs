@@ -11,13 +11,11 @@ pub struct InputStream {
     empty: bool,
 }
 
-impl IntoIterator for InputStream {
+impl Iterator for InputStream {
     type Item = Value;
 
-    type IntoIter = Box<dyn Iterator<Item = Value> + Send + Sync>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.values
+    fn next(&mut self) -> Option<Self::Item> {
+        self.values.next()
     }
 }
 

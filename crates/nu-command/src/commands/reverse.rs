@@ -5,7 +5,6 @@ use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 
 pub struct Reverse;
 
-#[async_trait]
 impl WholeStreamCommand for Reverse {
     fn name(&self) -> &str {
         "reverse"

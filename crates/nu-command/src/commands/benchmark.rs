@@ -23,7 +23,6 @@ struct BenchmarkArgs {
     passthrough: Option<CapturedBlock>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Benchmark {
     fn name(&self) -> &str {
         "benchmark"

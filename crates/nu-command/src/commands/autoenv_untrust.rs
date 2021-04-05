@@ -8,7 +8,6 @@ use std::io::Read;
 use std::{fs, path::PathBuf};
 pub struct AutoenvUnTrust;
 
-#[async_trait]
 impl WholeStreamCommand for AutoenvUnTrust {
     fn name(&self) -> &str {
         "autoenv untrust"

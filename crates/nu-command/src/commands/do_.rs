@@ -12,7 +12,6 @@ struct DoArgs {
     ignore_errors: bool,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Do {
     fn name(&self) -> &str {
         "do"

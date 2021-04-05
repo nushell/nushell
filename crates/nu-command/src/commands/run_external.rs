@@ -37,7 +37,6 @@ fn spanned_expression_to_string(expr: SpannedExpression) -> Result<String, Shell
     }
 }
 
-#[async_trait]
 impl WholeStreamCommand for RunExternalCommand {
     fn name(&self) -> &str {
         "run_external"

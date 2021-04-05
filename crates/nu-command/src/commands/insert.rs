@@ -17,7 +17,6 @@ pub struct Arguments {
     value: Value,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "insert"

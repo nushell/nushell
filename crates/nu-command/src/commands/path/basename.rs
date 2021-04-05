@@ -20,7 +20,6 @@ impl PathSubcommandArguments for PathBasenameArguments {
     }
 }
 
-#[async_trait]
 impl WholeStreamCommand for PathBasename {
     fn name(&self) -> &str {
         "path basename"

@@ -132,7 +132,6 @@ pub struct SaveArgs {
     raw: bool,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Save {
     fn name(&self) -> &str {
         "save"

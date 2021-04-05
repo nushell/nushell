@@ -11,7 +11,6 @@ pub struct FirstArgs {
     rows: Option<Tagged<usize>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for First {
     fn name(&self) -> &str {
         "first"

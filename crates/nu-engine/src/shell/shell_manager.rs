@@ -85,8 +85,10 @@ impl ShellManager {
         full_path: &Path,
         name: Span,
         with_encoding: Option<&'static Encoding>,
-    ) -> Result<impl Stream<Item = Result<StringOrBinary, ShellError>> + Send + 'static, ShellError>
-    {
+    ) -> Result<
+        Box<dyn Iterator<Item = Result<StringOrBinary, ShellError>> + Send + Sync>,
+        ShellError,
+    > {
         self.shells.lock()[self.current_shell()].open(full_path, name, with_encoding)
     }
 

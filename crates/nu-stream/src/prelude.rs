@@ -70,9 +70,3 @@ where
         }
     }
 }
-
-impl ToOutputStream for InputStream {
-    fn to_output_stream(self) -> OutputStream {
-        self.into()
-    }
-}

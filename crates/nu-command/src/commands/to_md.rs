@@ -14,7 +14,6 @@ pub struct Arguments {
     per_element: bool,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "to md"

@@ -13,7 +13,6 @@ pub struct DiceArgs {
     sides: Option<Tagged<u32>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "random dice"

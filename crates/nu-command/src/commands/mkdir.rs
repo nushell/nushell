@@ -4,7 +4,6 @@ use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape};
 pub struct Mkdir;
 
-#[async_trait]
 impl WholeStreamCommand for Mkdir {
     fn name(&self) -> &str {
         "mkdir"

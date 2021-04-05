@@ -5,7 +5,6 @@ use nu_protocol::{Primitive, ReturnSuccess, Signature, UnspannedPathMember, Unta
 
 pub struct ToToml;
 
-#[async_trait]
 impl WholeStreamCommand for ToToml {
     fn name(&self) -> &str {
         "to toml"

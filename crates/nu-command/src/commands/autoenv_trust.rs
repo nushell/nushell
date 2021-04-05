@@ -8,7 +8,6 @@ use sha2::{Digest, Sha256};
 use std::{fs, path::PathBuf};
 pub struct AutoenvTrust;
 
-#[async_trait]
 impl WholeStreamCommand for AutoenvTrust {
     fn name(&self) -> &str {
         "autoenv trust"

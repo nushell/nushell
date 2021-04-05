@@ -13,7 +13,6 @@ pub struct Arguments {
     block: CapturedBlock,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "all?"
@@ -99,28 +98,25 @@ fn all(args: CommandArgs) -> Result<OutputStream, ShellError> {
             ctx.scope.add_vars(&block.captured.entries);
             ctx.scope.add_var("$it", row);
 
-            async move {
-                let condition = evaluate_baseline_expr(&condition, &*ctx).clone();
-                ctx.scope.exit_scope();
+            let condition = evaluate_baseline_expr(&condition, &*ctx).clone();
+            ctx.scope.exit_scope();
 
-                let curr = acc?.drain_vec();
-                let curr = curr
-                    .get(0)
-                    .ok_or_else(|| ShellError::unexpected("No value to check with"))?;
-                let cond = curr.as_bool()?;
+            let curr = acc?.drain_vec();
+            let curr = curr
+                .get(0)
+                .ok_or_else(|| ShellError::unexpected("No value to check with"))?;
+            let cond = curr.as_bool()?;
 
-                match condition {
-                    Ok(condition) => match condition.as_bool() {
-                        Ok(b) => Ok(InputStream::one(
-                            UntaggedValue::boolean(cond && b).into_value(&curr.tag),
-                        )),
-                        Err(e) => Err(e),
-                    },
+            match condition {
+                Ok(condition) => match condition.as_bool() {
+                    Ok(b) => Ok(InputStream::one(
+                        UntaggedValue::boolean(cond && b).into_value(&curr.tag),
+                    )),
                     Err(e) => Err(e),
-                }
+                },
+                Err(e) => Err(e),
             }
-        })
-        ?
+        })?
         .to_output_stream())
 }
 

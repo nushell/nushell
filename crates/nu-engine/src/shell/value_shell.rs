@@ -238,7 +238,10 @@ impl Shell for ValueShell {
         _path: &Path,
         _name: Span,
         _with_encoding: Option<&'static Encoding>,
-    ) -> Result<BoxStream<'static, Result<StringOrBinary, ShellError>>, ShellError> {
+    ) -> Result<
+        Box<dyn Iterator<Item = Result<StringOrBinary, ShellError>> + Send + Sync>,
+        ShellError,
+    > {
         Err(ShellError::unimplemented(
             "open on help shell is not supported",
         ))

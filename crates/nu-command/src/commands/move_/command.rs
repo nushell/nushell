@@ -14,7 +14,6 @@ pub struct Arguments {
     before: Option<ColumnPath>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "move"

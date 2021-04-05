@@ -16,7 +16,6 @@ pub struct KillArgs {
     pub signal: Option<Tagged<u32>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Kill {
     fn name(&self) -> &str {
         "kill"

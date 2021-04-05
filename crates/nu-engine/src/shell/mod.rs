@@ -41,7 +41,10 @@ pub trait Shell: std::fmt::Debug {
         path: &Path,
         name: Span,
         with_encoding: Option<&'static Encoding>,
-    ) -> Result<BoxStream<'static, Result<StringOrBinary, ShellError>>, ShellError>;
+    ) -> Result<
+        Box<dyn Iterator<Item = Result<StringOrBinary, ShellError>> + Send + Sync>,
+        ShellError,
+    >;
     fn save(
         &mut self,
         path: &Path,

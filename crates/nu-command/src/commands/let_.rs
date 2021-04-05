@@ -14,7 +14,6 @@ pub struct LetArgs {
     pub rhs: CapturedBlock,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Let {
     fn name(&self) -> &str {
         "let"

@@ -36,7 +36,7 @@ pub use crate::example::Example;
 pub use crate::filesystem::dir_info::{DirBuilder, DirInfo, FileInfo};
 pub use crate::filesystem::filesystem_shell::FilesystemShell;
 pub use crate::filesystem::path;
-pub use crate::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
+pub use crate::maybe_text_codec::{BufCodecReader, MaybeTextCodec, StringOrBinary};
 pub use crate::print::maybe_print_errors;
 pub use crate::runnable_context::RunnableContext;
 pub use crate::shell::painter::Painter;

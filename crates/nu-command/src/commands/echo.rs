@@ -13,7 +13,6 @@ pub struct EchoArgs {
     pub rest: Vec<Value>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Echo {
     fn name(&self) -> &str {
         "echo"

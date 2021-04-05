@@ -11,7 +11,6 @@ pub struct LengthArgs {
     column: bool,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Length {
     fn name(&self) -> &str {
         "length"

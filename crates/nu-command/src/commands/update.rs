@@ -18,7 +18,6 @@ pub struct Arguments {
     replacement: Value,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "update"

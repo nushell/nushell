@@ -91,7 +91,6 @@ pub struct ToHtmlArgs {
     list: bool,
 }
 
-#[async_trait]
 impl WholeStreamCommand for ToHtml {
     fn name(&self) -> &str {
         "to html"

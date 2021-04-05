@@ -17,7 +17,6 @@ pub struct EachArgs {
     numbered: Tagged<bool>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Each {
     fn name(&self) -> &str {
         "each"

@@ -11,7 +11,6 @@ pub struct Arguments {
     rows: Option<Tagged<u64>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "drop"

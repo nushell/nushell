@@ -5,7 +5,6 @@ use nu_protocol::{Signature, UntaggedValue};
 
 pub struct Uniq;
 
-#[async_trait]
 impl WholeStreamCommand for Uniq {
     fn name(&self) -> &str {
         "uniq"

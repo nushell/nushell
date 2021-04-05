@@ -6,7 +6,6 @@ use std::sync::atomic::Ordering;
 
 pub struct Shells;
 
-#[async_trait]
 impl WholeStreamCommand for Shells {
     fn name(&self) -> &str {
         "shells"

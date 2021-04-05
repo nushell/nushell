@@ -12,7 +12,6 @@ pub struct FromCsvArgs {
     separator: Option<Value>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for FromCsv {
     fn name(&self) -> &str {
         "from csv"

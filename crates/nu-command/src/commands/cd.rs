@@ -7,7 +7,6 @@ use nu_protocol::{Signature, SyntaxShape};
 
 pub struct Cd;
 
-#[async_trait]
 impl WholeStreamCommand for Cd {
     fn name(&self) -> &str {
         "cd"

@@ -18,7 +18,6 @@ impl PathSubcommandArguments for PathExpandArguments {
     }
 }
 
-#[async_trait]
 impl WholeStreamCommand for PathExpand {
     fn name(&self) -> &str {
         "path expand"

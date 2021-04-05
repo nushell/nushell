@@ -6,7 +6,6 @@ use nu_protocol::{Signature, UntaggedValue};
 
 pub struct Date;
 
-#[async_trait]
 impl WholeStreamCommand for Date {
     fn name(&self) -> &str {
         "date now"

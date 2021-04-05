@@ -18,7 +18,6 @@ pub struct HelpArgs {
     rest: Vec<Tagged<String>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Help {
     fn name(&self) -> &str {
         "help"

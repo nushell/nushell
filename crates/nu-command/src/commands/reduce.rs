@@ -19,7 +19,6 @@ pub struct ReduceArgs {
     numbered: Tagged<bool>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Reduce {
     fn name(&self) -> &str {
         "reduce"

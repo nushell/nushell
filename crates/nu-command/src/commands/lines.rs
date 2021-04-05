@@ -6,7 +6,6 @@ use parking_lot::Mutex;
 
 pub struct Lines;
 
-#[async_trait]
 impl WholeStreamCommand for Lines {
     fn name(&self) -> &str {
         "lines"

@@ -8,7 +8,6 @@ use nu_protocol::{Signature, SyntaxShape, Value};
 
 pub struct UrlHost;
 
-#[async_trait]
 impl WholeStreamCommand for UrlHost {
     fn name(&self) -> &str {
         "url host"

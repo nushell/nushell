@@ -5,7 +5,6 @@ use nu_protocol::{Primitive, ReturnSuccess, Signature, TaggedDictBuilder, Untagg
 
 pub struct FromXml;
 
-#[async_trait]
 impl WholeStreamCommand for FromXml {
     fn name(&self) -> &str {
         "from xml"

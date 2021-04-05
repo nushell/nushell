@@ -18,7 +18,6 @@ use nu_protocol::hir::Expression;
 use nu_protocol::hir::{ExternalCommand, ExternalRedirection};
 use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
 use nu_source::Tag;
-use nu_stream::trace_stream;
 
 pub(crate) fn run_external_command(
     command: ExternalCommand,
@@ -46,8 +45,6 @@ fn run_with_stdin(
     external_redirection: ExternalRedirection,
 ) -> Result<InputStream, ShellError> {
     let path = context.shell_manager.path();
-
-    let input = trace_stream!(target: "nu::trace_stream::external::stdin", "input" = input);
 
     let mut command_args = vec![];
     for arg in command.args.iter() {
@@ -536,11 +533,7 @@ mod tests {
         let mut ctx =
             basic_evaluation_context().expect("There was a problem creating a basic context.");
 
-        assert!(
-            run_external_command(cmd, &mut ctx, input, ExternalRedirection::Stdout)
-                
-                .is_err()
-        );
+        assert!(run_external_command(cmd, &mut ctx, input, ExternalRedirection::Stdout).is_err());
 
         Ok(())
     }

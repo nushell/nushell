@@ -30,7 +30,6 @@ pub enum ActionType {
 }
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "hash base64"

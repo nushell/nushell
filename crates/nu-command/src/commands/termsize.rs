@@ -12,7 +12,6 @@ pub struct TermSizeArgs {
     tall: bool,
 }
 
-#[async_trait]
 impl WholeStreamCommand for TermSize {
     fn name(&self) -> &str {
         "term size"

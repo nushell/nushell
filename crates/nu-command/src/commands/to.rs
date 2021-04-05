@@ -6,7 +6,6 @@ use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 #[derive(Clone)]
 pub struct To;
 
-#[async_trait]
 impl WholeStreamCommand for To {
     fn name(&self) -> &str {
         "to"

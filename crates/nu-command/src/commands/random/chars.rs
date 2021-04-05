@@ -15,7 +15,6 @@ pub struct CharsArgs {
 
 const DEFAULT_CHARS_LENGTH: u32 = 25;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "random chars"

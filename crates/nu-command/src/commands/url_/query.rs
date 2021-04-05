@@ -8,7 +8,6 @@ use nu_protocol::{Signature, SyntaxShape, Value};
 
 pub struct UrlQuery;
 
-#[async_trait]
 impl WholeStreamCommand for UrlQuery {
     fn name(&self) -> &str {
         "url query"

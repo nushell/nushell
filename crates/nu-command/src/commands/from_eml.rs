@@ -16,7 +16,6 @@ pub struct FromEmlArgs {
     preview_body: Option<Tagged<usize>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for FromEml {
     fn name(&self) -> &str {
         "from eml"

@@ -12,7 +12,6 @@ pub struct BuildStringArgs {
 
 pub struct BuildString;
 
-#[async_trait]
 impl WholeStreamCommand for BuildString {
     fn name(&self) -> &str {
         "build-string"

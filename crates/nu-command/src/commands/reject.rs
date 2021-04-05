@@ -12,7 +12,6 @@ pub struct RejectArgs {
 
 pub struct Reject;
 
-#[async_trait]
 impl WholeStreamCommand for Reject {
     fn name(&self) -> &str {
         "reject"

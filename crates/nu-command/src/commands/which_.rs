@@ -8,7 +8,6 @@ use nu_source::Tagged;
 
 pub struct Which;
 
-#[async_trait]
 impl WholeStreamCommand for Which {
     fn name(&self) -> &str {
         "which"

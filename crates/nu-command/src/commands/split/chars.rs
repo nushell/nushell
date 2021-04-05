@@ -5,7 +5,6 @@ use nu_protocol::{ReturnSuccess, Signature, Value};
 
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "split chars"

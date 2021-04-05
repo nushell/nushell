@@ -13,7 +13,6 @@ struct NthArgs {
 
 pub struct Nth;
 
-#[async_trait]
 impl WholeStreamCommand for Nth {
     fn name(&self) -> &str {
         "nth"

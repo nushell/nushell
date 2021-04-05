@@ -28,7 +28,6 @@ pub struct DuArgs {
     min_size: Option<Tagged<u64>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Du {
     fn name(&self) -> &str {
         NAME

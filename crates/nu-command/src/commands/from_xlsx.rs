@@ -13,7 +13,6 @@ pub struct FromXlsxArgs {
     noheaders: bool,
 }
 
-#[async_trait]
 impl WholeStreamCommand for FromXlsx {
     fn name(&self) -> &str {
         "from xlsx"

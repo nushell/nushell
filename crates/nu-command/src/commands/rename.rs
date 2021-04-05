@@ -13,7 +13,6 @@ pub struct Arguments {
     rest: Vec<Tagged<String>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Rename {
     fn name(&self) -> &str {
         "rename"

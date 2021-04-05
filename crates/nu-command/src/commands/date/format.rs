@@ -15,7 +15,6 @@ pub struct FormatArgs {
     table: bool,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Date {
     fn name(&self) -> &str {
         "date format"

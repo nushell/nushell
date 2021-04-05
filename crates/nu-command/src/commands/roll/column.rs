@@ -31,7 +31,6 @@ impl Arguments {
     }
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "roll column"

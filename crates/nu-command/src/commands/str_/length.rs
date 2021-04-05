@@ -13,7 +13,6 @@ struct Arguments {
     rest: Vec<ColumnPath>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "str length"

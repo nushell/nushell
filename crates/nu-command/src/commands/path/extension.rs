@@ -20,7 +20,6 @@ impl PathSubcommandArguments for PathExtensionArguments {
     }
 }
 
-#[async_trait]
 impl WholeStreamCommand for PathExtension {
     fn name(&self) -> &str {
         "path extension"

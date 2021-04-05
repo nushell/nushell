@@ -11,7 +11,6 @@ pub struct FromTsvArgs {
     noheaders: bool,
 }
 
-#[async_trait]
 impl WholeStreamCommand for FromTsv {
     fn name(&self) -> &str {
         "from tsv"

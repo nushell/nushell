@@ -6,7 +6,6 @@ use std::process::Command;
 
 pub struct Clear;
 
-#[async_trait]
 impl WholeStreamCommand for Clear {
     fn name(&self) -> &str {
         "clear"

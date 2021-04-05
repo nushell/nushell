@@ -12,7 +12,6 @@ struct SplitRowArgs {
 
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "split row"

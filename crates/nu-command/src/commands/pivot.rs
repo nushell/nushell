@@ -18,7 +18,6 @@ pub struct PivotArgs {
     ignore_titles: bool,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Pivot {
     fn name(&self) -> &str {
         "pivot"

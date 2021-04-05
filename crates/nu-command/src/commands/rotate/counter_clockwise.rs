@@ -15,7 +15,6 @@ pub struct Arguments {
     rest: Vec<Tagged<String>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "rotate counter-clockwise"

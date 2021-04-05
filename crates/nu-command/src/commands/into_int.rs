@@ -12,7 +12,6 @@ pub struct IntoIntArgs {
     pub rest: Vec<Value>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for IntoInt {
     fn name(&self) -> &str {
         "into-int"

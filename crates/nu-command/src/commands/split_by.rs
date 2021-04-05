@@ -13,7 +13,6 @@ pub struct SplitByArgs {
     column_name: Option<Tagged<String>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SplitBy {
     fn name(&self) -> &str {
         "split-by"

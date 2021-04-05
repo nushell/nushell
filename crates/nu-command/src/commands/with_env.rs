@@ -14,7 +14,6 @@ struct WithEnvArgs {
     block: CapturedBlock,
 }
 
-#[async_trait]
 impl WholeStreamCommand for WithEnv {
     fn name(&self) -> &str {
         "with-env"

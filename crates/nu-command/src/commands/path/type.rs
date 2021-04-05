@@ -19,7 +19,6 @@ impl PathSubcommandArguments for PathTypeArguments {
     }
 }
 
-#[async_trait]
 impl WholeStreamCommand for PathType {
     fn name(&self) -> &str {
         "path type"

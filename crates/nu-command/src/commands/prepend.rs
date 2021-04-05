@@ -10,7 +10,6 @@ struct PrependArgs {
 
 pub struct Prepend;
 
-#[async_trait]
 impl WholeStreamCommand for Prepend {
     fn name(&self) -> &str {
         "prepend"

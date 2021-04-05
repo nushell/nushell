@@ -18,7 +18,6 @@ impl PathSubcommandArguments for PathExistsArguments {
     }
 }
 
-#[async_trait]
 impl WholeStreamCommand for PathExists {
     fn name(&self) -> &str {
         "path exists"

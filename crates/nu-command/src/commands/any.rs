@@ -13,7 +13,6 @@ pub struct Arguments {
     block: CapturedBlock,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "any?"

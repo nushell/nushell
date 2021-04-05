@@ -12,7 +12,6 @@ pub struct Arguments {
     column_path: ColumnPath,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "config get"

@@ -8,7 +8,6 @@ use nu_protocol::{Primitive, ReturnSuccess, Signature, TaggedDictBuilder, Untagg
 
 pub struct FromVcf;
 
-#[async_trait]
 impl WholeStreamCommand for FromVcf {
     fn name(&self) -> &str {
         "from vcf"

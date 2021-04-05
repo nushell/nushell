@@ -12,7 +12,6 @@ pub struct EveryArgs {
     skip: Tagged<bool>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Every {
     fn name(&self) -> &str {
         "every"

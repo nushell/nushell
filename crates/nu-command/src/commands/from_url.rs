@@ -5,7 +5,6 @@ use nu_protocol::{ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue};
 
 pub struct FromUrl;
 
-#[async_trait]
 impl WholeStreamCommand for FromUrl {
     fn name(&self) -> &str {
         "from url"

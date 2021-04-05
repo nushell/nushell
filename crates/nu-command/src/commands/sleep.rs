@@ -23,7 +23,6 @@ pub struct SleepArgs {
     pub rest: Vec<Tagged<u64>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Sleep {
     fn name(&self) -> &str {
         "sleep"

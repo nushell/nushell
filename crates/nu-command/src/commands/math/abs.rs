@@ -5,7 +5,6 @@ use nu_protocol::{Primitive, Signature, UntaggedValue, Value};
 
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "math abs"

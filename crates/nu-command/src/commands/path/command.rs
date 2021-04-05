@@ -5,7 +5,6 @@ use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 
 pub struct Path;
 
-#[async_trait]
 impl WholeStreamCommand for Path {
     fn name(&self) -> &str {
         "path"

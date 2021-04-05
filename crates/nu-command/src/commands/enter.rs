@@ -17,7 +17,6 @@ pub struct EnterArgs {
     encoding: Option<Tagged<String>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Enter {
     fn name(&self) -> &str {
         "enter"

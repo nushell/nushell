@@ -6,7 +6,6 @@ use nu_engine::WholeStreamCommand;
 
 pub struct Previous;
 
-#[async_trait]
 impl WholeStreamCommand for Previous {
     fn name(&self) -> &str {
         "p"

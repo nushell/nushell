@@ -15,7 +15,6 @@ struct Arguments {
     pub rest: Vec<Value>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "echo"

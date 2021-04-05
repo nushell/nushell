@@ -20,7 +20,6 @@ impl PathSubcommandArguments for PathJoinArguments {
     }
 }
 
-#[async_trait]
 impl WholeStreamCommand for PathJoin {
     fn name(&self) -> &str {
         "path join"

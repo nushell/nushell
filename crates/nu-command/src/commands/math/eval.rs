@@ -11,7 +11,6 @@ pub struct SubCommandArgs {
     expression: Option<Tagged<String>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "math eval"

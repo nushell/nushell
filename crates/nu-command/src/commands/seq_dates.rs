@@ -21,7 +21,6 @@ pub struct SeqDatesArgs {
     reverse: Tagged<bool>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SeqDates {
     fn name(&self) -> &str {
         "seq date"

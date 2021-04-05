@@ -14,7 +14,6 @@ use bigdecimal::FromPrimitive;
 
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "math avg"

@@ -20,7 +20,6 @@ pub struct FromSsvArgs {
 const STRING_REPRESENTATION: &str = "from ssv";
 const DEFAULT_MINIMUM_SPACES: usize = 2;
 
-#[async_trait]
 impl WholeStreamCommand for FromSsv {
     fn name(&self) -> &str {
         STRING_REPRESENTATION

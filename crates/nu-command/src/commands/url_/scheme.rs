@@ -8,7 +8,6 @@ use nu_protocol::{Signature, SyntaxShape, Value};
 
 pub struct UrlScheme;
 
-#[async_trait]
 impl WholeStreamCommand for UrlScheme {
     fn name(&self) -> &str {
         "url scheme"

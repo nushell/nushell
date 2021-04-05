@@ -11,7 +11,6 @@ pub struct LastArgs {
     rows: Option<Tagged<u64>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Last {
     fn name(&self) -> &str {
         "last"

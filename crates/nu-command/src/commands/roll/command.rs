@@ -13,7 +13,6 @@ pub struct Arguments {
     by: Option<Tagged<u64>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "roll"

@@ -15,7 +15,6 @@ pub struct SortByArgs {
     reverse: bool,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SortBy {
     fn name(&self) -> &str {
         "sort-by"

@@ -4,7 +4,6 @@ use nu_protocol::{CommandAction, ReturnSuccess, Signature, SyntaxShape};
 
 pub struct Exit;
 
-#[async_trait]
 impl WholeStreamCommand for Exit {
     fn name(&self) -> &str {
         "exit"

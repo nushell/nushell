@@ -13,7 +13,6 @@ pub struct SourceArgs {
     pub filename: Tagged<String>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Source {
     fn name(&self) -> &str {
         "source"

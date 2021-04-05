@@ -16,7 +16,6 @@ pub struct SeqArgs {
     widths: Tagged<bool>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Seq {
     fn name(&self) -> &str {
         "seq"

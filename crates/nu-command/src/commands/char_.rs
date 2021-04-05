@@ -13,7 +13,6 @@ struct CharArgs {
     unicode: bool,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Char {
     fn name(&self) -> &str {
         "char"

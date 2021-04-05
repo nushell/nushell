@@ -15,7 +15,6 @@ pub struct ToXmlArgs {
     pretty: Option<Value>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for ToXml {
     fn name(&self) -> &str {
         "to xml"

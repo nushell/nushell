@@ -9,7 +9,6 @@ use unicode_segmentation::UnicodeSegmentation;
 
 pub struct Size;
 
-#[async_trait]
 impl WholeStreamCommand for Size {
     fn name(&self) -> &str {
         "size"

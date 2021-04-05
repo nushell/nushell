@@ -4,7 +4,6 @@ use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 pub struct Autoenv;
 
-#[async_trait]
 impl WholeStreamCommand for Autoenv {
     fn name(&self) -> &str {
         "autoenv"

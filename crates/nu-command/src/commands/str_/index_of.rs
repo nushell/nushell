@@ -21,7 +21,6 @@ pub struct SubCommand;
 #[derive(Clone)]
 pub struct IndexOfOptionalBounds(i32, i32);
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "str index-of"

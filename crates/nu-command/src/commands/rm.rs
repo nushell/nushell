@@ -6,7 +6,6 @@ use nu_protocol::{Signature, SyntaxShape};
 
 pub struct Remove;
 
-#[async_trait]
 impl WholeStreamCommand for Remove {
     fn name(&self) -> &str {
         "rm"

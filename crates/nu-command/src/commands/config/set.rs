@@ -13,7 +13,6 @@ pub struct Arguments {
     value: Value,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "config set"
@@ -96,8 +95,7 @@ pub fn set(args: CommandArgs) -> Result<OutputStream, ShellError> {
             config::write(&changes.entries, &path)?;
             ctx.reload_config(&ConfigPath::Global(
                 path.expect("Global config path is always some"),
-            ))
-            ?;
+            ))?;
 
             Ok(OutputStream::one(ReturnSuccess::value(
                 UntaggedValue::Row(changes).into_value(name),

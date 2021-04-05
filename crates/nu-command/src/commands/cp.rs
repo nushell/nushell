@@ -5,7 +5,6 @@ use nu_protocol::{Signature, SyntaxShape};
 
 pub struct Cpy;
 
-#[async_trait]
 impl WholeStreamCommand for Cpy {
     fn name(&self) -> &str {
         "cp"

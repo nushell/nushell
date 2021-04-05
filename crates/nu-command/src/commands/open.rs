@@ -19,7 +19,6 @@ pub struct OpenArgs {
     encoding: Option<Tagged<String>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Open {
     fn name(&self) -> &str {
         "open"

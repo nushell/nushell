@@ -12,7 +12,6 @@ struct RangeArgs {
 
 pub struct Range;
 
-#[async_trait]
 impl WholeStreamCommand for Range {
     fn name(&self) -> &str {
         "range"

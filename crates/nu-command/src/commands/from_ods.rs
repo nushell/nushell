@@ -13,7 +13,6 @@ pub struct FromOdsArgs {
     noheaders: bool,
 }
 
-#[async_trait]
 impl WholeStreamCommand for FromOds {
     fn name(&self) -> &str {
         "from ods"

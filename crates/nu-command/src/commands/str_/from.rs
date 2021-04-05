@@ -22,7 +22,6 @@ struct Arguments {
     group_digits: bool,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "str from"

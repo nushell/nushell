@@ -22,7 +22,6 @@ const STREAM_TIMEOUT_CHECK_INTERVAL: usize = 100;
 
 pub struct Command;
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "table"

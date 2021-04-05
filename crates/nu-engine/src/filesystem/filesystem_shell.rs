@@ -1,25 +1,21 @@
-use crate::command_args::EvaluatedWholeStreamCommandArgs;
 use crate::filesystem::dir_info::{DirBuilder, DirInfo};
 use crate::filesystem::path::canonicalize;
 use crate::filesystem::utils::FileStructure;
 use crate::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
 use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
 use crate::shell::Shell;
+use crate::{command_args::EvaluatedWholeStreamCommandArgs, BufCodecReader};
 use encoding_rs::Encoding;
-use futures::stream::BoxStream;
-use futures::StreamExt;
-use futures_codec::FramedRead;
-use futures_util::TryStreamExt;
 use nu_data::config::LocalConfigDiff;
 use nu_protocol::{CommandAction, ConfigPath, TaggedDictBuilder, Value};
 use nu_source::{Span, Tag};
 use nu_stream::{Interruptible, OutputStream, ToOutputStream};
-use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::{collections::HashMap, io::BufReader};
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -795,7 +791,10 @@ impl Shell for FilesystemShell {
         path: &Path,
         name: Span,
         with_encoding: Option<&'static Encoding>,
-    ) -> Result<BoxStream<'static, Result<StringOrBinary, ShellError>>, ShellError> {
+    ) -> Result<
+        Box<dyn Iterator<Item = Result<StringOrBinary, ShellError>> + Sync + Send>,
+        ShellError,
+    > {
         let metadata = std::fs::metadata(&path);
 
         let read_full = if let Ok(metadata) = metadata {
@@ -806,8 +805,6 @@ impl Shell for FilesystemShell {
         };
 
         if read_full {
-            use futures_codec::Decoder;
-
             // We should, in theory, be able to read in the whole file as one chunk
             let buffer = std::fs::read(&path).map_err(|e| {
                 ShellError::labeled_error(
@@ -824,8 +821,8 @@ impl Shell for FilesystemShell {
             match codec.decode(&mut bytes_mut).map_err(|_| {
                 ShellError::labeled_error("Error opening file", "error opening file", name)
             })? {
-                Some(sb) => Ok(futures::stream::iter(vec![Ok(sb)].into_iter()).boxed()),
-                None => Ok(futures::stream::iter(vec![].into_iter()).boxed()),
+                Some(sb) => Ok(Box::new(vec![Ok(sb)].into_iter())),
+                None => Ok(Box::new(vec![].into_iter())),
             }
         } else {
             // We don't know that this is a finite file, so treat it as a stream
@@ -836,14 +833,12 @@ impl Shell for FilesystemShell {
                     name,
                 )
             })?;
-            let async_reader = futures::io::AllowStdIo::new(f);
-            let sob_stream = FramedRead::new(async_reader, MaybeTextCodec::new(with_encoding))
-                .map_err(move |_| {
-                    ShellError::labeled_error("Error opening file", "error opening file", name)
-                })
-                .into_stream();
+            let buf_reader = BufReader::new(f);
+            let buf_codec = BufCodecReader::new(buf_reader, MaybeTextCodec::new(with_encoding));
 
-            Ok(sob_stream.boxed())
+            let sob_stream = buf_codec.into_iter();
+
+            Ok(Box::new(sob_stream))
         }
     }
 

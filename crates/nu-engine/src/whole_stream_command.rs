@@ -12,7 +12,6 @@ use nu_source::{DbgDocBldr, DebugDocBuilder, PrettyDebugWithSource, Span, Tag};
 use nu_stream::{OutputStream, ToOutputStream};
 use std::sync::Arc;
 
-#[async_trait]
 pub trait WholeStreamCommand: Send + Sync {
     fn name(&self) -> &str;
 
@@ -45,7 +44,7 @@ pub trait WholeStreamCommand: Send + Sync {
 // Custom commands are blocks, so we can use the information in the block to also
 // implement a WholeStreamCommand
 #[allow(clippy::suspicious_else_formatting)]
-#[async_trait]
+
 impl WholeStreamCommand for Block {
     fn name(&self) -> &str {
         &self.params.name

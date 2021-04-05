@@ -22,7 +22,6 @@ impl PathSubcommandArguments for PathDirnameArguments {
     }
 }
 
-#[async_trait]
 impl WholeStreamCommand for PathDirname {
     fn name(&self) -> &str {
         "path dirname"

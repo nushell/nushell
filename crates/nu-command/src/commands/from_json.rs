@@ -10,7 +10,6 @@ pub struct FromJsonArgs {
     objects: bool,
 }
 
-#[async_trait]
 impl WholeStreamCommand for FromJson {
     fn name(&self) -> &str {
         "from json"

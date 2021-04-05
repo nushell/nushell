@@ -5,7 +5,6 @@ use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
 
 pub struct ToUrl;
 
-#[async_trait]
 impl WholeStreamCommand for ToUrl {
     fn name(&self) -> &str {
         "to url"

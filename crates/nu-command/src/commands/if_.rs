@@ -16,7 +16,6 @@ pub struct IfArgs {
     else_case: CapturedBlock,
 }
 
-#[async_trait]
 impl WholeStreamCommand for If {
     fn name(&self) -> &str {
         "if"

@@ -6,7 +6,6 @@ use std::collections::HashMap;
 
 pub struct FromIni;
 
-#[async_trait]
 impl WholeStreamCommand for FromIni {
     fn name(&self) -> &str {
         "from ini"

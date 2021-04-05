@@ -5,7 +5,6 @@ use nu_protocol::{Primitive, ReturnSuccess, Signature, TaggedDictBuilder, Untagg
 
 pub struct FromToml;
 
-#[async_trait]
 impl WholeStreamCommand for FromToml {
     fn name(&self) -> &str {
         "from toml"

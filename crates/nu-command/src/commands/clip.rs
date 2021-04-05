@@ -8,7 +8,6 @@ use arboard::Clipboard;
 
 pub struct Clip;
 
-#[async_trait]
 impl WholeStreamCommand for Clip {
     fn name(&self) -> &str {
         "clip"

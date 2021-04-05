@@ -9,7 +9,6 @@ use std::io::BufReader;
 
 pub struct FromIcs;
 
-#[async_trait]
 impl WholeStreamCommand for FromIcs {
     fn name(&self) -> &str {
         "from ics"

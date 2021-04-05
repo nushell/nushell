@@ -16,7 +16,6 @@ pub struct EachWindowArgs {
     stride: Option<Tagged<usize>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for EachWindow {
     fn name(&self) -> &str {
         "each window"

@@ -13,7 +13,6 @@ pub struct CompactArgs {
     rest: Vec<Tagged<String>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Compact {
     fn name(&self) -> &str {
         "compact"

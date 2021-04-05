@@ -15,7 +15,6 @@ pub struct MergeArgs {
     block: CapturedBlock,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Merge {
     fn name(&self) -> &str {
         "merge"

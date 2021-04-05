@@ -14,7 +14,6 @@ pub struct TouchArgs {
     rest: Vec<Tagged<PathBuf>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Touch {
     fn name(&self) -> &str {
         "touch"

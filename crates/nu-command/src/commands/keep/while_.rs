@@ -7,7 +7,6 @@ use nu_protocol::{hir::ClassifiedCommand, Signature, SyntaxShape, UntaggedValue,
 
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "keep while"

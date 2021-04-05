@@ -5,7 +5,6 @@ use nu_protocol::{Signature, TaggedDictBuilder, UntaggedValue};
 
 pub struct Tags;
 
-#[async_trait]
 impl WholeStreamCommand for Tags {
     fn name(&self) -> &str {
         "tags"

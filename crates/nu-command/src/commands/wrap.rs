@@ -14,7 +14,6 @@ struct WrapArgs {
     column: Option<Tagged<String>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Wrap {
     fn name(&self) -> &str {
         "wrap"

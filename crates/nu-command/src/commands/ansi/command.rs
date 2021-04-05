@@ -14,7 +14,6 @@ struct AnsiArgs {
     osc: Option<Tagged<String>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "ansi"

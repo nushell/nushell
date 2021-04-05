@@ -12,7 +12,6 @@ pub struct BoolArgs {
     bias: Option<Tagged<f64>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "random bool"

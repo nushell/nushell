@@ -8,7 +8,6 @@ use nu_source::Tagged;
 
 pub struct Histogram;
 
-#[async_trait]
 impl WholeStreamCommand for Histogram {
     fn name(&self) -> &str {
         "histogram"

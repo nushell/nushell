@@ -6,7 +6,6 @@ use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 #[derive(Clone)]
 pub struct Command;
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "split"

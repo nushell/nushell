@@ -19,7 +19,6 @@ pub struct Arguments {
     pub load_path: Option<Tagged<PathBuf>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "nu plugin"
