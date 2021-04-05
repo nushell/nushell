@@ -173,7 +173,7 @@ mod test {
             )]);
             let trust = "autoenv trust .";
             let code = "echo hi";
-            let untrust = "autoenv trust .";
+            let untrust = "autoenv untrust .";
             let context = get_test_context();
             let options = RunScriptOptions::default()
                 .cli_mode(true)
