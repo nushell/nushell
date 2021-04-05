@@ -46,9 +46,17 @@ impl Default for RunScriptOptions {
 }
 
 impl RunScriptOptions {
+    pub fn cwd_as_string(&self) -> Option<String> {
+        self.with_cwd
+            .as_ref()
+            .map(|p| p.to_string_lossy().to_string())
+    }
+
     /// The cwd the script shall run with
-    /// No local configs aka nu-env files are loaded/unloaded by using a cwd other
-    /// than the current one.
+    ///
+    /// Using with_cwd is not the same as prepending the script
+    /// with `cd path`, as `with_cwd` does not lead to cd site effects (Loading/Unloading of local
+    /// config files (aka nu-env)
     pub fn with_cwd(mut self, path: PathBuf) -> Self {
         self.with_cwd = Some(path);
         self
