@@ -46,6 +46,9 @@ impl Default for RunScriptOptions {
 }
 
 impl RunScriptOptions {
+    /// The cwd the script shall run with
+    /// No local configs aka nu-env files are loaded/unloaded by using a cwd other
+    /// than the current one.
     pub fn with_cwd(mut self, path: PathBuf) -> Self {
         self.with_cwd = Some(path);
         self
