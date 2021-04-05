@@ -134,6 +134,8 @@ mod test {
 
     #[test]
     #[serial]
+    // nu-env.toml only exists with directories support
+    #[cfg(feature = "directories")]
     fn run_script_picks_up_nu_env_in_cli_mode() {
         Playground::setup("run_script_test_6", |dirs, sandbox| {
             assert!(std::env::set_current_dir(dirs.test()).is_ok());
@@ -162,6 +164,8 @@ mod test {
 
     #[test]
     #[serial]
+    // nu-env.toml only exists with directories support
+    #[cfg(feature = "directories")]
     fn run_script_does_not_pick_up_nu_env_if_set_into_nu_env_dir_by_with_cwd() {
         //TODO I am not sure, what the most desired behaviour for this case would be
         // Currently we don't load the .nu-env in this case

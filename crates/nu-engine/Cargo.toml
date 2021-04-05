@@ -64,5 +64,6 @@ serial_test = "0.5.1"
 
 [features]
 rustyline-support = []
+directories = []
 dirs = ["dirs-next"]
 trash-support = ["trash"]
