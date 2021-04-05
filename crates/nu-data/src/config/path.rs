@@ -26,5 +26,5 @@ pub fn history_path(config: &NuConfig) -> Option<PathBuf> {
 
 /// Get history path in config or default
 pub fn history_path_or_default(config: &NuConfig) -> PathBuf {
-    history_path(config).unwrap_or_else(|| default_history_path())
+    history_path(config).unwrap_or_else(default_history_path)
 }

@@ -328,6 +328,6 @@ fn touch(path: &Path) -> io::Result<()> {
     }
 }
 
-pub fn cfg_path_to_scope_tag(cfg_path: &PathBuf) -> String {
+pub fn cfg_path_to_scope_tag(cfg_path: &Path) -> String {
     cfg_path.to_string_lossy().to_string()
 }
