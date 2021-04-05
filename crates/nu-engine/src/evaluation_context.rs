@@ -243,7 +243,7 @@ impl EvaluationContext {
             })
             .transpose()?;
 
-        let tag = config::cfg_path_to_scope_tag(cfg_path);
+        let tag = config::cfg_path_to_scope_tag(&cfg.file_path);
 
         self.scope.update_frame_with_tag(&tag, |frame| {
             frame.env = cfg.env_map();
