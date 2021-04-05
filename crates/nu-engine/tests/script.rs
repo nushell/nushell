@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod test {
+    #[cfg(feature = "directories")]
     use nu_test_support::fs::Stub::FileWithContent;
     use serial_test::serial;
 
