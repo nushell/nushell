@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 
 pub struct SubCommand;
@@ -42,35 +42,35 @@ impl WholeStreamCommand for SubCommand {
 }
 
 pub fn remove(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let name_span = args.call_info.name_tag.clone();
-    let scope = args.scope.clone();
-    let (Arguments { remove }, _) = args.process()?;
-
-    let path = match scope.get_var("config-path") {
-        Some(Value {
-            value: UntaggedValue::Primitive(Primitive::FilePath(path)),
-            ..
-        }) => Some(path),
-        _ => nu_data::config::default_path().ok(),
-    };
-
-    let mut result = nu_data::config::read(name_span, &path)?;
+    let ctx = EvaluationContext::from_args(&args);
+    let (Arguments { remove }, _) = args.process().await?;
 
     let key = remove.to_string();
 
-    if result.contains_key(&key) {
-        result.swap_remove(&key);
-        config::write(&result, &path)?;
-        Ok(vec![ReturnSuccess::value(
-            UntaggedValue::Row(result.into()).into_value(remove.tag()),
-        )]
+    let result = if let Some(global_cfg) = &mut ctx.configs.lock().global_config {
+        if global_cfg.vars.contains_key(&key) {
+            global_cfg.vars.swap_remove(&key);
+            global_cfg.write()?;
+
+            Ok(vec![ReturnSuccess::value(
+                UntaggedValue::row(global_cfg.vars.clone()).into_value(remove.tag()),
+            )]
+            .into_iter()
+            .to_output_stream())
+        } else {
+            Err(ShellError::labeled_error(
+                "Key does not exist in config",
+                "key",
+                remove.tag(),
+            ))
+        }
+    } else {
+        Ok(vec![ReturnSuccess::value(UntaggedValue::Error(
+            crate::commands::config::err_no_global_cfg_present(),
+        ))]
         .into_iter()
         .to_output_stream())
-    } else {
-        Err(ShellError::labeled_error(
-            "Key does not exist in config",
-            "key",
-            remove.tag(),
-        ))
-    }
+    };
+
+    result
 }

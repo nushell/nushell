@@ -1,9 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{ColumnPath, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 
 pub struct SubCommand;
 
@@ -44,33 +42,27 @@ impl WholeStreamCommand for SubCommand {
 
 pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let scope = args.scope.clone();
-    let (Arguments { column_path }, _) = args.process()?;
+    let ctx = EvaluationContext::from_args(&args);
 
-    let path = match scope.get_var("config-path") {
-        Some(Value {
-            value: UntaggedValue::Primitive(Primitive::FilePath(path)),
-            ..
-        }) => Some(path),
-        _ => nu_data::config::default_path().ok(),
+    let (Arguments { column_path }, _) = args.process().await?;
+
+    let result = if let Some(global_cfg) = &ctx.configs.lock().global_config {
+        let result = UntaggedValue::row(global_cfg.vars.clone().into()).into_value(&name);
+        let value = crate::commands::get::get_column_path(&column_path, &result)?;
+        Ok(match value {
+            Value {
+                value: UntaggedValue::Table(list),
+                ..
+            } => list.into_iter().to_output_stream(),
+            x => OutputStream::one(ReturnSuccess::value(x)),
+        })
+    } else {
+        Ok(vec![ReturnSuccess::value(UntaggedValue::Error(
+            crate::commands::config::err_no_global_cfg_present(),
+        ))]
+        .into_iter()
+        .to_output_stream())
     };
 
-    let result = UntaggedValue::row(nu_data::config::read(&name, &path)?).into_value(&name);
-
-    let value = crate::commands::get::get_column_path(&column_path, &result)?;
-
-    Ok(match value {
-        Value {
-            value: UntaggedValue::Table(list),
-            ..
-        } => {
-            let list: Vec<_> = list
-                .iter()
-                .map(|x| ReturnSuccess::value(x.clone()))
-                .collect();
-
-            list.into_iter().to_output_stream()
-        }
-        x => OutputStream::one(ReturnSuccess::value(x)),
-    })
+    result
 }

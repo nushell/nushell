@@ -16,8 +16,8 @@ use indexmap::IndexMap;
 use log::trace;
 use nu_errors::{CoerceInto, ShellError};
 use nu_protocol::{
-    ConfigPath, Dictionary, Primitive, ShellTypeName, TaggedDictBuilder, UnspannedPathMember,
-    UntaggedValue, Value,
+    Dictionary, Primitive, ShellTypeName, TaggedDictBuilder, UnspannedPathMember, UntaggedValue,
+    Value,
 };
 use nu_source::{SpannedItem, Tag, TaggedItem};
 use std::fs::{self, OpenOptions};
@@ -328,6 +328,6 @@ fn touch(path: &Path) -> io::Result<()> {
     }
 }
 
-pub fn cfg_path_to_scope_tag(cfg_path: &ConfigPath) -> String {
-    cfg_path.get_path().to_string_lossy().to_string()
+pub fn cfg_path_to_scope_tag(cfg_path: &PathBuf) -> String {
+    cfg_path.to_string_lossy().to_string()
 }

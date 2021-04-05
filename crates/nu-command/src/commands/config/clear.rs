@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
+use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 
 pub struct SubCommand;
 
@@ -32,23 +32,23 @@ impl WholeStreamCommand for SubCommand {
 }
 
 pub fn clear(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let name_span = args.call_info.name_tag.clone();
+    let ctx = EvaluationContext::from_args(&args);
 
-    let path = match args.scope.get_var("config-path") {
-        Some(Value {
-            value: UntaggedValue::Primitive(Primitive::FilePath(path)),
-            ..
-        }) => Some(path),
-        _ => nu_data::config::default_path().ok(),
+    let result = if let Some(global_cfg) = &mut args.configs.lock().global_config {
+        global_cfg.vars.clear();
+        global_cfg.write()?;
+        ctx.reload_config(global_cfg)?;
+        Ok(OutputStream::one(ReturnSuccess::value(
+            UntaggedValue::Row(global_cfg.vars.clone().into()).into_value(args.call_info.name_tag),
+        )))
+    } else {
+        Ok(
+            futures::stream::iter(vec![ReturnSuccess::value(UntaggedValue::Error(
+                crate::commands::config::err_no_global_cfg_present(),
+            ))])
+            .to_output_stream(),
+        )
     };
 
-    let mut result = nu_data::config::read(name_span, &path)?;
-
-    result.clear();
-
-    config::write(&result, &path)?;
-
-    Ok(OutputStream::one(ReturnSuccess::value(
-        UntaggedValue::Row(result.into()).into_value(args.call_info.name_tag),
-    )))
+    result
 }
