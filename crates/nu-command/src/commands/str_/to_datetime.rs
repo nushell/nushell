@@ -110,13 +110,13 @@ impl WholeStreamCommand for SubCommand {
                 result: None,
             },
             Example {
-                description: "Convert to datetime using a specified timezone",
+                description: "Convert timestamp (no larger than 8e+12) to datetime using a specified timezone",
                 example: "echo '1614434140' | str to-datetime -z 'UTC'",
                 result: None,
             },
             Example {
                 description:
-                    "Convert to datetime using a specified timezone offset (between -12 and 12)",
+                    "Convert timestamp (no larger than 8e+12) to datetime using a specified timezone offset (between -12 and 12)",
                 example: "echo '1614434140' | str to-datetime -o '+9'",
                 result: None,
             },
@@ -203,7 +203,17 @@ fn action(
             let ts = s.parse::<i64>();
             // if timezone if specified, first check if the input is a timestamp.
             if let Some(tz) = timezone {
+                const TIMESTAMP_BOUND:i64 = 8.2e+12 as i64;
+                // Since the timestamp method of chrono itself don't throw an error (it just panicked)
+                // We have to manually guard it.
                 if let Ok(t) = ts {
+                    if t.abs() > TIMESTAMP_BOUND {
+                        return Err(ShellError::labeled_error(
+                            "could not parse input as a valid timestamp",
+                            "given timestamp is out of range, it should between -8e+12 and 8e+12",
+                            tag.into().span,
+                        ));
+                    }
                     const HOUR: i32 = 3600;
                     let stampout = match tz.item {
                         Zone::Utc => UntaggedValue::date(Utc.timestamp(t, 0)),
@@ -345,6 +355,18 @@ mod tests {
             UntaggedValue::Primitive(Primitive::Date(_)) => {}
             _ => panic!("Didn't convert to date"),
         }
+    }
+
+    #[test]
+    fn takes_invalid_timestamp() {
+        let date_str = string("10440970000000");
+        let timezone_option = Some(Tagged {
+            item: Zone::Utc,
+            tag: Tag::unknown(),
+        });
+        let actual = action(&date_str, &timezone_option, &None, Tag::unknown());
+
+        assert!(actual.is_err());
     }
 
     #[test]
