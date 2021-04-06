@@ -2,7 +2,7 @@ use crate::evaluate::scope::Scope;
 use indexmap::IndexMap;
 use nu_data::config::path::history_path;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, TaggedDictBuilder, UntaggedValue, Value, Signature};
+use nu_protocol::{Primitive, Signature, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::{Spanned, Tag};
 
 pub fn nu(scope: &Scope, tag: impl Into<Tag>) -> Result<Value, ShellError> {

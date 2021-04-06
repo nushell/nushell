@@ -2,7 +2,7 @@ use crate::whole_stream_command::{whole_stream_command, Command};
 use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
-use nu_protocol::{hir::Block, Value, Signature};
+use nu_protocol::{hir::Block, Signature, Value};
 use nu_source::Spanned;
 use std::sync::Arc;
 
