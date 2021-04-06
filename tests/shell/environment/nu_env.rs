@@ -75,7 +75,7 @@ fn picks_up_env_keys_when_entering_trusted_directory_indirectly() {
                 nu-version = "0.29.2" "#,
         )]);
 
-        let expected = "0.29.1";
+        let expected = "0.29.2";
 
         let actual = Trusted::in_path(&dirs, || {
             nu!(cwd: dirs.test().join("crates"), r#"
