@@ -12,7 +12,6 @@ pub struct FromCsvArgs {
     separator: Option<Value>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for FromCsv {
     fn name(&self) -> &str {
         "from csv"
@@ -37,8 +36,8 @@ impl WholeStreamCommand for FromCsv {
         "Parse text as .csv and create table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        from_csv(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        from_csv(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -67,7 +66,7 @@ impl WholeStreamCommand for FromCsv {
     }
 }
 
-async fn from_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn from_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
 
     let (
@@ -76,7 +75,7 @@ async fn from_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
             separator,
         },
         input,
-    ) = args.process().await?;
+    ) = args.process()?;
     let sep = match separator {
         Some(Value {
             value: UntaggedValue::Primitive(Primitive::String(s)),
@@ -100,7 +99,7 @@ async fn from_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
         _ => ',',
     };
 
-    from_delimited_data(noheaders, sep, "CSV", input, name).await
+    from_delimited_data(noheaders, sep, "CSV", input, name)
 }
 
 #[cfg(test)]

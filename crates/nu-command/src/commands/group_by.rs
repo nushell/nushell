@@ -13,7 +13,6 @@ pub struct Arguments {
     grouper: Option<Value>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "group-by"
@@ -31,8 +30,8 @@ impl WholeStreamCommand for Command {
         "Create a new table grouped."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        group_by(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        group_by(args)
     }
 
     #[allow(clippy::unwrap_used)]
@@ -128,12 +127,12 @@ enum Grouper {
     ByBlock,
 }
 
-pub async fn group_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn group_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let context = Arc::new(EvaluationContext::from_args(&args));
-    let (Arguments { grouper }, input) = args.process().await?;
+    let (Arguments { grouper }, input) = args.process()?;
 
-    let values: Vec<Value> = input.collect().await;
+    let values: Vec<Value> = input.collect();
     let mut keys: Vec<Result<String, ShellError>> = vec![];
     let mut group_strategy = Grouper::ByColumn(None);
 
@@ -149,10 +148,9 @@ pub async fn group_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 let run = block.clone();
                 let context = context.clone();
 
-                match crate::commands::each::process_row(run, context, value.clone()).await {
+                match crate::commands::each::process_row(run, context, value.clone()) {
                     Ok(mut s) => {
-                        let collection: Vec<Result<ReturnSuccess, ShellError>> =
-                            s.drain_vec().await;
+                        let collection: Vec<Result<ReturnSuccess, ShellError>> = s.drain_vec();
 
                         if collection.len() > 1 {
                             return Err(ShellError::labeled_error(
@@ -209,7 +207,7 @@ pub async fn group_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let group_value = match group_strategy {
         Grouper::ByBlock => {
-            let map = keys.clone();
+            let map = keys;
 
             let block = Box::new(move |idx: usize, row: &Value| match map.get(idx) {
                 Some(Ok(key)) => Ok(key.clone()),

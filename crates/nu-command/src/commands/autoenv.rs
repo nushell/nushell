@@ -4,7 +4,6 @@ use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 pub struct Autoenv;
 
-#[async_trait]
 impl WholeStreamCommand for Autoenv {
     fn name(&self) -> &str {
         "autoenv"
@@ -26,7 +25,7 @@ The .nu-env file has the same format as your $HOME/nu/config.toml file. By loadi
     fn signature(&self) -> Signature {
         Signature::build("autoenv")
     }
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(ReturnSuccess::value(
             UntaggedValue::string(get_full_help(&Autoenv, &args.scope)).into_value(Tag::unknown()),
         )))

@@ -45,7 +45,7 @@ fn from_delimited_string_to_value(
     Ok(UntaggedValue::Table(rows).into_value(&tag))
 }
 
-pub async fn from_delimited_data(
+pub fn from_delimited_data(
     noheaders: bool,
     sep: char,
     format_name: &'static str,
@@ -53,7 +53,7 @@ pub async fn from_delimited_data(
     name: Tag,
 ) -> Result<OutputStream, ShellError> {
     let name_tag = name;
-    let concat_string = input.collect_string(name_tag.clone()).await?;
+    let concat_string = input.collect_string(name_tag.clone())?;
     let sample_lines = concat_string.item.lines().take(3).collect_vec().join("\n");
 
     match from_delimited_string_to_value(concat_string.item, noheaders, sep, name_tag.clone()) {
@@ -61,7 +61,7 @@ pub async fn from_delimited_data(
             Value {
                 value: UntaggedValue::Table(list),
                 ..
-            } => Ok(futures::stream::iter(list).to_output_stream()),
+            } => Ok(list.into_iter().to_output_stream()),
             x => Ok(OutputStream::one(x)),
         },
         Err(err) => {
@@ -80,7 +80,7 @@ pub async fn from_delimited_data(
             Err(ShellError::labeled_error_with_secondary(
                 line_one,
                 line_two,
-                name_tag.clone(),
+                name_tag,
                 "value originates from here",
                 concat_string.tag,
             ))

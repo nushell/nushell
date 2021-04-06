@@ -13,7 +13,6 @@ pub struct Arguments {
     set_into: Tagged<String>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "config set_into"
@@ -31,8 +30,8 @@ impl WholeStreamCommand for SubCommand {
         "Sets a value in the config"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        set_into(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        set_into(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -44,11 +43,11 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn set_into(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn set_into(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let ctx = EvaluationContext::from_args(&args);
     let scope = args.scope.clone();
-    let (Arguments { set_into: v }, input) = args.process().await?;
+    let (Arguments { set_into: v }, input) = args.process()?;
 
     let path = match scope.get_var("config-path") {
         Some(Value {
@@ -60,7 +59,7 @@ pub async fn set_into(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let mut result = nu_data::config::read(&name, &path)?;
 
-    let rows: Vec<Value> = input.collect().await;
+    let rows: Vec<Value> = input.collect();
     let key = v.to_string();
 
     Ok(if rows.is_empty() {
@@ -78,8 +77,7 @@ pub async fn set_into(args: CommandArgs) -> Result<OutputStream, ShellError> {
         config::write(&result, &path)?;
         ctx.reload_config(&ConfigPath::Global(
             path.expect("Global config path is always some"),
-        ))
-        .await?;
+        ))?;
 
         OutputStream::one(ReturnSuccess::value(
             UntaggedValue::Row(result.into()).into_value(name),
@@ -93,8 +91,7 @@ pub async fn set_into(args: CommandArgs) -> Result<OutputStream, ShellError> {
         config::write(&result, &path)?;
         ctx.reload_config(&ConfigPath::Global(
             path.expect("Global config path is always some"),
-        ))
-        .await?;
+        ))?;
 
         OutputStream::one(ReturnSuccess::value(
             UntaggedValue::Row(result.into()).into_value(name),

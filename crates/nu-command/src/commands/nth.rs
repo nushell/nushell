@@ -13,7 +13,6 @@ struct NthArgs {
 
 pub struct Nth;
 
-#[async_trait]
 impl WholeStreamCommand for Nth {
     fn name(&self) -> &str {
         "nth"
@@ -34,8 +33,8 @@ impl WholeStreamCommand for Nth {
         "Return or skip only the selected rows."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        nth(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        nth(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -59,7 +58,7 @@ impl WholeStreamCommand for Nth {
     }
 }
 
-async fn nth(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn nth(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let (
         NthArgs {
             row_number,
@@ -67,7 +66,7 @@ async fn nth(args: CommandArgs) -> Result<OutputStream, ShellError> {
             skip,
         },
         input,
-    ) = args.process().await?;
+    ) = args.process()?;
 
     let row_numbers = vec![vec![row_number], and_rows]
         .into_iter()
@@ -78,11 +77,11 @@ async fn nth(args: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(input
         .enumerate()
         .filter_map(move |(idx, item)| {
-            futures::future::ready(if row_numbers.contains(&(idx as u64)) ^ skip {
+            if row_numbers.contains(&(idx as u64)) ^ skip {
                 Some(ReturnSuccess::value(item))
             } else {
                 None
-            })
+            }
         })
         .to_output_stream())
 }

@@ -5,7 +5,6 @@ use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
 
 pub struct ToUrl;
 
-#[async_trait]
 impl WholeStreamCommand for ToUrl {
     fn name(&self) -> &str {
         "to url"
@@ -19,13 +18,13 @@ impl WholeStreamCommand for ToUrl {
         "Convert table into url-encoded text"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        to_url(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        to_url(args)
     }
 }
 
-async fn to_url(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+fn to_url(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let input = args.input;
 

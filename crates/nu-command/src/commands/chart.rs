@@ -6,7 +6,6 @@ use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 #[derive(Clone)]
 pub struct Chart;
 
-#[async_trait]
 impl WholeStreamCommand for Chart {
     fn name(&self) -> &str {
         "chart"
@@ -20,7 +19,7 @@ impl WholeStreamCommand for Chart {
         "Displays charts."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         if args.scope.get_command("chart bar").is_none() {
             return Err(ShellError::untagged_runtime_error(
                 "nu_plugin_chart not installed.",

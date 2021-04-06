@@ -6,7 +6,6 @@ use std::sync::atomic::Ordering;
 
 pub struct Shells;
 
-#[async_trait]
 impl WholeStreamCommand for Shells {
     fn name(&self) -> &str {
         "shells"
@@ -20,7 +19,7 @@ impl WholeStreamCommand for Shells {
         "Display the list of current shells."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(shells(args))
     }
 }

@@ -20,7 +20,6 @@ pub struct FromSsvArgs {
 const STRING_REPRESENTATION: &str = "from ssv";
 const DEFAULT_MINIMUM_SPACES: usize = 2;
 
-#[async_trait]
 impl WholeStreamCommand for FromSsv {
     fn name(&self) -> &str {
         STRING_REPRESENTATION
@@ -46,8 +45,8 @@ impl WholeStreamCommand for FromSsv {
         "Parse text as space-separated values and create a table. The default minimum number of spaces counted as a separator is 2."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        from_ssv(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        from_ssv(args)
     }
 }
 
@@ -247,7 +246,7 @@ fn from_ssv_string_to_value(
     UntaggedValue::Table(rows).into_value(&tag)
 }
 
-async fn from_ssv(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn from_ssv(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let (
         FromSsvArgs {
@@ -256,8 +255,8 @@ async fn from_ssv(args: CommandArgs) -> Result<OutputStream, ShellError> {
             minimum_spaces,
         },
         input,
-    ) = args.process().await?;
-    let concat_string = input.collect_string(name.clone()).await?;
+    ) = args.process()?;
+    let concat_string = input.collect_string(name.clone())?;
     let split_at = match minimum_spaces {
         Some(number) => number.item,
         None => DEFAULT_MINIMUM_SPACES,
@@ -269,14 +268,15 @@ async fn from_ssv(args: CommandArgs) -> Result<OutputStream, ShellError> {
             noheaders,
             aligned_columns,
             split_at,
-            name.clone(),
+            name,
         ) {
             Value {
                 value: UntaggedValue::Table(list),
                 ..
-            } => {
-                futures::stream::iter(list.into_iter().map(ReturnSuccess::value)).to_output_stream()
-            }
+            } => list
+                .into_iter()
+                .map(ReturnSuccess::value)
+                .to_output_stream(),
             x => OutputStream::one(ReturnSuccess::value(x)),
         },
     )

@@ -6,7 +6,6 @@ use nu_engine::WholeStreamCommand;
 
 pub struct Previous;
 
-#[async_trait]
 impl WholeStreamCommand for Previous {
     fn name(&self) -> &str {
         "p"
@@ -20,7 +19,7 @@ impl WholeStreamCommand for Previous {
         "Go to previous shell."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(previous(args))
     }
 }

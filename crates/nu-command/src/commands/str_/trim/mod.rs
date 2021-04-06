@@ -21,15 +21,11 @@ struct Arguments {
     char_: Option<Tagged<char>>,
 }
 
-pub async fn operate<F>(
-    args: CommandArgs,
-
-    trim_operation: &'static F,
-) -> Result<OutputStream, ShellError>
+pub fn operate<F>(args: CommandArgs, trim_operation: &'static F) -> Result<OutputStream, ShellError>
 where
     F: Fn(&str, Option<char>) -> String + Send + Sync + 'static,
 {
-    let (Arguments { rest, char_ }, input) = args.process().await?;
+    let (Arguments { rest, char_ }, input) = args.process()?;
 
     let column_paths: Vec<_> = rest;
     let to_trim = char_.map(|tagged| tagged.item);

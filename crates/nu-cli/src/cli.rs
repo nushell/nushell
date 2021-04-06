@@ -123,13 +123,13 @@ pub fn search_paths() -> Vec<std::path::PathBuf> {
     search_paths
 }
 
-pub async fn run_script_file(options: Options) -> Result<(), Box<dyn Error>> {
+pub fn run_script_file(options: Options) -> Result<(), Box<dyn Error>> {
     let context = create_default_context(false)?;
 
     if let Some(cfg) = options.config {
-        load_cfg_as_global_cfg(&context, PathBuf::from(cfg)).await;
+        load_cfg_as_global_cfg(&context, PathBuf::from(cfg));
     } else {
-        load_global_cfg(&context).await;
+        load_global_cfg(&context);
     }
 
     let _ = register_plugins(&context);
@@ -140,22 +140,22 @@ pub async fn run_script_file(options: Options) -> Result<(), Box<dyn Error>> {
         .get(0)
         .ok_or_else(|| ShellError::unexpected("Nu source code not available"))?;
 
-    run_script_standalone(script.get_code().to_string(), options.stdin, &context, true).await?;
+    run_script_standalone(script.get_code().to_string(), options.stdin, &context, true)?;
 
     Ok(())
 }
 
 #[cfg(feature = "rustyline-support")]
-pub async fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn Error>> {
+pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn Error>> {
     let _ = configure_ctrl_c(&context);
 
     // start time for running startup scripts (this metric includes loading of the cfg, but w/e)
     let startup_commands_start_time = std::time::Instant::now();
 
     if let Some(cfg) = options.config {
-        load_cfg_as_global_cfg(&context, PathBuf::from(cfg)).await;
+        load_cfg_as_global_cfg(&context, PathBuf::from(cfg));
     } else {
-        load_global_cfg(&context).await;
+        load_global_cfg(&context);
     }
     // Store cmd duration in an env var
     context.scope.add_env_var(
@@ -196,7 +196,7 @@ pub async fn cli(context: EvaluationContext, options: Options) -> Result<(), Box
     };
 
     //Check whether dir we start in contains local cfg file and if so load it.
-    load_local_cfg_if_present(&context).await;
+    load_local_cfg_if_present(&context);
 
     // Give ourselves a scope to work in
     context.scope.enter_scope();
@@ -240,11 +240,11 @@ pub async fn cli(context: EvaluationContext, options: Options) -> Result<(), Box
 
                     format!("\x1b[32m{}{}\x1b[m> ", cwd, current_branch())
                 } else {
-                    let run_result = run_block(&prompt_block, &context, InputStream::empty()).await;
+                    let run_result = run_block(&prompt_block, &context, InputStream::empty());
                     context.scope.exit_scope();
 
                     match run_result {
-                        Ok(result) => match result.collect_string(Tag::unknown()).await {
+                        Ok(result) => match result.collect_string(Tag::unknown()) {
                             Ok(string_result) => {
                                 let errors = context.get_errors();
                                 maybe_print_errors(&context, Text::from(prompt_line));
@@ -302,16 +302,13 @@ pub async fn cli(context: EvaluationContext, options: Options) -> Result<(), Box
         let cmd_start_time = std::time::Instant::now();
 
         let line = match convert_rustyline_result_to_string(readline) {
-            LineResult::Success(_) => {
-                process_script(
-                    &session_text[line_start..],
-                    &context,
-                    false,
-                    line_start,
-                    true,
-                )
-                .await
-            }
+            LineResult::Success(_) => process_script(
+                &session_text[line_start..],
+                &context,
+                false,
+                line_start,
+                true,
+            ),
             x => x,
         };
 
@@ -404,11 +401,11 @@ pub async fn cli(context: EvaluationContext, options: Options) -> Result<(), Box
     Ok(())
 }
 
-pub async fn load_local_cfg_if_present(context: &EvaluationContext) {
+pub fn load_local_cfg_if_present(context: &EvaluationContext) {
     trace!("Loading local cfg if present");
     match config::loadable_cfg_exists_in_dir(PathBuf::from(context.shell_manager.path())) {
         Ok(Some(cfg_path)) => {
-            if let Err(err) = context.load_config(&ConfigPath::Local(cfg_path)).await {
+            if let Err(err) = context.load_config(&ConfigPath::Local(cfg_path)) {
                 context.host.lock().print_err(err, &Text::from(""))
             }
         }
@@ -422,8 +419,8 @@ pub async fn load_local_cfg_if_present(context: &EvaluationContext) {
     }
 }
 
-async fn load_cfg_as_global_cfg(context: &EvaluationContext, path: PathBuf) {
-    if let Err(err) = context.load_config(&ConfigPath::Global(path.clone())).await {
+fn load_cfg_as_global_cfg(context: &EvaluationContext, path: PathBuf) {
+    if let Err(err) = context.load_config(&ConfigPath::Global(path.clone())) {
         context.host.lock().print_err(err, &Text::from(""));
     } else {
         //TODO current commands assume to find path to global cfg file under config-path
@@ -435,10 +432,10 @@ async fn load_cfg_as_global_cfg(context: &EvaluationContext, path: PathBuf) {
     }
 }
 
-pub async fn load_global_cfg(context: &EvaluationContext) {
+pub fn load_global_cfg(context: &EvaluationContext) {
     match config::default_path() {
         Ok(path) => {
-            load_cfg_as_global_cfg(context, path).await;
+            load_cfg_as_global_cfg(context, path);
         }
         Err(e) => {
             context.host.lock().print_err(e, &Text::from(""));
@@ -459,7 +456,7 @@ pub fn register_plugins(context: &EvaluationContext) -> Result<(), ShellError> {
     Ok(())
 }
 
-pub async fn parse_and_eval(line: &str, ctx: &EvaluationContext) -> Result<String, ShellError> {
+pub fn parse_and_eval(line: &str, ctx: &EvaluationContext) -> Result<String, ShellError> {
     // FIXME: do we still need this?
     let line = if let Some(s) = line.strip_suffix('\n') {
         s
@@ -477,10 +474,10 @@ pub async fn parse_and_eval(line: &str, ctx: &EvaluationContext) -> Result<Strin
 
     let input_stream = InputStream::empty();
 
-    let result = run_block(&classified_block, ctx, input_stream).await;
+    let result = run_block(&classified_block, ctx, input_stream);
     ctx.scope.exit_scope();
 
-    result?.collect_string(Tag::unknown()).await.map(|x| x.item)
+    result?.collect_string(Tag::unknown()).map(|x| x.item)
 }
 
 #[allow(dead_code)]

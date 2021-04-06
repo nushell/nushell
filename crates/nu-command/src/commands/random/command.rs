@@ -5,7 +5,6 @@ use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 
 pub struct Command;
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "random"
@@ -19,7 +18,7 @@ impl WholeStreamCommand for Command {
         "Generate random values."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(Ok(ReturnSuccess::Value(
             UntaggedValue::string(get_full_help(&Command, &args.scope)).into_value(Tag::unknown()),
         ))))

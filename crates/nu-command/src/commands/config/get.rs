@@ -12,7 +12,6 @@ pub struct Arguments {
     column_path: ColumnPath,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "config get"
@@ -30,8 +29,8 @@ impl WholeStreamCommand for SubCommand {
         "Gets a value from the config"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        get(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        get(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -43,10 +42,10 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let scope = args.scope.clone();
-    let (Arguments { column_path }, _) = args.process().await?;
+    let (Arguments { column_path }, _) = args.process()?;
 
     let path = match scope.get_var("config-path") {
         Some(Value {
@@ -70,7 +69,7 @@ pub async fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 .map(|x| ReturnSuccess::value(x.clone()))
                 .collect();
 
-            futures::stream::iter(list).to_output_stream()
+            list.into_iter().to_output_stream()
         }
         x => OutputStream::one(ReturnSuccess::value(x)),
     })

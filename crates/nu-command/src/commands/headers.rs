@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use futures::stream::StreamExt;
+
 use indexmap::IndexMap;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
@@ -8,7 +8,6 @@ use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 
 pub struct Headers;
 
-#[async_trait]
 impl WholeStreamCommand for Headers {
     fn name(&self) -> &str {
         "headers"
@@ -22,8 +21,8 @@ impl WholeStreamCommand for Headers {
         "Use the first row of the table as column names."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        headers(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        headers(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -42,9 +41,9 @@ impl WholeStreamCommand for Headers {
     }
 }
 
-pub async fn headers(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn headers(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let input = args.input;
-    let rows: Vec<Value> = input.collect().await;
+    let rows: Vec<Value> = input.collect();
 
     if rows.is_empty() {
         return Err(ShellError::untagged_runtime_error(
@@ -77,8 +76,10 @@ pub async fn headers(args: CommandArgs) -> Result<OutputStream, ShellError> {
         )),
     }?;
 
-    Ok(
-        futures::stream::iter(rows.into_iter().skip(1).map(move |r| {
+    Ok(rows
+        .into_iter()
+        .skip(1)
+        .map(move |r| {
             //Each row is a dictionary with the headers as keys
             match &r.value {
                 UntaggedValue::Row(d) => {
@@ -100,9 +101,8 @@ pub async fn headers(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     r.tag.span,
                 )),
             }
-        }))
-        .to_output_stream(),
-    )
+        })
+        .to_output_stream())
 }
 
 #[cfg(test)]

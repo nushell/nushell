@@ -10,7 +10,6 @@ struct Arguments {
 
 pub struct Command;
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "append"
@@ -28,10 +27,10 @@ impl WholeStreamCommand for Command {
         "Append a row to the table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let (Arguments { mut value }, input) = args.process().await?;
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        let (Arguments { mut value }, input) = args.process()?;
 
-        let input: Vec<Value> = input.collect().await;
+        let input: Vec<Value> = input.collect();
 
         if let Some(first) = input.get(0) {
             value.tag = first.tag();
@@ -48,18 +47,14 @@ impl WholeStreamCommand for Command {
             }
         }
 
-        Ok(futures::stream::iter(
-            input
-                .into_iter()
-                .chain(vec![value])
-                .map(ReturnSuccess::value),
-        )
-        .to_output_stream())
+        Ok(input
+            .into_iter()
+            .chain(vec![value])
+            .map(ReturnSuccess::value)
+            .to_output_stream())
     }
 
     fn examples(&self) -> Vec<Example> {
-        use nu_protocol::row;
-
         vec![
             Example {
                 description: "Add values to the end of the table",

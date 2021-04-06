@@ -11,7 +11,6 @@ pub struct LastArgs {
     rows: Option<Tagged<u64>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Last {
     fn name(&self) -> &str {
         "last"
@@ -29,8 +28,8 @@ impl WholeStreamCommand for Last {
         "Show only the last number of rows."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        last(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        last(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -53,9 +52,9 @@ impl WholeStreamCommand for Last {
     }
 }
 
-async fn last(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (LastArgs { rows }, input) = args.process().await?;
-    let v: Vec<_> = input.into_vec().await;
+fn last(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (LastArgs { rows }, input) = args.process()?;
+    let v: Vec<_> = input.into_vec();
 
     let end_rows_desired = if let Some(quantity) = rows {
         *quantity as usize
@@ -71,7 +70,7 @@ async fn last(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let iter = v.into_iter().skip(beginning_rows_to_skip);
 
-    Ok(futures::stream::iter(iter).to_output_stream())
+    Ok((iter).to_output_stream())
 }
 
 #[cfg(test)]

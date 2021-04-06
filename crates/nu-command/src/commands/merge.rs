@@ -15,7 +15,6 @@ pub struct MergeArgs {
     block: CapturedBlock,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Merge {
     fn name(&self) -> &str {
         "merge"
@@ -33,8 +32,8 @@ impl WholeStreamCommand for Merge {
         "Merge a table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        merge(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        merge(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -46,19 +45,19 @@ impl WholeStreamCommand for Merge {
     }
 }
 
-async fn merge(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn merge(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let context = EvaluationContext::from_args(&raw_args);
     let name_tag = raw_args.call_info.name_tag.clone();
-    let (merge_args, input): (MergeArgs, _) = raw_args.process().await?;
+    let (merge_args, input): (MergeArgs, _) = raw_args.process()?;
     let block = merge_args.block;
 
     context.scope.enter_scope();
     context.scope.add_vars(&block.captured.entries);
-    let result = run_block(&block.block, &context, InputStream::empty()).await;
+    let result = run_block(&block.block, &context, InputStream::empty());
     context.scope.exit_scope();
 
     let table: Option<Vec<Value>> = match result {
-        Ok(mut stream) => Some(stream.drain_vec().await),
+        Ok(mut stream) => Some(stream.drain_vec()),
         Err(err) => {
             return Err(err);
         }

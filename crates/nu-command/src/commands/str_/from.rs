@@ -22,7 +22,6 @@ struct Arguments {
     group_digits: bool,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "str from"
@@ -55,8 +54,8 @@ impl WholeStreamCommand for SubCommand {
         "Converts numeric types to strings. Trims trailing zeros unless decimals parameter is specified."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        operate(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        operate(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -80,7 +79,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let (
         Arguments {
             decimals,
@@ -88,7 +87,7 @@ async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
             rest: column_paths,
         },
         input,
-    ) = args.process().await?;
+    ) = args.process()?;
     let digits = decimals.map(|tagged| tagged.item);
 
     Ok(input

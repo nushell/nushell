@@ -14,7 +14,6 @@ struct WithEnvArgs {
     block: CapturedBlock,
 }
 
-#[async_trait]
 impl WholeStreamCommand for WithEnv {
     fn name(&self) -> &str {
         "with-env"
@@ -38,8 +37,8 @@ impl WholeStreamCommand for WithEnv {
         "Runs a block with an environment variable set."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        with_env(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        with_env(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -68,7 +67,7 @@ impl WholeStreamCommand for WithEnv {
     }
 }
 
-async fn with_env(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn with_env(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let redirection = raw_args.call_info.args.external_redirection;
     let context = EvaluationContext::from_args(&raw_args);
     let (
@@ -77,7 +76,7 @@ async fn with_env(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
             mut block,
         },
         input,
-    ) = raw_args.process().await?;
+    ) = raw_args.process()?;
 
     block.block.set_redirect(redirection);
 
@@ -117,7 +116,7 @@ async fn with_env(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     context.scope.add_env(env);
     context.scope.add_vars(&block.captured.entries);
 
-    let result = run_block(&block.block, &context, input).await;
+    let result = run_block(&block.block, &context, input);
     context.scope.exit_scope();
 
     result.map(|x| x.to_output_stream())

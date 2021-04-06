@@ -150,7 +150,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some(values) => {
             options.scripts = vec![NuScript::code(values)?];
 
-            futures::executor::block_on(nu_cli::run_script_file(options))?;
+            nu_cli::run_script_file(options)?;
             return Ok(());
         }
     }
@@ -161,7 +161,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             options.scripts = vec![NuScript::source_file(filepath.as_os_str())?];
 
-            futures::executor::block_on(nu_cli::run_script_file(options))?;
+            nu_cli::run_script_file(options)?;
             return Ok(());
         }
 
@@ -174,7 +174,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             #[cfg(feature = "rustyline-support")]
             {
-                futures::executor::block_on(nu_cli::cli(context, options))?;
+                nu_cli::cli(context, options)?;
             }
 
             #[cfg(not(feature = "rustyline-support"))]

@@ -12,7 +12,6 @@ pub struct ToCsvArgs {
     separator: Option<Value>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for ToCsv {
     fn name(&self) -> &str {
         "to csv"
@@ -37,12 +36,12 @@ impl WholeStreamCommand for ToCsv {
         "Convert table into .csv text "
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        to_csv(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        to_csv(args)
     }
 }
 
-async fn to_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn to_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let (
         ToCsvArgs {
@@ -50,7 +49,7 @@ async fn to_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
             noheaders,
         },
         input,
-    ) = args.process().await?;
+    ) = args.process()?;
     let sep = match separator {
         Some(Value {
             value: UntaggedValue::Primitive(Primitive::String(s)),
@@ -74,7 +73,7 @@ async fn to_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
         _ => ',',
     };
 
-    to_delimited_data(noheaders, sep, "CSV", input, name).await
+    to_delimited_data(noheaders, sep, "CSV", input, name)
 }
 
 #[cfg(test)]

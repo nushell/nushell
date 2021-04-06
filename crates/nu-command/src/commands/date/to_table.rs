@@ -7,7 +7,6 @@ use nu_protocol::{Dictionary, Primitive, ReturnSuccess, Signature, UntaggedValue
 
 pub struct Date;
 
-#[async_trait]
 impl WholeStreamCommand for Date {
     fn name(&self) -> &str {
         "date to-table"
@@ -21,8 +20,8 @@ impl WholeStreamCommand for Date {
         "Print the date in a structured table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        to_table(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        to_table(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -34,8 +33,8 @@ impl WholeStreamCommand for Date {
     }
 }
 
-async fn to_table(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+fn to_table(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
     let tag = args.call_info.name_tag.clone();
     let input = args.input;
 

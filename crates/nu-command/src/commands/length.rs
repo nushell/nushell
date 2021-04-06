@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use futures::stream::StreamExt;
+
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, UntaggedValue, Value};
@@ -11,7 +11,6 @@ pub struct LengthArgs {
     column: bool,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Length {
     fn name(&self) -> &str {
         "length"
@@ -29,10 +28,10 @@ impl WholeStreamCommand for Length {
         "Show the total number of rows or items."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (LengthArgs { column }, input) = args.process().await?;
-        let rows: Vec<Value> = input.collect().await;
+        let (LengthArgs { column }, input) = args.process()?;
+        let rows: Vec<Value> = input.collect();
 
         let length = if column {
             if rows.is_empty() {

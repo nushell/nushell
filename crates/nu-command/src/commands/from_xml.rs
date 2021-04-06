@@ -5,7 +5,6 @@ use nu_protocol::{Primitive, ReturnSuccess, Signature, TaggedDictBuilder, Untagg
 
 pub struct FromXml;
 
-#[async_trait]
 impl WholeStreamCommand for FromXml {
     fn name(&self) -> &str {
         "from xml"
@@ -19,8 +18,8 @@ impl WholeStreamCommand for FromXml {
         "Parse text as .xml and create table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        from_xml(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        from_xml(args)
     }
 }
 
@@ -95,12 +94,12 @@ pub fn from_xml_string_to_value(s: String, tag: impl Into<Tag>) -> Result<Value,
     Ok(from_document_to_value(&parsed, tag))
 }
 
-async fn from_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+fn from_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let input = args.input;
 
-    let concat_string = input.collect_string(tag.clone()).await?;
+    let concat_string = input.collect_string(tag.clone())?;
 
     Ok(
         match from_xml_string_to_value(concat_string.item, tag.clone()) {
@@ -108,7 +107,9 @@ async fn from_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 Value {
                     value: UntaggedValue::Table(list),
                     ..
-                } => futures::stream::iter(list.into_iter().map(ReturnSuccess::value))
+                } => list
+                    .into_iter()
+                    .map(ReturnSuccess::value)
                     .to_output_stream(),
                 x => OutputStream::one(ReturnSuccess::value(x)),
             },

@@ -2,7 +2,6 @@ use crate::prelude::*;
 use nu_engine::run_block;
 use nu_engine::WholeStreamCommand;
 
-use futures::stream::once;
 use nu_errors::ShellError;
 use nu_protocol::{
     hir::CapturedBlock, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
@@ -17,7 +16,6 @@ pub struct EachArgs {
     numbered: Tagged<bool>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Each {
     fn name(&self) -> &str {
         "each"
@@ -37,8 +35,8 @@ impl WholeStreamCommand for Each {
         "Run a block on each row of the table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        each(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        each(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -67,7 +65,7 @@ impl WholeStreamCommand for Each {
     }
 }
 
-pub async fn process_row(
+pub fn process_row(
     captured_block: Arc<Box<CapturedBlock>>,
     context: Arc<EvaluationContext>,
     input: Value,
@@ -80,7 +78,7 @@ pub async fn process_row(
     let input_stream = if !captured_block.block.params.positional.is_empty() {
         InputStream::empty()
     } else {
-        once(async { Ok(input_clone) }).to_input_stream()
+        vec![Ok(input_clone)].into_iter().to_input_stream()
     };
 
     context.scope.enter_scope();
@@ -95,7 +93,7 @@ pub async fn process_row(
         context.scope.add_var("$it", input);
     }
 
-    let result = run_block(&captured_block.block, &*context, input_stream).await;
+    let result = run_block(&captured_block.block, &*context, input_stream);
 
     context.scope.exit_scope();
 
@@ -110,40 +108,36 @@ pub(crate) fn make_indexed_item(index: usize, item: Value) -> Value {
     dict.into_value()
 }
 
-async fn each(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn each(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let context = Arc::new(EvaluationContext::from_args(&raw_args));
 
-    let (each_args, input): (EachArgs, _) = raw_args.process().await?;
+    let (each_args, input): (EachArgs, _) = raw_args.process()?;
     let block = Arc::new(Box::new(each_args.block));
 
     if each_args.numbered.item {
         Ok(input
             .enumerate()
-            .then(move |input| {
+            .map(move |input| {
                 let block = block.clone();
                 let context = context.clone();
                 let row = make_indexed_item(input.0, input.1);
 
-                async {
-                    match process_row(block, context, row).await {
-                        Ok(s) => s,
-                        Err(e) => OutputStream::one(Err(e)),
-                    }
+                match process_row(block, context, row) {
+                    Ok(s) => s,
+                    Err(e) => OutputStream::one(Err(e)),
                 }
             })
             .flatten()
             .to_output_stream())
     } else {
         Ok(input
-            .then(move |input| {
+            .map(move |input| {
                 let block = block.clone();
                 let context = context.clone();
 
-                async {
-                    match process_row(block, context, input).await {
-                        Ok(s) => s,
-                        Err(e) => OutputStream::one(Err(e)),
-                    }
+                match process_row(block, context, input) {
+                    Ok(s) => s,
+                    Err(e) => OutputStream::one(Err(e)),
                 }
             })
             .flatten()

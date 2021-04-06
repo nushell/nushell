@@ -11,7 +11,6 @@ struct Arguments {
     precision: Option<Tagged<i64>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "math round"
@@ -30,8 +29,8 @@ impl WholeStreamCommand for SubCommand {
         "Applies the round function to a list of numbers"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        operate(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        operate(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -58,8 +57,8 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (Arguments { precision }, input) = args.process().await?;
+fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (Arguments { precision }, input) = args.process()?;
     let precision = precision.map(|p| p.item).unwrap_or(0);
 
     let mapped = input.map(move |val| match val.value {

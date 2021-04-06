@@ -13,7 +13,6 @@ pub struct Arguments {
     block: CapturedBlock,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "where"
@@ -31,8 +30,8 @@ impl WholeStreamCommand for Command {
         "Filter table to match the condition."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        where_command(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        where_command(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -60,10 +59,10 @@ impl WholeStreamCommand for Command {
         ]
     }
 }
-async fn where_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn where_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let ctx = Arc::new(EvaluationContext::from_args(&raw_args));
     let tag = raw_args.call_info.name_tag.clone();
-    let (Arguments { block }, input) = raw_args.process().await?;
+    let (Arguments { block }, input) = raw_args.process()?;
     let condition = {
         if block.block.block.len() != 1 {
             return Err(ShellError::labeled_error(
@@ -102,24 +101,22 @@ async fn where_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError
             ctx.scope.add_vars(&block.captured.entries);
             ctx.scope.add_var("$it", input.clone());
 
-            async move {
-                //FIXME: should we use the scope that's brought in as well?
-                let condition = evaluate_baseline_expr(&condition, &*ctx).await;
-                ctx.scope.exit_scope();
+            //FIXME: should we use the scope that's brought in as well?
+            let condition = evaluate_baseline_expr(&condition, &*ctx);
+            ctx.scope.exit_scope();
 
-                match condition {
-                    Ok(condition) => match condition.as_bool() {
-                        Ok(b) => {
-                            if b {
-                                Some(Ok(ReturnSuccess::Value(input)))
-                            } else {
-                                None
-                            }
+            match condition {
+                Ok(condition) => match condition.as_bool() {
+                    Ok(b) => {
+                        if b {
+                            Some(Ok(ReturnSuccess::Value(input)))
+                        } else {
+                            None
                         }
-                        Err(e) => Some(Err(e)),
-                    },
+                    }
                     Err(e) => Some(Err(e)),
-                }
+                },
+                Err(e) => Some(Err(e)),
             }
         })
         .to_output_stream())

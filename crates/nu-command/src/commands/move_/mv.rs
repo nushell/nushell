@@ -5,7 +5,6 @@ use nu_protocol::{Signature, SyntaxShape};
 
 pub struct Mv;
 
-#[async_trait]
 impl WholeStreamCommand for Mv {
     fn name(&self) -> &str {
         "mv"
@@ -29,8 +28,8 @@ impl WholeStreamCommand for Mv {
         "Move files or directories."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        mv(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        mv(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -54,10 +53,10 @@ impl WholeStreamCommand for Mv {
     }
 }
 
-async fn mv(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn mv(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let shell_manager = args.shell_manager.clone();
-    let (args, _) = args.process().await?;
+    let (args, _) = args.process()?;
 
     shell_manager.mv(args, name)
 }

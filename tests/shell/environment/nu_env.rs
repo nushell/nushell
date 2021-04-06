@@ -533,7 +533,7 @@ fn autoenv_test_entry_scripts() {
                cd bar
                ls .. | where name == "../hello.txt" | length"#
         );
-        assert!(actual.out.contains("0"));
+        assert!(actual.out.contains('0'));
     });
 }
 

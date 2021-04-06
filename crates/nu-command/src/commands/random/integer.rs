@@ -14,7 +14,6 @@ pub struct IntegerArgs {
     range: Option<Tagged<NumericRange>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "random integer"
@@ -28,8 +27,8 @@ impl WholeStreamCommand for SubCommand {
         "Generate a random integer [min..max]"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        integer(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        integer(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -58,8 +57,8 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn integer(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (IntegerArgs { range }, _) = args.process().await?;
+pub fn integer(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (IntegerArgs { range }, _) = args.process()?;
 
     let (min, max) = if let Some(range) = &range {
         (range.item.min(), range.item.max())

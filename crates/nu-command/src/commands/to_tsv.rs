@@ -11,7 +11,6 @@ pub struct ToTsvArgs {
     noheaders: bool,
 }
 
-#[async_trait]
 impl WholeStreamCommand for ToTsv {
     fn name(&self) -> &str {
         "to tsv"
@@ -29,16 +28,16 @@ impl WholeStreamCommand for ToTsv {
         "Convert table into .tsv text"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        to_tsv(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        to_tsv(args)
     }
 }
 
-async fn to_tsv(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn to_tsv(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (ToTsvArgs { noheaders }, input) = args.process().await?;
+    let (ToTsvArgs { noheaders }, input) = args.process()?;
 
-    to_delimited_data(noheaders, '\t', "TSV", input, name).await
+    to_delimited_data(noheaders, '\t', "TSV", input, name)
 }
 
 #[cfg(test)]

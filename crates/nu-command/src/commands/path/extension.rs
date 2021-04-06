@@ -20,7 +20,6 @@ impl PathSubcommandArguments for PathExtensionArguments {
     }
 }
 
-#[async_trait]
 impl WholeStreamCommand for PathExtension {
     fn name(&self) -> &str {
         "path extension"
@@ -41,11 +40,11 @@ impl WholeStreamCommand for PathExtension {
         "Gets the extension of a path"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathExtensionArguments { replace, rest }, input) = args.process().await?;
+        let (PathExtensionArguments { replace, rest }, input) = args.process()?;
         let args = Arc::new(PathExtensionArguments { replace, rest });
-        operate(input, &action, tag.span, args).await
+        Ok(operate(input, &action, tag.span, args))
     }
 
     fn examples(&self) -> Vec<Example> {

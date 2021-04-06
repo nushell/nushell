@@ -11,7 +11,6 @@ pub struct SubCommandArgs {
     expression: Option<Tagged<String>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "math eval"
@@ -29,8 +28,8 @@ impl WholeStreamCommand for SubCommand {
         )
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        eval(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        eval(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -46,9 +45,9 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn eval(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn eval(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.span;
-    let (SubCommandArgs { expression }, input) = args.process().await?;
+    let (SubCommandArgs { expression }, input) = args.process()?;
 
     if let Some(string) = expression {
         match parse(&string, &string.tag) {

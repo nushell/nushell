@@ -21,15 +21,11 @@ struct Arguments {
     rest: Vec<ColumnPath>,
 }
 
-pub async fn operate<F>(
-    args: CommandArgs,
-
-    case_operation: &'static F,
-) -> Result<OutputStream, ShellError>
+pub fn operate<F>(args: CommandArgs, case_operation: &'static F) -> Result<OutputStream, ShellError>
 where
     F: Fn(&str) -> String + Send + Sync + 'static,
 {
-    let (Arguments { rest }, input) = args.process().await?;
+    let (Arguments { rest }, input) = args.process()?;
 
     let column_paths: Vec<_> = rest;
     Ok(input

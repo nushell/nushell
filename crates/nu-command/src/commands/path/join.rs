@@ -20,7 +20,6 @@ impl PathSubcommandArguments for PathJoinArguments {
     }
 }
 
-#[async_trait]
 impl WholeStreamCommand for PathJoin {
     fn name(&self) -> &str {
         "path join"
@@ -36,11 +35,11 @@ impl WholeStreamCommand for PathJoin {
         "Joins an input path with another path"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathJoinArguments { path, rest }, input) = args.process().await?;
+        let (PathJoinArguments { path, rest }, input) = args.process()?;
         let args = Arc::new(PathJoinArguments { path, rest });
-        operate(input, &action, tag.span, args).await
+        Ok(operate(input, &action, tag.span, args))
     }
 
     #[cfg(windows)]
