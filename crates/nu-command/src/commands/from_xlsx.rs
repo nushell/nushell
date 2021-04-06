@@ -6,15 +6,15 @@ use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue};
 use std::io::Cursor;
 
-pub struct FromXLSX;
+pub struct FromXlsx;
 
 #[derive(Deserialize)]
-pub struct FromXLSXArgs {
+pub struct FromXlsxArgs {
     noheaders: bool,
 }
 
 #[async_trait]
-impl WholeStreamCommand for FromXLSX {
+impl WholeStreamCommand for FromXlsx {
     fn name(&self) -> &str {
         "from xlsx"
     }
@@ -40,7 +40,7 @@ async fn from_xlsx(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let span = tag.span;
     let (
-        FromXLSXArgs {
+        FromXlsxArgs {
             noheaders: _noheaders,
         },
         input,
@@ -93,13 +93,13 @@ async fn from_xlsx(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
 #[cfg(test)]
 mod tests {
-    use super::FromXLSX;
+    use super::FromXlsx;
     use super::ShellError;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(FromXLSX {})
+        test_examples(FromXlsx {})
     }
 }

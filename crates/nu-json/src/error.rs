@@ -19,16 +19,16 @@ pub enum ErrorCode {
     Custom(String),
 
     /// EOF while parsing a list.
-    EOFWhileParsingList,
+    EofWhileParsingList,
 
     /// EOF while parsing an object.
-    EOFWhileParsingObject,
+    EofWhileParsingObject,
 
     /// EOF while parsing a string.
-    EOFWhileParsingString,
+    EofWhileParsingString,
 
     /// EOF while parsing a JSON value.
-    EOFWhileParsingValue,
+    EofWhileParsingValue,
 
     /// Expected this character to be a `':'`.
     ExpectedColon,
@@ -51,7 +51,7 @@ pub enum ErrorCode {
     /// Invalid number.
     InvalidNumber,
 
-    /// Invalid unicode code point.
+    /// Invalid Unicode code point.
     InvalidUnicodeCodePoint,
 
     /// Object key is not a string.
@@ -63,7 +63,7 @@ pub enum ErrorCode {
     /// JSON has non-whitespace trailing characters after the value.
     TrailingCharacters,
 
-    /// Unexpected end of hex excape.
+    /// Unexpected end of hex escape.
     UnexpectedEndOfHexEscape,
 
     /// Found a punctuator character when expecting a quoteless string.
@@ -76,10 +76,10 @@ impl fmt::Debug for ErrorCode {
 
         match *self {
             ErrorCode::Custom(ref msg) => write!(f, "{}", msg),
-            ErrorCode::EOFWhileParsingList => "EOF while parsing a list".fmt(f),
-            ErrorCode::EOFWhileParsingObject => "EOF while parsing an object".fmt(f),
-            ErrorCode::EOFWhileParsingString => "EOF while parsing a string".fmt(f),
-            ErrorCode::EOFWhileParsingValue => "EOF while parsing a value".fmt(f),
+            ErrorCode::EofWhileParsingList => "EOF while parsing a list".fmt(f),
+            ErrorCode::EofWhileParsingObject => "EOF while parsing an object".fmt(f),
+            ErrorCode::EofWhileParsingString => "EOF while parsing a string".fmt(f),
+            ErrorCode::EofWhileParsingValue => "EOF while parsing a value".fmt(f),
             ErrorCode::ExpectedColon => "expected `:`".fmt(f),
             ErrorCode::ExpectedListCommaOrEnd => "expected `,` or `]`".fmt(f),
             ErrorCode::ExpectedObjectCommaOrEnd => "expected `,` or `}`".fmt(f),
@@ -87,7 +87,7 @@ impl fmt::Debug for ErrorCode {
             ErrorCode::ExpectedSomeValue => "expected value".fmt(f),
             ErrorCode::InvalidEscape => "invalid escape".fmt(f),
             ErrorCode::InvalidNumber => "invalid number".fmt(f),
-            ErrorCode::InvalidUnicodeCodePoint => "invalid unicode code point".fmt(f),
+            ErrorCode::InvalidUnicodeCodePoint => "invalid Unicode code point".fmt(f),
             ErrorCode::KeyMustBeAString => "key must be a string".fmt(f),
             ErrorCode::LoneLeadingSurrogateInHexEscape => {
                 "lone leading surrogate in hex escape".fmt(f)
@@ -105,7 +105,7 @@ impl fmt::Debug for ErrorCode {
 /// value into JSON.
 #[derive(Debug)]
 pub enum Error {
-    /// The JSON value had some syntatic error.
+    /// The JSON value had some syntactic error.
     Syntax(ErrorCode, usize, usize),
 
     /// Some IO error occurred when serializing or deserializing a value.

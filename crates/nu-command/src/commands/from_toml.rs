@@ -3,10 +3,10 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
 
-pub struct FromTOML;
+pub struct FromToml;
 
 #[async_trait]
-impl WholeStreamCommand for FromTOML {
+impl WholeStreamCommand for FromToml {
     fn name(&self) -> &str {
         "from toml"
     }
@@ -92,13 +92,13 @@ pub async fn from_toml(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
 #[cfg(test)]
 mod tests {
-    use super::FromTOML;
+    use super::FromToml;
     use super::ShellError;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(FromTOML {})
+        test_examples(FromToml {})
     }
 }

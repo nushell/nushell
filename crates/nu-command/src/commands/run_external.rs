@@ -83,9 +83,9 @@ impl WholeStreamCommand for RunExternalCommand {
             EvaluationContext {
                 scope: args.scope.clone(),
                 host: args.host.clone(),
-                user_recently_used_autoenv_untrust: Arc::new(AtomicBool::new(false)),
                 shell_manager: args.shell_manager.clone(),
                 ctrl_c: args.ctrl_c.clone(),
+                configs: args.configs.clone(),
                 current_errors: Arc::new(Mutex::new(vec![])),
                 windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
             }
@@ -143,7 +143,7 @@ async fn maybe_autocd_dir<'a>(
     //   - the command name ends in a path separator, or
     //   - it's not a command on the path and no arguments were given.
     let name = &cmd.name;
-    let path_name = if name.ends_with(std::path::MAIN_SEPARATOR)
+    let path_name = if name.ends_with(std::path::is_separator)
         || (cmd.args.is_empty()
             && PathBuf::from(name).is_dir()
             && dunce::canonicalize(name).is_ok()

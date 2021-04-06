@@ -31,7 +31,7 @@ pub(crate) async fn run_external_command(
     if !context.host.lock().is_external_cmd(&command.name) {
         return Err(ShellError::labeled_error(
             "Command not found",
-            "command not found",
+            format!("command {} not found", &command.name),
             &command.name_tag,
         ));
     }

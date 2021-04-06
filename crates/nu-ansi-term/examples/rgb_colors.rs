@@ -15,7 +15,7 @@ fn main() {
             let g = (col * 255 / WIDTH) as u8;
             let b = 128;
 
-            print!("{}", Style::default().on(Color::RGB(r, g, b)).paint(" "));
+            print!("{}", Style::default().on(Color::Rgb(r, g, b)).paint(" "));
         }
 
         println!();

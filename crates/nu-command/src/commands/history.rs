@@ -1,6 +1,5 @@
 use crate::prelude::*;
 use nu_data::config::{Conf, NuConfig};
-use nu_engine::history_path;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
@@ -38,7 +37,7 @@ async fn history(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let (Arguments { clear }, _) = args.process().await?;
 
-    let path = history_path(&config);
+    let path = nu_data::config::path::history_path(&config);
 
     match clear {
         Some(_) => {

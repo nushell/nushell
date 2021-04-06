@@ -11,7 +11,7 @@ use std::ops::Deref;
 /// display that string.  `ANSIString` and `ANSIByteString` are aliases for
 /// this type on `str` and `\[u8]`, respectively.
 #[derive(PartialEq, Debug)]
-pub struct ANSIGenericString<'a, S: 'a + ToOwned + ?Sized>
+pub struct AnsiGenericString<'a, S: 'a + ToOwned + ?Sized>
 where
     <S as ToOwned>::Owned: fmt::Debug,
 {
@@ -30,12 +30,12 @@ where
 /// let clone_string = plain_string.clone();
 /// assert_eq!(clone_string, plain_string);
 /// ```
-impl<'a, S: 'a + ToOwned + ?Sized> Clone for ANSIGenericString<'a, S>
+impl<'a, S: 'a + ToOwned + ?Sized> Clone for AnsiGenericString<'a, S>
 where
     <S as ToOwned>::Owned: fmt::Debug,
 {
-    fn clone(&self) -> ANSIGenericString<'a, S> {
-        ANSIGenericString {
+    fn clone(&self) -> AnsiGenericString<'a, S> {
+        AnsiGenericString {
             style: self.style,
             string: self.string.clone(),
         }
@@ -85,26 +85,26 @@ where
 /// let plain_string = ANSIString::from("a plain string");
 /// assert_eq!(&*plain_string, "a plain string");
 /// ```
-pub type ANSIString<'a> = ANSIGenericString<'a, str>;
+pub type AnsiString<'a> = AnsiGenericString<'a, str>;
 
-/// An `ANSIByteString` represents a formatted series of bytes.  Use
-/// `ANSIByteString` when styling text with an unknown encoding.
-pub type ANSIByteString<'a> = ANSIGenericString<'a, [u8]>;
+/// An `AnsiByteString` represents a formatted series of bytes.  Use
+/// `AnsiByteString` when styling text with an unknown encoding.
+pub type AnsiByteString<'a> = AnsiGenericString<'a, [u8]>;
 
-impl<'a, I, S: 'a + ToOwned + ?Sized> From<I> for ANSIGenericString<'a, S>
+impl<'a, I, S: 'a + ToOwned + ?Sized> From<I> for AnsiGenericString<'a, S>
 where
     I: Into<Cow<'a, S>>,
     <S as ToOwned>::Owned: fmt::Debug,
 {
-    fn from(input: I) -> ANSIGenericString<'a, S> {
-        ANSIGenericString {
+    fn from(input: I) -> AnsiGenericString<'a, S> {
+        AnsiGenericString {
             string: input.into(),
             style: Style::default(),
         }
     }
 }
 
-impl<'a, S: 'a + ToOwned + ?Sized> ANSIGenericString<'a, S>
+impl<'a, S: 'a + ToOwned + ?Sized> AnsiGenericString<'a, S>
 where
     <S as ToOwned>::Owned: fmt::Debug,
 {
@@ -119,7 +119,7 @@ where
     }
 }
 
-impl<'a, S: 'a + ToOwned + ?Sized> Deref for ANSIGenericString<'a, S>
+impl<'a, S: 'a + ToOwned + ?Sized> Deref for AnsiGenericString<'a, S>
 where
     <S as ToOwned>::Owned: fmt::Debug,
 {
@@ -130,32 +130,32 @@ where
     }
 }
 
-/// A set of `ANSIGenericString`s collected together, in order to be
+/// A set of `AnsiGenericStrings`s collected together, in order to be
 /// written with a minimum of control characters.
 #[derive(Debug, PartialEq)]
-pub struct ANSIGenericStrings<'a, S: 'a + ToOwned + ?Sized>(pub &'a [ANSIGenericString<'a, S>])
+pub struct AnsiGenericStrings<'a, S: 'a + ToOwned + ?Sized>(pub &'a [AnsiGenericString<'a, S>])
 where
     <S as ToOwned>::Owned: fmt::Debug,
     S: PartialEq;
 
-/// A set of `ANSIString`s collected together, in order to be written with a
+/// A set of `AnsiString`s collected together, in order to be written with a
 /// minimum of control characters.
-pub type ANSIStrings<'a> = ANSIGenericStrings<'a, str>;
+pub type AnsiStrings<'a> = AnsiGenericStrings<'a, str>;
 
-/// A function to construct an `ANSIStrings` instance.
+/// A function to construct an `AnsiStrings` instance.
 #[allow(non_snake_case)]
-pub fn ANSIStrings<'a>(arg: &'a [ANSIString<'a>]) -> ANSIStrings<'a> {
-    ANSIGenericStrings(arg)
+pub fn AnsiStrings<'a>(arg: &'a [AnsiString<'a>]) -> AnsiStrings<'a> {
+    AnsiGenericStrings(arg)
 }
 
-/// A set of `ANSIByteString`s collected together, in order to be
+/// A set of `AnsiByteString`s collected together, in order to be
 /// written with a minimum of control characters.
-pub type ANSIByteStrings<'a> = ANSIGenericStrings<'a, [u8]>;
+pub type AnsiByteStrings<'a> = AnsiGenericStrings<'a, [u8]>;
 
 /// A function to construct an `ANSIByteStrings` instance.
 #[allow(non_snake_case)]
-pub fn ANSIByteStrings<'a>(arg: &'a [ANSIByteString<'a>]) -> ANSIByteStrings<'a> {
-    ANSIGenericStrings(arg)
+pub fn ANSIByteStrings<'a>(arg: &'a [AnsiByteString<'a>]) -> AnsiByteStrings<'a> {
+    AnsiGenericStrings(arg)
 }
 
 // ---- paint functions ----
@@ -163,12 +163,12 @@ pub fn ANSIByteStrings<'a>(arg: &'a [ANSIByteString<'a>]) -> ANSIByteStrings<'a>
 impl Style {
     /// Paints the given text with this color, returning an ANSI string.
     #[must_use]
-    pub fn paint<'a, I, S: 'a + ToOwned + ?Sized>(self, input: I) -> ANSIGenericString<'a, S>
+    pub fn paint<'a, I, S: 'a + ToOwned + ?Sized>(self, input: I) -> AnsiGenericString<'a, S>
     where
         I: Into<Cow<'a, S>>,
         <S as ToOwned>::Owned: fmt::Debug,
     {
-        ANSIGenericString {
+        AnsiGenericString {
             string: input.into(),
             style: self,
         }
@@ -185,12 +185,12 @@ impl Color {
     /// println!("{}", Blue.paint("da ba dee"));
     /// ```
     #[must_use]
-    pub fn paint<'a, I, S: 'a + ToOwned + ?Sized>(self, input: I) -> ANSIGenericString<'a, S>
+    pub fn paint<'a, I, S: 'a + ToOwned + ?Sized>(self, input: I) -> AnsiGenericString<'a, S>
     where
         I: Into<Cow<'a, S>>,
         <S as ToOwned>::Owned: fmt::Debug,
     {
-        ANSIGenericString {
+        AnsiGenericString {
             string: input.into(),
             style: self.normal(),
         }
@@ -199,14 +199,14 @@ impl Color {
 
 // ---- writers for individual ANSI strings ----
 
-impl<'a> fmt::Display for ANSIString<'a> {
+impl<'a> fmt::Display for AnsiString<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let w: &mut dyn fmt::Write = f;
         self.write_to_any(w)
     }
 }
 
-impl<'a> ANSIByteString<'a> {
+impl<'a> AnsiByteString<'a> {
     /// Write an `ANSIByteString` to an `io::Write`.  This writes the escape
     /// sequences for the associated `Style` around the bytes.
     pub fn write_to<W: io::Write>(&self, w: &mut W) -> io::Result<()> {
@@ -215,7 +215,7 @@ impl<'a> ANSIByteString<'a> {
     }
 }
 
-impl<'a, S: 'a + ToOwned + ?Sized> ANSIGenericString<'a, S>
+impl<'a, S: 'a + ToOwned + ?Sized> AnsiGenericString<'a, S>
 where
     <S as ToOwned>::Owned: fmt::Debug,
     &'a S: AsRef<[u8]>,
@@ -229,14 +229,14 @@ where
 
 // ---- writers for combined ANSI strings ----
 
-impl<'a> fmt::Display for ANSIStrings<'a> {
+impl<'a> fmt::Display for AnsiStrings<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let f: &mut dyn fmt::Write = f;
         self.write_to_any(f)
     }
 }
 
-impl<'a> ANSIByteStrings<'a> {
+impl<'a> AnsiByteStrings<'a> {
     /// Write `ANSIByteStrings` to an `io::Write`.  This writes the minimal
     /// escape sequences for the associated `Style`s around each set of
     /// bytes.
@@ -246,7 +246,7 @@ impl<'a> ANSIByteStrings<'a> {
     }
 }
 
-impl<'a, S: 'a + ToOwned + ?Sized + PartialEq> ANSIGenericStrings<'a, S>
+impl<'a, S: 'a + ToOwned + ?Sized + PartialEq> AnsiGenericStrings<'a, S>
 where
     <S as ToOwned>::Owned: fmt::Debug,
     &'a S: AsRef<[u8]>,
@@ -289,7 +289,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    pub use super::super::ANSIStrings;
+    pub use super::super::AnsiStrings;
     pub use crate::style::Color::*;
     pub use crate::style::Style;
 
@@ -297,7 +297,7 @@ mod tests {
     fn no_control_codes_for_plain() {
         let one = Style::default().paint("one");
         let two = Style::default().paint("two");
-        let output = format!("{}", ANSIStrings(&[one, two]));
+        let output = format!("{}", AnsiStrings(&[one, two]));
         assert_eq!(&*output, "onetwo");
     }
 }

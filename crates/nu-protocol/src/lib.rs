@@ -2,6 +2,7 @@
 mod macros;
 
 mod call_info;
+pub mod config_path;
 pub mod hir;
 mod maybe_owned;
 mod return_value;
@@ -12,6 +13,7 @@ mod type_shape;
 pub mod value;
 
 pub use crate::call_info::{CallInfo, EvaluatedArgs};
+pub use crate::config_path::ConfigPath;
 pub use crate::maybe_owned::MaybeOwned;
 pub use crate::return_value::{CommandAction, ReturnSuccess, ReturnValue};
 pub use crate::signature::{NamedType, PositionalType, Signature};

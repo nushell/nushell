@@ -1,17 +1,15 @@
 use crate::call_info::UnevaluatedCallInfo;
 use crate::command_args::RawCommandArgs;
 use crate::evaluation_context::EvaluationContext;
-use crate::filesystem::filesystem_shell::FilesystemShell;
-use crate::shell::help_shell::HelpShell;
+use crate::filesystem::filesystem_shell::{FilesystemShell, FilesystemShellMode};
 use crate::shell::value_shell::ValueShell;
 use futures::StreamExt;
 use log::{log_enabled, trace};
 use nu_errors::ShellError;
 use nu_protocol::hir::{ExternalRedirection, InternalCommand};
-use nu_protocol::{CommandAction, Primitive, ReturnSuccess, UntaggedValue, Value};
+use nu_protocol::{CommandAction, ReturnSuccess, UntaggedValue, Value};
 use nu_source::{PrettyDebug, Span, Tag};
 use nu_stream::{trace_stream, InputStream, ToInputStream};
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 pub(crate) async fn run_internal_command(
@@ -27,12 +25,6 @@ pub(crate) async fn run_internal_command(
     let objects: InputStream = trace_stream!(target: "nu::trace_stream::internal", "input" = input);
 
     let internal_command = context.scope.expect_command(&command.name);
-
-    if command.name == "autoenv untrust" {
-        context
-            .user_recently_used_autoenv_untrust
-            .store(true, Ordering::SeqCst);
-    }
 
     let result = {
         context
@@ -75,6 +67,7 @@ pub(crate) async fn run_internal_command(
                                     let new_args = RawCommandArgs {
                                         host: context.host.clone(),
                                         ctrl_c: context.ctrl_c.clone(),
+                                        configs: context.configs.clone(),
                                         current_errors: context.current_errors.clone(),
                                         shell_manager: context.shell_manager.clone(),
                                         call_info: UnevaluatedCallInfo {
@@ -133,38 +126,6 @@ pub(crate) async fn run_internal_command(
                                     InputStream::one(tagged_contents)
                                 }
                             }
-                            CommandAction::EnterHelpShell(value) => match value {
-                                Value {
-                                    value: UntaggedValue::Primitive(Primitive::String(cmd)),
-                                    tag,
-                                } => {
-                                    context.shell_manager.insert_at_current(Box::new(
-                                        match HelpShell::for_command(
-                                            UntaggedValue::string(cmd).into_value(tag),
-                                            &context.scope,
-                                        ) {
-                                            Ok(v) => v,
-                                            Err(err) => {
-                                                context.error(err);
-                                                return InputStream::empty();
-                                            }
-                                        },
-                                    ));
-                                    InputStream::from_stream(futures::stream::iter(vec![]))
-                                }
-                                _ => {
-                                    context.shell_manager.insert_at_current(Box::new(
-                                        match HelpShell::index(&context.scope) {
-                                            Ok(v) => v,
-                                            Err(err) => {
-                                                context.error(err);
-                                                return InputStream::empty();
-                                            }
-                                        },
-                                    ));
-                                    InputStream::from_stream(futures::stream::iter(vec![]))
-                                }
-                            },
                             CommandAction::EnterValueShell(value) => {
                                 context
                                     .shell_manager
@@ -172,8 +133,13 @@ pub(crate) async fn run_internal_command(
                                 InputStream::from_stream(futures::stream::iter(vec![]))
                             }
                             CommandAction::EnterShell(location) => {
+                                let mode = if context.shell_manager.is_interactive() {
+                                    FilesystemShellMode::Cli
+                                } else {
+                                    FilesystemShellMode::Script
+                                };
                                 context.shell_manager.insert_at_current(Box::new(
-                                    match FilesystemShell::with_location(location) {
+                                    match FilesystemShell::with_location(location, mode) {
                                         Ok(v) => v,
                                         Err(err) => {
                                             context.error(err.into());
@@ -219,6 +185,17 @@ pub(crate) async fn run_internal_command(
                                     std::process::exit(code); // TODO: save history.txt
                                 }
                                 InputStream::empty()
+                            }
+                            CommandAction::UnloadConfig(cfg_path) => {
+                                context.unload_config(&cfg_path).await;
+                                InputStream::empty()
+                            }
+                            CommandAction::LoadConfig(cfg_path) => {
+                                if let Err(e) = context.load_config(&cfg_path).await {
+                                    InputStream::one(UntaggedValue::Error(e).into_untagged_value())
+                                } else {
+                                    InputStream::empty()
+                                }
                             }
                         },
 

@@ -678,7 +678,7 @@ fn duration_overflow() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        ls | get modified | each { = $it + 1000000000000000000yr }
+        ls | get modified | each { = $it + 10000000000000000day }
         "#)
     );
 
@@ -690,7 +690,7 @@ fn date_and_duration_overflow() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        ls | get modified | each { = $it + 1000000yr }
+        ls | get modified | each { = $it + 1000000000day }
         "#)
     );
 
@@ -716,49 +716,25 @@ mod parse {
     fn errors_if_flag_passed_is_not_exact() {
         let actual = nu!(cwd: ".", "debug -ra");
 
-        assert!(
-            actual.err.contains("unexpected flag"),
-            format!(
-                "error message '{}' should contain 'unexpected flag'",
-                actual.err
-            )
-        );
+        assert!(actual.err.contains("unexpected flag"),);
 
         let actual = nu!(cwd: ".", "debug --rawx");
 
-        assert!(
-            actual.err.contains("unexpected flag"),
-            format!(
-                "error message '{}' should contain 'unexpected flag'",
-                actual.err
-            )
-        );
+        assert!(actual.err.contains("unexpected flag"),);
     }
 
     #[test]
     fn errors_if_flag_is_not_supported() {
         let actual = nu!(cwd: ".", "debug --ferris");
 
-        assert!(
-            actual.err.contains("unexpected flag"),
-            format!(
-                "error message '{}' should contain 'unexpected flag'",
-                actual.err
-            )
-        );
+        assert!(actual.err.contains("unexpected flag"),);
     }
 
     #[test]
     fn errors_if_passed_an_unexpected_argument() {
         let actual = nu!(cwd: ".", "debug ferris");
 
-        assert!(
-            actual.err.contains("unexpected argument"),
-            format!(
-                "error message '{}' should contain 'unexpected argument'",
-                actual.err
-            )
-        );
+        assert!(actual.err.contains("unexpected argument"),);
     }
 }
 
@@ -775,10 +751,7 @@ mod tilde_expansion {
         "#
         );
 
-        assert!(
-            !actual.out.contains('~'),
-            format!("'{}' should not contain ~", actual.out)
-        );
+        assert!(!actual.out.contains('~'),);
     }
 
     #[test]

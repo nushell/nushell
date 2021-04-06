@@ -4,16 +4,16 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 
-pub struct FromCSV;
+pub struct FromCsv;
 
 #[derive(Deserialize)]
-pub struct FromCSVArgs {
+pub struct FromCsvArgs {
     noheaders: bool,
     separator: Option<Value>,
 }
 
 #[async_trait]
-impl WholeStreamCommand for FromCSV {
+impl WholeStreamCommand for FromCsv {
     fn name(&self) -> &str {
         "from csv"
     }
@@ -71,7 +71,7 @@ async fn from_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
 
     let (
-        FromCSVArgs {
+        FromCsvArgs {
             noheaders,
             separator,
         },
@@ -105,13 +105,13 @@ async fn from_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
 #[cfg(test)]
 mod tests {
-    use super::FromCSV;
+    use super::FromCsv;
     use super::ShellError;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(FromCSV {})
+        test_examples(FromCsv {})
     }
 }

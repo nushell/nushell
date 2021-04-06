@@ -6,15 +6,15 @@ use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue};
 use std::io::Cursor;
 
-pub struct FromODS;
+pub struct FromOds;
 
 #[derive(Deserialize)]
-pub struct FromODSArgs {
+pub struct FromOdsArgs {
     noheaders: bool,
 }
 
 #[async_trait]
-impl WholeStreamCommand for FromODS {
+impl WholeStreamCommand for FromOds {
     fn name(&self) -> &str {
         "from ods"
     }
@@ -41,7 +41,7 @@ async fn from_ods(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let span = tag.span;
 
     let (
-        FromODSArgs {
+        FromOdsArgs {
             noheaders: _noheaders,
         },
         input,
@@ -93,13 +93,13 @@ async fn from_ods(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
 #[cfg(test)]
 mod tests {
-    use super::FromODS;
+    use super::FromOds;
     use super::ShellError;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(FromODS {})
+        test_examples(FromOds {})
     }
 }

@@ -81,6 +81,7 @@ async fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let shell_manager = raw_args.shell_manager.clone();
     let head = raw_args.call_info.args.head.clone();
     let ctrl_c = raw_args.ctrl_c.clone();
+    let configs = raw_args.configs.clone();
     let current_errors = raw_args.current_errors.clone();
     let host = raw_args.host.clone();
     let tag = raw_args.call_info.name_tag.clone();
@@ -88,24 +89,7 @@ async fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let location_string = location.display().to_string();
     let location_clone = location_string.clone();
 
-    if location_string.starts_with("help") {
-        let spec = location_string.split(':').collect::<Vec<&str>>();
-
-        if spec.len() == 2 {
-            let (_, command) = (spec[0], spec[1]);
-
-            if scope.has_command(command) {
-                return Ok(OutputStream::one(ReturnSuccess::action(
-                    CommandAction::EnterHelpShell(
-                        UntaggedValue::string(command).into_value(Tag::unknown()),
-                    ),
-                )));
-            }
-        }
-        Ok(OutputStream::one(ReturnSuccess::action(
-            CommandAction::EnterHelpShell(UntaggedValue::nothing().into_value(Tag::unknown())),
-        )))
-    } else if location.is_dir() {
+    if location.is_dir() {
         Ok(OutputStream::one(ReturnSuccess::action(
             CommandAction::EnterShell(location_clone),
         )))
@@ -132,6 +116,7 @@ async fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                         let new_args = RawCommandArgs {
                             host,
                             ctrl_c,
+                            configs,
                             current_errors,
                             shell_manager,
                             call_info: UnevaluatedCallInfo {

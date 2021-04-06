@@ -1,10 +1,9 @@
 use crate::prelude::*;
+use crate::utils::arguments::arguments;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::ShellTypeName;
-use nu_protocol::{
-    ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::{Tag, Tagged};
 use nu_value_ext::ValueExt;
 
@@ -13,7 +12,7 @@ use num_traits::Num;
 
 #[derive(Deserialize)]
 struct Arguments {
-    rest: Vec<ColumnPath>,
+    rest: Vec<Value>,
     radix: Option<Tagged<u32>>,
 }
 
@@ -29,7 +28,7 @@ impl WholeStreamCommand for SubCommand {
         Signature::build("str to-int")
             .named("radix", SyntaxShape::Number, "radix of integer", Some('r'))
             .rest(
-                SyntaxShape::ColumnPath,
+                SyntaxShape::Any,
                 "optionally convert text into integer by column paths",
             )
     }
@@ -69,11 +68,10 @@ impl WholeStreamCommand for SubCommand {
 }
 
 async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (Arguments { rest, radix }, input) = args.process().await?;
+    let (Arguments { mut rest, radix }, input) = args.process().await?;
+    let (column_paths, _) = arguments(&mut rest)?;
 
     let radix = radix.map(|r| r.item).unwrap_or(10);
-
-    let column_paths: Vec<ColumnPath> = rest;
 
     Ok(input
         .map(move |v| {

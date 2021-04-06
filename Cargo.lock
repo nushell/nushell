@@ -190,7 +190,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a3203e79f4dd9bdda415ed03cf14dae5a2bf775c683a00f94e9cd1faf0f596e5"
 dependencies = [
  "quote 1.0.9",
- "syn 1.0.62",
+ "syn 1.0.63",
 ]
 
 [[package]]
@@ -281,7 +281,7 @@ checksum = "d7d78656ba01f1b93024b7c3a0467f1608e4be67d725749fdcd7d2c7678fd7a2"
 dependencies = [
  "proc-macro2",
  "quote 1.0.9",
- "syn 1.0.62",
+ "syn 1.0.63",
 ]
 
 [[package]]
@@ -326,7 +326,7 @@ checksum = "36ea56748e10732c49404c153638a15ec3d6211ec5ff35d9bb20e13b93576adf"
 dependencies = [
  "proc-macro2",
  "quote 1.0.9",
- "syn 1.0.62",
+ "syn 1.0.63",
 ]
 
 [[package]]
@@ -564,9 +564,9 @@ checksum = "560c32574a12a89ecd91f5e742165893f86e3ab98d21f8ea548658eb9eef5f40"
 
 [[package]]
 name = "byte-unit"
-version = "4.0.9"
+version = "4.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c8758c32833faaae35b24a73d332e62d0528e89076ae841c63940e37008b153"
+checksum = "b9520900471c3a9bbcfe0fd4c7b6bcfeff41b20a76cf91c59b7474b09be1ee27"
 dependencies = [
  "utf8-width",
 ]
@@ -579,9 +579,9 @@ checksum = "bed57e2090563b83ba8f83366628ce535a7584c9afa4c9fc0612a03925c6df58"
 
 [[package]]
 name = "byteorder"
-version = "1.4.2"
+version = "1.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae44d1a3d5a19df61dd0c8beb138458ac2a53a7ac09eba97d55592540004306b"
+checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
 
 [[package]]
 name = "bytes"
@@ -779,6 +779,12 @@ dependencies = [
  "lazy_static 1.4.0",
  "winapi 0.3.9",
 ]
+
+[[package]]
+name = "common-path"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2382f75942f4b3be3690fe4f86365e9c853c1587d6ee58212cebf6e2a9ccd101"
 
 [[package]]
 name = "concurrent-queue"
@@ -1104,7 +1110,7 @@ dependencies = [
  "proc-macro2",
  "quote 1.0.9",
  "smallvec 1.6.1",
- "syn 1.0.62",
+ "syn 1.0.63",
 ]
 
 [[package]]
@@ -1114,7 +1120,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dfae75de57f2b2e85e8768c3ea840fd159c8f33e2b6522c7835b7abac81be16e"
 dependencies = [
  "quote 1.0.9",
- "syn 1.0.62",
+ "syn 1.0.63",
 ]
 
 [[package]]
@@ -1146,7 +1152,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8f45d9ad417bcef4817d614a501ab55cdd96a6fdb24f49aab89a54acfd66b19"
 dependencies = [
  "quote 1.0.9",
- "syn 1.0.62",
+ "syn 1.0.63",
 ]
 
 [[package]]
@@ -1254,7 +1260,7 @@ checksum = "3418329ca0ad70234b9735dc4ceed10af4df60eff9c8e7b06cb5e520d92c3535"
 dependencies = [
  "proc-macro2",
  "quote 1.0.9",
- "syn 1.0.62",
+ "syn 1.0.63",
 ]
 
 [[package]]
@@ -1276,7 +1282,7 @@ checksum = "41cb0e6161ad61ed084a36ba71fbba9e3ac5aee3606fb607fe08da6acbcf3d8c"
 dependencies = [
  "proc-macro2",
  "quote 1.0.9",
- "syn 1.0.62",
+ "syn 1.0.63",
 ]
 
 [[package]]
@@ -1576,7 +1582,7 @@ checksum = "aa4da3c766cd7a0db8242e326e9e4e081edd567072893ed320008189715366a4"
 dependencies = [
  "proc-macro2",
  "quote 1.0.9",
- "syn 1.0.62",
+ "syn 1.0.63",
  "synstructure",
 ]
 
@@ -1855,7 +1861,7 @@ dependencies = [
  "proc-macro-hack",
  "proc-macro2",
  "quote 1.0.9",
- "syn 1.0.62",
+ "syn 1.0.63",
 ]
 
 [[package]]
@@ -2013,7 +2019,7 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote 1.0.9",
- "syn 1.0.62",
+ "syn 1.0.63",
 ]
 
 [[package]]
@@ -2206,7 +2212,7 @@ dependencies = [
  "markup5ever",
  "proc-macro2",
  "quote 1.0.9",
- "syn 1.0.62",
+ "syn 1.0.63",
 ]
 
 [[package]]
@@ -3075,7 +3081,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "clap",
  "ctrlc",
@@ -3119,7 +3125,7 @@ dependencies = [
 
 [[package]]
 name = "nu-ansi-term"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "doc-comment",
  "regex 1.4.3",
@@ -3130,7 +3136,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cli"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "Inflector",
  "arboard",
@@ -3231,7 +3237,7 @@ dependencies = [
 
 [[package]]
 name = "nu-command"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "Inflector",
  "arboard",
@@ -3335,11 +3341,12 @@ dependencies = [
 
 [[package]]
 name = "nu-data"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "bigdecimal",
  "byte-unit",
  "chrono",
+ "common-path",
  "derive-new",
  "directories-next",
  "dirs-next",
@@ -3358,14 +3365,16 @@ dependencies = [
  "num-traits 0.2.14",
  "query_interface",
  "serde 1.0.124",
+ "sha2 0.9.3",
  "toml",
  "users",
 ]
 
 [[package]]
 name = "nu-engine"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
+ "ansi_term 0.12.1",
  "async-recursion",
  "async-trait",
  "bytes 0.5.6",
@@ -3373,6 +3382,7 @@ dependencies = [
  "derive-new",
  "dirs-next",
  "dunce",
+ "dyn-clone",
  "encoding_rs",
  "filesize",
  "fs_extra",
@@ -3410,7 +3420,7 @@ dependencies = [
 
 [[package]]
 name = "nu-errors"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "bigdecimal",
  "codespan-reporting",
@@ -3429,7 +3439,7 @@ dependencies = [
 
 [[package]]
 name = "nu-json"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "dunce",
  "lazy_static 1.4.0",
@@ -3443,7 +3453,7 @@ dependencies = [
 
 [[package]]
 name = "nu-parser"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "bigdecimal",
  "codespan-reporting",
@@ -3466,7 +3476,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "bigdecimal",
  "indexmap",
@@ -3482,7 +3492,7 @@ dependencies = [
 
 [[package]]
 name = "nu-protocol"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "bigdecimal",
  "byte-unit",
@@ -3505,7 +3515,7 @@ dependencies = [
 
 [[package]]
 name = "nu-source"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "derive-new",
  "getset",
@@ -3516,7 +3526,7 @@ dependencies = [
 
 [[package]]
 name = "nu-stream"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "futures 0.3.13",
  "nu-errors",
@@ -3526,7 +3536,7 @@ dependencies = [
 
 [[package]]
 name = "nu-table"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "nu-ansi-term",
  "regex 1.4.3",
@@ -3535,7 +3545,7 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "bigdecimal",
  "chrono",
@@ -3554,7 +3564,7 @@ dependencies = [
 
 [[package]]
 name = "nu-value-ext"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "indexmap",
  "itertools",
@@ -3566,7 +3576,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_binaryview"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "crossterm 0.19.0",
  "image 0.22.5",
@@ -3582,7 +3592,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_chart"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "crossterm 0.19.0",
  "nu-cli",
@@ -3597,7 +3607,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_fetch"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "base64 0.13.0",
  "futures 0.3.13",
@@ -3612,7 +3622,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_from_bson"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "bigdecimal",
  "bson",
@@ -3626,7 +3636,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_from_sqlite"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "bigdecimal",
  "nu-errors",
@@ -3641,7 +3651,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_inc"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "nu-errors",
  "nu-plugin",
@@ -3654,7 +3664,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_match"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "nu-errors",
  "nu-plugin",
@@ -3665,7 +3675,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_post"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "base64 0.13.0",
  "futures 0.3.13",
@@ -3681,7 +3691,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_ps"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "futures 0.3.13",
  "futures-timer",
@@ -3695,7 +3705,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_s3"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "futures 0.3.13",
  "nu-errors",
@@ -3707,7 +3717,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_selector"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "nipper",
  "nu-errors",
@@ -3719,7 +3729,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_start"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "glob",
  "nu-errors",
@@ -3732,7 +3742,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_sys"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "futures 0.3.13",
  "futures-util",
@@ -3746,7 +3756,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_textview"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "bat",
  "nu-ansi-term",
@@ -3761,7 +3771,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_to_bson"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "bson",
  "nu-errors",
@@ -3774,7 +3784,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_to_sqlite"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "hex 0.4.3",
  "nu-errors",
@@ -3789,7 +3799,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_tree"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "derive-new",
  "nu-errors",
@@ -3801,7 +3811,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_xpath"
-version = "0.28.0"
+version = "0.29.1"
 dependencies = [
  "bigdecimal",
  "indexmap",
@@ -4015,9 +4025,9 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
 name = "open"
-version = "1.5.1"
+version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2033f93630dd4b04768ecf5e16bcd3002a89e1e1dbef375bf290dd67e2b7a4d"
+checksum = "a7e9f1bdf15cd1f5a00cc9002a733a6ee6d0ff562491852d59652471c4a389f7"
 dependencies = [
  "which",
  "winapi 0.3.9",
@@ -4219,7 +4229,7 @@ dependencies = [
  "proc-macro-hack",
  "proc-macro2",
  "quote 1.0.9",
- "syn 1.0.62",
+ "syn 1.0.63",
 ]
 
 [[package]]
@@ -4257,7 +4267,7 @@ checksum = "65ad2ae56b6abe3a1ee25f15ee605bacadb9a764edaba9c2bf4103800d4a1895"
 dependencies = [
  "proc-macro2",
  "quote 1.0.9",
- "syn 1.0.62",
+ "syn 1.0.63",
 ]
 
 [[package]]
@@ -4268,7 +4278,7 @@ checksum = "758669ae3558c6f74bd2a18b41f7ac0b5a195aea6639d6a9b5e5d1ad5ba24c0b"
 dependencies = [
  "proc-macro2",
  "quote 1.0.9",
- "syn 1.0.62",
+ "syn 1.0.63",
 ]
 
 [[package]]
@@ -4403,7 +4413,7 @@ dependencies = [
  "proc-macro-error-attr",
  "proc-macro2",
  "quote 1.0.9",
- "syn 1.0.62",
+ "syn 1.0.63",
  "version_check",
 ]
 
@@ -4517,7 +4527,7 @@ checksum = "b22a693222d716a9587786f37ac3f6b4faedb5b80c23914e7303ff5a1d8016e9"
 dependencies = [
  "proc-macro2",
  "quote 1.0.9",
- "syn 1.0.62",
+ "syn 1.0.63",
 ]
 
 [[package]]
@@ -4939,7 +4949,7 @@ dependencies = [
  "proc-macro2",
  "quote 1.0.9",
  "rust-embed-utils",
- "syn 1.0.62",
+ "syn 1.0.63",
  "walkdir",
 ]
 
@@ -5235,7 +5245,7 @@ checksum = "1800f7693e94e186f5e25a28291ae1570da908aff7d97a095dec1e56ff99069b"
 dependencies = [
  "proc-macro2",
  "quote 1.0.9",
- "syn 1.0.62",
+ "syn 1.0.63",
 ]
 
 [[package]]
@@ -5346,7 +5356,7 @@ checksum = "b2acd6defeddb41eb60bb468f8825d0cfd0c2a76bc03bfd235b6a1dc4f6a1ad5"
 dependencies = [
  "proc-macro2",
  "quote 1.0.9",
- "syn 1.0.62",
+ "syn 1.0.63",
 ]
 
 [[package]]
@@ -5511,7 +5521,7 @@ checksum = "133659a15339456eeeb07572eb02a91c91e9815e9cbc89566944d2c8d3efdbf6"
 dependencies = [
  "proc-macro2",
  "quote 1.0.9",
- "syn 1.0.62",
+ "syn 1.0.63",
 ]
 
 [[package]]
@@ -5585,7 +5595,7 @@ dependencies = [
  "quote 1.0.9",
  "serde 1.0.124",
  "serde_derive",
- "syn 1.0.62",
+ "syn 1.0.63",
 ]
 
 [[package]]
@@ -5601,7 +5611,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sha1 0.6.0",
- "syn 1.0.62",
+ "syn 1.0.63",
 ]
 
 [[package]]
@@ -5740,9 +5750,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "1.0.62"
+version = "1.0.63"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "123a78a3596b24fee53a6464ce52d8ecbf62241e6294c7e7fe12086cd161f512"
+checksum = "8fd9bc7ccc2688b3344c2f48b9b546648b25ce0b20fc717ee7fa7981a8ca9717"
 dependencies = [
  "proc-macro2",
  "quote 1.0.9",
@@ -5766,7 +5776,7 @@ checksum = "b834f2d66f734cb897113e34aaff2f1ab4719ca946f9a7358dba8f8064148701"
 dependencies = [
  "proc-macro2",
  "quote 1.0.9",
- "syn 1.0.62",
+ "syn 1.0.63",
  "unicode-xid 0.2.1",
 ]
 
@@ -5795,9 +5805,9 @@ dependencies = [
 
 [[package]]
 name = "sysinfo"
-version = "0.16.4"
+version = "0.16.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c280c91abd1aed2e36be1bc8f56fbc7a2acbb2b58fbcac9641510179cc72dd9"
+checksum = "567e910ef0207be81a4e1bb0491e9a8d9866cf45b20fe1a52c03d347da9ea51b"
 dependencies = [
  "cfg-if 1.0.0",
  "core-foundation-sys",
@@ -5913,7 +5923,7 @@ checksum = "7765189610d8241a44529806d6fd1f2e0a08734313a35d5b3a556f92b381f3c0"
 dependencies = [
  "proc-macro2",
  "quote 1.0.9",
- "syn 1.0.62",
+ "syn 1.0.63",
 ]
 
 [[package]]
@@ -5991,7 +6001,7 @@ dependencies = [
  "proc-macro2",
  "quote 1.0.9",
  "standback",
- "syn 1.0.62",
+ "syn 1.0.63",
 ]
 
 [[package]]
@@ -6151,7 +6161,7 @@ checksum = "e44da00bfc73a25f814cd8d7e57a68a5c31b74b3152a0a1d1f590c97ed06265a"
 dependencies = [
  "proc-macro2",
  "quote 1.0.9",
- "syn 1.0.62",
+ "syn 1.0.63",
 ]
 
 [[package]]
@@ -6340,13 +6350,13 @@ dependencies = [
 
 [[package]]
 name = "tracing-attributes"
-version = "0.1.13"
+version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8a9bd1db7706f2373a190b0d067146caa39350c486f3d455b0e33b431f94c07"
+checksum = "41768be5b9f3489491825f56f01f25290aa1d3e7cc97e182d4d34360493ba6fa"
 dependencies = [
  "proc-macro2",
  "quote 1.0.9",
- "syn 1.0.62",
+ "syn 1.0.63",
 ]
 
 [[package]]
@@ -6686,7 +6696,7 @@ dependencies = [
  "log 0.4.14",
  "proc-macro2",
  "quote 1.0.9",
- "syn 1.0.62",
+ "syn 1.0.63",
  "wasm-bindgen-shared",
 ]
 
@@ -6736,7 +6746,7 @@ checksum = "cc053ec74d454df287b9374ee8abb36ffd5acb95ba87da3ba5b7d3fe20eb401e"
 dependencies = [
  "proc-macro2",
  "quote 1.0.9",
- "syn 1.0.62",
+ "syn 1.0.63",
  "wasm-bindgen-backend",
  "wasm-bindgen-shared",
 ]
