@@ -11,7 +11,6 @@ use nu_protocol::{
 
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "math median"
@@ -25,8 +24,8 @@ impl WholeStreamCommand for SubCommand {
         "Gets the median of a list of numbers"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        run_with_function(RunnableContext::from_command_args(args), median).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        run_with_function(RunnableContext::from_command_args(args), median)
     }
 
     fn examples(&self) -> Vec<Example> {

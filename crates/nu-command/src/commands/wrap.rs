@@ -14,7 +14,6 @@ struct WrapArgs {
     column: Option<Tagged<String>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Wrap {
     fn name(&self) -> &str {
         "wrap"
@@ -32,8 +31,8 @@ impl WholeStreamCommand for Wrap {
         "Wraps the given data in a table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        wrap(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        wrap(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -78,12 +77,12 @@ impl WholeStreamCommand for Wrap {
     }
 }
 
-async fn wrap(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (WrapArgs { column }, mut input) = args.process().await?;
+fn wrap(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (WrapArgs { column }, input) = args.process()?;
     let mut result_table = vec![];
     let mut are_all_rows = true;
 
-    while let Some(value) = input.next().await {
+    for value in input {
         match value {
             Value {
                 value: UntaggedValue::Row(_),
@@ -122,10 +121,7 @@ async fn wrap(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         Ok(OutputStream::one(ReturnSuccess::value(row)))
     } else {
-        Ok(
-            futures::stream::iter(result_table.into_iter().map(ReturnSuccess::value))
-                .to_output_stream(),
-        )
+        Ok((result_table.into_iter().map(ReturnSuccess::value)).to_output_stream())
     }
 }
 

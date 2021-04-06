@@ -13,7 +13,6 @@ pub struct SourceArgs {
     pub filename: Tagged<String>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Source {
     fn name(&self) -> &str {
         "source"
@@ -31,8 +30,8 @@ impl WholeStreamCommand for Source {
         "Runs a script file in the current context."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        source(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        source(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -40,9 +39,9 @@ impl WholeStreamCommand for Source {
     }
 }
 
-pub async fn source(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn source(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let ctx = EvaluationContext::from_args(&args);
-    let (SourceArgs { filename }, _) = args.process().await?;
+    let (SourceArgs { filename }, _) = args.process()?;
 
     // Note: this is a special case for setting the context from a command
     // In this case, if we don't set it now, we'll lose the scope that this
@@ -50,7 +49,7 @@ pub async fn source(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let contents = std::fs::read_to_string(expand_path(&filename.item).into_owned());
     match contents {
         Ok(contents) => {
-            let result = script::run_script_standalone(contents, true, &ctx, false).await;
+            let result = script::run_script_standalone(contents, true, &ctx, false);
 
             if let Err(err) = result {
                 ctx.error(err.into());

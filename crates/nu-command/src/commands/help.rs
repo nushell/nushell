@@ -18,7 +18,6 @@ pub struct HelpArgs {
     rest: Vec<Tagged<String>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Help {
     fn name(&self) -> &str {
         "help"
@@ -32,15 +31,15 @@ impl WholeStreamCommand for Help {
         "Display help information about commands."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        help(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        help(args)
     }
 }
 
-async fn help(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn help(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let scope = args.scope.clone();
-    let (HelpArgs { rest }, ..) = args.process().await?;
+    let (HelpArgs { rest }, ..) = args.process()?;
 
     if !rest.is_empty() {
         if rest[0].item == "commands" {
@@ -155,7 +154,7 @@ async fn help(args: CommandArgs) -> Result<OutputStream, ShellError> {
                         ReturnSuccess::value(short_desc.into_value())
                     });
 
-            Ok(futures::stream::iter(iterator).to_output_stream())
+            Ok(iterator.to_output_stream())
         } else if rest[0].item == "generate_docs" {
             Ok(OutputStream::one(ReturnSuccess::value(generate_docs(
                 &scope,

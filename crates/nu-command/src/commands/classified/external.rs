@@ -1,16 +1,14 @@
 use crate::futures::ThreadedReceiver;
 use crate::prelude::*;
-use nu_engine::evaluate_baseline_expr;
+use nu_engine::{evaluate_baseline_expr, BufCodecReader};
 use nu_engine::{MaybeTextCodec, StringOrBinary};
 
-use std::borrow::Cow;
 use std::io::Write;
 use std::ops::Deref;
 use std::process::{Command, Stdio};
 use std::sync::mpsc;
+use std::{borrow::Cow, io::BufReader};
 
-use futures::executor::block_on_stream;
-use futures_codec::FramedRead;
 use log::trace;
 
 use nu_errors::ShellError;
@@ -18,9 +16,8 @@ use nu_protocol::hir::Expression;
 use nu_protocol::hir::{ExternalCommand, ExternalRedirection};
 use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
 use nu_source::Tag;
-use nu_stream::trace_stream;
 
-pub(crate) async fn run_external_command(
+pub(crate) fn run_external_command(
     command: ExternalCommand,
     context: &mut EvaluationContext,
     input: InputStream,
@@ -36,10 +33,10 @@ pub(crate) async fn run_external_command(
         ));
     }
 
-    run_with_stdin(command, context, input, external_redirection).await
+    run_with_stdin(command, context, input, external_redirection)
 }
 
-async fn run_with_stdin(
+fn run_with_stdin(
     command: ExternalCommand,
     context: &mut EvaluationContext,
     input: InputStream,
@@ -47,12 +44,10 @@ async fn run_with_stdin(
 ) -> Result<InputStream, ShellError> {
     let path = context.shell_manager.path();
 
-    let input = trace_stream!(target: "nu::trace_stream::external::stdin", "input" = input);
-
     let mut command_args = vec![];
     for arg in command.args.iter() {
         let is_literal = matches!(arg.expr, Expression::Literal(_));
-        let value = evaluate_baseline_expr(arg, context).await?;
+        let value = evaluate_baseline_expr(arg, context)?;
 
         // Skip any arguments that don't really exist, treating them as optional
         // FIXME: we may want to preserve the gap in the future, though it's hard to say
@@ -219,7 +214,7 @@ fn spawn(
                     .take()
                     .expect("Internal error: could not get stdin pipe for external command");
 
-                for value in block_on_stream(input) {
+                for value in input {
                     match &value.value {
                         UntaggedValue::Primitive(Primitive::Nothing) => continue,
                         UntaggedValue::Primitive(Primitive::String(s)) => {
@@ -274,10 +269,12 @@ fn spawn(
                     return Err(());
                 };
 
-                let file = futures::io::AllowStdIo::new(stdout);
-                let stream = FramedRead::new(file, MaybeTextCodec::default());
+                // let file = futures::io::AllowStdIo::new(stdout);
+                // let stream = FramedRead::new(file, MaybeTextCodec::default());
+                let buf_read = BufReader::new(stdout);
+                let buf_codec = BufCodecReader::new(buf_read, MaybeTextCodec::default());
 
-                for line in block_on_stream(stream) {
+                for line in buf_codec {
                     match line {
                         Ok(line) => match line {
                             StringOrBinary::String(s) => {
@@ -345,10 +342,12 @@ fn spawn(
                     return Err(());
                 };
 
-                let file = futures::io::AllowStdIo::new(stderr);
-                let stream = FramedRead::new(file, MaybeTextCodec::default());
+                // let file = futures::io::AllowStdIo::new(stderr);
+                // let stream = FramedRead::new(file, MaybeTextCodec::default());
+                let buf_reader = BufReader::new(stderr);
+                let buf_codec = BufCodecReader::new(buf_reader, MaybeTextCodec::default());
 
-                for line in block_on_stream(stream) {
+                for line in buf_codec {
                     match line {
                         Ok(line) => match line {
                             StringOrBinary::String(s) => {
@@ -507,15 +506,12 @@ mod tests {
     use super::{run_external_command, InputStream};
 
     #[cfg(feature = "which")]
-    use futures::executor::block_on;
-    #[cfg(feature = "which")]
     use nu_engine::basic_evaluation_context;
-    #[cfg(feature = "which")]
-    use nu_errors::ShellError;
+
     #[cfg(feature = "which")]
     use nu_test_support::commands::ExternalBuilder;
-    // async fn read(mut stream: OutputStream) -> Option<Value> {
-    //     match stream.try_next().await {
+    // fn read(mut stream: OutputStream) -> Option<Value> {
+    //     match stream.try_next() {
     //         Ok(val) => {
     //             if let Some(val) = val {
     //                 val.raw_value()
@@ -528,7 +524,7 @@ mod tests {
     // }
 
     #[cfg(feature = "which")]
-    async fn non_existent_run() -> Result<(), ShellError> {
+    fn non_existent_run() {
         use nu_protocol::hir::ExternalRedirection;
         let cmd = ExternalBuilder::for_name("i_dont_exist.exe").build();
 
@@ -536,24 +532,18 @@ mod tests {
         let mut ctx =
             basic_evaluation_context().expect("There was a problem creating a basic context.");
 
-        assert!(
-            run_external_command(cmd, &mut ctx, input, ExternalRedirection::Stdout)
-                .await
-                .is_err()
-        );
-
-        Ok(())
+        assert!(run_external_command(cmd, &mut ctx, input, ExternalRedirection::Stdout).is_err());
     }
 
-    // async fn failure_run() -> Result<(), ShellError> {
+    // fn failure_run() -> Result<(), ShellError> {
     //     let cmd = ExternalBuilder::for_name("fail").build();
 
     //     let mut ctx = crate::cli::basic_evaluation_context().expect("There was a problem creating a basic context.");
     //     let stream = run_external_command(cmd, &mut ctx, None, false)
-    //         .await?
+    //         ?
     //         .expect("There was a problem running the external command.");
 
-    //     match read(stream.into()).await {
+    //     match read(stream.into()) {
     //         Some(Value {
     //             value: UntaggedValue::Error(_),
     //             ..
@@ -571,8 +561,8 @@ mod tests {
 
     #[cfg(feature = "which")]
     #[test]
-    fn identifies_command_not_found() -> Result<(), ShellError> {
-        block_on(non_existent_run())
+    fn identifies_command_not_found() {
+        non_existent_run()
     }
 
     #[test]

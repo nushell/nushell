@@ -16,7 +16,6 @@ pub struct FromEmlArgs {
     preview_body: Option<Tagged<usize>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for FromEml {
     fn name(&self) -> &str {
         "from eml"
@@ -35,8 +34,8 @@ impl WholeStreamCommand for FromEml {
         "Parse text as .eml and create table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        from_eml(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        from_eml(args)
     }
 }
 
@@ -73,10 +72,10 @@ fn headerfieldvalue_to_value(tag: &Tag, value: &HeaderFieldValue) -> UntaggedVal
     }
 }
 
-async fn from_eml(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn from_eml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let (eml_args, input): (FromEmlArgs, _) = args.process().await?;
-    let value = input.collect_string(tag.clone()).await?;
+    let (eml_args, input): (FromEmlArgs, _) = args.process()?;
+    let value = input.collect_string(tag.clone())?;
 
     let body_preview = eml_args
         .preview_body

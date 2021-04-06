@@ -10,7 +10,6 @@ struct PrependArgs {
 
 pub struct Prepend;
 
-#[async_trait]
 impl WholeStreamCommand for Prepend {
     fn name(&self) -> &str {
         "prepend"
@@ -28,8 +27,8 @@ impl WholeStreamCommand for Prepend {
         "Prepend the given row to the front of the table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        prepend(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        prepend(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -46,10 +45,10 @@ impl WholeStreamCommand for Prepend {
     }
 }
 
-async fn prepend(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (PrependArgs { row }, input) = args.process().await?;
+fn prepend(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (PrependArgs { row }, input) = args.process()?;
 
-    let bos = futures::stream::iter(vec![row]);
+    let bos = vec![row].into_iter();
 
     Ok(bos.chain(input).to_output_stream())
 }

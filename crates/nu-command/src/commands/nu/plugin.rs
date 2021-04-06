@@ -19,7 +19,6 @@ pub struct Arguments {
     pub load_path: Option<Tagged<PathBuf>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "nu plugin"
@@ -46,10 +45,10 @@ impl WholeStreamCommand for SubCommand {
         }]
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let scope = args.scope.clone();
         let shell_manager = args.shell_manager.clone();
-        let (Arguments { load_path }, _) = args.process().await?;
+        let (Arguments { load_path }, _) = args.process()?;
 
         if let Some(Tagged {
             item: load_path,

@@ -13,7 +13,6 @@ pub struct FromOdsArgs {
     noheaders: bool,
 }
 
-#[async_trait]
 impl WholeStreamCommand for FromOds {
     fn name(&self) -> &str {
         "from ods"
@@ -31,12 +30,12 @@ impl WholeStreamCommand for FromOds {
         "Parse OpenDocument Spreadsheet(.ods) data and create table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        from_ods(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        from_ods(args)
     }
 }
 
-async fn from_ods(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn from_ods(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let span = tag.span;
 
@@ -45,8 +44,8 @@ async fn from_ods(args: CommandArgs) -> Result<OutputStream, ShellError> {
             noheaders: _noheaders,
         },
         input,
-    ) = args.process().await?;
-    let bytes = input.collect_binary(tag.clone()).await?;
+    ) = args.process()?;
+    let bytes = input.collect_binary(tag.clone())?;
     let buf: Cursor<Vec<u8>> = Cursor::new(bytes.item);
     let mut ods = Ods::<_>::new(buf).map_err(|_| {
         ShellError::labeled_error("Could not load ods file", "could not load ods file", &tag)

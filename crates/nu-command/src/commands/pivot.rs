@@ -18,7 +18,6 @@ pub struct PivotArgs {
     ignore_titles: bool,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Pivot {
     fn name(&self) -> &str {
         "pivot"
@@ -46,15 +45,15 @@ impl WholeStreamCommand for Pivot {
         "Pivots the table contents so rows become columns and columns become rows."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        pivot(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        pivot(args)
     }
 }
 
-pub async fn pivot(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn pivot(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (args, input): (PivotArgs, _) = args.process().await?;
-    let input = input.into_vec().await;
+    let (args, input): (PivotArgs, _) = args.process()?;
+    let input = input.into_vec();
 
     let descs = merge_descriptors(&input);
 
@@ -115,7 +114,7 @@ pub async fn pivot(args: CommandArgs) -> Result<OutputStream, ShellError> {
         descs
     };
 
-    Ok(futures::stream::iter(descs.into_iter().map(move |desc| {
+    Ok((descs.into_iter().map(move |desc| {
         let mut column_num: usize = 0;
         let mut dict = TaggedDictBuilder::new(&name);
 

@@ -11,7 +11,6 @@ pub struct FirstArgs {
     rows: Option<Tagged<usize>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for First {
     fn name(&self) -> &str {
         "first"
@@ -29,8 +28,8 @@ impl WholeStreamCommand for First {
         "Show only the first number of rows."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        first(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        first(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -52,8 +51,8 @@ impl WholeStreamCommand for First {
     }
 }
 
-async fn first(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (FirstArgs { rows }, input) = args.process().await?;
+fn first(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (FirstArgs { rows }, input) = args.process()?;
     let rows_desired = if let Some(quantity) = rows {
         *quantity
     } else {

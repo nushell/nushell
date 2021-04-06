@@ -21,34 +21,7 @@ macro_rules! stream {
     }}
 }
 
-#[macro_export]
-macro_rules! trace_out_stream {
-    (target: $target:tt, $desc:tt = $expr:expr) => {{
-        if log::log_enabled!(target: $target, log::Level::Trace) {
-            use futures::stream::StreamExt;
-
-            let objects = $expr.inspect(move |o| {
-                trace!(
-                    target: $target,
-                    "{} = {}",
-                    $desc,
-                    match o {
-                        Err(err) => format!("{:?}", err),
-                        Ok(value) => value.display(),
-                    }
-                );
-            });
-
-            nu_stream::OutputStream::new(objects)
-        } else {
-            $expr
-        }
-    }};
-}
-
-pub(crate) use async_trait::async_trait;
 pub(crate) use bigdecimal::BigDecimal;
-pub(crate) use futures::{Stream, StreamExt};
 pub(crate) use indexmap::{indexmap, IndexMap};
 pub(crate) use itertools::Itertools;
 pub(crate) use nu_data::config;
@@ -70,7 +43,6 @@ pub(crate) use num_bigint::BigInt;
 pub(crate) use num_traits::cast::ToPrimitive;
 pub(crate) use serde::Deserialize;
 pub(crate) use std::collections::VecDeque;
-pub(crate) use std::future::Future;
 pub(crate) use std::sync::atomic::AtomicBool;
 pub(crate) use std::sync::Arc;
 
@@ -81,11 +53,11 @@ pub trait FromInputStream {
 
 impl<T> FromInputStream for T
 where
-    T: Stream<Item = nu_protocol::Value> + Send + 'static,
+    T: Iterator<Item = nu_protocol::Value> + Send + Sync + 'static,
 {
     fn from_input_stream(self) -> OutputStream {
         OutputStream {
-            values: self.map(nu_protocol::ReturnSuccess::value).boxed(),
+            values: Box::new(self.map(nu_protocol::ReturnSuccess::value)),
         }
     }
 }
@@ -97,12 +69,12 @@ pub trait ToOutputStream {
 
 impl<T, U> ToOutputStream for T
 where
-    T: Stream<Item = U> + Send + 'static,
+    T: Iterator<Item = U> + Send + Sync + 'static,
     U: Into<nu_protocol::ReturnValue>,
 {
     fn to_output_stream(self) -> OutputStream {
         OutputStream {
-            values: self.map(|item| item.into()).boxed(),
+            values: Box::new(self.map(|item| item.into())),
         }
     }
 }

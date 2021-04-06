@@ -3,7 +3,6 @@ use crate::maybe_text_codec::StringOrBinary;
 use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
 use crate::shell::Shell;
 use encoding_rs::Encoding;
-use futures::stream::BoxStream;
 use nu_errors::ShellError;
 use nu_protocol::ValueStructure;
 use nu_protocol::{ReturnSuccess, ShellTypeName, UntaggedValue, Value};
@@ -238,7 +237,10 @@ impl Shell for ValueShell {
         _path: &Path,
         _name: Span,
         _with_encoding: Option<&'static Encoding>,
-    ) -> Result<BoxStream<'static, Result<StringOrBinary, ShellError>>, ShellError> {
+    ) -> Result<
+        Box<dyn Iterator<Item = Result<StringOrBinary, ShellError>> + Send + Sync>,
+        ShellError,
+    > {
         Err(ShellError::unimplemented(
             "open on help shell is not supported",
         ))

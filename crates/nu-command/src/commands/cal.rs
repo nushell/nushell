@@ -7,7 +7,6 @@ use nu_protocol::{Dictionary, Signature, SyntaxShape, UntaggedValue, Value};
 
 pub struct Cal;
 
-#[async_trait]
 impl WholeStreamCommand for Cal {
     fn name(&self) -> &str {
         "cal"
@@ -41,8 +40,8 @@ impl WholeStreamCommand for Cal {
         "Display a calendar."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        cal(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        cal(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -66,8 +65,8 @@ impl WholeStreamCommand for Cal {
     }
 }
 
-pub async fn cal(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+pub fn cal(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
     let mut calendar_vec_deque = VecDeque::new();
     let tag = args.call_info.name_tag.clone();
 
@@ -102,7 +101,7 @@ pub async fn cal(args: CommandArgs) -> Result<OutputStream, ShellError> {
         current_day_option,
     )?;
 
-    Ok(futures::stream::iter(calendar_vec_deque).to_output_stream())
+    Ok(calendar_vec_deque.into_iter().to_output_stream())
 }
 
 fn get_invalid_year_shell_error(year_tag: &Tag) -> ShellError {

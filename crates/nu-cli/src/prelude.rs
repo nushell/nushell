@@ -25,8 +25,6 @@ macro_rules! stream {
 macro_rules! trace_out_stream {
     (target: $target:tt, $desc:tt = $expr:expr) => {{
         if log::log_enabled!(target: $target, log::Level::Trace) {
-            use futures::stream::StreamExt;
-
             let objects = $expr.inspect(move |o| {
                 trace!(
                     target: $target,
@@ -46,7 +44,6 @@ macro_rules! trace_out_stream {
     }};
 }
 
-pub(crate) use futures::{Stream, StreamExt};
 pub(crate) use nu_engine::Host;
 #[allow(unused_imports)]
 pub(crate) use nu_errors::ShellError;
@@ -65,11 +62,11 @@ pub trait FromInputStream {
 
 impl<T> FromInputStream for T
 where
-    T: Stream<Item = nu_protocol::Value> + Send + 'static,
+    T: Iterator<Item = nu_protocol::Value> + Send + Sync + 'static,
 {
     fn from_input_stream(self) -> OutputStream {
         OutputStream {
-            values: self.map(nu_protocol::ReturnSuccess::value).boxed(),
+            values: Box::new(self.map(nu_protocol::ReturnSuccess::value)),
         }
     }
 }
@@ -81,12 +78,12 @@ pub trait ToOutputStream {
 
 impl<T, U> ToOutputStream for T
 where
-    T: Stream<Item = U> + Send + 'static,
+    T: Iterator<Item = U> + Send + Sync + 'static,
     U: Into<nu_protocol::ReturnValue>,
 {
     fn to_output_stream(self) -> OutputStream {
         OutputStream {
-            values: self.map(|item| item.into()).boxed(),
+            values: Box::new(self.map(|item| item.into())),
         }
     }
 }

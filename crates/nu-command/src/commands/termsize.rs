@@ -12,7 +12,6 @@ pub struct TermSizeArgs {
     tall: bool,
 }
 
-#[async_trait]
 impl WholeStreamCommand for TermSize {
     fn name(&self) -> &str {
         "term size"
@@ -28,9 +27,9 @@ impl WholeStreamCommand for TermSize {
         "Returns the terminal size as W H"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (TermSizeArgs { wide, tall }, _) = args.process().await?;
+        let (TermSizeArgs { wide, tall }, _) = args.process()?;
 
         let size = term_size::dimensions();
         match size {

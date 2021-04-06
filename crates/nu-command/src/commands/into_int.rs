@@ -12,7 +12,6 @@ pub struct IntoIntArgs {
     pub rest: Vec<Value>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for IntoInt {
     fn name(&self) -> &str {
         "into-int"
@@ -26,8 +25,8 @@ impl WholeStreamCommand for IntoInt {
         "Convert value to integer."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        into_int(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        into_int(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -46,8 +45,8 @@ impl WholeStreamCommand for IntoInt {
     }
 }
 
-async fn into_int(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (args, _): (IntoIntArgs, _) = args.process().await?;
+fn into_int(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (args, _): (IntoIntArgs, _) = args.process()?;
 
     let stream = args.rest.into_iter().map(|i| match i {
         Value {
@@ -71,7 +70,7 @@ async fn into_int(args: CommandArgs) -> Result<OutputStream, ShellError> {
         _ => OutputStream::one(Ok(ReturnSuccess::Value(i))),
     });
 
-    Ok(futures::stream::iter(stream).flatten().to_output_stream())
+    Ok(stream.flatten().to_output_stream())
 }
 
 #[cfg(test)]

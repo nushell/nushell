@@ -13,7 +13,6 @@ pub struct EchoArgs {
     pub rest: Vec<Value>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Echo {
     fn name(&self) -> &str {
         "echo"
@@ -27,8 +26,8 @@ impl WholeStreamCommand for Echo {
         "Echo the arguments back to the user."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        echo(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        echo(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -47,8 +46,8 @@ impl WholeStreamCommand for Echo {
     }
 }
 
-async fn echo(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (args, _): (EchoArgs, _) = args.process().await?;
+fn echo(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (args, _): (EchoArgs, _) = args.process()?;
 
     let stream = args.rest.into_iter().map(|i| match i.as_string() {
         Ok(s) => OutputStream::one(Ok(ReturnSuccess::Value(
@@ -58,17 +57,19 @@ async fn echo(args: CommandArgs) -> Result<OutputStream, ShellError> {
             Value {
                 value: UntaggedValue::Table(table),
                 ..
-            } => futures::stream::iter(table.into_iter().map(ReturnSuccess::value))
+            } => table
+                .into_iter()
+                .map(ReturnSuccess::value)
                 .to_output_stream(),
             Value {
                 value: UntaggedValue::Primitive(Primitive::Range(range)),
                 tag,
-            } => futures::stream::iter(RangeIterator::new(*range, tag)).to_output_stream(),
+            } => RangeIterator::new(*range, tag).to_output_stream(),
             x => OutputStream::one(Ok(ReturnSuccess::Value(x))),
         },
     });
 
-    Ok(futures::stream::iter(stream).flatten().to_output_stream())
+    Ok(stream.flatten().to_output_stream())
 }
 
 struct RangeIterator {

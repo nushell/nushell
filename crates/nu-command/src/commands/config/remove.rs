@@ -11,7 +11,6 @@ pub struct Arguments {
     remove: Tagged<String>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "config remove"
@@ -29,8 +28,8 @@ impl WholeStreamCommand for SubCommand {
         "Removes a value from the config"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        remove(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        remove(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -42,10 +41,10 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn remove(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn remove(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_span = args.call_info.name_tag.clone();
     let scope = args.scope.clone();
-    let (Arguments { remove }, _) = args.process().await?;
+    let (Arguments { remove }, _) = args.process()?;
 
     let path = match scope.get_var("config-path") {
         Some(Value {
@@ -62,9 +61,10 @@ pub async fn remove(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if result.contains_key(&key) {
         result.swap_remove(&key);
         config::write(&result, &path)?;
-        Ok(futures::stream::iter(vec![ReturnSuccess::value(
+        Ok(vec![ReturnSuccess::value(
             UntaggedValue::Row(result.into()).into_value(remove.tag()),
-        )])
+        )]
+        .into_iter()
         .to_output_stream())
     } else {
         Err(ShellError::labeled_error(

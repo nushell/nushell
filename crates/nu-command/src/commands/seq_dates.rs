@@ -21,7 +21,6 @@ pub struct SeqDatesArgs {
     reverse: Tagged<bool>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SeqDates {
     fn name(&self) -> &str {
         "seq date"
@@ -73,8 +72,8 @@ impl WholeStreamCommand for SeqDates {
         "print sequences of dates"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        seq_dates(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        seq_dates(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -132,7 +131,7 @@ impl WholeStreamCommand for SeqDates {
     }
 }
 
-async fn seq_dates(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn seq_dates(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let _name = args.call_info.name_tag.clone();
 
     let (
@@ -147,7 +146,7 @@ async fn seq_dates(args: CommandArgs) -> Result<OutputStream, ShellError> {
             reverse,
         },
         _,
-    ) = args.process().await?;
+    ) = args.process()?;
 
     let sep: String = match separator {
         Some(s) => {
@@ -354,7 +353,7 @@ pub fn run_seq_dates(
         .lines()
         .map(|v| v.to_str_value_create_tag())
         .collect();
-    Ok(futures::stream::iter(rows.into_iter().map(ReturnSuccess::value)).to_output_stream())
+    Ok((rows.into_iter().map(ReturnSuccess::value)).to_output_stream())
 }
 
 #[cfg(test)]

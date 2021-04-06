@@ -13,7 +13,6 @@ pub struct Arguments {
     by: Option<Tagged<u64>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "roll"
@@ -27,23 +26,21 @@ impl WholeStreamCommand for Command {
         "Rolls the table rows."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        roll(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        roll(args)
     }
 }
 
-pub async fn roll(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn roll(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (args, mut input) = args.process().await?;
+    let (args, mut input) = args.process()?;
 
-    let values = input.drain_vec().await;
+    let values = input.drain_vec();
 
-    Ok(futures::stream::iter(
-        roll_down(values, &args)
-            .unwrap_or_else(|| vec![UntaggedValue::nothing().into_value(&name)])
-            .into_iter()
-            .map(ReturnSuccess::value),
-    )
+    Ok((roll_down(values, &args)
+        .unwrap_or_else(|| vec![UntaggedValue::nothing().into_value(&name)])
+        .into_iter()
+        .map(ReturnSuccess::value))
     .to_output_stream())
 }
 

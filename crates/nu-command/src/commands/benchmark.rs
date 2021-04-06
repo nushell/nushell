@@ -23,7 +23,6 @@ struct BenchmarkArgs {
     passthrough: Option<CapturedBlock>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Benchmark {
     fn name(&self) -> &str {
         "benchmark"
@@ -48,8 +47,8 @@ impl WholeStreamCommand for Benchmark {
         "Runs a block and returns the time it took to execute it."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        benchmark(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        benchmark(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -68,11 +67,11 @@ impl WholeStreamCommand for Benchmark {
     }
 }
 
-async fn benchmark(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn benchmark(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = raw_args.call_info.args.span;
     let mut context = EvaluationContext::from_args(&raw_args);
     let scope = raw_args.scope.clone();
-    let (BenchmarkArgs { block, passthrough }, input) = raw_args.process().await?;
+    let (BenchmarkArgs { block, passthrough }, input) = raw_args.process()?;
 
     let env = scope.get_env_vars();
     let name = generate_free_name(&env);
@@ -82,15 +81,15 @@ async fn benchmark(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let start_time = Instant::now();
 
     // #[cfg(feature = "rich-benchmark")]
-    // let start = time().await;
+    // let start = time();
 
     context.scope.enter_scope();
-    let result = run_block(&block.block, &context, input).await;
+    let result = run_block(&block.block, &context, input);
     context.scope.exit_scope();
-    let output = result?.into_vec().await;
+    let output = result?.into_vec();
 
     // #[cfg(feature = "rich-benchmark")]
-    // let end = time().await;
+    // let end = time();
 
     let end_time = Instant::now();
     context.clear_errors();
@@ -102,7 +101,7 @@ async fn benchmark(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         let real_time = into_big_int(end_time - start_time);
         indexmap.insert("real time".to_string(), real_time);
-        benchmark_output(indexmap, output, passthrough, &tag, &mut context).await
+        benchmark_output(indexmap, output, passthrough, &tag, &mut context)
     }
     // return advanced stats
     // #[cfg(feature = "rich-benchmark")]
@@ -121,7 +120,7 @@ async fn benchmark(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     //     let idle_time = into_big_int(end.idle() - start.idle());
     //     indexmap.insert("idle time".to_string(), idle_time);
 
-    //     benchmark_output(indexmap, output, passthrough, &tag, &mut context).await
+    //     benchmark_output(indexmap, output, passthrough, &tag, &mut context)
     // } else {
     //     Err(ShellError::untagged_runtime_error(
     //         "Could not retrieve CPU time",
@@ -129,7 +128,7 @@ async fn benchmark(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     // }
 }
 
-async fn benchmark_output<T, Output>(
+fn benchmark_output<T, Output>(
     indexmap: IndexMap<String, BigInt>,
     block_output: Output,
     passthrough: Option<CapturedBlock>,
@@ -155,7 +154,7 @@ where
         let time_block = add_implicit_autoview(time_block.block);
 
         context.scope.enter_scope();
-        let result = run_block(&time_block, context, benchmark_output).await;
+        let result = run_block(&time_block, context, benchmark_output);
         context.scope.exit_scope();
         result?;
         context.clear_errors();

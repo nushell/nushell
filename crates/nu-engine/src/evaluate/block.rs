@@ -1,8 +1,6 @@
 use crate::evaluate::expr::run_expression_block;
 use crate::evaluate::internal::run_internal_command;
 use crate::evaluation_context::EvaluationContext;
-use async_recursion::async_recursion;
-use futures::stream::TryStreamExt;
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
 use nu_protocol::hir::{
@@ -14,8 +12,7 @@ use nu_stream::InputStream;
 use nu_stream::ToOutputStream;
 use std::sync::atomic::Ordering;
 
-#[async_recursion]
-pub async fn run_block(
+pub fn run_block(
     block: &Block,
     ctx: &EvaluationContext,
     mut input: InputStream,
@@ -32,34 +29,31 @@ pub async fn run_block(
                 // Run autoview on the values we've seen so far
                 // We may want to make this configurable for other kinds of hosting
                 if let Some(autoview) = ctx.get_command("autoview") {
-                    let mut output_stream = match ctx
-                        .run_command(
-                            autoview,
-                            Tag::unknown(),
-                            Call::new(
-                                Box::new(SpannedExpression::new(
-                                    Expression::Synthetic(Synthetic::String("autoview".into())),
-                                    Span::unknown(),
-                                )),
+                    let mut output_stream = match ctx.run_command(
+                        autoview,
+                        Tag::unknown(),
+                        Call::new(
+                            Box::new(SpannedExpression::new(
+                                Expression::Synthetic(Synthetic::String("autoview".into())),
                                 Span::unknown(),
-                            ),
-                            inp,
-                        )
-                        .await
-                    {
+                            )),
+                            Span::unknown(),
+                        ),
+                        inp,
+                    ) {
                         Ok(x) => x,
                         Err(e) => {
                             return Err(e);
                         }
                     };
-                    match output_stream.try_next().await {
-                        Ok(Some(ReturnSuccess::Value(Value {
+                    match output_stream.next() {
+                        Some(Ok(ReturnSuccess::Value(Value {
                             value: UntaggedValue::Error(e),
                             ..
                         }))) => {
                             return Err(e);
                         }
-                        Ok(Some(_item)) => {
+                        Some(Ok(_item)) => {
                             if let Some(err) = ctx.get_errors().get(0) {
                                 ctx.clear_errors();
                                 return Err(err.clone());
@@ -68,13 +62,13 @@ pub async fn run_block(
                                 return Ok(InputStream::empty());
                             }
                         }
-                        Ok(None) => {
+                        None => {
                             if let Some(err) = ctx.get_errors().get(0) {
                                 ctx.clear_errors();
                                 return Err(err.clone());
                             }
                         }
-                        Err(e) => {
+                        Some(Err(e)) => {
                             return Err(e);
                         }
                     }
@@ -91,14 +85,14 @@ pub async fn run_block(
                 Ok(inp) => {
                     let mut output_stream = inp.to_output_stream();
 
-                    match output_stream.try_next().await {
-                        Ok(Some(ReturnSuccess::Value(Value {
+                    match output_stream.next() {
+                        Some(Ok(ReturnSuccess::Value(Value {
                             value: UntaggedValue::Error(e),
                             ..
                         }))) => {
                             return Err(e);
                         }
-                        Ok(Some(_item)) => {
+                        Some(Ok(_item)) => {
                             if let Some(err) = ctx.get_errors().get(0) {
                                 ctx.clear_errors();
                                 return Err(err.clone());
@@ -112,13 +106,13 @@ pub async fn run_block(
                                 return Ok(InputStream::empty());
                             }
                         }
-                        Ok(None) => {
+                        None => {
                             if let Some(err) = ctx.get_errors().get(0) {
                                 ctx.clear_errors();
                                 return Err(err.clone());
                             }
                         }
-                        Err(e) => {
+                        Some(Err(e)) => {
                             return Err(e);
                         }
                     }
@@ -127,7 +121,7 @@ pub async fn run_block(
                     return Err(e);
                 }
             }
-            output = run_pipeline(pipeline, ctx, input).await;
+            output = run_pipeline(pipeline, ctx, input);
 
             input = InputStream::empty();
         }
@@ -136,8 +130,7 @@ pub async fn run_block(
     output
 }
 
-#[async_recursion]
-async fn run_pipeline(
+fn run_pipeline(
     commands: &Pipeline,
     ctx: &EvaluationContext,
     mut input: InputStream,
@@ -148,7 +141,7 @@ async fn run_pipeline(
                 let mut args = vec![];
                 if let Some(positional) = call.positional {
                     for pos in &positional {
-                        let result = run_expression_block(pos, ctx).await?.into_vec().await;
+                        let result = run_expression_block(pos, ctx)?.into_vec();
                         args.push(result);
                     }
                 }
@@ -159,7 +152,7 @@ async fn run_pipeline(
                         for (param, value) in block.params.positional.iter().zip(args.iter()) {
                             ctx.scope.add_var(param.0.name(), value[0].clone());
                         }
-                        let result = run_block(&block, ctx, input).await;
+                        let result = run_block(&block, ctx, input);
                         ctx.scope.exit_scope();
 
                         let result = result?;
@@ -180,7 +173,7 @@ async fn run_pipeline(
                                     {
                                         ctx.scope.add_var(param.0.name(), value[0].clone());
                                     }
-                                    let result = run_block(&captured_block.block, ctx, input).await;
+                                    let result = run_block(&captured_block.block, ctx, input);
                                     ctx.scope.exit_scope();
 
                                     let result = result?;
@@ -204,11 +197,11 @@ async fn run_pipeline(
                 }
             }
 
-            ClassifiedCommand::Expr(expr) => run_expression_block(&*expr, ctx).await?,
+            ClassifiedCommand::Expr(expr) => run_expression_block(&*expr, ctx)?,
 
             ClassifiedCommand::Error(err) => return Err(err.into()),
 
-            ClassifiedCommand::Internal(left) => run_internal_command(left, ctx, input).await?,
+            ClassifiedCommand::Internal(left) => run_internal_command(left, ctx, input)?,
         };
     }
 

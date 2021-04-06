@@ -15,7 +15,6 @@ pub struct CharsArgs {
 
 const DEFAULT_CHARS_LENGTH: u32 = 25;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "random chars"
@@ -34,8 +33,8 @@ impl WholeStreamCommand for SubCommand {
         "Generate random chars"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        chars(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        chars(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -54,8 +53,8 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn chars(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (CharsArgs { length }, _) = args.process().await?;
+pub fn chars(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (CharsArgs { length }, _) = args.process()?;
 
     let chars_length = length.map_or(DEFAULT_CHARS_LENGTH, |l| l.item);
 

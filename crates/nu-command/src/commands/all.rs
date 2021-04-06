@@ -13,7 +13,6 @@ pub struct Arguments {
     block: CapturedBlock,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "all?"
@@ -31,8 +30,8 @@ impl WholeStreamCommand for Command {
         "Find if the table rows matches the condition."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        all(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        all(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -53,10 +52,10 @@ impl WholeStreamCommand for Command {
     }
 }
 
-async fn all(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn all(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let ctx = Arc::new(EvaluationContext::from_args(&args));
     let tag = args.call_info.name_tag.clone();
-    let (Arguments { block }, input) = args.process().await?;
+    let (Arguments { block }, input) = args.process()?;
 
     let condition = {
         if block.block.block.len() != 1 {
@@ -99,28 +98,25 @@ async fn all(args: CommandArgs) -> Result<OutputStream, ShellError> {
             ctx.scope.add_vars(&block.captured.entries);
             ctx.scope.add_var("$it", row);
 
-            async move {
-                let condition = evaluate_baseline_expr(&condition, &*ctx).await.clone();
-                ctx.scope.exit_scope();
+            let condition = evaluate_baseline_expr(&condition, &*ctx);
+            ctx.scope.exit_scope();
 
-                let curr = acc?.drain_vec().await;
-                let curr = curr
-                    .get(0)
-                    .ok_or_else(|| ShellError::unexpected("No value to check with"))?;
-                let cond = curr.as_bool()?;
+            let curr = acc?.drain_vec();
+            let curr = curr
+                .get(0)
+                .ok_or_else(|| ShellError::unexpected("No value to check with"))?;
+            let cond = curr.as_bool()?;
 
-                match condition {
-                    Ok(condition) => match condition.as_bool() {
-                        Ok(b) => Ok(InputStream::one(
-                            UntaggedValue::boolean(cond && b).into_value(&curr.tag),
-                        )),
-                        Err(e) => Err(e),
-                    },
+            match condition {
+                Ok(condition) => match condition.as_bool() {
+                    Ok(b) => Ok(InputStream::one(
+                        UntaggedValue::boolean(cond && b).into_value(&curr.tag),
+                    )),
                     Err(e) => Err(e),
-                }
+                },
+                Err(e) => Err(e),
             }
-        })
-        .await?
+        })?
         .to_output_stream())
 }
 

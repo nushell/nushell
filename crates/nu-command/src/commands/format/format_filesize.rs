@@ -16,7 +16,6 @@ pub struct Arguments {
     format: Tagged<String>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for FileSize {
     fn name(&self) -> &str {
         "format filesize"
@@ -40,8 +39,8 @@ impl WholeStreamCommand for FileSize {
         "Converts a column of filesizes to some specified format"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        filesize(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        filesize(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -60,7 +59,7 @@ impl WholeStreamCommand for FileSize {
     }
 }
 
-async fn process_row(
+fn process_row(
     input: Value,
     format: Tagged<String>,
     field: Arc<ColumnPath>,
@@ -92,20 +91,18 @@ async fn process_row(
     })
 }
 
-async fn filesize(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (Arguments { field, format }, input) = raw_args.process().await?;
+fn filesize(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (Arguments { field, format }, input) = raw_args.process()?;
     let field = Arc::new(field);
 
     Ok(input
-        .then(move |input| {
+        .map(move |input| {
             let format = format.clone();
             let field = field.clone();
 
-            async {
-                match process_row(input, format, field).await {
-                    Ok(s) => s,
-                    Err(e) => OutputStream::one(Err(e)),
-                }
+            match process_row(input, format, field) {
+                Ok(s) => s,
+                Err(e) => OutputStream::one(Err(e)),
             }
         })
         .flatten()

@@ -1,8 +1,7 @@
 use crate::command_args::CommandArgs;
 use crate::whole_stream_command::{whole_stream_command, WholeStreamCommand};
-use async_trait::async_trait;
 use derive_new::new;
-use futures::StreamExt;
+
 use log::trace;
 use nu_errors::ShellError;
 use nu_plugin::jsonrpc::JsonRpc;
@@ -94,7 +93,6 @@ pub struct PluginFilter {
     config: Signature,
 }
 
-#[async_trait]
 impl WholeStreamCommand for PluginFilter {
     fn name(&self) -> &str {
         &self.name
@@ -108,22 +106,20 @@ impl WholeStreamCommand for PluginFilter {
         &self.config.usage
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        run_filter(self.path.clone(), args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        run_filter(self.path.clone(), args)
     }
 }
 
-async fn run_filter(path: String, args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn run_filter(path: String, args: CommandArgs) -> Result<OutputStream, ShellError> {
     trace!("filter_plugin :: {}", path);
 
-    let bos = futures::stream::iter(vec![
-        UntaggedValue::Primitive(Primitive::BeginningOfStream).into_untagged_value()
-    ]);
-    let eos = futures::stream::iter(vec![
-        UntaggedValue::Primitive(Primitive::EndOfStream).into_untagged_value()
-    ]);
+    let bos = vec![UntaggedValue::Primitive(Primitive::BeginningOfStream).into_untagged_value()]
+        .into_iter();
+    let eos =
+        vec![UntaggedValue::Primitive(Primitive::EndOfStream).into_untagged_value()].into_iter();
 
-    let args = args.evaluate_once().await?;
+    let args = args.evaluate_once()?;
 
     let real_path = Path::new(&path);
     let ext = real_path.extension();
@@ -205,9 +201,10 @@ async fn run_filter(path: String, args: CommandArgs) -> Result<OutputStream, She
 
                             match response {
                                 Ok(NuResult::response { params }) => match params {
-                                    Ok(params) => futures::stream::iter(params).to_output_stream(),
-                                    Err(e) => futures::stream::iter(vec![ReturnValue::Err(e)])
-                                        .to_output_stream(),
+                                    Ok(params) => params.into_iter().to_output_stream(),
+                                    Err(e) => {
+                                        vec![ReturnValue::Err(e)].into_iter().to_output_stream()
+                                    }
                                 },
 
                                 Err(e) => OutputStream::one(Err(
@@ -265,25 +262,25 @@ async fn run_filter(path: String, args: CommandArgs) -> Result<OutputStream, She
 
                             match response {
                                 Ok(NuResult::response { params }) => match params {
-                                    Ok(params) => futures::stream::iter(params).to_output_stream(),
-                                    Err(e) => futures::stream::iter(vec![ReturnValue::Err(e)])
-                                        .to_output_stream(),
+                                    Ok(params) => params.into_iter().to_output_stream(),
+                                    Err(e) => {
+                                        vec![ReturnValue::Err(e)].into_iter().to_output_stream()
+                                    }
                                 },
-                                Err(e) => futures::stream::iter(vec![Err(
-                                    ShellError::untagged_runtime_error(format!(
-                                        "Error while processing end_filter response: {:?} {}",
-                                        e, input
-                                    )),
-                                )])
+                                Err(e) => vec![Err(ShellError::untagged_runtime_error(format!(
+                                    "Error while processing end_filter response: {:?} {}",
+                                    e, input
+                                )))]
+                                .into_iter()
                                 .to_output_stream(),
                             }
                         }
-                        Err(e) => {
-                            futures::stream::iter(vec![Err(ShellError::untagged_runtime_error(
-                                format!("Error while reading end_filter response: {:?}", e),
-                            ))])
-                            .to_output_stream()
-                        }
+                        Err(e) => vec![Err(ShellError::untagged_runtime_error(format!(
+                            "Error while reading end_filter response: {:?}",
+                            e
+                        )))]
+                        .into_iter()
+                        .to_output_stream(),
                     };
 
                     let stdin = child.stdin.as_mut().expect("Failed to open stdin");
@@ -339,9 +336,10 @@ async fn run_filter(path: String, args: CommandArgs) -> Result<OutputStream, She
 
                             match response {
                                 Ok(NuResult::response { params }) => match params {
-                                    Ok(params) => futures::stream::iter(params).to_output_stream(),
-                                    Err(e) => futures::stream::iter(vec![ReturnValue::Err(e)])
-                                        .to_output_stream(),
+                                    Ok(params) => params.into_iter().to_output_stream(),
+                                    Err(e) => {
+                                        vec![ReturnValue::Err(e)].into_iter().to_output_stream()
+                                    }
                                 },
                                 Err(e) => OutputStream::one(Err(
                                     ShellError::untagged_runtime_error(format!(
@@ -369,7 +367,6 @@ pub struct PluginSink {
     config: Signature,
 }
 
-#[async_trait]
 impl WholeStreamCommand for PluginSink {
     fn name(&self) -> &str {
         &self.name
@@ -383,18 +380,18 @@ impl WholeStreamCommand for PluginSink {
         &self.config.usage
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        run_sink(self.path.clone(), args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        run_sink(self.path.clone(), args)
     }
 }
 
-async fn run_sink(path: String, args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+fn run_sink(path: String, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
     let call_info = args.call_info.clone();
 
-    let input: Vec<Value> = args.input.collect().await;
+    let input: Vec<Value> = args.input.into_vec();
 
-    let request = JsonRpc::new("sink", (call_info.clone(), input));
+    let request = JsonRpc::new("sink", (call_info, input));
     let request_raw = serde_json::to_string(&request);
     if let Ok(request_raw) = request_raw {
         if let Ok(mut tmpfile) = tempfile::NamedTempFile::new() {

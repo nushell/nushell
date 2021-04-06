@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use futures::stream::StreamExt;
+
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, Value};
@@ -8,7 +8,6 @@ use arboard::Clipboard;
 
 pub struct Clip;
 
-#[async_trait]
 impl WholeStreamCommand for Clip {
     fn name(&self) -> &str {
         "clip"
@@ -22,8 +21,8 @@ impl WholeStreamCommand for Clip {
         "Copy the contents of the pipeline to the copy/paste buffer."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        clip(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        clip(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -42,10 +41,10 @@ impl WholeStreamCommand for Clip {
     }
 }
 
-pub async fn clip(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn clip(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let input = args.input;
     let name = args.call_info.name_tag.clone();
-    let values: Vec<Value> = input.collect().await;
+    let values: Vec<Value> = input.collect();
 
     if let Ok(mut clip_context) = Clipboard::new() {
         let mut new_copy_data = String::new();

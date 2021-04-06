@@ -22,7 +22,6 @@ const STREAM_TIMEOUT_CHECK_INTERVAL: usize = 100;
 
 pub struct Command;
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "table"
@@ -41,8 +40,8 @@ impl WholeStreamCommand for Command {
         "View the contents of the pipeline as a table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        table(TableConfiguration::new(), args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        table(TableConfiguration::new(), args)
     }
 }
 
@@ -159,11 +158,8 @@ fn values_to_entries(
     entries
 }
 
-async fn table(
-    configuration: TableConfiguration,
-    args: CommandArgs,
-) -> Result<OutputStream, ShellError> {
-    let mut args = args.evaluate_once().await?;
+fn table(configuration: TableConfiguration, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let mut args = args.evaluate_once()?;
 
     // Ideally, get_color_config would get all the colors configured in the config.toml
     // and create a style based on those settings. However, there are few places where
@@ -203,7 +199,7 @@ async fn table(
         .set_input_handler(Box::new(input_handling::MinusInputHandler {}))
         .finish();
 
-    let stream_data = async {
+    let stream_data = {
         let finished = Arc::new(AtomicBool::new(false));
         // we are required to clone finished, for use within the callback, otherwise we get borrow errors
         #[cfg(feature = "table-pager")]
@@ -213,7 +209,7 @@ async fn table(
             // This is called when the pager finishes, to indicate to the
             // while loop below to finish, in case of long running InputStream consumer
             // that doesn't finish by the time the user quits out of the pager
-            pager.lock().await.add_exit_callback(move || {
+            pager.lock().add_exit_callback(move || {
                 finished_within_callback.store(true, Ordering::Relaxed);
             });
         }
@@ -226,7 +222,7 @@ async fn table(
                     new_input.push_back(val);
                     delay_slot = None;
                 } else {
-                    match args.input.next().await {
+                    match args.input.next() {
                         Some(a) => {
                             if !new_input.is_empty() {
                                 if let Some(descs) = new_input.get(0) {
@@ -274,7 +270,7 @@ async fn table(
                 let output = draw_table(&t, term_width, &color_hm);
                 #[cfg(feature = "table-pager")]
                 {
-                    let mut pager = pager.lock().await;
+                    let mut pager = pager.lock();
                     writeln!(pager.lines, "{}", output).map_err(|_| {
                         ShellError::untagged_runtime_error("Error writing to pager")
                     })?;
@@ -289,7 +285,7 @@ async fn table(
 
         #[cfg(feature = "table-pager")]
         {
-            let mut pager_lock = pager.lock().await;
+            let mut pager_lock = pager.lock();
             pager_lock.data_finished();
         }
 
@@ -299,15 +295,13 @@ async fn table(
     #[cfg(feature = "table-pager")]
     {
         let (minus_result, streaming_result) =
-            join(minus::async_std_updating(pager.clone()), stream_data).await;
+            join(minus::async_std_updating(pager.clone()), stream_data);
         minus_result.map_err(|_| ShellError::untagged_runtime_error("Error paging data"))?;
         streaming_result?;
     }
 
     #[cfg(not(feature = "table-pager"))]
-    stream_data
-        .await
-        .map_err(|_| ShellError::untagged_runtime_error("Error streaming data"))?;
+    stream_data.map_err(|_| ShellError::untagged_runtime_error("Error streaming data"))?;
 
     Ok(OutputStream::empty())
 }

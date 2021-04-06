@@ -10,7 +10,6 @@ pub struct FromJsonArgs {
     objects: bool,
 }
 
-#[async_trait]
 impl WholeStreamCommand for FromJson {
     fn name(&self) -> &str {
         "from json"
@@ -28,8 +27,8 @@ impl WholeStreamCommand for FromJson {
         "Parse text as .json and create table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        from_json(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        from_json(args)
     }
 }
 
@@ -68,17 +67,18 @@ pub fn from_json_string_to_value(s: String, tag: impl Into<Tag>) -> nu_json::Res
     Ok(convert_json_value_to_nu_value(&v, tag))
 }
 
-async fn from_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn from_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
 
-    let (FromJsonArgs { objects }, input) = args.process().await?;
-    let concat_string = input.collect_string(name_tag.clone()).await?;
+    let (FromJsonArgs { objects }, input) = args.process()?;
+    let concat_string = input.collect_string(name_tag.clone())?;
 
     let string_clone: Vec<_> = concat_string.item.lines().map(|x| x.to_string()).collect();
 
     if objects {
-        Ok(
-            futures::stream::iter(string_clone.into_iter().filter_map(move |json_str| {
+        Ok(string_clone
+            .into_iter()
+            .filter_map(move |json_str| {
                 if json_str.is_empty() {
                     return None;
                 }
@@ -99,19 +99,19 @@ async fn from_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
                         )))
                     }
                 }
-            }))
-            .to_output_stream(),
-        )
+            })
+            .to_output_stream())
     } else {
         match from_json_string_to_value(concat_string.item, name_tag.clone()) {
             Ok(x) => match x {
                 Value {
                     value: UntaggedValue::Table(list),
                     ..
-                } => Ok(
-                    futures::stream::iter(list.into_iter().map(ReturnSuccess::value))
-                        .to_output_stream(),
-                ),
+                } => Ok(list
+                    .into_iter()
+                    .map(ReturnSuccess::value)
+                    .to_output_stream()),
+
                 x => Ok(OutputStream::one(ReturnSuccess::value(x))),
             },
             Err(e) => {

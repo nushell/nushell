@@ -1,7 +1,7 @@
 use crate::commands::constants::BAT_LANGUAGES;
 use crate::prelude::*;
 use encoding_rs::{Encoding, UTF_8};
-use futures_util::StreamExt;
+
 use log::debug;
 use nu_engine::StringOrBinary;
 use nu_engine::WholeStreamCommand;
@@ -19,7 +19,6 @@ pub struct OpenArgs {
     encoding: Option<Tagged<String>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Open {
     fn name(&self) -> &str {
         "open"
@@ -58,8 +57,8 @@ For a more complete list of encodings please refer to the encoding_rs
 documentation link at https://docs.rs/encoding_rs/0.8.28/encoding_rs/#statics"#
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        open(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        open(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -100,7 +99,7 @@ pub fn get_encoding(opt: Option<Tagged<String>>) -> Result<&'static Encoding, Sh
     }
 }
 
-async fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let scope = args.scope.clone();
     let cwd = PathBuf::from(args.shell_manager.path());
     let shell_manager = args.shell_manager.clone();
@@ -114,7 +113,7 @@ async fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
             encoding,
         },
         _,
-    ) = args.process().await?;
+    ) = args.process()?;
 
     if path.is_dir() {
         let args = nu_engine::shell::LsArgs {
@@ -148,8 +147,7 @@ async fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 &PathBuf::from(&path.item),
                 path.tag.span,
                 encoding,
-            )
-            .await?;
+            )?;
             return Ok(OutputStream::one(ReturnSuccess::action(
                 CommandAction::AutoConvert(tagged_contents, ext),
             )));
@@ -161,8 +159,7 @@ async fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 &PathBuf::from(&path.item),
                 path.tag.span,
                 encoding,
-            )
-            .await?;
+            )?;
             return Ok(OutputStream::one(ReturnSuccess::value(tagged_contents)));
         }
     }
@@ -199,7 +196,7 @@ async fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
 // Note that we do not output a Stream in "fetch" since it is only used by "enter" command
 // Which we expect to use a concrete Value a not a Stream
-pub async fn fetch(
+pub fn fetch(
     cwd: &Path,
     location: &Path,
     span: Span,

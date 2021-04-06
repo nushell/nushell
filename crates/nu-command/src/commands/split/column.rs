@@ -17,7 +17,6 @@ struct SplitColumnArgs {
 
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "split column"
@@ -38,12 +37,12 @@ impl WholeStreamCommand for SubCommand {
         "splits contents across multiple columns via the separator."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        split_column(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        split_column(args)
     }
 }
 
-async fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_span = args.call_info.name_tag.span;
     let (
         SplitColumnArgs {
@@ -52,7 +51,7 @@ async fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
             collapse_empty,
         },
         input,
-    ) = args.process().await?;
+    ) = args.process()?;
 
     Ok(input
         .map(move |v| {

@@ -1,25 +1,21 @@
-use crate::command_args::EvaluatedWholeStreamCommandArgs;
 use crate::filesystem::dir_info::{DirBuilder, DirInfo};
 use crate::filesystem::path::canonicalize;
 use crate::filesystem::utils::FileStructure;
 use crate::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
 use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
 use crate::shell::Shell;
+use crate::{command_args::EvaluatedWholeStreamCommandArgs, BufCodecReader};
 use encoding_rs::Encoding;
-use futures::stream::BoxStream;
-use futures::StreamExt;
-use futures_codec::FramedRead;
-use futures_util::TryStreamExt;
 use nu_data::config::LocalConfigDiff;
 use nu_protocol::{CommandAction, ConfigPath, TaggedDictBuilder, Value};
 use nu_source::{Span, Tag};
 use nu_stream::{Interruptible, OutputStream, ToOutputStream};
-use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::{collections::HashMap, io::BufReader};
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -183,49 +179,50 @@ impl Shell for FilesystemShell {
 
         // Generated stream: impl Stream<Item = Result<ReturnSuccess, ShellError>
 
-        Ok(futures::stream::iter(paths.filter_map(move |path| {
-            let path = match path.map_err(|e| ShellError::from(e.into_error())) {
-                Ok(path) => path,
-                Err(err) => return Some(Err(err)),
-            };
+        Ok(paths
+            .filter_map(move |path| {
+                let path = match path.map_err(|e| ShellError::from(e.into_error())) {
+                    Ok(path) => path,
+                    Err(err) => return Some(Err(err)),
+                };
 
-            if path_contains_hidden_folder(&path, &hidden_dirs) {
-                return None;
-            }
-
-            if !all && !hidden_dir_specified && is_hidden_dir(&path) {
-                if path.is_dir() {
-                    hidden_dirs.push(path);
+                if path_contains_hidden_folder(&path, &hidden_dirs) {
+                    return None;
                 }
-                return None;
-            }
 
-            let metadata = match std::fs::symlink_metadata(&path) {
-                Ok(metadata) => Some(metadata),
-                Err(e) => {
-                    if e.kind() == ErrorKind::PermissionDenied || e.kind() == ErrorKind::Other {
-                        None
-                    } else {
-                        return Some(Err(e.into()));
+                if !all && !hidden_dir_specified && is_hidden_dir(&path) {
+                    if path.is_dir() {
+                        hidden_dirs.push(path);
                     }
+                    return None;
                 }
-            };
 
-            let entry = dir_entry_dict(
-                &path,
-                metadata.as_ref(),
-                name_tag.clone(),
-                long,
-                short_names,
-                du,
-                ctrl_c.clone(),
-            )
-            .map(ReturnSuccess::Value);
+                let metadata = match std::fs::symlink_metadata(&path) {
+                    Ok(metadata) => Some(metadata),
+                    Err(e) => {
+                        if e.kind() == ErrorKind::PermissionDenied || e.kind() == ErrorKind::Other {
+                            None
+                        } else {
+                            return Some(Err(e.into()));
+                        }
+                    }
+                };
 
-            Some(entry)
-        }))
-        .interruptible(ctrl_c_copy)
-        .to_output_stream())
+                let entry = dir_entry_dict(
+                    &path,
+                    metadata.as_ref(),
+                    name_tag.clone(),
+                    long,
+                    short_names,
+                    du,
+                    ctrl_c.clone(),
+                )
+                .map(ReturnSuccess::Value);
+
+                Some(entry)
+            })
+            .interruptible(ctrl_c_copy)
+            .to_output_stream())
     }
 
     fn cd(&self, args: CdArgs, name: Tag) -> Result<OutputStream, ShellError> {
@@ -665,8 +662,9 @@ impl Shell for FilesystemShell {
             ));
         }
 
-        Ok(
-            futures::stream::iter(all_targets.into_iter().map(move |(f, tag)| {
+        Ok(all_targets
+            .into_iter()
+            .map(move |(f, tag)| {
                 let is_empty = || match f.read_dir() {
                     Ok(mut p) => p.next().is_none(),
                     Err(_) => false,
@@ -741,9 +739,8 @@ impl Shell for FilesystemShell {
                         tag,
                     ))
                 }
-            }))
-            .to_output_stream(),
-        )
+            })
+            .to_output_stream())
     }
 
     fn path(&self) -> String {
@@ -794,7 +791,10 @@ impl Shell for FilesystemShell {
         path: &Path,
         name: Span,
         with_encoding: Option<&'static Encoding>,
-    ) -> Result<BoxStream<'static, Result<StringOrBinary, ShellError>>, ShellError> {
+    ) -> Result<
+        Box<dyn Iterator<Item = Result<StringOrBinary, ShellError>> + Sync + Send>,
+        ShellError,
+    > {
         let metadata = std::fs::metadata(&path);
 
         let read_full = if let Ok(metadata) = metadata {
@@ -805,8 +805,6 @@ impl Shell for FilesystemShell {
         };
 
         if read_full {
-            use futures_codec::Decoder;
-
             // We should, in theory, be able to read in the whole file as one chunk
             let buffer = std::fs::read(&path).map_err(|e| {
                 ShellError::labeled_error(
@@ -816,15 +814,15 @@ impl Shell for FilesystemShell {
                 )
             })?;
 
-            let mut bytes_mut = bytes::BytesMut::from(&buffer[..]);
+            let bytes_mut = bytes::BytesMut::from(&buffer[..]);
 
             let mut codec = MaybeTextCodec::new(with_encoding);
 
-            match codec.decode(&mut bytes_mut).map_err(|_| {
+            match codec.decode(&bytes_mut).map_err(|_| {
                 ShellError::labeled_error("Error opening file", "error opening file", name)
             })? {
-                Some(sb) => Ok(futures::stream::iter(vec![Ok(sb)].into_iter()).boxed()),
-                None => Ok(futures::stream::iter(vec![].into_iter()).boxed()),
+                Some(sb) => Ok(Box::new(vec![Ok(sb)].into_iter())),
+                None => Ok(Box::new(vec![].into_iter())),
             }
         } else {
             // We don't know that this is a finite file, so treat it as a stream
@@ -835,14 +833,10 @@ impl Shell for FilesystemShell {
                     name,
                 )
             })?;
-            let async_reader = futures::io::AllowStdIo::new(f);
-            let sob_stream = FramedRead::new(async_reader, MaybeTextCodec::new(with_encoding))
-                .map_err(move |_| {
-                    ShellError::labeled_error("Error opening file", "error opening file", name)
-                })
-                .into_stream();
+            let buf_reader = BufReader::new(f);
+            let buf_codec = BufCodecReader::new(buf_reader, MaybeTextCodec::new(with_encoding));
 
-            Ok(sob_stream.boxed())
+            Ok(Box::new(buf_codec))
         }
     }
 

@@ -12,7 +12,6 @@ pub struct BuildStringArgs {
 
 pub struct BuildString;
 
-#[async_trait]
 impl WholeStreamCommand for BuildString {
     fn name(&self) -> &str {
         "build-string"
@@ -27,9 +26,9 @@ impl WholeStreamCommand for BuildString {
         "Builds a string from the arguments."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (BuildStringArgs { rest }, _) = args.process().await?;
+        let (BuildStringArgs { rest }, _) = args.process()?;
 
         let mut output_string = String::new();
 

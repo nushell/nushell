@@ -19,7 +19,6 @@ impl PathSubcommandArguments for PathTypeArguments {
     }
 }
 
-#[async_trait]
 impl WholeStreamCommand for PathType {
     fn name(&self) -> &str {
         "path type"
@@ -34,11 +33,11 @@ impl WholeStreamCommand for PathType {
         "Gives the type of the object a path refers to (e.g., file, dir, symlink)"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathTypeArguments { rest }, input) = args.process().await?;
+        let (PathTypeArguments { rest }, input) = args.process()?;
         let args = Arc::new(PathTypeArguments { rest });
-        operate(input, &action, tag.span, args).await
+        Ok(operate(input, &action, tag.span, args))
     }
 
     fn examples(&self) -> Vec<Example> {

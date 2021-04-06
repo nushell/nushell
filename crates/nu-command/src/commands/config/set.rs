@@ -13,7 +13,6 @@ pub struct Arguments {
     value: Value,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "config set"
@@ -29,8 +28,8 @@ impl WholeStreamCommand for SubCommand {
         "Sets a value in the config"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        set(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        set(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -59,7 +58,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn set(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn set(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let ctx = EvaluationContext::from_args(&args);
     let scope = args.scope.clone();
@@ -69,7 +68,7 @@ pub async fn set(args: CommandArgs) -> Result<OutputStream, ShellError> {
             mut value,
         },
         _,
-    ) = args.process().await?;
+    ) = args.process()?;
 
     let path = match scope.get_var("config-path") {
         Some(Value {
@@ -96,8 +95,7 @@ pub async fn set(args: CommandArgs) -> Result<OutputStream, ShellError> {
             config::write(&changes.entries, &path)?;
             ctx.reload_config(&ConfigPath::Global(
                 path.expect("Global config path is always some"),
-            ))
-            .await?;
+            ))?;
 
             Ok(OutputStream::one(ReturnSuccess::value(
                 UntaggedValue::Row(changes).into_value(name),

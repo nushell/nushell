@@ -12,7 +12,6 @@ pub struct BoolArgs {
     bias: Option<Tagged<f64>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "random bool"
@@ -31,8 +30,8 @@ impl WholeStreamCommand for SubCommand {
         "Generate a random boolean value"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        bool_command(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        bool_command(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -51,8 +50,8 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn bool_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (BoolArgs { bias }, _) = args.process().await?;
+pub fn bool_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (BoolArgs { bias }, _) = args.process()?;
 
     let mut probability = 0.5;
 

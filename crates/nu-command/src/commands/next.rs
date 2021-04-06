@@ -5,7 +5,6 @@ use nu_protocol::{CommandAction, ReturnSuccess, Signature};
 
 pub struct Next;
 
-#[async_trait]
 impl WholeStreamCommand for Next {
     fn name(&self) -> &str {
         "n"
@@ -19,7 +18,7 @@ impl WholeStreamCommand for Next {
         "Go to next shell."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(next(args))
     }
 }

@@ -9,7 +9,6 @@ use unicode_segmentation::UnicodeSegmentation;
 
 pub struct Size;
 
-#[async_trait]
 impl WholeStreamCommand for Size {
     fn name(&self) -> &str {
         "size"
@@ -23,7 +22,7 @@ impl WholeStreamCommand for Size {
         "Gather word count statistics on the text."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(size(args))
     }
 

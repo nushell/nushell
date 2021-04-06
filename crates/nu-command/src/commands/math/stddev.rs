@@ -13,7 +13,6 @@ struct Arguments {
     sample: Tagged<bool>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "math stddev"
@@ -31,11 +30,11 @@ impl WholeStreamCommand for SubCommand {
         "Finds the stddev of a list of numbers or tables"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let name = args.call_info.name_tag.clone();
-        let (Arguments { sample }, mut input) = args.process().await?;
+        let (Arguments { sample }, mut input) = args.process()?;
 
-        let values: Vec<Value> = input.drain_vec().await;
+        let values: Vec<Value> = input.drain_vec();
 
         let n = if let Tagged { item: true, .. } = sample {
             values.len() - 1

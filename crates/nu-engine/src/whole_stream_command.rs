@@ -3,7 +3,6 @@ use crate::documentation::get_full_help;
 use crate::evaluate::block::run_block;
 use crate::evaluation_context::EvaluationContext;
 use crate::example::Example;
-use async_trait::async_trait;
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
 use nu_protocol::hir::Block;
@@ -12,7 +11,6 @@ use nu_source::{DbgDocBldr, DebugDocBuilder, PrettyDebugWithSource, Span, Tag};
 use nu_stream::{OutputStream, ToOutputStream};
 use std::sync::Arc;
 
-#[async_trait]
 pub trait WholeStreamCommand: Send + Sync {
     fn name(&self) -> &str;
 
@@ -26,7 +24,7 @@ pub trait WholeStreamCommand: Send + Sync {
         ""
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError>;
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError>;
 
     fn is_binary(&self) -> bool {
         false
@@ -45,7 +43,7 @@ pub trait WholeStreamCommand: Send + Sync {
 // Custom commands are blocks, so we can use the information in the block to also
 // implement a WholeStreamCommand
 #[allow(clippy::suspicious_else_formatting)]
-#[async_trait]
+
 impl WholeStreamCommand for Block {
     fn name(&self) -> &str {
         &self.params.name
@@ -59,14 +57,14 @@ impl WholeStreamCommand for Block {
         &self.params.usage
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let call_info = args.call_info.clone();
 
         let mut block = self.clone();
         block.set_redirect(call_info.args.external_redirection);
 
         let ctx = EvaluationContext::from_args(&args);
-        let evaluated = call_info.evaluate(&ctx).await?;
+        let evaluated = call_info.evaluate(&ctx)?;
 
         let input = args.input;
         ctx.scope.enter_scope();
@@ -153,7 +151,7 @@ impl WholeStreamCommand for Block {
                 }
             }
         }
-        let result = run_block(&block, &ctx, input).await;
+        let result = run_block(&block, &ctx, input);
         ctx.scope.exit_scope();
         result.map(|x| x.to_output_stream())
     }
@@ -210,14 +208,14 @@ impl Command {
         self.0.examples()
     }
 
-    pub async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    pub fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         if args.call_info.switch_present("help") {
             let cl = self.0.clone();
             Ok(OutputStream::one(Ok(ReturnSuccess::Value(
                 UntaggedValue::string(get_full_help(&*cl, &args.scope)).into_value(Tag::unknown()),
             ))))
         } else {
-            self.0.run(args).await
+            self.0.run(args)
         }
     }
 

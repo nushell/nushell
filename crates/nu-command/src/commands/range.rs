@@ -12,7 +12,6 @@ struct RangeArgs {
 
 pub struct Range;
 
-#[async_trait]
 impl WholeStreamCommand for Range {
     fn name(&self) -> &str {
         "range"
@@ -30,13 +29,13 @@ impl WholeStreamCommand for Range {
         "Return only the selected rows."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        range(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        range(args)
     }
 }
 
-async fn range(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (RangeArgs { area }, input) = args.process().await?;
+fn range(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (RangeArgs { area }, input) = args.process()?;
     let range = area.item;
     let (from, left_inclusive) = range.from;
     let (to, right_inclusive) = range.to;

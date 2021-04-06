@@ -8,7 +8,6 @@ use sha2::{Digest, Sha256};
 use std::{fs, path::PathBuf};
 pub struct AutoenvTrust;
 
-#[async_trait]
 impl WholeStreamCommand for AutoenvTrust {
     fn name(&self) -> &str {
         "autoenv trust"
@@ -22,11 +21,11 @@ impl WholeStreamCommand for AutoenvTrust {
         "Trust a .nu-env file in the current or given directory"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let ctx = EvaluationContext::from_args(&args);
 
-        let file_to_trust = match args.call_info.evaluate(&ctx).await?.args.nth(0) {
+        let file_to_trust = match args.call_info.evaluate(&ctx)?.args.nth(0) {
             Some(Value {
                 value: UntaggedValue::Primitive(Primitive::String(ref path)),
                 tag: _,

@@ -30,7 +30,6 @@ pub enum ActionType {
 }
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "hash base64"
@@ -65,8 +64,8 @@ impl WholeStreamCommand for SubCommand {
         "base64 encode or decode a value"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        operate(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        operate(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -96,8 +95,8 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let name_tag = &args.call_info.name_tag.clone();
+fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let name_tag = args.call_info.name_tag.clone();
 
     let (
         Arguments {
@@ -107,7 +106,7 @@ async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
             rest,
         },
         input,
-    ) = args.process().await?;
+    ) = args.process()?;
 
     if encode.item && decode.item {
         return Ok(OutputStream::one(Err(ShellError::labeled_error(

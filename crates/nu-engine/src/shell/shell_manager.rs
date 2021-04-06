@@ -1,7 +1,6 @@
 use crate::shell::Shell;
 use crate::{command_args::EvaluatedWholeStreamCommandArgs, FilesystemShell};
 use crate::{filesystem::filesystem_shell::FilesystemShellMode, maybe_text_codec::StringOrBinary};
-use futures::Stream;
 use nu_stream::OutputStream;
 
 use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
@@ -85,8 +84,10 @@ impl ShellManager {
         full_path: &Path,
         name: Span,
         with_encoding: Option<&'static Encoding>,
-    ) -> Result<impl Stream<Item = Result<StringOrBinary, ShellError>> + Send + 'static, ShellError>
-    {
+    ) -> Result<
+        Box<dyn Iterator<Item = Result<StringOrBinary, ShellError>> + Send + Sync>,
+        ShellError,
+    > {
         self.shells.lock()[self.current_shell()].open(full_path, name, with_encoding)
     }
 

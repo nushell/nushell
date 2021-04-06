@@ -5,7 +5,6 @@ use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 
 pub struct Url;
 
-#[async_trait]
 impl WholeStreamCommand for Url {
     fn name(&self) -> &str {
         "url"
@@ -19,7 +18,7 @@ impl WholeStreamCommand for Url {
         "Apply url function."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(ReturnSuccess::value(
             UntaggedValue::string(get_full_help(&Url, &args.scope)).into_value(Tag::unknown()),
         )))

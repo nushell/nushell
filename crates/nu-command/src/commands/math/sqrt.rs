@@ -5,7 +5,6 @@ use nu_protocol::{Primitive, Signature, UntaggedValue, Value};
 
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "math sqrt"
@@ -19,8 +18,8 @@ impl WholeStreamCommand for SubCommand {
         "Applies the square root function to a list of numbers"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        operate(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        Ok(operate(args))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -35,13 +34,13 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn operate(args: CommandArgs) -> OutputStream {
     let mapped = args.input.map(move |val| match val.value {
         UntaggedValue::Primitive(Primitive::Int(val)) => sqrt_big_decimal(BigDecimal::from(val)),
         UntaggedValue::Primitive(Primitive::Decimal(val)) => sqrt_big_decimal(val),
         other => sqrt_default(other),
     });
-    Ok(OutputStream::from_input(mapped))
+    OutputStream::from_input(mapped)
 }
 
 fn sqrt_big_decimal(val: BigDecimal) -> Value {

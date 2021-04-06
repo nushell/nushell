@@ -14,7 +14,6 @@ use bigdecimal::FromPrimitive;
 
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "math avg"
@@ -28,8 +27,8 @@ impl WholeStreamCommand for SubCommand {
         "Finds the average of a list of numbers or tables"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        run_with_function(RunnableContext::from_command_args(args), average).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        run_with_function(RunnableContext::from_command_args(args), average)
     }
 
     fn examples(&self) -> Vec<Example> {

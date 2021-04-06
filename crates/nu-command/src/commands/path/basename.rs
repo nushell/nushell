@@ -20,7 +20,6 @@ impl PathSubcommandArguments for PathBasenameArguments {
     }
 }
 
-#[async_trait]
 impl WholeStreamCommand for PathBasename {
     fn name(&self) -> &str {
         "path basename"
@@ -41,11 +40,11 @@ impl WholeStreamCommand for PathBasename {
         "Gets the final component of a path"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathBasenameArguments { replace, rest }, input) = args.process().await?;
+        let (PathBasenameArguments { replace, rest }, input) = args.process()?;
         let args = Arc::new(PathBasenameArguments { replace, rest });
-        operate(input, &action, tag.span, args).await
+        Ok(operate(input, &action, tag.span, args))
     }
 
     #[cfg(windows)]

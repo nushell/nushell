@@ -9,7 +9,6 @@ pub struct Describe;
 #[derive(Deserialize)]
 pub struct DescribeArgs {}
 
-#[async_trait]
 impl WholeStreamCommand for Describe {
     fn name(&self) -> &str {
         "describe"
@@ -23,12 +22,12 @@ impl WholeStreamCommand for Describe {
         "Describes the objects in the stream."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        describe(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        describe(args)
     }
 }
 
-pub async fn describe(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn describe(args: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(args
         .input
         .map(|row| {
