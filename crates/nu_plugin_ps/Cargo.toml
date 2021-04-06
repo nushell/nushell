@@ -19,6 +19,6 @@ num-bigint = "0.3.1"
 
 futures = { version = "0.3.12", features = ["compat", "io-compat"] }
 futures-timer = "3.0.2"
-sysinfo = "0.16.1"
+sysinfo = "0.16.5"
 
 [build-dependencies]
