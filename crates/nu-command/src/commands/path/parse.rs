@@ -20,7 +20,6 @@ impl PathSubcommandArguments for PathParseArguments {
     }
 }
 
-#[async_trait]
 impl WholeStreamCommand for PathParse {
     fn name(&self) -> &str {
         "path parse"
@@ -39,11 +38,11 @@ impl WholeStreamCommand for PathParse {
         "On Windows, extra 'prefix' column is added."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathParseArguments { rest }, input) = args.process().await?;
+        let (PathParseArguments { rest }, input) = args.process()?;
         let args = Arc::new(PathParseArguments { rest });
-        operate(input, &action, tag.span, args).await
+        Ok(operate(input, &action, tag.span, args))
     }
 
     #[cfg(windows)]

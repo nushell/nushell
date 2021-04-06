@@ -18,7 +18,6 @@ impl PathSubcommandArguments for PathSplitArguments {
     }
 }
 
-#[async_trait]
 impl WholeStreamCommand for PathSplit {
     fn name(&self) -> &str {
         "path split"
@@ -33,11 +32,11 @@ impl WholeStreamCommand for PathSplit {
         "Split a path into parts along a separator."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathSplitArguments { rest }, input) = args.process().await?;
+        let (PathSplitArguments { rest }, input) = args.process()?;
         let args = Arc::new(PathSplitArguments { rest });
-        operate(input, &action, tag.span, args).await
+        Ok(operate(input, &action, tag.span, args))
     }
 
     #[cfg(windows)]
