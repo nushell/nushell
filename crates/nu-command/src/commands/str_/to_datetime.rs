@@ -203,7 +203,7 @@ fn action(
             let ts = s.parse::<i64>();
             // if timezone if specified, first check if the input is a timestamp.
             if let Some(tz) = timezone {
-                const TIMESTAMP_BOUND:i64 = 8.2e+12 as i64;
+                const TIMESTAMP_BOUND: i64 = 8.2e+12 as i64;
                 // Since the timestamp method of chrono itself don't throw an error (it just panicked)
                 // We have to manually guard it.
                 if let Ok(t) = ts {
