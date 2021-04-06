@@ -232,7 +232,7 @@ fn evaluate_reference(name: &str, ctx: &EvaluationContext, tag: Tag) -> Result<V
     match name {
         "$nu" => crate::evaluate::variables::nu(&ctx.scope, tag),
 
-        "$scope" => crate::evaluate::variables::scope(&ctx.scope.get_aliases(), tag),
+        "$scope" => crate::evaluate::variables::scope(&ctx.scope.get_aliases(), &ctx.scope.get_commands(), tag),
 
         "$true" => Ok(Value {
             value: UntaggedValue::boolean(true),

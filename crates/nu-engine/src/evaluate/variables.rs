@@ -2,7 +2,7 @@ use crate::evaluate::scope::Scope;
 use indexmap::IndexMap;
 use nu_data::config::path::history_path;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, TaggedDictBuilder, UntaggedValue, Value};
+use nu_protocol::{Primitive, TaggedDictBuilder, UntaggedValue, Value, Signature};
 use nu_source::{Spanned, Tag};
 
 pub fn nu(scope: &Scope, tag: impl Into<Tag>) -> Result<Value, ShellError> {
@@ -82,13 +82,14 @@ pub fn nu(scope: &Scope, tag: impl Into<Tag>) -> Result<Value, ShellError> {
 
 pub fn scope(
     aliases: &IndexMap<String, Vec<Spanned<String>>>,
+    commands: &IndexMap<String, Signature>,
     tag: impl Into<Tag>,
 ) -> Result<Value, ShellError> {
     let tag = tag.into();
 
     let mut scope_dict = TaggedDictBuilder::new(&tag);
 
-    let mut dict = TaggedDictBuilder::new(&tag);
+    let mut aliases_dict = TaggedDictBuilder::new(&tag);
     for v in aliases.iter() {
         let values = v.1.clone();
         let mut vec = Vec::new();
@@ -98,9 +99,18 @@ pub fn scope(
         }
 
         let alias = vec.join(" ");
-        dict.insert_untagged(v.0, UntaggedValue::string(alias));
+
+        aliases_dict.insert_untagged(v.0, UntaggedValue::string(alias));
     }
 
-    scope_dict.insert_value("aliases", dict.into_value());
+    let mut commands_dict = TaggedDictBuilder::new(&tag);
+    for (name, signature) in commands.iter() {
+        commands_dict.insert_untagged(name, UntaggedValue::string(&signature.allowed().join(" ")))
+    }
+
+    scope_dict.insert_value("aliases", aliases_dict.into_value());
+
+    scope_dict.insert_value("commands", commands_dict.into_value());
+
     Ok(scope_dict.into_value())
 }

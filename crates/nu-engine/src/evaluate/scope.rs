@@ -2,7 +2,7 @@ use crate::whole_stream_command::{whole_stream_command, Command};
 use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
-use nu_protocol::{hir::Block, Value};
+use nu_protocol::{hir::Block, Value, Signature};
 use nu_source::Spanned;
 use std::sync::Arc;
 
@@ -43,6 +43,18 @@ impl Scope {
                 }
             }
         }
+        output
+    }
+
+    pub fn get_commands(&self) -> IndexMap<String, Signature> {
+        let mut output = IndexMap::new();
+
+        for frame in self.frames.lock().iter().rev() {
+            for (name, command) in frame.commands.iter() {
+                output.insert(name.clone(), command.signature());
+            }
+        }
+
         output
     }
 
