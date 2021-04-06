@@ -21,11 +21,7 @@ struct Arguments {
     char_: Option<Tagged<char>>,
 }
 
-pub fn operate<F>(
-    args: CommandArgs,
-
-    trim_operation: &'static F,
-) -> Result<OutputStream, ShellError>
+pub fn operate<F>(args: CommandArgs, trim_operation: &'static F) -> Result<OutputStream, ShellError>
 where
     F: Fn(&str, Option<char>) -> String + Send + Sync + 'static,
 {

@@ -92,7 +92,7 @@ pub fn set_env(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let value = value?;
     let value = value.as_string()?;
 
-    let name = name.item.clone();
+    let name = name.item;
 
     // Note: this is a special case for setting the context from a command
     // In this case, if we don't set it now, we'll lose the scope that this

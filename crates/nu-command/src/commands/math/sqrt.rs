@@ -19,7 +19,7 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        operate(args)
+        Ok(operate(args))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -34,13 +34,13 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn operate(args: CommandArgs) -> OutputStream {
     let mapped = args.input.map(move |val| match val.value {
         UntaggedValue::Primitive(Primitive::Int(val)) => sqrt_big_decimal(BigDecimal::from(val)),
         UntaggedValue::Primitive(Primitive::Decimal(val)) => sqrt_big_decimal(val),
         other => sqrt_default(other),
     });
-    Ok(OutputStream::from_input(mapped))
+    OutputStream::from_input(mapped)
 }
 
 fn sqrt_big_decimal(val: BigDecimal) -> Value {

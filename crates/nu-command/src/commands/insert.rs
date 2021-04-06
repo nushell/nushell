@@ -7,8 +7,6 @@ use nu_protocol::{
 };
 use nu_value_ext::ValueExt;
 
-use futures::stream::once;
-
 pub struct Command;
 
 #[derive(Deserialize)]

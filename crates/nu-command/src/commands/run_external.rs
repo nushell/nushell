@@ -126,18 +126,14 @@ impl WholeStreamCommand for RunExternalCommand {
             &mut external_context,
             input,
             external_redirection,
-        )
-        ;
+        );
 
         Ok(result?.to_output_stream())
     }
 }
 
 #[allow(unused_variables)]
-fn maybe_autocd_dir<'a>(
-    cmd: &ExternalCommand,
-    ctx: &mut EvaluationContext,
-) -> Option<String> {
+fn maybe_autocd_dir(cmd: &ExternalCommand, ctx: &mut EvaluationContext) -> Option<String> {
     // We will "auto cd" if
     //   - the command name ends in a path separator, or
     //   - it's not a command on the path and no arguments were given.

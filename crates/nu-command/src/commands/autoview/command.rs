@@ -95,7 +95,7 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                 if let Some(table) = table {
                     let command_args = create_default_command_args(&context).with_input(stream);
                     let result = table.run(command_args)?;
-                    result.collect::<Vec<_>>();
+                    let _ = result.collect::<Vec<_>>();
                 }
             }
             _ => {
@@ -112,7 +112,7 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                             let command_args =
                                 create_default_command_args(&context).with_input(stream);
                             let result = text.run(command_args)?;
-                            result.collect::<Vec<_>>();
+                            let _ = result.collect::<Vec<_>>();
                         } else {
                             out!("{}", s);
                         }
@@ -194,7 +194,7 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                             let command_args =
                                 create_default_command_args(&context).with_input(stream);
                             let result = binary.run(command_args)?;
-                            result.collect::<Vec<_>>();
+                            let _ = result.collect::<Vec<_>>();
                         } else {
                             use pretty_hex::*;
                             out!("{:?}", b.hex_dump());
@@ -260,7 +260,7 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                             let command_args =
                                 create_default_command_args(&context).with_input(stream);
                             let result = table.run(command_args)?;
-                            result.collect::<Vec<_>>();
+                            let _ = result.collect::<Vec<_>>();
                         } else {
                             out!("{:?}", item);
                         }

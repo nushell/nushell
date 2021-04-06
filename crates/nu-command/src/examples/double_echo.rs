@@ -4,8 +4,6 @@ use nu_engine::{CommandArgs, WholeStreamCommand};
 use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_stream::{OutputStream, ToOutputStream};
 
-use async_trait::async_trait;
-use futures::StreamExt;
 use serde::Deserialize;
 
 pub struct Command;

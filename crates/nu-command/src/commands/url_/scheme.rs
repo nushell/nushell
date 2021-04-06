@@ -23,7 +23,7 @@ impl WholeStreamCommand for UrlScheme {
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let (DefaultArguments { rest }, input) = args.process()?;
-        operate(input, rest, &Url::scheme)
+        Ok(operate(input, rest, &Url::scheme))
     }
 
     fn examples(&self) -> Vec<Example> {

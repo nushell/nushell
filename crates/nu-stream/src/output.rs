@@ -1,6 +1,6 @@
 use crate::prelude::*;
 use nu_protocol::{ReturnSuccess, ReturnValue, Value};
-use std::{iter::IntoIterator, process::Output};
+use std::iter::IntoIterator;
 
 pub struct OutputStream {
     pub values: Box<dyn Iterator<Item = ReturnValue> + Send + Sync>,

@@ -5,9 +5,6 @@ use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
 use nu_stream::{OutputStream, ToOutputStream};
 
-use async_trait::async_trait;
-use futures::StreamExt;
-
 pub struct Command;
 
 impl WholeStreamCommand for Command {

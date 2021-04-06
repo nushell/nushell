@@ -132,32 +132,30 @@ fn to_yaml(args: CommandArgs) -> Result<OutputStream, ShellError> {
         _ => vec![],
     };
 
-    Ok(
-        (to_process_input.into_iter().map(move |value| {
-            let value_span = value.tag.span;
+    Ok((to_process_input.into_iter().map(move |value| {
+        let value_span = value.tag.span;
 
-            match value_to_yaml_value(&value) {
-                Ok(yaml_value) => match serde_yaml::to_string(&yaml_value) {
-                    Ok(x) => ReturnSuccess::value(
-                        UntaggedValue::Primitive(Primitive::String(x)).into_value(&name_tag),
-                    ),
-                    _ => Err(ShellError::labeled_error_with_secondary(
-                        "Expected a table with YAML-compatible structure from pipeline",
-                        "requires YAML-compatible input",
-                        name_span,
-                        "originates from here".to_string(),
-                        value_span,
-                    )),
-                },
-                _ => Err(ShellError::labeled_error(
+        match value_to_yaml_value(&value) {
+            Ok(yaml_value) => match serde_yaml::to_string(&yaml_value) {
+                Ok(x) => ReturnSuccess::value(
+                    UntaggedValue::Primitive(Primitive::String(x)).into_value(&name_tag),
+                ),
+                _ => Err(ShellError::labeled_error_with_secondary(
                     "Expected a table with YAML-compatible structure from pipeline",
                     "requires YAML-compatible input",
-                    &name_tag,
+                    name_span,
+                    "originates from here".to_string(),
+                    value_span,
                 )),
-            }
-        }))
-        .to_output_stream(),
-    )
+            },
+            _ => Err(ShellError::labeled_error(
+                "Expected a table with YAML-compatible structure from pipeline",
+                "requires YAML-compatible input",
+                &name_tag,
+            )),
+        }
+    }))
+    .to_output_stream())
 }
 
 #[cfg(test)]

@@ -1,7 +1,5 @@
-use futures::stream::Stream;
-use std::pin::Pin;
 use std::sync::{mpsc, Arc, Mutex};
-use std::task::{self, Poll, Waker};
+use std::task::Waker;
 use std::thread;
 
 #[allow(clippy::option_option)]
@@ -98,16 +96,15 @@ impl<T: Send + 'static> Iterator for ThreadedReceiver<T> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let mut shared_state = self
-            .shared_state
-            .lock()
-            .expect("ThreadedFuture shared state shouldn't be poisoned");
+        loop {
+            let mut shared_state = self
+                .shared_state
+                .lock()
+                .expect("ThreadedFuture shared state shouldn't be poisoned");
 
-        if let Some(result) = shared_state.result.take() {
-            result
-        } else {
-            // WARNING: this may not be correct, but it's hard to tell from here
-            None
+            if let Some(result) = shared_state.result.take() {
+                return result;
+            }
         }
     }
 }

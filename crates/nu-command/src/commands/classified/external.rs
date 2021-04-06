@@ -134,7 +134,7 @@ fn spawn(
     command: &ExternalCommand,
     path: &str,
     args: &[String],
-    mut input: InputStream,
+    input: InputStream,
     external_redirection: ExternalRedirection,
     scope: &Scope,
 ) -> Result<InputStream, ShellError> {
@@ -272,7 +272,7 @@ fn spawn(
                 // let file = futures::io::AllowStdIo::new(stdout);
                 // let stream = FramedRead::new(file, MaybeTextCodec::default());
                 let buf_read = BufReader::new(stdout);
-                let mut buf_codec = BufCodecReader::new(buf_read, MaybeTextCodec::default());
+                let buf_codec = BufCodecReader::new(buf_read, MaybeTextCodec::default());
 
                 for line in buf_codec {
                     match line {
@@ -507,8 +507,7 @@ mod tests {
 
     #[cfg(feature = "which")]
     use nu_engine::basic_evaluation_context;
-    #[cfg(feature = "which")]
-    use nu_errors::ShellError;
+
     #[cfg(feature = "which")]
     use nu_test_support::commands::ExternalBuilder;
     // fn read(mut stream: OutputStream) -> Option<Value> {
@@ -525,7 +524,7 @@ mod tests {
     // }
 
     #[cfg(feature = "which")]
-    fn non_existent_run() -> Result<(), ShellError> {
+    fn non_existent_run() {
         use nu_protocol::hir::ExternalRedirection;
         let cmd = ExternalBuilder::for_name("i_dont_exist.exe").build();
 
@@ -534,8 +533,6 @@ mod tests {
             basic_evaluation_context().expect("There was a problem creating a basic context.");
 
         assert!(run_external_command(cmd, &mut ctx, input, ExternalRedirection::Stdout).is_err());
-
-        Ok(())
     }
 
     // fn failure_run() -> Result<(), ShellError> {
@@ -564,7 +561,7 @@ mod tests {
 
     #[cfg(feature = "which")]
     #[test]
-    fn identifies_command_not_found() -> Result<(), ShellError> {
+    fn identifies_command_not_found() {
         non_existent_run()
     }
 

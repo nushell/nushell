@@ -197,7 +197,7 @@ fn save(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
             return Err(ShellError::labeled_error(
                 "Save requires a filepath",
                 "needs path",
-                name_tag.clone(),
+                name_tag,
             ));
         }
     } else if let Some(file) = path {
@@ -231,8 +231,7 @@ fn save(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                         scope,
                     };
                     let mut result = converter.run(new_args.with_input(input))?;
-                    let result_vec: Vec<Result<ReturnSuccess, ShellError>> =
-                        result.drain_vec();
+                    let result_vec: Vec<Result<ReturnSuccess, ShellError>> = result.drain_vec();
                     if converter.is_binary() {
                         process_binary_return_success!('scope, result_vec, name_tag)
                     } else {

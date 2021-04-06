@@ -86,11 +86,10 @@ fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = raw_args.call_info.name_tag.clone();
     let (EnterArgs { location, encoding }, _) = raw_args.process()?;
     let location_string = location.display().to_string();
-    let location_clone = location_string.clone();
 
     if location.is_dir() {
         Ok(OutputStream::one(ReturnSuccess::action(
-            CommandAction::EnterShell(location_clone),
+            CommandAction::EnterShell(location_string),
         )))
     } else {
         // If it's a file, attempt to open the file as a value and enter it
@@ -101,7 +100,7 @@ fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         let (file_extension, tagged_contents) = crate::commands::open::fetch(
             &full_path,
-            &PathBuf::from(location_clone),
+            &PathBuf::from(location_string),
             span,
             encoding,
         )?;
@@ -125,9 +124,9 @@ fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                                     span: Span::unknown(),
                                     external_redirection: ExternalRedirection::Stdout,
                                 },
-                                name_tag: tag.clone(),
+                                name_tag: tag,
                             },
-                            scope: scope.clone(),
+                            scope,
                         };
                         let tag = tagged_contents.tag.clone();
                         let mut result =

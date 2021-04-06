@@ -19,7 +19,7 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        split_chars(args)
+        Ok(split_chars(args))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -37,10 +37,10 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn split_chars(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn split_chars(args: CommandArgs) -> OutputStream {
     let name = args.call_info.name_tag.clone();
     let input = args.input;
-    Ok(input
+    input
         .flat_map(move |v| {
             if let Ok(s) = v.as_string() {
                 s.chars()
@@ -58,7 +58,7 @@ fn split_chars(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 )))
             }
         })
-        .to_output_stream())
+        .to_output_stream()
 }
 
 #[cfg(test)]

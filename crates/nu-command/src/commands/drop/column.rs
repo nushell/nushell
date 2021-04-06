@@ -34,7 +34,7 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        use nu_protocol::{row, Value};
+        use nu_protocol::Value;
 
         vec![Example {
             description: "Remove the last column of a table",

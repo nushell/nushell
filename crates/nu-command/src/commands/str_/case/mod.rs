@@ -21,11 +21,7 @@ struct Arguments {
     rest: Vec<ColumnPath>,
 }
 
-pub fn operate<F>(
-    args: CommandArgs,
-
-    case_operation: &'static F,
-) -> Result<OutputStream, ShellError>
+pub fn operate<F>(args: CommandArgs, case_operation: &'static F) -> Result<OutputStream, ShellError>
 where
     F: Fn(&str) -> String + Send + Sync + 'static,
 {

@@ -55,8 +55,6 @@ impl WholeStreamCommand for Command {
     }
 
     fn examples(&self) -> Vec<Example> {
-        use nu_protocol::row;
-
         vec![
             Example {
                 description: "Add values to the end of the table",

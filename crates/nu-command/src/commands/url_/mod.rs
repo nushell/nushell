@@ -42,15 +42,11 @@ where
     Ok(v)
 }
 
-fn operate<F>(
-    input: crate::InputStream,
-    paths: Vec<ColumnPath>,
-    action: &'static F,
-) -> Result<OutputStream, ShellError>
+fn operate<F>(input: crate::InputStream, paths: Vec<ColumnPath>, action: &'static F) -> OutputStream
 where
     F: Fn(&Url) -> &str + Send + Sync + 'static,
 {
-    Ok(input
+    input
         .map(move |v| {
             if paths.is_empty() {
                 ReturnSuccess::value(handle_value(&action, &v)?)
@@ -67,5 +63,5 @@ where
                 ReturnSuccess::value(ret)
             }
         })
-        .to_output_stream())
+        .to_output_stream()
 }

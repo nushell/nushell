@@ -4,7 +4,6 @@ use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
 use nu_source::{AnchorLocation, Tag};
 use nu_stream::OutputStream;
 
-use async_trait::async_trait;
 use serde::Deserialize;
 
 pub struct Command;

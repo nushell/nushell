@@ -1,8 +1,7 @@
 use crate::command_args::CommandArgs;
 use crate::whole_stream_command::{whole_stream_command, WholeStreamCommand};
-use async_trait::async_trait;
 use derive_new::new;
-use futures::StreamExt;
+
 use log::trace;
 use nu_errors::ShellError;
 use nu_plugin::jsonrpc::JsonRpc;
@@ -392,7 +391,7 @@ fn run_sink(path: String, args: CommandArgs) -> Result<OutputStream, ShellError>
 
     let input: Vec<Value> = args.input.into_vec();
 
-    let request = JsonRpc::new("sink", (call_info.clone(), input));
+    let request = JsonRpc::new("sink", (call_info, input));
     let request_raw = serde_json::to_string(&request);
     if let Ok(request_raw) = request_raw {
         if let Ok(mut tmpfile) = tempfile::NamedTempFile::new() {

@@ -51,7 +51,7 @@ impl WholeStreamCommand for Command {
 
 pub fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
-    let (Arguments { regex, pattern }, mut input) = args.process()?;
+    let (Arguments { regex, pattern }, input) = args.process()?;
 
     let regex_pattern = if let Tagged { item: true, tag } = regex {
         Regex::new(&pattern.item)
@@ -67,7 +67,7 @@ pub fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let columns = column_names(&regex_pattern);
     let mut parsed: VecDeque<Value> = VecDeque::new();
 
-    while let Some(v) = input.next() {
+    for v in input {
         match v.as_string() {
             Ok(s) => {
                 let results = regex_pattern.captures_iter(&s);

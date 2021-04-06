@@ -27,7 +27,6 @@ impl WholeStreamCommand for SubCommand {
             floor_big_decimal,
             floor_default,
         )
-        
     }
 
     fn examples(&self) -> Vec<Example> {

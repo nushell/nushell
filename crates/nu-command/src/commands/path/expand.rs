@@ -36,7 +36,7 @@ impl WholeStreamCommand for PathExpand {
         let tag = args.call_info.name_tag.clone();
         let (PathExpandArguments { rest }, input) = args.process()?;
         let args = Arc::new(PathExpandArguments { rest });
-        operate(input, &action, tag.span, args)
+        Ok(operate(input, &action, tag.span, args))
     }
 
     #[cfg(windows)]

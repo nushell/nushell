@@ -80,7 +80,7 @@ pub fn from_delimited_data(
             Err(ShellError::labeled_error_with_secondary(
                 line_one,
                 line_two,
-                name_tag.clone(),
+                name_tag,
                 "value originates from here",
                 concat_string.tag,
             ))

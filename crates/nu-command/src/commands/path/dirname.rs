@@ -63,7 +63,7 @@ impl WholeStreamCommand for PathDirname {
             num_levels,
             rest,
         });
-        operate(input, &action, tag.span, args)
+        Ok(operate(input, &action, tag.span, args))
     }
 
     #[cfg(windows)]

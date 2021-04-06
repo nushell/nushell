@@ -39,7 +39,7 @@ impl WholeStreamCommand for PathJoin {
         let tag = args.call_info.name_tag.clone();
         let (PathJoinArguments { path, rest }, input) = args.process()?;
         let args = Arc::new(PathJoinArguments { path, rest });
-        operate(input, &action, tag.span, args)
+        Ok(operate(input, &action, tag.span, args))
     }
 
     #[cfg(windows)]

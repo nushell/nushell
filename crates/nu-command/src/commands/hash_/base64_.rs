@@ -96,7 +96,7 @@ impl WholeStreamCommand for SubCommand {
 }
 
 fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let name_tag = &args.call_info.name_tag.clone();
+    let name_tag = args.call_info.name_tag.clone();
 
     let (
         Arguments {

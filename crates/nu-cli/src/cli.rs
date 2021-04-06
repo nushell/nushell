@@ -302,16 +302,13 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
         let cmd_start_time = std::time::Instant::now();
 
         let line = match convert_rustyline_result_to_string(readline) {
-            LineResult::Success(_) => {
-                process_script(
-                    &session_text[line_start..],
-                    &context,
-                    false,
-                    line_start,
-                    true,
-                )
-                
-            }
+            LineResult::Success(_) => process_script(
+                &session_text[line_start..],
+                &context,
+                false,
+                line_start,
+                true,
+            ),
             x => x,
         };
 

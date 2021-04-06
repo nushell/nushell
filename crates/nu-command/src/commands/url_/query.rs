@@ -24,7 +24,7 @@ impl WholeStreamCommand for UrlQuery {
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let (DefaultArguments { rest }, input) = args.process()?;
-        operate(input, rest, &query)
+        Ok(operate(input, rest, &query))
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -8,7 +8,6 @@ use nu_protocol::{
 };
 
 use crate::utils::arguments::arguments;
-use futures::stream::once;
 use nu_value_ext::{as_string, ValueExt};
 
 #[derive(Deserialize)]

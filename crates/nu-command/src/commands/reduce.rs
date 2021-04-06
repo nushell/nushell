@@ -1,6 +1,5 @@
 use crate::commands::each;
 use crate::prelude::*;
-use futures::stream::once;
 use nu_engine::run_block;
 use nu_engine::WholeStreamCommand;
 use nu_engine::{CommandArgs, Example};
@@ -92,7 +91,7 @@ fn process_row(
     let result = run_block(&block.block, context, input_stream);
     context.scope.exit_scope();
 
-    Ok(result?)
+    result
 }
 
 fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {

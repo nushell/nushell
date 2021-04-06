@@ -98,7 +98,7 @@ fn any(args: CommandArgs) -> Result<OutputStream, ShellError> {
             ctx.scope.add_vars(&block.captured.entries);
             ctx.scope.add_var("$it", row);
 
-            let condition = evaluate_baseline_expr(&condition, &*ctx).clone();
+            let condition = evaluate_baseline_expr(&condition, &*ctx);
             ctx.scope.exit_scope();
 
             let curr = cond?.drain_vec();

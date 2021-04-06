@@ -83,7 +83,7 @@ fn lines(args: CommandArgs) -> Result<OutputStream, ShellError> {
                             })
                             .collect();
 
-                        Some((success_lines))
+                        Some(success_lines)
                     } else {
                         None
                     }
@@ -94,26 +94,22 @@ fn lines(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 } => {
                     let st = (&*leftover_string).lock().clone();
                     if !st.is_empty() {
-                        Some(
-                            (vec![ReturnSuccess::value(
-                                UntaggedValue::string(st).into_untagged_value(),
-                            )]),
-                        )
+                        Some(vec![ReturnSuccess::value(
+                            UntaggedValue::string(st).into_untagged_value(),
+                        )])
                     } else {
                         None
                     }
                 }
                 Value {
                     tag: value_span, ..
-                } => Some(
-                    (vec![Err(ShellError::labeled_error_with_secondary(
-                        "Expected a string from pipeline",
-                        "requires string input",
-                        name_span,
-                        "value originates from here",
-                        value_span,
-                    ))]),
-                ),
+                } => Some(vec![Err(ShellError::labeled_error_with_secondary(
+                    "Expected a string from pipeline",
+                    "requires string input",
+                    name_span,
+                    "value originates from here",
+                    value_span,
+                ))]),
             }
         })
         .flatten()

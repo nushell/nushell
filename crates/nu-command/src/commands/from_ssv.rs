@@ -268,7 +268,7 @@ fn from_ssv(args: CommandArgs) -> Result<OutputStream, ShellError> {
             noheaders,
             aligned_columns,
             split_at,
-            name.clone(),
+            name,
         ) {
             Value {
                 value: UntaggedValue::Table(list),

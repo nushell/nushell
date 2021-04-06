@@ -184,9 +184,7 @@ fn which_single(application: Tagged<String>, all: bool, scope: &Scope) -> Vec<Va
     //program
     //This match handles all different cases
     match (all, external) {
-        (true, true) => {
-            return get_all_entries_in_path(&prog_name, application.tag.clone());
-        }
+        (true, true) => get_all_entries_in_path(&prog_name, application.tag),
         (true, false) => {
             let mut output: Vec<Value> = vec![];
             output.extend(get_entries_in_nu(
@@ -195,24 +193,23 @@ fn which_single(application: Tagged<String>, all: bool, scope: &Scope) -> Vec<Va
                 application.tag.clone(),
                 false,
             ));
-            output.extend(get_all_entries_in_path(&prog_name, application.tag.clone()));
-            return output;
+            output.extend(get_all_entries_in_path(&prog_name, application.tag));
+            output
         }
         (false, true) => {
-            if let Some(entry) = get_first_entry_in_path(&prog_name, application.tag.clone()) {
+            if let Some(entry) = get_first_entry_in_path(&prog_name, application.tag) {
                 return vec![entry];
             }
-            return vec![];
+            vec![]
         }
         (false, false) => {
             let nu_entries = get_entries_in_nu(scope, &prog_name, application.tag.clone(), true);
             if !nu_entries.is_empty() {
                 return vec![nu_entries[0].clone()];
-            } else if let Some(entry) = get_first_entry_in_path(&prog_name, application.tag.clone())
-            {
+            } else if let Some(entry) = get_first_entry_in_path(&prog_name, application.tag) {
                 return vec![entry];
             }
-            return vec![];
+            vec![]
         }
     }
 }

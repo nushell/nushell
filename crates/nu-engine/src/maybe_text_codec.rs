@@ -1,6 +1,4 @@
-use std::io::{BufReader, Read};
-
-use bytes::{BufMut, Bytes, BytesMut};
+use std::io::{BufRead, BufReader, Read};
 
 use nu_errors::ShellError;
 
@@ -39,10 +37,17 @@ impl<R: Read> Iterator for BufCodecReader<R> {
     type Item = Result<StringOrBinary, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let mut buf = BytesMut::with_capacity(OUTPUT_BUFFER_SIZE);
-        match self.input.read(&mut buf) {
-            Ok(s) => self.maybe_text_codec.decode(&mut buf).transpose(),
-            Err(e) => None,
+        let buffer = self.input.fill_buf();
+        match buffer {
+            Ok(s) => {
+                let result = self.maybe_text_codec.decode(&s).transpose();
+
+                let buffer_len = s.len();
+                self.input.consume(buffer_len);
+
+                result
+            }
+            Err(e) => Some(Err(ShellError::untagged_runtime_error(e.to_string()))),
         }
     }
 }
@@ -66,23 +71,21 @@ impl Default for MaybeTextCodec {
     }
 }
 
-impl MaybeTextCodec {
-    fn encode(&mut self, item: StringOrBinary, mut dst: &mut [u8]) -> Result<(), std::io::Error> {
-        match item {
-            StringOrBinary::String(s) => {
-                dst.put(s.as_bytes());
-                Ok(())
-            }
-            StringOrBinary::Binary(b) => {
-                dst.put(Bytes::from(b));
-                Ok(())
-            }
-        }
-    }
-}
+// impl MaybeTextCodec {
+//     fn encode(&mut self, item: StringOrBinary, mut dst: &mut [u8]) {
+//         match item {
+//             StringOrBinary::String(s) => {
+//                 dst.put(s.as_bytes());
+//             }
+//             StringOrBinary::Binary(b) => {
+//                 dst.put(Bytes::from(b));
+//             }
+//         }
+//     }
+// }
 
 impl MaybeTextCodec {
-    pub fn decode(&mut self, src: &mut BytesMut) -> Result<Option<StringOrBinary>, ShellError> {
+    pub fn decode(&mut self, src: &[u8]) -> Result<Option<StringOrBinary>, ShellError> {
         if src.is_empty() {
             return Ok(None);
         }
@@ -116,31 +119,8 @@ impl MaybeTextCodec {
             StringOrBinary::String(s)
         };
 
-        src.clear();
+        // src.clear();
 
         Ok(Some(result))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{MaybeTextCodec, StringOrBinary};
-    use bytes::BytesMut;
-    use futures_codec::Decoder;
-
-    // TODO: Write some more tests
-
-    #[test]
-    fn should_consume_all_bytes_from_source_when_temporary_buffer_overflows() {
-        let mut maybe_text = MaybeTextCodec::new(None);
-        let mut bytes = BytesMut::from("0123456789");
-
-        let text = maybe_text.decode(&mut bytes);
-
-        assert_eq!(
-            Ok(Some(StringOrBinary::String("0123456789".to_string()))),
-            text
-        );
-        assert!(bytes.is_empty());
     }
 }

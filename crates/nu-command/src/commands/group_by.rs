@@ -150,8 +150,7 @@ pub fn group_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
                 match crate::commands::each::process_row(run, context, value.clone()) {
                     Ok(mut s) => {
-                        let collection: Vec<Result<ReturnSuccess, ShellError>> =
-                            s.drain_vec();
+                        let collection: Vec<Result<ReturnSuccess, ShellError>> = s.drain_vec();
 
                         if collection.len() > 1 {
                             return Err(ShellError::labeled_error(
@@ -208,7 +207,7 @@ pub fn group_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let group_value = match group_strategy {
         Grouper::ByBlock => {
-            let map = keys.clone();
+            let map = keys;
 
             let block = Box::new(move |idx: usize, row: &Value| match map.get(idx) {
                 Some(Ok(key)) => Ok(key.clone()),

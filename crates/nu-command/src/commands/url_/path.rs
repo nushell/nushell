@@ -24,7 +24,7 @@ impl WholeStreamCommand for UrlPath {
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let (DefaultArguments { rest }, input) = args.process()?;
-        operate(input, rest, &Url::path)
+        Ok(operate(input, rest, &Url::path))
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -101,7 +101,7 @@ impl InputStream {
         }
 
         match String::from_utf8(bytes) {
-            Ok(s) => Ok(s.tagged(value_tag.clone())),
+            Ok(s) => Ok(s.tagged(value_tag)),
             Err(_) => Err(ShellError::labeled_error_with_secondary(
                 "Expected a string from pipeline",
                 "requires string input",

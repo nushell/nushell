@@ -43,7 +43,6 @@ pub(crate) use num_bigint::BigInt;
 pub(crate) use num_traits::cast::ToPrimitive;
 pub(crate) use serde::Deserialize;
 pub(crate) use std::collections::VecDeque;
-pub(crate) use std::future::Future;
 pub(crate) use std::sync::atomic::AtomicBool;
 pub(crate) use std::sync::Arc;
 

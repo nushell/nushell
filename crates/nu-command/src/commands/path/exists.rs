@@ -36,7 +36,7 @@ impl WholeStreamCommand for PathExists {
         let tag = args.call_info.name_tag.clone();
         let (PathExistsArguments { rest }, input) = args.process()?;
         let args = Arc::new(PathExistsArguments { rest });
-        operate(input, &action, tag.span, args)
+        Ok(operate(input, &action, tag.span, args))
     }
 
     #[cfg(windows)]

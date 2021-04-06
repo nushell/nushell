@@ -130,7 +130,7 @@ fn du(args: CommandArgs) -> Result<OutputStream, ShellError> {
         all,
     };
 
-    let inp = paths.into_iter();
+    let inp = paths;
 
     Ok(inp
         .flat_map(move |path| match path {

@@ -58,7 +58,7 @@ pub(crate) fn run_internal_command(
                         CommandAction::AutoConvert(tagged_contents, extension) => {
                             let contents_tag = tagged_contents.tag.clone();
                             let command_name = format!("from {}", extension);
-                            let command = command.clone();
+                            let command = command;
                             if let Some(converter) = context.scope.get_command(&command_name) {
                                 let new_args = RawCommandArgs {
                                     host: context.host.clone(),

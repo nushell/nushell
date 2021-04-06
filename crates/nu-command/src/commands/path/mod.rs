@@ -60,12 +60,12 @@ fn operate<F, T>(
     action: &'static F,
     span: Span,
     args: Arc<T>,
-) -> Result<OutputStream, ShellError>
+) -> OutputStream
 where
     T: PathSubcommandArguments + Send + Sync + 'static,
     F: Fn(&Path, &T) -> UntaggedValue + Send + Sync + 'static,
 {
-    Ok(input
+    input
         .map(move |v| {
             if args.get_column_paths().is_empty() {
                 ReturnSuccess::value(handle_value(&action, &v, span, Arc::clone(&args))?)
@@ -83,5 +83,5 @@ where
                 ReturnSuccess::value(ret)
             }
         })
-        .to_output_stream())
+        .to_output_stream()
 }

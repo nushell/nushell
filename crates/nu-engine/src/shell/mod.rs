@@ -4,7 +4,6 @@ use crate::command_args::EvaluatedWholeStreamCommandArgs;
 use crate::maybe_text_codec::StringOrBinary;
 pub use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
 use encoding_rs::Encoding;
-use futures::stream::BoxStream;
 use nu_errors::ShellError;
 use nu_source::{Span, Tag};
 use std::path::{Path, PathBuf};

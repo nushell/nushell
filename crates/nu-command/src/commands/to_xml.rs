@@ -149,40 +149,38 @@ fn to_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
         _ => vec![],
     };
 
-    Ok(
-        (to_process_input.into_iter().map(move |value| {
-            let mut w = pretty.as_ref().map_or_else(
-                || quick_xml::Writer::new(Cursor::new(Vec::new())),
-                |p| {
-                    quick_xml::Writer::new_with_indent(
-                        Cursor::new(Vec::new()),
-                        b' ',
-                        p.value.expect_int() as usize,
-                    )
-                },
-            );
+    Ok((to_process_input.into_iter().map(move |value| {
+        let mut w = pretty.as_ref().map_or_else(
+            || quick_xml::Writer::new(Cursor::new(Vec::new())),
+            |p| {
+                quick_xml::Writer::new_with_indent(
+                    Cursor::new(Vec::new()),
+                    b' ',
+                    p.value.expect_int() as usize,
+                )
+            },
+        );
 
-            let value_span = value.tag.span;
+        let value_span = value.tag.span;
 
-            match write_xml_events(&value, &mut w) {
-                Ok(_) => {
-                    let b = w.into_inner().into_inner();
-                    let s = String::from_utf8(b)?;
-                    ReturnSuccess::value(
-                        UntaggedValue::Primitive(Primitive::String(s)).into_value(&name_tag),
-                    )
-                }
-                Err(_) => Err(ShellError::labeled_error_with_secondary(
-                    "Expected a table with XML-compatible structure from pipeline",
-                    "requires XML-compatible input",
-                    name_span,
-                    "originates from here".to_string(),
-                    value_span,
-                )),
+        match write_xml_events(&value, &mut w) {
+            Ok(_) => {
+                let b = w.into_inner().into_inner();
+                let s = String::from_utf8(b)?;
+                ReturnSuccess::value(
+                    UntaggedValue::Primitive(Primitive::String(s)).into_value(&name_tag),
+                )
             }
-        }))
-        .to_output_stream(),
-    )
+            Err(_) => Err(ShellError::labeled_error_with_secondary(
+                "Expected a table with XML-compatible structure from pipeline",
+                "requires XML-compatible input",
+                name_span,
+                "originates from here".to_string(),
+                value_span,
+            )),
+        }
+    }))
+    .to_output_stream())
 }
 
 #[cfg(test)]

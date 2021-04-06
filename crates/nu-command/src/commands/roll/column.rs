@@ -57,14 +57,12 @@ pub fn roll(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     Ok(input
         .map(move |value| {
-            ({
-                let tag = value.tag();
+            let tag = value.tag();
 
-                roll_by(value, &args)
-                    .unwrap_or_else(|| vec![UntaggedValue::nothing().into_value(tag)])
-                    .into_iter()
-                    .map(ReturnSuccess::value)
-            })
+            roll_by(value, &args)
+                .unwrap_or_else(|| vec![UntaggedValue::nothing().into_value(tag)])
+                .into_iter()
+                .map(ReturnSuccess::value)
         })
         .flatten()
         .to_output_stream())

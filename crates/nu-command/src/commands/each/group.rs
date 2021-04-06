@@ -3,7 +3,7 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::CapturedBlock, ReturnSuccess, ReturnValue, Signature, SyntaxShape, UntaggedValue, Value,
+    hir::CapturedBlock, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use nu_source::Tagged;
 use serde::Deserialize;
@@ -75,13 +75,15 @@ impl Iterator for EachGroupIterator {
         let mut current_count = 0;
 
         while let Some(next) = self.input.next() {
+            group.push(next);
+
             current_count += 1;
             if current_count >= self.group_size {
                 break;
             }
         }
 
-        if group.len() == 0 {
+        if group.is_empty() {
             return None;
         }
 

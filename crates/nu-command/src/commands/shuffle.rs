@@ -18,17 +18,20 @@ impl WholeStreamCommand for Shuffle {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        shuffle(args)
+        Ok(shuffle(args))
     }
 }
 
-fn shuffle(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn shuffle(args: CommandArgs) -> OutputStream {
     let input = args.input;
     let mut values: Vec<Value> = input.collect();
 
     values.shuffle(&mut thread_rng());
 
-    Ok((values.into_iter().map(ReturnSuccess::value)).to_output_stream())
+    values
+        .into_iter()
+        .map(ReturnSuccess::value)
+        .to_output_stream()
 }
 
 #[cfg(test)]

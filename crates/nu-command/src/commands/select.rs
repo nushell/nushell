@@ -50,7 +50,7 @@ impl WholeStreamCommand for Command {
 
 fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (Arguments { mut rest }, mut input) = args.process()?;
+    let (Arguments { mut rest }, input) = args.process()?;
     let (columns, _) = arguments(&mut rest)?;
 
     if columns.is_empty() {
@@ -63,7 +63,7 @@ fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let mut bring_back: indexmap::IndexMap<String, Vec<Value>> = indexmap::IndexMap::new();
 
-    while let Some(value) = input.next() {
+    for value in input {
         for path in &columns {
             let fetcher = get_data_by_column_path(
                 &value,

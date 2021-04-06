@@ -37,7 +37,7 @@ impl WholeStreamCommand for PathType {
         let tag = args.call_info.name_tag.clone();
         let (PathTypeArguments { rest }, input) = args.process()?;
         let args = Arc::new(PathTypeArguments { rest });
-        operate(input, &action, tag.span, args)
+        Ok(operate(input, &action, tag.span, args))
     }
 
     fn examples(&self) -> Vec<Example> {

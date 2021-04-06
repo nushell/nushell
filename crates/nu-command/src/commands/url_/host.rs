@@ -24,7 +24,7 @@ impl WholeStreamCommand for UrlHost {
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let (DefaultArguments { rest }, input) = args.process()?;
-        operate(input, rest, &host)
+        Ok(operate(input, rest, &host))
     }
 
     fn examples(&self) -> Vec<Example> {

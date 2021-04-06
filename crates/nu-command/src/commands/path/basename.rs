@@ -44,7 +44,7 @@ impl WholeStreamCommand for PathBasename {
         let tag = args.call_info.name_tag.clone();
         let (PathBasenameArguments { replace, rest }, input) = args.process()?;
         let args = Arc::new(PathBasenameArguments { replace, rest });
-        operate(input, &action, tag.span, args)
+        Ok(operate(input, &action, tag.span, args))
     }
 
     #[cfg(windows)]

@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use futures::stream::StreamExt;
+
 use indexmap::IndexMap;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;

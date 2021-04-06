@@ -814,11 +814,11 @@ impl Shell for FilesystemShell {
                 )
             })?;
 
-            let mut bytes_mut = bytes::BytesMut::from(&buffer[..]);
+            let bytes_mut = bytes::BytesMut::from(&buffer[..]);
 
             let mut codec = MaybeTextCodec::new(with_encoding);
 
-            match codec.decode(&mut bytes_mut).map_err(|_| {
+            match codec.decode(&bytes_mut).map_err(|_| {
                 ShellError::labeled_error("Error opening file", "error opening file", name)
             })? {
                 Some(sb) => Ok(Box::new(vec![Ok(sb)].into_iter())),

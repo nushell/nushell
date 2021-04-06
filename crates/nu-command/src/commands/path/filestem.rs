@@ -71,7 +71,7 @@ impl WholeStreamCommand for PathFilestem {
             replace,
             rest,
         });
-        operate(input, &action, tag.span, args)
+        Ok(operate(input, &action, tag.span, args))
     }
 
     #[cfg(windows)]

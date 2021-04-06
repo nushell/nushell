@@ -3,7 +3,6 @@ use crate::documentation::get_full_help;
 use crate::evaluate::block::run_block;
 use crate::evaluation_context::EvaluationContext;
 use crate::example::Example;
-use async_trait::async_trait;
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
 use nu_protocol::hir::Block;

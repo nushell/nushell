@@ -1,7 +1,7 @@
 use crate::commands::constants::BAT_LANGUAGES;
 use crate::prelude::*;
 use encoding_rs::{Encoding, UTF_8};
-use futures_util::StreamExt;
+
 use log::debug;
 use nu_engine::StringOrBinary;
 use nu_engine::WholeStreamCommand;
@@ -147,8 +147,7 @@ fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 &PathBuf::from(&path.item),
                 path.tag.span,
                 encoding,
-            )
-            ?;
+            )?;
             return Ok(OutputStream::one(ReturnSuccess::action(
                 CommandAction::AutoConvert(tagged_contents, ext),
             )));
@@ -160,8 +159,7 @@ fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 &PathBuf::from(&path.item),
                 path.tag.span,
                 encoding,
-            )
-            ?;
+            )?;
             return Ok(OutputStream::one(ReturnSuccess::value(tagged_contents)));
         }
     }

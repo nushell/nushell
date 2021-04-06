@@ -88,7 +88,7 @@ pub fn letcmd(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let value = value?;
 
     let name = if name.item.starts_with('$') {
-        name.item.clone()
+        name.item
     } else {
         format!("${}", name.item)
     };
