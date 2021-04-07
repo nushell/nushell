@@ -51,8 +51,8 @@ pub fn remove(args: CommandArgs) -> Result<OutputStream, ShellError> {
         if global_cfg.vars.contains_key(&key) {
             global_cfg.vars.swap_remove(&key);
             global_cfg.write()?;
-
-            Ok(vec![ReturnSuccess::value(
+            ctx.reload_config(global_cfg)?;
+            Ok(futures::stream::iter(vec![ReturnSuccess::value(
                 UntaggedValue::row(global_cfg.vars.clone()).into_value(remove.tag()),
             )]
             .into_iter()
