@@ -420,7 +420,7 @@ pub fn load_local_cfg_if_present(context: &EvaluationContext) {
 }
 
 fn load_cfg_as_global_cfg(context: &EvaluationContext, path: PathBuf) {
-    if let Err(err) = context.load_config(&ConfigPath::Global(path.clone())) {
+    if let Err(err) = context.load_config(&ConfigPath::Global(path)) {
         context.host.lock().print_err(err, &Text::from(""));
     }
 }
