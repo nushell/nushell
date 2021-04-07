@@ -43,7 +43,7 @@ impl WholeStreamCommand for SubCommand {
 
 pub fn remove(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let ctx = EvaluationContext::from_args(&args);
-    let (Arguments { remove }, _) = args.process().await?;
+    let (Arguments { remove }, _) = args.process()?;
 
     let key = remove.to_string();
 
@@ -52,7 +52,7 @@ pub fn remove(args: CommandArgs) -> Result<OutputStream, ShellError> {
             global_cfg.vars.swap_remove(&key);
             global_cfg.write()?;
             ctx.reload_config(global_cfg)?;
-            Ok(futures::stream::iter(vec![ReturnSuccess::value(
+            Ok(vec![ReturnSuccess::value(
                 UntaggedValue::row(global_cfg.vars.clone()).into_value(remove.tag()),
             )]
             .into_iter()

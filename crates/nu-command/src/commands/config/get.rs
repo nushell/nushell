@@ -44,7 +44,7 @@ pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let ctx = EvaluationContext::from_args(&args);
 
-    let (Arguments { column_path }, _) = args.process().await?;
+    let (Arguments { column_path }, _) = args.process()?;
 
     let result = if let Some(global_cfg) = &ctx.configs.lock().global_config {
         let result = UntaggedValue::row(global_cfg.vars.clone()).into_value(&name);

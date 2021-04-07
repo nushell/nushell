@@ -42,12 +42,11 @@ pub fn clear(args: CommandArgs) -> Result<OutputStream, ShellError> {
             UntaggedValue::Row(global_cfg.vars.clone().into()).into_value(args.call_info.name_tag),
         )))
     } else {
-        Ok(
-            futures::stream::iter(vec![ReturnSuccess::value(UntaggedValue::Error(
-                crate::commands::config::err_no_global_cfg_present(),
-            ))])
-            .to_output_stream(),
-        )
+        Ok(vec![ReturnSuccess::value(UntaggedValue::Error(
+            crate::commands::config::err_no_global_cfg_present(),
+        ))]
+        .into_iter()
+        .to_output_stream())
     };
 
     result

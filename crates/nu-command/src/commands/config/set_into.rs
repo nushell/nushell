@@ -44,9 +44,9 @@ impl WholeStreamCommand for SubCommand {
 pub fn set_into(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let ctx = EvaluationContext::from_args(&args);
-    let (Arguments { set_into: v }, input) = args.process().await?;
+    let (Arguments { set_into: v }, input) = args.process()?;
 
-    let rows: Vec<Value> = input.collect().await;
+    let rows: Vec<Value> = input.collect();
     let key = v.to_string();
 
     let result = if let Some(global_cfg) = &mut ctx.configs.lock().global_config {
