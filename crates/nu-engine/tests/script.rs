@@ -61,7 +61,7 @@ mod test {
                 .with_cwd(dirs.test.clone());
             let script = NuScript::Content(code.to_string());
 
-            futures::executor::block_on(run_script(script, &options, &context));
+            run_script(script, &options, &context);
             assert!(context.shell_manager.path().ends_with("foo"));
         });
     }
@@ -77,7 +77,7 @@ mod test {
             let options = RunScriptOptions::default().source_script(true);
             let script = NuScript::Content(code.to_string());
 
-            futures::executor::block_on(run_script(script, &options, &context));
+            run_script(script, &options, &context);
             assert!(context.scope.has_custom_command("hi"));
         });
     }
@@ -93,7 +93,7 @@ mod test {
             let options = RunScriptOptions::default();
             let script = NuScript::Content(code.to_string());
 
-            futures::executor::block_on(run_script(script, &options, &context));
+            run_script(script, &options, &context);
             assert!(!context.scope.has_custom_command("hi"));
         });
     }
@@ -109,7 +109,7 @@ mod test {
             let options = RunScriptOptions::default().with_cwd(dirs.test.clone());
             let script = NuScript::Content(code.to_string());
 
-            futures::executor::block_on(run_script(script, &options, &context));
+            run_script(script, &options, &context);
             assert!(!context.shell_manager.path().ends_with("foo"));
         });
     }
@@ -127,7 +127,7 @@ mod test {
             // .source_script(true);
             let script = NuScript::Content(code.to_string());
 
-            futures::executor::block_on(run_script(script, &options, &context));
+            run_script(script, &options, &context);
 
             assert!(dirs.test.join("bar/cuz").exists());
         });
@@ -156,7 +156,7 @@ mod test {
 
             let script = NuScript::Content(code.to_string());
 
-            futures::executor::block_on(run_script(script, &options, &context));
+            run_script(script, &options, &context);
 
             assert!(dirs.test.join("foo").join("bar").exists());
             assert!(!dirs.test.join("bar").exists());
@@ -193,9 +193,9 @@ mod test {
             let script = NuScript::Content(code.to_string());
             let untrust = NuScript::Content(untrust.to_string());
 
-            futures::executor::block_on(run_script(trust, &options, &context));
-            futures::executor::block_on(run_script(script, &options, &context));
-            futures::executor::block_on(run_script(untrust, &options, &context));
+            run_script(trust, &options, &context);
+            run_script(script, &options, &context);
+            run_script(untrust, &options, &context);
 
             assert!(!dirs.test.join("bar").exists());
         });

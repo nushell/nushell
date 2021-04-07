@@ -15,6 +15,7 @@ use nu_stream::{InputStream, ToInputStream};
 use crate::EvaluationContext;
 use log::{debug, trace};
 use nu_source::{Span, Tag, Text};
+use std::io::BufReader;
 use std::path::Path;
 use std::{iter::Iterator, sync::atomic::Ordering};
 

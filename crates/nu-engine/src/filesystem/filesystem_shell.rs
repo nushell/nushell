@@ -6,6 +6,7 @@ use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, Remo
 use crate::shell::Shell;
 use crate::{command_args::EvaluatedWholeStreamCommandArgs, BufCodecReader};
 use encoding_rs::Encoding;
+use log::trace;
 use nu_data::config::LocalConfigDiff;
 use nu_protocol::{CommandAction, ConfigPath, TaggedDictBuilder, Value};
 use nu_source::{Span, Tag};

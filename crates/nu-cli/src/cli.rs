@@ -90,11 +90,11 @@ pub fn search_paths() -> Vec<std::path::PathBuf> {
     search_paths
 }
 
-pub async fn run_script_file(
+pub fn run_script_file(
     options: Options,
     run_options: RunScriptOptions,
 ) -> Result<(), Box<dyn Error>> {
-    let context = create_default_context(FilesystemShellMode::Script)?;
+    let context = create_default_context(FilesystemShellMode::Script, false)?;
 
     if let Some(cfg) = options.config {
         load_cfg_as_global_cfg(&context, PathBuf::from(cfg));
@@ -106,7 +106,7 @@ pub async fn run_script_file(
     let _ = configure_ctrl_c(&context);
 
     for script in options.scripts {
-        script::run_script(script, &run_options, &context).await;
+        script::run_script(script, &run_options, &context);
     }
 
     Ok(())
