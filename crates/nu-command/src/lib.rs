@@ -7,7 +7,6 @@ extern crate indexmap;
 #[macro_use]
 mod prelude;
 pub mod commands;
-mod futures;
 pub mod utils;
 
 #[cfg(test)]

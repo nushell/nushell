@@ -1,7 +1,7 @@
-use crate::futures::ThreadedReceiver;
 use crate::prelude::*;
 use nu_engine::{evaluate_baseline_expr, BufCodecReader};
 use nu_engine::{MaybeTextCodec, StringOrBinary};
+use parking_lot::Mutex;
 
 use std::io::Write;
 use std::ops::Deref;
@@ -431,7 +431,7 @@ fn spawn(
             Ok(())
         });
 
-        let stream = ThreadedReceiver::new(rx);
+        let stream = ChannelReceiver::new(rx);
         Ok(stream.to_input_stream())
     } else {
         Err(ShellError::labeled_error(
@@ -439,6 +439,30 @@ fn spawn(
             "failed to spawn",
             &command.name_tag,
         ))
+    }
+}
+
+struct ChannelReceiver {
+    rx: Arc<Mutex<mpsc::Receiver<Result<Value, ShellError>>>>,
+}
+
+impl ChannelReceiver {
+    pub fn new(rx: mpsc::Receiver<Result<Value, ShellError>>) -> Self {
+        Self {
+            rx: Arc::new(Mutex::new(rx)),
+        }
+    }
+}
+
+impl Iterator for ChannelReceiver {
+    type Item = Result<Value, ShellError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let rx = self.rx.lock();
+        match rx.recv() {
+            Ok(v) => Some(v),
+            Err(_) => None,
+        }
     }
 }
 
