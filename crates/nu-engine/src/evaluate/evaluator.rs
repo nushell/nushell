@@ -6,7 +6,7 @@ use log::trace;
 use nu_errors::{ArgumentError, ShellError};
 use nu_protocol::did_you_mean;
 use nu_protocol::{
-    hir::{self, CapturedBlock, Expression, ExternalRedirection, RangeOperator, SpannedExpression},
+    hir::{self, CapturedBlock, Expression, RangeOperator, SpannedExpression},
     Dictionary,
 };
 use nu_protocol::{
@@ -275,9 +275,6 @@ fn evaluate_invocation(block: &hir::Block, ctx: &EvaluationContext) -> Result<Va
         Some(it) => InputStream::one(it),
         None => InputStream::empty(),
     };
-
-    let mut block = block.clone();
-    block.set_redirect(ExternalRedirection::Stdout);
 
     let result = run_block(&block, ctx, input)?;
 
