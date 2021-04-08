@@ -154,11 +154,8 @@ pub fn evaluate_baseline_expr(
                 }
             }
 
-            let mut block = block.clone();
-            block.infer_params();
-
             Ok(
-                UntaggedValue::Block(Box::new(CapturedBlock::new(block, captured)))
+                UntaggedValue::Block(Box::new(CapturedBlock::new(block.clone(), captured)))
                     .into_value(&tag),
             )
         }

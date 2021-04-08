@@ -21,8 +21,10 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        let input = args.input;
+
         run_with_numerical_functions_on_stream(
-            RunnableContext::from_command_args(args),
+            input,
             floor_big_int,
             floor_big_decimal,
             floor_default,

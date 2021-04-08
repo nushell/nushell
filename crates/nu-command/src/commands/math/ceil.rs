@@ -21,12 +21,9 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        run_with_numerical_functions_on_stream(
-            RunnableContext::from_command_args(args),
-            ceil_big_int,
-            ceil_big_decimal,
-            ceil_default,
-        )
+        let input = args.input;
+
+        run_with_numerical_functions_on_stream(input, ceil_big_int, ceil_big_decimal, ceil_default)
     }
 
     fn examples(&self) -> Vec<Example> {
