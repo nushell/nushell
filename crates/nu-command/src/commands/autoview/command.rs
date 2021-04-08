@@ -43,16 +43,12 @@ impl WholeStreamCommand for Command {
     }
 }
 
-fn get_command(context: &RunnableContext, name: &str) -> Option<nu_engine::Command> {
-    context.scope.get_command(name)
-}
-
 pub fn autoview(context: CommandArgs) -> Result<OutputStream, ShellError> {
     let configuration = AutoViewConfiguration::new();
 
-    let binary = get_command(&context, "binaryview");
-    let text = get_command(&context, "textview");
-    let table = get_command(&context, "table");
+    let binary = context.scope.get_command("binaryview");
+    let text = context.scope.get_command("textview");
+    let table = context.scope.get_command("table");
 
     let pivot_mode = configuration.pivot_mode();
 

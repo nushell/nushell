@@ -30,7 +30,6 @@ pub(crate) use nu_engine::EvaluationContext;
 pub(crate) use nu_engine::Example;
 pub(crate) use nu_engine::Host;
 pub(crate) use nu_engine::RawCommandArgs;
-pub(crate) use nu_engine::ShellManager;
 pub(crate) use nu_engine::{get_full_help, CommandArgs, Scope, WholeStreamCommand};
 pub(crate) use nu_engine::{RunnableContext, RunnableContextWithoutInput};
 pub(crate) use nu_parser::ParserScope;
