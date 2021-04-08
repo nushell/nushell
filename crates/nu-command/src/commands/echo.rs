@@ -8,11 +8,6 @@ use nu_protocol::{
 
 pub struct Echo;
 
-#[derive(Deserialize, Debug)]
-pub struct EchoArgs {
-    pub rest: Vec<Value>,
-}
-
 impl WholeStreamCommand for Echo {
     fn name(&self) -> &str {
         "echo"
@@ -47,9 +42,10 @@ impl WholeStreamCommand for Echo {
 }
 
 fn echo(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (args, _): (EchoArgs, _) = args.process()?;
+    let args = args.evaluate_once()?;
+    let rest: Vec<Value> = args.rest(0)?;
 
-    let stream = args.rest.into_iter().map(|i| match i.as_string() {
+    let stream = rest.into_iter().map(|i| match i.as_string() {
         Ok(s) => OutputStream::one(Ok(ReturnSuccess::Value(
             UntaggedValue::string(s).into_value(i.tag.clone()),
         ))),

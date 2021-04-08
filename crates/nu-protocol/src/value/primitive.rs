@@ -61,6 +61,30 @@ pub enum Primitive {
 
 impl Primitive {
     /// Converts a primitive value to a u64, if possible. Uses a span to build an error if the conversion isn't possible.
+    pub fn as_usize(&self, span: Span) -> Result<usize, ShellError> {
+        match self {
+            Primitive::Int(int) => int.to_usize().ok_or_else(|| {
+                ShellError::range_error(
+                    ExpectedRange::U64,
+                    &format!("{}", int).spanned(span),
+                    "converting an integer into an unsigned 64-bit integer",
+                )
+            }),
+            Primitive::Decimal(decimal) => decimal.to_usize().ok_or_else(|| {
+                ShellError::range_error(
+                    ExpectedRange::U64,
+                    &format!("{}", decimal).spanned(span),
+                    "converting a decimal into an unsigned 64-bit integer",
+                )
+            }),
+            other => Err(ShellError::type_error(
+                "number",
+                other.type_name().spanned(span),
+            )),
+        }
+    }
+
+    /// Converts a primitive value to a u64, if possible. Uses a span to build an error if the conversion isn't possible.
     pub fn as_u64(&self, span: Span) -> Result<u64, ShellError> {
         match self {
             Primitive::Int(int) => int.to_u64().ok_or_else(|| {

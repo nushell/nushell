@@ -4,7 +4,7 @@ use crate::primitive::get_color_config;
 use nu_data::value::{format_leaf, style_leaf};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 use nu_table::{draw_table, Alignment, StyledString, TextStyle};
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -169,22 +169,10 @@ fn table(configuration: TableConfiguration, args: CommandArgs) -> Result<OutputS
     // config.toml.... yet.
     let color_hm = get_color_config();
 
-    let mut start_number = match args.get("start_number") {
-        Some(Value {
-            value: UntaggedValue::Primitive(Primitive::Int(i)),
-            ..
-        }) => {
-            if let Some(num) = i.to_usize() {
-                num
-            } else {
-                return Err(ShellError::labeled_error(
-                    "Expected a row number",
-                    "expected a row number",
-                    &args.args.call_info.name_tag,
-                ));
-            }
-        }
-        _ => 0,
+    let mut start_number = if let Some(f) = args.get_flag("start_number") {
+        f?
+    } else {
+        0
     };
 
     let mut delay_slot = None;
