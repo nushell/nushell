@@ -22,8 +22,9 @@ impl OutputStream {
     }
 
     pub fn empty() -> OutputStream {
-        let v: VecDeque<ReturnValue> = VecDeque::new();
-        v.into()
+        OutputStream {
+            values: Box::new(std::iter::empty()),
+        }
     }
 
     pub fn one(item: impl Into<ReturnValue>) -> OutputStream {

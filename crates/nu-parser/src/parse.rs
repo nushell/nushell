@@ -425,8 +425,10 @@ fn parse_invocation(
     };
 
     scope.enter_scope();
-    let (classified_block, err) = classify_block(&lite_block, scope);
+    let (mut classified_block, err) = classify_block(&lite_block, scope);
     scope.exit_scope();
+
+    classified_block.set_redirect(ExternalRedirection::Stdout);
 
     (
         SpannedExpression::new(Expression::Invocation(classified_block), lite_arg.span),
@@ -2044,6 +2046,7 @@ pub fn classify_block(
             output.definitions.insert(name, definition.clone());
         }
     }
+    output.infer_params();
 
     (output, error)
 }

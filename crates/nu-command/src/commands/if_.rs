@@ -76,7 +76,7 @@ fn if_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
         match condition.block.block[0].pipelines.get(0) {
             Some(item) => match item.list.get(0) {
-                Some(ClassifiedCommand::Expr(expr)) => expr.clone(),
+                Some(ClassifiedCommand::Expr(expr)) => expr,
                 _ => {
                     return Err(ShellError::labeled_error(
                         "Expected a condition",
