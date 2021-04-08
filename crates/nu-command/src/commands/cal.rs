@@ -4,6 +4,7 @@ use indexmap::IndexMap;
 use nu_engine::{EvaluatedWholeStreamCommandArgs, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::{Dictionary, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_source::Tagged;
 
 pub struct Cal;
 
@@ -72,18 +73,14 @@ pub fn cal(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let (current_year, current_month, current_day) = get_current_date();
 
-    let mut selected_year: i32 = current_year;
+    let selected_year: i32 = current_year;
     let mut current_day_option: Option<u32> = Some(current_day);
 
-    let month_range = if let Some(full_year_value) = args.get("full-year") {
-        if let Ok(year_u64) = full_year_value.as_u64() {
-            selected_year = year_u64 as i32;
+    let month_range = if let Some(full_year_value) = args.get_flag("full-year") {
+        let selected_year: i32 = full_year_value?;
 
-            if selected_year != current_year {
-                current_day_option = None
-            }
-        } else {
-            return Err(get_invalid_year_shell_error(&full_year_value.tag()));
+        if selected_year != current_year {
+            current_day_option = None
         }
 
         (1, 12)
@@ -209,7 +206,7 @@ fn add_month_to_table(
 
     let month_helper = match month_helper_result {
         Ok(month_helper) => month_helper,
-        Err(()) => match args.get("full-year") {
+        Err(()) => match args.call_info.args.get("full-year") {
             Some(full_year_value) => {
                 return Err(get_invalid_year_shell_error(&full_year_value.tag()))
             }
@@ -235,17 +232,16 @@ fn add_month_to_table(
 
     let mut week_start_day = days_of_the_week[0].to_string();
 
-    if let Some(week_start_value) = args.get("week-start") {
-        if let Ok(day) = week_start_value.as_string() {
-            if days_of_the_week.contains(&day.as_str()) {
-                week_start_day = day;
-            } else {
-                return Err(ShellError::labeled_error(
-                    "The specified week start day is invalid",
-                    "invalid week start day",
-                    week_start_value.tag(),
-                ));
-            }
+    if let Some(day) = args.get_flag("week-start") {
+        let day: Tagged<String> = day?;
+        if days_of_the_week.contains(&day.as_str()) {
+            week_start_day = day.item;
+        } else {
+            return Err(ShellError::labeled_error(
+                "The specified week start day is invalid",
+                "invalid week start day",
+                day.tag(),
+            ));
         }
     }
 
@@ -264,10 +260,10 @@ fn add_month_to_table(
     let mut day_number: u32 = 1;
     let day_limit: u32 = total_start_offset + month_helper.number_of_days_in_month;
 
-    let should_show_year_column = args.has("year");
-    let should_show_quarter_column = args.has("quarter");
-    let should_show_month_column = args.has("month");
-    let should_show_month_names = args.has("month-names");
+    let should_show_year_column = args.has_flag("year");
+    let should_show_quarter_column = args.has_flag("quarter");
+    let should_show_month_column = args.has_flag("month");
+    let should_show_month_names = args.has_flag("month-names");
 
     while day_number <= day_limit {
         let mut indexmap = IndexMap::new();
