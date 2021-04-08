@@ -71,19 +71,6 @@ impl Default for MaybeTextCodec {
     }
 }
 
-// impl MaybeTextCodec {
-//     fn encode(&mut self, item: StringOrBinary, mut dst: &mut [u8]) {
-//         match item {
-//             StringOrBinary::String(s) => {
-//                 dst.put(s.as_bytes());
-//             }
-//             StringOrBinary::Binary(b) => {
-//                 dst.put(Bytes::from(b));
-//             }
-//         }
-//     }
-// }
-
 impl MaybeTextCodec {
     pub fn decode(&mut self, src: &[u8]) -> Result<Option<StringOrBinary>, ShellError> {
         if src.is_empty() {
