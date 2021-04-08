@@ -11,6 +11,12 @@ pub trait FromValue: Sized {
     fn from_value(v: &Value) -> Result<Self, ShellError>;
 }
 
+impl FromValue for Value {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        Ok(v.clone())
+    }
+}
+
 impl FromValue for num_bigint::BigInt {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         match v {
@@ -149,6 +155,22 @@ impl FromValue for bool {
                 value: UntaggedValue::Primitive(Primitive::Boolean(b)),
                 ..
             } => Ok(*b),
+            Value { tag, .. } => Err(ShellError::labeled_error(
+                "Can't convert to boolean",
+                "can't convert to boolean",
+                tag.span,
+            )),
+        }
+    }
+}
+
+impl FromValue for Tagged<bool> {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        match v {
+            Value {
+                value: UntaggedValue::Primitive(Primitive::Boolean(b)),
+                tag,
+            } => Ok((*b).tagged(tag)),
             Value { tag, .. } => Err(ShellError::labeled_error(
                 "Can't convert to boolean",
                 "can't convert to boolean",

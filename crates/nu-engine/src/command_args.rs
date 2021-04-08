@@ -202,4 +202,14 @@ impl EvaluatedCommandArgs {
             None
         }
     }
+
+    pub fn rest<T: FromValue>(&self, starting_pos: usize) -> Result<Vec<T>, ShellError> {
+        let mut output = vec![];
+
+        for val in self.call_info.args.positional_iter().skip(starting_pos) {
+            output.push(FromValue::from_value(val)?);
+        }
+
+        Ok(output)
+    }
 }

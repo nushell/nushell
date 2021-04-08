@@ -1,17 +1,10 @@
 use crate::prelude::*;
-use nu_engine::WholeStreamCommand;
+use nu_engine::{FromValue, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct Char;
-
-#[derive(Deserialize)]
-struct CharArgs {
-    name: Tagged<String>,
-    rest: Vec<Tagged<String>>,
-    unicode: bool,
-}
 
 impl WholeStreamCommand for Char {
     fn name(&self) -> &str {
@@ -65,14 +58,17 @@ impl WholeStreamCommand for Char {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let (
-            CharArgs {
-                name,
-                rest,
-                unicode,
-            },
-            _,
-        ) = args.process()?;
+        let args = args.evaluate_once()?;
+
+        let name: Tagged<String> = args.req(0)?;
+        let rest: Vec<Value> = args
+            .call_info
+            .args
+            .positional_iter()
+            .skip(1)
+            .cloned()
+            .collect();
+        let unicode = args.has_flag("unicode");
 
         if unicode {
             if !rest.is_empty() {
@@ -86,6 +82,7 @@ impl WholeStreamCommand for Char {
                 }
                 // Get the rest of the bytes
                 for byte_part in rest {
+                    let byte_part: Tagged<String> = FromValue::from_value(&byte_part)?;
                     let decoded_char = string_to_unicode_char(&byte_part, &byte_part.tag);
                     match decoded_char {
                         Ok(ch) => multi_byte.push(ch),
