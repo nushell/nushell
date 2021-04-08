@@ -28,7 +28,7 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        run_with_function(RunnableContext::from_command_args(args), average)
+        run_with_function(args, average)
     }
 
     fn examples(&self) -> Vec<Example> {

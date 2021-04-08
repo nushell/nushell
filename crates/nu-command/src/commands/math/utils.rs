@@ -7,11 +7,16 @@ use indexmap::map::IndexMap;
 pub type MathFunction = fn(values: &[Value], tag: &Tag) -> Result<Value, ShellError>;
 
 pub fn run_with_function(
-    RunnableContext {
-        mut input, name, ..
-    }: RunnableContext,
+    args: impl Into<RunnableContext>,
     mf: MathFunction,
 ) -> Result<OutputStream, ShellError> {
+    let RunnableContext {
+        mut input,
+        call_info,
+        ..
+    } = args.into();
+    let name = call_info.name_tag;
+
     let values: Vec<Value> = input.drain_vec();
 
     let res = calculate(&values, &name, mf);
@@ -38,7 +43,7 @@ pub type DecimalFunction = fn(val: BigDecimal) -> Value;
 pub type DefaultFunction = fn(val: UntaggedValue) -> Value;
 
 pub fn run_with_numerical_functions_on_stream(
-    RunnableContext { input, .. }: RunnableContext,
+    input: InputStream,
     int_function: IntFunction,
     decimal_function: DecimalFunction,
     default_function: DefaultFunction,

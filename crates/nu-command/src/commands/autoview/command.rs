@@ -2,13 +2,11 @@ use crate::commands::autoview::options::{ConfigExtensions, NuConfig as AutoViewC
 use crate::prelude::*;
 use crate::primitive::get_color_config;
 use nu_data::value::format_leaf;
-use nu_engine::{ConfigHolder, RunnableContext, UnevaluatedCallInfo, WholeStreamCommand};
+use nu_engine::{UnevaluatedCallInfo, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::hir::{self, Expression, ExternalRedirection, Literal, SpannedExpression};
 use nu_protocol::{Primitive, Signature, UntaggedValue, Value};
 use nu_table::TextStyle;
-use parking_lot::Mutex;
-use std::sync::atomic::AtomicBool;
 
 pub struct Command;
 
@@ -26,7 +24,7 @@ impl WholeStreamCommand for Command {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        autoview(RunnableContext::from_command_args(args))
+        autoview(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -45,43 +43,14 @@ impl WholeStreamCommand for Command {
     }
 }
 
-pub struct RunnableContextWithoutInput {
-    pub shell_manager: ShellManager,
-    pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
-    pub current_errors: Arc<Mutex<Vec<ShellError>>>,
-    pub ctrl_c: Arc<AtomicBool>,
-    pub configs: Arc<Mutex<ConfigHolder>>,
-    pub scope: Scope,
-    pub name: Tag,
-}
-
-impl RunnableContextWithoutInput {
-    pub fn convert(context: RunnableContext) -> (InputStream, RunnableContextWithoutInput) {
-        let new_context = RunnableContextWithoutInput {
-            shell_manager: context.shell_manager,
-            host: context.host,
-            ctrl_c: context.ctrl_c,
-            configs: context.configs,
-            current_errors: context.current_errors,
-            scope: context.scope,
-            name: context.name,
-        };
-        (context.input, new_context)
-    }
-}
-
-pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
+pub fn autoview(context: CommandArgs) -> Result<OutputStream, ShellError> {
     let configuration = AutoViewConfiguration::new();
 
-    let binary = context.get_command("binaryview");
-    let text = context.get_command("textview");
-    let table = context.get_command("table");
+    let binary = context.scope.get_command("binaryview");
+    let text = context.scope.get_command("textview");
+    let table = context.scope.get_command("table");
 
-    let pivot_mode = configuration.pivot_mode();
-
-    let (mut input_stream, context) = RunnableContextWithoutInput::convert(context);
-    let term_width = context.host.lock().width();
-    let color_hm = get_color_config();
+    let (mut input_stream, context) = context.split();
 
     if let Some(x) = input_stream.next() {
         match input_stream.next() {
@@ -209,41 +178,57 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                     }
 
                     Value {
-                        value: UntaggedValue::Row(row),
+                        value: UntaggedValue::Row(ref row),
                         ..
-                    } if pivot_mode.is_always()
-                        || (pivot_mode.is_auto()
-                            && (row
-                                .entries
-                                .iter()
-                                .map(|(_, v)| v.convert_to_string())
-                                .collect::<Vec<_>>()
-                                .iter()
-                                .fold(0usize, |acc, len| acc + len.len())
-                                + row.entries.iter().count() * 2)
-                                > term_width) =>
-                    {
-                        let mut entries = vec![];
-                        for (key, value) in row.entries.iter() {
-                            entries.push(vec![
-                                nu_table::StyledString::new(
-                                    key.to_string(),
-                                    TextStyle::new()
-                                        .alignment(nu_table::Alignment::Left)
-                                        .fg(nu_ansi_term::Color::Green)
-                                        .bold(Some(true)),
-                                ),
-                                nu_table::StyledString::new(
-                                    format_leaf(value).plain_string(100_000),
-                                    nu_table::TextStyle::basic_left(),
-                                ),
-                            ]);
+                    } => {
+                        let pivot_mode = configuration.pivot_mode();
+
+                        let term_width = context.host.lock().width();
+                        if pivot_mode.is_always()
+                            || (pivot_mode.is_auto()
+                                && (row
+                                    .entries
+                                    .iter()
+                                    .map(|(_, v)| v.convert_to_string())
+                                    .collect::<Vec<_>>()
+                                    .iter()
+                                    .fold(0usize, |acc, len| acc + len.len())
+                                    + row.entries.iter().count() * 2)
+                                    > term_width)
+                        {
+                            let mut entries = vec![];
+                            for (key, value) in row.entries.iter() {
+                                entries.push(vec![
+                                    nu_table::StyledString::new(
+                                        key.to_string(),
+                                        TextStyle::new()
+                                            .alignment(nu_table::Alignment::Left)
+                                            .fg(nu_ansi_term::Color::Green)
+                                            .bold(Some(true)),
+                                    ),
+                                    nu_table::StyledString::new(
+                                        format_leaf(value).plain_string(100_000),
+                                        nu_table::TextStyle::basic_left(),
+                                    ),
+                                ]);
+                            }
+
+                            let color_hm = get_color_config();
+
+                            let table =
+                                nu_table::Table::new(vec![], entries, nu_table::Theme::compact());
+
+                            println!("{}", nu_table::draw_table(&table, term_width, &color_hm));
+                        } else if let Some(table) = table {
+                            let mut stream = VecDeque::new();
+                            stream.push_back(x);
+                            let command_args =
+                                create_default_command_args(&context).with_input(stream);
+                            let result = table.run(command_args)?;
+                            let _ = result.collect::<Vec<_>>();
+                        } else {
+                            out!("{:?}", row);
                         }
-
-                        let table =
-                            nu_table::Table::new(vec![], entries, nu_table::Theme::compact());
-
-                        println!("{}", nu_table::draw_table(&table, term_width, &color_hm));
                     }
                     Value {
                         value: UntaggedValue::Primitive(Primitive::Nothing),
