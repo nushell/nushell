@@ -429,6 +429,14 @@ impl Value {
         matches!(&self.value, UntaggedValue::Primitive(_))
     }
 
+    /// View the Value as unsigned size, if possible
+    pub fn as_usize(&self) -> Result<usize, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(primitive) => primitive.as_usize(self.tag.span),
+            _ => Err(ShellError::type_error("integer", self.spanned_type_name())),
+        }
+    }
+
     /// View the Value as unsigned 64-bit, if possible
     pub fn as_u64(&self) -> Result<u64, ShellError> {
         match &self.value {

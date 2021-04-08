@@ -55,7 +55,7 @@ impl WholeStreamCommand for Uniq {
 
 fn uniq(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once()?;
-    let should_show_count = args.has("count");
+    let should_show_count = args.has_flag("count");
     let input = args.input;
     let uniq_values = {
         let mut counter = IndexMap::<nu_protocol::Value, usize>::new();

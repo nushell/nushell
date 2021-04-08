@@ -3,6 +3,7 @@ use crate::env::host::Host;
 use crate::evaluate::scope::Scope;
 use crate::evaluation_context::EvaluationContext;
 use crate::shell::shell_manager::ShellManager;
+use crate::FromValue;
 use crate::{call_info::UnevaluatedCallInfo, config_holder::ConfigHolder};
 use derive_new::new;
 use getset::Getters;
@@ -197,11 +198,44 @@ impl EvaluatedCommandArgs {
             .ok_or_else(|| ShellError::unimplemented("Better error: expect_nth"))
     }
 
-    pub fn get(&self, name: &str) -> Option<&Value> {
-        self.call_info.args.get(name)
+    pub fn get_flag<T: FromValue>(&self, name: &str) -> Option<Result<T, ShellError>> {
+        self.call_info
+            .args
+            .get(name)
+            .map(|x| FromValue::from_value(x))
     }
 
-    pub fn has(&self, name: &str) -> bool {
+    pub fn has_flag(&self, name: &str) -> bool {
         self.call_info.args.has(name)
+    }
+
+    pub fn req<T: FromValue>(&self, pos: usize) -> Result<T, ShellError> {
+        if let Some(v) = self.nth(pos) {
+            FromValue::from_value(v)
+        } else {
+            Err(ShellError::labeled_error(
+                "Position beyond end of command arguments",
+                "can't access beyond end of command arguments",
+                self.call_info.name_tag.span,
+            ))
+        }
+    }
+
+    pub fn opt<T: FromValue>(&self, pos: usize) -> Option<Result<T, ShellError>> {
+        if let Some(v) = self.nth(pos) {
+            Some(FromValue::from_value(v))
+        } else {
+            None
+        }
+    }
+
+    pub fn rest<T: FromValue>(&self, starting_pos: usize) -> Result<Vec<T>, ShellError> {
+        let mut output = vec![];
+
+        for val in self.call_info.args.positional_iter().skip(starting_pos) {
+            output.push(FromValue::from_value(val)?);
+        }
+
+        Ok(output)
     }
 }

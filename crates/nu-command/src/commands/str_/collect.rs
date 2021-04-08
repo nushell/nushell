@@ -6,11 +6,6 @@ use nu_source::Tagged;
 
 pub struct SubCommand;
 
-#[derive(Deserialize)]
-pub struct SubCommandArgs {
-    separator: Option<Tagged<String>>,
-}
-
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "str collect"
@@ -43,8 +38,15 @@ impl WholeStreamCommand for SubCommand {
 
 pub fn collect(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let (SubCommandArgs { separator }, input) = args.process()?;
-    let separator = separator.map(|tagged| tagged.item).unwrap_or_default();
+    //let (SubCommandArgs { separator }, input) = args.process()?;
+    let args = args.evaluate_once()?;
+    let separator: Option<Result<Tagged<String>, ShellError>> = args.opt(0);
+    let input = args.input;
+    let separator = if let Some(separator) = separator {
+        separator?.item
+    } else {
+        "".into()
+    };
 
     let strings: Vec<Result<String, ShellError>> = input.map(|value| value.as_string()).collect();
     let strings: Result<Vec<_>, _> = strings.into_iter().collect::<Result<_, _>>();
