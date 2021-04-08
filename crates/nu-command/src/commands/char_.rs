@@ -61,13 +61,7 @@ impl WholeStreamCommand for Char {
         let args = args.evaluate_once()?;
 
         let name: Tagged<String> = args.req(0)?;
-        let rest: Vec<Value> = args
-            .call_info
-            .args
-            .positional_iter()
-            .skip(1)
-            .cloned()
-            .collect();
+        let rest: Vec<Value> = args.rest(1)?;
         let unicode = args.has_flag("unicode");
 
         if unicode {
