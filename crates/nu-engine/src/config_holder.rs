@@ -24,6 +24,13 @@ impl ConfigHolder {
         }
     }
 
+    pub fn global_config(&self) -> NuConfig {
+        match &self.global_config {
+            Some(config) => config.clone(),
+            None => NuConfig::default(),
+        }
+    }
+
     pub fn add_local_cfg(&mut self, cfg: NuConfig) {
         self.local_configs.push(cfg);
     }

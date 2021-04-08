@@ -1,4 +1,4 @@
-use crate::commands::autoview::options::{ConfigExtensions, NuConfig as AutoViewConfiguration};
+use crate::commands::autoview::options::ConfigExtensions;
 use crate::prelude::*;
 use crate::primitive::get_color_config;
 use nu_data::value::format_leaf;
@@ -44,7 +44,7 @@ impl WholeStreamCommand for Command {
 }
 
 pub fn autoview(context: CommandArgs) -> Result<OutputStream, ShellError> {
-    let configuration = AutoViewConfiguration::new();
+    let configuration = context.configs.lock().global_config();
 
     let binary = context.scope.get_command("binaryview");
     let text = context.scope.get_command("textview");
@@ -213,7 +213,7 @@ pub fn autoview(context: CommandArgs) -> Result<OutputStream, ShellError> {
                                 ]);
                             }
 
-                            let color_hm = get_color_config();
+                            let color_hm = get_color_config(&configuration);
 
                             let table =
                                 nu_table::Table::new(vec![], entries, nu_table::Theme::compact());
