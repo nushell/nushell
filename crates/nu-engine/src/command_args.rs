@@ -30,6 +30,18 @@ pub struct CommandArgs {
     pub input: InputStream,
 }
 
+pub type RunnableContext = CommandArgs;
+
+pub struct RunnableContextWithoutInput {
+    pub shell_manager: ShellManager,
+    pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
+    pub current_errors: Arc<Mutex<Vec<ShellError>>>,
+    pub ctrl_c: Arc<AtomicBool>,
+    pub configs: Arc<Mutex<ConfigHolder>>,
+    pub scope: Scope,
+    pub name: Tag,
+}
+
 #[derive(Getters, Clone)]
 #[get = "pub"]
 pub struct RawCommandArgs {
@@ -83,6 +95,20 @@ impl CommandArgs {
             input,
             scope,
         ))
+    }
+
+    pub fn split(self) -> (InputStream, RunnableContextWithoutInput) {
+        let new_context = RunnableContextWithoutInput {
+            shell_manager: self.shell_manager,
+            host: self.host,
+            ctrl_c: self.ctrl_c,
+            configs: self.configs,
+            current_errors: self.current_errors,
+            scope: self.scope,
+            name: self.call_info.name_tag,
+        };
+
+        (self.input, new_context)
     }
 
     pub fn process<'de, T: Deserialize<'de>>(self) -> Result<(T, InputStream), ShellError> {

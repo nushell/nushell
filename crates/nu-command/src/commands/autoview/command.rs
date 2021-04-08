@@ -2,13 +2,11 @@ use crate::commands::autoview::options::{ConfigExtensions, NuConfig as AutoViewC
 use crate::prelude::*;
 use crate::primitive::get_color_config;
 use nu_data::value::format_leaf;
-use nu_engine::{ConfigHolder, RunnableContext, UnevaluatedCallInfo, WholeStreamCommand};
+use nu_engine::{UnevaluatedCallInfo, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::hir::{self, Expression, ExternalRedirection, Literal, SpannedExpression};
 use nu_protocol::{Primitive, Signature, UntaggedValue, Value};
 use nu_table::TextStyle;
-use parking_lot::Mutex;
-use std::sync::atomic::AtomicBool;
 
 pub struct Command;
 
@@ -26,7 +24,7 @@ impl WholeStreamCommand for Command {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        autoview(RunnableContext::from_command_args(args))
+        autoview(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -45,41 +43,21 @@ impl WholeStreamCommand for Command {
     }
 }
 
-pub struct RunnableContextWithoutInput {
-    pub shell_manager: ShellManager,
-    pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
-    pub current_errors: Arc<Mutex<Vec<ShellError>>>,
-    pub ctrl_c: Arc<AtomicBool>,
-    pub configs: Arc<Mutex<ConfigHolder>>,
-    pub scope: Scope,
-    pub name: Tag,
+fn get_command(context: &RunnableContext, name: &str) -> Option<nu_engine::Command> {
+    context.scope.get_command(name)
 }
 
-impl RunnableContextWithoutInput {
-    pub fn convert(context: RunnableContext) -> (InputStream, RunnableContextWithoutInput) {
-        let new_context = RunnableContextWithoutInput {
-            shell_manager: context.shell_manager,
-            host: context.host,
-            ctrl_c: context.ctrl_c,
-            configs: context.configs,
-            current_errors: context.current_errors,
-            scope: context.scope,
-            name: context.name,
-        };
-        (context.input, new_context)
-    }
-}
-
-pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
+pub fn autoview(context: CommandArgs) -> Result<OutputStream, ShellError> {
     let configuration = AutoViewConfiguration::new();
 
-    let binary = context.get_command("binaryview");
-    let text = context.get_command("textview");
-    let table = context.get_command("table");
+    let binary = get_command(&context, "binaryview");
+    let text = get_command(&context, "textview");
+    let table = get_command(&context, "table");
 
     let pivot_mode = configuration.pivot_mode();
 
-    let (mut input_stream, context) = RunnableContextWithoutInput::convert(context);
+    let (mut input_stream, context) = context.split();
+
     let term_width = context.host.lock().width();
     let color_hm = get_color_config();
 
