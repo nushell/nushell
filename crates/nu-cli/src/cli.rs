@@ -1,4 +1,5 @@
 use crate::line_editor::configure_ctrl_c;
+use nu_ansi_term::Color;
 use nu_command::commands::default_context::create_default_context;
 use nu_engine::{maybe_print_errors, run_block, script::run_script_standalone, EvaluationContext};
 
@@ -242,7 +243,15 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
                 if err.is_some() {
                     context.scope.exit_scope();
 
-                    format!("\x1b[32m{}{}\x1b[m> ", cwd, current_branch())
+                    format!(
+                        "{}{}{}{}{}{}> ",
+                        Color::Green.bold().prefix().to_string(),
+                        cwd,
+                        nu_ansi_term::ansi::RESET,
+                        Color::Cyan.bold().prefix().to_string(),
+                        current_branch(),
+                        nu_ansi_term::ansi::RESET
+                    )
                 } else {
                     let run_result = run_block(&prompt_block, &context, InputStream::empty());
                     context.scope.exit_scope();
@@ -276,7 +285,15 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
                     }
                 }
             } else {
-                format!("\x1b[32m{}{}\x1b[m> ", cwd, current_branch())
+                format!(
+                    "{}{}{}{}{}{}> ",
+                    Color::Green.bold().prefix().to_string(),
+                    cwd,
+                    nu_ansi_term::ansi::RESET,
+                    Color::Cyan.bold().prefix().to_string(),
+                    current_branch(),
+                    nu_ansi_term::ansi::RESET
+                )
             }
         };
 
