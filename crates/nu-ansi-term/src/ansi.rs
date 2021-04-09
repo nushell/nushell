@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use crate::style::{Color, Style};
 use crate::write::AnyWrite;
 use std::fmt;
