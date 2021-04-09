@@ -44,7 +44,7 @@ pub trait WholeStreamCommand: Send + Sync {
 // implement a WholeStreamCommand
 #[allow(clippy::suspicious_else_formatting)]
 
-impl WholeStreamCommand for Block {
+impl WholeStreamCommand for Arc<Block> {
     fn name(&self) -> &str {
         &self.params.name
     }
@@ -61,7 +61,10 @@ impl WholeStreamCommand for Block {
         let call_info = args.call_info.clone();
 
         let mut block = self.clone();
-        block.set_redirect(call_info.args.external_redirection);
+
+        if let Some(block) = std::sync::Arc::<nu_protocol::hir::Block>::get_mut(&mut block) {
+            block.set_redirect(call_info.args.external_redirection);
+        }
 
         let ctx = EvaluationContext::from_args(&args);
         let evaluated = call_info.evaluate(&ctx)?;

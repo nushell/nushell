@@ -254,6 +254,8 @@ pub fn completion_location(line: &str, block: &Block, pos: usize) -> Vec<Complet
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use super::*;
 
     use nu_parser::{classify_block, lex, parse_block, ParserScope};
@@ -285,9 +287,9 @@ mod tests {
             todo!()
         }
 
-        fn add_definition(&self, _block: Block) {}
+        fn add_definition(&self, _block: Arc<Block>) {}
 
-        fn get_definitions(&self) -> Vec<Block> {
+        fn get_definitions(&self) -> Vec<Arc<Block>> {
             vec![]
         }
 

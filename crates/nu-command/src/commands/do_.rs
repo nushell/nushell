@@ -81,7 +81,9 @@ fn do_(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         x => x,
     };
 
-    block.block.set_redirect(block_redirection);
+    if let Some(block) = std::sync::Arc::<nu_protocol::hir::Block>::get_mut(&mut block.block) {
+        block.set_redirect(block_redirection);
+    }
     context.scope.enter_scope();
     let result = run_block(&block.block, &context, input);
     context.scope.exit_scope();
