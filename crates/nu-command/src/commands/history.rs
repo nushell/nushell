@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use nu_data::config::{Conf, NuConfig};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
@@ -32,11 +31,15 @@ impl WholeStreamCommand for History {
 }
 
 fn history(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let config: Box<dyn Conf> = Box::new(NuConfig::new());
     let tag = args.call_info.name_tag.clone();
+    let ctx = EvaluationContext::from_args(&args);
     let (Arguments { clear }, _) = args.process()?;
 
-    let path = nu_data::config::path::history_path(&config);
+    let path = if let Some(global_cfg) = &ctx.configs.lock().global_config {
+        nu_data::config::path::history_path_or_default(global_cfg)
+    } else {
+        nu_data::config::path::default_history_path()
+    };
 
     match clear {
         Some(_) => {

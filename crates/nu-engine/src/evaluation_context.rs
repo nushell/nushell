@@ -161,7 +161,7 @@ impl EvaluationContext {
             })
             .transpose()?;
 
-        let tag = config::cfg_path_to_scope_tag(cfg_path);
+        let tag = config::cfg_path_to_scope_tag(cfg_path.get_path());
 
         self.scope.enter_scope_with_tag(tag);
         self.scope.add_env(cfg.env_map());
@@ -188,30 +188,8 @@ impl EvaluationContext {
     /// If an error occurs while reloading the config:
     ///     The config is not reloaded
     ///     The error is returned
-    pub fn reload_config(&self, cfg_path: &ConfigPath) -> Result<(), ShellError> {
-        trace!("Reloading cfg {:?}", cfg_path);
-
-        let mut configs = self.configs.lock();
-        let cfg = match cfg_path {
-            ConfigPath::Global(path) => {
-                configs.global_config.iter_mut().find(|cfg| &cfg.file_path == path).ok_or_else(||
-                        ShellError::labeled_error(
-                            &format!("Error reloading global config with path of {}. No such global config present.", path.display()),
-                            "Config path error",
-                            Span::unknown(),
-                        )
-                )?
-            }
-            ConfigPath::Local(path) => {
-                configs.local_configs.iter_mut().find(|cfg| &cfg.file_path == path).ok_or_else(||
-                        ShellError::labeled_error(
-                            &format!("Error reloading local config with path of {}. No such local config present.", path.display()),
-                            "Config path error",
-                            Span::unknown(),
-                        )
-                )?
-            }
-        };
+    pub fn reload_config(&self, cfg: &mut NuConfig) -> Result<(), ShellError> {
+        trace!("Reloading cfg {:?}", cfg.file_path);
 
         cfg.reload();
 
@@ -244,7 +222,7 @@ impl EvaluationContext {
             })
             .transpose()?;
 
-        let tag = config::cfg_path_to_scope_tag(cfg_path);
+        let tag = config::cfg_path_to_scope_tag(&cfg.file_path);
         let mut frame = ScopeFrame::with_tag(tag.clone());
 
         frame.env = cfg.env_map();
@@ -265,7 +243,7 @@ impl EvaluationContext {
     pub fn unload_config(&self, cfg_path: &ConfigPath) {
         trace!("UnLoading cfg {:?}", cfg_path);
 
-        let tag = config::cfg_path_to_scope_tag(cfg_path);
+        let tag = config::cfg_path_to_scope_tag(cfg_path.get_path());
 
         //Run exitscripts with scope frame and cfg still applied
         if let Some(scripts) = self.scope.get_exitscripts_of_frame_with_tag(&tag) {

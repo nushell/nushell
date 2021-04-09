@@ -45,7 +45,7 @@ impl From<AbsoluteFile> for PathBuf {
 }
 
 pub struct AbsolutePath {
-    inner: PathBuf,
+    pub inner: PathBuf,
 }
 
 impl AbsolutePath {

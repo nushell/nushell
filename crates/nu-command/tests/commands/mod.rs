@@ -4,6 +4,7 @@ mod append;
 mod cal;
 mod cd;
 mod compact;
+mod config;
 mod cp;
 mod def;
 mod default;
