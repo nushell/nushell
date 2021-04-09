@@ -457,3 +457,37 @@ fn test_change_windows_drive() {
             .exists());
     })
 }
+
+#[cfg(target_os = "windows")]
+#[test]
+fn test_change_windows_drive_and_land_in_correct_dir() {
+    Playground::setup("cd_test_20", |dirs, sandbox| {
+        sandbox.mkdir("folderA/1/2/3");
+        sandbox.mkdir("folderB/1/2/3");
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                # Map folders to drives
+                subst A: folderA
+                subst B: folderB
+                # cd to A:/1/2/3
+                A:/1/2/3
+                # cd to B:/1/2
+                B:/1/2
+                # This shortcut should bring us back to last location in A:
+                A:
+                echo $nu.cwd
+                echo # Print newline
+                # This shortcut should bring us back to last location in B:
+                B:
+                echo $nu.cwd
+
+                # Delete drives
+                subst A: /d
+                subst B: /d
+            "#
+        );
+        assert_eq!(actual.out, "folderA/1/2/3\nfolderB/1/2");
+    })
+}
