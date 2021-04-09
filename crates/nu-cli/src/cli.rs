@@ -319,7 +319,7 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
 
         match line {
             LineResult::Success(line) => {
-                if options.save_history {
+                if options.save_history && !line.trim().is_empty() {
                     rl.add_history_entry(&line);
                     let _ = rl.save_history(&history_path);
                 }
@@ -334,7 +334,7 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
             }
 
             LineResult::Error(line, err) => {
-                if options.save_history {
+                if options.save_history && !line.trim().is_empty() {
                     rl.add_history_entry(&line);
                     let _ = rl.save_history(&history_path);
                 }
