@@ -233,7 +233,11 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
                 context.scope.enter_scope();
                 let (mut prompt_block, err) = nu_parser::parse(&prompt_line, 0, &context.scope);
 
-                prompt_block.set_redirect(ExternalRedirection::Stdout);
+                if let Some(block) =
+                    std::sync::Arc::<nu_protocol::hir::Block>::get_mut(&mut prompt_block)
+                {
+                    block.set_redirect(ExternalRedirection::Stdout);
+                }
 
                 if err.is_some() {
                     context.scope.exit_scope();

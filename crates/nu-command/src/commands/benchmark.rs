@@ -166,21 +166,23 @@ where
     }
 }
 
-fn add_implicit_autoview(mut block: Block) -> Block {
-    if block.block.is_empty() {
-        let group = Group::new(
-            vec![{
-                let mut commands = Pipeline::new(block.span);
-                commands.push(ClassifiedCommand::Internal(InternalCommand::new(
-                    "autoview".to_string(),
-                    block.span,
-                    block.span,
-                )));
-                commands
-            }],
-            block.span,
-        );
-        block.push(group);
+fn add_implicit_autoview(mut block: Arc<Block>) -> Arc<Block> {
+    if let Some(block) = std::sync::Arc::<nu_protocol::hir::Block>::get_mut(&mut block) {
+        if block.block.is_empty() {
+            let group = Group::new(
+                vec![{
+                    let mut commands = Pipeline::new(block.span);
+                    commands.push(ClassifiedCommand::Internal(InternalCommand::new(
+                        "autoview".to_string(),
+                        block.span,
+                        block.span,
+                    )));
+                    commands
+                }],
+                block.span,
+            );
+            block.push(group);
+        }
     }
     block
 }
