@@ -209,7 +209,6 @@ fn runs_configuration_startup_commands_with_cwd_of_dir_config_is_in() {
 fn updates_config_even_if_config_changed_externally() {
     Playground::setup("updates_config_when_changed", |dirs, nu| {
         let file = AbsolutePath::new(dirs.test().join("config.toml"));
-        let file2 = AbsolutePath::new(dirs.test().join("config.toml.2"));
 
         nu.with_config(&file);
         nu.with_files(vec![
@@ -229,11 +228,8 @@ fn updates_config_even_if_config_changed_externally() {
 
         assert_that!(
             nu.pipeline("config get skip_welcome_message")
-                .and_then(&format!(
-                    "cp {} {}",
-                    file2.inner.to_string_lossy().to_string(),
-                    file.inner.to_string_lossy().to_string()
-                ))
+                .and_then("do {rm config.toml ; = $noting")
+                .and_then("cp config.toml.2 config.toml")
                 .and_then("config get skip_welcome_message"),
             says().to_stdout("truefalse")
         );
