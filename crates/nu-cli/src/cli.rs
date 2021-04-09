@@ -195,16 +195,6 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
             continue;
         }
 
-        if let Err(err) = reload_config_if_modified(&context) {
-            context.host.lock().print_err(
-                ShellError::untagged_runtime_error(format!(
-                    "Could not reload your config.\nThe error was: {:?}",
-                    err
-                )),
-                &Text::from("".to_string()),
-            );
-        }
-
         let cwd = context.shell_manager.path();
 
         let colored_prompt = {
@@ -298,6 +288,8 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
             session_text.push_str(line);
             session_text.push('\n');
         }
+
+        reload_cfg_if_modified_and_print(&context);
 
         // start time for command duration
         let cmd_start_time = std::time::Instant::now();
@@ -445,6 +437,18 @@ pub fn register_plugins(context: &EvaluationContext) -> Result<(), ShellError> {
     }
 
     Ok(())
+}
+
+fn reload_cfg_if_modified_and_print(ctx: &EvaluationContext) {
+    if let Err(err) = reload_config_if_modified(&ctx) {
+        ctx.host.lock().print_err(
+            ShellError::untagged_runtime_error(format!(
+                "Could not reload your config.\nThe error was: {:?}",
+                err
+            )),
+            &Text::from("".to_string()),
+        );
+    }
 }
 
 fn reload_config_if_modified(ctx: &EvaluationContext) -> Result<(), ShellError> {
