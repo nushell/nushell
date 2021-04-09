@@ -78,7 +78,9 @@ fn with_env(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         input,
     ) = raw_args.process()?;
 
-    block.block.set_redirect(redirection);
+    if let Some(block) = std::sync::Arc::<nu_protocol::hir::Block>::get_mut(&mut block.block) {
+        block.set_redirect(redirection);
+    }
 
     let mut env = IndexMap::new();
 

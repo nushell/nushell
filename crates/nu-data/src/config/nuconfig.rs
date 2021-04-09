@@ -5,6 +5,8 @@ use nu_protocol::Value;
 use nu_source::Tag;
 use std::{fmt::Debug, path::PathBuf};
 
+use super::write;
+
 #[derive(Debug, Clone, Default)]
 pub struct NuConfig {
     pub vars: IndexMap<String, Value>,
@@ -61,6 +63,11 @@ impl NuConfig {
             vars,
             modified_at,
         })
+    }
+
+    /// Writes self.values under self.file_path
+    pub fn write(&self) -> Result<(), ShellError> {
+        write(&self.vars, &Some(self.file_path.clone()))
     }
 
     pub fn new() -> NuConfig {

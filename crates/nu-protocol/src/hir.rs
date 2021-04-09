@@ -1,7 +1,7 @@
 use std::cmp::{Ord, Ordering, PartialOrd};
-use std::convert::From;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
+use std::{convert::From, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 
@@ -53,14 +53,14 @@ impl InternalCommand {
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct ClassifiedBlock {
-    pub block: Block,
+    pub block: Arc<Block>,
     // this is not a Result to make it crystal clear that these shapes
     // aren't intended to be used directly with `?`
     pub failed: Option<ParseError>,
 }
 
 impl ClassifiedBlock {
-    pub fn new(block: Block, failed: Option<ParseError>) -> ClassifiedBlock {
+    pub fn new(block: Arc<Block>, failed: Option<ParseError>) -> ClassifiedBlock {
         ClassifiedBlock { block, failed }
     }
 }
@@ -159,12 +159,12 @@ impl Group {
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct CapturedBlock {
-    pub block: Block,
+    pub block: Arc<Block>,
     pub captured: Dictionary,
 }
 
 impl CapturedBlock {
-    pub fn new(block: Block, captured: Dictionary) -> Self {
+    pub fn new(block: Arc<Block>, captured: Dictionary) -> Self {
         Self { block, captured }
     }
 }
@@ -173,7 +173,7 @@ impl CapturedBlock {
 pub struct Block {
     pub params: Signature,
     pub block: Vec<Group>,
-    pub definitions: IndexMap<String, Block>,
+    pub definitions: IndexMap<String, Arc<Block>>,
     pub span: Span,
 }
 
@@ -181,7 +181,7 @@ impl Block {
     pub fn new(
         params: Signature,
         block: Vec<Group>,
-        definitions: IndexMap<String, Block>,
+        definitions: IndexMap<String, Arc<Block>>,
         span: Span,
     ) -> Block {
         Block {
@@ -632,7 +632,7 @@ pub fn duration(nanos: BigInt) -> UntaggedValue {
     UntaggedValue::Primitive(Primitive::Duration(nanos))
 }
 
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Deserialize, Serialize)]
 pub struct SpannedExpression {
     pub expr: Expression,
     pub span: Span,
@@ -1026,7 +1026,7 @@ pub enum Expression {
     Variable(String, Span),
     Binary(Box<Binary>),
     Range(Box<Range>),
-    Block(hir::Block),
+    Block(Arc<hir::Block>),
     List(Vec<SpannedExpression>),
     Table(Vec<SpannedExpression>, Vec<Vec<SpannedExpression>>),
     Path(Box<Path>),
@@ -1034,7 +1034,7 @@ pub enum Expression {
     FilePath(PathBuf),
     ExternalCommand(ExternalStringCommand),
     Command,
-    Invocation(hir::Block),
+    Invocation(Arc<hir::Block>),
 
     Boolean(bool),
 
