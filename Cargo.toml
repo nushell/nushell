@@ -92,14 +92,10 @@ default = [
     "nu-cli/shadow-rs",
     "sys",
     "ps",
-    "textview",
-    "inc",
     "directories-support",
     "ctrlc-support",
     "which-support",
-    "ptree-support",
     "term-support",
-    "uuid-support",
     "rustyline-support",
     "match",
     "post",
@@ -111,9 +107,13 @@ stable = ["default"]
 extra = [
     "default",
     "binaryview",
+    "inc",
     "tree",
+    "ptree-support",
+    "textview",
     "clipboard-cli",
     "trash-support",
+    "uuid-support",
     "start",
     "bson",
     "sqlite",
@@ -135,7 +135,6 @@ post = ["nu_plugin_post"]
 ps = ["nu_plugin_ps"]
 sys = ["nu_plugin_sys"]
 textview = ["nu_plugin_textview"]
-zip-support = ["nu-cli/zip", "nu-command/zip"]
 
 # Extra
 binaryview = ["nu_plugin_binaryview"]
@@ -153,6 +152,8 @@ trash-support = [
 ]
 tree = ["nu_plugin_tree"]
 xpath = ["nu_plugin_xpath"]
+zip-support = ["nu-cli/zip", "nu-command/zip"]
+
 #This is disabled in extra for now
 table-pager = ["nu-command/table-pager"]
 
