@@ -1,9 +1,0 @@
-[env]
-testkey = "testvalue"
-
-[scriptvars]
-myscript = "echo myval"
-
-[scripts]
-entryscripts = ["touch hello.txt"]
-exitscripts = ["touch bye.txt"]"
