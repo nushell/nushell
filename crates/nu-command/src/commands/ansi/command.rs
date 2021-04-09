@@ -336,7 +336,7 @@ pub fn str_to_ansi(s: &str) -> Option<String> {
 
         // Ansi RGB - Needs to be 32;2;r;g;b or 48;2;r;g;b
         // assuming the rgb will be passed via command and no here
-        "rgb_fg" => Some("\x1b[32;2;".to_string()),
+        "rgb_fg" => Some("\x1b[38;2;".to_string()),
         "rgb_bg" => Some("\x1b[48;2;".to_string()),
 
         // Ansi color index - Needs 38;5;idx or 48;5;idx where idx = 0 to 255
