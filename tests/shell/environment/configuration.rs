@@ -207,7 +207,7 @@ fn runs_configuration_startup_commands_with_cwd_of_dir_config_is_in() {
 
 #[test]
 fn updates_config_even_if_config_changed_externally() {
-    Playground::setup("config_remove_test", |dirs, nu| {
+    Playground::setup("updates_config_when_changed", |dirs, nu| {
         let file = AbsolutePath::new(dirs.test().join("config.toml"));
         let file2 = AbsolutePath::new(dirs.test().join("config.toml.2"));
 
