@@ -1,2 +1,0 @@
-startup = ["touch hello.txt", "echo $(pwd)"]
-on_exit = ["touch bye.txt"]
