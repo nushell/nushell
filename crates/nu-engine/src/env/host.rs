@@ -22,6 +22,12 @@ pub trait Host: Debug + Send {
     fn is_external_cmd(&self, cmd_name: &str) -> bool;
 }
 
+impl Default for Box<dyn Host> {
+    fn default() -> Self {
+        Box::new(BasicHost)
+    }
+}
+
 impl Host for Box<dyn Host> {
     fn stdout(&mut self, out: &str) {
         (**self).stdout(out)

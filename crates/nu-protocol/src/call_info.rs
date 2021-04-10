@@ -80,6 +80,16 @@ impl EvaluatedArgs {
         }
     }
 
+    /// Gets the corresponding Value for the named argument given, error if not possible
+    pub fn expect_get(&self, name: &str) -> Result<&Value, ShellError> {
+        match &self.named {
+            None => Err(ShellError::unimplemented("Better error: expect_get")),
+            Some(named) => named
+                .get(name)
+                .ok_or_else(|| ShellError::unimplemented("Better error: expect_get")),
+        }
+    }
+
     /// Iterates over the positional arguments
     pub fn positional_iter(&self) -> PositionalIter<'_> {
         match &self.positional {

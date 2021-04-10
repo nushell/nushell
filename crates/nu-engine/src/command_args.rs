@@ -78,23 +78,27 @@ impl std::fmt::Debug for CommandArgs {
 
 impl CommandArgs {
     pub fn evaluate_once(self) -> Result<EvaluatedWholeStreamCommandArgs, ShellError> {
-        let ctx = EvaluationContext::from_args(&self);
-        let host = self.host.clone();
-        let ctrl_c = self.ctrl_c.clone();
-        let configs = self.configs.clone();
-        let shell_manager = self.shell_manager.clone();
+        let ctx = EvaluationContext::new(
+            self.scope,
+            self.host,
+            self.current_errors,
+            self.ctrl_c,
+            self.configs,
+            self.shell_manager,
+            Arc::new(Mutex::new(std::collections::HashMap::new())),
+        );
+
         let input = self.input;
         let call_info = self.call_info.evaluate(&ctx)?;
-        let scope = self.scope.clone();
 
         Ok(EvaluatedWholeStreamCommandArgs::new(
-            host,
-            ctrl_c,
-            configs,
-            shell_manager,
+            ctx.host,
+            ctx.ctrl_c,
+            ctx.configs,
+            ctx.shell_manager,
             call_info,
             input,
-            scope,
+            ctx.scope,
         ))
     }
 
@@ -110,6 +114,15 @@ impl CommandArgs {
         };
 
         (self.input, new_context)
+    }
+
+    pub fn extract<T>(
+        self,
+        f: impl FnOnce(&EvaluatedCommandArgs) -> Result<T, ShellError>,
+    ) -> Result<(T, InputStream), ShellError> {
+        let evaluated_args = self.evaluate_once()?;
+
+        Ok((f(&evaluated_args.args)?, evaluated_args.input))
     }
 
     pub fn process<'de, T: Deserialize<'de>>(self) -> Result<(T, InputStream), ShellError> {
@@ -205,6 +218,13 @@ impl EvaluatedCommandArgs {
             .map(|x| FromValue::from_value(x))
     }
 
+    pub fn req_named<T: FromValue>(&self, name: &str) -> Result<T, ShellError> {
+        self.call_info
+            .args
+            .expect_get(name)
+            .and_then(|x| FromValue::from_value(x))
+    }
+
     pub fn has_flag(&self, name: &str) -> bool {
         self.call_info.args.has(name)
     }
@@ -227,6 +247,10 @@ impl EvaluatedCommandArgs {
         } else {
             None
         }
+    }
+
+    pub fn rest_args<T: FromValue>(&self) -> Result<Vec<T>, ShellError> {
+        self.rest(0)
     }
 
     pub fn rest<T: FromValue>(&self, starting_pos: usize) -> Result<Vec<T>, ShellError> {

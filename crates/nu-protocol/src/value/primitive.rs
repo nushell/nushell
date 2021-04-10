@@ -60,6 +60,27 @@ pub enum Primitive {
 }
 
 impl Primitive {
+    /// Converts a primitive value to a char, if possible. Uses a span to build an error if the conversion isn't possible.
+    pub fn as_char(&self, span: Span) -> Result<char, ShellError> {
+        match self {
+            Primitive::String(s) => {
+                if s.len() > 1 {
+                    return Err(ShellError::type_error(
+                        "char",
+                        self.type_name().spanned(span),
+                    ));
+                }
+                s.chars()
+                    .next()
+                    .ok_or_else(|| ShellError::type_error("char", self.type_name().spanned(span)))
+            }
+            other => Err(ShellError::type_error(
+                "char",
+                other.type_name().spanned(span),
+            )),
+        }
+    }
+
     /// Converts a primitive value to a u64, if possible. Uses a span to build an error if the conversion isn't possible.
     pub fn as_usize(&self, span: Span) -> Result<usize, ShellError> {
         match self {
@@ -108,6 +129,7 @@ impl Primitive {
         }
     }
 
+    /// Converts a primitive value to a i64, if possible. Uses a span to build an error if the conversion isn't possible.
     pub fn as_i64(&self, span: Span) -> Result<i64, ShellError> {
         match self {
             Primitive::Int(int) => int.to_i64().ok_or_else(|| {
@@ -131,6 +153,30 @@ impl Primitive {
         }
     }
 
+    /// Converts a primitive value to a u32, if possible. Uses a span to build an error if the conversion isn't possible.
+    pub fn as_u32(&self, span: Span) -> Result<u32, ShellError> {
+        match self {
+            Primitive::Int(int) => int.to_u32().ok_or_else(|| {
+                ShellError::range_error(
+                    ExpectedRange::U32,
+                    &format!("{}", int).spanned(span),
+                    "converting an integer into a unsigned 32-bit integer",
+                )
+            }),
+            Primitive::Decimal(decimal) => decimal.to_u32().ok_or_else(|| {
+                ShellError::range_error(
+                    ExpectedRange::U32,
+                    &format!("{}", decimal).spanned(span),
+                    "converting a decimal into a unsigned 32-bit integer",
+                )
+            }),
+            other => Err(ShellError::type_error(
+                "number",
+                other.type_name().spanned(span),
+            )),
+        }
+    }
+
     pub fn as_i32(&self, span: Span) -> Result<i32, ShellError> {
         match self {
             Primitive::Int(int) => int.to_i32().ok_or_else(|| {
@@ -145,6 +191,29 @@ impl Primitive {
                     ExpectedRange::I32,
                     &format!("{}", decimal).spanned(span),
                     "converting a decimal into a signed 32-bit integer",
+                )
+            }),
+            other => Err(ShellError::type_error(
+                "number",
+                other.type_name().spanned(span),
+            )),
+        }
+    }
+
+    pub fn as_i16(&self, span: Span) -> Result<i16, ShellError> {
+        match self {
+            Primitive::Int(int) => int.to_i16().ok_or_else(|| {
+                ShellError::range_error(
+                    ExpectedRange::I16,
+                    &format!("{}", int).spanned(span),
+                    "converting an integer into a signed 16-bit integer",
+                )
+            }),
+            Primitive::Decimal(decimal) => decimal.to_i16().ok_or_else(|| {
+                ShellError::range_error(
+                    ExpectedRange::I16,
+                    &format!("{}", decimal).spanned(span),
+                    "converting a decimal into a signed 16-bit integer",
                 )
             }),
             other => Err(ShellError::type_error(

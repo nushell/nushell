@@ -40,10 +40,44 @@ impl FromValue for num_bigint::BigInt {
         }
     }
 }
+impl FromValue for Tagged<u64> {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        let tag = v.tag.clone();
+        v.as_u64().map(|s| s.tagged(tag))
+    }
+}
 
 impl FromValue for u64 {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         v.as_u64()
+    }
+}
+
+impl FromValue for Tagged<u32> {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        let tag = v.tag.clone();
+        v.as_u32().map(|s| s.tagged(tag))
+    }
+}
+
+impl FromValue for Tagged<i16> {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        let tag = v.tag.clone();
+        v.as_i16().map(|s| s.tagged(tag))
+    }
+}
+
+impl FromValue for Tagged<usize> {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        let tag = v.tag.clone();
+        v.as_usize().map(|s| s.tagged(tag))
+    }
+}
+
+impl FromValue for Tagged<char> {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        let tag = v.tag.clone();
+        v.as_char().map(|c| c.tagged(tag))
     }
 }
 

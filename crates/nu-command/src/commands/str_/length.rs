@@ -8,9 +8,8 @@ use nu_protocol::{
 
 pub struct SubCommand;
 
-#[derive(Deserialize)]
 struct Arguments {
-    rest: Vec<ColumnPath>,
+    column_paths: Vec<ColumnPath>,
 }
 
 impl WholeStreamCommand for SubCommand {
@@ -53,17 +52,20 @@ impl WholeStreamCommand for SubCommand {
 }
 
 fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (Arguments { rest }, input) = args.process()?;
-    let column_paths: Vec<_> = rest;
+    let (options, input) = args.extract(|params| {
+        Ok(Arguments {
+            column_paths: params.rest_args()?,
+        })
+    })?;
 
     Ok(input
         .map(move |v| {
-            if column_paths.is_empty() {
+            if options.column_paths.is_empty() {
                 ReturnSuccess::value(action(&v, v.tag())?)
             } else {
                 let mut ret = v;
 
-                for path in &column_paths {
+                for path in &options.column_paths {
                     ret = ret.swap_data_by_column_path(
                         path,
                         Box::new(move |old| action(old, old.tag())),

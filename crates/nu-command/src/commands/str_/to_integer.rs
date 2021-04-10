@@ -3,17 +3,18 @@ use crate::utils::arguments::arguments;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::ShellTypeName;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{
+    ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+};
 use nu_source::{Tag, Tagged};
 use nu_value_ext::ValueExt;
 
 use num_bigint::BigInt;
 use num_traits::Num;
 
-#[derive(Deserialize)]
 struct Arguments {
-    rest: Vec<Value>,
     radix: Option<Tagged<u32>>,
+    column_paths: Vec<ColumnPath>,
 }
 
 pub struct SubCommand;
@@ -67,19 +68,29 @@ impl WholeStreamCommand for SubCommand {
 }
 
 fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (Arguments { mut rest, radix }, input) = args.process()?;
-    let (column_paths, _) = arguments(&mut rest)?;
+    let (options, input) = args.extract(|params| {
+        let (column_paths, _) = arguments(&mut params.rest_args()?)?;
 
-    let radix = radix.map(|r| r.item).unwrap_or(10);
+        Ok(Arguments {
+            radix: if let Some(arg) = params.get_flag("radix") {
+                Some(arg?)
+            } else {
+                None
+            },
+            column_paths,
+        })
+    })?;
+
+    let radix = options.radix.as_ref().map(|r| r.item).unwrap_or(10);
 
     Ok(input
         .map(move |v| {
-            if column_paths.is_empty() {
+            if options.column_paths.is_empty() {
                 ReturnSuccess::value(action(&v, v.tag(), radix)?)
             } else {
                 let mut ret = v;
 
-                for path in &column_paths {
+                for path in &options.column_paths {
                     ret = ret.swap_data_by_column_path(
                         path,
                         Box::new(move |old| action(old, old.tag(), radix)),

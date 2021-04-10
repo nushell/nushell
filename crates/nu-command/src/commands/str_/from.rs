@@ -14,12 +14,10 @@ use std::iter;
 
 pub struct SubCommand;
 
-#[derive(Deserialize)]
 struct Arguments {
-    rest: Vec<ColumnPath>,
     decimals: Option<Tagged<u64>>,
-    #[serde(rename(deserialize = "group-digits"))]
     group_digits: bool,
+    column_paths: Vec<ColumnPath>,
 }
 
 impl WholeStreamCommand for SubCommand {
@@ -39,15 +37,6 @@ impl WholeStreamCommand for SubCommand {
                 "decimal digits to which to round",
                 Some('d'),
             )
-        /*
-        FIXME: this isn't currently supported because of num_format being out of date. Once it's updated, re-enable this
-        .switch(
-            "group-digits",
-            // TODO according to system localization
-            "group digits, currently by thousand with commas",
-            Some('g'),
-        )
-        */
     }
 
     fn usage(&self) -> &str {
@@ -80,23 +69,28 @@ impl WholeStreamCommand for SubCommand {
 }
 
 fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (
-        Arguments {
-            decimals,
-            group_digits,
-            rest: column_paths,
-        },
-        input,
-    ) = args.process()?;
-    let digits = decimals.map(|tagged| tagged.item);
+    let (options, input) = args.extract(|params| {
+        Ok(Arguments {
+            decimals: if let Some(arg) = params.get_flag("decimals") {
+                Some(arg?)
+            } else {
+                None
+            },
+            group_digits: false,
+            column_paths: params.rest_args()?,
+        })
+    })?;
+
+    let digits = options.decimals.as_ref().map(|tagged| tagged.item);
+    let group_digits = options.group_digits;
 
     Ok(input
         .map(move |v| {
-            if column_paths.is_empty() {
+            if options.column_paths.is_empty() {
                 ReturnSuccess::value(action(&v, v.tag(), digits, group_digits)?)
             } else {
                 let mut ret = v;
-                for path in &column_paths {
+                for path in &options.column_paths {
                     ret = ret.swap_data_by_column_path(
                         path,
                         Box::new(move |old| action(old, old.tag(), digits, group_digits)),

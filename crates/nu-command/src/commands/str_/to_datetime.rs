@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use crate::utils::arguments::arguments;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
@@ -10,12 +11,11 @@ use nu_value_ext::ValueExt;
 
 use chrono::{DateTime, FixedOffset, Local, LocalResult, Offset, TimeZone, Utc};
 
-#[derive(Deserialize)]
 struct Arguments {
     timezone: Option<Tagged<String>>,
     offset: Option<Tagged<i16>>,
     format: Option<Tagged<String>>,
-    rest: Vec<ColumnPath>,
+    column_paths: Vec<ColumnPath>,
 }
 
 // In case it may be confused with chrono::TimeZone
@@ -78,7 +78,7 @@ impl WholeStreamCommand for SubCommand {
                 Some('f'),
             )
             .rest(
-                SyntaxShape::ColumnPath,
+                SyntaxShape::Any,
                 "optionally convert text into datetime by column paths",
             )
     }
@@ -127,55 +127,62 @@ impl WholeStreamCommand for SubCommand {
 struct DatetimeFormat(String);
 
 fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (
-        Arguments {
-            timezone,
-            offset,
-            format,
-            rest,
-        },
-        input,
-    ) = args.process()?;
+    let (options, input) = args.extract(|params| {
+        let (column_paths, _) = arguments(&mut params.rest_args()?)?;
 
-    let column_paths: Vec<_> = rest;
+        Ok(Arguments {
+            timezone: if let Some(arg) = params.get_flag("timezone") {
+                Some(arg?)
+            } else {
+                None
+            },
+            offset: if let Some(arg) = params.get_flag("offset") {
+                Some(arg?)
+            } else {
+                None
+            },
+            format: if let Some(arg) = params.get_flag("format") {
+                Some(arg?)
+            } else {
+                None
+            },
+            column_paths,
+        })
+    })?;
 
     // if zone-offset is specified, then zone will be neglected
     let zone_options = if let Some(Tagged {
         item: zone_offset,
-        tag: _tag,
-    }) = offset
+        tag,
+    }) = &options.offset
     {
         Some(Tagged {
-            item: Zone::new(zone_offset),
-            tag: _tag,
+            item: Zone::new(*zone_offset),
+            tag: tag.into(),
         })
-    } else if let Some(Tagged {
-        item: zone,
-        tag: _tag,
-    }) = timezone
-    {
+    } else if let Some(Tagged { item: zone, tag }) = &options.timezone {
         Some(Tagged {
-            item: Zone::from_string(zone),
-            tag: _tag,
+            item: Zone::from_string(zone.clone()),
+            tag: tag.into(),
         })
     } else {
         None
     };
 
-    let format_options = if let Some(Tagged { item: fmt, .. }) = format {
-        Some(DatetimeFormat(fmt))
+    let format_options = if let Some(Tagged { item: fmt, .. }) = &options.format {
+        Some(DatetimeFormat(fmt.to_string()))
     } else {
         None
     };
 
     Ok(input
         .map(move |v| {
-            if column_paths.is_empty() {
+            if options.column_paths.is_empty() {
                 ReturnSuccess::value(action(&v, &zone_options, &format_options, v.tag())?)
             } else {
                 let mut ret = v;
 
-                for path in &column_paths {
+                for path in &options.column_paths {
                     let zone_options = zone_options.clone();
                     let format_options = format_options.clone();
 
