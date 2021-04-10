@@ -85,16 +85,28 @@ where
     T: PathSubcommandArguments + Send + Sync + 'static,
     F: Fn(&Path, Tag, &T) -> Result<Value, ShellError> + Send + Sync + 'static,
 {
+    let span = tag.span;
+
     if args.get_column_paths().is_empty() {
         let parts = input.collect_vec();
-        match join_path(&parts) {
-            Ok(path_buf) => OutputStream::one(ReturnSuccess::value(
-                UntaggedValue::filepath(path_buf).into_value(&tag),
-            )),
-            Err(err) => OutputStream::one(Err(err)),
+        let has_rows = matches!(&parts[0].value, UntaggedValue::Row(_));
+
+        if has_rows {
+            parts
+                .into_iter()
+                .map(move |v| {
+                    ReturnSuccess::value(handle_value(&action, &v, span, Arc::clone(&args))?)
+                })
+                .to_output_stream()
+        } else {
+            match join_path(&parts) {
+                Ok(path_buf) => OutputStream::one(ReturnSuccess::value(
+                    UntaggedValue::filepath(path_buf).into_value(&tag),
+                )),
+                Err(err) => OutputStream::one(Err(err)),
+            }
         }
     } else {
-        let span = tag.span;
         input
             .map(move |v| {
                 let mut ret = v;
