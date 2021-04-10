@@ -88,8 +88,14 @@ where
     let span = tag.span;
 
     if args.get_column_paths().is_empty() {
-        let parts = input.collect_vec();
-        let has_rows = matches!(&parts[0].value, UntaggedValue::Row(_));
+        let mut parts = input.peekable();
+        let has_rows = matches!(
+            parts.peek(),
+            Some(&Value {
+                value: UntaggedValue::Row(_),
+                ..
+            })
+        );
 
         if has_rows {
             parts
@@ -99,7 +105,7 @@ where
                 })
                 .to_output_stream()
         } else {
-            match join_path(&parts) {
+            match join_path(&parts.collect_vec()) {
                 Ok(path_buf) => OutputStream::one(ReturnSuccess::value(
                     UntaggedValue::filepath(path_buf).into_value(&tag),
                 )),
