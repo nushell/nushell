@@ -1,8 +1,8 @@
-use super::{operate, PathSubcommandArguments};
+use super::{handle_value, PathSubcommandArguments};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{ColumnPath, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use std::path::Path;
 
 pub struct PathSplit;
@@ -36,7 +36,7 @@ impl WholeStreamCommand for PathSplit {
         let tag = args.call_info.name_tag.clone();
         let (PathSplitArguments { rest }, input) = args.process()?;
         let args = Arc::new(PathSplitArguments { rest });
-        Ok(operate(input, &action, tag.span, args))
+        Ok(operate_split(input, &action, tag.span, args))
     }
 
     #[cfg(windows)]
@@ -65,6 +65,56 @@ impl WholeStreamCommand for PathSplit {
                 Value::from(UntaggedValue::string("spam.txt")),
             ]))]),
         }]
+    }
+}
+
+fn operate_split<F, T>(
+    input: crate::InputStream,
+    action: &'static F,
+    span: Span,
+    args: Arc<T>,
+) -> OutputStream
+where
+    T: PathSubcommandArguments + Send + Sync + 'static,
+    F: Fn(&Path, Tag, &T) -> Result<Value, ShellError> + Send + Sync + 'static,
+{
+    if args.get_column_paths().is_empty() {
+        input
+            .flat_map(move |v| {
+                let split_result = handle_value(&action, &v, span, Arc::clone(&args));
+
+                if let Ok(Value {
+                    value: UntaggedValue::Table(parts),
+                    ..
+                }) = split_result
+                {
+                    parts
+                        .into_iter()
+                        .map(ReturnSuccess::value)
+                        .to_output_stream()
+                } else {
+                    OutputStream::one(Err(ShellError::untagged_runtime_error(
+                        "Error splitting value",
+                    )))
+                }
+            })
+            .to_output_stream()
+    } else {
+        input
+            .map(move |v| {
+                let mut ret = v;
+
+                for path in args.get_column_paths() {
+                    let cloned_args = Arc::clone(&args);
+                    ret = ret.swap_data_by_column_path(
+                        path,
+                        Box::new(move |old| handle_value(&action, &old, span, cloned_args)),
+                    )?;
+                }
+
+                ReturnSuccess::value(ret)
+            })
+            .to_output_stream()
     }
 }
 
