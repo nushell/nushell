@@ -4,17 +4,16 @@ use nu_errors::ShellError;
 use nu_protocol::{
     ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
 };
-
 use num_bigint::{BigInt, ToBigInt};
 
-pub struct IntoInt;
+pub struct SubCommand;
 
 #[derive(Deserialize)]
-pub struct IntoIntArgs {
+pub struct Arguments {
     pub rest: Vec<ColumnPath>,
 }
 
-impl WholeStreamCommand for IntoInt {
+impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "into int"
     }
@@ -87,7 +86,7 @@ impl WholeStreamCommand for IntoInt {
 }
 
 fn into_int(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (IntoIntArgs { rest: column_paths }, input) = args.process()?;
+    let (Arguments { rest: column_paths }, input) = args.process()?;
 
     Ok(input
         .map(move |v| {
@@ -174,13 +173,13 @@ fn int_from_string(a_string: &str, tag: &Tag) -> Result<BigInt, ShellError> {
 
 #[cfg(test)]
 mod tests {
-    use super::IntoInt;
     use super::ShellError;
+    use super::SubCommand;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(IntoInt {})
+        test_examples(SubCommand {})
     }
 }
