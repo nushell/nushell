@@ -14,7 +14,7 @@ use parking_lot::Mutex;
 use std::sync::atomic::AtomicBool;
 use std::{path::Path, sync::Arc};
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct EvaluationContext {
     pub scope: Scope,
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
@@ -28,6 +28,26 @@ pub struct EvaluationContext {
 }
 
 impl EvaluationContext {
+    pub fn new(
+        scope: Scope,
+        host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
+        current_errors: Arc<Mutex<Vec<ShellError>>>,
+        ctrl_c: Arc<AtomicBool>,
+        configs: Arc<Mutex<ConfigHolder>>,
+        shell_manager: ShellManager,
+        windows_drives_previous_cwd: Arc<Mutex<std::collections::HashMap<String, String>>>,
+    ) -> Self {
+        Self {
+            scope,
+            host,
+            current_errors,
+            ctrl_c,
+            configs,
+            shell_manager,
+            windows_drives_previous_cwd,
+        }
+    }
+
     pub fn from_args(args: &CommandArgs) -> EvaluationContext {
         EvaluationContext {
             scope: args.scope.clone(),

@@ -14,25 +14,31 @@ pub use trim_both_ends::SubCommand as Trim;
 pub use trim_left::SubCommand as TrimLeft;
 pub use trim_right::SubCommand as TrimRight;
 
-#[derive(Deserialize)]
 struct Arguments {
-    rest: Vec<ColumnPath>,
-    #[serde(rename(deserialize = "char"))]
-    char_: Option<Tagged<char>>,
+    character: Option<Tagged<char>>,
+    column_paths: Vec<ColumnPath>,
 }
 
 pub fn operate<F>(args: CommandArgs, trim_operation: &'static F) -> Result<OutputStream, ShellError>
 where
     F: Fn(&str, Option<char>) -> String + Send + Sync + 'static,
 {
-    let (Arguments { rest, char_ }, input) = args.process()?;
+    let (options, input) = args.extract(|params| {
+        Ok(Arc::new(Arguments {
+            character: if let Some(arg) = params.get_flag("char") {
+                Some(arg?)
+            } else {
+                None
+            },
+            column_paths: params.rest_args()?,
+        }))
+    })?;
 
-    let column_paths: Vec<_> = rest;
-    let to_trim = char_.map(|tagged| tagged.item);
+    let to_trim = options.character.as_ref().map(|tagged| tagged.item);
 
     Ok(input
         .map(move |v| {
-            if column_paths.is_empty() {
+            if options.column_paths.is_empty() {
                 ReturnSuccess::value(action(
                     &v,
                     v.tag(),
@@ -43,7 +49,7 @@ where
             } else {
                 let mut ret = v;
 
-                for path in &column_paths {
+                for path in &options.column_paths {
                     ret = ret.swap_data_by_column_path(
                         path,
                         Box::new(move |old| {

@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct ShellManager {
     pub current_shell: Arc<AtomicUsize>,
     pub shells: Arc<Mutex<Vec<Box<dyn Shell + Send>>>>,
