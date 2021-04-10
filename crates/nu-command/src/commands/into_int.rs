@@ -126,27 +126,32 @@ pub fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
                     ));
                 }
             },
-            Primitive::Int(n_ref) => n_ref.to_bigint().expect("unexpected error"),
+            Primitive::Int(n_ref) => n_ref.to_owned(),
             Primitive::Boolean(a_bool) => match a_bool {
-                false => 0.to_bigint().expect("unexpected error"),
-                true => 1.to_bigint().expect("unexpected error"),
+                false => BigInt::from(0),
+                true => BigInt::from(1),
             },
-            Primitive::Filesize(a_filesize) => a_filesize
-                .to_bigint()
-                .expect("Conversion should never fail."),
+            Primitive::Filesize(a_filesize) => match a_filesize.to_bigint() {
+                Some(n) => n,
+                None => {
+                    return Err(ShellError::unimplemented(
+                        "failed to convert filesize to bigint",
+                    ));
+                }
+            },
             _ => {
                 return Err(ShellError::unimplemented(
-                    "'int' for non-numeric primitives",
+                    "'into int' for non-numeric primitives",
                 ))
             }
         })
         .into_value(&tag)),
         UntaggedValue::Row(_) => Err(ShellError::labeled_error(
-            "specify column name to use, with 'int COLUMN'",
+            "specify column name to use, with 'into int COLUMN'",
             "found table",
             tag,
         )),
-        _ => Err(ShellError::unimplemented("'int' for unsupported type")),
+        _ => Err(ShellError::unimplemented("'into int' for unsupported type")),
     }
 }
 
@@ -156,9 +161,7 @@ fn int_from_string(a_string: &str, tag: &Tag) -> Result<BigInt, ShellError> {
         Err(_) => match a_string.parse::<f64>() {
             Ok(res_float) => match res_float.to_bigint() {
                 Some(n) => Ok(n),
-                None => Err(ShellError::unimplemented(
-                    "failed to convert decimal to int",
-                )),
+                None => Err(ShellError::unimplemented("failed to convert f64 to int")),
             },
             Err(_) => Err(ShellError::labeled_error(
                 "Could not convert string value to int",
