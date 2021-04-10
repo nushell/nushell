@@ -257,6 +257,7 @@ impl EvaluationContext {
 
 fn exit_entry_script_options(cfg_path: &ConfigPath) -> RunScriptOptions {
     let root = PathBuf::from("/");
+
     RunScriptOptions::default()
         .with_cwd(
             cfg_path
