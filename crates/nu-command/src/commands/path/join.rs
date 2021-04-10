@@ -1,8 +1,8 @@
-use super::{operate, PathSubcommandArguments};
+use super::{handle_value, join_path, PathSubcommandArguments};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{ColumnPath, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use std::path::Path;
 
@@ -49,7 +49,7 @@ parse' and 'path split' subdommands."
         let tag = args.call_info.name_tag.clone();
         let (PathJoinArguments { rest, appendix }, input) = args.process()?;
         let args = Arc::new(PathJoinArguments { rest, appendix });
-        Ok(operate(input, &action, tag.span, args))
+        Ok(operate_join(input, &action, tag, args))
     }
 
     #[cfg(windows)]
@@ -72,6 +72,44 @@ parse' and 'path split' subdommands."
                 "/home/viking/spam.txt",
             ))]),
         }]
+    }
+}
+
+fn operate_join<F, T>(
+    input: crate::InputStream,
+    action: &'static F,
+    tag: Tag,
+    args: Arc<T>,
+) -> OutputStream
+where
+    T: PathSubcommandArguments + Send + Sync + 'static,
+    F: Fn(&Path, Tag, &T) -> Result<Value, ShellError> + Send + Sync + 'static,
+{
+    if args.get_column_paths().is_empty() {
+        let parts = input.collect_vec();
+        match join_path(&parts) {
+            Ok(path_buf) => OutputStream::one(ReturnSuccess::value(
+                UntaggedValue::filepath(path_buf).into_value(&tag),
+            )),
+            Err(err) => OutputStream::one(Err(err)),
+        }
+    } else {
+        let span = tag.span;
+        input
+            .map(move |v| {
+                let mut ret = v;
+
+                for path in args.get_column_paths() {
+                    let cloned_args = Arc::clone(&args);
+                    ret = ret.swap_data_by_column_path(
+                        path,
+                        Box::new(move |old| handle_value(&action, &old, span, cloned_args)),
+                    )?;
+                }
+
+                ReturnSuccess::value(ret)
+            })
+            .to_output_stream()
     }
 }
 
