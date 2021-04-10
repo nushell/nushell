@@ -126,7 +126,7 @@ pub fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
                     ));
                 }
             },
-            Primitive::Int(n_ref) => BigInt::from(n_ref.to_owned()),
+            Primitive::Int(n_ref) => n_ref.to_owned(),
             Primitive::Boolean(a_bool) => match a_bool {
                 false => BigInt::from(0),
                 true => BigInt::from(1),
