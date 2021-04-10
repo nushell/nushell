@@ -215,23 +215,24 @@ fn updates_config_even_if_config_changed_externally() {
             FileWithContent(
                 "config.toml",
                 r#"
-            skip_welcome_message = true
+                skip_welcome_message = true
+            hi = "hi"
             "#,
             ),
             FileWithContent(
                 "config.toml.2",
                 r#"
-            skip_welcome_message = false
+            hi = "bye"
             "#,
             ),
         ]);
 
         assert_that!(
-            nu.pipeline("config get skip_welcome_message")
+            nu.pipeline("config get hi")
                 .and_then("do {rm config.toml ; = $noting")
                 .and_then("cp config.toml.2 config.toml")
-                .and_then("config get skip_welcome_message"),
-            says().to_stdout("truefalse")
+                .and_then("config get hi"),
+            says().to_stdout("hibye")
         );
     })
 }
