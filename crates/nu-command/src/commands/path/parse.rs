@@ -40,7 +40,9 @@ impl WholeStreamCommand for PathParse {
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let args = args.evaluate_once()?;
-        let cmd_args = Arc::new(PathParseArguments { rest: args.rest_args()? });
+        let cmd_args = Arc::new(PathParseArguments {
+            rest: args.rest_args()?,
+        });
 
         Ok(operate(args.input, &action, tag.span, cmd_args))
     }
@@ -64,30 +66,16 @@ impl WholeStreamCommand for PathParse {
     }
 }
 
-fn action(path: &Path, tag: Tag, _args: &PathParseArguments) -> Result<Value, ShellError> {
+fn action(path: &Path, tag: Tag, _args: &PathParseArguments) -> Value {
     let parent = path.parent().unwrap_or_else(|| Path::new(""));
-    let filestem = match path.file_stem() {
-        Some(stem) => match stem.to_str() {
-            Some(s) => s,
-            None => {
-                return Err(ShellError::untagged_runtime_error(
-                    "can not convert file stem to unicode",
-                ))
-            }
-        },
-        None => "",
-    };
-    let extension = match path.extension() {
-        Some(stem) => match stem.to_str() {
-            Some(s) => s,
-            None => {
-                return Err(ShellError::untagged_runtime_error(
-                    "can not convert extension to unicode",
-                ))
-            }
-        },
-        None => "",
-    };
+    let filestem = path
+        .file_stem()
+        .unwrap_or_else(|| "".as_ref())
+        .to_string_lossy();
+    let extension = path
+        .extension()
+        .unwrap_or_else(|| "".as_ref())
+        .to_string_lossy();
 
     let mut dict = TaggedDictBuilder::new(&tag);
     #[cfg(windows)]
@@ -95,16 +83,9 @@ fn action(path: &Path, tag: Tag, _args: &PathParseArguments) -> Result<Value, Sh
         // The prefix is only valid on Windows. On non-Windows, it's always empty.
         let prefix = match path.components().next() {
             Some(Component::Prefix(prefix_component)) => {
-                match prefix_component.as_os_str().to_str() {
-                    Some(s) => s,
-                    None => {
-                        return Err(ShellError::untagged_runtime_error(
-                            "can not convert prefix to unicode",
-                        ))
-                    }
-                }
+                prefix_component.as_os_str().to_string_lossy()
             }
-            _ => "",
+            _ => "".into(),
         };
         dict.insert_untagged("prefix", UntaggedValue::string(prefix));
     }
@@ -112,7 +93,7 @@ fn action(path: &Path, tag: Tag, _args: &PathParseArguments) -> Result<Value, Sh
     dict.insert_untagged("stem", UntaggedValue::string(filestem));
     dict.insert_untagged("extension", UntaggedValue::string(extension));
 
-    Ok(dict.into_value())
+    dict.into_value()
 }
 
 #[cfg(test)]

@@ -37,20 +37,35 @@ trait PathSubcommandArguments {
     fn get_column_paths(&self) -> &Vec<ColumnPath>;
 }
 
-fn encode_path(entries: &Dictionary) -> Result<PathBuf, ShellError> {
+fn encode_path(
+    entries: &Dictionary,
+    orig_span: Span,
+    new_span: Span,
+) -> Result<PathBuf, ShellError> {
     if entries.length() == 0 {
-        return Err(ShellError::untagged_runtime_error(
-            "Empty rows are not allowed",
+        return Err(ShellError::labeled_error_with_secondary(
+            "Empty table cannot be encoded as a path",
+            "got empty table",
+            new_span,
+            "originates from here",
+            orig_span,
         ));
     }
 
-    //TODO: check out `get` error for wrong column:
-    //   There isn't a column named 'name'
-    //   Perhaps you meant 'parent'? Columns available: parent, stem, extension
     for col in entries.keys() {
         if !ALLOWED_COLUMNS.contains(&col.as_str()) {
-            let msg = format!("Column '{}' is not allowed", col);
-            return Err(ShellError::untagged_runtime_error(msg));
+            let msg = format!(
+                "Column '{}' is not valid for a structured path. Allowed columns are: {}",
+                col,
+                ALLOWED_COLUMNS.join(", ")
+            );
+            return Err(ShellError::labeled_error_with_secondary(
+                "Invalid column name",
+                msg,
+                new_span,
+                "originates from here",
+                orig_span,
+            ));
         }
     }
 
@@ -96,15 +111,22 @@ fn encode_path(entries: &Dictionary) -> Result<PathBuf, ShellError> {
     Ok(result)
 }
 
-fn join_path(parts: &[Value]) -> Result<PathBuf, ShellError> {
+fn join_path(parts: &[Value], new_span: &Span) -> Result<PathBuf, ShellError> {
     parts
         .iter()
         .map(|part| match &part.value {
             UntaggedValue::Primitive(Primitive::String(s)) => Ok(Path::new(s)),
             UntaggedValue::Primitive(Primitive::FilePath(pb)) => Ok(pb.as_path()),
-            _ => Err(ShellError::untagged_runtime_error(
-                "Cannot join path parts that are not paths or strings.",
-            )),
+            _ => {
+                let got = format!("got {}", part.type_name());
+                Err(ShellError::labeled_error_with_secondary(
+                    "Cannot join values that are not paths or strings.",
+                    got,
+                    new_span,
+                    "originates from here",
+                    part.tag.span,
+                ))
+            }
         })
         .collect()
 }
@@ -112,28 +134,28 @@ fn join_path(parts: &[Value]) -> Result<PathBuf, ShellError> {
 fn handle_value<F, T>(action: &F, v: &Value, span: Span, args: Arc<T>) -> Result<Value, ShellError>
 where
     T: PathSubcommandArguments,
-    F: Fn(&Path, Tag, &T) -> Result<Value, ShellError>,
+    F: Fn(&Path, Tag, &T) -> Value,
 {
     match &v.value {
-        UntaggedValue::Primitive(Primitive::FilePath(buf)) => action(buf, v.tag(), &args),
-        UntaggedValue::Primitive(Primitive::String(s)) => action(s.as_ref(), v.tag(), &args),
+        UntaggedValue::Primitive(Primitive::FilePath(buf)) => Ok(action(buf, v.tag(), &args)),
+        UntaggedValue::Primitive(Primitive::String(s)) => Ok(action(s.as_ref(), v.tag(), &args)),
         UntaggedValue::Row(entries) => {
             // implicit path join makes all subcommands understand the structured path
-            let path_buf = encode_path(entries)?;
-            action(&path_buf, v.tag(), &args)
+            let path_buf = encode_path(entries, v.tag().span, span)?;
+            Ok(action(&path_buf, v.tag(), &args))
         }
         UntaggedValue::Table(parts) => {
             // implicit path join makes all subcommands understand path split into parts
-            let path_buf = join_path(parts)?;
-            action(&path_buf, v.tag(), &args)
+            let path_buf = join_path(parts, &span)?;
+            Ok(action(&path_buf, v.tag(), &args))
         }
         other => {
             let got = format!("got {}", other.type_name());
             Err(ShellError::labeled_error_with_secondary(
-                "value is not string, path or table",
+                "Value is a not string, path, row, or table",
                 got,
                 span,
-                "originates from here".to_string(),
+                "originates from here",
                 v.tag().span,
             ))
         }
@@ -148,7 +170,7 @@ fn operate<F, T>(
 ) -> ActionStream
 where
     T: PathSubcommandArguments + Send + Sync + 'static,
-    F: Fn(&Path, Tag, &T) -> Result<Value, ShellError> + Send + Sync + 'static,
+    F: Fn(&Path, Tag, &T) -> Value + Send + Sync + 'static,
 {
     input
         .map(move |v| {

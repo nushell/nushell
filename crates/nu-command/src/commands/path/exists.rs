@@ -34,7 +34,9 @@ impl WholeStreamCommand for PathExists {
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let args = args.evaluate_once()?;
-        let cmd_args = Arc::new(PathExistsArguments { rest: args.rest_args()? });
+        let cmd_args = Arc::new(PathExistsArguments {
+            rest: args.rest_args()?,
+        });
 
         Ok(operate(args.input, &action, tag.span, cmd_args))
     }
@@ -58,9 +60,8 @@ impl WholeStreamCommand for PathExists {
     }
 }
 
-#[allow(clippy::unnecessary_wraps)]
-fn action(path: &Path, tag: Tag, _args: &PathExistsArguments) -> Result<Value, ShellError> {
-    Ok(UntaggedValue::boolean(path.exists()).into_value(tag))
+fn action(path: &Path, tag: Tag, _args: &PathExistsArguments) -> Value {
+    UntaggedValue::boolean(path.exists()).into_value(tag)
 }
 
 #[cfg(test)]

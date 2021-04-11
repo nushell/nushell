@@ -34,7 +34,9 @@ impl WholeStreamCommand for PathExpand {
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let args = args.evaluate_once()?;
-        let cmd_args = Arc::new(PathExpandArguments { rest: args.rest_args()? });
+        let cmd_args = Arc::new(PathExpandArguments {
+            rest: args.rest_args()?,
+        });
 
         Ok(operate(args.input, &action, tag.span, cmd_args))
     }
@@ -60,15 +62,13 @@ impl WholeStreamCommand for PathExpand {
     }
 }
 
-#[allow(clippy::unnecessary_wraps)]
-fn action(path: &Path, tag: Tag, _args: &PathExpandArguments) -> Result<Value, ShellError> {
+fn action(path: &Path, tag: Tag, _args: &PathExpandArguments) -> Value {
     let ps = path.to_string_lossy();
     let expanded = shellexpand::tilde(&ps);
     let path: &Path = expanded.as_ref().as_ref();
-    Ok(
-        UntaggedValue::filepath(dunce::canonicalize(path).unwrap_or_else(|_| PathBuf::from(path)))
-            .into_value(tag),
-    )
+
+    UntaggedValue::filepath(dunce::canonicalize(path).unwrap_or_else(|_| PathBuf::from(path)))
+        .into_value(tag)
 }
 
 #[cfg(test)]

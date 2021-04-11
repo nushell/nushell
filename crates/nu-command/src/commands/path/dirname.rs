@@ -108,8 +108,7 @@ impl WholeStreamCommand for PathDirname {
     }
 }
 
-#[allow(clippy::unnecessary_wraps)]
-fn action(path: &Path, tag: Tag, args: &PathDirnameArguments) -> Result<Value, ShellError> {
+fn action(path: &Path, tag: Tag, args: &PathDirnameArguments) -> Value {
     let num_levels = args.num_levels.as_ref().map_or(1, |tagged| tagged.item);
 
     let mut dirname = path;
@@ -136,7 +135,7 @@ fn action(path: &Path, tag: Tag, args: &PathDirnameArguments) -> Result<Value, S
         None => UntaggedValue::filepath(dirname),
     };
 
-    Ok(untagged.into_value(tag))
+    untagged.into_value(tag)
 }
 
 #[cfg(test)]

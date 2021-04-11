@@ -44,7 +44,7 @@ impl WholeStreamCommand for PathBasename {
         let args = args.evaluate_once()?;
         let cmd_args = Arc::new(PathBasenameArguments {
             rest: args.rest_args()?,
-            replace: args.get_flag("replace").transpose()?
+            replace: args.get_flag("replace").transpose()?,
         });
 
         Ok(operate(args.input, &action, tag.span, cmd_args))
@@ -87,8 +87,7 @@ impl WholeStreamCommand for PathBasename {
     }
 }
 
-#[allow(clippy::unnecessary_wraps)]
-fn action(path: &Path, tag: Tag, args: &PathBasenameArguments) -> Result<Value, ShellError> {
+fn action(path: &Path, tag: Tag, args: &PathBasenameArguments) -> Value {
     let untagged = match args.replace {
         Some(ref basename) => UntaggedValue::filepath(path.with_file_name(&basename.item)),
         None => UntaggedValue::string(match path.file_name() {
@@ -97,7 +96,7 @@ fn action(path: &Path, tag: Tag, args: &PathBasenameArguments) -> Result<Value, 
         }),
     };
 
-    Ok(untagged.into_value(tag))
+    untagged.into_value(tag)
 }
 
 #[cfg(test)]

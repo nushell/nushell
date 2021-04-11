@@ -49,7 +49,7 @@ parse' and 'path split' subdommands."
         let args = args.evaluate_once()?;
         let cmd_args = Arc::new(PathJoinArguments {
             rest: args.rest_args()?,
-            appendix: args.get_flag("appendix").transpose()?
+            appendix: args.get_flag("appendix").transpose()?,
         });
 
         Ok(operate_join(args.input, &action, tag, cmd_args))
@@ -86,7 +86,7 @@ fn operate_join<F, T>(
 ) -> OutputStream
 where
     T: PathSubcommandArguments + Send + Sync + 'static,
-    F: Fn(&Path, Tag, &T) -> Result<Value, ShellError> + Send + Sync + 'static,
+    F: Fn(&Path, Tag, &T) -> Value + Send + Sync + 'static,
 {
     let span = tag.span;
 
@@ -110,14 +110,10 @@ where
                 .to_output_stream()
         } else {
             // join the whole input stream
-            match join_path(&parts.collect_vec()) {
+            match join_path(&parts.collect_vec(), &span) {
                 Ok(path_buf) => {
-                    let joined_value = UntaggedValue::filepath(path_buf).into_value(&tag);
-                    OutputStream::one(
-                        handle_value(&action, &joined_value, span, Arc::clone(&args))
-                            .and_then(|v| ReturnSuccess::value(v))
-                    )
-                },
+                    OutputStream::one(ReturnSuccess::value(action(&path_buf, tag, &args)))
+                }
                 Err(err) => OutputStream::one(Err(err)),
             }
         }
@@ -140,12 +136,11 @@ where
     }
 }
 
-#[allow(clippy::unnecessary_wraps)]
-fn action(path: &Path, tag: Tag, args: &PathJoinArguments) -> Result<Value, ShellError> {
+fn action(path: &Path, tag: Tag, args: &PathJoinArguments) -> Value {
     if let Some(ref appendix) = args.appendix {
-        Ok(UntaggedValue::filepath(path.join(&appendix.item)).into_value(tag))
+        UntaggedValue::filepath(path.join(&appendix.item)).into_value(tag)
     } else {
-        Ok(UntaggedValue::filepath(path).into_value(tag))
+        UntaggedValue::filepath(path).into_value(tag)
     }
 }
 

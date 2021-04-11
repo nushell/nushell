@@ -34,7 +34,9 @@ impl WholeStreamCommand for PathSplit {
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let args = args.evaluate_once()?;
-        let cmd_args = Arc::new(PathSplitArguments { rest: args.rest_args()? });
+        let cmd_args = Arc::new(PathSplitArguments {
+            rest: args.rest_args()?,
+        });
 
         Ok(operate_split(args.input, &action, tag.span, cmd_args))
     }
@@ -76,7 +78,7 @@ fn operate_split<F, T>(
 ) -> OutputStream
 where
     T: PathSubcommandArguments + Send + Sync + 'static,
-    F: Fn(&Path, Tag, &T) -> Result<Value, ShellError> + Send + Sync + 'static,
+    F: Fn(&Path, Tag, &T) -> Value + Send + Sync + 'static,
 {
     if args.get_column_paths().is_empty() {
         // Do not wrap result into a table
@@ -84,19 +86,26 @@ where
             .flat_map(move |v| {
                 let split_result = handle_value(&action, &v, span, Arc::clone(&args));
 
-                if let Ok(Value {
-                    value: UntaggedValue::Table(parts),
-                    ..
-                }) = split_result
-                {
-                    parts
-                        .into_iter()
-                        .map(ReturnSuccess::value)
-                        .to_output_stream()
-                } else {
-                    OutputStream::one(Err(ShellError::untagged_runtime_error(
-                        "Error splitting value",
-                    )))
+                match split_result {
+                    Ok(val) => {
+                        if let Value {
+                            value: UntaggedValue::Table(parts),
+                            ..
+                        } = val
+                        {
+                            parts
+                                .into_iter()
+                                .map(ReturnSuccess::value)
+                                .to_output_stream()
+                        } else {
+                            OutputStream::one(Err(ShellError::labeled_error(
+                                "Internal Error",
+                                "unexpected result from the split function",
+                                span,
+                            )))
+                        }
+                    }
+                    Err(e) => OutputStream::one(Err(e)),
                 }
             })
             .to_output_stream()
@@ -119,18 +128,16 @@ where
     }
 }
 
-fn action(path: &Path, tag: Tag, _args: &PathSplitArguments) -> Result<Value, ShellError> {
-    let parts: Result<Vec<Value>, ShellError> = path
+fn action(path: &Path, tag: Tag, _args: &PathSplitArguments) -> Value {
+    let parts: Vec<Value> = path
         .components()
-        .map(|comp| match comp.as_os_str().to_str() {
-            Some(s) => Ok(UntaggedValue::string(s).into_value(&tag)),
-            None => Err(ShellError::untagged_runtime_error(
-                "Error converting path component into UTF-8.",
-            )),
+        .map(|comp| {
+            let s = comp.as_os_str().to_string_lossy();
+            UntaggedValue::string(s).into_value(&tag)
         })
         .collect();
 
-    Ok(UntaggedValue::table(&parts?).into_value(tag))
+    UntaggedValue::table(&parts).into_value(tag)
 }
 
 #[cfg(test)]
